@@ -1,27 +1,39 @@
 'use client';
 import React from 'react';
 
-interface Props {
-  feed: Record<string, unknown>[];
+interface LogEntry {
+  id: string | number;
+  type: 'success' | 'error' | 'info' | string;
+  agent: string;
+  message: string;
+  time: string;
 }
 
-export default function AgentLogs({ feed }: Props) {
+type Props = {
+  feed?: LogEntry[];
+  [key: string]: any;
+};
+
+export default function AgentLogs({ feed = [] }: Props) {
   return (
-    <div className="pane">
-      <div className="pane-header">Agent Manager Logs (DB)</div>
-      <div className="pane-content">
-        <div className="section-title">System Health</div>
-        <div style={{display:'flex', flexDirection:'column', gap:'10px'}}>
-          {feed.length === 0 && <div className="p-4 text-xs text-gray-500">No logs found.</div>}
-          {feed.map(f => (
-             <div key={f.id} className="activity-item" style={{borderLeft: f.type === 'success' ? '3px solid var(--accent-success)' : '3px solid var(--accent-primary)'}}>
-                <div className="activity-action" style={{color: f.type === 'success' ? 'var(--accent-success)' : 'var(--accent-primary)'}}>{f.agent}</div>
-                <div className="activity-details">{f.message}</div>
-                <div className="activity-time">{f.time}</div>
-             </div>
-          ))}
+    <div style={{ padding: 10, background: '#0d1117', height: '100%' }}>
+      {feed.length === 0 && (
+        <div style={{ color: '#8b949e', fontSize: 12 }}>No logs found.</div>
+      )}
+      {feed.map((f: LogEntry) => (
+        <div 
+          key={f.id} 
+          style={{ 
+            marginBottom: 8, 
+            paddingLeft: 8, 
+            borderLeft: `3px solid ${f.type === 'success' ? '#238636' : '#1f6feb'}` 
+          }}
+        >
+          <div style={{ fontSize: 11, color: '#58a6ff', fontWeight: 'bold' }}>{f.agent}</div>
+          <div style={{ fontSize: 12, color: '#c9d1d9' }}>{f.message}</div>
+          <div style={{ fontSize: 10, color: '#8b949e' }}>{f.time}</div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }

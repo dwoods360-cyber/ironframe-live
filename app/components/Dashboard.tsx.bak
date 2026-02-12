@@ -1,0 +1,97 @@
+'use client';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+
+// IMPORT THE 5 ISOLATED AREAS
+import StrategicIntel from './panes/StrategicIntel';
+import AuditIntelligence from './panes/right/AuditIntelligence';
+import PipelineIngestion from './panes/center/PipelineIngestion';
+import RiskRegistration from './panes/center/RiskRegistration';
+import ActiveRisks from './panes/center/ActiveRisks';
+
+export default function Dashboard() {
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [risks, setRisks] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function init() {
+      const { data } = await supabase.from('companies').select('*').order('id');
+      if (data && data.length > 0) {
+        setCompanies(data);
+        setSelectedCompany(data[0]); 
+      }
+    }
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCompany) fetchRisks(selectedCompany.id);
+  }, [selectedCompany]);
+
+  async function fetchRisks(companyId: number) {
+    const { data } = await supabase.from('active_risks')
+      .select('*')
+      .eq('company_id', companyId)
+      .or('status.eq.REGISTRATION,status.eq.ACTIVE,status.eq.PENDING_SOC,status.eq.PENDING_AGENT')
+      .order('created_at', { ascending: false });
+    if (data) setRisks(data);
+  }
+
+  async function handleRiskAction(riskId: number, action: string, note?: string, newScore?: number) {
+    if (action === 'DELETE') {
+      await supabase.from('active_risks').delete().eq('id', riskId);
+    } else {
+      const payload: Record<string, unknown> = { status: action, description: note };
+      if (newScore !== undefined) payload.score = newScore;
+      await supabase.from('active_risks').update(payload).eq('id', riskId);
+    }
+    fetchRisks(selectedCompany.id);
+  }
+
+  async function handleAddRisk(title: string, likelihood?: string, impact?: string) {
+    await supabase.from('active_risks').insert([{
+      company_id: selectedCompany.id,
+      title: title,
+      status: 'REGISTRATION',
+      description: null,
+      likelihood: likelihood || null,
+      impact: impact || null
+    }]);
+    fetchRisks(selectedCompany.id);
+  }
+
+  if (!selectedCompany) return null;
+
+  return (
+    <div className="h-screen w-screen bg-[#0d1117] text-[#c9d1d9] flex flex-col overflow-hidden">
+      {/* HEADER */}
+      <div style={{display:'flex', gap:'2px', padding:'12px 24px', background:'#161b22', borderBottom:'1px solid #30363d', flexShrink: 0}}>
+        {companies.map(c => (
+          <button key={c.id} onClick={() => setSelectedCompany(c)}
+            style={{ padding: '8px 16px', background: selectedCompany.id === c.id ? '#30363d' : 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', fontWeight: 700, borderRadius: '4px' }}>
+            {c.name.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* 5-AREA LAYOUT GRID */}
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 300px', flex: 1, overflow: 'hidden' }}>
+        
+        {/* AREA 1: LEFT PANE */}
+        <StrategicIntel company={selectedCompany} onThreatClick={(t) => handleAddRisk(`SECTOR INTEL: ${t}`, '0.0', '0.0')} />
+        
+        {/* CENTER COLUMN (Contains Areas 3, 4, 5) */}
+        <div style={{display:'flex', flexDirection:'column', borderLeft:'1px solid #2d3139', borderRight:'1px solid #2d3139', background:'#1a1d23', overflow: 'hidden'}}>
+            <PipelineIngestion risks={risks} onAction={handleRiskAction} />
+            <RiskRegistration risks={risks} onAction={handleRiskAction} onAddRisk={handleAddRisk} />
+            <ActiveRisks risks={risks} />
+        </div>
+
+        {/* AREA 2: RIGHT PANE */}
+        <AuditIntelligence />
+
+      </div>
+    </div>
+  );
+}

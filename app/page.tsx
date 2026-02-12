@@ -84,7 +84,7 @@ export default function Dashboard() {
   const updateDatabase = (key: string, updates: Record<string, unknown>) => {
     setDatabase((prev: Record<string, unknown>) => ({
       ...prev,
-      [tenant]: { ...prev[tenant], ...updates }
+      [tenant]: { ... (prev[tenant] as any), ...updates }
     }));
   };
 

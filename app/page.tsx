@@ -73,7 +73,7 @@ export default function Dashboard() {
       setDatabase((prevDb: Record<string, unknown>) => {
         const newDb = { ...prevDb };
         Object.keys(newDb).forEach((key) => {
-          if (newDb[key].timer > 0) newDb[key].timer -= 1;
+          if ( (newDb[key] as any).timer > 0)  (newDb[key] as any).timer -= 1;
         });
         return newDb;
       });

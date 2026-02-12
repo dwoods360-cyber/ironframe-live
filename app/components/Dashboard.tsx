@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import type { Company, Risk } from '@/app/types/domain';
 
-// IMPORT THE 5 ISOLATED AREAS
 import StrategicIntel from './panes/StrategicIntel';
 import AuditIntelligence from './panes/right/AuditIntelligence';
 import PipelineIngestion from './panes/center/PipelineIngestion';
@@ -15,10 +14,6 @@ export default function Dashboard() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [risks, setRisks] = useState<Risk[]>([]);
 
-  /**
-   * Fetch active risks for a given company.
-   * Kept as a stable callback so hooks can safely depend on it.
-   */
   const fetchRisks = useCallback(async (companyId: string) => {
     const { data } = await supabase
       .from('active_risks')
@@ -26,90 +21,43 @@ export default function Dashboard() {
       .eq('company_id', companyId)
       .or('status.eq.REGISTRATION,status.eq.ACTIVE,status.eq.PENDING_SOC,status.eq.PENDING_AGENT')
       .order('created_at', { ascending: false });
-
     setRisks((data ?? []) as unknown as Risk[]);
   }, []);
 
-  // Load companies once on mount, and load risks for the first company.
   useEffect(() => {
     async function init() {
       const { data } = await supabase.from('companies').select('*').order('id');
       const typed = (data ?? []) as unknown as Company[];
-
       if (typed.length > 0) {
         setCompanies(typed);
         setSelectedCompany(typed[0]);
-        void fetchRisks(typed[0].id);
+        fetchRisks(typed[0].id);
       }
     }
-
-    void init();
+    init();
   }, [fetchRisks]);
 
-  async function handleRiskAction(riskId: number, action: string, note?: string, newScore?: number) {
-    if (!selectedCompany) return;
-
-    if (action === 'DELETE') {
-      await supabase.from('active_risks').delete().eq('id', riskId);
-    } else {
-      const payload: Record<string, unknown> = {
-        status: action,
-        description: note,
-      };
-      if (newScore !== undefined) payload.score = newScore;
-
-      await supabase.from('active_risks').update(payload).eq('id', riskId);
-    }
-
-    await fetchRisks(selectedCompany.id);
-  }
-
-  async function handleAddRisk(title: string, likelihood?: string, impact?: string) {
-    if (!selectedCompany) return;
-
-    await supabase.from('active_risks').insert([
-      {
-        company_id: selectedCompany.id,
-        title,
-        status: 'REGISTRATION',
-        description: null,
-        likelihood: likelihood ?? null,
-        impact: impact ?? null,
-      },
-    ]);
-
-    await fetchRisks(selectedCompany.id);
-  }
-
-  if (!selectedCompany) return null;
+  const handleAction = async (riskId: number, action: string) => {
+    console.log(`Action ${action} on ${riskId}`);
+  };
 
   return (
-    <div className="h-screen w-screen bg-[#0d1117] text-[#c9d1d9] flex flex-col overflow-hidden">
-      {/* HEADER */}
-      <div style={{display:'flex', gap:'2px', padding:'12px 24px', background:'#161b22', borderBottom:'1px solid #30363d', flexShrink: 0}}>
-        {companies.map(c => (
-          <button key={c.id} onClick={() => { setSelectedCompany(c); void fetchRisks(c.id); }}
-            style={{ padding: '8px 16px', background: selectedCompany.id === c.id ? '#30363d' : 'transparent', border: 'none', color: 'white', fontSize: '11px', cursor: 'pointer', fontWeight: 700, borderRadius: '4px' }}>
-            {c.name.toUpperCase()}
-          </button>
-        ))}
+    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 300px', height: '100vh', background: '#0d1117' }}>
+      {/* LEFT PANE */}
+      <StrategicIntel 
+        company={selectedCompany as Company} 
+        onThreatClick={(t) => console.log(t)} 
+      />
+
+      {/* CENTER COLUMN */}
+      <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid #30363d', borderRight: '1px solid #30363d' }}>
+        <PipelineIngestion risks={risks} onAction={handleAction} />
+        <RiskRegistration risks={risks} onAction={handleAction} onAddRisk={() => {}} />
+        <ActiveRisks risks={risks} />
       </div>
 
-      {/* 5-AREA LAYOUT GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr 300px', flex: 1, overflow: 'hidden' }}>
-        {/* AREA 1: LEFT PANE */}
-        <StrategicIntel company={selectedCompany} onThreatClick={(t: string) => void handleAddRisk(`SECTOR INTEL: ${t}`, '0.0', '0.0')} />
-
-        {/* CENTER COLUMN (Contains Areas 3, 4, 5) */}
-        <div style={{display:'flex', flexDirection:'column', borderLeft:'1px solid #2d3139', borderRight:'1px solid #2d3139', background:'#1a1d23', overflow: 'hidden'}}>
-            <PipelineIngestion risks={risks} onAction={handleRiskAction} />
-            <RiskRegistration risks={risks} onAction={handleRiskAction} onAddRisk={handleAddRisk} />
-            <ActiveRisks risks={risks} />
-        </div>
-
-        {/* AREA 2: RIGHT PANE */}
-        <AuditIntelligence />
-      </div>
+      {/* RIGHT PANE */}
+      <AuditIntelligence company={selectedCompany} />
     </div>
   );
 }

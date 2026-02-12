@@ -44,7 +44,7 @@ export default function Dashboard() {
     const healingInterval = setInterval(() => {
       setDatabase((prevDb: Record<string, unknown>) => {
         const newDb = { ...prevDb };
-        const currentTenantDb = newDb[tenant];
+        const currentTenantDb = newDb[tenant] as any;
         if (currentTenantDb.riskBuffer && currentTenantDb.riskBuffer.length > 8) {
           const buffer = [...currentTenantDb.riskBuffer];
           buffer.sort((a, b) => (parseFloat(a.likelihood)*parseFloat(a.impact)) - (parseFloat(b.likelihood)*parseFloat(b.impact)));

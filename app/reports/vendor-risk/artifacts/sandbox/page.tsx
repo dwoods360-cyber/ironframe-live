@@ -16,7 +16,7 @@ export default function ArtifactSandbox() {
   const colors = { bg: '#0d1117', panel: '#161b22', border: '#30363d', ironBlue: '#1f6feb', danger: '#f85149', textMuted: '#8b949e' };
 
   const executeDelete = () => {
-    setDocuments(prev => prev.filter(d => d.id !== deleteTarget.id));
+    setDocuments(prev => prev.filter(d => d.id !== (deleteTarget as any).id));
     setDeleteTarget(null);
   };
 

@@ -12,7 +12,6 @@ type Props = {
 };
 
 export default function CenterPane({ risks = [], onAction, ...props }: Props) {
-  // Cast risks to the domain type to satisfy child components
   const typedRisks = risks as Risk[];
 
   return (

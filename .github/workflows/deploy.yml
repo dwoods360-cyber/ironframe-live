@@ -1,0 +1,39 @@
+name: Ironframe GRC Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Unit Tests (Compliance Check)
+        run: npm test
+        continue-on-error: false # Fail deployment if tests fail
+
+      - name: Security Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          exit-code: '1' # Fail if HIGH/CRITICAL vulnerabilities found
+          severity: 'CRITICAL,HIGH'
+
+      # PLACEHOLDER FOR DEPLOYMENT STEP
+      # In a real scenario, this would trigger Vercel/AWS deploy
+
+      - name: Health Check (Rollback Verification)
+        if: success()
+        run: |
+          echo "Simulating Health Check..."
+          # If this fails, trigger rollback-runbook.md Step 2
+          exit 0 

@@ -25,9 +25,9 @@ jobs:
 
     - name: Run Playwright tests
       run: npx playwright test
-      # THIS IS THE CRITICAL FIX:
-      # We explicitly map the GitHub Secrets to the environment variables
       env:
+        # THIS IS THE MISSING LINK:
+        # We must explicitly pass the GitHub Secrets to the test environment
         NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 

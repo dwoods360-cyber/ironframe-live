@@ -131,7 +131,7 @@ export default function RolePage() {
             </div>
 
             <Link href="/reports" style={navChipStyle}>
-              <span>📄</span> RETURN TO REPORTS
+              <span>📄</span> BACK
             </Link>
 
             <Link href="/" style={{ textDecoration: 'none' }}>
@@ -148,7 +148,7 @@ export default function RolePage() {
                   cursor: 'pointer',
                 }}
               >
-                ← DASHBOARD
+                BACK
               </button>
             </Link>
           </div>

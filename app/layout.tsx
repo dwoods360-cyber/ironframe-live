@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import TopNav from "./components/TopNav";
+import DebugPanel from "./components/dev/DebugPanel";
+import { TenantProvider } from "./context/TenantProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,10 +29,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased`}
       >
-        {children}
-        <SpeedInsights />
+        <TenantProvider>
+          <div className="fixed inset-x-0 top-0 z-50">
+            <TopNav />
+          </div>
+          <main className="command-center-surface mt-[108px] h-[calc(100vh-108px)] overflow-y-auto">{children}</main>
+          <DebugPanel />
+          <SpeedInsights />
+        </TenantProvider>
       </body>
     </html>
   );

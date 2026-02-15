@@ -19,7 +19,7 @@ export default function NISTFrameworkPage() {
       <Header />
       <div style={{ height: '40px', background: '#3182ce', display: 'flex', alignItems: 'center', padding: '0 20px', justifyContent: 'space-between' }}>
         <div style={{ fontSize: '10px', fontWeight: 800 }}>🛡️ NIST CSF 2.0 MATURITY TERMINAL</div>
-        <Link href="/reports" style={navChipStyle}><span>📄</span> RETURN TO REPORTS</Link>
+        <Link href="/reports" style={navChipStyle}><span>📄</span> BACK</Link>
       </div>
 
       <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>

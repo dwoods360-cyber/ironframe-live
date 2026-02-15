@@ -1,0 +1,14 @@
+{
+  "SaaS": {
+    "requiredEvidence": ["SOC2", "Privacy Policy"]
+  },
+  "On-Prem Software": {
+    "requiredEvidence": ["ISO 27001", "Vulnerability Scan Report"]
+  },
+  "Managed Services": {
+    "requiredEvidence": ["SOC2", "Business Continuity Plan", "Incident Response Plan"]
+  },
+  "Hardware": {
+    "requiredEvidence": ["NIST 800-161", "ISO 9001"]
+  }
+}

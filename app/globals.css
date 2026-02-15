@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --bg-primary: #1c2128;
@@ -26,11 +24,51 @@ body {
   margin: 0;
 }
 
-/* --- LAYOUT --- */
-.dashboard { display: grid; grid-template-columns: 320px 1fr 350px; gap: 16px; padding: 110px 24px 24px; height: 100vh; overflow: hidden; box-sizing: border-box; }
-.pane { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; height: 100%; }
-.pane-header { padding: 12px 16px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border-color); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; min-height: 40px; }
-.pane-content { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+.command-center-surface {
+  position: relative;
+  isolation: isolate;
+}
+
+.command-center-surface::before {
+  content: "";
+  position: fixed;
+  inset: 108px 0 0 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    linear-gradient(to right, rgba(56, 189, 248, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    radial-gradient(circle 20px at 18% 22%, rgba(59, 130, 246, 0.12), transparent 62%),
+    radial-gradient(circle 20px at 76% 38%, rgba(14, 165, 233, 0.10), transparent 62%),
+    radial-gradient(circle 20px at 34% 68%, rgba(56, 189, 248, 0.08), transparent 62%);
+  background-size: 40px 40px, 40px 40px, auto, auto, auto;
+}
+
+.command-center-surface::after {
+  content: "";
+  position: fixed;
+  inset: 108px 0 0 0;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.12;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.15) 0,
+    rgba(148, 163, 184, 0.15) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  animation: scanlineMove 7s linear infinite;
+}
+
+[class*="rounded border border-slate-800"] {
+  border-color: rgba(30, 41, 59, 0.5) !important;
+  transition: border-color 180ms ease;
+}
+
+[class*="rounded border border-slate-800"]:hover {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
 
 /* --- NAV BARS --- */
 .dev-selector { position: fixed; top: 0; left: 0; right: 0; background: rgba(22, 27, 34, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border-color); padding: 0 24px; height: 44px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; font-size: 11px; }
@@ -91,6 +129,10 @@ body {
 .activity-time { font-size: 10px; color: var(--text-tertiary); }
 
 @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes scanlineMove {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(16px); }
+}
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }

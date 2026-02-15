@@ -78,7 +78,7 @@ export default function Subheader({ currentView, onViewChange }: SubheaderProps)
       {/* WRAPPED CHIP TO OPEN REPORTS SUBPAGE */}
       <Link href="/reports" style={{ textDecoration: 'none' }}>
         <div style={reportChipStyle}>
-          <span>📄</span> QUICK REPORTS
+          <span>📄</span> BACK
         </div>
       </Link>
     </div>

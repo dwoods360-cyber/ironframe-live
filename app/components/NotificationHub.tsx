@@ -76,13 +76,13 @@ export default function NotificationHub({ alerts, resolveRiskTier, onApprove, on
   return (
     <div className="mb-4 rounded border border-slate-800 bg-slate-950/40 px-3 py-2">
       <div className="mb-2 flex items-center gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-200">Permission Required</p>
         <span
           data-testid="notification-badge-count"
           className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-red-400/80 bg-red-500 px-1 text-[9px] font-bold text-white"
         >
           {sortedAlerts.length}
         </span>
-        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-200">Permission Required</p>
       </div>
 
       {sortedAlerts.length > 0 ? (

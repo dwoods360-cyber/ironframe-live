@@ -14,7 +14,7 @@ import AddVendorModal, { AddVendorSubmission } from "@/app/vendors/AddVendorModa
 import RFITemplate from "@/app/vendors/RFITemplate";
 import Visualizer from "@/app/vendors/Visualizer";
 import ScorecardIcon from "@/app/vendors/ScorecardIcon";
-import RiskSparkline from "@/app/vendors/RiskSparkline";
+import RiskSparkbar from "@/app/vendors/RiskSparkbar";
 import { MonitoringAlert, startMonitoringAgent } from "@/services/monitoringAgent";
 import { getWeeklySummaryMetrics, incrementArchivedLowPriority, incrementRemediatedHighRisk, WeeklySummaryMetrics } from "@/services/weeklySummaryService";
 import { Industry, MASTER_VENDORS, RiskTier, VendorRecord, VendorType, getDaysUntilExpiration } from "@/app/vendors/schema";
@@ -416,6 +416,49 @@ export default function VendorsOverviewPage() {
       Math.min(100, baseline + 3),
       Math.min(100, score),
     ];
+  };
+
+  const getRecentStatusChangeLabel = (vendor: {
+    soc2Status: Soc2Status;
+    daysUntilExpiration: number;
+    currentCadence: VendorRecord["currentCadence"];
+    cascadedRiskTier: RiskTier;
+    notificationSent: boolean;
+  }) => {
+    if (vendor.soc2Status === "Expired" || vendor.daysUntilExpiration <= 0) {
+      return "SOC2 Type II Overdue";
+    }
+
+    if (vendor.cascadedRiskTier === "LOW" && vendor.daysUntilExpiration > 60) {
+      return "ISO 27001 Renewed";
+    }
+
+    if (vendor.currentCadence === "OVERDUE") {
+      return "Escalation Overdue";
+    }
+
+    if (vendor.currentCadence === "30") {
+      return "Audit Window Opening";
+    }
+
+    if (vendor.notificationSent) {
+      return "Stakeholder Notice Sent";
+    }
+
+    return "Status Stable";
+  };
+
+  const scrollToSecurityRatingColumn = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const target = document.querySelector('[data-testid="security-rating-header"]') as HTMLElement | null;
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   };
 
   const toVendorEmail = (vendorName: string) => {
@@ -906,20 +949,6 @@ export default function VendorsOverviewPage() {
               Activity Log
             </Link>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window === "undefined") {
-                  return;
-                }
-
-                window.dispatchEvent(new CustomEvent("vendors:open-summary"));
-              }}
-              className="h-8 rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
-            >
-              Summary
-            </button>
-
             <select
               value={industry}
               onChange={(event) => setIndustry(event.target.value as "ALL" | Industry)}
@@ -979,6 +1008,25 @@ export default function VendorsOverviewPage() {
             >
               Table View
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window === "undefined") {
+                  return;
+                }
+
+                window.dispatchEvent(new CustomEvent("vendors:open-summary"));
+              }}
+              className="h-8 rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
+            >
+              Summary
+            </button>
+            <Link
+              href="/"
+              className="inline-flex h-8 items-center rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
+            >
+              Back
+            </Link>
           </div>
         </div>
 
@@ -995,11 +1043,11 @@ export default function VendorsOverviewPage() {
             <p>VENDOR NAME</p>
             <p>ASSOCIATED ENTITY</p>
             <p>RISK TIER</p>
-            <p>SECURITY RATING</p>
+            <p data-testid="security-rating-header">SECURITY RATING</p>
             <p>CONTRACT STATUS</p>
             <p>COMPLIANCE COUNTDOWN</p>
             <p>EVIDENCE LOCKER</p>
-            <p data-print-hide="true">ACTIONS</p>
+            <p data-print-hide="true" className="text-right" style={{ textAlign: "right" }}>ACTIONS</p>
           </div>
 
           <div className="max-h-[420px] overflow-y-auto p-2 space-y-2">
@@ -1015,11 +1063,15 @@ export default function VendorsOverviewPage() {
                 }`}
               >
                 <div className="group relative flex items-center justify-center gap-2">
-                  <ScorecardIcon grade={vendor.healthScore.grade} className={GRADE_BADGE_STYLE[vendor.healthScore.grade]} />
-                  <RiskSparkline
+                  <ScorecardIcon
+                    grade={vendor.healthScore.grade}
+                    className={GRADE_BADGE_STYLE[vendor.healthScore.grade]}
+                    onClick={scrollToSecurityRatingColumn}
+                  />
+                  <RiskSparkbar
                     trendPoints={getRiskTrendPoints(vendor)}
-                    riskTier={vendor.cascadedRiskTier}
-                    data-testid="risk-sparkline"
+                    statusLabel={getRecentStatusChangeLabel(vendor)}
+                    data-testid="risk-sparkbar"
                   />
                   <div className="pointer-events-none absolute left-14 top-1/2 z-20 hidden w-64 -translate-y-1/2 rounded border border-slate-700 bg-slate-950/95 px-2 py-2 text-[9px] text-slate-200 group-hover:block">
                     <p className="mb-1 font-bold uppercase tracking-wide text-slate-300">Score Breakdown</p>

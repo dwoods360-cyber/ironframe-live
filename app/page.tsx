@@ -318,18 +318,20 @@ export default function Page() {
       const vendorName = request.vendorName ?? "UNKNOWN VENDOR";
       const alertId = `unresponsive-${request.id}`;
 
-      upsertAgentAlert({
-        id: alertId,
-        type: "AGENT_ALERT" as const,
-        origin: "IRONSIGHT" as const,
-        isExternalSOC: false,
-        sourceAgent: "IRONSIGHT" as const,
-        title: `UNRESPONSIVE VENDOR // ${vendorName}`,
-        impact: `No read receipt detected within 48 hours for document update request (${request.recipientEmail}).`,
-        severityScore: 88,
-        liabilityUsd: 1_250_000,
-        status: "OPEN" as const,
-        createdAt: new Date().toISOString(),
+      queueMicrotask(() => {
+        upsertAgentAlert({
+          id: alertId,
+          type: "AGENT_ALERT" as const,
+          origin: "IRONSIGHT" as const,
+          isExternalSOC: false,
+          sourceAgent: "IRONSIGHT" as const,
+          title: `UNRESPONSIVE VENDOR // ${vendorName}`,
+          impact: `No read receipt detected within 48 hours for document update request (${request.recipientEmail}).`,
+          severityScore: 88,
+          liabilityUsd: 1_250_000,
+          status: "OPEN" as const,
+          createdAt: new Date().toISOString(),
+        });
       });
     }
   }, [mailHubState.outbound]);
@@ -346,18 +348,20 @@ export default function Page() {
 
       processedCadenceDispatchIdsRef.current.add(mail.id);
 
-      upsertAgentAlert({
-        id: `cadence-dispatch-${mail.id}`,
-        type: "AGENT_ALERT" as const,
-        origin: "IRONSIGHT" as const,
-        isExternalSOC: false,
-        sourceAgent: "IRONSIGHT" as const,
-        title: "CISO/LEGAL ESCALATION DISPATCH CONFIRMED",
-        impact: `30-day escalation sent for ${mail.vendorName ?? "vendor"} to ${mail.recipientTitle} (${mail.recipientEmail}).`,
-        severityScore: 74,
-        liabilityUsd: 350000,
-        status: "OPEN" as const,
-        createdAt: mail.sentAt,
+      queueMicrotask(() => {
+        upsertAgentAlert({
+          id: `cadence-dispatch-${mail.id}`,
+          type: "AGENT_ALERT" as const,
+          origin: "IRONSIGHT" as const,
+          isExternalSOC: false,
+          sourceAgent: "IRONSIGHT" as const,
+          title: "CISO/LEGAL ESCALATION DISPATCH CONFIRMED",
+          impact: `30-day escalation sent for ${mail.vendorName ?? "vendor"} to ${mail.recipientTitle} (${mail.recipientEmail}).`,
+          severityScore: 74,
+          liabilityUsd: 350000,
+          status: "OPEN" as const,
+          createdAt: mail.sentAt,
+        });
       });
     }
   }, [mailHubState.outbound]);

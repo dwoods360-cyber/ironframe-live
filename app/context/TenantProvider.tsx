@@ -25,7 +25,9 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
     const stored = window.localStorage.getItem("debug:tenant-override") as TenantKey | null;
     if (stored === "medshield" || stored === "vaultbank" || stored === "gridcore") {
-      setDevTenantOverrideState(stored);
+      queueMicrotask(() => {
+        setDevTenantOverrideState(stored);
+      });
     }
   }, []);
 

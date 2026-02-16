@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Check, MoreVertical, Plus, Search } from "lucide-react";
 import NotificationHub from "@/app/components/NotificationHub";
@@ -12,14 +13,25 @@ import { useVendorActions } from "@/app/hooks/useVendorActions";
 import AddVendorModal, { AddVendorSubmission } from "@/app/vendors/AddVendorModal";
 import RFITemplate from "@/app/vendors/RFITemplate";
 import Visualizer from "@/app/vendors/Visualizer";
+import ScorecardIcon from "@/app/vendors/ScorecardIcon";
+import RiskSparkline from "@/app/vendors/RiskSparkline";
 import { MonitoringAlert, startMonitoringAgent } from "@/services/monitoringAgent";
 import { getWeeklySummaryMetrics, incrementArchivedLowPriority, incrementRemediatedHighRisk, WeeklySummaryMetrics } from "@/services/weeklySummaryService";
 import { Industry, MASTER_VENDORS, RiskTier, VendorRecord, VendorType, getDaysUntilExpiration } from "@/app/vendors/schema";
+import { calculateVendorGrade, VendorLetterGrade } from "@/utils/scoringEngine";
 
 const RISK_TIER_STYLE: Record<RiskTier, string> = {
   CRITICAL: "text-red-300",
   HIGH: "text-amber-500",
   LOW: "text-emerald-300",
+};
+
+const GRADE_BADGE_STYLE: Record<VendorLetterGrade, string> = {
+  A: "border-emerald-400/80 bg-emerald-500/15 text-emerald-300",
+  B: "border-amber-400/80 bg-amber-500/15 text-amber-200",
+  C: "border-amber-400/80 bg-amber-500/15 text-amber-200",
+  D: "border-red-400/80 bg-red-500/15 text-red-300",
+  F: "border-red-400/80 bg-red-500/15 text-red-300",
 };
 
 type RiskFilter = "ALL" | "HIGH" | "MED" | "LOW";
@@ -95,6 +107,7 @@ export default function VendorsOverviewPage() {
   const [simulationRequests, setSimulationRequests] = useState(0);
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [isAddVendorModalOpen, setIsAddVendorModalOpen] = useState(false);
+  const [isAddVendorPulseActive, setIsAddVendorPulseActive] = useState(true);
   const [monitoringAlerts, setMonitoringAlerts] = useState<MonitoringAlert[]>([]);
   const [rfiTarget, setRfiTarget] = useState<{ vendorName: string; vendorEmail: string; internalStakeholderEmail: string } | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
@@ -125,6 +138,14 @@ export default function VendorsOverviewPage() {
   useEffect(() => {
     window.localStorage.setItem(NOTIFICATION_FLAG_STORAGE_KEY, JSON.stringify(notificationSentVendors));
   }, [notificationSentVendors]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setIsAddVendorPulseActive(false);
+    }, 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     const monitoredDocumentTypes = Array.from(
@@ -182,6 +203,15 @@ export default function VendorsOverviewPage() {
   }, []);
 
   useEffect(() => {
+    const handleOpenAddVendor = () => {
+      setIsAddVendorModalOpen(true);
+    };
+
+    window.addEventListener("vendors:open-add-vendor", handleOpenAddVendor);
+    return () => window.removeEventListener("vendors:open-add-vendor", handleOpenAddVendor);
+  }, []);
+
+  useEffect(() => {
     const handleOpenSummary = () => {
       setWeeklySummary(getWeeklySummaryMetrics());
       setIsSummaryOpen(true);
@@ -231,28 +261,55 @@ export default function VendorsOverviewPage() {
   }, [complianceFilter, industry, riskFilter, search, vendorsWithCadence]);
 
   const vendorGraph = useMemo(() => {
+    const pendingVersioningByVendorId = evidenceEntries.reduce<Record<string, boolean>>((acc, entry) => {
+      if (entry.vendorId && entry.status === "PENDING SIGNATURE") {
+        acc[entry.vendorId] = true;
+      }
+      return acc;
+    }, {});
+
+    const activeAlertCountByVendor = monitoringAlerts.reduce<Record<string, number>>((acc, alert) => {
+      acc[alert.vendorName] = (acc[alert.vendorName] ?? 0) + 1;
+      return acc;
+    }, {});
+
     return filteredVendors.map((vendor) => {
       const hasBreachedSubProcessor = vendor.criticalSubProcessors.some((processor) => processor.status === "BREACH");
       const cascadedRiskTier: RiskTier = hasBreachedSubProcessor ? "CRITICAL" : vendor.riskTier;
       const cascadedContractStatus = hasBreachedSubProcessor ? "CASCADED RED ALERT" : vendor.contractStatus;
+      const vendorId = vendor.vendorName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const daysUntilExpiration = getDaysUntilExpiration(vendor.documentExpirationDate);
+      const evidenceLockerDocs = VENDOR_EVIDENCE_LOCKER[vendor.vendorName] ?? [];
+      const healthScore = calculateVendorGrade({
+        daysUntilSoc2Expiration: daysUntilExpiration,
+        evidenceLockerDocs,
+        hasActiveIndustryAlert: (activeAlertCountByVendor[vendor.vendorName] ?? 0) > 0,
+        hasActiveBreachAlert: hasBreachedSubProcessor,
+        hasPendingVersioning: Boolean(pendingVersioningByVendorId[vendorId]),
+        hasStakeholderEscalation: Boolean(notificationSentVendors[vendor.vendorName]) || vendor.currentCadence === "30" || vendor.currentCadence === "OVERDUE",
+        requiresManualReview:
+          vendor.contractStatus.toUpperCase().includes("VIOLATION") ||
+          vendor.contractStatus.toUpperCase().includes("DUE DILIGENCE"),
+      });
 
       return {
         ...vendor,
-        vendorId: vendor.vendorName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        vendorId,
         vendorType: vendor.vendorType ?? "SaaS",
         cascadedRiskTier,
         cascadedContractStatus,
         hasBreachedSubProcessor,
-        daysUntilExpiration: getDaysUntilExpiration(vendor.documentExpirationDate),
-        evidenceLockerDocs: VENDOR_EVIDENCE_LOCKER[vendor.vendorName] ?? [],
+        daysUntilExpiration,
+        evidenceLockerDocs,
         createdDaysAgo: VENDOR_CREATED_AT_DAYS_AGO[vendor.vendorName] ?? 365,
         lastAuditDate: vendor.lastRequestSent ? vendor.lastRequestSent.slice(0, 10) : "N/A",
-        soc2Status: getDaysUntilExpiration(vendor.documentExpirationDate) <= 0 ? "Expired" : "Active" as Soc2Status,
+        soc2Status: daysUntilExpiration <= 0 ? "Expired" : "Active" as Soc2Status,
         soc2ExpirationDate: vendor.documentExpirationDate.slice(0, 10),
         notificationSent: Boolean(notificationSentVendors[vendor.vendorName]),
+        healthScore,
       };
     });
-  }, [filteredVendors, notificationSentVendors]);
+  }, [evidenceEntries, filteredVendors, monitoringAlerts, notificationSentVendors]);
 
   const selectedVendor = useMemo(
     () => vendorGraph.find((vendor) => vendor.vendorId === selectedVendorId) ?? null,
@@ -338,6 +395,27 @@ export default function VendorsOverviewPage() {
     }
 
     return `Escalation Engine: ${cadence}-Day Queue`;
+  };
+
+  const getRiskTrendPoints = (vendor: {
+    daysUntilExpiration: number;
+    healthScore: { score: number };
+    cascadedRiskTier: RiskTier;
+  }) => {
+    const score = vendor.healthScore.score;
+    const riskPressure = vendor.cascadedRiskTier === "CRITICAL" ? 4 : vendor.cascadedRiskTier === "HIGH" ? 2 : 0;
+    const expiryPressure = vendor.daysUntilExpiration <= 0 ? 4 : vendor.daysUntilExpiration < 30 ? 2 : vendor.daysUntilExpiration < 60 ? 1 : 0;
+    const baseline = Math.max(40, Math.min(98, score - riskPressure - expiryPressure));
+
+    return [
+      Math.max(24, baseline - 6),
+      Math.max(24, baseline - 4),
+      Math.max(24, baseline - 3),
+      baseline,
+      Math.min(100, baseline + 1),
+      Math.min(100, baseline + 3),
+      Math.min(100, score),
+    ];
   };
 
   const toVendorEmail = (vendorName: string) => {
@@ -542,7 +620,9 @@ export default function VendorsOverviewPage() {
     }
 
     setSimulationRequests((current) => current + 1);
-    const expirationDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const expirationDateValue = new Date();
+    expirationDateValue.setUTCDate(expirationDateValue.getUTCDate() + 30);
+    const expirationDate = expirationDateValue.toISOString();
 
     setVendors((current) => {
       const updated = current.map((vendor) =>
@@ -746,32 +826,35 @@ export default function VendorsOverviewPage() {
         alerts={monitoringAlerts}
         resolveRiskTier={resolveAlertRiskTier}
         onApprove={handleMonitoringApproval}
+        onReject={(alertId) => setMonitoringAlerts((current) => current.filter((alert) => alert.id !== alertId))}
         onArchiveLowPriority={handleArchiveLowPriorityAlerts}
       />
 
       <section className="rounded border border-slate-800 bg-slate-900/40 p-4">
         <h1 className="mb-4 text-[11px] font-bold uppercase tracking-wide text-white">SUPPLY CHAIN // GLOBAL VENDOR INTELLIGENCE</h1>
 
-        <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search vendor, entity, or contract status"
-              className="bg-slate-950 border border-slate-800 rounded px-4 py-2 text-[11px] text-white w-full max-w-md pl-9 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="flex h-8 w-full max-w-md flex-nowrap items-center gap-2 overflow-x-auto">
+        <div className="mb-4 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max items-center gap-2">
             <button
               type="button"
               onClick={() => setIsAddVendorModalOpen(true)}
-              className="relative z-[90] inline-flex h-8 items-center gap-1 rounded border border-blue-500/70 bg-blue-500/20 px-3 text-[10px] font-bold uppercase tracking-wide text-blue-200"
+              className={`relative z-[90] inline-flex h-8 items-center gap-1 rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500 ${
+                isAddVendorPulseActive ? "animate-pulse" : ""
+              }`}
             >
               <Plus className="h-3.5 w-3.5" />
               ADD VENDOR
             </button>
+
+            <div className="relative w-[260px] shrink-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search vendor, entity, or contract status"
+                className="bg-slate-950 border border-slate-800 rounded px-4 py-2 text-[11px] text-white w-full pl-9 placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
             <button
               type="button"
               onClick={() => setRiskFilter("ALL")}
@@ -782,28 +865,6 @@ export default function VendorsOverviewPage() {
               }`}
             >
               All Risk
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("TABLE")}
-              className={`h-8 rounded border px-3 text-[10px] font-bold uppercase leading-none tracking-wide whitespace-nowrap ${
-                view === "TABLE"
-                  ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
-                  : "border-slate-800 bg-slate-950 text-slate-400"
-              }`}
-            >
-              Table View
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("MAP")}
-              className={`h-8 rounded border px-3 text-[10px] font-bold uppercase leading-none tracking-wide whitespace-nowrap ${
-                view === "MAP"
-                  ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
-                  : "border-slate-800 bg-slate-950 text-slate-400"
-              }`}
-            >
-              Map View
             </button>
             <button
               type="button"
@@ -838,31 +899,87 @@ export default function VendorsOverviewPage() {
             >
               Low
             </button>
+            <Link
+              href="/reports/audit-trail?scope=vendor-changes"
+              className="inline-flex h-8 items-center rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
+            >
+              Activity Log
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window === "undefined") {
+                  return;
+                }
+
+                window.dispatchEvent(new CustomEvent("vendors:open-summary"));
+              }}
+              className="h-8 rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
+            >
+              Summary
+            </button>
+
+            <select
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value as "ALL" | Industry)}
+              className="h-8 w-[150px] shrink-0 truncate overflow-hidden text-ellipsis whitespace-nowrap rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
+              title="Industry filter"
+            >
+              <option value="ALL">Industry: All</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Finance">Finance</option>
+              <option value="Energy">Energy</option>
+            </select>
+
+            <select
+              value={complianceFilter}
+              onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
+              className="h-8 w-[180px] shrink-0 truncate overflow-hidden text-ellipsis whitespace-nowrap rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
+              title="Compliance calendar filter"
+            >
+              <option value="ALL">Compliance Calendar: All</option>
+              <option value="EXPIRING_30">Expiring &lt; 30 Days</option>
+              <option value="AUDIT_DUE">Audit Due</option>
+              <option value="RECENTLY_ADDED">Recently Added</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window === "undefined") {
+                  return;
+                }
+
+                window.dispatchEvent(new CustomEvent("vendors:download", { detail: { format: "both" } }));
+              }}
+              className="h-8 rounded border border-slate-800 bg-slate-950 px-3 text-[10px] font-bold uppercase leading-none tracking-wide text-slate-300 whitespace-nowrap hover:border-blue-500"
+            >
+              Download
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("MAP")}
+              className={`h-8 rounded border px-3 text-[10px] font-bold uppercase leading-none tracking-wide whitespace-nowrap ${
+                view === "MAP"
+                  ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
+                  : "border-slate-800 bg-slate-950 text-slate-400"
+              }`}
+            >
+              Map View
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("TABLE")}
+              className={`h-8 rounded border px-3 text-[10px] font-bold uppercase leading-none tracking-wide whitespace-nowrap ${
+                view === "TABLE"
+                  ? "border-blue-500/70 bg-blue-500/15 text-blue-200"
+                  : "border-slate-800 bg-slate-950 text-slate-400"
+              }`}
+            >
+              Table View
+            </button>
           </div>
-
-          <select
-            value={industry}
-            onChange={(event) => setIndustry(event.target.value as "ALL" | Industry)}
-            className="h-8 w-full max-w-[150px] shrink-0 truncate overflow-hidden text-ellipsis whitespace-nowrap rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
-            title="Industry filter"
-          >
-            <option value="ALL">Industry: All</option>
-            <option value="Healthcare">Healthcare</option>
-            <option value="Finance">Finance</option>
-            <option value="Energy">Energy</option>
-          </select>
-
-          <select
-            value={complianceFilter}
-            onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
-            className="h-8 w-full max-w-[180px] shrink-0 truncate overflow-hidden text-ellipsis whitespace-nowrap rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
-            title="Compliance calendar filter"
-          >
-            <option value="ALL">Compliance Calendar: All</option>
-            <option value="EXPIRING_30">Expiring &lt; 30 Days</option>
-            <option value="AUDIT_DUE">Audit Due</option>
-            <option value="RECENTLY_ADDED">Recently Added</option>
-          </select>
         </div>
 
         {complianceFilter !== "ALL" && (
@@ -873,7 +990,8 @@ export default function VendorsOverviewPage() {
 
         {view === "TABLE" ? (
         <div className="rounded border border-slate-800">
-          <div className="grid grid-cols-8 border-b border-slate-800 bg-slate-950 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+          <div className="grid grid-cols-9 border-b border-slate-800 bg-slate-950 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+            <p>Scorecard</p>
             <p>VENDOR NAME</p>
             <p>ASSOCIATED ENTITY</p>
             <p>RISK TIER</p>
@@ -890,12 +1008,29 @@ export default function VendorsOverviewPage() {
                 key={`${vendor.vendorName}-${vendor.associatedEntity}`}
                 data-testid="vendor-row"
                 data-risk-tier={vendor.cascadedRiskTier}
-                className={`grid grid-cols-8 items-center gap-3 bg-slate-900/40 border px-4 py-3 text-[11px] text-slate-200 transition-colors hover:border-blue-500/50 hover:bg-slate-900/70 ${
+                className={`grid grid-cols-9 items-center gap-3 bg-slate-900/40 border px-4 py-3 text-[11px] text-slate-200 transition-colors hover:border-blue-500/50 hover:bg-slate-900/70 ${
                   vendor.cascadedRiskTier === "CRITICAL" && vendor.daysUntilExpiration < 30
                     ? "border-red-500/70 bg-red-500/10"
                     : "border-slate-800"
                 }`}
               >
+                <div className="group relative flex items-center justify-center gap-2">
+                  <ScorecardIcon grade={vendor.healthScore.grade} className={GRADE_BADGE_STYLE[vendor.healthScore.grade]} />
+                  <RiskSparkline
+                    trendPoints={getRiskTrendPoints(vendor)}
+                    riskTier={vendor.cascadedRiskTier}
+                    data-testid="risk-sparkline"
+                  />
+                  <div className="pointer-events-none absolute left-14 top-1/2 z-20 hidden w-64 -translate-y-1/2 rounded border border-slate-700 bg-slate-950/95 px-2 py-2 text-[9px] text-slate-200 group-hover:block">
+                    <p className="mb-1 font-bold uppercase tracking-wide text-slate-300">Score Breakdown</p>
+                    <div className="space-y-0.5">
+                      {vendor.healthScore.breakdown.map((line) => (
+                        <p key={`${vendor.vendorId}-${line}`}>{line}</p>
+                      ))}
+                    </div>
+                    <p className="mt-1 font-bold text-slate-300">Score: {vendor.healthScore.score}</p>
+                  </div>
+                </div>
                 <div>
                   <div className="flex items-center gap-1.5">
                     <p className="font-semibold text-white">{vendor.vendorName}</p>

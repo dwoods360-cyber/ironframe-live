@@ -74,10 +74,8 @@ export default function HeaderTwo({
   };
 
   return (
-    <div className="h-10 bg-[#1f6feb] flex items-center justify-between px-4">
-      {isVendorOverviewRoute ? (
-        <div className="vendor-header-left-empty" data-print-hide="true" />
-      ) : (
+    <div className={`h-10 bg-[#1f6feb] flex items-center px-4 ${isVendorOverviewRoute ? "justify-start" : "justify-between"}`}>
+      {!isVendorOverviewRoute ? (
         <div className="flex items-center gap-2">
           <Link
             href="/vendors"
@@ -96,7 +94,7 @@ export default function HeaderTwo({
             SYSTEM CONFIG
           </Link>
         </div>
-      )}
+      ) : null}
 
       <div className="relative flex-1 min-w-0">
         {isOverflowing && (
@@ -129,11 +127,11 @@ export default function HeaderTwo({
         <div
           ref={chipBarRef}
           data-testid="header-two-chip-bar"
-          className={`flex w-full justify-end overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
+          className={`flex w-full ${isVendorOverviewRoute ? "justify-start" : "justify-end"} overflow-x-auto scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${
             isOverflowing ? "pr-16 pb-4" : "pr-0 pb-0"
           }`}
         >
-          <div className="flex min-w-max flex-nowrap items-center gap-x-2">
+          <div className="flex min-w-max flex-nowrap items-center gap-x-2 w-full">
             {isVendorOverviewRoute ? (
               <>
               <button
@@ -144,20 +142,22 @@ export default function HeaderTwo({
               >
                 <span className="text-[10px] font-bold text-white">+ ADD VENDOR</span>
               </button>
-              <button
-                type="button"
-                onClick={openSummary}
-                data-testid="header-summary-chip"
-                className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
-              >
-                <span className="text-[10px] font-bold text-white">SUMMARY</span>
-              </button>
-              <Link
-                href="/"
-                className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
-              >
-                <span className="text-[10px] font-bold text-white">BACK</span>
-              </Link>
+              <div className="ml-auto flex items-center gap-x-2">
+                <button
+                  type="button"
+                  onClick={openSummary}
+                  data-testid="header-summary-chip"
+                  className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
+                >
+                  <span className="text-[10px] font-bold text-white">SUMMARY</span>
+                </button>
+                <Link
+                  href="/"
+                  className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
+                >
+                  <span className="text-[10px] font-bold text-white">BACK</span>
+                </Link>
+              </div>
               </>
             ) : showPrimaryActionChips ? (
               <>

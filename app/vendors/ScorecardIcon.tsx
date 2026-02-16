@@ -1,19 +1,24 @@
 "use client";
 
+import { Shield } from "lucide-react";
 import { VendorLetterGrade } from "@/utils/scoringEngine";
 
 type ScorecardIconProps = {
   grade: VendorLetterGrade;
   className: string;
+  onClick?: () => void;
 };
 
-export default function ScorecardIcon({ grade, className }: ScorecardIconProps) {
+export default function ScorecardIcon({ grade, className, onClick }: ScorecardIconProps) {
   return (
-    <div
-      className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-black ${className}`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative flex h-[18px] w-[18px] items-center justify-center ${className}`}
       aria-label={`Vendor grade ${grade}`}
     >
-      <span className="text-[11px] leading-none">{grade}</span>
-    </div>
+      <Shield data-testid="scorecard-shield" className="absolute h-[18px] w-[18px] fill-current opacity-25 stroke-[1.8]" />
+      <span className="relative text-[11px] font-black leading-none">{grade}</span>
+    </button>
   );
 }

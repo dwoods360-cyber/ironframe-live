@@ -38,12 +38,14 @@ export default function TemplateEditor({ onStatus }: TemplateEditorProps) {
   });
 
   useEffect(() => {
-    setRfiItems(config.generalRfiChecklist);
-    setRequirementsInput({
-      SaaS: asCommaSeparated(config.vendorTypeRequirements.SaaS),
-      "On-Prem Software": asCommaSeparated(config.vendorTypeRequirements["On-Prem Software"]),
-      "Managed Services": asCommaSeparated(config.vendorTypeRequirements["Managed Services"]),
-      Hardware: asCommaSeparated(config.vendorTypeRequirements.Hardware),
+    queueMicrotask(() => {
+      setRfiItems(config.generalRfiChecklist);
+      setRequirementsInput({
+        SaaS: asCommaSeparated(config.vendorTypeRequirements.SaaS),
+        "On-Prem Software": asCommaSeparated(config.vendorTypeRequirements["On-Prem Software"]),
+        "Managed Services": asCommaSeparated(config.vendorTypeRequirements["Managed Services"]),
+        Hardware: asCommaSeparated(config.vendorTypeRequirements.Hardware),
+      });
     });
   }, [config.generalRfiChecklist, config.vendorTypeRequirements]);
 

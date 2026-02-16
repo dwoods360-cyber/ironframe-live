@@ -25,16 +25,20 @@ export default function RFITemplate({
 
   useEffect(() => {
     if (checklistItems.length === 0) {
-      setSelected({});
+      queueMicrotask(() => {
+        setSelected({});
+      });
       return;
     }
 
-    setSelected(
-      checklistItems.reduce<Record<string, boolean>>((acc, item, index) => {
-        acc[item] = index === 0;
-        return acc;
-      }, {}),
-    );
+    queueMicrotask(() => {
+      setSelected(
+        checklistItems.reduce<Record<string, boolean>>((acc, item, index) => {
+          acc[item] = index === 0;
+          return acc;
+        }, {}),
+      );
+    });
   }, [checklistItems]);
 
   const selectedItems = useMemo(

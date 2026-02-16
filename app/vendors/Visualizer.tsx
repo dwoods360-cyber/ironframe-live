@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { RiskTier } from "@/app/vendors/schema";
+import { VendorLetterGrade } from "@/utils/scoringEngine";
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d").then((module) => module.default), {
   ssr: false,
@@ -14,6 +15,10 @@ type VisualizerVendor = {
   industry: string;
   associatedEntity: string;
   cascadedRiskTier: RiskTier;
+  healthScore: {
+    grade: VendorLetterGrade;
+    score: number;
+  };
 };
 
 type VisualizerProps = {
@@ -28,6 +33,7 @@ type GraphNode = {
   label: string;
   type: "service" | "vendor";
   riskTier?: RiskTier;
+  grade?: VendorLetterGrade;
   fx?: number;
   fy?: number;
   x?: number;
@@ -61,6 +67,18 @@ function getLinkColor(riskTier: RiskTier) {
   return riskTier === "CRITICAL" ? "rgba(239, 68, 68, 0.95)" : "rgba(248, 113, 113, 0.9)";
 }
 
+function getNodeRadiusByGrade(grade: VendorLetterGrade | undefined) {
+  if (!grade) {
+    return 8;
+  }
+
+  if (grade === "A") return 7;
+  if (grade === "B") return 8;
+  if (grade === "C") return 9;
+  if (grade === "D") return 11;
+  return 13;
+}
+
 export default function Visualizer({ vendors, selectedVendorId, activeVendorIds, onSelectVendor }: VisualizerProps) {
   const graph = useMemo(() => {
     const serviceNodes: GraphNode[] = [
@@ -89,6 +107,7 @@ export default function Visualizer({ vendors, selectedVendorId, activeVendorIds,
         label: vendor.vendorName,
         type: "vendor",
         riskTier: vendor.cascadedRiskTier,
+        grade: vendor.healthScore.grade,
         x: Math.cos(angle) * radius,
         y: Math.sin(angle) * radius,
       };
@@ -135,6 +154,8 @@ export default function Visualizer({ vendors, selectedVendorId, activeVendorIds,
             const isSelected = graphNode.id === `vendor-${selectedVendorId}`;
             const vendorId = graphNode.id.replace("vendor-", "");
             const isActiveNotification = graphNode.type === "vendor" && activeVendorIds.includes(vendorId);
+            const nodeRadius = isService ? 12 : getNodeRadiusByGrade(graphNode.grade);
+            const isLowGrade = graphNode.grade === "D" || graphNode.grade === "F";
 
             const pulseRadius = graphNode.riskTier && graphNode.riskTier !== "LOW"
               ? 14 + Math.abs(Math.sin(Date.now() / 260)) * 6
@@ -155,8 +176,16 @@ export default function Visualizer({ vendors, selectedVendorId, activeVendorIds,
               ctx.fill();
             }
 
+            if (isLowGrade && graphNode.x && graphNode.y) {
+              const lowGradePulse = nodeRadius + 9 + Math.abs(Math.sin(Date.now() / 200)) * 7;
+              ctx.beginPath();
+              ctx.arc(graphNode.x, graphNode.y, lowGradePulse, 0, 2 * Math.PI, false);
+              ctx.fillStyle = "rgba(248, 113, 113, 0.2)";
+              ctx.fill();
+            }
+
             ctx.beginPath();
-            ctx.arc(node.x ?? 0, node.y ?? 0, isService ? 12 : 8, 0, 2 * Math.PI, false);
+            ctx.arc(node.x ?? 0, node.y ?? 0, nodeRadius, 0, 2 * Math.PI, false);
             ctx.fillStyle = isService
               ? "rgba(59, 130, 246, 0.85)"
               : graphNode.riskTier === "LOW"

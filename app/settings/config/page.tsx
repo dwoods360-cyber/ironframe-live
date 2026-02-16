@@ -38,12 +38,14 @@ export default function SystemConfigPage() {
   }, []);
 
   useEffect(() => {
-    setSocDepartmentEmailInput(config.socDepartmentEmail);
-    setDomainsInput(config.authorizedSocDomains.join(", "));
-    setStakeholders(config.companyStakeholders);
-    setVendorTemplate(config.vendorDocumentUpdateTemplate);
-    setAdhocGroups(config.adhocNotificationGroups);
-    setCadenceAlertsInput(config.cadenceAlerts);
+    queueMicrotask(() => {
+      setSocDepartmentEmailInput(config.socDepartmentEmail);
+      setDomainsInput(config.authorizedSocDomains.join(", "));
+      setStakeholders(config.companyStakeholders);
+      setVendorTemplate(config.vendorDocumentUpdateTemplate);
+      setAdhocGroups(config.adhocNotificationGroups);
+      setCadenceAlertsInput(config.cadenceAlerts);
+    });
   }, [
     config.adhocNotificationGroups,
     config.authorizedSocDomains,

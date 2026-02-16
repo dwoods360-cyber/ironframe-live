@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 
 type Vendor = {
   id: string;
@@ -70,7 +71,7 @@ export default function VendorRiskReportPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <a
+          <Link
             href="/reports/vendor-risk/artifacts"
             style={{
               background: '#2d3139',
@@ -84,7 +85,7 @@ export default function VendorRiskReportPage() {
             }}
           >
             Artifacts
-          </a>
+          </Link>
 
           <button
             onClick={fetchGRCData}

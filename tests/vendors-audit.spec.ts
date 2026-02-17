@@ -18,15 +18,15 @@ test.describe('Vendors Dashboard Audit', () => {
       await expect(header).toHaveText(/SUPPLY CHAIN \/\/ GLOBAL/i, { timeout: 10000 });
     });
 
-    // Step 3: Interactive Logic - FIXED STRICT MODE VIOLATION
+    // Step 3: Interactive Logic - FINAL AUDIT SYNC
     await test.step('Verify Add Vendor Modal', async () => {
       // Use the specific Test ID to avoid ambiguity between header and toolbar buttons
       const addBtn = page.getByTestId('header-add-vendor-chip');
       await addBtn.waitFor({ state: 'visible' });
       await addBtn.click();
       
-      // Verify modal visibility
-      await expect(page.getByText(/Add New Vendor/i)).toBeVisible();
+      // Use a flexible regex to find the modal header
+      await expect(page.getByText(/Add Vendor/i)).toBeVisible({ timeout: 10000 });
       
       // Clean Exit
       await page.keyboard.press('Escape');

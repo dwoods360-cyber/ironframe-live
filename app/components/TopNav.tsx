@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import HeaderTwo from "@/app/components/HeaderTwo";
+import TenantSwitcher from "./TenantSwitcher"; 
 
 export default function TopNav() {
   const pathname = usePathname();
@@ -25,17 +26,11 @@ export default function TopNav() {
     : isEvidenceRoute
       ? "EVIDENCE LOCKER"
       : "ACTIVE GRC";
-  const entityTabs = [
-    { label: "MEDSHIELD HEALTH", href: "/medshield" },
-    { label: "VAULTBANK GLOBAL", href: "/vaultbank" },
-    { label: "GRIDCORE ENERGY", href: "/gridcore" },
-  ] as const;
 
   const handleVendorDownload = () => {
     if (typeof window === "undefined") {
       return;
     }
-
     window.dispatchEvent(new CustomEvent("vendors:download", { detail: { format: "both" } }));
   };
 
@@ -83,27 +78,17 @@ export default function TopNav() {
         </div>
       </div>
 
-      <div className="h-8 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
-        <div className="flex h-full items-end text-[10px] font-bold">
-          {entityTabs.map((tab) => {
-            const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={`h-full flex items-center px-4 ${
-                  isActive
-                    ? "bg-slate-800 text-white border-t-2 border-blue-500"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
+      {/* --- THIS IS THE UPDATED SECTION --- */}
+      <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
+        <div className="flex h-full items-center">
+          {/* Injecting the new Tenant Switcher Component here */}
+          <TenantSwitcher />
         </div>
-        <div className="text-[10px] font-bold uppercase text-emerald-400">AGENT MANAGER: ONLINE</div>
+        <div className="text-[10px] font-bold uppercase text-emerald-400 flex items-center gap-2">
+            AGENT MANAGER: ONLINE
+        </div>
       </div>
+      {/* ----------------------------------- */}
 
       <HeaderTwo
         isVendorOverviewRoute={isVendorOverviewRoute}

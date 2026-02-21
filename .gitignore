@@ -10,3 +10,5 @@ npm-debug.log*
 .eslintcache
 tmp-phase*.js
 .tmp*.js
+
+/lib/generated/prisma

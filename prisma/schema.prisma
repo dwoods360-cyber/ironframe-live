@@ -2,6 +2,7 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -22,34 +23,45 @@ enum AgentStatus {
   ERROR
 }
 
+enum ScanStatus {
+  PENDING      // File just arrived in the DMZ
+  SCANNING     // Agent 5 is actively reading it
+  CLEARED      // File is safe and text is extracted
+  QUARANTINED  // Malware or critical PII detected (Locked)
+  ERROR        // Agent 5 failed to read the file
+}
+
 model Tenant {
-  id                String   @id @default(cuid())
-  name              String   // e.g., "Medshield", "Vaultbank"
+  id                String             @id @default(cuid())
+  name              String             // e.g., "Medshield", "Vaultbank"
   industry          String
-  ale_baseline      Float    // e.g., 11100000 for Medshield
+  ale_baseline      Float              // e.g., 11100000 for Medshield
+  
   vendors           Vendor[]
   agent_logs        AgentLog[]
-  createdAt         DateTime @default(now())
+  quarantine_vault  QuarantineRecord[] 
+  
+  createdAt         DateTime           @default(now())
 }
 
 model Vendor {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  tenant            Tenant    @relation(fields: [tenantId], references: [id])
   name              String
-  riskTier          RiskTier @default(LOW)
-  healthScore       Int      @default(100)
+  riskTier          RiskTier  @default(LOW)
+  healthScore       Int       @default(100)
   lastAuditDate     DateTime?
   soc2Expiration    DateTime?
-  isQuarantined     Boolean  @default(false)
+  isQuarantined     Boolean   @default(false)
   
   // N-Tier Dependency Mapping for Agent 10
   parentId          String?
-  parent            Vendor?  @relation("SubProcessors", fields: [parentId], references: [id])
-  subProcessors     Vendor[] @relation("SubProcessors")
+  parent            Vendor?   @relation("SubProcessors", fields: [parentId], references: [id])
+  subProcessors     Vendor[]  @relation("SubProcessors")
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 model AgentLog {
@@ -62,4 +74,23 @@ model AgentLog {
   severity          String   // "INFO", "WARN", "CRITICAL"
   payload           Json?    // For storing CVE IDs or specific audit findings
   timestamp         DateTime @default(now())
+}
+
+// --- THE QUARANTINE SANDBOX ---
+model QuarantineRecord {
+  id            String     @id @default(cuid())
+  tenantId      String
+  tenant        Tenant     @relation(fields: [tenantId], references: [id])
+  
+  fileName      String
+  fileSize      Int
+  fileHash      String?    // SHA-256 hash to check against known malware
+  storagePath   String     // The UUID pointer to the Supabase Storage bucket
+  
+  status        ScanStatus @default(PENDING)
+  agentNotes    String?    // Where Agent 5 writes "Malicious macro detected" or "Clean SOC2"
+  uploadedBy    String     
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }

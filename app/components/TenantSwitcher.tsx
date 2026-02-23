@@ -1,30 +1,42 @@
 'use client';
 
-// Updated to useTenantContext based on the Turbopack build trace
-import { useTenantContext, type TenantId } from '../context/TenantProvider'; 
+import { useRouter, usePathname } from 'next/navigation';
 import { Building2 } from 'lucide-react';
 
-const tenants: { id: TenantId; name: string; ale: string }[] = [
-  { id: 'medshield-id', name: 'Medshield Health', ale: '$11.1M' },
-  { id: 'vaultbank-id', name: 'Vaultbank Global', ale: '$5.9M' },
-  { id: 'gridcore-id', name: 'Gridcore Energy', ale: '$4.7M' },
+const tenants = [
+  { id: 'global', path: '/', name: 'Global Command Center', ale: 'Aggregate Dashboard' },
+  { id: 'medshield', path: '/medshield', name: 'Medshield Health', ale: '$11.1M' },
+  { id: 'vaultbank', path: '/vaultbank', name: 'Vaultbank Global', ale: '$5.9M' },
+  { id: 'gridcore', path: '/gridcore', name: 'Gridcore Energy', ale: '$4.7M' },
 ];
 
 export default function TenantSwitcher() {
-  // Updated hook call here as well
-  const { activeTenant, setActiveTenant } = useTenantContext();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Detect the active dropdown option directly from the URL path
+  const currentTenant = tenants.find(t => pathname.startsWith(t.path) && t.path !== '/')?.id 
+    || (pathname === '/' ? 'global' : '');
+
+  const handleRouting = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = tenants.find(t => t.id === e.target.value);
+    if (selected) {
+      router.push(selected.path); // Physically navigate to the isolated tenant route
+    }
+  };
 
   return (
     <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-md px-3 py-1.5 transition-colors hover:border-slate-700">
       <Building2 className="w-4 h-4 text-cyan-500" />
       <select
-        value={activeTenant}
-        onChange={(e) => setActiveTenant(e.target.value as TenantId)}
+        value={currentTenant}
+        onChange={handleRouting}
         className="bg-transparent text-sm font-medium text-slate-200 outline-none cursor-pointer focus:ring-0 appearance-none pr-4"
       >
+        <option value="" disabled className="bg-slate-900 text-slate-500">SELECT VIEW</option>
         {tenants.map((tenant) => (
           <option key={tenant.id} value={tenant.id} className="bg-slate-900 text-slate-200">
-            {tenant.name} — {tenant.ale}
+            {tenant.name} {tenant.ale !== 'Aggregate Dashboard' ? `— ${tenant.ale}` : ''}
           </option>
         ))}
       </select>

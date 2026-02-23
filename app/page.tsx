@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ActiveRisks from "./components/ActiveRisks";
 import AgentStream from "./components/AgentStream";
 import AuditIntelligence from "./components/AuditIntelligence";
-import HealthScoreBadge from "./components/HealthScoreBadge";
 import StrategicIntel from "./components/StrategicIntel";
 import ThreatPipeline from "./components/ThreatPipeline";
+import DashboardAlertBanners from "./components/DashboardAlertBanners";
+import GlobalHealthSummaryCard from "./components/GlobalHealthSummaryCard";
+import RecentSubmissionsTable from "./components/RecentSubmissionsTable";
 import { useVendorAssessmentStore } from "./store/vendorQuestionnaireStore";
 import { useRemediationStore } from "./store/remediationStore";
 import { syncRegulatoryFeed, useRegulatoryStore, VendorRegulatoryFeedItem } from "./store/regulatoryStore";
@@ -577,124 +578,16 @@ export default function Page() {
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0">
-        {phoneHomeAlert && (
-          <div className="border-b border-red-500/60 bg-red-500/15 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-red-300">
-            {phoneHomeAlert}
-            <a href="mailto:support@ironframe.local" className="ml-2 underline text-red-200">
-              Contact Support
-            </a>
-          </div>
-        )}
+        <DashboardAlertBanners phoneHomeAlert={phoneHomeAlert} regulatoryState={regulatoryState} />
 
-        <div className="border-b border-slate-800 bg-slate-900/50 px-4 py-2">
-          <div className="flex items-center gap-2 text-[10px]">
-            <span className="rounded border border-red-500/70 bg-red-500/15 px-2 py-0.5 font-bold uppercase tracking-wide text-red-300">
-              REGULATORY ALERT
-            </span>
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <p className="whitespace-nowrap text-slate-200">
-                {regulatoryState.ticker.length > 0
-                  ? regulatoryState.ticker.join("  //  ")
-                  : regulatoryState.isSyncing
-                    ? "Syncing regulatory feed..."
-                    : "No new regulatory alerts."}
-              </p>
-            </div>
-          </div>
-        </div>
+        <GlobalHealthSummaryCard
+          aggregateEntityData={aggregateEntityData}
+          activeViolations={activeViolations}
+          potentialRevenueImpact={potentialRevenueImpact}
+          coreintelTrendActive={coreintelTrendActive}
+        />
 
-        <div className="border-b border-slate-800 bg-slate-950 p-4">
-          <div className="group relative flex min-h-44 flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-6 transition-all hover:border-blue-500/60">
-            <Link href="/vendors" aria-label="Open Global Vendor Intelligence" className="absolute inset-0 z-10" />
-            <p className="text-[10px] font-bold uppercase tracking-wide text-white">SUPPLY CHAIN HEALTH</p>
-
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GLOBAL RATING</p>
-              <HealthScoreBadge
-                entityData={aggregateEntityData}
-                scoreClassName="text-5xl [text-shadow:0_0_16px_rgba(16,185,129,0.35)]"
-              />
-            </div>
-
-            <div className="flex justify-end">
-              <div className="flex flex-col items-end gap-1.5">
-                <span className="rounded border border-red-500 bg-red-500/20 px-2 py-1 text-[9px] font-bold uppercase text-red-500 animate-pulse">
-                  {activeViolations} ACTIVE VIOLATION{activeViolations === 1 ? "" : "S"}
-                </span>
-                <Link
-                  href="/vendors/portal"
-                  className="relative z-20 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500 hover:text-blue-300"
-                >
-                  Open Vendor Portal
-                </Link>
-                <span className="rounded border border-blue-500/60 bg-blue-500/15 px-2 py-1 text-[9px] font-bold uppercase text-blue-300">
-                  POTENTIAL REVENUE IMPACT: ${potentialRevenueImpact.toLocaleString()}
-                </span>
-                {coreintelTrendActive && (
-                  <span className="rounded border border-amber-500/70 bg-amber-500/10 px-2 py-1 text-[9px] font-bold uppercase text-amber-300">
-                    COREINTEL ADJUSTMENT: MEDSHIELD AT-RISK REVENUE +15%
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <section className="border-b border-slate-800 bg-slate-900/35 px-4 py-4">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[11px] font-bold uppercase tracking-wide text-white">RECENT VENDOR SUBMISSIONS</h2>
-            <span className="text-[9px] uppercase text-slate-400">Historical Audit Trail</span>
-          </div>
-
-          <div className="overflow-x-auto rounded border border-slate-800">
-            <table className="w-full text-[10px] text-slate-200">
-              <thead className="border-b border-slate-800 bg-slate-950/80">
-                <tr>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">VENDOR</th>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">SUBMISSION DATE</th>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">AUDITOR</th>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">PREVIOUS SCORE</th>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">NEW SCORE</th>
-                  <th className="px-3 py-2 text-left font-bold uppercase tracking-wide text-slate-300">CHANGE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentSubmissions.length === 0 ? (
-                  <tr className="border-b border-slate-800 bg-slate-900/20">
-                    <td colSpan={6} className="px-3 py-3 text-center text-[10px] text-slate-400">
-                      No submissions recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  recentSubmissions.map((submission) => {
-                    const isPositive = submission.scoreChange >= 0;
-
-                    return (
-                      <tr key={submission.id} className="border-b border-slate-800 bg-slate-900/20">
-                        <td className="px-3 py-2 font-semibold text-white">{submission.vendorName}</td>
-                        <td className="px-3 py-2 text-slate-300">{new Date(submission.createdAt).toISOString().slice(0, 10)}</td>
-                        <td className="px-3 py-2 text-slate-300">{submission.auditor}</td>
-                        <td className="px-3 py-2 text-slate-300">{submission.previousScore}</td>
-                        <td className="px-3 py-2 text-slate-300">{submission.score}</td>
-                        <td className="px-3 py-2">
-                          <span
-                            className={`inline-flex rounded border px-2 py-0.5 text-[9px] font-bold ${
-                              isPositive
-                                ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-300"
-                                : "border-red-500/70 bg-red-500/15 text-red-300"
-                            }`}
-                          >
-                            {isPositive ? `+${submission.scoreChange}` : submission.scoreChange}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <RecentSubmissionsTable recentSubmissions={recentSubmissions} />
 
         <ThreatPipeline
           supplyChainThreat={pipelineSupplyChainThreat}

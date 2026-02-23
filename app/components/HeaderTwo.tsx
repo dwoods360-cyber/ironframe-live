@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
+// ---> NEW: Import your Enclave components
+import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
 
 type HeaderTwoProps = {
   isVendorOverviewRoute: boolean;
@@ -9,6 +12,7 @@ type HeaderTwoProps = {
   isConfigRoute: boolean;
   showPrimaryActionChips: boolean;
   onVendorDownload: () => void;
+  currentTenant?: string | null;
 };
 
 export default function HeaderTwo({
@@ -17,9 +21,16 @@ export default function HeaderTwo({
   isConfigRoute,
   showPrimaryActionChips,
   onVendorDownload,
+  currentTenant,
 }: HeaderTwoProps) {
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  
+  // ---> NEW: Portal State
+  const [isPortalOpen, setIsPortalOpen] = useState(false);
+
+  const prefix = currentTenant ? `/${currentTenant}` : "";
+  const homeLink = prefix || "/";
 
   useEffect(() => {
     const updateOverflowState = () => {
@@ -27,7 +38,6 @@ export default function HeaderTwo({
       if (!element) {
         return;
       }
-
       setIsOverflowing(element.scrollWidth > element.clientWidth + 1);
     };
 
@@ -50,7 +60,6 @@ export default function HeaderTwo({
     if (!chipBarRef.current) {
       return;
     }
-
     chipBarRef.current.scrollBy({
       left: direction === "left" ? -180 : 180,
       behavior: "smooth",
@@ -61,15 +70,17 @@ export default function HeaderTwo({
     if (typeof window === "undefined") {
       return;
     }
-
     window.dispatchEvent(new CustomEvent("vendors:open-summary"));
   };
 
   const openAddVendor = () => {
+    // ---> NEW: Trigger the portal instead of firing into the void!
+    setIsPortalOpen(true);
+    
+    // Keeping the original event just in case other parts of your app listen to it
     if (typeof window === "undefined") {
       return;
     }
-
     window.dispatchEvent(new CustomEvent("vendors:open-add-vendor"));
   };
 
@@ -78,7 +89,7 @@ export default function HeaderTwo({
       {!isVendorOverviewRoute ? (
         <div className="flex items-center gap-2">
           <Link
-            href="/vendors"
+            href={`${prefix}/vendors`}
             className={`rounded px-3 py-1 text-[10px] font-bold text-white ${
               isVendorsRoute ? "bg-slate-800 border-t-2 border-blue-500" : "bg-white/15 hover:bg-white/25"
             }`}
@@ -86,7 +97,7 @@ export default function HeaderTwo({
             VENDOR LIST
           </Link>
           <Link
-            href="/config"
+            href={`${prefix}/config`}
             className={`rounded px-3 py-1 text-[10px] font-bold text-white ${
               isConfigRoute ? "bg-slate-800 border-t-2 border-blue-500" : "bg-white/15 hover:bg-white/25"
             }`}
@@ -152,7 +163,7 @@ export default function HeaderTwo({
                   <span className="text-[10px] font-bold text-white">SUMMARY</span>
                 </button>
                 <Link
-                  href="/"
+                  href={homeLink}
                   className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
                 >
                   <span className="text-[10px] font-bold text-white">BACK</span>
@@ -162,13 +173,13 @@ export default function HeaderTwo({
             ) : showPrimaryActionChips ? (
               <>
               <Link
-                href="/reports/audit-trail"
+                href={`${prefix}/reports/audit-trail`}
                 className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
               >
                 <span className="text-[10px] font-bold text-white">AUDIT TRAIL</span>
               </Link>
               <Link
-                href="/reports/quick"
+                href={`${prefix}/reports/quick`}
                 className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
               >
                 <span className="text-[10px] font-bold text-white">QUICK REPORTS</span>
@@ -176,7 +187,7 @@ export default function HeaderTwo({
               </>
             ) : (
               <Link
-                href="/"
+                href={homeLink}
                 className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
               >
                 <span className="text-[10px] font-bold text-white">BACK</span>
@@ -185,6 +196,24 @@ export default function HeaderTwo({
           </div>
         </div>
       </div>
+
+      {/* ---> NEW: THE INGESTION PORTAL MODAL INSTALLED AT Z-[9999] <--- */}
+      {isPortalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-2xl border border-slate-800 bg-slate-900 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
+            <UploadArtifactModal 
+              isOpen={isPortalOpen} 
+              onClose={() => setIsPortalOpen(false)}
+              onUploadComplete={(data) => {
+                console.log("Upload complete:", data);
+                setIsPortalOpen(false);
+              }}
+              tenantId={currentTenant ?? ""}
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

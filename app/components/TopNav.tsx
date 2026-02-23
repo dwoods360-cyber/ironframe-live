@@ -7,16 +7,28 @@ import TenantSwitcher from "./TenantSwitcher";
 
 export default function TopNav() {
   const pathname = usePathname();
-  const isAuditTrailRoute = pathname === "/reports/audit-trail" || pathname.startsWith("/reports/audit-trail/");
-  const isVendorOverviewRoute = pathname === "/vendors" || pathname.startsWith("/vendors/");
+  
+  // 1. Detect if we are inside a tenant enclave (e.g., /medshield)
+  const segments = pathname.split('/').filter(Boolean);
+  const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"];
+  const currentTenant = VALID_TENANTS.includes(segments[0]?.toLowerCase()) ? segments[0].toLowerCase() : null;
+  
+  // 2. Create the dynamic prefix (will be empty on the global dashboard)
+  const prefix = currentTenant ? `/${currentTenant}` : "";
+
+  // 3. Make all route checks tenant-aware
+  const isAuditTrailRoute = pathname === `${prefix}/reports/audit-trail` || pathname.startsWith(`${prefix}/reports/audit-trail/`);
+  const isVendorOverviewRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const showPrimaryActionChips = !isAuditTrailRoute;
-  const isConfigRoute = pathname === "/config" || pathname.startsWith("/config/");
-  const isEvidenceRoute = pathname === "/evidence" || pathname.startsWith("/evidence/");
-  const isFrameworksRoute = pathname === "/compliance/frameworks" || pathname.startsWith("/compliance/frameworks/");
-  const isVendorsRoute = pathname === "/vendors" || pathname.startsWith("/vendors/");
+  const isConfigRoute = pathname === `${prefix}/config` || pathname.startsWith(`${prefix}/config/`);
+  const isEvidenceRoute = pathname === `${prefix}/evidence` || pathname.startsWith(`${prefix}/evidence/`);
+  const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
+  const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
+  
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
   const isPlaybookRoute = Boolean(playbookEntity);
+  
   const headerContextTitle = isPlaybookRoute
     ? `${playbookEntity} // INCIDENT RESPONSE PLAYBOOK`
     : isVendorsRoute
@@ -78,17 +90,14 @@ export default function TopNav() {
         </div>
       </div>
 
-      {/* --- THIS IS THE UPDATED SECTION --- */}
       <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
         <div className="flex h-full items-center">
-          {/* Injecting the new Tenant Switcher Component here */}
           <TenantSwitcher />
         </div>
         <div className="text-[10px] font-bold uppercase text-emerald-400 flex items-center gap-2">
             AGENT MANAGER: ONLINE
         </div>
       </div>
-      {/* ----------------------------------- */}
 
       <HeaderTwo
         isVendorOverviewRoute={isVendorOverviewRoute}
@@ -96,6 +105,7 @@ export default function TopNav() {
         isConfigRoute={isConfigRoute}
         showPrimaryActionChips={showPrimaryActionChips}
         onVendorDownload={handleVendorDownload}
+        currentTenant={currentTenant} // ---> NEW: Passing the isolated tenant to the sub-nav
       />
     </header>
   );

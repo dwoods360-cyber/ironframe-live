@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import TopNav from "./components/TopNav";
 import DebugPanel from "./components/dev/DebugPanel";
 import { TenantProvider } from "./context/TenantProvider";
+import GlobalDropZone from "./components/GlobalDropZone";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,6 +33,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased`}
       >
         <TenantProvider>
+          <GlobalDropZone />
           <div className="fixed inset-x-0 top-0 z-50">
             <TopNav />
           </div>

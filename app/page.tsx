@@ -6,6 +6,7 @@ import StrategicIntel from "./components/StrategicIntel";
 import ThreatPipeline from "./components/ThreatPipeline";
 import DashboardAlertBanners from "./components/DashboardAlertBanners";
 import GlobalHealthSummaryCard from "./components/GlobalHealthSummaryCard";
+import type { StreamAlert } from "./hooks/useAlerts";
 
 // Instantiate the Core Vault connection
 const prisma = new PrismaClient();
@@ -32,8 +33,8 @@ export default async function Page() {
     return sum;
   }, 0);
 
-  // 3. Map real ActiveRisks into the AgentStream format
-  const liveAlerts = companies.flatMap(company => 
+  // 3. Map real ActiveRisks into the AgentStream format (StreamAlert[])
+  const liveAlerts: StreamAlert[] = companies.flatMap(company =>
     company.risks.filter(r => r.status === 'ACTIVE').map(risk => ({
       id: `risk-${risk.id}`,
       type: "AGENT_ALERT" as const,
@@ -69,7 +70,7 @@ export default async function Page() {
           coreintelTrendActive={false} 
         />
 
-        <ThreatPipeline supplyChainThreat={null} showSocStream={true} />
+        <ThreatPipeline supplyChainThreat={null} showSocStream={true} onRemediateSupplyChainThreat={() => {}} />
         <ActiveRisks />
       </section>
 

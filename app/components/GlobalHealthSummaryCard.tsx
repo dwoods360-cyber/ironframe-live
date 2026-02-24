@@ -1,61 +1,63 @@
-/**
- * IRONFRAME STANDARD: Top-level aggregate scoring and financial exposure readout.
- */
+import { PrismaClient } from '@prisma/client';
 
-import Link from "next/link";
-import HealthScoreBadge from "@/app/components/HealthScoreBadge";
-import type { EntityData } from "@/app/utils/scoring";
+const prisma = new PrismaClient();
 
-export interface GlobalHealthSummaryCardProps {
-  aggregateEntityData: EntityData;
-  activeViolations: number;
-  potentialRevenueImpact: number;
-  coreintelTrendActive: boolean;
-}
+export default async function GlobalHealthSummaryCard() {
+  const companies = await prisma.company.findMany({
+    include: { risks: true, policies: true }
+  });
 
-export default function GlobalHealthSummaryCard({
-  aggregateEntityData,
-  activeViolations,
-  potentialRevenueImpact,
-  coreintelTrendActive,
-}: GlobalHealthSummaryCardProps) {
+  // 1. Calculate Real Violations
+  const activeViolations = companies.reduce((sum, company) => 
+    sum + company.risks.filter(r => r.status === 'ACTIVE').length + 
+          company.policies.filter(p => p.status === 'GAP DETECTED').length
+  , 0);
+
+  // 2. Calculate Real Revenue Impact from the seeded string values (e.g., "$11.1M")
+  const potentialRevenueImpactUsd = companies.reduce((sum, company) => {
+    const hasActiveThreat = company.risks.some(r => r.status === 'ACTIVE') || company.policies.some(p => p.status === 'GAP DETECTED');
+    if (hasActiveThreat && company.industry_avg_loss) {
+      // Strip out the '$' and 'M', convert to raw float
+      const val = parseFloat(company.industry_avg_loss.replace(/[^0-9.]/g, ''));
+      return sum + (val * 1000000); // Multiply by 1M to get raw USD
+    }
+    return sum;
+  }, 0);
+
   return (
-    <div className="border-b border-slate-800 bg-slate-950 p-4">
-      <div className="group relative flex min-h-44 flex-col justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-6 transition-all hover:border-blue-500/60">
-        <Link href="/vendors" aria-label="Open Global Vendor Intelligence" className="absolute inset-0 z-10" />
-        <p className="text-[10px] font-bold uppercase tracking-wide text-white">SUPPLY CHAIN HEALTH</p>
-
-        <div className="flex flex-1 flex-col items-center justify-center text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GLOBAL RATING</p>
-          <HealthScoreBadge
-            entityData={aggregateEntityData}
-            scoreClassName="text-5xl [text-shadow:0_0_16px_rgba(16,185,129,0.35)]"
-          />
-        </div>
-
-        <div className="flex justify-end">
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="rounded border border-red-500 bg-red-500/20 px-2 py-1 text-[9px] font-bold uppercase text-red-500 animate-pulse">
-              {activeViolations} ACTIVE VIOLATION{activeViolations === 1 ? "" : "S"}
-            </span>
-            <Link
-              href="/vendors/portal"
-              className="relative z-20 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500 hover:text-blue-300"
-            >
-              Open Vendor Portal
-            </Link>
-            <span className="rounded border border-blue-500/60 bg-blue-500/15 px-2 py-1 text-[9px] font-bold uppercase text-blue-300">
-              POTENTIAL REVENUE IMPACT: ${potentialRevenueImpact.toLocaleString()}
-            </span>
-            {coreintelTrendActive && (
-              <span className="rounded border border-amber-500/70 bg-amber-500/10 px-2 py-1 text-[9px] font-bold uppercase text-amber-300">
-                COREINTEL ADJUSTMENT: MEDSHIELD AT-RISK REVENUE +15%
-              </span>
-            )}
+    <div className="border-b border-slate-800 bg-slate-900/30 p-6">
+      <div className="grid grid-cols-3 gap-6">
+        
+        {/* Metric 1: Protected Organizations */}
+        <div className="flex flex-col">
+          <span className="text-xs tracking-wider text-slate-500 uppercase">Protected Tenants</span>
+          <div className="mt-2 flex items-baseline space-x-2">
+            <span className="text-3xl font-light text-slate-200">{companies.length}</span>
+            <span className="text-xs text-emerald-400">100% ONLINE</span>
           </div>
         </div>
+
+        {/* Metric 2: Active Violations */}
+        <div className="flex flex-col border-l border-slate-800 pl-6">
+          <span className="text-xs tracking-wider text-slate-500 uppercase">Active Violations</span>
+          <div className="mt-2 flex items-baseline space-x-2">
+            <span className="text-3xl font-light text-slate-200">{activeViolations}</span>
+            <span className="text-xs text-amber-400">REQUIRES TRIAGE</span>
+          </div>
+        </div>
+
+        {/* Metric 3: Financial Exposure */}
+        <div className="flex flex-col border-l border-slate-800 pl-6">
+          <span className="text-xs tracking-wider text-slate-500 uppercase">Liability Exposure (USD)</span>
+          <div className="mt-2 flex items-baseline space-x-2">
+            <span className="text-3xl font-light text-red-400">
+              ${(potentialRevenueImpactUsd / 1000000).toFixed(1)}M
+            </span>
+            <span className="text-xs text-slate-500">ALE AT RISK</span>
+          </div>
+        </div>
+
       </div>
     </div>
   );
 }
-

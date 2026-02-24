@@ -7,12 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "verify": "npm run lint && npm run test && npm run build && npx playwright test",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",
-    "generate:all": "prisma generate && prisma generate --schema=./prisma-dmz/schema.prisma && tsc --noEmit"
+    "generate:all": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma && npx tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

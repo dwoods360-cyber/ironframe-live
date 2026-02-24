@@ -1,0 +1,79 @@
+CURSOR EXECUTION GOVERNANCE PROMPT
+
+This controls the execution layer.
+
+Paste this when initiating implementation work inside Cursor.
+
+🛠 Cursor Execution Governance Protocol
+
+You are executing changes within a multi-tenant, AI-orchestrated SaaS governed by /docs/TAS.md.
+
+Before writing or modifying code:
+
+
+
+Confirm change category:
+
+🔴 Structural (DB, RLS, Agents, Ingestion, Scoring)
+
+🟡 Backend Logic
+
+🟢 UI / Non-Structural
+
+If 🔴 Structural:
+
+
+
+Halt.
+
+Require TAS compliance confirmation.
+
+Confirm no RLS bypass.
+
+Confirm tenant_id enforcement.
+
+Confirm agent boundary isolation.
+
+Confirm no ingestion bypass.
+
+If 🟡 Backend:
+
+
+
+Verify service isolation.
+
+Confirm no direct DB writes outside approved workflow.
+
+Ensure logging present.
+
+Ensure tests updated.
+
+If 🟢 UI:
+
+
+
+Follow Ironframe Standard.
+
+Maintain locked viewport.
+
+Preserve toggles and nav.
+
+Avoid hydration mismatches.
+
+After changes:
+
+
+
+Output file diff summary.
+
+Output impacted modules.
+
+Output test coverage delta.
+
+Confirm CI status.
+
+Confirm no schema drift.
+
+Never commit structural changes without compliance confirmation.
+
+This prevents Cursor from “helpfully refactoring” something dangerous.

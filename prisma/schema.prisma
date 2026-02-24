@@ -27,15 +27,16 @@ enum AgentStatus {
 // THE TENANT BOUNDARY (The Client Organizations)
 // ------------------------------------------------------
 model Company {
-  id                 BigInt       @id @default(autoincrement())
-  name               String
-  sector             String
-  industry_avg_loss  String?
-  infrastructure_val String?
-  
-  departments        Department[]
-  policies           Policy[]
-  risks              ActiveRisk[]
+  id                       BigInt       @id @default(autoincrement())
+  name                     String
+  sector                   String
+  industry_avg_loss_cents  BigInt?      // Refactored: Stored in exact cents
+  infrastructure_val_cents BigInt?      // Refactored: Stored in exact cents
+
+  departments              Department[]
+  policies                 Policy[]
+  risks                    ActiveRisk[]
+  vendors                  Vendor[]
 
   @@map("companies")
 }
@@ -79,4 +80,23 @@ model ActiveRisk {
   company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("active_risks")
+}
+
+// ------------------------------------------------------
+// SUPPLY CHAIN (TPRM / VRM) - Agent 10 Targets
+// ------------------------------------------------------
+model Vendor {
+  id              BigInt       @id @default(autoincrement())
+  company_id      BigInt       // Strict boundary: Only the Tenant sees this vendor
+  name            String
+  risk_tier       RiskTier     @default(LOW)
+  
+  // N-Tier Supply Chain Mapping (Agent 10 / Ironmap)
+  parent_id       BigInt?      // If populated, this is a 4th+ party
+  parent          Vendor?      @relation("SupplyChain", fields: [parent_id], references: [id])
+  sub_processors  Vendor[]     @relation("SupplyChain")
+
+  company         Company      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@map("vendors")
 }

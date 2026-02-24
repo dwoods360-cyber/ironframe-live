@@ -13,13 +13,11 @@ export default async function GlobalHealthSummaryCard() {
           company.policies.filter(p => p.status === 'GAP DETECTED').length
   , 0);
 
-  // 2. Calculate Real Revenue Impact from the seeded string values (e.g., "$11.1M")
+  // 2. Calculate Real Revenue Impact from cents (convert to USD for display)
   const potentialRevenueImpactUsd = companies.reduce((sum, company) => {
     const hasActiveThreat = company.risks.some(r => r.status === 'ACTIVE') || company.policies.some(p => p.status === 'GAP DETECTED');
-    if (hasActiveThreat && company.industry_avg_loss) {
-      // Strip out the '$' and 'M', convert to raw float
-      const val = parseFloat(company.industry_avg_loss.replace(/[^0-9.]/g, ''));
-      return sum + (val * 1000000); // Multiply by 1M to get raw USD
+    if (hasActiveThreat && company.industry_avg_loss_cents != null) {
+      return sum + Number(company.industry_avg_loss_cents) / 100; // Cents → USD
     }
     return sum;
   }, 0);

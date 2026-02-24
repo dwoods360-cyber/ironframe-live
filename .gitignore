@@ -12,3 +12,6 @@ tmp-phase*.js
 .tmp*.js
 
 /lib/generated/prisma
+
+# stryker temp files
+.stryker-tmp

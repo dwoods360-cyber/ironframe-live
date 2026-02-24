@@ -19,7 +19,7 @@ jobs:
       - name: Install Dependencies
         run: npm install
       - name: Generate Dual Prisma Clients
-        run: npm run generate:all # This now runs your verified local script
+        run: npm run generate:all
       - name: Run Lint
         run: npm run lint
       - name: Run Unit Tests

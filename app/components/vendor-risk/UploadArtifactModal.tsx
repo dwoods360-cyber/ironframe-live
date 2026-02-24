@@ -13,7 +13,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { X, Upload, Loader2, ShieldCheck } from 'lucide-react';
+import { X, Loader2, ShieldCheck } from 'lucide-react';
 import { uploadToQuarantine } from '@/app/actions/upload-to-dmz';
 
 type UploadState = 'idle' | 'staged' | 'scanning' | 'success';
@@ -145,8 +145,6 @@ export default function UploadArtifactModal({
 
   if (!isOpen) return null;
 
-  const borderColor = isDragging ? '#60a5fa' : '#30363d';
-
   return (
     <div
       style={{
@@ -181,7 +179,7 @@ export default function UploadArtifactModal({
           aria-hidden
         />
 
-        {/* IDLE: dropzone */}
+        {/* IDLE: enterprise GRC ingestion dropzone */}
         {uploadState === 'idle' && (
           <div
             role="button"
@@ -191,21 +189,56 @@ export default function UploadArtifactModal({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            style={{
-              marginTop: '20px',
-              border: `2px dashed ${borderColor}`,
-              padding: '40px',
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'border-color 0.15s ease-out, opacity 0.15s ease-out',
-            }}
+            className={`relative mt-5 flex flex-col items-center justify-center rounded-xl border-2 border-dashed bg-slate-900/50 p-10 text-center transition-colors cursor-pointer ${
+              isDragging
+                ? 'border-blue-500/50 bg-slate-800/50'
+                : 'border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/50'
+            }`}
           >
-            <Upload size={32} />
-            <p>
+            {/* Security Iconography */}
+            <div className="mb-4 rounded-full bg-slate-950 p-4 ring-1 ring-slate-800">
+              <svg
+                className="h-8 w-8 text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </div>
+
+            {/* Primary Instruction */}
+            <h3 className="mb-1 text-lg font-semibold text-slate-200">
+              Secure Artifact Ingestion
+            </h3>
+            <p className="mb-6 max-w-sm text-sm text-slate-400">
               {isDragging
-                ? 'Drop file to stage for DMZ'
-                : 'Click or drag a file here to stage for security scan'}
+                ? 'Drop file to route to Level 2 DMZ.'
+                : 'Drag and drop evidence files, or click to browse. All payloads are routed directly to the Level 2 DMZ Air-Gap.'}
             </p>
+
+            {/* Interactive Button */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleDropzoneClick(); }}
+              className="rounded-md bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+            >
+              Select Artifact
+            </button>
+
+            {/* GRC Constraints & Agent Branding */}
+            <div className="mt-8 flex w-full flex-col items-center justify-center space-y-2 border-t border-slate-800 pt-4">
+              <div className="flex items-center space-x-2 text-xs font-medium text-amber-500/80">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>AGENT 14 (IRONGATE) INTERCEPT ACTIVE</span>
+              </div>
+              <span className="text-[11px] uppercase tracking-wider text-slate-500">
+                Supported: PDF, DOCX, CSV, XLSX (Max 50MB)
+              </span>
+            </div>
           </div>
         )}
 

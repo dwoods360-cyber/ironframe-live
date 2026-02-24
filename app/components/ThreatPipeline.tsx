@@ -14,7 +14,7 @@ type SupplyChainThreat = {
 type ThreatPipelineProps = {
   supplyChainThreat: SupplyChainThreat | null;
   showSocStream: boolean;
-  onRemediateSupplyChainThreat: (vendorName: string) => void;
+  onRemediateSupplyChainThreat?: (vendorName: string) => void;
 };
 
 export default function ThreatPipeline({ supplyChainThreat, showSocStream, onRemediateSupplyChainThreat }: ThreatPipelineProps) {
@@ -82,7 +82,7 @@ export default function ThreatPipeline({ supplyChainThreat, showSocStream, onRem
               <button
                 type="button"
                 onClick={() => {
-                  onRemediateSupplyChainThreat(supplyChainThreat.vendorName);
+                  onRemediateSupplyChainThreat?.(supplyChainThreat.vendorName);
                   router.push("/medshield/playbooks");
                 }}
                 className="rounded border border-blue-500/70 bg-blue-500/15 px-3 py-1 text-[10px] font-bold uppercase text-blue-200"

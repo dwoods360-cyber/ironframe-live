@@ -11,7 +11,8 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
-    "test:mutants": "stryker run"
+    "test:mutants": "stryker run",
+    "generate:all": "prisma generate && prisma generate --schema=./prisma-dmz/schema.prisma && tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

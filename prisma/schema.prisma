@@ -24,19 +24,36 @@ enum AgentStatus {
 }
 
 // ------------------------------------------------------
+// TENANT (Constitutional - Multi-tenant identity / routing)
+// ------------------------------------------------------
+model Tenant {
+  id           BigInt   @id @default(autoincrement())
+  name         String
+  slug         String   @unique
+  industry     String   @default("Secure Enclave")
+  ale_baseline BigInt   @default(0) // ALE math must use BigInt
+
+  // Relationships for Phase 4 Workflows
+  vendors    Vendor[]
+  agent_logs AgentLog[]
+  createdAt  DateTime @default(now())
+
+  @@map("tenants")
+}
+
+// ------------------------------------------------------
 // THE TENANT BOUNDARY (The Client Organizations)
 // ------------------------------------------------------
 model Company {
   id                       BigInt       @id @default(autoincrement())
   name                     String
-  sector                   String
+  sector                    String
   industry_avg_loss_cents  BigInt?      // Refactored: Stored in exact cents
   infrastructure_val_cents BigInt?      // Refactored: Stored in exact cents
 
-  departments              Department[]
-  policies                 Policy[]
-  risks                    ActiveRisk[]
-  vendors                  Vendor[]
+  departments Department[]
+  policies    Policy[]
+  risks      ActiveRisk[]
 
   @@map("companies")
 }
@@ -83,20 +100,27 @@ model ActiveRisk {
 }
 
 // ------------------------------------------------------
-// SUPPLY CHAIN (TPRM / VRM) - Agent 10 Targets
+// SUPPLY CHAIN (TPRM / VRM) - Tenant-scoped
 // ------------------------------------------------------
 model Vendor {
-  id              BigInt       @id @default(autoincrement())
-  company_id      BigInt       // Strict boundary: Only the Tenant sees this vendor
-  name            String
-  risk_tier       RiskTier     @default(LOW)
-  
-  // N-Tier Supply Chain Mapping (Agent 10 / Ironmap)
-  parent_id       BigInt?      // If populated, this is a 4th+ party
-  parent          Vendor?      @relation("SupplyChain", fields: [parent_id], references: [id])
-  sub_processors  Vendor[]     @relation("SupplyChain")
-
-  company         Company      @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  name      String
+  riskTier  String  @default("LOW") // CRITICAL, HIGH, MEDIUM, LOW
+  tenantId  BigInt
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("vendors")
+}
+
+// ------------------------------------------------------
+// AGENT LOGS (Phase 4 Workflows)
+// ------------------------------------------------------
+model AgentLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  message   String
+  tenantId  BigInt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("agent_logs")
 }

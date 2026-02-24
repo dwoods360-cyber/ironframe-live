@@ -19,11 +19,18 @@ export default async function Page() {
     }
   });
 
-  // 2. Dynamically calculate violations based on REAL database rows
+  // 2. Dynamically calculate violations and revenue impact
   const activeViolations = companies.reduce((sum, company) => 
     sum + company.risks.filter(r => r.status === 'ACTIVE').length + 
           company.policies.filter(p => p.status === 'GAP DETECTED').length
   , 0);
+  const potentialRevenueImpact = companies.reduce((sum, company) => {
+    const hasActiveThreat = company.risks.some(r => r.status === 'ACTIVE') || company.policies.some(p => p.status === 'GAP DETECTED');
+    if (hasActiveThreat && company.industry_avg_loss_cents != null) {
+      return sum + Number(company.industry_avg_loss_cents) / 100; // cents → USD
+    }
+    return sum;
+  }, 0);
 
   // 3. Map real ActiveRisks into the AgentStream format
   const liveAlerts = companies.flatMap(company => 
@@ -53,13 +60,12 @@ export default async function Page() {
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0">
-      <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ feed: [], vendorRegulatoryFeed: [], ticker: [], isSyncing: false }} />
+      <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
 
         {/* Note: We will need to update this component's internal logic next */}
         <GlobalHealthSummaryCard 
-          aggregateEntityData={{}} 
           activeViolations={activeViolations} 
-          potentialRevenueImpact={0} 
+          potentialRevenueImpact={potentialRevenueImpact} 
           coreintelTrendActive={false} 
         />
 
@@ -71,6 +77,8 @@ export default async function Page() {
         <AgentStream 
           alerts={liveAlerts} 
           socIntakeEnabled={true} 
+          onApprove={() => {}} 
+          onDismiss={() => {}} 
         />
         <AuditIntelligence />
       </aside>

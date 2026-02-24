@@ -2,25 +2,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-export default async function GlobalHealthSummaryCard() {
+export interface GlobalHealthSummaryCardProps {
+  activeViolations: number;
+  potentialRevenueImpact: number;
+  coreintelTrendActive: boolean;
+}
+
+export default async function GlobalHealthSummaryCard({
+  activeViolations,
+  potentialRevenueImpact,
+  coreintelTrendActive,
+}: GlobalHealthSummaryCardProps) {
   const companies = await prisma.company.findMany({
     include: { risks: true, policies: true }
   });
-
-  // 1. Calculate Real Violations
-  const activeViolations = companies.reduce((sum, company) => 
-    sum + company.risks.filter(r => r.status === 'ACTIVE').length + 
-          company.policies.filter(p => p.status === 'GAP DETECTED').length
-  , 0);
-
-  // 2. Calculate Real Revenue Impact from cents (convert to USD for display)
-  const potentialRevenueImpactUsd = companies.reduce((sum, company) => {
-    const hasActiveThreat = company.risks.some(r => r.status === 'ACTIVE') || company.policies.some(p => p.status === 'GAP DETECTED');
-    if (hasActiveThreat && company.industry_avg_loss_cents != null) {
-      return sum + Number(company.industry_avg_loss_cents) / 100; // Cents → USD
-    }
-    return sum;
-  }, 0);
 
   return (
     <div className="border-b border-slate-800 bg-slate-900/30 p-6">
@@ -49,9 +44,9 @@ export default async function GlobalHealthSummaryCard() {
           <span className="text-xs tracking-wider text-slate-500 uppercase">Liability Exposure (USD)</span>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-light text-red-400">
-              ${(potentialRevenueImpactUsd / 1000000).toFixed(1)}M
+              ${(potentialRevenueImpact / 1000000).toFixed(1)}M
             </span>
-            <span className="text-xs text-slate-500">ALE AT RISK</span>
+            <span className="text-xs text-slate-500">{coreintelTrendActive ? 'COREINTEL TRENDING' : 'ALE AT RISK'}</span>
           </div>
         </div>
 

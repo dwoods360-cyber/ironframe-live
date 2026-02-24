@@ -17,7 +17,8 @@ export type StreamAlert = {
   type: AlertType;
   origin: AlertOrigin;
   isExternalSOC: boolean;
-  sourceAgent: AlertSourceAgent;
+  /** Matches Prisma ActiveRisk.source (String) */
+  sourceAgent: AlertSourceAgent | string;
   title: string;
   impact: string;
   severityScore: number;

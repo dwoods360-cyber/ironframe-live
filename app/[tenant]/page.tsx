@@ -20,13 +20,8 @@ export default async function TenantCommandCenter({
   }
 
   // The Orchestrator's DB Query: Fetch the isolated tenant vault
-  const tenantData = await prisma.tenant.findFirst({
-    where: {
-      name: {
-        contains: currentTenant,
-        mode: "insensitive", 
-      },
-    },
+  const tenantData = await prisma.tenant.findUnique({
+    where: { slug: currentTenant },
     include: {
       // Bring in the N-Tier Vendors
       vendors: {
@@ -58,7 +53,7 @@ export default async function TenantCommandCenter({
   }
 
   // Format the ALE Baseline (e.g., 11100000 -> $11.1M)
-  const formattedAle = `$${(tenantData.ale_baseline / 1000000).toFixed(1)}M`;
+  const formattedAle = `$${(Number(tenantData.ale_baseline) / 1000000).toFixed(1)}M`;
   const criticalVendors = tenantData.vendors.filter(v => v.riskTier === "CRITICAL").length;
 
   return (
@@ -114,7 +109,7 @@ export default async function TenantCommandCenter({
                 tenantData.agent_logs.map((log) => (
                   <div key={log.id} className="border-l-2 border-emerald-500 pl-3">
                     <p className="text-[10px] text-emerald-400 font-mono">
-                      [AGENT {log.agentId}: {log.agentName}]
+                      [{log.timestamp.toISOString()}]
                     </p>
                     <p className="text-xs text-slate-300">{log.message}</p>
                   </div>

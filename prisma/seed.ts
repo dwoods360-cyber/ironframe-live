@@ -5,7 +5,9 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order
-  await prisma.vendor.deleteMany(); // Added the new Vendor table purge
+  await prisma.agentLog.deleteMany();
+  await prisma.vendor.deleteMany();
+  await prisma.tenant.deleteMany();
   await prisma.activeRisk.deleteMany();
   await prisma.policy.deleteMany();
   await prisma.department.deleteMany();
@@ -13,7 +15,18 @@ async function main() {
 
   console.log('🚀 Initiating Ironframe Baseline Seed (v1.1 TPRM)...');
 
-  // 1. Establish Companies (The 1st Party / Tenant Boundary)
+  // 1. Establish Tenants (Constitutional)
+  const tenantMedshield = await prisma.tenant.create({
+    data: { name: 'Medshield Health', slug: 'medshield', industry: 'Healthcare', ale_baseline: 1110000000n }
+  });
+  const tenantVaultbank = await prisma.tenant.create({
+    data: { name: 'Vaultbank Global', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
+  });
+  const tenantGridcore = await prisma.tenant.create({
+    data: { name: 'Gridcore Energy', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
+  });
+
+  // 2. Establish Companies (The 1st Party / Tenant Boundary)
   const medshield = await prisma.company.create({
     data: { name: 'Medshield Health', sector: 'Healthcare', industry_avg_loss_cents: 1110000000n, infrastructure_val_cents: 1520000000n }
   });
@@ -47,32 +60,20 @@ async function main() {
     ]
   });
 
-  // 4. Inject N-Tier Supply Chain (Agent 10 / Ironmap Targets)
+  // 4. Inject N-Tier Supply Chain (Agent 10 / Ironmap Targets) - Tenant-scoped
   console.log('🔗 Mapping N-Tier Supply Chain...');
-  
-  // MedShield's 3rd Party
-  const azureHealth = await prisma.vendor.create({
-    data: { company_id: medshield.id, name: 'Azure Health', risk_tier: 'HIGH' }
-  });
 
-  // MedShield's 4th Party (Sub-processor mapped to Azure Health)
   await prisma.vendor.create({
-    data: { 
-      company_id: medshield.id, 
-      name: 'KubeOps EU-West', 
-      risk_tier: 'CRITICAL',
-      parent_id: azureHealth.id // <-- This maps the 4th-party inheritance!
-    }
+    data: { tenantId: tenantMedshield.id, name: 'Azure Health', riskTier: 'HIGH' }
   });
-
-  // GridCore's 3rd Party
   await prisma.vendor.create({
-    data: { company_id: gridcore.id, name: 'Schneider Electric', risk_tier: 'HIGH' }
+    data: { tenantId: tenantMedshield.id, name: 'KubeOps EU-West', riskTier: 'CRITICAL' }
   });
-
-  // VaultBank's 3rd Party
   await prisma.vendor.create({
-    data: { company_id: vaultbank.id, name: 'Palo Alto Networks', risk_tier: 'CRITICAL' }
+    data: { tenantId: tenantGridcore.id, name: 'Schneider Electric', riskTier: 'HIGH' }
+  });
+  await prisma.vendor.create({
+    data: { tenantId: tenantVaultbank.id, name: 'Palo Alto Networks', riskTier: 'CRITICAL' }
   });
 
   console.log('✅ Ironframe Baseline Seed Complete.');

@@ -11,6 +11,9 @@ export async function logToQuarantine(fileName: string, tenantId: string = 'meds
         fileName: fileName,
         tenantId: tenantId,
         status: 'PENDING',
+        fileSize: 0,
+        storagePath: 'pending/',
+        uploadedBy: 'SYSTEM',
       },
     });
     return { success: true, record };

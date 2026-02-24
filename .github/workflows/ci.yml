@@ -12,23 +12,18 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-
       - name: Install Dependencies
         run: npm install
-
       - name: Generate Dual Prisma Clients
-        run: |
-          npx prisma generate
-          npx prisma generate --schema=./prisma-dmz/schema.prisma
-
+        run: npm run generate:all # This now runs your verified local script
       - name: Run Lint
         run: npm run lint
-
+      - name: Run Unit Tests
+        run: npm run test
       - name: Run Build
         run: npm run build
         env:

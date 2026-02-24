@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type AgentLog, type Vendor } from "@prisma/client";
 
 // Initialize Prisma directly on the server
 const prisma = new PrismaClient();
@@ -54,7 +54,7 @@ export default async function TenantCommandCenter({
 
   // Format the ALE Baseline (e.g., 11100000 -> $11.1M)
   const formattedAle = `$${(Number(tenantData.ale_baseline) / 1000000).toFixed(1)}M`;
-  const criticalVendors = tenantData.vendors.filter(v => v.riskTier === "CRITICAL").length;
+  const criticalVendors = tenantData.vendors.filter((v: Vendor) => v.riskTier === "CRITICAL").length;
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-slate-950 p-10 pt-32">
@@ -106,7 +106,7 @@ export default async function TenantCommandCenter({
               {tenantData.agent_logs.length === 0 ? (
                 <p className="text-xs text-slate-500 italic">No agent logs recorded yet.</p>
               ) : (
-                tenantData.agent_logs.map((log) => (
+                tenantData.agent_logs.map((log: AgentLog) => (
                   <div key={log.id} className="border-l-2 border-emerald-500 pl-3">
                     <p className="text-[10px] text-emerald-400 font-mono">
                       [{log.timestamp.toISOString()}]

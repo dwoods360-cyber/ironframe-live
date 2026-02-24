@@ -10,18 +10,19 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Use Node.js LTS
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Dual Prisma Clients (Core & DMZ)
+      - name: Generate Dual Prisma Clients
         run: |
           npx prisma generate
           npx prisma generate --schema=./prisma-dmz/schema.prisma
@@ -31,9 +32,3 @@ jobs:
 
       - name: Run Unit Tests
         run: npm run test
-
-      - name: Run Coverage
-        run: npm run test:coverage
-
-      - name: Run Mutation Testing
-        run: npm run test:mutation

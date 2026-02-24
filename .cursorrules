@@ -77,3 +77,70 @@ Confirm no schema drift.
 Never commit structural changes without compliance confirmation.
 
 This prevents Cursor from “helpfully refactoring” something dangerous.
+
+MERGE PROTECTION PROTOCOL
+
+No branch may merge unless:
+
+TypeScript strict check passes
+
+Lint passes
+
+Unit tests pass
+
+Integration tests pass
+
+Playwright E2E passes
+
+Coverage ≥ 85% on core logic modules
+
+Prisma schema validated
+
+No Float types in financial modules
+
+Cursor must output:
+
+CI STATUS REPORT:
+- Type Check: PASS/FAIL
+- Unit Tests: PASS/FAIL
+- Integration Tests: PASS/FAIL
+- E2E Tests: PASS/FAIL
+- Coverage %:
+- Schema Drift: YES/NO
+
+If any FAIL → block merge.
+
+1️⃣ Vitest (or Jest) for Unit Tests
+
+For:
+
+Irontrust ALE math
+
+Risk bucket logic
+
+Escalation triggers
+
+Sensitivity dial behavior
+
+2️⃣ Integration Tests
+
+For:
+
+Prisma queries
+
+Supabase RLS enforcement
+
+Tenant isolation
+
+Agent DB writes
+
+3️⃣ Snapshot Tests
+
+For:
+
+Irontrust scoring outputs
+
+Agent routing decisions
+
+Irongate sanitation outputs
+

@@ -1,7 +1,6 @@
-// This is your Ironframe Foundation
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
@@ -9,6 +8,7 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// --- AGENT WORKFORCE ENUMS ---
 enum RiskTier {
   CRITICAL
   HIGH
@@ -23,74 +23,60 @@ enum AgentStatus {
   ERROR
 }
 
-enum ScanStatus {
-  PENDING      // File just arrived in the DMZ
-  SCANNING     // Agent 5 is actively reading it
-  CLEARED      // File is safe and text is extracted
-  QUARANTINED  // Malware or critical PII detected (Locked)
-  ERROR        // Agent 5 failed to read the file
+// ------------------------------------------------------
+// THE TENANT BOUNDARY (The Client Organizations)
+// ------------------------------------------------------
+model Company {
+  id                 BigInt       @id @default(autoincrement())
+  name               String
+  sector             String
+  industry_avg_loss  String?
+  infrastructure_val String?
+  
+  departments        Department[]
+  policies           Policy[]
+  risks              ActiveRisk[]
+
+  @@map("companies")
 }
 
-model Tenant {
-  id                String             @id @default(cuid())
-  name              String             // e.g., "Medshield", "Vaultbank"
-  industry          String
-  ale_baseline      Float              // e.g., 11100000 for Medshield
+// ------------------------------------------------------
+// INTERNAL DIVISIONS
+// ------------------------------------------------------
+model Department {
+  id         BigInt   @id @default(autoincrement())
+  company_id BigInt
+  name       String   // e.g., "IT", "Finance", "HR"
   
-  vendors           Vendor[]
-  agent_logs        AgentLog[]
-  quarantine_vault  QuarantineRecord[] 
-  
-  createdAt         DateTime           @default(now())
+  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@map("departments")
 }
 
-model Vendor {
-  id                String    @id @default(cuid())
-  tenantId          String
-  tenant            Tenant    @relation(fields: [tenantId], references: [id])
-  name              String
-  riskTier          RiskTier  @default(LOW)
-  healthScore       Int       @default(100)
-  lastAuditDate     DateTime?
-  soc2Expiration    DateTime?
-  isQuarantined     Boolean   @default(false)
+// ------------------------------------------------------
+// THE AGENT WORKFORCE TARGETS
+// ------------------------------------------------------
+model Policy {
+  id         BigInt   @id @default(autoincrement())
+  company_id BigInt
+  name       String
+  status     String   // 'COMPLIANT' or 'GAP DETECTED'
+  last_scan  String   @default("Today")
   
-  // N-Tier Dependency Mapping for Agent 10
-  parentId          String?
-  parent            Vendor?   @relation("SubProcessors", fields: [parentId], references: [id])
-  subProcessors     Vendor[]  @relation("SubProcessors")
+  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  @@map("policies")
 }
 
-model AgentLog {
-  id                String   @id @default(cuid())
-  tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
-  agentId           Int      // 1-12 based on your workforce manifest
-  agentName         String   // e.g., "IRONSIGHT", "COREINTEL"
-  message           String
-  severity          String   // "INFO", "WARN", "CRITICAL"
-  payload           Json?    // For storing CVE IDs or specific audit findings
-  timestamp         DateTime @default(now())
-}
+model ActiveRisk {
+  id         BigInt   @id @default(autoincrement())
+  company_id BigInt
+  title      String
+  status     String
+  score      Float
+  source     String   // e.g., 'IronSight', 'CoreIntel'
+  
+  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
-// --- THE QUARANTINE SANDBOX ---
-model QuarantineRecord {
-  id            String     @id @default(cuid())
-  tenantId      String
-  tenant        Tenant     @relation(fields: [tenantId], references: [id])
-  
-  fileName      String
-  fileSize      Int
-  fileHash      String?    // SHA-256 hash to check against known malware
-  storagePath   String     // The UUID pointer to the Supabase Storage bucket
-  
-  status        ScanStatus @default(PENDING)
-  agentNotes    String?    // Where Agent 5 writes "Malicious macro detected" or "Clean SOC2"
-  uploadedBy    String     
-  
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  @@map("active_risks")
 }

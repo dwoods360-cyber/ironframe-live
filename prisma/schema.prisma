@@ -124,3 +124,33 @@ model AgentLog {
 
   @@map("agent_logs")
 }
+
+/// Agent 1: Ironcore - Persistence & Self-Healing Registry
+model Failed_Jobs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  job_type    String
+  payload     Json
+  error_state Json
+  retry_count Int      @default(0)
+  status      String   @default("pending")
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@index([status])
+}
+
+/// Agent 16: Ironscout - Task TTL & Ad-hoc Tracking
+model Ironscout_Tasks {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  target_url  String
+  directive   String
+  status      String   @default("active")
+  created_at  DateTime @default(now())
+  expires_at  DateTime // Strictly 0.50 - 71.75 hr per TAS
+
+  @@index([tenant_id])
+  @@index([expires_at])
+}

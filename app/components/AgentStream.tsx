@@ -6,8 +6,8 @@ import { getAlertDispatchMeta, StreamAlert } from "@/app/hooks/useAlerts";
 type AgentStreamProps = {
   alerts: StreamAlert[];
   socIntakeEnabled: boolean;
-  onApprove: (alertId: string) => void;
-  onDismiss: (alertId: string) => void;
+  onApprove?: (alertId: string) => void;
+  onDismiss?: (alertId: string) => void;
 };
 
 const SCORE_STYLE = (score: number) => {
@@ -94,7 +94,7 @@ export default function AgentStream({ alerts, socIntakeEnabled, onApprove, onDis
                 <button
                   type="button"
                   disabled={alert.status !== "OPEN"}
-                  onClick={() => onApprove(alert.id)}
+                  onClick={() => onApprove?.(alert.id)}
                   className="rounded border border-emerald-500/70 bg-emerald-500/15 px-2 py-1 text-[9px] font-bold uppercase text-emerald-200 disabled:opacity-50"
                 >
                   APPROVE
@@ -102,7 +102,7 @@ export default function AgentStream({ alerts, socIntakeEnabled, onApprove, onDis
                 <button
                   type="button"
                   disabled={alert.status !== "OPEN"}
-                  onClick={() => onDismiss(alert.id)}
+                  onClick={() => onDismiss?.(alert.id)}
                   className="rounded border border-amber-500/70 bg-amber-500/15 px-2 py-1 text-[9px] font-bold uppercase text-amber-200 disabled:opacity-50"
                 >
                   DISMISS

@@ -70,17 +70,12 @@ export default async function Page() {
           coreintelTrendActive={false} 
         />
 
-        <ThreatPipeline supplyChainThreat={null} showSocStream={true} onRemediateSupplyChainThreat={() => {}} />
+        <ThreatPipeline supplyChainThreat={null} showSocStream={true} />
         <ActiveRisks />
       </section>
 
       <aside className="w-80 shrink-0 overflow-y-auto bg-slate-950 p-3">
-        <AgentStream 
-          alerts={liveAlerts} 
-          socIntakeEnabled={true} 
-          onApprove={() => {}} 
-          onDismiss={() => {}} 
-        />
+        <AgentStream alerts={liveAlerts} socIntakeEnabled={true} />
         <AuditIntelligence />
       </aside>
     </div>

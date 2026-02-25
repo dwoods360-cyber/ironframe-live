@@ -17,11 +17,9 @@ jobs:
         with:
           node-version: 20
       - name: Install Dependencies
-        run: npm install
-      - name: Generate Dual Prisma Clients
-        run: |
-          npx prisma generate
-          npx prisma generate --schema=./prisma-dmz/schema.prisma
+        run: npm install # Use install to patch SWC locally
+      - name: Constitutional Generation
+        run: npm run generate:all # Ensures dual generation + tsc check
       - name: Run Lint
         run: npm run lint
       - name: Run Unit Tests

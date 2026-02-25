@@ -1,34 +1,75 @@
 # 🛠 Ironframe Cursor Execution Governance Protocol
 
-You are executing changes within a multi-tenant, AI-orchestrated SaaS governed by /docs/TAS.md. 
-Stack: Next.js 15.1.6, Prisma, Supabase, Vercel AI SDK.
-Environment: Cursor IDE -> GitHub Actions -> Google Cloud (GCP).
+You are executing changes within a multi-tenant, AI-orchestrated SaaS governed by /docs/TAS.md.
+Stack: Next.js 15.1.6, Turbopack, Supabase, Prisma, Tailwind, Vercel AI SDK + LangGraph.js.
+Environment: Cursor IDE → GitHub Actions → Google Cloud (GCP).
+
+---
 
 ## 🛑 Pre-Implementation Check
-Before writing or modifying code:
-1. Confirm change category:
-   🔴 Structural (DB, RLS, 19-Agents, Ingestion, Scoring/ALE)
-   🟡 Backend Logic (Internal API, Service Layers)
-   🟢 UI / Non-Structural (Tailwind, Client Components)
 
-2. If 🔴 Structural:
-   - Halt. Read /docs/TAS.md.
-   - Confirm: Tenant isolation preserved (No cross-tenant bleed).
-   - Confirm: Irongate (Agent 14) is NOT bypassed for ingestion.
-   - Confirm: Irontrust (Agent 3) math reflects Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M.
-   - Confirm: LangGraph state immutability respected.
+Before writing or modifying any code:
+
+### 1. Confirm change category:
+- 🔴 **Structural** — DB, RLS, Agents, Ingestion, Scoring/ALE
+- 🟡 **Backend Logic** — Internal API, Service Layers
+- 🟢 **UI / Non-Structural** — Tailwind, Client Components
+
+### 2. If 🔴 Structural:
+- Halt. Read /docs/TAS.md.
+- Confirm: Tenant isolation preserved (no cross-tenant bleed).
+- Confirm: Irongate (Agent 14) is NOT bypassed for ingestion.
+- Confirm: Irontrust (Agent 3) math reflects Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M.
+- Confirm: LangGraph state immutability respected.
+
+### 3. If 🟡 Backend:
+- Ensure logging is present for Ironwatch (Agent 13).
+- Verify service isolation per agent boundary.
+
+---
+
+## 💰 Financial Rule — USD Storage (Constitutionally Locked)
+
+All USD values MUST be stored as integer cents using BIGINT. Float and Decimal types are forbidden for ALE and all financial fields.
+
+**DB Schema:**
+```sql
+ale_baseline_cents  BIGINT NOT NULL
+```
+
+**Prisma Model:**
+```prisma
+aleBaselineCents  BigInt
+```
+
+**Application Code:**
+```ts
+const dollars = aleBaselineCents / 100;
+```
+
+This guarantees exact precision. Carbon metrics require physical units (kWh, Liters, km) — monetary-only data is rejected by Ironbloom (Agent 17).
+
+---
 
 ## 🧪 Testing & CI/CD Enforcement
+
 No branch may merge unless it passes the GitHub Actions / The Warden gate:
-- **Unit Tests:** Vitest (Irontrust Math, Risk Buckets).
-- **Integration:** Prisma/RLS (Assumed HOSTILE until proven secure via cross-tenant fail-test).
-- **Snapshot Tests:** Mandatory for Irontrust math and Agent routing decisions.
-- **E2E:** Playwright (Mandatory for all 🟢 UI changes and tenant isolation validation).
-- **Coverage:** ≥ 85% on core logic modules.
-- **Financial Rule:** NO `Float` types. Use `BigInt` or `Decimal`.
+
+- **Unit Tests:** Vitest (Irontrust Math, Risk Buckets)
+- **Integration:** Prisma/RLS — assumed HOSTILE until proven secure via cross-tenant fail-test
+- **Snapshot Tests:** Mandatory for Irontrust math and Agent routing decisions
+- **E2E:** Playwright — mandatory for all 🟢 UI changes and tenant isolation validation
+- **Coverage:** ≥ 85% on all core logic modules
+- **Hydration Audit:** Playwright must check for Next.js hydration mismatches on Ironquery (Agent 15) interface
+- **GCP Readiness:** Sentinel Sweep GitHub Action must confirm successful build, lint, and test pass before GCP push
+
+---
 
 ## 📤 Post-Implementation Output
-After changes, Cursor must output:
+
+After every structural (🔴) change, Cursor must output both blocks:
+
+```
 TAS COMPLIANCE CHECK:
 - Sections Reviewed:
 - Conflict Detected: YES/NO
@@ -41,9 +82,30 @@ CI STATUS REPORT:
 - Schema Drift: YES/NO
 - GCP Deploy Readiness: YES/NO
 
-## ⛔ FORBIDDEN ACTIONS
+TEST COVERAGE CHECK:
+- Unit Tests Added: YES/NO
+- Integration Tests Added: YES/NO
+- E2E Tests Updated: YES/NO
+- ALE Math Covered: YES/NO (Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M)
+- Tenant Isolation Tested: YES/NO
+```
+
+Failure to include all three blocks invalidates the output.
+
+---
+
+## ⛔ Forbidden Actions
+
 - Allowing external ingestion to bypass Irongate (Agent 14).
 - Modifying Irontrust math without 100% unit test coverage and snapshot comparison.
 - Reinterpreting tenant boundaries or allowing cross-tenant memory bleed in LangGraph.
+- Expanding agent Core Directives without a TAS Amendment.
+- Using Float or Decimal types for stored USD values — BIGINT cents only.
+- Using monetary-only data for carbon calculations — physical units required.
+- Committing API secrets (Google Cloud, Supabase) to the repository.
+- Re-architecting completed modules in /docs/completed-modules.md without a TAS Amendment.
+- Silent structural changes of any kind.
+
+---
 
 "Optimize for CONTROL-FIRST architecture with structured speed."

@@ -5,12 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prebuild": "npm run generate:clients",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",
+    "generate:clients": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma",
     "generate:all": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma && npx tsc --noEmit"
   },
   "dependencies": {

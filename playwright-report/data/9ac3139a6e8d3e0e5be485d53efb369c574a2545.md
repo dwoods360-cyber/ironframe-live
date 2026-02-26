@@ -1,0 +1,62 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e7] [cursor=pointer]:
+    - img [ref=e8]
+  - banner [ref=e12]:
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]: IRONFRAME CORE
+        - generic [ref=e17]: ACTIVE GRC
+      - generic [ref=e19]:
+        - generic [ref=e21]: LIVE MONITORING
+        - generic [ref=e22]: "|"
+        - generic [ref=e23]: "SYNC: 24ms"
+      - generic [ref=e24]:
+        - img [ref=e26]
+        - generic [ref=e29]: J. DOE (CISO)
+        - generic [ref=e31]:
+          - img [ref=e32]
+          - generic [ref=e35]: SECURE SESSION
+    - generic [ref=e36]:
+      - generic [ref=e38]:
+        - img [ref=e39]
+        - combobox [ref=e43] [cursor=pointer]:
+          - option "SELECT VIEW" [disabled] [selected]
+          - option "Global Command Center"
+          - option "Medshield Health — $11.1M"
+          - option "Vaultbank Global — $5.9M"
+          - option "Gridcore Energy — $4.7M"
+      - generic [ref=e44]: "AGENT MANAGER: ONLINE"
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - link "VENDOR LIST" [ref=e47] [cursor=pointer]:
+          - /url: /vendors
+        - link "SYSTEM CONFIG" [ref=e48] [cursor=pointer]:
+          - /url: /config
+      - generic [ref=e51]:
+        - link "AUDIT TRAIL" [ref=e52] [cursor=pointer]:
+          - /url: /reports/audit-trail
+          - generic [ref=e53]: AUDIT TRAIL
+        - link "QUICK REPORTS" [ref=e54] [cursor=pointer]:
+          - /url: /reports/quick
+          - generic [ref=e55]: QUICK REPORTS
+  - main [ref=e56]:
+    - generic [ref=e58]:
+      - heading "404" [level=1] [ref=e59]
+      - heading "This page could not be found." [level=2] [ref=e61]
+  - generic [ref=e62]:
+    - button "Drag tenant switcher" [ref=e63]: Drag Switcher
+    - paragraph [ref=e64]: Dev Tenant Switcher
+    - paragraph [ref=e65]: "Active: NONE"
+    - generic [ref=e66]:
+      - button "Medshield" [ref=e67]
+      - button "Vaultbank" [ref=e68]
+      - button "Gridcore" [ref=e69]
+      - button "Clear" [ref=e70]
+    - button "ATTEMPT CROSS-TENANT FETCH" [ref=e71]
+    - paragraph [ref=e72]: "ILLEGAL_FETCH_HELP: This action simulates an illegal cross-tenant fetch and should be blocked with a 403 guardrail."
+    - paragraph [ref=e73]: "SYSTEM_NOTE: Cross-tenant alerts utilize Medshield liability baselines by design."
+  - alert [ref=e74]
+```

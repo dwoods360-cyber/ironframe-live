@@ -33,4 +33,12 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
 *   *Agent 11 (Irontech) checkpointer* — COMPLETED (`checkpointer.ts`, PostgresSaver via DATABASE_URL, setup())
 *   *Sovereign graph* — COMPLETED (`graph.ts`, StateGraph + conditional edges + checkpointer compile)
 *   *Integration test* — COMPLETED (`tests/orchestration.test.ts`, round-trip routing + persistence; skips when DATABASE_URL unset)
-*   **Ready for Sprint 3**
+*   **Phase 3 COMPLETED**
+
+## 4. Specialist Engines (Sprint 3)
+*   **Status:** COMPLETED
+*   *Agent 3 (Irontrust) scoring engine* — COMPLETED (`irontrust.ts`, BIGINT baselines, analyzeRisk, variance/CRITICAL_EXPOSURE)
+*   *Agent 5 (Ironscribe) document analysis* — COMPLETED (`ironscribe.ts`, Zod ExtractionSchema, extract → IRONTRUST)
+*   *Specialist chain wiring* — COMPLETED (`graph.ts`, ironcore conditional → ironscribe/irontrust, ironscribe → irontrust → END)
+*   *Specialist integration test* — COMPLETED (`tests/specialists.test.ts`, Ironscribe → Irontrust handover; skips when DATABASE_URL unset)
+*   **Ready for Sprint 4**

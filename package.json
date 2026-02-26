@@ -18,6 +18,8 @@
     "install-hooks": "node scripts/install-pre-commit.mjs"
   },
   "dependencies": {
+    "@langchain/langgraph": "^1.1.5",
+    "@langchain/langgraph-checkpoint-postgres": "^1.0.1",
     "@prisma/client": "^6.4.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
@@ -30,6 +32,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-force-graph-2d": "^1.29.1",
+    "uuid": "^13.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -43,8 +46,10 @@
     "@types/adm-zip": "^0.5.7",
     "@types/node": "^20.19.33",
     "@types/nodemailer": "^7.0.9",
+    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9",

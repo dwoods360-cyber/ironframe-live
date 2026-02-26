@@ -19,7 +19,18 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
     *   **Zero-Trust Ingestion:** Codified the Level 2 DMZ Air-Gap, mandating all external payloads route exclusively through Irongate (Agent 14).
     *   **Testing Mandates:** Enforced strict Playwright (E2E) and Vitest (Unit/Integration) requirements, including hydration audits and cross-tenant bleed prevention.
 
-## 2. Core Infrastructure (Pending Next Phase)
-*   *Supabase RLS Implementation* — IN PROGRESS
-*   *LangGraph State Persistence* — IN PROGRESS
-*   *Irongate DMZ Routing* — IN PROGRESS
+## 2. Core Infrastructure (Phase 2)
+*   **Status:** COMPLETED
+*   *Supabase RLS Implementation* — COMPLETED
+*   *Irongate DMZ Routing (Agent 14)* — COMPLETED
+*   *External HTTP ingestion endpoint* — COMPLETED (`/api/ingest`, Zero-Trust via Irongate)
+*   *Sovereign LangGraph state* — COMPLETED (`SovereignGraphState`, Ironcore routing node)
+
+## 3. Core Orchestration (Sprint 2)
+*   **Status:** COMPLETED
+*   *LangGraph state management* — COMPLETED (`state.ts`, SovereignGraphState, tenant_id UUID mandate)
+*   *Agent 1 (Ironcore) routing* — COMPLETED (`ironcore.ts`, route by payload type: FINANCIAL_AUDIT → IRONTRUST, DOCUMENT_ANALYSIS → IRONSCRIBE)
+*   *Agent 11 (Irontech) checkpointer* — COMPLETED (`checkpointer.ts`, PostgresSaver via DATABASE_URL, setup())
+*   *Sovereign graph* — COMPLETED (`graph.ts`, StateGraph + conditional edges + checkpointer compile)
+*   *Integration test* — COMPLETED (`tests/orchestration.test.ts`, round-trip routing + persistence; skips when DATABASE_URL unset)
+*   **Ready for Sprint 3**

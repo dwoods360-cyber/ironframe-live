@@ -3,6 +3,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 type Metrics = Record<string, unknown>;
 
 export default function AuditRolePage() {

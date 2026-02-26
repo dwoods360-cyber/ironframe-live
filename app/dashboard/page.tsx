@@ -4,6 +4,8 @@ import AuditStepper from '@/app/components/AuditStepper';
 import RiskCard from '@/app/components/RiskCard';
 import VoiceComms from '@/app/components/VoiceComms';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * SENTINEL DASHBOARD (AGENT 11 VIEW)
  * Status: CONSTITUTIONALLY SECURE

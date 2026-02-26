@@ -108,4 +108,10 @@ Failure to include all three blocks invalidates the output.
 
 ---
 
+## 🚨 Stop-on-Drift
+
+If the AI suggests a change that contradicts /docs/TAS.md or /docs/testing.md, the AI must immediately halt, cite the conflict, and request a TAS Amendment.
+
+---
+
 "Optimize for CONTROL-FIRST architecture with structured speed."

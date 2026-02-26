@@ -13,7 +13,9 @@
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",
     "generate:clients": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma",
-    "generate:all": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma && npx tsc --noEmit"
+    "generate:all": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma && npx tsc --noEmit",
+    "check:financial-types": "node scripts/check-no-float-decimal.mjs",
+    "install-hooks": "node scripts/install-pre-commit.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
@@ -27,7 +29,8 @@
     "nodemailer": "^8.0.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-force-graph-2d": "^1.29.1"
+    "react-force-graph-2d": "^1.29.1",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

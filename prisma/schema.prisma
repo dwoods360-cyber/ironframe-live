@@ -24,16 +24,15 @@ enum AgentStatus {
 }
 
 // ------------------------------------------------------
-// TENANT (Constitutional - Multi-tenant identity / routing)
+// TENANT (Constitutional - Standardized to UUID for RLS)
 // ------------------------------------------------------
 model Tenant {
-  id           BigInt   @id @default(autoincrement())
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name         String
   slug         String   @unique
   industry     String   @default("Secure Enclave")
-  ale_baseline BigInt   @default(0) // ALE math must use BigInt
+  ale_baseline BigInt   @default(0) // ALE math remains BigInt cents
 
-  // Relationships for Phase 4 Workflows
   vendors    Vendor[]
   agent_logs AgentLog[]
   createdAt  DateTime @default(now())
@@ -42,88 +41,83 @@ model Tenant {
 }
 
 // ------------------------------------------------------
-// THE TENANT BOUNDARY (The Client Organizations)
+// THE TENANT BOUNDARY (Standardized to BigInt for high-count scale)
 // ------------------------------------------------------
 model Company {
-  id                       BigInt       @id @default(autoincrement())
+  id                       BigInt   @id @default(autoincrement())
   name                     String
-  sector                    String
-  industry_avg_loss_cents  BigInt?      // Refactored: Stored in exact cents
-  infrastructure_val_cents BigInt?      // Refactored: Stored in exact cents
+  sector                   String
+  industry_avg_loss_cents  BigInt?  // BIGINT Cents
+  infrastructure_val_cents BigInt?  // BIGINT Cents
 
   departments Department[]
   policies    Policy[]
-  risks      ActiveRisk[]
+  risks       ActiveRisk[]
 
   @@map("companies")
 }
 
-// ------------------------------------------------------
-// INTERNAL DIVISIONS
-// ------------------------------------------------------
 model Department {
-  id         BigInt   @id @default(autoincrement())
+  id         BigInt @id @default(autoincrement())
   company_id BigInt
-  name       String   // e.g., "IT", "Finance", "HR"
-  
-  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  name       String
+
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("departments")
 }
 
-// ------------------------------------------------------
-// THE AGENT WORKFORCE TARGETS
-// ------------------------------------------------------
 model Policy {
-  id         BigInt   @id @default(autoincrement())
+  id         BigInt @id @default(autoincrement())
   company_id BigInt
   name       String
-  status     String   // 'COMPLIANT' or 'GAP DETECTED'
-  last_scan  String   @default("Today")
-  
-  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  status     String
+  last_scan  String @default("Today")
+
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("policies")
 }
 
 model ActiveRisk {
-  id         BigInt   @id @default(autoincrement())
-  company_id BigInt
-  title      String
-  status     String
-  score      Float
-  source     String   // e.g., 'IronSight', 'CoreIntel'
-  
-  company    Company  @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id          BigInt @id @default(autoincrement())
+  company_id  BigInt
+  title       String
+  status      String
+  score_cents BigInt // REFACTORED: Unified to BIGINT cents
+  source      String
+
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("active_risks")
 }
 
 // ------------------------------------------------------
-// SUPPLY CHAIN (TPRM / VRM) - Tenant-scoped
+// SUPPLY CHAIN (Standardized to UUID to match Tenant)
 // ------------------------------------------------------
 model Vendor {
-  id        String  @id @default(uuid())
+  id        String @id @default(uuid())
   name      String
-  riskTier  String  @default("LOW") // CRITICAL, HIGH, MEDIUM, LOW
-  tenantId  BigInt
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  riskTier  String @default("LOW")
+  tenantId  String @db.Uuid
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("vendors")
 }
 
-// ------------------------------------------------------
-// AGENT LOGS (Phase 4 Workflows)
-// ------------------------------------------------------
 model AgentLog {
   id        String   @id @default(uuid())
   timestamp DateTime @default(now())
   message   String
-  tenantId  BigInt
+  tenantId  String   @db.Uuid
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("agent_logs")
 }
+
+// ------------------------------------------------------
+// SOVEREIGN AGENT MODELS
+// ------------------------------------------------------
 
 /// Agent 1: Ironcore - Persistence & Self-Healing Registry
 model Failed_Jobs {
@@ -149,7 +143,7 @@ model Ironscout_Tasks {
   directive   String
   status      String   @default("active")
   created_at  DateTime @default(now())
-  expires_at  DateTime // Strictly 0.50 - 71.75 hr per TAS
+  expires_at  DateTime
 
   @@index([tenant_id])
   @@index([expires_at])

@@ -43,7 +43,7 @@ export default async function Page() {
       sourceAgent: risk.source,
       title: risk.title,
       impact: `${company.name} (${company.sector}): Active risk requires triage.`,
-      severityScore: Math.round(risk.score * 100),
+      severityScore: Number(risk.score_cents),
       liabilityUsd: company.industry_avg_loss_cents ? Number(company.industry_avg_loss_cents) / 100 : 0,
       status: "OPEN" as const,
       createdAt: new Date().toISOString(),

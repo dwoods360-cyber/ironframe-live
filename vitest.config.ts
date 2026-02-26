@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom', // Keeps UI testing alive
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
-    exclude: [...configDefaults.exclude, 'tests/**'],
+    exclude: [...configDefaults.exclude],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

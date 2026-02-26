@@ -1,0 +1,31 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: sovereign-sentinel
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    spec:
+      containers:
+      - image: gcr.io/${PROJECT_ID}/sovereign-sentinel
+        ports:
+        - containerPort: 3000
+        resources:
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+        env:
+        - name: NEXT_PUBLIC_SUPABASE_URL
+          value: "https://your-project.supabase.co"
+        # Secrets injected from GCP Secret Manager
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: GOOGLE_API_KEY
+              key: latest
+        - name: SUPABASE_SERVICE_ROLE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: SUPABASE_SERVICE_ROLE_KEY
+              key: latest

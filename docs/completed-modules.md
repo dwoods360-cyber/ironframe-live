@@ -60,3 +60,13 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
 *   *Gemini Live Voice Shell* — COMPLETED (`VoiceComms.tsx`, client component, dashboard sidebar)
 *   *Live Fire stress test* — COMPLETED (`tests/live-fire.test.ts`, Gemini + Warden + Irontrust; skips when GOOGLE_API_KEY/DATABASE_URL unset)
 *   **Phase 6 COMPLETED**
+
+---
+
+## Production Deployment (Release v1.0.0)
+*   **Status:** COMPLETED — Sovereign AI Project in Production
+*   *Docker* — COMPLETED (`Dockerfile`, multi-stage Node 20 Alpine, runner as nextjs user)
+*   *GCP Cloud Run IaC* — COMPLETED (`gcp-deploy.yaml`, sovereign-sentinel service, Secret Manager refs)
+*   *GitHub Actions CI/CD* — COMPLETED (`.github/workflows/deploy.yml`, test → build → push → Cloud Run)
+*   *Supabase server key* — COMPLETED (`lib/supabase/server.ts`, SUPABASE_SERVICE_ROLE_KEY when set)
+*   **The entire Sovereign AI Project is now COMPLETED and in Production.**

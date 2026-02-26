@@ -9,7 +9,7 @@ export default async function ActiveRisks() {
       company: true, // Pull in the Tier 1 Client Organization data
     },
     orderBy: {
-      score: 'desc', // Sort by highest fidelity threat first
+      score_cents: 'desc', // Sort by highest fidelity threat first
     }
   });
 
@@ -36,8 +36,8 @@ export default async function ActiveRisks() {
                 </p>
               </div>
               <div className="flex flex-col items-end">
-                <span className={`text-xs font-bold ${risk.score > 0.8 ? 'text-red-400' : 'text-amber-400'}`}>
-                  Score: {risk.score}
+                <span className={`text-xs font-bold ${Number(risk.score_cents) > 80 ? 'text-red-400' : 'text-amber-400'}`}>
+                  Score: {Number(risk.score_cents)}
                 </span>
                 <span className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
                   SRC: {risk.source}

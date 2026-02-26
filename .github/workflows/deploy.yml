@@ -38,11 +38,13 @@ jobs:
 
       - name: 📦 Build and Push to Artifact Registry
         run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env.production
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env.production
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.production
+          echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.production
+          
           gcloud auth configure-docker us-central1-docker.pkg.dev
-          docker build \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
-            -t us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/$SERVICE_NAME:$GITHUB_SHA .
+          docker build -t us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/$SERVICE_NAME:$GITHUB_SHA .
           docker push us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/$SERVICE_NAME:$GITHUB_SHA
 
       - name: 🚀 Deploy to Cloud Run

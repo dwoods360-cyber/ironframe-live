@@ -1,0 +1,2 @@
+# Ensure .env.production is always included in the build context (e.g. when created by CI)
+!.env.production

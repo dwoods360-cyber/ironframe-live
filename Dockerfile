@@ -12,18 +12,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# 1. Fix LegacyKeyValueFormat warnings (use = )
 ENV NEXT_TELEMETRY_DISABLED=1
-
-# 2. Declare Build Arguments for Next.js Static Optimization
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# 3. Map these Arguments to Environment Variables for the build process
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
 RUN npm run build
 
 # Production image, copy all the files and run next

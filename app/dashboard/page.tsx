@@ -16,12 +16,11 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    // Bypass auth redirect during Next.js Docker build
-    if (process.env.npm_lifecycle_event === 'build') {
-      console.log("Skipping auth redirect during build phase.");
-      return null;
+    // Bypass auth redirect during Next.js Docker build (Node.js build worker has no window)
+    if (typeof window !== 'undefined') {
+      redirect('/login');
     }
-    redirect('/login');
+    return null; // Return null on the server to bypass the build crash
   }
 
   // Fetch the latest "Audit Checkpoints" from the database

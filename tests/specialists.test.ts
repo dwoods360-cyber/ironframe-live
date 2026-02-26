@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import { createSovereignGraph } from '../src/services/orchestration/graph';
 import { v4 as uuidv4 } from 'uuid';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
@@ -10,6 +9,7 @@ const hasDatabase = Boolean(process.env.DATABASE_URL);
  */
 describe('Sovereign Specialist Protocol', () => {
   it.skipIf(!hasDatabase)('📑 CHAIN REACTION: Ironscribe extracts and Irontrust audits', async () => {
+    const { createSovereignGraph } = await import('../src/services/orchestration/graph');
     const graph = await createSovereignGraph();
     const testTraceId = uuidv4();
 

@@ -41,4 +41,17 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
 *   *Agent 5 (Ironscribe) document analysis* — COMPLETED (`ironscribe.ts`, Zod ExtractionSchema, extract → IRONTRUST)
 *   *Specialist chain wiring* — COMPLETED (`graph.ts`, ironcore conditional → ironscribe/irontrust, ironscribe → irontrust → END)
 *   *Specialist integration test* — COMPLETED (`tests/specialists.test.ts`, Ironscribe → Irontrust handover; skips when DATABASE_URL unset)
-*   **Ready for Sprint 4**
+*   **Phase 4 COMPLETED**
+
+## 5. Sentinel UI (Sprint 4)
+*   **Status:** COMPLETED
+*   *Sentinel dashboard* — COMPLETED (`app/dashboard/page.tsx`, Supabase auth, checkpoints, Agent Status)
+*   *Audit Stepper* — COMPLETED (`app/components/AuditStepper.tsx`, chain: Ironcore → Ironscribe → Irontrust)
+*   *Financial Risk Card* — COMPLETED (`app/components/RiskCard.tsx`, BIGINT cents → USD, MEDSHIELD/VAULTBANK/GRIDCORE)
+*   *Supabase server client* — COMPLETED (`lib/supabase/server.ts`, createServerClient for dashboard)
+*   *E2E test* — COMPLETED (`tests/e2e/dashboard.spec.ts`, Playwright Sentinel Dashboard assertions)
+*   **Phase 5 COMPLETED**
+
+## 6. Hardening (Next Phase)
+*   **Status:** PENDING
+*   *Security, performance, and production readiness* — PENDING

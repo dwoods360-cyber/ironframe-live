@@ -1,92 +1,12 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import dynamic from 'next/dynamic';
 
-type Metrics = Record<string, unknown>;
+const AuditClientWithNoSSR = dynamic(
+  () => import('./AuditClient'),
+  { ssr: false }
+);
 
-export default function AuditRolePage() {
-  // --- BUILD BYPASS ---
-  if (process.env.NEXT_BUILD_PHASE === 'true') {
-    return <div>Build phase bypass</div>;
-  }
-  // --------------------
-
-  const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    return createClient(url, key);
-  }, []);
-
-  const [metrics, setMetrics] = useState<Metrics>({});
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string>('');
-
-  const fetchMetrics = useCallback(async () => {
-    setLoading(true);
-    setStatus('');
-    const { data, error } = await supabase
-      .from('stakeholder_metrics')
-      .select('metric_data')
-      .eq('role_key', 'audit')
-      .single();
-
-    if (error) {
-      setStatus(`Load failed: ${error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    setMetrics((data?.metric_data as Metrics) || {});
-    setStatus('Loaded.');
-    setLoading(false);
-  }, [supabase]);
-
-  const handleUpdate = useCallback(async () => {
-    setLoading(true);
-    setStatus('');
-    const { error } = await supabase
-      .from('stakeholder_metrics')
-      .update({ metric_data: metrics })
-      .eq('role_key', 'audit');
-
-    if (error) {
-      setStatus(`Save failed: ${error.message}`);
-      setLoading(false);
-      return;
-    }
-
-    setStatus('Saved.');
-    setLoading(false);
-  }, [supabase, metrics]);
-
-  return (
-    <div style={{ padding: 20 }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700 }}>Audit Dashboard</h1>
-
-      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <button
-          onClick={() => void fetchMetrics()}
-          disabled={loading}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #333' }}
-        >
-          {loading ? 'Loading…' : 'Load metrics'}
-        </button>
-
-        <button
-          onClick={() => void handleUpdate()}
-          disabled={loading}
-          style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #333' }}
-        >
-          Save metrics
-        </button>
-      </div>
-
-      {status ? <p style={{ marginTop: 10, fontSize: 12, opacity: 0.85 }}>{status}</p> : null}
-
-      <pre style={{ marginTop: 16, background: '#111', color: '#eee', padding: 12, borderRadius: 10, overflow: 'auto' }}>
-{JSON.stringify(metrics, null, 2)}
-      </pre>
-    </div>
-  );
+export default function AuditPage() {
+  return <AuditClientWithNoSSR />;
 }

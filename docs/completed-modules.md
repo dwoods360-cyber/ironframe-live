@@ -52,6 +52,11 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
 *   *E2E test* — COMPLETED (`tests/e2e/dashboard.spec.ts`, Playwright Sentinel Dashboard assertions)
 *   **Phase 5 COMPLETED**
 
-## 6. Hardening (Next Phase)
-*   **Status:** PENDING
-*   *Security, performance, and production readiness* — PENDING
+## 6. Hardening (Sprint 5)
+*   **Status:** COMPLETED
+*   *Google Gen AI / LangChain integration* — COMPLETED (@langchain/google-genai, @google/generative-ai)
+*   *Agent 5 (Ironscribe) live Gemini 1.5 Pro* — COMPLETED (`ironscribe.ts`, withStructuredOutput, ExtractionSchema)
+*   *Agent 12 (The Warden) validation node* — COMPLETED (`warden.ts`, integer cents + vendor UUID guardrails, ironscribe → warden → irontrust)
+*   *Gemini Live Voice Shell* — COMPLETED (`VoiceComms.tsx`, client component, dashboard sidebar)
+*   *Live Fire stress test* — COMPLETED (`tests/live-fire.test.ts`, Gemini + Warden + Irontrust; skips when GOOGLE_API_KEY/DATABASE_URL unset)
+*   **Phase 6 COMPLETED**

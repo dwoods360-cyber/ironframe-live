@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import AuditStepper from '@/app/components/AuditStepper';
 import RiskCard from '@/app/components/RiskCard';
+import VoiceComms from '@/app/components/VoiceComms';
 
 /**
  * SENTINEL DASHBOARD (AGENT 11 VIEW)
@@ -66,15 +67,18 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* System Health Card */}
-        <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-          <h2 className="text-xl font-semibold mb-4">Agent Status</h2>
-          <ul className="space-y-3">
-            <li className="flex justify-between text-sm"><span>Agent 1 (Ironcore)</span> <span className="text-emerald-400">ONLINE</span></li>
-            <li className="flex justify-between text-sm"><span>Agent 3 (Irontrust)</span> <span className="text-emerald-400">ONLINE</span></li>
-            <li className="flex justify-between text-sm"><span>Agent 11 (Irontech)</span> <span className="text-emerald-400">ONLINE</span></li>
-          </ul>
-        </section>
+        {/* Sidebar: Agent Status + Gemini Live Voice */}
+        <div className="flex flex-col gap-6">
+          <section className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+            <h2 className="text-xl font-semibold mb-4">Agent Status</h2>
+            <ul className="space-y-3">
+              <li className="flex justify-between text-sm"><span>Agent 1 (Ironcore)</span> <span className="text-emerald-400">ONLINE</span></li>
+              <li className="flex justify-between text-sm"><span>Agent 3 (Irontrust)</span> <span className="text-emerald-400">ONLINE</span></li>
+              <li className="flex justify-between text-sm"><span>Agent 11 (Irontech)</span> <span className="text-emerald-400">ONLINE</span></li>
+            </ul>
+          </section>
+          <VoiceComms />
+        </div>
       </div>
     </main>
   );

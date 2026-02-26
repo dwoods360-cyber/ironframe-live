@@ -3,12 +3,14 @@ import { SovereignGraphState } from "./state";
 import { IronCore } from "../agents/ironcore";
 import { IronScribe } from "../agents/ironscribe";
 import { IronTrust } from "../agents/irontrust";
+import { TheWarden } from "../agents/warden";
 import { IronTech } from "./checkpointer";
 
 export async function createSovereignGraph() {
   const workflow = new StateGraph(SovereignGraphState)
     .addNode("ironcore", IronCore.route)
     .addNode("ironscribe", IronScribe.extract)
+    .addNode("warden", TheWarden.validate)
     .addNode("irontrust", IronTrust.analyzeRisk)
 
     .addEdge("__start__", "ironcore");
@@ -25,8 +27,9 @@ export async function createSovereignGraph() {
     }
   );
 
-  // Sequential Specialist Edges
-  workflow.addEdge("ironscribe", "irontrust");
+  // Sequential Specialist Edges (Warden validates LLM output before Irontrust)
+  workflow.addEdge("ironscribe", "warden");
+  workflow.addEdge("warden", "irontrust");
   workflow.addEdge("irontrust", END);
 
   const checkpointer = await IronTech.getCheckpointer();

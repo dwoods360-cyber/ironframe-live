@@ -13,6 +13,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# INJECT THE BUILD BYPASS FLAG
+ENV NEXT_BUILD_PHASE=true
+
 RUN npm run build
 
 # Production image, copy all the files and run next

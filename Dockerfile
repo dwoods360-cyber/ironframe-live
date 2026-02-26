@@ -13,12 +13,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# ADD THESE LINES: Fix syntax and add build arguments
+# Fix LegacyKeyValueFormat warnings
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Accept Build Arguments for Next.js Static Optimization
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+# Map Arguments to Environment Variables
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 

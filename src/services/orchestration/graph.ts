@@ -1,34 +1,34 @@
 import { StateGraph, END } from "@langchain/langgraph";
 import { SovereignGraphState } from "./state";
 import { IronCore } from "../agents/ironcore";
+import { IronScribe } from "../agents/ironscribe";
+import { IronTrust } from "../agents/irontrust";
 import { IronTech } from "./checkpointer";
 
-/**
- * SOVEREIGN ORCHESTRATION GRAPH
- * Mandate: Every transition is checkpointed by Agent 11 (Irontech).
- */
 export async function createSovereignGraph() {
-  // 1. Initialize the Graph with our State DNA
   const workflow = new StateGraph(SovereignGraphState)
-    // 2. Add the Orchestrator Node (Agent 1)
     .addNode("ironcore", IronCore.route)
+    .addNode("ironscribe", IronScribe.extract)
+    .addNode("irontrust", IronTrust.analyzeRisk)
 
-    // 3. Define the Starting Point
     .addEdge("__start__", "ironcore");
 
-  // 4. Define Routing (If Ironcore says END or routes to another agent, stop. Else loop.)
+  // Multi-Node Conditional Routing
   workflow.addConditionalEdges(
     "ironcore",
-    (state) => (state.current_agent === "END" || state.current_agent !== "ironcore") ? "end" : "ironcore",
+    (state) => state.current_agent,
     {
-      "end": END,
-      "ironcore": "ironcore" // Recursive loop for multi-step routing
+      "IRONSCRIBE": "ironscribe",
+      "IRONTRUST": "irontrust",
+      "IRONGATE": "ironcore", // Loop back for re-sanitization if needed
+      "END": END
     }
   );
 
-  // 5. Connect the Agent 11 Checkpointer for Self-Healing
-  const checkpointer = await IronTech.getCheckpointer();
+  // Sequential Specialist Edges
+  workflow.addEdge("ironscribe", "irontrust");
+  workflow.addEdge("irontrust", END);
 
-  // 6. Finalize the Graph
+  const checkpointer = await IronTech.getCheckpointer();
   return workflow.compile({ checkpointer });
 }

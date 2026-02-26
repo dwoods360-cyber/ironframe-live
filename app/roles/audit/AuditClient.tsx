@@ -13,8 +13,8 @@ export default function AuditRolePage() {
   // --------------------
 
   const supabase = useMemo(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://build-bypass.supabase.co';
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'build-bypass-key';
     return createClient(url, key);
   }, []);
 

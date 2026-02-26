@@ -18,6 +18,8 @@
     "install-hooks": "node scripts/install-pre-commit.mjs"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@langchain/google-genai": "^2.1.20",
     "@langchain/langgraph": "^1.1.5",
     "@langchain/langgraph-checkpoint-postgres": "^1.0.1",
     "@prisma/client": "^6.4.1",

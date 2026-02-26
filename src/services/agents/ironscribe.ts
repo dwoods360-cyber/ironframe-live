@@ -1,43 +1,48 @@
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import { SovereignGraphState } from '../orchestration/state';
 
 // SOVEREIGN EXTRACTION SCHEMA
 const ExtractionSchema = z.object({
-  vendor_id: z.string().uuid(),
-  amount_cents: z.number().int().positive(),
-  tenant_type: z.enum(["MEDSHIELD", "VAULTBANK", "GRIDCORE"]),
+  vendor_id: z.string().uuid().describe("The unique identifier for the vendor found in the document."),
+  amount_cents: z.number().int().positive().describe("The total amount in integer cents. Multiply dollars by 100."),
+  tenant_type: z.enum(["MEDSHIELD", "VAULTBANK", "GRIDCORE"]).describe("The specific protocol baseline to audit against."),
 });
 
 /**
- * AGENT 5 (IRONSCRIBE) - DEEP-DOC EXTRACTION
- * Mandate: Convert raw text to validated JSON schema.
+ * AGENT 5 (IRONSCRIBE) - LIVE GEMINI EXTRACTION
+ * Mandate: Absolute schema enforcement using Gemini 1.5 Pro.
  */
 export class IronScribe {
+  private static model = new ChatGoogleGenerativeAI({
+    model: "gemini-1.5-pro",
+    maxOutputTokens: 2048,
+    apiKey: process.env.GOOGLE_API_KEY,
+  }).withStructuredOutput(ExtractionSchema);
+
   static async extract(state: typeof SovereignGraphState.State): Promise<Partial<typeof SovereignGraphState.State>> {
     const rawText = state.raw_payload?.text || "";
 
     try {
-      // MOCK EXTRACTION LOGIC (Simulating LLM Output for now)
-      // In production, this would be: const extraction = await model.withStructuredOutput(ExtractionSchema).invoke(rawText);
-      const mockExtraction = {
-        vendor_id: "550e8400-e29b-41d4-a716-446655440000",
-        amount_cents: 1110000000,
-        tenant_type: "MEDSHIELD"
-      };
-
-      const validated = ExtractionSchema.parse(mockExtraction);
+      // LIVE AI CALL: Gemini analyzes the raw text and returns the validated Zod object
+      const extraction = await this.model.invoke(
+        `Extract the financial data from this document text.
+         REMEMBER: Convert all dollar amounts to integer CENTS (e.g., $10.00 = 1000).
+         DOCUMENT TEXT: ${rawText}`
+      );
 
       return {
-        current_agent: "IRONTRUST", // Pass the baton to Agent 3
-        raw_payload: validated,     // Replace raw text with clean data
-        agent_logs: [`Ironscribe successfully extracted data for Vendor ${validated.vendor_id}`],
+        current_agent: "IRONTRUST",
+        raw_payload: extraction,
+        agent_logs: [`Ironscribe (Gemini 1.5 Pro) successfully extracted data for Vendor ${extraction.vendor_id}`],
         status: "PROCESSING"
       };
     } catch (error) {
+      console.error("Agent 5 LLM Error:", error);
       return {
         current_agent: "END",
         status: "FAILED",
-        agent_logs: ["Ironscribe failed: Document schema mismatch."]
+        agent_logs: ["Ironscribe failed: LLM extraction error or schema violation."]
       };
     }
   }

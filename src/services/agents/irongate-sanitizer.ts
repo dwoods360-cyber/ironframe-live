@@ -10,10 +10,31 @@ import { z } from 'zod';
 const ExternalPayloadSchema = z.object({
   tenant_id: z.string().uuid(),
   source_type: z.enum(['API', 'WEBHOOK', 'DOC_PARSER']),
-  raw_data: z.record(z.any()),
+  raw_data: z.record(z.string(), z.unknown()),
 });
 
+export type IngressResult =
+  | { status: 'CLEAN'; trace_id: string }
+  | { status: 'QUARANTINED'; trace_id: string };
+
 export class IronGate {
+  /**
+   * API-facing ingress: returns result shape for HTTP route (no throw on quarantine).
+   */
+  static async processIngress(payload: unknown): Promise<IngressResult> {
+    const trace_id = crypto.randomUUID();
+    const validation = ExternalPayloadSchema.safeParse(payload);
+
+    if (!validation.success) {
+      await this.quarantine(payload, 'SCHEMA_VIOLATION');
+      return { status: 'QUARANTINED', trace_id };
+    }
+
+    const { raw_data } = validation.data;
+    this.sanitize(raw_data as Record<string, unknown>);
+    return { status: 'CLEAN', trace_id };
+  }
+
   /**
    * Sentinel Ingress: The only way data enters the Sovereign State.
    */

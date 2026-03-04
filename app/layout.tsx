@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { SpeedInsights } from "@vercel/speed-insights/next";
-import TopNav from "./components/TopNav";
+import AppShell from "./components/AppShell";
 import DebugPanel from "./components/dev/DebugPanel";
 import { TenantProvider } from "./context/TenantProvider";
 import GlobalDropZone from "./components/GlobalDropZone";
@@ -28,18 +27,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="font-sans">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased font-sans`}
       >
         <TenantProvider>
           <GlobalDropZone />
-          <div className="fixed inset-x-0 top-0 z-50">
-            <TopNav />
-          </div>
-          <main className="command-center-surface mt-[108px] h-[calc(100vh-108px)] overflow-y-auto">{children}</main>
+          <AppShell>{children}</AppShell>
           <DebugPanel />
-          <SpeedInsights />
+          {/* SpeedInsights disabled: can trigger async Client Component error in Next 16/Turbopack */}
         </TenantProvider>
       </body>
     </html>

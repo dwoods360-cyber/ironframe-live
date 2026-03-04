@@ -86,26 +86,7 @@ export default function HeaderTwo({
 
   return (
     <div className={`h-10 bg-[#1f6feb] flex items-center px-4 ${isVendorOverviewRoute ? "justify-start" : "justify-between"}`}>
-      {!isVendorOverviewRoute ? (
-        <div className="flex items-center gap-2">
-          <Link
-            href={`${prefix}/vendors`}
-            className={`rounded px-3 py-1 text-[10px] font-bold text-white ${
-              isVendorsRoute ? "bg-slate-800 border-t-2 border-blue-500" : "bg-white/15 hover:bg-white/25"
-            }`}
-          >
-            VENDOR LIST
-          </Link>
-          <Link
-            href={`${prefix}/config`}
-            className={`rounded px-3 py-1 text-[10px] font-bold text-white ${
-              isConfigRoute ? "bg-slate-800 border-t-2 border-blue-500" : "bg-white/15 hover:bg-white/25"
-            }`}
-          >
-            SYSTEM CONFIG
-          </Link>
-        </div>
-      ) : null}
+      {!isVendorOverviewRoute ? <div /> : null}
 
       <div className="relative flex-1 min-w-0">
         {isOverflowing && (
@@ -172,18 +153,30 @@ export default function HeaderTwo({
               </>
             ) : showPrimaryActionChips ? (
               <>
-              <Link
-                href={`${prefix}/reports/audit-trail`}
-                className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
-              >
-                <span className="text-[10px] font-bold text-white">AUDIT TRAIL</span>
-              </Link>
-              <Link
-                href={`${prefix}/reports/quick`}
-                className="flex shrink-0 items-center gap-1.5 px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-full hover:border-blue-500 transition-all"
-              >
-                <span className="text-[10px] font-bold text-white">QUICK REPORTS</span>
-              </Link>
+                <Link
+                  href={currentTenant ? `/${currentTenant}/vendors` : "/vendors"}
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
+                >
+                  VENDOR LIST
+                </Link>
+                <Link
+                  href="/config"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
+                >
+                  SYSTEM CONFIG
+                </Link>
+                <Link
+                  href="/reports/audit-trail"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
+                >
+                  AUDIT TRAIL
+                </Link>
+                <Link
+                  href="/reports"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
+                >
+                  QUICK REPORTS
+                </Link>
               </>
             ) : (
               <Link

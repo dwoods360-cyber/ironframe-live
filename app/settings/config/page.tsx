@@ -1,9 +1,17 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useRef } from "react";
 import IrontechDashboard from "@/app/components/IrontechDashboard";
 import TemplateEditor from "@/app/settings/config/TemplateEditor";
 import { useMailHubStore } from "@/app/utils/mailHubStore";
+import { appendAuditLog, purgeSimulationAuditLogs } from "@/app/utils/auditLogger";
+import { useRiskStore } from "@/app/store/riskStore";
+import { useKimbotStore } from "@/app/store/kimbotStore";
+import { useGrcBotStore } from "@/app/store/grcBotStore";
+import { generateKimbotSignal, kimbotIntervalMs, type KimbotAttackType } from "@/app/utils/kimbotEngine";
+import { useComputeBilling } from "@/app/hooks/useComputeBilling";
+import { wakeBlueTeam, sleepBlueTeam } from "@/app/utils/blueTeamSync";
+import { useAgentStore } from "@/app/store/agentStore";
 import {
   AdhocNotificationGroup,
   CadenceAlertToggles,
@@ -13,6 +21,7 @@ import {
   setAuthorizedSocDomains,
   setCadenceAlerts,
   setCompanyStakeholders,
+  setExpertModeEnabled,
   setSocAutoReceiptEnabled,
   setSocDepartmentEmail,
   setSocEmailIntakeEnabled,
@@ -32,6 +41,85 @@ export default function SystemConfigPage() {
   const [showIrontechDiagnostics, setShowIrontechDiagnostics] = useState(false);
   const [heuristicEnabled, setHeuristicEnabled] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+
+  const kimbotEnabled = useKimbotStore((s) => s.enabled);
+  const kimbotIntensity = useKimbotStore((s) => s.intensity);
+  const kimbotAttackType = useKimbotStore((s) => s.attackType);
+  const setKimbotEnabled = useKimbotStore((s) => s.setEnabled);
+  const setKimbotIntensity = useKimbotStore((s) => s.setIntensity);
+  const setKimbotAttackType = useKimbotStore((s) => s.setAttackType);
+  const addInjectedSignal = useKimbotStore((s) => s.addInjectedSignal);
+  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const kimbotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const grcBotEnabled = useGrcBotStore((s) => s.enabled);
+  const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
+  const setGrcBotEnabled = useGrcBotStore((s) => s.setEnabled);
+  const setGrcBotCompanyCount = useGrcBotStore((s) => s.setCompanyCount);
+
+  const billing = useComputeBilling();
+
+  useEffect(() => {
+    if (!kimbotEnabled) {
+      if (kimbotIntervalRef.current) {
+        clearInterval(kimbotIntervalRef.current);
+        kimbotIntervalRef.current = null;
+      }
+      return;
+    }
+    const tick = () => {
+      const signal = generateKimbotSignal(selectedIndustry, kimbotAttackType, kimbotIntensity);
+      addInjectedSignal(signal);
+      const ts = new Date().toISOString();
+      useAgentStore.getState().addStreamMessage(`> [${ts}] KIMBOT: ${signal.title} (${signal.severity})`);
+    };
+    tick();
+    const ms = kimbotIntervalMs(kimbotIntensity);
+    kimbotIntervalRef.current = setInterval(tick, ms);
+    return () => {
+      if (kimbotIntervalRef.current) {
+        clearInterval(kimbotIntervalRef.current);
+        kimbotIntervalRef.current = null;
+      }
+    };
+  }, [kimbotEnabled, kimbotIntensity, kimbotAttackType, selectedIndustry, addInjectedSignal]);
+
+  const handleKimbotToggle = (next: boolean) => {
+    setKimbotEnabled(next);
+    if (next) wakeBlueTeam();
+    else sleepBlueTeam();
+    appendAuditLog({
+      action_type: next ? "RED_TEAM_SIMULATION_START" : "RED_TEAM_SIMULATION_STOP",
+      log_type: "SIMULATION",
+      description: next
+        ? `KIMBOT Red Team simulation started. Attack: ${kimbotAttackType}, Intensity: ${kimbotIntensity}, Industry: ${selectedIndustry}.`
+        : `KIMBOT Red Team simulation stopped.`,
+      metadata_tag: next
+        ? `SIMULATION|KIMBOT|industry:${selectedIndustry}|attack:${kimbotAttackType}|intensity:${kimbotIntensity}${
+            selectedTenantName ? `|tenant:${selectedTenantName}` : ""
+          }`
+        : "SIMULATION|KIMBOT|stop",
+    });
+    setStatus(next ? "KIMBOT Red Team simulation ON." : "KIMBOT Red Team simulation OFF.");
+  };
+
+  const handleGrcBotToggle = (next: boolean) => {
+    setGrcBotEnabled(next);
+    appendAuditLog({
+      action_type: next ? "RED_TEAM_SIMULATION_START" : "RED_TEAM_SIMULATION_STOP",
+      log_type: "SIMULATION",
+      description: next
+        ? `GRCBOT Operations Simulator started. Simulating ${grcBotCompanyCount} companies; vendor submits and acknowledge/process with ~15% SLA fail.`
+        : `GRCBOT Operations Simulator stopped.`,
+      metadata_tag: next
+        ? `SIMULATION|GRCBOT|start|companies:${grcBotCompanyCount}${
+            selectedIndustry ? `|industry:${selectedIndustry}` : ""
+          }${selectedTenantName ? `|tenant:${selectedTenantName}` : ""}`
+        : "SIMULATION|GRCBOT|stop",
+    });
+    setStatus(next ? "GRCBOT Operations Simulator ON." : "GRCBOT Operations Simulator OFF.");
+  };
 
   useEffect(() => {
     hydrateSystemConfig();
@@ -86,6 +174,29 @@ export default function SystemConfigPage() {
         </div>
 
         <div className="mb-4 flex items-center justify-between rounded border border-slate-700 bg-slate-950/40 px-3 py-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-200">Expert Mode</p>
+            <p className="text-[10px] text-slate-400">
+              OFF: simplified risk levels · ON: full financial exposure + telemetry
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setExpertModeEnabled(!config.expertModeEnabled);
+              setStatus(`Expert Mode ${!config.expertModeEnabled ? "enabled" : "disabled"}.`);
+            }}
+            className={`rounded border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
+              config.expertModeEnabled
+                ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-300"
+                : "border-slate-700 bg-slate-900 text-slate-300"
+            }`}
+          >
+            {config.expertModeEnabled ? "ON" : "OFF"}
+          </button>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between rounded border border-slate-700 bg-slate-950/40 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-200">Irontech Access Chip</p>
           <button
             type="button"
@@ -105,6 +216,147 @@ export default function SystemConfigPage() {
             />
           </div>
         )}
+
+        <div className="mb-4 rounded border border-rose-500/40 bg-slate-950/40 p-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-200">KIMBOT // Red Team Data Generator</p>
+          <p className="mb-3 text-[10px] text-slate-400">Stress-test AGENT STREAM, GRC gates, and 15-minute liability alert. Industry-aware (uses selected Industry Profile).</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">KIMBOT</span>
+              <button
+                type="button"
+                onClick={() => handleKimbotToggle(!kimbotEnabled)}
+                className={`rounded border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  kimbotEnabled ? "border-rose-500/70 bg-rose-500/15 text-rose-300" : "border-slate-700 bg-slate-900 text-slate-300"
+                }`}
+              >
+                {kimbotEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="kimbot-intensity" className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                Attack Intensity (1–10)
+              </label>
+              <input
+                id="kimbot-intensity"
+                type="range"
+                min={1}
+                max={10}
+                value={kimbotIntensity}
+                onChange={(e) => setKimbotIntensity(Number(e.target.value))}
+                className="w-24 accent-rose-500"
+              />
+              <span className="text-[10px] font-mono text-slate-400">{kimbotIntensity}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="kimbot-type" className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                Attack Type
+              </label>
+              <select
+                id="kimbot-type"
+                value={kimbotAttackType}
+                onChange={(e) => setKimbotAttackType(e.target.value as KimbotAttackType)}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 outline-none focus:border-rose-500"
+              >
+                <option value="Ransomware">Ransomware</option>
+                <option value="Data Leak">Data Leak</option>
+                <option value="API Breach">API Breach</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded border border-amber-500/40 bg-slate-950/40 p-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-200">GRCBOT // Operations Simulator</p>
+          <p className="mb-3 text-[10px] text-slate-400">Simulate 1–100 companies: vendor artifact submissions, GRC acknowledge/process events, and occasional SLA failures so Reports SLA Compliance drops below 100%.</p>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">GRCBOT</span>
+              <button
+                type="button"
+                onClick={() => handleGrcBotToggle(!grcBotEnabled)}
+                className={`rounded border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                  grcBotEnabled ? "border-amber-500/70 bg-amber-500/15 text-amber-300" : "border-slate-700 bg-slate-900 text-slate-300"
+                }`}
+              >
+                {grcBotEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="grcbot-companies" className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                Companies (1–100)
+              </label>
+              <input
+                id="grcbot-companies"
+                type="number"
+                min={1}
+                max={100}
+                value={grcBotCompanyCount}
+                onChange={(e) => setGrcBotCompanyCount(Number(e.target.value) || 50)}
+                className="w-16 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] text-slate-100 outline-none focus:border-amber-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const removed = purgeSimulationAuditLogs();
+                  setStatus(`Force Reset: ${removed} simulation audit log entries removed. Historical Entries count synced.`);
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-200 hover:bg-slate-700"
+              >
+                Force Reset
+              </button>
+              <span className="text-[10px] text-slate-500">Clear simulation entries from audit log</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4 rounded border border-slate-700 bg-slate-950/40 p-3">
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-200">License & Compute // Unit Economics</p>
+          <p className="mb-3 text-[10px] text-slate-400">Developer budget $20/mo. Burn is driven by KIMBOT raw signals and GRCBOT active tenants. At 100 companies, burn accelerates to test billing alerts.</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded border border-slate-800 bg-slate-900/30 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Active Tenants</p>
+              <p className="mt-1 text-xl font-light text-slate-200">
+                {billing.activeTenants}/{billing.activeTenantsMax}
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-400">GRCBOT companies when ON</p>
+            </div>
+            <div className="rounded border border-slate-800 bg-slate-900/30 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Monthly Burn</p>
+              <p className="mt-1 text-xl font-light text-slate-200">
+                ${billing.monthlyBurnUsd.toFixed(2)} <span className="text-[10px] text-slate-500">/ ${billing.budgetMonthlyUsd}</span>
+              </p>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    billing.burnPct >= 100 ? "bg-rose-500" : billing.burnPct >= 80 ? "bg-amber-500" : "bg-emerald-500"
+                  }`}
+                  style={{ width: `${Math.min(100, billing.burnPct)}%` }}
+                />
+              </div>
+              {billing.burnPct > 100 && (
+                <p className="mt-1 text-[10px] font-medium text-rose-400">Over budget — billing alert</p>
+              )}
+              {billing.burnAccelerated && (
+                <p className="mt-1 text-[10px] font-medium text-amber-400">Accelerated (100 tenants)</p>
+              )}
+            </div>
+            <div className="rounded border border-slate-800 bg-slate-900/30 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Margin Estimate</p>
+              <p className={`mt-1 text-xl font-light ${billing.marginEstimateUsd >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                ${billing.marginEstimateUsd >= 0 ? "" : "-"}${Math.abs(billing.marginEstimateUsd).toFixed(2)}/mo
+              </p>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                Revenue ${billing.projectedRevenueUsd.toFixed(0)} − cost ${billing.monthlyBurnUsd.toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-[10px] text-slate-500">
+            Signals: {billing.totalKimbotSignals} (KIMBOT) · GRC risks in pipeline: {billing.grcBotRisksCount}
+          </p>
+        </div>
 
         <div className="mb-4 rounded border border-slate-700 bg-slate-950/40 p-3">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-200">Section A // SOC Core</p>

@@ -25,6 +25,8 @@ export type StreamAlert = {
   liabilityUsd: number;
   status: "OPEN" | "APPROVED" | "DISMISSED";
   createdAt: string;
+  /** Sector for industry-filtered dashboard (e.g. Healthcare, Finance) */
+  sector?: string;
 };
 
 export function getAlertDispatchMeta(alert: Pick<StreamAlert, "type" | "origin" | "isExternalSOC">): AlertDispatchMeta {

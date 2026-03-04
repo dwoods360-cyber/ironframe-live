@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import HeaderTwo from "@/app/components/HeaderTwo";
-import TenantSwitcher from "./TenantSwitcher"; 
+import TenantSwitcher from "./TenantSwitcher";
+import { useRiskStore } from "@/app/store/riskStore"; 
 
 export default function TopNav() {
   const pathname = usePathname();
@@ -28,7 +29,11 @@ export default function TopNav() {
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
   const isPlaybookRoute = Boolean(playbookEntity);
-  
+
+  const liveMonitoringCount = useRiskStore((s) => s.liveMonitoringCount);
+  const currencyScale = useRiskStore((s) => s.currencyScale);
+  const setCurrencyScale = useRiskStore((s) => s.setCurrencyScale);
+
   const headerContextTitle = isPlaybookRoute
     ? `${playbookEntity} // INCIDENT RESPONSE PLAYBOOK`
     : isVendorsRoute
@@ -66,7 +71,7 @@ export default function TopNav() {
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-tighter text-white">LIVE MONITORING</span>
             <span className="text-[10px] font-bold text-slate-700">|</span>
-            <span className="text-[10px] font-bold text-emerald-500">SYNC: 24ms</span>
+            <span className="text-[10px] font-bold text-emerald-500">SIGNALS: {liveMonitoringCount}</span>
           </div>
         </div>
 
@@ -91,8 +96,29 @@ export default function TopNav() {
       </div>
 
       <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
-        <div className="flex h-full items-center">
+        <div className="flex h-full items-center gap-3">
           <TenantSwitcher />
+          {/* # MAGNITUDE_SELECTOR — global currency scale toggle (AUTO, K, M, B, T) */}
+          {/* # GLOBAL_CURRENCY_SELECTOR — tenant-scoped currency scaling control */}
+          <div className="relative z-50 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300">
+            <span className="text-slate-400">Scale</span>
+            <div className="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-1 py-0.5">
+              {(["AUTO", "K", "M", "B", "T"] as const).map((scale) => (
+                <button
+                  key={scale}
+                  type="button"
+                  onClick={() => setCurrencyScale(scale)}
+                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                    currencyScale === scale
+                      ? "bg-emerald-500 text-black"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {scale}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="text-[10px] font-bold uppercase text-emerald-400 flex items-center gap-2">
             AGENT MANAGER: ONLINE

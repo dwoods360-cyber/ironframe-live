@@ -35,3 +35,15 @@ model AgentLog {
   details     String?
   createdAt   DateTime @default(now())
 }
+
+// ------------------------------------------------------
+// Audit Intelligence — threat lifecycle events (DMZ)
+// ------------------------------------------------------
+
+model ThreatActivityLog {
+  id        String   @id @default(cuid())
+  threatId  String
+  action    String   // e.g. AI_INVESTIGATION_SAVED, STATUS_CHANGED, NOTES_APPENDED
+  details   String   @db.Text
+  createdAt DateTime @default(now())
+}

@@ -7,6 +7,7 @@ import {
   useSystemConfigStore,
   VendorTypeRequirements,
 } from "@/app/store/systemConfigStore";
+import { loadGrcTemplateConfig, saveGrcTemplateConfig } from "@/app/actions/grcTemplate";
 import { VendorType } from "@/app/vendors/schema";
 
 type TemplateEditorProps = {
@@ -49,7 +50,23 @@ export default function TemplateEditor({ onStatus }: TemplateEditorProps) {
     });
   }, [config.generalRfiChecklist, config.vendorTypeRequirements]);
 
-  const handleSave = () => {
+  useEffect(() => {
+    loadGrcTemplateConfig().then((db) => {
+      if (db) {
+        setRfiItems(db.generalRfiChecklist);
+        setRequirementsInput({
+          SaaS: asCommaSeparated(db.vendorTypeRequirements.SaaS),
+          "On-Prem Software": asCommaSeparated(db.vendorTypeRequirements["On-Prem Software"]),
+          "Managed Services": asCommaSeparated(db.vendorTypeRequirements["Managed Services"]),
+          Hardware: asCommaSeparated(db.vendorTypeRequirements.Hardware),
+        });
+        setGeneralRfiChecklist(db.generalRfiChecklist);
+        setVendorTypeRequirements(db.vendorTypeRequirements);
+      }
+    });
+  }, []);
+
+  const handleSave = async () => {
     const nextRequirements: VendorTypeRequirements = {
       SaaS: toList(requirementsInput.SaaS),
       "On-Prem Software": toList(requirementsInput["On-Prem Software"]),
@@ -59,7 +76,13 @@ export default function TemplateEditor({ onStatus }: TemplateEditorProps) {
 
     setGeneralRfiChecklist(rfiItems);
     setVendorTypeRequirements(nextRequirements);
-    onStatus("GRC template editor saved. Autonomous monitoring and RFI templates now use updated requirements.");
+
+    const result = await saveGrcTemplateConfig(rfiItems, nextRequirements);
+    if (result.ok) {
+      onStatus("GRC template editor saved to database. Autonomous monitoring and RFI templates updated.");
+    } else {
+      onStatus(result.error ? `Save failed: ${result.error}` : "GRC template editor saved locally; database save failed.");
+    }
   };
 
   return (

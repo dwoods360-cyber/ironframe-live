@@ -51,13 +51,9 @@ async function main() {
     ]
   });
 
-  // 3. Inject Initial High-Risk Findings (Agent 4 Targets)
+  // 3. Inject Initial High-Risk Findings (Agent 4 Targets) — baseline empty after full purge; add risks via ingestion/triage.
   await prisma.activeRisk.createMany({
-    data: [
-      { company_id: medshield.id, title: 'Azure Health API Exposure', status: 'ACTIVE', score_cents: 84n, source: 'IronSight' },
-      { company_id: gridcore.id, title: 'Schneider Electric SCADA Vulnerability', status: 'ACTIVE', score_cents: 88n, source: 'IronSight' },
-      { company_id: vaultbank.id, title: 'Palo Alto Firewall Misconfiguration', status: 'ACTIVE', score_cents: 82n, source: 'CoreIntel' }
-    ]
+    data: [],
   });
 
   // 4. Inject N-Tier Supply Chain (Agent 10 / Ironmap Targets) - Tenant-scoped

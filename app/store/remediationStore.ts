@@ -10,6 +10,9 @@ type RemediationState = {
   executionStatus: Record<string, ExecutionStatus>;
   riskReductionByEntity: Record<TenantKey, number>;
   auditTrail: string[];
+  isSidebarOpen: boolean;
+  sidebarEntityKey: TenantKey;
+  sidebarEntityLabel: string;
 };
 
 const listeners = new Set<() => void>();
@@ -23,6 +26,9 @@ let remediationState: RemediationState = {
     gridcore: 0,
   },
   auditTrail: [],
+  isSidebarOpen: false,
+  sidebarEntityKey: "medshield",
+  sidebarEntityLabel: "MEDSHIELD",
 };
 
 function emitChange() {
@@ -45,6 +51,20 @@ export function setRemediationPending(taskId: string) {
       ...remediationState.executionStatus,
       [taskId]: "pending",
     },
+  };
+  emitChange();
+}
+
+export function toggleSidebar(open: boolean) {
+  remediationState = { ...remediationState, isSidebarOpen: open };
+  emitChange();
+}
+
+export function setSidebarContext(entityKey: TenantKey, entityLabel: string) {
+  remediationState = {
+    ...remediationState,
+    sidebarEntityKey: entityKey,
+    sidebarEntityLabel: entityLabel,
   };
   emitChange();
 }

@@ -43,6 +43,8 @@ type SystemConfigState = {
   cadenceAlerts: CadenceAlertToggles;
   generalRfiChecklist: string[];
   vendorTypeRequirements: VendorTypeRequirements;
+  /** Off (startup/novice): hide complex ALE math + raw telemetry. On: show full exposure + logs. */
+  expertModeEnabled: boolean;
 };
 
 const STORAGE_KEY = "ironframe-system-config-v1";
@@ -169,6 +171,7 @@ let systemConfigState: SystemConfigState = {
   },
   generalRfiChecklist: DEFAULT_GENERAL_RFI_CHECKLIST,
   vendorTypeRequirements: DEFAULT_VENDOR_TYPE_REQUIREMENTS,
+  expertModeEnabled: true,
 };
 
 function emitChange() {
@@ -284,6 +287,7 @@ export function hydrateSystemConfig() {
       cadenceAlerts: sanitizeCadenceAlerts(parsed.cadenceAlerts),
       generalRfiChecklist: sanitizeChecklist(parsed.generalRfiChecklist),
       vendorTypeRequirements: sanitizeVendorTypeRequirements(parsed.vendorTypeRequirements),
+      expertModeEnabled: parsed.expertModeEnabled ?? true,
     };
     emitChange();
     ensureLoginAuditEvent();
@@ -429,6 +433,21 @@ export function setVendorTypeRequirements(requirements: VendorTypeRequirements) 
     log_type: "GRC",
     metadata_tag: "GRC_GOVERNANCE",
     description: "Vendor type evidence requirements updated.",
+  });
+  persistSystemConfig();
+  emitChange();
+}
+
+export function setExpertModeEnabled(enabled: boolean) {
+  systemConfigState = {
+    ...systemConfigState,
+    expertModeEnabled: enabled,
+  };
+  appendAuditLog({
+    action_type: "CONFIG_CHANGE",
+    log_type: "GRC",
+    metadata_tag: "GRC_GOVERNANCE",
+    description: `Expert Mode ${enabled ? "enabled" : "disabled"}.`,
   });
   persistSystemConfig();
   emitChange();

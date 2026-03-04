@@ -27,15 +27,15 @@ enum AgentStatus {
 // TENANT (Constitutional - Standardized to UUID for RLS)
 // ------------------------------------------------------
 model Tenant {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name         String
-  slug         String   @unique
-  industry     String   @default("Secure Enclave")
-  ale_baseline BigInt   @default(0) // ALE math remains BigInt cents
+  slug         String @unique
+  industry     String @default("Secure Enclave")
+  ale_baseline BigInt @default(0) // ALE math remains BigInt cents
 
   vendors    Vendor[]
   agent_logs AgentLog[]
-  createdAt  DateTime @default(now())
+  createdAt  DateTime   @default(now())
 
   @@map("tenants")
 }
@@ -44,11 +44,11 @@ model Tenant {
 // THE TENANT BOUNDARY (Standardized to BigInt for high-count scale)
 // ------------------------------------------------------
 model Company {
-  id                       BigInt   @id @default(autoincrement())
+  id                       BigInt  @id @default(autoincrement())
   name                     String
   sector                   String
-  industry_avg_loss_cents  BigInt?  // BIGINT Cents
-  infrastructure_val_cents BigInt?  // BIGINT Cents
+  industry_avg_loss_cents  BigInt? // BIGINT Cents
+  infrastructure_val_cents BigInt? // BIGINT Cents
 
   departments Department[]
   policies    Policy[]
@@ -62,7 +62,7 @@ model Department {
   company_id BigInt
   name       String
 
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("departments")
 }
@@ -74,20 +74,21 @@ model Policy {
   status     String
   last_scan  String @default("Today")
 
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("policies")
 }
 
 model ActiveRisk {
-  id          BigInt @id @default(autoincrement())
-  company_id  BigInt
-  title       String
-  status      String
-  score_cents BigInt // REFACTORED: Unified to BIGINT cents
-  source      String
+  id             BigInt   @id @default(autoincrement())
+  company_id     BigInt
+  title          String
+  status         String
+  score_cents    BigInt   // REFACTORED: Unified to BIGINT cents
+  source         String
+  isSimulation   Boolean  @default(false) @map("issimulation")
 
-  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("active_risks")
 }
@@ -96,11 +97,11 @@ model ActiveRisk {
 // SUPPLY CHAIN (Standardized to UUID to match Tenant)
 // ------------------------------------------------------
 model Vendor {
-  id        String @id @default(uuid())
-  name      String
-  riskTier  String @default("LOW")
-  tenantId  String @db.Uuid
-  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  name     String
+  riskTier String @default("LOW")
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("vendors")
 }
@@ -113,6 +114,73 @@ model AgentLog {
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("agent_logs")
+}
+
+// --- GRC Workflow Enums ---
+enum ThreatState {
+  PIPELINE // Sitting in SOC/AGENT Stream
+  ACTIVE // Acknowledged, sitting in Active Threats
+  CONFIRMED // Stakeholders emailed, awaiting resolution
+  RESOLVED // Fix applied, risk mitigated
+  DE_ACKNOWLEDGED // Dismissed by operator
+}
+
+enum DeAckReason {
+  FALSE_POSITIVE
+  COMPENSATING_CONTROL
+  ACCEPTABLE_RISK
+  DUPLICATE
+}
+
+// --- Core Threat Model ---
+model ThreatEvent {
+  id             String @id @default(cuid())
+  title          String
+  sourceAgent    String // e.g., 'IRONSIGHT', 'COREINTEL'
+  score          Int
+  targetEntity   String // e.g., 'Healthcare', 'Gridcore Energy'
+  financialRisk_cents BigInt @default(0) // Liability in cents (e.g., $4.9M => 490000000)
+
+  // State Machine
+  state       ThreatState  @default(PIPELINE)
+  ttlSeconds  Int          @default(259200) // 72 hours default
+  deAckReason DeAckReason? // Required if state is DE_ACKNOWLEDGED
+
+  // AI investigation report (CoreIntel agent output)
+  aiReport String? @db.Text
+
+  // Relations
+  notes      WorkNote[]
+  auditTrail AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Appendable Work Notes ---
+model WorkNote {
+  id         String @id @default(cuid())
+  text       String @db.Text
+  operatorId String // The user who wrote the note
+
+  threatId String
+  threat   ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// --- Immutable Audit Log ---
+model AuditLog {
+  id            String   @id @default(cuid())
+  action        String   // e.g., 'THREAT_ACKNOWLEDGED', 'TTL_CHANGED'
+  justification String?  @db.Text // Mandatory for De-Ack
+  operatorId    String
+  isSimulation  Boolean  @default(false)
+
+  threatId String?
+  threat   ThreatEvent? @relation(fields: [threatId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
 }
 
 // ------------------------------------------------------
@@ -137,14 +205,25 @@ model Failed_Jobs {
 
 /// Agent 16: Ironscout - Task TTL & Ad-hoc Tracking
 model Ironscout_Tasks {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenant_id   String   @db.Uuid
-  target_url  String
-  directive   String
-  status      String   @default("active")
-  created_at  DateTime @default(now())
-  expires_at  DateTime
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id  String   @db.Uuid
+  target_url String
+  directive  String
+  status     String   @default("active")
+  created_at DateTime @default(now())
+  expires_at DateTime
 
   @@index([tenant_id])
   @@index([expires_at])
+}
+
+// ------------------------------------------------------
+// SYSTEM CONFIG (GRC Template Editor persistence)
+// ------------------------------------------------------
+model GrcTemplateConfig {
+  id                     String   @id // single row keyed by "default"
+  generalRfiChecklist     Json     // string[]
+  vendorTypeRequirements Json     // Record<VendorType, string[]>
+  updatedAt              DateTime @updatedAt
+  @@map("grc_template_config")
 }

@@ -1,0 +1,1357 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: IRONFRAME CORE
+        - generic [ref=e8]: ACTIVE GRC
+      - generic [ref=e10]:
+        - generic [ref=e12]: LIVE MONITORING
+        - generic [ref=e13]: "|"
+        - generic [ref=e14]: "SIGNALS: 5"
+      - generic [ref=e15]:
+        - img [ref=e17]
+        - generic [ref=e20]: J. DOE (CISO)
+        - generic [ref=e22]:
+          - img [ref=e23]
+          - generic [ref=e26]: SECURE SESSION
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - img [ref=e30]
+          - combobox [ref=e34] [cursor=pointer]:
+            - option "SELECT VIEW" [disabled]
+            - option "Global Command Center" [selected]
+            - option "Medshield Health — $11.1M"
+            - option "Vaultbank Global — $5.9M"
+            - option "Gridcore Energy — $4.7M"
+        - generic [ref=e35]:
+          - generic [ref=e36]: Scale
+          - generic [ref=e37]:
+            - button "AUTO" [ref=e38]
+            - button "K" [ref=e39]
+            - button "M" [ref=e40]
+            - button "B" [ref=e41]
+            - button "T" [ref=e42]
+      - generic [ref=e43]: "AGENT MANAGER: ONLINE"
+    - generic [ref=e47]:
+      - link "VENDOR LIST" [ref=e48] [cursor=pointer]:
+        - /url: /vendors
+      - link "SYSTEM CONFIG" [ref=e49] [cursor=pointer]:
+        - /url: /config
+      - link "AUDIT TRAIL" [ref=e50] [cursor=pointer]:
+        - /url: /reports/audit-trail
+      - link "QUICK REPORTS" [ref=e51] [cursor=pointer]:
+        - /url: /reports
+  - main [ref=e52]:
+    - generic [ref=e53]:
+      - complementary [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e57]:
+            - generic [ref=e58]: Strategic Intel
+            - generic [ref=e60]: "Agent Manager: Healthy"
+          - generic [ref=e63]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: Industry Profile
+              - button "Hide" [ref=e66] [cursor=pointer]
+            - generic [ref=e68]:
+              - combobox [ref=e69] [cursor=pointer]:
+                - option "Healthcare" [selected]
+                - option "Finance"
+                - option "Energy / Grid"
+                - option "Technology"
+                - option "Defense"
+              - generic:
+                - img
+          - generic [ref=e70]:
+            - generic [ref=e71]: Risk Exposure
+            - generic [ref=e73]:
+              - generic [ref=e74]:
+                - text: Industry Average (Benchmark)
+                - button "Explain Industry Average" [ref=e75]:
+                  - img [ref=e76]
+              - generic [ref=e78]: $8.5M
+            - generic [ref=e82]:
+              - generic [ref=e83]:
+                - text: Your Current Risk (Actual)
+                - button "Explain Your Current Risk" [ref=e84]:
+                  - img [ref=e85]
+              - generic [ref=e87]: $0.0
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - text: Potential Impact (Ceiling)
+                - button "Explain Potential Impact" [ref=e92]:
+                  - img [ref=e93]
+              - generic [ref=e95]: $118.4M
+            - generic [ref=e99]:
+              - generic [ref=e100]:
+                - text: Unmitigated Risk (GAP) (Delta)
+                - button "Explain Unmitigated Risk (Gap)" [ref=e101]:
+                  - img [ref=e102]
+              - generic [ref=e104]: $118.4M
+            - generic [ref=e107]:
+              - generic [ref=e109]: Risk Trend (Synthetic)
+              - generic [ref=e112]:
+                - list [ref=e114]:
+                  - listitem [ref=e115]:
+                    - img "Industry Average (Benchmark) legend icon" [ref=e116]
+                    - text: Industry Average (Benchmark)
+                  - listitem [ref=e118]:
+                    - img "Potential Impact (Ceiling) legend icon" [ref=e119]
+                    - text: Potential Impact (Ceiling)
+                  - listitem [ref=e121]:
+                    - img "Unmitigated Risk (GAP/Delta) legend icon" [ref=e122]
+                    - text: Unmitigated Risk (GAP/Delta)
+                  - listitem [ref=e124]:
+                    - img "Your Current Risk (Actual) legend icon" [ref=e125]
+                    - text: Your Current Risk (Actual)
+                - application [ref=e127]:
+                  - generic [ref=e138]:
+                    - generic [ref=e139]:
+                      - generic [ref=e141]: T-4
+                      - generic [ref=e143]: T-3
+                      - generic [ref=e145]: T-2
+                      - generic [ref=e147]: T-1
+                      - generic [ref=e149]: Now
+                    - generic [ref=e150]:
+                      - generic [ref=e152]: $0.0
+                      - generic [ref=e154]: $30.0M
+                      - generic [ref=e156]: $60.0M
+                      - generic [ref=e158]: $90.0M
+                      - generic [ref=e160]: $120.0M
+          - generic [ref=e161]:
+            - generic [ref=e162]: Top Sector Threats (Click to Register)
+            - generic [ref=e163]:
+              - button "RANSOMWARE $4.9M" [ref=e164] [cursor=pointer]:
+                - generic:
+                  - img
+                  - generic: RANSOMWARE
+                - generic [ref=e165]: $4.9M
+              - button "DATA BREACH $3.5M" [ref=e166] [cursor=pointer]:
+                - generic:
+                  - img
+                  - generic: DATA BREACH
+                - generic [ref=e167]: $3.5M
+              - button "PHISHING ATTACK $2.1M" [ref=e168] [cursor=pointer]:
+                - generic:
+                  - img
+                  - generic: PHISHING ATTACK
+                - generic [ref=e169]: $2.1M
+          - generic [ref=e170]:
+            - generic [ref=e171]: AI Agents
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - img [ref=e175]
+                - generic [ref=e178]: Ironsight
+                - generic [ref=e181]: Healthy
+              - generic [ref=e182]:
+                - img [ref=e184]
+                - generic [ref=e192]: Coreintel
+                - generic [ref=e195]: Healthy
+              - generic [ref=e196]:
+                - img [ref=e198]
+                - generic [ref=e200]: Agent Manager
+                - generic [ref=e203]: Healthy
+          - generic [ref=e204]:
+            - generic [ref=e205]: Coreintel // Live Intelligence Stream
+            - generic [ref=e206]:
+              - generic [ref=e207]: "> [SYSTEM] Zero-trust Architecture enforced."
+              - generic [ref=e208]: "> [SYSTEM] System Online. Core Vault synced."
+              - generic [ref=e209]: "> [AUDIT] Manual Risk Registered: $5.0M Exposure Acknowledged."
+          - generic [ref=e211]:
+            - textbox "kimbot | kimbotx | grcbot [1-100] | grcbotx | purg" [ref=e212]
+            - button "Run" [ref=e213]
+          - generic [ref=e214]:
+            - generic [ref=e215]:
+              - button "-" [ref=e216]
+              - spinbutton [ref=e217]: "72"
+              - button "+" [ref=e218]
+            - button "SET" [ref=e219]
+            - generic [ref=e220]:
+              - generic [ref=e221]: "TTL:"
+              - textbox "72:00:00" [ref=e222]
+          - generic [ref=e223]:
+            - generic [ref=e224]: Enter Agent Instruction...
+            - textbox "Enter Agent Instruction..." [ref=e225]
+            - button "N RUN SENTINEL SWEEP" [ref=e226]:
+              - generic [ref=e227]: "N"
+              - img [ref=e228]
+              - text: RUN SENTINEL SWEEP
+      - generic [ref=e231]:
+        - generic [ref=e233]:
+          - generic [ref=e234]: REGULATORY ALERT
+          - paragraph [ref=e236]: No new regulatory alerts.
+        - generic [ref=e237]:
+          - heading "SENTINEL DASHBOARD" [level=1] [ref=e238]
+          - generic [ref=e239]: Protected Tenants (Healthcare)
+          - combobox "Tenant selection" [ref=e240]:
+            - option "My Organization" [selected]
+            - option "MedShield Clinic"
+            - option "St. Jude Hospital"
+            - option "Medshield Health"
+            - option "Vaultbank Global"
+            - option "Gridcore Energy"
+          - link "Audit Trail" [ref=e241] [cursor=pointer]:
+            - /url: /reports/audit-trail
+          - generic [ref=e242]:
+            - generic [ref=e243]: Expert Mode
+            - switch "Expert Mode" [checked] [ref=e244] [cursor=pointer]
+            - generic [ref=e245]: "ON"
+            - button "Purge" [ref=e246]
+        - region "Enterprise Risk Posture" [ref=e247]:
+          - heading "Enterprise Risk Posture" [level=2] [ref=e248]
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - generic [ref=e253]: Protected Tenants (Healthcare)
+              - generic [ref=e254]:
+                - generic [ref=e255]: "0"
+                - generic [ref=e256]: 100% ONLINE
+            - generic [ref=e257]:
+              - generic [ref=e258]: Active Violations
+              - generic [ref=e259]:
+                - generic [ref=e260]: "0"
+                - generic [ref=e261]: REQUIRES TRIAGE
+            - generic [ref=e262]:
+              - generic [ref=e263]: Liability Exposure (USD)
+              - generic [ref=e264]:
+                - generic [ref=e265]: $4.0M
+                - generic [ref=e266]: ALE AT RISK
+        - generic [ref=e267]:
+          - heading "RISK INGESTION" [level=2] [ref=e269]
+          - generic [ref=e271]:
+            - generic [ref=e272]:
+              - paragraph [ref=e273]: RAW SIGNAL INGESTION
+              - searchbox "Search ingestion" [ref=e274]
+              - generic [ref=e275]: "[ WAITING FOR INGESTION STREAM... ]"
+            - generic [ref=e276]:
+              - paragraph [ref=e277]: RISK REGISTRATION
+              - generic [ref=e278]:
+                - searchbox "Search registered risks" [ref=e279]
+                - button "Manual Risk REGISTRATION" [ref=e281]
+              - generic [ref=e282]:
+                - generic [ref=e284]:
+                  - generic [ref=e285]:
+                    - generic [ref=e286]:
+                      - generic [ref=e287]:
+                        - generic [ref=e288]: CRITICAL
+                        - link "Vendor artifact GRCBOT 23" [ref=e289] [cursor=pointer]:
+                          - /url: /threats/cmmbmxg5u000y57kscyhehp8z
+                      - paragraph [ref=e290]: cmmbmxg5u000y57kscyhehp8z
+                      - paragraph [ref=e291]: "Source: GRCBOT (Simulation) · Sector: Technology · Target: Core services"
+                      - paragraph [ref=e292]: "Liability: $8.1M · GRCBOT (Simulation)"
+                      - generic [ref=e293]:
+                        - generic [ref=e294]: Liability ($M)
+                        - spinbutton [ref=e295]: "8"
+                        - generic [ref=e296]: Target
+                        - textbox "Technology" [ref=e297]
+                      - generic [ref=e298]:
+                        - generic [ref=e299]: Likelihood (1-10)
+                        - generic [ref=e300]:
+                          - button "-" [ref=e301]
+                          - spinbutton [ref=e302]: "8"
+                          - button "+" [ref=e303]
+                        - generic [ref=e304]: Impact (1-10)
+                        - generic [ref=e305]:
+                          - button "-" [ref=e306]
+                          - spinbutton [ref=e307]: "9"
+                          - button "+" [ref=e308]
+                        - generic [ref=e309]: Risk Score
+                        - generic [ref=e310]: "72"
+                    - link "View Details" [active] [ref=e311] [cursor=pointer]:
+                      - /url: /threats/cmmbmxg5u000y57kscyhehp8z
+                      - img [ref=e312]
+                      - text: View Details
+                  - generic [ref=e317]: Triage
+                  - generic [ref=e318]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e319]
+                    - generic [ref=e320]:
+                      - generic [ref=e321]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e322]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e324]
+                  - generic [ref=e325]:
+                    - combobox [ref=e326]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e327]
+                  - generic [ref=e328]:
+                    - generic [ref=e329]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e330]: 0/50 min
+                  - generic [ref=e331]:
+                    - button "De-Acknowledged" [disabled] [ref=e332]
+                    - button "Reject" [ref=e333]
+                - generic [ref=e336]:
+                  - generic [ref=e337]:
+                    - generic [ref=e338]:
+                      - generic [ref=e339]:
+                        - generic [ref=e340]: CRITICAL
+                        - link "Vendor artifact GRCBOT 22" [ref=e341] [cursor=pointer]:
+                          - /url: /threats/cmmbmx6v1000x57ksm0zg9yum
+                      - paragraph [ref=e342]: cmmbmx6v1000x57ksm0zg9yum
+                      - paragraph [ref=e343]: "Source: GRCBOT (Simulation) · Sector: Energy · Target: Core services"
+                      - paragraph [ref=e344]: "Liability: $6.1M · GRCBOT (Simulation)"
+                      - generic [ref=e345]:
+                        - generic [ref=e346]: Liability ($M)
+                        - spinbutton [ref=e347]: "6"
+                        - generic [ref=e348]: Target
+                        - textbox "Energy" [ref=e349]
+                      - generic [ref=e350]:
+                        - generic [ref=e351]: Likelihood (1-10)
+                        - generic [ref=e352]:
+                          - button "-" [ref=e353]
+                          - spinbutton [ref=e354]: "8"
+                          - button "+" [ref=e355]
+                        - generic [ref=e356]: Impact (1-10)
+                        - generic [ref=e357]:
+                          - button "-" [ref=e358]
+                          - spinbutton [ref=e359]: "9"
+                          - button "+" [ref=e360]
+                        - generic [ref=e361]: Risk Score
+                        - generic [ref=e362]: "72"
+                    - link "View Details" [ref=e363] [cursor=pointer]:
+                      - /url: /threats/cmmbmx6v1000x57ksm0zg9yum
+                      - img [ref=e364]
+                      - text: View Details
+                  - generic [ref=e369]: Triage
+                  - generic [ref=e370]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e371]
+                    - generic [ref=e372]:
+                      - generic [ref=e373]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e374]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e376]
+                  - generic [ref=e377]:
+                    - combobox [ref=e378]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e379]
+                  - generic [ref=e380]:
+                    - generic [ref=e381]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e382]: 0/50 min
+                  - generic [ref=e383]:
+                    - button "De-Acknowledged" [disabled] [ref=e384]
+                    - button "Reject" [ref=e385]
+                - generic [ref=e388]:
+                  - generic [ref=e389]:
+                    - generic [ref=e390]:
+                      - generic [ref=e391]:
+                        - generic [ref=e392]: CRITICAL
+                        - link "Vendor artifact GRCBOT 21" [ref=e393] [cursor=pointer]:
+                          - /url: /threats/cmmbmwxn8000w57ks0s26kdzk
+                      - paragraph [ref=e394]: cmmbmwxn8000w57ks0s26kdzk
+                      - paragraph [ref=e395]: "Source: GRCBOT (Simulation) · Sector: Defense · Target: Core services"
+                      - paragraph [ref=e396]: "Liability: $4.0M · GRCBOT (Simulation)"
+                      - generic [ref=e397]:
+                        - generic [ref=e398]: Liability ($M)
+                        - spinbutton [ref=e399]: "4"
+                        - generic [ref=e400]: Target
+                        - textbox "Defense" [ref=e401]
+                      - generic [ref=e402]:
+                        - generic [ref=e403]: Likelihood (1-10)
+                        - generic [ref=e404]:
+                          - button "-" [ref=e405]
+                          - spinbutton [ref=e406]: "8"
+                          - button "+" [ref=e407]
+                        - generic [ref=e408]: Impact (1-10)
+                        - generic [ref=e409]:
+                          - button "-" [ref=e410]
+                          - spinbutton [ref=e411]: "9"
+                          - button "+" [ref=e412]
+                        - generic [ref=e413]: Risk Score
+                        - generic [ref=e414]: "72"
+                    - link "View Details" [ref=e415] [cursor=pointer]:
+                      - /url: /threats/cmmbmwxn8000w57ks0s26kdzk
+                      - img [ref=e416]
+                      - text: View Details
+                  - generic [ref=e421]: Triage
+                  - generic [ref=e422]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e423]
+                    - generic [ref=e424]:
+                      - generic [ref=e425]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e426]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e428]
+                  - generic [ref=e429]:
+                    - combobox [ref=e430]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e431]
+                  - generic [ref=e432]:
+                    - generic [ref=e433]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e434]: 0/50 min
+                  - generic [ref=e435]:
+                    - button "De-Acknowledged" [disabled] [ref=e436]
+                    - button "Reject" [ref=e437]
+                - generic [ref=e440]:
+                  - generic [ref=e441]:
+                    - generic [ref=e442]:
+                      - generic [ref=e443]:
+                        - generic [ref=e444]: CRITICAL
+                        - link "Vendor artifact GRCBOT 20" [ref=e445] [cursor=pointer]:
+                          - /url: /threats/cmmbmwocl000v57kswij3sthj
+                      - paragraph [ref=e446]: cmmbmwocl000v57kswij3sthj
+                      - paragraph [ref=e447]: "Source: GRCBOT (Simulation) · Sector: Defense · Target: Core services"
+                      - paragraph [ref=e448]: "Liability: $4.2M · GRCBOT (Simulation)"
+                      - generic [ref=e449]:
+                        - generic [ref=e450]: Liability ($M)
+                        - spinbutton [ref=e451]: "4"
+                        - generic [ref=e452]: Target
+                        - textbox "Defense" [ref=e453]
+                      - generic [ref=e454]:
+                        - generic [ref=e455]: Likelihood (1-10)
+                        - generic [ref=e456]:
+                          - button "-" [ref=e457]
+                          - spinbutton [ref=e458]: "8"
+                          - button "+" [ref=e459]
+                        - generic [ref=e460]: Impact (1-10)
+                        - generic [ref=e461]:
+                          - button "-" [ref=e462]
+                          - spinbutton [ref=e463]: "9"
+                          - button "+" [ref=e464]
+                        - generic [ref=e465]: Risk Score
+                        - generic [ref=e466]: "72"
+                    - link "View Details" [ref=e467] [cursor=pointer]:
+                      - /url: /threats/cmmbmwocl000v57kswij3sthj
+                      - img [ref=e468]
+                      - text: View Details
+                  - generic [ref=e473]: Triage
+                  - generic [ref=e474]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e475]
+                    - generic [ref=e476]:
+                      - generic [ref=e477]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e478]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e480]
+                  - generic [ref=e481]:
+                    - combobox [ref=e482]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e483]
+                  - generic [ref=e484]:
+                    - generic [ref=e485]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e486]: 0/50 min
+                  - generic [ref=e487]:
+                    - button "De-Acknowledged" [disabled] [ref=e488]
+                    - button "Reject" [ref=e489]
+                - generic [ref=e492]:
+                  - generic [ref=e493]:
+                    - generic [ref=e494]:
+                      - generic [ref=e495]:
+                        - generic [ref=e496]: CRITICAL
+                        - link "Vendor artifact GRCBOT 19" [ref=e497] [cursor=pointer]:
+                          - /url: /threats/cmmbmwf4r000u57kswkwj1eqq
+                      - paragraph [ref=e498]: cmmbmwf4r000u57kswkwj1eqq
+                      - paragraph [ref=e499]: "Source: GRCBOT (Simulation) · Sector: Energy · Target: Core services"
+                      - paragraph [ref=e500]: "Liability: $8.1M · GRCBOT (Simulation)"
+                      - generic [ref=e501]:
+                        - generic [ref=e502]: Liability ($M)
+                        - spinbutton [ref=e503]: "8"
+                        - generic [ref=e504]: Target
+                        - textbox "Energy" [ref=e505]
+                      - generic [ref=e506]:
+                        - generic [ref=e507]: Likelihood (1-10)
+                        - generic [ref=e508]:
+                          - button "-" [ref=e509]
+                          - spinbutton [ref=e510]: "8"
+                          - button "+" [ref=e511]
+                        - generic [ref=e512]: Impact (1-10)
+                        - generic [ref=e513]:
+                          - button "-" [ref=e514]
+                          - spinbutton [ref=e515]: "9"
+                          - button "+" [ref=e516]
+                        - generic [ref=e517]: Risk Score
+                        - generic [ref=e518]: "72"
+                    - link "View Details" [ref=e519] [cursor=pointer]:
+                      - /url: /threats/cmmbmwf4r000u57kswkwj1eqq
+                      - img [ref=e520]
+                      - text: View Details
+                  - generic [ref=e525]: Triage
+                  - generic [ref=e526]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e527]
+                    - generic [ref=e528]:
+                      - generic [ref=e529]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e530]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e532]
+                  - generic [ref=e533]:
+                    - combobox [ref=e534]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e535]
+                  - generic [ref=e536]:
+                    - generic [ref=e537]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e538]: 0/50 min
+                  - generic [ref=e539]:
+                    - button "De-Acknowledged" [disabled] [ref=e540]
+                    - button "Reject" [ref=e541]
+                - generic [ref=e544]:
+                  - generic [ref=e545]:
+                    - generic [ref=e546]:
+                      - generic [ref=e547]:
+                        - generic [ref=e548]: CRITICAL
+                        - link "Vendor artifact GRCBOT 18" [ref=e549] [cursor=pointer]:
+                          - /url: /threats/cmmbmw5ts000t57ksiifudlnk
+                      - paragraph [ref=e550]: cmmbmw5ts000t57ksiifudlnk
+                      - paragraph [ref=e551]: "Source: GRCBOT (Simulation) · Sector: Technology · Target: Core services"
+                      - paragraph [ref=e552]: "Liability: $3.1M · GRCBOT (Simulation)"
+                      - generic [ref=e553]:
+                        - generic [ref=e554]: Liability ($M)
+                        - spinbutton [ref=e555]: "3"
+                        - generic [ref=e556]: Target
+                        - textbox "Technology" [ref=e557]
+                      - generic [ref=e558]:
+                        - generic [ref=e559]: Likelihood (1-10)
+                        - generic [ref=e560]:
+                          - button "-" [ref=e561]
+                          - spinbutton [ref=e562]: "8"
+                          - button "+" [ref=e563]
+                        - generic [ref=e564]: Impact (1-10)
+                        - generic [ref=e565]:
+                          - button "-" [ref=e566]
+                          - spinbutton [ref=e567]: "9"
+                          - button "+" [ref=e568]
+                        - generic [ref=e569]: Risk Score
+                        - generic [ref=e570]: "72"
+                    - link "View Details" [ref=e571] [cursor=pointer]:
+                      - /url: /threats/cmmbmw5ts000t57ksiifudlnk
+                      - img [ref=e572]
+                      - text: View Details
+                  - generic [ref=e577]: Triage
+                  - generic [ref=e578]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e579]
+                    - generic [ref=e580]:
+                      - generic [ref=e581]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e582]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e584]
+                  - generic [ref=e585]:
+                    - combobox [ref=e586]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e587]
+                  - generic [ref=e588]:
+                    - generic [ref=e589]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e590]: 0/50 min
+                  - generic [ref=e591]:
+                    - button "De-Acknowledged" [disabled] [ref=e592]
+                    - button "Reject" [ref=e593]
+                - generic [ref=e596]:
+                  - generic [ref=e597]:
+                    - generic [ref=e598]:
+                      - generic [ref=e599]:
+                        - generic [ref=e600]: CRITICAL
+                        - link "Vendor artifact GRCBOT 17" [ref=e601] [cursor=pointer]:
+                          - /url: /threats/cmmbmvww3000s57kswp1eqfrk
+                      - paragraph [ref=e602]: cmmbmvww3000s57kswp1eqfrk
+                      - paragraph [ref=e603]: "Source: GRCBOT (Simulation) · Sector: Technology · Target: Core services"
+                      - paragraph [ref=e604]: "Liability: $1.0M · GRCBOT (Simulation)"
+                      - generic [ref=e605]:
+                        - generic [ref=e606]: Liability ($M)
+                        - spinbutton [ref=e607]: "1"
+                        - generic [ref=e608]: Target
+                        - textbox "Technology" [ref=e609]
+                      - generic [ref=e610]:
+                        - generic [ref=e611]: Likelihood (1-10)
+                        - generic [ref=e612]:
+                          - button "-" [ref=e613]
+                          - spinbutton [ref=e614]: "8"
+                          - button "+" [ref=e615]
+                        - generic [ref=e616]: Impact (1-10)
+                        - generic [ref=e617]:
+                          - button "-" [ref=e618]
+                          - spinbutton [ref=e619]: "9"
+                          - button "+" [ref=e620]
+                        - generic [ref=e621]: Risk Score
+                        - generic [ref=e622]: "72"
+                    - link "View Details" [ref=e623] [cursor=pointer]:
+                      - /url: /threats/cmmbmvww3000s57kswp1eqfrk
+                      - img [ref=e624]
+                      - text: View Details
+                  - generic [ref=e629]: Triage
+                  - generic [ref=e630]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e631]
+                    - generic [ref=e632]:
+                      - generic [ref=e633]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e634]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e636]
+                  - generic [ref=e637]:
+                    - combobox [ref=e638]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e639]
+                  - generic [ref=e640]:
+                    - generic [ref=e641]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e642]: 0/50 min
+                  - generic [ref=e643]:
+                    - button "De-Acknowledged" [disabled] [ref=e644]
+                    - button "Reject" [ref=e645]
+                - generic [ref=e648]:
+                  - generic [ref=e649]:
+                    - generic [ref=e650]:
+                      - generic [ref=e651]:
+                        - generic [ref=e652]: CRITICAL
+                        - link "Vendor artifact GRCBOT 16" [ref=e653] [cursor=pointer]:
+                          - /url: /threats/cmmbmvnb5000r57kswpyhhyh1
+                      - paragraph [ref=e654]: cmmbmvnb5000r57kswpyhhyh1
+                      - paragraph [ref=e655]: "Source: GRCBOT (Simulation) · Sector: Technology · Target: Core services"
+                      - paragraph [ref=e656]: "Liability: $2.8M · GRCBOT (Simulation)"
+                      - generic [ref=e657]:
+                        - generic [ref=e658]: Liability ($M)
+                        - spinbutton [ref=e659]: "3"
+                        - generic [ref=e660]: Target
+                        - textbox "Technology" [ref=e661]
+                      - generic [ref=e662]:
+                        - generic [ref=e663]: Likelihood (1-10)
+                        - generic [ref=e664]:
+                          - button "-" [ref=e665]
+                          - spinbutton [ref=e666]: "8"
+                          - button "+" [ref=e667]
+                        - generic [ref=e668]: Impact (1-10)
+                        - generic [ref=e669]:
+                          - button "-" [ref=e670]
+                          - spinbutton [ref=e671]: "9"
+                          - button "+" [ref=e672]
+                        - generic [ref=e673]: Risk Score
+                        - generic [ref=e674]: "72"
+                    - link "View Details" [ref=e675] [cursor=pointer]:
+                      - /url: /threats/cmmbmvnb5000r57kswpyhhyh1
+                      - img [ref=e676]
+                      - text: View Details
+                  - generic [ref=e681]: Triage
+                  - generic [ref=e682]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e683]
+                    - generic [ref=e684]:
+                      - generic [ref=e685]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e686]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e688]
+                  - generic [ref=e689]:
+                    - combobox [ref=e690]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e691]
+                  - generic [ref=e692]:
+                    - generic [ref=e693]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e694]: 0/50 min
+                  - generic [ref=e695]:
+                    - button "De-Acknowledged" [disabled] [ref=e696]
+                    - button "Reject" [ref=e697]
+                - generic [ref=e700]:
+                  - generic [ref=e701]:
+                    - generic [ref=e702]:
+                      - generic [ref=e703]:
+                        - generic [ref=e704]: CRITICAL
+                        - link "Vendor artifact GRCBOT 15" [ref=e705] [cursor=pointer]:
+                          - /url: /threats/cmmbmve34000q57ks4snqvkcx
+                      - paragraph [ref=e706]: cmmbmve34000q57ks4snqvkcx
+                      - paragraph [ref=e707]: "Source: GRCBOT (Simulation) · Sector: Energy · Target: Core services"
+                      - paragraph [ref=e708]: "Liability: $6.9M · GRCBOT (Simulation)"
+                      - generic [ref=e709]:
+                        - generic [ref=e710]: Liability ($M)
+                        - spinbutton [ref=e711]: "7"
+                        - generic [ref=e712]: Target
+                        - textbox "Energy" [ref=e713]
+                      - generic [ref=e714]:
+                        - generic [ref=e715]: Likelihood (1-10)
+                        - generic [ref=e716]:
+                          - button "-" [ref=e717]
+                          - spinbutton [ref=e718]: "8"
+                          - button "+" [ref=e719]
+                        - generic [ref=e720]: Impact (1-10)
+                        - generic [ref=e721]:
+                          - button "-" [ref=e722]
+                          - spinbutton [ref=e723]: "9"
+                          - button "+" [ref=e724]
+                        - generic [ref=e725]: Risk Score
+                        - generic [ref=e726]: "72"
+                    - link "View Details" [ref=e727] [cursor=pointer]:
+                      - /url: /threats/cmmbmve34000q57ks4snqvkcx
+                      - img [ref=e728]
+                      - text: View Details
+                  - generic [ref=e733]: Triage
+                  - generic [ref=e734]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e735]
+                    - generic [ref=e736]:
+                      - generic [ref=e737]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e738]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e740]
+                  - generic [ref=e741]:
+                    - combobox [ref=e742]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e743]
+                  - generic [ref=e744]:
+                    - generic [ref=e745]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e746]: 0/50 min
+                  - generic [ref=e747]:
+                    - button "De-Acknowledged" [disabled] [ref=e748]
+                    - button "Reject" [ref=e749]
+                - generic [ref=e752]:
+                  - generic [ref=e753]:
+                    - generic [ref=e754]:
+                      - generic [ref=e755]:
+                        - generic [ref=e756]: CRITICAL
+                        - link "Vendor artifact GRCBOT 14" [ref=e757] [cursor=pointer]:
+                          - /url: /threats/cmmbmv4sl000p57ksk5zbnh1r
+                      - paragraph [ref=e758]: cmmbmv4sl000p57ksk5zbnh1r
+                      - paragraph [ref=e759]: "Source: GRCBOT (Simulation) · Sector: Technology · Target: Core services"
+                      - paragraph [ref=e760]: "Liability: $5.5M · GRCBOT (Simulation)"
+                      - generic [ref=e761]:
+                        - generic [ref=e762]: Liability ($M)
+                        - spinbutton [ref=e763]: "6"
+                        - generic [ref=e764]: Target
+                        - textbox "Technology" [ref=e765]
+                      - generic [ref=e766]:
+                        - generic [ref=e767]: Likelihood (1-10)
+                        - generic [ref=e768]:
+                          - button "-" [ref=e769]
+                          - spinbutton [ref=e770]: "8"
+                          - button "+" [ref=e771]
+                        - generic [ref=e772]: Impact (1-10)
+                        - generic [ref=e773]:
+                          - button "-" [ref=e774]
+                          - spinbutton [ref=e775]: "9"
+                          - button "+" [ref=e776]
+                        - generic [ref=e777]: Risk Score
+                        - generic [ref=e778]: "72"
+                    - link "View Details" [ref=e779] [cursor=pointer]:
+                      - /url: /threats/cmmbmv4sl000p57ksk5zbnh1r
+                      - img [ref=e780]
+                      - text: View Details
+                  - generic [ref=e785]: Triage
+                  - generic [ref=e786]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e787]
+                    - generic [ref=e788]:
+                      - generic [ref=e789]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e790]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e792]
+                  - generic [ref=e793]:
+                    - combobox [ref=e794]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e795]
+                  - generic [ref=e796]:
+                    - generic [ref=e797]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e798]: 0/50 min
+                  - generic [ref=e799]:
+                    - button "De-Acknowledged" [disabled] [ref=e800]
+                    - button "Reject" [ref=e801]
+                - generic [ref=e804]:
+                  - generic [ref=e805]:
+                    - generic [ref=e806]:
+                      - generic [ref=e807]:
+                        - generic [ref=e808]: CRITICAL
+                        - link "Vendor artifact GRCBOT 13" [ref=e809] [cursor=pointer]:
+                          - /url: /threats/cmmbmuvkd000o57ksn4572xjv
+                      - paragraph [ref=e810]: cmmbmuvkd000o57ksn4572xjv
+                      - paragraph [ref=e811]: "Source: GRCBOT (Simulation) · Sector: Defense · Target: Core services"
+                      - paragraph [ref=e812]: "Liability: $6.6M · GRCBOT (Simulation)"
+                      - generic [ref=e813]:
+                        - generic [ref=e814]: Liability ($M)
+                        - spinbutton [ref=e815]: "7"
+                        - generic [ref=e816]: Target
+                        - textbox "Defense" [ref=e817]
+                      - generic [ref=e818]:
+                        - generic [ref=e819]: Likelihood (1-10)
+                        - generic [ref=e820]:
+                          - button "-" [ref=e821]
+                          - spinbutton [ref=e822]: "8"
+                          - button "+" [ref=e823]
+                        - generic [ref=e824]: Impact (1-10)
+                        - generic [ref=e825]:
+                          - button "-" [ref=e826]
+                          - spinbutton [ref=e827]: "9"
+                          - button "+" [ref=e828]
+                        - generic [ref=e829]: Risk Score
+                        - generic [ref=e830]: "72"
+                    - link "View Details" [ref=e831] [cursor=pointer]:
+                      - /url: /threats/cmmbmuvkd000o57ksn4572xjv
+                      - img [ref=e832]
+                      - text: View Details
+                  - generic [ref=e837]: Triage
+                  - generic [ref=e838]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e839]
+                    - generic [ref=e840]:
+                      - generic [ref=e841]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e842]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e844]
+                  - generic [ref=e845]:
+                    - combobox [ref=e846]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e847]
+                  - generic [ref=e848]:
+                    - generic [ref=e849]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e850]: 0/50 min
+                  - generic [ref=e851]:
+                    - button "De-Acknowledged" [disabled] [ref=e852]
+                    - button "Reject" [ref=e853]
+                - generic [ref=e856]:
+                  - generic [ref=e857]:
+                    - generic [ref=e858]:
+                      - generic [ref=e859]:
+                        - generic [ref=e860]: CRITICAL
+                        - link "Vendor artifact GRCBOT 12" [ref=e861] [cursor=pointer]:
+                          - /url: /threats/cmmbmum9p000n57ksscdvucqd
+                      - paragraph [ref=e862]: cmmbmum9p000n57ksscdvucqd
+                      - paragraph [ref=e863]: "Source: GRCBOT (Simulation) · Sector: Defense · Target: Core services"
+                      - paragraph [ref=e864]: "Liability: $6.1M · GRCBOT (Simulation)"
+                      - generic [ref=e865]:
+                        - generic [ref=e866]: Liability ($M)
+                        - spinbutton [ref=e867]: "6"
+                        - generic [ref=e868]: Target
+                        - textbox "Defense" [ref=e869]
+                      - generic [ref=e870]:
+                        - generic [ref=e871]: Likelihood (1-10)
+                        - generic [ref=e872]:
+                          - button "-" [ref=e873]
+                          - spinbutton [ref=e874]: "8"
+                          - button "+" [ref=e875]
+                        - generic [ref=e876]: Impact (1-10)
+                        - generic [ref=e877]:
+                          - button "-" [ref=e878]
+                          - spinbutton [ref=e879]: "9"
+                          - button "+" [ref=e880]
+                        - generic [ref=e881]: Risk Score
+                        - generic [ref=e882]: "72"
+                    - link "View Details" [ref=e883] [cursor=pointer]:
+                      - /url: /threats/cmmbmum9p000n57ksscdvucqd
+                      - img [ref=e884]
+                      - text: View Details
+                  - generic [ref=e889]: Triage
+                  - generic [ref=e890]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e891]
+                    - generic [ref=e892]:
+                      - generic [ref=e893]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e894]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e896]
+                  - generic [ref=e897]:
+                    - combobox [ref=e898]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e899]
+                  - generic [ref=e900]:
+                    - generic [ref=e901]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e902]: 0/50 min
+                  - generic [ref=e903]:
+                    - button "De-Acknowledged" [disabled] [ref=e904]
+                    - button "Reject" [ref=e905]
+                - generic [ref=e908]:
+                  - generic [ref=e909]:
+                    - generic [ref=e910]:
+                      - generic [ref=e911]:
+                        - generic [ref=e912]: CRITICAL
+                        - link "Vendor artifact GRCBOT 11" [ref=e913] [cursor=pointer]:
+                          - /url: /threats/cmmbmud1x000m57ksd88ghrp7
+                      - paragraph [ref=e914]: cmmbmud1x000m57ksd88ghrp7
+                      - paragraph [ref=e915]: "Source: GRCBOT (Simulation) · Sector: Finance · Target: Core services"
+                      - paragraph [ref=e916]: "Liability: $1.1M · GRCBOT (Simulation)"
+                      - generic [ref=e917]:
+                        - generic [ref=e918]: Liability ($M)
+                        - spinbutton [ref=e919]: "1"
+                        - generic [ref=e920]: Target
+                        - textbox "Finance" [ref=e921]
+                      - generic [ref=e922]:
+                        - generic [ref=e923]: Likelihood (1-10)
+                        - generic [ref=e924]:
+                          - button "-" [ref=e925]
+                          - spinbutton [ref=e926]: "8"
+                          - button "+" [ref=e927]
+                        - generic [ref=e928]: Impact (1-10)
+                        - generic [ref=e929]:
+                          - button "-" [ref=e930]
+                          - spinbutton [ref=e931]: "9"
+                          - button "+" [ref=e932]
+                        - generic [ref=e933]: Risk Score
+                        - generic [ref=e934]: "72"
+                    - link "View Details" [ref=e935] [cursor=pointer]:
+                      - /url: /threats/cmmbmud1x000m57ksd88ghrp7
+                      - img [ref=e936]
+                      - text: View Details
+                  - generic [ref=e941]: Triage
+                  - generic [ref=e942]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e943]
+                    - generic [ref=e944]:
+                      - generic [ref=e945]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e946]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e948]
+                  - generic [ref=e949]:
+                    - combobox [ref=e950]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e951]
+                  - generic [ref=e952]:
+                    - generic [ref=e953]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e954]: 0/50 min
+                  - generic [ref=e955]:
+                    - button "De-Acknowledged" [disabled] [ref=e956]
+                    - button "Reject" [ref=e957]
+                - generic [ref=e960]:
+                  - generic [ref=e961]:
+                    - generic [ref=e962]:
+                      - generic [ref=e963]:
+                        - generic [ref=e964]: CRITICAL
+                        - link "Vendor artifact GRCBOT 10" [ref=e965] [cursor=pointer]:
+                          - /url: /threats/cmmbmu3r5000l57kspnmwkwkx
+                      - paragraph [ref=e966]: cmmbmu3r5000l57kspnmwkwkx
+                      - paragraph [ref=e967]: "Source: GRCBOT (Simulation) · Sector: Healthcare · Target: Core services"
+                      - paragraph [ref=e968]: "Liability: $2.2M · GRCBOT (Simulation)"
+                      - generic [ref=e969]:
+                        - generic [ref=e970]: Liability ($M)
+                        - spinbutton [ref=e971]: "2"
+                        - generic [ref=e972]: Target
+                        - textbox "Healthcare" [ref=e973]
+                      - generic [ref=e974]:
+                        - generic [ref=e975]: Likelihood (1-10)
+                        - generic [ref=e976]:
+                          - button "-" [ref=e977]
+                          - spinbutton [ref=e978]: "8"
+                          - button "+" [ref=e979]
+                        - generic [ref=e980]: Impact (1-10)
+                        - generic [ref=e981]:
+                          - button "-" [ref=e982]
+                          - spinbutton [ref=e983]: "9"
+                          - button "+" [ref=e984]
+                        - generic [ref=e985]: Risk Score
+                        - generic [ref=e986]: "72"
+                    - link "View Details" [ref=e987] [cursor=pointer]:
+                      - /url: /threats/cmmbmu3r5000l57kspnmwkwkx
+                      - img [ref=e988]
+                      - text: View Details
+                  - generic [ref=e993]: Triage
+                  - generic [ref=e994]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e995]
+                    - generic [ref=e996]:
+                      - generic [ref=e997]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e998]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1000]
+                  - generic [ref=e1001]:
+                    - combobox [ref=e1002]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1003]
+                  - generic [ref=e1004]:
+                    - generic [ref=e1005]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1006]: 0/50 min
+                  - generic [ref=e1007]:
+                    - button "De-Acknowledged" [disabled] [ref=e1008]
+                    - button "Reject" [ref=e1009]
+                - generic [ref=e1012]:
+                  - generic [ref=e1013]:
+                    - generic [ref=e1014]:
+                      - generic [ref=e1015]:
+                        - generic [ref=e1016]: CRITICAL
+                        - link "Vendor artifact GRCBOT 9" [ref=e1017] [cursor=pointer]:
+                          - /url: /threats/cmmbmtuj6000k57ks8o0hfwvx
+                      - paragraph [ref=e1018]: cmmbmtuj6000k57ks8o0hfwvx
+                      - paragraph [ref=e1019]: "Source: GRCBOT (Simulation) · Sector: Energy · Target: Core services"
+                      - paragraph [ref=e1020]: "Liability: $2.1M · GRCBOT (Simulation)"
+                      - generic [ref=e1021]:
+                        - generic [ref=e1022]: Liability ($M)
+                        - spinbutton [ref=e1023]: "2"
+                        - generic [ref=e1024]: Target
+                        - textbox "Energy" [ref=e1025]
+                      - generic [ref=e1026]:
+                        - generic [ref=e1027]: Likelihood (1-10)
+                        - generic [ref=e1028]:
+                          - button "-" [ref=e1029]
+                          - spinbutton [ref=e1030]: "8"
+                          - button "+" [ref=e1031]
+                        - generic [ref=e1032]: Impact (1-10)
+                        - generic [ref=e1033]:
+                          - button "-" [ref=e1034]
+                          - spinbutton [ref=e1035]: "9"
+                          - button "+" [ref=e1036]
+                        - generic [ref=e1037]: Risk Score
+                        - generic [ref=e1038]: "72"
+                    - link "View Details" [ref=e1039] [cursor=pointer]:
+                      - /url: /threats/cmmbmtuj6000k57ks8o0hfwvx
+                      - img [ref=e1040]
+                      - text: View Details
+                  - generic [ref=e1045]: Triage
+                  - generic [ref=e1046]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e1047]
+                    - generic [ref=e1048]:
+                      - generic [ref=e1049]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e1050]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1052]
+                  - generic [ref=e1053]:
+                    - combobox [ref=e1054]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1055]
+                  - generic [ref=e1056]:
+                    - generic [ref=e1057]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1058]: 0/50 min
+                  - generic [ref=e1059]:
+                    - button "De-Acknowledged" [disabled] [ref=e1060]
+                    - button "Reject" [ref=e1061]
+                - generic [ref=e1064]:
+                  - generic [ref=e1065]:
+                    - generic [ref=e1066]:
+                      - generic [ref=e1067]:
+                        - generic [ref=e1068]: CRITICAL
+                        - link "Vendor artifact GRCBOT 8" [ref=e1069] [cursor=pointer]:
+                          - /url: /threats/cmmbmtl8h000j57ksdusqn9u7
+                      - paragraph [ref=e1070]: cmmbmtl8h000j57ksdusqn9u7
+                      - paragraph [ref=e1071]: "Source: GRCBOT (Simulation) · Sector: Finance · Target: Core services"
+                      - paragraph [ref=e1072]: "Liability: $7.2M · GRCBOT (Simulation)"
+                      - generic [ref=e1073]:
+                        - generic [ref=e1074]: Liability ($M)
+                        - spinbutton [ref=e1075]: "7"
+                        - generic [ref=e1076]: Target
+                        - textbox "Finance" [ref=e1077]
+                      - generic [ref=e1078]:
+                        - generic [ref=e1079]: Likelihood (1-10)
+                        - generic [ref=e1080]:
+                          - button "-" [ref=e1081]
+                          - spinbutton [ref=e1082]: "8"
+                          - button "+" [ref=e1083]
+                        - generic [ref=e1084]: Impact (1-10)
+                        - generic [ref=e1085]:
+                          - button "-" [ref=e1086]
+                          - spinbutton [ref=e1087]: "9"
+                          - button "+" [ref=e1088]
+                        - generic [ref=e1089]: Risk Score
+                        - generic [ref=e1090]: "72"
+                    - link "View Details" [ref=e1091] [cursor=pointer]:
+                      - /url: /threats/cmmbmtl8h000j57ksdusqn9u7
+                      - img [ref=e1092]
+                      - text: View Details
+                  - generic [ref=e1097]: Triage
+                  - generic [ref=e1098]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e1099]
+                    - generic [ref=e1100]:
+                      - generic [ref=e1101]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e1102]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1104]
+                  - generic [ref=e1105]:
+                    - combobox [ref=e1106]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1107]
+                  - generic [ref=e1108]:
+                    - generic [ref=e1109]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1110]: 0/50 min
+                  - generic [ref=e1111]:
+                    - button "De-Acknowledged" [disabled] [ref=e1112]
+                    - button "Reject" [ref=e1113]
+                - generic [ref=e1116]:
+                  - generic [ref=e1117]:
+                    - generic [ref=e1118]:
+                      - generic [ref=e1119]:
+                        - generic [ref=e1120]: CRITICAL
+                        - link "Vendor artifact GRCBOT 7" [ref=e1121] [cursor=pointer]:
+                          - /url: /threats/cmmbmtc0g000i57ksp9548iob
+                      - paragraph [ref=e1122]: cmmbmtc0g000i57ksp9548iob
+                      - paragraph [ref=e1123]: "Source: GRCBOT (Simulation) · Sector: Healthcare · Target: Core services"
+                      - paragraph [ref=e1124]: "Liability: $1.8M · GRCBOT (Simulation)"
+                      - generic [ref=e1125]:
+                        - generic [ref=e1126]: Liability ($M)
+                        - spinbutton [ref=e1127]: "2"
+                        - generic [ref=e1128]: Target
+                        - textbox "Healthcare" [ref=e1129]
+                      - generic [ref=e1130]:
+                        - generic [ref=e1131]: Likelihood (1-10)
+                        - generic [ref=e1132]:
+                          - button "-" [ref=e1133]
+                          - spinbutton [ref=e1134]: "8"
+                          - button "+" [ref=e1135]
+                        - generic [ref=e1136]: Impact (1-10)
+                        - generic [ref=e1137]:
+                          - button "-" [ref=e1138]
+                          - spinbutton [ref=e1139]: "9"
+                          - button "+" [ref=e1140]
+                        - generic [ref=e1141]: Risk Score
+                        - generic [ref=e1142]: "72"
+                    - link "View Details" [ref=e1143] [cursor=pointer]:
+                      - /url: /threats/cmmbmtc0g000i57ksp9548iob
+                      - img [ref=e1144]
+                      - text: View Details
+                  - generic [ref=e1149]: Triage
+                  - generic [ref=e1150]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e1151]
+                    - generic [ref=e1152]:
+                      - generic [ref=e1153]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e1154]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1156]
+                  - generic [ref=e1157]:
+                    - combobox [ref=e1158]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1159]
+                  - generic [ref=e1160]:
+                    - generic [ref=e1161]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1162]: 0/50 min
+                  - generic [ref=e1163]:
+                    - button "De-Acknowledged" [disabled] [ref=e1164]
+                    - button "Reject" [ref=e1165]
+                - generic [ref=e1168]:
+                  - generic [ref=e1169]:
+                    - generic [ref=e1170]:
+                      - generic [ref=e1171]:
+                        - generic [ref=e1172]: CRITICAL
+                        - link "Vendor artifact GRCBOT 6" [ref=e1173] [cursor=pointer]:
+                          - /url: /threats/cmmbmt2q0000h57ks9ik8pa4m
+                      - paragraph [ref=e1174]: cmmbmt2q0000h57ks9ik8pa4m
+                      - paragraph [ref=e1175]: "Source: GRCBOT (Simulation) · Sector: Energy · Target: Core services"
+                      - paragraph [ref=e1176]: "Liability: $4.3M · GRCBOT (Simulation)"
+                      - generic [ref=e1177]:
+                        - generic [ref=e1178]: Liability ($M)
+                        - spinbutton [ref=e1179]: "4"
+                        - generic [ref=e1180]: Target
+                        - textbox "Energy" [ref=e1181]
+                      - generic [ref=e1182]:
+                        - generic [ref=e1183]: Likelihood (1-10)
+                        - generic [ref=e1184]:
+                          - button "-" [ref=e1185]
+                          - spinbutton [ref=e1186]: "8"
+                          - button "+" [ref=e1187]
+                        - generic [ref=e1188]: Impact (1-10)
+                        - generic [ref=e1189]:
+                          - button "-" [ref=e1190]
+                          - spinbutton [ref=e1191]: "9"
+                          - button "+" [ref=e1192]
+                        - generic [ref=e1193]: Risk Score
+                        - generic [ref=e1194]: "72"
+                    - link "View Details" [ref=e1195] [cursor=pointer]:
+                      - /url: /threats/cmmbmt2q0000h57ks9ik8pa4m
+                      - img [ref=e1196]
+                      - text: View Details
+                  - generic [ref=e1201]: Triage
+                  - generic [ref=e1202]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e1203]
+                    - generic [ref=e1204]:
+                      - generic [ref=e1205]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e1206]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1208]
+                  - generic [ref=e1209]:
+                    - combobox [ref=e1210]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1211]
+                  - generic [ref=e1212]:
+                    - generic [ref=e1213]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1214]: 0/50 min
+                  - generic [ref=e1215]:
+                    - button "De-Acknowledged" [disabled] [ref=e1216]
+                    - button "Reject" [ref=e1217]
+                - generic [ref=e1220]:
+                  - generic [ref=e1221]:
+                    - generic [ref=e1222]:
+                      - generic [ref=e1223]:
+                        - generic [ref=e1224]: CRITICAL
+                        - link "Vendor artifact GRCBOT 5" [ref=e1225] [cursor=pointer]:
+                          - /url: /threats/cmmbmsthq000g57ksu4yd524t
+                      - paragraph [ref=e1226]: cmmbmsthq000g57ksu4yd524t
+                      - paragraph [ref=e1227]: "Source: GRCBOT (Simulation) · Sector: Defense · Target: Core services"
+                      - paragraph [ref=e1228]: "Liability: $3.3M · GRCBOT (Simulation)"
+                      - generic [ref=e1229]:
+                        - generic [ref=e1230]: Liability ($M)
+                        - spinbutton [ref=e1231]: "3"
+                        - generic [ref=e1232]: Target
+                        - textbox "Defense" [ref=e1233]
+                      - generic [ref=e1234]:
+                        - generic [ref=e1235]: Likelihood (1-10)
+                        - generic [ref=e1236]:
+                          - button "-" [ref=e1237]
+                          - spinbutton [ref=e1238]: "8"
+                          - button "+" [ref=e1239]
+                        - generic [ref=e1240]: Impact (1-10)
+                        - generic [ref=e1241]:
+                          - button "-" [ref=e1242]
+                          - spinbutton [ref=e1243]: "9"
+                          - button "+" [ref=e1244]
+                        - generic [ref=e1245]: Risk Score
+                        - generic [ref=e1246]: "72"
+                    - link "View Details" [ref=e1247] [cursor=pointer]:
+                      - /url: /threats/cmmbmsthq000g57ksu4yd524t
+                      - img [ref=e1248]
+                      - text: View Details
+                  - generic [ref=e1253]: Triage
+                  - generic [ref=e1254]:
+                    - text: User Notes
+                    - textbox "Capture operator notes before acknowledging the threat..." [ref=e1255]
+                    - generic [ref=e1256]:
+                      - generic [ref=e1257]: Minimum 50 characters required to Acknowledge.
+                      - generic [ref=e1258]: 0/50 min
+                  - button "Acknowledged" [disabled] [ref=e1260]
+                  - generic [ref=e1261]:
+                    - combobox [ref=e1262]:
+                      - option "Select Reason..." [disabled] [selected]
+                      - option "False Positive"
+                      - option "Compensating Control"
+                      - option "Acceptable Risk"
+                    - textbox "Provide mandatory justification to de-acknowledge..." [ref=e1263]
+                  - generic [ref=e1264]:
+                    - generic [ref=e1265]: Reason + 50 characters required to De-acknowledge.
+                    - generic [ref=e1266]: 0/50 min
+                  - generic [ref=e1267]:
+                    - button "De-Acknowledged" [disabled] [ref=e1268]
+                    - button "Reject" [ref=e1269]
+        - generic [ref=e1271]:
+          - generic [ref=e1272]:
+            - heading "ACTIVE RISKS" [level=2] [ref=e1273]
+            - generic [ref=e1274]: 0 Live Findings
+          - searchbox "Search active risks" [ref=e1276]
+          - generic [ref=e1278]: "[ WAITING FOR RISK CONFIRMATION... ]"
+      - complementary [ref=e1279]:
+        - generic [ref=e1280]:
+          - generic [ref=e1281]:
+            - generic [ref=e1282]:
+              - heading "Audit Intelligence" [level=2] [ref=e1283]
+              - generic [ref=e1286]: Live Feed
+            - generic [ref=e1287]: "Historical Entries: 7"
+            - textbox "Filter audit logs" [ref=e1288]:
+              - /placeholder: Search logs...
+          - generic [ref=e1289]:
+            - generic [ref=e1290] [cursor=pointer]:
+              - generic [ref=e1291]:
+                - generic "Unknown Threat" [ref=e1292]: System Activity
+                - generic [ref=e1293]: 1 Entry
+              - generic [ref=e1294]:
+                - generic [ref=e1295]: LOGIN
+                - generic [ref=e1296]: 05:44 AM
+              - generic [ref=e1297]: User session authenticated.
+            - generic [ref=e1298] [cursor=pointer]:
+              - generic [ref=e1299]:
+                - generic "Unknown Threat" [ref=e1300]: Unknown Threat Title
+                - generic [ref=e1301]: 2 Entries
+              - generic "cmmbmsk77000f57ksitavti3x" [ref=e1302]
+              - generic [ref=e1303]:
+                - generic [ref=e1304]: THREAT_CONFIRMED
+                - generic [ref=e1305]: 12:11 AM
+              - generic [ref=e1306]: Confirmed (threat cmmbmsk7…)
+            - generic [ref=e1307] [cursor=pointer]:
+              - generic [ref=e1308]:
+                - generic "Unknown Threat" [ref=e1309]: Unknown Threat Title
+                - generic [ref=e1310]: 1 Entry
+              - generic "cmmbmxpis000z57ksafd962v3" [ref=e1311]
+              - generic [ref=e1312]:
+                - generic [ref=e1313]: THREAT_ACKNOWLEDGED
+                - generic [ref=e1314]: 12:09 AM
+              - generic [ref=e1315]: Acknowledged (threat cmmbmxpi…)
+            - generic [ref=e1316] [cursor=pointer]:
+              - generic [ref=e1317]:
+                - generic "Unknown Threat" [ref=e1318]: Unknown Threat Title
+                - generic [ref=e1319]: 1 Entry
+              - generic "cmmbmsay0000c57kscdlr80wj" [ref=e1320]
+              - generic [ref=e1321]:
+                - generic [ref=e1322]: THREAT_ACKNOWLEDGED
+                - generic [ref=e1323]: 12:03 AM
+              - generic [ref=e1324]: Acknowledged (threat cmmbmsay…)
+            - generic [ref=e1325] [cursor=pointer]:
+              - generic [ref=e1326]:
+                - generic "Unknown Threat" [ref=e1327]: Unknown Threat Title
+                - generic [ref=e1328]: 1 Entry
+              - generic "cmmbms1ok000957ks8bvlg35i" [ref=e1329]
+              - generic [ref=e1330]:
+                - generic [ref=e1331]: THREAT_ACKNOWLEDGED
+                - generic [ref=e1332]: 12:03 AM
+              - generic [ref=e1333]: Acknowledged (threat cmmbms1o…)
+            - generic [ref=e1334] [cursor=pointer]:
+              - generic [ref=e1335]:
+                - generic "Unknown Threat" [ref=e1336]: Unknown Threat Title
+                - generic [ref=e1337]: 1 Entry
+              - generic "cmmbmrsgj000657ksunyam9ym" [ref=e1338]
+              - generic [ref=e1339]:
+                - generic [ref=e1340]: THREAT_ACKNOWLEDGED
+                - generic [ref=e1341]: 12:03 AM
+              - generic [ref=e1342]: Acknowledged (threat cmmbmrsg…)
+    - dialog "Vendor artifact GRCBOT 23" [ref=e1344]:
+      - generic [ref=e1345]:
+        - generic [ref=e1346]:
+          - button "Minimize drawer" [ref=e1348]: —
+          - generic [ref=e1350]:
+            - heading "Vendor artifact GRCBOT 23" [level=2] [ref=e1351]
+            - paragraph [ref=e1352]: cmmbmxg5u000y57kscyhehp8z
+            - generic [ref=e1353]: PIPELINE
+          - generic [ref=e1354]:
+            - button "Switch to dark mode (Night Shift)" [ref=e1355]:
+              - img [ref=e1356]
+            - generic "DMZ Secure Link active" [ref=e1358]:
+              - generic [ref=e1362]: DMZ SECURE LINK
+        - generic [ref=e1364]:
+          - generic [ref=e1366]:
+            - button "Executive View" [ref=e1367]
+            - button "Full Technical Audit" [ref=e1368]
+          - button "Close Drawer" [ref=e1369] [cursor=pointer]:
+            - img [ref=e1370]
+        - generic [ref=e1374]:
+          - generic [ref=e1375]:
+            - paragraph [ref=e1376]: Financial Exposure
+            - paragraph [ref=e1377]: $8.1M
+            - paragraph [ref=e1378]: Estimated liability at risk
+          - generic [ref=e1381]:
+            - paragraph [ref=e1382]: Compliance Status
+            - paragraph [ref=e1383]: Board summary reviewed — GRC controls mapped. Awaiting leadership decision.
+          - generic [ref=e1384]:
+            - heading "Board-Level Executive Summary" [level=3] [ref=e1385]
+            - paragraph [ref=e1386]: Run the CoreIntel Agent and save the report to generate the Board Summary.
+          - button "Sign-off" [ref=e1387]
+  - generic [ref=e1388]:
+    - button "Drag tenant switcher" [ref=e1389]: Drag Switcher
+    - paragraph [ref=e1390]: Dev Tenant Switcher
+    - paragraph [ref=e1391]: "Active: NONE"
+    - generic [ref=e1392]:
+      - button "Medshield" [ref=e1393]
+      - button "Vaultbank" [ref=e1394]
+      - button "Gridcore" [ref=e1395]
+      - button "Clear" [ref=e1396]
+    - button "ATTEMPT CROSS-TENANT FETCH" [ref=e1397]
+    - paragraph [ref=e1398]: "ILLEGAL_FETCH_HELP: This action simulates an illegal cross-tenant fetch and should be blocked with a 403 guardrail."
+    - paragraph [ref=e1399]: "SYSTEM_NOTE: Cross-tenant alerts utilize Medshield liability baselines by design."
+  - button "Open Next.js Dev Tools" [ref=e1405] [cursor=pointer]:
+    - img [ref=e1406]
+  - alert [ref=e1409]
+  - generic [ref=e1410]: $0.0
+```

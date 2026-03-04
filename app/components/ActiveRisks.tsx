@@ -1,58 +1,69 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from "@/lib/prisma";
+import ActiveRisksClient from './ActiveRisksClient';
 
-const prisma = new PrismaClient();
+// Baseline seed titles to exclude (full purge / waiting-state flow)
+const EXCLUDED_BASELINE_RISK_TITLES = new Set([
+  'Schneider Electric SCADA Vulnerability',
+  'Azure Health API Exposure',
+  'Palo Alto Firewall Misconfiguration',
+]);
 
 export default async function ActiveRisks() {
-  // 1. Fetch live Zero-Debt Data directly from the Core Vault
-  const risks = await prisma.activeRisk.findMany({
-    include: {
-      company: true, // Pull in the Tier 1 Client Organization data
-    },
-    orderBy: {
-      score_cents: 'desc', // Sort by highest fidelity threat first
+  // 1. Fetch live Zero-Debt Data directly from the Core Vault.
+  // Select only columns that exist (omit isSimulation so UI renders if column is missing).
+  const [risks, threatEvents] = await Promise.all([
+    prisma.activeRisk.findMany({
+      select: {
+        id: true,
+        company_id: true,
+        title: true,
+        status: true,
+        score_cents: true,
+        source: true,
+        company: { select: { name: true, sector: true } },
+      },
+      orderBy: {
+        score_cents: 'desc',
+      },
+    }),
+    prisma.threatEvent.findMany({
+      select: { id: true, title: true, sourceAgent: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ]);
+
+  // Exclude baseline purge titles so they never appear in ACTIVE RISKS
+  const filteredRisks = risks.filter((r) => !EXCLUDED_BASELINE_RISK_TITLES.has(r.title));
+
+  const normalize = (value: string) => value.trim().toLowerCase();
+  const threatByCompositeKey = new Map<string, string>();
+  for (const t of threatEvents) {
+    const key = `${normalize(t.title)}::${normalize(t.sourceAgent)}`;
+    if (!threatByCompositeKey.has(key)) {
+      threatByCompositeKey.set(key, t.id);
     }
-  });
+  }
+  const threatByTitle = new Map<string, string>();
+  for (const t of threatEvents) {
+    const key = normalize(t.title);
+    if (!threatByTitle.has(key)) {
+      threatByTitle.set(key, t.id);
+    }
+  }
 
-  return (
-    <div className="p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-slate-200">Active Threats & Risks</h2>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
-          {risks.length} Live Findings
-        </span>
-      </div>
+  // Serialize for client (BigInt -> string, etc.); default isSimulation to false when column not selected
+  const serialized = filteredRisks.map((risk) => ({
+    id: risk.id.toString(),
+    title: risk.title,
+    source: risk.source,
+    threatId:
+      threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
+      threatByTitle.get(normalize(risk.title)) ??
+      null,
+    score_cents: Number(risk.score_cents),
+    company: { name: risk.company.name, sector: risk.company.sector },
+    isSimulation: false,
+  }));
 
-      <div className="space-y-3">
-        {risks.map((risk) => (
-          <div 
-            key={risk.id.toString()} // Convert BigInt to string for React
-            className="group flex flex-col justify-between rounded-lg border border-slate-800 bg-slate-900/50 p-4 transition-colors hover:border-blue-500/50"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-slate-200">{risk.title}</h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Target: <span className="text-slate-400">{risk.company.name}</span> ({risk.company.sector})
-                </p>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className={`text-xs font-bold ${Number(risk.score_cents) > 80 ? 'text-red-400' : 'text-amber-400'}`}>
-                  Score: {Number(risk.score_cents)}
-                </span>
-                <span className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
-                  SRC: {risk.source}
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-        
-        {risks.length === 0 && (
-          <div className="rounded-lg border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
-            No active risks detected in the Core Vault.
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <ActiveRisksClient risks={serialized} />;
 }

@@ -1,5 +1,31 @@
-export type AuditActionType = "LOGIN" | "CONFIG_CHANGE" | "EMAIL_SENT" | "ALERT_DISMISSED";
-export type AuditLogType = "GRC" | "APP_SYSTEM" | "SERVER" | "TELEMETRY";
+export type AuditActionType =
+  | "LOGIN"
+  | "CONFIG_CHANGE"
+  | "EMAIL_SENT"
+  | "ALERT_DISMISSED"
+  // GRC / triage-specific actions
+  | "GRC_ACKNOWLEDGE_CLICK"
+  | "GRC_DEACKNOWLEDGE_CLICK"
+  | "GRC_PROCESS_THREAT"
+  | "GRC_SET_TTL"
+  | "GRC_DECREMENT_TTL"
+  | "GRC_SENTINEL_SWEEP"
+  | "GRC_VENDOR_ARTIFACT_SUBMIT"
+  | "RISK_REGISTRATION_MANUAL"
+  // CoreIntel / drawer
+  | "AI_REPORT_SAVED"
+  | "NOTE_ADDED"
+  // Red team / KIMBOT
+  | "RED_TEAM_SIMULATION_START"
+  | "RED_TEAM_SIMULATION_STOP"
+  // Sprint / release
+  | "SPRINT_CLOSE"
+  | "EXPORT_PDF"
+  // GRC directive: De-Ack / Reject / ghost handling
+  | "STATE_REGRESSION"
+  | "RISK_REJECTED"
+  | "SYSTEM_WARNING";
+export type AuditLogType = "GRC" | "APP_SYSTEM" | "SERVER" | "TELEMETRY" | "SIMULATION";
 
 export type AuditLogRecord = Readonly<{
   id: string;
@@ -12,7 +38,8 @@ export type AuditLogRecord = Readonly<{
   ip_address: string;
 }>;
 
-type CreateAuditLogInput = {
+export type CreateAuditLogInput = {
+  id?: string;
   action_type: AuditActionType;
   description: string;
   log_type?: AuditLogType;
@@ -91,8 +118,12 @@ export function hydrateAuditLogger() {
 
 export function appendAuditLog(input: CreateAuditLogInput) {
   const timestamp = input.timestamp ?? new Date().toISOString();
+  if (input.id && auditLogState.some((entry) => entry.id === input.id)) {
+    return auditLogState.find((entry) => entry.id === input.id)!;
+  }
 
   const nextRecord = deepFreezeLog({
+    id: input.id,
     timestamp,
     user_id: input.user_id ?? DEFAULT_USER_ID,
     action_type: input.action_type,
@@ -122,6 +153,25 @@ export function ensureLoginAuditEvent() {
     action_type: "LOGIN",
     description: "User session authenticated.",
   });
+}
+
+/** Remove all audit log entries with log_type === "SIMULATION". Persists and notifies subscribers. */
+export function purgeSimulationAuditLogs(): number {
+  const beforeCount = auditLogState.length;
+  const retained = auditLogState.filter((entry) => entry.log_type !== "SIMULATION");
+  auditLogState = Object.freeze(retained);
+  persistAuditLogState();
+  emitChange();
+  return beforeCount - retained.length;
+}
+
+/** Clear all audit log entries (e.g. after Deep Purge). Resets Historical Entries to 0 so UI shows [ WAITING FOR TELEMETRY... ]. */
+export function clearAllAuditLogs(): number {
+  const beforeCount = auditLogState.length;
+  auditLogState = Object.freeze([]);
+  persistAuditLogState();
+  emitChange();
+  return beforeCount;
 }
 
 export function purgeExpiredAuditLogs(ttlDays: number, nowMs = Date.now()) {
@@ -160,6 +210,18 @@ export function getAuditLogSnapshot() {
 
 export function getAuditLogs() {
   return auditLogState.slice(0, 2000);
+}
+
+/** Return logs filtered by companyId when provided (matches metadata_tag containing companyId). */
+export function getAuditLogsForCompany(companyId: string | null | undefined): AuditLogRecord[] {
+  const logs = auditLogState.slice(0, 2000);
+  if (!companyId) return logs;
+  const key = companyId.toLowerCase();
+  return logs.filter(
+    (entry) =>
+      (entry.metadata_tag && entry.metadata_tag.toLowerCase().includes(key)) ||
+      (entry.description && entry.description.toLowerCase().includes(key))
+  );
 }
 
 export function subscribeAuditLogger(listener: () => void) {

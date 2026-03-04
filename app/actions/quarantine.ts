@@ -1,8 +1,6 @@
 'use server';
 
-import { PrismaClient } from '@prisma/client-dmz';
-
-const prismaDmz = new PrismaClient();
+import prismaDmz from '@/lib/prisma-dmz';
 
 export async function logToQuarantine(fileName: string, tenantId: string = 'medshield') {
   try {

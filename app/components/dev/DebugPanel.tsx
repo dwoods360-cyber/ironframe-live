@@ -184,7 +184,7 @@ export default function DebugPanel() {
       onPointerLeave={() => setIsPanelHovered(false)}
       onMouseEnter={() => setIsPanelHovered(true)}
       onMouseLeave={() => setIsPanelHovered(false)}
-      className="fixed z-[80] w-72 rounded border border-slate-700 bg-slate-950/85 p-3 shadow-2xl backdrop-blur-sm transition-opacity duration-200"
+      className="fixed z-[80] w-72 rounded border border-slate-700/40 bg-slate-950/5 p-3 shadow-2xl backdrop-blur-xl transition-opacity duration-200"
       style={panelPosition ? { left: `${panelPosition.x}px`, top: `${panelPosition.y}px`, opacity: isPanelHovered ? 1 : 0.5 } : { right: "16px", bottom: "16px", opacity: isPanelHovered ? 1 : 0.5 }}
     >
       <button

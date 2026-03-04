@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
-import { PrismaClient, type AgentLog, type Vendor } from "@prisma/client";
-
-// Initialize Prisma directly on the server
-const prisma = new PrismaClient();
+import prisma from "@/lib/prisma";
+import type { AgentLog, Vendor } from "@prisma/client";
 
 const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"];
 

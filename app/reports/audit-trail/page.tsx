@@ -1,39 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AuditIntelligence from "@/app/components/AuditIntelligence";
 import { getAuditLogs } from "@/app/utils/auditLogger";
-
-function escapePdfText(value: string) {
-  return value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-}
-
-function makeMinimalPdf(content: string) {
-  const safeContent = escapePdfText(content);
-  return `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length ${safeContent.length + 45} >>\nstream\nBT\n/F1 12 Tf\n72 720 Td\n(${safeContent}) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000010 00000 n \n0000000062 00000 n \n0000000125 00000 n \n0000000278 00000 n \n0000000412 00000 n \ntrailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n493\n%%EOF`;
-}
+import {
+  getFilteredAuditLogsForReport,
+  buildAuditPdf,
+  computeRiskSummary,
+} from "@/app/utils/exportAudit";
+import { useRiskStore } from "@/app/store/riskStore";
 
 export default function ReportsAuditTrailPage() {
-  const [isVendorChangesScope] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+  const [scopeState, setScopeState] = useState({ vendorChanges: false, companyId: null as string | null });
 
+  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const acceptedThreatImpacts = useRiskStore((s) => s.acceptedThreatImpacts);
+  const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
+  const dashboardLiabilities = useRiskStore((s) => s.dashboardLiabilities);
+  const riskOffset = useRiskStore((s) => s.riskOffset);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("scope") === "vendor-changes";
-  });
+    setScopeState({
+      vendorChanges: params.get("scope") === "vendor-changes",
+      companyId: params.get("companyId"),
+    });
+  }, []);
+
+  const isVendorChangesScope = scopeState.vendorChanges;
+  const effectiveCompanyId = scopeState.companyId;
 
   const handleDownloadPdf = () => {
     const logs = getAuditLogs();
-    const content = [
-      `Audit Report Generated: ${new Date().toISOString()}`,
-      `Total Historical Logs: ${logs.length}`,
-      "Signed by: Dereck",
-      "Stamp: Data Integrity Verified",
-    ].join(" | ");
+    const filter = {
+      logTypeFilter: "GRC" as const,
+      descriptionIncludes: isVendorChangesScope
+        ? ["vendor", "cadence", "document update request"]
+        : undefined,
+      companyId: effectiveCompanyId,
+      selectedIndustry,
+      selectedTenantName,
+    };
+    const filteredEntries = getFilteredAuditLogsForReport(logs, filter);
 
-    const pdf = makeMinimalPdf(content);
+    const riskSummary = computeRiskSummary({
+      selectedIndustry,
+      acceptedThreatImpacts,
+      pipelineThreats,
+      dashboardLiabilities,
+      riskOffset,
+    });
+
+    const pdf = buildAuditPdf({
+      activeTenantName: selectedTenantName ?? "My Organization",
+      riskSummary,
+      entries: filteredEntries,
+      generatedAt: new Date().toISOString(),
+    });
+
     const blob = new Blob([pdf], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -79,6 +105,7 @@ export default function ReportsAuditTrailPage() {
           showRetentionBadge
           logTypeFilter="GRC"
           descriptionIncludes={isVendorChangesScope ? ["vendor", "cadence", "document update request"] : undefined}
+          companyId={effectiveCompanyId}
         />
       </section>
     </div>

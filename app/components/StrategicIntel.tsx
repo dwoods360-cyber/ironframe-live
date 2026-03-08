@@ -79,6 +79,7 @@ export default function StrategicIntel() {
   const [logs, setLogs] = useState<string[]>([]);
   const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
   const [isExpertMode, setIsExpertMode] = useState(true);
+  const [isProfileVisible, setIsProfileVisible] = useState(true);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
@@ -311,8 +312,7 @@ export default function StrategicIntel() {
     setTerminalCommand('');
   };
 
-  // New States for the Industry Profile UX
-  const [isProfileVisible, setIsProfileVisible] = useState(true);
+  // New States for the Industry Profile UX (isProfileVisible kept at top with isExpertMode)
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const isFirstIndustryMount = useRef(true);
 
@@ -558,13 +558,47 @@ export default function StrategicIntel() {
                   <ChevronDown size={14} />
                 </div>
               </div>
+
+            {/* Top 3 Industry Risks Pop-up/Readout (Interactive) */}
+            <div className="bg-zinc-950/80 border border-zinc-800/50 p-2.5 rounded-sm space-y-2 shadow-inner mb-3 mt-3">
+              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800/50 pb-1.5">Top 3 Sector Risks (Click to Register)</p>
+              <div className="space-y-1.5">
+                {(function getTopRisks() {
+                  switch(selectedIndustry) {
+                    case 'Healthcare': return ['Ransomware / PHI Extortion', 'Medical Device (IoMT) Hijack', 'Third-Party Vendor Breach'];
+                    case 'Finance': return ['SWIFT/Wire Fraud Injection', 'API Data Exfiltration', 'Insider Threat (Privilege)'];
+                    case 'Technology': return ['Source Code / IP Theft', 'Cloud Cryptojacking', 'Zero-Day Supply Chain Poisoning'];
+                    case 'Defense': return ['Nation-State APT Espionage', 'Classified Data Spillage', 'Weapon Systems Exploitation'];
+                    default: return ['ICS/SCADA Grid Takeover', 'Supply Chain Compromise', 'Ransomware (Operational Tech)']; // Energy
+                  }
+                })().map((riskTitle, index) => {
+                  const colors = ['text-red-500', 'text-amber-500', 'text-blue-500'];
+                  return (
+                    <button 
+                      key={index}
+                      type="button"
+                      onClick={() => {
+                        upsertPipelineThreat({
+                          id: `MANUAL-${Date.now()}-${index}`,
+                          name: riskTitle,
+                          loss: 1,
+                          industry: selectedIndustry,
+                          source: 'Strategic Intel Profile',
+                        });
+                      }}
+                      className="w-full flex gap-2.5 items-center text-left hover:bg-zinc-800/50 p-1.5 rounded-sm transition-colors group"
+                    >
+                      <span className={`${colors[index]} font-mono font-black text-[10px] group-hover:scale-110 transition-transform`}>{index + 1}.</span> 
+                      {/* Switched to master font-sans for standard readable text */}
+                      <span className="text-[11px] font-sans font-medium text-zinc-300 truncate group-hover:text-white transition-colors">{riskTitle}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             </div>
           )}
-        </div>
-
-        {/* Placeholder when idle ? data-dependent sections hidden */}
-        <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-          [ WAITING FOR INTELLIGENCE STREAM... ]
         </div>
 
         {/* 3. RISK EXPOSURE METRICS */}
@@ -741,7 +775,7 @@ export default function StrategicIntel() {
 
       {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
       <div className="flex flex-col gap-6 w-full px-2 pb-6 pt-6 overflow-y-auto">
-      {/* --- INDUSTRY PROFILE (Toggle + Dropdown + Load Strategy) --- */}
+      {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
       <section className="p-4 border-b border-zinc-900">
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Industry Profile</h3>
@@ -767,30 +801,92 @@ export default function StrategicIntel() {
               <option value="Technology">Technology</option>
               <option value="Defense">Defense</option>
             </select>
-            <button
-              type="button"
-              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded uppercase transition-all active:scale-95"
-            >
-              Load Strategy
-            </button>
           </div>
         )}
       </section>
 
-      {/* 2. RISK EXPOSURE METRICS */}
-      <section className="p-4 space-y-4 border-b border-zinc-900 bg-black/40">
+      {/* 1.5 INDUSTRY PROFILE & TOP RISKS */}
+      <section className="p-4 border-b border-zinc-900 bg-black/40">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Industry Profile</h3>
+          <button 
+            onClick={() => setIsProfileVisible(!isProfileVisible)} 
+            className="text-[9px] font-bold text-zinc-600 hover:text-zinc-400 uppercase transition-colors"
+          >
+            {isProfileVisible ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        
+        {isProfileVisible && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <select 
+              value={selectedIndustry}
+              onChange={(e) => setSelectedIndustry(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-[10px] text-zinc-300 font-mono outline-none focus:border-emerald-500/50 cursor-pointer"
+            >
+              <option value="Healthcare">Healthcare</option>
+              <option value="Finance">Finance</option>
+              <option value="Energy">Energy</option>
+              <option value="Technology">Technology</option>
+              <option value="Defense">Defense</option>
+            </select>
+
+            {/* Top 3 Industry Risks Pop-up/Readout (Interactive) */}
+            <div className="bg-zinc-950/80 border border-zinc-800/50 p-2.5 rounded-sm space-y-2 shadow-inner">
+              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800/50 pb-1.5">Top 3 Sector Risks (Click to Register)</p>
+              <div className="space-y-1.5">
+                {(function getTopRisks() {
+                  switch(selectedIndustry) {
+                    case 'Healthcare': return ['Ransomware / PHI Extortion', 'Medical Device (IoMT) Hijack', 'Third-Party Vendor Breach'];
+                    case 'Finance': return ['SWIFT/Wire Fraud Injection', 'API Data Exfiltration', 'Insider Threat (Privilege)'];
+                    case 'Technology': return ['Source Code / IP Theft', 'Cloud Cryptojacking', 'Zero-Day Supply Chain Poisoning'];
+                    case 'Defense': return ['Nation-State APT Espionage', 'Classified Data Spillage', 'Weapon Systems Exploitation'];
+                    default: return ['ICS/SCADA Grid Takeover', 'Supply Chain Compromise', 'Ransomware (Operational Tech)']; // Energy
+                  }
+                })().map((riskTitle, index) => {
+                  const colors = ['text-red-500', 'text-amber-500', 'text-blue-500'];
+                  return (
+                    <button 
+                      key={index}
+                      type="button"
+                      onClick={() => {
+                        upsertPipelineThreat({
+                          id: `MANUAL-${Date.now()}-${index}`,
+                          name: riskTitle,
+                          loss: 1,
+                          industry: selectedIndustry,
+                          source: 'Strategic Intel Profile',
+                        });
+                      }}
+                      className="w-full flex gap-2.5 items-center text-left hover:bg-zinc-800/50 p-1.5 rounded-sm transition-colors group"
+                    >
+                      <span className={`${colors[index]} font-mono font-black text-[10px] group-hover:scale-110 transition-transform`}>{index + 1}.</span> 
+                      {/* Switched to master font-sans for standard readable text */}
+                      <span className="text-[11px] font-sans font-medium text-zinc-300 truncate group-hover:text-white transition-colors">{riskTitle}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+      </section>
+
+      {/* 2. RISK EXPOSURE METRICS (Restored 4th Row & Hover Pop-up) */}
+      <section className="p-4 space-y-4 border-b border-zinc-900 bg-black/40 relative group cursor-help">
         <div className="flex justify-between items-center">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
-          {/* Bug Fix: Restored the missing monospace ID from the 168-hour review */}
           <span className="text-[9px] font-bold text-zinc-600 font-mono">ID: 0x8F22</span>
         </div>
-
-        {/* Bug Fix: Strictly limited to 3 metric rows. Legacy GAP/Trend rows are wiped. */}
+        
+        {/* The 4 Metrics */}
         <div className="space-y-4">
           {[
-            { label: 'Industry Average', val: '$8.5M', color: 'bg-blue-600', text: 'text-blue-400', w: '60%' },
-            { label: 'Your Current Risk', val: '$10.9M', color: 'bg-amber-500', text: 'text-amber-500', w: '80%' },
-            { label: 'Potential Impact', val: '$15.2M', color: 'bg-red-600', text: 'text-red-500', w: '95%' }
+            { label: 'Industry Average', val: '$8.5M', color: 'bg-blue-600', text: 'text-blue-400', w: '60%', desc: 'Baseline financial exposure for peer organizations in this sector.' },
+            { label: 'Your Current Risk', val: '$10.9M', color: 'bg-amber-500', text: 'text-amber-500', w: '80%', desc: 'Calculated real-time exposure based on active telemetry.' },
+            { label: 'Potential Impact', val: '$15.2M', color: 'bg-red-600', text: 'text-red-500', w: '95%', desc: 'Maximum localized blast radius if vulnerabilities are exploited.' },
+            { label: 'GRC Gap', val: '$4.3M', color: 'bg-purple-600', text: 'text-purple-400', w: '30%', desc: 'Delta between current controls and compliance mandates.' }
           ].map((metric) => (
             <div key={metric.label} className="space-y-1.5">
               <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
@@ -802,6 +898,25 @@ export default function StrategicIntel() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Hover Definition Pop-up Modal */}
+        <div className="absolute z-50 left-0 top-full mt-2 w-full p-3 bg-[#050509] border border-zinc-800 shadow-2xl rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 border-b border-zinc-800/50 pb-1">Exposure Definitions</p>
+          <ul className="space-y-2">
+            {['Industry Average: Baseline financial exposure for peer organizations in this sector.',
+              'Your Current Risk: Calculated real-time exposure based on active telemetry.',
+              'Potential Impact: Maximum localized blast radius if vulnerabilities are exploited.',
+              'GRC Gap: Delta between current controls and compliance mandates.'
+            ].map((desc, i) => {
+              const [title, text] = desc.split(': ');
+              return (
+                <li key={i} className="text-[9px] leading-tight text-zinc-400 font-sans">
+                  <strong className="text-zinc-300 font-black tracking-wide mr-1">{title}:</strong> {text}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </section>
 

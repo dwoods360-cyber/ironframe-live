@@ -399,27 +399,22 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
     }
   }, []);
 
+  /** Derive immutable log status for display (VERIFIED = server/synced, PENDING = client-only). */
+  const entryStatus = (entry: LogEntryItem["entry"]): "VERIFIED" | "PENDING" | "FLAGGED" =>
+    (entry as { _fromServer?: true })._fromServer ? "VERIFIED" : "PENDING";
+
   return (
-    <div className="h-full flex flex-col gap-4 text-slate-200 font-sans">
-      {/* # UI_GLASS_LAYER_CONTROLS — header + Historical Entries + Search (z-50 on glass) */}
-      <div className="relative z-50 flex flex-col gap-2 pt-3">
-        {/* PANEL HEADER */}
-        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800/50">
-          <h2
-            className="text-sm font-bold tracking-widest text-slate-300 uppercase"
-            style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'" }}
-          >
+    <div className="flex h-full flex-col bg-slate-900/50 p-4 font-mono text-slate-200">
+      {/* # UI_GLASS_LAYER_CONTROLS — header + Immutable badge + Historical Entries + Search */}
+      <div className="relative z-50 mb-6 flex flex-col gap-2 border-b border-slate-800 pb-4 pt-3">
+        {/* PANEL HEADER — Update 9: Immutable badge */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-500">
             Audit Intelligence
           </h2>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span
-              className="text-[10.5px] font-bold tracking-wide text-slate-300"
-              style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'" }}
-            >
-              Live Feed
-            </span>
-          </div>
+          <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold uppercase text-emerald-500">
+            Immutable
+          </span>
         </div>
         <div className="flex items-center justify-between gap-2">
           {showRetentionBadge ? (
@@ -444,10 +439,10 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
         />
       </div>
 
-      {/* # AUDIT_STREAM_LOGIC — single unified log rendered as grouped case cards */}
-      <div className="flex-1 overflow-y-auto min-h-0 pb-4 pr-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent space-y-2">
+      {/* # Update 9: Immutable Log Feed — flat list with timestamp, status, action, actor */}
+      <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
         {logsToDisplay.length === 0 ? (
-          <div className="text-sm text-slate-500 font-mono italic p-4 text-center border border-dashed border-slate-800 rounded-md mt-4">
+          <div className="text-sm font-mono italic text-slate-500 p-4 text-center border border-dashed border-slate-800 rounded-md mt-4">
             System Nominal. Awaiting audit events...
           </div>
         ) : (
@@ -457,65 +452,54 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
                 Expert Mode OFF — enable in header for full telemetry
               </div>
             )}
-            {/* # AUDIT_ROLLUP_CARDS */}
-            {groupedThreatLogs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-center border border-dashed border-slate-800/60 rounded-lg bg-slate-900/20">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span className="text-sm text-slate-500 font-mono tracking-wider uppercase">Ledger Empty</span>
-                <span className="text-[10px] text-slate-600 mt-1">Awaiting system or threat activity</span>
-              </div>
-            ) : (
-              groupedThreatLogs.map((group) => (
+            {logsToDisplay.map((item) => {
+              const status = entryStatus(item.entry);
+              const timeStr =
+                typeof item.entry.timestamp === "string" && item.entry.timestamp
+                  ? item.entry.timestamp.includes(",")
+                    ? new Date(item.entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
+                    : item.entry.timestamp
+                  : "—";
+              return (
                 <div
-                  key={group.threatId}
+                  key={item.id}
                   onClick={() => {
-                    if (group.threatId !== "SYSTEM_EVENT") {
+                    const tid = item.entry.threatId;
+                    if (tid) {
                       const store = useRiskStore.getState() as {
                         setActiveThreat?: (id: string) => void;
                         setSelectedThreatId: (id: string | null) => void;
                       };
-                      if (store.setActiveThreat) {
-                        store.setActiveThreat(group.threatId);
-                      } else {
-                        store.setSelectedThreatId(group.threatId);
-                      }
-                      onOpenThreat?.(group.threatId);
+                      if (store.setActiveThreat) store.setActiveThreat(tid);
+                      else store.setSelectedThreatId(tid);
+                      onOpenThreat?.(tid);
                     }
                   }}
-                  className="mb-3 p-3 bg-slate-900/40 border border-slate-700/50 rounded-md cursor-pointer hover:bg-slate-800/60 transition-colors group relative"
+                  className="group relative border-l border-slate-800 pl-4 transition-colors hover:border-blue-500/50"
                 >
-                  {/* LINE 1: Threat Name & Badge */}
-                  <div className="flex justify-between items-start mb-0.5">
-                    <span className="text-sm font-bold text-slate-200 group-hover:text-blue-400 truncate pr-2" title={group.threatName || "Unknown Threat"}>
-                      {group.threatId === "SYSTEM_EVENT" ? "System Activity" : (group.threatName || "Unknown Threat Title")}
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-600">{timeStr}</span>
+                    <span
+                      className={`text-[8px] font-black uppercase tracking-tighter ${
+                        status === "VERIFIED" ? "text-emerald-500" : status === "FLAGGED" ? "text-amber-500" : "text-amber-500"
+                      }`}
+                    >
+                      {status}
                     </span>
-                    <span className="text-[10px] font-mono bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded-full flex-shrink-0">
-                      {group.entries.length} {group.entries.length === 1 ? "Entry" : "Entries"}
-                    </span>
                   </div>
-                  {/* LINE 2: System ID */}
-                  {group.threatId !== "SYSTEM_EVENT" && (
-                    <div className="mb-1 text-[10px] font-mono text-slate-500 truncate" title={group.threatId}>
-                      {group.threatId}
-                    </div>
-                  )}
-
-                  {/* LINE 3: The Log State, Time, & Text */}
-                  <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                    <span className="font-semibold text-amber-500/80">{group.latestAction}</span>
-                    <span>{new Date(group.latestTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-
-                  <div className="text-xs text-slate-400 line-clamp-2">
-                    {group.latestDesc}
-                  </div>
+                  <p className="text-[10px] font-bold uppercase leading-tight text-slate-300">
+                    {(ACTION_LABELS[item.entry.action_type as AuditActionType] ?? SERVER_ACTION_LABELS[item.entry.action_type] ?? item.entry.action_type) || item.entry.description}
+                  </p>
+                  <p className="text-[9px] text-slate-500">Actor: {item.entry.user_id ?? "—"}</p>
                 </div>
-              ))
-            )}
-            </>
+              );
+            })}
+          </>
         )}
+      </div>
+
+      <div className="mt-4 border-t border-slate-800 pt-4 text-center">
+        <p className="text-[8px] font-black uppercase tracking-widest text-slate-700">Secure Ledger // Node_0xCC44</p>
       </div>
     </div>
   );

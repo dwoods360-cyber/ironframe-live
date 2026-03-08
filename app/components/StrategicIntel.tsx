@@ -508,237 +508,22 @@ export default function StrategicIntel() {
     };
   });
 
-  // Dark Start: when no active stream, only Risk Exposure and Top Sector Threats show placeholders.
-  // AI Agents, Coreintel stream, TTL, and Run Sentinel Sweep always display (not data-stream reliant).
-  const hasActiveIntelligenceStream =
-    pipelineThreats.length > 0 ||
-    activeSidebarThreats.length > 0 ||
-    isKimbotActive ||
-    grcBotEnabled;
-
-  if (!hasActiveIntelligenceStream) {
-    return (
-      <div className="flex flex-col gap-6 w-full px-2 pb-6 pt-6 bg-[#0f172a]/50 backdrop-blur-md font-sans">
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-between items-center">
-            <span className="text-[10.5px] font-bold uppercase tracking-wide text-white">Strategic Intel</span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10.5px] font-bold text-emerald-400 uppercase tracking-wide">Agent Manager: Healthy</span>
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-            </div>
-          </div>
-          <div className="w-full h-px bg-slate-800" />
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold text-white uppercase">Industry Profile</span>
-            <button
-              onClick={() => setIsProfileVisible(!isProfileVisible)}
-              className="text-[10px] text-blue-500 cursor-pointer hover:underline transition-all bg-transparent border-none outline-none"
-            >
-              {isProfileVisible ? 'Hide' : 'Show'}
-            </button>
-          </div>
-          {isProfileVisible && (
-            <div className="flex flex-col gap-2">
-              <div className="relative">
-                <select
-                  value={selectedIndustry}
-                  onChange={(e) => setSelectedIndustry(e.target.value)}
-                  className="w-full bg-[#0f172a] border border-slate-800 p-2.5 rounded text-sm text-slate-200 appearance-none outline-none focus:border-blue-500 cursor-pointer"
-                >
-                  <option value="Healthcare">Healthcare</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Energy">Energy / Grid</option>
-                  <option value="Technology">Technology</option>
-                  <option value="Defense">Defense</option>
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                  <ChevronDown size={14} />
-                </div>
-              </div>
-
-            {/* Top 3 Industry Risks Pop-up/Readout (Interactive) */}
-            <div className="bg-zinc-950/80 border border-zinc-800/50 p-2.5 rounded-sm space-y-2 shadow-inner mb-3 mt-3">
-              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800/50 pb-1.5">Top 3 Sector Risks (Click to Register)</p>
-              <div className="space-y-1.5">
-                {(function getTopRisks() {
-                  switch(selectedIndustry) {
-                    case 'Healthcare': return ['Ransomware / PHI Extortion', 'Medical Device (IoMT) Hijack', 'Third-Party Vendor Breach'];
-                    case 'Finance': return ['SWIFT/Wire Fraud Injection', 'API Data Exfiltration', 'Insider Threat (Privilege)'];
-                    case 'Technology': return ['Source Code / IP Theft', 'Cloud Cryptojacking', 'Zero-Day Supply Chain Poisoning'];
-                    case 'Defense': return ['Nation-State APT Espionage', 'Classified Data Spillage', 'Weapon Systems Exploitation'];
-                    default: return ['ICS/SCADA Grid Takeover', 'Supply Chain Compromise', 'Ransomware (Operational Tech)']; // Energy
-                  }
-                })().map((riskTitle, index) => {
-                  const colors = ['text-red-500', 'text-amber-500', 'text-blue-500'];
-                  return (
-                    <button 
-                      key={index}
-                      type="button"
-                      onClick={() => {
-                        upsertPipelineThreat({
-                          id: `MANUAL-${Date.now()}-${index}`,
-                          name: riskTitle,
-                          loss: 1,
-                          industry: selectedIndustry,
-                          source: 'Strategic Intel Profile',
-                        });
-                      }}
-                      className="w-full flex gap-2.5 items-center text-left hover:bg-zinc-800/50 p-1.5 rounded-sm transition-colors group"
-                    >
-                      <span className={`${colors[index]} font-mono font-black text-[10px] group-hover:scale-110 transition-transform`}>{index + 1}.</span> 
-                      {/* Switched to master font-sans for standard readable text */}
-                      <span className="text-[11px] font-sans font-medium text-zinc-300 truncate group-hover:text-white transition-colors">{riskTitle}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* 3. RISK EXPOSURE METRICS */}
-        <section className="space-y-4 border-b border-zinc-900 bg-black/40 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
-            <span className="font-mono text-[9px] font-bold text-zinc-600">ID: 0x8F22</span>
-          </div>
-          <div className="space-y-4">
-            {[
-              { label: "Industry Average", val: "$8.5M", color: "bg-blue-600", text: "text-blue-400", w: "60%" },
-              { label: "Your Current Risk", val: "$10.9M", color: "bg-amber-500", text: "text-amber-500", w: "80%" },
-              { label: "Potential Impact", val: "$15.2M", color: "bg-red-600", text: "text-red-500", w: "95%" },
-            ].map((metric) => (
-              <div key={metric.label} className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
-                  <span className="text-zinc-400">{metric.label}</span>
-                  <span className={metric.text}>{metric.val}</span>
-                </div>
-                <div className="h-1 w-full overflow-hidden rounded-full border border-zinc-800/50 bg-zinc-900">
-                  <div
-                    className={`h-full shadow-[0_0_10px_rgba(0,0,0,0.8)] transition-all duration-1000 ease-out ${metric.color}`}
-                    style={{ width: metric.w }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 4. AI AGENT STATUS GRID ? Active Agents // 19-Agent Workforce */}
-        <section className="bg-[#050509] p-4">
-          <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">
-            Active Agents // 19-Agent Workforce
-          </h3>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { name: 'Ironsight', icon: '\u25ce' },
-              { name: 'Coreintel', icon: '\uD83E\uDDE0' },
-              { name: 'Agent Manager', icon: '\uD83D\uDEE1\uFE0F' },
-            ].map((agent) => {
-              const status = getAgentStatus(agent.name);
-              return (
-                <div
-                  key={agent.name}
-                  className="group flex flex-col items-center gap-1 rounded-sm border border-zinc-900 bg-black p-2.5 transition-colors hover:border-zinc-700"
-                >
-                  <span className={`mb-1 text-xl transition-transform group-hover:scale-110 ${status.color}`}>
-                    {agent.icon}
-                  </span>
-                  <span className="text-center text-[8px] font-black uppercase leading-none tracking-tighter text-zinc-500">
-                    {agent.name}
-                  </span>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <div className={`h-1 w-1 rounded-full ${status.dot} ${status.label === 'Alerting' ? 'animate-ping' : ''}`} />
-                    <span className={`text-[7px] font-bold uppercase tracking-widest ${status.color}`}>{status.label}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* COREINTEL // LIVE INTELLIGENCE STREAM ? stream/placeholder only; command input is in Test Run Ingestion */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold text-white uppercase">Coreintel // Live Intelligence Stream</span>
-          {expertModeEnabled ? (
-            <div
-              ref={intelStreamRef}
-              className="bg-black border border-slate-800 p-3 rounded font-mono text-[14px] leading-relaxed space-y-1 max-h-40 overflow-y-auto"
-              style={{ color: '#00FF00' }}
-            >
-              {intelligenceStream.length === 0 ? (
-                <>
-                  <div>System Online. Core Vault synced.</div>
-                  <div>Zero-Trust Architecture enforced.</div>
-                </>
-              ) : (
-                intelligenceStream.slice().reverse().map((msg, idx) => (
-                  <div key={`${msg}-${idx}`}>{msg}</div>
-                ))
-              )}
-            </div>
-          ) : (
-            <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-[10px] text-slate-500">
-              [ EXPERT MODE OFF ? TELEMETRY STREAM HIDDEN ]
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2 mt-3" data-testid="test-run-ingestion">
-          <div className="flex gap-1">
-            <input
-              type="text"
-              value={terminalCommand}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalCommand(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleLegacyTerminalCommand(terminalCommand); }}
-              placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx | purg"
-              className="flex-1 bg-[#0f172a] border border-slate-700 px-2 py-1.5 rounded font-mono text-[14px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-cyan-600"
-            />
-            <button
-              type="button"
-              onClick={() => handleLegacyTerminalCommand(terminalCommand)}
-              className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest text-white hover:bg-slate-700"
-            >
-              Run
-            </button>
-          </div>
-        {/* TTL ? always display */}
-        <div className="flex w-full gap-2">
-          <div className="flex h-10 flex-1 items-center gap-1 rounded border border-slate-800 bg-[#0f172a] px-1">
-            <button type="button" onClick={() => { const h = Number.parseInt(ttlInput.split(':')[0] || '0', 10) || 0; const next = Math.max(0, h - 1); setTtlInput(`${next.toString().padStart(2, '0')}:00:00`); setTtlRunning(false); }} className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200">-</button>
-            <input type="number" min={0} className="h-full w-full appearance-none bg-transparent text-center text-xs font-bold text-white outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" placeholder="Hours" value={ttlInput.split(':')[0]} onChange={(e: ChangeEvent<HTMLInputElement>) => { const raw = e.target.value; if (raw === '') { setTtlInput(''); return; } const h = Math.max(0, Number.parseInt(raw, 10) || 0); setTtlInput(`${h.toString().padStart(2, '0')}:00:00`); setTtlRunning(false); }} />
-            <button type="button" onClick={() => { const h = Number.parseInt(ttlInput.split(':')[0] || '0', 10) || 0; setTtlInput(`${(h + 1).toString().padStart(2, '0')}:00:00`); setTtlRunning(false); }} className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200">+</button>
-          </div>
-          <button type="button" className="h-10 flex-1 rounded bg-blue-600 py-2 text-xs font-bold text-white hover:bg-blue-500" onClick={() => { const [hStr = '0', mStr = '0', sStr = '0'] = ttlInput.split(':'); let total = (Number.parseInt(hStr, 10) || 0) * 3600 + (Number.parseInt(mStr, 10) || 0) * 60 + (Number.parseInt(sStr, 10) || 0); if (!Number.isFinite(total) || total <= 0) total = 72 * 3600; if (total < 30 * 60) total = 30 * 60; setTtlSeconds(total); const hh = Math.floor(total / 3600).toString().padStart(2, '0'); const mm = Math.floor((total % 3600) / 60).toString().padStart(2, '0'); const ss = (total % 60).toString().padStart(2, '0'); setTtlInput(`${hh}:${mm}:${ss}`); setTtlRunning(true); appendAuditLog({ action_type: 'GRC_SET_TTL', log_type: 'GRC', description: `Set TTL to ${hh}:${mm}:${ss}` }); }}>
-            SET
-          </button>
-          <div className="flex h-10 flex-1 items-center justify-center rounded border border-slate-800 bg-slate-900 px-2 text-[10px] font-mono font-bold tracking-widest text-amber-500">
-            <span className="mr-1">TTL:</span>
-            <input type="text" value={ttlInput} onChange={(e: ChangeEvent<HTMLInputElement>) => { setTtlInput(e.target.value); setTtlRunning(false); }} className="h-full w-full bg-transparent text-center outline-none" placeholder="72:00:00" />
-          </div>
-        </div>
-        </div>
-
-        {/* Run Sentinel Sweep ? always display */}
-        <div className="flex flex-col gap-2 mt-2">
-          <label className="text-[16px] text-white">Enter Agent Instruction...</label>
-          <input type="text" placeholder="Enter Agent Instruction..." value={agentInstruction} onChange={(e: ChangeEvent<HTMLInputElement>) => setAgentInstruction(e.target.value)} className="bg-[#0f172a] border border-slate-800 p-2.5 rounded text-[16px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500" />
-          <button type="button" onClick={() => { const instruction = agentInstruction.trim(); if (!instruction) return; runSentinelSweep(instruction); appendAuditLog({ action_type: 'GRC_SENTINEL_SWEEP', log_type: 'GRC', description: `Sentinel sweep dispatched: ${instruction}` }); setAgentInstruction(''); }} className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2 mt-2">
-            <div className="bg-black/80 text-white w-5 h-5 flex items-center justify-center rounded-full text-[9px]">N</div>
-            <Search size={14} strokeWidth={3} /> RUN SENTINEL SWEEP
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Single sidebar layout: always show the master block (Industry Profile, 4-bar Risk Exposure, Dynamic Top Sector Threats, Unicode Agent Grid).
+  // Previously a "Dark Start" branch ran when !hasActiveIntelligenceStream and showed different/older UI, so edits were not visible.
   return (
     <div className="flex h-full flex-col bg-[#050509] text-white font-sans border-r border-zinc-900 overflow-hidden">
+
+      {/* STRATEGIC INTEL / AGENT MANAGER header */}
+      <div className="flex flex-col gap-3 p-4 border-b border-zinc-900 bg-black/20">
+        <div className="flex justify-between items-center">
+          <span className="text-[10.5px] font-bold uppercase tracking-wide text-white">Strategic Intel</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10.5px] font-bold text-emerald-400 uppercase tracking-wide">Agent Manager: Healthy</span>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+          </div>
+        </div>
+        <div className="w-full h-px bg-zinc-800" />
+      </div>
 
       {/* 1. CONTROL ROOM PANEL */}
       <div className="p-4 border-b border-zinc-900 bg-black/20">
@@ -774,7 +559,7 @@ export default function StrategicIntel() {
       </div>
 
       {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
-      <div className="flex flex-col gap-6 w-full px-2 pb-6 pt-6 overflow-y-auto">
+      <div className="flex flex-col gap-0 w-full px-2 overflow-y-auto">
       {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
       <section className="p-4 border-b border-zinc-900">
         <div className="flex justify-between items-center mb-2">
@@ -805,158 +590,86 @@ export default function StrategicIntel() {
         )}
       </section>
 
-      {/* 1.5 INDUSTRY PROFILE & TOP RISKS */}
-      <section className="p-4 border-b border-zinc-900 bg-black/40">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Industry Profile</h3>
-          <button 
-            onClick={() => setIsProfileVisible(!isProfileVisible)} 
-            className="text-[9px] font-bold text-zinc-600 hover:text-zinc-400 uppercase transition-colors"
-          >
-            {isProfileVisible ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        
-        {isProfileVisible && (
-          <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <select 
-              value={selectedIndustry}
-              onChange={(e) => setSelectedIndustry(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-[10px] text-zinc-300 font-mono outline-none focus:border-emerald-500/50 cursor-pointer"
-            >
-              <option value="Healthcare">Healthcare</option>
-              <option value="Finance">Finance</option>
-              <option value="Energy">Energy</option>
-              <option value="Technology">Technology</option>
-              <option value="Defense">Defense</option>
-            </select>
-
-            {/* Top 3 Industry Risks Pop-up/Readout (Interactive) */}
-            <div className="bg-zinc-950/80 border border-zinc-800/50 p-2.5 rounded-sm space-y-2 shadow-inner">
-              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest border-b border-zinc-800/50 pb-1.5">Top 3 Sector Risks (Click to Register)</p>
-              <div className="space-y-1.5">
-                {(function getTopRisks() {
-                  switch(selectedIndustry) {
-                    case 'Healthcare': return ['Ransomware / PHI Extortion', 'Medical Device (IoMT) Hijack', 'Third-Party Vendor Breach'];
-                    case 'Finance': return ['SWIFT/Wire Fraud Injection', 'API Data Exfiltration', 'Insider Threat (Privilege)'];
-                    case 'Technology': return ['Source Code / IP Theft', 'Cloud Cryptojacking', 'Zero-Day Supply Chain Poisoning'];
-                    case 'Defense': return ['Nation-State APT Espionage', 'Classified Data Spillage', 'Weapon Systems Exploitation'];
-                    default: return ['ICS/SCADA Grid Takeover', 'Supply Chain Compromise', 'Ransomware (Operational Tech)']; // Energy
-                  }
-                })().map((riskTitle, index) => {
-                  const colors = ['text-red-500', 'text-amber-500', 'text-blue-500'];
-                  return (
-                    <button 
-                      key={index}
-                      type="button"
-                      onClick={() => {
-                        upsertPipelineThreat({
-                          id: `MANUAL-${Date.now()}-${index}`,
-                          name: riskTitle,
-                          loss: 1,
-                          industry: selectedIndustry,
-                          source: 'Strategic Intel Profile',
-                        });
-                      }}
-                      className="w-full flex gap-2.5 items-center text-left hover:bg-zinc-800/50 p-1.5 rounded-sm transition-colors group"
-                    >
-                      <span className={`${colors[index]} font-mono font-black text-[10px] group-hover:scale-110 transition-transform`}>{index + 1}.</span> 
-                      {/* Switched to master font-sans for standard readable text */}
-                      <span className="text-[11px] font-sans font-medium text-zinc-300 truncate group-hover:text-white transition-colors">{riskTitle}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-          </div>
-        )}
-      </section>
-
-      {/* 2. RISK EXPOSURE METRICS (Restored 4th Row & Hover Pop-up) */}
-      <section className="p-4 space-y-4 border-b border-zinc-900 bg-black/40 relative group cursor-help">
-        <div className="flex justify-between items-center">
+      {/* 2. RISK EXPOSURE METRICS (4-Bar Layout & Hover Pop-up) ? driven by selected industry */}
+      <section className="p-4 space-y-4 border-b border-zinc-900 bg-[#050509] relative group cursor-help">
+        <div className="flex justify-between items-center mb-1">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
-          <span className="text-[9px] font-bold text-zinc-600 font-mono">ID: 0x8F22</span>
+          <span className="text-[10px] font-bold text-zinc-600 font-mono tracking-widest">ID: 0x8F22</span>
         </div>
         
-        {/* The 4 Metrics */}
-        <div className="space-y-4">
-          {[
-            { label: 'Industry Average', val: '$8.5M', color: 'bg-blue-600', text: 'text-blue-400', w: '60%', desc: 'Baseline financial exposure for peer organizations in this sector.' },
-            { label: 'Your Current Risk', val: '$10.9M', color: 'bg-amber-500', text: 'text-amber-500', w: '80%', desc: 'Calculated real-time exposure based on active telemetry.' },
-            { label: 'Potential Impact', val: '$15.2M', color: 'bg-red-600', text: 'text-red-500', w: '95%', desc: 'Maximum localized blast radius if vulnerabilities are exploited.' },
-            { label: 'GRC Gap', val: '$4.3M', color: 'bg-purple-600', text: 'text-purple-400', w: '30%', desc: 'Delta between current controls and compliance mandates.' }
-          ].map((metric) => (
+        <div className="space-y-3.5">
+          {(() => {
+            const avg = benchmarks.average;
+            const current = benchmarks.baseRisk;
+            const impact = benchmarks.baseImpact;
+            const gap = Math.max(0, impact - current);
+            const scale = 30;
+            return [
+              { label: 'INDUSTRY AVERAGE', val: `$${avg.toFixed(1)}M`, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: `${Math.min(100, (avg / scale) * 100)}%` },
+              { label: 'YOUR CURRENT RISK', val: `$${current.toFixed(1)}M`, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: `${Math.min(100, (current / scale) * 100)}%` },
+              { label: 'POTENTIAL IMPACT', val: `$${impact.toFixed(1)}M`, color: 'bg-[#ef4444]', text: 'text-[#ef4444]', w: `${Math.min(100, (impact / scale) * 100)}%` },
+              { label: 'GRC GAP', val: `$${gap.toFixed(1)}M`, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: `${Math.min(100, (gap / scale) * 100)}%` }
+            ];
+          })().map((metric) => (
             <div key={metric.label} className="space-y-1.5">
-              <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
-                <span className="text-zinc-400">{metric.label}</span>
-                <span className={metric.text}>{metric.val}</span>
+              <div className="flex justify-between items-end">
+                <span className="text-[11px] font-black font-sans uppercase tracking-wide text-zinc-300">{metric.label}</span>
+                <span className={`text-[12px] font-black font-sans ${metric.text}`}>{metric.val}</span>
               </div>
-              <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/50">
-                <div className={`h-full ${metric.color} shadow-[0_0_10px_rgba(0,0,0,0.8)]`} style={{ width: metric.w }} />
+              <div className="h-[3px] w-full bg-zinc-900/80 rounded-full overflow-hidden">
+                <div className={`h-full ${metric.color}`} style={{ width: metric.w }} />
               </div>
             </div>
           ))}
         </div>
 
-        {/* Hover Definition Pop-up Modal */}
-        <div className="absolute z-50 left-0 top-full mt-2 w-full p-3 bg-[#050509] border border-zinc-800 shadow-2xl rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
-          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-2 border-b border-zinc-800/50 pb-1">Exposure Definitions</p>
+        {/* Hover Definition Pop-up Modal ? above section */}
+        <div className="absolute z-50 left-4 right-4 bottom-full mb-2 translate-y-[2in] p-3 bg-zinc-950 border border-zinc-700 shadow-2xl rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2 border-b border-zinc-800/50 pb-1">Exposure Definitions</p>
           <ul className="space-y-2">
-            {['Industry Average: Baseline financial exposure for peer organizations in this sector.',
-              'Your Current Risk: Calculated real-time exposure based on active telemetry.',
-              'Potential Impact: Maximum localized blast radius if vulnerabilities are exploited.',
-              'GRC Gap: Delta between current controls and compliance mandates.'
-            ].map((desc, i) => {
-              const [title, text] = desc.split(': ');
-              return (
-                <li key={i} className="text-[9px] leading-tight text-zinc-400 font-sans">
-                  <strong className="text-zinc-300 font-black tracking-wide mr-1">{title}:</strong> {text}
-                </li>
-              );
-            })}
+            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Industry Average:</strong>Baseline financial exposure for peer organizations in this sector.</li>
+            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Your Current Risk:</strong>Calculated real-time exposure based on active telemetry.</li>
+            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Potential Impact:</strong>Maximum localized blast radius if vulnerabilities are exploited.</li>
+            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">GRC Gap:</strong>Delta between current controls and compliance mandates.</li>
           </ul>
         </div>
       </section>
 
-      {/* --- TOP SECTOR THREATS --- */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold text-white uppercase">
-          Top Sector Threats (Click to Register)
-        </span>
-        <div key={selectedIndustry} className="space-y-1.5 threat-list-fade-in">
-          {threats.map((threat) => {
-            const isAccepted = activeSidebarThreats.includes(threat.id);
-            const isInPipeline = pipelineThreats.some((t) => t.id === threat.id);
-            const statusClass = isAccepted
-              ? "border-emerald-500 bg-emerald-500/10 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
-              : isInPipeline
-                ? "border-amber-500/70 bg-amber-500/10 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
-                : "border-slate-800 bg-[#0f172a] hover:bg-slate-800";
-            return (
-              <button
-                key={threat.id}
-                type="button"
-                onClick={() => toggleThreat(threat.id)}
-                className={`w-full flex justify-between items-center px-3 py-2.5 rounded border cursor-pointer transition-all duration-300 active:scale-95 ${statusClass}`}
-              >
-                <div className="flex items-center gap-2 pointer-events-none">
-                  {isAccepted ? <CheckCircle2 className="text-emerald-400" size={14} /> : <Zap className={isInPipeline ? "text-amber-400" : "text-blue-500"} size={14} />}
-                  <span className={`font-bold text-[10px] uppercase ${isAccepted ? 'text-emerald-400' : isInPipeline ? 'text-amber-400' : 'text-slate-300'}`}>
-                    {threat.name}
-                  </span>
-                </div>
-                <span className={`text-[10px] font-mono font-bold ${isAccepted ? 'text-emerald-400' : isInPipeline ? 'text-amber-400' : 'text-emerald-500'}`}>
-                  ${threat.loss}M
-                </span>
-              </button>
-            );
-          })}
+      {/* 3. TOP SECTOR THREATS (Dynamic Boxed Cards) */}
+      <section className="p-4 border-b border-zinc-900 bg-[#050509]">
+        <p className="text-[10px] font-black text-[#3b82f6] uppercase tracking-widest mb-3 border-b border-zinc-800/50 pb-1.5">Top Sector Threats (Click to Register)</p>
+        <div className="space-y-2">
+          {(function getTopRisks() {
+            switch(selectedIndustry) {
+              case 'Healthcare': return [{ title: 'RANSOMWARE / PHI EXTORTION', val: '$4.9M', loss: 4.9 }, { title: 'MEDICAL DEVICE (IOMT) HIJACK', val: '$3.5M', loss: 3.5 }, { title: 'THIRD-PARTY VENDOR BREACH', val: '$2.1M', loss: 2.1 }];
+              case 'Finance': return [{ title: 'SWIFT/WIRE FRAUD INJECTION', val: '$8.2M', loss: 8.2 }, { title: 'API DATA EXFILTRATION', val: '$5.4M', loss: 5.4 }, { title: 'INSIDER THREAT (PRIVILEGE)', val: '$3.1M', loss: 3.1 }];
+              case 'Technology': return [{ title: 'SOURCE CODE / IP THEFT', val: '$9.5M', loss: 9.5 }, { title: 'CLOUD CRYPTOJACKING', val: '$4.2M', loss: 4.2 }, { title: 'ZERO-DAY SUPPLY CHAIN', val: '$7.8M', loss: 7.8 }];
+              case 'Defense': return [{ title: 'NATION-STATE APT ESPIONAGE', val: '$12.4M', loss: 12.4 }, { title: 'CLASSIFIED DATA SPILLAGE', val: '$8.9M', loss: 8.9 }, { title: 'WEAPON SYSTEMS EXPLOITATION', val: '$15.1M', loss: 15.1 }];
+              default: return [{ title: 'ICS/SCADA GRID TAKEOVER', val: '$11.2M', loss: 11.2 }, { title: 'SUPPLY CHAIN COMPROMISE', val: '$6.5M', loss: 6.5 }, { title: 'RANSOMWARE (OT)', val: '$4.8M', loss: 4.8 }];
+            }
+          })().map((risk, index) => (
+            <button 
+              key={index}
+              type="button"
+              onClick={() => {
+                upsertPipelineThreat({
+                  id: `MANUAL-${Date.now()}-${index}`,
+                  name: risk.title,
+                  loss: risk.loss,
+                  industry: selectedIndustry || 'Healthcare',
+                  source: 'Strategic Intel Profile'
+                });
+              }}
+              className="w-full flex justify-between items-center bg-[#050509] border border-zinc-800 p-2.5 rounded hover:border-zinc-500 transition-colors group"
+            >
+              <span className="text-[11px] font-black font-sans text-white tracking-wide">{risk.title}</span>
+              <span className="text-[11px] font-black font-sans text-[#10b981]">{risk.val}</span>
+            </button>
+          ))}
         </div>
-      </div>
+      </section>
 
-      {/* 3. AI AGENT STATUS GRID (Encoding Bug Fixed) */}
+      {/* 4. AI AGENT STATUS GRID (Restoring Unicode Fix) */}
       <section className="p-4 bg-[#050509] border-b border-zinc-900">
         <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Active Agents // 19-Agent Workforce</h3>
         <div className="grid grid-cols-3 gap-2">
@@ -965,7 +678,6 @@ export default function StrategicIntel() {
             { name: 'Coreintel', icon: '\uD83E\uDDE0', color: 'text-emerald-500' },
             { name: 'Agent Manager', icon: '\uD83D\uDEE1\uFE0F', color: 'text-blue-500' }
           ].map((agent) => {
-            // Using explicit return to prevent Turbopack bracket parsing errors
             return (
               <div key={agent.name} className="bg-black border border-zinc-900 p-2.5 rounded-sm flex flex-col items-center gap-1 hover:border-zinc-700 transition-colors group">
                 <span className={`${agent.color} text-xl mb-1 group-hover:scale-110 transition-transform`}>
@@ -987,13 +699,12 @@ export default function StrategicIntel() {
       </section>
 
       {/* 4. LIVE INTELLIGENCE STREAM TERMINAL */}
-      <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900">
-        <div className="h-48 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
+      <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
           <div className="space-y-1">
-            {/* Bug Fix: Replaced the broken '?' encoding with the proper em dash '?' */}
             {isExpertMode ? (
               <>
-                <p className="text-zinc-500 opacity-50 italic">Awaiting command input (kimbot, grcbot, purg)...</p>
+                <p className="text-zinc-500 opacity-50 italic">Stream idle.</p>
                 <p className="text-emerald-500/40 animate-pulse">_</p>
               </>
             ) : (
@@ -1001,9 +712,13 @@ export default function StrategicIntel() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* 5. 'N' AVATAR COMMAND INPUT */}
-        <form onSubmit={handleTerminalCommand} className="mt-auto p-4 bg-zinc-950/20" data-testid="test-run-ingestion">
+      {/* BOTTOM CONTROLS WRAPPER (Prevents Overlap) */}
+      <div className="shrink-0 flex flex-col bg-[#050509] border-t border-zinc-900 z-10 relative">
+
+        {/* 'N' AVATAR COMMAND INPUT */}
+        <form onSubmit={handleTerminalCommand} className="p-4 bg-zinc-950/20 border-b border-zinc-900/50" data-testid="test-run-ingestion">
           <div className="flex items-center gap-3 py-1.5 px-3 border border-zinc-800/50 rounded-full bg-black/40 shadow-inner group focus-within:border-emerald-500/50 transition-all">
             <div className="h-6 w-6 rounded-full border border-zinc-800 bg-zinc-900 flex items-center justify-center text-[10px] font-black text-zinc-600 group-focus-within:text-emerald-500 transition-colors">
               N
@@ -1028,142 +743,148 @@ export default function StrategicIntel() {
             </div>
           </div>
         </form>
-      </div>
 
-      {/* --- TIMER CONTROLS (TTL) --- */}
-      <div className="flex w-full gap-2">
-        <div className="flex h-10 flex-1 items-center gap-1 rounded border border-slate-800 bg-[#0f172a] px-1">
-          <button
-            type="button"
-            onClick={() => {
-              const hours = Number.parseInt(ttlInput.split(':')[0] || "0", 10) || 0;
-              const next = Math.max(0, hours - 1);
-              const hh = next.toString().padStart(2, '0');
-              const normalized = `${hh}:00:00`;
-              setTtlInput(normalized);
-              setTtlRunning(false);
-            }}
-            className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200 active:text-blue-400"
-          >
-            -
-          </button>
-          <input
-            type="number"
-            min={0}
-            className="h-full w-full appearance-none [appearance:textfield] bg-transparent text-center text-xs font-bold text-white outline-none focus:border-blue-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            placeholder="Hours"
-            value={ttlInput.split(':')[0]}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const raw = e.target.value;
-              if (raw === "") {
-                setTtlInput("");
-                return;
-              }
-              const hours = Number.parseInt(raw, 10) || 0;
-              const minutes = 0;
-              const seconds = 0;
-              const hh = Math.max(0, hours).toString().padStart(2, '0');
-              const normalized = `${hh}:${minutes.toString().padStart(2, '0')}:${seconds
-                .toString()
-                .padStart(2, '0')}`;
-              setTtlInput(normalized);
-              setTtlRunning(false);
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              const hours = Number.parseInt(ttlInput.split(':')[0] || "0", 10) || 0;
-              const next = hours + 1;
-              const hh = next.toString().padStart(2, '0');
-              const normalized = `${hh}:00:00`;
-              setTtlInput(normalized);
-              setTtlRunning(false);
-            }}
-            className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200 active:text-blue-400"
-          >
-            +
-          </button>
+        {/* TTL CONTROLS */}
+        <div className="p-4 border-b border-zinc-900/50">
+          <p className="text-zinc-500 opacity-80 italic text-[10px] mb-2">Set TTL (hours) below and press SET to start the clock.</p>
+          <div className="flex w-full gap-2">
+            <div className="flex h-10 flex-1 items-center gap-1 rounded border border-slate-800 bg-[#0f172a] px-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const hours = Number.parseInt(ttlInput.split(':')[0] || "0", 10) || 0;
+                  const next = Math.max(0, hours - 1);
+                  const hh = next.toString().padStart(2, '0');
+                  const normalized = `${hh}:00:00`;
+                  setTtlInput(normalized);
+                  setTtlRunning(false);
+                }}
+                className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200 active:text-blue-400"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                min={0}
+                className="h-full w-full appearance-none [appearance:textfield] bg-transparent text-center text-xs font-bold text-white outline-none focus:border-blue-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                placeholder="Hours"
+                value={ttlInput.split(':')[0]}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setTtlInput("");
+                    return;
+                  }
+                  const hours = Number.parseInt(raw, 10) || 0;
+                  const minutes = 0;
+                  const seconds = 0;
+                  const hh = Math.max(0, hours).toString().padStart(2, '0');
+                  const normalized = `${hh}:${minutes.toString().padStart(2, '0')}:${seconds
+                    .toString()
+                    .padStart(2, '0')}`;
+                  setTtlInput(normalized);
+                  setTtlRunning(false);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const hours = Number.parseInt(ttlInput.split(':')[0] || "0", 10) || 0;
+                  const next = hours + 1;
+                  const hh = next.toString().padStart(2, '0');
+                  const normalized = `${hh}:00:00`;
+                  setTtlInput(normalized);
+                  setTtlRunning(false);
+                }}
+                className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200 active:text-blue-400"
+              >
+                +
+              </button>
+            </div>
+            <button
+              type="button"
+              className="h-10 flex-1 rounded bg-blue-600 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-500"
+              onClick={() => {
+                const parts = ttlInput.split(':');
+                const [hStr = '0', mStr = '0', sStr = '0'] = parts;
+                const hours = Number.parseInt(hStr || '0', 10) || 0;
+                const minutes = Number.parseInt(mStr || '0', 10) || 0;
+                const seconds = Number.parseInt(sStr || '0', 10) || 0;
+                let totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+                  totalSeconds = 72 * 60 * 60;
+                }
+                if (totalSeconds < 30 * 60) {
+                  totalSeconds = 30 * 60;
+                }
+                setTtlSeconds(totalSeconds);
+                const hh = Math.floor(totalSeconds / 3600)
+                  .toString()
+                  .padStart(2, '0');
+                const mm = Math.floor((totalSeconds % 3600) / 60)
+                  .toString()
+                  .padStart(2, '0');
+                const ss = (totalSeconds % 60).toString().padStart(2, '0');
+                const normalized = `${hh}:${mm}:${ss}`;
+                setTtlInput(normalized);
+                setTtlRunning(true);
+                appendAuditLog({
+                  action_type: 'GRC_SET_TTL',
+                  log_type: 'GRC',
+                  description: `Set TTL to ${normalized}`,
+                });
+              }}
+            >
+              SET
+            </button>
+            <div className="flex h-10 flex-1 items-center justify-center rounded border border-slate-800 bg-slate-900 px-2 text-[10px] font-mono font-bold tracking-widest text-amber-500">
+              <span className="mr-1">TTL:</span>
+              <input
+                type="text"
+                value={ttlInput}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  setTtlInput(e.target.value);
+                  setTtlRunning(false);
+                }}
+                className="h-full w-full bg-transparent text-center outline-none"
+                placeholder="72:00:00"
+              />
+            </div>
+          </div>
         </div>
-        <button
-          type="button"
-          className="h-10 flex-1 rounded bg-blue-600 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-500"
-          onClick={() => {
-            const parts = ttlInput.split(':');
-            const [hStr = '0', mStr = '0', sStr = '0'] = parts;
-            const hours = Number.parseInt(hStr || '0', 10) || 0;
-            const minutes = Number.parseInt(mStr || '0', 10) || 0;
-            const seconds = Number.parseInt(sStr || '0', 10) || 0;
-            let totalSeconds = hours * 3600 + minutes * 60 + seconds;
-            if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-              totalSeconds = 72 * 60 * 60;
-            }
-            if (totalSeconds < 30 * 60) {
-              totalSeconds = 30 * 60;
-            }
-            setTtlSeconds(totalSeconds);
-            const hh = Math.floor(totalSeconds / 3600)
-              .toString()
-              .padStart(2, '0');
-            const mm = Math.floor((totalSeconds % 3600) / 60)
-              .toString()
-              .padStart(2, '0');
-            const ss = (totalSeconds % 60).toString().padStart(2, '0');
-            const normalized = `${hh}:${mm}:${ss}`;
-            setTtlInput(normalized);
-            setTtlRunning(true);
-            appendAuditLog({
-              action_type: 'GRC_SET_TTL',
-              log_type: 'GRC',
-              description: `Set TTL to ${normalized}`,
-            });
-          }}
-        >
-          SET
-        </button>
-        <div className="flex h-10 flex-1 items-center justify-center rounded border border-slate-800 bg-slate-900 px-2 text-[10px] font-mono font-bold tracking-widest text-amber-500">
-          <span className="mr-1">TTL:</span>
-          <input
-            type="text"
-            value={ttlInput}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              setTtlInput(e.target.value);
-              setTtlRunning(false);
-            }}
-            className="h-full w-full bg-transparent text-center outline-none"
-            placeholder="72:00:00"
-          />
-        </div>
-      </div>
 
-      {/* --- SENTINEL SWEEP --- */}
-      <div className="flex flex-col gap-2 mt-2">
-        <label className="text-[16px] text-white">Enter Agent Instruction...</label>
-        <input
-          type="text"
-          placeholder="Enter Agent Instruction..."
-          value={agentInstruction}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setAgentInstruction(e.target.value)}
-          className="bg-[#0f172a] border border-slate-800 p-2.5 rounded text-[16px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            const instruction = agentInstruction.trim();
-            if (!instruction) return;
-            runSentinelSweep(instruction);
-            appendAuditLog({
-              action_type: 'GRC_SENTINEL_SWEEP',
-              log_type: 'GRC',
-              description: `Sentinel sweep dispatched with instruction: ${instruction}`,
-            });
-            setAgentInstruction('');
-          }}
-          className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2 mt-2"
-        >
-          <div className="bg-black/80 text-white w-5 h-5 flex items-center justify-center rounded-full text-[9px]">N</div>
-          <Search size={14} strokeWidth={3} /> RUN SENTINEL SWEEP
-        </button>
+        {/* SENTINEL SWEEP */}
+        <div className="p-4 bg-[#050509]">
+          <div className="flex flex-col gap-2">
+            <label className="text-[16px] text-white">Enter Agent Instruction...</label>
+            <input
+              type="text"
+              placeholder="Enter Agent Instruction..."
+              value={agentInstruction}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setAgentInstruction(e.target.value)}
+              className="bg-[#0f172a] border border-slate-800 p-2.5 rounded text-[16px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const instruction = agentInstruction.trim();
+                if (!instruction) return;
+                runSentinelSweep(instruction);
+                appendAuditLog({
+                  action_type: 'GRC_SENTINEL_SWEEP',
+                  log_type: 'GRC',
+                  description: `Sentinel sweep dispatched with instruction: ${instruction}`,
+                });
+                setAgentInstruction('');
+              }}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2"
+            >
+              <div className="bg-black/80 text-white w-5 h-5 flex items-center justify-center rounded-full text-[9px]">N</div>
+              <Search size={14} strokeWidth={3} /> RUN SENTINEL SWEEP
+            </button>
+          </div>
+        </div>
+
       </div>
 
       </div>

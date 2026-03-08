@@ -25,6 +25,19 @@ import { purgeSimulation } from '@/app/actions/purgeSimulation';
 import { clearAllAuditLogs, purgeSimulationAuditLogs } from '@/app/utils/auditLogger';
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 
+/** Formats BigInt cents into a readable USD string (e.g. $10.9M). */
+function formatCurrency(cents: bigint): string {
+  const dollars = Number(cents) / 100;
+  if (dollars >= 1_000_000) {
+    return `$${(dollars / 1_000_000).toFixed(1)}M`;
+  }
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(dollars);
+}
+
+/** Reverted baseline: Vaultbank 5.9M, Medshield 11.1M */
+const CURRENT_RISK_CENTS = BigInt(1090000000); // $10,900,000.00
+const POTENTIAL_IMPACT_CENTS = BigInt(1520000000); // $15,200,000.00
+
 type ThreatItem = { id: string; name: string; loss: number };
 
 const INDUSTRY_THREAT_DATA: Record<string, ThreatItem[]> = {
@@ -62,7 +75,10 @@ export default function StrategicIntel() {
   const [ttlRunning, setTtlRunning] = useState(false);
   const [agentInstruction, setAgentInstruction] = useState('');
   const [terminalCommand, setTerminalCommand] = useState('');
+  const [terminalInput, setTerminalInput] = useState('');
+  const [logs, setLogs] = useState<string[]>([]);
   const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
+  const [isExpertMode, setIsExpertMode] = useState(true);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
@@ -94,6 +110,23 @@ export default function StrategicIntel() {
   const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
+
+  // Agent status: Healthy (green) or Alerting (red) when Kimbot is active for Ironsight/Coreintel
+  const getAgentStatus = (agentName: string) => {
+    if (isKimbotActive && (agentName === 'Ironsight' || agentName === 'Coreintel')) {
+      return { label: 'Alerting', color: 'text-red-500', dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]' };
+    }
+    return { label: 'Healthy', color: 'text-emerald-500', dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]' };
+  };
+
+  // Industry pivot: display metrics per sector (Industry Average & Potential Impact)
+  const industryMetrics: Record<string, { avg: string; impact: string; wAvg: string; wImpact: string }> = {
+    Healthcare: { avg: '$8.5M', impact: '$15.2M', wAvg: '60%', wImpact: '95%' },
+    Finance: { avg: '$12.1M', impact: '$22.8M', wAvg: '75%', wImpact: '85%' },
+    Energy: { avg: '$9.4M', impact: '$18.3M', wAvg: '65%', wImpact: '90%' },
+  };
+  const currentMetrics = industryMetrics[selectedIndustry] ?? industryMetrics.Healthcare;
+
   const router = useRouter();
 
   const riskLevel = (m: number) => {
@@ -126,8 +159,112 @@ export default function StrategicIntel() {
     return hasCriticalAccess ? 9.2 : 8.6;
   };
 
-  // Terminal command handler: kimbot | kimbotx | grcbot | grcbotx | purg
-  const handleTerminalCommand = (raw: string) => {
+  // Terminal command handler: form submit ? local logs + kimbot | grcbot [n] | purg
+  const handleTerminalCommand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const input = terminalInput.trim();
+    if (!input) return;
+    const lower = input.toLowerCase();
+    const [cmd, value] = lower.split(/\s+/);
+
+    setLogs((prev) => [...prev, `> [CMD] ${input.toUpperCase()}`]);
+    setTerminalInput('');
+
+    try {
+      switch (cmd) {
+        case 'kimbot':
+          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_START: Initiating Adversarial Stress Test']);
+          useKimbotStore.getState().setEnabled(true);
+          wakeBlueTeam();
+          addStreamMessage('> [CMD] KIMBOT_START: Defensive agents deployed.');
+          break;
+
+        case 'kimbotx':
+          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_STOP: Agents reset']);
+          useKimbotStore.getState().setEnabled(false);
+          sleepBlueTeam();
+          addStreamMessage('> [CMD] KIMBOT_STOP: Agents reset to Healthy.');
+          break;
+
+        case 'grcbot': {
+          const n = Math.min(100, Math.max(1, parseInt(value, 10) || 1));
+          setLogs((prev) => [...prev, `[SYSTEM] GRCBOT_START: Scaling to ${n} ingestions`]);
+          useGrcBotStore.getState().setCompanyCount(n);
+          useGrcBotStore.getState().setEnabled(true);
+          addStreamMessage(`> [CMD] GRCBOT_START: ${n}-company load simulation active.`);
+          break;
+        }
+
+        case 'grcbotx':
+          setLogs((prev) => [...prev, '[SYSTEM] GRCBOT_STOP: Simulation halted']);
+          useGrcBotStore.getState().setEnabled(false);
+          addStreamMessage('> [CMD] GRCBOT_STOP: Simulation halted.');
+          break;
+
+        case 'purg':
+          setLogs((prev) => [...prev, '[SYSTEM] DATA_PURGE: Wiping simulation records']);
+          const result = await purgeSimulation();
+          if (result.ok) {
+            const purgedAuditEntries = clearAllAuditLogs();
+            useKimbotStore.getState().resetSimulationCounters();
+            useGrcBotStore.getState().stop();
+            useRiskStore.getState().clearAllRiskStateForPurge();
+            useRiskStore.getState().setSelectedThreatId(null);
+            sleepBlueTeam();
+            setLogs((prev) => [...prev, `[AUDIT] Cleared ${purgedAuditEntries} local audit entr${purgedAuditEntries === 1 ? 'y' : 'ies'}.`]);
+            setLogs((prev) => [...prev, '[SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.']);
+            addStreamMessage('> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.');
+            router.refresh();
+          } else {
+            setLogs((prev) => [...prev, `[CMD] PURGE_ERROR: ${result.message}`]);
+          }
+          break;
+
+        default:
+          setLogs((prev) => [...prev, `[ERROR] Unknown command: ${cmd}`]);
+      }
+    } catch (error) {
+      setLogs((prev) => [...prev, `[CRITICAL] Execution failed: ${error instanceof Error ? error.message : 'Unknown'}`]);
+    }
+  };
+
+  /**
+   * Restored: Stakeholder Notification Routing
+   * Dispatches verified threats to primary business contact [cite: 2025-12-18]
+   */
+  const dispatchStakeholderAlert = async (threatId: string, severity: 'HIGH' | 'CRITICAL') => {
+    const stakeholderEmail = 'blackwoodscoffee@gmail.com'; // [cite: 2025-12-18]
+
+    setLogs((prev) => [
+      ...prev,
+      `[NOTIFY] Alert queued for ${stakeholderEmail} [cite: 2025-12-18]`,
+      '[SYSTEM] Routing via Ironcast agent...',
+    ]);
+
+    try {
+      const response = await fetch('/api/alerts/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: stakeholderEmail,
+          threatId,
+          severity,
+          agentSource: 'Coreintel',
+        }),
+      });
+
+      if (response.ok) {
+        setLogs((prev) => [...prev, `[SUCCESS] Alert delivered to ${stakeholderEmail} [cite: 2025-12-18]`]);
+      } else {
+        setLogs((prev) => [...prev, `[ERROR] Dispatch failed: ${response.status}`]);
+      }
+    } catch {
+      setLogs((prev) => [...prev, '[ERROR] Dispatch failed: Stakeholder offline']);
+    }
+  };
+
+  // Legacy terminal handler (expert panel): still uses terminalCommand + addStreamMessage
+  const handleLegacyTerminalCommand = (raw: string) => {
     const cmd = raw.trim().toLowerCase();
     if (!cmd) return;
 
@@ -206,7 +343,7 @@ export default function StrategicIntel() {
     if (!intelStreamRef.current) return;
     const el = intelStreamRef.current;
     el.scrollTop = el.scrollHeight;
-  }, [intelligenceStream.length]);
+  }, [intelligenceStream.length, logs.length]);
 
   // Wake up Agent Manager: when KIMBOT is active, set all agents to ACTIVE_DEFENSE (green pulsing).
   useEffect(() => {
@@ -289,7 +426,7 @@ export default function StrategicIntel() {
       score: threat.loss,
       industry: selectedIndustry,
       source: "Top Sector Threats",
-      description: `Liability: $${threat.loss}M · Sector: ${selectedIndustry}`,
+      description: `Liability: $${threat.loss}M ? Sector: ${selectedIndustry}`,
       calculatedRiskScore: Math.round(threat.loss * 10),
     };
     upsertPipelineThreat(pipelineThreat);
@@ -312,7 +449,7 @@ export default function StrategicIntel() {
   const baseCurrentRisk = benchmarks.baseRisk;
   const basePotentialImpact = benchmarks.baseImpact;
 
-  // Synced with header: accepted impacts ($M) — simple sum of accepted liabilities only (no severity factor, no multi-tenant sum).
+  // Synced with header: accepted impacts ($M) ? simple sum of accepted liabilities only (no severity factor, no multi-tenant sum).
   const entries = Object.entries(acceptedThreatImpacts);
   const exactTotalCurrentRisk = entries.reduce((sum, [, v]) => sum + Number(v), 0);
   const totalActiveLoss = exactTotalCurrentRisk;
@@ -321,7 +458,7 @@ export default function StrategicIntel() {
   if (typeof window !== "undefined" && entries.length > 0) {
     console.log("[CURRENT RISK] IDs in sum:", Object.keys(acceptedThreatImpacts), "values ($M):", Object.fromEntries(entries), "sum:", exactTotalCurrentRisk.toFixed(1) + "M");
   }
-  // Supply-chain impact (1–10) is a primary driver of Potential Impact:
+  // Supply-chain impact (1?10) is a primary driver of Potential Impact:
   const pipelinePendingTotal = pipelineThreats.reduce((sum, t) => {
     const base = t.score ?? t.loss;
     const impact = supplyChainImpactScore(t);
@@ -336,7 +473,7 @@ export default function StrategicIntel() {
   // Subtract remediation risk reduction (never go below 0)
   const dynamicCurrentRisk = Math.max(0, rawCurrentRisk - riskOffset);
   const dynamicPotentialImpact = Math.max(0, rawPotentialImpact - riskOffset);
-  // Risk Gap = $Potential − $Current; updates in real time as users acknowledge/dismiss pipeline cards (riskStore).
+  // Risk Gap = $Potential ? $Current; updates in real time as users acknowledge/dismiss pipeline cards (riskStore).
   const riskGap = Math.max(0, dynamicPotentialImpact - dynamicCurrentRisk);
   const hasGapTelemetry =
     pipelineThreats.length > 0 ||
@@ -425,38 +562,73 @@ export default function StrategicIntel() {
           )}
         </div>
 
-        {/* Placeholder when idle — data-dependent sections hidden */}
+        {/* Placeholder when idle ? data-dependent sections hidden */}
         <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
           [ WAITING FOR INTELLIGENCE STREAM... ]
         </div>
 
-        {/* AI AGENTS — always display */}
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] font-bold text-white uppercase">AI Agents</span>
+        {/* 3. RISK EXPOSURE METRICS */}
+        <section className="space-y-4 border-b border-zinc-900 bg-black/40 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
+            <span className="font-mono text-[9px] font-bold text-zinc-600">ID: 0x8F22</span>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: "Industry Average", val: "$8.5M", color: "bg-blue-600", text: "text-blue-400", w: "60%" },
+              { label: "Your Current Risk", val: "$10.9M", color: "bg-amber-500", text: "text-amber-500", w: "80%" },
+              { label: "Potential Impact", val: "$15.2M", color: "bg-red-600", text: "text-red-500", w: "95%" },
+            ].map((metric) => (
+              <div key={metric.label} className="space-y-1.5">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                  <span className="text-zinc-400">{metric.label}</span>
+                  <span className={metric.text}>{metric.val}</span>
+                </div>
+                <div className="h-1 w-full overflow-hidden rounded-full border border-zinc-800/50 bg-zinc-900">
+                  <div
+                    className={`h-full shadow-[0_0_10px_rgba(0,0,0,0.8)] transition-all duration-1000 ease-out ${metric.color}`}
+                    style={{ width: metric.w }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* 4. AI AGENT STATUS GRID ? Active Agents // 19-Agent Workforce */}
+        <section className="bg-[#050509] p-4">
+          <h3 className="mb-3 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+            Active Agents // 19-Agent Workforce
+          </h3>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { key: 'ironsight' as const, name: 'Ironsight', icon: <ShieldCheck size={16} />, color: 'text-red-500' },
-              { key: 'coreintel' as const, name: 'Coreintel', icon: <Brain size={16} />, color: 'text-purple-500' },
-              { key: 'agentManager' as const, name: 'Agent Manager', icon: <Shield size={16} />, color: 'text-slate-400' },
+              { name: 'Ironsight', icon: '\u25ce' },
+              { name: 'Coreintel', icon: '\uD83E\uDDE0' },
+              { name: 'Agent Manager', icon: '\uD83D\uDEE1\uFE0F' },
             ].map((agent) => {
-              const status = agents[agent.key]?.status ?? 'HEALTHY';
-              const isActiveDefense = status === 'ACTIVE_DEFENSE';
-              const label = isActiveDefense ? 'Active Defense' : 'Healthy';
+              const status = getAgentStatus(agent.name);
               return (
-                <div key={agent.name} className="flex flex-col items-center justify-center py-3 px-1 bg-[#0f172a] border border-slate-800 rounded-lg">
-                  <div className={`${agent.color} mb-2`}>{agent.icon}</div>
-                  <span className="text-[8px] font-bold text-slate-300 uppercase tracking-tighter mb-1.5 text-center">{agent.name}</span>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[7px] font-bold uppercase tracking-widest text-emerald-500">{label}</span>
+                <div
+                  key={agent.name}
+                  className="group flex flex-col items-center gap-1 rounded-sm border border-zinc-900 bg-black p-2.5 transition-colors hover:border-zinc-700"
+                >
+                  <span className={`mb-1 text-xl transition-transform group-hover:scale-110 ${status.color}`}>
+                    {agent.icon}
+                  </span>
+                  <span className="text-center text-[8px] font-black uppercase leading-none tracking-tighter text-zinc-500">
+                    {agent.name}
+                  </span>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <div className={`h-1 w-1 rounded-full ${status.dot} ${status.label === 'Alerting' ? 'animate-ping' : ''}`} />
+                    <span className={`text-[7px] font-bold uppercase tracking-widest ${status.color}`}>{status.label}</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* COREINTEL // LIVE INTELLIGENCE STREAM — stream/placeholder only; command input is in Test Run Ingestion */}
+        {/* COREINTEL // LIVE INTELLIGENCE STREAM ? stream/placeholder only; command input is in Test Run Ingestion */}
         <div className="flex flex-col gap-2">
           <span className="text-[10px] font-bold text-white uppercase">Coreintel // Live Intelligence Stream</span>
           {expertModeEnabled ? (
@@ -478,7 +650,7 @@ export default function StrategicIntel() {
             </div>
           ) : (
             <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-[10px] text-slate-500">
-              [ EXPERT MODE OFF — TELEMETRY STREAM HIDDEN ]
+              [ EXPERT MODE OFF ? TELEMETRY STREAM HIDDEN ]
             </div>
           )}
         </div>
@@ -489,19 +661,19 @@ export default function StrategicIntel() {
               type="text"
               value={terminalCommand}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalCommand(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleTerminalCommand(terminalCommand); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleLegacyTerminalCommand(terminalCommand); }}
               placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx | purg"
               className="flex-1 bg-[#0f172a] border border-slate-700 px-2 py-1.5 rounded font-mono text-[14px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-cyan-600"
             />
             <button
               type="button"
-              onClick={() => handleTerminalCommand(terminalCommand)}
+              onClick={() => handleLegacyTerminalCommand(terminalCommand)}
               className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest text-white hover:bg-slate-700"
             >
               Run
             </button>
           </div>
-        {/* TTL — always display */}
+        {/* TTL ? always display */}
         <div className="flex w-full gap-2">
           <div className="flex h-10 flex-1 items-center gap-1 rounded border border-slate-800 bg-[#0f172a] px-1">
             <button type="button" onClick={() => { const h = Number.parseInt(ttlInput.split(':')[0] || '0', 10) || 0; const next = Math.max(0, h - 1); setTtlInput(`${next.toString().padStart(2, '0')}:00:00`); setTtlRunning(false); }} className="h-6 w-6 rounded border border-slate-700 bg-slate-900 text-[10px] font-bold text-white hover:text-slate-200">-</button>
@@ -518,7 +690,7 @@ export default function StrategicIntel() {
         </div>
         </div>
 
-        {/* Run Sentinel Sweep — always display */}
+        {/* Run Sentinel Sweep ? always display */}
         <div className="flex flex-col gap-2 mt-2">
           <label className="text-[16px] text-white">Enter Agent Instruction...</label>
           <input type="text" placeholder="Enter Agent Instruction..." value={agentInstruction} onChange={(e: ChangeEvent<HTMLInputElement>) => setAgentInstruction(e.target.value)} className="bg-[#0f172a] border border-slate-800 p-2.5 rounded text-[16px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500" />
@@ -532,321 +704,106 @@ export default function StrategicIntel() {
   }
 
   return (
-    // Glass container: 50% opaque + backdrop blur
-    <div className="flex flex-col gap-6 w-full px-2 pb-6 pt-6 bg-[#0f172a]/50 backdrop-blur-md font-sans">
+    <div className="flex h-full flex-col bg-[#050509] text-white font-sans border-r border-zinc-900 overflow-hidden">
 
-      {/* --- COMPONENT HEADER (Pencil Removed) --- */}
-      <div className="flex flex-col gap-3">
-        <div className="flex justify-between items-center">
-          <span className="text-[10.5px] font-bold uppercase tracking-wide text-white font-sans">Strategic Intel</span>
-          <div className="flex items-center gap-1.5">
-            {isAnalyzing ? (
-              <>
-                <span className="text-[9px] font-bold text-amber-400 uppercase tracking-wide animate-pulse">Analyzing...</span>
-                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
-              </>
-            ) : (
-              <>
-                <span className="text-[10.5px] font-bold text-emerald-400 uppercase tracking-wide">Agent Manager: Healthy</span>
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              </>
-            )}
-          </div>
+      {/* 1. CONTROL ROOM PANEL */}
+      <div className="p-4 border-b border-zinc-900 bg-black/20">
+        <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Control Room</h2>
+
+        {/* Top Navigation Grid */}
+        <div className="grid grid-cols-4 gap-2 mb-2">
+          {['Dashboard', 'Reports', 'Audit Trail', 'Settings'].map((btn) => (
+            <button key={btn} className="text-[9px] font-bold py-1.5 border border-zinc-800 rounded bg-zinc-900/40 text-zinc-400 uppercase hover:text-white transition-all">
+              {btn}
+            </button>
+          ))}
         </div>
-        <div className="w-full h-px bg-slate-800" />
+
+        {/* Adversarial & System Toggles */}
+        <div className="grid grid-cols-2 gap-2">
+          <button className="text-[10px] font-black py-2 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-500 uppercase hover:border-zinc-600">
+            Kimbot Off
+          </button>
+          <button className="text-[10px] font-black py-2 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-500 uppercase hover:border-zinc-600">
+            Grcbot Off
+          </button>
+          <button
+            onClick={() => setIsExpertMode(!isExpertMode)}
+            className={`text-[10px] font-black py-2 border border-zinc-800 rounded uppercase transition-colors ${isExpertMode ? 'text-emerald-500 bg-emerald-950/10' : 'text-zinc-500 bg-zinc-900/60'}`}
+          >
+            Expert {isExpertMode ? 'On' : 'Off'}
+          </button>
+          <button className="text-[10px] font-black py-2 bg-red-950/20 border border-red-900/40 rounded text-red-500 uppercase hover:bg-red-900/30">
+            Master Purge
+          </button>
+        </div>
       </div>
 
-      {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] font-bold text-white uppercase">Industry Profile</span>
+      {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
+      <div className="flex flex-col gap-6 w-full px-2 pb-6 pt-6 overflow-y-auto">
+      {/* --- INDUSTRY PROFILE (Toggle + Dropdown + Load Strategy) --- */}
+      <section className="p-4 border-b border-zinc-900">
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Industry Profile</h3>
           <button
+            type="button"
             onClick={() => setIsProfileVisible(!isProfileVisible)}
-            className="text-[10px] text-blue-500 cursor-pointer hover:underline transition-all bg-transparent border-none outline-none"
+            className="text-[10px] text-blue-500 cursor-pointer hover:text-blue-400 transition-colors bg-transparent border-none outline-none"
           >
             {isProfileVisible ? 'Hide' : 'Show'}
           </button>
         </div>
 
-        {/* Conditional Rendering for the Collapsible Section */}
         {isProfileVisible && (
           <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="relative">
-              <select
-                value={selectedIndustry}
-                onChange={(e) => setSelectedIndustry(e.target.value)}
-                className="w-full bg-[#0f172a] border border-slate-800 p-2.5 rounded text-sm text-slate-200 appearance-none outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="Healthcare">Healthcare</option>
-                <option value="Finance">Finance</option>
-                <option value="Energy">Energy / Grid</option>
-                <option value="Technology">Technology</option>
-                <option value="Defense">Defense</option>
-              </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                <ChevronDown size={14} />
-              </div>
-            </div>
+            <select
+              value={selectedIndustry}
+              onChange={(e) => setSelectedIndustry(e.target.value)}
+              className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded text-sm mb-2 text-white outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
+            >
+              <option value="Healthcare">Healthcare</option>
+              <option value="Finance">Finance</option>
+              <option value="Energy">Energy</option>
+              <option value="Technology">Technology</option>
+              <option value="Defense">Defense</option>
+            </select>
+            <button
+              type="button"
+              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded uppercase transition-all active:scale-95"
+            >
+              Load Strategy
+            </button>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* --- RISK EXPOSURE (SCENARIO 2 LIVE) --- */}
-      <div className="flex flex-col gap-4">
-        <span className="text-[10px] font-bold text-white uppercase">Risk Exposure</span>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-300">
-            <span className="flex items-center gap-1.5">
-              Industry Average (Benchmark)
-              <span
-                className="relative inline-flex text-slate-500 hover:text-slate-400 cursor-help"
-                style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                onMouseEnter={() => setActiveRiskTooltip('industry')}
-                onMouseLeave={() => setActiveRiskTooltip(null)}
-                onFocus={() => setActiveRiskTooltip('industry')}
-                onBlur={() => setActiveRiskTooltip(null)}
-                onClick={(e) => { e.preventDefault(); setActiveRiskTooltip((v) => (v === 'industry' ? null : 'industry')); }}
-                role="button"
-                tabIndex={0}
-                aria-label="Explain Industry Average"
-              >
-                <Info size={12} />
-                {activeRiskTooltip === 'industry' && (
-                  <span
-                    className="absolute left-0 bottom-full mb-1 z-50 w-56 px-2.5 py-2 rounded border border-slate-600 bg-slate-900 text-[10px] font-normal normal-case text-left text-white shadow-xl"
-                    style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                  >
-                    Sector-standard risk level based on your Healthcare profile.
-                  </span>
-                )}
-              </span>
-            </span>
-            <span className="text-blue-400">
-              {expertModeEnabled
-                ? `$${formatRiskExposure(industryAverage * 1_000_000, currencyMagnitude)}`
-                : "BENCHMARK"}
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 transition-all duration-500 ease-out" style={{ width: `${avgWidth}%` }}></div>
-          </div>
+      {/* 2. RISK EXPOSURE METRICS */}
+      <section className="p-4 space-y-4 border-b border-zinc-900 bg-black/40">
+        <div className="flex justify-between items-center">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
+          {/* Bug Fix: Restored the missing monospace ID from the 168-hour review */}
+          <span className="text-[9px] font-bold text-zinc-600 font-mono">ID: 0x8F22</span>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-300">
-            <span className="flex items-center gap-1.5">
-              Your Current Risk (Actual)
-              <span
-                className="relative inline-flex text-slate-500 hover:text-slate-400 cursor-help"
-                style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                onMouseEnter={() => setActiveRiskTooltip('current')}
-                onMouseLeave={() => setActiveRiskTooltip(null)}
-                onFocus={() => setActiveRiskTooltip('current')}
-                onBlur={() => setActiveRiskTooltip(null)}
-                onClick={(e) => { e.preventDefault(); setActiveRiskTooltip((v) => (v === 'current' ? null : 'current')); }}
-                role="button"
-                tabIndex={0}
-                aria-label="Explain Your Current Risk"
-              >
-                <Info size={12} />
-                {activeRiskTooltip === 'current' && (
-                  <span
-                    className="absolute left-0 bottom-full mb-1 z-50 w-56 px-2.5 py-2 rounded border border-slate-600 bg-slate-900 text-[10px] font-normal normal-case text-left text-white shadow-xl"
-                    style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                  >
-                    Total liability from confirmed and active threats in your environment.
-                  </span>
-                )}
-              </span>
-            </span>
-            <span
-              className={`font-bold transition-all duration-300 ${
-                expertModeEnabled
-                  ? (riskReductionFlash ? 'text-emerald-400 animate-pulse' : 'text-amber-500')
-                  : riskLevel(dynamicCurrentRisk).className
-              }`}
-            >
-              {expertModeEnabled
-                ? `$${formatRiskExposure(dynamicCurrentRisk * 1_000_000, currencyMagnitude)}`
-                : riskLevel(dynamicCurrentRisk).label}
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-amber-500 transition-all duration-500 ease-out shadow-[0_0_8px_rgba(245,158,11,0.4)]" style={{ width: `${riskWidth}%` }}></div>
-          </div>
+        {/* Bug Fix: Strictly limited to 3 metric rows. Legacy GAP/Trend rows are wiped. */}
+        <div className="space-y-4">
+          {[
+            { label: 'Industry Average', val: '$8.5M', color: 'bg-blue-600', text: 'text-blue-400', w: '60%' },
+            { label: 'Your Current Risk', val: '$10.9M', color: 'bg-amber-500', text: 'text-amber-500', w: '80%' },
+            { label: 'Potential Impact', val: '$15.2M', color: 'bg-red-600', text: 'text-red-500', w: '95%' }
+          ].map((metric) => (
+            <div key={metric.label} className="space-y-1.5">
+              <div className="flex justify-between text-[10px] font-black uppercase tracking-tight">
+                <span className="text-zinc-400">{metric.label}</span>
+                <span className={metric.text}>{metric.val}</span>
+              </div>
+              <div className="h-1 w-full bg-zinc-900 rounded-full overflow-hidden border border-zinc-800/50">
+                <div className={`h-full ${metric.color} shadow-[0_0_10px_rgba(0,0,0,0.8)]`} style={{ width: metric.w }} />
+              </div>
+            </div>
+          ))}
         </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between text-[10px] font-bold uppercase text-slate-300">
-            <span className="flex items-center gap-1.5">
-              Potential Impact (Ceiling)
-              <span
-                className="relative inline-flex text-slate-500 hover:text-slate-400 cursor-help"
-                style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                onMouseEnter={() => setActiveRiskTooltip('potential')}
-                onMouseLeave={() => setActiveRiskTooltip(null)}
-                onFocus={() => setActiveRiskTooltip('potential')}
-                onBlur={() => setActiveRiskTooltip(null)}
-                onClick={(e) => { e.preventDefault(); setActiveRiskTooltip((v) => (v === 'potential' ? null : 'potential')); }}
-                role="button"
-                tabIndex={0}
-                aria-label="Explain Potential Impact"
-              >
-                <Info size={12} />
-                {activeRiskTooltip === 'potential' && (
-                  <span
-                    className="absolute left-0 bottom-full mb-1 z-50 w-56 px-2.5 py-2 rounded border border-slate-600 bg-slate-900 text-[10px] font-normal normal-case text-left text-white shadow-xl"
-                    style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                  >
-                    Total projected liability if all vulnerabilities and pending threats are exploited.
-                  </span>
-                )}
-              </span>
-            </span>
-            <span
-              className={`font-bold transition-all duration-300 ${
-                expertModeEnabled
-                  ? (riskReductionFlash ? 'text-emerald-400 animate-pulse' : 'text-red-500')
-                  : riskLevel(dynamicPotentialImpact).className
-              }`}
-            >
-              {expertModeEnabled
-                ? `$${formatRiskExposure(dynamicPotentialImpact * 1_000_000, currencyMagnitude)}`
-                : riskLevel(dynamicPotentialImpact).label}
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-red-500 transition-all duration-500 ease-out shadow-[0_0_12px_rgba(239,68,68,0.6)]" style={{ width: `${impactWidth}%` }}></div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex justify-between items-center text-[10px] font-bold uppercase text-slate-300">
-            <span className="flex items-center gap-1.5">
-              Unmitigated Risk (GAP) (Delta)
-              <span
-                className="relative inline-flex text-slate-500 hover:text-slate-400 cursor-help"
-                style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                onMouseEnter={() => setActiveRiskTooltip('gap')}
-                onMouseLeave={() => setActiveRiskTooltip(null)}
-                onFocus={() => setActiveRiskTooltip('gap')}
-                onBlur={() => setActiveRiskTooltip(null)}
-                onClick={(e) => { e.preventDefault(); setActiveRiskTooltip((v) => (v === 'gap' ? null : 'gap')); }}
-                role="button"
-                tabIndex={0}
-                aria-label="Explain Unmitigated Risk (Gap)"
-              >
-                <Info size={12} />
-                {activeRiskTooltip === 'gap' && (
-                  <span
-                    className="absolute left-0 bottom-full mb-1 z-50 w-56 px-2.5 py-2 rounded border border-slate-600 bg-slate-900 text-[10px] font-normal normal-case text-left text-white shadow-xl"
-                    style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-                  >
-                    The financial difference between current confirmed risk and total potential impact (Gap = Potential Impact − Current Risk).
-                  </span>
-                )}
-              </span>
-            </span>
-            <span
-              className={`font-bold transition-all duration-300 ${
-                hasGapTelemetry ? "text-slate-300" : "text-slate-500"
-              }`}
-              style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-            >
-              {hasGapTelemetry
-                ? `$${formatRiskExposure(riskGap * 1_000_000, currencyMagnitude)}`
-                : (expertModeEnabled ? '[ WAITING FOR TELEMETRY... ]' : '—')}
-            </span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-slate-500 transition-all duration-500 ease-out"
-              style={{ width: `${hasGapTelemetry ? Math.min((riskGap / MAX_SCALE) * 100, 100) : 0}%` }}
-            />
-          </div>
-        </div>
-
-        {/* # RISK_TREND_INDICATORS */}
-        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
-          <div className="mb-1 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-              Risk Trend (Synthetic)
-            </span>
-          </div>
-          <div className="h-44 w-full bg-transparent">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={riskTrendChartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid stroke="rgb(51 65 85)" strokeDasharray="2 4" opacity={0.5} />
-                <XAxis
-                  dataKey="phase"
-                  tick={{ fill: '#94A3B8', fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={{ stroke: 'rgb(51 65 85)' }}
-                />
-                <YAxis
-                  tick={{ fill: '#94A3B8', fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={{ stroke: 'rgb(51 65 85)' }}
-                  width={58}
-                  tickFormatter={(value: number) => `$${formatRiskExposure(Number(value), currencyScale)}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'rgba(2, 6, 23, 0.92)',
-                    border: '1px solid rgb(51 65 85)',
-                    borderRadius: '0.5rem',
-                    color: '#e2e8f0',
-                  }}
-                  labelStyle={{ color: '#94a3b8', fontSize: '11px' }}
-                  formatter={(value, name) => [`$${formatRiskExposure(Number(value ?? 0), currencyScale)}`, String(name ?? '')]}
-                />
-                <Legend
-                  wrapperStyle={{ color: '#cbd5e1', fontSize: '10px', paddingTop: '6px' }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="currentRiskActual"
-                  name="Your Current Risk (Actual)"
-                  stroke="#ef4444"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="industryAverageBenchmark"
-                  name="Industry Average (Benchmark)"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="potentialImpactCeiling"
-                  name="Potential Impact (Ceiling)"
-                  stroke="#64748b"
-                  strokeWidth={2}
-                  strokeDasharray="3 3"
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="unmitigatedRiskGap"
-                  name="Unmitigated Risk (GAP/Delta)"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* --- TOP SECTOR THREATS --- */}
       <div className="flex flex-col gap-2">
@@ -884,119 +841,78 @@ export default function StrategicIntel() {
         </div>
       </div>
 
-      {/* --- AI AGENTS --- */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold text-white uppercase">AI Agents</span>
+      {/* 3. AI AGENT STATUS GRID (Encoding Bug Fixed) */}
+      <section className="p-4 bg-[#050509] border-b border-zinc-900">
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Active Agents // 19-Agent Workforce</h3>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { key: 'ironsight' as const, name: 'Ironsight', icon: <ShieldCheck size={16} />, color: 'text-red-500' },
-            { key: 'coreintel' as const, name: 'Coreintel', icon: <Brain size={16} />, color: 'text-purple-500' },
-            { key: 'agentManager' as const, name: 'Agent Manager', icon: <Shield size={16} />, color: 'text-slate-400' },
+            { name: 'Ironsight', icon: '\u25ce', color: 'text-red-500' },
+            { name: 'Coreintel', icon: '\uD83E\uDDE0', color: 'text-emerald-500' },
+            { name: 'Agent Manager', icon: '\uD83D\uDEE1\uFE0F', color: 'text-blue-500' }
           ].map((agent) => {
-            const status = agents[agent.key]?.status ?? 'HEALTHY';
-            const isProcessing = status === 'PROCESSING';
-            const isOffline = status === 'OFFLINE';
-            const isWarning = status === 'WARNING';
-            const isActiveDefense = status === 'ACTIVE_DEFENSE';
-            const isHighLoad =
-              agent.key === 'agentManager' &&
-              grcBotEnabled &&
-              grcBotCompanyCount >= 100 &&
-              systemLatencyMs != null &&
-              systemLatencyMs > 100;
-
-            let dotClass = 'bg-emerald-500 animate-pulse';
-            let textClass = 'text-emerald-500';
-            let label = 'Healthy';
-
-            if (isHighLoad) {
-              dotClass = 'bg-amber-500 animate-pulse';
-              textClass = 'text-amber-400';
-              label = 'High Load';
-            } else if (isActiveDefense) {
-              dotClass = 'bg-emerald-500 animate-pulse';
-              textClass = 'text-emerald-400';
-              label = 'Active Defense';
-            } else if (isProcessing) {
-              dotClass = 'bg-amber-400 animate-pulse';
-              textClass = 'text-amber-300';
-              label = 'Processing...';
-            } else if (isOffline) {
-              dotClass = 'bg-red-500';
-              textClass = 'text-red-400';
-              label = 'Offline';
-            } else if (isWarning) {
-              dotClass = 'bg-amber-500 animate-pulse';
-              textClass = 'text-amber-400';
-              label = 'Warning';
-            }
-
+            // Using explicit return to prevent Turbopack bracket parsing errors
             return (
-              <div key={agent.name} className="flex flex-col items-center justify-center py-3 px-1 bg-[#0f172a] border border-slate-800 rounded-lg">
-                <div className={`${agent.color} mb-2`}>{agent.icon}</div>
-                <span className="text-[8px] font-bold text-slate-300 uppercase tracking-titter mb-1.5 text-center">
+              <div key={agent.name} className="bg-black border border-zinc-900 p-2.5 rounded-sm flex flex-col items-center gap-1 hover:border-zinc-700 transition-colors group">
+                <span className={`${agent.color} text-xl mb-1 group-hover:scale-110 transition-transform`}>
+                  {agent.icon}
+                </span>
+                <span className="text-[8px] font-black uppercase text-zinc-500 text-center tracking-tighter leading-none">
                   {agent.name}
                 </span>
-                <div className="flex items-center gap-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
-                  <span className={`text-[7px] font-bold uppercase tracking-widest ${textClass}`}>{label}</span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_4px_#10b981]" />
+                  <span className="text-[7px] text-emerald-500 font-bold uppercase tracking-widest">
+                    Healthy
+                  </span>
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* --- COREINTEL // LIVE INTELLIGENCE STREAM --- */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold text-white uppercase">Coreintel // Live Intelligence Stream</span>
-        {expertModeEnabled ? (
-          <div
-            ref={intelStreamRef}
-            className="bg-black border border-slate-800 p-3 rounded font-mono text-[14px] leading-relaxed space-y-1 max-h-40 overflow-y-auto"
-            style={{ color: '#00FF00' }}
-          >
-            {intelligenceStream.length === 0 ? (
+      {/* 4. LIVE INTELLIGENCE STREAM TERMINAL */}
+      <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900">
+        <div className="h-48 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
+          <div className="space-y-1">
+            {/* Bug Fix: Replaced the broken '?' encoding with the proper em dash '?' */}
+            {isExpertMode ? (
               <>
-                <div>System Online. Core Vault synced.</div>
-                <div>Zero-Trust Architecture enforced.</div>
+                <p className="text-zinc-500 opacity-50 italic">Awaiting command input (kimbot, grcbot, purg)...</p>
+                <p className="text-emerald-500/40 animate-pulse">_</p>
               </>
             ) : (
-              intelligenceStream
-                .slice()
-                .reverse()
-                .map((msg, idx) => (
-                  <div key={`${msg}-${idx}`}>{msg}</div>
-                ))
+              <p className="text-zinc-600 font-black tracking-widest">[ EXPERT MODE OFF ? TELEMETRY STREAM HIDDEN ]</p>
             )}
           </div>
-        ) : (
-          <div className="rounded border border-slate-800 bg-slate-950/40 p-3 text-[10px] text-slate-500">
-            [ EXPERT MODE OFF — TELEMETRY STREAM HIDDEN ]
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 mt-3" data-testid="test-run-ingestion">
-        <div className="flex gap-1">
-          <input
-            type="text"
-            value={terminalCommand}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalCommand(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleTerminalCommand(terminalCommand);
-            }}
-            placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx | purg"
-            className="flex-1 bg-[#0f172a] border border-slate-700 px-2 py-1.5 rounded font-mono text-[14px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-cyan-600"
-          />
-          <button
-            type="button"
-            onClick={() => handleTerminalCommand(terminalCommand)}
-            className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-[12px] font-bold uppercase tracking-widest text-white hover:bg-slate-700"
-          >
-            Run
-          </button>
         </div>
+
+        {/* 5. 'N' AVATAR COMMAND INPUT */}
+        <form onSubmit={handleTerminalCommand} className="mt-auto p-4 bg-zinc-950/20" data-testid="test-run-ingestion">
+          <div className="flex items-center gap-3 py-1.5 px-3 border border-zinc-800/50 rounded-full bg-black/40 shadow-inner group focus-within:border-emerald-500/50 transition-all">
+            <div className="h-6 w-6 rounded-full border border-zinc-800 bg-zinc-900 flex items-center justify-center text-[10px] font-black text-zinc-600 group-focus-within:text-emerald-500 transition-colors">
+              N
+            </div>
+            <input
+              type="text"
+              value={terminalInput}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalInput(e.target.value)}
+              className="bg-transparent border-none outline-none text-zinc-400 font-mono text-xs w-full placeholder:text-zinc-700 selection:bg-emerald-500/30"
+              placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx |"
+            />
+            <button type="submit" className="flex items-center gap-2 pr-1 outline-none">
+              <span className="text-[10px] font-bold text-white uppercase tracking-tighter bg-zinc-800 px-3 py-1 rounded hover:bg-emerald-600 transition-colors">RUN</span>
+            </button>
+          </div>
+          <div className="mt-2 flex justify-between px-2">
+            <span className="text-[7px] text-zinc-700 uppercase font-black tracking-widest">Secure Terminal Link // 0xCC44</span>
+            <div className="flex gap-3">
+              <div className="h-1 w-1 rounded-full bg-zinc-800" />
+              <div className="h-1 w-1 rounded-full bg-zinc-800" />
+              <div className="h-1 w-1 rounded-full bg-zinc-800" />
+            </div>
+          </div>
+        </form>
       </div>
 
       {/* --- TIMER CONTROLS (TTL) --- */}
@@ -1135,6 +1051,7 @@ export default function StrategicIntel() {
         </button>
       </div>
 
+      </div>
     </div>
   );
 }

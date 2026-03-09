@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { saveAIReportToThreat, addWorkNoteAction } from '@/app/actions/threatActions';
 import { sendInvestigationEmail } from '@/app/actions/email';
 import { appendAuditLog } from '@/app/utils/auditLogger';
+import { maskSensitiveData } from '@/app/utils/retentionPolicy';
 import { useAgentStore } from '@/app/store/agentStore';
 import { useRiskStore } from '@/app/store/riskStore';
 
@@ -203,6 +204,9 @@ export default function ThreatInvestigationPanel({ threatId, threatTitle, financ
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
+      // GRC PII/PHI: mask only the copy used for export; do not mutate React state or UI.
+      const reportForPdf = maskSensitiveData((fullReportText || savedAiReport || '').trim());
+      const notesForPdf = fullNotesText ? maskSensitiveData(fullNotesText) : '';
       pdfContainer = document.createElement('div');
       pdfContainer.style.backgroundColor = '#ffffff';
       pdfContainer.style.color = '#1e293b';
@@ -218,11 +222,11 @@ export default function ThreatInvestigationPanel({ threatId, threatTitle, financ
           <p style="margin: 4px 0 0; color: #475569; font-size: 12px;">Title: ${escapeHtml(threatTitle)}</p>
         </div>
         <h3 style="margin: 0 0 8px 0; color: #0f172a;">Investigation Report</h3>
-        <pre style="white-space: pre-wrap; margin: 0; background-color: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">${escapeHtml(fullReportText || savedAiReport || '')}</pre>
+        <pre style="white-space: pre-wrap; margin: 0; background-color: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">${escapeHtml(reportForPdf || '')}</pre>
         ${
-          fullNotesText
+          notesForPdf
             ? `<h3 style="margin: 16px 0 8px 0; color: #0f172a;">Analyst Notes</h3>
-               <pre style="white-space: pre-wrap; margin: 0; background-color: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">${escapeHtml(fullNotesText)}</pre>`
+               <pre style="white-space: pre-wrap; margin: 0; background-color: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">${escapeHtml(notesForPdf)}</pre>`
             : ''
         }
       `;

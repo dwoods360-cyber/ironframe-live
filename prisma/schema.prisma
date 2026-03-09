@@ -52,8 +52,8 @@ model Company {
   industry_avg_loss_cents  BigInt? // BIGINT Cents
   infrastructure_val_cents BigInt? // BIGINT Cents
 
-  tenantId String?  @db.Uuid
-  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenantId String  @db.Uuid
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   departments Department[]
   policies    Policy[]
@@ -146,6 +146,9 @@ model ThreatEvent {
   targetEntity   String // e.g., 'Healthcare', 'Gridcore Energy'
   financialRisk_cents BigInt @default(0) // Liability in cents (e.g., $4.9M => 490000000)
 
+  // RLS: tenant_isolation_policy depends on this column — do not remove
+  tenantCompanyId BigInt?
+
   // State Machine
   state       ThreatState  @default(PIPELINE)
   ttlSeconds  Int          @default(259200) // 72 hours default
@@ -231,4 +234,21 @@ model GrcTemplateConfig {
   vendorTypeRequirements Json     // Record<VendorType, string[]>
   updatedAt              DateTime @updatedAt
   @@map("grc_template_config")
+}
+
+// ------------------------------------------------------
+// IRONWATCH LOG (exists in DB; preserve to avoid db push dropping table)
+// ------------------------------------------------------
+model IronwatchLog {
+  id         String   @id
+  event_type String
+  actor_id   String
+  detail     String
+  severity   String   @default("INFO")
+  created_at DateTime @default(now())
+
+  @@index([actor_id])
+  @@index([created_at])
+  @@index([event_type])
+  @@map("ironwatch_log")
 }

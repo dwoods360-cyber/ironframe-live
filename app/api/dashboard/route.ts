@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
@@ -7,11 +7,21 @@ const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Palo Alto Firewall Misconfiguration',
 ]);
 
-/** GET /api/dashboard — data for the dashboard page when rendered as a client component */
-export async function GET() {
+/** GET /api/dashboard — tenant-scoped data for the dashboard. Requires x-tenant-id header (UUID). */
+export async function GET(request: NextRequest) {
   try {
+    const activeTenantUuid = request.headers.get('x-tenant-id')?.trim() || null;
+
+    if (!activeTenantUuid) {
+      return NextResponse.json(
+        { error: 'Tenant context required. Send x-tenant-id header (tenant UUID).' },
+        { status: 401 }
+      );
+    }
+
     const [companies, serverAuditLogs, risks, threatEvents] = await Promise.all([
       prisma.company.findMany({
+        where: { tenantId: activeTenantUuid },
         include: {
           policies: true,
           risks: true,
@@ -23,6 +33,7 @@ export async function GET() {
         select: { id: true, action: true, operatorId: true, createdAt: true, threatId: true },
       }),
       prisma.activeRisk.findMany({
+        where: { company: { tenantId: activeTenantUuid } },
         select: {
           id: true,
           company_id: true,
@@ -72,7 +83,9 @@ export async function GET() {
 
     const serializedCompanies = companies.map((c) => ({
       ...c,
+      id: typeof c.id === 'bigint' ? String(c.id) : c.id,
       industry_avg_loss_cents: c.industry_avg_loss_cents != null ? Number(c.industry_avg_loss_cents) : null,
+      infrastructure_val_cents: c.infrastructure_val_cents != null ? Number(c.infrastructure_val_cents) : null,
     }));
 
     return NextResponse.json({

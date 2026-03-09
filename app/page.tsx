@@ -12,6 +12,8 @@ import Header from './components/Header';
 import LiabilityAlertToast from './components/LiabilityAlertToast';
 import RecordExpiredToast from './components/RecordExpiredToast';
 import ThreatActionErrorToast from './components/ThreatActionErrorToast';
+import { useTenantContext } from './context/TenantProvider';
+import { TENANT_UUIDS } from './utils/tenantIsolation';
 import type { StreamAlert } from './hooks/useAlerts';
 
 // # AUDIT_STREAM_LOGIC — serverAuditLogsForAudit passed to AuditIntelligence (real-time log mapping)
@@ -51,6 +53,7 @@ type DashboardData = {
 };
 
 export default function Page() {
+  const { tenantFetch, activeTenantUuid } = useTenantContext();
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -61,9 +64,11 @@ export default function Page() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch('/api/dashboard')
+    // Tenant isolation: send x-tenant-id (required by GET /api/dashboard). Default to medshield when not on a tenant route.
+    const tenantUuid = activeTenantUuid ?? TENANT_UUIDS.medshield;
+    tenantFetch('/api/dashboard', { headers: { 'x-tenant-id': tenantUuid } } as RequestInit)
       .then((res) => {
-        if (!res.ok) throw new Error('Failed to load dashboard');
+        if (!res.ok) throw new Error(res.status === 401 ? 'Tenant context required' : 'Failed to load dashboard');
         return res.json();
       })
       .then((json) => {
@@ -76,7 +81,7 @@ export default function Page() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [tenantFetch, activeTenantUuid]);
 
   const liveAlerts: StreamAlert[] = useMemo(() => {
     if (!data?.companies) return [];

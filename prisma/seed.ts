@@ -2,41 +2,48 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Canonical tenant UUIDs (must match app/utils/tenantIsolation.ts TENANT_UUIDS for dashboard isolation)
+const TENANT_UUIDS = {
+  medshield: '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01',
+  vaultbank: 'c6932d16-a716-4a07-9bc4-6ec987f641e2',
+  gridcore: '4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7',
+} as const;
+
 async function main() {
   console.log('🧹 Purging legacy data...');
-  // Wipe the slate clean in the correct relational order
+  // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
   await prisma.agentLog.deleteMany();
   await prisma.vendor.deleteMany();
-  await prisma.tenant.deleteMany();
   await prisma.activeRisk.deleteMany();
   await prisma.policy.deleteMany();
   await prisma.department.deleteMany();
   await prisma.company.deleteMany();
+  await prisma.tenant.deleteMany();
 
   console.log('🚀 Initiating Ironframe Baseline Seed (v1.1 TPRM)...');
 
-  // 1. Establish Tenants (Constitutional)
+  // 1. Establish Tenants (Constitutional) — fixed UUIDs for tenant isolation
   const tenantMedshield = await prisma.tenant.create({
-    data: { name: 'Medshield Health', slug: 'medshield', industry: 'Healthcare', ale_baseline: 1110000000n }
+    data: { id: TENANT_UUIDS.medshield, name: 'Medshield Health', slug: 'medshield', industry: 'Healthcare', ale_baseline: 1110000000n }
   });
   const tenantVaultbank = await prisma.tenant.create({
-    data: { name: 'Vaultbank Global', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
+    data: { id: TENANT_UUIDS.vaultbank, name: 'Vaultbank Global', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
   });
   const tenantGridcore = await prisma.tenant.create({
-    data: { name: 'Gridcore Energy', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
+    data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Energy', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
   });
 
-  // 2. Establish Companies (The 1st Party / Tenant Boundary)
+  // 2. Establish Companies (The 1st Party / Tenant Boundary) — each company scoped to one tenant
   const medshield = await prisma.company.create({
-    data: { name: 'Medshield Health', sector: 'Healthcare', industry_avg_loss_cents: 1110000000n, infrastructure_val_cents: 1520000000n }
+    data: { name: 'Medshield Health', sector: 'Healthcare', industry_avg_loss_cents: 1110000000n, infrastructure_val_cents: 1520000000n, tenantId: tenantMedshield.id }
   });
 
   const vaultbank = await prisma.company.create({
-    data: { name: 'Vaultbank Global', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n }
+    data: { name: 'Vaultbank Global', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n, tenantId: tenantVaultbank.id }
   });
 
   const gridcore = await prisma.company.create({
-    data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n }
+    data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
   });
 
   // 2. Inject Policies (Agent 8 Targets)

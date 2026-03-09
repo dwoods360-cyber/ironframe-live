@@ -35,6 +35,8 @@ model Tenant {
 
   vendors    Vendor[]
   agent_logs AgentLog[]
+  companies  Company[]
+
   createdAt  DateTime   @default(now())
 
   @@map("tenants")
@@ -49,6 +51,9 @@ model Company {
   sector                   String
   industry_avg_loss_cents  BigInt? // BIGINT Cents
   infrastructure_val_cents BigInt? // BIGINT Cents
+
+  tenantId String?  @db.Uuid
+  tenant   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 
   departments Department[]
   policies    Policy[]

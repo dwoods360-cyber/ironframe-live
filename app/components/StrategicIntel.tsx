@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Zap, CheckCircle2, ShieldCheck, Brain, Shield, Search, ChevronDown, Info } from 'lucide-react';
 import {
@@ -18,7 +19,7 @@ import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAgentStore } from '@/app/store/agentStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
-import { useSystemConfigStore } from '@/app/store/systemConfigStore';
+import { useSystemConfigStore, setExpertModeEnabled } from '@/app/store/systemConfigStore';
 import { getDbQueryMs } from '@/app/actions/simulation';
 import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
@@ -78,7 +79,6 @@ export default function StrategicIntel() {
   const [terminalInput, setTerminalInput] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
   const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
-  const [isExpertMode, setIsExpertMode] = useState(true);
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
 
@@ -90,7 +90,7 @@ export default function StrategicIntel() {
   const riskOffset = useRiskStore((state) => state.riskOffset);
   const riskReductionFlash = useRiskStore((state) => state.riskReductionFlash);
   const clearRiskReductionFlash = useRiskStore((state) => state.clearRiskReductionFlash);
-  const pipelineThreats = useRiskStore((state) => state.pipelineThreats);
+  const pipelineThreats = useRiskStore((state) => state.pipelineThreats ?? (state as { threats?: PipelineThreat[] }).threats ?? (state as { pipeline?: PipelineThreat[] }).pipeline ?? []);
   const acceptedThreatImpacts = useRiskStore((state) => state.acceptedThreatImpacts);
   const upsertPipelineThreat = useRiskStore((state) => state.upsertPipelineThreat);
   const removeThreatFromPipeline = useRiskStore((state) => state.removeThreatFromPipeline);
@@ -108,9 +108,23 @@ export default function StrategicIntel() {
   const setSystemLatencyMs = useAgentStore((s) => s.setSystemLatencyMs);
 
   const isKimbotActive = useKimbotStore((s) => s.enabled);
+  const setKimbotEnabled = useKimbotStore((s) => s.setEnabled);
   const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
-  const grcBotEnabled = useGrcBotStore((s) => s.enabled);
+  const isGrcbotActive = useGrcBotStore((s) => s.enabled);
+  const setGrcbotEnabled = useGrcBotStore((s) => s.setEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
+
+  const toggleKimbot = () => setKimbotEnabled(!isKimbotActive);
+  const toggleGrcbot = () => setGrcbotEnabled(!isGrcbotActive);
+  const toggleExpertMode = () => setExpertModeEnabled(!expertModeEnabled);
+
+  async function handlePurgeSimulation() {
+    const result = await purgeSimulation();
+    if (result?.ok) {
+      useKimbotStore.getState().resetSimulationCounters();
+      useGrcBotStore.getState().stop();
+    }
+  }
 
   // Agent status: Healthy (green) or Alerting (red) when Kimbot is active for Ironsight/Coreintel
   const getAgentStatus = (agentName: string) => {
@@ -360,7 +374,7 @@ export default function StrategicIntel() {
 
   // When GRCBOT is simulating 100 companies, poll system latency for High Load warning.
   useEffect(() => {
-    if (!grcBotEnabled || grcBotCompanyCount < 100) return;
+    if (!isGrcbotActive || grcBotCompanyCount < 100) return;
     let mounted = true;
     const poll = async () => {
       try {
@@ -376,7 +390,7 @@ export default function StrategicIntel() {
       mounted = false;
       clearInterval(id);
     };
-  }, [grcBotEnabled, grcBotCompanyCount, setSystemLatencyMs]);
+  }, [isGrcbotActive, grcBotCompanyCount, setSystemLatencyMs]);
 
   // Countdown loop: once SET starts the timer, tick down to 0.
   useEffect(() => {
@@ -480,11 +494,6 @@ export default function StrategicIntel() {
     Object.keys(acceptedThreatImpacts).length > 0 ||
     Object.keys(dashboardLiabilities).length > 0;
 
-  const MAX_SCALE = 30.0;
-  const avgWidth = Math.min((industryAverage / MAX_SCALE) * 100, 100);
-  const riskWidth = Math.min((dynamicCurrentRisk / MAX_SCALE) * 100, 100);
-  const impactWidth = Math.min((dynamicPotentialImpact / MAX_SCALE) * 100, 100);
-
   // # RISK_TREND_INDICATORS
   const currencyScale = currencyMagnitude;
   const trendPhases = ['T-4', 'T-3', 'T-2', 'T-1', 'Now'] as const;
@@ -508,6 +517,27 @@ export default function StrategicIntel() {
     };
   });
 
+  // --- Option B: Persistent GRC/Industry baselines, dynamic current/impact from pipeline (ALE) ---
+  const getIndustryMetrics = (industry: string) => {
+    switch (industry) {
+      case 'Healthcare': return { avg: '$8.5M', grc: '$4.3M' };
+      case 'Finance': return { avg: '$12.1M', grc: '$5.1M' };
+      case 'Technology': return { avg: '$10.4M', grc: '$3.8M' };
+      case 'Defense': return { avg: '$14.5M', grc: '$6.2M' };
+      default: return { avg: '$9.2M', grc: '$4.1M' }; // Energy
+    }
+  };
+  const { avg: industryAvg, grc: grcGap } = getIndustryMetrics(selectedIndustry);
+
+  // Dynamic pipeline risk: sum of threat losses in $M (store uses loss/score in $M)
+  const totalRiskMillions = pipelineThreats.reduce((sum: number, threat: PipelineThreat) => sum + Number(threat.loss ?? threat.score ?? 0), 0);
+  const currentRiskDisplay = totalRiskMillions === 0 ? '$0M' : `$${totalRiskMillions.toFixed(1)}M`;
+  const potentialImpactMillions = totalRiskMillions * 1.4;
+  const potentialImpactDisplay = totalRiskMillions === 0 ? '$0M' : `$${potentialImpactMillions.toFixed(1)}M`;
+
+  const currentRiskWidth = totalRiskMillions === 0 ? '0%' : '80%';
+  const impactWidth = totalRiskMillions === 0 ? '0%' : '95%';
+
   // Single sidebar layout: always show the master block (Industry Profile, 4-bar Risk Exposure, Dynamic Top Sector Threats, Unicode Agent Grid).
   // Previously a "Dark Start" branch ran when !hasActiveIntelligenceStream and showed different/older UI, so edits were not visible.
   return (
@@ -525,38 +555,52 @@ export default function StrategicIntel() {
         <div className="w-full h-px bg-zinc-800" />
       </div>
 
-      {/* 1. CONTROL ROOM PANEL */}
-      <div className="p-4 border-b border-zinc-900 bg-black/20">
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Control Room</h2>
-
-        {/* Top Navigation Grid */}
-        <div className="grid grid-cols-4 gap-2 mb-2">
-          {['Dashboard', 'Reports', 'Audit Trail', 'Settings'].map((btn) => (
-            <button key={btn} className="text-[9px] font-bold py-1.5 border border-zinc-800 rounded bg-zinc-900/40 text-zinc-400 uppercase hover:text-white transition-all">
-              {btn}
-            </button>
-          ))}
+      {/* 1. CONTROL ROOM (Fully Wired) */}
+      <section className="p-4 border-b border-zinc-900 bg-[#050509]">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-[11px] font-black uppercase tracking-widest text-zinc-300">Control Room</h2>
+          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
         </div>
 
-        {/* Adversarial & System Toggles */}
+        {/* Navigation Links */}
+        <div className="flex justify-between text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-4">
+          <Link href="/" className="hover:text-emerald-500 transition-colors">Dashboard</Link>
+          <Link href="/reports/ops" className="hover:text-emerald-500 transition-colors">Reports</Link>
+          <Link href="/audit" className="hover:text-emerald-500 transition-colors">Audit Trail</Link>
+          <Link href="/settings" className="hover:text-emerald-500 transition-colors">Settings</Link>
+        </div>
+
+        {/* Global Agent/State Toggles */}
         <div className="grid grid-cols-2 gap-2">
-          <button className="text-[10px] font-black py-2 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-500 uppercase hover:border-zinc-600">
-            Kimbot Off
-          </button>
-          <button className="text-[10px] font-black py-2 bg-zinc-900/60 border border-zinc-800 rounded text-zinc-500 uppercase hover:border-zinc-600">
-            Grcbot Off
-          </button>
           <button
-            onClick={() => setIsExpertMode(!isExpertMode)}
-            className={`text-[10px] font-black py-2 border border-zinc-800 rounded uppercase transition-colors ${isExpertMode ? 'text-emerald-500 bg-emerald-950/10' : 'text-zinc-500 bg-zinc-900/60'}`}
+            onClick={toggleKimbot}
+            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isKimbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
           >
-            Expert {isExpertMode ? 'On' : 'Off'}
+            Kimbot {isKimbotActive ? 'On' : 'Off'}
           </button>
-          <button className="text-[10px] font-black py-2 bg-red-950/20 border border-red-900/40 rounded text-red-500 uppercase hover:bg-red-900/30">
+
+          <button
+            onClick={toggleGrcbot}
+            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isGrcbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
+          >
+            Grcbot {isGrcbotActive ? 'On' : 'Off'}
+          </button>
+
+          <button
+            onClick={toggleExpertMode}
+            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${expertModeEnabled ? 'bg-blue-500/10 border-blue-500/50 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
+          >
+            Expert {expertModeEnabled ? 'On' : 'Off'}
+          </button>
+
+          <button
+            onClick={() => void handlePurgeSimulation()}
+            className="py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest"
+          >
             Master Purge
           </button>
         </div>
-      </div>
+      </section>
 
       {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
       <div className="flex flex-col gap-0 w-full px-2 overflow-y-auto">
@@ -598,26 +642,19 @@ export default function StrategicIntel() {
         </div>
         
         <div className="space-y-3.5">
-          {(() => {
-            const avg = benchmarks.average;
-            const current = benchmarks.baseRisk;
-            const impact = benchmarks.baseImpact;
-            const gap = Math.max(0, impact - current);
-            const scale = 30;
-            return [
-              { label: 'INDUSTRY AVERAGE', val: `$${avg.toFixed(1)}M`, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: `${Math.min(100, (avg / scale) * 100)}%` },
-              { label: 'YOUR CURRENT RISK', val: `$${current.toFixed(1)}M`, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: `${Math.min(100, (current / scale) * 100)}%` },
-              { label: 'POTENTIAL IMPACT', val: `$${impact.toFixed(1)}M`, color: 'bg-[#ef4444]', text: 'text-[#ef4444]', w: `${Math.min(100, (impact / scale) * 100)}%` },
-              { label: 'GRC GAP', val: `$${gap.toFixed(1)}M`, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: `${Math.min(100, (gap / scale) * 100)}%` }
-            ];
-          })().map((metric) => (
+          {[
+            { label: 'INDUSTRY AVERAGE', val: industryAvg, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: '60%' },
+            { label: 'YOUR CURRENT RISK', val: currentRiskDisplay, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: currentRiskWidth },
+            { label: 'POTENTIAL IMPACT', val: potentialImpactDisplay, color: 'bg-[#ef4444]', text: 'text-[#ef4444]', w: impactWidth },
+            { label: 'GRC GAP', val: grcGap, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: '30%' }
+          ].map((metric) => (
             <div key={metric.label} className="space-y-1.5">
               <div className="flex justify-between items-end">
                 <span className="text-[11px] font-black font-sans uppercase tracking-wide text-zinc-300">{metric.label}</span>
                 <span className={`text-[12px] font-black font-sans ${metric.text}`}>{metric.val}</span>
               </div>
-              <div className="h-[3px] w-full bg-zinc-900/80 rounded-full overflow-hidden">
-                <div className={`h-full ${metric.color}`} style={{ width: metric.w }} />
+              <div className="h-[3px] w-full bg-zinc-900/80 rounded-full overflow-hidden transition-all duration-500">
+                <div className={`h-full ${metric.color} transition-all duration-500`} style={{ width: metric.w }} />
               </div>
             </div>
           ))}
@@ -702,7 +739,7 @@ export default function StrategicIntel() {
       <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
           <div className="space-y-1">
-            {isExpertMode ? (
+            {expertModeEnabled ? (
               <>
                 <p className="text-zinc-500 opacity-50 italic">Stream idle.</p>
                 <p className="text-emerald-500/40 animate-pulse">_</p>

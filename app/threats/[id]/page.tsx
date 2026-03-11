@@ -57,8 +57,8 @@ export default async function ThreatDetailPage({
     );
   }
 
-  const stateLabel = threat.state.replace(/_/g, ' ');
-  const badgeClass = STATE_BADGE_CLASS[threat.state] ?? 'bg-slate-500/20 text-slate-300';
+  const stateLabel = threat.status.replace(/_/g, ' ');
+  const badgeClass = STATE_BADGE_CLASS[threat.status] ?? 'bg-slate-500/20 text-slate-300';
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">

@@ -42,28 +42,24 @@ function deleteOrphanedUploadsSync(): { deleted: number; errors: string[] } {
 }
 
 /**
- * Full system purge: explicitly wipes active_risks, threat_events, audit_logs (main DB) and DMZ tables.
- * Dashboard sources: ActiveRisks → active_risks; Audit sidebar → audit_logs; Risk gauge → client store (cleared on purg).
- * Order respects foreign keys: audit_logs → work_notes → threat_events → active_risks → policies → departments → companies.
- * Then DMZ: agent_logs → quarantine_records (DMZ has no threat_events).
+ * Full system purge: wipes from root (Tenant) so cascade removes companies, departments, policies, active_risks, vendors, agent_logs.
+ * Then explicitly wipes threat_events, work_notes, audit_logs (not under Tenant FK). No ghost data.
+ * Then DMZ: agent_logs → quarantine_records.
  */
 export async function purgeSimulation(): Promise<{ ok: boolean; message: string }> {
   try {
-    // Main DB: explicitly wipe tables (Prisma model → table: auditLog→audit_logs, threatEvent→threat_events, activeRisk→active_risks)
+    // Master purge: root of hierarchy first (triggers ON DELETE CASCADE for companies, departments, policies, active_risks, vendors, agent_logs)
+    const tenantResult = await prisma.tenant.deleteMany({});
+    // Tables not under Tenant FK
     const auditLogResult = await prisma.auditLog.deleteMany({});
     const workNoteResult = await prisma.workNote.deleteMany({});
     const threatEventResult = await prisma.threatEvent.deleteMany({});
-    const activeRiskResult = await prisma.activeRisk.deleteMany({});
-    await prisma.policy.deleteMany({});
-    await prisma.department.deleteMany({});
-    const companyResult = await prisma.company.deleteMany({});
 
-    console.log("[PURGE] Main DB wiped:", {
+    console.log("[PURGE] Main DB wiped (tenant-first cascade):", {
+      tenants: tenantResult.count,
       audit_logs: auditLogResult.count,
       threat_events: threatEventResult.count,
-      active_risks: activeRiskResult.count,
       work_notes: workNoteResult.count,
-      companies: companyResult.count,
     });
 
     // DMZ: wipe agent_logs and quarantine_records (DMZ has no threat_events table)
@@ -86,11 +82,10 @@ export async function purgeSimulation(): Promise<{ ok: boolean; message: string 
     revalidatePath("/reports");
 
     const parts = [
+      `${tenantResult.count} tenant(s) (cascade: companies, departments, policies, active_risks, vendors, agent_logs)`,
       `${auditLogResult.count} audit log(s)`,
       `${workNoteResult.count} work note(s)`,
       `${threatEventResult.count} threat event(s)`,
-      `${activeRiskResult.count} active risk(s)`,
-      `${companyResult.count} company/tenant record(s)`,
     ];
     if (dmzQuarantineCount > 0 || dmzAgentLogCount > 0) {
       parts.push(`${dmzQuarantineCount} DMZ quarantine record(s)`, `${dmzAgentLogCount} DMZ agent log(s)`);

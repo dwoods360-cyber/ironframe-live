@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { ThreatState, DeAckReason } from '@prisma/client';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
 import { logThreatActivity } from '@/app/actions/auditActions';
+import { grcGatePass } from '@/app/utils/grcGate';
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
@@ -129,32 +130,10 @@ type TransactionClient = {
     update: (args: unknown) => Promise<any>;
   };
   auditLog: { create: (args: unknown) => Promise<any> };
-  company: {
-    findFirst: (args: unknown) => Promise<{ id: bigint } | null>;
-    create: (args: unknown) => Promise<{ id: bigint }>;
-  };
-  activeRisk: {
-    findFirst: (args: unknown) => Promise<{ id: bigint } | null>;
-    create: (args: unknown) => Promise<any>;
-    update: (args: unknown) => Promise<any>;
-  };
 };
 
 type MissingRecordResponse = { success: false; error: 'AUDIT_LOG_FAILURE: Record no longer exists.' };
 type ActionFailureResponse = { success: false; error: string };
-
-function normalizeTargetEntityToTenant(targetEntity: string): string {
-  const normalized = targetEntity.trim().toLowerCase();
-  const map: Record<string, string> = {
-    energy: "Gridcore",
-    finance: "Vaultbank",
-    healthcare: "Medshield",
-    tech: "Medshield",
-    technology: "Medshield",
-    defense: "Gridcore",
-  };
-  return map[normalized] ?? targetEntity.trim();
-}
 
 /** Validate threat exists, then run update + audit create in one transaction. Throws AUDIT_LOG_FAILURE if threat does not exist. */
 async function runThreatTransaction<T>(
@@ -174,9 +153,27 @@ async function runThreatTransaction<T>(
 
 export async function acknowledgeThreatAction(
   id: string,
+  tenantId: string,
   operatorId: string,
+  justification?: string,
 ): Promise<{ success: true } | ActionFailureResponse | void> {
+  if (tenantId == null || tenantId === undefined || tenantId === '') {
+    throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
+  }
   console.log(`[ACTION] Starting Acknowledge for ID: ${id}`);
+
+  const existing = await prisma.threatEvent.findUnique({
+    where: { id },
+    select: { financialRisk_cents: true },
+  });
+  if (existing) {
+    if (!grcGatePass(existing.financialRisk_cents ?? 0, justification ?? '')) {
+      return {
+        success: false,
+        error: 'GRC Violation: High-value threats require a 50+ character justification.',
+      };
+    }
+  }
 
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
@@ -186,66 +183,11 @@ export async function acknowledgeThreatAction(
 
   try {
     const result = await runThreatTransaction(id, async (tx) => {
-      const updatedThreat = await tx.threatEvent.update({
+      await tx.threatEvent.update({
         where: { id },
-        data: { state: ThreatState.ACTIVE },
-        select: { id: true, title: true, sourceAgent: true, score: true, targetEntity: true },
+        data: { status: ThreatState.ACTIVE },
       });
       console.log(`[DB] Threat updated to ACTIVE`);
-      const normalizedTargetEntity = normalizeTargetEntityToTenant(updatedThreat.targetEntity);
-      let matchedCompany = await tx.company.findFirst({
-        where: {
-          OR: [
-            { name: { equals: normalizedTargetEntity, mode: "insensitive" } },
-            { name: { equals: updatedThreat.targetEntity, mode: "insensitive" } },
-            { sector: { equals: normalizedTargetEntity, mode: "insensitive" } },
-            { sector: { equals: updatedThreat.targetEntity, mode: "insensitive" } },
-          ],
-        },
-        select: { id: true },
-      });
-      if (!matchedCompany) {
-        // Auto-heal fallback: create missing canonical tenant record on demand.
-        matchedCompany = await tx.company.create({
-          data: {
-            name: normalizedTargetEntity || updatedThreat.targetEntity,
-            sector: updatedThreat.targetEntity,
-            industry_avg_loss_cents: BigInt(0),
-            infrastructure_val_cents: BigInt(0),
-          },
-          select: { id: true },
-        });
-      }
-      const normalizedScore = Math.round((updatedThreat.score ?? 0) <= 10 ? (updatedThreat.score ?? 0) * 10 : (updatedThreat.score ?? 0));
-      const existingActiveRisk = await tx.activeRisk.findFirst({
-        where: {
-          title: updatedThreat.title,
-          source: updatedThreat.sourceAgent,
-          company_id: matchedCompany.id,
-        },
-        select: { id: true },
-      });
-      if (existingActiveRisk) {
-        await tx.activeRisk.update({
-          where: { id: existingActiveRisk.id },
-          data: {
-            status: "ACTIVE",
-            score_cents: BigInt(normalizedScore),
-            isSimulation: false,
-          },
-        });
-      } else {
-        await tx.activeRisk.create({
-          data: {
-            company_id: matchedCompany.id,
-            title: updatedThreat.title,
-            status: "ACTIVE",
-            score_cents: BigInt(normalizedScore),
-            source: updatedThreat.sourceAgent,
-            isSimulation: false,
-          },
-        });
-      }
       await tx.auditLog.create({
         data: {
           action: 'THREAT_ACKNOWLEDGED',
@@ -288,7 +230,7 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
     await runThreatTransaction(id, async (tx) => {
       await tx.threatEvent.update({
         where: { id },
-        data: { state: ThreatState.CONFIRMED },
+        data: { status: ThreatState.CONFIRMED },
       });
       await tx.auditLog.create({
         data: {
@@ -308,10 +250,10 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
     try {
       const threat = await prisma.threatEvent.findUnique({
         where: { id },
-        select: { title: true, state: true, financialRisk_cents: true },
+        select: { title: true, status: true, financialRisk_cents: true },
       });
       const threatTitle = threat?.title ?? id;
-      const state = threat?.state ?? 'CONFIRMED';
+      const state = threat?.status ?? 'CONFIRMED';
       const financialRisk_cents = threat?.financialRisk_cents ?? BigInt(0);
       console.log(`[CONFIRM] Dispatching confirmation email for threat ${id} (${threatTitle})...`);
 
@@ -364,7 +306,7 @@ export async function resolveThreatAction(id: string, operatorId: string): Promi
   const updated = await runThreatTransaction(id, async (tx) => {
     const updatedRow = await tx.threatEvent.update({
       where: { id },
-      data: { state: ThreatState.RESOLVED },
+      data: { status: ThreatState.RESOLVED },
       select: { financialRisk_cents: true },
     });
     await tx.auditLog.create({
@@ -414,10 +356,12 @@ export async function resolveThreatAction(id: string, operatorId: string): Promi
 
 export async function deAcknowledgeThreatAction(
   id: string,
+  tenantId: string,
   reason: string,
   justification: string,
   operatorId: string,
 ): Promise<{ success: true } | MissingRecordResponse | void> {
+  if (!tenantId) throw new Error("Irongate Rejection: Missing Tenant Context. Zero-Trust violation.");
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
@@ -429,7 +373,7 @@ export async function deAcknowledgeThreatAction(
     await tx.threatEvent.update({
       where: { id },
       data: {
-        state: ThreatState.DE_ACKNOWLEDGED,
+        status: ThreatState.DE_ACKNOWLEDGED,
         deAckReason: mappedReason,
       },
     });
@@ -457,6 +401,42 @@ export async function deAcknowledgeThreatAction(
     return maybeMissing;
   }
 
+  revalidatePath('/');
+  return { success: true };
+}
+
+/** Re-escalate: move threat from ACTIVE back to PIPELINE so it reappears in Attack Velocity. Enforces tenantId (Irongate). */
+export async function revertThreatToPipelineAction(
+  id: string,
+  tenantId: string,
+  operatorId: string,
+): Promise<{ success: true } | MissingRecordResponse | void> {
+  if (tenantId == null || tenantId === undefined || tenantId === '') {
+    throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
+  }
+  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
+    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+    if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
+    return;
+  }
+
+  const result = await runThreatTransaction(id, async (tx) => {
+    await tx.threatEvent.update({
+      where: { id },
+      data: { status: ThreatState.PIPELINE, deAckReason: null },
+    });
+    await tx.auditLog.create({
+      data: {
+        action: 'REVERT_TO_PIPELINE',
+        justification: 'Re-escalated from Active Risks to Attack Velocity pipeline.',
+        operatorId,
+        threatId: id,
+      },
+    });
+  });
+
+  const maybeMissing = result as unknown as MissingRecordResponse | undefined;
+  if (maybeMissing?.success === false) return maybeMissing;
   revalidatePath('/');
   return { success: true };
 }

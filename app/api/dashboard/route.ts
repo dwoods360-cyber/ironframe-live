@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [companies, serverAuditLogs, risks, threatEvents] = await Promise.all([
+    const [companies, serverAuditLogs, risks, threatEvents] = await prisma.$transaction([
       prisma.company.findMany({
         where: { tenantId: activeTenantUuid },
         include: {

@@ -160,7 +160,7 @@ export default function Page() {
 
         <section className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0">
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
-          {/* # HEADER_TITLE — SENTINEL DASHBOARD (rendered by Header.tsx for Playwright E2E) */}
+          {/* # HEADER_TITLE — EMERGENCY CLICK TEST (rendered by Header.tsx for Playwright E2E — Iteration 3.1) */}
           <Header tenantNames={companies.map((c) => c.name)} />
           <section aria-labelledby="enterprise-risk-posture-heading">
             <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">

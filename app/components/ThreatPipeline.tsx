@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
-import { Bot, ExternalLink } from "lucide-react";
+import { Bot, ExternalLink, Skull } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { rejectThreatAction } from "@/app/actions/threatActions";
 import { useKimbotStore } from "@/app/store/kimbotStore";
@@ -41,9 +42,20 @@ const INDUSTRY_TO_ENTITY: Record<string, { entityKey: TenantKey; entityLabel: st
   Defense: { entityKey: "gridcore", entityLabel: "GRIDCORE" },
 };
 
+/** Resolve selectedTenantName (UI) to tenant UUID for Irongate. Default: medshield. */
+function resolveTenantId(selectedTenantName: string | null): string {
+  const n = (selectedTenantName ?? '').trim().toLowerCase();
+  if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
+  if (n === 'gridcore') return TENANT_UUIDS.gridcore;
+  return TENANT_UUIDS.medshield;
+}
+
 const CURRENT_USER_ID = "Dereck";
 
 const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
+
+/** $10M in cents — GRC gate: threats >= this require 50+ char justification before Ingest/Acknowledge */
+const GRC_THRESHOLD_CENTS = 1000000000n;
 
 function sendStakeholderEmail(threat: PipelineThreat, notes: string[], liabilityM: number) {
   const notesText = notes.length > 0 ? notes.join(" | ") : "None";
@@ -78,10 +90,23 @@ function PipelineThreatCard({
   const storeSet = useRiskStore((s) => s.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSet;
   const [justification, setJustification] = useState("");
-  const [noteDraft, setNoteDraft] = useState("");
+  const [grcAckJustification, setGrcAckJustification] = useState("");
   const [deackReason, setDeackReason] = useState<string>("");
   const [likelihood, setLikelihood] = useState(threat.likelihood ?? 8);
   const [impact, setImpact] = useState(threat.impact ?? 9);
+
+  // Time-to-Triage: starts when card mounts, stops on Acknowledge
+  const startedAtRef = useRef<number>(Date.now());
+  const [tttSeconds, setTttSeconds] = useState(0);
+  const [tttStopped, setTttStopped] = useState(false);
+
+  useEffect(() => {
+    if (tttStopped) return;
+    const tick = () => setTttSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [tttStopped]);
 
   const acknowledgeThreat = useRiskStore((s) => s.acknowledgeThreat);
   const deAcknowledgeThreat = useRiskStore((s) => s.deAcknowledgeThreat);
@@ -98,6 +123,8 @@ function PipelineThreatCard({
 
   const scoreM = threat.score ?? threat.loss;
   const entityKey = threat.industry ? (INDUSTRY_TO_ENTITY[threat.industry]?.entityKey ?? "medshield") : "medshield";
+  const isKimbotThreat =
+    (threat.source ?? "").toUpperCase() === "KIMBOT" || (threat.name ?? "").startsWith("[KIMBOT]");
   const existingNotes = threat.notes ?? [];
   const scopeTag = `industry:${threat.industry ?? activeIndustry}|tenant:${activeTenant ?? "GLOBAL"}|threatId:${threat.id}`;
 
@@ -113,6 +140,12 @@ function PipelineThreatCard({
   } else if (residualScore > 70) {
     residualColorClass = "text-rose-500";
   }
+
+  const tttDisplay = (() => {
+    const m = Math.floor(tttSeconds / 60);
+    const s = tttSeconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}s`;
+  })();
 
   let severityLabelText: "MEDIUM" | "HIGH" | "CRITICAL";
   if (residualScore < 30) {
@@ -148,10 +181,26 @@ function PipelineThreatCard({
     updatePipelineThreat(threat.id, { impact: clamped });
   };
 
-  const userNotesLen = noteDraft.trim().length;
+  const adjustLikelihood = (delta: number) => {
+    const next = Math.min(10, Math.max(1, (likelihood ?? 8) + delta));
+    setLikelihood(next);
+    updatePipelineThreat(threat.id, { likelihood: next });
+  };
+
+  const adjustImpact = (delta: number) => {
+    const next = Math.min(10, Math.max(1, (impact ?? 9) + delta));
+    setImpact(next);
+    updatePipelineThreat(threat.id, { impact: next });
+  };
+
   const justificationLen = justification.trim().length;
 
-  const ackEnabled = userNotesLen >= 50;
+  const scoreCents = Math.round((threat.loss ?? threat.score ?? 0) * 100_000_000);
+  const isHighValue = BigInt(scoreCents) >= GRC_THRESHOLD_CENTS;
+  const grcAckLen = grcAckJustification.trim().length;
+
+  // Primary ACK: for high-value threats, require 50+ chars justification; for others, allow immediate ACK
+  const ackEnabled = isHighValue ? grcAckLen >= 50 : true;
   const deackEnabled =
     deackReason &&
     deackReason !== "Select Reason..." &&
@@ -161,14 +210,10 @@ function PipelineThreatCard({
     if (!ackEnabled) return;
 
     setThreatActionError({ active: false, message: "" });
-
-    const trimmedNote = noteDraft.trim();
-    const newNotes = [...existingNotes];
-    if (trimmedNote) newNotes.push(trimmedNote);
+    setTttStopped(true);
+    const timeToTriageSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
 
     updatePipelineThreat(threat.id, {
-      notes: newNotes,
-      userNotes: trimmedNote || undefined,
       lastTriageAction: "ACKNOWLEDGE",
       lifecycleState: "active",
       likelihood,
@@ -177,10 +222,22 @@ function PipelineThreatCard({
     });
 
     try {
-      await acknowledgeThreat(threat.id, "admin-user-01");
-      sendStakeholderEmail(threat, newNotes, scoreM);
+      await acknowledgeThreat(
+        threat.id,
+        "admin-user-01",
+        isHighValue ? grcAckJustification.trim() : undefined,
+        resolveTenantId(activeTenant)
+      );
+      sendStakeholderEmail(threat, existingNotes, scoreM);
+      appendAuditLog({
+        action_type: "TIME_TO_TRIAGE",
+        log_type: "GRC",
+        description: `Threat ${threat.id} (${threat.name}) acknowledged. Time-to-Triage: ${timeToTriageSeconds}s`,
+        metadata_tag: `${scopeTag}|TTT:${timeToTriageSeconds}s`,
+        user_id: "admin-user-01",
+      });
       setJustification("");
-      setNoteDraft("");
+      setGrcAckJustification("");
       setDeackReason("");
       onActionSuccess?.();
     } catch {
@@ -203,11 +260,9 @@ function PipelineThreatCard({
 
     setThreatActionError({ active: false, message: "" });
 
-    const trimmedNote = noteDraft.trim();
     const trimmedJustification = justification.trim();
 
     const newNotes = [...existingNotes];
-    if (trimmedNote) newNotes.push(trimmedNote);
     newNotes.push(`Justification: ${trimmedJustification}`);
     newNotes.push(`Reason: ${deackReason}`);
 
@@ -241,7 +296,7 @@ function PipelineThreatCard({
 
     // # GRC_ACTION_CHIPS — De-Ack: on success sync to audit store; on ghost/purged log SYSTEM_WARNING, close drawer
     try {
-      const result = await deAcknowledgeThreat(threat.id, deackReason, trimmedJustification, "admin-user-01");
+      const result = await deAcknowledgeThreat(threat.id, resolveTenantId(activeTenant), deackReason, trimmedJustification, "admin-user-01");
       if (!result.success) {
         updatePipelineThreat(threat.id, {
           lifecycleState: prevLifecycle ?? "pipeline",
@@ -260,7 +315,6 @@ function PipelineThreatCard({
         user_id: "admin-user-01",
       });
       setJustification("");
-      setNoteDraft("");
       setDeackReason("");
       onActionSuccess?.();
     } catch {
@@ -301,149 +355,160 @@ function PipelineThreatCard({
   };
 
   return (
-    <div className="rounded border border-slate-700 bg-slate-900/60 overflow-hidden font-sans">
-      <div className="p-3 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                severityLabelText === "MEDIUM"
-                  ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
-                  : severityLabelText === "HIGH"
-                  ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
-                  : "bg-red-500/10 border-red-500/60 text-red-300"
-              }`}>
-                {severityLabelText}
+    <div
+      className={
+        isKimbotThreat
+          ? "rounded border-2 border-red-500 bg-red-950/30 overflow-hidden font-sans animate-pulse"
+          : "rounded border border-slate-700 bg-slate-900/60 overflow-hidden font-sans"
+      }
+    >
+      <div className="p-3 space-y-2">
+        {/* Header: two-row structure — Identity & Source, then Metrics & Actions */}
+        <div className="flex flex-col w-full gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full">
+            {isKimbotThreat && (
+              <Skull className="h-4 w-4 text-red-500 shrink-0" aria-hidden />
+            )}
+            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+              severityLabelText === "MEDIUM"
+                ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
+                : severityLabelText === "HIGH"
+                ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
+                : "bg-red-500/10 border-red-500/60 text-red-300"
+            }`}>
+              {severityLabelText}
+            </span>
+            <Link
+              href={`/threats/${threat.id}`}
+              onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
+              className="min-w-0 truncate text-sm font-medium text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-900 rounded"
+            >
+              {threat.name}
+            </Link>
+            <span className="rounded-full border border-slate-600 bg-slate-800/70 px-2 py-0.5 text-[9px] font-medium text-slate-300">
+              {threat.target ?? threat.industry ?? "—"}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 w-full">
+            <span className="font-mono text-[11px] font-semibold text-slate-200">
+              ${scoreM.toFixed(1)}M
+            </span>
+            <span className="font-mono text-[10px] text-slate-400" title="Time since detection">
+              {tttDisplay}
+            </span>
+            <Link
+              href={`/threats/${threat.id}`}
+              onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
+              className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300 hover:border-blue-500/60 hover:text-blue-200"
+            >
+              <ExternalLink className="h-3 w-3" aria-hidden />
+              Details
+            </Link>
+          </div>
+        </div>
+
+        {/* Sub-header: badges [Likelihood] [Impact] [Score] — interactive 1–10 inputs with +/- */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[9px]">
+          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
+            <span className="pl-1.5 pr-0.5 text-slate-400">L:</span>
+            <button
+              type="button"
+              onClick={() => adjustLikelihood(-1)}
+              disabled={likelihood <= 1}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Decrease likelihood"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={likelihood}
+              onChange={handleLikelihoodChange}
+              className="w-7 border-0 bg-transparent py-0 pl-0.5 pr-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              aria-label="Likelihood 1-10"
+            />
+            <button
+              type="button"
+              onClick={() => adjustLikelihood(1)}
+              disabled={likelihood >= 10}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Increase likelihood"
+            >
+              +
+            </button>
+          </div>
+          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
+            <span className="pl-1.5 pr-0.5 text-slate-400">I:</span>
+            <button
+              type="button"
+              onClick={() => adjustImpact(-1)}
+              disabled={impact <= 1}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Decrease impact"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={impact}
+              onChange={handleImpactChange}
+              className="w-7 border-0 bg-transparent py-0 pl-0.5 pr-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              aria-label="Impact 1-10"
+            />
+            <button
+              type="button"
+              onClick={() => adjustImpact(1)}
+              disabled={impact >= 10}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
+              aria-label="Increase impact"
+            >
+              +
+            </button>
+          </div>
+          <span className="rounded-full border border-slate-700 bg-slate-900/80 px-1.5 py-0.5 font-mono">
+            Score:&nbsp;
+            {hasResidualChange ? (
+              <>
+                <span className="text-slate-500 line-through">{inherentScore}</span>
+                <span className={`ml-1 ${residualColorClass}`}>{residualScore}</span>
+              </>
+            ) : (
+              <span className="text-slate-300">{inherentScore}</span>
+            )}
+          </span>
+        </div>
+
+        {/* Body: only GRC Justification (if >$10M) */}
+        {isHighValue && (
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
+              Justification Required (Min 50 characters for threats &gt;= $10M)
+            </label>
+            <textarea
+              rows={3}
+              value={grcAckJustification}
+              onChange={(e) => setGrcAckJustification(e.target.value)}
+              placeholder="Explain why this high-value threat should be acknowledged..."
+              className="w-full rounded border border-amber-500/80 bg-slate-950 px-2 py-1 text-[13px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-amber-300"
+              data-testid="grc-justification"
+            />
+            <div className="flex justify-between text-[9px] text-amber-300 font-semibold">
+              <span>
+                {grcAckLen >= 50
+                  ? "Justification meets GRC requirement."
+                  : "50+ characters required to enable Acknowledge."}
               </span>
-              <Link
-                href={`/threats/${threat.id}`}
-                onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
-                className="text-base font-medium text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-900 rounded"
-              >
-                {threat.name}
-              </Link>
-            </div>
-            <p className="mt-0.5 font-mono text-[10px] text-slate-500">{threat.id}</p>
-            <p className="mt-0.5 text-sm leading-tight text-slate-400">
-              Source: {threat.source ?? "Strategic Intel"} · Sector: {threat.industry ?? "Healthcare"} · Target: {threat.target ?? "Core services"}
-            </p>
-            <p className="mt-1 text-sm leading-tight text-slate-400">
-              {threat.description ?? `Inherent exposure of $${scoreM.toFixed(1)}M to the ${threat.industry ?? "Healthcare"} sector.`}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-              <span className="text-slate-400">Liability ($M)</span>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                value={scoreM}
-                onChange={handleScoreChange}
-                className="w-14 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-right text-sm text-slate-200 outline-none focus:border-blue-500"
-              />
-              <span className="text-slate-400">Target</span>
-              <input
-                type="text"
-                value={threat.target ?? ""}
-                onChange={handleTargetChange}
-                placeholder={threat.industry ?? "Target"}
-                className="min-w-[80px] max-w-[140px] rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500"
-              />
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-              <span className="text-slate-400">Likelihood (1-10)</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setLikelihood((prev) => Math.max(1, prev - 1))}
-                  className="px-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 active:text-white"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={likelihood}
-                  onChange={handleLikelihoodChange}
-                  className="w-10 appearance-none rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-center text-slate-200 outline-none focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setLikelihood((prev) => Math.min(10, prev + 1))}
-                  className="px-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 active:text-white"
-                >
-                  +
-                </button>
-              </div>
-              <span className="text-slate-400">Impact (1-10)</span>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setImpact((prev) => Math.max(1, prev - 1))}
-                  className="px-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 active:text-white"
-                >
-                  -
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={impact}
-                  onChange={handleImpactChange}
-                  className="w-10 appearance-none rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-center text-slate-200 outline-none focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setImpact((prev) => Math.min(10, prev + 1))}
-                  className="px-1 text-[10px] font-bold text-blue-500 hover:text-blue-400 active:text-white"
-                >
-                  +
-                </button>
-              </div>
-              <span className="text-slate-400">Risk Score</span>
-              {hasResidualChange ? (
-                <span className="flex items-center gap-1 font-mono">
-                  <span className="text-slate-500 line-through">{inherentScore}</span>
-                  <span className={residualColorClass}>{residualScore}</span>
-                </span>
-              ) : (
-                <span className="font-mono text-slate-300">{inherentScore}</span>
-              )}
+              <span>{grcAckLen}/50</span>
             </div>
           </div>
-          <Link
-            href={`/threats/${threat.id}`}
-            onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded border border-slate-600 bg-slate-800/80 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-200 transition-colors hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-900"
-          >
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-            View Details
-          </Link>
-        </div>
+        )}
 
-        {/* Triage title (top) */}
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
-          <span className="text-slate-400 uppercase font-bold">Triage</span>
-        </div>
-
-        {/* User Notes (top of interaction zone) */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold uppercase tracking-wide text-slate-300">User Notes</label>
-          <textarea
-            rows={4}
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            placeholder="Capture operator notes before acknowledging the threat..."
-            className="w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[14px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
-          />
-          <div className="flex justify-between text-[9px] text-slate-500">
-            <span>Minimum 50 characters required to Acknowledge.</span>
-            <span>{userNotesLen}/50 min</span>
-          </div>
-        </div>
-
-        {/* ACK chip */}
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
+        {/* Primary ACK action */}
+        <div className="flex flex-wrap items-center gap-2 text-[10px]">
           <button
             type="button"
             disabled={!ackEnabled}
@@ -454,66 +519,65 @@ function PipelineThreatCard({
                 : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
             }`}
           >
-            Acknowledged
+            Acknowledge
           </button>
         </div>
 
-        {/* Justification + Reason */}
-        <div className="mt-1.5 flex flex-row items-center gap-4 text-[10px]">
-          <select
-            value={deackReason || "Select Reason..."}
-            onChange={(e) => setDeackReason(e.target.value)}
-            className="h-7 rounded border border-rose-500/60 bg-slate-950/80 px-2 text-[9px] text-rose-200 focus:border-rose-300 focus:outline-none"
-          >
-            <option value="Select Reason..." disabled>
-              Select Reason...
-            </option>
-            <option value="False Positive">False Positive</option>
-            <option value="Compensating Control">Compensating Control</option>
-            <option value="Acceptable Risk">Acceptable Risk</option>
-          </select>
-          <input
-            type="text"
-            value={justification}
-            onChange={(e) => setJustification(e.target.value)}
-            placeholder="Provide mandatory justification to de-acknowledge..."
-            className="min-w-[140px] flex-1 rounded border border-rose-500/70 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-rose-400"
-          />
-        </div>
-        <div className="flex justify-between text-[9px] text-slate-500">
-          <span>Reason + 50 characters required to De-acknowledge.</span>
-          <span>{justificationLen}/50 min</span>
-        </div>
+        {/* Secondary actions (only after threat leaves pipeline) */}
+        {threat.lifecycleState && threat.lifecycleState !== "pipeline" && (
+          <>
+            {/* Justification + Reason */}
+            <div className="mt-2 flex flex-row items-center gap-4 text-[10px]">
+              <select
+                value={deackReason || "Select Reason..."}
+                onChange={(e) => setDeackReason(e.target.value)}
+                className="h-7 rounded border border-rose-500/60 bg-slate-950/80 px-2 text-[9px] text-rose-200 focus:border-rose-300 focus:outline-none"
+              >
+                <option value="Select Reason..." disabled>
+                  Select Reason...
+                </option>
+                <option value="False Positive">False Positive</option>
+                <option value="Compensating Control">Compensating Control</option>
+                <option value="Acceptable Risk">Acceptable Risk</option>
+              </select>
+              <input
+                type="text"
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                placeholder="Provide mandatory justification to de-acknowledge..."
+                className="min-w-[140px] flex-1 rounded border border-rose-500/70 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-rose-400"
+              />
+            </div>
+            <div className="flex justify-between text-[9px] text-rose-300 font-semibold">
+              <span>Reason + 50 characters required to De-acknowledge.</span>
+              <span>{justificationLen}/50</span>
+            </div>
 
-        {/* DE-ACK chip below justification */}
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
-          <button
-            type="button"
-            disabled={!deackEnabled}
-            onClick={handleDeAcknowledgeClick}
-            className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
-              deackEnabled
-                ? "border-rose-500/70 bg-slate-900 text-rose-300 hover:bg-rose-500/10"
-                : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
-            }`}
-          >
-            De-Acknowledged
-          </button>
-          {/* # GRC_ACTION_CHIPS — Reject risk ingestion/registration */}
-          <button
-            type="button"
-            onClick={handleRejectClick}
-            className="rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border border-slate-500/70 bg-slate-900 text-slate-300 hover:bg-slate-500/10"
-          >
-            Reject
-          </button>
-        </div>
-
-        <div className="mt-1 flex items-center justify-between pt-1">
-          <div className="text-[9px] text-slate-500">
-            {existingNotes.length > 0 && <span>{existingNotes.length} note{existingNotes.length > 1 ? "s" : ""} on file</span>}
-          </div>
-        </div>
+            {/* DE-ACK + Reject */}
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
+              <button
+                type="button"
+                disabled={!deackEnabled}
+                onClick={handleDeAcknowledgeClick}
+                className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
+                  deackEnabled
+                    ? "border-rose-500/70 bg-slate-900 text-rose-300 hover:bg-rose-500/10"
+                    : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                De-Acknowledge
+              </button>
+              {/* # GRC_ACTION_CHIPS — Reject risk ingestion/registration */}
+              <button
+                type="button"
+                onClick={handleRejectClick}
+                className="rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border border-slate-500/70 bg-slate-900 text-slate-300 hover:bg-slate-500/10"
+              >
+                Reject
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -555,6 +619,8 @@ export default function ThreatPipeline({
   const [manualDescription, setManualDescription] = useState("");
   const [riskSearchQuery, setRiskSearchQuery] = useState("");
   const [ingestionSearchQuery, setIngestionSearchQuery] = useState("");
+  const [stackExpanded, setStackExpanded] = useState(false);
+  const [attackVelocitySeries, setAttackVelocitySeries] = useState<number[]>([]);
 
   type RawSignalSeverity = "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -614,6 +680,32 @@ export default function ThreatPipeline({
         );
       })
     : filteredRisks;
+
+  const totalThreats = visiblePipelineThreats.length;
+
+  // Aggregate liability across threats in the current stack (in $M, derived from loss/score)
+  const totalLiabilityMillions = visiblePipelineThreats.reduce((sum, t) => {
+    const base = t.loss ?? t.score ?? 0;
+    return sum + Number(base);
+  }, 0);
+
+  const formattedLiability = (() => {
+    if (totalLiabilityMillions <= 0) return "$0 Liability";
+    const totalDollars = totalLiabilityMillions * 1_000_000;
+    if (totalDollars >= 1_000_000_000) {
+      return `$${(totalDollars / 1_000_000_000).toFixed(2)}B Liability`;
+    }
+    return `$${(totalDollars / 1_000_000).toFixed(2)}M Liability`;
+  })();
+
+  // Attack Velocity sparkline: track recent pipeline depth to visualize ingestion rate.
+  useEffect(() => {
+    setAttackVelocitySeries((prev) => {
+      const next = [...prev, totalThreats];
+      // Keep last 24 samples (~small window)
+      return next.slice(-24);
+    });
+  }, [totalThreats]);
 
   const handleIngestSignal = (signal: RawSignal) => {
     const pipelineThreat: PipelineThreat = {
@@ -1161,18 +1253,108 @@ export default function ThreatPipeline({
               [ NO MATCHING RISKS FOR SEARCH… ]
             </div>
           ) : null}
-          {visiblePipelineThreats.length > 0 ? (
-            <div className="space-y-2">
-              {visiblePipelineThreats.map((threat) => (
-                <PipelineThreatCard
-                  key={threat.id}
-                  threat={threat}
-                  onActionSuccess={() => router.refresh()}
-                  setSelectedThreatId={setSelectedThreatId}
-                />
-              ))}
+
+          {visiblePipelineThreats.length > 0 && (
+            <div className="mt-2 space-y-3">
+              {/* Attack Velocity Sparkline (ingestion rate) */}
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="font-bold uppercase tracking-wide text-slate-400">
+                  Attack Velocity
+                </span>
+                <div className="flex h-6 items-end gap-[2px]">
+                  {attackVelocitySeries.length === 0 ? (
+                    <span className="text-[9px] text-slate-500">Idle</span>
+                  ) : (
+                    attackVelocitySeries.map((v, idx) => {
+                      const normalized = Math.min(6, Math.max(1, v));
+                      return (
+                        <div
+                          key={idx}
+                          className="w-1 rounded-t bg-emerald-500"
+                          style={{
+                            height: `${4 + normalized * 3}px`,
+                            opacity: idx === attackVelocitySeries.length - 1 ? 1 : 0.4,
+                          }}
+                        />
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Condensed Stack: show top card only when collapsed; stack badge + expand to show rest */}
+              <div className="relative">
+                {totalThreats > 1 && (
+                  <>
+                    <div className="pointer-events-none absolute inset-x-2 top-2 h-full rounded border border-slate-800 bg-slate-900/60" />
+                    <div className="pointer-events-none absolute inset-x-1 top-1 h-full rounded border border-slate-800 bg-slate-900/80" />
+                  </>
+                )}
+
+                <div
+                  className={`relative transition-all duration-200 ${
+                    totalThreats > 1
+                      ? "shadow-[4px_4px_0px_0px_rgba(220,38,38,0.2),8px_8px_0px_0px_rgba(220,38,38,0.1)]"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    if (totalThreats > 1) setStackExpanded((prev) => !prev);
+                  }}
+                >
+                  {/* When collapsed: only first card is rendered; stack badge shows total count */}
+                  <PipelineThreatCard
+                    key={visiblePipelineThreats[0].id}
+                    threat={visiblePipelineThreats[0]}
+                    onActionSuccess={() => router.refresh()}
+                    setSelectedThreatId={setSelectedThreatId}
+                  />
+                  {totalThreats > 0 && (
+                    <div className="absolute top-2 right-2 flex items-center gap-2">
+                      <span className="rounded-full border border-emerald-400/70 bg-slate-900/95 px-2 py-0.5 text-[9px] font-mono font-semibold tracking-wide text-emerald-300 shadow">
+                        {formattedLiability}
+                      </span>
+                      {totalThreats > 1 && (
+                        <button
+                          type="button"
+                          className="rounded-full border border-amber-400/70 bg-slate-900/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300 shadow-md hover:bg-amber-500/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStackExpanded((prev) => !prev);
+                          }}
+                        >
+                          {totalThreats} Attacks in Queue
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Full list only when expanded — no slice(1) cards in DOM when collapsed */}
+                {totalThreats > 1 && (
+                  <div
+                    className="overflow-hidden transition-all duration-200 ease-out"
+                    style={{
+                      maxHeight: stackExpanded ? "288px" : "0",
+                      opacity: stackExpanded ? 1 : 0,
+                    }}
+                  >
+                    {stackExpanded && (
+                      <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded border border-slate-800 bg-slate-950/80 p-2">
+                        {visiblePipelineThreats.slice(1).map((threat) => (
+                          <PipelineThreatCard
+                            key={threat.id}
+                            threat={threat}
+                            onActionSuccess={() => router.refresh()}
+                            setSelectedThreatId={setSelectedThreatId}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
       </IngestionPanel>

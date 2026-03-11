@@ -7,10 +7,18 @@ import { ExternalLink } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
+import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAgentStore } from '@/app/store/agentStore';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
+
+function resolveTenantId(selectedTenantName: string | null): string {
+  const n = (selectedTenantName ?? '').trim().toLowerCase();
+  if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
+  if (n === 'gridcore') return TENANT_UUIDS.gridcore;
+  return TENANT_UUIDS.medshield;
+}
 
 type RiskRow = {
   id: string;
@@ -23,6 +31,27 @@ type RiskRow = {
 };
 
 type Props = { risks: RiskRow[]; setSelectedThreatId?: (id: string | null) => void };
+
+type ActionType = 'DISMISS' | 'REVERT' | 'CONFIRM';
+
+const REVERT_REASONS = [
+  { value: 'OPERATOR_ERROR', label: 'Operator Error' },
+  { value: 'PREMATURE_ESCALATION', label: 'Premature Escalation' },
+  { value: 'DATA_CORRECTION', label: 'Data Correction' },
+] as const;
+
+const DISMISS_REASONS = [
+  { value: 'FALSE_POSITIVE', label: 'False Positive' },
+  { value: 'RISK_ACCEPTED', label: 'Risk Accepted' },
+  { value: 'MITIGATED', label: 'Mitigated' },
+  { value: 'DUPLICATE', label: 'Duplicate' },
+] as const;
+
+const CONFIRM_REASONS = [
+  { value: 'INCIDENT_DECLARED', label: 'Incident Declared' },
+  { value: 'INVESTIGATION_OPENED', label: 'Investigation Opened' },
+  { value: 'VULNERABILITY_CONFIRMED', label: 'Vulnerability Confirmed' },
+] as const;
 
 type LifecycleState = 'active' | 'confirmed' | 'resolved';
 
@@ -78,6 +107,8 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   const activeThreats = useRiskStore((state) => state.activeThreats);
   const confirmThreat = useRiskStore((state) => state.confirmThreat);
   const resolveThreat = useRiskStore((state) => state.resolveThreat);
+  const revertThreatToPipeline = useRiskStore((state) => state.revertThreatToPipeline);
+  const deAcknowledgeThreat = useRiskStore((state) => state.deAcknowledgeThreat);
   const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
   const storeSetSelectedThreatId = useRiskStore((state) => state.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
@@ -91,6 +122,12 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
   const [riskSearchQuery, setRiskSearchQuery] = useState('');
+
+  const [activeAction, setActiveAction] = useState<ActionType | null>(null);
+  const [activeActionCardId, setActiveActionCardId] = useState<string | null>(null);
+  const [activeActionThreatId, setActiveActionThreatId] = useState<string | null>(null);
+  const [selectedReason, setSelectedReason] = useState('');
+  const [customJustification, setCustomJustification] = useState('');
 
   // Only show DB risks that are non-simulation when engines are OFF + optional tenant filter
   const filteredRisks = risks.filter((r) => {
@@ -223,6 +260,14 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
         metadata_tag: `activeRiskId:${risk.id}|title:${risk.title}`,
       });
     }
+  };
+
+  const clearActionForm = () => {
+    setActiveAction(null);
+    setActiveActionCardId(null);
+    setActiveActionThreatId(null);
+    setSelectedReason('');
+    setCustomJustification('');
   };
 
   return (
@@ -389,18 +434,156 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                         Stakeholders Notified
                       </div>
                     )}
-                    <button
-                      type="button"
-                      disabled={!onPrimaryClick}
-                      onClick={onPrimaryClick}
-                      className={`ml-auto rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
-                        lifecycle === 'active'
-                          ? 'bg-emerald-500 text-black hover:bg-emerald-400'
-                          : 'bg-amber-500 text-black hover:bg-amber-400'
-                      } disabled:cursor-not-allowed disabled:opacity-40`}
-                    >
-                      {buttonLabel}
-                    </button>
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                      {activeActionCardId === threat.id && activeAction ? (
+                        <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                            Reason
+                          </label>
+                          <select
+                            value={selectedReason}
+                            onChange={(e) => setSelectedReason(e.target.value)}
+                            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[10px] text-slate-200 focus:border-blue-500 focus:outline-none"
+                            aria-label="Select reason"
+                          >
+                            <option value="">Select reason…</option>
+                            {(activeAction === 'DISMISS' ? DISMISS_REASONS : activeAction === 'REVERT' ? REVERT_REASONS : CONFIRM_REASONS).map((r) => (
+                              <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
+                          </select>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                            Justification
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={customJustification}
+                            onChange={(e) => setCustomJustification(e.target.value)}
+                            placeholder="Enter detailed justification for audit log..."
+                            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
+                            aria-label="Custom justification"
+                          />
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const reason = selectedReason.trim();
+                                const justification = customJustification.trim();
+                                if (!reason || !justification) return;
+                                const tenantId = resolveTenantId(selectedTenantName);
+                                const operatorId = 'admin-user-01';
+                                try {
+                                  if (activeAction === 'DISMISS') {
+                                    await deAcknowledgeThreat(threat.id, tenantId, reason, justification, operatorId);
+                                    appendAuditLog({
+                                      action_type: 'STATE_REGRESSION',
+                                      log_type: 'GRC',
+                                      description: `Risk dismissed (De-Acknowledged): ${threat.name}. Reason: ${reason}. ${justification}`,
+                                      metadata_tag: `threatId:${threat.id}|tenant:${selectedTenantName ?? 'GLOBAL'}`,
+                                      user_id: operatorId,
+                                    });
+                                  } else if (activeAction === 'REVERT') {
+                                    await revertThreatToPipeline(threat.id, tenantId, operatorId);
+                                    appendAuditLog({
+                                      action_type: 'STATE_REGRESSION',
+                                      log_type: 'GRC',
+                                      description: `Reverted to pipeline: ${threat.name}. Reason: ${reason}. ${justification}`,
+                                      metadata_tag: `threatId:${threat.id}|tenant:${selectedTenantName ?? 'GLOBAL'}`,
+                                      user_id: operatorId,
+                                    });
+                                  } else {
+                                    await confirmThreat(threat.id, operatorId);
+                                    setStates((prev) => ({ ...prev, [threat.id]: 'confirmed' }));
+                                    setSuccessFlash((prev) => ({ ...prev, [threat.id]: true }));
+                                    setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [threat.id]: false })), 1500);
+                                    appendAuditLog({
+                                      action_type: 'GRC_PROCESS_THREAT',
+                                      log_type: 'GRC',
+                                      description: `Threat confirmed: ${threat.name}. Reason: ${reason}. ${justification}`,
+                                      metadata_tag: `threatId:${threat.id}|tenant:${selectedTenantName ?? 'GLOBAL'}`,
+                                      user_id: operatorId,
+                                    });
+                                  }
+                                  clearActionForm();
+                                } catch (_e) {
+                                  // Store logs; form stays open for retry
+                                }
+                              }}
+                              disabled={!selectedReason.trim() || !customJustification.trim()}
+                              className="rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              SUBMIT {activeAction}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={clearActionForm}
+                              className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:bg-slate-700"
+                            >
+                              CANCEL
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {lifecycle === 'active' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAction('DISMISS');
+                                  setActiveActionCardId(threat.id);
+                                  setActiveActionThreatId(threat.id);
+                                  setSelectedReason('');
+                                  setCustomJustification('');
+                                }}
+                                className="rounded border border-slate-500/70 bg-slate-800/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 shadow hover:border-slate-400/60 hover:bg-slate-700/60 hover:text-slate-300"
+                              >
+                                DISMISS RISK
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAction('REVERT');
+                                  setActiveActionCardId(threat.id);
+                                  setActiveActionThreatId(threat.id);
+                                  setSelectedReason('');
+                                  setCustomJustification('');
+                                }}
+                                className="rounded border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 shadow hover:bg-amber-500/20"
+                              >
+                                REVERT TO PIPELINE
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveAction('CONFIRM');
+                                  setActiveActionCardId(threat.id);
+                                  setActiveActionThreatId(threat.id);
+                                  setSelectedReason('');
+                                  setCustomJustification('');
+                                }}
+                                className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
+                              >
+                                CONFIRM THREAT
+                              </button>
+                            </>
+                          )}
+                          {lifecycle !== 'active' && (
+                            <button
+                              type="button"
+                              disabled={!onPrimaryClick}
+                              onClick={onPrimaryClick}
+                              className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
+                                lifecycle === 'confirmed'
+                                  ? 'bg-amber-500 text-black hover:bg-amber-400'
+                                  : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                              } disabled:cursor-not-allowed disabled:opacity-40`}
+                            >
+                              {buttonLabel}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -521,18 +704,104 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                         Stakeholders Notified
                       </div>
                     )}
-                    <button
-                      type="button"
-                      disabled={!onPrimaryClick}
-                      onClick={onPrimaryClick}
-                      className={`ml-auto rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
-                        lifecycle === 'active'
-                          ? 'bg-emerald-500 text-black hover:bg-emerald-400'
-                          : 'bg-amber-500 text-black hover:bg-amber-400'
-                      } disabled:cursor-not-allowed disabled:opacity-40`}
-                    >
-                      {buttonLabel}
-                    </button>
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                      {activeActionCardId === risk.id && activeAction === 'CONFIRM' ? (
+                        <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                            Reason
+                          </label>
+                          <select
+                            value={selectedReason}
+                            onChange={(e) => setSelectedReason(e.target.value)}
+                            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[10px] text-slate-200 focus:border-blue-500 focus:outline-none"
+                            aria-label="Select reason"
+                          >
+                            <option value="">Select reason…</option>
+                            {CONFIRM_REASONS.map((r) => (
+                              <option key={r.value} value={r.value}>{r.label}</option>
+                            ))}
+                          </select>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                            Justification
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={customJustification}
+                            onChange={(e) => setCustomJustification(e.target.value)}
+                            placeholder="Enter detailed justification for audit log..."
+                            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
+                            aria-label="Custom justification"
+                          />
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const reason = selectedReason.trim();
+                                const justification = customJustification.trim();
+                                if (!reason || !justification) return;
+                                const operatorId = 'admin-user-01';
+                                const threatId = activeActionThreatId ?? risk.threatId ?? risk.id;
+                                try {
+                                  await confirmThreat(threatId, operatorId);
+                                  setStates((prev) => ({ ...prev, [risk.id]: 'confirmed' }));
+                                  setSuccessFlash((prev) => ({ ...prev, [risk.id]: true }));
+                                  setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [risk.id]: false })), 1500);
+                                  appendAuditLog({
+                                    action_type: 'GRC_PROCESS_THREAT',
+                                    log_type: 'GRC',
+                                    description: `Threat confirmed (risk card): ${risk.title}. Reason: ${reason}. ${justification}`,
+                                    metadata_tag: `riskId:${risk.id}|threatId:${threatId}|tenant:${selectedTenantName ?? 'GLOBAL'}`,
+                                    user_id: operatorId,
+                                  });
+                                  clearActionForm();
+                                } catch (_e) {
+                                  // Store logs; form stays open for retry
+                                }
+                              }}
+                              disabled={!selectedReason.trim() || !customJustification.trim()}
+                              className="rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              SUBMIT CONFIRM
+                            </button>
+                            <button
+                              type="button"
+                              onClick={clearActionForm}
+                              className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:bg-slate-700"
+                            >
+                              CANCEL
+                            </button>
+                          </div>
+                        </div>
+                      ) : lifecycle === 'active' ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveAction('CONFIRM');
+                            setActiveActionCardId(risk.id);
+                            setActiveActionThreatId(risk.threatId ?? risk.id);
+                            setSelectedReason('');
+                            setCustomJustification('');
+                          }}
+                          className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
+                        >
+                          CONFIRM THREAT
+                        </button>
+                      ) : null}
+                      {lifecycle !== 'active' && (
+                        <button
+                          type="button"
+                          disabled={!onPrimaryClick}
+                          onClick={onPrimaryClick}
+                          className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
+                            lifecycle === 'confirmed'
+                              ? 'bg-amber-500 text-black hover:bg-amber-400'
+                              : 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                          } disabled:cursor-not-allowed disabled:opacity-40`}
+                        >
+                          {buttonLabel}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}

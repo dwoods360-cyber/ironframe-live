@@ -108,14 +108,17 @@ describe('GET /api/dashboard — Tenant Isolation', () => {
   });
 
   it('The Isolated Access: Vaultbank context returns only Vaultbank records (no cross-tenant bleed)', async () => {
-    vi.mocked(prisma.company.findMany).mockImplementation(async (args) => {
-      const tenantId = (args as { where: { tenantId: string } }).where?.tenantId;
+    // Mock implementations return plain Promise; Prisma types expect PrismaPromise — cast to satisfy type check.
+    const companyFindMany = vi.mocked(prisma.company.findMany) as ReturnType<typeof vi.fn>;
+    companyFindMany.mockImplementation(async (args: unknown) => {
+      const tenantId = (args as { where?: { tenantId?: string } })?.where?.tenantId;
       if (tenantId === VAULTBANK_UUID) return [vaultbankCompany];
       if (tenantId === MEDSHIELD_UUID) return [medshieldCompany];
       return [];
     });
-    vi.mocked(prisma.activeRisk.findMany).mockImplementation(async (args) => {
-      const tenantId = (args as { where: { company: { tenantId: string } } }).where?.company?.tenantId;
+    const activeRiskFindMany = vi.mocked(prisma.activeRisk.findMany) as ReturnType<typeof vi.fn>;
+    activeRiskFindMany.mockImplementation(async (args: unknown) => {
+      const tenantId = (args as { where?: { company?: { tenantId?: string } } })?.where?.company?.tenantId;
       if (tenantId === VAULTBANK_UUID) return [vaultbankRisk];
       if (tenantId === MEDSHIELD_UUID) return [medshieldRisk];
       return [];

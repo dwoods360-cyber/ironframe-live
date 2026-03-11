@@ -70,9 +70,9 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
       className="flex items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
-      {/* # HEADER_TITLE — Playwright E2E expects this exact text */}
+      {/* # HEADER_TITLE — Playwright E2E expects this exact text (Iteration 3.1) */}
       <h1 className="text-sm font-bold uppercase tracking-wider text-white shrink-0">
-        SENTINEL DASHBOARD
+        EMERGENCY CLICK TEST
       </h1>
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
         Protected Tenants ({selectedIndustry})

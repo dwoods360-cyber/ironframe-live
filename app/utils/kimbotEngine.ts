@@ -164,8 +164,8 @@ function pick<T>(arr: T[]): T {
 const CRITICAL_TEST_PROBABILITY = 0.15;
 
 /**
- * Generate one KIMBOT signal. Uses selectedIndustry for templates; intensity (1-10) scales severity/liability.
- * Occasionally returns a Critical >$10M signal for stress-testing.
+ * Generate one KIMBOT signal. Uses selectedIndustry for templates; intensity (1-10) scales severity.
+ * Liability is always $5M–$25M (strict BIGINT cents) to enable GRC Gate testing.
  */
 export function generateKimbotSignal(
   selectedIndustry: string,
@@ -175,19 +175,19 @@ export function generateKimbotSignal(
   const industryKey = selectedIndustry in INDUSTRY_TEMPLATES ? selectedIndustry : "Healthcare";
   const template = INDUSTRY_TEMPLATES[industryKey] ?? DEFAULT_TEMPLATE;
   const attack = template[attackType];
-  const [minLiab, maxLiab] = attack.baseLiabilityRange;
-  const intensityScale = 0.5 + intensity / 10;
 
   const forceCritical = Math.random() < CRITICAL_TEST_PROBABILITY;
-  const liability = forceCritical
-    ? 10 + Math.random() * 12
-    : minLiab + (maxLiab - minLiab) * Math.random() * intensityScale;
+  // Strict BIGINT cents: $5.0M to $25.0M (500_000_000 to 2_500_000_000 cents)
+  const riskCents =
+    BigInt(Math.floor(Math.random() * 20_000_000) + 5_000_000) * 100n;
+  const liabilityMillions = Number(riskCents) / 100_000_000;
+
   const severityScore = forceCritical
     ? 85 + Math.floor(Math.random() * 15)
     : Math.min(99, 40 + intensity * 5 + Math.floor(Math.random() * 20));
 
   let severity: "MEDIUM" | "HIGH" | "CRITICAL" = "MEDIUM";
-  if (severityScore >= 80 || liability > 10) severity = "CRITICAL";
+  if (severityScore >= 80 || liabilityMillions > 10) severity = "CRITICAL";
   else if (severityScore >= 50) severity = "HIGH";
 
   const title = pick(attack.titles);
@@ -201,7 +201,7 @@ export function generateKimbotSignal(
     source: "AGENT_NOTICE",
     severity,
     severityScore,
-    liability: Math.round(liability * 10) / 10,
+    liability: Math.round(liabilityMillions * 10) / 10,
     agentScore: severityScore,
     description,
     targetSector: industryKey,

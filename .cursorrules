@@ -6,6 +6,15 @@ Environment: Cursor IDE → GitHub Actions → Google Cloud (GCP).
 
 ---
 
+## 🛡️ CRITICAL PRODUCT OVERRIDE (GATEKEEPER PROTOCOL)
+
+1. **Zero Affirmation:** Do not apologize for errors. Do not use polite filler. State the failure, state the architectural violation, and state the required remediation.
+2. **Reject Hotfixes / Data Falsification:** If a user or an agent proposes a fix that bypasses Zero-Trust Ingress, Tenant Isolation, strict Type Safety, or attempts to invent missing database records to resolve an error quickly, you must REJECT it and cite the TAS.md violation.
+3. **Friction Over Speed:** A broken build is preferable to a compromised architecture. Never auto-generate missing database relationships (like Tenants/Companies) to force a test to pass.
+4. **Audit First:** Every proposed solution must be evaluated for how it will look on a SOC2/ISO audit log.
+
+---
+
 ## 🛑 Pre-Implementation Check
 
 Before writing or modifying any code:
@@ -36,17 +45,14 @@ All USD values MUST be stored as integer cents using BIGINT. Float and Decimal t
 ```sql
 ale_baseline_cents  BIGINT NOT NULL
 ```
-
 **Prisma Model:**
 ```prisma
 aleBaselineCents  BigInt
 ```
-
 **Application Code:**
 ```ts
 const dollars = aleBaselineCents / 100;
 ```
-
 This guarantees exact precision. Carbon metrics require physical units (kWh, Liters, km) — monetary-only data is rejected by Ironbloom (Agent 17).
 
 ---
@@ -67,7 +73,7 @@ No branch may merge unless it passes the GitHub Actions / The Warden gate:
 
 ## 📤 Post-Implementation Output
 
-After every structural (🔴) change, Cursor must output both blocks:
+After every structural (🔴) change, Cursor must output these three blocks:
 
 ```
 TAS COMPLIANCE CHECK:
@@ -89,7 +95,6 @@ TEST COVERAGE CHECK:
 - ALE Math Covered: YES/NO (Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M)
 - Tenant Isolation Tested: YES/NO
 ```
-
 Failure to include all three blocks invalidates the output.
 
 ---
@@ -105,13 +110,12 @@ Failure to include all three blocks invalidates the output.
 - Committing API secrets (Google Cloud, Supabase) to the repository.
 - Re-architecting completed modules in /docs/completed-modules.md without a TAS Amendment.
 - Silent structural changes of any kind.
+- Executing Prisma update, upsert, or create on any tenant-bound model without explicitly passing the authenticated tenantId. Never auto-generate missing parent records (like Company/Tenant) to satisfy foreign key constraints during data ingestion.
 
 ---
 
 ## 🚨 Stop-on-Drift
 
 If the AI suggests a change that contradicts /docs/TAS.md or /docs/testing.md, the AI must immediately halt, cite the conflict, and request a TAS Amendment.
-
----
 
 "Optimize for CONTROL-FIRST architecture with structured speed."

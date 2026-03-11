@@ -6,6 +6,7 @@ import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAuditLoggerStore } from '@/app/utils/auditLoggerStore';
 import { useRiskStore } from '@/app/store/riskStore';
+import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
 // # UI_GLASS_LAYER_CONTROLS (Close/X, Minimize, Z-Index) — drawer header + overlay
 // # SEARCH_ENGINE_INPUTS (Drawer Search) — drawerSearchQuery
@@ -47,6 +48,9 @@ function formatAction(action: string): string {
   };
   return map[action] ?? action.replace(/_/g, ' ');
 }
+
+/** $10M in cents — GRC gate: threats >= this require 50+ char justification before Ingest */
+const GRC_THRESHOLD_CENTS = 1000000000n;
 
 /** Extract the 3-sentence Executive Board Summary from saved AI report markdown */
 function extractExecutiveSummary(aiReport: string | null): string | null {
@@ -156,9 +160,14 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   const [linkStatus, setLinkStatus] = useState<'active' | 'connecting' | 'interrupted'>('active');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [analystNoteDraft, setAnalystNoteDraft] = useState('');
+  /** GRC Ingestion Gate: mandatory justification for threats >= $10M */
+  const [justification, setJustification] = useState('');
   /** Notes just committed in this session so they appear in the drawer before refetch */
   const [localNotes, setLocalNotes] = useState<NoteEntry[]>([]);
+  const [ingestLoading, setIngestLoading] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
   const globalLogs = useAuditLoggerStore();
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   console.log('[GRC DEBUG] Active Threat Data:', JSON.stringify(threat, null, 2));
 
   useEffect(() => {
@@ -281,6 +290,12 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   }, [allNotes, threatActions]);
 
   const effectiveLinkStatus = linkInterrupted ? 'interrupted' : linkStatus;
+  const tenantIdForIngest = (() => {
+    const n = (selectedTenantName ?? '').trim().toLowerCase();
+    if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
+    if (n === 'gridcore') return TENANT_UUIDS.gridcore;
+    return TENANT_UUIDS.medshield;
+  })();
 
   const glassBg = isDarkMode ? 'bg-slate-900/20' : 'bg-white/20';
   const glassBorder = isDarkMode ? 'border-slate-600/40' : 'border-white/20';
@@ -309,6 +324,38 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
     };
     setLocalNotes((prev) => [newLocalNote, ...prev]);
     setAnalystNoteDraft('');
+  };
+
+  const scoreCents = threat ? BigInt(threat.financialRisk_cents) : 0n;
+  const isHighValue = scoreCents >= GRC_THRESHOLD_CENTS;
+  const justificationTrimmed = justification.trim();
+  const ingestButtonEnabled = isHighValue ? justificationTrimmed.length >= 50 : true;
+
+  const handleIngest = async () => {
+    if (!threat || !ingestButtonEnabled) return;
+    setIngestError(null);
+    setIngestLoading(true);
+    try {
+      const res = await fetch('/api/threats/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threatId: threat.id,
+          tenantId: tenantIdForIngest,
+          justification: justificationTrimmed || undefined,
+          operatorId: 'drawer-user',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setIngestError(data?.error ?? `Request failed (${res.status})`);
+        return;
+      }
+      setJustification('');
+      onClose();
+    } finally {
+      setIngestLoading(false);
+    }
   };
 
   return (
@@ -669,6 +716,46 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
                     onNoteChange={setAnalystNoteDraft}
                     onNoteCommitted={commitLocalNote}
                   />
+                </section>
+
+                {/* GRC Ingestion Gate: Ingest button; mandatory justification for threats >= $10M */}
+                <section className={`rounded-xl border backdrop-blur-xl p-4 shadow-sm ${glassCard}`}>
+                  <h3
+                    className={`mb-3 text-xs font-bold uppercase tracking-wide ${headerTextClass}`}
+                    style={{ textShadow: isDarkMode ? '0 0 12px rgba(96,165,250,0.5)' : '0 0 12px rgba(255,255,255,0.5)' }}
+                  >
+                    Ingest
+                  </h3>
+                  {isHighValue && (
+                    <>
+                      <label htmlFor="grc-justification" className={`block text-xs font-medium ${bodyTextClass} mb-1`}>
+                        GRC Justification Required (Min 50 characters for threats &ge; $10M)
+                      </label>
+                      <textarea
+                        id="grc-justification"
+                        value={justification}
+                        onChange={(e) => setJustification(e.target.value)}
+                        placeholder="Enter justification (min 50 characters)..."
+                        className={`w-full min-h-[80px] rounded-lg border px-3 py-2 text-sm ${isDarkMode ? 'bg-slate-800 border-slate-600 text-slate-100' : 'bg-white border-slate-300 text-slate-900'}`}
+                        aria-invalid={isHighValue && justificationTrimmed.length > 0 && justificationTrimmed.length < 50}
+                      />
+                      <p className={`mt-1 text-[10px] ${bodyTextClass}`}>
+                        {justificationTrimmed.length}/50 characters minimum
+                      </p>
+                    </>
+                  )}
+                  {ingestError && (
+                    <p className="mt-2 text-sm text-red-400" role="alert">{ingestError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleIngest}
+                    disabled={!ingestButtonEnabled || ingestLoading}
+                    className="mt-3 w-full rounded-xl py-3 text-sm font-bold text-white shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-95"
+                    style={{ backgroundColor: '#1e3a8a' }}
+                  >
+                    {ingestLoading ? 'Ingesting…' : 'Ingest'}
+                  </button>
                 </section>
 
                 {/* # GRC_ACTION_CHIPS (Save, Email, PDF Export) — ThreatInvestigationPanel; INITIATE RISK ASSESSMENT button */}

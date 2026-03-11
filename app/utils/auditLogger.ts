@@ -24,7 +24,8 @@ export type AuditActionType =
   // GRC directive: De-Ack / Reject / ghost handling
   | "STATE_REGRESSION"
   | "RISK_REJECTED"
-  | "SYSTEM_WARNING";
+  | "SYSTEM_WARNING"
+  | "TIME_TO_TRIAGE";
 export type AuditLogType = "GRC" | "APP_SYSTEM" | "SERVER" | "TELEMETRY" | "SIMULATION";
 
 export type AuditLogRecord = Readonly<{

@@ -59,6 +59,7 @@ model Company {
   policies    Policy[]
   risks       ActiveRisk[]
 
+  @@index([tenantId])
   @@map("companies")
 }
 
@@ -95,6 +96,7 @@ model ActiveRisk {
 
   company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
+  @@index([company_id])
   @@map("active_risks")
 }
 
@@ -150,9 +152,9 @@ model ThreatEvent {
   tenantCompanyId BigInt?
 
   // State Machine
-  state       ThreatState  @default(PIPELINE)
+  status      ThreatState  @default(PIPELINE)
   ttlSeconds  Int          @default(259200) // 72 hours default
-  deAckReason DeAckReason? // Required if state is DE_ACKNOWLEDGED
+  deAckReason DeAckReason? // Required if status is DE_ACKNOWLEDGED
 
   // AI investigation report (CoreIntel agent output)
   aiReport String? @db.Text
@@ -163,6 +165,8 @@ model ThreatEvent {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([tenantCompanyId])
 }
 
 // --- Appendable Work Notes ---
@@ -189,6 +193,8 @@ model AuditLog {
   threat   ThreatEvent? @relation(fields: [threatId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 // ------------------------------------------------------

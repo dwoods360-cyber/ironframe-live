@@ -23,6 +23,49 @@ export type GrcBotThreatCreated = {
   state: ThreatState;
 };
 
+export type CreateKimbotThreatInput = {
+  title: string;
+  sector: string;
+  liability: number;
+  source: string;
+  severity: number;
+};
+
+/**
+ * Persist a KIMBOT Red Team threat to the database so Ack/De-Ack and audit succeed.
+ * Call this when generating Kimbot signals so pipeline cards reference a real ThreatEvent row.
+ */
+export async function createKimbotThreatServer(
+  input: CreateKimbotThreatInput
+): Promise<GrcBotThreatCreated> {
+  const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+  const created = await prisma.threatEvent.create({
+    data: {
+      title: input.title,
+      sourceAgent: input.source,
+      score,
+      targetEntity: input.sector,
+      financialRisk_cents: millionsToCents(input.liability),
+      status: ThreatState.PIPELINE,
+      ttlSeconds: DEFAULT_TTL_SECONDS,
+    },
+    select: {
+      id: true,
+      title: true,
+      sourceAgent: true,
+      score: true,
+      targetEntity: true,
+      financialRisk_cents: true,
+      status: true,
+    },
+  });
+  return {
+    ...created,
+    state: created.status,
+    financialRisk_cents: Number(created.financialRisk_cents),
+  } as GrcBotThreatCreated;
+}
+
 const CENTS_PER_MILLION = 100_000_000;
 
 function millionsToCents(valueM: number): bigint {
@@ -49,7 +92,7 @@ export async function createGrcBotThreatServer(
       score,
       targetEntity: input.sector,
       financialRisk_cents: millionsToCents(input.liability),
-      state: ThreatState.PIPELINE,
+      status: ThreatState.PIPELINE,
       ttlSeconds: DEFAULT_TTL_SECONDS,
     },
     select: {
@@ -59,11 +102,12 @@ export async function createGrcBotThreatServer(
       score: true,
       targetEntity: true,
       financialRisk_cents: true,
-      state: true,
+      status: true,
     },
   });
   return {
     ...created,
+    state: created.status,
     financialRisk_cents: Number(created.financialRisk_cents),
   } as GrcBotThreatCreated;
 }
@@ -84,7 +128,7 @@ export type PipelineThreatFromDb = {
  */
 export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const rows = await prisma.threatEvent.findMany({
-    where: { state: ThreatState.PIPELINE },
+    where: { status: ThreatState.PIPELINE },
     select: {
       id: true,
       title: true,
@@ -111,7 +155,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
  */
 export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const rows = await prisma.threatEvent.findMany({
-    where: { state: ThreatState.ACTIVE },
+    where: { status: ThreatState.ACTIVE },
     select: {
       id: true,
       title: true,

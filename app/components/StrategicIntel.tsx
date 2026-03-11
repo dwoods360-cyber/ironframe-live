@@ -25,6 +25,8 @@ import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
 import { clearAllAuditLogs, purgeSimulationAuditLogs } from '@/app/utils/auditLogger';
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
+import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
+import { createKimbotThreatServer } from "@/app/actions/simulationActions";
 
 /** Formats BigInt cents into a readable USD string (e.g. $10.9M). */
 function formatCurrency(cents: bigint): string {
@@ -108,6 +110,9 @@ export default function StrategicIntel() {
   const setSystemLatencyMs = useAgentStore((s) => s.setSystemLatencyMs);
 
   const isKimbotActive = useKimbotStore((s) => s.enabled);
+  const kimbotIntensity = useKimbotStore((s) => s.intensity);
+  const kimbotAttackType = useKimbotStore((s) => s.attackType);
+  const addKimbotInjectedSignal = useKimbotStore((s) => s.addInjectedSignal);
   const setKimbotEnabled = useKimbotStore((s) => s.setEnabled);
   const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
   const isGrcbotActive = useGrcBotStore((s) => s.enabled);
@@ -117,6 +122,61 @@ export default function StrategicIntel() {
   const toggleKimbot = () => setKimbotEnabled(!isKimbotActive);
   const toggleGrcbot = () => setGrcbotEnabled(!isGrcbotActive);
   const toggleExpertMode = () => setExpertModeEnabled(!expertModeEnabled);
+
+  // KIMBOT engine loop: when enabled (via chip or terminal command), generate simulated attacks + terminal logs.
+  const kimbotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!isKimbotActive) {
+      if (kimbotIntervalRef.current) {
+        clearInterval(kimbotIntervalRef.current);
+        kimbotIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const tick = () => {
+      const signal = generateKimbotSignal(selectedIndustry, kimbotAttackType, kimbotIntensity);
+      (async () => {
+        try {
+          const created = await createKimbotThreatServer({
+            title: signal.title,
+            sector: signal.targetSector ?? selectedIndustry,
+            liability: signal.liability,
+            source: "KIMBOT",
+            severity: Math.min(10, Math.max(1, Math.round(signal.severityScore / 10))),
+          });
+          useRiskStore.getState().upsertPipelineThreat({
+            id: created.id,
+            name: created.title,
+            loss: created.financialRisk_cents / 100_000_000,
+            score: created.score,
+            industry: created.targetEntity,
+            source: created.sourceAgent,
+            description: `Red Team Attack - $${(created.financialRisk_cents / 100_000_000).toFixed(1)}M - ${created.sourceAgent}`,
+          });
+          useKimbotStore.getState().addInjectedSignal({
+            ...signal,
+            id: created.id,
+          });
+          addStreamMessage(`> [${new Date().toISOString()}] KIMBOT: ${signal.title} (${signal.severity})`);
+        } catch (e) {
+          addStreamMessage(`> [KIMBOT] Failed to persist: ${e instanceof Error ? e.message : "Unknown"}`);
+        }
+      })();
+    };
+
+    tick();
+    const ms = kimbotIntervalMs(kimbotIntensity);
+    kimbotIntervalRef.current = setInterval(tick, ms);
+
+    return () => {
+      if (kimbotIntervalRef.current) {
+        clearInterval(kimbotIntervalRef.current);
+        kimbotIntervalRef.current = null;
+      }
+    };
+  }, [isKimbotActive, kimbotIntensity, kimbotAttackType, selectedIndustry, addKimbotInjectedSignal, addStreamMessage]);
 
   async function handlePurgeSimulation() {
     const result = await purgeSimulation();

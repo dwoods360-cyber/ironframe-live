@@ -4,6 +4,7 @@ import {
   confirmThreatAction,
   resolveThreatAction,
   deAcknowledgeThreatAction,
+  revertThreatToPipelineAction,
   addWorkNoteAction,
 } from '@/app/actions/threatActions';
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
@@ -110,15 +111,18 @@ interface RiskState {
   acceptPipelineThreat: (id: string) => void;
 
   // GRC lifecycle actions (server-backed)
-  acknowledgeThreat: (id: string, operatorId: string) => Promise<void>;
+  acknowledgeThreat: (id: string, operatorId: string, justification: string | undefined, tenantId: string) => Promise<void>;
   confirmThreat: (id: string, operatorId: string) => Promise<void>;
   resolveThreat: (id: string, operatorId: string) => Promise<void>;
   deAcknowledgeThreat: (
     id: string,
+    tenantId: string,
     reason: string,
     justification: string,
     operatorId: string,
   ) => Promise<{ success: true } | { success: false; error: string }>;
+  /** Re-escalate: move threat from Active back to Attack Velocity pipeline (requires tenantId). */
+  revertThreatToPipeline: (id: string, tenantId: string, operatorId: string) => Promise<void>;
   addWorkNote: (threatId: string, text: string, operatorId: string) => Promise<void>;
 
   // Accepted threat impacts ($M) for header/left sidebar sync (id -> impact in millions)
@@ -323,9 +327,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           : state.activeThreats,
     };
   }),
-  acknowledgeThreat: async (id, operatorId) => {
+  acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
     try {
-      const result = await acknowledgeThreatAction(id, operatorId);
+      const result = await acknowledgeThreatAction(id, tenantId, operatorId, justification);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
         set({
           threatActionError: {
@@ -452,9 +456,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       throw error;
     }
   },
-  deAcknowledgeThreat: async (id, reason, justification, operatorId) => {
+  deAcknowledgeThreat: async (id, tenantId, reason, justification, operatorId) => {
     try {
-      const result = await deAcknowledgeThreatAction(id, reason, justification, operatorId);
+      const result = await deAcknowledgeThreatAction(id, tenantId, reason, justification, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
         set({
           threatActionError: {
@@ -491,6 +495,49 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         },
       });
       return { success: false, error: msg };
+    }
+  },
+  revertThreatToPipeline: async (id, tenantId, operatorId) => {
+    try {
+      const result = await revertThreatToPipelineAction(id, tenantId, operatorId);
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        set({
+          threatActionError: {
+            active: true,
+            message: "Revert failed: Record no longer exists.",
+          },
+        });
+        throw new Error((result as { error?: string }).error);
+      }
+      set((state) => {
+        const threat = state.activeThreats.find((t) => t.id === id);
+        if (!threat) return state;
+        const asPipeline = { ...threat, lifecycleState: "pipeline" as const };
+        const nextPipeline = [asPipeline, ...state.pipelineThreats.filter((t) => t.id !== id)];
+        const nextActive = state.activeThreats.filter((t) => t.id !== id);
+        const nextImpacts = { ...state.acceptedThreatImpacts };
+        delete nextImpacts[id];
+        const nextIndustries = { ...state.acceptedThreatIndustries };
+        delete nextIndustries[id];
+        return {
+          pipelineThreats: nextPipeline,
+          activeThreats: nextActive,
+          acceptedThreatImpacts: nextImpacts,
+          acceptedThreatIndustries: nextIndustries,
+          activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
+          threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
+        };
+      });
+    } catch (error) {
+      console.error("revertThreatToPipelineAction failed", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      set({
+        threatActionError: {
+          active: true,
+          message: msg.includes("Irongate") ? msg : "Revert to pipeline failed.",
+        },
+      });
+      throw error;
     }
   },
   addWorkNote: async (threatId, text, operatorId) => {

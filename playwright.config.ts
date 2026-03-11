@@ -1,7 +1,15 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './tests/e2e',
+  testMatch: '**/*.spec.ts',
+  testIgnore: [
+    '**/tests/integration/**',
+    '**/tests/unit/**',
+    '**/tests/perf/**',
+    '**/*.test.ts',
+  ],
+  timeout: 60_000, // 60s per test — avoid timeouts when dev server or Supabase is slow
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -11,6 +19,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
+    actionTimeout: 15_000, // 15s for click/fill — slower than default 10s
   },
 
   projects: process.env.CI

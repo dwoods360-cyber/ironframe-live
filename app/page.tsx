@@ -158,7 +158,10 @@ export default function Page() {
           <StrategicIntel />
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0">
+        <section
+          className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
+          data-testid="dashboard-main"
+        >
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
           {/* # HEADER_TITLE — EMERGENCY CLICK TEST (rendered by Header.tsx for Playwright E2E — Iteration 3.1) */}
           <Header tenantNames={companies.map((c) => c.name)} />

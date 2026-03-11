@@ -21,6 +21,7 @@ vi.mock('@/lib/prisma', () => ({
     threatEvent: {
       findMany: vi.fn(),
     },
+    $transaction: vi.fn(async (queries) => Promise.all(queries)),
   },
 }));
 

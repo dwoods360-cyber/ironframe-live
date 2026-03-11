@@ -39,14 +39,14 @@ const STATE_BADGE_CLASS: Record<string, string> = {
   DE_ACKNOWLEDGED: 'bg-slate-600/30 text-slate-400 border border-slate-500/40',
 };
 
-function formatAction(action: string): string {
+function formatAction(action: string | undefined): string {
   const map: Record<string, string> = {
     THREAT_ACKNOWLEDGED: 'Acknowledged',
     THREAT_CONFIRMED: 'Confirmed',
     THREAT_RESOLVED: 'Resolved',
     THREAT_DE_ACKNOWLEDGED: 'De-acknowledged',
   };
-  return map[action] ?? action.replace(/_/g, ' ');
+  return map[action ?? ''] ?? (action ?? '').replace(/_/g, ' ');
 }
 
 /** $10M in cents — GRC gate: threats >= this require 50+ char justification before Ingest */
@@ -225,9 +225,9 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  const stateLabel = threat ? threat.state.replace(/_/g, ' ') : '';
+  const stateLabel = (threat?.state ?? '').replace(/_/g, ' ');
   const badgeClass = threat
-    ? getRiskBadgeClass(threat.state, threat.financialRisk_cents, threat.score)
+    ? getRiskBadgeClass(threat?.state ?? '', threat.financialRisk_cents, threat.score)
     : 'bg-slate-500/20 text-slate-300 border border-slate-500/40';
   const executiveSummary = threat?.aiReport ? extractExecutiveSummary(threat.aiReport) : null;
   // Fallback to check common Prisma relation names for notes

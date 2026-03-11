@@ -271,7 +271,7 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   };
 
   return (
-    <div className="p-6 font-sans">
+    <div className="p-6 font-sans" data-testid="active-risks-board">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">ACTIVE RISKS</h2>
         <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">

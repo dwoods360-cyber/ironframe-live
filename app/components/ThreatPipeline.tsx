@@ -1257,7 +1257,7 @@ export default function ThreatPipeline({
           {visiblePipelineThreats.length > 0 && (
             <div className="mt-2 space-y-3">
               {/* Attack Velocity Sparkline (ingestion rate) */}
-              <div className="flex items-center justify-between text-[10px]">
+              <div className="flex items-center justify-between text-[10px]" data-testid="pipeline-attack-velocity">
                 <span className="font-bold uppercase tracking-wide text-slate-400">
                   Attack Velocity
                 </span>
@@ -1297,6 +1297,7 @@ export default function ThreatPipeline({
                       ? "shadow-[4px_4px_0px_0px_rgba(220,38,38,0.2),8px_8px_0px_0px_rgba(220,38,38,0.1)]"
                       : ""
                   }`}
+                  data-testid="pipeline-threat-card"
                   onClick={() => {
                     if (totalThreats > 1) setStackExpanded((prev) => !prev);
                   }}

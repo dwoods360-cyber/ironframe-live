@@ -98,7 +98,9 @@ export default function StrategicIntel() {
   const removeThreatFromPipeline = useRiskStore((state) => state.removeThreatFromPipeline);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
-  const currencyMagnitude = useRiskStore((state) => state.currencyMagnitude);
+  const currencyScale = useRiskStore((state) => state.currencyScale);
+  const getTotalCurrentRiskCents = useRiskStore((state) => state.getTotalCurrentRiskCents);
+  const getGrcGapCents = useRiskStore((state) => state.getGrcGapCents);
 
   // Agent / Coreintel state
   const agents = useAgentStore((s) => s.agents);
@@ -555,7 +557,6 @@ export default function StrategicIntel() {
     Object.keys(dashboardLiabilities).length > 0;
 
   // # RISK_TREND_INDICATORS
-  const currencyScale = currencyMagnitude;
   const trendPhases = ['T-4', 'T-3', 'T-2', 'T-1', 'Now'] as const;
   const industryAverageUsd = Math.max(0, industryAverage * 1_000_000);
   const currentRiskUsd = Math.max(0, dynamicCurrentRisk * 1_000_000);
@@ -577,25 +578,18 @@ export default function StrategicIntel() {
     };
   });
 
-  // --- Option B: Persistent GRC/Industry baselines, dynamic current/impact from pipeline (ALE) ---
-  const getIndustryMetrics = (industry: string) => {
-    switch (industry) {
-      case 'Healthcare': return { avg: '$8.5M', grc: '$4.3M' };
-      case 'Finance': return { avg: '$12.1M', grc: '$5.1M' };
-      case 'Technology': return { avg: '$10.4M', grc: '$3.8M' };
-      case 'Defense': return { avg: '$14.5M', grc: '$6.2M' };
-      default: return { avg: '$9.2M', grc: '$4.1M' }; // Energy
-    }
-  };
-  const { avg: industryAvg, grc: grcGap } = getIndustryMetrics(selectedIndustry);
+  // --- Live financial aggregation: current risk and GRC gap from store (cents as string), scaled by currency selector ---
+  const totalCurrentRiskCents = getTotalCurrentRiskCents();
+  const grcGapCents = getGrcGapCents();
+  const currentRiskFormatted = formatRiskExposure(totalCurrentRiskCents, currencyScale);
+  const grcGapFormatted = formatRiskExposure(grcGapCents, currencyScale);
 
-  // Dynamic pipeline risk: sum of threat losses in $M (store uses loss/score in $M)
+  // Dynamic pipeline risk: sum of threat losses in $M (for bar widths and potential impact display)
   const totalRiskMillions = pipelineThreats.reduce((sum: number, threat: PipelineThreat) => sum + Number(threat.loss ?? threat.score ?? 0), 0);
-  const currentRiskDisplay = totalRiskMillions === 0 ? '$0M' : `$${totalRiskMillions.toFixed(1)}M`;
   const potentialImpactMillions = totalRiskMillions * 1.4;
   const potentialImpactDisplay = totalRiskMillions === 0 ? '$0M' : `$${potentialImpactMillions.toFixed(1)}M`;
 
-  const currentRiskWidth = totalRiskMillions === 0 ? '0%' : '80%';
+  const currentRiskWidth = totalCurrentRiskCents === '0' ? '0%' : '80%';
   const impactWidth = totalRiskMillions === 0 ? '0%' : '95%';
 
   // Single sidebar layout: always show the master block (Industry Profile, 4-bar Risk Exposure, Dynamic Top Sector Threats, Unicode Agent Grid).
@@ -703,10 +697,10 @@ export default function StrategicIntel() {
         
         <div className="space-y-3.5">
           {[
-            { label: 'INDUSTRY AVERAGE', val: industryAvg, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: '60%' },
-            { label: 'YOUR CURRENT RISK', val: currentRiskDisplay, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: currentRiskWidth },
+            { label: 'INDUSTRY AVERAGE', val: currentMetrics.avg, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: '60%' },
+            { label: 'YOUR CURRENT RISK', val: `$${currentRiskFormatted}`, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: currentRiskWidth },
             { label: 'POTENTIAL IMPACT', val: potentialImpactDisplay, color: 'bg-[#ef4444]', text: 'text-[#ef4444]', w: impactWidth },
-            { label: 'GRC GAP', val: grcGap, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: '30%' }
+            { label: 'GRC GAP', val: `$${grcGapFormatted}`, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: '30%' }
           ].map((metric) => (
             <div key={metric.label} className="space-y-1.5">
               <div className="flex justify-between items-end">

@@ -185,6 +185,11 @@ interface RiskState {
   /** Alias for magnitude — external API uses currencyScale to match spec. */
   currencyScale: CurrencyMagnitude;
   setCurrencyScale: (scale: CurrencyMagnitude) => void;
+
+  /** Live financial aggregation: total current risk in cents (exact string for BigInt-safe display). */
+  getTotalCurrentRiskCents: () => string;
+  /** Live financial aggregation: GRC gap (potential − current) in cents (exact string). */
+  getGrcGapCents: () => string;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -641,6 +646,42 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   currencyScale: "AUTO",
   setCurrencyMagnitude: (scale) => set({ currencyMagnitude: scale, currencyScale: scale }),
   setCurrencyScale: (scale) => set({ currencyMagnitude: scale, currencyScale: scale }),
+
+  getTotalCurrentRiskCents: () => {
+    const state = get();
+    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
+    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
+    const offsetM = state.riskOffset;
+    const totalM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
+    const cents = BigInt(Math.round(totalM * 100_000_000));
+    return cents.toString();
+  },
+
+  getGrcGapCents: () => {
+    const state = get();
+    const industry = state.selectedIndustry ?? "Healthcare";
+    const baseImpactByIndustry: Record<string, number> = {
+      Healthcare: 15.2,
+      Finance: 18.0,
+      Energy: 17.0,
+      Technology: 12.0,
+      Defense: 16.0,
+    };
+    const baseImpactM = baseImpactByIndustry[industry] ?? 15.2;
+    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
+    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
+    const pipelinePendingM = state.pipelineThreats.reduce(
+      (sum, t) => sum + (t.score ?? t.loss ?? 0),
+      0
+    );
+    const offsetM = state.riskOffset;
+    const currentM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
+    const potentialM = Math.max(0, baseImpactM + sumAcceptedM + pipelinePendingM - offsetM);
+    const gapM = Math.max(0, potentialM - currentM);
+    const cents = BigInt(Math.round(gapM * 100_000_000));
+    return cents.toString();
+  },
+
   resolveHistoricalThreatName: async (id) => {
     if (!id || id === "SYSTEM_EVENT") return;
     const state = get();

@@ -637,6 +637,7 @@ export default function ThreatPipeline({
   const [ingestionSearchQuery, setIngestionSearchQuery] = useState("");
   const [stackExpanded, setStackExpanded] = useState(false);
   const [attackVelocitySeries, setAttackVelocitySeries] = useState<number[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
 
   type RawSignalSeverity = "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -788,6 +789,7 @@ export default function ThreatPipeline({
   };
 
   const handleManualRiskRegister = async () => {
+    setFormError(null);
     const title = manualTitle.trim();
     if (!title) return;
     const parsedLoss = Number.parseFloat(manualLoss);
@@ -814,8 +816,10 @@ export default function ThreatPipeline({
       setManualTarget("Healthcare");
       setManualLoss("4.0");
       setManualDescription("");
+      setFormError(null);
       clearDraftTemplate();
     } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Validation failed");
       console.error("Manual risk registration failed", err);
       appendAuditLog({
         action_type: "SYSTEM_WARNING",
@@ -1259,6 +1263,11 @@ export default function ThreatPipeline({
                 placeholder="Risk details / context"
                 className="mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
               />
+              {formError && (
+                <p className="mt-2 text-sm font-bold text-red-500" role="alert">
+                  {formError}
+                </p>
+              )}
               <div className="mt-2 flex justify-end gap-2">
                 <button
                   type="button"
@@ -1268,6 +1277,7 @@ export default function ThreatPipeline({
                     setManualTarget("Healthcare");
                     setManualLoss("4.0");
                     setManualDescription("");
+                    setFormError(null);
                     clearDraftTemplate();
                   }}
                   className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300"

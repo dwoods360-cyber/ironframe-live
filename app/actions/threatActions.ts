@@ -6,6 +6,7 @@ import { ThreatState, DeAckReason } from '@prisma/client';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { grcGatePass } from '@/app/utils/grcGate';
+import { workNoteSchema } from '@/app/utils/irongateSchema';
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
@@ -473,15 +474,22 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
   }
 }
 
-export async function addWorkNoteAction(threatId: string, text: string, operatorId: string) {
+export async function addWorkNoteAction(threatId: string, text: string, operatorId: string): Promise<{ success: true } | { success: false; error: string }> {
   if (!prismaDelegates.workNote) {
     warnMissingDelegate('workNote');
-    return;
+    return { success: false, error: 'Work notes are not available.' };
   }
+  const { workNoteSchema } = await import('@/app/utils/irongateSchema');
+  const parsed = workNoteSchema.safeParse({ text });
+  if (!parsed.success) {
+    const msg = parsed.error.issues.map((i) => i.message).join('; ');
+    return { success: false, error: msg };
+  }
+  const trimmedText = parsed.data.text;
   try {
     await prismaDelegates.workNote.create({
       data: {
-        text,
+        text: trimmedText,
         operatorId,
         threatId,
       },
@@ -491,13 +499,14 @@ export async function addWorkNoteAction(threatId: string, text: string, operator
       'NOTES_ADDED',
       'Analyst appended new notes and context tags.',
     );
+    return { success: true };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
     if (code === 'P2003') {
-      // Foreign key violation — threat is client-only (e.g. grcbot-*), skip persisting work note.
-      return;
+      return { success: false, error: 'Threat record not found. Save the threat from the pipeline first, or open a threat that exists in the system.' };
     }
-    throw err;
+    const message = err instanceof Error ? err.message : 'Failed to save note.';
+    return { success: false, error: message };
   }
 }
 

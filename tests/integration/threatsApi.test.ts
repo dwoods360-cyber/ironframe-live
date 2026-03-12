@@ -124,7 +124,7 @@ describe('POST /api/threats — Threat Ingress API', () => {
     } as any);
 
     const req = buildRequest(
-      { title: 'Isolation Test Threat', loss: '100000000', target: 'Finance' },
+      { title: 'Isolation Test Threat', source: 'Manual', target: 'Finance', loss: '100000000' },
       { 'x-tenant-id': VAULTBANK_UUID }
     );
     const res = await POST(req);

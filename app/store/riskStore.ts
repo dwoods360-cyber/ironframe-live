@@ -739,15 +739,17 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       },
       body: JSON.stringify({
         title: payload.title.trim(),
-        source: payload.source?.trim() || undefined,
-        target: payload.target?.trim() || undefined,
+        source: payload.source?.trim() || 'Manual Analyst Entry',
+        target: payload.target?.trim() || 'Healthcare',
         loss: payload.loss,
-        description: payload.description?.trim() || undefined,
+        notes: payload.description?.trim() || undefined,
       }),
     });
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error((data as { error?: string }).error || `Register failed: ${res.status}`);
+      const data = await res.json().catch(() => ({})) as { error?: string; details?: { path: string; message: string }[] };
+      const msg = data.error || `Register failed: ${res.status}`;
+      const details = data.details?.length ? data.details.map((d) => d.message).join('; ') : '';
+      throw new Error(details ? `${msg}: ${details}` : msg);
     }
     const record = (await res.json()) as PipelineThreat;
     get().upsertPipelineThreat(record);

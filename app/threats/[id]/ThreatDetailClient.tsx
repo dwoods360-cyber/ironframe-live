@@ -22,6 +22,7 @@ export default function ThreatDetailClient({ threatId, note: controlledNote, onN
   const note = onNoteChange ? (controlledNote ?? '') : internalNote;
   const setNote = onNoteChange ? (onNoteChange as (v: string) => void) : setInternalNote;
   const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const router = useRouter();
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
@@ -30,9 +31,14 @@ export default function ThreatDetailClient({ threatId, note: controlledNote, onN
     e.preventDefault();
     const text = note.trim();
     if (!text) return;
+    setSaveError(null);
     setPending(true);
     try {
-      await addWorkNoteAction(threatId, text, 'analyst');
+      const result = await addWorkNoteAction(threatId, text, 'analyst');
+      if (result.success === false) {
+        setSaveError(result.error ?? 'Failed to save note.');
+        return;
+      }
       const noteSnippet = text.length > 250 ? `${text.substring(0, 250)}...` : text;
       appendAuditLog({
         action_type: 'NOTE_ADDED',
@@ -45,7 +51,7 @@ export default function ThreatDetailClient({ threatId, note: controlledNote, onN
       setNote('');
       router.refresh();
     } catch (err) {
-      console.error(err);
+      setSaveError(err instanceof Error ? err.message : 'Failed to save note.');
     } finally {
       setPending(false);
     }
@@ -89,6 +95,9 @@ export default function ThreatDetailClient({ threatId, note: controlledNote, onN
             </button>
           ))}
         </div>
+        {saveError && (
+          <p className="text-sm font-bold text-red-500" role="alert">{saveError}</p>
+        )}
         <button
           type="submit"
           disabled={pending || !note.trim()}

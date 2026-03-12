@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
+import { threatIngressSchema } from '@/app/utils/irongateSchema';
+import { ZodError } from 'zod';
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 const CENTS_PER_MILLION = 100_000_000;
 
-/** Parse loss: string (cents or $M decimal) → BigInt cents. */
+/** Parse loss: string (cents, pure digits) → BigInt cents. DMZ guarantees ^\d+$ via threatIngressSchema. */
 function parseLossToCents(loss: string): bigint {
   const trimmed = (loss ?? '').trim();
   if (!trimmed) return BigInt(0);
-  if (/^-?\d+$/.test(trimmed)) return BigInt(trimmed);
-  const parsed = Number.parseFloat(trimmed);
-  if (!Number.isFinite(parsed)) return BigInt(0);
-  return BigInt(Math.round(parsed * CENTS_PER_MILLION));
+  return BigInt(trimmed);
 }
 
 function centsToMillions(value: bigint): number {
@@ -23,9 +22,9 @@ export type CreateThreatBody = {
   title: string;
   source?: string;
   target?: string;
-  /** Loss in cents (string) or $M decimal string; BigInt-safe. */
   loss: string;
   description?: string;
+  notes?: string;
 };
 
 /**
@@ -44,18 +43,37 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json().catch(() => ({}))) as CreateThreatBody;
-    const title = typeof body.title === 'string' ? body.title.trim() : '';
-    const source = typeof body.source === 'string' ? body.source.trim() : 'Manual Analyst Entry';
-    const target = typeof body.target === 'string' ? body.target.trim() : 'Healthcare';
-    const lossRaw = typeof body.loss === 'string' ? body.loss : String(body.loss ?? '0');
-    const description = typeof body.description === 'string' ? body.description.trim() : '';
 
-    if (!title) {
-      return NextResponse.json(
-        { error: 'Missing or empty title.' },
-        { status: 400 }
-      );
+    let validated: { title: string; source: string; target: string; loss: string; notes?: string };
+    try {
+      validated = threatIngressSchema.parse({
+        title: body.title ?? '',
+        source: body.source ?? '',
+        target: body.target ?? '',
+        loss: typeof body.loss === 'string' ? body.loss : String(body.loss ?? ''),
+        notes: body.notes ?? body.description,
+      });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return NextResponse.json(
+          {
+            error: 'Validation failed.',
+            details: err.issues.map((i) => ({
+              path: i.path.join('.'),
+              message: i.message,
+            })),
+          },
+          { status: 400 }
+        );
+      }
+      throw err;
     }
+
+    const title = validated.title;
+    const source = validated.source || 'Manual Analyst Entry';
+    const target = validated.target || 'Healthcare';
+    const lossRaw = validated.loss;
+    const description = validated.notes ?? '';
 
     const financialRisk_cents = parseLossToCents(lossRaw);
     const score = 8; // default 1–10 for manual entry

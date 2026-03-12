@@ -621,6 +621,7 @@ export default function ThreatPipeline({
   const setManualFormOpen = useRiskStore((s) => s.setManualFormOpen);
   const draftTemplate = useRiskStore((s) => s.draftTemplate);
   const clearDraftTemplate = useRiskStore((s) => s.clearDraftTemplate);
+  const registerThreatViaApi = useRiskStore((s) => s.registerThreatViaApi);
   const highLiabilityFirstSeenRef = useRef<Map<string, number>>(new Map());
   const injectedSignals = useKimbotStore((s) => s.injectedSignals);
   const removeInjectedSignal = useKimbotStore((s) => s.removeInjectedSignal);
@@ -786,37 +787,42 @@ export default function ThreatPipeline({
     if (signal.id.startsWith("kimbot-")) removeInjectedSignal(signal.id);
   };
 
-  const handleManualRiskRegister = () => {
+  const handleManualRiskRegister = async () => {
     const title = manualTitle.trim();
     if (!title) return;
     const parsedLoss = Number.parseFloat(manualLoss);
-    const loss = Number.isFinite(parsedLoss) && parsedLoss > 0 ? parsedLoss : 1.0;
+    const lossM = Number.isFinite(parsedLoss) && parsedLoss > 0 ? parsedLoss : 1.0;
+    const lossCents = Math.round(lossM * 100_000_000);
+    const loss = String(lossCents);
 
-    upsertPipelineThreat({
-      id: `manual-${Date.now()}`,
-      name: title,
-      loss,
-      score: loss,
-      industry: manualTarget || "Healthcare",
-      target: manualTarget || undefined,
-      source: manualSource || "Manual Analyst Entry",
-      description: manualDescription.trim()
-        ? `Source: ${manualSource || "Manual Analyst Entry"} · ${manualDescription.trim()}`
-        : `Source: ${manualSource || "Manual Analyst Entry"}`,
-    });
-
-    appendAuditLog({
-      action_type: "GRC_PROCESS_THREAT",
-      log_type: "GRC",
-      description: `MANUAL RISK REGISTRATION: ${title}`,
-    });
-
-    setManualTitle("");
-    setManualSource("");
-    setManualTarget("Healthcare");
-    setManualLoss("4.0");
-    setManualDescription("");
-    clearDraftTemplate();
+    try {
+      await registerThreatViaApi({
+        title,
+        source: manualSource.trim() || undefined,
+        target: manualTarget.trim() || undefined,
+        loss,
+        description: manualDescription.trim() || undefined,
+        tenantId: resolveTenantId(selectedTenantName),
+      });
+      appendAuditLog({
+        action_type: "GRC_PROCESS_THREAT",
+        log_type: "GRC",
+        description: `MANUAL RISK REGISTRATION: ${title}`,
+      });
+      setManualTitle("");
+      setManualSource("");
+      setManualTarget("Healthcare");
+      setManualLoss("4.0");
+      setManualDescription("");
+      clearDraftTemplate();
+    } catch (err) {
+      console.error("Manual risk registration failed", err);
+      appendAuditLog({
+        action_type: "SYSTEM_WARNING",
+        log_type: "GRC",
+        description: `Manual registration failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   };
 
   const agentSignalsFromSidebar: RawSignal[] = incomingAgentAlerts

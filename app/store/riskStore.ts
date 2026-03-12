@@ -209,6 +209,20 @@ interface RiskState {
   clearDraftTemplate: () => void;
   /** Open or close manual form without changing draft. */
   setManualFormOpen: (open: boolean) => void;
+  /**
+   * Register a threat via POST /api/threats, then upsert the returned record into the pipeline.
+   * Ensures pipeline entries always have a valid DB-backed id (no phantoms).
+   * Payload.loss must be a string (cents or $M decimal) for BigInt-safe API.
+   * Payload.tenantId is the tenant UUID (x-tenant-id); required for Constitutional isolation.
+   */
+  registerThreatViaApi: (payload: {
+    title: string;
+    source?: string;
+    target?: string;
+    loss: string;
+    description?: string;
+    tenantId: string;
+  }) => Promise<PipelineThreat>;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -715,6 +729,30 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   },
   clearDraftTemplate: () => set({ draftTemplate: null, isManualFormOpen: false }),
   setManualFormOpen: (open) => set({ isManualFormOpen: open }),
+
+  registerThreatViaApi: async (payload) => {
+    const res = await fetch('/api/threats', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-tenant-id': payload.tenantId,
+      },
+      body: JSON.stringify({
+        title: payload.title.trim(),
+        source: payload.source?.trim() || undefined,
+        target: payload.target?.trim() || undefined,
+        loss: payload.loss,
+        description: payload.description?.trim() || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error((data as { error?: string }).error || `Register failed: ${res.status}`);
+    }
+    const record = (await res.json()) as PipelineThreat;
+    get().upsertPipelineThreat(record);
+    return record;
+  },
 
   resolveHistoricalThreatName: async (id) => {
     if (!id || id === "SYSTEM_EVENT") return;

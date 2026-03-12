@@ -7,6 +7,15 @@ const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Palo Alto Firewall Misconfiguration',
 ]);
 
+// TAS-COMPLIANT: Safely serializes BigInt to exact Strings to prevent floating-point drift
+const serializeBigInt = (obj: unknown): unknown => {
+  return JSON.parse(
+    JSON.stringify(obj, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  );
+};
+
 /** GET /api/dashboard — tenant-scoped data for the dashboard. Requires x-tenant-id header (UUID). */
 export async function GET(request: NextRequest) {
   try {
@@ -76,26 +85,27 @@ export async function GET(request: NextRequest) {
         threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
         threatByTitle.get(normalize(risk.title)) ??
         null,
-      score_cents: Number(risk.score_cents),
+      score_cents: risk.score_cents,
       company: { name: risk.company.name, sector: risk.company.sector },
       isSimulation: false,
     }));
 
     const serializedCompanies = companies.map((c) => ({
       ...c,
-      id: typeof c.id === 'bigint' ? String(c.id) : c.id,
-      industry_avg_loss_cents: c.industry_avg_loss_cents != null ? Number(c.industry_avg_loss_cents) : null,
-      infrastructure_val_cents: c.infrastructure_val_cents != null ? Number(c.infrastructure_val_cents) : null,
+      id: c.id,
+      industry_avg_loss_cents: c.industry_avg_loss_cents ?? null,
+      infrastructure_val_cents: c.infrastructure_val_cents ?? null,
     }));
 
-    return NextResponse.json({
+    const data = {
       companies: serializedCompanies,
       serverAuditLogs: serverAuditLogs.map((row) => ({
         ...row,
         createdAt: row.createdAt.toISOString(),
       })),
       risks: serializedRisks,
-    });
+    };
+    return NextResponse.json(serializeBigInt(data));
   } catch (e) {
     console.error('[api/dashboard]', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

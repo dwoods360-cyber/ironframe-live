@@ -94,7 +94,7 @@ export default function StrategicIntel() {
   const clearRiskReductionFlash = useRiskStore((state) => state.clearRiskReductionFlash);
   const pipelineThreats = useRiskStore((state) => state.pipelineThreats ?? (state as { threats?: PipelineThreat[] }).threats ?? (state as { pipeline?: PipelineThreat[] }).pipeline ?? []);
   const acceptedThreatImpacts = useRiskStore((state) => state.acceptedThreatImpacts);
-  const upsertPipelineThreat = useRiskStore((state) => state.upsertPipelineThreat);
+  const setDraftTemplate = useRiskStore((state) => state.setDraftTemplate);
   const removeThreatFromPipeline = useRiskStore((state) => state.removeThreatFromPipeline);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
@@ -743,12 +743,11 @@ export default function StrategicIntel() {
               key={index}
               type="button"
               onClick={() => {
-                upsertPipelineThreat({
-                  id: `MANUAL-${Date.now()}-${index}`,
-                  name: risk.title,
-                  loss: risk.loss,
-                  industry: selectedIndustry || 'Healthcare',
-                  source: 'Strategic Intel Profile'
+                setDraftTemplate({
+                  title: risk.title,
+                  source: 'Strategic Intel Profile',
+                  target: selectedIndustry || 'Healthcare',
+                  loss: String(Math.round(risk.loss * 100_000_000)),
                 });
               }}
               className="w-full flex justify-between items-center bg-[#050509] border border-zinc-800 p-2.5 rounded hover:border-zinc-500 transition-colors group"

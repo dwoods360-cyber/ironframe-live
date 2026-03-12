@@ -23,6 +23,14 @@ export type ThreatWorkNote = {
   user: string;
 };
 
+/** Human-in-the-loop: draft for manual registration form. loss is BigInt-compatible string (e.g. cents). */
+export type DraftTemplate = {
+  title: string;
+  source: string;
+  target: string;
+  loss: string;
+};
+
 export type LifecycleState = "pipeline" | "active" | "confirmed" | "resolved";
 
 export type PipelineThreat = {
@@ -190,6 +198,17 @@ interface RiskState {
   getTotalCurrentRiskCents: () => string;
   /** Live financial aggregation: GRC gap (potential − current) in cents (exact string). */
   getGrcGapCents: () => string;
+
+  /** Human-in-the-loop: manual registration form open state (template staging). */
+  isManualFormOpen: boolean;
+  /** Human-in-the-loop: pre-fill draft for manual form (null when no draft). */
+  draftTemplate: DraftTemplate | null;
+  /** Set draft template and open manual form (validates title, source, target, loss non-empty). */
+  setDraftTemplate: (data: DraftTemplate) => void;
+  /** Clear draft and close manual form. */
+  clearDraftTemplate: () => void;
+  /** Open or close manual form without changing draft. */
+  setManualFormOpen: (open: boolean) => void;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -681,6 +700,21 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     const cents = BigInt(Math.round(gapM * 100_000_000));
     return cents.toString();
   },
+
+  isManualFormOpen: false,
+  draftTemplate: null as DraftTemplate | null,
+  setDraftTemplate: (data) => {
+    const title = typeof data.title === 'string' ? data.title.trim() : '';
+    const source = typeof data.source === 'string' ? data.source.trim() : '';
+    const target = typeof data.target === 'string' ? data.target.trim() : '';
+    const loss = typeof data.loss === 'string' ? data.loss.trim() : '';
+    if (!title || !source || !target || !loss) {
+      throw new Error('DraftTemplate requires non-empty title, source, target, and loss');
+    }
+    set({ draftTemplate: { title, source, target, loss }, isManualFormOpen: true });
+  },
+  clearDraftTemplate: () => set({ draftTemplate: null, isManualFormOpen: false }),
+  setManualFormOpen: (open) => set({ isManualFormOpen: open }),
 
   resolveHistoricalThreatName: async (id) => {
     if (!id || id === "SYSTEM_EVENT") return;

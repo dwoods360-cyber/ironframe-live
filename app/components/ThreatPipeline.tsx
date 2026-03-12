@@ -50,6 +50,18 @@ function resolveTenantId(selectedTenantName: string | null): string {
   return TENANT_UUIDS.medshield;
 }
 
+function centsStringToMillionsInput(centsString: string): string {
+  const trimmed = centsString.trim();
+  if (!/^-?\d+$/.test(trimmed)) return "0.0";
+  const cents = BigInt(trimmed);
+  const negative = cents < 0n;
+  const abs = negative ? -cents : cents;
+  const wholeMillions = abs / 100_000_000n;
+  const remainder = abs % 100_000_000n;
+  const tenths = (remainder * 10n) / 100_000_000n;
+  return `${negative ? "-" : ""}${wholeMillions.toString()}.${tenths.toString()}`;
+}
+
 const CURRENT_USER_ID = "Dereck";
 
 const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
@@ -605,13 +617,16 @@ export default function ThreatPipeline({
   const setLiabilityAlert = useRiskStore((s) => s.setLiabilityAlert);
   const liabilityAlert = useRiskStore((s) => s.liabilityAlert);
   const setLiveMonitoringCount = useRiskStore((s) => s.setLiveMonitoringCount);
+  const isManualFormOpen = useRiskStore((s) => s.isManualFormOpen);
+  const setManualFormOpen = useRiskStore((s) => s.setManualFormOpen);
+  const draftTemplate = useRiskStore((s) => s.draftTemplate);
+  const clearDraftTemplate = useRiskStore((s) => s.clearDraftTemplate);
   const highLiabilityFirstSeenRef = useRef<Map<string, number>>(new Map());
   const injectedSignals = useKimbotStore((s) => s.injectedSignals);
   const removeInjectedSignal = useKimbotStore((s) => s.removeInjectedSignal);
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const enginesOn = kimbotEnabled || grcBotEnabled;
-  const [showManualRiskForm, setShowManualRiskForm] = useState(false);
   const [manualTitle, setManualTitle] = useState("");
   const [manualSource, setManualSource] = useState("");
   const [manualTarget, setManualTarget] = useState("Healthcare");
@@ -707,6 +722,15 @@ export default function ThreatPipeline({
     });
   }, [totalThreats]);
 
+  useEffect(() => {
+    if (!draftTemplate) return;
+    setManualTitle(draftTemplate.title);
+    setManualSource(draftTemplate.source);
+    setManualTarget(draftTemplate.target);
+    setManualLoss(centsStringToMillionsInput(draftTemplate.loss));
+    setManualDescription("");
+  }, [draftTemplate]);
+
   const handleIngestSignal = (signal: RawSignal) => {
     const pipelineThreat: PipelineThreat = {
       id: signal.id,
@@ -792,7 +816,7 @@ export default function ThreatPipeline({
     setManualTarget("Healthcare");
     setManualLoss("4.0");
     setManualDescription("");
-    setShowManualRiskForm(false);
+    clearDraftTemplate();
   };
 
   const agentSignalsFromSidebar: RawSignal[] = incomingAgentAlerts
@@ -1177,14 +1201,17 @@ export default function ThreatPipeline({
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => setShowManualRiskForm((v) => !v)}
+                onClick={() => {
+                  if (isManualFormOpen) clearDraftTemplate();
+                  else setManualFormOpen(true);
+                }}
                 className="rounded-full border border-blue-500/70 bg-blue-500/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-200 hover:bg-blue-500/25"
               >
                 Manual Risk REGISTRATION
               </button>
             </div>
           </div>
-          {showManualRiskForm ? (
+          {isManualFormOpen ? (
             <div className="rounded border border-slate-800 bg-slate-950/70 p-3 text-[10px]">
               <p className="mb-2 font-bold uppercase tracking-wide text-slate-300">Manual Risk Entry</p>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -1229,7 +1256,14 @@ export default function ThreatPipeline({
               <div className="mt-2 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowManualRiskForm(false)}
+                  onClick={() => {
+                    setManualTitle("");
+                    setManualSource("");
+                    setManualTarget("Healthcare");
+                    setManualLoss("4.0");
+                    setManualDescription("");
+                    clearDraftTemplate();
+                  }}
                   className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300"
                 >
                   Cancel

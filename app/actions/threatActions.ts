@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 import { ThreatState, DeAckReason } from '@prisma/client';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
 import { logThreatActivity } from '@/app/actions/auditActions';
-import { grcGatePass } from '@/app/utils/grcGate';
+import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
@@ -167,11 +167,22 @@ export async function acknowledgeThreatAction(
     where: { id },
     select: { financialRisk_cents: true },
   });
-  if (existing) {
-    if (!grcGatePass(existing.financialRisk_cents ?? 0, justification ?? '')) {
+  if (existing && existing.financialRisk_cents != null) {
+    const threshold = getGrcThresholdCents();
+    const cents = BigInt(existing.financialRisk_cents);
+    const latestNote = await prisma.workNote.findFirst({
+      where: { threatId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { text: true },
+    });
+    const noteLen = latestNote?.text ? latestNote.text.trim().length : 0;
+    const requiredLen = cents >= threshold ? 50 : 10;
+    const hasRequiredNote = noteLen >= requiredLen;
+    if (!hasRequiredNote) {
       return {
         success: false,
-        error: 'GRC Violation: High-value threats require a 50+ character justification.',
+        error:
+          'GRC Violation: High-value threats require a 50+ character work note. Open the threat drawer and save a work note before acknowledging.',
       };
     }
   }
@@ -361,12 +372,36 @@ export async function deAcknowledgeThreatAction(
   reason: string,
   justification: string,
   operatorId: string,
-): Promise<{ success: true } | MissingRecordResponse | void> {
+): Promise<{ success: true } | MissingRecordResponse | ActionFailureResponse | void> {
   if (!tenantId) throw new Error("Irongate Rejection: Missing Tenant Context. Zero-Trust violation.");
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
     return;
+  }
+
+  const existing = await prisma.threatEvent.findUnique({
+    where: { id },
+    select: { financialRisk_cents: true },
+  });
+  if (existing && existing.financialRisk_cents != null) {
+    const threshold = getGrcThresholdCents();
+    const cents = BigInt(existing.financialRisk_cents);
+    const latestNote = await prisma.workNote.findFirst({
+      where: { threatId: id },
+      orderBy: { createdAt: 'desc' },
+      select: { text: true },
+    });
+    const noteLen = latestNote?.text ? latestNote.text.trim().length : 0;
+    const requiredLen = cents >= threshold ? 50 : 10;
+    const hasRequiredNote = noteLen >= requiredLen;
+    if (!hasRequiredNote) {
+      return {
+        success: false,
+        error:
+          'GRC Violation: De-acknowledging a threat requires a documented work note. Open the drawer and save your reasoning first.',
+      };
+    }
   }
 
   const result = await runThreatTransaction(id, async (tx) => {

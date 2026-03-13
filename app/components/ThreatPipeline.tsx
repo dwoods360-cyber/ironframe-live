@@ -10,7 +10,7 @@ import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { appendAuditLog } from "@/app/utils/auditLogger";
-import { rejectThreatAction } from "@/app/actions/threatActions";
+import { rejectThreatAction, addWorkNoteAction } from "@/app/actions/threatActions";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useAgentStore } from "@/app/store/agentStore";
@@ -94,10 +94,16 @@ function PipelineThreatCard({
   threat,
   onActionSuccess,
   setSelectedThreatId: setSelectedThreatIdProp,
+  inlineNote = "",
+  onInlineNoteChange,
+  clearInlineNoteForThreat,
 }: {
   threat: PipelineThreat;
   onActionSuccess?: () => void;
   setSelectedThreatId?: (id: string | null) => void;
+  inlineNote?: string;
+  onInlineNoteChange?: (value: string) => void;
+  clearInlineNoteForThreat?: (id: string) => void;
 }) {
   const storeSet = useRiskStore((s) => s.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSet;
@@ -125,6 +131,7 @@ function PipelineThreatCard({
   const removeThreatFromPipeline = useRiskStore((s) => s.removeThreatFromPipeline);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
+  const appendWorkNoteToThreat = useRiskStore((s) => s.appendWorkNoteToThreat);
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
 
@@ -224,6 +231,7 @@ function PipelineThreatCard({
     setThreatActionError({ active: false, message: "" });
     setTttStopped(true);
     const timeToTriageSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
+    const operatorId = "admin-user-01";
 
     updatePipelineThreat(threat.id, {
       lastTriageAction: "ACKNOWLEDGE",
@@ -234,29 +242,74 @@ function PipelineThreatCard({
     });
 
     try {
+      const inlineText = (typeof inlineNote === "string" ? inlineNote : "").trim();
+      if (inlineText) {
+        const noteResult = await addWorkNoteAction(threat.id, inlineText, operatorId);
+        if (noteResult && "success" in noteResult && noteResult.success === false) {
+          updatePipelineThreat(threat.id, {
+            lifecycleState: "pipeline",
+            lastTriageAction: undefined,
+          });
+          setThreatActionError({ active: true, message: noteResult.error ?? "Failed to save work note." });
+          appendAuditLog({
+            action_type: "SYSTEM_WARNING",
+            log_type: "GRC",
+            description: `Work note save failed for threat: ${threat.name}`,
+            metadata_tag: scopeTag,
+            user_id: operatorId,
+          });
+          return;
+        }
+        appendWorkNoteToThreat(threat.id, {
+          text: inlineText,
+          user: operatorId,
+          timestamp: new Date().toISOString(),
+        });
+      }
       await acknowledgeThreat(
         threat.id,
-        "admin-user-01",
+        operatorId,
         isHighValue ? grcAckJustification.trim() : undefined,
         resolveTenantId(activeTenant)
       );
+      const err = useRiskStore.getState().threatActionError;
+      if (err.active && err.message) {
+        updatePipelineThreat(threat.id, {
+          lifecycleState: "pipeline",
+          lastTriageAction: undefined,
+        });
+        appendAuditLog({
+          action_type: "SYSTEM_WARNING",
+          log_type: "GRC",
+          description: `Acknowledge failed for threat: ${threat.name}`,
+          metadata_tag: scopeTag,
+          user_id: operatorId,
+        });
+        return;
+      }
       sendStakeholderEmail(threat, existingNotes, scoreM);
       appendAuditLog({
         action_type: "TIME_TO_TRIAGE",
         log_type: "GRC",
         description: `Threat ${threat.id} (${threat.name}) acknowledged. Time-to-Triage: ${timeToTriageSeconds}s`,
         metadata_tag: `${scopeTag}|TTT:${timeToTriageSeconds}s`,
-        user_id: "admin-user-01",
+        user_id: operatorId,
       });
       setJustification("");
       setGrcAckJustification("");
       setDeackReason("");
+      clearInlineNoteForThreat?.(threat.id);
       onActionSuccess?.();
-    } catch {
+    } catch (error) {
       updatePipelineThreat(threat.id, {
         lifecycleState: "pipeline",
         lastTriageAction: undefined,
       });
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Acknowledge failed. Please check GRC requirements and try again.";
+      setThreatActionError({ active: true, message });
       appendAuditLog({
         action_type: "SYSTEM_WARNING",
         log_type: "GRC",
@@ -306,15 +359,22 @@ function PipelineThreatCard({
       setSelectedThreatId(null);
     };
 
-    // # GRC_ACTION_CHIPS — De-Ack: on success sync to audit store; on ghost/purged log SYSTEM_WARNING, close drawer
+    // # GRC_ACTION_CHIPS — De-Ack: on success sync to audit store; on failure (GRC or missing record) revert, store sets threatActionError
     try {
-      const result = await deAcknowledgeThreat(threat.id, resolveTenantId(activeTenant), deackReason, trimmedJustification, "admin-user-01");
-      if (!result.success) {
+      await deAcknowledgeThreat(threat.id, resolveTenantId(activeTenant), deackReason, trimmedJustification, "admin-user-01");
+      const err = useRiskStore.getState().threatActionError;
+      if (err.active && err.message) {
         updatePipelineThreat(threat.id, {
           lifecycleState: prevLifecycle ?? "pipeline",
           lastTriageAction: prevLastTriage,
         });
-        toast.error("Action failed: Record no longer exists.");
+        appendAuditLog({
+          action_type: "SYSTEM_WARNING",
+          log_type: "GRC",
+          description: "De-acknowledge failed for threat.",
+          metadata_tag: scopeTag,
+          user_id: "admin-user-01",
+        });
         onClose();
         clearActiveThreat();
         return;
@@ -519,11 +579,29 @@ function PipelineThreatCard({
           </div>
         )}
 
+        {/* Inline ingestion/work note — rapid triage without opening drawer */}
+        <div className="flex flex-col gap-1">
+          <input
+            type="text"
+            placeholder="Add ingestion/work note..."
+            value={inlineNote}
+            onChange={(e) => onInlineNoteChange?.(e.target.value)}
+            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
+            aria-label="Inline work note"
+          />
+        </div>
         {/* Primary ACK action */}
         <div className="flex flex-wrap items-center gap-2 text-[10px]">
           <button
             type="button"
-            disabled={!ackEnabled}
+            disabled={
+              !ackEnabled ||
+              (() => {
+                const len = (typeof inlineNote === "string" ? inlineNote : "").trim().length;
+                const required = isHighValue ? 50 : 10;
+                return len < required;
+              })()
+            }
             onClick={handleAcknowledgeClick}
             className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
               ackEnabled
@@ -573,19 +651,19 @@ function PipelineThreatCard({
                 onClick={handleDeAcknowledgeClick}
                 className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
                   deackEnabled
-                    ? "border-rose-500/70 bg-slate-900 text-rose-300 hover:bg-rose-500/10"
+                    ? "border-red-500/70 bg-slate-900 text-red-400 hover:bg-red-500/10"
                     : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
                 }`}
               >
                 De-Acknowledge
               </button>
-              {/* # GRC_ACTION_CHIPS — Reject risk ingestion/registration */}
+              {/* # GRC_ACTION_CHIPS — De-Acknowledgment (reject risk ingestion) */}
               <button
                 type="button"
                 onClick={handleRejectClick}
-                className="rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border border-slate-500/70 bg-slate-900 text-slate-300 hover:bg-slate-500/10"
+                className="rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border border-red-500/60 bg-slate-900 text-red-300 hover:bg-red-500/10"
               >
-                Reject
+                De-Acknowledgment
               </button>
             </div>
           </>
@@ -622,6 +700,8 @@ export default function ThreatPipeline({
   const draftTemplate = useRiskStore((s) => s.draftTemplate);
   const clearDraftTemplate = useRiskStore((s) => s.clearDraftTemplate);
   const registerThreatViaApi = useRiskStore((s) => s.registerThreatViaApi);
+  const threatActionError = useRiskStore((s) => s.threatActionError);
+  const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
   const highLiabilityFirstSeenRef = useRef<Map<string, number>>(new Map());
   const injectedSignals = useKimbotStore((s) => s.injectedSignals);
   const removeInjectedSignal = useKimbotStore((s) => s.removeInjectedSignal);
@@ -637,7 +717,8 @@ export default function ThreatPipeline({
   const [ingestionSearchQuery, setIngestionSearchQuery] = useState("");
   const [stackExpanded, setStackExpanded] = useState(false);
   const [attackVelocitySeries, setAttackVelocitySeries] = useState<number[]>([]);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [inlineNotes, setInlineNotes] = useState<Record<string, string>>({});
 
   type RawSignalSeverity = "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -789,7 +870,7 @@ export default function ThreatPipeline({
   };
 
   const handleManualRiskRegister = async () => {
-    setFormError(null);
+    setRegisterError(null);
     const title = manualTitle.trim();
     if (!title) return;
     const parsedLoss = Number.parseFloat(manualLoss);
@@ -797,15 +878,19 @@ export default function ThreatPipeline({
     const lossCents = Math.round(lossM * 100_000_000);
     const loss = String(lossCents);
 
+    const newThreatPayload = {
+      title,
+      source: manualSource.trim() || undefined,
+      target: manualTarget.trim() || undefined,
+      loss,
+      description: manualDescription.trim() || undefined,
+      tenantId: resolveTenantId(selectedTenantName),
+    };
+
     try {
-      await registerThreatViaApi({
-        title,
-        source: manualSource.trim() || undefined,
-        target: manualTarget.trim() || undefined,
-        loss,
-        description: manualDescription.trim() || undefined,
-        tenantId: resolveTenantId(selectedTenantName),
-      });
+      setRegisterError(null);
+      await useRiskStore.getState().registerThreatViaApi(newThreatPayload);
+
       appendAuditLog({
         action_type: "GRC_PROCESS_THREAT",
         log_type: "GRC",
@@ -816,15 +901,16 @@ export default function ThreatPipeline({
       setManualTarget("Healthcare");
       setManualLoss("4.0");
       setManualDescription("");
-      setFormError(null);
+      setRegisterError(null);
+      setManualFormOpen(false);
       clearDraftTemplate();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Validation failed");
-      console.error("Manual risk registration failed", err);
-      appendAuditLog({
-        action_type: "SYSTEM_WARNING",
-        log_type: "GRC",
-        description: `Manual registration failed: ${err instanceof Error ? err.message : String(err)}`,
+    } catch (error: any) {
+      // Intercept the crash and send it to the UI toast
+      const errorMessage = error instanceof Error ? error.message : "Registration failed.";
+      setRegisterError(errorMessage);
+      useRiskStore.getState().setThreatActionError?.({
+        active: true,
+        message: errorMessage,
       });
     }
   };
@@ -946,6 +1032,7 @@ export default function ThreatPipeline({
               source: r.source,
               description: r.description,
               lifecycleState: "active",
+              workNotes: r.workNotes ?? [],
             }));
             replaceActiveThreats(asActive);
           }
@@ -983,6 +1070,7 @@ export default function ThreatPipeline({
             source: r.source,
             description: r.description,
             lifecycleState: "active",
+            workNotes: r.workNotes ?? [],
           }));
           replaceActiveThreats(asActive);
         })
@@ -1036,6 +1124,24 @@ export default function ThreatPipeline({
       <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">RISK INGESTION</h2>
       </div>
+      {threatActionError.active && threatActionError.message && (
+        <div
+          role="alert"
+          className="mb-3 flex items-start justify-between gap-3 rounded border border-red-500/70 bg-red-950/90 px-4 py-3"
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-red-300">GRC / Acknowledge error</p>
+            <p className="mt-1 text-sm text-red-100">{threatActionError.message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setThreatActionError({ active: false, message: "" })}
+            className="shrink-0 rounded border border-red-500/70 bg-red-500/20 px-2 py-1 text-[10px] font-bold uppercase text-red-200 hover:bg-red-500/30"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <IngestionPanel>
       {/* Three ingestion paths: (1) RISK INGESTION = AGENT STREAM + SOC EMAIL here; (2) Top Sector Threats = Strategic Intel sidebar; (3) RISK REGISTRATION = manual entry + cards for review (moved from 1 and 2). */}
       <div className="space-y-3">
@@ -1263,10 +1369,13 @@ export default function ThreatPipeline({
                 placeholder="Risk details / context"
                 className="mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
               />
-              {formError && (
-                <p className="mt-2 text-sm font-bold text-red-500" role="alert">
-                  {formError}
-                </p>
+              {registerError && (
+                <div
+                  className="mt-2 rounded border border-red-500/70 bg-red-950/80 px-3 py-2 text-xs font-bold text-red-200"
+                  role="alert"
+                >
+                  {registerError}
+                </div>
               )}
               <div className="mt-2 flex justify-end gap-2">
                 <button
@@ -1277,7 +1386,7 @@ export default function ThreatPipeline({
                     setManualTarget("Healthcare");
                     setManualLoss("4.0");
                     setManualDescription("");
-                    setFormError(null);
+                    setRegisterError(null);
                     clearDraftTemplate();
                   }}
                   className="rounded border border-slate-600 bg-slate-900 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300"
@@ -1287,7 +1396,13 @@ export default function ThreatPipeline({
                 <button
                   type="button"
                   onClick={handleManualRiskRegister}
-                  className="rounded border border-emerald-500/70 bg-emerald-500/15 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-200"
+                  disabled={
+                    !manualTitle.trim().length ||
+                    !manualSource.trim().length ||
+                    !manualTarget.trim().length ||
+                    !manualLoss.toString().trim().length
+                  }
+                  className="rounded border border-emerald-500/70 bg-emerald-500/15 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Register
                 </button>
@@ -1358,6 +1473,9 @@ export default function ThreatPipeline({
                     threat={visiblePipelineThreats[0]}
                     onActionSuccess={() => router.refresh()}
                     setSelectedThreatId={setSelectedThreatId}
+                    inlineNote={inlineNotes[visiblePipelineThreats[0].id] ?? ""}
+                    onInlineNoteChange={(value) => setInlineNotes((prev) => ({ ...prev, [visiblePipelineThreats[0].id]: value }))}
+                    clearInlineNoteForThreat={(id) => setInlineNotes((prev) => { const next = { ...prev }; delete next[id]; return next; })}
                   />
                   {totalThreats > 0 && (
                     <div className="absolute top-2 right-2 flex items-center gap-2">
@@ -1397,6 +1515,9 @@ export default function ThreatPipeline({
                             threat={threat}
                             onActionSuccess={() => router.refresh()}
                             setSelectedThreatId={setSelectedThreatId}
+                            inlineNote={inlineNotes[threat.id] ?? ""}
+                            onInlineNoteChange={(value) => setInlineNotes((prev) => ({ ...prev, [threat.id]: value }))}
+                            clearInlineNoteForThreat={(id) => setInlineNotes((prev) => { const next = { ...prev }; delete next[id]; return next; })}
                           />
                         ))}
                       </div>

@@ -132,6 +132,7 @@ interface RiskState {
   /** Re-escalate: move threat from Active back to Attack Velocity pipeline (requires tenantId). */
   revertThreatToPipeline: (id: string, tenantId: string, operatorId: string) => Promise<void>;
   addWorkNote: (threatId: string, text: string, operatorId: string) => Promise<void>;
+  appendWorkNoteToThreat: (threatId: string, note: ThreatWorkNote) => void;
 
   // Accepted threat impacts ($M) for header/left sidebar sync (id -> impact in millions)
   acceptedThreatImpacts: Record<string, number>;
@@ -366,6 +367,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     };
   }),
   acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
+    set({ threatActionError: { active: false, message: "" } });
     try {
       const result = await acknowledgeThreatAction(id, tenantId, operatorId, justification);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
@@ -375,7 +377,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
             message: result.error || "Acknowledge failed due to invalid tenant mapping.",
           },
         });
-        throw new Error(result.error);
+        return;
       }
       const stateAtAck = get();
       const ackedThreat = stateAtAck.threatIndexById[id] ?? stateAtAck.pipelineThreats.find((t) => t.id === id);
@@ -426,7 +428,6 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
         },
       });
-      throw error;
     }
   },
   confirmThreat: async (id, operatorId) => {
@@ -495,16 +496,18 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     }
   },
   deAcknowledgeThreat: async (id, tenantId, reason, justification, operatorId) => {
+    set({ threatActionError: { active: false, message: "" } });
     try {
       const result = await deAcknowledgeThreatAction(id, tenantId, reason, justification, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const errMsg = "error" in result && typeof result.error === "string" ? result.error : "Action failed: Record no longer exists.";
         set({
           threatActionError: {
             active: true,
-            message: "Action failed: Record no longer exists.",
+            message: errMsg,
           },
         });
-        return { success: false, error: result.error };
+        return { success: false, error: errMsg };
       }
       set((state) => {
         const nextImpacts = { ...state.acceptedThreatImpacts };
@@ -585,6 +588,18 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       console.error('addWorkNoteAction failed', error);
     }
   },
+  appendWorkNoteToThreat: (threatId, note) =>
+    set((state) => {
+      const mapNote = (t: PipelineThreat): PipelineThreat =>
+        t.id === threatId ? { ...t, workNotes: [...(t.workNotes ?? []), note] } : t;
+      const nextPipeline = state.pipelineThreats.map(mapNote);
+      const nextActive = state.activeThreats.map(mapNote);
+      return {
+        pipelineThreats: nextPipeline,
+        activeThreats: nextActive,
+        threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
+      };
+    }),
 
   // Dashboard State
   dashboardLiabilities: {},

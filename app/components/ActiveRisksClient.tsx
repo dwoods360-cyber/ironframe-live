@@ -535,9 +535,9 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                                   setSelectedReason('');
                                   setCustomJustification('');
                                 }}
-                                className="rounded border border-slate-500/70 bg-slate-800/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 shadow hover:border-slate-400/60 hover:bg-slate-700/60 hover:text-slate-300"
+                                className="rounded border border-red-500/70 bg-red-950/40 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-300 shadow hover:border-red-400/70 hover:bg-red-500/10 hover:text-red-200"
                               >
-                                DISMISS RISK
+                                De-Acknowledgment
                               </button>
                               <button
                                 type="button"

@@ -9,7 +9,8 @@ export const threatIngressSchema = z.object({
   source: z.string().trim().min(1, 'source is required').max(50),
   target: z.string().trim().min(1, 'target is required').max(50),
   loss: z.string().regex(/^\d+$/, 'loss must be a string of pure digits (no decimals or letters)'),
-  notes: z.string().trim().max(500).optional(),
+  // Align max length with workNoteSchema (2000 chars) to prevent registration crashes on longer text.
+  notes: z.string().trim().max(2000).optional(),
 });
 
 export type ThreatIngressPayload = z.infer<typeof threatIngressSchema>;

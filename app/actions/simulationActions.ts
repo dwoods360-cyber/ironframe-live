@@ -120,6 +120,7 @@ export type PipelineThreatFromDb = {
   industry: string;
   source: string;
   description: string;
+  workNotes?: { text: string; user: string; timestamp: string }[];
 };
 
 /**
@@ -156,13 +157,10 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
 export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const rows = await prisma.threatEvent.findMany({
     where: { status: ThreatState.ACTIVE },
-    select: {
-      id: true,
-      title: true,
-      financialRisk_cents: true,
-      score: true,
-      targetEntity: true,
-      sourceAgent: true,
+    include: {
+      notes: {
+        orderBy: { createdAt: "desc" },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -174,5 +172,10 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
     industry: r.targetEntity,
     source: r.sourceAgent,
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+    workNotes: (r.notes ?? []).map((n) => ({
+      text: n.text,
+      user: n.operatorId,
+      timestamp: n.createdAt.toISOString(),
+    })),
   }));
 }

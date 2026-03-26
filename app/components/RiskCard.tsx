@@ -33,9 +33,23 @@ export default function RiskCard({
   const variance = amount - baseline;
   const isCritical = variance > 0;
   const assigneeId = risk?.assigneeId ?? assignee;
-  const statusValue = risk?.status ?? status ?? section;
-  const isUnassigned = !assigneeId || String(assigneeId).trim() === '';
-  const isActiveRisk = statusValue === 'ACTIVE_RISKS';
+  const currentStatus = risk?.status ?? status ?? section;
+
+  const isUnassigned =
+    !assigneeId ||
+    String(assigneeId).trim() === '' ||
+    String(assigneeId).toLowerCase() === 'unassigned';
+  const isActiveRisk = ['ACTIVE', 'ACTIVE_RISKS'].includes(String(currentStatus).toUpperCase());
+  const shouldFlash =
+    isActiveRisk &&
+    (!assigneeId ||
+      String(assigneeId).trim() === '' ||
+      String(assigneeId).toLowerCase() === 'unassigned');
+
+  // DIAGNOSTIC LOG: Remove once verified
+  if (isActiveRisk) {
+    console.log(`Card [${label}] - Unassigned: ${isUnassigned}, Status: ${currentStatus}, SHOULD FLASH: ${shouldFlash}`);
+  }
 
   const formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -45,11 +59,9 @@ export default function RiskCard({
   return (
     <div
       className={cn(
-        'p-6 rounded-xl border transition-all duration-300',
+        'p-6 rounded-xl border transition-all duration-300 relative overflow-hidden',
         isCritical ? 'bg-red-950/20 border-red-900/50' : 'bg-emerald-950/20 border-emerald-900/50',
-        isActiveRisk &&
-          isUnassigned &&
-          'animate-pulse border-2 border-red-600 bg-red-500/20 shadow-[0_0_15px_rgba(220,38,38,0.6)]',
+        shouldFlash && 'animate-pulse border-2 border-red-500 bg-red-500/30 shadow-[0_0_25px_rgba(239,68,68,0.6)] z-10 scale-[1.02]',
       )}
       data-testid="risk-card"
     >

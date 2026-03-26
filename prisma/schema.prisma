@@ -92,6 +92,7 @@ model ActiveRisk {
   company_id     BigInt
   title          String
   status         String
+  assigneeId     String?  @map("assignee_id")
   score_cents    BigInt   // REFACTORED: Unified to BIGINT cents
   source         String
   isSimulation   Boolean  @default(false) @map("issimulation")

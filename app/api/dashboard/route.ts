@@ -48,8 +48,10 @@ export async function GET(request: NextRequest) {
           company_id: true,
           title: true,
           status: true,
+          assigneeId: true,
           score_cents: true,
           source: true,
+          isSimulation: true,
           company: { select: { name: true, sector: true } },
         },
         orderBy: { score_cents: 'desc' },
@@ -81,13 +83,14 @@ export async function GET(request: NextRequest) {
       id: risk.id.toString(),
       title: risk.title,
       source: risk.source,
+      assigneeId: risk.assigneeId,
       threatId:
         threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
         threatByTitle.get(normalize(risk.title)) ??
         null,
       score_cents: risk.score_cents,
       company: { name: risk.company.name, sector: risk.company.sector },
-      isSimulation: false,
+      isSimulation: risk.isSimulation,
     }));
 
     const serializedCompanies = companies.map((c) => ({

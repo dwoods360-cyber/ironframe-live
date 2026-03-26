@@ -304,6 +304,9 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
           const lifecycle: LifecycleState =
             (states[threat.id] as LifecycleState | undefined) ??
             ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
+          const isUnassigned = assignedFor(threat.id) === 'unassigned';
+          const isActive = lifecycle === 'active';
+          const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
           const userNotesText = (threat.userNotes ?? '').trim();
           const isExpanded = true;
@@ -336,7 +339,11 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
           return (
             <div
               key={`active-${threat.id}`}
-              className="group flex flex-col justify-between rounded-lg border border-emerald-700/40 bg-emerald-950/10 p-4 transition-colors hover:border-emerald-500/60"
+              className={`group flex flex-col justify-between rounded-lg border transition-all duration-500 ${
+                shouldFlash
+                  ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
+                  : 'border-emerald-700/40 bg-emerald-950/10 hover:border-emerald-500/60'
+              } p-4`}
             >
               <div className="flex w-full items-start justify-between text-left">
                 <div>
@@ -630,6 +637,9 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
 
         {sortedRisks.map((risk) => {
           const lifecycle: LifecycleState = states[risk.id] ?? 'active';
+          const isUnassigned = assignedFor(risk.id) === 'unassigned';
+          const isActive = lifecycle === 'active';
+          const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[risk.id] ?? [];
           const isExpanded = true;
           const supplyChainImpact = computeSupplyChainImpact({
@@ -658,7 +668,11 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && risk.threatId) setSelectedThreatId(risk.threatId);
               }}
-              className="group flex cursor-pointer flex-col justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-4 transition-colors hover:border-blue-500/50"
+              className={`group flex cursor-pointer flex-col justify-between rounded-lg border transition-all duration-500 ${
+                shouldFlash
+                  ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
+                  : 'border-slate-800 bg-slate-900/60 hover:border-blue-500/50'
+              } p-4`}
             >
               <div className="flex w-full items-start justify-between text-left">
                 <div>

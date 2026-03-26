@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import prismaDmz from "@/lib/prisma-dmz";
 import { readdirSync, unlinkSync, rmSync, existsSync } from "fs";
 import path from "path";
 
@@ -44,7 +43,7 @@ function deleteOrphanedUploadsSync(): { deleted: number; errors: string[] } {
 /**
  * Full system purge: wipes from root (Tenant) so cascade removes companies, departments, policies, active_risks, vendors, agent_logs.
  * Then explicitly wipes threat_events, work_notes, audit_logs (not under Tenant FK). No ghost data.
- * Then DMZ: agent_logs → quarantine_records.
+ * Quarantine file metadata lives on the primary DB (`quarantine_records`).
  */
 export async function purgeSimulation(): Promise<{ ok: boolean; message: string }> {
   try {
@@ -54,24 +53,15 @@ export async function purgeSimulation(): Promise<{ ok: boolean; message: string 
     const auditLogResult = await prisma.auditLog.deleteMany({});
     const workNoteResult = await prisma.workNote.deleteMany({});
     const threatEventResult = await prisma.threatEvent.deleteMany({});
+    const quarantineResult = await prisma.quarantineRecord.deleteMany({});
 
     console.log("[PURGE] Main DB wiped (tenant-first cascade):", {
       tenants: tenantResult.count,
       audit_logs: auditLogResult.count,
       threat_events: threatEventResult.count,
       work_notes: workNoteResult.count,
+      quarantine_records: quarantineResult.count,
     });
-
-    // DMZ: wipe agent_logs and quarantine_records (DMZ has no threat_events table)
-    let dmzQuarantineCount = 0;
-    let dmzAgentLogCount = 0;
-    try {
-      dmzAgentLogCount = (await prismaDmz.agentLog.deleteMany({})).count;
-      dmzQuarantineCount = (await prismaDmz.quarantineRecord.deleteMany({})).count;
-      console.log("[PURGE] DMZ wiped:", { agent_logs: dmzAgentLogCount, quarantine_records: dmzQuarantineCount });
-    } catch (dmzErr) {
-      console.warn("purgeSimulation: DMZ wipe skipped (missing client or env)", dmzErr);
-    }
 
     const uploadsResult = deleteOrphanedUploadsSync();
     if (uploadsResult.errors.length > 0) console.warn("purgeSimulation: uploads cleanup errors", uploadsResult.errors);
@@ -86,10 +76,8 @@ export async function purgeSimulation(): Promise<{ ok: boolean; message: string 
       `${auditLogResult.count} audit log(s)`,
       `${workNoteResult.count} work note(s)`,
       `${threatEventResult.count} threat event(s)`,
+      `${quarantineResult.count} quarantine record(s)`,
     ];
-    if (dmzQuarantineCount > 0 || dmzAgentLogCount > 0) {
-      parts.push(`${dmzQuarantineCount} DMZ quarantine record(s)`, `${dmzAgentLogCount} DMZ agent log(s)`);
-    }
     if (uploadsResult.deleted > 0) parts.push(`${uploadsResult.deleted} upload file(s)`);
 
     return {

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 
@@ -39,6 +40,11 @@ export async function createKimbotThreatServer(
   input: CreateKimbotThreatInput
 ): Promise<GrcBotThreatCreated> {
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const company = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid },
+    select: { id: true },
+  });
   const created = await prisma.threatEvent.create({
     data: {
       title: input.title,
@@ -48,6 +54,7 @@ export async function createKimbotThreatServer(
       financialRisk_cents: millionsToCents(input.liability),
       status: ThreatState.PIPELINE,
       ttlSeconds: DEFAULT_TTL_SECONDS,
+      tenantCompanyId: company?.id,
     },
     select: {
       id: true,
@@ -85,6 +92,11 @@ export async function createGrcBotThreatServer(
   input: CreateGrcBotThreatInput
 ): Promise<GrcBotThreatCreated> {
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const company = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid },
+    select: { id: true },
+  });
   const created = await prisma.threatEvent.create({
     data: {
       title: input.title,
@@ -94,6 +106,7 @@ export async function createGrcBotThreatServer(
       financialRisk_cents: millionsToCents(input.liability),
       status: ThreatState.PIPELINE,
       ttlSeconds: DEFAULT_TTL_SECONDS,
+      tenantCompanyId: company?.id,
     },
     select: {
       id: true,
@@ -120,6 +133,7 @@ export type PipelineThreatFromDb = {
   industry: string;
   source: string;
   description: string;
+  createdAt?: string;
   workNotes?: { text: string; user: string; timestamp: string }[];
 };
 
@@ -137,6 +151,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       score: true,
       targetEntity: true,
       sourceAgent: true,
+      createdAt: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -148,6 +163,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
     industry: r.targetEntity,
     source: r.sourceAgent,
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+    createdAt: r.createdAt.toISOString(),
   }));
 }
 

@@ -25,6 +25,7 @@ export type CreateThreatBody = {
   loss: string;
   description?: string;
   notes?: string;
+  destination?: 'pipeline' | 'active';
 };
 
 /**
@@ -78,6 +79,14 @@ export async function POST(request: NextRequest) {
     const financialRisk_cents = parseLossToCents(lossRaw);
     const score = 8; // default 1–10 for manual entry
 
+    const company = await prisma.company.findFirst({
+      where: { tenantId: tenantId },
+      select: { id: true },
+    });
+
+    const destination = (body.destination ?? 'pipeline').toLowerCase();
+    const status = destination === 'active' ? ThreatState.ACTIVE : ThreatState.PIPELINE;
+
     const created = await prisma.threatEvent.create({
       data: {
         title,
@@ -85,8 +94,9 @@ export async function POST(request: NextRequest) {
         score,
         targetEntity: target || 'Healthcare',
         financialRisk_cents,
-        status: ThreatState.PIPELINE,
+        status,
         ttlSeconds: DEFAULT_TTL_SECONDS,
+        tenantCompanyId: company?.id,
       },
       select: {
         id: true,
@@ -114,6 +124,9 @@ export async function POST(request: NextRequest) {
       source: created.sourceAgent,
       description: descriptionText,
       tenantId,
+      assignedTo: 'unassigned',
+      lifecycleState: created.status === ThreatState.ACTIVE ? 'active' : 'pipeline',
+      createdAt: new Date().toISOString(),
     });
   } catch (e) {
     console.error('[api/threats POST]', e);

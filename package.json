@@ -12,8 +12,8 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",
-    "generate:clients": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma",
-    "generate:all": "npx prisma generate && npx prisma generate --schema=./prisma-dmz/schema.prisma && npx tsc --noEmit",
+    "generate:clients": "npx prisma generate",
+    "generate:all": "npx prisma generate && npx tsc --noEmit",
     "check:financial-types": "node scripts/check-no-float-decimal.mjs",
     "install-hooks": "node scripts/install-pre-commit.mjs",
     "perf:seed": "ts-node scripts/perf-test-seed.ts"

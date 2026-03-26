@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import prismaDmz from '@/lib/prisma-dmz';
+import prisma from '@/lib/prisma';
 import ExportCSVButton from '@/components/ExportCSVButton';
 import AuditLogsTable from './AuditLogsTable';
 
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function AuditLogsPage() {
-  const logs = await prismaDmz.threatActivityLog.findMany({
+  const logs = await prisma.auditLog.findMany({
     orderBy: { createdAt: 'desc' },
     take: 500,
   });
@@ -16,8 +16,8 @@ export default async function AuditLogsPage() {
     id: row.id,
     createdAt: row.createdAt.toISOString(),
     action: row.action,
-    threatId: row.threatId,
-    details: row.details,
+    threatId: row.threatId ?? '',
+    details: row.justification ?? '',
   }));
 
   return (

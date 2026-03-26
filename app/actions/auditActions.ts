@@ -1,10 +1,10 @@
 'use server';
 
-import prismaDmz from '@/lib/prisma-dmz';
+import prisma from '@/lib/prisma';
 
 /**
- * Universal audit logger: records every action taken on a threat card in the DMZ database
- * for the Audit Intelligence stream. Does not throw; logs errors to console.
+ * Universal audit logger: records every action taken on a threat card for the Audit Intelligence stream.
+ * Does not throw; logs errors to console.
  */
 export async function logThreatActivity(
   threatId: string,
@@ -12,11 +12,13 @@ export async function logThreatActivity(
   details: string,
 ): Promise<void> {
   try {
-    await prismaDmz.threatActivityLog.create({
+    await prisma.auditLog.create({
       data: {
-        threatId,
         action: actionName,
-        details,
+        justification: details,
+        operatorId: 'THREAT_ACTIVITY',
+        threatId,
+        isSimulation: false,
       },
     });
   } catch (error) {

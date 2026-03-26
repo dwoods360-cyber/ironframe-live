@@ -10,7 +10,7 @@ import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { appendAuditLog } from "@/app/utils/auditLogger";
-import { rejectThreatAction, addWorkNoteAction } from "@/app/actions/threatActions";
+import { rejectThreatAction } from "@/app/actions/threatActions";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useAgentStore } from "@/app/store/agentStore";
@@ -94,24 +94,20 @@ function PipelineThreatCard({
   threat,
   onActionSuccess,
   setSelectedThreatId: setSelectedThreatIdProp,
-  inlineNote = "",
-  onInlineNoteChange,
-  clearInlineNoteForThreat,
 }: {
   threat: PipelineThreat;
   onActionSuccess?: () => void;
   setSelectedThreatId?: (id: string | null) => void;
-  inlineNote?: string;
-  onInlineNoteChange?: (value: string) => void;
-  clearInlineNoteForThreat?: (id: string) => void;
 }) {
   const storeSet = useRiskStore((s) => s.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSet;
   const [justification, setJustification] = useState("");
-  const [grcAckJustification, setGrcAckJustification] = useState("");
+  const [mitigationText, setMitigationText] = useState("");
+  const [assignedTo, setAssignedTo] = useState("unassigned");
   const [deackReason, setDeackReason] = useState<string>("");
   const [likelihood, setLikelihood] = useState(threat.likelihood ?? 8);
   const [impact, setImpact] = useState(threat.impact ?? 9);
+  const currentUser = "dereck";
 
   // Time-to-Triage: starts when card mounts, stops on Acknowledge
   const startedAtRef = useRef<number>(Date.now());
@@ -131,7 +127,6 @@ function PipelineThreatCard({
   const removeThreatFromPipeline = useRiskStore((s) => s.removeThreatFromPipeline);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
-  const appendWorkNoteToThreat = useRiskStore((s) => s.appendWorkNoteToThreat);
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
 
@@ -216,10 +211,9 @@ function PipelineThreatCard({
 
   const scoreCents = Math.round((threat.loss ?? threat.score ?? 0) * 100_000_000);
   const isHighValue = BigInt(scoreCents) >= GRC_THRESHOLD_CENTS;
-  const grcAckLen = grcAckJustification.trim().length;
 
-  // Primary ACK: for high-value threats, require 50+ chars justification; for others, allow immediate ACK
-  const ackEnabled = isHighValue ? grcAckLen >= 50 : true;
+  // Primary ACK availability; 50-char mitigation lock is applied on the button via mitigationText.
+  const ackEnabled = true;
   const deackEnabled =
     deackReason &&
     deackReason !== "Select Reason..." &&
@@ -242,34 +236,10 @@ function PipelineThreatCard({
     });
 
     try {
-      const inlineText = (typeof inlineNote === "string" ? inlineNote : "").trim();
-      if (inlineText) {
-        const noteResult = await addWorkNoteAction(threat.id, inlineText, operatorId);
-        if (noteResult && "success" in noteResult && noteResult.success === false) {
-          updatePipelineThreat(threat.id, {
-            lifecycleState: "pipeline",
-            lastTriageAction: undefined,
-          });
-          setThreatActionError({ active: true, message: noteResult.error ?? "Failed to save work note." });
-          appendAuditLog({
-            action_type: "SYSTEM_WARNING",
-            log_type: "GRC",
-            description: `Work note save failed for threat: ${threat.name}`,
-            metadata_tag: scopeTag,
-            user_id: operatorId,
-          });
-          return;
-        }
-        appendWorkNoteToThreat(threat.id, {
-          text: inlineText,
-          user: operatorId,
-          timestamp: new Date().toISOString(),
-        });
-      }
       await acknowledgeThreat(
         threat.id,
         operatorId,
-        isHighValue ? grcAckJustification.trim() : undefined,
+        mitigationText.trim(),
         resolveTenantId(activeTenant)
       );
       const err = useRiskStore.getState().threatActionError;
@@ -296,9 +266,7 @@ function PipelineThreatCard({
         user_id: operatorId,
       });
       setJustification("");
-      setGrcAckJustification("");
       setDeackReason("");
-      clearInlineNoteForThreat?.(threat.id);
       onActionSuccess?.();
     } catch (error) {
       updatePipelineThreat(threat.id, {
@@ -554,59 +522,58 @@ function PipelineThreatCard({
           </span>
         </div>
 
-        {/* Body: only GRC Justification (if >$10M) */}
-        {isHighValue && (
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
-              Justification Required (Min 50 characters for threats &gt;= $10M)
-            </label>
-            <textarea
-              rows={3}
-              value={grcAckJustification}
-              onChange={(e) => setGrcAckJustification(e.target.value)}
-              placeholder="Explain why this high-value threat should be acknowledged..."
-              className="w-full rounded border border-amber-500/80 bg-slate-950 px-2 py-1 text-[13px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-amber-300"
-              data-testid="grc-justification"
-            />
-            <div className="flex justify-between text-[9px] text-amber-300 font-semibold">
-              <span>
-                {grcAckLen >= 50
-                  ? "Justification meets GRC requirement."
-                  : "50+ characters required to enable Acknowledge."}
-              </span>
-              <span>{grcAckLen}/50</span>
-            </div>
-          </div>
-        )}
-
-        {/* Inline ingestion/work note — rapid triage without opening drawer */}
-        <div className="flex flex-col gap-1">
-          <input
-            type="text"
-            placeholder="Add ingestion/work note..."
-            value={inlineNote}
-            onChange={(e) => onInlineNoteChange?.(e.target.value)}
-            className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-[12px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500"
-            aria-label="Inline work note"
-          />
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setAssignedTo(currentUser)}
+            disabled={assignedTo === currentUser}
+            className={`px-2 py-1 border rounded transition-colors ${
+              assignedTo === currentUser
+                ? "bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default"
+                : "bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight"
+            }`}
+          >
+            {assignedTo === currentUser ? "✔️ Claimed" : "🖐️ Claim"}
+          </button>
+          <select
+            value={assignedTo}
+            onChange={(e) => setAssignedTo(e.target.value)}
+            className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
+          >
+            <option value="unassigned">Unassigned</option>
+            <option value="dereck">Dereck</option>
+            <option value="user_00">user_00</option>
+            <option value="user_01">user_01</option>
+            <option value="secops">SecOps Team</option>
+            <option value="grc">GRC Team</option>
+            <option value="netsec">NetSec</option>
+          </select>
         </div>
+
+        <div className="flex flex-col gap-1">
+          <textarea
+            rows={1}
+            value={mitigationText}
+            onChange={(e) => setMitigationText(e.target.value)}
+            placeholder="Justification Required (Min 50 characters for threats >= $10M)"
+            className="w-full min-h-[40px] h-10 resize-y rounded border border-ironcore-border bg-black px-2 py-1 text-gray-200 outline-none focus:border-ironcore-accent"
+            aria-label="Mitigation justification"
+          />
+          <div className="text-[10px] text-gray-500 text-right mt-1">
+            {mitigationText.trim().length} / 50 min characters
+          </div>
+        </div>
+
         {/* Primary ACK action */}
         <div className="flex flex-wrap items-center gap-2 text-[10px]">
           <button
             type="button"
-            disabled={
-              !ackEnabled ||
-              (() => {
-                const len = (typeof inlineNote === "string" ? inlineNote : "").trim().length;
-                const required = isHighValue ? 50 : 10;
-                return len < required;
-              })()
-            }
+            disabled={!ackEnabled || mitigationText.trim().length < 50}
             onClick={handleAcknowledgeClick}
             className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
-              ackEnabled
-                ? "border-emerald-500/70 bg-slate-900 text-emerald-400 hover:bg-emerald-500/10"
-                : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
+              ackEnabled && mitigationText.trim().length >= 50
+                ? "border-emerald-500/70 bg-slate-900 text-emerald-400 opacity-100 cursor-pointer hover:bg-emerald-500/10"
+                : "border-slate-700 bg-slate-900 text-slate-500 opacity-50 cursor-not-allowed grayscale"
             }`}
           >
             Acknowledge
@@ -718,7 +685,7 @@ export default function ThreatPipeline({
   const [stackExpanded, setStackExpanded] = useState(false);
   const [attackVelocitySeries, setAttackVelocitySeries] = useState<number[]>([]);
   const [registerError, setRegisterError] = useState<string | null>(null);
-  const [inlineNotes, setInlineNotes] = useState<Record<string, string>>({});
+  const registerTextLen = manualDescription.trim().length;
 
   type RawSignalSeverity = "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -760,7 +727,7 @@ export default function ThreatPipeline({
       !selectedTenantName || (t.target ?? "") === selectedTenantName;
     return matchesIndustry && matchesTenant;
   });
-  const visiblePipelineThreats = riskSearchLower
+  const visiblePipelineThreatsBase = riskSearchLower
     ? filteredRisks.filter((t) => {
         const id = t.id?.toLowerCase() ?? "";
         const name = t.name?.toLowerCase() ?? "";
@@ -778,6 +745,14 @@ export default function ThreatPipeline({
         );
       })
     : filteredRisks;
+
+  /** Newest-first for Attack Velocity stack (DB `createdAt` when present). */
+  const visiblePipelineThreats = [...visiblePipelineThreatsBase].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return b.id.localeCompare(a.id);
+  });
 
   const totalThreats = visiblePipelineThreats.length;
 
@@ -873,6 +848,10 @@ export default function ThreatPipeline({
     setRegisterError(null);
     const title = manualTitle.trim();
     if (!title) return;
+    if (manualDescription.trim().length < 50) {
+      setRegisterError("Justification must be at least 50 characters.");
+      return;
+    }
     const parsedLoss = Number.parseFloat(manualLoss);
     const lossM = Number.isFinite(parsedLoss) && parsedLoss > 0 ? parsedLoss : 1.0;
     const lossCents = Math.round(lossM * 100_000_000);
@@ -885,6 +864,7 @@ export default function ThreatPipeline({
       loss,
       description: manualDescription.trim() || undefined,
       tenantId: resolveTenantId(selectedTenantName),
+      destination: "active" as const,
     };
 
     try {
@@ -1014,6 +994,7 @@ export default function ThreatPipeline({
               industry: r.industry,
               source: r.source,
               description: r.description,
+              createdAt: r.createdAt,
             }));
             replacePipelineThreats(asPipeline);
           }
@@ -1055,6 +1036,7 @@ export default function ThreatPipeline({
             industry: r.industry,
             source: r.source,
             description: r.description,
+            createdAt: r.createdAt,
           }));
           replacePipelineThreats(asPipeline);
         })
@@ -1366,9 +1348,12 @@ export default function ThreatPipeline({
                 rows={3}
                 value={manualDescription}
                 onChange={(e) => setManualDescription(e.target.value)}
-                placeholder="Risk details / context"
+                placeholder="Justification Required (Min 50 characters)"
                 className="mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
               />
+              <div className="mt-1 text-[10px] text-gray-500 text-right">
+                {registerTextLen} / 50 min characters
+              </div>
               {registerError && (
                 <div
                   className="mt-2 rounded border border-red-500/70 bg-red-950/80 px-3 py-2 text-xs font-bold text-red-200"
@@ -1400,9 +1385,14 @@ export default function ThreatPipeline({
                     !manualTitle.trim().length ||
                     !manualSource.trim().length ||
                     !manualTarget.trim().length ||
-                    !manualLoss.toString().trim().length
+                    !manualLoss.toString().trim().length ||
+                    registerTextLen < 50
                   }
-                  className="rounded border border-emerald-500/70 bg-emerald-500/15 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                  className={`rounded border border-emerald-500/70 bg-emerald-500/15 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-200 ${
+                    registerTextLen < 50
+                      ? 'opacity-50 cursor-not-allowed grayscale'
+                      : 'opacity-100 cursor-pointer hover:bg-opacity-80'
+                  }`}
                 >
                   Register
                 </button>
@@ -1447,15 +1437,8 @@ export default function ThreatPipeline({
                 </div>
               </div>
 
-              {/* Condensed Stack: show top card only when collapsed; stack badge + expand to show rest */}
-              <div className="relative">
-                {totalThreats > 1 && (
-                  <>
-                    <div className="pointer-events-none absolute inset-x-2 top-2 h-full rounded border border-slate-800 bg-slate-900/60" />
-                    <div className="pointer-events-none absolute inset-x-1 top-1 h-full rounded border border-slate-800 bg-slate-900/80" />
-                  </>
-                )}
-
+              {/* Condensed Stack: no gray overlay layers — newest-first ordering via `visiblePipelineThreats` */}
+              <div>
                 <div
                   className={`relative transition-all duration-200 ${
                     totalThreats > 1
@@ -1473,9 +1456,6 @@ export default function ThreatPipeline({
                     threat={visiblePipelineThreats[0]}
                     onActionSuccess={() => router.refresh()}
                     setSelectedThreatId={setSelectedThreatId}
-                    inlineNote={inlineNotes[visiblePipelineThreats[0].id] ?? ""}
-                    onInlineNoteChange={(value) => setInlineNotes((prev) => ({ ...prev, [visiblePipelineThreats[0].id]: value }))}
-                    clearInlineNoteForThreat={(id) => setInlineNotes((prev) => { const next = { ...prev }; delete next[id]; return next; })}
                   />
                   {totalThreats > 0 && (
                     <div className="absolute top-2 right-2 flex items-center gap-2">
@@ -1508,16 +1488,13 @@ export default function ThreatPipeline({
                     }}
                   >
                     {stackExpanded && (
-                      <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded border border-slate-800 bg-slate-950/80 p-2">
+                      <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded border border-slate-800 bg-transparent p-2">
                         {visiblePipelineThreats.slice(1).map((threat) => (
                           <PipelineThreatCard
                             key={threat.id}
                             threat={threat}
                             onActionSuccess={() => router.refresh()}
                             setSelectedThreatId={setSelectedThreatId}
-                            inlineNote={inlineNotes[threat.id] ?? ""}
-                            onInlineNoteChange={(value) => setInlineNotes((prev) => ({ ...prev, [threat.id]: value }))}
-                            clearInlineNoteForThreat={(id) => setInlineNotes((prev) => { const next = { ...prev }; delete next[id]; return next; })}
                           />
                         ))}
                       </div>

@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // CORRECT: Move this outside the experimental block
-  serverExternalPackages: ['@prisma/client', '@prisma/client-dmz'],
+  serverExternalPackages: ["@prisma/client"],
   experimental: {
     // Keep other experimental settings here if needed
   },

@@ -19,7 +19,8 @@ import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAgentStore } from '@/app/store/agentStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
-import { useSystemConfigStore, setExpertModeEnabled } from '@/app/store/systemConfigStore';
+import { useSystemConfigStore } from '@/app/store/systemConfigStore';
+import { triggerAttbotSimulation } from '@/app/actions/attbotActions';
 import { getDbQueryMs } from '@/app/actions/simulation';
 import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
@@ -120,10 +121,24 @@ export default function StrategicIntel() {
   const isGrcbotActive = useGrcBotStore((s) => s.enabled);
   const setGrcbotEnabled = useGrcBotStore((s) => s.setEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
+  const router = useRouter();
 
   const toggleKimbot = () => setKimbotEnabled(!isKimbotActive);
   const toggleGrcbot = () => setGrcbotEnabled(!isGrcbotActive);
-  const toggleExpertMode = () => setExpertModeEnabled(!expertModeEnabled);
+
+  async function handleMasterPurge() {
+    const result = await purgeSimulation();
+    if (result.ok) {
+      clearAllAuditLogs();
+      useKimbotStore.getState().resetSimulationCounters();
+      useGrcBotStore.getState().stop();
+      useRiskStore.getState().clearAllRiskStateForPurge();
+      useRiskStore.getState().setSelectedThreatId(null);
+      addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
+      sleepBlueTeam();
+      router.refresh();
+    }
+  }
 
   // KIMBOT engine loop: when enabled (via chip or terminal command), generate simulated attacks + terminal logs.
   const kimbotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -180,14 +195,6 @@ export default function StrategicIntel() {
     };
   }, [isKimbotActive, kimbotIntensity, kimbotAttackType, selectedIndustry, addKimbotInjectedSignal, addStreamMessage]);
 
-  async function handlePurgeSimulation() {
-    const result = await purgeSimulation();
-    if (result?.ok) {
-      useKimbotStore.getState().resetSimulationCounters();
-      useGrcBotStore.getState().stop();
-    }
-  }
-
   // Agent status: Healthy (green) or Alerting (red) when Kimbot is active for Ironsight/Coreintel
   const getAgentStatus = (agentName: string) => {
     if (isKimbotActive && (agentName === 'Ironsight' || agentName === 'Coreintel')) {
@@ -203,8 +210,6 @@ export default function StrategicIntel() {
     Energy: { avg: '$9.4M', impact: '$18.3M', wAvg: '65%', wImpact: '90%' },
   };
   const currentMetrics = industryMetrics[selectedIndustry] ?? industryMetrics.Healthcare;
-
-  const router = useRouter();
 
   const riskLevel = (m: number) => {
     if (m >= 20) return { label: "CRITICAL", className: "text-red-400" };
@@ -505,7 +510,7 @@ export default function StrategicIntel() {
       description: `Liability: $${threat.loss}M ? Sector: ${selectedIndustry}`,
       calculatedRiskScore: Math.round(threat.loss * 10),
     };
-    upsertPipelineThreat(pipelineThreat);
+    useRiskStore.getState().upsertPipelineThreat(pipelineThreat);
   };
 
   if (!mounted) return <div className="p-4 bg-slate-900/50 animate-pulse rounded border border-slate-800 m-2">Initializing Command Center...</div>;
@@ -609,47 +614,46 @@ export default function StrategicIntel() {
         <div className="w-full h-px bg-zinc-800" />
       </div>
 
-      {/* 1. CONTROL ROOM (Fully Wired) */}
       <section className="p-4 border-b border-zinc-900 bg-[#050509]">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-[11px] font-black uppercase tracking-widest text-zinc-300">Control Room</h2>
           <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
         </div>
-
-        {/* Navigation Links */}
         <div className="flex justify-between text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-4">
           <Link href="/" className="hover:text-emerald-500 transition-colors">Dashboard</Link>
           <Link href="/reports/ops" className="hover:text-emerald-500 transition-colors">Reports</Link>
           <Link href="/audit" className="hover:text-emerald-500 transition-colors">Audit Trail</Link>
           <Link href="/settings" className="hover:text-emerald-500 transition-colors">Settings</Link>
         </div>
-
-        {/* Global Agent/State Toggles */}
         <div className="grid grid-cols-2 gap-2">
           <button
+            type="button"
             onClick={toggleKimbot}
             className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isKimbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
           >
             Kimbot {isKimbotActive ? 'On' : 'Off'}
           </button>
-
           <button
+            type="button"
             onClick={toggleGrcbot}
             className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isGrcbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
           >
             Grcbot {isGrcbotActive ? 'On' : 'Off'}
           </button>
-
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <form action={triggerAttbotSimulation} className="min-w-0">
+            <button
+              type="submit"
+              className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
+            >
+              ATTBOT
+            </button>
+          </form>
           <button
-            onClick={toggleExpertMode}
-            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${expertModeEnabled ? 'bg-blue-500/10 border-blue-500/50 text-blue-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
-          >
-            Expert {expertModeEnabled ? 'On' : 'Off'}
-          </button>
-
-          <button
-            onClick={() => void handlePurgeSimulation()}
-            className="py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest"
+            type="button"
+            onClick={() => void handleMasterPurge()}
+            className="min-w-0 w-full py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest"
           >
             Master Purge
           </button>

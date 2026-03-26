@@ -172,6 +172,13 @@ export default function HeaderTwo({
                   AUDIT TRAIL
                 </Link>
                 <Link
+                  href="/admin/clearance"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-[10px] font-medium text-white transition-all hover:bg-red-700"
+                  data-testid="header-dmz-quarantine-chip"
+                >
+                  🚨 DMZ QUARANTINE
+                </Link>
+                <Link
                   href="/reports"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >

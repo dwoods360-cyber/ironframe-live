@@ -19,7 +19,6 @@ const PATTERNS = [
 // Files and dirs that are ALE or Financial-related (per TAS)
 const SCAN_PATHS = [
   'prisma/schema.prisma',
-  'prisma-dmz/schema.prisma',
   'core/irontrust/ale-engine.ts',
   'core/irontrust/ale-engine.test.ts',
 ];

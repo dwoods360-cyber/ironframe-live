@@ -128,6 +128,8 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   const [activeActionThreatId, setActiveActionThreatId] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState('');
   const [customJustification, setCustomJustification] = useState('');
+  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const currentUser = 'dereck';
 
   // Only show DB risks that are non-simulation when engines are OFF + optional tenant filter
   const filteredRisks = risks.filter((r) => {
@@ -196,6 +198,7 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
       (a.calculatedRiskScore ?? a.score ?? a.loss ?? 0),
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
+  const assignedFor = (id: string) => assignments[id] ?? 'unassigned';
 
   const isEmpty = sortedActiveThreats.length === 0 && sortedRisks.length === 0;
 
@@ -361,6 +364,33 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                     <ExternalLink className="h-3 w-3" aria-hidden />
                     Assess Risk
                   </Link>
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setAssignments((prev) => ({ ...prev, [threat.id]: currentUser }))}
+                      disabled={assignedFor(threat.id) === currentUser}
+                      className={`px-2 py-1 border rounded transition-colors ${
+                        assignedFor(threat.id) === currentUser
+                          ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
+                          : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
+                      }`}
+                    >
+                      {assignedFor(threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                    </button>
+                    <select
+                      value={assignedFor(threat.id)}
+                      onChange={(e) => setAssignments((prev) => ({ ...prev, [threat.id]: e.target.value }))}
+                      className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
+                    >
+                      <option value="unassigned">Unassigned</option>
+                      <option value="dereck">Dereck</option>
+                      <option value="user_00">user_00</option>
+                      <option value="user_01">user_01</option>
+                      <option value="secops">SecOps Team</option>
+                      <option value="grc">GRC Team</option>
+                      <option value="netsec">NetSec</option>
+                    </select>
+                  </div>
                   <span className={`text-xs font-bold ${(threat.calculatedRiskScore ?? 0) > 70 ? 'text-red-400' : 'text-amber-400'}`}>
                     Score: {threat.calculatedRiskScore ?? threat.score ?? threat.loss}
                   </span>
@@ -462,13 +492,16 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                             className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
                             aria-label="Custom justification"
                           />
+                          <div className="text-[10px] text-gray-500 text-right mt-1">
+                            {customJustification.trim().length} / 50 min characters
+                          </div>
                           <div className="flex flex-wrap gap-2 pt-1">
                             <button
                               type="button"
                               onClick={async () => {
                                 const reason = selectedReason.trim();
                                 const justification = customJustification.trim();
-                                if (!reason || !justification) return;
+                                if (!reason || justification.length < 50) return;
                                 const tenantId = resolveTenantId(selectedTenantName);
                                 const operatorId = 'admin-user-01';
                                 try {
@@ -508,8 +541,12 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                                   // Store logs; form stays open for retry
                                 }
                               }}
-                              disabled={!selectedReason.trim() || !customJustification.trim()}
-                              className="rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={!selectedReason.trim() || customJustification.trim().length < 50}
+                              className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
+                                customJustification.trim().length < 50
+                                  ? 'opacity-50 cursor-not-allowed grayscale'
+                                  : 'opacity-100 cursor-pointer hover:bg-opacity-80'
+                              }`}
                             >
                               SUBMIT {activeAction}
                             </button>
@@ -632,6 +669,33 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                   </p>
                 </div>
                 <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setAssignments((prev) => ({ ...prev, [risk.id]: currentUser }))}
+                      disabled={assignedFor(risk.id) === currentUser}
+                      className={`px-2 py-1 border rounded transition-colors ${
+                        assignedFor(risk.id) === currentUser
+                          ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
+                          : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
+                      }`}
+                    >
+                      {assignedFor(risk.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                    </button>
+                    <select
+                      value={assignedFor(risk.id)}
+                      onChange={(e) => setAssignments((prev) => ({ ...prev, [risk.id]: e.target.value }))}
+                      className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
+                    >
+                      <option value="unassigned">Unassigned</option>
+                      <option value="dereck">Dereck</option>
+                      <option value="user_00">user_00</option>
+                      <option value="user_01">user_01</option>
+                      <option value="secops">SecOps Team</option>
+                      <option value="grc">GRC Team</option>
+                      <option value="netsec">NetSec</option>
+                    </select>
+                  </div>
                   <span className={`text-xs font-bold ${risk.score_cents > 80 ? 'text-red-400' : 'text-amber-400'}`}>
                     Score: {risk.score_cents}
                   </span>
@@ -732,13 +796,16 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                             className="w-full rounded border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-blue-500"
                             aria-label="Custom justification"
                           />
+                          <div className="text-[10px] text-gray-500 text-right mt-1">
+                            {customJustification.trim().length} / 50 min characters
+                          </div>
                           <div className="flex flex-wrap gap-2 pt-1">
                             <button
                               type="button"
                               onClick={async () => {
                                 const reason = selectedReason.trim();
                                 const justification = customJustification.trim();
-                                if (!reason || !justification) return;
+                                if (!reason || justification.length < 50) return;
                                 const operatorId = 'admin-user-01';
                                 const threatId = activeActionThreatId ?? risk.threatId ?? risk.id;
                                 try {
@@ -758,8 +825,12 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                                   // Store logs; form stays open for retry
                                 }
                               }}
-                              disabled={!selectedReason.trim() || !customJustification.trim()}
-                              className="rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={!selectedReason.trim() || customJustification.trim().length < 50}
+                              className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
+                                customJustification.trim().length < 50
+                                  ? 'opacity-50 cursor-not-allowed grayscale'
+                                  : 'opacity-100 cursor-pointer hover:bg-opacity-80'
+                              }`}
                             >
                               SUBMIT CONFIRM
                             </button>

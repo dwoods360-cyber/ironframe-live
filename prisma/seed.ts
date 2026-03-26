@@ -80,6 +80,36 @@ async function main() {
   });
 
   console.log('✅ Ironframe Baseline Seed Complete.');
+
+  // --- Sandbox boundary (default dev tenant UUID) — ensures Attbot / simulations always have a Company row ---
+  const SANDBOX_TENANT_ID = '00000000-0000-0000-0000-000000000000';
+  await prisma.tenant.upsert({
+    where: { id: SANDBOX_TENANT_ID },
+    update: {},
+    create: {
+      id: SANDBOX_TENANT_ID,
+      name: 'Ironframe Sandbox',
+      slug: 'ironframe-sandbox',
+      industry: 'Healthcare',
+      ale_baseline: 0n,
+    },
+  });
+  const existingSandbox = await prisma.company.findFirst({
+    where: { tenantId: SANDBOX_TENANT_ID, name: 'Ironframe Sandbox' },
+    select: { id: true },
+  });
+  if (!existingSandbox) {
+    await prisma.company.create({
+      data: {
+        name: 'Ironframe Sandbox',
+        sector: 'Healthcare',
+        tenantId: SANDBOX_TENANT_ID,
+        industry_avg_loss_cents: 50000000n,
+        infrastructure_val_cents: null,
+      },
+    });
+  }
+  console.log('✅ Sandbox Company Seeded.');
 }
 
 main()

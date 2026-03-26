@@ -51,6 +51,8 @@ model Company {
   sector                   String
   industry_avg_loss_cents  BigInt? // BIGINT Cents
   infrastructure_val_cents BigInt? // BIGINT Cents
+  /// Bootstrap / ATTBOT fallback rows — safe to purge without touching prod companies
+  isTestRecord             Boolean @default(false) @map("is_test_record")
 
   tenantId String  @db.Uuid
   tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -159,6 +161,9 @@ model ThreatEvent {
   // AI investigation report (CoreIntel agent output)
   aiReport String? @db.Text
 
+  /// Raw Irongate / ingress payload (quarantine details before promotion); optional
+  ingestionDetails String? @db.Text
+
   // Relations
   notes      WorkNote[]
   auditTrail AuditLog[]
@@ -167,6 +172,7 @@ model ThreatEvent {
   updatedAt DateTime @updatedAt
 
   @@index([tenantCompanyId])
+  @@map("ThreatEvent")
 }
 
 // --- Appendable Work Notes ---
@@ -179,6 +185,8 @@ model WorkNote {
   threat   ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@map("WorkNote")
 }
 
 // --- Immutable Audit Log ---
@@ -195,6 +203,7 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  @@map("AuditLog")
 }
 
 // ------------------------------------------------------
@@ -257,4 +266,22 @@ model IronwatchLog {
   @@index([created_at])
   @@index([event_type])
   @@map("ironwatch_log")
+}
+
+// ------------------------------------------------------
+// Irongate quarantine file drop (single-DB; formerly prisma-dmz)
+// ------------------------------------------------------
+model QuarantineRecord {
+  id          String   @id @default(cuid())
+  tenantId    String   @db.Uuid
+  fileName    String
+  fileSize    Int
+  storagePath String
+  uploadedBy  String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("quarantine_records")
 }

@@ -131,6 +131,7 @@ type TransactionClient = {
     update: (args: unknown) => Promise<any>;
   };
   auditLog: { create: (args: unknown) => Promise<any> };
+  workNote: { create: (args: unknown) => Promise<any> };
 };
 
 type MissingRecordResponse = { success: false; error: 'AUDIT_LOG_FAILURE: Record no longer exists.' };
@@ -170,19 +171,15 @@ export async function acknowledgeThreatAction(
   if (existing && existing.financialRisk_cents != null) {
     const threshold = getGrcThresholdCents();
     const cents = BigInt(existing.financialRisk_cents);
-    const latestNote = await prisma.workNote.findFirst({
-      where: { threatId: id },
-      orderBy: { createdAt: 'desc' },
-      select: { text: true },
-    });
-    const noteLen = latestNote?.text ? latestNote.text.trim().length : 0;
+    const noteText = (justification ?? '').trim();
+    const noteLen = noteText.length;
     const requiredLen = cents >= threshold ? 50 : 10;
     const hasRequiredNote = noteLen >= requiredLen;
     if (!hasRequiredNote) {
       return {
         success: false,
         error:
-          'GRC Violation: High-value threats require a 50+ character work note. Open the threat drawer and save a work note before acknowledging.',
+          'GRC Violation: High-value threats require a 50+ character work note/justification.',
       };
     }
   }
@@ -194,7 +191,24 @@ export async function acknowledgeThreatAction(
   }
 
   try {
+    const normalizedJustification = (justification ?? '').trim();
+    const parsedJustification = workNoteSchema.safeParse({ text: normalizedJustification });
+    if (!parsedJustification.success) {
+      return {
+        success: false,
+        error: parsedJustification.error.issues.map((i) => i.message).join('; '),
+      };
+    }
+    const savedWorkNoteText = parsedJustification.data.text;
+
     const result = await runThreatTransaction(id, async (tx) => {
+      await tx.workNote.create({
+        data: {
+          text: savedWorkNoteText,
+          operatorId,
+          threatId: id,
+        },
+      });
       await tx.threatEvent.update({
         where: { id },
         data: { status: ThreatState.ACTIVE },
@@ -203,7 +217,7 @@ export async function acknowledgeThreatAction(
       await tx.auditLog.create({
         data: {
           action: 'THREAT_ACKNOWLEDGED',
-          justification: null,
+          justification: savedWorkNoteText,
           operatorId,
           threatId: id,
         },

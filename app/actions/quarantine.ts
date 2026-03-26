@@ -1,13 +1,15 @@
 'use server';
 
-import prismaDmz from '@/lib/prisma-dmz';
+import prisma from '@/lib/prisma';
+import { resolveTenantUuidFromSlugOrUuid } from '@/app/utils/serverTenantContext';
 
 export async function logToQuarantine(fileName: string, tenantId: string = 'medshield') {
   try {
-    const record = await prismaDmz.quarantineRecord.create({
+    const tenantUuid = resolveTenantUuidFromSlugOrUuid(tenantId);
+    const record = await prisma.quarantineRecord.create({
       data: {
         fileName: fileName,
-        tenantId: tenantId,
+        tenantId: tenantUuid,
         status: 'PENDING',
         fileSize: 0,
         storagePath: 'pending/',
@@ -16,7 +18,7 @@ export async function logToQuarantine(fileName: string, tenantId: string = 'meds
     });
     return { success: true, record };
   } catch (error) {
-    console.error('[DMZ_ERROR] Failed to quarantine:', error);
+    console.error('[QUARANTINE_ERROR] Failed to persist:', error);
     return { success: false };
   }
 }

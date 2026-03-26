@@ -59,6 +59,10 @@ export type PipelineThreat = {
   lifecycleState?: LifecycleState;
   /** Optional de-acknowledgement reason selected during triage */
   deackReason?: string;
+  /** ISO timestamp from DB ingestion — used to order Attack Velocity (newest first) */
+  createdAt?: string;
+  /** Optional assignee for operational ownership controls. */
+  assignedTo?: string;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -211,10 +215,8 @@ interface RiskState {
   /** Open or close manual form without changing draft. */
   setManualFormOpen: (open: boolean) => void;
   /**
-   * Register a threat via POST /api/threats, then upsert the returned record into the pipeline.
-   * Ensures pipeline entries always have a valid DB-backed id (no phantoms).
-   * Payload.loss must be a string (cents or $M decimal) for BigInt-safe API.
-   * Payload.tenantId is the tenant UUID (x-tenant-id); required for Constitutional isolation.
+   * Register a threat via POST /api/threats and route it to pipeline or active risks.
+   * Ensures entries always have a valid DB-backed id (no phantoms).
    */
   registerThreatViaApi: (payload: {
     title: string;
@@ -223,6 +225,7 @@ interface RiskState {
     loss: string;
     description?: string;
     tenantId: string;
+    destination?: "pipeline" | "active";
   }) => Promise<PipelineThreat>;
 }
 
@@ -266,6 +269,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         ...threat,
         lifecycleState: threat.lifecycleState ?? "pipeline",
         workNotes: threat.workNotes ?? [],
+        createdAt: threat.createdAt ?? new Date().toISOString(),
       };
       const idx = state.pipelineThreats.findIndex((t) => t.id === normalized.id);
       const nextPipelineThreats =
@@ -758,6 +762,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         target: payload.target?.trim() || 'Healthcare',
         loss: payload.loss,
         notes: payload.description?.trim() || undefined,
+        destination: payload.destination ?? 'pipeline',
       }),
     });
     if (!res.ok) {
@@ -767,7 +772,28 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       throw new Error(details ? `${msg}: ${details}` : msg);
     }
     const record = (await res.json()) as PipelineThreat;
-    get().upsertPipelineThreat(record);
+    if (payload.destination === "active" || record.lifecycleState === "active") {
+      set((state) => {
+        const normalized: PipelineThreat = {
+          ...record,
+          lifecycleState: "active",
+          workNotes: record.workNotes ?? [],
+          createdAt: record.createdAt ?? new Date().toISOString(),
+          assignedTo: record.assignedTo ?? "unassigned",
+        };
+        const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
+        const nextActiveThreats =
+          idx === -1
+            ? [normalized, ...state.activeThreats]
+            : state.activeThreats.map((t, i) => (i === idx ? { ...t, ...normalized } : t));
+        return {
+          activeThreats: nextActiveThreats,
+          threatIndexById: buildThreatIndexById(state.pipelineThreats, nextActiveThreats),
+        };
+      });
+    } else {
+      get().upsertPipelineThreat(record);
+    }
     return record;
   },
 

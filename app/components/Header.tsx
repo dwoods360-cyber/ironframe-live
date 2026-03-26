@@ -1,11 +1,8 @@
 "use client";
 
 /**
- * Dashboard header: Tenant Selection dropdown next to Protected Tenants.
- * Expert Mode toggle: show/hide audit stream and full risk exposure (default ON for QA).
- * Audit Trail link and Purge simulation button.
+ * Dashboard header: EMERGENCY CLICK TEST, tenant select, then Expert / warning / Purge (single row).
  */
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { purgeSimulation } from "@/app/actions/purgeSimulation";
@@ -26,7 +23,6 @@ const CONSULTANT_TENANT_OPTIONS = [
 ];
 
 type HeaderProps = {
-  /** Additional tenant names from server (e.g. company names). Merged with consultant options. */
   tenantNames?: string[];
 };
 
@@ -55,7 +51,9 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
         useGrcBotStore.getState().stop();
         useRiskStore.getState().clearAllRiskStateForPurge();
         useRiskStore.getState().setSelectedThreatId(null);
-        useAgentStore.getState().addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
+        useAgentStore
+          .getState()
+          .addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
         sleepBlueTeam();
       }
       setShowPurgeConfirm(false);
@@ -67,10 +65,9 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
 
   return (
     <div
-      className="flex items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
+      className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
-      {/* # HEADER_TITLE — Playwright E2E expects this exact text (Iteration 3.1) */}
       <h1 className="text-sm font-bold uppercase tracking-wider text-white shrink-0">
         EMERGENCY CLICK TEST
       </h1>
@@ -90,38 +87,40 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
           </option>
         ))}
       </select>
-      <Link
-        href="/reports/audit-trail"
-        className="rounded border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[11px] font-medium text-slate-200 outline-none hover:border-blue-500 hover:text-white"
-      >
-        Audit Trail
-      </Link>
-      <div className="ml-auto flex items-center gap-2">
-        <label
-          htmlFor="expert-mode-toggle"
-          className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
-        >
-          Expert Mode
-        </label>
-        <button
-          id="expert-mode-toggle"
-          type="button"
-          role="switch"
-          aria-checked={expertModeEnabled}
-          onClick={() => setExpertModeEnabled(!expertModeEnabled)}
-          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-            expertModeEnabled ? "bg-blue-600" : "bg-slate-700"
-          }`}
-        >
-          <span
-            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
-              expertModeEnabled ? "translate-x-6" : "translate-x-1"
+
+      <div className="ml-auto flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto">
+        <div className="flex shrink-0 items-center gap-2">
+          <label
+            htmlFor="expert-mode-toggle"
+            className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
+          >
+            Expert Mode
+          </label>
+          <button
+            id="expert-mode-toggle"
+            type="button"
+            role="switch"
+            aria-checked={expertModeEnabled}
+            onClick={() => setExpertModeEnabled(!expertModeEnabled)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+              expertModeEnabled ? "bg-blue-600" : "bg-slate-700"
             }`}
-          />
-        </button>
-        <span className="text-[10px] text-slate-500">
-          {expertModeEnabled ? "ON" : "OFF"}
-        </span>
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                expertModeEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-slate-500">
+            {expertModeEnabled ? "ON" : "OFF"}
+          </span>
+        </div>
+        <div className="shrink-0 text-right text-[10px] leading-tight text-[#ff4b4b] font-mono whitespace-nowrap">
+          Master State Reset. ⚠️ DEV ONLY:
+          <br />
+          Do not deploy to Prod!
+        </div>
         {showPurgeConfirm ? (
           <div className="flex items-center gap-2 rounded border border-slate-600 bg-slate-900/90 px-2 py-1">
             <span className="text-[10px] text-slate-300">Purge simulation?</span>

@@ -18,6 +18,7 @@ export default async function ActiveRisks() {
         company_id: true,
         title: true,
         status: true,
+        assigneeId: true,
         score_cents: true,
         source: true,
         company: { select: { name: true, sector: true } },
@@ -27,7 +28,24 @@ export default async function ActiveRisks() {
       },
     }),
     prisma.threatEvent.findMany({
-      select: { id: true, title: true, sourceAgent: true, updatedAt: true },
+      select: {
+        id: true,
+        title: true,
+        sourceAgent: true,
+        updatedAt: true,
+        assigneeId: true,
+        auditTrail: {
+          where: { action: 'ASSIGNMENT_CHANGED' },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            action: true,
+            justification: true,
+            operatorId: true,
+            createdAt: true,
+          },
+        },
+      },
       orderBy: { updatedAt: 'desc' },
     }),
   ]);
@@ -51,19 +69,48 @@ export default async function ActiveRisks() {
     }
   }
 
+  const assigneeByThreatEventId = new Map<string, string | null>();
+  for (const t of threatEvents) {
+    assigneeByThreatEventId.set(t.id, t.assigneeId);
+  }
+
   // Serialize for client (BigInt -> string, etc.); default isSimulation to false when column not selected
-  const serialized = filteredRisks.map((risk) => ({
-    id: risk.id.toString(),
-    title: risk.title,
-    source: risk.source,
-    threatId:
+  const serialized = filteredRisks.map((risk) => {
+    const threatId =
       threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
       threatByTitle.get(normalize(risk.title)) ??
-      null,
-    score_cents: Number(risk.score_cents),
-    company: { name: risk.company.name, sector: risk.company.sector },
-    isSimulation: false,
+      null;
+    const teAssignee = threatId ? assigneeByThreatEventId.get(threatId) ?? null : null;
+    const mergedAssignee = risk.assigneeId ?? teAssignee;
+    const assigneeStr =
+      mergedAssignee != null && String(mergedAssignee).trim() !== ''
+        ? String(mergedAssignee).trim()
+        : undefined;
+    return {
+      id: risk.id.toString(),
+      title: risk.title,
+      source: risk.source,
+      assigneeId: assigneeStr,
+      threatId,
+      score_cents: Number(risk.score_cents),
+      company: { name: risk.company.name, sector: risk.company.sector },
+      isSimulation: false,
+    };
+  });
+
+  const threatEventsForClient = threatEvents.map((t) => ({
+    id: t.id,
+    title: t.title,
+    sourceAgent: t.sourceAgent,
+    assigneeId: t.assigneeId ?? null,
+    assignmentHistory: (t.auditTrail ?? []).map((log) => ({
+      id: log.id,
+      action: log.action,
+      justification: log.justification,
+      operatorId: log.operatorId,
+      createdAt: log.createdAt.toISOString(),
+    })),
   }));
 
-  return <ActiveRisksClient risks={serialized} />;
+  return <ActiveRisksClient risks={serialized} threatEvents={threatEventsForClient} />;
 }

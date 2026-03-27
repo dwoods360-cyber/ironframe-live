@@ -45,10 +45,25 @@ type DashboardData = {
     id: string;
     title: string;
     source: string;
+    assigneeId?: string;
     threatId?: string | null;
     score_cents: number;
     company: { name: string; sector: string };
     isSimulation?: boolean;
+  }>;
+  /** Live ThreatEvent rows — includes assigneeId for hydration when ActiveRisk is empty. */
+  threatEvents?: Array<{
+    id: string;
+    title: string;
+    sourceAgent: string;
+    assigneeId: string | null;
+    assignmentHistory?: Array<{
+      id: string;
+      action: string;
+      justification: string | null;
+      operatorId: string;
+      createdAt: string;
+    }>;
   }>;
 };
 
@@ -66,7 +81,10 @@ export default function Page() {
     setError(null);
     // Tenant isolation: send x-tenant-id (required by GET /api/dashboard). Default to medshield when not on a tenant route.
     const tenantUuid = activeTenantUuid ?? TENANT_UUIDS.medshield;
-    tenantFetch('/api/dashboard', { headers: { 'x-tenant-id': tenantUuid } } as RequestInit)
+    tenantFetch('/api/dashboard', {
+      cache: 'no-store',
+      headers: { 'x-tenant-id': tenantUuid } as HeadersInit,
+    })
       .then((res) => {
         if (!res.ok) throw new Error(res.status === 401 ? 'Tenant context required' : 'Failed to load dashboard');
         return res.json();
@@ -178,7 +196,11 @@ export default function Page() {
             incomingAgentAlerts={liveAlerts}
             setSelectedThreatId={setSelectedThreatId}
           />
-          <ActiveRisksClient risks={data.risks} setSelectedThreatId={setSelectedThreatId} />
+          <ActiveRisksClient
+            risks={data.risks}
+            threatEvents={data.threatEvents ?? []}
+            setSelectedThreatId={setSelectedThreatId}
+          />
         </section>
 
         {/* # AUDIT_STREAM_LOGIC — serverAuditLogs + useAuditLoggerStore (auditLogs) merged in AuditIntelligence */}

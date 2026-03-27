@@ -123,6 +123,8 @@ export async function POST(request: NextRequest) {
       target: created.targetEntity,
       source: created.sourceAgent,
       description: descriptionText,
+      /** GRC triage justification (manual registration notes) — shown on Active Risks board. */
+      justification: description.trim() || undefined,
       tenantId,
       assignedTo: 'unassigned',
       lifecycleState: created.status === ThreatState.ACTIVE ? 'active' : 'pipeline',

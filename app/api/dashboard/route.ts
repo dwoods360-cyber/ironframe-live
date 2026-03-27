@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_noStore as noStore } from 'next/cache';
 import prisma from '@/lib/prisma';
+
+/** Never statically cache this route — dashboard must reflect live DB (assignee, risks, logs). */
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -18,7 +23,12 @@ const serializeBigInt = (obj: unknown): unknown => {
 
 /** GET /api/dashboard — tenant-scoped data for the dashboard. Requires x-tenant-id header (UUID). */
 export async function GET(request: NextRequest) {
+  noStore();
   try {
+    // Touch request headers so the handler stays fully dynamic (tenant + cache-bust behavior).
+    void request.headers.get('x-tenant-id');
+    void request.headers.get('sec-fetch-mode');
+
     const activeTenantUuid = request.headers.get('x-tenant-id')?.trim() || null;
 
     if (!activeTenantUuid) {
@@ -56,8 +66,26 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { score_cents: 'desc' },
       }),
+      // LKG: no separate Operator/User join — actor display names live in AuditLog.justification JSON for ASSIGNMENT_CHANGED.
       prisma.threatEvent.findMany({
-        select: { id: true, title: true, sourceAgent: true, updatedAt: true },
+        select: {
+          id: true,
+          title: true,
+          sourceAgent: true,
+          updatedAt: true,
+          assigneeId: true,
+          auditTrail: {
+            where: { action: 'ASSIGNMENT_CHANGED' },
+            orderBy: { createdAt: 'asc' },
+            select: {
+              id: true,
+              action: true,
+              justification: true,
+              operatorId: true,
+              createdAt: true,
+            },
+          },
+        },
         orderBy: { updatedAt: 'desc' },
       }),
     ]);
@@ -79,25 +107,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const serializedRisks = filteredRisks.map((risk) => ({
-      id: risk.id.toString(),
-      title: risk.title,
-      source: risk.source,
-      assigneeId: risk.assigneeId,
-      threatId:
+    const assigneeByThreatEventId = new Map<string, string | null>();
+    for (const t of threatEvents) {
+      assigneeByThreatEventId.set(t.id, t.assigneeId);
+    }
+
+    const serializedRisks = filteredRisks.map((risk) => {
+      const threatId =
         threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
         threatByTitle.get(normalize(risk.title)) ??
-        null,
-      score_cents: risk.score_cents,
-      company: { name: risk.company.name, sector: risk.company.sector },
-      isSimulation: risk.isSimulation,
-    }));
+        null;
+      const teAssignee = threatId ? assigneeByThreatEventId.get(threatId) ?? null : null;
+      const merged = risk.assigneeId ?? teAssignee;
+      const assigneeId =
+        merged != null && String(merged).trim() !== '' ? String(merged).trim() : undefined;
+      return {
+        id: risk.id.toString(),
+        title: risk.title,
+        source: risk.source,
+        assigneeId,
+        threatId,
+        score_cents: risk.score_cents,
+        company: { name: risk.company.name, sector: risk.company.sector },
+        isSimulation: risk.isSimulation,
+      };
+    });
 
     const serializedCompanies = companies.map((c) => ({
       ...c,
       id: c.id,
       industry_avg_loss_cents: c.industry_avg_loss_cents ?? null,
       infrastructure_val_cents: c.infrastructure_val_cents ?? null,
+    }));
+
+    /** ThreatEvent rows with assigneeId + ASSIGNMENT_CHANGED chain-of-custody. */
+    const threatEventsPayload = threatEvents.map((t) => ({
+      id: t.id,
+      title: t.title,
+      sourceAgent: t.sourceAgent,
+      assigneeId: t.assigneeId ?? null,
+      assignmentHistory: (t.auditTrail ?? []).map((log) => ({
+        id: log.id,
+        action: log.action,
+        justification: log.justification,
+        operatorId: log.operatorId,
+        createdAt: log.createdAt.toISOString(),
+      })),
     }));
 
     const data = {
@@ -107,8 +162,14 @@ export async function GET(request: NextRequest) {
         createdAt: row.createdAt.toISOString(),
       })),
       risks: serializedRisks,
+      threatEvents: threatEventsPayload,
     };
-    return NextResponse.json(serializeBigInt(data));
+    return NextResponse.json(serializeBigInt(data), {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        Pragma: 'no-cache',
+      },
+    });
   } catch (e) {
     console.error('[api/dashboard]', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

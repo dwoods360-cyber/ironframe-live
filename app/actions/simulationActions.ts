@@ -134,6 +134,16 @@ export type PipelineThreatFromDb = {
   source: string;
   description: string;
   createdAt?: string;
+  /** Mirrors ThreatEvent.assignee_id — execution-board owner */
+  assignedTo?: string;
+  /** AuditLog rows with action ASSIGNMENT_CHANGED (chain of custody). */
+  assignmentHistory?: Array<{
+    id: string;
+    action: string;
+    justification: string | null;
+    operatorId: string;
+    createdAt: string;
+  }>;
   workNotes?: { text: string; user: string; timestamp: string }[];
 };
 
@@ -152,6 +162,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       targetEntity: true,
       sourceAgent: true,
       createdAt: true,
+      assigneeId: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -164,6 +175,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
     source: r.sourceAgent,
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
     createdAt: r.createdAt.toISOString(),
+    assignedTo: r.assigneeId?.trim() || undefined,
   }));
 }
 
@@ -177,6 +189,10 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
       notes: {
         orderBy: { createdAt: "desc" },
       },
+      auditTrail: {
+        where: { action: "ASSIGNMENT_CHANGED" },
+        orderBy: { createdAt: "asc" },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });
@@ -188,6 +204,14 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
     industry: r.targetEntity,
     source: r.sourceAgent,
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+    assignedTo: r.assigneeId?.trim() || undefined,
+    assignmentHistory: (r.auditTrail ?? []).map((log) => ({
+      id: log.id,
+      action: log.action,
+      justification: log.justification,
+      operatorId: log.operatorId,
+      createdAt: log.createdAt.toISOString(),
+    })),
     workNotes: (r.notes ?? []).map((n) => ({
       text: n.text,
       user: n.operatorId,

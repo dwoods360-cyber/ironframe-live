@@ -158,6 +158,8 @@ model ThreatEvent {
   status      ThreatState  @default(PIPELINE)
   ttlSeconds  Int          @default(259200) // 72 hours default
   deAckReason DeAckReason? // Required if status is DE_ACKNOWLEDGED
+  /// Operational owner (execution board / claim); persisted with the threat row
+  assigneeId  String?      @map("assignee_id")
 
   // AI investigation report (CoreIntel agent output)
   aiReport String? @db.Text

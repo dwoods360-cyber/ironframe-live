@@ -10,7 +10,6 @@ import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { appendAuditLog } from "@/app/utils/auditLogger";
-import { rejectThreatAction } from "@/app/actions/threatActions";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useAgentStore } from "@/app/store/agentStore";
@@ -66,8 +65,24 @@ const CURRENT_USER_ID = "Dereck";
 
 const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
 
-/** $10M in cents — GRC gate: threats >= this require 50+ char justification before Ingest/Acknowledge */
-const GRC_THRESHOLD_CENTS = 1000000000n;
+/** Strategic Intel "Top Sector Threats" — pipeline `source` / DB `sourceAgent`; GRC box pre-filled with this text. */
+const TOP_SECTOR_SOURCE_LABEL = "Top Sector Threats";
+const TOP_SECTOR_JUSTIFICATION_TEXT = "Top Sector Threat";
+
+function isTopSectorPipelineThreat(threat: PipelineThreat): boolean {
+  const src = (threat.source ?? "").trim();
+  if (src === TOP_SECTOR_SOURCE_LABEL) return true;
+  const agent = (threat as { sourceAgent?: string }).sourceAgent?.trim() ?? "";
+  return agent === TOP_SECTOR_SOURCE_LABEL;
+}
+
+/** Manual Risk Entry source field — matches Strategic Intel sidebar profiles. */
+const STRATEGIC_INTEL_PROFILE_SOURCE = "Strategic Intel Profile";
+
+function isManualTopSectorIntelSource(source: string): boolean {
+  const s = source.trim();
+  return s === TOP_SECTOR_SOURCE_LABEL || s === STRATEGIC_INTEL_PROFILE_SOURCE;
+}
 
 function sendStakeholderEmail(threat: PipelineThreat, notes: string[], liabilityM: number) {
   const notesText = notes.length > 0 ? notes.join(" | ") : "None";
@@ -101,10 +116,13 @@ function PipelineThreatCard({
 }) {
   const storeSet = useRiskStore((s) => s.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSet;
-  const [justification, setJustification] = useState("");
-  const [mitigationText, setMitigationText] = useState("");
+  /** Singular pipeline intake field — submitted to acknowledgeThreat / workNoteSchema. */
+  const isTopSectorThreat = isTopSectorPipelineThreat(threat);
+  const [grcJustification, setGrcJustification] = useState(() =>
+    isTopSectorThreat ? TOP_SECTOR_JUSTIFICATION_TEXT : "",
+  );
+  const [ackPending, setAckPending] = useState(false);
   const [assignedTo, setAssignedTo] = useState("unassigned");
-  const [deackReason, setDeackReason] = useState<string>("");
   const [likelihood, setLikelihood] = useState(threat.likelihood ?? 8);
   const [impact, setImpact] = useState(threat.impact ?? 9);
   const currentUser = "dereck";
@@ -123,12 +141,11 @@ function PipelineThreatCard({
   }, [tttStopped]);
 
   const acknowledgeThreat = useRiskStore((s) => s.acknowledgeThreat);
-  const deAcknowledgeThreat = useRiskStore((s) => s.deAcknowledgeThreat);
-  const removeThreatFromPipeline = useRiskStore((s) => s.removeThreatFromPipeline);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
+  const kimbotAttackQueueCount = useKimbotStore((s) => s.injectedSignals.length);
 
   useEffect(() => {
     setLikelihood(threat.likelihood ?? 8);
@@ -136,7 +153,6 @@ function PipelineThreatCard({
   }, [threat.likelihood, threat.impact]);
 
   const scoreM = threat.score ?? threat.loss;
-  const entityKey = threat.industry ? (INDUSTRY_TO_ENTITY[threat.industry]?.entityKey ?? "medshield") : "medshield";
   const isKimbotThreat =
     (threat.source ?? "").toUpperCase() === "KIMBOT" || (threat.name ?? "").startsWith("[KIMBOT]");
   const existingNotes = threat.notes ?? [];
@@ -170,15 +186,6 @@ function PipelineThreatCard({
     severityLabelText = "CRITICAL";
   }
 
-  const handleScoreChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const v = parseFloat(e.target.value);
-    if (!Number.isNaN(v) && v >= 0) updatePipelineThreat(threat.id, { score: v });
-  };
-
-  const handleTargetChange = (e: ChangeEvent<HTMLInputElement>) => {
-    updatePipelineThreat(threat.id, { target: e.target.value || undefined });
-  };
-
   const handleLikelihoodChange = (e: ChangeEvent<HTMLInputElement>) => {
     const v = Number.parseInt(e.target.value || "0", 10);
     if (Number.isNaN(v)) return;
@@ -207,21 +214,18 @@ function PipelineThreatCard({
     updatePipelineThreat(threat.id, { impact: next });
   };
 
-  const justificationLen = justification.trim().length;
+  const grcTrimmed = grcJustification.trim();
+  const grcAckLen = grcTrimmed.length;
+  const ackRequirementsMet =
+    grcAckLen >= 50 ||
+    (isTopSectorThreat && grcTrimmed === TOP_SECTOR_JUSTIFICATION_TEXT);
 
-  const scoreCents = Math.round((threat.loss ?? threat.score ?? 0) * 100_000_000);
-  const isHighValue = BigInt(scoreCents) >= GRC_THRESHOLD_CENTS;
-
-  // Primary ACK availability; 50-char mitigation lock is applied on the button via mitigationText.
   const ackEnabled = true;
-  const deackEnabled =
-    deackReason &&
-    deackReason !== "Select Reason..." &&
-    justificationLen >= 50;
 
   const handleAcknowledgeClick = async () => {
-    if (!ackEnabled) return;
+    if (!ackEnabled || ackPending) return;
 
+    setAckPending(true);
     setThreatActionError({ active: false, message: "" });
     setTttStopped(true);
     const timeToTriageSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
@@ -236,10 +240,12 @@ function PipelineThreatCard({
     });
 
     try {
+      const workNotePayload = grcTrimmed;
+
       await acknowledgeThreat(
         threat.id,
         operatorId,
-        mitigationText.trim(),
+        workNotePayload,
         resolveTenantId(activeTenant)
       );
       const err = useRiskStore.getState().threatActionError;
@@ -265,8 +271,7 @@ function PipelineThreatCard({
         metadata_tag: `${scopeTag}|TTT:${timeToTriageSeconds}s`,
         user_id: operatorId,
       });
-      setJustification("");
-      setDeackReason("");
+      setGrcJustification("");
       onActionSuccess?.();
     } catch (error) {
       updatePipelineThreat(threat.id, {
@@ -285,114 +290,16 @@ function PipelineThreatCard({
         metadata_tag: scopeTag,
         user_id: "admin-user-01",
       });
+    } finally {
+      setAckPending(false);
     }
   };
 
-  const handleDeAcknowledgeClick = async () => {
-    if (!deackEnabled) return;
-
-    setThreatActionError({ active: false, message: "" });
-
-    const trimmedJustification = justification.trim();
-
-    const newNotes = [...existingNotes];
-    newNotes.push(`Justification: ${trimmedJustification}`);
-    newNotes.push(`Reason: ${deackReason}`);
-
-    appendAuditLog({
-      action_type: "GRC_DEACKNOWLEDGE_CLICK",
-      log_type: "GRC",
-      description: `De-acknowledged threat: ${threat.name}`,
-      metadata_tag: [scopeTag, deackReason, trimmedJustification].filter(Boolean).join(" | "),
-    });
-
-    const prevLifecycle = threat.lifecycleState;
-    const prevLastTriage = threat.lastTriageAction;
-
-    updatePipelineThreat(threat.id, {
-      notes: newNotes,
-      lastTriageAction: "DEACKNOWLEDGE",
-      deackReason,
-    });
-
-    const toast = {
-      error: (message: string) => {
-        setThreatActionError({ active: true, message });
-      },
-    };
-    const onClose = () => {
-      setSelectedThreatId(null);
-    };
-    const clearActiveThreat = () => {
-      setSelectedThreatId(null);
-    };
-
-    // # GRC_ACTION_CHIPS — De-Ack: on success sync to audit store; on failure (GRC or missing record) revert, store sets threatActionError
-    try {
-      await deAcknowledgeThreat(threat.id, resolveTenantId(activeTenant), deackReason, trimmedJustification, "admin-user-01");
-      const err = useRiskStore.getState().threatActionError;
-      if (err.active && err.message) {
-        updatePipelineThreat(threat.id, {
-          lifecycleState: prevLifecycle ?? "pipeline",
-          lastTriageAction: prevLastTriage,
-        });
-        appendAuditLog({
-          action_type: "SYSTEM_WARNING",
-          log_type: "GRC",
-          description: "De-acknowledge failed for threat.",
-          metadata_tag: scopeTag,
-          user_id: "admin-user-01",
-        });
-        onClose();
-        clearActiveThreat();
-        return;
-      }
-      appendAuditLog({
-        action_type: "STATE_REGRESSION",
-        log_type: "GRC",
-        description: "User reversed acknowledgment of risk.",
-        metadata_tag: scopeTag,
-        user_id: "admin-user-01",
-      });
-      setJustification("");
-      setDeackReason("");
-      onActionSuccess?.();
-    } catch {
-      updatePipelineThreat(threat.id, {
-        lifecycleState: prevLifecycle ?? "pipeline",
-        lastTriageAction: prevLastTriage,
-      });
-      toast.error("Action failed: Record no longer exists.");
-      appendAuditLog({
-        action_type: "SYSTEM_WARNING",
-        log_type: "GRC",
-        description: "Attempted to modify a purged or non-existent record.",
-        metadata_tag: scopeTag,
-      });
-      onClose();
-      clearActiveThreat();
-    }
-  };
-
-  // # GRC_ACTION_CHIPS — Reject: log RISK_REJECTED, remove from pipeline, sync to audit store
-  const handleRejectClick = async () => {
-    setThreatActionError({ active: false, message: "" });
-    appendAuditLog({
-      action_type: "RISK_REJECTED",
-      log_type: "GRC",
-      description: "User rejected risk ingestion/registration.",
-      metadata_tag: scopeTag,
-      user_id: "admin-user-01",
-    });
-    try {
-      await rejectThreatAction(threat.id, "admin-user-01");
-    } catch {
-      // Server audit may fail (e.g. no DB); client log already appended
-    }
-    removeThreatFromPipeline(threat.id);
-    setSelectedThreatId(null);
-    onActionSuccess?.();
-  };
+  const liabilityMillions = threat.loss ?? threat.score ?? 0;
+  const sectorKeys = Object.keys(INDUSTRY_TO_ENTITY) as Array<keyof typeof INDUSTRY_TO_ENTITY>;
+  const selectedSector = (threat.industry && sectorKeys.includes(threat.industry as keyof typeof INDUSTRY_TO_ENTITY)
+    ? threat.industry
+    : "Healthcare") as keyof typeof INDUSTRY_TO_ENTITY;
 
   return (
     <div
@@ -402,127 +309,191 @@ function PipelineThreatCard({
           : "rounded border border-slate-700 bg-slate-900/60 overflow-hidden font-sans"
       }
     >
-      <div className="p-3 space-y-2">
-        {/* Header: two-row structure — Identity & Source, then Metrics & Actions */}
-        <div className="flex flex-col w-full gap-2">
-          <div className="flex flex-wrap items-center gap-2 w-full">
-            {isKimbotThreat && (
-              <Skull className="h-4 w-4 text-red-500 shrink-0" aria-hidden />
-            )}
-            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-              severityLabelText === "MEDIUM"
-                ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
-                : severityLabelText === "HIGH"
-                ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
-                : "bg-red-500/10 border-red-500/60 text-red-300"
-            }`}>
-              {severityLabelText}
-            </span>
-            <Link
-              href={`/threats/${threat.id}`}
-              onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
-              className="min-w-0 truncate text-sm font-medium text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-900 rounded"
-            >
-              {threat.name}
-            </Link>
-            <span className="rounded-full border border-slate-600 bg-slate-800/70 px-2 py-0.5 text-[9px] font-medium text-slate-300">
-              {threat.target ?? threat.industry ?? "—"}
-            </span>
+      <div className="p-4 space-y-4">
+        {/* Header — legacy Kimbot layout */}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              {isKimbotThreat && <Skull className="h-4 w-4 shrink-0 text-red-500" aria-hidden />}
+              <span
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                  severityLabelText === "MEDIUM"
+                    ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
+                    : severityLabelText === "HIGH"
+                      ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
+                      : "bg-red-500/10 border-red-500/60 text-red-300"
+                }`}
+              >
+                {severityLabelText}
+              </span>
+              <Link
+                href={`/threats/${threat.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedThreatId(threat.id);
+                }}
+                className="min-w-0 truncate text-sm font-semibold text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-950 rounded"
+              >
+                {threat.name}
+              </Link>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="rounded-full border border-emerald-500/50 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
+                ${scoreM.toFixed(2)}M Liability
+              </span>
+              {isKimbotThreat && (
+                <span className="rounded-full border border-amber-500/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+                  {kimbotAttackQueueCount} ATTACKS IN QUEUE
+                </span>
+              )}
+              <Link
+                href={`/threats/${threat.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedThreatId(threat.id);
+                }}
+                className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 hover:border-blue-500/60 hover:text-blue-200"
+              >
+                <ExternalLink className="h-3 w-3" aria-hidden />
+                VIEW DETAILS
+              </Link>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full">
-            <span className="font-mono text-[11px] font-semibold text-slate-200">
-              ${scoreM.toFixed(1)}M
+          <p className="font-mono text-[10px] text-slate-500 break-all">{threat.id}</p>
+          <p className="text-[10px] text-slate-400">
+            Source: {threat.source ?? "—"} · Sector: {threat.industry ?? "—"} · Target:{" "}
+            {threat.target ?? threat.industry ?? "—"}
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Liability: ${scoreM.toFixed(1)}M · {threat.source ?? "—"}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+            <span className="font-mono" title="Time since detection">
+              Triage clock {tttDisplay}
             </span>
-            <span className="font-mono text-[10px] text-slate-400" title="Time since detection">
-              {tttDisplay}
-            </span>
-            <Link
-              href={`/threats/${threat.id}`}
-              onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
-              className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-300 hover:border-blue-500/60 hover:text-blue-200"
-            >
-              <ExternalLink className="h-3 w-3" aria-hidden />
-              Details
-            </Link>
           </div>
         </div>
 
-        {/* Sub-header: badges [Likelihood] [Impact] [Score] — interactive 1–10 inputs with +/- */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[9px]">
-          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
-            <span className="pl-1.5 pr-0.5 text-slate-400">L:</span>
-            <button
-              type="button"
-              onClick={() => adjustLikelihood(-1)}
-              disabled={likelihood <= 1}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Decrease likelihood"
-            >
-              −
-            </button>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={likelihood}
-              onChange={handleLikelihoodChange}
-              className="w-7 border-0 bg-transparent py-0 pl-0.5 pr-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label="Likelihood 1-10"
-            />
-            <button
-              type="button"
-              onClick={() => adjustLikelihood(1)}
-              disabled={likelihood >= 10}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Increase likelihood"
-            >
-              +
-            </button>
+        {/* TRIAGE — liability, target, L / I, risk score */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Triage</p>
+          <div className="flex flex-wrap items-end gap-3 text-[10px]">
+            <label className="flex flex-col gap-1 text-slate-400">
+              <span>Liability ($M)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={Number(liabilityMillions.toFixed(1))}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (Number.isNaN(v)) return;
+                  updatePipelineThreat(threat.id, { score: v, loss: v } as Parameters<
+                    typeof updatePipelineThreat
+                  >[1] & { loss: number; industry?: string });
+                }}
+                className="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 font-mono text-slate-100 outline-none focus:border-blue-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-slate-400">
+              <span>Target</span>
+              <select
+                value={selectedSector}
+                onChange={(e) => {
+                  const sector = e.target.value as keyof typeof INDUSTRY_TO_ENTITY;
+                  const meta = INDUSTRY_TO_ENTITY[sector];
+                  updatePipelineThreat(threat.id, {
+                    industry: sector,
+                    target: meta?.entityLabel ?? sector,
+                  } as Parameters<typeof updatePipelineThreat>[1] & { industry?: string });
+                }}
+                className="min-w-[8rem] rounded border border-slate-600 bg-slate-950 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
+              >
+                {sectorKeys.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
+              <span className="pl-1.5 pr-0.5 text-slate-400">L:</span>
+              <button
+                type="button"
+                onClick={() => adjustLikelihood(-1)}
+                disabled={likelihood <= 1}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40"
+                aria-label="Decrease likelihood"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={likelihood}
+                onChange={handleLikelihoodChange}
+                className="w-8 border-0 bg-transparent py-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                aria-label="Likelihood 1-10"
+              />
+              <button
+                type="button"
+                onClick={() => adjustLikelihood(1)}
+                disabled={likelihood >= 10}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40"
+                aria-label="Increase likelihood"
+              >
+                +
+              </button>
+            </div>
+            <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
+              <span className="pl-1.5 pr-0.5 text-slate-400">I:</span>
+              <button
+                type="button"
+                onClick={() => adjustImpact(-1)}
+                disabled={impact <= 1}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40"
+                aria-label="Decrease impact"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={impact}
+                onChange={handleImpactChange}
+                className="w-8 border-0 bg-transparent py-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                aria-label="Impact 1-10"
+              />
+              <button
+                type="button"
+                onClick={() => adjustImpact(1)}
+                disabled={impact >= 10}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40"
+                aria-label="Increase impact"
+              >
+                +
+              </button>
+            </div>
+            <div className="ml-auto text-right">
+              <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Risk Score</span>
+              <p className="text-lg font-bold text-white">
+                {hasResidualChange ? (
+                  <>
+                    <span className="text-slate-500 line-through">{inherentScore}</span>{" "}
+                    <span className={residualColorClass}>{residualScore}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-200">{residualScore}</span>
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/80 font-mono text-slate-200">
-            <span className="pl-1.5 pr-0.5 text-slate-400">I:</span>
-            <button
-              type="button"
-              onClick={() => adjustImpact(-1)}
-              disabled={impact <= 1}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-l text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Decrease impact"
-            >
-              −
-            </button>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={impact}
-              onChange={handleImpactChange}
-              className="w-7 border-0 bg-transparent py-0 pl-0.5 pr-0 text-center text-slate-200 [-moz-appearance:textfield] focus:outline-none focus:ring-1 focus:ring-slate-500 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              aria-label="Impact 1-10"
-            />
-            <button
-              type="button"
-              onClick={() => adjustImpact(1)}
-              disabled={impact >= 10}
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-r text-slate-400 hover:bg-slate-700/80 hover:text-slate-200 disabled:opacity-40 disabled:hover:bg-transparent"
-              aria-label="Increase impact"
-            >
-              +
-            </button>
-          </div>
-          <span className="rounded-full border border-slate-700 bg-slate-900/80 px-1.5 py-0.5 font-mono">
-            Score:&nbsp;
-            {hasResidualChange ? (
-              <>
-                <span className="text-slate-500 line-through">{inherentScore}</span>
-                <span className={`ml-1 ${residualColorClass}`}>{residualScore}</span>
-              </>
-            ) : (
-              <span className="text-slate-300">{inherentScore}</span>
-            )}
-          </span>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
+        {/* Claim row */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             type="button"
             onClick={() => setAssignedTo(currentUser)}
@@ -550,91 +521,58 @@ function PipelineThreatCard({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
+        {/* GRC JUSTIFICATION — min 50 chars unless Top Sector verified intel (see ackRequirementsMet). */}
+        <div className="space-y-1 rounded-md border-2 border-amber-400/70 bg-amber-950/20 p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">
+              GRC justification required (min 50 characters)
+            </p>
+            {isTopSectorThreat && (
+              <span className="rounded-full border border-emerald-500/60 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200">
+                Verified Intel Source
+              </span>
+            )}
+          </div>
           <textarea
-            rows={1}
-            value={mitigationText}
-            onChange={(e) => setMitigationText(e.target.value)}
-            placeholder="Justification Required (Min 50 characters for threats >= $10M)"
-            className="w-full min-h-[40px] h-10 resize-y rounded border border-ironcore-border bg-black px-2 py-1 text-gray-200 outline-none focus:border-ironcore-accent"
-            aria-label="Mitigation justification"
+            rows={4}
+            value={grcJustification}
+            readOnly={isTopSectorThreat}
+            onChange={(e) => setGrcJustification(e.target.value)}
+            placeholder="Provide justification for acknowledging this threat..."
+            className={`w-full min-h-[96px] resize-y rounded border border-amber-500/60 bg-slate-950 px-2 py-2 text-[11px] text-slate-100 placeholder:text-amber-200/40 outline-none focus:border-amber-400 ${
+              isTopSectorThreat ? "cursor-default opacity-95" : ""
+            }`}
+            aria-label="GRC justification"
           />
-          <div className="text-[10px] text-gray-500 text-right mt-1">
-            {mitigationText.trim().length} / 50 min characters
+          <div className="flex justify-between text-[10px] font-semibold text-amber-200/90">
+            <span>
+              {isTopSectorThreat
+                ? "Top Sector Threats: fixed audit string — length waived by source authority."
+                : "50+ characters required to Acknowledge."}
+            </span>
+            <span>
+              {isTopSectorThreat
+                ? `Verified · ${TOP_SECTOR_JUSTIFICATION_TEXT.length}/${TOP_SECTOR_JUSTIFICATION_TEXT.length}`
+                : `${grcJustification.length} / 50 min`}
+            </span>
           </div>
         </div>
 
-        {/* Primary ACK action */}
-        <div className="flex flex-wrap items-center gap-2 text-[10px]">
+        {/* Primary ACK */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={!ackEnabled || mitigationText.trim().length < 50}
+            disabled={!ackEnabled || !ackRequirementsMet || ackPending}
             onClick={handleAcknowledgeClick}
-            className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
-              ackEnabled && mitigationText.trim().length >= 50
-                ? "border-emerald-500/70 bg-slate-900 text-emerald-400 opacity-100 cursor-pointer hover:bg-emerald-500/10"
-                : "border-slate-700 bg-slate-900 text-slate-500 opacity-50 cursor-not-allowed grayscale"
+            className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+              ackEnabled && ackRequirementsMet && !ackPending
+                ? "border-slate-500 bg-slate-700 text-white hover:bg-slate-600 cursor-pointer"
+                : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
             }`}
           >
-            Acknowledge
+            {ackPending ? "Acknowledging…" : "Acknowledge"}
           </button>
         </div>
-
-        {/* Secondary actions (only after threat leaves pipeline) */}
-        {threat.lifecycleState && threat.lifecycleState !== "pipeline" && (
-          <>
-            {/* Justification + Reason */}
-            <div className="mt-2 flex flex-row items-center gap-4 text-[10px]">
-              <select
-                value={deackReason || "Select Reason..."}
-                onChange={(e) => setDeackReason(e.target.value)}
-                className="h-7 rounded border border-rose-500/60 bg-slate-950/80 px-2 text-[9px] text-rose-200 focus:border-rose-300 focus:outline-none"
-              >
-                <option value="Select Reason..." disabled>
-                  Select Reason...
-                </option>
-                <option value="False Positive">False Positive</option>
-                <option value="Compensating Control">Compensating Control</option>
-                <option value="Acceptable Risk">Acceptable Risk</option>
-              </select>
-              <input
-                type="text"
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                placeholder="Provide mandatory justification to de-acknowledge..."
-                className="min-w-[140px] flex-1 rounded border border-rose-500/70 bg-slate-950 px-2 py-1 text-[10px] text-slate-100 placeholder:text-slate-500 outline-none focus:border-rose-400"
-              />
-            </div>
-            <div className="flex justify-between text-[9px] text-rose-300 font-semibold">
-              <span>Reason + 50 characters required to De-acknowledge.</span>
-              <span>{justificationLen}/50</span>
-            </div>
-
-            {/* DE-ACK + Reject */}
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px]">
-              <button
-                type="button"
-                disabled={!deackEnabled}
-                onClick={handleDeAcknowledgeClick}
-                className={`rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border ${
-                  deackEnabled
-                    ? "border-red-500/70 bg-slate-900 text-red-400 hover:bg-red-500/10"
-                    : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
-                }`}
-              >
-                De-Acknowledge
-              </button>
-              {/* # GRC_ACTION_CHIPS — De-Acknowledgment (reject risk ingestion) */}
-              <button
-                type="button"
-                onClick={handleRejectClick}
-                className="rounded-full px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-wide border border-red-500/60 bg-slate-900 text-red-300 hover:bg-red-500/10"
-              >
-                De-Acknowledgment
-              </button>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
@@ -686,6 +624,10 @@ export default function ThreatPipeline({
   const [attackVelocitySeries, setAttackVelocitySeries] = useState<number[]>([]);
   const [registerError, setRegisterError] = useState<string | null>(null);
   const registerTextLen = manualDescription.trim().length;
+  const manualIntelSource = isManualTopSectorIntelSource(manualSource);
+  const manualRegisterJustificationMet =
+    registerTextLen >= 50 ||
+    (manualIntelSource && manualDescription.trim() === TOP_SECTOR_JUSTIFICATION_TEXT);
 
   type RawSignalSeverity = "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -786,8 +728,16 @@ export default function ThreatPipeline({
     setManualSource(draftTemplate.source);
     setManualTarget(draftTemplate.target);
     setManualLoss(centsStringToMillionsInput(draftTemplate.loss));
-    setManualDescription("");
+    setManualDescription(
+      isManualTopSectorIntelSource(draftTemplate.source) ? TOP_SECTOR_JUSTIFICATION_TEXT : "",
+    );
   }, [draftTemplate]);
+
+  useEffect(() => {
+    if (isManualTopSectorIntelSource(manualSource)) {
+      setManualDescription(TOP_SECTOR_JUSTIFICATION_TEXT);
+    }
+  }, [manualSource]);
 
   const handleIngestSignal = (signal: RawSignal) => {
     const pipelineThreat: PipelineThreat = {
@@ -848,8 +798,12 @@ export default function ThreatPipeline({
     setRegisterError(null);
     const title = manualTitle.trim();
     if (!title) return;
-    if (manualDescription.trim().length < 50) {
-      setRegisterError("Justification must be at least 50 characters.");
+    if (!manualRegisterJustificationMet) {
+      setRegisterError(
+        isManualTopSectorIntelSource(manualSource)
+          ? "Use the verified Top Sector justification or switch to another source and enter 50+ characters."
+          : "Justification must be at least 50 characters.",
+      );
       return;
     }
     const parsedLoss = Number.parseFloat(manualLoss);
@@ -1014,6 +968,7 @@ export default function ThreatPipeline({
               description: r.description,
               lifecycleState: "active",
               workNotes: r.workNotes ?? [],
+              assignmentHistory: r.assignmentHistory ?? [],
             }));
             replaceActiveThreats(asActive);
           }
@@ -1053,6 +1008,7 @@ export default function ThreatPipeline({
             description: r.description,
             lifecycleState: "active",
             workNotes: r.workNotes ?? [],
+            assignmentHistory: r.assignmentHistory ?? [],
           }));
           replaceActiveThreats(asActive);
         })
@@ -1344,15 +1300,27 @@ export default function ThreatPipeline({
                   className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
                 />
               </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {manualIntelSource && (
+                  <span className="rounded-full border border-emerald-500/60 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200">
+                    Verified Intel Source
+                  </span>
+                )}
+              </div>
               <textarea
                 rows={3}
                 value={manualDescription}
+                readOnly={manualIntelSource}
                 onChange={(e) => setManualDescription(e.target.value)}
                 placeholder="Justification Required (Min 50 characters)"
-                className="mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500"
+                className={`mt-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 outline-none focus:border-blue-500 ${
+                  manualIntelSource ? "cursor-default opacity-95" : ""
+                }`}
               />
               <div className="mt-1 text-[10px] text-gray-500 text-right">
-                {registerTextLen} / 50 min characters
+                {manualIntelSource && manualDescription.trim() === TOP_SECTOR_JUSTIFICATION_TEXT
+                  ? `Verified · ${TOP_SECTOR_JUSTIFICATION_TEXT.length}/${TOP_SECTOR_JUSTIFICATION_TEXT.length}`
+                  : `${registerTextLen} / 50 min characters`}
               </div>
               {registerError && (
                 <div
@@ -1386,10 +1354,10 @@ export default function ThreatPipeline({
                     !manualSource.trim().length ||
                     !manualTarget.trim().length ||
                     !manualLoss.toString().trim().length ||
-                    registerTextLen < 50
+                    !manualRegisterJustificationMet
                   }
                   className={`rounded border border-emerald-500/70 bg-emerald-500/15 px-3 py-1 text-[9px] font-bold uppercase tracking-wide text-emerald-200 ${
-                    registerTextLen < 50
+                    !manualRegisterJustificationMet
                       ? 'opacity-50 cursor-not-allowed grayscale'
                       : 'opacity-100 cursor-pointer hover:bg-opacity-80'
                   }`}

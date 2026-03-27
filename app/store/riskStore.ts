@@ -63,6 +63,16 @@ export type PipelineThreat = {
   createdAt?: string;
   /** Optional assignee for operational ownership controls. */
   assignedTo?: string;
+  /** AuditLog ASSIGNMENT_CHANGED entries (chain of custody). */
+  assignmentHistory?: Array<{
+    id: string;
+    action: string;
+    justification: string | null;
+    operatorId: string;
+    createdAt: string;
+  }>;
+  /** GRC justification text submitted at pipeline Acknowledge (carried to Active board). */
+  justification?: string;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -118,6 +128,8 @@ interface RiskState {
       likelihood?: number;
       impact?: number;
       calculatedRiskScore?: number;
+      assignedTo?: string;
+      assignmentHistory?: PipelineThreat["assignmentHistory"];
     }
   ) => void;
   acceptPipelineThreat: (id: string) => void;
@@ -125,7 +137,12 @@ interface RiskState {
   // GRC lifecycle actions (server-backed)
   acknowledgeThreat: (id: string, operatorId: string, justification: string | undefined, tenantId: string) => Promise<void>;
   confirmThreat: (id: string, operatorId: string) => Promise<void>;
-  resolveThreat: (id: string, operatorId: string) => Promise<void>;
+  resolveThreat: (
+    id: string,
+    operatorId: string,
+    resolutionJustification: string,
+    actorDisplayName?: string,
+  ) => Promise<void>;
   deAcknowledgeThreat: (
     id: string,
     tenantId: string,
@@ -328,17 +345,18 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         threatIndexById: buildThreatIndexById(normalized, state.activeThreats),
       };
     }),
-  updatePipelineThreat: (id, payload) => set((state) => ({
-    pipelineThreats: state.pipelineThreats.map((t) =>
-      t.id !== id ? t : { ...t, ...payload }
-    ),
-    threatIndexById: buildThreatIndexById(
-      state.pipelineThreats.map((t) =>
-        t.id !== id ? t : { ...t, ...payload }
-      ),
-      state.activeThreats,
-    ),
-  })),
+  /** Merges into pipeline + active cards by id. Assignee persistence: `setThreatAssigneeAction` updates DB + `revalidatePath('/')`; callers should also `router.refresh()` (see ActiveRisksClient). */
+  updatePipelineThreat: (id, payload) =>
+    set((state) => {
+      const merge = (t: PipelineThreat) => (t.id !== id ? t : { ...t, ...payload });
+      const pipelineThreats = state.pipelineThreats.map(merge);
+      const activeThreats = state.activeThreats.map(merge);
+      return {
+        pipelineThreats,
+        activeThreats,
+        threatIndexById: buildThreatIndexById(pipelineThreats, activeThreats),
+      };
+    }),
   acceptPipelineThreat: (id) => set((state) => {
     const threat = state.pipelineThreats.find((t) => t.id === id);
     // Use loss (liability in millions) for $M impact; score is severity 1–10 and would truncate decimals (e.g. 7.8 → 8).
@@ -410,7 +428,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           threatIndexById: buildThreatIndexById(
             state.pipelineThreats.filter((t) => t.id !== id),
             threat && !state.activeThreats.some((t) => t.id === id)
-              ? [...state.activeThreats, { ...threat, lifecycleState: "active" }]
+              ? [...state.activeThreats, { ...threat, lifecycleState: "active", justification }]
               : state.activeThreats,
           ),
           activeSidebarThreats: newActive,
@@ -419,7 +437,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           acceptedThreatIndustries: newIndustries,
           activeThreats:
             threat && !state.activeThreats.some((t) => t.id === id)
-              ? [...state.activeThreats, { ...threat, lifecycleState: "active" }]
+              ? [...state.activeThreats, { ...threat, lifecycleState: "active", justification }]
               : state.activeThreats,
         };
       });
@@ -460,9 +478,19 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       throw error;
     }
   },
-  resolveThreat: async (id, operatorId) => {
+  resolveThreat: async (id, operatorId, resolutionJustification, actorDisplayName) => {
+    const trimmed = resolutionJustification.trim();
+    if (trimmed.length < 50) {
+      set({
+        threatActionError: {
+          active: true,
+          message: "Resolution justification must be at least 50 characters.",
+        },
+      });
+      return;
+    }
     try {
-      const result = await resolveThreatAction(id, operatorId);
+      const result = await resolveThreatAction(id, operatorId, trimmed, actorDisplayName);
       if (!result.success) {
         set({
           threatActionError: { active: true, message: "Threat record not found or could not be resolved." },
@@ -771,7 +799,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       const details = data.details?.length ? data.details.map((d) => d.message).join('; ') : '';
       throw new Error(details ? `${msg}: ${details}` : msg);
     }
-    const record = (await res.json()) as PipelineThreat;
+    const record = (await res.json()) as PipelineThreat & { justification?: string };
     if (payload.destination === "active" || record.lifecycleState === "active") {
       set((state) => {
         const normalized: PipelineThreat = {
@@ -780,6 +808,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           workNotes: record.workNotes ?? [],
           createdAt: record.createdAt ?? new Date().toISOString(),
           assignedTo: record.assignedTo ?? "unassigned",
+          justification: record.justification ?? payload.description?.trim() ?? undefined,
         };
         const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
         const nextActiveThreats =

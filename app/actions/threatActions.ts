@@ -7,6 +7,10 @@ import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotificatio
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
+import {
+  assigneeKeyToDisplayName,
+  operatorIdToDisplayName,
+} from '@/app/utils/assignmentChainOfCustody';
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
@@ -164,9 +168,12 @@ export async function acknowledgeThreatAction(
   }
   console.log(`[ACTION] Starting Acknowledge for ID: ${id}`);
 
+  const TOP_SECTOR_SOURCE = 'Top Sector Threats';
+  const TOP_SECTOR_JUSTIFICATION = 'Top Sector Threat';
+
   const existing = await prisma.threatEvent.findUnique({
     where: { id },
-    select: { financialRisk_cents: true },
+    select: { financialRisk_cents: true, sourceAgent: true },
   });
   if (existing && existing.financialRisk_cents != null) {
     const threshold = getGrcThresholdCents();
@@ -174,7 +181,9 @@ export async function acknowledgeThreatAction(
     const noteText = (justification ?? '').trim();
     const noteLen = noteText.length;
     const requiredLen = cents >= threshold ? 50 : 10;
-    const hasRequiredNote = noteLen >= requiredLen;
+    const isTopSectorVerifiedIntel =
+      existing.sourceAgent === TOP_SECTOR_SOURCE && noteText === TOP_SECTOR_JUSTIFICATION;
+    const hasRequiredNote = isTopSectorVerifiedIntel || noteLen >= requiredLen;
     if (!hasRequiredNote) {
       return {
         success: false,
@@ -322,12 +331,34 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
   }
 }
 
-export async function resolveThreatAction(id: string, operatorId: string): Promise<{ success: true; financialRisk_cents: number } | { success: false; financialRisk_cents: 0 }> {
+export async function resolveThreatAction(
+  id: string,
+  operatorId: string,
+  resolutionJustification: string,
+  actorDisplayName?: string,
+): Promise<{ success: true; financialRisk_cents: number } | { success: false; financialRisk_cents: 0 }> {
+  const trimmed = resolutionJustification.trim();
+  if (trimmed.length < 50) {
+    return { success: false, financialRisk_cents: 0 };
+  }
+  const parsedNote = workNoteSchema.safeParse({ text: trimmed });
+  if (!parsedNote.success) {
+    return { success: false, financialRisk_cents: 0 };
+  }
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
     return { success: false, financialRisk_cents: 0 };
   }
+
+  const ts = new Date().toISOString();
+  const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
+  const justificationPayload = JSON.stringify({
+    resolution: trimmed,
+    actor,
+    actorId: operatorId,
+    timestamp: ts,
+  });
 
   const updated = await runThreatTransaction(id, async (tx) => {
     const updatedRow = await tx.threatEvent.update({
@@ -338,7 +369,7 @@ export async function resolveThreatAction(id: string, operatorId: string): Promi
     await tx.auditLog.create({
       data: {
         action: 'THREAT_RESOLVED',
-        justification: null,
+        justification: justificationPayload,
         operatorId,
         threatId: id,
       },
@@ -346,7 +377,18 @@ export async function resolveThreatAction(id: string, operatorId: string): Promi
     return updatedRow as { financialRisk_cents?: bigint };
   });
 
-  const financialRisk_cents = Number(updated?.financialRisk_cents ?? BigInt(0));
+  if (
+    updated &&
+    typeof updated === 'object' &&
+    'success' in updated &&
+    (updated as { success?: boolean }).success === false
+  ) {
+    return { success: false, financialRisk_cents: 0 };
+  }
+
+  const financialRisk_cents = Number(
+    (updated as { financialRisk_cents?: bigint } | null)?.financialRisk_cents ?? BigInt(0),
+  );
   revalidatePath('/');
 
   await logThreatActivity(id, 'STATUS_UPDATED', `Threat status changed to RESOLVED.`);
@@ -520,6 +562,110 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
     });
     revalidatePath('/');
     return { success: true };
+  }
+}
+
+/** Serialized audit row for ASSIGNMENT_CHANGED — matches client `assignmentHistory` entries. */
+export type AssignmentChangedLogEntry = {
+  id: string;
+  action: string;
+  justification: string | null;
+  operatorId: string;
+  createdAt: string;
+};
+
+/** Persist execution-board assignee on the ThreatEvent row and append AuditLog (ASSIGNMENT_CHANGED). */
+export async function setThreatAssigneeAction(
+  threatId: string,
+  assigneeId: string | null,
+  tenantId: string,
+  operatorId: string = 'admin-user-01',
+  /** Human-readable operator label from UI session (e.g. "Dereck"); stored in audit JSON as `actor`. */
+  actorDisplayName?: string,
+): Promise<
+  | { success: true; newLog: AssignmentChangedLogEntry | null }
+  | ActionFailureResponse
+> {
+  if (!tenantId?.trim()) {
+    return { success: false, error: 'Irongate Rejection: Missing Tenant Context.' };
+  }
+  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
+    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+    if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
+    return { success: false, error: 'Database update failed.' };
+  }
+  const normalized = (assigneeId ?? '').trim();
+  const value =
+    normalized === '' || normalized.toLowerCase() === 'unassigned' ? null : normalized;
+
+  const row = await prisma.threatEvent.findUnique({
+    where: { id: threatId },
+    select: { id: true, tenantCompanyId: true },
+  });
+  if (!row) {
+    return { success: false, error: 'Threat not found.' };
+  }
+  if (row.tenantCompanyId != null) {
+    const company = await prisma.company.findUnique({
+      where: { id: row.tenantCompanyId },
+      select: { tenantId: true },
+    });
+    if (company && company.tenantId !== tenantId) {
+      return { success: false, error: 'Tenant mismatch for this threat.' };
+    }
+  }
+
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const existing = await tx.threatEvent.findUnique({
+        where: { id: threatId },
+        select: { assigneeId: true },
+      });
+      if (!existing) return null;
+      const prev = existing.assigneeId ?? null;
+      if (prev === value) {
+        return null;
+      }
+      await tx.threatEvent.update({
+        where: { id: threatId },
+        data: { assigneeId: value },
+      });
+      const ts = new Date().toISOString();
+      const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
+      const newAssignee =
+        value == null ? null : assigneeKeyToDisplayName(value);
+      return tx.auditLog.create({
+        data: {
+          action: 'ASSIGNMENT_CHANGED',
+          justification: JSON.stringify({
+            newAssignee,
+            actor,
+            actorId: operatorId,
+            timestamp: ts,
+          }),
+          operatorId,
+          threatId,
+        },
+      });
+    });
+
+    revalidatePath('/');
+    if (!created) {
+      return { success: true, newLog: null };
+    }
+    return {
+      success: true,
+      newLog: {
+        id: created.id,
+        action: created.action,
+        justification: created.justification,
+        operatorId: created.operatorId,
+        createdAt: created.createdAt.toISOString(),
+      },
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to save assignee.';
+    return { success: false, error: message };
   }
 }
 

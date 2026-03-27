@@ -1,17 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
+import { setThreatAssigneeAction, type AssignmentChangedLogEntry } from '@/app/actions/threatActions';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 import { appendAuditLog } from '@/app/utils/auditLogger';
+import { formatAssignmentHistoryNarrative } from '@/app/utils/assignmentChainOfCustody';
 import { useAgentStore } from '@/app/store/agentStore';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
+
+/** UI session operator id → display label (matches assignee dropdown naming). */
+const SESSION_OPERATOR_LABEL: Record<string, string> = {
+  dereck: 'Dereck',
+  user_00: 'user_00',
+  user_01: 'user_01',
+  secops: 'SecOps Team',
+  grc: 'GRC Team',
+  netsec: 'NetSec',
+};
 
 function resolveTenantId(selectedTenantName: string | null): string {
   const n = (selectedTenantName ?? '').trim().toLowerCase();
@@ -24,13 +37,28 @@ type RiskRow = {
   id: string;
   title: string;
   source: string;
+  /** Persisted ActiveRisk.assignee_id — drives assignee dropdown until user overrides locally. */
+  assigneeId?: string;
   threatId?: string | null;
   score_cents: number;
   company: { name: string; sector: string };
   isSimulation?: boolean;
 };
 
-type Props = { risks: RiskRow[]; setSelectedThreatId?: (id: string | null) => void };
+/** Live ThreatEvent slice from GET /api/dashboard — assigneeId + ASSIGNMENT_CHANGED history. */
+export type DashboardThreatEventRow = {
+  id: string;
+  title: string;
+  sourceAgent: string;
+  assigneeId: string | null;
+  assignmentHistory?: AssignmentChangedLogEntry[];
+};
+
+type Props = {
+  risks: RiskRow[];
+  threatEvents?: DashboardThreatEventRow[];
+  setSelectedThreatId?: (id: string | null) => void;
+};
 
 type ActionType = 'DISMISS' | 'REVERT' | 'CONFIRM';
 
@@ -103,13 +131,43 @@ function computeSupplyChainImpact(input: {
   return hasCriticalAccess ? 9.2 : 8.6;
 }
 
-export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelectedThreatIdProp }: Props) {
+function AssigneeHistorySection({ entries }: { entries: AssignmentChangedLogEntry[] }) {
+  if (entries.length === 0) {
+    return (
+      <div className="rounded border border-slate-700/80 bg-slate-950/50 p-2">
+        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">ASSIGNEE HISTORY</p>
+        <p className="mt-1 text-[10px] text-slate-500">No assignment changes recorded yet.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-slate-700/80 bg-slate-950/50 p-2">
+      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">ASSIGNEE HISTORY</p>
+      <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto">
+        {entries.map((entry) => (
+          <li key={entry.id} className="text-[10px] leading-snug text-slate-300">
+            {formatAssignmentHistoryNarrative(entry)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default function ActiveRisksClient({
+  risks,
+  threatEvents = [],
+  setSelectedThreatId: setSelectedThreatIdProp,
+}: Props) {
+  const router = useRouter();
   const activeThreats = useRiskStore((state) => state.activeThreats);
   const confirmThreat = useRiskStore((state) => state.confirmThreat);
   const resolveThreat = useRiskStore((state) => state.resolveThreat);
   const revertThreatToPipeline = useRiskStore((state) => state.revertThreatToPipeline);
   const deAcknowledgeThreat = useRiskStore((state) => state.deAcknowledgeThreat);
   const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
+  const updatePipelineThreat = useRiskStore((state) => state.updatePipelineThreat);
+  const setThreatActionError = useRiskStore((state) => state.setThreatActionError);
   const storeSetSelectedThreatId = useRiskStore((state) => state.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
 
@@ -118,6 +176,7 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   const enginesOn = kimbotEnabled || grcBotEnabled;
 
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
   const [workNotes, setWorkNotes] = useState<Record<string, WorkNote[]>>({});
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
@@ -130,6 +189,50 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   const [customJustification, setCustomJustification] = useState('');
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const currentUser = 'dereck';
+  const actorDisplayLabel = SESSION_OPERATOR_LABEL[currentUser] ?? currentUser;
+
+  const persistThreatAssignee = async (
+    cardKey: string,
+    threatEventId: string | null | undefined,
+    value: string,
+  ) => {
+    setAssignments((prev) => ({ ...prev, [cardKey]: value }));
+    if (!threatEventId) {
+      appendAuditLog({
+        action_type: 'SYSTEM_WARNING',
+        log_type: 'GRC',
+        description: 'Assignee not persisted: missing ThreatEvent id for this row.',
+      });
+      return;
+    }
+    const res = await setThreatAssigneeAction(
+      threatEventId,
+      value === 'unassigned' ? null : value,
+      resolveTenantId(selectedTenantName),
+      currentUser,
+      SESSION_OPERATOR_LABEL[currentUser] ?? currentUser,
+    );
+    if (res && typeof res === 'object' && 'success' in res && res.success === false) {
+      setThreatActionError({ active: true, message: res.error });
+      return;
+    }
+    if (
+      res &&
+      typeof res === 'object' &&
+      'success' in res &&
+      res.success === true &&
+      'newLog' in res
+    ) {
+      const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
+      updatePipelineThreat(threatEventId, {
+        assignedTo: value === 'unassigned' ? undefined : value,
+        ...(res.newLog
+          ? { assignmentHistory: [...(prev?.assignmentHistory ?? []), res.newLog] }
+          : {}),
+      });
+    }
+    router.refresh();
+  };
 
   // Only show DB risks that are non-simulation when engines are OFF + optional tenant filter
   const filteredRisks = risks.filter((r) => {
@@ -198,7 +301,37 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
       (a.calculatedRiskScore ?? a.score ?? a.loss ?? 0),
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
-  const assignedFor = (id: string) => assignments[id] ?? 'unassigned';
+
+  const threatEventAssigneeById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of threatEvents) {
+      const a = t.assigneeId?.trim();
+      if (a) m.set(t.id, a);
+    }
+    return m;
+  }, [threatEvents]);
+
+  const threatEventHistoryById = useMemo(() => {
+    const m = new Map<string, AssignmentChangedLogEntry[]>();
+    for (const t of threatEvents) {
+      if (t.assignmentHistory?.length) m.set(t.id, t.assignmentHistory);
+    }
+    return m;
+  }, [threatEvents]);
+
+  /**
+   * Prefer local dropdown; else ActiveRisk / store assignee; else ThreatEvent.assigneeId from dashboard payload.
+   * `teLookupId` is the ThreatEvent id (same as card id for active threats, or risk.threatId for ActiveRisk rows).
+   */
+  const assignedFor = (cardKey: string, serverAssignee?: string | null, teLookupId?: string | null) => {
+    if (Object.prototype.hasOwnProperty.call(assignments, cardKey)) {
+      return assignments[cardKey];
+    }
+    const direct = serverAssignee?.trim();
+    const fromTe = teLookupId ? threatEventAssigneeById.get(teLookupId)?.trim() : undefined;
+    const v = direct || fromTe;
+    return v && v.length > 0 ? v : 'unassigned';
+  };
 
   const isEmpty = sortedActiveThreats.length === 0 && sortedRisks.length === 0;
 
@@ -252,16 +385,28 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
   };
 
   const handleResolveThreat = async (risk: RiskRow) => {
-    setStates((prev) => ({ ...prev, [risk.id]: 'resolved' }));
-    if (risk.threatId) {
-      await resolveThreat(risk.threatId, 'admin-user-01');
-    } else {
+    const tid = risk.threatId;
+    const text = (resolutionDrafts[risk.id] ?? '').trim();
+    if (!tid) {
       appendAuditLog({
         action_type: 'SYSTEM_WARNING',
         log_type: 'GRC',
         description: `Resolve skipped: Missing mapped threatId for active risk ${risk.id}`,
         metadata_tag: `activeRiskId:${risk.id}|title:${risk.title}`,
       });
+      return;
+    }
+    if (text.length < 50) return;
+    try {
+      await resolveThreat(tid, 'admin-user-01', text, actorDisplayLabel);
+      setStates((prev) => ({ ...prev, [risk.id]: 'resolved' }));
+      setResolutionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[risk.id];
+        return next;
+      });
+    } catch {
+      // threatActionError set in store
     }
   };
 
@@ -271,6 +416,37 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
     setActiveActionThreatId(null);
     setSelectedReason('');
     setCustomJustification('');
+  };
+
+  const resolutionJustificationBlock = (cardKey: string) => {
+    const resolutionText = resolutionDrafts[cardKey] ?? '';
+    return (
+      <div
+        className="space-y-1 rounded-md border-2 border-amber-400/70 bg-amber-950/20 p-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">
+          RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS)
+        </p>
+        <textarea
+          rows={4}
+          value={resolutionText}
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+            setResolutionDrafts((prev) => ({ ...prev, [cardKey]: e.target.value }))
+          }
+          onClick={(e) => e.stopPropagation()}
+          placeholder="Explain remediation outcome and closure rationale for the audit trail..."
+          className="w-full min-h-[96px] resize-y rounded border border-amber-500/60 bg-slate-950 px-2 py-2 text-[11px] text-slate-100 placeholder:text-amber-200/40 outline-none focus:border-amber-400"
+          aria-label="Resolution justification"
+        />
+        <div className="flex justify-between text-[10px] font-semibold text-amber-200/90">
+          <span>50+ characters required to resolve.</span>
+          <span>
+            {resolutionText.length} / 50 min
+          </span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -304,11 +480,15 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
           const lifecycle: LifecycleState =
             (states[threat.id] as LifecycleState | undefined) ??
             ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
-          const isUnassigned = assignedFor(threat.id) === 'unassigned';
+          const isUnassigned = assignedFor(threat.id, threat.assignedTo, threat.id) === 'unassigned';
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
-          const userNotesText = (threat.userNotes ?? '').trim();
+          const pipelineGrcJustification = (threat.justification ?? '').trim();
+          const assigneeHistoryForCard =
+            threat.assignmentHistory && threat.assignmentHistory.length > 0
+              ? threat.assignmentHistory
+              : threatEventHistoryById.get(threat.id) ?? [];
           const isExpanded = true;
           const liabilityM = threat.score ?? threat.loss;
           const supplyChainImpact = computeSupplyChainImpact({
@@ -317,6 +497,9 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
             source: threat.source,
             liabilityInMillions: typeof liabilityM === "number" ? liabilityM : undefined,
           });
+
+          const resolutionText = resolutionDrafts[threat.id] ?? '';
+          const resolutionLenOk = resolutionText.trim().length >= 50;
 
           const buttonLabel =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
@@ -331,8 +514,16 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                 }
               : lifecycle === 'confirmed'
               ? async () => {
-                  setStates((prev) => ({ ...prev, [threat.id]: 'resolved' }));
-                  await resolveThreat(threat.id, 'admin-user-01');
+                  try {
+                    await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
+                    setResolutionDrafts((prev) => {
+                      const next = { ...prev };
+                      delete next[threat.id];
+                      return next;
+                    });
+                  } catch {
+                    // threatActionError set in store
+                  }
                 }
               : undefined;
 
@@ -374,19 +565,19 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                   <div className="flex items-center gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => setAssignments((prev) => ({ ...prev, [threat.id]: currentUser }))}
-                      disabled={assignedFor(threat.id) === currentUser}
+                      onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser)}
+                      disabled={assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser}
                       className={`px-2 py-1 border rounded transition-colors ${
-                        assignedFor(threat.id) === currentUser
+                        assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser
                           ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
                           : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                       }`}
                     >
-                      {assignedFor(threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                      {assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
                     </button>
                     <select
-                      value={assignedFor(threat.id)}
-                      onChange={(e) => setAssignments((prev) => ({ ...prev, [threat.id]: e.target.value }))}
+                      value={assignedFor(threat.id, threat.assignedTo, threat.id)}
+                      onChange={(e) => void persistThreatAssignee(threat.id, threat.id, e.target.value)}
                       className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
                     >
                       <option value="unassigned">Unassigned</option>
@@ -423,12 +614,15 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
               {isExpanded && (
                 <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3">
                   <div className="space-y-1">
-                    {userNotesText && (
-                      <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
-                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">User Notes</p>
-                        <p className="mt-1 text-[10px] text-slate-200">{userNotesText}</p>
-                      </div>
-                    )}
+                    <AssigneeHistorySection entries={assigneeHistoryForCard} />
+                    <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                        GRC JUSTIFICATION (FROM PIPELINE TRIAGE)
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap text-[10px] text-slate-200">
+                        {pipelineGrcJustification || '—'}
+                      </p>
+                    </div>
 
                     <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                       {notes.length === 0 && (
@@ -464,6 +658,8 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                       Add Note
                     </button>
                   </div>
+
+                  {lifecycle === 'confirmed' && resolutionJustificationBlock(threat.id)}
 
                   <div className="flex items-center justify-between pt-1">
                     {successFlash[threat.id] && (
@@ -614,8 +810,8 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                           {lifecycle !== 'active' && (
                             <button
                               type="button"
-                              disabled={!onPrimaryClick}
-                              onClick={onPrimaryClick}
+                              disabled={!onPrimaryClick || (lifecycle === 'confirmed' && !resolutionLenOk)}
+                              onClick={() => void onPrimaryClick?.()}
                               className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
                                 lifecycle === 'confirmed'
                                   ? 'bg-amber-500 text-black hover:bg-amber-400'
@@ -637,15 +833,20 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
 
         {sortedRisks.map((risk) => {
           const lifecycle: LifecycleState = states[risk.id] ?? 'active';
-          const isUnassigned = assignedFor(risk.id) === 'unassigned';
+          const isUnassigned = assignedFor(risk.id, risk.assigneeId, risk.threatId) === 'unassigned';
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[risk.id] ?? [];
+          const riskAssigneeHistory =
+            (risk.threatId ? threatEventHistoryById.get(risk.threatId) : undefined) ?? [];
           const isExpanded = true;
           const supplyChainImpact = computeSupplyChainImpact({
             title: risk.title,
             source: risk.source,
           });
+
+          const resolutionText = resolutionDrafts[risk.id] ?? '';
+          const resolutionLenOk = resolutionText.trim().length >= 50;
 
           const buttonLabel =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
@@ -654,7 +855,7 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
             lifecycle === 'active'
               ? () => handleConfirmThreat(risk)
               : lifecycle === 'confirmed'
-              ? () => handleResolveThreat(risk)
+              ? () => void handleResolveThreat(risk)
               : undefined;
 
           return (
@@ -686,19 +887,19 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                   <div className="flex items-center gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => setAssignments((prev) => ({ ...prev, [risk.id]: currentUser }))}
-                      disabled={assignedFor(risk.id) === currentUser}
+                      onClick={() => void persistThreatAssignee(risk.id, risk.threatId, currentUser)}
+                      disabled={assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser}
                       className={`px-2 py-1 border rounded transition-colors ${
-                        assignedFor(risk.id) === currentUser
+                        assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
                           ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
                           : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                       }`}
                     >
-                      {assignedFor(risk.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                      {assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
                     </button>
                     <select
-                      value={assignedFor(risk.id)}
-                      onChange={(e) => setAssignments((prev) => ({ ...prev, [risk.id]: e.target.value }))}
+                      value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
+                      onChange={(e) => void persistThreatAssignee(risk.id, risk.threatId, e.target.value)}
                       className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
                     >
                       <option value="unassigned">Unassigned</option>
@@ -737,7 +938,12 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
               </div>
 
               {isExpanded && (
-                <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3">
+                <div
+                  className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <AssigneeHistorySection entries={riskAssigneeHistory} />
                   <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                     {notes.length === 0 && (
                       <div className="text-[10px] text-slate-500">No work notes recorded yet.</div>
@@ -775,6 +981,8 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                       Add Note
                     </button>
                   </div>
+
+                  {lifecycle === 'confirmed' && resolutionJustificationBlock(risk.id)}
 
                   <div className="flex items-center justify-between pt-1">
                     {successFlash[risk.id] && (
@@ -875,8 +1083,11 @@ export default function ActiveRisksClient({ risks, setSelectedThreatId: setSelec
                       {lifecycle !== 'active' && (
                         <button
                           type="button"
-                          disabled={!onPrimaryClick}
-                          onClick={onPrimaryClick}
+                          disabled={!onPrimaryClick || (lifecycle === 'confirmed' && !resolutionLenOk)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onPrimaryClick?.();
+                          }}
                           className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
                             lifecycle === 'confirmed'
                               ? 'bg-amber-500 text-black hover:bg-amber-400'

@@ -3,7 +3,6 @@
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
-
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 
 export type CreateGrcBotThreatInput = {
@@ -145,7 +144,19 @@ export type PipelineThreatFromDb = {
     createdAt: string;
   }>;
   workNotes?: { text: string; user: string; timestamp: string }[];
+  /** ThreatEvent.ingestionDetails — JSON text; Ironsight `aiTrace` and GRC fields (e.g. grcJustification) live here. */
+  ingestionDetails?: string | null;
+  /** ThreatEvent.ttlSeconds — SLA window from row creation. */
+  ttlSeconds?: number | null;
 };
+
+function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefined {
+  if (raw == null) return undefined;
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  return undefined;
+}
 
 /**
  * Fetch all pipeline-stage threats from the database for the MEDSHIELD THREAT PIPELINE
@@ -185,13 +196,31 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
 export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const rows = await prisma.threatEvent.findMany({
     where: { status: ThreatState.ACTIVE },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      financialRisk_cents: true,
+      score: true,
+      targetEntity: true,
+      sourceAgent: true,
+      createdAt: true,
+      assigneeId: true,
+      ingestionDetails: true,
+      ttlSeconds: true,
       notes: {
         orderBy: { createdAt: "desc" },
+        select: { text: true, operatorId: true, createdAt: true },
       },
       auditTrail: {
         where: { action: "ASSIGNMENT_CHANGED" },
         orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          action: true,
+          justification: true,
+          operatorId: true,
+          createdAt: true,
+        },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -204,6 +233,7 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
     industry: r.targetEntity,
     source: r.sourceAgent,
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+    createdAt: r.createdAt.toISOString(),
     assignedTo: r.assigneeId?.trim() || undefined,
     assignmentHistory: (r.auditTrail ?? []).map((log) => ({
       id: log.id,
@@ -217,5 +247,7 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
       user: n.operatorId,
       timestamp: n.createdAt.toISOString(),
     })),
+    ingestionDetails: r.ingestionDetails ?? undefined,
+    ttlSeconds: r.ttlSeconds,
   }));
 }

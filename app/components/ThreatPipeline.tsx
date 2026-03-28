@@ -15,6 +15,7 @@ import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { fetchActiveThreatsFromDb, fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
+import { mapActiveThreatFromDbToPipelineThreat } from "@/app/utils/mapActiveThreatFromDbToPipelineThreat";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -819,6 +820,9 @@ export default function ThreatPipeline({
       description: manualDescription.trim() || undefined,
       tenantId: resolveTenantId(selectedTenantName),
       destination: "active" as const,
+      ...(isManualTopSectorIntelSource(manualSource)
+        ? { grcJustification: TOP_SECTOR_JUSTIFICATION_TEXT }
+        : {}),
     };
 
     try {
@@ -913,24 +917,48 @@ export default function ThreatPipeline({
     .sort((a, b) => b.liability - a.liability || b.severityScore - a.severityScore);
   const socAlerts = sortedAlerts.filter((alert) => alert.source === "SOC_EMAIL");
 
+  const agentAlertsRef = useRef(agentAlerts);
+  agentAlertsRef.current = agentAlerts;
+
+  /** Stable identity for effect deps — avoids re-running every render on a new `agentAlerts` array reference. */
+  const highLiabilityAgentWatchKey = agentAlerts
+    .filter((s) => s.liability > 10)
+    .map((s) => `${s.id}:${s.liability.toFixed(4)}`)
+    .sort()
+    .join('|');
+
   const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+  const LIABILITY_ALERT_POLL_MS = 30_000;
+
   useEffect(() => {
-    const now = Date.now();
     const map = highLiabilityFirstSeenRef.current;
-    for (const signal of agentAlerts) {
-      if (signal.liability <= 10) continue;
-      const key = signal.id;
-      if (!map.has(key)) map.set(key, now);
-      else if (now - map.get(key)! >= FIFTEEN_MIN_MS) {
-        setLiabilityAlert({
-          active: true,
-          message: `High-liability agent signal ($${signal.liability.toFixed(1)}M) has been un-ingested for over 15 minutes. Triage required.`,
-          signalId: key,
-        });
-        break;
+
+    const checkHighLiabilityTimers = () => {
+      const now = Date.now();
+      for (const signal of agentAlertsRef.current) {
+        if (signal.liability <= 10) continue;
+        const key = signal.id;
+        const message = `High-liability agent signal ($${signal.liability.toFixed(1)}M) has been un-ingested for over 15 minutes. Triage required.`;
+        if (!map.has(key)) map.set(key, now);
+        else if (now - map.get(key)! >= FIFTEEN_MIN_MS) {
+          const prev = useRiskStore.getState().liabilityAlert;
+          if (prev.active && prev.signalId === key && prev.message === message) {
+            break;
+          }
+          setLiabilityAlert({
+            active: true,
+            message,
+            signalId: key,
+          });
+          break;
+        }
       }
-    }
-  }, [agentAlerts, setLiabilityAlert]);
+    };
+
+    checkHighLiabilityTimers();
+    const intervalId = setInterval(checkHighLiabilityTimers, LIABILITY_ALERT_POLL_MS);
+    return () => clearInterval(intervalId);
+  }, [highLiabilityAgentWatchKey, setLiabilityAlert]);
 
   // UI refresh: load pipeline from DB on mount and when grcbot stops so every card is real and actionable
   const prevGrcBotEnabled = useRef(grcBotEnabled);
@@ -958,18 +986,7 @@ export default function ThreatPipeline({
       fetchActiveThreatsFromDb()
         .then((rows) => {
           if (!cancelled) {
-            const asActive: PipelineThreat[] = rows.map((r) => ({
-              id: r.id,
-              name: r.name,
-              loss: r.loss,
-              score: r.score,
-              industry: r.industry,
-              source: r.source,
-              description: r.description,
-              lifecycleState: "active",
-              workNotes: r.workNotes ?? [],
-              assignmentHistory: r.assignmentHistory ?? [],
-            }));
+            const asActive: PipelineThreat[] = rows.map(mapActiveThreatFromDbToPipelineThreat);
             replaceActiveThreats(asActive);
           }
         })
@@ -998,18 +1015,7 @@ export default function ThreatPipeline({
         .catch(() => {});
       fetchActiveThreatsFromDb()
         .then((rows) => {
-          const asActive: PipelineThreat[] = rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            loss: r.loss,
-            score: r.score,
-            industry: r.industry,
-            source: r.source,
-            description: r.description,
-            lifecycleState: "active",
-            workNotes: r.workNotes ?? [],
-            assignmentHistory: r.assignmentHistory ?? [],
-          }));
+          const asActive: PipelineThreat[] = rows.map(mapActiveThreatFromDbToPipelineThreat);
           replaceActiveThreats(asActive);
         })
         .catch(() => {});

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from "@/lib/prisma";
 import { ThreatState, DeAckReason } from '@prisma/client';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
+import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
@@ -131,7 +132,10 @@ function warnMissingDelegate(delegateName: string) {
 
 type TransactionClient = {
   threatEvent: {
-    findUnique: (args: { where: { id: string } }) => Promise<{ id: string } | null>;
+    findUnique: (args: {
+      where: { id: string };
+      select?: { id?: boolean };
+    }) => Promise<{ id: string } | null>;
     update: (args: unknown) => Promise<any>;
   };
   auditLog: { create: (args: unknown) => Promise<any> };
@@ -148,7 +152,10 @@ async function runThreatTransaction<T>(
 ): Promise<T> {
   return prisma.$transaction(async (tx) => {
     const client = tx as unknown as TransactionClient;
-    const exists = await client.threatEvent.findUnique({ where: { id } });
+    const exists = await client.threatEvent.findUnique({
+      where: { id },
+      select: { id: true },
+    });
     if (exists == null) {
       console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id}`);
       return { success: false, error: 'AUDIT_LOG_FAILURE: Record no longer exists.' } as unknown as T;
@@ -211,19 +218,40 @@ export async function acknowledgeThreatAction(
     const savedWorkNoteText = parsedJustification.data.text;
 
     const result = await runThreatTransaction(id, async (tx) => {
-      await tx.workNote.create({
+      const prismaTx = tx as unknown as {
+        threatEvent: {
+          findUnique: typeof prisma.threatEvent.findUnique;
+          update: typeof prisma.threatEvent.update;
+        };
+        workNote: typeof prisma.workNote;
+        auditLog: typeof prisma.auditLog;
+      };
+      const detailsRow = await prismaTx.threatEvent.findUnique({
+        where: { id },
+        select: { ingestionDetails: true },
+      });
+      const nextIngestionDetails = mergeIngestionDetailsPatch(detailsRow?.ingestionDetails ?? null, {
+        grcJustification: savedWorkNoteText,
+      });
+
+      await prismaTx.workNote.create({
         data: {
           text: savedWorkNoteText,
           operatorId,
           threatId: id,
         },
       });
-      await tx.threatEvent.update({
+      // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
+      await prismaTx.threatEvent.update({
         where: { id },
-        data: { status: ThreatState.ACTIVE },
+        data: {
+          status: ThreatState.ACTIVE,
+          ingestionDetails: nextIngestionDetails,
+        },
+        select: { id: true },
       });
-      console.log(`[DB] Threat updated to ACTIVE`);
-      await tx.auditLog.create({
+      console.log(`[DB] Threat updated to ACTIVE (ingestionDetails.grcJustification persisted)`);
+      await prismaTx.auditLog.create({
         data: {
           action: 'THREAT_ACKNOWLEDGED',
           justification: savedWorkNoteText,
@@ -266,6 +294,7 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
       await tx.threatEvent.update({
         where: { id },
         data: { status: ThreatState.CONFIRMED },
+        select: { id: true },
       });
       await tx.auditLog.create({
         data: {
@@ -430,55 +459,83 @@ export async function deAcknowledgeThreatAction(
   operatorId: string,
 ): Promise<{ success: true } | MissingRecordResponse | ActionFailureResponse | void> {
   if (!tenantId) throw new Error("Irongate Rejection: Missing Tenant Context. Zero-Trust violation.");
-  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
+  if (
+    !prismaDelegates.threatEvent?.update ||
+    !prismaDelegates.auditLog?.create ||
+    !prismaDelegates.workNote?.create
+  ) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
+    if (!prismaDelegates.workNote) warnMissingDelegate('workNote');
     return;
+  }
+
+  const trimmedReason = reason.trim();
+  const trimmedJustification = justification.trim();
+  if (!trimmedReason) {
+    return { success: false, error: 'De-acknowledgement requires a selected reason.' };
   }
 
   const existing = await prisma.threatEvent.findUnique({
     where: { id },
     select: { financialRisk_cents: true },
   });
-  if (existing && existing.financialRisk_cents != null) {
-    const threshold = getGrcThresholdCents();
-    const cents = BigInt(existing.financialRisk_cents);
-    const latestNote = await prisma.workNote.findFirst({
-      where: { threatId: id },
-      orderBy: { createdAt: 'desc' },
-      select: { text: true },
-    });
-    const noteLen = latestNote?.text ? latestNote.text.trim().length : 0;
-    const requiredLen = cents >= threshold ? 50 : 10;
-    const hasRequiredNote = noteLen >= requiredLen;
-    if (!hasRequiredNote) {
-      return {
-        success: false,
-        error:
-          'GRC Violation: De-acknowledging a threat requires a documented work note. Open the drawer and save your reasoning first.',
-      };
-    }
+  if (!existing) {
+    return { success: false, error: 'Threat not found.' };
   }
 
+  const threshold = getGrcThresholdCents();
+  const cents = BigInt(existing.financialRisk_cents ?? 0);
+  const requiredLen = cents >= threshold ? 50 : 10;
+  if (trimmedJustification.length < requiredLen) {
+    return {
+      success: false,
+      error: `GRC Violation: Justification must be at least ${requiredLen} characters for this threat.`,
+    };
+  }
+
+  const workNoteText = `[STATUS REVERTED: ${trimmedReason.toUpperCase()}] ${trimmedJustification}`;
+  const parsedDeAckNote = workNoteSchema.safeParse({ text: workNoteText });
+  if (!parsedDeAckNote.success) {
+    return {
+      success: false,
+      error: parsedDeAckNote.error.issues.map((i) => i.message).join('; '),
+    };
+  }
+  const savedDeAckWorkNoteText = parsedDeAckNote.data.text;
+
   const result = await runThreatTransaction(id, async (tx) => {
-    const mappedReason = normalizeDeAckReason(reason);
-    await tx.threatEvent.update({
+    const prismaTx = tx as unknown as {
+      threatEvent: { update: typeof prisma.threatEvent.update };
+      auditLog: typeof prisma.auditLog;
+      workNote: typeof prisma.workNote;
+    };
+    await prismaTx.workNote.create({
+      data: {
+        text: savedDeAckWorkNoteText,
+        operatorId,
+        threatId: id,
+      },
+    });
+    const mappedReason = normalizeDeAckReason(trimmedReason);
+    await prismaTx.threatEvent.update({
       where: { id },
       data: {
         status: ThreatState.DE_ACKNOWLEDGED,
         deAckReason: mappedReason,
       },
+      select: { id: true },
     });
-    await tx.auditLog.create({
+    await prismaTx.auditLog.create({
       data: {
         action: 'THREAT_DE_ACKNOWLEDGED',
-        justification,
+        justification: trimmedJustification,
         operatorId,
         threatId: id,
       },
     });
     // # GRC_ACTION_CHIPS / audit directive — De-Ack must log STATE_REGRESSION
-    await tx.auditLog.create({
+    await prismaTx.auditLog.create({
       data: {
         action: 'STATE_REGRESSION',
         justification: 'User reversed acknowledgment of risk.',
@@ -516,6 +573,7 @@ export async function revertThreatToPipelineAction(
     await tx.threatEvent.update({
       where: { id },
       data: { status: ThreatState.PIPELINE, deAckReason: null },
+      select: { id: true },
     });
     await tx.auditLog.create({
       data: {
@@ -629,6 +687,7 @@ export async function setThreatAssigneeAction(
       await tx.threatEvent.update({
         where: { id: threatId },
         data: { assigneeId: value },
+        select: { id: true },
       });
       const ts = new Date().toISOString();
       const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
@@ -716,6 +775,7 @@ export async function saveAIReportToThreat(threatId: string, aiReport: string): 
       await tx.threatEvent.update({
         where: { id: threatId },
         data: { aiReport },
+        select: { id: true },
       });
       await tx.auditLog.create({
         data: {

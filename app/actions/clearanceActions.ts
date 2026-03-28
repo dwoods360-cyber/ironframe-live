@@ -30,6 +30,14 @@ async function requirePipelineThreatForActiveTenant(threatId: string) {
       tenantCompanyId: companyId,
       status: ThreatState.PIPELINE,
     },
+    select: {
+      id: true,
+      title: true,
+      sourceAgent: true,
+      ingestionDetails: true,
+      tenantCompanyId: true,
+      status: true,
+    },
   });
   if (!threat) {
     throw new Error("Threat not found, not in clearance queue, or tenant isolation denied.");
@@ -50,6 +58,15 @@ export async function getPendingThreatActivityLogsForClearance() {
       },
       orderBy: { createdAt: "desc" },
       take: 50,
+      select: {
+        id: true,
+        title: true,
+        sourceAgent: true,
+        createdAt: true,
+        ingestionDetails: true,
+        status: true,
+        tenantCompanyId: true,
+      },
     });
     return { success: true as const, logs };
   } catch (error) {

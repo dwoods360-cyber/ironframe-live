@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/threatActions';
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
 import { appendAuditLog } from "@/app/utils/auditLogger";
+import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
 
 /**
  * useRiskStore — GRC pipeline, selectedThreatId (drawer), industry/tenant.
@@ -61,6 +62,8 @@ export type PipelineThreat = {
   deackReason?: string;
   /** ISO timestamp from DB ingestion — used to order Attack Velocity (newest first) */
   createdAt?: string;
+  /** ThreatEvent.ttlSeconds — triage SLA window (seconds from `createdAt`). */
+  ttlSeconds?: number | null;
   /** Optional assignee for operational ownership controls. */
   assignedTo?: string;
   /** AuditLog ASSIGNMENT_CHANGED entries (chain of custody). */
@@ -73,6 +76,19 @@ export type PipelineThreat = {
   }>;
   /** GRC justification text submitted at pipeline Acknowledge (carried to Active board). */
   justification?: string;
+  /** Optional blast-radius / asset inventory (ingestion or client enrichment). */
+  impactedAssets?: string[];
+  affectedSystems?: string[];
+  blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
+  ingestionDetails?: string;
+  /** Optional Ironsight deep-trace output (typically under `ingestionDetails` JSON as `aiTrace`). */
+  aiTrace?: {
+    status: string;
+    report?: string;
+    actions?: Array<{ label: string; actionId: string }>;
+    impactedAssets?: string[];
+    complianceTags?: string[];
+  };
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -243,6 +259,8 @@ interface RiskState {
     description?: string;
     tenantId: string;
     destination?: "pipeline" | "active";
+    /** Top Sector / Strategic Intel registration — persisted as `ingestionDetails.grcJustification` on create. */
+    grcJustification?: string;
   }) => Promise<PipelineThreat>;
 }
 
@@ -412,6 +430,25 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       });
       set((state) => {
         const threat = state.pipelineThreats.find((t) => t.id === id);
+        const j = (justification ?? "").trim();
+
+        const toActive =
+          threat && !state.activeThreats.some((t) => t.id === id)
+            ? {
+                ...threat,
+                lifecycleState: "active" as const,
+                justification: j || threat.justification,
+                ...(j
+                  ? {
+                      ingestionDetails: mergeIngestionDetailsPatch(
+                        threat.ingestionDetails ?? null,
+                        { grcJustification: j },
+                      ),
+                    }
+                  : {}),
+              }
+            : null;
+
         // Use loss (liability in millions) for $M impact; score is severity 1–10 and would truncate decimals.
         const impactM = threat ? (threat.loss ?? threat.score) : 0;
         const impactRounded = typeof impactM === 'number' ? Number(impactM.toFixed(1)) : 0;
@@ -427,18 +464,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         return {
           threatIndexById: buildThreatIndexById(
             state.pipelineThreats.filter((t) => t.id !== id),
-            threat && !state.activeThreats.some((t) => t.id === id)
-              ? [...state.activeThreats, { ...threat, lifecycleState: "active", justification }]
-              : state.activeThreats,
+            toActive ? [...state.activeThreats, toActive] : state.activeThreats,
           ),
           activeSidebarThreats: newActive,
           pipelineThreats: state.pipelineThreats.filter((t) => t.id !== id),
           acceptedThreatImpacts: newImpacts,
           acceptedThreatIndustries: newIndustries,
-          activeThreats:
-            threat && !state.activeThreats.some((t) => t.id === id)
-              ? [...state.activeThreats, { ...threat, lifecycleState: "active", justification }]
-              : state.activeThreats,
+          activeThreats: toActive ? [...state.activeThreats, toActive] : state.activeThreats,
         };
       });
     } catch (error) {
@@ -809,6 +841,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           createdAt: record.createdAt ?? new Date().toISOString(),
           assignedTo: record.assignedTo ?? "unassigned",
           justification: record.justification ?? payload.description?.trim() ?? undefined,
+          ingestionDetails:
+            (record as PipelineThreat & { ingestionDetails?: string }).ingestionDetails ??
+            undefined,
         };
         const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
         const nextActiveThreats =

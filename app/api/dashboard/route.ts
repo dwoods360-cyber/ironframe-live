@@ -72,8 +72,11 @@ export async function GET(request: NextRequest) {
           id: true,
           title: true,
           sourceAgent: true,
+          createdAt: true,
           updatedAt: true,
           assigneeId: true,
+          ttlSeconds: true,
+          ingestionDetails: true,
           auditTrail: {
             where: { action: 'ASSIGNMENT_CHANGED' },
             orderBy: { createdAt: 'asc' },
@@ -108,8 +111,14 @@ export async function GET(request: NextRequest) {
     }
 
     const assigneeByThreatEventId = new Map<string, string | null>();
+    const ingestionDetailsByThreatId = new Map<string, string | null>();
+    const ttlSecondsByThreatId = new Map<string, number>();
+    const threatCreatedAtByThreatId = new Map<string, string>();
     for (const t of threatEvents) {
       assigneeByThreatEventId.set(t.id, t.assigneeId);
+      ingestionDetailsByThreatId.set(t.id, t.ingestionDetails);
+      ttlSecondsByThreatId.set(t.id, t.ttlSeconds);
+      threatCreatedAtByThreatId.set(t.id, t.createdAt.toISOString());
     }
 
     const serializedRisks = filteredRisks.map((risk) => {
@@ -121,6 +130,12 @@ export async function GET(request: NextRequest) {
       const merged = risk.assigneeId ?? teAssignee;
       const assigneeId =
         merged != null && String(merged).trim() !== '' ? String(merged).trim() : undefined;
+      const ingestionDetails =
+        threatId != null ? ingestionDetailsByThreatId.get(threatId) ?? undefined : undefined;
+      const ttlSeconds =
+        threatId != null ? ttlSecondsByThreatId.get(threatId) : undefined;
+      const threatCreatedAt =
+        threatId != null ? threatCreatedAtByThreatId.get(threatId) : undefined;
       return {
         id: risk.id.toString(),
         title: risk.title,
@@ -130,6 +145,9 @@ export async function GET(request: NextRequest) {
         score_cents: risk.score_cents,
         company: { name: risk.company.name, sector: risk.company.sector },
         isSimulation: risk.isSimulation,
+        ...(ingestionDetails != null ? { ingestionDetails } : {}),
+        ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
+        ...(threatCreatedAt !== undefined ? { threatCreatedAt } : {}),
       };
     });
 

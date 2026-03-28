@@ -165,6 +165,7 @@ model ThreatEvent {
   aiReport String? @db.Text
 
   /// Raw Irongate / ingress payload (quarantine details before promotion); optional
+  /// Also carries merged JSON: Ironsight `aiTrace`, GRC `grcJustification`, etc. (shallow-merge on write).
   ingestionDetails String? @db.Text
 
   // Relations

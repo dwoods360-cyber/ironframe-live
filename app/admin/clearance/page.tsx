@@ -117,6 +117,14 @@ export default async function ClearancePage() {
           tenantCompanyId: company.id,
         },
         orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          sourceAgent: true,
+          createdAt: true,
+          ingestionDetails: true,
+          aiReport: true,
+        },
       })
     : [];
 

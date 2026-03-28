@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { ChangeEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
 import { setThreatAssigneeAction, type AssignmentChangedLogEntry } from '@/app/actions/threatActions';
+import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
+import { fetchActiveThreatsFromDb } from '@/app/actions/simulationActions';
+import { mapActiveThreatFromDbToPipelineThreat } from '@/app/utils/mapActiveThreatFromDbToPipelineThreat';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
@@ -43,6 +46,22 @@ type RiskRow = {
   score_cents: number;
   company: { name: string; sector: string };
   isSimulation?: boolean;
+  /** Optional blast-radius labels when API / store supplies them. */
+  impactedAssets?: string[];
+  blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
+  /** Linked ThreatEvent ingestion JSON (Ironsight `aiTrace`). */
+  ingestionDetails?: string | null;
+  /** Linked ThreatEvent.ttlSeconds for SLA badge. */
+  ttlSeconds?: number | null;
+  /** Linked ThreatEvent.createdAt (ISO) for SLA expiry. */
+  threatCreatedAt?: string | null;
+  aiTrace?: {
+    status: string;
+    report?: string;
+    actions?: Array<{ label: string; actionId: string }>;
+    impactedAssets?: string[];
+    complianceTags?: string[];
+  };
 };
 
 /** Live ThreatEvent slice from GET /api/dashboard — assigneeId + ASSIGNMENT_CHANGED history. */
@@ -84,6 +103,434 @@ const CONFIRM_REASONS = [
 type LifecycleState = 'active' | 'confirmed' | 'resolved';
 
 type WorkNote = { timestamp: string; text: string; user: string };
+
+const BLAST_RADIUS_PENDING_COPY = 'Standard Blast Radius (Pending Deep Scan)';
+
+function asNonEmptyStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const x of value) {
+    if (typeof x === 'string' && x.trim().length > 0) out.push(x.trim());
+  }
+  return out;
+}
+
+function dedupeLabels(labels: string[]): string[] {
+  return [...new Set(labels.map((s) => s.trim()).filter(Boolean))];
+}
+
+/**
+ * Pipeline triage justification: `ingestionDetails.grcJustification` (merged on acknowledge),
+ * else newest work note text (same string as acknowledge WorkNote), else client `justification`.
+ */
+function readPipelineGrcJustificationFromThreat(threat: {
+  justification?: string;
+  ingestionDetails?: string | null;
+  workNotes?: { text: string }[];
+}): string {
+  const raw = threat.ingestionDetails;
+  if (typeof raw === 'string' && raw.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const g = (parsed as Record<string, unknown>).grcJustification;
+        if (typeof g === 'string' && g.trim().length > 0) {
+          return g.trim();
+        }
+      }
+    } catch {
+      /* not JSON */
+    }
+  }
+  const wn = threat.workNotes;
+  if (Array.isArray(wn) && wn.length > 0) {
+    const t0 = wn[0]?.text;
+    if (typeof t0 === 'string' && t0.trim().length > 0) {
+      return t0.trim();
+    }
+  }
+  return (threat.justification ?? '').trim();
+}
+
+/**
+ * Read-only recovery of impacted assets from threat-shaped payloads (no server changes).
+ * Supports: impactedAssets, affectedSystems, blastRadius.*, ingestionDetails JSON (incl. nested aiTrace).
+ */
+function extractImpactedAssets(threatLike: unknown): string[] {
+  if (threatLike == null || typeof threatLike !== 'object') return [];
+  const o = threatLike as Record<string, unknown>;
+
+  const direct = dedupeLabels(asNonEmptyStringList(o.impactedAssets));
+  if (direct.length > 0) return direct;
+
+  const affected = dedupeLabels(asNonEmptyStringList(o.affectedSystems));
+  if (affected.length > 0) return affected;
+
+  const br = o.blastRadius;
+  if (br != null && typeof br === 'object') {
+    const b = br as Record<string, unknown>;
+    const fromBr = dedupeLabels([
+      ...asNonEmptyStringList(b.impactedAssets),
+      ...asNonEmptyStringList(b.assets),
+      ...asNonEmptyStringList(b.services),
+    ]);
+    if (fromBr.length > 0) return fromBr;
+  }
+
+  const ingestion = o.ingestionDetails;
+  if (typeof ingestion === 'string' && ingestion.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(ingestion) as unknown;
+      const nested = extractImpactedAssets(parsed);
+      if (nested.length > 0) return nested;
+    } catch {
+      /* not JSON */
+    }
+  }
+
+  return [];
+}
+
+function ImpactedBlastRadiusSection({
+  threatLike,
+  threatEventId,
+  deepTraceRunning,
+}: {
+  threatLike: unknown;
+  threatEventId?: string | null;
+  deepTraceRunning?: boolean;
+}) {
+  const trace = extractIronsightAiTrace(threatLike);
+  const phase = ironsightTraceUiPhase(trace);
+
+  return (
+    <div className="rounded border border-slate-700/80 bg-slate-900/50 p-2 threat-list-fade-in">
+      <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+        IMPACTED ASSETS (BLAST RADIUS)
+      </p>
+      {phase === 'loading' && (
+        <div
+          className="flex items-start gap-2 rounded border border-blue-500/25 bg-slate-950/60 px-2 py-1.5 text-[10px] leading-snug text-slate-400"
+          aria-busy={!!deepTraceRunning}
+          title={
+            !threatEventId
+              ? 'Link this row to a ThreatEvent for Ironsight blast-radius mapping.'
+              : undefined
+          }
+        >
+          <Loader2
+            className={`mt-0.5 size-3.5 shrink-0 text-blue-400 ${deepTraceRunning ? 'animate-spin' : ''}`}
+            aria-hidden
+          />
+          <span>
+            {deepTraceRunning
+              ? 'Scanning infrastructure dependencies…'
+              : !threatEventId
+                ? BLAST_RADIUS_PENDING_COPY
+                : 'Starting automatic Ironsight scan…'}
+          </span>
+        </div>
+      )}
+      {phase === 'failed' && trace != null && (
+        <span
+          className="inline-flex max-w-full rounded-full bg-rose-900/90 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-rose-100"
+          title={trace.report?.trim() || undefined}
+        >
+          Trace Failed - Manual Mapping Required
+        </span>
+      )}
+      {phase === 'completed' && trace != null && trace.impactedAssets.length > 0 && (
+        <div className="max-h-[4.5rem] overflow-y-auto overflow-x-hidden pr-0.5 [scrollbar-width:thin]">
+          <div className="flex flex-wrap gap-1.5">
+            {trace.impactedAssets.map((label, i) => (
+              <span
+                key={`${label}-${i}`}
+                className="inline-flex max-w-full shrink-0 cursor-default truncate rounded-full bg-blue-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm"
+                title={label}
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {phase === 'completed' && trace != null && trace.impactedAssets.length === 0 && (
+        <span className="inline-flex max-w-full rounded-full bg-emerald-900/85 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-emerald-100">
+          No Internal Dependencies Found
+        </span>
+      )}
+    </div>
+  );
+}
+
+type IronsightAiTraceNormalized = {
+  status: string;
+  report?: string;
+  actions: Array<{ label: string; actionId: string }>;
+  impactedAssets: string[];
+  complianceTags: string[];
+};
+
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function normalizeIronsightAiTrace(raw: Record<string, unknown>): IronsightAiTraceNormalized {
+  const status = typeof raw.status === 'string' && raw.status.trim() ? raw.status.trim() : 'PENDING';
+  const report = typeof raw.report === 'string' ? raw.report : undefined;
+  const actions: Array<{ label: string; actionId: string }> = [];
+  if (Array.isArray(raw.actions)) {
+    for (const item of raw.actions) {
+      if (item == null || typeof item !== 'object' || Array.isArray(item)) continue;
+      const a = item as Record<string, unknown>;
+      const label = typeof a.label === 'string' ? a.label.trim() : '';
+      const actionIdRaw =
+        typeof a.actionId === 'string'
+          ? a.actionId.trim()
+          : typeof a.id === 'string'
+            ? (a.id as string).trim()
+            : '';
+      if (label) actions.push({ label, actionId: actionIdRaw || label });
+    }
+  }
+  const impactedAssets = dedupeLabels(asNonEmptyStringList(raw.impactedAssets)).slice(0, 3);
+  const complianceTags = dedupeLabels(asNonEmptyStringList(raw.complianceTags)).slice(0, 3);
+  return { status, report, actions, impactedAssets, complianceTags };
+}
+
+/** Read-only: `aiTrace` on threat, or nested under `ingestionDetails` JSON (Ironsight persistence path). */
+function extractIronsightAiTrace(threatLike: unknown): IronsightAiTraceNormalized | null {
+  if (threatLike == null || typeof threatLike !== 'object') return null;
+  const o = threatLike as Record<string, unknown>;
+  const direct = o.aiTrace;
+  if (direct != null && typeof direct === 'object' && !Array.isArray(direct)) {
+    return normalizeIronsightAiTrace(direct as Record<string, unknown>);
+  }
+  const ing = parseJsonRecord(o.ingestionDetails);
+  const fromIng = ing?.aiTrace;
+  if (fromIng != null && typeof fromIng === 'object' && !Array.isArray(fromIng)) {
+    return normalizeIronsightAiTrace(fromIng as Record<string, unknown>);
+  }
+  return null;
+}
+
+function ironsightTraceUiPhase(
+  trace: IronsightAiTraceNormalized | null,
+): 'loading' | 'completed' | 'failed' {
+  if (trace == null) return 'loading';
+  const s = trace.status.toUpperCase();
+  if (s === 'FAILED' || s === 'ERROR') return 'failed';
+  if (s === 'COMPLETED' || s === 'COMPLETE') return 'completed';
+  return 'loading';
+}
+
+/** True when there is no completed/failed Ironsight trace yet (auto-ignite eligible). */
+function threatNeedsIronsightAutoTrace(threatLike: unknown): boolean {
+  return ironsightTraceUiPhase(extractIronsightAiTrace(threatLike)) === 'loading';
+}
+
+/** Ironsight / Irontally compliance tags — header only; hidden while trace pending or failed. */
+function IronsightComplianceTagsBadges({ threatLike }: { threatLike: unknown }) {
+  const trace = extractIronsightAiTrace(threatLike);
+  const phase = ironsightTraceUiPhase(trace);
+  if (phase !== 'completed' || trace == null || trace.complianceTags.length === 0) {
+    return null;
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1" aria-label="Regulatory compliance tags">
+      {trace.complianceTags.map((tag, i) => (
+        <span
+          key={`${tag}-${i}`}
+          className="inline-flex max-w-full shrink-0 truncate rounded-full bg-purple-950 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-purple-100 ring-1 ring-purple-700/60"
+          title={tag}
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const SLA_TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+
+function formatSlaRemaining(ms: number): string {
+  const clamped = Math.max(0, ms);
+  const totalMins = Math.floor(clamped / 60_000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+/** ThreatEvent TTL vs createdAt — refreshes every 60s. */
+function ActiveRiskSlaBadge({
+  ttlSeconds,
+  createdAtIso,
+}: {
+  ttlSeconds?: number | null;
+  createdAtIso?: string | null;
+}) {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const { text, className } = useMemo(() => {
+    void tick;
+    if (ttlSeconds == null) {
+      return { text: 'SLA: Standard', className: 'text-[9px] font-medium text-slate-500' };
+    }
+    if (createdAtIso == null || createdAtIso.trim() === '') {
+      return { text: 'SLA: Standard', className: 'text-[9px] font-medium text-slate-500' };
+    }
+    const startMs = Date.parse(createdAtIso);
+    if (Number.isNaN(startMs)) {
+      return { text: 'SLA: Standard', className: 'text-[9px] font-medium text-slate-500' };
+    }
+    const expirationMs = startMs + ttlSeconds * 1000;
+    const remainingMs = expirationMs - Date.now();
+    if (remainingMs < 0) {
+      return {
+        text: 'SLA BREACHED',
+        className: 'text-[9px] font-bold uppercase tracking-wide text-red-400',
+      };
+    }
+    const label = `SLA: ${formatSlaRemaining(remainingMs)}`;
+    if (remainingMs > SLA_TWO_HOURS_MS) {
+      return { text: label, className: 'text-[9px] font-semibold text-emerald-400/90' };
+    }
+    return { text: label, className: 'text-[9px] font-semibold text-amber-400' };
+  }, [ttlSeconds, createdAtIso, tick]);
+
+  return (
+    <span className={`mt-0.5 block text-right tabular-nums ${className}`} title="Triage SLA from ThreatEvent TTL">
+      {text}
+    </span>
+  );
+}
+
+function IronsightDeepTraceSection({
+  threatLike,
+  contextId,
+  threatEventId,
+  deepTraceRunning,
+  executingChipKey,
+  onExecuteAction,
+}: {
+  threatLike: unknown;
+  contextId: string;
+  threatEventId: string | null;
+  deepTraceRunning: boolean;
+  executingChipKey: string | null;
+  onExecuteAction: (label: string, actionId: string) => void;
+}) {
+  const trace = extractIronsightAiTrace(threatLike);
+  const phase = ironsightTraceUiPhase(trace);
+  const showActions =
+    trace != null &&
+    trace.actions.length > 0 &&
+    (phase === 'completed' || phase === 'failed');
+
+  return (
+    <div className="rounded border border-slate-700/80 bg-slate-950/40 p-2 threat-list-fade-in">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+          IRONSIGHT DEEP TRACE
+        </p>
+        {trace != null && (
+          <span className="rounded border border-slate-600/80 bg-slate-900 px-1.5 py-0.5 text-[8px] font-mono uppercase tracking-wide text-slate-500">
+            {trace.status}
+          </span>
+        )}
+      </div>
+      <p className="mb-2 text-[9px] leading-snug text-slate-500">
+        Suggested by IRONSIGHT — execution only after you explicitly click an action chip (human-in-the-loop).
+      </p>
+      {phase === 'loading' && (
+        <div
+          className="flex items-center gap-2 rounded border border-blue-500/30 bg-slate-950/80 px-2 py-2 text-[10px] text-slate-400"
+          aria-busy={deepTraceRunning}
+        >
+          <Loader2
+            className={`size-3.5 shrink-0 text-blue-400 ${deepTraceRunning ? 'animate-spin' : ''}`}
+            aria-hidden
+          />
+          <div>
+            <span className="font-semibold text-blue-200/90">
+              {deepTraceRunning
+                ? 'Scanning infrastructure dependencies…'
+                : threatEventId
+                  ? 'Ironsight deep trace starting…'
+                  : 'Awaiting ThreatEvent link for Ironsight'}
+            </span>
+            <span className="mt-0.5 block text-[9px] font-normal italic text-slate-500">
+              Automatic GRC blast-radius mapping (suggested actions only; human-in-the-loop execution).
+            </span>
+          </div>
+        </div>
+      )}
+      {phase === 'failed' && trace != null && (
+        <div className="rounded border border-rose-500/40 bg-rose-950/25 px-2 py-2 text-[10px] leading-snug text-rose-100/90">
+          {trace.report?.trim() || 'Deep trace did not complete. Retry or perform a manual dependency review.'}
+        </div>
+      )}
+      {phase === 'completed' && trace != null && (
+        <div
+          className="max-h-32 overflow-y-auto rounded border border-blue-500/40 bg-slate-950/95 px-2 py-2 text-[10px] leading-relaxed text-slate-200 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.08)] [scrollbar-width:thin]"
+          role="region"
+          aria-label="Ironsight trace report (read-only)"
+        >
+          <p className="whitespace-pre-wrap break-words">{trace.report?.trim() || '—'}</p>
+        </div>
+      )}
+      {showActions && trace != null && (
+        <div className="mt-2 flex max-h-24 flex-wrap gap-2 overflow-y-auto [scrollbar-width:thin]">
+          {trace.actions.map((action, i) => {
+            const warm = i % 2 === 0;
+            const chipKey =
+              threatEventId && threatEventId.length > 0
+                ? `${threatEventId}::${action.actionId}`
+                : `::${contextId}::${action.actionId}`;
+            const isExecuting = executingChipKey === chipKey;
+            return (
+              <button
+                key={`${contextId}-${action.actionId}-${i}`}
+                type="button"
+                disabled={!threatEventId || isExecuting}
+                className={`shrink-0 rounded border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wide transition-colors hover:bg-slate-800/80 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  warm
+                    ? 'border-red-500/55 text-red-300 hover:border-red-400/70'
+                    : 'border-amber-500/55 text-amber-200 hover:border-amber-400/70'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!threatEventId) return;
+                  onExecuteAction(action.label, action.actionId);
+                }}
+              >
+                {isExecuting ? 'Executing…' : action.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Supply Chain Impact (1–10) for vendor/third-party artifacts.
@@ -161,6 +608,7 @@ export default function ActiveRisksClient({
 }: Props) {
   const router = useRouter();
   const activeThreats = useRiskStore((state) => state.activeThreats);
+  const replaceActiveThreats = useRiskStore((state) => state.replaceActiveThreats);
   const confirmThreat = useRiskStore((state) => state.confirmThreat);
   const resolveThreat = useRiskStore((state) => state.resolveThreat);
   const revertThreatToPipeline = useRiskStore((state) => state.revertThreatToPipeline);
@@ -181,6 +629,65 @@ export default function ActiveRisksClient({
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
   const [riskSearchQuery, setRiskSearchQuery] = useState('');
+  const [executionToast, setExecutionToast] = useState<string | null>(null);
+  const [traceRunningThreatId, setTraceRunningThreatId] = useState<string | null>(null);
+  const [executingActionKey, setExecutingActionKey] = useState<string | null>(null);
+  /** Prevents duplicate client-side `triggerDeepTrace` calls per threat id for this mount. */
+  const ironsightAutoIgnitedRef = useRef(new Set<string>());
+  const [, startTraceTransition] = useTransition();
+  const [, startExecTransition] = useTransition();
+
+  useEffect(() => {
+    if (executionToast == null) return;
+    const id = window.setTimeout(() => setExecutionToast(null), 4800);
+    return () => window.clearTimeout(id);
+  }, [executionToast]);
+
+  const refreshActiveThreatsFromDb = async () => {
+    const rows = await fetchActiveThreatsFromDb();
+    replaceActiveThreats(rows.map(mapActiveThreatFromDbToPipelineThreat));
+  };
+
+  const runDeepTrace = (threatEventId: string | null | undefined) => {
+    const tid = typeof threatEventId === 'string' ? threatEventId.trim() : '';
+    if (!tid) {
+      setThreatActionError({
+        active: true,
+        message: 'Cannot run Ironsight: this row has no ThreatEvent id.',
+      });
+      return;
+    }
+    setTraceRunningThreatId(tid);
+    startTraceTransition(() => {
+      void triggerDeepTrace(tid)
+        .then(async (res) => {
+          await refreshActiveThreatsFromDb();
+          router.refresh();
+          if (!res.success) {
+            setThreatActionError({ active: true, message: res.error });
+          }
+        })
+        .finally(() => setTraceRunningThreatId(null));
+    });
+  };
+
+  const handleExecuteTraceAction = (threatEventId: string, label: string, actionId: string) => {
+    const chipKey = `${threatEventId}::${actionId}`;
+    setExecutingActionKey(chipKey);
+    startExecTransition(() => {
+      void executeTraceAction(threatEventId, actionId, label, 'admin-user-01')
+        .then(async (res) => {
+          if (res.success) {
+            setExecutionToast(`Remediation logged: ${label}`);
+            await refreshActiveThreatsFromDb();
+            router.refresh();
+          } else {
+            setThreatActionError({ active: true, message: res.error });
+          }
+        })
+        .finally(() => setExecutingActionKey(null));
+    });
+  };
 
   const [activeAction, setActiveAction] = useState<ActionType | null>(null);
   const [activeActionCardId, setActiveActionCardId] = useState<string | null>(null);
@@ -301,6 +808,59 @@ export default function ActiveRisksClient({
       (a.calculatedRiskScore ?? a.score ?? a.loss ?? 0),
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
+
+  const ironsightAutoIgniteFingerprint = useMemo(() => {
+    const parts: string[] = [];
+    for (const t of sortedActiveThreats) {
+      const life = (states[t.id] ?? t.lifecycleState ?? 'active') as LifecycleState;
+      if (life !== 'active') continue;
+      parts.push(`t:${t.id}:${t.ingestionDetails ?? ''}`);
+    }
+    for (const r of sortedRisks) {
+      const life = (states[r.id] ?? 'active') as LifecycleState;
+      if (life !== 'active') continue;
+      const tid = r.threatId?.trim();
+      if (!tid) continue;
+      parts.push(`r:${tid}:${r.ingestionDetails ?? ''}`);
+    }
+    parts.sort();
+    return parts.join('|');
+  }, [sortedActiveThreats, sortedRisks, states]);
+
+  const sortedActiveThreatsRef = useRef(sortedActiveThreats);
+  const sortedRisksRef = useRef(sortedRisks);
+  const statesRef = useRef(states);
+  sortedActiveThreatsRef.current = sortedActiveThreats;
+  sortedRisksRef.current = sortedRisks;
+  statesRef.current = states;
+
+  const runDeepTraceRef = useRef(runDeepTrace);
+  runDeepTraceRef.current = runDeepTrace;
+
+  useEffect(() => {
+    if (traceRunningThreatId != null) return;
+    const st = statesRef.current;
+    const tryIgnite = (threatLike: unknown, tid: string): boolean => {
+      const id = tid.trim();
+      if (!id || ironsightAutoIgnitedRef.current.has(id)) return false;
+      if (!threatNeedsIronsightAutoTrace(threatLike)) return false;
+      ironsightAutoIgnitedRef.current.add(id);
+      runDeepTraceRef.current(id);
+      return true;
+    };
+    for (const t of sortedActiveThreatsRef.current) {
+      const life = (st[t.id] ?? t.lifecycleState ?? 'active') as LifecycleState;
+      if (life !== 'active') continue;
+      if (tryIgnite(t, t.id)) return;
+    }
+    for (const r of sortedRisksRef.current) {
+      const life = (statesRef.current[r.id] ?? 'active') as LifecycleState;
+      if (life !== 'active') continue;
+      const tid = r.threatId?.trim();
+      if (!tid) continue;
+      if (tryIgnite(r, tid)) return;
+    }
+  }, [ironsightAutoIgniteFingerprint, traceRunningThreatId]);
 
   const threatEventAssigneeById = useMemo(() => {
     const m = new Map<string, string>();
@@ -484,7 +1044,11 @@ export default function ActiveRisksClient({
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
-          const pipelineGrcJustification = (threat.justification ?? '').trim();
+          const pipelineGrcJustification = readPipelineGrcJustificationFromThreat({
+            justification: threat.justification,
+            ingestionDetails: threat.ingestionDetails,
+            workNotes: notes,
+          });
           const assigneeHistoryForCard =
             threat.assignmentHistory && threat.assignmentHistory.length > 0
               ? threat.assignmentHistory
@@ -547,6 +1111,7 @@ export default function ActiveRisksClient({
                       {threat.name}
                     </Link>
                   </h3>
+                  <IronsightComplianceTagsBadges threatLike={threat} />
                   <p className="mt-1 font-mono text-[10px] text-slate-500">{threat.id}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     Target: <span className="text-slate-400">{threat.target ?? threat.industry ?? 'Healthcare'}</span>
@@ -608,6 +1173,7 @@ export default function ActiveRisksClient({
                   <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                     {lifecycle === 'active' ? 'Just Acknowledged' : lifecycle === 'confirmed' ? 'Confirmed' : 'Resolved'}
                   </span>
+                  <ActiveRiskSlaBadge ttlSeconds={threat.ttlSeconds ?? null} createdAtIso={threat.createdAt ?? null} />
                 </div>
               </div>
 
@@ -619,10 +1185,31 @@ export default function ActiveRisksClient({
                       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
                         GRC JUSTIFICATION (FROM PIPELINE TRIAGE)
                       </p>
-                      <p className="mt-1 whitespace-pre-wrap text-[10px] text-slate-200">
+                      <p
+                        className="mt-1 whitespace-pre-wrap text-[10px] text-slate-200"
+                        role="note"
+                        aria-label="GRC justification from pipeline triage (read-only)"
+                      >
                         {pipelineGrcJustification || '—'}
                       </p>
                     </div>
+
+                    <ImpactedBlastRadiusSection
+                      threatLike={threat}
+                      threatEventId={threat.id}
+                      deepTraceRunning={traceRunningThreatId === threat.id}
+                    />
+
+                    <IronsightDeepTraceSection
+                      threatLike={threat}
+                      contextId={threat.id}
+                      threatEventId={threat.id}
+                      deepTraceRunning={traceRunningThreatId === threat.id}
+                      executingChipKey={executingActionKey}
+                      onExecuteAction={(label, actionId) =>
+                        handleExecuteTraceAction(threat.id, label, actionId)
+                      }
+                    />
 
                     <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                       {notes.length === 0 && (
@@ -878,6 +1465,7 @@ export default function ActiveRisksClient({
               <div className="flex w-full items-start justify-between text-left">
                 <div>
                   <h3 className="text-sm font-medium text-slate-200 group-hover:text-blue-200 group-hover:underline">{risk.title}</h3>
+                  <IronsightComplianceTagsBadges threatLike={risk} />
                   <p className="mt-1 font-mono text-[10px] text-slate-500">{risk.id}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     Target: <span className="text-slate-400">{risk.company.name}</span> ({risk.company.sector})
@@ -934,6 +1522,7 @@ export default function ActiveRisksClient({
                       ? 'Confirmed'
                       : 'Resolved'}
                   </span>
+                  <ActiveRiskSlaBadge ttlSeconds={risk.ttlSeconds ?? null} createdAtIso={risk.threatCreatedAt ?? null} />
                 </div>
               </div>
 
@@ -944,6 +1533,26 @@ export default function ActiveRisksClient({
                   onKeyDown={(e) => e.stopPropagation()}
                 >
                   <AssigneeHistorySection entries={riskAssigneeHistory} />
+                  <ImpactedBlastRadiusSection
+                    threatLike={risk}
+                    threatEventId={risk.threatId ?? null}
+                    deepTraceRunning={
+                      risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
+                    }
+                  />
+                  <IronsightDeepTraceSection
+                    threatLike={risk}
+                    contextId={risk.threatId ?? risk.id}
+                    threatEventId={risk.threatId ?? null}
+                    deepTraceRunning={
+                      risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
+                    }
+                    executingChipKey={executingActionKey}
+                    onExecuteAction={(label, actionId) => {
+                      if (!risk.threatId) return;
+                      handleExecuteTraceAction(risk.threatId, label, actionId);
+                    }}
+                  />
                   <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                     {notes.length === 0 && (
                       <div className="text-[10px] text-slate-500">No work notes recorded yet.</div>
@@ -1107,6 +1716,23 @@ export default function ActiveRisksClient({
           </>
         )}
       </div>
+
+      {executionToast != null && (
+        <div
+          className="pointer-events-auto fixed bottom-6 right-6 z-[100] max-w-sm threat-list-fade-in rounded-lg border border-cyan-500/45 bg-slate-950/95 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-xs font-semibold tracking-wide text-cyan-100">{executionToast}</p>
+          <button
+            type="button"
+            onClick={() => setExecutionToast(null)}
+            className="mt-2 text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-300"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </div>
   );
 }

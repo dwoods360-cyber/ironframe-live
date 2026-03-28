@@ -50,6 +50,11 @@ type DashboardData = {
     score_cents: number;
     company: { name: string; sector: string };
     isSimulation?: boolean;
+    /** Linked ThreatEvent.ingestionDetails JSON text (Ironsight aiTrace lives here). */
+    ingestionDetails?: string | null;
+    ttlSeconds?: number;
+    /** Linked ThreatEvent.createdAt (ISO) for SLA countdown. */
+    threatCreatedAt?: string;
   }>;
   /** Live ThreatEvent rows — includes assigneeId for hydration when ActiveRisk is empty. */
   threatEvents?: Array<{

@@ -36,9 +36,30 @@ export default async function ThreatDetailPage({
 
   const threat = await prisma.threatEvent.findUnique({
     where: { id },
-    include: {
-      notes: { orderBy: { createdAt: 'desc' } },
-      auditTrail: { orderBy: { createdAt: 'desc' } },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      financialRisk_cents: true,
+      targetEntity: true,
+      sourceAgent: true,
+      score: true,
+      aiReport: true,
+      ingestionDetails: true,
+      notes: {
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, text: true, operatorId: true, createdAt: true },
+      },
+      auditTrail: {
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          action: true,
+          operatorId: true,
+          createdAt: true,
+          justification: true,
+        },
+      },
     },
   });
 

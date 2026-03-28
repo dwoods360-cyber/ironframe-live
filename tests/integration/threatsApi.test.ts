@@ -12,6 +12,9 @@ vi.mock('@/lib/prisma', () => ({
     threatEvent: {
       create: vi.fn(),
     },
+    company: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }));
 
@@ -134,5 +137,47 @@ describe('POST /api/threats — Threat Ingress API', () => {
     expect(data).toHaveProperty('id', mintedId);
     expect(data).toHaveProperty('tenantId', VAULTBANK_UUID);
     expect(data.tenantId).toBe(VAULTBANK_UUID);
+  });
+
+  it('Top Sector registration: Strategic Intel source + grcJustification persists ingestionDetails JSON', async () => {
+    const mintedId = 'cltopsector001';
+    vi.mocked(prisma.threatEvent.create).mockResolvedValue({
+      id: mintedId,
+      title: 'RANSOMWARE / PHI EXTORTION',
+      sourceAgent: 'Strategic Intel Profile',
+      score: 8,
+      targetEntity: 'Healthcare',
+      financialRisk_cents: BigInt(490_000_000),
+      status: 'ACTIVE',
+    } as any);
+
+    const req = buildRequest(
+      {
+        title: 'RANSOMWARE / PHI EXTORTION',
+        source: 'Strategic Intel Profile',
+        target: 'Healthcare',
+        loss: '490000000',
+        notes: 'Top Sector Threat',
+        destination: 'active',
+        grcJustification: 'Top Sector Threat',
+      },
+      { 'x-tenant-id': MEDSHIELD_UUID }
+    );
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.ingestionDetails).toBeDefined();
+    expect(JSON.parse(data.ingestionDetails as string)).toMatchObject({
+      grcJustification: 'Top Sector Threat',
+    });
+
+    expect(prisma.threatEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          ingestionDetails: expect.stringContaining('grcJustification'),
+        }),
+      })
+    );
   });
 });

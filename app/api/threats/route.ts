@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
 import { threatIngressSchema } from '@/app/utils/irongateSchema';
+import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { ZodError } from 'zod';
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
@@ -18,6 +19,10 @@ function centsToMillions(value: bigint): number {
   return Number(value) / CENTS_PER_MILLION;
 }
 
+/** Sources allowed to persist default `grcJustification` (Strategic Intel “Top Sector Threats” registration only). */
+const TOP_SECTOR_REGISTRATION_SOURCES = new Set(['Top Sector Threats', 'Strategic Intel Profile']);
+const TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION = 'Top Sector Threat';
+
 export type CreateThreatBody = {
   title: string;
   source?: string;
@@ -26,6 +31,8 @@ export type CreateThreatBody = {
   description?: string;
   notes?: string;
   destination?: 'pipeline' | 'active';
+  /** When source is a Top Sector path and value is exactly this string, merged into `ingestionDetails` JSON. */
+  grcJustification?: string;
 };
 
 /**
@@ -87,6 +94,15 @@ export async function POST(request: NextRequest) {
     const destination = (body.destination ?? 'pipeline').toLowerCase();
     const status = destination === 'active' ? ThreatState.ACTIVE : ThreatState.PIPELINE;
 
+    const requestedGrc = typeof body.grcJustification === 'string' ? body.grcJustification.trim() : '';
+    const applyTopSectorIngestion =
+      requestedGrc === TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION &&
+      TOP_SECTOR_REGISTRATION_SOURCES.has(source.trim());
+
+    const ingestionDetailsForCreate = applyTopSectorIngestion
+      ? mergeIngestionDetailsPatch(null, { grcJustification: TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION })
+      : undefined;
+
     const created = await prisma.threatEvent.create({
       data: {
         title,
@@ -97,6 +113,7 @@ export async function POST(request: NextRequest) {
         status,
         ttlSeconds: DEFAULT_TTL_SECONDS,
         tenantCompanyId: company?.id,
+        ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
       },
       select: {
         id: true,
@@ -125,6 +142,7 @@ export async function POST(request: NextRequest) {
       description: descriptionText,
       /** GRC triage justification (manual registration notes) — shown on Active Risks board. */
       justification: description.trim() || undefined,
+      ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
       tenantId,
       assignedTo: 'unassigned',
       lifecycleState: created.status === ThreatState.ACTIVE ? 'active' : 'pipeline',

@@ -200,7 +200,10 @@ export default async function ClearancePage() {
                     }
                   >
                     <td className="px-4 py-3 align-top">
-                      <DispositionControls threatId={threat.id} />
+                      <DispositionControls
+                        threatId={threat.id}
+                        ingestionDetails={threat.ingestionDetails}
+                      />
                     </td>
                     <td className="px-4 py-3 align-top">
                       <IronqueryGuidanceBlock insight={threat.aiReport} />

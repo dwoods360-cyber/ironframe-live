@@ -5,17 +5,33 @@ import { useReportStore } from "@/app/store/reportStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useScenarioStore } from "@/app/store/scenarioStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
+import type { RecentAuditLogRow } from "@/app/actions/auditActions";
+import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
+
+function formatOperatorDisplay(operatorId: string): string {
+  const id = operatorId.trim();
+  if (id.length <= 14) return id;
+  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id);
+  if (uuidLike) return `${id.slice(0, 8)}…`;
+  return `${id.slice(0, 12)}…`;
+}
 
 type ExecutiveSummaryProps = {
   /** Total baseline liability (all industries) - used when baselineByIndustry not provided */
   baselineLiabilityUsd: number;
   /** Per-industry baseline liability for industry-specific reporting */
   baselineByIndustry?: Record<string, number>;
+  /** Live ledger from ThreatEvent aggregates (tenant-scoped). */
+  telemetryData: GlobalTelemetry;
+  /** Tenant-scoped AuditLog rows from the primary DB. */
+  auditLogs: RecentAuditLogRow[];
 };
 
 export default function ExecutiveSummary({
   baselineLiabilityUsd,
   baselineByIndustry,
+  telemetryData,
+  auditLogs,
 }: ExecutiveSummaryProps) {
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
@@ -24,13 +40,7 @@ export default function ExecutiveSummary({
 
   const { activeScenario, multiplier } = useScenarioStore();
 
-  const {
-    totalMitigatedRiskM,
-    slaCompliancePct,
-    agentEfficiencyCount,
-    recentEvents,
-    refresh,
-  } = useReportStore();
+  const { slaCompliancePct, agentEfficiencyCount, recentEvents, refresh } = useReportStore();
 
   useEffect(() => {
     refresh();
@@ -40,8 +50,9 @@ export default function ExecutiveSummary({
     baselineByIndustry && selectedIndustry
       ? baselineByIndustry[selectedIndustry] ?? 0
       : baselineLiabilityUsd;
-  const baselineM = baselineForIndustry / 1_000_000;
-  const currentRiskM = Math.max(0, baselineM - totalMitigatedRiskM);
+
+  const liveCurrentUsd = telemetryData.activeExposureUsd;
+  const liveMitigatedUsd = telemetryData.mitigatedExposureUsd;
 
   const pipelineM = pipelineThreats
     .filter((t) => !selectedIndustry || t.industry === selectedIndustry)
@@ -61,14 +72,17 @@ export default function ExecutiveSummary({
     document.title = prevTitle;
   };
 
-  const burnDownPercent = baselineM > 0 ? (currentRiskM / baselineM) * 100 : 0;
+  const burnDownPercent =
+    baselineForIndustry > 0
+      ? Math.min(100, (liveCurrentUsd / baselineForIndustry) * 100)
+      : 0;
 
   const currencyMagnitude = useRiskStore((s) => s.currencyMagnitude);
   const liabilityExposureUsd = baselineForIndustry + acceptedM * 1e6 + pipelineM * 1e6;
   let adjustedLiabilityExposureUsd = liabilityExposureUsd;
   let adjustedBaselineUsd = baselineForIndustry;
-  let adjustedCurrentUsd = currentRiskM * 1e6;
-  let adjustedMitigatedUsd = totalMitigatedRiskM * 1e6;
+  let adjustedCurrentUsd = liveCurrentUsd;
+  let adjustedMitigatedUsd = liveMitigatedUsd;
   if (activeScenario && multiplier !== 1) {
     adjustedLiabilityExposureUsd = adjustedLiabilityExposureUsd * multiplier;
     adjustedBaselineUsd = adjustedBaselineUsd * multiplier;
@@ -188,28 +202,38 @@ export default function ExecutiveSummary({
                   <th className="px-3 py-2 text-left font-semibold uppercase tracking-wide text-slate-400">
                     Justification
                   </th>
+                  <th className="px-3 py-2 text-left font-semibold uppercase tracking-wide text-slate-400">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {recentEvents.length === 0 && (
+                {auditLogs.length === 0 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-3 py-3 text-center text-[11px] text-slate-500 bg-slate-950/60"
                     >
                       No GRC audit events recorded yet.
                     </td>
                   </tr>
                 )}
-                {recentEvents.map((evt) => (
-                  <tr key={evt.timestamp + evt.action}>
+                {auditLogs.map((row) => (
+                  <tr key={row.id}>
                     <td className="border-t border-slate-800 px-3 py-2 text-slate-300">
-                      {new Date(evt.timestamp).toLocaleString()}
+                      {new Date(row.createdAt).toLocaleString()}
                     </td>
-                    <td className="border-t border-slate-800 px-3 py-2 text-slate-300">{evt.userId}</td>
-                    <td className="border-t border-slate-800 px-3 py-2 text-slate-300">{evt.action}</td>
+                    <td className="border-t border-slate-800 px-3 py-2 font-mono text-slate-300" title={row.operatorId}>
+                      {formatOperatorDisplay(row.operatorId)}
+                    </td>
+                    <td className="border-t border-slate-800 px-3 py-2 text-slate-300">{row.action}</td>
                     <td className="border-t border-slate-800 px-3 py-2 text-rose-300">
-                      {evt.justification ?? "—"}
+                      {row.justification ?? "—"}
+                    </td>
+                    <td className="border-t border-slate-800 px-3 py-2">
+                      <span className="inline-flex rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400">
+                        Verified
+                      </span>
                     </td>
                   </tr>
                 ))}

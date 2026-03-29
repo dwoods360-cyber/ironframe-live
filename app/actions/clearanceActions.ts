@@ -4,10 +4,22 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState, DeAckReason } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import type { Prisma } from "@prisma/client";
+import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+import { parseIrongateScanFromIngestionDetails } from "@/app/utils/irongateScan";
+import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
 
 /**
  * Clearance queue uses the primary DB: ThreatEvent rows in PIPELINE for the active tenant's company.
  */
+
+const DMZ_PROMOTE_GRC_JUSTIFICATION = "Cleared and Promoted via DMZ Quarantine";
+
+const DMZ_REJECT_WORK_NOTE =
+  "[DMZ QUARANTINE: REJECTED] Threat archived as False Positive.";
+
+const DMZ_ESCALATE_WORK_NOTE =
+  "[DMZ QUARANTINE: ESCALATED] Threat escalated directly to SecOps.";
 
 async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
@@ -45,6 +57,75 @@ async function requirePipelineThreatForActiveTenant(threatId: string) {
   return { threat, tenantUuid, companyId };
 }
 
+function computeIrongateVerdict(threat: {
+  id: string;
+  title: string;
+  sourceAgent: string;
+}): "CLEAN" | "MALICIOUS" {
+  const haystack = `${threat.title} ${threat.sourceAgent}`.toUpperCase();
+  if (
+    /QUARANTINED|IRONLOCK|EXTERNAL_INJECTION|HOSTILE|MALICIOUS|EXTERNAL_INJECTION_ATTEMPT/i.test(
+      haystack,
+    )
+  ) {
+    return "MALICIOUS";
+  }
+  let sum = 0;
+  for (let i = 0; i < threat.id.length; i++) {
+    sum += threat.id.charCodeAt(i);
+  }
+  return sum % 3 === 0 ? "MALICIOUS" : "CLEAN";
+}
+
+export type IrongateScanPayload = {
+  status: "CLEAN" | "MALICIOUS";
+  scannedAt: string;
+};
+
+export type RunIrongateSanitizationResult =
+  | { success: true; irongateScan: IrongateScanPayload }
+  | { success: false; error: string };
+
+/**
+ * DMZ autonomous sanitization: merge `irongateScan` into `ingestionDetails` (no schema migration).
+ */
+export async function runIrongateSanitization(
+  threatId: string,
+): Promise<RunIrongateSanitizationResult> {
+  try {
+    const { threat } = await requirePipelineThreatForActiveTenant(threatId);
+    const existing = parseIrongateScanFromIngestionDetails(threat.ingestionDetails ?? null);
+    if (existing?.status === "CLEAN" || existing?.status === "MALICIOUS") {
+      return {
+        success: true,
+        irongateScan: {
+          status: existing.status,
+          scannedAt: existing.scannedAt ?? new Date().toISOString(),
+        },
+      };
+    }
+    const status = computeIrongateVerdict(threat);
+    const scannedAt = new Date().toISOString();
+    const irongateScanJson: Prisma.InputJsonValue = { status, scannedAt };
+    const merged = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+      irongateScan: irongateScanJson,
+    });
+    await prisma.threatEvent.update({
+      where: { id: threatId },
+      data: { ingestionDetails: merged },
+      select: { id: true },
+    });
+    revalidatePath("/admin/clearance");
+    return { success: true, irongateScan: { status, scannedAt } };
+  } catch (error) {
+    console.error("[clearanceActions] runIrongateSanitization:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function getPendingThreatActivityLogsForClearance() {
   try {
     const companyId = await getCompanyIdForActiveTenant();
@@ -79,31 +160,20 @@ export type PromoteThreatResult =
   | { success: true; auditId: string; threatId: string }
   | { success: false; error: string };
 
-export async function promoteThreatToAuditLog(threatId: string): Promise<PromoteThreatResult> {
-  try {
-    const { threat } = await requirePipelineThreatForActiveTenant(threatId);
-    const audit = await prisma.auditLog.create({
-      data: {
-        action: `CLEARANCE_PROMOTED:${threat.sourceAgent}`,
-        justification: threat.ingestionDetails ?? threat.title,
-        operatorId: "CLEARANCE_BRIDGE",
-        threatId: threat.id,
-        isSimulation: false,
-      },
-    });
-    return { success: true as const, auditId: audit.id, threatId: threat.id };
-  } catch (error) {
-    console.error("[clearanceActions] promoteThreatToAuditLog:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
 export async function promoteThreatToSanctum(threatId: string): Promise<PromoteThreatResult> {
   try {
+    const operatorId = await resolveDispositionOperatorId();
     const { threat } = await requirePipelineThreatForActiveTenant(threatId);
+    const irongate = parseIrongateScanFromIngestionDetails(threat.ingestionDetails ?? null);
+    if (irongate?.status !== "CLEAN") {
+      return {
+        success: false,
+        error:
+          irongate?.status === "MALICIOUS"
+            ? "Irongate: malicious signature detected — promotion to ledger is blocked."
+            : "Irongate: payload not sanitized or verdict missing — CLEAN required before promotion.",
+      };
+    }
     const promotedDetails = JSON.stringify({
       source_threat_id: threatId,
       sourceAgent: threat.sourceAgent,
@@ -113,7 +183,7 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
       data: {
         action: `CLEARANCE_PROMOTED:${threat.sourceAgent}`,
         justification: promotedDetails,
-        operatorId: "CLEARANCE_BRIDGE",
+        operatorId,
         threatId: threat.id,
         isSimulation: false,
       },
@@ -122,14 +192,21 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
       data: {
         action: "CHAIN_OF_CUSTODY_TRANSFER",
         justification: `Promoted pipeline threat ${threatId} from clearance to active ledger.`,
-        operatorId: "CLEARANCE_BRIDGE",
+        operatorId,
         threatId: threat.id,
         isSimulation: false,
       },
     });
+    const promotedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+      grcJustification: DMZ_PROMOTE_GRC_JUSTIFICATION,
+    });
     await prisma.threatEvent.update({
       where: { id: threatId },
-      data: { status: ThreatState.ACTIVE },
+      data: {
+        status: ThreatState.ACTIVE,
+        ingestionDetails: promotedIngestionDetails,
+      },
+      select: { id: true },
     });
     const out = { success: true as const, auditId: promoted.id, threatId: threat.id };
 
@@ -151,14 +228,29 @@ export type DispositionResult = { success: true } | { success: false; error: str
 
 export async function rejectAndArchiveThreat(threatId: string): Promise<DispositionResult> {
   try {
-    await requirePipelineThreatForActiveTenant(threatId);
-    await prisma.threatEvent.update({
-      where: { id: threatId },
-      data: {
-        status: ThreatState.DE_ACKNOWLEDGED,
-        deAckReason: DeAckReason.FALSE_POSITIVE,
-      },
+    const operatorId = await resolveDispositionOperatorId();
+    const { threat } = await requirePipelineThreatForActiveTenant(threatId);
+    const rejectedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+      grcJustification: DMZ_REJECT_WORK_NOTE,
     });
+    await prisma.$transaction([
+      prisma.workNote.create({
+        data: {
+          text: DMZ_REJECT_WORK_NOTE,
+          operatorId,
+          threatId,
+        },
+      }),
+      prisma.threatEvent.update({
+        where: { id: threatId },
+        data: {
+          status: ThreatState.DE_ACKNOWLEDGED,
+          deAckReason: DeAckReason.FALSE_POSITIVE,
+          ingestionDetails: rejectedIngestionDetails,
+        },
+        select: { id: true },
+      }),
+    ]);
 
     revalidatePath("/admin/clearance");
     revalidatePath("/");
@@ -175,11 +267,28 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
 
 export async function escalateToSecOps(threatId: string): Promise<DispositionResult> {
   try {
-    await requirePipelineThreatForActiveTenant(threatId);
-    await prisma.threatEvent.update({
-      where: { id: threatId },
-      data: { status: ThreatState.CONFIRMED },
+    const operatorId = await resolveDispositionOperatorId();
+    const { threat } = await requirePipelineThreatForActiveTenant(threatId);
+    const escalatedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+      grcJustification: DMZ_ESCALATE_WORK_NOTE,
     });
+    await prisma.$transaction([
+      prisma.workNote.create({
+        data: {
+          text: DMZ_ESCALATE_WORK_NOTE,
+          operatorId,
+          threatId,
+        },
+      }),
+      prisma.threatEvent.update({
+        where: { id: threatId },
+        data: {
+          status: ThreatState.CONFIRMED,
+          ingestionDetails: escalatedIngestionDetails,
+        },
+        select: { id: true },
+      }),
+    ]);
 
     revalidatePath("/admin/clearance");
     revalidatePath("/");

@@ -103,6 +103,10 @@ export async function POST(request: NextRequest) {
       ? mergeIngestionDetailsPatch(null, { grcJustification: TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION })
       : undefined;
 
+    const descriptionText = description
+      ? `Source: ${source} · ${description}`
+      : `Source: ${source}`;
+
     const created = await prisma.threatEvent.create({
       data: {
         title,
@@ -113,6 +117,7 @@ export async function POST(request: NextRequest) {
         status,
         ttlSeconds: DEFAULT_TTL_SECONDS,
         tenantCompanyId: company?.id,
+        aiReport: descriptionText,
         ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
       },
       select: {
@@ -127,9 +132,6 @@ export async function POST(request: NextRequest) {
     });
 
     const lossM = centsToMillions(created.financialRisk_cents);
-    const descriptionText = description
-      ? `Source: ${created.sourceAgent} · ${description}`
-      : `Source: ${created.sourceAgent}`;
 
     return NextResponse.json({
       id: created.id,
@@ -140,6 +142,7 @@ export async function POST(request: NextRequest) {
       target: created.targetEntity,
       source: created.sourceAgent,
       description: descriptionText,
+      aiReport: descriptionText,
       /** GRC triage justification (manual registration notes) — shown on Active Risks board. */
       justification: description.trim() || undefined,
       ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),

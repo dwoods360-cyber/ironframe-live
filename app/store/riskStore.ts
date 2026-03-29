@@ -81,6 +81,8 @@ export type PipelineThreat = {
   affectedSystems?: string[];
   blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
   ingestionDetails?: string;
+  /** ThreatEvent.aiReport — CoreIntel / ingress narrative; also used for card body fallback. */
+  aiReport?: string | null;
   /** Optional Ironsight deep-trace output (typically under `ingestionDetails` JSON as `aiTrace`). */
   aiTrace?: {
     status: string;
@@ -188,6 +190,11 @@ interface RiskState {
   // Global industry profile (synced from StrategicIntel)
   selectedIndustry: string;
   setSelectedIndustry: (industry: string) => void;
+
+  /** GRC report framework chips (`/reports`) — IDs from `app/config/grcFrameworks`. */
+  activeFrameworkIds: string[];
+  toggleFramework: (frameworkId: string) => void;
+  clearActiveFrameworks: () => void;
 
   // Selected tenant/company view (Consultant / Enterprise mode)
   selectedTenantName: string | null;
@@ -687,6 +694,15 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   selectedIndustry: "Healthcare",
   setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
 
+  activeFrameworkIds: [],
+  toggleFramework: (frameworkId) =>
+    set((state) => ({
+      activeFrameworkIds: state.activeFrameworkIds.includes(frameworkId)
+        ? state.activeFrameworkIds.filter((id) => id !== frameworkId)
+        : [...state.activeFrameworkIds, frameworkId],
+    })),
+  clearActiveFrameworks: () => set({ activeFrameworkIds: [] }),
+
   selectedTenantName: null,
   setSelectedTenantName: (tenantName) => set({ selectedTenantName: tenantName }),
 
@@ -721,6 +737,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       dashboardLiabilities: {},
       riskOffset: 0,
       threatIndexById: {},
+      activeFrameworkIds: [],
     }),
 
   removeGhostThreats: (ids) =>
@@ -823,6 +840,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         loss: payload.loss,
         notes: payload.description?.trim() || undefined,
         destination: payload.destination ?? 'pipeline',
+        ...(payload.grcJustification?.trim()
+          ? { grcJustification: payload.grcJustification.trim() }
+          : {}),
       }),
     });
     if (!res.ok) {
@@ -834,6 +854,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     const record = (await res.json()) as PipelineThreat & { justification?: string };
     if (payload.destination === "active" || record.lifecycleState === "active") {
       set((state) => {
+        const rec = record as PipelineThreat & {
+          ingestionDetails?: string;
+          aiReport?: string | null;
+        };
         const normalized: PipelineThreat = {
           ...record,
           lifecycleState: "active",
@@ -841,9 +865,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           createdAt: record.createdAt ?? new Date().toISOString(),
           assignedTo: record.assignedTo ?? "unassigned",
           justification: record.justification ?? payload.description?.trim() ?? undefined,
-          ingestionDetails:
-            (record as PipelineThreat & { ingestionDetails?: string }).ingestionDetails ??
-            undefined,
+          ingestionDetails: rec.ingestionDetails ?? undefined,
+          aiReport: rec.aiReport ?? undefined,
         };
         const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
         const nextActiveThreats =

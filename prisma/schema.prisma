@@ -169,14 +169,31 @@ model ThreatEvent {
   ingestionDetails String? @db.Text
 
   // Relations
-  notes      WorkNote[]
-  auditTrail AuditLog[]
+  notes                 WorkNote[]
+  auditTrail            AuditLog[]
+  sustainabilityMetric  SustainabilityMetric?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantCompanyId])
   @@map("ThreatEvent")
+}
+
+/// Ironbloom (Epic 5): physical sustainability ledger — kWh, liters, CO2e grams (not USD).
+model SustainabilityMetric {
+  id                  String   @id @default(uuid())
+  threatId            String   @unique
+  threat              ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  /// Energy averted by preventing recovery compute (integer kWh).
+  kwhAverted          BigInt
+  /// Cooling water saved (liters), derived from kWh × factor.
+  coolingWaterLiters  Float
+  /// CO2e reduction in grams (integer).
+  carbonOffsetGrams   BigInt
+  createdAt           DateTime @default(now())
+
+  @@map("SustainabilityMetric")
 }
 
 // --- Appendable Work Notes ---

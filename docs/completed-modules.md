@@ -2,10 +2,15 @@
 
 **Project:** Ironframe  
 **Version:** 2.0.0 (Sovereign Build State)  
-**Last Updated:** 2026-02-25  
+**Last Updated:** 2026-03-27  
 **Authority:** Product Owner (Layer 6)
 
 This registry tracks fully implemented, tested, and constitutionally compliant modules. Code patterns established here serve as the immutable standard for future development.
+
+## Epic closure log (Executive Telemetry)
+
+**Epic 4 Finalized: Financial Telemetry, GRC Global Frameworks, and Surgical Heat Map filtering (Top 10).**  
+Executive Insights & GRC (Ironwave) telemetry is complete; the BIGINT Financial Ledger and heat-map UX baseline (including Top 10-by-USD default) are registered as production patterns. Active development advances to **Epic 5 — Ironbloom (Sustainability Layer)**, modeling **kWh, L, and CO2e** as primary physical units rather than USD-only sustainability proxies.
 
 ## 1. Governance & Architecture
 

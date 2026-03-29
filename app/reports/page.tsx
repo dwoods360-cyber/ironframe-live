@@ -1,21 +1,24 @@
 import prisma from "@/lib/prisma";
 import { getRecentAuditLogs } from "@/app/actions/auditActions";
 import { getGlobalTelemetry } from "@/app/actions/dashboardActions";
+import { getGlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import ExecutiveSummary from "../components/ExecutiveSummary";
 import SimulationHud from "../components/SimulationHud";
 import RiskScenarioSimulator from "../components/RiskScenarioSimulator";
 import SaaSPricingModel from "../components/SaaSPricingModel";
 import ReportsFooter from "../components/ReportsFooter";
 import GrcReportFrameworkGrid from "../components/GrcReportFrameworkGrid";
+import ReportsEnvironmentalImpactSection from "../components/ReportsEnvironmentalImpactSection";
 import ReportsPageHeader from "../components/ReportsPageHeader";
 
 export default async function ReportsPage() {
-  const [companies, telemetryData, auditLogs] = await Promise.all([
+  const [companies, telemetryData, auditLogs, sustainabilityImpact] = await Promise.all([
     prisma.company.findMany({
       include: { policies: true, risks: true },
     }),
     getGlobalTelemetry(),
     getRecentAuditLogs(10),
+    getGlobalSustainabilityImpact(),
   ]);
 
   const potentialRevenueImpact = companies.reduce((sum, company) => {
@@ -42,7 +45,7 @@ export default async function ReportsPage() {
 
   return (
     <main className="min-h-screen bg-slate-950">
-      <ReportsPageHeader />
+      <ReportsPageHeader co2OffsetChip={sustainabilityImpact.co2OffsetKgChip} />
 
       <SimulationHud />
 
@@ -55,10 +58,13 @@ export default async function ReportsPage() {
         baselineByIndustry={baselineByIndustry}
         telemetryData={telemetryData}
         auditLogs={auditLogs}
+        sustainabilityImpact={sustainabilityImpact}
       />
 
       <div className="p-6">
         <GrcReportFrameworkGrid />
+
+        <ReportsEnvironmentalImpactSection data={sustainabilityImpact} />
 
         <div className="mt-6">
           <SaaSPricingModel />

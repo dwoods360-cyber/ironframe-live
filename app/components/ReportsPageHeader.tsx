@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Leaf } from "lucide-react";
 import EnterpriseHeatMapModal from "./EnterpriseHeatMapModal";
 
-export default function ReportsPageHeader() {
+type ReportsPageHeaderProps = {
+  /** Live CSRD / Ironbloom carbon line, e.g. "CO2 Offset: 12.3 kg" */
+  co2OffsetChip?: string;
+};
+
+export default function ReportsPageHeader({ co2OffsetChip }: ReportsPageHeaderProps) {
   const [heatMapOpen, setHeatMapOpen] = useState(false);
 
   return (
@@ -19,6 +24,15 @@ export default function ReportsPageHeader() {
             <FileText className="h-3 w-3" />
             Audit Trail
           </Link>
+          <div
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase text-emerald-200"
+            title={co2OffsetChip ?? "Carbon offset (tenant sustainability ledger)"}
+          >
+            <Leaf className="h-3 w-3 shrink-0 text-emerald-400" aria-hidden />
+            <span className="truncate font-mono normal-case font-semibold tracking-normal">
+              CSRD Compliance · {co2OffsetChip ?? "CO2 Offset: —"}
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setHeatMapOpen(true)}

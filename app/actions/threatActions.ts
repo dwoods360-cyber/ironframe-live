@@ -6,6 +6,7 @@ import { ThreatState, DeAckReason } from '@prisma/client';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { logThreatActivity } from '@/app/actions/auditActions';
+import { recordSustainabilityImpact } from '@/app/actions/sustainabilityActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
 import {
@@ -421,6 +422,11 @@ export async function resolveThreatAction(
   revalidatePath('/');
 
   await logThreatActivity(id, 'STATUS_UPDATED', `Threat status changed to RESOLVED.`);
+
+  const ironbloom = await recordSustainabilityImpact(id);
+  if (!ironbloom.ok) {
+    console.error('[Ironbloom] recordSustainabilityImpact failed:', ironbloom.error);
+  }
 
   try {
     const threat = await prisma.threatEvent.findUnique({

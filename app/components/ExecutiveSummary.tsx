@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useReportStore } from "@/app/store/reportStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useScenarioStore } from "@/app/store/scenarioStore";
+import { useAgentStore } from "@/app/store/agentStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
+import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficiency";
 import type { RecentAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
+import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import { Leaf } from "lucide-react";
 
 function formatOperatorDisplay(operatorId: string): string {
   const id = operatorId.trim();
@@ -25,6 +29,8 @@ type ExecutiveSummaryProps = {
   telemetryData: GlobalTelemetry;
   /** Tenant-scoped AuditLog rows from the primary DB. */
   auditLogs: RecentAuditLogRow[];
+  /** Ironbloom ledger (tenant-scoped); JSON-serializable numbers only. */
+  sustainabilityImpact: GlobalSustainabilityImpact;
 };
 
 export default function ExecutiveSummary({
@@ -32,6 +38,7 @@ export default function ExecutiveSummary({
   baselineByIndustry,
   telemetryData,
   auditLogs,
+  sustainabilityImpact,
 }: ExecutiveSummaryProps) {
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
@@ -41,6 +48,12 @@ export default function ExecutiveSummary({
   const { activeScenario, multiplier } = useScenarioStore();
 
   const { slaCompliancePct, agentEfficiencyCount, recentEvents, refresh } = useReportStore();
+  const agents = useAgentStore((s) => s.agents);
+  const systemLatencyMs = useAgentStore((s) => s.systemLatencyMs);
+  const fleetEfficiencyPct = useMemo(
+    () => computeAverageFleetEfficiencyPct(agents, systemLatencyMs),
+    [agents, systemLatencyMs],
+  );
 
   useEffect(() => {
     refresh();
@@ -119,6 +132,26 @@ export default function ExecutiveSummary({
                 </span>
               )}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-800/80 pt-2 text-[10px] text-slate-400">
+              <span>
+                Total Threats (Active):{" "}
+                <span className="font-mono font-semibold text-slate-100">{telemetryData.activeCount}</span>
+              </span>
+              <span className="hidden text-slate-600 sm:inline" aria-hidden>
+                |
+              </span>
+              <span className="text-amber-400/95">
+                System Pulse · Avg. Efficiency{" "}
+                <span className="font-mono font-semibold text-amber-200">{fleetEfficiencyPct.toFixed(1)}%</span>
+              </span>
+              <span className="hidden text-slate-600 sm:inline" aria-hidden>
+                |
+              </span>
+              <span className="text-slate-500">
+                Sentinel sweeps (audit):{" "}
+                <span className="font-mono text-slate-400">{agentEfficiencyCount}</span>
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -169,17 +202,18 @@ export default function ExecutiveSummary({
             </p>
           </div>
 
-          {/* Agent Efficiency */}
-          <div className="rounded-lg border border-slate-700 bg-slate-950/40 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Agent Efficiency</div>
-            <div className="mt-3 flex items-end gap-2">
-              <span className="text-3xl font-light text-amber-300">{agentEfficiencyCount}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                successful Sentinel Sweeps
-              </span>
+          {/* CSRD / Ironbloom — live sustainability ledger */}
+          <div className="rounded-lg border border-emerald-900/50 bg-slate-950/40 p-3">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-emerald-400/90">
+              <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              CSRD · Ironbloom
             </div>
-            <p className="mt-2 text-[11px] text-slate-400">
-              Each sweep represents a full Coreintel verification pass across the active asset surface.
+            <div className="mt-3 font-mono text-lg font-semibold leading-tight text-emerald-300">
+              {sustainabilityImpact.co2OffsetKgChip}
+            </div>
+            <p className="mt-2 text-[11px] leading-snug text-slate-400">
+              Outcome reporting: verified CO₂e offset from resolved threats (SustainabilityMetric ledger). Use System
+              Pulse above for fleet health.
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 /docs/TAS.md — Technical Architecture Specification
 Project: Ironframe
 Version: 2.0.0 (Sovereign Build State)
-Last Updated: 2026-02-25
+Last Updated: 2026-03-27
 Authority: Supreme Architectural Authority (Layers 2 & 5)
 This document serves as the constitutional foundation for the Ironframe platform. Any deviation from this specification requires a formal TAS Amendment Proposal. Silent structural changes are strictly forbidden.
 1. Core Architectural Philosophy
@@ -62,6 +62,11 @@ Strict RLS & Memory Bleed Prevention:
 Database Level: Supabase Row Level Security (RLS) must be explicitly defined and enforced on every table. No query may execute without a validated tenant_id context.
 LangGraph Level: Reinterpreting tenant boundaries or allowing cross-tenant memory bleed in LangGraph is a forbidden action. Every LangGraph thread ID must be cryptographically bound to the active tenant_id. State checkpoints must be isolated per tenant.
 PII Lock: Ironethic (Agent 18) enforces a strict No-PII lock. All social and DEI data must be aggregated and salted before storage or processing. Raw PII must never persist in the LangGraph state or database.
+6. Product Roadmap — Epic Status (PO Authority)
+[COMPLETED] Epic 4: Ironwave (Executive Insights & GRC)
+Executive Telemetry phase closed. The following are now baseline platform capabilities (not experimental): High-Fidelity Heat Map (including surgical Top 10-by-USD default filtering for grid density), GRC global framework selection and reporting alignment, and the BIGINT Financial Ledger pattern (integer cents for USD; constitutionally frozen ALE baselines unchanged).
+[ACTIVE] Epic 5: Ironbloom (Sustainability Layer)
+Primary modeling shifts from USD financial exposure to physical sustainability units. Ironbloom (Agent 17) workstreams target energy (kWh), water/volume (L), and greenhouse-gas equivalents (CO2e) as first-class quantities; monetary-only proxies are out of scope for sustainability ALE. Financial telemetry (Epic 4) remains the stable ledger for fiscal risk; Epic 5 extends the stack without replacing BIGINT rules for USD-bound domains.
 TEST COVERAGE CHECK:
 Unit Tests Added: YES (Mandated for all Irontrust math and BIGINT conversions)
 Integration Tests Added: YES (Mandated for Irongate DMZ routing)

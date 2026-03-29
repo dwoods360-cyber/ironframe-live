@@ -152,6 +152,101 @@ function readPipelineGrcJustificationFromThreat(threat: {
   return (threat.justification ?? '').trim();
 }
 
+const STRATEGIC_INTEL_GRC_FALLBACK =
+  'Ingested directly via the Top Sector Threats section (Strategic Intel)';
+
+/**
+ * GRC line for Active cards: persisted pipeline/JSON/work-note text, else Strategic Intel / Top Sector registration copy.
+ */
+function displayGrcJustificationForActiveThreat(threat: {
+  justification?: string;
+  ingestionDetails?: string | null;
+  workNotes?: { text: string }[];
+  source?: string;
+}): string {
+  const fromPipeline = readPipelineGrcJustificationFromThreat(threat);
+  if (fromPipeline.length > 0) return fromPipeline;
+  const src = (threat.source ?? '').trim();
+  const lower = src.toLowerCase();
+  if (lower.includes('top sector') || lower.includes('strategic intel')) {
+    return STRATEGIC_INTEL_GRC_FALLBACK;
+  }
+  return '—';
+}
+
+/** Active board uses `threat.source` (ThreatEvent.sourceAgent). Block DMZ revert for sims / strategic intel / attbot. */
+function isEnrichedIntelNoRevertSource(source: string | null | undefined): boolean {
+  const s = (source ?? '').trim().toLowerCase();
+  if (s.length === 0) return false;
+  return (
+    s.includes('simulation') ||
+    s.includes('top sector') ||
+    s.includes('strategic intel') ||
+    s.includes('attbot') ||
+    s.includes('kimbot') ||
+    s.includes('grcbot')
+  );
+}
+
+type ActiveThreatCardBodySource = {
+  name?: string;
+  description?: string;
+  source?: string;
+  industry?: string;
+  target?: string;
+  loss?: number;
+  score?: number;
+  aiReport?: string | null;
+  ingestionDetails?: string | null;
+};
+
+function trimmedNonEmpty(s: string | null | undefined): string | undefined {
+  if (typeof s !== 'string') return undefined;
+  const t = s.trim();
+  return t.length > 0 ? t : undefined;
+}
+
+function parseIngestionDescriptionOrSummary(ingestionDetails: string | null | undefined): string | undefined {
+  const raw = trimmedNonEmpty(ingestionDetails);
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    const rec = parsed as Record<string, unknown>;
+    const d = rec.description;
+    const summ = rec.summary;
+    if (typeof d === 'string' && d.trim()) return d.trim();
+    if (typeof summ === 'string' && summ.trim()) return summ.trim();
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Card body: root fields first, then `aiReport`, then JSON `description`/`summary`, then heuristic line. */
+function buildActiveThreatDisplayDescription(t: ActiveThreatCardBodySource): string {
+  const fromDescription = trimmedNonEmpty(t.description);
+  if (fromDescription) return fromDescription;
+  const fromAi = trimmedNonEmpty(t.aiReport ?? undefined);
+  if (fromAi) return fromAi;
+  const fromIngestion = parseIngestionDescriptionOrSummary(t.ingestionDetails);
+  if (fromIngestion) return fromIngestion;
+
+  const loss = t.loss ?? t.score;
+  const lossLine =
+    typeof loss === 'number' && Number.isFinite(loss)
+      ? `Liability ~ $${Number(loss.toFixed(1))}M`
+      : undefined;
+  const sector = trimmedNonEmpty(t.industry) ?? trimmedNonEmpty(t.target);
+  const src = trimmedNonEmpty(t.source);
+  const bits = [lossLine, sector, src].filter(Boolean) as string[];
+  if (bits.length > 0) return bits.join(' · ');
+
+  const name = trimmedNonEmpty(t.name);
+  if (name) return `Registered threat: ${name}`;
+  return 'No description payload found.';
+}
+
 /**
  * Read-only recovery of impacted assets from threat-shaped payloads (no server changes).
  * Supports: impactedAssets, affectedSystems, blastRadius.*, ingestionDetails JSON (incl. nested aiTrace).
@@ -1044,11 +1139,14 @@ export default function ActiveRisksClient({
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
-          const pipelineGrcJustification = readPipelineGrcJustificationFromThreat({
+          const grcDisplayText = displayGrcJustificationForActiveThreat({
             justification: threat.justification,
             ingestionDetails: threat.ingestionDetails,
             workNotes: notes,
+            source: threat.source,
           });
+          const canRevertToPipeline = !isEnrichedIntelNoRevertSource(threat.source);
+          const displayDescription = buildActiveThreatDisplayDescription(threat);
           const assigneeHistoryForCard =
             threat.assignmentHistory && threat.assignmentHistory.length > 0
               ? threat.assignmentHistory
@@ -1057,7 +1155,7 @@ export default function ActiveRisksClient({
           const liabilityM = threat.score ?? threat.loss;
           const supplyChainImpact = computeSupplyChainImpact({
             name: threat.name,
-            description: threat.description,
+            description: displayDescription,
             source: threat.source,
             liabilityInMillions: typeof liabilityM === "number" ? liabilityM : undefined,
           });
@@ -1116,7 +1214,7 @@ export default function ActiveRisksClient({
                   <p className="mt-1 text-xs text-slate-500">
                     Target: <span className="text-slate-400">{threat.target ?? threat.industry ?? 'Healthcare'}</span>
                   </p>
-                  <p className="mt-1 text-[10px] text-slate-400">{threat.description ?? 'No additional details provided.'}</p>
+                  <p className="mt-1 text-[10px] text-slate-400">{displayDescription}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <Link
@@ -1190,7 +1288,7 @@ export default function ActiveRisksClient({
                         role="note"
                         aria-label="GRC justification from pipeline triage (read-only)"
                       >
-                        {pipelineGrcJustification || '—'}
+                        {grcDisplayText}
                       </p>
                     </div>
 
@@ -1366,19 +1464,21 @@ export default function ActiveRisksClient({
                               >
                                 De-Acknowledgment
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveAction('REVERT');
-                                  setActiveActionCardId(threat.id);
-                                  setActiveActionThreatId(threat.id);
-                                  setSelectedReason('');
-                                  setCustomJustification('');
-                                }}
-                                className="rounded border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 shadow hover:bg-amber-500/20"
-                              >
-                                REVERT TO PIPELINE
-                              </button>
+                              {canRevertToPipeline ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveAction('REVERT');
+                                    setActiveActionCardId(threat.id);
+                                    setActiveActionThreatId(threat.id);
+                                    setSelectedReason('');
+                                    setCustomJustification('');
+                                  }}
+                                  className="rounded border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 shadow hover:bg-amber-500/20"
+                                >
+                                  REVERT TO PIPELINE
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => {

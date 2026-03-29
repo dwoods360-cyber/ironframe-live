@@ -10,9 +10,9 @@ import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { appendAuditLog } from "@/app/utils/auditLogger";
+import { useAgentStore } from "@/app/store/agentStore";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
-import { useAgentStore } from "@/app/store/agentStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { fetchActiveThreatsFromDb, fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
 import { mapActiveThreatFromDbToPipelineThreat } from "@/app/utils/mapActiveThreatFromDbToPipelineThreat";
@@ -614,6 +614,7 @@ export default function ThreatPipeline({
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const enginesOn = kimbotEnabled || grcBotEnabled;
+  const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
   const [manualTitle, setManualTitle] = useState("");
   const [manualSource, setManualSource] = useState("");
   const [manualTarget, setManualTarget] = useState("Healthcare");
@@ -1068,6 +1069,29 @@ export default function ThreatPipeline({
       <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">RISK INGESTION</h2>
       </div>
+      {riskIngestionTerminalLines.length > 0 ? (
+        <div
+          className="mb-3 max-h-28 overflow-y-auto rounded border border-slate-800 bg-black/50 p-2 font-mono text-[9px] leading-relaxed text-slate-200"
+          role="log"
+          aria-label="DMZ telemetry terminal"
+        >
+          <p className="mb-1 text-[8px] font-bold uppercase tracking-wider text-slate-500">
+            IRONWAVE / DMZ terminal
+          </p>
+          {riskIngestionTerminalLines.map((line, idx) => (
+            <div
+              key={`${idx}-${line.slice(0, 48)}`}
+              className={
+                line.includes("IRONLOCK INTERRUPT")
+                  ? "text-rose-300"
+                  : "text-emerald-200/90"
+              }
+            >
+              {line}
+            </div>
+          ))}
+        </div>
+      ) : null}
       {threatActionError.active && threatActionError.message && (
         <div
           role="alert"

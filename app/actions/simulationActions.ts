@@ -146,6 +146,8 @@ export type PipelineThreatFromDb = {
   workNotes?: { text: string; user: string; timestamp: string }[];
   /** ThreatEvent.ingestionDetails — JSON text; Ironsight `aiTrace` and GRC fields (e.g. grcJustification) live here. */
   ingestionDetails?: string | null;
+  /** ThreatEvent.aiReport — persisted narrative for card body / CoreIntel. */
+  aiReport?: string | null;
   /** ThreatEvent.ttlSeconds — SLA window from row creation. */
   ttlSeconds?: number | null;
 };
@@ -206,6 +208,7 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
       createdAt: true,
       assigneeId: true,
       ingestionDetails: true,
+      aiReport: true,
       ttlSeconds: true,
       notes: {
         orderBy: { createdAt: "desc" },
@@ -225,29 +228,34 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
     },
     orderBy: { updatedAt: "desc" },
   });
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.title,
-    loss: centsToMillions(r.financialRisk_cents),
-    score: r.score,
-    industry: r.targetEntity,
-    source: r.sourceAgent,
-    description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
-    createdAt: r.createdAt.toISOString(),
-    assignedTo: r.assigneeId?.trim() || undefined,
-    assignmentHistory: (r.auditTrail ?? []).map((log) => ({
-      id: log.id,
-      action: log.action,
-      justification: log.justification,
-      operatorId: log.operatorId,
-      createdAt: log.createdAt.toISOString(),
-    })),
-    workNotes: (r.notes ?? []).map((n) => ({
-      text: n.text,
-      user: n.operatorId,
-      timestamp: n.createdAt.toISOString(),
-    })),
-    ingestionDetails: r.ingestionDetails ?? undefined,
-    ttlSeconds: r.ttlSeconds,
-  }));
+  return rows.map((r) => {
+    const liabilityLine = `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`;
+    const ar = r.aiReport?.trim();
+    return {
+      id: r.id,
+      name: r.title,
+      loss: centsToMillions(r.financialRisk_cents),
+      score: r.score,
+      industry: r.targetEntity,
+      source: r.sourceAgent,
+      description: ar && ar.length > 0 ? ar : liabilityLine,
+      aiReport: r.aiReport ?? null,
+      createdAt: r.createdAt.toISOString(),
+      assignedTo: r.assigneeId?.trim() || undefined,
+      assignmentHistory: (r.auditTrail ?? []).map((log) => ({
+        id: log.id,
+        action: log.action,
+        justification: log.justification,
+        operatorId: log.operatorId,
+        createdAt: log.createdAt.toISOString(),
+      })),
+      workNotes: (r.notes ?? []).map((n) => ({
+        text: n.text,
+        user: n.operatorId,
+        timestamp: n.createdAt.toISOString(),
+      })),
+      ingestionDetails: r.ingestionDetails ?? undefined,
+      ttlSeconds: r.ttlSeconds,
+    };
+  });
 }

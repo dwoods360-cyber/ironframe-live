@@ -11,6 +11,7 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     industry: r.industry,
     source: r.source,
     description: r.description,
+    aiReport: r.aiReport ?? undefined,
     lifecycleState: "active",
     workNotes: r.workNotes ?? [],
     assignmentHistory: r.assignmentHistory ?? [],

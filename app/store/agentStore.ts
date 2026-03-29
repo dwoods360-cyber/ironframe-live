@@ -11,10 +11,13 @@ type AgentState = {
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   intelligenceStream: string[];
+  /** DMZ / IRONWAVE poller — lines shown under RISK INGESTION (ThreatPipeline). */
+  riskIngestionTerminalLines: string[];
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   addStreamMessage: (msg: string) => void;
+  appendRiskIngestionTerminalLine: (line: string) => void;
   setSystemLatencyMs: (ms: number | null) => void;
   runSentinelSweep: (instruction: string) => void;
 };
@@ -31,6 +34,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
     agentManager: { status: "HEALTHY" },
   },
   intelligenceStream: INITIAL_MESSAGES,
+  riskIngestionTerminalLines: [],
   systemLatencyMs: null,
   setAgentStatus: (agent, status) =>
     set((state) => ({
@@ -42,6 +46,10 @@ export const useAgentStore = create<AgentStore>((set) => ({
   addStreamMessage: (msg) =>
     set((state) => ({
       intelligenceStream: [msg, ...state.intelligenceStream].slice(0, 50),
+    })),
+  appendRiskIngestionTerminalLine: (line) =>
+    set((state) => ({
+      riskIngestionTerminalLines: [...state.riskIngestionTerminalLines, line].slice(-100),
     })),
   setSystemLatencyMs: (ms) => set({ systemLatencyMs: ms }),
   runSentinelSweep: (instruction: string) => {

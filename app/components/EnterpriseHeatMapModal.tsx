@@ -28,7 +28,7 @@ export default function EnterpriseHeatMapModal({ isOpen, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+        className="relative w-full max-w-5xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
@@ -43,7 +43,7 @@ export default function EnterpriseHeatMapModal({ isOpen, onClose }: Props) {
             Close
           </button>
         </div>
-        <div className="max-h-[85vh] overflow-y-auto p-4">
+        <div className="max-h-[85vh] overflow-y-auto px-4 pb-4 pt-12">
           <EnterpriseHeatMap />
         </div>
       </div>

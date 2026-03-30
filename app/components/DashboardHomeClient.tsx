@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
@@ -12,8 +12,11 @@ import LiabilityAlertToast from './LiabilityAlertToast';
 import RecordExpiredToast from './RecordExpiredToast';
 import ThreatActionErrorToast from './ThreatActionErrorToast';
 import { useTenantContext } from '../context/TenantProvider';
-import { TENANT_UUIDS } from '../utils/tenantIsolation';
+import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
+import { useRiskStore } from '../store/riskStore';
+import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
+import { useAgentStore } from '../store/agentStore';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -70,22 +73,95 @@ type Props = {
   children: ReactNode;
 };
 
+/**
+ * Main Ops shell — primary “ear” for `ThreatEvent` Realtime (cards + RISK INGESTION terminal), tenant-scoped.
+ * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent`).
+ */
 export default function DashboardHomeClient({ children }: Props) {
   const { tenantFetch, activeTenantUuid } = useTenantContext();
+  const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
+  const rawReplaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
+  const replaceActiveThreats = useCallback((threats: any[]) => {
+    // Force realtime updates through our smart merge engine
+    const merged = useAgentStore.getState().mergeActiveThreatsWithPersistence(threats);
+    rawReplaceActiveThreats(merged);
+  }, [rawReplaceActiveThreats]);
+  const localActiveThreats = useAgentStore((s) => s.activeThreats);
+  const mergeActiveThreatsWithPersistence = useAgentStore((s) => s.mergeActiveThreatsWithPersistence);
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
+  const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Bootstrap companies (e.g. Ironchaos) may not be in the last GET /api/dashboard payload yet. */
+  const [realtimeCompanyAllowlistExtras, setRealtimeCompanyAllowlistExtras] = useState<string[]>([]);
+
+  const dashboardTenantUuid = useMemo(
+    () => resolveDashboardTenantUuid(activeTenantUuid),
+    [activeTenantUuid],
+  );
+
+  const tenantCompanyIds = useMemo(() => {
+    const base = (data?.companies ?? []).map((c) => String(c.id)).filter(Boolean);
+    const merged = [...new Set([...base, ...realtimeCompanyAllowlistExtras])];
+    return merged;
+  }, [data?.companies, realtimeCompanyAllowlistExtras]);
+
+  useEffect(() => {
+    setRealtimeCompanyAllowlistExtras([]);
+  }, [dashboardTenantUuid]);
+
+  useEffect(() => {
+    const onAllowlist = (e: Event) => {
+      const ce = e as CustomEvent<{ tenantCompanyId?: string }>;
+      const id = ce.detail?.tenantCompanyId?.trim();
+      if (!id) return;
+      setRealtimeCompanyAllowlistExtras((prev) =>
+        prev.includes(id) ? prev : [...prev, id],
+      );
+    };
+    window.addEventListener("ironframe:tenant-company-allowlist", onAllowlist);
+    return () => window.removeEventListener("ironframe:tenant-company-allowlist", onAllowlist);
+  }, []);
+
+  const onNewThreatDetected = useCallback((title: string) => {
+    if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
+    setNewThreatToast({ title });
+    newThreatToastDismissRef.current = setTimeout(() => {
+      setNewThreatToast(null);
+      newThreatToastDismissRef.current = null;
+    }, 5200);
+  }, []);
+  const onThreatInserted = useCallback((threatId: string) => {
+    window.setTimeout(() => {
+      useAgentStore.getState().removePersistentId(threatId);
+    }, 2000);
+  }, []);
+
+  useDashboardThreatRealtime({
+    enabled: Boolean(data) && !loading && tenantCompanyIds.length > 0,
+    tenantCompanyIds,
+    replacePipelineThreats,
+    replaceActiveThreats,
+    onNewThreatDetected,
+    onThreatInserted,
+  });
+
+  useEffect(() => {
+    return () => {
+      if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!data) setLoading(true);
     setError(null);
-    const tenantUuid = activeTenantUuid ?? TENANT_UUIDS.medshield;
     tenantFetch('/api/dashboard', {
       cache: 'no-store',
-      headers: { 'x-tenant-id': tenantUuid } as HeadersInit,
+      headers: { 'x-tenant-id': dashboardTenantUuid } as HeadersInit,
     })
       .then((res) => {
         if (!res.ok) throw new Error(res.status === 401 ? 'Tenant context required' : 'Failed to load dashboard');
@@ -101,7 +177,7 @@ export default function DashboardHomeClient({ children }: Props) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [tenantFetch, activeTenantUuid]);
+  }, [tenantFetch, dashboardTenantUuid]);
 
   const liveAlerts: StreamAlert[] = useMemo(() => {
     if (!data?.companies) return [];
@@ -132,6 +208,9 @@ export default function DashboardHomeClient({ children }: Props) {
       createdAt: new Date(row.createdAt),
     }));
   }, [data?.serverAuditLogs]);
+  const finalThreatEvents = useMemo(() => {
+    return mergeActiveThreatsWithPersistence((data?.threatEvents ?? []) as any[]);
+  }, [data?.threatEvents, localActiveThreats, mergeActiveThreatsWithPersistence]);
 
   if (loading) {
     return (
@@ -161,6 +240,31 @@ export default function DashboardHomeClient({ children }: Props) {
         <LiabilityAlertToast />
         <RecordExpiredToast />
         <ThreatActionErrorToast />
+        {newThreatToast ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed top-[4.5rem] left-1/2 z-[99] w-[min(92vw,28rem)] -translate-x-1/2 rounded-lg border border-cyan-500/70 bg-slate-900/95 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.25)] threat-list-fade-in"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">New threat detected</p>
+                <p className="mt-1 text-sm text-slate-100">{newThreatToast.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
+                  newThreatToastDismissRef.current = null;
+                  setNewThreatToast(null);
+                }}
+                className="shrink-0 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        ) : null}
         <aside className="w-[446px] h-full flex flex-col bg-slate-950/50 border-r border-slate-800/50 overflow-y-auto min-h-0">
           <StrategicIntel />
         </aside>
@@ -186,7 +290,7 @@ export default function DashboardHomeClient({ children }: Props) {
           />
           <ActiveRisksClient
             risks={data.risks}
-            threatEvents={data.threatEvents ?? []}
+            threatEvents={finalThreatEvents as any[]}
             setSelectedThreatId={setSelectedThreatId}
           />
         </section>

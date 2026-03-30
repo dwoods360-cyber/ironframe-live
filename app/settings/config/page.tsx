@@ -28,6 +28,7 @@ import {
   setVendorDocumentUpdateTemplate,
   useSystemConfigStore,
 } from "@/app/store/systemConfigStore";
+import { getAdminAlertEmail, setAdminAlertEmail } from "@/app/actions/systemConfigDbActions";
 
 export default function SystemConfigPage() {
   const config = useSystemConfigStore();
@@ -41,6 +42,7 @@ export default function SystemConfigPage() {
   const [showIrontechDiagnostics, setShowIrontechDiagnostics] = useState(false);
   const [heuristicEnabled, setHeuristicEnabled] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [adminEscalationEmail, setAdminEscalationEmailInput] = useState("");
 
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const kimbotIntensity = useKimbotStore((s) => s.intensity);
@@ -123,6 +125,10 @@ export default function SystemConfigPage() {
 
   useEffect(() => {
     hydrateSystemConfig();
+  }, []);
+
+  useEffect(() => {
+    void getAdminAlertEmail().then((v) => setAdminEscalationEmailInput(v ?? ""));
   }, []);
 
   useEffect(() => {
@@ -386,6 +392,44 @@ export default function SystemConfigPage() {
               >
                 Save SOC Email
               </button>
+            </div>
+            <div className="md:col-span-2">
+              <label
+                htmlFor="phone-home-email"
+                className="text-[10px] font-bold uppercase tracking-wide text-slate-200"
+              >
+                Escalation Email (Irontech)
+              </label>
+              <p className="mt-1 mb-1 text-[10px] text-slate-400">
+                The address notified when autonomous agents exhaust all recovery attempts.
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                <input
+                  id="phone-home-email"
+                  type="email"
+                  value={adminEscalationEmail}
+                  onChange={(event) => setAdminEscalationEmailInput(event.target.value)}
+                  className="min-w-[200px] flex-1 rounded border border-slate-700 bg-slate-900 px-3 py-2 text-[10px] text-slate-100 outline-none focus:border-amber-500"
+                  placeholder="soc-lead@company.com"
+                  autoComplete="email"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    void (async () => {
+                      const r = await setAdminAlertEmail(adminEscalationEmail);
+                      setStatus(
+                        r.ok
+                          ? "Escalation email (Irontech) saved."
+                          : `Save failed: ${r.error}`,
+                      );
+                    })();
+                  }}
+                  className="rounded border border-amber-500/70 bg-amber-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-200"
+                >
+                  Save Phone Home Target
+                </button>
+              </div>
             </div>
           </div>
 

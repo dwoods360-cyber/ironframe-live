@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { Bot, ExternalLink, Skull } from "lucide-react";
@@ -14,8 +14,7 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
-import { fetchActiveThreatsFromDb, fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
-import { mapActiveThreatFromDbToPipelineThreat } from "@/app/utils/mapActiveThreatFromDbToPipelineThreat";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -961,68 +960,23 @@ export default function ThreatPipeline({
     return () => clearInterval(intervalId);
   }, [highLiabilityAgentWatchKey, setLiabilityAlert]);
 
+  /** Pipeline + Active boards: single sync on mount / GRC toggle (Realtime lives in DashboardHomeClient). */
+  const syncThreatEventsFromDb = useCallback(() => {
+    void syncThreatBoardsClient(replacePipelineThreats, replaceActiveThreats).catch(() => {});
+  }, [replacePipelineThreats, replaceActiveThreats]);
+
   // UI refresh: load pipeline from DB on mount and when grcbot stops so every card is real and actionable
   const prevGrcBotEnabled = useRef(grcBotEnabled);
   useEffect(() => {
-    let cancelled = false;
-    const syncFromDb = () =>
-      fetchPipelineThreatsFromDb()
-        .then((rows) => {
-          if (!cancelled) {
-            const asPipeline: PipelineThreat[] = rows.map((r) => ({
-              id: r.id,
-              name: r.name,
-              loss: r.loss,
-              score: r.score,
-              industry: r.industry,
-              source: r.source,
-              description: r.description,
-              createdAt: r.createdAt,
-            }));
-            replacePipelineThreats(asPipeline);
-          }
-        })
-        .catch(() => {});
-    const syncActiveFromDb = () =>
-      fetchActiveThreatsFromDb()
-        .then((rows) => {
-          if (!cancelled) {
-            const asActive: PipelineThreat[] = rows.map(mapActiveThreatFromDbToPipelineThreat);
-            replaceActiveThreats(asActive);
-          }
-        })
-        .catch(() => {});
-    syncFromDb();
-    syncActiveFromDb();
-    return () => { cancelled = true; };
-  }, [replacePipelineThreats, replaceActiveThreats]);
+    syncThreatEventsFromDb();
+  }, [syncThreatEventsFromDb]);
 
   useEffect(() => {
     if (prevGrcBotEnabled.current && !grcBotEnabled) {
-      fetchPipelineThreatsFromDb()
-        .then((rows) => {
-          const asPipeline: PipelineThreat[] = rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            loss: r.loss,
-            score: r.score,
-            industry: r.industry,
-            source: r.source,
-            description: r.description,
-            createdAt: r.createdAt,
-          }));
-          replacePipelineThreats(asPipeline);
-        })
-        .catch(() => {});
-      fetchActiveThreatsFromDb()
-        .then((rows) => {
-          const asActive: PipelineThreat[] = rows.map(mapActiveThreatFromDbToPipelineThreat);
-          replaceActiveThreats(asActive);
-        })
-        .catch(() => {});
+      syncThreatEventsFromDb();
     }
     prevGrcBotEnabled.current = grcBotEnabled;
-  }, [grcBotEnabled, replacePipelineThreats, replaceActiveThreats]);
+  }, [grcBotEnabled, syncThreatEventsFromDb]);
 
   // Sync & Reconcile: periodically validate card IDs against DB and remove ghosts
   const SYNC_RECONCILE_INTERVAL_MS = 60 * 1000;
@@ -1051,8 +1005,38 @@ export default function ThreatPipeline({
         const validSet = new Set(data.validIds ?? []);
         const ghostIds = toValidate.filter((id) => !validSet.has(id));
         if (ghostIds.length > 0) {
-          removeGhostThreats(ghostIds);
-          setRecordExpiredToast({ active: true, count: ghostIds.length });
+          const now = Date.now();
+          const persistent = new Set(useAgentStore.getState().persistentIds);
+          const localById = new Map(
+            useAgentStore.getState().activeThreats.map((t) => [t.id, t]),
+          );
+          const boardById = new Map(
+            [...pipelineThreats, ...activeThreats].map((t) => [t.id, t]),
+          );
+          const removableGhostIds = ghostIds.filter((id) => {
+            if (persistent.has(id)) return false;
+            const local = localById.get(id);
+            if (!local?.isLocalOnly) return true;
+            const createdIso = local.localCreatedAt ?? local.createdAt;
+            const createdMs = createdIso ? Date.parse(createdIso) : NaN;
+            if (Number.isNaN(createdMs)) return true;
+            const ageMs = now - createdMs;
+            return ageMs >= 60_000;
+          });
+          if (removableGhostIds.length === 0) return;
+          removeGhostThreats(removableGhostIds);
+          const toastCount = removableGhostIds.filter((id) => {
+            const local = localById.get(id);
+            const board = boardById.get(id);
+            const createdIso =
+              local?.localCreatedAt ?? local?.createdAt ?? board?.localCreatedAt ?? board?.createdAt;
+            const createdMs = createdIso ? Date.parse(createdIso) : NaN;
+            if (Number.isNaN(createdMs)) return true;
+            return now - createdMs >= 120_000;
+          }).length;
+          if (toastCount > 0) {
+            setRecordExpiredToast({ active: true, count: toastCount });
+          }
         }
       } catch (_) {
         // Network or server error; skip this cycle

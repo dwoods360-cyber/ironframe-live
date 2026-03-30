@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
 import ThreatDetailClient from './ThreatDetailClient';
+import ThreatRemoteInterventionPanel from './ThreatRemoteInterventionPanel';
+import ThreatDetailEscalatedRecovery from './ThreatDetailEscalatedRecovery';
 import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import ThreatDetailHashScroll from './ThreatDetailHashScroll';
 
@@ -40,6 +42,8 @@ export default async function ThreatDetailPage({
       id: true,
       title: true,
       status: true,
+      remoteTechId: true,
+      isRemoteAccessAuthorized: true,
       financialRisk_cents: true,
       targetEntity: true,
       sourceAgent: true,
@@ -105,6 +109,18 @@ export default async function ThreatDetailPage({
         <Link href="/" className="mb-6 inline-block text-xs font-medium text-slate-400 hover:text-white">
           ← Back to Dashboard
         </Link>
+        {threat.status === 'PENDING_REMOTE_INTERVENTION' && (
+          <section className="mb-6">
+            <ThreatRemoteInterventionPanel
+              threatId={threat.id}
+              remoteTechId={threat.remoteTechId}
+              isRemoteAccessAuthorized={threat.isRemoteAccessAuthorized}
+            />
+          </section>
+        )}
+
+        {threat.status === 'ESCALATED' && <ThreatDetailEscalatedRecovery threatId={threat.id} />}
+
         {/* Risk Information & History */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-6">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-400">
@@ -187,7 +203,7 @@ export default async function ThreatDetailPage({
           <ThreatDetailClient threatId={threat.id} />
         </section>
 
-        {/* CoreIntel Investigation Panel */}
+        {/* Intelligence / CoreIntel — kept at bottom; actionable recovery lives above when escalated */}
         <section id="ai-report" className="mt-6">
           <ThreatInvestigationPanel
             threatId={threat.id}

@@ -72,6 +72,40 @@ export async function sendRiskNotification(
   }
 }
 
+/**
+ * Ironcast escalation: delivers to the configured operator inbox (Phone Home, human-in-the-loop).
+ * Unlike `sendRiskNotification`, does not force the test-only recipient.
+ */
+export async function sendEscalationEmail(
+  recipientEmail: string,
+  subject: string,
+  htmlBody: string,
+): Promise<{ success: true; messageId?: string } | { success: false; error?: string }> {
+  if (!process.env.GMAIL_EMAIL_USER || !process.env.GMAIL_EMAIL_PASS) {
+    console.warn('[EMAIL SKIPPED] No Gmail credentials for escalation.');
+    return { success: false, error: 'Missing credentials' };
+  }
+  const to = recipientEmail.trim();
+  if (!to) {
+    return { success: false, error: 'No recipient' };
+  }
+  try {
+    const mailOptions: Parameters<typeof transporter.sendMail>[0] = {
+      from: ('"Ironframe Ironcast" <' + (process.env.GMAIL_EMAIL_USER ?? '').trim() + '>').trim(),
+      to,
+      subject: subject.trim(),
+      html: sanitizeEmailHtmlColors(htmlBody),
+    };
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[IRONCAST] Escalation email sent:', info.messageId, 'to', to);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('[IRONCAST EMAIL ERROR]', error);
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: message };
+  }
+}
+
 /** Comma-separated list of emails to receive threat confirmation notifications. */
 const THREAT_CONFIRMATION_RECIPIENTS_KEY = 'THREAT_CONFIRMATION_RECIPIENTS';
 

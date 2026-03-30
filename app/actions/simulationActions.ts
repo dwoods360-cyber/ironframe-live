@@ -150,6 +150,10 @@ export type PipelineThreatFromDb = {
   aiReport?: string | null;
   /** ThreatEvent.ttlSeconds — SLA window from row creation. */
   ttlSeconds?: number | null;
+  /** DB ThreatState (e.g. ESCALATED after Phone Home). */
+  threatStatus?: string;
+  remoteTechId?: string | null;
+  isRemoteAccessAuthorized?: boolean;
 };
 
 function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefined {
@@ -193,14 +197,25 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
 }
 
 /**
- * Fetch all ACTIVE-stage threats from the database so Active Risks survives refresh.
+ * Fetch ACTIVE, ESCALATED, and PENDING_REMOTE_INTERVENTION ThreatEvents for the Active board.
  */
 export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const rows = await prisma.threatEvent.findMany({
-    where: { status: ThreatState.ACTIVE },
+    where: {
+      status: {
+        in: [
+          ThreatState.ACTIVE,
+          ThreatState.ESCALATED,
+          ThreatState.PENDING_REMOTE_INTERVENTION,
+        ],
+      },
+    },
     select: {
       id: true,
       title: true,
+      status: true,
+      isRemoteAccessAuthorized: true,
+      remoteTechId: true,
       financialRisk_cents: true,
       score: true,
       targetEntity: true,
@@ -256,6 +271,9 @@ export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]
       })),
       ingestionDetails: r.ingestionDetails ?? undefined,
       ttlSeconds: r.ttlSeconds,
+      threatStatus: String(r.status),
+      isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
+      remoteTechId: r.remoteTechId ?? null,
     };
   });
 }

@@ -5,7 +5,6 @@ import AppShell from "./components/AppShell";
 import DebugPanel from "./components/dev/DebugPanel";
 import { TenantProvider } from "./context/TenantProvider";
 import GlobalDropZone from "./components/GlobalDropZone";
-import IronwaveDMZTelemetryHost from "./components/IronwaveDMZTelemetryHost";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,7 +32,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased font-sans`}
       >
         <TenantProvider>
-          <IronwaveDMZTelemetryHost />
           <GlobalDropZone />
           <AppShell>{children}</AppShell>
           <DebugPanel />

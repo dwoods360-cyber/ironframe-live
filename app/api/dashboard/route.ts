@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
           id: true,
           title: true,
           sourceAgent: true,
+          status: true,
           createdAt: true,
           updatedAt: true,
           assigneeId: true,
@@ -163,6 +164,7 @@ export async function GET(request: NextRequest) {
       id: t.id,
       title: t.title,
       sourceAgent: t.sourceAgent,
+      status: t.status,
       assigneeId: t.assigneeId ?? null,
       assignmentHistory: (t.auditTrail ?? []).map((log) => ({
         id: log.id,

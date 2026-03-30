@@ -131,6 +131,8 @@ enum ThreatState {
   PIPELINE // Sitting in SOC/AGENT Stream
   ACTIVE // Acknowledged, sitting in Active Threats
   CONFIRMED // Stakeholders emailed, awaiting resolution
+  ESCALATED // Irontech Retry-3 exhausted + Phone Home — manual recovery required
+  PENDING_REMOTE_INTERVENTION // Manual attempt 4 failed — remote tech dispatch / specialist queue
   RESOLVED // Fix applied, risk mitigated
   DE_ACKNOWLEDGED // Dismissed by operator
 }
@@ -140,6 +142,17 @@ enum DeAckReason {
   COMPENSATING_CONTROL
   ACCEPTABLE_RISK
   DUPLICATE
+}
+
+/// Irontech (Epic 6): resilient agent operations (Retry-3-then-Escalate).
+enum AgentOperationStatus {
+  PENDING
+  RETRYING
+  CHAOS_INTERRUPTED
+  FAILED
+  COMPLETED
+  ESCALATED
+  EXTERNALLY_RESOLVED
 }
 
 // --- Core Threat Model ---
@@ -156,6 +169,10 @@ model ThreatEvent {
 
   // State Machine
   status      ThreatState  @default(PIPELINE)
+  /// Level-3 remote tech dispatch: assigned specialist ref (set on URGENT DISPATCH).
+  remoteTechId String? @map("remote_tech_id")
+  /// GRC: Admin/Owner authorized vendor remote session (column legacy name: remoteAccessAuthorized).
+  isRemoteAccessAuthorized Boolean @default(false) @map("remoteAccessAuthorized")
   ttlSeconds  Int          @default(259200) // 72 hours default
   deAckReason DeAckReason? // Required if status is DE_ACKNOWLEDGED
   /// Operational owner (execution board / claim); persisted with the threat row
@@ -172,12 +189,53 @@ model ThreatEvent {
   notes                 WorkNote[]
   auditTrail            AuditLog[]
   sustainabilityMetric  SustainabilityMetric?
+  agentOperations       AgentOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantCompanyId])
   @@map("ThreatEvent")
+}
+
+/// Agent 11 (Irontech): persisted checkpoint + retry state for orchestration (not Zustand).
+model AgentOperation {
+  id           String               @id @default(uuid())
+  threatId     String
+  threat       ThreatEvent          @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  agentName    String
+  status       AgentOperationStatus @default(PENDING)
+  /// Failed-attempt tally for Retry-3; increments on each caught failure.
+  attemptCount Int                  @default(0)
+  lastError    String?
+  snapshot     Json?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([threatId, agentName])
+  @@index([threatId])
+  @@index([status])
+  @@map("AgentOperation")
+}
+
+/// Irontech Ironchaos: test harness — injects random failures when active (single global row).
+model ChaosConfig {
+  id          String   @id @default("global")
+  isActive    Boolean  @default(false)
+  failureRate Float    @default(0.35)
+  updatedAt   DateTime @updatedAt
+
+  @@map("ChaosConfig")
+}
+
+/// Singleton app settings (Phone Home target, etc.). Row id is always `global`.
+model SystemConfig {
+  id              String   @id @default("global")
+  /// Irontech escalation / diagnostic delivery (also exposed as admin_alert_email in API).
+  adminAlertEmail String?  @map("admin_alert_email")
+  updatedAt       DateTime @updatedAt
+
+  @@map("SystemConfig")
 }
 
 /// Ironbloom (Epic 5): physical sustainability ledger — kWh, liters, CO2e grams (not USD).

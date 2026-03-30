@@ -76,6 +76,12 @@ export type PipelineThreat = {
   }>;
   /** GRC justification text submitted at pipeline Acknowledge (carried to Active board). */
   justification?: string;
+  /** ThreatEvent.status from DB (e.g. ESCALATED after Irontech Phone Home). */
+  threatStatus?: string;
+  /** Assigned remote technician ref (Level-3 dispatch). */
+  remoteTechId?: string | null;
+  /** Admin/Owner-authorized remote session (GRC). */
+  isRemoteAccessAuthorized?: boolean;
   /** Optional blast-radius / asset inventory (ingestion or client enrichment). */
   impactedAssets?: string[];
   affectedSystems?: string[];
@@ -83,6 +89,10 @@ export type PipelineThreat = {
   ingestionDetails?: string;
   /** ThreatEvent.aiReport — CoreIntel / ingress narrative; also used for card body fallback. */
   aiReport?: string | null;
+  /** Optimistic client ingress (e.g. chaos) pending DB confirmation. */
+  isLocalOnly?: boolean;
+  /** ISO time when optimistic local ingress was created. */
+  localCreatedAt?: string;
   /** Optional Ironsight deep-trace output (typically under `ingestionDetails` JSON as `aiTrace`). */
   aiTrace?: {
     status: string;
@@ -148,6 +158,9 @@ interface RiskState {
       calculatedRiskScore?: number;
       assignedTo?: string;
       assignmentHistory?: PipelineThreat["assignmentHistory"];
+      threatStatus?: string;
+      remoteTechId?: string | null;
+      isRemoteAccessAuthorized?: boolean;
     }
   ) => void;
   acceptPipelineThreat: (id: string) => void;
@@ -223,6 +236,10 @@ interface RiskState {
   /** Toast: "Record Expired" when ghost cards were removed (count = number removed). */
   recordExpiredToast: { active: boolean; count: number };
   setRecordExpiredToast: (v: { active: boolean; count: number }) => void;
+
+  /** Main Ops Active column: show recovery sync skeleton while boards refetch after manual recovery. */
+  recoveryBoardSyncPending: boolean;
+  setRecoveryBoardSyncPending: (pending: boolean) => void;
 
   /** Toast: error from acknowledge/confirm/resolve/deAcknowledge when server action fails. */
   threatActionError: { active: boolean; message: string };
@@ -738,6 +755,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       riskOffset: 0,
       threatIndexById: {},
       activeFrameworkIds: [],
+      recoveryBoardSyncPending: false,
     }),
 
   removeGhostThreats: (ids) =>
@@ -764,6 +782,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   recordExpiredToast: { active: false, count: 0 },
   setRecordExpiredToast: (v) => set({ recordExpiredToast: v }),
+
+  recoveryBoardSyncPending: false,
+  setRecoveryBoardSyncPending: (pending) => set({ recoveryBoardSyncPending: pending }),
 
   threatActionError: { active: false, message: "" },
   setThreatActionError: (v) => set({ threatActionError: v }),

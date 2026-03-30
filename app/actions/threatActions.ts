@@ -2,9 +2,19 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from "@/lib/prisma";
-import { ThreatState, DeAckReason } from '@prisma/client';
+import type { Prisma } from "@prisma/client";
+import { ThreatState, DeAckReason, AgentOperationStatus } from '@prisma/client';
+import { executeWithRetry, type ExecuteWithRetryResult } from '@/app/utils/irontechResilience';
+import {
+  isRemoteAccessAdminEligible,
+  requireSupabaseAdminOrOwnerForRemoteAccess,
+} from '@/app/utils/serverAuth';
 import { sendThreatConfirmationEmail, routeRiskNotification, sendRiskNotification } from '@/app/actions/email';
-import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
+import {
+  mergeIngestionDetailsPatch,
+  parseIngestionDetailsForMerge,
+} from '@/app/utils/ingestionDetailsMerge';
+import { isGrcInfrastructureLimitMessage } from '@/app/utils/grcInfrastructureLimit';
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { recordSustainabilityImpact } from '@/app/actions/sustainabilityActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
@@ -803,5 +813,288 @@ export async function saveAIReportToThreat(threatId: string, aiReport: string): 
     console.error('[DB_SAVE_ERROR] Failed to save AI report:', error);
     return { success: false, error: 'Database update failed' };
   }
+}
+
+const IRONTECH_AGENT_NAME = "Irontech";
+
+export type ManualRecoveryPayload = {
+  threatId: string;
+  threatTitle: string;
+  agentOperationId: string | null;
+  failures: Array<{ attempt: number; error: string; at?: string }>;
+  recipeSummary: string;
+  diagnosticJson: string;
+  threatStatus: string;
+  remoteTechId: string | null;
+  isRemoteAccessAuthorized: boolean;
+  /** True when recorded failures indicate provider quota / rate limits (Sprint 6.19). */
+  infrastructureLimitDetected: boolean;
+};
+
+/** Data for Manual Recovery overlay (failed attempts + diagnostic / Ironintel context). */
+export async function getManualRecoveryData(
+  threatId: string,
+): Promise<ManualRecoveryPayload | { error: string }> {
+  const tid = threatId.trim();
+  const threat = await prisma.threatEvent.findUnique({
+    where: { id: tid },
+    select: {
+      title: true,
+      status: true,
+      isRemoteAccessAuthorized: true,
+      remoteTechId: true,
+      ingestionDetails: true,
+    },
+  });
+  if (!threat) return { error: "Threat not found" };
+  const op = await prisma.agentOperation.findUnique({
+    where: { threatId_agentName: { threatId: tid, agentName: IRONTECH_AGENT_NAME } },
+  });
+  const snap = op?.snapshot as Record<string, unknown> | null;
+  const failures = Array.isArray(snap?.failures)
+    ? (snap!.failures as ManualRecoveryPayload["failures"])
+    : [];
+  const dh = snap?.diagnosticHierarchy;
+  let recipeSummary = "Remediation context appears in the diagnostic block below.";
+  if (typeof dh === "object" && dh !== null) {
+    const o = dh as Record<string, unknown>;
+    if (typeof o.remediationSummary === "string") recipeSummary = o.remediationSummary;
+    else if (typeof o.summary === "string") recipeSummary = o.summary;
+    else recipeSummary = JSON.stringify(dh, null, 2).slice(0, 2500);
+  }
+  const failureProbe = failures.map((f) => f.error).join("\n");
+  const infrastructureLimitDetected =
+    isGrcInfrastructureLimitMessage(failureProbe) ||
+    isGrcInfrastructureLimitMessage(String(threat.ingestionDetails ?? ""));
+  return {
+    threatId: tid,
+    threatTitle: threat.title,
+    agentOperationId: op?.id ?? null,
+    failures,
+    recipeSummary,
+    diagnosticJson: JSON.stringify(snap ?? {}, null, 2).slice(0, 8000),
+    threatStatus: String(threat.status),
+    remoteTechId: threat.remoteTechId ?? null,
+    isRemoteAccessAuthorized: threat.isRemoteAccessAuthorized,
+    infrastructureLimitDetected,
+  };
+}
+
+/**
+ * GRC: acknowledge provider quota/rate-limit, reset Irontech AgentOperation to pending, return threat to ACTIVE.
+ */
+export async function acknowledgeGrcInfrastructureLimitAndResetAgent(
+  threatId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const tid = threatId.trim();
+  if (!tid) {
+    return { success: false, error: "Missing threat id." };
+  }
+  const threat = await prisma.threatEvent.findUnique({
+    where: { id: tid },
+    select: { ingestionDetails: true },
+  });
+  if (!threat) {
+    return { success: false, error: "Threat not found." };
+  }
+  const op = await prisma.agentOperation.findUnique({
+    where: { threatId_agentName: { threatId: tid, agentName: IRONTECH_AGENT_NAME } },
+  });
+  const snap =
+    op?.snapshot && typeof op.snapshot === "object" && op.snapshot !== null
+      ? (op.snapshot as Record<string, unknown>)
+      : {};
+  const failures = Array.isArray(snap.failures)
+    ? (snap.failures as Array<{ error?: string }>)
+    : [];
+  const probe = failures.map((f) => String(f.error ?? "")).join("\n");
+  const ingProbe = String(threat.ingestionDetails ?? "");
+  if (
+    !isGrcInfrastructureLimitMessage(probe) &&
+    !isGrcInfrastructureLimitMessage(ingProbe)
+  ) {
+    return {
+      success: false,
+      error:
+        "No infrastructure quota or rate-limit error is recorded for this threat. Use standard recovery actions.",
+    };
+  }
+  const base = parseIngestionDetailsForMerge(threat.ingestionDetails);
+  delete base.irontechLive;
+  base.grcInfrastructureLimitAcknowledgedAt = new Date().toISOString();
+  const nextSnap: Record<string, unknown> = { ...snap, failures: [] };
+  await prisma.$transaction(async (tx) => {
+    await tx.threatEvent.update({
+      where: { id: tid },
+      data: {
+        status: ThreatState.ACTIVE,
+        ingestionDetails: JSON.stringify(base),
+      },
+    });
+    if (op) {
+      await tx.agentOperation.update({
+        where: { id: op.id },
+        data: {
+          status: AgentOperationStatus.PENDING,
+          lastError: null,
+          attemptCount: 0,
+          snapshot: nextSnap as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await tx.agentOperation.updateMany({
+        where: { threatId: tid, agentName: IRONTECH_AGENT_NAME },
+        data: {
+          status: AgentOperationStatus.PENDING,
+          lastError: null,
+          attemptCount: 0,
+        },
+      });
+    }
+  });
+  await prisma.auditLog.create({
+    data: {
+      action: "GRC_INFRASTRUCTURE_LIMIT_ACKNOWLEDGED",
+      justification:
+        "GRC acknowledged Gemini/provider quota or rate-limit; Irontech reset to pending; threat returned to ACTIVE.",
+      operatorId: "grc-desktop",
+      threatId: tid,
+    },
+  });
+  revalidatePath("/");
+  return { success: true };
+}
+
+export type ManualMitigationFourthAttemptResult =
+  | { success: true }
+  | { success: false; fourthAttemptFailed: true; error: string }
+  | { success: false; fourthAttemptFailed: false; error: string };
+
+function summarizeFourthAttemptResult(result: ExecuteWithRetryResult): ManualMitigationFourthAttemptResult {
+  if (result.ok && result.completed) {
+    return { success: true };
+  }
+  if (!result.ok && "escalated" in result && result.escalated) {
+    return { success: false, fourthAttemptFailed: true, error: result.error };
+  }
+  const err =
+    !result.ok && "error" in result ? result.error : "Mitigation attempt did not complete.";
+  return { success: false, fourthAttemptFailed: false, error: err };
+}
+
+/** One mitigation attempt after manual review (bypasses chaos-test auto-fail tag). */
+export async function manualMitigationFourthAttempt(
+  threatId: string,
+): Promise<ManualMitigationFourthAttemptResult> {
+  const tid = threatId.trim();
+  await prisma.threatEvent.update({
+    where: { id: tid },
+    data: { status: ThreatState.ACTIVE },
+  });
+  await prisma.agentOperation.updateMany({
+    where: { threatId: tid, agentName: IRONTECH_AGENT_NAME },
+    data: {
+      status: AgentOperationStatus.PENDING,
+      attemptCount: 0,
+      lastError: null,
+    },
+  });
+  const result = await executeWithRetry(IRONTECH_AGENT_NAME, tid, async () => {}, {
+    maxAttempts: 1,
+    bypassChaosTestTag: true,
+  });
+  revalidatePath("/");
+  return summarizeFourthAttemptResult(result);
+}
+
+/**
+ * Desktop recovery: resolve threat, complete AgentOperation, audit the authorizing operator.
+ */
+export async function authorizeManualResolution(
+  threatId: string,
+  operatorId: string,
+  /** When ≥50 chars, used as audit resolution text; else default desktop-recovery template. */
+  resolutionJustificationOverride?: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const tid = threatId.trim();
+  const op = operatorId.trim() || "operator-unknown";
+  const override = resolutionJustificationOverride?.trim() ?? "";
+  const justification =
+    override.length >= 50
+      ? override
+      : `Manual resolution authorized by operator ${op} after Irontech Phone Home escalation. ` +
+        "Threat closed via desktop recovery (GRC). ".repeat(2);
+  const r = await resolveThreatAction(tid, op, justification, op);
+  if (!r.success) {
+    return { success: false, error: "Resolution rejected (check justification length)." };
+  }
+  await prisma.agentOperation.updateMany({
+    where: { threatId: tid, agentName: IRONTECH_AGENT_NAME },
+    data: { status: AgentOperationStatus.COMPLETED, lastError: null },
+  });
+  await prisma.auditLog.create({
+    data: {
+      action: "MANUAL_RESOLUTION_AUTHORIZED",
+      justification: `Desktop recovery: operator ${op} authorized closure after escalation.`,
+      operatorId: op,
+      threatId: tid,
+    },
+  });
+  revalidatePath("/");
+  return { success: true };
+}
+
+/**
+ * Toggle remote access — **Admin/Owner (or IRONFRAME_REMOTE_ACCESS_ADMIN_EMAILS) + Supabase session only**.
+ */
+export async function toggleRemoteAccessAuthorization(
+  threatId: string,
+): Promise<
+  { success: true; isRemoteAccessAuthorized: boolean } | { success: false; error: string }
+> {
+  const tid = threatId.trim();
+  if (!tid) {
+    return { success: false, error: "Missing threat id." };
+  }
+  let userId: string;
+  try {
+    userId = await requireSupabaseAdminOrOwnerForRemoteAccess();
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+  const row = await prisma.threatEvent.findUnique({
+    where: { id: tid },
+    select: { isRemoteAccessAuthorized: true },
+  });
+  if (!row) {
+    return { success: false, error: "Threat not found." };
+  }
+  const next = !row.isRemoteAccessAuthorized;
+  await prisma.threatEvent.update({
+    where: { id: tid },
+    data: { isRemoteAccessAuthorized: next },
+  });
+  await prisma.auditLog.create({
+    data: {
+      action: "REMOTE_ACCESS_AUTHORIZATION",
+      operatorId: userId,
+      threatId: tid,
+      justification: JSON.stringify({
+        isRemoteAccessAuthorized: next,
+        source: "dashboard_admin_owner",
+      }),
+    },
+  });
+  console.log(
+    `> [GRC] Remote access ${next ? "granted" : "revoked"} by dashboard user ${userId.slice(0, 8)}…`,
+  );
+  revalidatePath("/");
+  return { success: true, isRemoteAccessAuthorized: next };
+}
+
+/** Client: enable/disable Authorize Remote Access UI (server enforces the same rules). */
+export async function getRemoteAccessAdminEligibility(): Promise<{ eligible: boolean }> {
+  const eligible = await isRemoteAccessAdminEligible();
+  return { eligible };
 }
 

@@ -17,10 +17,12 @@ import {
 import { useRiskStore, type PipelineThreat } from '@/app/store/riskStore';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAgentStore } from '@/app/store/agentStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useSystemConfigStore } from '@/app/store/systemConfigStore';
 import { triggerAttbotSimulation } from '@/app/actions/attbotActions';
+import ControlRoom from '@/app/components/ControlRoom';
 import { getDbQueryMs } from '@/app/actions/simulation';
 import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
@@ -28,6 +30,7 @@ import { clearAllAuditLogs, purgeSimulationAuditLogs } from '@/app/utils/auditLo
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
 import { createKimbotThreatServer } from "@/app/actions/simulationActions";
+import { pollResilienceIntelStreamLines } from "@/app/actions/resilienceIntelStreamActions";
 
 /** Formats BigInt cents into a readable USD string (e.g. $10.9M). */
 function formatCurrency(cents: bigint): string {
@@ -84,6 +87,7 @@ export default function StrategicIntel() {
   const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
+  const resilienceStreamCursorRef = useRef<string | null>(null);
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
   const dashboardLiabilities = useRiskStore((state) => state.dashboardLiabilities);
@@ -194,6 +198,24 @@ export default function StrategicIntel() {
       }
     };
   }, [isKimbotActive, kimbotIntensity, kimbotAttackType, selectedIndustry, addKimbotInjectedSignal, addStreamMessage]);
+
+  // Server-persisted Irontech / Ironintel resilience lines → Intelligence Stream (see `irontechResilience` + AuditLog).
+  useEffect(() => {
+    resilienceStreamCursorRef.current = new Date().toISOString();
+    const id = setInterval(() => {
+      void (async () => {
+        const since = resilienceStreamCursorRef.current;
+        const rows = await pollResilienceIntelStreamLines(since);
+        if (rows.length === 0) return;
+        const add = useAgentStore.getState().addStreamMessage;
+        for (const r of rows) {
+          add(r.line);
+        }
+        resilienceStreamCursorRef.current = rows[rows.length - 1]!.createdAt;
+      })();
+    }, 2500);
+    return () => clearInterval(id);
+  }, []);
 
   // Agent status: Healthy (green) or Alerting (red) when Kimbot is active for Ironsight/Coreintel
   const getAgentStatus = (agentName: string) => {
@@ -446,9 +468,13 @@ export default function StrategicIntel() {
     const poll = async () => {
       try {
         const { ms } = await getDbQueryMs();
-        if (mounted) setSystemLatencyMs(ms);
+        if (!mounted) return;
+        const cur = useAgentStore.getState().systemLatencyMs;
+        if (ms !== cur) setSystemLatencyMs(ms);
       } catch {
-        if (mounted) setSystemLatencyMs(null);
+        if (!mounted) return;
+        const cur = useAgentStore.getState().systemLatencyMs;
+        if (cur !== null) setSystemLatencyMs(null);
       }
     };
     poll();
@@ -641,19 +667,22 @@ export default function StrategicIntel() {
             Grcbot {isGrcbotActive ? 'On' : 'Off'}
           </button>
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <form action={triggerAttbotSimulation} className="min-w-0">
-            <button
-              type="submit"
-              className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
-            >
-              ATTBOT
-            </button>
-          </form>
+        <div className="mt-2 grid grid-cols-2 gap-2 items-start">
+          <div className="flex min-w-0 flex-col gap-2">
+            <form action={triggerAttbotSimulation} className="min-w-0">
+              <button
+                type="submit"
+                className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
+              >
+                ATTBOT
+              </button>
+            </form>
+            <ControlRoom />
+          </div>
           <button
             type="button"
             onClick={() => void handleMasterPurge()}
-            className="min-w-0 w-full py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest"
+            className="min-w-0 w-full py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest self-start"
           >
             Master Purge
           </button>

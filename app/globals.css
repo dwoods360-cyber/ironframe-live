@@ -150,6 +150,84 @@ body {
   animation: threat-list-fade-in 0.3s ease-out;
 }
 
+@keyframes threat-card-failure-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  12% {
+    transform: translateX(-5px);
+  }
+  24% {
+    transform: translateX(5px);
+  }
+  36% {
+    transform: translateX(-4px);
+  }
+  48% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  72% {
+    transform: translateX(0);
+  }
+}
+
+.threat-card-failure-shake {
+  animation: threat-card-failure-shake 0.55s ease-in-out;
+}
+
+@keyframes threat-card-failure-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+.threat-card-failure-pulse {
+  animation: threat-card-failure-pulse 0.55s ease-out;
+}
+
+@keyframes threat-card-failure-border-red {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  35% {
+    box-shadow:
+      0 0 0 3px rgba(239, 68, 68, 0.85),
+      0 0 22px rgba(239, 68, 68, 0.45);
+  }
+  70% {
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.35),
+      0 0 10px rgba(239, 68, 68, 0.2);
+  }
+}
+
+.threat-card-failure-border-red {
+  animation: threat-card-failure-border-red 0.7s ease-out;
+}
+
+@keyframes irontech-working-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.irontech-working-badge-pulse {
+  animation: irontech-working-pulse 1.4s ease-in-out infinite;
+}
+
 @keyframes regulatory-slide {
   from {
     opacity: 0;
@@ -273,6 +351,61 @@ body {
 @keyframes scanlineMove {
   0% { transform: translateY(0); }
   100% { transform: translateY(16px); }
+}
+
+/* Irontech internal AuditLog / AgentOperation scan (Control Room) */
+@keyframes irontech-log-dive {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(34, 211, 238, 0.35));
+  }
+  45% {
+    transform: translateY(5px) scale(0.92);
+    opacity: 0.72;
+    filter: drop-shadow(0 2px 6px rgba(34, 211, 238, 0.55));
+  }
+}
+.irontech-log-dive {
+  animation: irontech-log-dive 1.1s ease-in-out infinite;
+}
+
+/* Ironchaos ON: Irontech chip “infected” — ready to poison mitigations */
+@keyframes irontech-chaos-infected-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(244, 63, 94, 0.4));
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 10px rgba(244, 63, 94, 0.55));
+  }
+}
+.irontech-chaos-infected-pulse {
+  animation: irontech-chaos-infected-pulse 1.35s ease-in-out infinite;
+}
+
+/* Irontech Phone Home: ESCALATED threat card */
+@keyframes critical-lock-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.45), 0 0 18px rgba(225, 29, 72, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.75), 0 0 28px rgba(225, 29, 72, 0.45);
+  }
+}
+/* Level-3 remote tech — cautionary muted gold (no rose pulse) */
+.threat-card-remote-support {
+  box-shadow: inset 0 0 0 1px rgba(180, 83, 9, 0.25), 0 0 20px rgba(146, 64, 14, 0.12);
+}
+
+.critical-lock-border {
+  animation: critical-lock-pulse 2s ease-in-out infinite;
 }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

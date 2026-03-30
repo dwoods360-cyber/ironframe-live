@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import type { ChangeEvent } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
-import { setThreatAssigneeAction, type AssignmentChangedLogEntry } from '@/app/actions/threatActions';
+import {
+  setThreatAssigneeAction,
+  getRemoteAccessAdminEligibility,
+  toggleRemoteAccessAuthorization,
+  type AssignmentChangedLogEntry,
+} from '@/app/actions/threatActions';
 import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
 import { fetchActiveThreatsFromDb } from '@/app/actions/simulationActions';
 import { mapActiveThreatFromDbToPipelineThreat } from '@/app/utils/mapActiveThreatFromDbToPipelineThreat';
@@ -15,7 +20,12 @@ import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { formatAssignmentHistoryNarrative } from '@/app/utils/assignmentChainOfCustody';
+import { parseIrontechLiveFromIngestion } from '@/app/utils/irontechLiveStream';
+import { joinErrorProbeParts } from '@/app/utils/grcInfrastructureLimit';
 import { useAgentStore } from '@/app/store/agentStore';
+import { ThreatCard } from '@/app/components/ThreatCard';
+import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
+import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
 
@@ -69,6 +79,8 @@ export type DashboardThreatEventRow = {
   id: string;
   title: string;
   sourceAgent: string;
+  /** ThreatEvent.status (e.g. ESCALATED after Phone Home). */
+  status?: string;
   assigneeId: string | null;
   assignmentHistory?: AssignmentChangedLogEntry[];
 };
@@ -713,6 +725,7 @@ export default function ActiveRisksClient({
   const setThreatActionError = useRiskStore((state) => state.setThreatActionError);
   const storeSetSelectedThreatId = useRiskStore((state) => state.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
+  const recoveryBoardSyncPending = useRiskStore((state) => state.recoveryBoardSyncPending);
 
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
@@ -727,6 +740,31 @@ export default function ActiveRisksClient({
   const [executionToast, setExecutionToast] = useState<string | null>(null);
   const [traceRunningThreatId, setTraceRunningThreatId] = useState<string | null>(null);
   const [executingActionKey, setExecutingActionKey] = useState<string | null>(null);
+  const [recoveryThreatId, setRecoveryThreatId] = useState<string | null>(null);
+  const [remoteAccessAdminEligible, setRemoteAccessAdminEligible] = useState(false);
+  const [remoteAccessBusyThreatId, setRemoteAccessBusyThreatId] = useState<string | null>(null);
+  const [manualRecoveryBusyThreatId, setManualRecoveryBusyThreatId] = useState<string | null>(null);
+  const [recoveryFailureProbeById, setRecoveryFailureProbeById] = useState<Record<string, string>>({});
+  const handleManualRecoveryBusy = useCallback((threatId: string, busy: boolean) => {
+    setManualRecoveryBusyThreatId((prev) => {
+      if (busy) return threatId;
+      return prev === threatId ? null : prev;
+    });
+  }, []);
+  const handleRecoveryErrorProbeChange = useCallback((threatId: string, text: string | null) => {
+    setRecoveryFailureProbeById((prev) => {
+      const next = { ...prev };
+      if (text != null && text.trim() !== "") {
+        const v = text.trim();
+        if (next[threatId] === v) return prev;
+        next[threatId] = v;
+      } else {
+        if (!(threatId in next)) return prev;
+        delete next[threatId];
+      }
+      return next;
+    });
+  }, []);
   /** Prevents duplicate client-side `triggerDeepTrace` calls per threat id for this mount. */
   const ironsightAutoIgnitedRef = useRef(new Set<string>());
   const [, startTraceTransition] = useTransition();
@@ -738,9 +776,29 @@ export default function ActiveRisksClient({
     return () => window.clearTimeout(id);
   }, [executionToast]);
 
+  useEffect(() => {
+    void getRemoteAccessAdminEligibility().then((r) => setRemoteAccessAdminEligible(r.eligible));
+  }, []);
+
   const refreshActiveThreatsFromDb = async () => {
     const rows = await fetchActiveThreatsFromDb();
-    replaceActiveThreats(rows.map(mapActiveThreatFromDbToPipelineThreat));
+    const fromDb = rows.map(mapActiveThreatFromDbToPipelineThreat);
+    const merged = useAgentStore.getState().mergeActiveThreatsWithPersistence(fromDb);
+    replaceActiveThreats(merged);
+  };
+
+  const handleRemoteAccessToggleForThreat = (tid: string) => {
+    setRemoteAccessBusyThreatId(tid);
+    void toggleRemoteAccessAuthorization(tid)
+      .then((r) => {
+        if (r.success) {
+          updatePipelineThreat(tid, { isRemoteAccessAuthorized: r.isRemoteAccessAuthorized });
+          router.refresh();
+        } else {
+          setThreatActionError({ active: true, message: r.error });
+        }
+      })
+      .finally(() => setRemoteAccessBusyThreatId(null));
   };
 
   const runDeepTrace = (threatEventId: string | null | undefined) => {
@@ -1125,12 +1183,24 @@ export default function ActiveRisksClient({
       </div>
 
       <div className="space-y-3">
-        {isEmpty ? (
+        {isEmpty && !recoveryBoardSyncPending ? (
           <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
             [ WAITING FOR RISK CONFIRMATION... ]
           </div>
         ) : (
           <>
+        {recoveryBoardSyncPending ? (
+          <div
+            className="rounded-lg border border-slate-600/50 bg-slate-800/35 p-4 shadow-inner animate-pulse"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <p className="text-center font-sans text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              [IRONTECH] Initializing Recovery Path...
+            </p>
+          </div>
+        ) : null}
         {sortedActiveThreats.map((threat) => {
           const lifecycle: LifecycleState =
             (states[threat.id] as LifecycleState | undefined) ??
@@ -1163,6 +1233,36 @@ export default function ActiveRisksClient({
           const resolutionText = resolutionDrafts[threat.id] ?? '';
           const resolutionLenOk = resolutionText.trim().length >= 50;
 
+          const isRemoteIntervention = threat.threatStatus === 'PENDING_REMOTE_INTERVENTION';
+          const isEscalatedThreat =
+            threat.threatStatus === 'ESCALATED' || isRemoteIntervention;
+          const irontechLive = parseIrontechLiveFromIngestion(threat.ingestionDetails ?? null);
+          const infrastructureErrorProbeText = joinErrorProbeParts([
+            ...(irontechLive?.attempts.map((a) => a.error) ?? []),
+            threat.ingestionDetails ?? undefined,
+            recoveryFailureProbeById[threat.id],
+          ]);
+          const irontechAttemptCount = irontechLive?.attempts?.length ?? 0;
+          const ironTechAgentPhase =
+            threat.threatStatus === 'ACTIVE' && irontechAttemptCount < 3
+              ? 'mitigating'
+              : manualRecoveryBusyThreatId === threat.id
+                ? 'mitigating'
+                : null;
+          const irontechFailureAnimToken =
+            irontechLive && irontechLive.streamSeq > 0
+              ? `${threat.id}:${irontechLive.streamSeq}`
+              : undefined;
+          const blockEscalatedCardOverlay = isEscalatedThreat
+            ? (e: MouseEvent) => {
+                e.stopPropagation();
+              }
+            : undefined;
+
+          const suppressOpsTechnicalPanels =
+            threat.threatStatus === 'ESCALATED' ||
+            threat.threatStatus === 'PENDING_REMOTE_INTERVENTION';
+
           const buttonLabel =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
 
@@ -1190,12 +1290,48 @@ export default function ActiveRisksClient({
               : undefined;
 
           return (
-            <div
+            <ThreatCard
               key={`active-${threat.id}`}
+              failureAnimToken={irontechFailureAnimToken}
+              ironTechAgentPhase={ironTechAgentPhase}
+              ingestionBootstrapFromIso={threat.createdAt ?? null}
+              ingestionBootstrapEnabled={
+                threat.threatStatus === 'ACTIVE' && !isRemoteIntervention && !isEscalatedThreat
+              }
+              threatStatus={threat.threatStatus ?? null}
+              irontechAttemptCount={irontechAttemptCount}
+              infrastructureErrorProbeText={infrastructureErrorProbeText}
+              manualRecoveryInline={
+                threat.threatStatus === 'ESCALATED' && !isRemoteIntervention ? (
+                  <InlineManualRecoveryBlock
+                    threatId={threat.id}
+                    onBusyChange={handleManualRecoveryBusy}
+                    onRecoveryErrorProbeChange={handleRecoveryErrorProbeChange}
+                    onSynced={() => {
+                      void refreshActiveThreatsFromDb();
+                      router.refresh();
+                    }}
+                  />
+                ) : null
+              }
+              isEscalated={isEscalatedThreat}
+              isRemoteIntervention={isRemoteIntervention}
+              remoteTechId={threat.remoteTechId}
+              isRemoteAccessAuthorized={threat.isRemoteAccessAuthorized}
+              canAuthorizeRemoteAccess={remoteAccessAdminEligible}
+              onRemoteAccessToggle={() => handleRemoteAccessToggleForThreat(threat.id)}
+              remoteAccessBusy={remoteAccessBusyThreatId === threat.id}
+              onEscalatedActivate={
+                isRemoteIntervention ? () => setRecoveryThreatId(threat.id) : undefined
+              }
               className={`group flex flex-col justify-between rounded-lg border transition-all duration-500 ${
-                shouldFlash
-                  ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
-                  : 'border-emerald-700/40 bg-emerald-950/10 hover:border-emerald-500/60'
+                isRemoteIntervention
+                  ? 'border-amber-800/50 bg-amber-950/25 hover:border-amber-600/50 z-10'
+                  : isEscalatedThreat
+                    ? 'border-rose-600/55 bg-rose-950/15 hover:border-rose-500/70 z-10'
+                    : shouldFlash
+                      ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
+                      : 'border-emerald-700/40 bg-emerald-950/10 hover:border-emerald-500/60'
               } p-4`}
             >
               <div className="flex w-full items-start justify-between text-left">
@@ -1203,7 +1339,11 @@ export default function ActiveRisksClient({
                   <h3 className="text-sm font-medium text-slate-200">
                     <Link
                       href={`/threats/${threat.id}`}
-                      onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
+                      onClick={(e) => {
+                        blockEscalatedCardOverlay?.(e);
+                        e.preventDefault();
+                        setSelectedThreatId(threat.id);
+                      }}
                       className="hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-950 rounded"
                     >
                       {threat.name}
@@ -1216,10 +1356,14 @@ export default function ActiveRisksClient({
                   </p>
                   <p className="mt-1 text-[10px] text-slate-400">{displayDescription}</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-col items-end gap-2" onPointerDown={blockEscalatedCardOverlay}>
                   <Link
                     href={`/threats/${threat.id}`}
-                    onClick={(e) => { e.preventDefault(); setSelectedThreatId(threat.id); }}
+                    onClick={(e) => {
+                      blockEscalatedCardOverlay?.(e);
+                      e.preventDefault();
+                      setSelectedThreatId(threat.id);
+                    }}
                     className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 transition-colors hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-200"
                   >
                     <ExternalLink className="h-3 w-3" aria-hidden />
@@ -1269,7 +1413,15 @@ export default function ActiveRisksClient({
                     </span>
                   )}
                   <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                    {lifecycle === 'active' ? 'Just Acknowledged' : lifecycle === 'confirmed' ? 'Confirmed' : 'Resolved'}
+                    {threat.threatStatus === 'PENDING_REMOTE_INTERVENTION'
+                      ? 'Remote specialist queue'
+                      : threat.threatStatus === 'ESCALATED'
+                      ? 'Escalated — manual recovery'
+                      : lifecycle === 'active'
+                        ? 'Just Acknowledged'
+                        : lifecycle === 'confirmed'
+                          ? 'Confirmed'
+                          : 'Resolved'}
                   </span>
                   <ActiveRiskSlaBadge ttlSeconds={threat.ttlSeconds ?? null} createdAtIso={threat.createdAt ?? null} />
                 </div>
@@ -1279,6 +1431,26 @@ export default function ActiveRisksClient({
                 <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3">
                   <div className="space-y-1">
                     <AssigneeHistorySection entries={assigneeHistoryForCard} />
+                    {irontechLive && irontechLive.attempts.length > 0 ? (
+                      <div className="rounded border border-cyan-800/45 bg-cyan-950/25 p-2">
+                        <p className="text-[9px] font-black uppercase tracking-wide text-cyan-200/95">
+                          Irontech recovery attempts (live)
+                        </p>
+                        <ul className="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
+                          {irontechLive.attempts.map((a) => (
+                            <li
+                              key={`${a.at}-${a.attempt}`}
+                              className="border-b border-slate-800/60 pb-1 text-[10px] text-slate-300 last:border-0 last:pb-0"
+                            >
+                              <span className="font-mono text-[9px] text-cyan-400/90">
+                                Attempt {a.attempt}/{a.max}
+                              </span>
+                              <span className="mt-0.5 block text-slate-400">{a.error}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
                     <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
                       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
                         GRC JUSTIFICATION (FROM PIPELINE TRIAGE)
@@ -1292,22 +1464,26 @@ export default function ActiveRisksClient({
                       </p>
                     </div>
 
-                    <ImpactedBlastRadiusSection
-                      threatLike={threat}
-                      threatEventId={threat.id}
-                      deepTraceRunning={traceRunningThreatId === threat.id}
-                    />
+                    {!suppressOpsTechnicalPanels && (
+                      <>
+                        <ImpactedBlastRadiusSection
+                          threatLike={threat}
+                          threatEventId={threat.id}
+                          deepTraceRunning={traceRunningThreatId === threat.id}
+                        />
 
-                    <IronsightDeepTraceSection
-                      threatLike={threat}
-                      contextId={threat.id}
-                      threatEventId={threat.id}
-                      deepTraceRunning={traceRunningThreatId === threat.id}
-                      executingChipKey={executingActionKey}
-                      onExecuteAction={(label, actionId) =>
-                        handleExecuteTraceAction(threat.id, label, actionId)
-                      }
-                    />
+                        <IronsightDeepTraceSection
+                          threatLike={threat}
+                          contextId={threat.id}
+                          threatEventId={threat.id}
+                          deepTraceRunning={traceRunningThreatId === threat.id}
+                          executingChipKey={executingActionKey}
+                          onExecuteAction={(label, actionId) =>
+                            handleExecuteTraceAction(threat.id, label, actionId)
+                          }
+                        />
+                      </>
+                    )}
 
                     <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                       {notes.length === 0 && (
@@ -1344,7 +1520,9 @@ export default function ActiveRisksClient({
                     </button>
                   </div>
 
-                  {lifecycle === 'confirmed' && resolutionJustificationBlock(threat.id)}
+                  {lifecycle === 'confirmed' &&
+                    !suppressOpsTechnicalPanels &&
+                    resolutionJustificationBlock(threat.id)}
 
                   <div className="flex items-center justify-between pt-1">
                     {successFlash[threat.id] && (
@@ -1352,6 +1530,7 @@ export default function ActiveRisksClient({
                         Stakeholders Notified
                       </div>
                     )}
+                    {!suppressOpsTechnicalPanels && (
                     <div className="ml-auto flex flex-wrap items-center gap-2">
                       {activeActionCardId === threat.id && activeAction ? (
                         <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
@@ -1511,10 +1690,11 @@ export default function ActiveRisksClient({
                         </>
                       )}
                     </div>
+                    )}
                   </div>
                 </div>
               )}
-            </div>
+            </ThreatCard>
           );
         })}
 
@@ -1816,6 +1996,15 @@ export default function ActiveRisksClient({
           </>
         )}
       </div>
+
+      <ManualRecoveryOverlay
+        threatId={recoveryThreatId}
+        onClose={() => setRecoveryThreatId(null)}
+        onResolved={() => {
+          void refreshActiveThreatsFromDb();
+          router.refresh();
+        }}
+      />
 
       {executionToast != null && (
         <div

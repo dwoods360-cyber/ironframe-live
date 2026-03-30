@@ -1,4 +1,5 @@
 import { SovereignGraphState } from '../orchestration/state';
+import { saveCheckpoint } from '@/app/utils/irontechResilience';
 
 export class IronCore {
   /**
@@ -6,6 +7,20 @@ export class IronCore {
    * Note: This is a pure logic node, no LLM call required for basic routing.
    */
   static async route(state: typeof SovereignGraphState.State): Promise<Partial<typeof SovereignGraphState.State>> {
+    const threatId = state.raw_payload?.threat_id ?? state.raw_payload?.threatId;
+    const highRiskMitigation = state.raw_payload?.highRiskMitigation === true;
+    if (typeof threatId === 'string' && threatId.trim() && highRiskMitigation) {
+      try {
+        await saveCheckpoint('Ironcore', threatId.trim(), {
+          tenant_id: state.tenant_id,
+          payload_type: state.raw_payload?.type,
+          current_agent: state.current_agent,
+        });
+      } catch (e) {
+        console.warn('[Ironcore] Pre-execution checkpoint skipped:', e);
+      }
+    }
+
     const type = state.raw_payload?.type;
     let nextStep = "END"; // Default to termination
 

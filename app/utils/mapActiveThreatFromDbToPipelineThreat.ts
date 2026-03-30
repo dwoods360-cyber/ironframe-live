@@ -19,5 +19,8 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     createdAt: r.createdAt,
     ttlSeconds: r.ttlSeconds ?? undefined,
     ingestionDetails: r.ingestionDetails ?? undefined,
+    threatStatus: r.threatStatus,
+    remoteTechId: r.remoteTechId ?? null,
+    isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
   };
 }

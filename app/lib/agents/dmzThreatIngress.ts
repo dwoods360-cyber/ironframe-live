@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { scanPayload } from "@/app/lib/agents/ironlock";
 import { generateIronqueryInsight } from "@/app/lib/agents/ironquery";
+import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
 
 export type BuildDmzIngressResult = {
   action: string;
@@ -76,7 +77,7 @@ export async function writeDmzThreatActivityWithIronlock(params: {
   });
   const ironqueryInsight = await generateIronqueryInsight(payloadString);
 
-  await prisma.threatEvent.create({
+  const created = await prisma.threatEvent.create({
     data: {
       title: `Irongate: ${params.threatId}`,
       sourceAgent: built.action,
@@ -84,10 +85,20 @@ export async function writeDmzThreatActivityWithIronlock(params: {
       targetEntity: "Irongate",
       financialRisk_cents: 0n,
       tenantCompanyId: company.id,
-      status: ThreatState.PIPELINE,
+      status: built.quarantined ? ThreatState.QUARANTINED : ThreatState.PIPELINE,
       ingestionDetails: built.details,
       aiReport: ironqueryInsight,
     },
+    select: { id: true },
   });
+
+  if (built.quarantined) {
+    void dispatchIronlockQuarantineAutoEscalation({
+      threatId: created.id,
+      tenantUuid: params.tenantId,
+      previousStatus: null,
+    });
+  }
+
   return built;
 }

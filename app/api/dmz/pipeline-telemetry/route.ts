@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 
 /**
- * Lightweight poll: PIPELINE threats for the active tenant only (id + ingestionDetails).
+ * Lightweight poll: DMZ / clearance-queue threats (pipeline + quarantined) for the active tenant.
  */
 export async function GET() {
   const tenantUuid = await getActiveTenantUuidFromCookies();
@@ -22,7 +22,7 @@ export async function GET() {
 
   const threats = await prisma.threatEvent.findMany({
     where: {
-      status: ThreatState.PIPELINE,
+      status: { in: CLEARANCE_QUEUE_STATUSES },
       tenantCompanyId: company.id,
     },
     select: {

@@ -129,6 +129,8 @@ model AgentLog {
 // --- GRC Workflow Enums ---
 enum ThreatState {
   PIPELINE // Sitting in SOC/AGENT Stream
+  /// Ironlock / Irongate automatic containment (DMZ or malicious verdict)
+  QUARANTINED
   ACTIVE // Acknowledged, sitting in Active Threats
   CONFIRMED // Stakeholders emailed, awaiting resolution
   ESCALATED // Irontech Retry-3 exhausted + Phone Home — manual recovery required

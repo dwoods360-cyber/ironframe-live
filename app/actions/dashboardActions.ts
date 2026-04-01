@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 
 export type GlobalTelemetry = {
   activeExposureUsd: number;
@@ -32,6 +33,11 @@ function centsBigIntToUsd(value: bigint | null | undefined): number {
 }
 
 const MITIGATED_STATUSES: ThreatState[] = [ThreatState.DE_ACKNOWLEDGED, ThreatState.RESOLVED];
+
+/** Force-filter undefined/null for Prisma `in` strictness. */
+const validClearanceStatuses = CLEARANCE_QUEUE_STATUSES.filter(
+  (s): s is ThreatState => s !== undefined && s !== null,
+);
 
 /**
  * Tenant-scoped ThreatEvent aggregates: live financial exposure from `financialRisk_cents`
@@ -69,7 +75,7 @@ export async function getGlobalTelemetry(): Promise<GlobalTelemetry> {
       _sum: { financialRisk_cents: true },
     }),
     prisma.threatEvent.aggregate({
-      where: { ...tenantWhere, status: ThreatState.PIPELINE },
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
       _sum: { financialRisk_cents: true },
     }),
     prisma.threatEvent.aggregate({
@@ -85,18 +91,18 @@ export async function getGlobalTelemetry(): Promise<GlobalTelemetry> {
       where: { ...tenantWhere, status: ThreatState.ACTIVE },
     }),
     prisma.threatEvent.count({
-      where: { ...tenantWhere, status: ThreatState.PIPELINE },
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
     }),
     prisma.threatEvent.count({
       where: {
         ...tenantWhere,
-        status: ThreatState.PIPELINE,
+        status: { in: validClearanceStatuses },
         createdAt: { lt: slaThreshold },
       },
     }),
     // PIPELINE queue head for tenant company (`tenantCompanyId` — Prisma field for active-tenant company id).
     prisma.threatEvent.findFirst({
-      where: { ...tenantWhere, status: ThreatState.PIPELINE },
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
       orderBy: { createdAt: "asc" },
       select: { createdAt: true },
     }),

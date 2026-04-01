@@ -2,12 +2,23 @@
 
 **Project:** Ironframe  
 **Version:** 2.0.0 (Sovereign Build State)  
-**Last Updated:** 2026-03-27  
+**Last Updated:** 2026-04-01  
 **Authority:** Product Owner (Layer 6)
 
 This registry tracks fully implemented, tested, and constitutionally compliant modules. Code patterns established here serve as the immutable standard for future development.
 
 ## Epic closure log (Executive Telemetry)
+
+### 🟢 COMPLETE [2026-04-01] — Epic 7: Ironcast Escalation
+
+*   **Module:** Ironcast Service Engine (`services/ironcast.service.ts`, React Email templates under `emails/`).
+*   **Capabilities:**
+    *   Autonomous quarantine alerts (Ironlock path via `dispatchIronlockQuarantineAutoEscalation`, `lib/risks.ts` programmatic `QUARANTINED` transition).
+    *   React Email templates by priority: **URGENT** → UrgentThreatEmail (Ironlock), **HIGH** → VendorAlertEmail (Ironmap), **NOTICE** → AuditNoticeEmail (Irontally).
+    *   **Tenant identity resolution:** UUID from the risk’s company row → `prisma.tenant.findUnique` → display `name` / `slug` for `tenant_id` in egress payloads and headers.
+*   **Guardrails:** Agent 14 (Irongate) — every dispatch requires `sanitization_status` in `{ CLEANED, VERIFIED_SYSTEM_GENERATED }` and a non-empty **`irongate_trace_id`** (Zero-Trust egress); violations throw `TAS_VIOLATION`.
+*   **Integrity check:** Prisma `ThreatState` clearance queue uses **`validClearanceStatuses`** / `CLEARANCE_QUEUE_STATUSES` narrowing to avoid filter leakage in dashboard aggregates.
+*   **Tests:** `__tests__/integration/ironcast-escalation.test.ts` (mocked autonomous loop + optional live Resend smoke).
 
 **Epic 4 Finalized: Financial Telemetry, GRC Global Frameworks, and Surgical Heat Map filtering (Top 10).**  
 Executive Insights & GRC (Ironwave) telemetry is complete; the BIGINT Financial Ledger and heat-map UX baseline (including Top 10-by-USD default) are registered as production patterns. Active development advances to **Epic 5 — Ironbloom (Sustainability Layer)**, modeling **kWh, L, and CO2e** as primary physical units rather than USD-only sustainability proxies.

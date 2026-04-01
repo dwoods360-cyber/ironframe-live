@@ -8,6 +8,8 @@ import type { Prisma } from "@prisma/client";
 import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
 import { parseIrongateScanFromIngestionDetails } from "@/app/utils/irongateScan";
 import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
+import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
+import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
 
 /**
  * Clearance queue uses the primary DB: ThreatEvent rows in PIPELINE for the active tenant's company.
@@ -40,7 +42,7 @@ async function requirePipelineThreatForActiveTenant(threatId: string) {
     where: {
       id: threatId,
       tenantCompanyId: companyId,
-      status: ThreatState.PIPELINE,
+      status: { in: CLEARANCE_QUEUE_STATUSES },
     },
     select: {
       id: true,
@@ -93,7 +95,7 @@ export async function runIrongateSanitization(
   threatId: string,
 ): Promise<RunIrongateSanitizationResult> {
   try {
-    const { threat } = await requirePipelineThreatForActiveTenant(threatId);
+    const { threat, tenantUuid } = await requirePipelineThreatForActiveTenant(threatId);
     const existing = parseIrongateScanFromIngestionDetails(threat.ingestionDetails ?? null);
     if (existing?.status === "CLEAN" || existing?.status === "MALICIOUS") {
       return {
@@ -110,11 +112,23 @@ export async function runIrongateSanitization(
     const merged = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
       irongateScan: irongateScanJson,
     });
+    const previousStatus = threat.status;
+    const data: Prisma.ThreatEventUpdateInput = {
+      ingestionDetails: merged,
+      ...(status === "MALICIOUS" ? { status: ThreatState.QUARANTINED } : {}),
+    };
     await prisma.threatEvent.update({
       where: { id: threatId },
-      data: { ingestionDetails: merged },
+      data,
       select: { id: true },
     });
+    if (status === "MALICIOUS" && previousStatus !== ThreatState.QUARANTINED) {
+      void dispatchIronlockQuarantineAutoEscalation({
+        threatId,
+        tenantUuid,
+        previousStatus,
+      });
+    }
     revalidatePath("/admin/clearance");
     return { success: true, irongateScan: { status, scannedAt } };
   } catch (error) {
@@ -134,7 +148,7 @@ export async function getPendingThreatActivityLogsForClearance() {
     }
     const logs = await prisma.threatEvent.findMany({
       where: {
-        status: ThreatState.PIPELINE,
+        status: { in: CLEARANCE_QUEUE_STATUSES },
         tenantCompanyId: companyId,
       },
       orderBy: { createdAt: "desc" },

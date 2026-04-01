@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bot, Sparkles } from "lucide-react";
 import prisma from "@/lib/prisma";
-import { ThreatState } from "@prisma/client";
+import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 import { formatAuditTimestampForDisplay } from "@/app/utils/formatAuditTimestamp";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import DispositionControls from "./DispositionControls";
@@ -115,7 +115,7 @@ export default async function ClearancePage() {
   const queue = company
     ? await prisma.threatEvent.findMany({
         where: {
-          status: ThreatState.PIPELINE,
+          status: { in: CLEARANCE_QUEUE_STATUSES },
           tenantCompanyId: company.id,
         },
         orderBy: { createdAt: "desc" },

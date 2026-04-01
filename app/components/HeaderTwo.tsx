@@ -166,7 +166,7 @@ export default function HeaderTwo({
                   SYSTEM CONFIG
                 </Link>
                 <Link
-                  href="/reports/audit-trail"
+                  href="/integrity"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >
                   AUDIT TRAIL

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition
 import type { ChangeEvent, MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { AlertTriangle, ClipboardList, ExternalLink, Loader2, ShieldCheck, Radar } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
 import {
   setThreatAssigneeAction,
@@ -13,8 +13,7 @@ import {
   type AssignmentChangedLogEntry,
 } from '@/app/actions/threatActions';
 import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
-import { fetchActiveThreatsFromDb } from '@/app/actions/simulationActions';
-import { mapActiveThreatFromDbToPipelineThreat } from '@/app/utils/mapActiveThreatFromDbToPipelineThreat';
+import type { PipelineThreat } from '@/app/store/riskStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
@@ -26,8 +25,23 @@ import { useAgentStore } from '@/app/store/agentStore';
 import { ThreatCard } from '@/app/components/ThreatCard';
 import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
 import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
+import { grantRemoteAccessAction } from '@/app/actions/chaosActions';
+import { fetchChaosLedgerClientAttribution } from '@/app/utils/chaosClientAttribution';
+import {
+  chaosComplianceCoverageLabel,
+  frameworkBadgesForChaosScenario,
+} from '@/app/utils/grcComplianceUi';
+import { useComplianceOverlayStore } from '@/app/store/complianceOverlayStore';
+import { createClient } from '@/lib/supabase/client';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
+
+/**
+ * GRC identity for Integrity Hub: Chaos Scenarios 1–5 are triggered from `ControlRoom.tsx`, which calls
+ * `fetchChaosLedgerClientAttribution()` then `injectChaosThreatAction` with the operator’s Supabase id/email.
+ * This board passes the same attribution into `grantRemoteAccessAction` (Scenario 4 JIT). We hydrate the
+ * browser session on mount so `getUser` / `getSession` resolve after login redirects.
+ */
 
 /** UI session operator id → display label (matches assignee dropdown naming). */
 const SESSION_OPERATOR_LABEL: Record<string, string> = {
@@ -298,6 +312,66 @@ function extractImpactedAssets(threatLike: unknown): string[] {
   return [];
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function readChaosClosureMeta(
+  ingestionDetails: string | null | undefined,
+): {
+  scenario:
+    | "INTERNAL"
+    | "HOME_SERVER"
+    | "REMOTE"
+    | "REMOTE_SUPPORT"
+    | "CLOUD_EXFIL"
+    | "CASCADING_FAILURE"
+    | null;
+  hasResolutionJustification: boolean;
+} {
+  const rec = parseJsonRecord(ingestionDetails);
+  if (!rec) return { scenario: null, hasResolutionJustification: false };
+  const rawScenario =
+    typeof rec.chaosScenario === "string" ? rec.chaosScenario.trim().toUpperCase() : "";
+  const scenario =
+    rawScenario === "INTERNAL" ||
+    rawScenario === "HOME_SERVER" ||
+    rawScenario === "REMOTE" ||
+    rawScenario === "CLOUD_EXFIL" ||
+    rawScenario === "CASCADING_FAILURE" ||
+    rawScenario === "REMOTE_SUPPORT"
+      ? rawScenario
+      : null;
+  const hasResolutionJustification =
+    typeof rec.resolutionJustification === "string" && rec.resolutionJustification.trim().length > 0;
+  return { scenario, hasResolutionJustification };
+}
+
+/** Chaos / Ironchaos — no Ironsight auto-ignite or deep-trace on these cards. */
+function isChaosDrillThreat(threatLike: unknown): boolean {
+  if (threatLike == null || typeof threatLike !== 'object') return false;
+  const o = threatLike as Record<string, unknown>;
+  const src = (typeof o.source === 'string' ? o.source : '').trim().toUpperCase();
+  const srcAgent = (typeof o.sourceAgent === 'string' ? o.sourceAgent : '').trim().toUpperCase();
+  if (src === 'IRONCHAOS' || srcAgent === 'IRONCHAOS') return true;
+  const rec = parseJsonRecord(o.ingestionDetails);
+  if (rec && rec.isChaosTest === true) return true;
+  return false;
+}
+
 function ImpactedBlastRadiusSection({
   threatLike,
   threatEventId,
@@ -307,6 +381,19 @@ function ImpactedBlastRadiusSection({
   threatEventId?: string | null;
   deepTraceRunning?: boolean;
 }) {
+  if (isChaosDrillThreat(threatLike)) {
+    return (
+      <div className="rounded border border-slate-700/80 bg-slate-900/50 p-2 threat-list-fade-in">
+        <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+          IMPACTED ASSETS (BLAST RADIUS)
+        </p>
+        <span className="inline-flex max-w-full shrink-0 cursor-default truncate rounded-full bg-blue-600 px-2.5 py-1 text-xs font-medium text-white shadow-sm">
+          Chaos Drill Environment
+        </span>
+      </div>
+    );
+  }
+
   const trace = extractIronsightAiTrace(threatLike);
   const phase = ironsightTraceUiPhase(trace);
 
@@ -378,23 +465,6 @@ type IronsightAiTraceNormalized = {
   complianceTags: string[];
 };
 
-function parseJsonRecord(value: unknown): Record<string, unknown> | null {
-  if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  if (typeof value === 'string' && value.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(value) as unknown;
-      if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 function normalizeIronsightAiTrace(raw: Record<string, unknown>): IronsightAiTraceNormalized {
   const status = typeof raw.status === 'string' && raw.status.trim() ? raw.status.trim() : 'PENDING';
   const report = typeof raw.report === 'string' ? raw.report : undefined;
@@ -446,6 +516,7 @@ function ironsightTraceUiPhase(
 
 /** True when there is no completed/failed Ironsight trace yet (auto-ignite eligible). */
 function threatNeedsIronsightAutoTrace(threatLike: unknown): boolean {
+  if (isChaosDrillThreat(threatLike)) return false;
   return ironsightTraceUiPhase(extractIronsightAiTrace(threatLike)) === 'loading';
 }
 
@@ -545,6 +616,9 @@ function IronsightDeepTraceSection({
   executingChipKey: string | null;
   onExecuteAction: (label: string, actionId: string) => void;
 }) {
+  if (isChaosDrillThreat(threatLike)) {
+    return null;
+  }
   const trace = extractIronsightAiTrace(threatLike);
   const phase = ironsightTraceUiPhase(trace);
   const showActions =
@@ -737,14 +811,23 @@ export default function ActiveRisksClient({
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
   const [riskSearchQuery, setRiskSearchQuery] = useState('');
-  const [executionToast, setExecutionToast] = useState<string | null>(null);
+  const [executionToast, setExecutionToast] = useState<{
+    text: string;
+    variant: 'info' | 'error';
+  } | null>(null);
   const [traceRunningThreatId, setTraceRunningThreatId] = useState<string | null>(null);
   const [executingActionKey, setExecutingActionKey] = useState<string | null>(null);
   const [recoveryThreatId, setRecoveryThreatId] = useState<string | null>(null);
+  const [localThreats, setLocalThreats] = useState<PipelineThreat[]>(activeThreats);
+  const [resolvingThreatIds, setResolvingThreatIds] = useState<Record<string, boolean>>({});
   const [remoteAccessAdminEligible, setRemoteAccessAdminEligible] = useState(false);
   const [remoteAccessBusyThreatId, setRemoteAccessBusyThreatId] = useState<string | null>(null);
+  const [grantRemoteJitBusyThreatId, setGrantRemoteJitBusyThreatId] = useState<string | null>(null);
+  const [auditHistoryModalOpen, setAuditHistoryModalOpen] = useState(false);
   const [manualRecoveryBusyThreatId, setManualRecoveryBusyThreatId] = useState<string | null>(null);
   const [recoveryFailureProbeById, setRecoveryFailureProbeById] = useState<Record<string, string>>({});
+  const optimisticProcessingUntilRef = useRef<Map<string, number>>(new Map());
+  const optimisticSettleTimersRef = useRef<Map<string, number>>(new Map());
   const handleManualRecoveryBusy = useCallback((threatId: string, busy: boolean) => {
     setManualRecoveryBusyThreatId((prev) => {
       if (busy) return threatId;
@@ -767,6 +850,10 @@ export default function ActiveRisksClient({
   }, []);
   /** Prevents duplicate client-side `triggerDeepTrace` calls per threat id for this mount. */
   const ironsightAutoIgnitedRef = useRef(new Set<string>());
+  /** One-way visual valve: after RESOLVED is seen, keep emerald styling for 60s even if a fetch returns stale ACTIVE. */
+  const RESOLVED_STICKY_MS = 60_000;
+  const resolvedStickyUntilRef = useRef<Map<string, number>>(new Map());
+  const [, stickyClockTick] = useState(0);
   const [, startTraceTransition] = useTransition();
   const [, startExecTransition] = useTransition();
 
@@ -777,15 +864,143 @@ export default function ActiveRisksClient({
   }, [executionToast]);
 
   useEffect(() => {
+    const onChaosDrillFailed = (e: Event) => {
+      const ce = e as CustomEvent<{ message?: string }>;
+      const m = ce.detail?.message?.trim();
+      setExecutionToast({
+        text:
+          m && m.length > 0
+            ? m
+            : 'Attestation Failed: Could not write to immutable ledger.',
+        variant: 'error',
+      });
+    };
+    window.addEventListener('ironframe:chaos-drill-failed', onChaosDrillFailed);
+    return () => window.removeEventListener('ironframe:chaos-drill-failed', onChaosDrillFailed);
+  }, []);
+
+  useEffect(() => {
+    const clearSettleTimer = (id: string) => {
+      const t = optimisticSettleTimersRef.current.get(id);
+      if (t) {
+        window.clearTimeout(t);
+        optimisticSettleTimersRef.current.delete(id);
+      }
+    };
+    const onOptimisticStart = (e: Event) => {
+      const ce = e as CustomEvent<{ threat?: PipelineThreat; processingMs?: number }>;
+      const threat = ce.detail?.threat;
+      if (!threat?.id) return;
+      const processingMs = Math.max(2000, ce.detail?.processingMs ?? 3000);
+      optimisticProcessingUntilRef.current.set(threat.id, Date.now() + processingMs);
+      setLocalThreats((prev) => [threat, ...prev.filter((t) => t.id !== threat.id)]);
+    };
+    const onOptimisticSuccess = (e: Event) => {
+      const ce = e as CustomEvent<{ optimisticId?: string }>;
+      const id = ce.detail?.optimisticId?.trim();
+      if (!id) return;
+      const until = optimisticProcessingUntilRef.current.get(id) ?? Date.now();
+      const waitMs = Math.max(0, until - Date.now());
+      clearSettleTimer(id);
+      const settleTimer = window.setTimeout(() => {
+        setLocalThreats((prev) =>
+          prev.map((t) =>
+            t.id === id ? { ...t, threatStatus: 'RESOLVED', lifecycleState: 'resolved' } : t,
+          ),
+        );
+        const removeTimer = window.setTimeout(() => {
+          setLocalThreats((prev) => prev.filter((t) => t.id !== id));
+          optimisticProcessingUntilRef.current.delete(id);
+          optimisticSettleTimersRef.current.delete(id);
+        }, 1200);
+        optimisticSettleTimersRef.current.set(id, removeTimer);
+      }, waitMs);
+      optimisticSettleTimersRef.current.set(id, settleTimer);
+    };
+    const onOptimisticFailed = (e: Event) => {
+      const ce = e as CustomEvent<{ optimisticId?: string }>;
+      const id = ce.detail?.optimisticId?.trim();
+      if (!id) return;
+      clearSettleTimer(id);
+      setLocalThreats((prev) => prev.filter((t) => t.id !== id));
+      optimisticProcessingUntilRef.current.delete(id);
+    };
+    window.addEventListener('ironframe:chaos-drill-optimistic-start', onOptimisticStart);
+    window.addEventListener('ironframe:chaos-drill-optimistic-success', onOptimisticSuccess);
+    window.addEventListener('ironframe:chaos-drill-optimistic-failed', onOptimisticFailed);
+    return () => {
+      window.removeEventListener('ironframe:chaos-drill-optimistic-start', onOptimisticStart);
+      window.removeEventListener('ironframe:chaos-drill-optimistic-success', onOptimisticSuccess);
+      window.removeEventListener('ironframe:chaos-drill-optimistic-failed', onOptimisticFailed);
+      for (const t of optimisticSettleTimersRef.current.values()) {
+        window.clearTimeout(t);
+      }
+      optimisticSettleTimersRef.current.clear();
+      optimisticProcessingUntilRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
     void getRemoteAccessAdminEligibility().then((r) => setRemoteAccessAdminEligible(r.eligible));
   }, []);
 
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getSession();
+  }, []);
+
+  useEffect(() => {
+    const now = Date.now();
+    for (const t of activeThreats) {
+      const s = (t.threatStatus ?? '').trim().toUpperCase();
+      if (s === 'RESOLVED') {
+        resolvedStickyUntilRef.current.set(t.id, now + RESOLVED_STICKY_MS);
+      }
+    }
+    for (const [id, until] of [...resolvedStickyUntilRef.current.entries()]) {
+      if (until < now) resolvedStickyUntilRef.current.delete(id);
+    }
+  }, [activeThreats]);
+
+  useEffect(() => {
+    const now = Date.now();
+    setLocalThreats((prev) => {
+      const stickyOptimistic = prev.filter((t) => {
+        if (!t.isLocalOnly) return false;
+        const until = optimisticProcessingUntilRef.current.get(t.id) ?? 0;
+        return until > now;
+      });
+      const merged = [...activeThreats];
+      for (const t of stickyOptimistic) {
+        if (!merged.some((m) => m.id === t.id)) merged.push(t);
+      }
+      return merged;
+    });
+  }, [activeThreats]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      let pruned = false;
+      for (const [tid, until] of [...resolvedStickyUntilRef.current.entries()]) {
+        if (until < now) {
+          resolvedStickyUntilRef.current.delete(tid);
+          pruned = true;
+        }
+      }
+      if (pruned) stickyClockTick((n) => n + 1);
+    }, 2000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const refreshActiveThreatsFromDb = async () => {
-    const rows = await fetchActiveThreatsFromDb();
-    const fromDb = rows.map(mapActiveThreatFromDbToPipelineThreat);
-    const merged = useAgentStore.getState().mergeActiveThreatsWithPersistence(fromDb);
-    replaceActiveThreats(merged);
+    const res = await fetch('/api/threats/active', { cache: 'no-store' });
+    if (!res.ok) return;
+    const fromDb = (await res.json()) as PipelineThreat[];
+    replaceActiveThreats(fromDb);
   };
+  const refreshActiveThreatsFromDbRef = useRef(refreshActiveThreatsFromDb);
+  refreshActiveThreatsFromDbRef.current = refreshActiveThreatsFromDb;
 
   const handleRemoteAccessToggleForThreat = (tid: string) => {
     setRemoteAccessBusyThreatId(tid);
@@ -810,6 +1025,10 @@ export default function ActiveRisksClient({
       });
       return;
     }
+    const activeRow = activeThreats.find((t) => t.id === tid);
+    if (activeRow && isChaosDrillThreat(activeRow)) {
+      return;
+    }
     setTraceRunningThreatId(tid);
     startTraceTransition(() => {
       void triggerDeepTrace(tid)
@@ -831,7 +1050,7 @@ export default function ActiveRisksClient({
       void executeTraceAction(threatEventId, actionId, label, 'admin-user-01')
         .then(async (res) => {
           if (res.success) {
-            setExecutionToast(`Remediation logged: ${label}`);
+            setExecutionToast({ text: `Remediation logged: ${label}`, variant: 'info' });
             await refreshActiveThreatsFromDb();
             router.refresh();
           } else {
@@ -901,7 +1120,7 @@ export default function ActiveRisksClient({
     return true;
   });
   // Only show activeThreats that are non-simulation (no grcbot-/kimbot- ids) when engines are OFF
-  const filteredActiveThreats = activeThreats.filter(
+  const filteredActiveThreats = localThreats.filter(
     (t) => {
       if (!enginesOn && (t.id.startsWith("grcbot-") || t.id.startsWith("kimbot-"))) return false;
       if (selectedTenantName) {
@@ -962,6 +1181,66 @@ export default function ActiveRisksClient({
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
 
+  const showCompliance = useComplianceOverlayStore((s) => s.showCompliance);
+  const appendGrAuditEntry = useComplianceOverlayStore((s) => s.appendAuditEntry);
+  const grAuditHistory = useComplianceOverlayStore((s) => s.auditHistory);
+
+  const recordChaosAcknowledgeAudit = useCallback(
+    (threatId: string, ingestionDetails: string | null | undefined) => {
+      const rec = parseJsonRecord(ingestionDetails);
+      const isChaos = rec?.isChaosTest === true;
+      const scen =
+        typeof rec?.chaosScenario === 'string' ? rec.chaosScenario.trim().toUpperCase() : null;
+      if (!isChaos && !scen) return;
+      const lkg =
+        typeof rec?.lkgAttestationIroncoreSha256 === 'string'
+          ? rec.lkgAttestationIroncoreSha256.trim()
+          : null;
+      const frameworks = frameworkBadgesForChaosScenario(scen, isChaos);
+      appendGrAuditEntry({
+        threatId,
+        eventType: 'ACKNOWLEDGED',
+        scenario: scen,
+        lkgAttestationIroncoreSha256: lkg,
+        recoverySeconds: null,
+        frameworkBadges: frameworks,
+        controlLabel: chaosComplianceCoverageLabel(scen, isChaos),
+      });
+    },
+    [appendGrAuditEntry],
+  );
+
+  useEffect(() => {
+    for (const t of sortedActiveThreats) {
+      if ((t.threatStatus ?? '').trim().toUpperCase() !== 'RESOLVED') continue;
+      if (!isChaosDrillThreat(t)) continue;
+      const rec = parseJsonRecord(t.ingestionDetails);
+      const autonomousRecoveredAt =
+        typeof rec?.autonomousRecoveredAt === 'string' ? rec.autonomousRecoveredAt.trim() : '';
+      if (!autonomousRecoveredAt) continue;
+      const created = t.createdAt?.trim();
+      if (!created) continue;
+      const sec = (Date.parse(autonomousRecoveredAt) - Date.parse(created)) / 1000;
+      if (!Number.isFinite(sec) || sec < 0) continue;
+      const scen =
+        typeof rec?.chaosScenario === 'string' ? rec.chaosScenario.trim().toUpperCase() : null;
+      const lkg =
+        typeof rec?.lkgAttestationIroncoreSha256 === 'string'
+          ? rec.lkgAttestationIroncoreSha256.trim()
+          : null;
+      const frameworks = frameworkBadgesForChaosScenario(scen, true);
+      appendGrAuditEntry({
+        threatId: t.id,
+        eventType: 'AUTONOMOUS_RESOLVED',
+        scenario: scen,
+        lkgAttestationIroncoreSha256: lkg,
+        recoverySeconds: sec,
+        frameworkBadges: frameworks,
+        controlLabel: chaosComplianceCoverageLabel(scen, true),
+      });
+    }
+  }, [sortedActiveThreats, appendGrAuditEntry]);
+
   const ironsightAutoIgniteFingerprint = useMemo(() => {
     const parts: string[] = [];
     for (const t of sortedActiveThreats) {
@@ -987,6 +1266,19 @@ export default function ActiveRisksClient({
   sortedRisksRef.current = sortedRisks;
   statesRef.current = states;
 
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const list = sortedActiveThreatsRef.current;
+      const hasActiveItems = list.some(
+        (t) => (t.threatStatus ?? '').trim().toUpperCase() !== 'RESOLVED',
+      );
+      if (!hasActiveItems) return;
+      void refreshActiveThreatsFromDbRef.current();
+      router.refresh();
+    }, 2000);
+    return () => window.clearInterval(interval);
+  }, [router]);
+
   const runDeepTraceRef = useRef(runDeepTrace);
   runDeepTraceRef.current = runDeepTrace;
 
@@ -996,17 +1288,20 @@ export default function ActiveRisksClient({
     const tryIgnite = (threatLike: unknown, tid: string): boolean => {
       const id = tid.trim();
       if (!id || ironsightAutoIgnitedRef.current.has(id)) return false;
+      if (isChaosDrillThreat(threatLike)) return false;
       if (!threatNeedsIronsightAutoTrace(threatLike)) return false;
       ironsightAutoIgnitedRef.current.add(id);
       runDeepTraceRef.current(id);
       return true;
     };
     for (const t of sortedActiveThreatsRef.current) {
+      if (isChaosDrillThreat(t)) continue;
       const life = (st[t.id] ?? t.lifecycleState ?? 'active') as LifecycleState;
       if (life !== 'active') continue;
       if (tryIgnite(t, t.id)) return;
     }
     for (const r of sortedRisksRef.current) {
+      if (isChaosDrillThreat(r)) continue;
       const life = (statesRef.current[r.id] ?? 'active') as LifecycleState;
       if (life !== 'active') continue;
       const tid = r.threatId?.trim();
@@ -1087,6 +1382,8 @@ export default function ActiveRisksClient({
     });
     if (risk.threatId) {
       await confirmThreat(risk.threatId, 'admin-user-01');
+      const at = useRiskStore.getState().activeThreats.find((x) => x.id === risk.threatId);
+      recordChaosAcknowledgeAudit(risk.threatId, at?.ingestionDetails ?? risk.ingestionDetails ?? null);
     } else {
       appendAuditLog({
         action_type: 'SYSTEM_WARNING',
@@ -1202,12 +1499,32 @@ export default function ActiveRisksClient({
           </div>
         ) : null}
         {sortedActiveThreats.map((threat) => {
+          console.log("THREAT ASSIGNEE:", threat.assignedTo, threat);
+          void stickyClockTick;
+          const stickyUntil = resolvedStickyUntilRef.current.get(threat.id);
+          const stickyResolvedVisual =
+            stickyUntil != null && stickyUntil > Date.now();
+          const isResolvedInDb =
+            (threat.threatStatus ?? '').trim().toUpperCase() === 'RESOLVED';
+          const statusRaw = (() => {
+            if (isResolvedInDb || stickyResolvedVisual) return 'RESOLVED';
+            return (threat.threatStatus ?? '').trim().toUpperCase();
+          })();
+          const isActuallyResolved = statusRaw === 'RESOLVED';
+
           const lifecycle: LifecycleState =
-            (states[threat.id] as LifecycleState | undefined) ??
-            ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
-          const isUnassigned = assignedFor(threat.id, threat.assignedTo, threat.id) === 'unassigned';
-          const isActive = lifecycle === 'active';
-          const shouldFlash = isUnassigned && isActive;
+            isResolvedInDb || stickyResolvedVisual
+              ? 'resolved'
+              : (states[threat.id] as LifecycleState | undefined) ??
+                ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
+          const assigneeValue = assignedFor(threat.id, threat.assignedTo, threat.id);
+          /** `user_00` and other non-empty assignees are treated as assigned (not unassigned). */
+          const isUnassigned = assigneeValue === 'unassigned';
+          const isActive =
+            !isActuallyResolved &&
+            (statusRaw === 'ACTIVE' || statusRaw === 'ESCALATED');
+          /** Resolved always wins emerald styling; never flash red on resolved rows. */
+          const shouldFlash = !isActuallyResolved && isUnassigned && isActive;
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
           const grcDisplayText = displayGrcJustificationForActiveThreat({
             justification: threat.justification,
@@ -1233,9 +1550,23 @@ export default function ActiveRisksClient({
           const resolutionText = resolutionDrafts[threat.id] ?? '';
           const resolutionLenOk = resolutionText.trim().length >= 50;
 
-          const isRemoteIntervention = threat.threatStatus === 'PENDING_REMOTE_INTERVENTION';
+          const isRemoteIntervention = statusRaw === 'PENDING_REMOTE_INTERVENTION';
           const isEscalatedThreat =
-            threat.threatStatus === 'ESCALATED' || isRemoteIntervention;
+            statusRaw === 'ESCALATED' || isRemoteIntervention;
+          const chaosClosureMeta = readChaosClosureMeta(threat.ingestionDetails ?? null);
+          const isRemoteSupportJitGate =
+            statusRaw === 'PENDING_REMOTE_INTERVENTION' &&
+            chaosClosureMeta.scenario === 'REMOTE_SUPPORT';
+          const optimisticProcessing =
+            (optimisticProcessingUntilRef.current.get(threat.id) ?? 0) > Date.now();
+          const isResolveInFlight = resolvingThreatIds[threat.id] === true;
+          /** Chaos drills: require persisted `RESOLVED` — do not treat local/JSON justification as closure. */
+          const isChaosBoardThreat = isChaosDrillThreat(threat);
+          const isLowerSeverityManualTask =
+            ((threat.assigneeId || (threat as any).assignedTo)?.trim().toLowerCase() ?? '') === 'user_00';
+          const isAutonomousClosed =
+            isActuallyResolved ||
+            (!isChaosBoardThreat && chaosClosureMeta.hasResolutionJustification);
           const irontechLive = parseIrontechLiveFromIngestion(threat.ingestionDetails ?? null);
           const infrastructureErrorProbeText = joinErrorProbeParts([
             ...(irontechLive?.attempts.map((a) => a.error) ?? []),
@@ -1243,12 +1574,75 @@ export default function ActiveRisksClient({
             recoveryFailureProbeById[threat.id],
           ]);
           const irontechAttemptCount = irontechLive?.attempts?.length ?? 0;
+          const sourceUpper = (threat.source ?? '').trim().toUpperCase();
+          const isIrontechFamilySource =
+            irontechAttemptCount > 0 ||
+            sourceUpper.startsWith('IRON') ||
+            sourceUpper.includes('IRONTECH');
+          const chaosCardAgeMs = (() => {
+            const iso = threat.createdAt?.trim();
+            if (!iso) return 0;
+            const t = Date.parse(iso);
+            return Number.isNaN(t) ? 0 : Date.now() - t;
+          })();
+          const chaosMitigationSpinnerKill =
+            isChaosDrillThreat(threat) &&
+            !isActuallyResolved &&
+            chaosCardAgeMs > 10_000;
           const ironTechAgentPhase =
-            threat.threatStatus === 'ACTIVE' && irontechAttemptCount < 3
-              ? 'mitigating'
-              : manualRecoveryBusyThreatId === threat.id
+            isActuallyResolved || chaosMitigationSpinnerKill || isRemoteSupportJitGate
+              ? null
+              : optimisticProcessing
                 ? 'mitigating'
-                : null;
+              : statusRaw === 'ACTIVE' &&
+                  irontechAttemptCount < 3 &&
+                  isIrontechFamilySource
+                ? 'mitigating'
+                : manualRecoveryBusyThreatId === threat.id
+                  ? 'mitigating'
+                  : null;
+          const chaosVisualState: 'active' | 'processing' | 'resolved' | null =
+            isChaosBoardThreat
+              ? isActuallyResolved
+                ? 'resolved'
+                : optimisticProcessing || isResolveInFlight
+                  ? 'processing'
+                  : 'active'
+              : null;
+          const lowerSeverityVisualState: 'assigned' | 'processing' | 'corrected' | null =
+            isChaosBoardThreat && isLowerSeverityManualTask
+              ? isActuallyResolved
+                ? 'corrected'
+                : optimisticProcessing || isResolveInFlight
+                  ? 'processing'
+                  : 'assigned'
+              : null;
+          const chaosCardShellClass =
+            lowerSeverityVisualState === 'corrected'
+              ? '!border-l-2 !border-emerald-500/80 !bg-emerald-950/40'
+              : lowerSeverityVisualState === 'processing'
+                ? '!border-l-2 !border-amber-500/80 !bg-amber-950/40 animate-pulse'
+                : lowerSeverityVisualState === 'assigned'
+                  ? '!border-l-2 !border-blue-500/80 !bg-blue-950/40'
+                  : chaosVisualState === 'resolved'
+                    ? 'border-l-2 border-emerald-500/90 bg-emerald-950/30 shadow-[0_0_15px_rgba(52,211,153,0.15)] transition-all duration-500'
+                    : chaosVisualState === 'processing'
+                      ? 'border-l-2 border-teal-500/80 animate-pulse bg-teal-950/20'
+                      : chaosVisualState === 'active'
+                        ? 'border-l-2 border-rose-600/80'
+                        : '';
+          const chaosStatusPillClass =
+            lowerSeverityVisualState === 'corrected'
+              ? 'bg-emerald-900/50 border border-emerald-700/50 text-emerald-200 text-[9px] font-black uppercase'
+              : lowerSeverityVisualState === 'processing'
+                ? 'bg-amber-900/50 border border-amber-700/50 text-amber-200 text-[9px] font-black uppercase'
+                : lowerSeverityVisualState === 'assigned'
+                  ? 'bg-blue-900/50 border border-blue-700/50 text-blue-200 text-[9px] font-black uppercase'
+                  : chaosVisualState === 'resolved'
+                    ? 'bg-emerald-950/80 border border-emerald-500/90 text-emerald-200 text-[9px] font-black uppercase'
+                    : chaosVisualState === 'processing'
+                      ? 'bg-teal-950/50 border border-teal-600/70 text-teal-200 text-[9px] font-black uppercase'
+                      : 'bg-rose-950/70 border border-rose-800/60 text-rose-200 text-[9px] font-black uppercase';
           const irontechFailureAnimToken =
             irontechLive && irontechLive.streamSeq > 0
               ? `${threat.id}:${irontechLive.streamSeq}`
@@ -1260,8 +1654,9 @@ export default function ActiveRisksClient({
             : undefined;
 
           const suppressOpsTechnicalPanels =
-            threat.threatStatus === 'ESCALATED' ||
-            threat.threatStatus === 'PENDING_REMOTE_INTERVENTION';
+            isAutonomousClosed ||
+            statusRaw === 'ESCALATED' ||
+            statusRaw === 'PENDING_REMOTE_INTERVENTION';
 
           const buttonLabel =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
@@ -1270,6 +1665,7 @@ export default function ActiveRisksClient({
             lifecycle === 'active'
               ? async () => {
                   await confirmThreat(threat.id, 'admin-user-01');
+                  recordChaosAcknowledgeAudit(threat.id, threat.ingestionDetails ?? null);
                   setStates((prev) => ({ ...prev, [threat.id]: 'confirmed' }));
                   setSuccessFlash((prev) => ({ ...prev, [threat.id]: true }));
                   setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [threat.id]: false })), 1500);
@@ -1277,6 +1673,7 @@ export default function ActiveRisksClient({
               : lifecycle === 'confirmed'
               ? async () => {
                   try {
+                    setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
                     await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
                     setResolutionDrafts((prev) => {
                       const next = { ...prev };
@@ -1285,6 +1682,12 @@ export default function ActiveRisksClient({
                     });
                   } catch {
                     // threatActionError set in store
+                  } finally {
+                    setResolvingThreatIds((prev) => {
+                      const next = { ...prev };
+                      delete next[threat.id];
+                      return next;
+                    });
                   }
                 }
               : undefined;
@@ -1292,17 +1695,28 @@ export default function ActiveRisksClient({
           return (
             <ThreatCard
               key={`active-${threat.id}`}
+              showCompliance={showCompliance}
+              suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}
               ironTechAgentPhase={ironTechAgentPhase}
               ingestionBootstrapFromIso={threat.createdAt ?? null}
               ingestionBootstrapEnabled={
-                threat.threatStatus === 'ACTIVE' && !isRemoteIntervention && !isEscalatedThreat
+                statusRaw === 'ACTIVE' && !isRemoteIntervention && !isEscalatedThreat
               }
-              threatStatus={threat.threatStatus ?? null}
+              threatStatus={statusRaw || null}
               irontechAttemptCount={irontechAttemptCount}
               infrastructureErrorProbeText={infrastructureErrorProbeText}
+              ingestionDetailsRaw={threat.ingestionDetails ?? null}
+              onAutoDismiss={() => {
+                useAgentStore.getState().clearActiveThreatById(threat.id);
+                replaceActiveThreats(
+                  useRiskStore.getState().activeThreats.filter((t) => t.id !== threat.id),
+                );
+                void refreshActiveThreatsFromDb();
+                router.refresh();
+              }}
               manualRecoveryInline={
-                threat.threatStatus === 'ESCALATED' && !isRemoteIntervention ? (
+                statusRaw === 'ESCALATED' && !isRemoteIntervention ? (
                   <InlineManualRecoveryBlock
                     threatId={threat.id}
                     onBusyChange={handleManualRecoveryBusy}
@@ -1324,19 +1738,24 @@ export default function ActiveRisksClient({
               onEscalatedActivate={
                 isRemoteIntervention ? () => setRecoveryThreatId(threat.id) : undefined
               }
-              className={`group flex flex-col justify-between rounded-lg border transition-all duration-500 ${
-                isRemoteIntervention
-                  ? 'border-amber-800/50 bg-amber-950/25 hover:border-amber-600/50 z-10'
-                  : isEscalatedThreat
-                    ? 'border-rose-600/55 bg-rose-950/15 hover:border-rose-500/70 z-10'
-                    : shouldFlash
-                      ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
-                      : 'border-emerald-700/40 bg-emerald-950/10 hover:border-emerald-500/60'
+              suppressAutoSurfaceOverride={isChaosBoardThreat}
+              className={`group flex flex-col justify-between rounded-lg overflow-hidden border border-slate-800 bg-slate-950/80 shadow-inner transition-all duration-500 ${
+                isChaosBoardThreat
+                  ? chaosCardShellClass
+                  : isActuallyResolved
+                    ? 'border-emerald-400 bg-emerald-900/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                    : isRemoteIntervention
+                      ? 'border-amber-800/50 bg-amber-950/25 hover:border-amber-600/50 z-10'
+                      : isEscalatedThreat
+                        ? 'border-rose-600/55 bg-rose-950/15 hover:border-rose-500/70 z-10'
+                        : shouldFlash
+                          ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
+                          : ''
               } p-4`}
             >
               <div className="flex w-full items-start justify-between text-left">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-200">
+                  <h3 className="text-sm font-bold tracking-tight text-slate-200">
                     <Link
                       href={`/threats/${threat.id}`}
                       onClick={(e) => {
@@ -1357,6 +1776,34 @@ export default function ActiveRisksClient({
                   <p className="mt-1 text-[10px] text-slate-400">{displayDescription}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2" onPointerDown={blockEscalatedCardOverlay}>
+                  {isChaosBoardThreat ? (
+                    <span className={`inline-flex items-center gap-1.5 rounded px-2 py-1 ${chaosStatusPillClass}`}>
+                      {lowerSeverityVisualState === 'corrected' ? (
+                        <ShieldCheck className="h-3 w-3" aria-hidden />
+                      ) : lowerSeverityVisualState === 'processing' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                      ) : lowerSeverityVisualState === 'assigned' ? (
+                        <ClipboardList className="h-3 w-3" aria-hidden />
+                      ) : chaosVisualState === 'resolved' ? (
+                        <ShieldCheck className="h-3 w-3" aria-hidden />
+                      ) : chaosVisualState === 'processing' ? (
+                        <Radar className="h-3 w-3" aria-hidden />
+                      ) : (
+                        <AlertTriangle className="h-3 w-3" aria-hidden />
+                      )}
+                      {lowerSeverityVisualState === 'corrected'
+                        ? 'CORRECTED'
+                        : lowerSeverityVisualState === 'processing'
+                          ? 'PROCESSING'
+                          : lowerSeverityVisualState === 'assigned'
+                            ? 'ASSIGNED'
+                      : chaosVisualState === 'resolved'
+                        ? 'RESOLVED'
+                        : chaosVisualState === 'processing'
+                          ? 'PROCESSING'
+                          : 'ACTIVE'}
+                    </span>
+                  ) : null}
                   <Link
                     href={`/threats/${threat.id}`}
                     onClick={(e) => {
@@ -1369,33 +1816,35 @@ export default function ActiveRisksClient({
                     <ExternalLink className="h-3 w-3" aria-hidden />
                     Assess Risk
                   </Link>
-                  <div className="flex items-center gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser)}
-                      disabled={assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser}
-                      className={`px-2 py-1 border rounded transition-colors ${
-                        assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser
-                          ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
-                          : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
-                      }`}
-                    >
-                      {assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
-                    </button>
-                    <select
-                      value={assignedFor(threat.id, threat.assignedTo, threat.id)}
-                      onChange={(e) => void persistThreatAssignee(threat.id, threat.id, e.target.value)}
-                      className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
-                    >
-                      <option value="unassigned">Unassigned</option>
-                      <option value="dereck">Dereck</option>
-                      <option value="user_00">user_00</option>
-                      <option value="user_01">user_01</option>
-                      <option value="secops">SecOps Team</option>
-                      <option value="grc">GRC Team</option>
-                      <option value="netsec">NetSec</option>
-                    </select>
-                  </div>
+                  {!isAutonomousClosed && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser)}
+                        disabled={assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser}
+                        className={`px-2 py-1 border rounded transition-colors ${
+                          assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser
+                            ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
+                            : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
+                        }`}
+                      >
+                        {assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                      </button>
+                      <select
+                        value={assignedFor(threat.id, threat.assignedTo, threat.id)}
+                        onChange={(e) => void persistThreatAssignee(threat.id, threat.id, e.target.value)}
+                        className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
+                      >
+                        <option value="unassigned">Unassigned</option>
+                        <option value="dereck">Dereck</option>
+                        <option value="user_00">user_00</option>
+                        <option value="user_01">user_01</option>
+                        <option value="secops">SecOps Team</option>
+                        <option value="grc">GRC Team</option>
+                        <option value="netsec">NetSec</option>
+                      </select>
+                    </div>
+                  )}
                   <span className={`text-xs font-bold ${(threat.calculatedRiskScore ?? 0) > 70 ? 'text-red-400' : 'text-amber-400'}`}>
                     Score: {threat.calculatedRiskScore ?? threat.score ?? threat.loss}
                   </span>
@@ -1413,9 +1862,13 @@ export default function ActiveRisksClient({
                     </span>
                   )}
                   <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                    {threat.threatStatus === 'PENDING_REMOTE_INTERVENTION'
+                    {optimisticProcessing
+                      ? 'Processing'
+                      : isAutonomousClosed
+                      ? 'Autonomous recovery completed'
+                      : statusRaw === 'PENDING_REMOTE_INTERVENTION'
                       ? 'Remote specialist queue'
-                      : threat.threatStatus === 'ESCALATED'
+                      : statusRaw === 'ESCALATED'
                       ? 'Escalated — manual recovery'
                       : lifecycle === 'active'
                         ? 'Just Acknowledged'
@@ -1445,10 +1898,81 @@ export default function ActiveRisksClient({
                               <span className="font-mono text-[9px] text-cyan-400/90">
                                 Attempt {a.attempt}/{a.max}
                               </span>
-                              <span className="mt-0.5 block text-slate-400">{a.error}</span>
+                              <span
+                                className={`mt-0.5 block ${
+                                  chaosClosureMeta.scenario === 'CASCADING_FAILURE' &&
+                                  a.error.includes('Restoring from LKG')
+                                    ? 'font-semibold text-amber-200/95'
+                                    : 'text-slate-400'
+                                }`}
+                              >
+                                {a.error}
+                              </span>
                             </li>
                           ))}
                         </ul>
+                        {irontechLive.lastTerminalLine.trim() !== '' ? (
+                          <p
+                            className={`mt-2 border-t border-cyan-700/45 pt-2 font-mono text-[10px] leading-snug ${
+                              chaosClosureMeta.scenario === 'CASCADING_FAILURE' &&
+                              irontechLive.lastTerminalLine.includes('Restoring from LKG')
+                                ? 'text-amber-200'
+                                : 'text-amber-100/95'
+                            }`}
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <span className="mb-1 block text-[8px] font-black uppercase tracking-wide text-amber-400/90">
+                              Irontech live line
+                            </span>
+                            <span
+                              className={`block whitespace-pre-wrap ${
+                                chaosClosureMeta.scenario === 'CASCADING_FAILURE' &&
+                                irontechLive.lastTerminalLine.includes('Restoring from LKG')
+                                  ? 'font-semibold'
+                                  : ''
+                              }`}
+                            >
+                              {irontechLive.lastTerminalLine}
+                            </span>
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {isRemoteSupportJitGate ? (
+                      <div className="mt-4 rounded-md border border-amber-500/50 bg-amber-950/20 p-3">
+                        <p className="mb-2 text-sm font-semibold text-amber-400">
+                          [ACTION REQUIRED] Ironframe Tier 3 requests diagnostic access.
+                        </p>
+                        <button
+                          type="button"
+                          disabled={grantRemoteJitBusyThreatId === threat.id}
+                          onClick={() => {
+                            void (async () => {
+                              setGrantRemoteJitBusyThreatId(threat.id);
+                              try {
+                                const clientAttr = await fetchChaosLedgerClientAttribution();
+                                const r = await grantRemoteAccessAction(
+                                  threat.id,
+                                  clientAttr ?? undefined,
+                                );
+                                if (!r.ok) {
+                                  setThreatActionError({ active: true, message: r.error });
+                                  return;
+                                }
+                                await refreshActiveThreatsFromDb();
+                                router.refresh();
+                              } finally {
+                                setGrantRemoteJitBusyThreatId(null);
+                              }
+                            })();
+                          }}
+                          className="rounded bg-amber-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-amber-500 disabled:opacity-60"
+                        >
+                          {grantRemoteJitBusyThreatId === threat.id
+                            ? 'Working…'
+                            : 'GRANT 2-HOUR ACCESS'}
+                        </button>
                       </div>
                     ) : null}
                     <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
@@ -1472,16 +1996,18 @@ export default function ActiveRisksClient({
                           deepTraceRunning={traceRunningThreatId === threat.id}
                         />
 
-                        <IronsightDeepTraceSection
-                          threatLike={threat}
-                          contextId={threat.id}
-                          threatEventId={threat.id}
-                          deepTraceRunning={traceRunningThreatId === threat.id}
-                          executingChipKey={executingActionKey}
-                          onExecuteAction={(label, actionId) =>
-                            handleExecuteTraceAction(threat.id, label, actionId)
-                          }
-                        />
+                        {!(isActuallyResolved || isChaosDrillThreat(threat)) ? (
+                          <IronsightDeepTraceSection
+                            threatLike={threat}
+                            contextId={threat.id}
+                            threatEventId={threat.id}
+                            deepTraceRunning={traceRunningThreatId === threat.id}
+                            executingChipKey={executingActionKey}
+                            onExecuteAction={(label, actionId) =>
+                              handleExecuteTraceAction(threat.id, label, actionId)
+                            }
+                          />
+                        ) : null}
                       </>
                     )}
 
@@ -1528,6 +2054,22 @@ export default function ActiveRisksClient({
                     {successFlash[threat.id] && (
                       <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
                         Stakeholders Notified
+                      </div>
+                    )}
+                    {isAutonomousClosed && (
+                      <div className="ml-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            useAgentStore.getState().clearActiveThreatById(threat.id);
+                            replaceActiveThreats(activeThreats.filter((t) => t.id !== threat.id));
+                            void refreshActiveThreatsFromDb();
+                            router.refresh();
+                          }}
+                          className="rounded border border-emerald-500/60 bg-emerald-950/35 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200 hover:bg-emerald-900/40"
+                        >
+                          Acknowledge
+                        </button>
                       </div>
                     )}
                     {!suppressOpsTechnicalPanels && (
@@ -1592,6 +2134,7 @@ export default function ActiveRisksClient({
                                     });
                                   } else {
                                     await confirmThreat(threat.id, operatorId);
+                                    recordChaosAcknowledgeAudit(threat.id, threat.ingestionDetails ?? null);
                                     setStates((prev) => ({ ...prev, [threat.id]: 'confirmed' }));
                                     setSuccessFlash((prev) => ({ ...prev, [threat.id]: true }));
                                     setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [threat.id]: false })), 1500);
@@ -1820,19 +2363,21 @@ export default function ActiveRisksClient({
                       risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
                     }
                   />
-                  <IronsightDeepTraceSection
-                    threatLike={risk}
-                    contextId={risk.threatId ?? risk.id}
-                    threatEventId={risk.threatId ?? null}
-                    deepTraceRunning={
-                      risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
-                    }
-                    executingChipKey={executingActionKey}
-                    onExecuteAction={(label, actionId) => {
-                      if (!risk.threatId) return;
-                      handleExecuteTraceAction(risk.threatId, label, actionId);
-                    }}
-                  />
+                  {!(lifecycle === 'resolved' || isChaosDrillThreat(risk)) ? (
+                    <IronsightDeepTraceSection
+                      threatLike={risk}
+                      contextId={risk.threatId ?? risk.id}
+                      threatEventId={risk.threatId ?? null}
+                      deepTraceRunning={
+                        risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
+                      }
+                      executingChipKey={executingActionKey}
+                      onExecuteAction={(label, actionId) => {
+                        if (!risk.threatId) return;
+                        handleExecuteTraceAction(risk.threatId, label, actionId);
+                      }}
+                    />
+                  ) : null}
                   <div className="max-h-28 space-y-1 overflow-y-auto rounded bg-slate-950/80 p-2">
                     {notes.length === 0 && (
                       <div className="text-[10px] text-slate-500">No work notes recorded yet.</div>
@@ -1921,6 +2466,11 @@ export default function ActiveRisksClient({
                                 const threatId = activeActionThreatId ?? risk.threatId ?? risk.id;
                                 try {
                                   await confirmThreat(threatId, operatorId);
+                                  const at0 = useRiskStore.getState().activeThreats.find((x) => x.id === threatId);
+                                  recordChaosAcknowledgeAudit(
+                                    threatId,
+                                    at0?.ingestionDetails ?? risk.ingestionDetails ?? null,
+                                  );
                                   setStates((prev) => ({ ...prev, [risk.id]: 'confirmed' }));
                                   setSuccessFlash((prev) => ({ ...prev, [risk.id]: true }));
                                   setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [risk.id]: false })), 1500);
@@ -1997,6 +2547,88 @@ export default function ActiveRisksClient({
         )}
       </div>
 
+      <div className="mt-6 border-t border-slate-800 pt-4">
+        <button
+          type="button"
+          onClick={() => setAuditHistoryModalOpen(true)}
+          className="rounded border border-slate-600 bg-slate-900/80 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-slate-200 transition-colors hover:border-slate-500 hover:bg-slate-800"
+        >
+          View audit logs
+        </button>
+      </div>
+
+      {auditHistoryModalOpen ? (
+        <div
+          className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="grc-audit-modal-title"
+        >
+          <div className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-lg border border-slate-600 bg-slate-950 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+              <h2 id="grc-audit-modal-title" className="text-sm font-bold uppercase tracking-wide text-slate-100">
+                Compliance audit history
+              </h2>
+              <button
+                type="button"
+                onClick={() => setAuditHistoryModalOpen(false)}
+                className="rounded border border-slate-600 px-2 py-1 text-[10px] font-bold uppercase text-slate-400 hover:bg-slate-800"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[calc(85vh-56px)] overflow-auto p-4">
+              <p className="mb-3 text-[9px] text-slate-500">
+                Persisted locally (acknowledgements + autonomous recoveries). Hash, recovery time, and framework map
+                are captured per event.
+              </p>
+              <table className="w-full border-collapse text-left text-[10px] text-slate-300">
+                <thead>
+                  <tr className="border-b border-slate-700 text-[8px] font-black uppercase tracking-wide text-slate-500">
+                    <th className="py-2 pr-2">Time</th>
+                    <th className="py-2 pr-2">Threat</th>
+                    <th className="py-2 pr-2">Event</th>
+                    <th className="py-2 pr-2">Frameworks</th>
+                    <th className="py-2 pr-2">Recovery</th>
+                    <th className="py-2 pr-2">SHA256</th>
+                    <th className="py-2">Control</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grAuditHistory.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-slate-500">
+                        No audit entries yet. Confirm a chaos drill or complete an autonomous recovery.
+                      </td>
+                    </tr>
+                  ) : (
+                    grAuditHistory.map((row) => (
+                      <tr key={row.id} className="border-b border-slate-800/90 align-top">
+                        <td className="py-2 pr-2 font-mono text-[9px] text-slate-400 whitespace-nowrap">
+                          {row.recordedAt}
+                        </td>
+                        <td className="py-2 pr-2 font-mono text-cyan-300/90">{row.threatId}</td>
+                        <td className="py-2 pr-2">{row.eventType}</td>
+                        <td className="max-w-[100px] py-2 pr-2 break-words text-slate-400">
+                          {row.frameworkBadges.length ? row.frameworkBadges.join(', ') : '—'}
+                        </td>
+                        <td className="py-2 pr-2 font-mono text-emerald-300/90">
+                          {row.recoverySeconds != null ? `${row.recoverySeconds.toFixed(1)}s` : '—'}
+                        </td>
+                        <td className="max-w-[140px] py-2 pr-2 break-all font-mono text-[8px] text-slate-500">
+                          {row.lkgAttestationIroncoreSha256 ?? '—'}
+                        </td>
+                        <td className="py-2 text-slate-400">{row.controlLabel ?? '—'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <ManualRecoveryOverlay
         threatId={recoveryThreatId}
         onClose={() => setRecoveryThreatId(null)}
@@ -2008,11 +2640,21 @@ export default function ActiveRisksClient({
 
       {executionToast != null && (
         <div
-          className="pointer-events-auto fixed bottom-6 right-6 z-[100] max-w-sm threat-list-fade-in rounded-lg border border-cyan-500/45 bg-slate-950/95 px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-sm"
-          role="status"
-          aria-live="polite"
+          className={`pointer-events-auto fixed bottom-6 right-6 z-[100] max-w-sm threat-list-fade-in rounded-lg border px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-sm ${
+            executionToast.variant === 'error'
+              ? 'border-rose-600/70 bg-rose-950/95'
+              : 'border-cyan-500/45 bg-slate-950/95'
+          }`}
+          role="alert"
+          aria-live="assertive"
         >
-          <p className="text-xs font-semibold tracking-wide text-cyan-100">{executionToast}</p>
+          <p
+            className={`text-xs font-semibold tracking-wide ${
+              executionToast.variant === 'error' ? 'text-rose-100' : 'text-cyan-100'
+            }`}
+          >
+            {executionToast.text}
+          </p>
           <button
             type="button"
             onClick={() => setExecutionToast(null)}

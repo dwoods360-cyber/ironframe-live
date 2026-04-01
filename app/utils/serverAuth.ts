@@ -124,3 +124,35 @@ export async function resolveDispositionOperatorId(): Promise<string> {
 export async function requireAuthenticatedOperatorId(): Promise<string> {
   return resolveDispositionOperatorId();
 }
+
+/**
+ * GRC Integrity Hub / SOC 2 attribution: who authorized or triggered the resolved event.
+ * Supabase session → operator cookie → autonomous fallback.
+ */
+export async function resolveIntegrityLedgerAuthorizedLabel(): Promise<{
+  userId: string;
+  displayName: string;
+}> {
+  const user = await getSupabaseSessionUser();
+  if (user) {
+    const uid = typeof user.id === "string" ? user.id.trim() : "";
+    if (uid.length > 0) {
+      const metaName = user.user_metadata?.full_name;
+      const dn =
+        (typeof metaName === "string" && metaName.trim()) ||
+        user.email?.trim() ||
+        uid;
+      return { userId: uid, displayName: dn };
+    }
+    const email = user.email?.trim();
+    if (email) return { userId: email, displayName: email };
+  }
+
+  const cookieStore = await cookies();
+  const fromCookie = cookieStore.get(OPERATOR_COOKIE)?.value?.trim();
+  if (fromCookie && fromCookie.length > 0) {
+    return { userId: fromCookie, displayName: fromCookie };
+  }
+
+  return { userId: "SYSTEM_IRONTECH_AUTO", displayName: "SYSTEM_IRONTECH_AUTO" };
+}

@@ -16,7 +16,7 @@
     "generate:all": "npx prisma generate && npx tsc --noEmit",
     "check:financial-types": "node scripts/check-no-float-decimal.mjs",
     "install-hooks": "node scripts/install-pre-commit.mjs",
-    "perf:seed": "ts-node scripts/perf-test-seed.ts"
+    "cold-store:init": "node scripts/init-ironframe-cold-store.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

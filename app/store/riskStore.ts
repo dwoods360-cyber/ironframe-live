@@ -66,6 +66,8 @@ export type PipelineThreat = {
   ttlSeconds?: number | null;
   /** Optional assignee for operational ownership controls. */
   assignedTo?: string;
+  /** Optional DB-native assignee field alias (ThreatEvent.assignee_id). */
+  assigneeId?: string;
   /** AuditLog ASSIGNMENT_CHANGED entries (chain of custody). */
   assignmentHistory?: Array<{
     id: string;

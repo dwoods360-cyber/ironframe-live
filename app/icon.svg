@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Ironframe</title>
+  <g fill="none" stroke="#22d3ee" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.45">
+    <polyline points="50.00,38.80 50.00,32.00 50.00,20.00 50.00,8.00"/><polyline points="59.70,44.40 65.59,41.00 75.98,35.00 86.37,29.00"/><polyline points="59.70,55.60 65.59,59.00 75.98,65.00 86.37,71.00"/><polyline points="50.00,61.20 50.00,68.00 50.00,80.00 50.00,92.00"/><polyline points="40.30,55.60 34.41,59.00 24.02,65.00 13.63,71.00"/><polyline points="40.30,44.40 34.41,41.00 24.02,35.00 13.63,29.00"/>
+  </g>
+  <g fill="#22d3ee"><circle cx="50.00" cy="32.00" r="4.85" opacity="0.92"/><circle cx="50.00" cy="20.00" r="4.85" opacity="0.92"/><circle cx="50.00" cy="8.00" r="4.85" opacity="0.92"/><circle cx="65.59" cy="41.00" r="4.85" opacity="0.92"/><circle cx="75.98" cy="35.00" r="4.85" opacity="0.92"/><circle cx="86.37" cy="29.00" r="4.85" opacity="0.92"/><circle cx="65.59" cy="59.00" r="4.85" opacity="0.92"/><circle cx="75.98" cy="65.00" r="4.85" opacity="0.92"/><circle cx="86.37" cy="71.00" r="4.85" opacity="0.92"/><circle cx="50.00" cy="68.00" r="4.85" opacity="0.92"/><circle cx="50.00" cy="80.00" r="4.85" opacity="0.92"/><circle cx="50.00" cy="92.00" r="4.85" opacity="0.92"/><circle cx="34.41" cy="59.00" r="4.85" opacity="0.92"/><circle cx="24.02" cy="65.00" r="4.85" opacity="0.92"/><circle cx="13.63" cy="71.00" r="4.85" opacity="0.92"/><circle cx="34.41" cy="41.00" r="4.85" opacity="0.92"/><circle cx="24.02" cy="35.00" r="4.85" opacity="0.92"/><circle cx="13.63" cy="29.00" r="4.85" opacity="0.92"/></g>
+  <circle cx="50" cy="50" r="11.2" fill="#ffffff"/>
+  <circle cx="50" cy="50" r="8.5" fill="#ffffff"/>
+</svg>

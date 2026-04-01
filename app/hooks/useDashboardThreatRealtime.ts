@@ -80,6 +80,8 @@ type Params = {
   replaceActiveThreats: (threats: PipelineThreat[]) => void;
   onNewThreatDetected?: (title: string) => void;
   onThreatInserted?: (threatId: string) => void;
+  /** After store sync from DB (e.g. `router.refresh()` so RSC props match). */
+  onAfterSync?: () => void;
 };
 
 /**
@@ -93,15 +95,18 @@ export function useDashboardThreatRealtime({
   replaceActiveThreats,
   onNewThreatDetected,
   onThreatInserted,
+  onAfterSync,
 }: Params) {
   const replacePipeRef = useRef(replacePipelineThreats);
   const replaceActiveRef = useRef(replaceActiveThreats);
   const onNewRef = useRef(onNewThreatDetected);
   const onInsertRef = useRef(onThreatInserted);
+  const onAfterSyncRef = useRef(onAfterSync);
   replacePipeRef.current = replacePipelineThreats;
   replaceActiveRef.current = replaceActiveThreats;
   onNewRef.current = onNewThreatDetected;
   onInsertRef.current = onThreatInserted;
+  onAfterSyncRef.current = onAfterSync;
 
   useEffect(() => {
     if (!enabled) return;
@@ -111,15 +116,15 @@ export function useDashboardThreatRealtime({
     let updateTimer: ReturnType<typeof setTimeout> | undefined;
 
     const runSync = () =>
-      void syncThreatBoardsClient(
-        replacePipeRef.current,
-        (incomingArray) => {
-          const safeArray = useAgentStore
-            .getState()
-            .mergeActiveThreatsWithPersistence(incomingArray);
-          replaceActiveRef.current(safeArray);
-        },
-      );
+      void (async () => {
+        await syncThreatBoardsClient(
+          replacePipeRef.current,
+          (incomingArray) => {
+            replaceActiveRef.current(incomingArray);
+          },
+        );
+        onAfterSyncRef.current?.();
+      })();
 
     const scheduleUpdateSync = () => {
       if (updateTimer) clearTimeout(updateTimer);
@@ -141,7 +146,6 @@ export function useDashboardThreatRealtime({
       if (!rowAllowedForTenant(row, allowed)) return;
       if (typeof row.id === "string" && row.id.trim()) {
         const id = row.id.trim();
-        useAgentStore.getState().markActiveThreatConfirmed(id);
         onInsertRef.current?.(id);
       }
       runSync();

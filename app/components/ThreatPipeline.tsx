@@ -153,8 +153,12 @@ function PipelineThreatCard({
   }, [threat.likelihood, threat.impact]);
 
   const scoreM = threat.score ?? threat.loss;
+  const srcUpper = (threat.source ?? "").toUpperCase();
   const isKimbotThreat =
-    (threat.source ?? "").toUpperCase() === "KIMBOT" || (threat.name ?? "").startsWith("[KIMBOT]");
+    srcUpper === "KIMBOT" ||
+    srcUpper === "IRONBLOOM" ||
+    (threat.name ?? "").startsWith("[KIMBOT]") ||
+    (threat.name ?? "").startsWith("[IRONBLOOM]");
   const existingNotes = threat.notes ?? [];
   const scopeTag = `industry:${threat.industry ?? activeIndustry}|tenant:${activeTenant ?? "GLOBAL"}|threatId:${threat.id}`;
 
@@ -310,7 +314,7 @@ function PipelineThreatCard({
       }
     >
       <div className="p-4 space-y-4">
-        {/* Header — legacy Kimbot layout */}
+        {/* Header — Ironbloom / legacy KIMBOT source layout */}
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -1006,7 +1010,6 @@ export default function ThreatPipeline({
         const ghostIds = toValidate.filter((id) => !validSet.has(id));
         if (ghostIds.length > 0) {
           const now = Date.now();
-          const persistent = new Set(useAgentStore.getState().persistentIds);
           const localById = new Map(
             useAgentStore.getState().activeThreats.map((t) => [t.id, t]),
           );
@@ -1014,22 +1017,19 @@ export default function ThreatPipeline({
             [...pipelineThreats, ...activeThreats].map((t) => [t.id, t]),
           );
           const removableGhostIds = ghostIds.filter((id) => {
-            if (persistent.has(id)) return false;
             const local = localById.get(id);
-            if (!local?.isLocalOnly) return true;
-            const createdIso = local.localCreatedAt ?? local.createdAt;
+            const board = boardById.get(id);
+            const createdIso = local?.createdAt ?? board?.createdAt;
             const createdMs = createdIso ? Date.parse(createdIso) : NaN;
             if (Number.isNaN(createdMs)) return true;
-            const ageMs = now - createdMs;
-            return ageMs >= 60_000;
+            return now - createdMs >= 60_000;
           });
           if (removableGhostIds.length === 0) return;
           removeGhostThreats(removableGhostIds);
           const toastCount = removableGhostIds.filter((id) => {
             const local = localById.get(id);
             const board = boardById.get(id);
-            const createdIso =
-              local?.localCreatedAt ?? local?.createdAt ?? board?.localCreatedAt ?? board?.createdAt;
+            const createdIso = local?.createdAt ?? board?.createdAt;
             const createdMs = createdIso ? Date.parse(createdIso) : NaN;
             if (Number.isNaN(createdMs)) return true;
             return now - createdMs >= 120_000;

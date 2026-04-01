@@ -59,7 +59,7 @@ describe('Dashboard latency under 100-company scale', () => {
     });
     if (!tenant) {
       throw new Error(
-        `Benchmark tenant "${BENCHMARK_TENANT_NAME}" not found. Run: npx ts-node scripts/perf-test-seed.ts`
+        `Benchmark tenant "${BENCHMARK_TENANT_NAME}" not found. Seed benchmark data before running this perf test.`,
       );
     }
     tenantId = tenant.id;

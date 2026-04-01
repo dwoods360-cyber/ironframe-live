@@ -1,8 +1,7 @@
 import { useAgentStore } from "@/app/store/agentStore";
 
 /**
- * When KIMBOT starts, wake Blue Team: set Ironsight and Coreintel to ACTIVE_DEFENSE
- * so StrategicIntel shows a pulsing green indicator.
+ * When Ironbloom sim starts, wake Blue Team: set Ironsight, Coreintel (Ironintel), Agent Manager to ACTIVE_DEFENSE.
  */
 export function wakeBlueTeam(): void {
   const setAgentStatus = useAgentStore.getState().setAgentStatus;
@@ -11,9 +10,7 @@ export function wakeBlueTeam(): void {
   setAgentStatus("agentManager", "ACTIVE_DEFENSE");
 }
 
-/**
- * When KIMBOT stops, return agents to HEALTHY.
- */
+/** When Ironbloom sim stops, return agents to HEALTHY. */
 export function sleepBlueTeam(): void {
   const setAgentStatus = useAgentStore.getState().setAgentStatus;
   setAgentStatus("ironsight", "HEALTHY");

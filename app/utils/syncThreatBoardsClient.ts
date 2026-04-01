@@ -1,5 +1,4 @@
-import { fetchActiveThreatsFromDb, fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
-import { mapActiveThreatFromDbToPipelineThreat } from "@/app/utils/mapActiveThreatFromDbToPipelineThreat";
+import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import type { PipelineThreat } from "@/app/store/riskStore";
@@ -9,10 +8,16 @@ export async function syncThreatBoardsClient(
   replacePipelineThreats?: (threats: PipelineThreat[]) => void,
   replaceActiveThreats?: (threats: PipelineThreat[]) => void,
 ): Promise<void> {
-  const [pipeRows, activeRows] = await Promise.all([
+  await new Promise((r) => setTimeout(r, 800)); // 800ms settlement delay
+  const activeUrl = "/api/threats/active";
+  const [pipeRows, activeRes] = await Promise.all([
     fetchPipelineThreatsFromDb(),
-    fetchActiveThreatsFromDb(),
+    fetch(activeUrl, { cache: "no-store" }),
   ]);
+  if (!activeRes.ok) {
+    throw new Error(`GET ${activeUrl} failed: ${activeRes.status}`);
+  }
+  const activeRows = (await activeRes.json()) as PipelineThreat[];
 
   const asPipeline: PipelineThreat[] = pipeRows.map((r) => ({
     id: r.id,
@@ -25,7 +30,7 @@ export async function syncThreatBoardsClient(
     createdAt: r.createdAt,
   }));
 
-  const asActiveFromDb: PipelineThreat[] = activeRows.map(mapActiveThreatFromDbToPipelineThreat);
+  const asActiveFromDb: PipelineThreat[] = activeRows;
   const optimistic = useAgentStore.getState().activeThreats ?? [];
   const withOptimistic: PipelineThreat[] = [
     ...asActiveFromDb,

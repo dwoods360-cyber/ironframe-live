@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Dashboard header: EMERGENCY CLICK TEST, tenant select, then Expert / warning / Purge (single row).
+ * Dashboard header: production title strip with tenant label and controls.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ import { useRiskStore } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
 import { sleepBlueTeam } from "@/app/utils/blueTeamSync";
+import { IronframeHexMark } from "@/app/components/IronframeHexMark";
 
 const CONSULTANT_TENANT_OPTIONS = [
   "MedShield Clinic",
@@ -68,11 +69,14 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
       className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
-      <h1 className="text-sm font-bold uppercase tracking-wider text-white shrink-0">
-        EMERGENCY CLICK TEST
-      </h1>
+      <div className="flex shrink-0 items-center gap-2">
+        <IronframeHexMark className="h-9 w-9 shrink-0" aria-hidden />
+        <h1 className="text-sm font-bold uppercase tracking-wider text-white">
+          IRONFRAME v1.0 — ENTERPRISE RISK POSTURE
+        </h1>
+      </div>
       <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        Protected Tenants ({selectedIndustry})
+        PROTECTED TENANTS (HEALTHCARE)
       </span>
       <select
         value={selectedTenantName ?? ""}

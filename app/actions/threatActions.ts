@@ -467,6 +467,34 @@ export async function resolveThreatAction(
   return { success: true, financialRisk_cents };
 }
 
+/** Persist removal from Active board after autonomous resolve (UI "Acknowledge" kill-switch). */
+export async function archiveThreat(
+  threatId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const id = threatId.trim();
+  if (!id) return { success: false, error: "Missing threat id." };
+  try {
+    await prisma.threatEvent.update({
+      where: { id },
+      data: {
+        status: ThreatState.DE_ACKNOWLEDGED,
+        deAckReason: DeAckReason.ACCEPTABLE_RISK,
+      },
+    });
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+    await logThreatActivity(
+      id,
+      "STATUS_UPDATED",
+      "Threat de-acknowledged (active-board dismiss) — removed from live active queries.",
+    );
+    return { success: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return { success: false, error: msg };
+  }
+}
+
 export async function deAcknowledgeThreatAction(
   id: string,
   tenantId: string,

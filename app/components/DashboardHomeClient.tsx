@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
@@ -16,7 +17,7 @@ import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
-import { useAgentStore } from '../store/agentStore';
+import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -78,16 +79,10 @@ type Props = {
  * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent`).
  */
 export default function DashboardHomeClient({ children }: Props) {
+  const router = useRouter();
   const { tenantFetch, activeTenantUuid } = useTenantContext();
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
-  const rawReplaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
-  const replaceActiveThreats = useCallback((threats: any[]) => {
-    // Force realtime updates through our smart merge engine
-    const merged = useAgentStore.getState().mergeActiveThreatsWithPersistence(threats);
-    rawReplaceActiveThreats(merged);
-  }, [rawReplaceActiveThreats]);
-  const localActiveThreats = useAgentStore((s) => s.activeThreats);
-  const mergeActiveThreatsWithPersistence = useAgentStore((s) => s.mergeActiveThreatsWithPersistence);
+  const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -134,11 +129,6 @@ export default function DashboardHomeClient({ children }: Props) {
       newThreatToastDismissRef.current = null;
     }, 5200);
   }, []);
-  const onThreatInserted = useCallback((threatId: string) => {
-    window.setTimeout(() => {
-      useAgentStore.getState().removePersistentId(threatId);
-    }, 2000);
-  }, []);
 
   useDashboardThreatRealtime({
     enabled: Boolean(data) && !loading && tenantCompanyIds.length > 0,
@@ -146,7 +136,7 @@ export default function DashboardHomeClient({ children }: Props) {
     replacePipelineThreats,
     replaceActiveThreats,
     onNewThreatDetected,
-    onThreatInserted,
+    onAfterSync: () => router.refresh(),
   });
 
   useEffect(() => {
@@ -208,9 +198,6 @@ export default function DashboardHomeClient({ children }: Props) {
       createdAt: new Date(row.createdAt),
     }));
   }, [data?.serverAuditLogs]);
-  const finalThreatEvents = useMemo(() => {
-    return mergeActiveThreatsWithPersistence((data?.threatEvents ?? []) as any[]);
-  }, [data?.threatEvents, localActiveThreats, mergeActiveThreatsWithPersistence]);
 
   if (loading) {
     return (
@@ -237,6 +224,7 @@ export default function DashboardHomeClient({ children }: Props) {
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
       <div className="flex h-full overflow-hidden bg-slate-950">
+        <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
         <LiabilityAlertToast />
         <RecordExpiredToast />
         <ThreatActionErrorToast />
@@ -277,7 +265,7 @@ export default function DashboardHomeClient({ children }: Props) {
           <Header tenantNames={companies.map((c) => c.name)} />
           <section aria-labelledby="enterprise-risk-posture-heading">
             <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
-              Enterprise Risk Posture
+              ENTERPRISE RISK POSTURE
             </h2>
             {children}
           </section>
@@ -290,7 +278,7 @@ export default function DashboardHomeClient({ children }: Props) {
           />
           <ActiveRisksClient
             risks={data.risks}
-            threatEvents={finalThreatEvents as any[]}
+            threatEvents={data.threatEvents ?? []}
             setSelectedThreatId={setSelectedThreatId}
           />
         </section>

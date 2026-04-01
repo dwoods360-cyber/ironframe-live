@@ -119,3 +119,19 @@ Failure to include all three blocks invalidates the output.
 If the AI suggests a change that contradicts /docs/TAS.md or /docs/testing.md, the AI must immediately halt, cite the conflict, and request a TAS Amendment.
 
 "Optimize for CONTROL-FIRST architecture with structured speed."
+
+---
+
+## Visual State Machine (Ironframe v1.0 — Visual Workforce Lock)
+
+**Geometry:** **19-node interlocking hexagon** (official logo) — **1 Ironcore** (solid white / high-luminosity white–cyan) + **18 segments** (**6 arms × 3**). No text monograms, no dotted spinners.
+
+**Heartbeat:** **Cyan-400 (Idle / Assigned)** → **Amber-500 pulse (Scanning, Irongate/Ironlock)** → **Emerald-500 flash (Verified)** → **Cyan-400**.
+
+| Phase | Card chrome | Logo behavior |
+|--------|-------------|----------------|
+| **ASSIGNED** | **Cyan-400** border / glow | Entire mark `text-cyan-400`; Ironcore white with cyan ring / glow. |
+| **SCANNING** | **Amber-500** + `animate-pulse-amber` | **18 outer segments** only: `text-amber-500` + `animate-pulse-amber`. **Ironcore** steady white / cyan highlight (no amber pulse on core). |
+| **VERIFIED** | **Emerald-500** + `animate-flash-green` | **Full 19-node** structure `text-emerald-500` + `animate-flash-green`. |
+
+**Financials:** ALE and all monetary fields use **BigInt integer cents** only (see TAS — no floats on persisted money).

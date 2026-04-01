@@ -31,10 +31,7 @@ function centsBigIntToUsd(value: bigint | null | undefined): number {
   return Number(n) / 100;
 }
 
-const MITIGATED_STATUSES: ThreatState[] = [
-  ThreatState.DE_ACKNOWLEDGED,
-  ThreatState.RESOLVED,
-];
+const MITIGATED_STATUSES: ThreatState[] = [ThreatState.DE_ACKNOWLEDGED, ThreatState.RESOLVED];
 
 /**
  * Tenant-scoped ThreatEvent aggregates: live financial exposure from `financialRisk_cents`
@@ -78,7 +75,9 @@ export async function getGlobalTelemetry(): Promise<GlobalTelemetry> {
     prisma.threatEvent.aggregate({
       where: {
         ...tenantWhere,
-        status: { in: MITIGATED_STATUSES },
+        status: {
+          in: MITIGATED_STATUSES.filter((s): s is ThreatState => s != null),
+        },
       },
       _sum: { financialRisk_cents: true },
     }),

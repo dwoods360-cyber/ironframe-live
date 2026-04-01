@@ -25,7 +25,8 @@ export default function TopNav() {
   const isEvidenceRoute = pathname === `${prefix}/evidence` || pathname.startsWith(`${prefix}/evidence/`);
   const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
   const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
-  
+  const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
+
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
   const isPlaybookRoute = Boolean(playbookEntity);
@@ -42,6 +43,8 @@ export default function TopNav() {
       ? "GRC CORE // CONTROL MAPPING & CROSSWALK"
     : isEvidenceRoute
       ? "EVIDENCE LOCKER"
+    : isIntegrityHubRoute
+      ? "INTEGRITY HUB // AUDIT LEDGER"
       : "ACTIVE GRC";
 
   const handleVendorDownload = () => {

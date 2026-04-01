@@ -139,6 +139,38 @@ export type TriggerDeepTraceResult =
   | { success: true; aiTrace: IronsightAiTracePayload }
   | { success: false; error: string };
 
+function readChaosScenarioFromIngestion(
+  ingestionDetails: string | null | undefined,
+):
+  | "INTERNAL"
+  | "HOME_SERVER"
+  | "REMOTE"
+  | "CASCADING"
+  | "CASCADING_FAILURE"
+  | "CLOUD_EXFIL"
+  | "REMOTE_SUPPORT"
+  | null {
+  if (!ingestionDetails || !ingestionDetails.trim()) return null;
+  try {
+    const parsed = JSON.parse(ingestionDetails) as { chaosScenario?: unknown };
+    const v =
+      typeof parsed.chaosScenario === "string"
+        ? parsed.chaosScenario.trim().toUpperCase()
+        : "";
+    return v === "INTERNAL" ||
+      v === "HOME_SERVER" ||
+      v === "REMOTE" ||
+      v === "CASCADING" ||
+      v === "CASCADING_FAILURE" ||
+      v === "CLOUD_EXFIL" ||
+      v === "REMOTE_SUPPORT"
+      ? v
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Ironsight deep trace via Gemini (Vercel AI SDK). Persists under ThreatEvent.ingestionDetails.aiTrace (JSON text).
  */
@@ -191,6 +223,31 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
       score: row.score,
       liabilityMillions,
     });
+
+    const chaosScenario = readChaosScenarioFromIngestion(row.ingestionDetails);
+    if (chaosScenario) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const aiTrace: IronsightAiTracePayload = {
+        status: "COMPLETED",
+        report:
+          "> [MOCK AI] - Chaos Drill recognized. Bypassing live LLM inference to preserve quota. Executing simulated mitigation phase...",
+        actions: [
+          { label: "SIMULATE CONTAINMENT", actionId: "simulate-containment" },
+        ],
+        impactedAssets: ["Chaos Drill Environment"],
+        complianceTags: ["SOC2: CC7.1"],
+        generatedAt: new Date().toISOString(),
+      };
+      const nextIngestion = mergeIngestionDetailsPatch(row.ingestionDetails, {
+        aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
+      });
+      await prisma.threatEvent.update({
+        where: { id },
+        data: { ingestionDetails: nextIngestion },
+      });
+      revalidatePath("/");
+      return { success: true, aiTrace };
+    }
 
     const google = createGoogleGenerativeAI({ apiKey });
     const { object } = await generateObject({

@@ -19,7 +19,9 @@ function ActionSourceBadge({ action, hostile }: { action: string; hostile: boole
     upper === "KIMBOT_SIMULATION" ||
     upper === "KIMBOT_DETECTION" ||
     upper === "KIMBOT_THREAT_INGESTED" ||
-    /KIMBOT/i.test(action)
+    upper === "IRONBLOOM_SIMULATION" ||
+    /KIMBOT/i.test(action) ||
+    /IRONBLOOM/i.test(action)
   ) {
     return (
       <span className="inline-block rounded bg-blue-900 px-2 py-1 text-xs font-bold uppercase tracking-wider text-blue-200">

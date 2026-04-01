@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { PipelineThreat } from "@/app/store/riskStore";
 
+/** Ironwave (DMZ) visual telemetry — v1.0 state machine (tenant-scoped). */
+export type IronwaveTelemetryPhase = "ASSIGNED" | "SCANNING" | "VERIFIED";
+
 export type AgentKey = "ironsight" | "coreintel" | "agentManager";
 
 export type AgentStatus = "HEALTHY" | "PROCESSING" | "OFFLINE" | "WARNING" | "ACTIVE_DEFENSE";
@@ -9,27 +12,36 @@ type AgentState = {
   status: AgentStatus;
 };
 
+type IronwaveTelemetry = {
+  phase: IronwaveTelemetryPhase;
+  tenantUuid: string | null;
+  /** Epoch ms — while active, heartbeat must not overwrite Irongate / Ironscribe pulses. */
+  lockedUntil: number;
+};
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   intelligenceStream: string[];
-  /** Optimistic active cards pushed before realtime/db sync catches up. */
-  activeThreats: Array<PipelineThreat & { isLocalOnly?: boolean; localCreatedAt?: string }>;
-  /** IDs pinned across stale syncs until realtime INSERT confirms handoff. */
-  persistentIds: Set<string>;
+  /** Local optimistic active cards (simple list). */
+  activeThreats: PipelineThreat[];
   /** DMZ / IRONWAVE poller — lines shown under RISK INGESTION (ThreatPipeline). */
   riskIngestionTerminalLines: string[];
+  /** Dashboard / API scope — Ironwave telemetry applies only when aligned with card tenant. */
+  telemetryTenantScope: string | null;
+  ironwaveTelemetry: IronwaveTelemetry;
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
-  /** Sync helper: merge server list without dropping persistent optimistic IDs. */
   setInitialThreats: (newThreats: PipelineThreat[]) => PipelineThreat[];
-  mergeActiveThreatsWithPersistence: (serverThreats: PipelineThreat[]) => PipelineThreat[];
-  removePersistentId: (id: string) => void;
-  markActiveThreatConfirmed: (id: string) => void;
   clearActiveThreatById: (id: string) => void;
   appendRiskIngestionTerminalLine: (line: string) => void;
+  setTelemetryTenantScope: (uuid: string | null) => void;
+  /** Advance phase when not locked (heartbeat). Returns false if Irongate lock is holding. */
+  setIronwaveFromHeartbeat: (phase: IronwaveTelemetryPhase) => boolean;
+  /** Force phase for lockMs (Irongate / Ironscribe terminal lines). */
+  setIronwaveLocked: (phase: IronwaveTelemetryPhase, lockMs: number) => void;
   setSystemLatencyMs: (ms: number | null) => void;
   runSentinelSweep: (instruction: string) => void;
 };
@@ -47,8 +59,13 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
   intelligenceStream: INITIAL_MESSAGES,
   activeThreats: [],
-  persistentIds: new Set<string>(),
   riskIngestionTerminalLines: [],
+  telemetryTenantScope: null,
+  ironwaveTelemetry: {
+    phase: "ASSIGNED",
+    tenantUuid: null,
+    lockedUntil: 0,
+  },
   systemLatencyMs: null,
   setAgentStatus: (agent, status) =>
     set((state) => ({
@@ -66,54 +83,11 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       const tid = threat.id?.trim();
       if (!tid) return state;
       if (state.activeThreats.some((t) => t.id === tid)) return state;
-      const nextPersistent = new Set(state.persistentIds);
-      nextPersistent.add(tid);
-      const nowIso = new Date().toISOString();
-      const createdAtIso =
-        typeof threat.createdAt === "string" && !Number.isNaN(Date.parse(threat.createdAt))
-          ? threat.createdAt
-          : nowIso;
       return {
-        persistentIds: nextPersistent,
-        activeThreats: [
-          {
-            ...threat,
-            id: tid,
-            createdAt: createdAtIso,
-            isLocalOnly: true,
-            localCreatedAt: createdAtIso,
-          },
-          ...state.activeThreats,
-        ].slice(0, 200),
+        activeThreats: [{ ...threat, id: tid }, ...state.activeThreats].slice(0, 200),
       };
     }),
-  setInitialThreats: (newThreats) => {
-    const state = get();
-    const serverById = new Map(newThreats.map((t) => [t.id, t]));
-    const pinnedLocal = state.activeThreats.filter(
-      (t) => state.persistentIds.has(t.id) && !serverById.has(t.id),
-    );
-    return [...newThreats, ...pinnedLocal];
-  },
-  mergeActiveThreatsWithPersistence: (serverThreats) => {
-    const state = get();
-    const serverById = new Map(serverThreats.map((t) => [t.id, t]));
-    const pinnedLocal = state.activeThreats.filter(
-      (t) => state.persistentIds.has(t.id) && !serverById.has(t.id),
-    );
-    return [...serverThreats, ...pinnedLocal];
-  },
-  removePersistentId: (id) =>
-    set((state) => ({
-      persistentIds: new Set([...state.persistentIds].filter((x) => x !== id)),
-    })),
-  markActiveThreatConfirmed: (id) =>
-    set((state) => ({
-      persistentIds: new Set([...state.persistentIds].filter((x) => x !== id)),
-      activeThreats: state.activeThreats.map((t) =>
-        t.id === id ? { ...t, isLocalOnly: false } : t,
-      ),
-    })),
+  setInitialThreats: (newThreats) => newThreats,
   clearActiveThreatById: (id) =>
     set((state) => ({
       activeThreats: state.activeThreats.filter((t) => t.id !== id),
@@ -122,10 +96,52 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     set((state) => {
       const prev = state.riskIngestionTerminalLines;
       if (prev.length > 0 && prev[prev.length - 1] === line) return state;
+      const tenant = state.telemetryTenantScope;
+      let ironwaveTelemetry = state.ironwaveTelemetry;
+      if (tenant) {
+        const u = line.toUpperCase();
+        if (/\[?IRONLOCK|IRONGATE/.test(u)) {
+          ironwaveTelemetry = {
+            phase: "SCANNING",
+            tenantUuid: tenant,
+            lockedUntil: Date.now() + 2800,
+          };
+        } else if (/IRONSCRIBE|IRONTRUST/.test(u)) {
+          ironwaveTelemetry = {
+            phase: "VERIFIED",
+            tenantUuid: tenant,
+            lockedUntil: Date.now() + 2400,
+          };
+        }
+      }
       return {
         riskIngestionTerminalLines: [...prev, line].slice(-100),
+        ironwaveTelemetry,
       };
     }),
+  setTelemetryTenantScope: (uuid) => set({ telemetryTenantScope: uuid }),
+  setIronwaveFromHeartbeat: (phase) => {
+    const state = get();
+    if (Date.now() < state.ironwaveTelemetry.lockedUntil) {
+      return false;
+    }
+    set({
+      ironwaveTelemetry: {
+        phase,
+        tenantUuid: state.telemetryTenantScope,
+        lockedUntil: 0,
+      },
+    });
+    return true;
+  },
+  setIronwaveLocked: (phase, lockMs) =>
+    set((s) => ({
+      ironwaveTelemetry: {
+        phase,
+        tenantUuid: s.telemetryTenantScope,
+        lockedUntil: Date.now() + lockMs,
+      },
+    })),
   setSystemLatencyMs: (ms) => set({ systemLatencyMs: ms }),
   runSentinelSweep: (instruction: string) => {
     const now = new Date().toLocaleTimeString();

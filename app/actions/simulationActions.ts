@@ -1,8 +1,14 @@
 "use server";
 
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import {
+  queryActiveThreatsForBoard,
+  type PipelineThreatFromDb as PipelineThreatFromDbImported,
+} from "@/app/utils/activeThreatsBoardQuery";
+
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 
 export type CreateGrcBotThreatInput = {
@@ -124,37 +130,7 @@ export async function createGrcBotThreatServer(
   } as GrcBotThreatCreated;
 }
 
-export type PipelineThreatFromDb = {
-  id: string;
-  name: string;
-  loss: number;
-  score: number;
-  industry: string;
-  source: string;
-  description: string;
-  createdAt?: string;
-  /** Mirrors ThreatEvent.assignee_id — execution-board owner */
-  assignedTo?: string;
-  /** AuditLog rows with action ASSIGNMENT_CHANGED (chain of custody). */
-  assignmentHistory?: Array<{
-    id: string;
-    action: string;
-    justification: string | null;
-    operatorId: string;
-    createdAt: string;
-  }>;
-  workNotes?: { text: string; user: string; timestamp: string }[];
-  /** ThreatEvent.ingestionDetails — JSON text; Ironsight `aiTrace` and GRC fields (e.g. grcJustification) live here. */
-  ingestionDetails?: string | null;
-  /** ThreatEvent.aiReport — persisted narrative for card body / CoreIntel. */
-  aiReport?: string | null;
-  /** ThreatEvent.ttlSeconds — SLA window from row creation. */
-  ttlSeconds?: number | null;
-  /** DB ThreatState (e.g. ESCALATED after Phone Home). */
-  threatStatus?: string;
-  remoteTechId?: string | null;
-  isRemoteAccessAuthorized?: boolean;
-};
+export type PipelineThreatFromDb = PipelineThreatFromDbImported;
 
 function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefined {
   if (raw == null) return undefined;
@@ -199,81 +175,12 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
 /**
  * Fetch ACTIVE, ESCALATED, and PENDING_REMOTE_INTERVENTION ThreatEvents for the Active board.
  */
-export async function fetchActiveThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
-  const rows = await prisma.threatEvent.findMany({
-    where: {
-      status: {
-        in: [
-          ThreatState.ACTIVE,
-          ThreatState.ESCALATED,
-          ThreatState.PENDING_REMOTE_INTERVENTION,
-        ],
-      },
-    },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      isRemoteAccessAuthorized: true,
-      remoteTechId: true,
-      financialRisk_cents: true,
-      score: true,
-      targetEntity: true,
-      sourceAgent: true,
-      createdAt: true,
-      assigneeId: true,
-      ingestionDetails: true,
-      aiReport: true,
-      ttlSeconds: true,
-      notes: {
-        orderBy: { createdAt: "desc" },
-        select: { text: true, operatorId: true, createdAt: true },
-      },
-      auditTrail: {
-        where: { action: "ASSIGNMENT_CHANGED" },
-        orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          action: true,
-          justification: true,
-          operatorId: true,
-          createdAt: true,
-        },
-      },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-  return rows.map((r) => {
-    const liabilityLine = `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`;
-    const ar = r.aiReport?.trim();
-    return {
-      id: r.id,
-      name: r.title,
-      loss: centsToMillions(r.financialRisk_cents),
-      score: r.score,
-      industry: r.targetEntity,
-      source: r.sourceAgent,
-      description: ar && ar.length > 0 ? ar : liabilityLine,
-      aiReport: r.aiReport ?? null,
-      createdAt: r.createdAt.toISOString(),
-      assignedTo: r.assigneeId?.trim() || undefined,
-      assignmentHistory: (r.auditTrail ?? []).map((log) => ({
-        id: log.id,
-        action: log.action,
-        justification: log.justification,
-        operatorId: log.operatorId,
-        createdAt: log.createdAt.toISOString(),
-      })),
-      workNotes: (r.notes ?? []).map((n) => ({
-        text: n.text,
-        user: n.operatorId,
-        timestamp: n.createdAt.toISOString(),
-      })),
-      ingestionDetails: r.ingestionDetails ?? undefined,
-      ttlSeconds: r.ttlSeconds,
-      threatStatus: String(r.status),
-      isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
-      remoteTechId: r.remoteTechId ?? null,
-    };
-  });
+export async function fetchActiveThreatsFromDb(
+  _cacheBuster?: number,
+): Promise<PipelineThreatFromDb[]> {
+  void _cacheBuster;
+  noStore();
+  revalidatePath("/dashboard");
+  revalidatePath("/");
+  return queryActiveThreatsForBoard();
 }

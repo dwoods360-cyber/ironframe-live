@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ThreatState } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +12,7 @@ const TENANT_UUIDS = {
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
+  await prisma.threatEvent.deleteMany();
   await prisma.agentLog.deleteMany();
   await prisma.vendor.deleteMany();
   await prisma.activeRisk.deleteMany();
@@ -44,6 +45,134 @@ async function main() {
 
   const gridcore = await prisma.company.create({
     data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
+  });
+
+  // 3. Inject initial ThreatEvent records (Epic 7 + board baseline)
+  // Note: `financialRisk_cents` is BIGINT cents (no floats). Example: 5,000,000 cents = $50,000.
+  await prisma.threatEvent.createMany({
+    data: [
+      // --- Medshield (Healthcare) ---
+      {
+        title: 'Unauthorized API Egress',
+        sourceAgent: 'IRONGATE',
+        score: 9,
+        targetEntity: 'Medshield Health',
+        financialRisk_cents: BigInt(5_000_000),
+        tenantCompanyId: medshield.id,
+        status: ThreatState.QUARANTINED,
+        ingestionDetails: JSON.stringify({
+          summary: 'Outbound traffic matched restricted egress patterns; quarantine engaged.',
+          epic: 7,
+        }),
+      },
+      {
+        title: 'Stale MFA Credentials',
+        sourceAgent: 'IRONSIGHT',
+        score: 7,
+        targetEntity: 'Medshield Health',
+        financialRisk_cents: BigInt(2_500_000),
+        tenantCompanyId: medshield.id,
+        status: ThreatState.ACTIVE,
+        ingestionDetails: JSON.stringify({
+          summary: 'Stale privileged MFA token detected; active remediation required.',
+          epic: 7,
+        }),
+      },
+      {
+        title: 'Patient Portal Session Fixation',
+        sourceAgent: 'COREINTEL',
+        score: 6,
+        targetEntity: 'Medshield Health',
+        financialRisk_cents: BigInt(1_250_000),
+        tenantCompanyId: medshield.id,
+        status: ThreatState.CONFIRMED,
+      },
+      {
+        title: 'Unencrypted S3 Export Job',
+        sourceAgent: 'IRONTRUST',
+        score: 5,
+        targetEntity: 'Medshield Health',
+        financialRisk_cents: BigInt(900_000),
+        tenantCompanyId: medshield.id,
+        status: ThreatState.PIPELINE,
+      },
+
+      // --- Vaultbank (Finance) ---
+      {
+        title: 'SWIFT Connector Token Reuse',
+        sourceAgent: 'IRONGATE',
+        score: 8,
+        targetEntity: 'Vaultbank Global',
+        financialRisk_cents: BigInt(4_000_000),
+        tenantCompanyId: vaultbank.id,
+        status: ThreatState.ACTIVE,
+      },
+      {
+        title: 'Privileged Session Anomaly',
+        sourceAgent: 'IRONSIGHT',
+        score: 7,
+        targetEntity: 'Vaultbank Global',
+        financialRisk_cents: BigInt(3_100_000),
+        tenantCompanyId: vaultbank.id,
+        status: ThreatState.CONFIRMED,
+      },
+      {
+        title: 'Legacy TLS Downgrade Attempt',
+        sourceAgent: 'COREINTEL',
+        score: 6,
+        targetEntity: 'Vaultbank Global',
+        financialRisk_cents: BigInt(1_800_000),
+        tenantCompanyId: vaultbank.id,
+        status: ThreatState.PIPELINE,
+      },
+      {
+        title: 'Outbound DNS Tunneling Signal',
+        sourceAgent: 'IRONGATE',
+        score: 9,
+        targetEntity: 'Vaultbank Global',
+        financialRisk_cents: BigInt(6_500_000),
+        tenantCompanyId: vaultbank.id,
+        status: ThreatState.ACTIVE,
+      },
+
+      // --- Gridcore (Energy) ---
+      {
+        title: 'Vendor Supply Chain Breach',
+        sourceAgent: 'IRONMAP',
+        score: 9,
+        targetEntity: 'Gridcore Energy',
+        financialRisk_cents: BigInt(5_750_000),
+        tenantCompanyId: gridcore.id,
+        status: ThreatState.ACTIVE,
+      },
+      {
+        title: 'ICS Remote Access Misconfiguration',
+        sourceAgent: 'IRONSIGHT',
+        score: 8,
+        targetEntity: 'Gridcore Energy',
+        financialRisk_cents: BigInt(4_400_000),
+        tenantCompanyId: gridcore.id,
+        status: ThreatState.CONFIRMED,
+      },
+      {
+        title: 'Unapproved Firmware Image Detected',
+        sourceAgent: 'COREINTEL',
+        score: 7,
+        targetEntity: 'Gridcore Energy',
+        financialRisk_cents: BigInt(2_200_000),
+        tenantCompanyId: gridcore.id,
+        status: ThreatState.PIPELINE,
+      },
+      {
+        title: 'East-West Lateral Movement Signature',
+        sourceAgent: 'IRONLOCK',
+        score: 8,
+        targetEntity: 'Gridcore Energy',
+        financialRisk_cents: BigInt(3_600_000),
+        tenantCompanyId: gridcore.id,
+        status: ThreatState.ACTIVE,
+      },
+    ],
   });
 
   // 2. Inject Policies (Agent 8 Targets)

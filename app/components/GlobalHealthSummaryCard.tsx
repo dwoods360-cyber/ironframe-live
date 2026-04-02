@@ -1,4 +1,5 @@
 /** Enterprise Risk Posture strip: server data + `GlobalHealthSummaryCardClient` (CSRD outcomes + agent fleet health). */
+import { cache } from "react";
 import GlobalHealthSummaryCardClient, {
   type SerializedCompany,
 } from "./GlobalHealthSummaryCardClient";
@@ -13,17 +14,23 @@ export interface GlobalHealthSummaryCardProps {
   coreintelTrendActive?: boolean;
 }
 
+const getCompaniesForTenant = cache(async (tenantUuid: string) =>
+  prisma.company.findMany({
+    where: { tenantId: tenantUuid },
+    include: { policies: true, risks: true },
+  }),
+);
+
+const getTelemetryForTenant = cache(async (tenantUuid: string) => getGlobalTelemetry(tenantUuid));
+
 export default async function GlobalHealthSummaryCard({
   coreintelTrendActive = false,
 }: GlobalHealthSummaryCardProps) {
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const [telemetryData, sustainabilityImpact, rawCompanies] = await Promise.all([
-    getGlobalTelemetry(),
+    getTelemetryForTenant(tenantUuid),
     getGlobalSustainabilityImpact(),
-    prisma.company.findMany({
-      where: { tenantId: tenantUuid },
-      include: { policies: true, risks: true },
-    }),
+    getCompaniesForTenant(tenantUuid),
   ]);
 
   const companies: SerializedCompany[] = rawCompanies.map((c) => ({

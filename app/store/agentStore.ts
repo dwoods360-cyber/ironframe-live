@@ -19,6 +19,14 @@ type IronwaveTelemetry = {
   lockedUntil: number;
 };
 
+export type ThreatTelemetryStatus = "ASSIGNED" | "PROCESSING" | "VERIFIED";
+
+export type ThreatTelemetryEntry = {
+  status: ThreatTelemetryStatus;
+  /** Blue mitigation pulse should override amber heartbeat when true. */
+  irontechMitigating?: boolean;
+};
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   intelligenceStream: string[];
@@ -29,6 +37,8 @@ type AgentStore = {
   /** Dashboard / API scope — Ironwave telemetry applies only when aligned with card tenant. */
   telemetryTenantScope: string | null;
   ironwaveTelemetry: IronwaveTelemetry;
+  /** Optional per-threat visual telemetry for selector narrowing in card components. */
+  threatTelemetry: Record<string, ThreatTelemetryEntry | undefined>;
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
@@ -42,6 +52,7 @@ type AgentStore = {
   setIronwaveFromHeartbeat: (phase: IronwaveTelemetryPhase) => boolean;
   /** Force phase for lockMs (Irongate / Ironscribe terminal lines). */
   setIronwaveLocked: (phase: IronwaveTelemetryPhase, lockMs: number) => void;
+  setThreatTelemetry: (threatId: string, telemetry: ThreatTelemetryEntry | null) => void;
   setSystemLatencyMs: (ms: number | null) => void;
   runSentinelSweep: (instruction: string) => void;
 };
@@ -66,6 +77,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     tenantUuid: null,
     lockedUntil: 0,
   },
+  threatTelemetry: {},
   systemLatencyMs: null,
   setAgentStatus: (agent, status) =>
     set((state) => ({
@@ -142,6 +154,30 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         lockedUntil: Date.now() + lockMs,
       },
     })),
+  setThreatTelemetry: (threatId, telemetry) =>
+    set((state) => {
+      const id = threatId.trim();
+      if (!id) return state;
+      if (telemetry == null) {
+        if (!(id in state.threatTelemetry)) return state;
+        const next = { ...state.threatTelemetry };
+        delete next[id];
+        return { threatTelemetry: next };
+      }
+      const prev = state.threatTelemetry[id];
+      if (
+        prev?.status === telemetry.status &&
+        Boolean(prev?.irontechMitigating) === Boolean(telemetry.irontechMitigating)
+      ) {
+        return state;
+      }
+      return {
+        threatTelemetry: {
+          ...state.threatTelemetry,
+          [id]: telemetry,
+        },
+      };
+    }),
   setSystemLatencyMs: (ms) => set({ systemLatencyMs: ms }),
   runSentinelSweep: (instruction: string) => {
     const now = new Date().toLocaleTimeString();

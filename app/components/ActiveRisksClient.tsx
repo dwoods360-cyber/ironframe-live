@@ -993,12 +993,12 @@ export default function ActiveRisksClient({
     return () => window.clearInterval(id);
   }, []);
 
-  const refreshActiveThreatsFromDb = async () => {
+  const refreshActiveThreatsFromDb = useCallback(async () => {
     const res = await fetch('/api/threats/active', { cache: 'no-store' });
     if (!res.ok) return;
     const fromDb = (await res.json()) as PipelineThreat[];
     replaceActiveThreats(fromDb);
-  };
+  }, [replaceActiveThreats]);
   const refreshActiveThreatsFromDbRef = useRef(refreshActiveThreatsFromDb);
   refreshActiveThreatsFromDbRef.current = refreshActiveThreatsFromDb;
 
@@ -1274,8 +1274,7 @@ export default function ActiveRisksClient({
       );
       if (!hasActiveItems) return;
       void refreshActiveThreatsFromDbRef.current();
-      router.refresh();
-    }, 2000);
+    }, 15_000);
     return () => window.clearInterval(interval);
   }, [router]);
 
@@ -1694,7 +1693,7 @@ export default function ActiveRisksClient({
 
           return (
             <ThreatCard
-              key={`active-${threat.id}`}
+              key={threat.id}
               showCompliance={showCompliance}
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}

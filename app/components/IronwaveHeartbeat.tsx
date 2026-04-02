@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useAgentStore, type IronwaveTelemetryPhase } from "@/app/store/agentStore";
 
 const PHASE_ORDER: IronwaveTelemetryPhase[] = ["ASSIGNED", "SCANNING", "VERIFIED"];
+const LOCK_RETRY_MS = 500; // <= 2 updates/sec throttle during lock contention
 const DWELL_MS: Record<IronwaveTelemetryPhase, number> = {
   ASSIGNED: 2400,
   SCANNING: 2000,
@@ -37,7 +38,7 @@ export function IronwaveHeartbeat({ tenantUuid }: { tenantUuid: string | null })
       const phase = PHASE_ORDER[index % PHASE_ORDER.length]!;
       const ok = useAgentStore.getState().setIronwaveFromHeartbeat(phase);
       if (!ok) {
-        timeoutId = setTimeout(() => runPhase(index), 220);
+        timeoutId = setTimeout(() => runPhase(index), LOCK_RETRY_MS);
         return;
       }
       timeoutId = setTimeout(() => runPhase(index + 1), DWELL_MS[phase]);

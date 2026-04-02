@@ -18,6 +18,9 @@ This registry tracks fully implemented, tested, and constitutionally compliant m
     *   **Tenant identity resolution:** UUID from the risk’s company row → `prisma.tenant.findUnique` → display `name` / `slug` for `tenant_id` in egress payloads and headers.
 *   **Guardrails:** Agent 14 (Irongate) — every dispatch requires `sanitization_status` in `{ CLEANED, VERIFIED_SYSTEM_GENERATED }` and a non-empty **`irongate_trace_id`** (Zero-Trust egress); violations throw `TAS_VIOLATION`.
 *   **Integrity check:** Prisma `ThreatState` clearance queue uses **`validClearanceStatuses`** / `CLEARANCE_QUEUE_STATUSES` narrowing to avoid filter leakage in dashboard aggregates.
+*   **Observability:** `lib/structuredServerLog.ts` — single-line JSON for Ironcast / Ironlock operational events (info / warn / error).
+*   **Configuration:** Root **`prisma.config.ts`** — points at **`prisma/schema.prisma`**, **`prisma/migrations`**, seed **`ts-node prisma/seed.ts`**; loads **`.env`** then **`.env.local`** (override); datasource **`env("DATABASE_URL")`** and optional **`directUrl`** from **`DIRECT_URL`** when set (replaces deprecated **`package.json#prisma`**).
+*   **Local environment template:** `.env.example` — Epic 7 block (`RESEND_API_KEY`, `IRONCAST_*`, `THREAT_CONFIRMATION_RECIPIENTS`, optional smoke recipients) plus summary of Prisma/Next env load order.
 *   **Tests:** `__tests__/integration/ironcast-escalation.test.ts` (mocked autonomous loop + optional live Resend smoke).
 
 **Epic 4 Finalized: Financial Telemetry, GRC Global Frameworks, and Surgical Heat Map filtering (Top 10).**  

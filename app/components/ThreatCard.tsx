@@ -122,12 +122,21 @@ export function ThreatCard({
     ingestionBootstrapEnabled,
     3000,
   );
-  const ironwaveTelemetry = useAgentStore((s) => s.ironwaveTelemetry);
-  const telemetryTenantScope = useAgentStore((s) => s.telemetryTenantScope);
-  const ironwaveAligned =
-    Boolean(telemetryTenantScope) &&
-    ironwaveTelemetry.tenantUuid === telemetryTenantScope;
   const statusNorm = (threatStatus ?? "").trim().toUpperCase();
+  const isHeartbeatVisualStatus =
+    statusNorm === "ACTIVE" || statusNorm === "QUARANTINED";
+  /**
+   * Selector narrowing: subscribe only to this card's effective heartbeat phase.
+   * If telemetry scope is unavailable/misaligned, fall back to "ASSIGNED" (server-side baseline shell).
+   */
+  const cardTelemetryPhase = useAgentStore((s) => {
+    if (!isHeartbeatVisualStatus) return "ASSIGNED";
+    const scope = s.telemetryTenantScope;
+    const telem = s.ironwaveTelemetry;
+    if (!scope || telem.tenantUuid !== scope) return "ASSIGNED";
+    return telem.phase;
+  });
+  const hasLiveCardTelemetry = isHeartbeatVisualStatus && cardTelemetryPhase !== "ASSIGNED";
   const isResolvedThreat = statusNorm === "RESOLVED";
   const isStrictEscalated = statusNorm === "ESCALATED";
   const devRbacBypass = process.env.NODE_ENV !== "production";
@@ -285,11 +294,11 @@ export function ThreatCard({
   };
 
   const ironwaveIrontechShell =
-    ironwaveAligned && ironwaveTelemetry.phase === "SCANNING"
+    isHeartbeatVisualStatus && cardTelemetryPhase === "SCANNING"
       ? "!border-amber-500 !shadow-[0_0_22px_rgba(245,158,11,0.38)] !bg-gradient-to-br !from-slate-950/90 !to-amber-950/25 animate-pulse-amber"
-      : ironwaveAligned && ironwaveTelemetry.phase === "VERIFIED"
+      : isHeartbeatVisualStatus && cardTelemetryPhase === "VERIFIED"
         ? "!border-emerald-500 !shadow-[0_0_20px_rgba(16,185,129,0.28)] !bg-gradient-to-br !from-slate-950/90 !to-emerald-950/20 animate-flash-green"
-        : ironwaveAligned && ironwaveTelemetry.phase === "ASSIGNED"
+        : isHeartbeatVisualStatus && (cardTelemetryPhase === "ASSIGNED" || !hasLiveCardTelemetry)
           ? "!border-cyan-400 !shadow-[0_0_18px_rgba(34,211,238,0.22)] !bg-gradient-to-br !from-slate-950/90 !to-cyan-950/25"
           : "";
 

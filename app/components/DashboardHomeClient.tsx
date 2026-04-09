@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
+import PhysicalTelemetry from './PhysicalTelemetry';
 import DashboardWithDrawer from './DashboardWithDrawer';
 import StrategicIntel from './StrategicIntel';
 import ThreatPipeline from './ThreatPipeline';
@@ -192,13 +193,16 @@ export default function DashboardHomeClient({ children }: Props) {
         </section>
 
         <aside className="w-[400px] h-full flex flex-col bg-slate-950/50 border-l border-slate-800/50 overflow-hidden">
-          <AuditIntelligence
-            serverAuditLogs={serverAuditLogsForAudit}
-            onOpenThreat={(threatId, focus) => {
-              setSelectedThreatId(threatId);
-              setDrawerFocus(focus ?? null);
-            }}
-          />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <AuditIntelligence
+              serverAuditLogs={serverAuditLogsForAudit}
+              onOpenThreat={(threatId, focus) => {
+                setSelectedThreatId(threatId);
+                setDrawerFocus(focus ?? null);
+              }}
+            />
+          </div>
+          <PhysicalTelemetry />
         </aside>
       </div>
     </DashboardWithDrawer>

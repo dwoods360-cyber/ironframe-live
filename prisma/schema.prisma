@@ -36,6 +36,7 @@ model Tenant {
   vendors    Vendor[]
   agent_logs AgentLog[]
   companies  Company[]
+  ironbloomMetrics IronbloomEsgMetric[]
 
   createdAt  DateTime   @default(now())
 
@@ -142,6 +143,13 @@ enum DeAckReason {
   DUPLICATE
 }
 
+/// Sprint 9.1: Irongate-ingested physical ESG units only (no monetary ESG ingestion).
+enum PhysicalUnit {
+  KWH
+  LITERS
+  KILOMETERS
+}
+
 // --- Core Threat Model ---
 model ThreatEvent {
   id             String @id @default(cuid())
@@ -225,6 +233,43 @@ model AuditLog {
 
   @@index([createdAt])
   @@map("AuditLog")
+}
+
+/// Immutable bot receipt ledger used by forensic workflows and Integrity Hub.
+model BotAuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  botType    String
+  disposition String
+  tenantId   String   @db.Uuid
+  operator   String
+  metadata   Json?
+
+  ironbloomMetric IronbloomEsgMetric?
+
+  @@index([tenantId, createdAt])
+  @@map("BotAuditLog")
+}
+
+/// Sprint 9.1: physical ESG ingestion vault (BigInt-only quantities and carbon equivalents).
+model IronbloomEsgMetric {
+  id               String       @id @default(cuid())
+  unit             PhysicalUnit
+  quantity         BigInt       // Stored as BigInt to avoid float drift
+  carbonEquivalent BigInt       // Calculated CO2e in grams
+  metadata         Json?        // Additional physical context (e.g., fuel type)
+
+  // Forensic link
+  auditLogId       String       @unique
+  auditLog         BotAuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime     @default(now())
+  tenantId         String       @db.Uuid // Mandatory RLS enforcement
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([unit])
+  @@map("IronbloomEsgMetric")
 }
 
 // ------------------------------------------------------

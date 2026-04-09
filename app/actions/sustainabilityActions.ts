@@ -4,6 +4,12 @@ import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
+/**
+ * Legacy Ironbloom aggregation path (Epic 5-era).
+ * Sprint 9.1 introduces `IronbloomEsgMetric` + `/api/esg/ingest` physical-unit bouncer.
+ * Keep this path for backward compatibility until Sprint 9.2 migration completes.
+ */
+
 async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const company = await prisma.company.findFirst({

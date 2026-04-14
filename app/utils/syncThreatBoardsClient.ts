@@ -20,23 +20,16 @@ export async function syncThreatBoardsClient(
   const activeRows = (await activeRes.json()) as PipelineThreat[];
 
   const asPipeline: PipelineThreat[] = pipeRows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    loss: r.loss,
-    score: r.score,
-    industry: r.industry,
-    source: r.source,
-    description: r.description,
-    createdAt: r.createdAt,
-  }));
+    ...r,
+    ingestionDetails: r.ingestionDetails ?? undefined,
+  })).filter((t) => !t.id.startsWith("optimistic-"));
 
-  const asActiveFromDb: PipelineThreat[] = activeRows;
-  const optimistic = useAgentStore.getState().activeThreats ?? [];
-  const withOptimistic: PipelineThreat[] = [
-    ...asActiveFromDb,
-    ...optimistic.filter((t) => !asActiveFromDb.some((db) => db.id === t.id)),
-  ];
-  const asActive = useAgentStore.getState().setInitialThreats(withOptimistic);
+  const asActiveFromDb: PipelineThreat[] = activeRows.filter(
+    (t) => !t.id.startsWith("optimistic-"),
+  );
+  // Hard-reconcile on sync: DB is the source of truth; purge any local optimistic remnants.
+  useAgentStore.setState({ activeThreats: [] });
+  const asActive = useAgentStore.getState().setInitialThreats(asActiveFromDb);
 
   const rp = replacePipelineThreats ?? useRiskStore.getState().replacePipelineThreats;
   const ra = replaceActiveThreats ?? useRiskStore.getState().replaceActiveThreats;

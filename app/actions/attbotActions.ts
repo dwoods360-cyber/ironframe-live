@@ -2,10 +2,13 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import prisma from "@/lib/prisma";
+import { prismaAdmin } from "@/lib/prismaAdmin";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { ThreatState } from "@prisma/client";
 import { logIronwatch } from "@/app/utils/ironwatchLog";
+
+/** $2,500.00 in cents for realistic Attbot financial ingress. */
+const ATTBOT_DEFAULT_FINANCIAL_RISK_CENTS = 250_000n;
 
 function attbotDevLog(message: string, extra?: Record<string, unknown>) {
   if (process.env.NODE_ENV !== "development") return;
@@ -52,40 +55,35 @@ export async function triggerAttbotSimulation() {
       url: maskDatabaseUrlForLog(process.env.DATABASE_URL),
     });
 
-    let company = await prisma.company.findFirst();
-    let bootstrapCompany = false;
+    // 1. Try strict tenant lookup
+    let targetCompany = await prismaAdmin.company.findFirst({
+      where: { tenantId },
+      select: { id: true, isTestRecord: true, tenantId: true },
+    });
 
-    if (!company) {
-      await prisma.tenant.upsert({
-        where: { id: tenantId },
-        create: {
-          id: tenantId,
-          name: "ATTBOT Bootstrap Tenant",
-          slug: `attbot-${tenantId}`,
-          industry: "Secure Enclave",
-        },
-        update: {},
-      });
-      company = await prisma.company.create({
-        data: {
-          name: "Internal Test Co",
-          sector: "Technology",
-          tenantId,
-          isTestRecord: true,
-        },
-      });
-      bootstrapCompany = true;
-      await logIronwatch({
-        event_type: "ATTBOT_COMPANY_BOOTSTRAP",
-        actor_id: tenantId,
-        detail: `Created fallback Company id=${company.id.toString()} isTestRecord=true`,
-        severity: "WARN",
+    // 2. GRC Fallback: If tenantId is stale/wrong, find ANY authorized sandbox
+    if (!targetCompany || !targetCompany.isTestRecord) {
+      targetCompany = await prismaAdmin.company.findFirst({
+        where: { isTestRecord: true },
+        select: { id: true, isTestRecord: true, tenantId: true },
       });
     }
 
+    // 3. Absolute safety: If no sandbox found, grab first record available
+    if (!targetCompany) {
+      targetCompany = await prismaAdmin.company.findFirst({
+        select: { id: true, isTestRecord: true, tenantId: true },
+      });
+    }
+
+    // 4. Final Error: Only if the database is literally empty
+    if (!targetCompany) {
+      throw new Error("Database Empty: Please run npx prisma db seed");
+    }
+
     attbotDevLog("using company", {
-      tenantCompanyId: company.id.toString(),
-      bootstrapCompany,
+      tenantCompanyId: targetCompany.id.toString(),
+      tenantId: targetCompany.tenantId,
     });
 
     const mockPayload = {
@@ -97,29 +95,69 @@ export async function triggerAttbotSimulation() {
       raw_query:
         "SELECT * FROM users WHERE email = 'admin@ironframe.ai' OR 1=1--",
     };
+    const payloadWithTenant = {
+      ...mockPayload,
+      tenantId: targetCompany.tenantId,
+    };
 
-    await prisma.threatEvent.create({
+    const createdThreat = await prismaAdmin.threatEvent.create({
       data: {
-        tenantCompanyId: company.id,
+        tenantCompanyId: targetCompany.id,
         status: ThreatState.PIPELINE,
         sourceAgent: "ATTBOT_SIMULATION",
         score: 10,
         title: "Automated simulated SQL Injection attack via Attbot.",
         targetEntity: mockPayload.target,
-        financialRisk_cents: 0n,
+        financialRisk_cents: ATTBOT_DEFAULT_FINANCIAL_RISK_CENTS,
         ttlSeconds: 259200,
-        ingestionDetails: JSON.stringify(mockPayload),
+        ingestionDetails: JSON.stringify(payloadWithTenant),
         aiReport:
           "Ironquery Initial Scan: Simulated hostile payload detected. Matches known SQLi patterns. Recommend isolation.",
       },
+      select: {
+        id: true,
+        tenantCompanyId: true,
+      },
     });
+    revalidatePath("/");
+    attbotDevLog("created threat event", {
+      threatId: createdThreat.id,
+      tenantCompanyId: createdThreat.tenantCompanyId?.toString() ?? null,
+      tenantId: targetCompany.tenantId,
+    });
+    try {
+      const simulatedDelegate = (prismaAdmin as unknown as {
+        simulatedThreatEvent?: { create: (arg: unknown) => Promise<unknown> };
+      }).simulatedThreatEvent;
+      if (simulatedDelegate?.create) {
+        await simulatedDelegate.create({
+          data: {
+            tenantCompanyId: targetCompany.id,
+            status: ThreatState.PIPELINE,
+            sourceAgent: "ATTBOT_SIMULATION",
+            score: 10,
+            title: "Automated simulated SQL Injection attack via Attbot.",
+            targetEntity: mockPayload.target,
+            financialRisk_cents: ATTBOT_DEFAULT_FINANCIAL_RISK_CENTS,
+            ttlSeconds: 259200,
+            drillId: `attbot-${Date.now()}`,
+            ingestionDetails: JSON.stringify(payloadWithTenant),
+            aiReport:
+              "Ironquery Initial Scan: Simulated hostile payload detected. Matches known SQLi patterns. Recommend isolation.",
+          },
+        });
+      }
+    } catch (error) {
+      console.error("ATTBOT simulated shadow write failed (non-blocking):", error);
+    }
 
     await logIronwatch({
       event_type: "ATTBOT_SIMULATION_OK",
       actor_id: tenantId,
       detail: JSON.stringify({
-        companyId: company.id.toString(),
-        bootstrapCompany,
+        companyId: targetCompany.id.toString(),
+        tenantId: targetCompany.tenantId,
+        threatId: createdThreat.id,
       }),
       severity: "INFO",
     });

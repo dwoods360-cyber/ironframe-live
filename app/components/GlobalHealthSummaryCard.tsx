@@ -7,6 +7,7 @@ import { getGlobalTelemetry } from "@/app/actions/dashboardActions";
 import { getGlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { redirect } from "next/navigation";
 
 export type { SerializedCompany };
 
@@ -27,6 +28,9 @@ export default async function GlobalHealthSummaryCard({
   coreintelTrendActive = false,
 }: GlobalHealthSummaryCardProps) {
   const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (tenantUuid == null) {
+    redirect("/select-company");
+  }
   const [telemetryData, sustainabilityImpact, rawCompanies] = await Promise.all([
     getTelemetryForTenant(tenantUuid),
     getGlobalSustainabilityImpact(),

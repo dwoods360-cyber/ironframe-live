@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_noStore as noStore } from 'next/cache';
 import prisma from '@/lib/prisma';
+import { ThreatState } from '@prisma/client';
 
 /** Never statically cache this route — dashboard must reflect live DB (assignee, risks, logs). */
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [companies, serverAuditLogs, risks, threatEvents] = await prisma.$transaction([
+    const [companies, serverAuditLogs, threatEvents] = await prisma.$transaction([
       prisma.company.findMany({
         where: { tenantId: activeTenantUuid },
         include: {
@@ -51,30 +52,29 @@ export async function GET(request: NextRequest) {
         take: 100,
         select: { id: true, action: true, operatorId: true, createdAt: true, threatId: true },
       }),
-      prisma.activeRisk.findMany({
-        where: { company: { tenantId: activeTenantUuid } },
-        select: {
-          id: true,
-          company_id: true,
-          title: true,
-          status: true,
-          assigneeId: true,
-          score_cents: true,
-          source: true,
-          isSimulation: true,
-          company: { select: { name: true, sector: true } },
-        },
-        orderBy: { score_cents: 'desc' },
-      }),
       // LKG: no separate Operator/User join — actor display names live in AuditLog.justification JSON for ASSIGNMENT_CHANGED.
       prisma.threatEvent.findMany({
+        where: {
+          status: {
+            in: [
+              ThreatState.ACTIVE,
+              ThreatState.CONFIRMED,
+              ThreatState.ESCALATED,
+              ThreatState.PENDING_REMOTE_INTERVENTION,
+            ],
+          },
+        },
         select: {
           id: true,
           title: true,
           sourceAgent: true,
+          targetEntity: true,
           status: true,
           createdAt: true,
           updatedAt: true,
+          tenantCompanyId: true,
+          score: true,
+          financialRisk_cents: true,
           assigneeId: true,
           ttlSeconds: true,
           ingestionDetails: true,
@@ -94,63 +94,39 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    const filteredRisks = risks.filter((r) => !EXCLUDED_BASELINE_RISK_TITLES.has(r.title));
-    const normalize = (value: string) => value.trim().toLowerCase();
-    const threatByCompositeKey = new Map<string, string>();
-    for (const t of threatEvents) {
-      const key = `${normalize(t.title)}::${normalize(t.sourceAgent)}`;
-      if (!threatByCompositeKey.has(key)) {
-        threatByCompositeKey.set(key, t.id);
-      }
-    }
-    const threatByTitle = new Map<string, string>();
-    for (const t of threatEvents) {
-      const key = normalize(t.title);
-      if (!threatByTitle.has(key)) {
-        threatByTitle.set(key, t.id);
-      }
-    }
+    const companyById = new Map(
+      companies.map((company) => [company.id.toString(), company] as const),
+    );
 
-    const assigneeByThreatEventId = new Map<string, string | null>();
-    const ingestionDetailsByThreatId = new Map<string, string | null>();
-    const ttlSecondsByThreatId = new Map<string, number>();
-    const threatCreatedAtByThreatId = new Map<string, string>();
-    for (const t of threatEvents) {
-      assigneeByThreatEventId.set(t.id, t.assigneeId);
-      ingestionDetailsByThreatId.set(t.id, t.ingestionDetails);
-      ttlSecondsByThreatId.set(t.id, t.ttlSeconds);
-      threatCreatedAtByThreatId.set(t.id, t.createdAt.toISOString());
-    }
-
-    const serializedRisks = filteredRisks.map((risk) => {
-      const threatId =
-        threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
-        threatByTitle.get(normalize(risk.title)) ??
-        null;
-      const teAssignee = threatId ? assigneeByThreatEventId.get(threatId) ?? null : null;
-      const merged = risk.assigneeId ?? teAssignee;
-      const assigneeId =
-        merged != null && String(merged).trim() !== '' ? String(merged).trim() : undefined;
-      const ingestionDetails =
-        threatId != null ? ingestionDetailsByThreatId.get(threatId) ?? undefined : undefined;
-      const ttlSeconds =
-        threatId != null ? ttlSecondsByThreatId.get(threatId) : undefined;
-      const threatCreatedAt =
-        threatId != null ? threatCreatedAtByThreatId.get(threatId) : undefined;
-      return {
-        id: risk.id.toString(),
-        title: risk.title,
-        source: risk.source,
-        assigneeId,
-        threatId,
-        score_cents: risk.score_cents,
-        company: { name: risk.company.name, sector: risk.company.sector },
-        isSimulation: risk.isSimulation,
-        ...(ingestionDetails != null ? { ingestionDetails } : {}),
-        ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
-        ...(threatCreatedAt !== undefined ? { threatCreatedAt } : {}),
-      };
-    });
+    // Deterministic linkage: risk rows are sourced from ThreatEvent primary keys.
+    const serializedRisks = threatEvents
+      .filter((threat) => !EXCLUDED_BASELINE_RISK_TITLES.has(threat.title))
+      .map((threat) => {
+        const linkedCompany =
+          threat.tenantCompanyId != null
+            ? companyById.get(threat.tenantCompanyId.toString())
+            : undefined;
+        const assigneeId =
+          threat.assigneeId != null && threat.assigneeId.trim() !== ''
+            ? threat.assigneeId.trim()
+            : undefined;
+        return {
+          id: threat.id,
+          title: threat.title,
+          source: threat.sourceAgent,
+          assigneeId,
+          threatId: threat.id,
+          score_cents: threat.score,
+          company: {
+            name: linkedCompany?.name ?? threat.targetEntity,
+            sector: linkedCompany?.sector ?? threat.targetEntity,
+          },
+          isSimulation: false,
+          ...(threat.ingestionDetails != null ? { ingestionDetails: threat.ingestionDetails } : {}),
+          ttlSeconds: threat.ttlSeconds,
+          threatCreatedAt: threat.createdAt.toISOString(),
+        };
+      });
 
     const serializedCompanies = companies.map((c) => ({
       ...c,

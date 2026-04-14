@@ -8,6 +8,8 @@ const TENANT_UUIDS = {
   vaultbank: 'c6932d16-a716-4a07-9bc4-6ec987f641e2',
   gridcore: '4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7',
 } as const;
+const CONTROL_ROOM_TENANT_ID = TENANT_UUIDS.medshield;
+const CONTROL_ROOM_TEST_COMPANY_ID = 9_999_001n;
 
 async function main() {
   console.log('🧹 Purging legacy data...');
@@ -239,6 +241,39 @@ async function main() {
     });
   }
   console.log('✅ Sandbox Company Seeded.');
+
+  // --- Epic 8 Control Room target company (deterministic upsert) ---
+  await prisma.tenant.upsert({
+    where: { id: CONTROL_ROOM_TENANT_ID },
+    update: {},
+    create: {
+      id: CONTROL_ROOM_TENANT_ID,
+      name: 'Medshield Health',
+      slug: 'medshield',
+      industry: 'Healthcare',
+      ale_baseline: 0n,
+    },
+  });
+
+  await prisma.company.upsert({
+    where: { id: CONTROL_ROOM_TEST_COMPANY_ID },
+    update: {
+      name: 'Test Target Corp',
+      sector: 'Healthcare',
+      tenantId: CONTROL_ROOM_TENANT_ID,
+      isTestRecord: true,
+    },
+    create: {
+      id: CONTROL_ROOM_TEST_COMPANY_ID,
+      name: 'Test Target Corp',
+      sector: 'Healthcare',
+      tenantId: CONTROL_ROOM_TENANT_ID,
+      isTestRecord: true,
+      industry_avg_loss_cents: 0n,
+      infrastructure_val_cents: 0n,
+    },
+  });
+  console.log('✅ Seeded Test Target Corp for Control Room bots.');
 }
 
 main()

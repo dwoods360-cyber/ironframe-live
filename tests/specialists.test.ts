@@ -19,12 +19,16 @@ describe('Sovereign Specialist Protocol', () => {
       trace_id: testTraceId,
       raw_payload: {
         type: 'DOCUMENT_ANALYSIS',
-        text: 'MOCK_DOC_CONTENT: Medshield Audit for Vendor-550e8400, Total 11100000.00'
+        text: 'MOCK_DOC_CONTENT: Medshield Audit for Vendor-550e8400, Total 11100000.00',
+        tenantId: testTraceId,
+        mitigatedValueCents: "1110000000",
       },
       status: 'PENDING' as const
     };
 
-    const config = { configurable: { thread_id: testTraceId } };
+    const config = {
+      configurable: { thread_id: testTraceId, tenant_id: initialState.tenant_id },
+    } as unknown as Parameters<typeof graph.invoke>[1];
 
     // 2. Execute the full Graph
     const result = await graph.invoke(initialState, config);
@@ -35,12 +39,12 @@ describe('Sovereign Specialist Protocol', () => {
 
     // 4. Validation: Audit Logs (The Evidence Trail)
     const logs = result.agent_logs;
-    expect(logs.some(l => l.includes('Ironcore routed payload type [DOCUMENT_ANALYSIS]'))).toBe(true);
-    expect(logs.some(l => l.includes('Ironscribe successfully extracted data'))).toBe(true);
-    expect(logs.some(l => l.includes('Irontrust analyzed MEDSHIELD'))).toBe(true);
+    expect(logs.some((l: string) => l.includes('Ironcore routed payload type [DOCUMENT_ANALYSIS]'))).toBe(true);
+    expect(logs.some((l: string) => l.includes('Ironscribe successfully extracted data'))).toBe(true);
+    expect(logs.some((l: string) => l.includes('Irontrust analyzed MEDSHIELD'))).toBe(true);
 
     // 5. Validation: Mathematical Accuracy
     // Ensure the final state contains the BIGINT variance calculated by Agent 3
-    expect(logs.some(l => l.includes('Variance 0'))).toBe(true); // $11.1M - $11.1M = 0
+    expect(logs.some((l: string) => l.includes('Variance 0'))).toBe(true); // $11.1M - $11.1M = 0
   });
 });

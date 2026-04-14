@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { purgeSimulation } from "@/app/actions/purgeSimulation";
+import { purgeControlRoomState } from "@/app/actions/simulationActions";
 import { clearAllAuditLogs } from "@/app/utils/auditLogger";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
@@ -14,6 +14,7 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
 import { sleepBlueTeam } from "@/app/utils/blueTeamSync";
 import { IronframeHexMark } from "@/app/components/IronframeHexMark";
+import { useSimulationStore } from "@/app/store/simulationStore";
 
 const CONSULTANT_TENANT_OPTIONS = [
   "MedShield Clinic",
@@ -33,6 +34,7 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
+  const endSimulation = useSimulationStore((s) => s.endSimulation);
   const [purging, setPurging] = useState(false);
   const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
@@ -45,20 +47,24 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
     if (purging) return;
     setPurging(true);
     try {
-      const result = await purgeSimulation();
-      if (result.ok) {
-        clearAllAuditLogs();
-        useKimbotStore.getState().resetSimulationCounters();
-        useGrcBotStore.getState().stop();
-        useRiskStore.getState().clearAllRiskStateForPurge();
-        useRiskStore.getState().setSelectedThreatId(null);
-        useAgentStore
-          .getState()
-          .addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
-        sleepBlueTeam();
-      }
+      await purgeControlRoomState();
+      clearAllAuditLogs();
+      // Bot kill-switches: terminate simulation generators before refreshing to prevent ghost re-hydration.
+      useKimbotStore.getState().setEnabled(false);
+      useKimbotStore.getState().resetSimulationCounters();
+      useGrcBotStore.getState().setEnabled(false);
+      useGrcBotStore.getState().stop();
+      useRiskStore.getState().clearAllRiskStateForPurge();
+      useRiskStore.getState().setSelectedThreatId(null);
+      useAgentStore
+        .getState()
+        .addStreamMessage("> [SYSTEM] Control Room records purged (ThreatEvent + BotAuditLog).");
+      sleepBlueTeam();
+      endSimulation();
       setShowPurgeConfirm(false);
       router.refresh();
+    } catch (error) {
+      console.error("Purge failed:", error);
     } finally {
       setPurging(false);
     }

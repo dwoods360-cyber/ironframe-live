@@ -23,6 +23,12 @@ enum AgentStatus {
   ERROR
 }
 
+enum PhysicalUnit {
+  KWH
+  LITERS
+  KILOMETERS
+}
+
 // ------------------------------------------------------
 // TENANT (Constitutional - Standardized to UUID for RLS)
 // ------------------------------------------------------
@@ -33,11 +39,12 @@ model Tenant {
   industry     String @default("Secure Enclave")
   ale_baseline BigInt @default(0) // ALE math remains BigInt cents
 
-  vendors    Vendor[]
-  agent_logs AgentLog[]
-  companies  Company[]
+  vendors          Vendor[]
+  agent_logs       AgentLog[]
+  companies        Company[]
+  ironbloomMetrics IronbloomEsgMetric[]
 
-  createdAt  DateTime   @default(now())
+  createdAt DateTime @default(now())
 
   @@map("tenants")
 }
@@ -54,8 +61,8 @@ model Company {
   /// Bootstrap / ATTBOT fallback rows — safe to purge without touching prod companies
   isTestRecord             Boolean @default(false) @map("is_test_record")
 
-  tenantId String  @db.Uuid
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId String @db.Uuid
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   departments Department[]
   policies    Policy[]
@@ -88,14 +95,14 @@ model Policy {
 }
 
 model ActiveRisk {
-  id             BigInt   @id @default(autoincrement())
-  company_id     BigInt
-  title          String
-  status         String
-  assigneeId     String?  @map("assignee_id")
-  score_cents    BigInt   // REFACTORED: Unified to BIGINT cents
-  source         String
-  isSimulation   Boolean  @default(false) @map("issimulation")
+  id           BigInt  @id @default(autoincrement())
+  company_id   BigInt
+  title        String
+  status       String
+  assigneeId   String? @map("assignee_id")
+  score_cents  BigInt // REFACTORED: Unified to BIGINT cents
+  source       String
+  isSimulation Boolean @default(false) @map("issimulation")
 
   company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
@@ -149,6 +156,7 @@ enum DeAckReason {
 /// Irontech (Epic 6): resilient agent operations (Retry-3-then-Escalate).
 enum AgentOperationStatus {
   PENDING
+  RUNNING
   RETRYING
   CHAOS_INTERRUPTED
   FAILED
@@ -159,26 +167,26 @@ enum AgentOperationStatus {
 
 // --- Core Threat Model ---
 model ThreatEvent {
-  id             String @id @default(cuid())
-  title          String
-  sourceAgent    String // e.g., 'IRONSIGHT', 'COREINTEL'
-  score          Int
-  targetEntity   String // e.g., 'Healthcare', 'Gridcore Energy'
+  id                  String @id @default(cuid())
+  title               String
+  sourceAgent         String // e.g., 'IRONSIGHT', 'COREINTEL'
+  score               Int
+  targetEntity        String // e.g., 'Healthcare', 'Gridcore Energy'
   financialRisk_cents BigInt @default(0) // Liability in cents (e.g., $4.9M => 490000000)
 
   // RLS: tenant_isolation_policy depends on this column — do not remove
   tenantCompanyId BigInt?
 
   // State Machine
-  status      ThreatState  @default(PIPELINE)
+  status                   ThreatState  @default(PIPELINE)
   /// Level-3 remote tech dispatch: assigned specialist ref (set on URGENT DISPATCH).
-  remoteTechId String? @map("remote_tech_id")
+  remoteTechId             String?      @map("remote_tech_id")
   /// GRC: Admin/Owner authorized vendor remote session (column legacy name: remoteAccessAuthorized).
-  isRemoteAccessAuthorized Boolean @default(false) @map("remoteAccessAuthorized")
-  ttlSeconds  Int          @default(259200) // 72 hours default
-  deAckReason DeAckReason? // Required if status is DE_ACKNOWLEDGED
+  isRemoteAccessAuthorized Boolean      @default(false) @map("remoteAccessAuthorized")
+  ttlSeconds               Int          @default(259200) // 72 hours default
+  deAckReason              DeAckReason? // Required if status is DE_ACKNOWLEDGED
   /// Operational owner (execution board / claim); persisted with the threat row
-  assigneeId  String?      @map("assignee_id")
+  assigneeId               String?      @map("assignee_id")
 
   // AI investigation report (CoreIntel agent output)
   aiReport String? @db.Text
@@ -188,10 +196,10 @@ model ThreatEvent {
   ingestionDetails String? @db.Text
 
   // Relations
-  notes                 WorkNote[]
-  auditTrail            AuditLog[]
-  sustainabilityMetric  SustainabilityMetric?
-  agentOperations       AgentOperation[]
+  notes                WorkNote[]
+  auditTrail           AuditLog[]
+  sustainabilityMetric SustainabilityMetric?
+  agentOperations      AgentOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -206,7 +214,11 @@ model AgentOperation {
   threatId     String
   threat       ThreatEvent          @relation(fields: [threatId], references: [id], onDelete: Cascade)
   agentName    String
+  operation    String               @default("STATE_FREEZE")
   status       AgentOperationStatus @default(PENDING)
+  payload      Json?
+  error        String?
+  tenantId     String?              @db.Uuid
   /// Failed-attempt tally for Retry-3; increments on each caught failure.
   attemptCount Int                  @default(0)
   lastError    String?
@@ -216,6 +228,7 @@ model AgentOperation {
 
   @@unique([threatId, agentName])
   @@index([threatId])
+  @@index([tenantId])
   @@index([status])
   @@map("AgentOperation")
 }
@@ -242,16 +255,16 @@ model SystemConfig {
 
 /// Ironbloom (Epic 5): physical sustainability ledger — kWh, liters, CO2e grams (not USD).
 model SustainabilityMetric {
-  id                  String   @id @default(uuid())
-  threatId            String   @unique
-  threat              ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  id                 String      @id @default(uuid())
+  threatId           String      @unique
+  threat             ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
   /// Energy averted by preventing recovery compute (integer kWh).
-  kwhAverted          BigInt
+  kwhAverted         BigInt
   /// Cooling water saved (liters), derived from kWh × factor.
-  coolingWaterLiters  Float
+  coolingWaterLiters Float
   /// CO2e reduction in grams (integer).
-  carbonOffsetGrams   BigInt
-  createdAt           DateTime @default(now())
+  carbonOffsetGrams  BigInt
+  createdAt          DateTime    @default(now())
 
   @@map("SustainabilityMetric")
 }
@@ -272,11 +285,11 @@ model WorkNote {
 
 // --- Immutable Audit Log ---
 model AuditLog {
-  id            String   @id @default(cuid())
-  action        String   // e.g., 'THREAT_ACKNOWLEDGED', 'TTL_CHANGED'
-  justification String?  @db.Text // Mandatory for De-Ack
+  id            String  @id @default(cuid())
+  action        String // e.g., 'THREAT_ACKNOWLEDGED', 'TTL_CHANGED'
+  justification String? @db.Text // Mandatory for De-Ack
   operatorId    String
-  isSimulation  Boolean  @default(false)
+  isSimulation  Boolean @default(false)
 
   threatId String?
   threat   ThreatEvent? @relation(fields: [threatId], references: [id], onDelete: SetNull)
@@ -285,6 +298,56 @@ model AuditLog {
 
   @@index([createdAt])
   @@map("AuditLog")
+}
+
+/// Immutable workforce audit receipt ledger (19-agent operations + Ironbloom).
+model BotAuditLog {
+  id                  String              @id @default(cuid())
+  tenantId            String              @db.Uuid
+  operator            String
+  botType             String
+  disposition         String
+  metadata            Json?
+  mitigatedValueCents BigInt? // Native BigInt for rapid risk-baseline calculation
+  threatId            String?
+  ironbloomMetric     IronbloomEsgMetric?
+  createdAt           DateTime            @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([botType])
+  @@index([disposition])
+  @@index([mitigatedValueCents])
+  @@map("BotAuditLog")
+}
+
+/// Physical-unit ESG metrics (Ironbloom) with atomic audit linkage.
+model IronbloomEsgMetric {
+  id               String       @id @default(cuid())
+  unit             PhysicalUnit
+  quantity         BigInt
+  carbonEquivalent BigInt
+  metadata         Json?
+  auditLogId       String       @unique
+  auditLog         BotAuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  tenantId         String       @db.Uuid
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([unit])
+  @@map("IronbloomEsgMetric")
+}
+
+/// LangGraph persistent checkpoint storage (thread-scoped graph memory).
+model AgentGraphState {
+  id        String   @id @default(cuid())
+  threadId  String   @unique // The LangGraph thread identifier
+  state     Json // The serialized LangGraph state object
+  updatedAt DateTime @updatedAt
+  tenantId  String   @db.Uuid // Mandatory RLS isolation
+
+  @@index([tenantId])
+  @@map("AgentGraphState")
 }
 
 // ------------------------------------------------------
@@ -326,9 +389,10 @@ model Ironscout_Tasks {
 // ------------------------------------------------------
 model GrcTemplateConfig {
   id                     String   @id // single row keyed by "default"
-  generalRfiChecklist     Json     // string[]
-  vendorTypeRequirements Json     // Record<VendorType, string[]>
+  generalRfiChecklist    Json // string[]
+  vendorTypeRequirements Json // Record<VendorType, string[]>
   updatedAt              DateTime @updatedAt
+
   @@map("grc_template_config")
 }
 

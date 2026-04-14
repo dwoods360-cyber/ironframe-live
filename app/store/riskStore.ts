@@ -551,7 +551,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       const result = await resolveThreatAction(id, operatorId, trimmed, actorDisplayName);
       if (!result.success) {
         set({
-          threatActionError: { active: true, message: "Threat record not found or could not be resolved." },
+          threatActionError: {
+            active: true,
+            message: `Resolution rejected: ${result.reason || 'Unknown error'}`,
+          },
         });
         throw new Error("Resolve failed");
       }

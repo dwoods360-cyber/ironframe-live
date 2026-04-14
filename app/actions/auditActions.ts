@@ -1,7 +1,14 @@
 'use server';
 
 import prisma from '@/lib/prisma';
+import { SIMULATION_SIGNATURES } from '@/app/config/constants';
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
+
+function isSimulationSourceOrTitle(source?: string | null, title?: string | null): boolean {
+  const s = (source ?? "").toLowerCase();
+  const t = (title ?? "").toLowerCase();
+  return SIMULATION_SIGNATURES.some((sig) => s.includes(sig) || t.includes(sig));
+}
 
 async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
@@ -20,6 +27,17 @@ export type RecentAuditLogRow = {
   operatorId: string;
   threatId: string | null;
   justification: string | null;
+};
+
+/** Bot audit ledger row consumed by dashboard client components. */
+export type BotAuditLogRow = {
+  id: string;
+  botType: string;
+  disposition: string;
+  operator: string;
+  tenantId: string;
+  createdAt: string | Date;
+  metadata: Record<string, unknown> | null;
 };
 
 /**
@@ -67,13 +85,18 @@ export async function logThreatActivity(
   details: string,
 ): Promise<void> {
   try {
+    const threat = await prisma.threatEvent.findUnique({
+      where: { id: threatId },
+      select: { sourceAgent: true, title: true },
+    });
+    const isSimulation = isSimulationSourceOrTitle(threat?.sourceAgent ?? null, threat?.title ?? null);
     await prisma.auditLog.create({
       data: {
         action: actionName,
         justification: details,
         operatorId: 'THREAT_ACTIVITY',
         threatId,
-        isSimulation: false,
+        isSimulation,
       },
     });
   } catch (error) {

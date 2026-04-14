@@ -197,7 +197,7 @@ export function generateKimbotSignal(
 
   return {
     id,
-    title: `[IRONBLOOM] ${title}`,
+    title: `[KIMBOT] ${title}`,
     source: "AGENT_NOTICE",
     severity,
     severityScore,

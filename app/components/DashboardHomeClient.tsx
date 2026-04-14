@@ -1,21 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
 import StrategicIntel from './StrategicIntel';
 import ThreatPipeline from './ThreatPipeline';
-import DashboardAlertBanners from './DashboardAlertBanners';
 import Header from './Header';
-import LiabilityAlertToast from './LiabilityAlertToast';
-import RecordExpiredToast from './RecordExpiredToast';
-import ThreatActionErrorToast from './ThreatActionErrorToast';
 import { useTenantContext } from '../context/TenantProvider';
 import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
+import { useKimbotStore } from '../store/kimbotStore';
+import { useGrcBotStore } from '../store/grcBotStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 
@@ -40,6 +37,14 @@ type DashboardData = {
     operatorId: string;
     createdAt: string;
     threatId: string | null;
+  }>;
+  serverBotAuditLogs?: Array<{
+    id: string;
+    createdAt: string;
+    operator: string;
+    botType: string;
+    disposition: string;
+    metadata: Record<string, unknown> | null;
   }>;
   risks: Array<{
     id: string;
@@ -79,7 +84,6 @@ type Props = {
  * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent`).
  */
 export default function DashboardHomeClient({ children }: Props) {
-  const router = useRouter();
   const { tenantFetch, activeTenantUuid } = useTenantContext();
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
@@ -88,10 +92,14 @@ export default function DashboardHomeClient({ children }: Props) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
-  const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Bootstrap companies (e.g. Ironchaos) may not be in the last GET /api/dashboard payload yet. */
   const [realtimeCompanyAllowlistExtras, setRealtimeCompanyAllowlistExtras] = useState<string[]>([]);
+
+  // Silent-boot guardrail: force all bot stores OFF on dashboard mount.
+  useEffect(() => {
+    useKimbotStore.setState({ enabled: false });
+    useGrcBotStore.getState().stop();
+  }, []);
 
   const dashboardTenantUuid = useMemo(
     () => resolveDashboardTenantUuid(activeTenantUuid),
@@ -121,29 +129,12 @@ export default function DashboardHomeClient({ children }: Props) {
     return () => window.removeEventListener("ironframe:tenant-company-allowlist", onAllowlist);
   }, []);
 
-  const onNewThreatDetected = useCallback((title: string) => {
-    if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
-    setNewThreatToast({ title });
-    newThreatToastDismissRef.current = setTimeout(() => {
-      setNewThreatToast(null);
-      newThreatToastDismissRef.current = null;
-    }, 5200);
-  }, []);
-
   useDashboardThreatRealtime({
     enabled: Boolean(data) && !loading && tenantCompanyIds.length > 0,
     tenantCompanyIds,
     replacePipelineThreats,
     replaceActiveThreats,
-    onNewThreatDetected,
-    onAfterSync: () => router.refresh(),
   });
-
-  useEffect(() => {
-    return () => {
-      if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,6 +190,14 @@ export default function DashboardHomeClient({ children }: Props) {
     }));
   }, [data?.serverAuditLogs]);
 
+  const serverBotAuditLogsForAudit = useMemo(() => {
+    if (!data?.serverBotAuditLogs) return [];
+    return data.serverBotAuditLogs.map((row) => ({
+      ...row,
+      createdAt: new Date(row.createdAt),
+    }));
+  }, [data?.serverBotAuditLogs]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
@@ -223,45 +222,18 @@ export default function DashboardHomeClient({ children }: Props) {
       drawerFocus={drawerFocus}
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
-      <div className="flex h-full overflow-hidden bg-slate-950">
-        <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
-        <LiabilityAlertToast />
-        <RecordExpiredToast />
-        <ThreatActionErrorToast />
-        {newThreatToast ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed top-[4.5rem] left-1/2 z-[99] w-[min(92vw,28rem)] -translate-x-1/2 rounded-lg border border-cyan-500/70 bg-slate-900/95 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.25)] threat-list-fade-in"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">New threat detected</p>
-                <p className="mt-1 text-sm text-slate-100">{newThreatToast.title}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
-                  newThreatToastDismissRef.current = null;
-                  setNewThreatToast(null);
-                }}
-                className="shrink-0 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-700"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        ) : null}
-        <aside className="w-[446px] h-full flex flex-col bg-slate-950/50 border-r border-slate-800/50 overflow-y-auto min-h-0">
-          <StrategicIntel />
-        </aside>
+      <main className="flex flex-col min-h-screen bg-black text-white selection:bg-emerald-500/30">
+        <div className="flex flex-col min-h-screen">
+          <div className="flex flex-1 overflow-hidden">
+          <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
+          <aside className="w-[446px] h-full flex flex-col bg-slate-950/50 border-r border-slate-800/50 overflow-y-auto min-h-0">
+            <StrategicIntel />
+          </aside>
 
-        <section
-          className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
-          data-testid="dashboard-main"
-        >
-          <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
+          <section
+            className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
+            data-testid="dashboard-main"
+          >
           <Header tenantNames={companies.map((c) => c.name)} />
           <section aria-labelledby="enterprise-risk-posture-heading">
             <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -281,18 +253,21 @@ export default function DashboardHomeClient({ children }: Props) {
             threatEvents={data.threatEvents ?? []}
             setSelectedThreatId={setSelectedThreatId}
           />
-        </section>
+          </section>
 
-        <aside className="w-[400px] h-full flex flex-col bg-slate-950/50 border-l border-slate-800/50 overflow-hidden">
-          <AuditIntelligence
-            serverAuditLogs={serverAuditLogsForAudit}
-            onOpenThreat={(threatId, focus) => {
-              setSelectedThreatId(threatId);
-              setDrawerFocus(focus ?? null);
-            }}
-          />
-        </aside>
-      </div>
+          <aside className="w-[400px] h-full flex flex-col bg-slate-950/50 border-l border-slate-800/50 overflow-hidden">
+            <AuditIntelligence
+              serverAuditLogs={serverAuditLogsForAudit}
+              serverBotAuditLogs={serverBotAuditLogsForAudit}
+              onOpenThreat={(threatId, focus) => {
+                setSelectedThreatId(threatId);
+                setDrawerFocus(focus ?? null);
+              }}
+            />
+          </aside>
+          </div>
+        </div>
+      </main>
     </DashboardWithDrawer>
   );
 }

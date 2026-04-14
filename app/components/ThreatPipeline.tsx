@@ -109,10 +109,16 @@ function PipelineThreatCard({
   threat,
   onActionSuccess,
   setSelectedThreatId: setSelectedThreatIdProp,
+  hideHeaderBadges = false,
+  stackLiabilityLabel,
+  stackQueueLabel,
 }: {
   threat: PipelineThreat;
   onActionSuccess?: () => void;
   setSelectedThreatId?: (id: string | null) => void;
+  hideHeaderBadges?: boolean;
+  stackLiabilityLabel?: string;
+  stackQueueLabel?: string | null;
 }) {
   const storeSet = useRiskStore((s) => s.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSet;
@@ -159,6 +165,7 @@ function PipelineThreatCard({
     srcUpper === "IRONBLOOM" ||
     (threat.name ?? "").startsWith("[KIMBOT]") ||
     (threat.name ?? "").startsWith("[IRONBLOOM]");
+  const displaySource = isKimbotThreat ? "KIMBOT" : threat.source ?? "—";
   const existingNotes = threat.notes ?? [];
   const scopeTag = `industry:${threat.industry ?? activeIndustry}|tenant:${activeTenant ?? "GLOBAL"}|threatId:${threat.id}`;
 
@@ -314,7 +321,7 @@ function PipelineThreatCard({
       }
     >
       <div className="p-4 space-y-4">
-        {/* Header — Ironbloom / legacy KIMBOT source layout */}
+        {/* Header — KIMBOT source layout */}
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -342,14 +349,18 @@ function PipelineThreatCard({
               </Link>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className="rounded-full border border-emerald-500/50 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
-                ${scoreM.toFixed(2)}M Liability
-              </span>
-              {isKimbotThreat && (
-                <span className="rounded-full border border-amber-500/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
-                  {kimbotAttackQueueCount} ATTACKS IN QUEUE
-                </span>
-              )}
+              {!hideHeaderBadges ? (
+                <>
+                  <span className="rounded-full border border-emerald-500/50 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
+                    {stackLiabilityLabel ?? `ACTIVE TRIAGE: $${scoreM.toFixed(2)}M`}
+                  </span>
+                  {(stackQueueLabel ?? (isKimbotThreat ? `${kimbotAttackQueueCount} ATTACKS IN QUEUE` : null)) ? (
+                    <span className="rounded-full border border-amber-500/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+                      {stackQueueLabel ?? `${kimbotAttackQueueCount} ATTACKS IN QUEUE`}
+                    </span>
+                  ) : null}
+                </>
+              ) : null}
               <Link
                 href={`/threats/${threat.id}`}
                 onClick={(e) => {
@@ -365,11 +376,11 @@ function PipelineThreatCard({
           </div>
           <p className="font-mono text-[10px] text-slate-500 break-all">{threat.id}</p>
           <p className="text-[10px] text-slate-400">
-            Source: {threat.source ?? "—"} · Sector: {threat.industry ?? "—"} · Target:{" "}
+            Source: {displaySource} · Sector: {threat.industry ?? "—"} · Target:{" "}
             {threat.target ?? threat.industry ?? "—"}
           </p>
           <p className="text-[10px] text-slate-500">
-            Liability: ${scoreM.toFixed(1)}M · {threat.source ?? "—"}
+            Base Payload: ${scoreM.toFixed(1)}M · {displaySource}
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
             <span className="font-mono" title="Time since detection">
@@ -383,7 +394,7 @@ function PipelineThreatCard({
           <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Triage</p>
           <div className="flex flex-wrap items-end gap-3 text-[10px]">
             <label className="flex flex-col gap-1 text-slate-400">
-              <span>Liability ($M)</span>
+              <span>Adjusted Liability ($M)</span>
               <input
                 type="number"
                 min={0}
@@ -1438,26 +1449,9 @@ export default function ThreatPipeline({
                     threat={visiblePipelineThreats[0]}
                     onActionSuccess={() => router.refresh()}
                     setSelectedThreatId={setSelectedThreatId}
+                    stackLiabilityLabel={formattedLiability}
+                    stackQueueLabel={totalThreats > 1 ? `${totalThreats} Attacks in Queue` : null}
                   />
-                  {totalThreats > 0 && (
-                    <div className="absolute top-2 right-2 flex items-center gap-2">
-                      <span className="rounded-full border border-emerald-400/70 bg-slate-900/95 px-2 py-0.5 text-[9px] font-mono font-semibold tracking-wide text-emerald-300 shadow">
-                        {formattedLiability}
-                      </span>
-                      {totalThreats > 1 && (
-                        <button
-                          type="button"
-                          className="rounded-full border border-amber-400/70 bg-slate-900/90 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300 shadow-md hover:bg-amber-500/10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setStackExpanded((prev) => !prev);
-                          }}
-                        >
-                          {totalThreats} Attacks in Queue
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Full list only when expanded — no slice(1) cards in DOM when collapsed */}

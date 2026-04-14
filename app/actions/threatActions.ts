@@ -376,19 +376,35 @@ export async function resolveThreatAction(
   operatorId: string,
   resolutionJustification: string,
   actorDisplayName?: string,
-): Promise<{ success: true; financialRisk_cents: number } | { success: false; financialRisk_cents: 0 }> {
+): Promise<
+  { success: true; financialRisk_cents: number } | { success: false; reason: string; financialRisk_cents: 0 }
+> {
   const trimmed = resolutionJustification.trim();
   if (trimmed.length < 50) {
-    return { success: false, financialRisk_cents: 0 };
+    return { success: false, reason: "JUSTIFICATION_TOO_SHORT", financialRisk_cents: 0 };
   }
   const parsedNote = workNoteSchema.safeParse({ text: trimmed });
   if (!parsedNote.success) {
-    return { success: false, financialRisk_cents: 0 };
+    return { success: false, reason: "SCHEMA_VALIDATION_FAILED", financialRisk_cents: 0 };
   }
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
-    return { success: false, financialRisk_cents: 0 };
+    return { success: false, reason: "MISSING_DELEGATES", financialRisk_cents: 0 };
+  }
+  const allowedResolveStatuses = new Set<string>([
+    String(ThreatState.ACTIVE),
+    String(ThreatState.CONFIRMED),
+    String(ThreatState.ESCALATED),
+    String(ThreatState.PENDING_REMOTE_INTERVENTION),
+    "PENDING_REVIEW",
+  ]);
+  const existing = await prisma.threatEvent.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+  if (!existing || !allowedResolveStatuses.has(String(existing.status).trim().toUpperCase())) {
+    return { success: false, reason: "STATUS_NOT_ALLOWED", financialRisk_cents: 0 };
   }
 
   const ts = new Date().toISOString();
@@ -423,7 +439,7 @@ export async function resolveThreatAction(
     'success' in updated &&
     (updated as { success?: boolean }).success === false
   ) {
-    return { success: false, financialRisk_cents: 0 };
+    return { success: false, reason: "TRANSACTION_FAILED", financialRisk_cents: 0 };
   }
 
   const financialRisk_cents = Number(

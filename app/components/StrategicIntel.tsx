@@ -31,6 +31,9 @@ import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
 import { createKimbotThreatServer } from "@/app/actions/simulationActions";
 import { pollResilienceIntelStreamLines } from "@/app/actions/resilienceIntelStreamActions";
+import { revalidateBoard } from "@/app/actions/uiActions";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { useSimulationStore } from "@/app/store/simulationStore";
 
 /** Formats BigInt cents into a readable USD string (e.g. $10.9M). */
 function formatCurrency(cents: bigint): string {
@@ -106,6 +109,8 @@ export default function StrategicIntel() {
   const currencyScale = useRiskStore((state) => state.currencyScale);
   const getTotalCurrentRiskCents = useRiskStore((state) => state.getTotalCurrentRiskCents);
   const getGrcGapCents = useRiskStore((state) => state.getGrcGapCents);
+  const replacePipelineThreats = useRiskStore((state) => state.replacePipelineThreats);
+  const replaceActiveThreats = useRiskStore((state) => state.replaceActiveThreats);
 
   // Agent / Coreintel state
   const agents = useAgentStore((s) => s.agents);
@@ -125,10 +130,69 @@ export default function StrategicIntel() {
   const isGrcbotActive = useGrcBotStore((s) => s.enabled);
   const setGrcbotEnabled = useGrcBotStore((s) => s.setEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
+  const startSimulation = useSimulationStore((s) => s.startSimulation);
+  const endSimulation = useSimulationStore((s) => s.endSimulation);
   const router = useRouter();
 
-  const toggleKimbot = () => setKimbotEnabled(!isKimbotActive);
-  const toggleGrcbot = () => setGrcbotEnabled(!isGrcbotActive);
+  const toggleKimbot = async () => {
+    try {
+      const nextEnabled = !isKimbotActive;
+      if (nextEnabled) {
+        startSimulation(`kimbot-${Date.now()}`);
+      } else {
+        if (isGrcbotActive) startSimulation(`grcbot-${Date.now()}`);
+        else endSimulation();
+      }
+      setKimbotEnabled(nextEnabled);
+      await revalidateBoard();
+      if (replacePipelineThreats && replaceActiveThreats) {
+        await syncThreatBoardsClient(replacePipelineThreats, replaceActiveThreats);
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Bot execution failed:", error);
+    }
+  };
+  const toggleGrcbot = async () => {
+    try {
+      const nextEnabled = !isGrcbotActive;
+      if (nextEnabled) {
+        startSimulation(`grcbot-${Date.now()}`);
+      } else {
+        if (isKimbotActive) startSimulation(`kimbot-${Date.now()}`);
+        else endSimulation();
+      }
+      setGrcbotEnabled(nextEnabled);
+      if (nextEnabled) {
+        setLogs((prev) => [...prev, "[SYSTEM] GRCBOT_START: Vendor artifact simulation enabled"]);
+        addStreamMessage("> [GRCBOT] Vendor artifact detected. Simulated compliance artifact stream active.");
+      } else {
+        setLogs((prev) => [...prev, "[SYSTEM] GRCBOT_STOP: Vendor artifact simulation disabled"]);
+        addStreamMessage("> [GRCBOT] Simulation halted.");
+      }
+      await revalidateBoard();
+      if (replacePipelineThreats && replaceActiveThreats) {
+        await syncThreatBoardsClient(replacePipelineThreats, replaceActiveThreats);
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Bot execution failed:", error);
+    }
+  };
+
+  const handleAttbotClick = async () => {
+    try {
+      startSimulation(`attbot-${Date.now()}`);
+      await triggerAttbotSimulation();
+      await revalidateBoard();
+      if (replacePipelineThreats && replaceActiveThreats) {
+        await syncThreatBoardsClient(replacePipelineThreats, replaceActiveThreats);
+      }
+      router.refresh();
+    } catch (error) {
+      console.error("Bot execution failed:", error);
+    }
+  };
 
   async function handleMasterPurge() {
     const result = await purgeSimulation();
@@ -140,6 +204,7 @@ export default function StrategicIntel() {
       useRiskStore.getState().setSelectedThreatId(null);
       addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
       sleepBlueTeam();
+      endSimulation();
       router.refresh();
     }
   }
@@ -164,7 +229,7 @@ export default function StrategicIntel() {
             title: signal.title,
             sector: signal.targetSector ?? selectedIndustry,
             liability: signal.liability,
-            source: "IRONBLOOM",
+            source: "KIMBOT",
             severity: Math.min(10, Math.max(1, Math.round(signal.severityScore / 10))),
           });
           useRiskStore.getState().upsertPipelineThreat({
@@ -180,9 +245,9 @@ export default function StrategicIntel() {
             ...signal,
             id: created.id,
           });
-          addStreamMessage(`> [${new Date().toISOString()}] IRONBLOOM: ${signal.title} (${signal.severity})`);
+          addStreamMessage(`> [${new Date().toISOString()}] KIMBOT: ${signal.title} (${signal.severity})`);
         } catch (e) {
-          addStreamMessage(`> [IRONBLOOM] Failed to persist: ${e instanceof Error ? e.message : "Unknown"}`);
+          addStreamMessage(`> [KIMBOT] Failed to persist: ${e instanceof Error ? e.message : "Unknown"}`);
         }
       })();
     };
@@ -659,7 +724,7 @@ export default function StrategicIntel() {
             onClick={toggleKimbot}
             className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isKimbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
           >
-            Ironbloom {isKimbotActive ? 'On' : 'Off'}
+            Kimbot {isKimbotActive ? 'On' : 'Off'}
           </button>
           <button
             type="button"
@@ -670,14 +735,13 @@ export default function StrategicIntel() {
           </button>
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2 items-start">
-          <form action={triggerAttbotSimulation} className="min-w-0">
-            <button
-              type="submit"
-              className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
-            >
-              ATTBOT
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={() => void handleAttbotClick()}
+            className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
+          >
+            ATTBOT
+          </button>
           <button
             type="button"
             onClick={() => void handleMasterPurge()}

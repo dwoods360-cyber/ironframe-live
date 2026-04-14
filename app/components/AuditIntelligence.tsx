@@ -6,6 +6,7 @@ import { useAuditLoggerStore } from "@/app/utils/auditLoggerStore";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { fetchLiveAuditTelemetry, type LiveAuditTelemetryRow } from "@/app/actions/telemetryActions";
 
 // # AUDIT_STREAM_LOGIC (Real-time log mapping) — buildListItems, clientFiltered, listItems, filteredAuditLogs, hasAnyLogs
 
@@ -18,6 +19,15 @@ export type ServerAuditLogRow = {
   threatId: string | null;
 };
 
+export type ServerBotAuditLogRow = {
+  id: string;
+  botType: string;
+  disposition: string;
+  operator: string;
+  createdAt: Date;
+  metadata: Record<string, unknown> | null;
+};
+
 type AuditIntelligenceProps = {
   showRetentionBadge?: boolean;
   logTypeFilter?: AuditLogType;
@@ -26,6 +36,8 @@ type AuditIntelligenceProps = {
   companyId?: string | null;
   /** DB audit logs from the server. When provided, merged with client logs so sidebar updates after router.refresh(). */
   serverAuditLogs?: ServerAuditLogRow[];
+  /** DB bot forensic receipts from server (BotAuditLog), used for live telemetry parity with center console. */
+  serverBotAuditLogs?: ServerBotAuditLogRow[];
   /** When provided, clicking a threat-related entry opens the drawer and optionally focuses a section (e.g. "ai-report", "analyst-notes"). */
   onOpenThreat?: (threatId: string, focus?: string) => void;
 };
@@ -70,7 +82,30 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   STATE_REGRESSION: "State Regression",
   RISK_REJECTED: "Risk Rejected",
   SYSTEM_WARNING: "System Warning",
+  BOT_AUDIT_RECEIPT: "Bot Audit Receipt",
 };
+
+const WORKFORCE_AGENTS = [
+  "IRONCORE",
+  "IRONWAVE",
+  "IRONTRUST",
+  "IRONSIGHT",
+  "IRONSCRIBE",
+  "IRONLOCK",
+  "IRONCAST",
+  "IRONINTEL",
+  "IRONLOGIC",
+  "IRONMAP",
+  "IRONTECH",
+  "IRONGUARD",
+  "IRONWATCH",
+  "IRONGATE",
+  "IRONQUERY",
+  "IRONSCOUT",
+  "IRONBLOOM",
+  "IRONETHIC",
+  "IRONTALLY",
+] as const;
 
 function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {
   const label = SERVER_ACTION_LABELS[row.action] ?? row.action;
@@ -83,6 +118,64 @@ function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timest
     _sortTime: new Date(row.createdAt).getTime(),
     _fromServer: true,
     threatId: row.threatId,
+    ip_address: "—",
+  };
+}
+
+function formatMillionsFromCentsBigInt(centsLike: unknown): string {
+  let cents = 0n;
+  try {
+    if (typeof centsLike === "string" && centsLike.trim().length > 0) {
+      cents = BigInt(centsLike.trim());
+    } else if (typeof centsLike === "number" && Number.isFinite(centsLike)) {
+      cents = BigInt(Math.trunc(centsLike));
+    }
+  } catch {
+    cents = 0n;
+  }
+  const sign = cents < 0n ? "-" : "";
+  const abs = cents < 0n ? -cents : cents;
+  const dollars = Number(abs) / 100;
+  return `${sign}$${(dollars / 1_000_000).toFixed(2)}M`;
+}
+
+function formatBotAuditLogForDisplay(
+  row: ServerBotAuditLogRow,
+): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {
+  const metadata = row.metadata ?? {};
+  const threatId =
+    typeof metadata.threatId === "string" && metadata.threatId.trim().length > 0
+      ? metadata.threatId.trim()
+      : null;
+  const threatTitle =
+    typeof metadata.threatTitle === "string" && metadata.threatTitle.trim().length > 0
+      ? metadata.threatTitle.trim()
+      : typeof metadata.sourceAgent === "string" && metadata.sourceAgent.trim().length > 0
+        ? metadata.sourceAgent.trim()
+        : "Threat";
+  const attestation =
+    typeof metadata.agentAttestation === "string" && metadata.agentAttestation.trim().length > 0
+      ? metadata.agentAttestation.trim()
+      : "System Verified";
+  const impact = formatMillionsFromCentsBigInt(metadata.mitigatedValueCents);
+  const mapOperator = (operatorRaw: string): string => {
+    const normalized = operatorRaw.trim().toUpperCase();
+    if (normalized === "SYSTEM_IRONTECH_AUTO") return "Irontech (autonomous)";
+    const matched = WORKFORCE_AGENTS.find((agent) => normalized.includes(agent));
+    if (matched) return matched[0] + matched.slice(1).toLowerCase();
+    return operatorRaw;
+  };
+  const mappedOperator = mapOperator(row.operator);
+  const label = `[BOT_AUDIT_RECEIPT] ${row.botType} ${row.disposition} · ${impact} · ${attestation} · ${threatTitle}`;
+  return {
+    id: row.id,
+    timestamp: typeof row.createdAt === "string" ? row.createdAt : new Date(row.createdAt).toLocaleString(),
+    user_id: mappedOperator,
+    action_type: "BOT_AUDIT_RECEIPT",
+    description: label,
+    _sortTime: new Date(row.createdAt).getTime(),
+    _fromServer: true,
+    threatId,
     ip_address: "—",
   };
 }
@@ -136,10 +229,29 @@ type LogEntryItem = {
 /** Build one unified log: all server rows + all client rows, flattened into a single list sorted by time (newest first). */
 function buildUnifiedLog(
   serverAuditLogs: ServerAuditLogRow[],
+  serverBotAuditLogs: ServerBotAuditLogRow[],
   clientWithSort: Array<Record<string, unknown> & { id: string; timestamp?: string; description: string; action_type: string; user_id: string; ip_address?: string; _sortTime?: number }>
 ): LogEntryItem[] {
   const serverItems: LogEntryItem[] = serverAuditLogs.map((row) => {
     const formatted = formatServerLogForDisplay(row);
+    return {
+      id: row.id,
+      _sortTime: formatted._sortTime,
+      entry: {
+        id: formatted.id,
+        timestamp: formatted.timestamp,
+        user_id: formatted.user_id,
+        action_type: formatted.action_type,
+        description: formatted.description,
+        ip_address: formatted.ip_address ?? "—",
+        threatId: formatted.threatId,
+        _fromServer: true,
+      },
+    };
+  });
+
+  const botAuditItems: LogEntryItem[] = serverBotAuditLogs.map((row) => {
+    const formatted = formatBotAuditLogForDisplay(row);
     return {
       id: row.id,
       _sortTime: formatted._sortTime,
@@ -172,7 +284,7 @@ function buildUnifiedLog(
     },
   }));
 
-  const combined = [...serverItems, ...clientItems];
+  const combined = [...serverItems, ...botAuditItems, ...clientItems];
   combined.sort((a, b) => b._sortTime - a._sortTime);
   return combined;
 }
@@ -238,7 +350,41 @@ function buildListItems(
   return combined;
 }
 
-export default function AuditIntelligence({ showRetentionBadge = false, logTypeFilter, descriptionIncludes, companyId, serverAuditLogs = [], onOpenThreat }: AuditIntelligenceProps) {
+export default function AuditIntelligence({ showRetentionBadge = false, logTypeFilter, descriptionIncludes, companyId, serverAuditLogs = [], serverBotAuditLogs = [], onOpenThreat }: AuditIntelligenceProps) {
+  const [liveLogs, setLiveLogs] = useState<ServerBotAuditLogRow[]>(serverBotAuditLogs);
+
+  useEffect(() => {
+    setLiveLogs(serverBotAuditLogs);
+  }, [serverBotAuditLogs]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const poll = () => {
+      void fetchLiveAuditTelemetry()
+        .then((freshRows: LiveAuditTelemetryRow[]) => {
+          if (!isMounted) return;
+          const normalized: ServerBotAuditLogRow[] = freshRows.map((row) => ({
+            ...row,
+            disposition: "PASS",
+            createdAt: new Date(row.createdAt),
+          }));
+          const currentFirst = liveLogs[0]?.id ?? null;
+          const freshFirst = normalized[0]?.id ?? null;
+          if (freshFirst !== currentFirst) {
+            setLiveLogs(normalized);
+          }
+        })
+        .catch(() => {
+          // Keep last known good stream when polling fails.
+        });
+    };
+    const id = window.setInterval(poll, 3000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(id);
+    };
+  }, [liveLogs]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const auditLogs = useAuditLoggerStore();
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
@@ -295,8 +441,8 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
   }));
 
   const listItems = useMemo(
-    () => buildUnifiedLog(serverAuditLogs ?? [], clientWithSort),
-    [serverAuditLogs, clientWithSort]
+    () => buildUnifiedLog(serverAuditLogs ?? [], liveLogs ?? [], clientWithSort),
+    [serverAuditLogs, liveLogs, clientWithSort]
   );
 
   const searchLower = searchTerm.trim().toLowerCase();
@@ -443,7 +589,7 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
       <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
         {logsToDisplay.length === 0 ? (
           <div className="text-sm font-mono italic text-slate-500 p-4 text-center border border-dashed border-slate-800 rounded-md mt-4">
-            System Nominal. Awaiting audit events...
+            System quiet. No terminal receipts in the telemetry stream.
           </div>
         ) : (
           <>

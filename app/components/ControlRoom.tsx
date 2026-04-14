@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Cpu, Skull } from "lucide-react";
 import {
   injectChaosThreatAction,
@@ -22,6 +23,7 @@ import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttrib
  * `injectChaosThreatAction` records the operator in Integrity Hub “Authorized by”.
  */
 export default function ControlRoom() {
+  const router = useRouter();
   const [logDive, setLogDive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInjecting, setIsInjecting] = useState(false);
@@ -175,6 +177,7 @@ export default function ControlRoom() {
                 );
               }
               await syncThreatBoardsClient();
+              router.refresh();
             } finally {
               flushSync(() => setIsInjecting(false));
             }

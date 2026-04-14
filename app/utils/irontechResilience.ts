@@ -42,6 +42,10 @@ export function attributionFromTriggeringUser(
 const INTERNAL_DRILL_AGENT = "Irontech";
 const INTERNAL_DRILL_GAP_MS = 4000;
 const INTERNAL_DRILL_OPERATOR_ID = "user_00";
+const INTERNAL_DRILL_ATTRIBUTION: IntegrityForensicAttribution = {
+  userId: INTERNAL_DRILL_OPERATOR_ID,
+  displayName: INTERNAL_DRILL_OPERATOR_ID,
+};
 
 const HOME_SERVER_GAP_MS_ATTEMPT_1 = 2000;
 const HOME_SERVER_GAP_MS_ATTEMPT_2 = 2000;
@@ -235,7 +239,10 @@ export async function runIsolatedInternalDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
+    const forensic = await integrityForensicIngestionFields(
+      recoveredAt,
+      INTERNAL_DRILL_ATTRIBUTION,
+    );
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("INTERNAL", row?.createdAt ?? new Date(), recoveredAt),
@@ -246,13 +253,30 @@ export async function runIsolatedInternalDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
-        ingestionDetails: merged,
-        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.threatEvent.update({
+        where: { id: tid },
+        data: {
+          status: ThreatState.RESOLVED,
+          ingestionDetails: merged,
+          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "ASSIGNMENT_CHANGED",
+          isSimulation: true,
+          justification: JSON.stringify({
+            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+            actor: "IRONTECH",
+            actorId: INTERNAL_DRILL_OPERATOR_ID,
+            timestamp: new Date().toISOString(),
+            reason: "Automated drill assignment",
+          }),
+          operatorId: INTERNAL_DRILL_OPERATOR_ID,
+          threatId: tid,
+        },
+      });
     });
     revalidateDashboardAndIntegrityPath();
 
@@ -407,7 +431,10 @@ export async function runIsolatedHomeServerDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
+    const forensic = await integrityForensicIngestionFields(
+      recoveredAt,
+      INTERNAL_DRILL_ATTRIBUTION,
+    );
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("HOME_SERVER", row?.createdAt ?? new Date(), recoveredAt),
@@ -418,13 +445,30 @@ export async function runIsolatedHomeServerDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
-        ingestionDetails: merged,
-        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.threatEvent.update({
+        where: { id: tid },
+        data: {
+          status: ThreatState.RESOLVED,
+          ingestionDetails: merged,
+          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "ASSIGNMENT_CHANGED",
+          isSimulation: true,
+          justification: JSON.stringify({
+            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+            actor: "IRONTECH",
+            actorId: INTERNAL_DRILL_OPERATOR_ID,
+            timestamp: new Date().toISOString(),
+            reason: "Automated drill assignment",
+          }),
+          operatorId: INTERNAL_DRILL_OPERATOR_ID,
+          threatId: tid,
+        },
+      });
     });
     revalidateDashboardAndIntegrityPath();
 
@@ -578,7 +622,10 @@ export async function runIsolatedEscalationDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
+    const forensic = await integrityForensicIngestionFields(
+      recoveredAt,
+      INTERNAL_DRILL_ATTRIBUTION,
+    );
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("CLOUD_EXFIL", row?.createdAt ?? new Date(), recoveredAt),
@@ -589,13 +636,30 @@ export async function runIsolatedEscalationDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
-        ingestionDetails: merged,
-        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.threatEvent.update({
+        where: { id: tid },
+        data: {
+          status: ThreatState.RESOLVED,
+          ingestionDetails: merged,
+          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "ASSIGNMENT_CHANGED",
+          isSimulation: true,
+          justification: JSON.stringify({
+            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+            actor: "IRONTECH",
+            actorId: INTERNAL_DRILL_OPERATOR_ID,
+            timestamp: new Date().toISOString(),
+            reason: "Automated drill assignment",
+          }),
+          operatorId: INTERNAL_DRILL_OPERATOR_ID,
+          threatId: tid,
+        },
+      });
     });
     revalidateDashboardAndIntegrityPath();
 
@@ -760,8 +824,28 @@ export async function runIsolatedRemoteSupportDrill(
       where: { id: tid },
       select: { ingestionDetails: true },
     });
+    const existingRemoteSupportStream = (() => {
+      try {
+        const parsed = JSON.parse(haltRow?.ingestionDetails ?? "{}") as {
+          remoteSupportStream?: unknown;
+        };
+        return Array.isArray(parsed.remoteSupportStream)
+          ? parsed.remoteSupportStream.filter((line): line is string => typeof line === "string")
+          : [];
+      } catch {
+        return [];
+      }
+    })();
+    const remoteSupportPromptLines = [
+      "[ACTION REQUIRED] Ironframe Tier 3 requests diagnostic access.",
+      "GRANT 2-HOUR ACCESS",
+    ];
     const mergedHalt = mergeIngestionDetailsPatch(haltRow?.ingestionDetails ?? null, {
       remoteSupportJitAwaitingGrant: true,
+      remoteSupportStream: [
+        ...existingRemoteSupportStream,
+        ...remoteSupportPromptLines,
+      ] as unknown as Prisma.InputJsonValue,
       ...(injectAttribution
         ? {
             chaosInjectAttribution: {
@@ -771,12 +855,31 @@ export async function runIsolatedRemoteSupportDrill(
           }
         : {}),
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.PENDING_REMOTE_INTERVENTION,
-        ingestionDetails: mergedHalt,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.threatEvent.update({
+        where: { id: tid },
+        data: {
+          title: "[!] IRONTECH RECOVERY IN PROGRESS: AUTONOMOUS DRILL ACTIVE",
+          status: ThreatState.PENDING_REMOTE_INTERVENTION,
+          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+          ingestionDetails: mergedHalt,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "ASSIGNMENT_CHANGED",
+          isSimulation: true,
+          justification: JSON.stringify({
+            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+            actor: "IRONTECH",
+            actorId: INTERNAL_DRILL_OPERATOR_ID,
+            timestamp: new Date().toISOString(),
+            reason: "Automated drill assignment",
+          }),
+          operatorId: INTERNAL_DRILL_OPERATOR_ID,
+          threatId: tid,
+        },
+      });
     });
     revalidateDashboardAndIntegrityPath();
 
@@ -792,7 +895,7 @@ export async function runIsolatedRemoteSupportDrill(
 }
 
 /**
- * Scenario 4 resume — Stage 4 via JIT grant: Sidecar engineer session, 4s hotfix window, probe teardown, RESOLVED.
+ * Scenario 4 resume — Stage 4 via JIT grant: Sidecar engineer session + hotfix, then handoff to human review.
  */
 export async function resumeIsolatedRemoteSupportDrill(
   threatId: string,
@@ -879,35 +982,72 @@ export async function resumeIsolatedRemoteSupportDrill(
       tid,
     );
 
-    console.log("[S4] Resolving DB...");
+    console.log("[S4] Applying hotfix state + yielding to human review...");
     const row2 = await prisma.threatEvent.findUnique({
       where: { id: tid },
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
+    const forensic = await integrityForensicIngestionFields(
+      recoveredAt,
+      INTERNAL_DRILL_ATTRIBUTION,
+    );
     const merged = mergeIngestionDetailsPatch(row2?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("REMOTE_SUPPORT", row2?.createdAt ?? new Date(), recoveredAt),
       remoteSupportJitAwaitingGrant: false,
+      remoteSupportAwaitingHumanReview: true,
+      remoteSupportFinalHandoffAt: recoveredAt,
+      remoteSupportStream: [
+        ...(() => {
+          try {
+            const parsed = JSON.parse(row2?.ingestionDetails ?? "{}") as {
+              remoteSupportStream?: unknown;
+            };
+            return Array.isArray(parsed.remoteSupportStream)
+              ? parsed.remoteSupportStream.filter((line): line is string => typeof line === "string")
+              : [];
+          } catch {
+            return [];
+          }
+        })(),
+        "[\u2713] System patched. Awaiting human analyst review and final resolution.",
+      ],
       resolutionJustification:
-        "[SIDECAR DRILL COMPLETE] Transient forensic Sidecar removed after hotfix; diagnostic tunnel closed; integrity verified (simulated).",
-      lifecycleState: "archived",
-      autonomousRecovery: true,
+        "[SIDECAR DRILL COMPLETE] Hotfix applied and Sidecar tunnel closed. Threat remains active for mandatory human analyst review and final resolution.",
+      lifecycleState: "confirmed",
+      autonomousRecovery: false,
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
-        ingestionDetails: merged,
-        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.threatEvent.update({
+        where: { id: tid },
+        data: {
+          status: ThreatState.ESCALATED,
+          ingestionDetails: merged,
+          assigneeId: null,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: "ASSIGNMENT_CHANGED",
+          isSimulation: true,
+          justification: JSON.stringify({
+            newAssignee: null,
+            actor: "SYSTEM",
+            actorId: INTERNAL_DRILL_OPERATOR_ID,
+            timestamp: new Date().toISOString(),
+            reason: "Bot handoff complete. Threat unassigned pending manual HITL review.",
+          }),
+          operatorId: INTERNAL_DRILL_OPERATOR_ID,
+          threatId: tid,
+        },
+      });
     });
     revalidateDashboardAndIntegrityPath();
 
-    console.log(`[SCENARIO 4 SUCCESS] Threat ${tid} is Green.`);
+    console.log(`[SCENARIO 4 HANDOFF] Threat ${tid} patched and awaiting human final resolution.`);
     return { success: true };
   } catch (error) {
     console.error(`[S4 RESUME CRASHED] Threat ${threatId}:`, error);
@@ -1200,8 +1340,8 @@ export async function runIsolatedCascadeDrill(
 
     let newLedgerRow: { id: string };
     try {
-      const [created] = await prisma.$transaction([
-        prisma.threatEvent.create({
+      const created = await prisma.$transaction(async (tx) => {
+        const createdLedgerRow = await tx.threatEvent.create({
           data: {
             title: ledgerTitle,
             sourceAgent: row.sourceAgent?.trim() || "IRONCHAOS_LEDGER",
@@ -1216,16 +1356,47 @@ export async function runIsolatedCascadeDrill(
             aiReport: "IRONCHAOS: Scenario 5 immutable ledger append (resolved).",
             ingestionDetails: JSON.stringify(ledgerIngestionPayload),
           },
-        }),
-        prisma.threatEvent.update({
+        });
+        await tx.threatEvent.update({
           where: { id: tid },
           data: {
             status: ThreatState.RESOLVED,
             ingestionDetails: merged,
             assigneeId: INTERNAL_DRILL_OPERATOR_ID,
           },
-        }),
-      ]);
+        });
+        await tx.auditLog.create({
+          data: {
+            action: "ASSIGNMENT_CHANGED",
+            isSimulation: true,
+            justification: JSON.stringify({
+              newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+              actor: "IRONTECH",
+              actorId: INTERNAL_DRILL_OPERATOR_ID,
+              timestamp: new Date().toISOString(),
+              reason: "Automated drill assignment",
+            }),
+            operatorId: INTERNAL_DRILL_OPERATOR_ID,
+            threatId: createdLedgerRow.id,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: "ASSIGNMENT_CHANGED",
+            isSimulation: true,
+            justification: JSON.stringify({
+              newAssignee: INTERNAL_DRILL_OPERATOR_ID,
+              actor: "IRONTECH",
+              actorId: INTERNAL_DRILL_OPERATOR_ID,
+              timestamp: new Date().toISOString(),
+              reason: "Automated drill assignment",
+            }),
+            operatorId: INTERNAL_DRILL_OPERATOR_ID,
+            threatId: tid,
+          },
+        });
+        return createdLedgerRow;
+      });
       newLedgerRow = created;
     } catch (error) {
       console.error("GRC PERSISTENCE ERROR:", error);

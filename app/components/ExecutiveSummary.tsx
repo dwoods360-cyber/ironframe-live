@@ -8,9 +8,54 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficiency";
 import type { RecentAuditLogRow } from "@/app/actions/auditActions";
+import type { BotAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
 import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import { Leaf } from "lucide-react";
+import { Grid, Card, Text, Metric } from "@tremor/react";
+
+export function ExecutiveSummaryAudit({ logs }: { logs: BotAuditLogRow[] }) {
+  const { totalTests, passRate, totalMitigated } = useMemo(() => {
+    const totalTests = logs.length;
+    const passes = logs.filter((log) => log.disposition.toUpperCase() === "PASS").length;
+    const passRate = totalTests > 0 ? (passes / totalTests) * 100 : 0;
+    const totalMitigated = logs.reduce((sum, log) => {
+      const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+      const direct = metadata.aleMitigated;
+      if (typeof direct === "number" && Number.isFinite(direct)) return sum + direct;
+      if (typeof direct === "string" && direct.trim() !== "" && Number.isFinite(Number(direct))) {
+        return sum + Number(direct);
+      }
+      const initial = Number(metadata.initialAle ?? 0);
+      const final = Number(metadata.finalAle ?? 0);
+      if (Number.isFinite(initial) && Number.isFinite(final)) return sum + (initial - final);
+      return sum;
+    }, 0);
+    return { totalTests, passRate, totalMitigated };
+  }, [logs]);
+
+  return (
+    <div className="rounded border border-slate-700 bg-slate-950/40 p-3">
+      <Text className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+        Executive Briefing
+      </Text>
+      <Grid numItems={1} numItemsMd={3} className="gap-3">
+        <Card className="bg-blue-950/30 ring-1 ring-blue-900/60">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-blue-300">Compliance Readiness</Text>
+          <Metric className="text-blue-200">{passRate.toFixed(1)}%</Metric>
+        </Card>
+        <Card className="bg-emerald-950/30 ring-1 ring-emerald-900/60">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">Total Mitigated Risk (ALE)</Text>
+          <Metric className="text-emerald-200">${totalMitigated.toFixed(2)}M</Metric>
+        </Card>
+        <Card className="bg-slate-900/60 ring-1 ring-slate-700">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-slate-300">Verified Controls</Text>
+          <Metric className="text-slate-100">{totalTests}</Metric>
+        </Card>
+      </Grid>
+    </div>
+  );
+}
 
 function formatOperatorDisplay(operatorId: string): string {
   const id = operatorId.trim();

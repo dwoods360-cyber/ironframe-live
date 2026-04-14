@@ -67,7 +67,6 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
   const [isLoading, setIsLoading] = useState(false);
   /** Double-Check / Save: which primary action is running. */
   const [recoveryUiKind, setRecoveryUiKind] = useState<RecoveryUiKind | null>(null);
-  const [showInfrastructureDelayBanner, setShowInfrastructureDelayBanner] = useState(false);
   const [uiPhase, setUiPhase] = useState<UiPhase>("recovery");
   const [remoteAccessAdminEligible, setRemoteAccessAdminEligible] = useState(false);
 
@@ -76,7 +75,6 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
       setIsLoading(false);
       setRecoveryUiKind(null);
       setBusy(false);
-      setShowInfrastructureDelayBanner(false);
       useRiskStore.getState().setRecoveryBoardSyncPending(false);
     });
   }, []);
@@ -117,7 +115,6 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
       setIsLoading(true);
       setRecoveryUiKind("double-check");
       setBusy(true);
-      setShowInfrastructureDelayBanner(true);
       useAgentStore.getState().appendRiskIngestionTerminalLine(MANUAL_FIX_ATTEMPT4_TERMINAL_LINE);
       useRiskStore.getState().setRecoveryBoardSyncPending(true);
     });
@@ -158,7 +155,6 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
     flushSync(() => {
       setRecoveryUiKind("save");
       setBusy(true);
-      setShowInfrastructureDelayBanner(true);
       useAgentStore.getState().appendRiskIngestionTerminalLine(RECOVERY_ATTEMPT4_TERMINAL_LINE);
       useRiskStore.getState().setRecoveryBoardSyncPending(true);
     });
@@ -385,15 +381,6 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
           </div>
         ) : (
           <div className="mt-5 flex flex-col gap-2">
-            {showInfrastructureDelayBanner && recoveryUiKind !== null ? (
-              <p
-                className="rounded-lg border border-amber-600/50 bg-amber-950/35 px-3 py-2 text-[10px] font-semibold leading-snug text-amber-100/95"
-                role="status"
-                aria-live="polite"
-              >
-                ⚠️ Agent is communicating with Core Infrastructure. This may take up to 20 seconds.
-              </p>
-            ) : null}
             {infrastructureLimit ? (
               <button
                 type="button"

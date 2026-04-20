@@ -9,6 +9,8 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     loss: r.loss,
     score: r.score,
     industry: r.industry,
+    /** Mirrors DB `targetEntity` for tenant chips / ActiveRisksClient filters that read `target`. */
+    target: r.industry,
     source: r.source,
     description: r.description,
     aiReport: r.aiReport ?? undefined,

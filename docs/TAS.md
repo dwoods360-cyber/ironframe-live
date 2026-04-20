@@ -1,7 +1,7 @@
 /docs/TAS.md — Technical Architecture Specification
 Project: Ironframe
-Version: 2.0.0 (Sovereign Build State)
-Last Updated: 2026-03-27
+Version: 2.0.1 (Sovereign Build State)
+Last Updated: 2026-04-16
 Authority: Supreme Architectural Authority (Layers 2 & 5)
 This document serves as the constitutional foundation for the Ironframe platform. Any deviation from this specification requires a formal TAS Amendment Proposal. Silent structural changes are strictly forbidden.
 1. Core Architectural Philosophy
@@ -36,7 +36,7 @@ Ironwatch — Anomaly Hunter. Internal User Behavior Analytics (UBA) and Directi
 Irongate — Data Sanitizer. The DMZ. ALL external ingestion routes here first.
 Ironquery — Interactive Analyst / Copilot. Conversational RAG and On-Demand Reporting for end-users.
 Ironscout — Ad-Hoc Tracker. Ephemeral worker (TTL: 0.50–71.75 hrs) that self-terminates after completing specific reconnaissance.
-Ironbloom — Sustainability Analyst. Scope 1-3 and Carbon ALE calculations. Strictly requires physical units.
+Kimbot — Sustainability Analyst. Scope 1-3 and Carbon ALE calculations. Strictly requires physical units (kWh, L, km); monetary-only data rejected.
 Ironethic — Social & DEI Monitor. Operates under a strict No-PII Lock. All data must be aggregated and salted.
 Irontally — Disclosure & Framework Mapper. Cross-walks data against CSRD, GRI, and ISSB frameworks.
 3. Data Security & Ingestion
@@ -55,8 +55,29 @@ These baselines are immutable and serve as the foundation for Irontrust (Agent 3
 Medshield: 11,100,000 USD (1110000000 cents)
 Vaultbank: 5,900,000 USD (590000000 cents)
 Gridcore: 4,700,000 USD (470000000 cents)
-Sustainability Data (Ironbloom Mandate):
-Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Ironbloom (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies.
+Sustainability Data (Kimbot Mandate):
+Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Kimbot (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies.
+### 4.3 Diagnostics & Isolation (Shadow Plane)
+Constitutional scope (GRC Repair 4.7–4.8): structural diagnostics, operational self-tests, and component reliability analytics are **shadow-plane-only** capabilities. They extend the CONTROL-FIRST posture without polluting the production threat ledger.
+
+**Diagnostic isolation (UI boundary)**  
+All operational self-test surfaces — **System Pass**, **System Fail** (deficiency filing), and **System Receipt** — MUST be bound to **`isSimulationMode === true`** on the client (`systemConfigStore`). The canonical UI implementation MUST NOT render these controls in production mode (e.g. `PipelineSelfTestBar` returns no DOM when shadow mode is off). Any new diagnostic affordance MUST follow the same rule.
+
+**Architectural boundary (client ↔ server)**  
+`isSimulationMode` is not decorative: it is paired with the **`ironframe-simulation-mode`** cookie so server routes and Server Actions observe the same plane. Server code MUST use **`readSimulationPlaneEnabled()`** (`app/lib/security/ingressGateway.ts`, cookie value `1` = shadow) before accepting diagnostic writes or returning shadow-only queues. Client and server checks together form a **hard boundary**; bypassing either side is a constitutional defect.
+
+**Quarantine storage (No-Bleed Rule)**  
+Operational deficiencies, self-test passes, and deficiency resolutions MUST be persisted **only** in **`SimulationDiagnosticLog`** (Prisma), keyed to tenant and optional `simThreatId`. These actions MUST NOT be written to production-scoped **`AuditLog`** rows for operational self-test semantics, and MUST NOT attach operational “self-test” narratives to **`ThreatEvent`**. The production audit trail and golden threat ledger remain clean of shadow structural noise. OpSupport “simulation audit” MAY merge simulation-flagged `AuditLog` with `SimulationDiagnosticLog` for display, but diagnostic **writes** stay on `SimulationDiagnosticLog` only.
+
+**Weighted reliability engine (preservation mandate)**  
+Component health for PO prioritization is computed by **`calculateComponentHealth`** (`app/lib/opsupport/componentHealth.ts`) from `SimulationDiagnosticLog` payloads. The following weights are **frozen** for all future refactors unless a TAS Amendment explicitly changes them: **Critical deficiency −10**, **High deficiency −5**, **Medium/Low (or unknown severity) deficiency −2**, **System pass +1**. Derived **`healthBarPercent`** (0–100, baseline mapping in `healthPointsToBarPercent`) MUST remain semantically consistent with this scale when refactored.
+
+**Irontech self-healing mandate (Irontech / orchestration)**  
+The Irontech workforce MUST treat components with **`healthBarPercent` below 50%** as **priority repair candidates** when consuming shadow diagnostic data (including archived **`OPERATIONAL_DEFICIENCY_REPORT`** payloads and full ingestion snapshots). Lower health indicates higher structural brittleness (e.g. Kimbot pulse surfaces, Attbot state-machine cards) and SHALL drive triage ordering ahead of purely cosmetic backlog work.
+
+**Transparency**  
+Every filed deficiency MUST retain the full **Gemini repair packet** and ingestion context required for deterministic repair; replay is surfaced via the OpSupport Diagnostic History / reliability dashboard (read-only modal), not by mutating production records.
+
 5. Multi-Tenant Isolation
 Strict RLS & Memory Bleed Prevention:
 Database Level: Supabase Row Level Security (RLS) must be explicitly defined and enforced on every table. No query may execute without a validated tenant_id context.
@@ -65,8 +86,8 @@ PII Lock: Ironethic (Agent 18) enforces a strict No-PII lock. All social and DEI
 6. Product Roadmap — Epic Status (PO Authority)
 [COMPLETED] Epic 4: Ironwave (Executive Insights & GRC)
 Executive Telemetry phase closed. The following are now baseline platform capabilities (not experimental): High-Fidelity Heat Map (including surgical Top 10-by-USD default filtering for grid density), GRC global framework selection and reporting alignment, and the BIGINT Financial Ledger pattern (integer cents for USD; constitutionally frozen ALE baselines unchanged).
-[ACTIVE] Epic 5: Ironbloom (Sustainability Layer)
-Primary modeling shifts from USD financial exposure to physical sustainability units. Ironbloom (Agent 17) workstreams target energy (kWh), water/volume (L), and greenhouse-gas equivalents (CO2e) as first-class quantities; monetary-only proxies are out of scope for sustainability ALE. Financial telemetry (Epic 4) remains the stable ledger for fiscal risk; Epic 5 extends the stack without replacing BIGINT rules for USD-bound domains.
+[ACTIVE] Epic 5: Kimbot (Sustainability Layer)
+Primary modeling shifts from USD financial exposure to physical sustainability units. Kimbot (Agent 17) workstreams target energy (kWh), water/volume (L), and greenhouse-gas equivalents (CO2e) as first-class quantities; monetary-only proxies are out of scope for sustainability ALE. Financial telemetry (Epic 4) remains the stable ledger for fiscal risk; Epic 5 extends the stack without replacing BIGINT rules for USD-bound domains.
 TEST COVERAGE CHECK:
 Unit Tests Added: YES (Mandated for all Irontrust math and BIGINT conversions)
 Integration Tests Added: YES (Mandated for Irongate DMZ routing)

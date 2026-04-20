@@ -6,7 +6,7 @@ import { FileText, Leaf } from "lucide-react";
 import EnterpriseHeatMapModal from "./EnterpriseHeatMapModal";
 
 type ReportsPageHeaderProps = {
-  /** Live CSRD / Ironbloom carbon line, e.g. "CO2 Offset: 12.3 kg" */
+  /** Live CSRD / Kimbot carbon line, e.g. "CO2 Offset: 12.3 kg" */
   co2OffsetChip?: string;
 };
 

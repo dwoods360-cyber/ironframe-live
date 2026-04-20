@@ -31,7 +31,7 @@ const IRON_ROSTER = [
   "Irongate",
   "Ironquery",
   "Ironscout",
-  "Ironbloom",
+  "Kimbot",
   "Ironethic",
   "Irontally",
 ];

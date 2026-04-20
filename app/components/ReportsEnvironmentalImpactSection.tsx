@@ -6,7 +6,7 @@ type Props = {
 };
 
 /**
- * CSRD / official reporting: audit-style sustainability ledger (mirrors dashboard Ironbloom metrics).
+ * CSRD / official reporting: audit-style sustainability ledger (Ironbloom production metrics; mirrors dashboard strip).
  */
 export default function ReportsEnvironmentalImpactSection({ data }: Props) {
   const kwhStr = Math.round(data.totalKwh).toLocaleString();
@@ -31,7 +31,8 @@ export default function ReportsEnvironmentalImpactSection({ data }: Props) {
             Environmental Impact Summary
           </h2>
           <p className="mt-1 text-[11px] text-slate-400">
-            Sustainability Ledger (Ironbloom) — tenant-verified physical metrics for CSRD disclosure support.
+            Sustainability Ledger (Kimbot) — tenant-verified physical metrics (kWh, L, CO₂e); monetary-only proxies are
+            rejected. CSRD disclosure support.
           </p>
         </div>
         <p className="text-[10px] font-mono uppercase text-slate-500">
@@ -109,7 +110,7 @@ export default function ReportsEnvironmentalImpactSection({ data }: Props) {
 
       <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
         Values aggregate resolved-threat sustainability records for the active tenant. Same ledger as the Executive Dashboard
-        Ironbloom card; suitable for internal CSRD evidence packs (verify against exported audit logs before external filing).
+        Ironbloom CSRD card; suitable for internal CSRD evidence packs (verify against exported audit logs before external filing).
       </p>
     </section>
   );

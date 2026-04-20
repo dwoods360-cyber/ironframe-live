@@ -31,7 +31,7 @@ function ActionSourceBadge({ action, hostile }: { action: string; hostile: boole
   }
   if (
     upper === "GRCBOT_SIMULATION" ||
-    /GRCBOT/i.test(action) ||
+    /GRCBOT|GRC_BOT/i.test(action) ||
     upper === "AI_QUOTA_FALLBACK"
   ) {
     return (

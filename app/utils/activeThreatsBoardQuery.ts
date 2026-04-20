@@ -2,6 +2,7 @@
  * Shared Prisma query for the Active board — used by Server Actions and GET /api/threats/active.
  */
 import prisma from "@/lib/prisma";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 
@@ -48,6 +49,30 @@ export type ActiveThreatEventRow = Prisma.ThreatEventGetPayload<{
   select: typeof activeThreatBoardSelect;
 }>;
 
+/** SimThreatEvent has no WorkNote / AuditLog relations — scalars only (same board mapper, empty history). */
+export const simActiveThreatBoardSelect = {
+  id: true,
+  title: true,
+  status: true,
+  isRemoteAccessAuthorized: true,
+  remoteTechId: true,
+  financialRisk_cents: true,
+  score: true,
+  targetEntity: true,
+  sourceAgent: true,
+  createdAt: true,
+  assigneeId: true,
+  ingestionDetails: true,
+  aiReport: true,
+  ttlSeconds: true,
+} satisfies Prisma.SimThreatEventSelect;
+
+export type SimActiveThreatEventRow = Prisma.SimThreatEventGetPayload<{
+  select: typeof simActiveThreatBoardSelect;
+}>;
+
+export type ActiveBoardUnionRow = ActiveThreatEventRow | SimActiveThreatEventRow;
+
 /**
  * Main Ops active board: only in-flight workflow states used by ThreatEvent.
  * This prevents board flooding from `PIPELINE`/`DE_ACKNOWLEDGED` rows while keeping live work visible.
@@ -65,7 +90,15 @@ export function getActiveThreatWhereClause(): Prisma.ThreatEventWhereInput {
   };
 }
 
-export async function findActiveThreatEventRowsForBoard() {
+export async function findActiveThreatEventRowsForBoard(): Promise<ActiveBoardUnionRow[]> {
+  const sim = await readSimulationPlaneEnabled();
+  if (sim) {
+    return prisma.simThreatEvent.findMany({
+      where: getActiveThreatWhereClause() as Prisma.SimThreatEventWhereInput,
+      select: simActiveThreatBoardSelect,
+      orderBy: { updatedAt: "desc" },
+    });
+  }
   return prisma.threatEvent.findMany({
     where: getActiveThreatWhereClause(),
     select: activeThreatBoardSelect,
@@ -73,13 +106,16 @@ export async function findActiveThreatEventRowsForBoard() {
   });
 }
 
-/** Map Prisma rows (same select as `activeThreatBoardSelect`) → `PipelineThreatFromDb`. */
+/** Map Prisma rows (ThreatEvent with relations, or SimThreatEvent scalars) → `PipelineThreatFromDb`. */
 export function mapThreatEventRowsToPipelineThreatFromDb(
-  rows: ActiveThreatEventRow[],
+  rows: readonly ActiveBoardUnionRow[],
 ): PipelineThreatFromDb[] {
   return rows.map((r) => {
     const liabilityLine = `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`;
     const ar = r.aiReport?.trim();
+    const auditTrail =
+      "auditTrail" in r && Array.isArray(r.auditTrail) ? r.auditTrail : [];
+    const notes = "notes" in r && Array.isArray(r.notes) ? r.notes : [];
     return {
       id: r.id,
       name: r.title,
@@ -91,14 +127,14 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
       aiReport: r.aiReport ?? null,
       createdAt: r.createdAt.toISOString(),
       assignedTo: r.assigneeId?.trim() || undefined,
-      assignmentHistory: (r.auditTrail ?? []).map((log) => ({
+      assignmentHistory: auditTrail.map((log) => ({
         id: log.id,
         action: log.action,
         justification: log.justification,
         operatorId: log.operatorId,
         createdAt: log.createdAt.toISOString(),
       })),
-      workNotes: (r.notes ?? []).map((n) => ({
+      workNotes: notes.map((n) => ({
         text: n.text,
         user: n.operatorId,
         timestamp: n.createdAt.toISOString(),
@@ -136,6 +172,9 @@ export type PipelineThreatFromDb = {
   threatStatus?: string;
   remoteTechId?: string | null;
   isRemoteAccessAuthorized?: boolean;
+  dispositionStatus?: string | null;
+  isFalsePositive?: boolean;
+  receiptHash?: string | null;
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */

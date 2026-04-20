@@ -20,6 +20,7 @@ type ComplianceOverlayState = {
   setShowCompliance: (v: boolean) => void;
   auditHistory: GrAuditHistoryEntry[];
   appendAuditEntry: (entry: Omit<GrAuditHistoryEntry, "id" | "recordedAt">) => void;
+  clearGrAuditHistoryForPurge: () => void;
 };
 
 function newId(): string {
@@ -48,6 +49,7 @@ export const useComplianceOverlayStore = create<ComplianceOverlayState>()(
           auditHistory: [{ ...entry, id, recordedAt }, ...s.auditHistory].slice(0, MAX_AUDIT),
         }));
       },
+      clearGrAuditHistoryForPurge: () => set({ auditHistory: [] }),
     }),
     {
       name: "ironframe-grc-audit",

@@ -7,9 +7,18 @@ import {
   revertThreatToPipelineAction,
   addWorkNoteAction,
 } from '@/app/actions/threatActions';
+import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
+import { useAgentStore } from "@/app/store/agentStore";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+
+/** TEMP GRC/QA: identify callers that surface threatActionError (active). */
+function logThreatActionErrorActivation(message: string, source: string) {
+  console.log(`[STORE DEBUG] threatActionError active: true [${source}]: ${message}`);
+  console.log(`[STORE DEBUG] threatActionError set by:`, new Error().stack);
+  console.trace("[STORE DEBUG] threatActionError trace");
+}
 
 /**
  * useRiskStore — GRC pipeline, selectedThreatId (drawer), industry/tenant.
@@ -80,6 +89,10 @@ export type PipelineThreat = {
   justification?: string;
   /** ThreatEvent.status from DB (e.g. ESCALATED after Irontech Phone Home). */
   threatStatus?: string;
+  /** GRC disposition label from DB (twin ThreatEvent / SimThreatEvent). */
+  dispositionStatus?: string | null;
+  isFalsePositive?: boolean;
+  receiptHash?: string | null;
   /** Assigned remote technician ref (Level-3 dispatch). */
   remoteTechId?: string | null;
   /** Admin/Owner-authorized remote session (GRC). */
@@ -139,6 +152,8 @@ interface RiskState {
   replacePipelineThreats: (threats: PipelineThreat[]) => void;
   /** Incremental bot/client upsert (add/update one threat without dropping others). */
   upsertPipelineThreat: (threat: PipelineThreat) => void;
+  /** Same as `upsertPipelineThreat` for the Active Risks lane (e.g. IRONCHAOS). */
+  upsertActiveThreat: (threat: PipelineThreat) => void;
   /** Authoritative DB sync replacement for active threats. */
   replaceActiveThreats: (threats: PipelineThreat[]) => void;
   addThreatToPipeline: (threat: PipelineThreat) => void;
@@ -163,12 +178,20 @@ interface RiskState {
       threatStatus?: string;
       remoteTechId?: string | null;
       isRemoteAccessAuthorized?: boolean;
+      /** Merged ThreatEvent / SimThreatEvent JSON (e.g. chaos shadow audit log). */
+      ingestionDetails?: string;
+      assigneeId?: string;
     }
   ) => void;
   acceptPipelineThreat: (id: string) => void;
 
   // GRC lifecycle actions (server-backed)
-  acknowledgeThreat: (id: string, operatorId: string, justification: string | undefined, tenantId: string) => Promise<void>;
+  acknowledgeThreat: (
+    id: string,
+    operatorId: string,
+    justification: string | undefined,
+    tenantId: string,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   confirmThreat: (id: string, operatorId: string) => Promise<void>;
   resolveThreat: (
     id: string,
@@ -247,6 +270,9 @@ interface RiskState {
   threatActionError: { active: boolean; message: string };
   setThreatActionError: (v: { active: boolean; message: string }) => void;
 
+  /** True while acknowledgeThreat server action is in flight — reconcile radar must not run. */
+  isAcknowledgeInFlight: boolean;
+
   /** Threat detail drawer (dashboard): when set, open slide-over for this threat id */
   selectedThreatId: string | null;
   setSelectedThreatId: (id: string | null) => void;
@@ -288,6 +314,23 @@ interface RiskState {
     /** Top Sector / Strategic Intel registration — persisted as `ingestionDetails.grcJustification` on create. */
     grcJustification?: string;
   }) => Promise<PipelineThreat>;
+
+  /** Refetch pipeline-stage threats from DB (no settlement delay). Browser only. */
+  refreshPipelineThreatsFromDb: () => Promise<void>;
+  /** Refetch active threats from `/api/threats/active` and merge optimistic agent-store rows. Browser only. */
+  refreshActiveThreatsFromDb: () => Promise<void>;
+  /** Pipeline + active refetch in parallel — call after bot triggers for sub-second board sync. */
+  pulseThreatBoardsFromDb: () => Promise<void>;
+
+  /** Irontech chaos drill flight recorder (client UX; steps 1–4 lock Acknowledge during 12s telemetry). */
+  chaosFlightRecorderByThreatId: Record<string, { step: 1 | 2 | 3 | 4; statusLine: string }>;
+  setChaosFlightRecorder: (
+    threatId: string,
+    value: { step: 1 | 2 | 3 | 4; statusLine: string } | null,
+  ) => void;
+  /** Shown on Active Risks after auto-ack from chaos flight sequence. */
+  chaosSelfHealedLineByThreatId: Record<string, string>;
+  setChaosSelfHealedLine: (threatId: string, line: string | null) => void;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -340,6 +383,24 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       return {
         pipelineThreats: nextPipelineThreats,
         threatIndexById: buildThreatIndexById(nextPipelineThreats, state.activeThreats),
+      };
+    }),
+  upsertActiveThreat: (threat) =>
+    set((state) => {
+      const normalized: PipelineThreat = {
+        ...threat,
+        lifecycleState: threat.lifecycleState ?? "active",
+        workNotes: threat.workNotes ?? [],
+        createdAt: threat.createdAt ?? new Date().toISOString(),
+      };
+      const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
+      const nextActive =
+        idx === -1
+          ? [normalized, ...state.activeThreats]
+          : state.activeThreats.map((t, i) => (i === idx ? { ...t, ...normalized } : t));
+      return {
+        activeThreats: nextActive,
+        threatIndexById: buildThreatIndexById(state.pipelineThreats, nextActive),
       };
     }),
   replaceActiveThreats: (threats) =>
@@ -434,19 +495,40 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   }),
   acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
     set({ threatActionError: { active: false, message: "" } });
+    set({ isAcknowledgeInFlight: true });
     try {
       const result = await acknowledgeThreatAction(id, tenantId, operatorId, justification);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const msg = result.error || "Acknowledge failed due to invalid tenant mapping.";
+        logThreatActionErrorActivation(msg, "acknowledgeThreat:serverFailure");
         set({
           threatActionError: {
             active: true,
-            message: result.error || "Acknowledge failed due to invalid tenant mapping.",
+            message: msg,
           },
         });
-        return;
+        return { success: false, error: msg };
       }
+      if (
+        result &&
+        typeof result === "object" &&
+        "success" in result &&
+        result.success === true &&
+        "warning" in result
+      ) {
+        const w = (result as { warning?: string }).warning;
+        if (w) console.warn("[STORE] acknowledgeThreatAction server warning:", w);
+      }
+
+      // State lock / handoff: load authoritative boards from DB before mutating local lists.
+      // Avoids a frame where the id is absent from both pipeline and active (split-brain / Kimbot paradox).
+      await get().pulseThreatBoardsFromDb().catch(() => undefined);
+
       const stateAtAck = get();
-      const ackedThreat = stateAtAck.threatIndexById[id] ?? stateAtAck.pipelineThreats.find((t) => t.id === id);
+      const ackedThreat =
+        stateAtAck.threatIndexById[id] ??
+        stateAtAck.pipelineThreats.find((t) => t.id === id) ??
+        stateAtAck.activeThreats.find((t) => t.id === id);
       appendAuditLog({
         action_type: "GRC_ACKNOWLEDGE_CLICK",
         log_type: "GRC",
@@ -454,10 +536,50 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         user_id: operatorId,
         metadata_tag: `industry:${ackedThreat?.industry ?? stateAtAck.selectedIndustry}|tenant:${stateAtAck.selectedTenantName ?? "GLOBAL"}|threatId:${id}`,
       });
-      set((state) => {
-        const threat = state.pipelineThreats.find((t) => t.id === id);
-        const j = (justification ?? "").trim();
 
+      const j = (justification ?? "").trim();
+      set((state) => {
+        const inActive = state.activeThreats.some((t) => t.id === id);
+
+        if (inActive) {
+          let activeThreats = state.activeThreats;
+          if (j) {
+            activeThreats = state.activeThreats.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    justification: j || t.justification,
+                    ingestionDetails: mergeIngestionDetailsPatch(t.ingestionDetails ?? null, {
+                      grcJustification: j,
+                    }),
+                  }
+                : t,
+            );
+          }
+          const merged = activeThreats.find((t) => t.id === id);
+          const impactRounded =
+            merged != null
+              ? Number(((merged.loss ?? merged.score ?? 0) as number).toFixed(1))
+              : 0;
+          const newSidebar = state.activeSidebarThreats.includes(id)
+            ? state.activeSidebarThreats
+            : [...state.activeSidebarThreats, id];
+          return {
+            threatActionError: { active: false, message: "" },
+            selectedThreatId: null,
+            activeThreats,
+            acceptedThreatImpacts: merged
+              ? { ...state.acceptedThreatImpacts, [id]: impactRounded }
+              : state.acceptedThreatImpacts,
+            acceptedThreatIndustries: merged
+              ? { ...state.acceptedThreatIndustries, [id]: merged.industry ?? "Healthcare" }
+              : state.acceptedThreatIndustries,
+            activeSidebarThreats: newSidebar,
+            threatIndexById: buildThreatIndexById(state.pipelineThreats, activeThreats),
+          };
+        }
+
+        const threat = state.pipelineThreats.find((t) => t.id === id);
         const toActive =
           threat && !state.activeThreats.some((t) => t.id === id)
             ? {
@@ -475,10 +597,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
               }
             : null;
 
-        // Use loss (liability in millions) for $M impact; score is severity 1–10 and would truncate decimals.
         const impactM = threat ? (threat.loss ?? threat.score) : 0;
-        const impactRounded = typeof impactM === 'number' ? Number(impactM.toFixed(1)) : 0;
-        const newActive = threat && !state.activeSidebarThreats.includes(id)
+        const impactRounded = typeof impactM === "number" ? Number(impactM.toFixed(1)) : 0;
+        const newActiveSidebar = threat && !state.activeSidebarThreats.includes(id)
           ? [...state.activeSidebarThreats, id]
           : state.activeSidebarThreats;
         const newImpacts = threat
@@ -488,31 +609,55 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           ? { ...state.acceptedThreatIndustries, [id]: threat.industry ?? "Healthcare" }
           : state.acceptedThreatIndustries;
         return {
+          threatActionError: { active: false, message: "" },
+          selectedThreatId: null,
           threatIndexById: buildThreatIndexById(
             state.pipelineThreats.filter((t) => t.id !== id),
             toActive ? [...state.activeThreats, toActive] : state.activeThreats,
           ),
-          activeSidebarThreats: newActive,
+          activeSidebarThreats: newActiveSidebar,
           pipelineThreats: state.pipelineThreats.filter((t) => t.id !== id),
           acceptedThreatImpacts: newImpacts,
           acceptedThreatIndustries: newIndustries,
           activeThreats: toActive ? [...state.activeThreats, toActive] : state.activeThreats,
         };
       });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("clear-threat-modals"));
+      }
+      return { success: true };
     } catch (error) {
       console.error("acknowledgeThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "acknowledgeThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
+      return { success: false, error: display };
+    } finally {
+      set({ isAcknowledgeInFlight: false });
     }
   },
   confirmThreat: async (id, operatorId) => {
+    set({ threatActionError: { active: false, message: "" } });
     try {
-      await confirmThreatAction(id, operatorId);
+      const result = await confirmThreatAction(id, operatorId);
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const msg = result.error || "Confirm failed.";
+        logThreatActionErrorActivation(msg, "confirmThreat:serverFailure");
+        set({
+          threatActionError: {
+            active: true,
+            message: msg,
+          },
+        });
+        return;
+      }
       set((state) => ({
         activeThreats: state.activeThreats.map((t) =>
           t.id === id ? { ...t, lifecycleState: "confirmed" } : t
@@ -527,10 +672,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("confirmThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "confirmThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       throw error;
@@ -539,6 +686,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   resolveThreat: async (id, operatorId, resolutionJustification, actorDisplayName) => {
     const trimmed = resolutionJustification.trim();
     if (trimmed.length < 50) {
+      logThreatActionErrorActivation(
+        "Resolution justification must be at least 50 characters.",
+        "resolveThreat:validation",
+      );
       set({
         threatActionError: {
           active: true,
@@ -550,6 +701,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     try {
       const result = await resolveThreatAction(id, operatorId, trimmed, actorDisplayName);
       if (!result.success) {
+        logThreatActionErrorActivation(
+          "Threat record not found or could not be resolved.",
+          "resolveThreat:serverFailure",
+        );
         set({
           threatActionError: { active: true, message: "Threat record not found or could not be resolved." },
         });
@@ -576,10 +731,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("resolveThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "resolveThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       throw error;
@@ -591,6 +748,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       const result = await deAcknowledgeThreatAction(id, tenantId, reason, justification, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
         const errMsg = "error" in result && typeof result.error === "string" ? result.error : "Action failed: Record no longer exists.";
+        logThreatActionErrorActivation(errMsg, "deAcknowledgeThreat:serverFailure");
         set({
           threatActionError: {
             active: true,
@@ -619,10 +777,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("deAcknowledgeThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "deAcknowledgeThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       return { success: false, error: msg };
@@ -632,6 +792,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     try {
       const result = await revertThreatToPipelineAction(id, tenantId, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
+        logThreatActionErrorActivation("Revert failed: Record no longer exists.", "revertThreatToPipeline:serverFailure");
         set({
           threatActionError: {
             active: true,
@@ -662,10 +823,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("revertThreatToPipelineAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("Irongate") ? msg : "Revert to pipeline failed.";
+      logThreatActionErrorActivation(display, "revertThreatToPipeline:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("Irongate") ? msg : "Revert to pipeline failed.",
+          message: display,
         },
       });
       throw error;
@@ -733,6 +896,23 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   liveMonitoringCount: 0,
   setLiveMonitoringCount: (n) => set({ liveMonitoringCount: n }),
 
+  chaosFlightRecorderByThreatId: {},
+  setChaosFlightRecorder: (threatId, value) =>
+    set((state) => {
+      const next = { ...state.chaosFlightRecorderByThreatId };
+      if (value === null) delete next[threatId];
+      else next[threatId] = value;
+      return { chaosFlightRecorderByThreatId: next };
+    }),
+  chaosSelfHealedLineByThreatId: {},
+  setChaosSelfHealedLine: (threatId, line) =>
+    set((state) => {
+      const next = { ...state.chaosSelfHealedLineByThreatId };
+      if (line === null || line === "") delete next[threatId];
+      else next[threatId] = line;
+      return { chaosSelfHealedLineByThreatId: next };
+    }),
+
   clearSimulationFromActiveThreats: () =>
     set((state) => ({
       activeThreats: state.activeThreats.filter(
@@ -746,7 +926,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       ),
     })),
 
-  clearAllRiskStateForPurge: () =>
+  clearAllRiskStateForPurge: () => {
     set({
       pipelineThreats: [],
       activeThreats: [],
@@ -758,7 +938,22 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       threatIndexById: {},
       activeFrameworkIds: [],
       recoveryBoardSyncPending: false,
-    }),
+      historicalThreatNames: {},
+      threatActionError: { active: false, message: "" },
+      isAcknowledgeInFlight: false,
+      recordExpiredToast: { active: false, count: 0 },
+      liabilityAlert: { active: false },
+      liveMonitoringCount: 0,
+      selectedThreatId: null,
+      riskReductionFlash: false,
+      chaosFlightRecorderByThreatId: {},
+      chaosSelfHealedLineByThreatId: {},
+    });
+    /** Let Active Risks flush local React state + veil stale dashboard props until the shell refetches. */
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ironframe:grc-purge-detonated"));
+    }
+  },
 
   removeGhostThreats: (ids) =>
     set((state) => {
@@ -789,7 +984,14 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   setRecoveryBoardSyncPending: (pending) => set({ recoveryBoardSyncPending: pending }),
 
   threatActionError: { active: false, message: "" },
-  setThreatActionError: (v) => set({ threatActionError: v }),
+  setThreatActionError: (v) => {
+    if (v.active) {
+      logThreatActionErrorActivation(v.message, "setThreatActionError");
+    }
+    set({ threatActionError: v });
+  },
+
+  isAcknowledgeInFlight: false,
 
   selectedThreatId: null,
   setSelectedThreatId: (id) => set({ selectedThreatId: id }),
@@ -905,6 +1107,53 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       get().upsertPipelineThreat(record);
     }
     return record;
+  },
+
+  refreshPipelineThreatsFromDb: async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const pipeRows = await fetchPipelineThreatsFromDb();
+      const asPipeline: PipelineThreat[] = pipeRows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        loss: r.loss,
+        score: r.score,
+        industry: r.industry,
+        source: r.source,
+        description: r.description,
+        createdAt: r.createdAt,
+        threatStatus: r.threatStatus,
+        ingestionDetails: r.ingestionDetails ?? undefined,
+        dispositionStatus: r.dispositionStatus,
+        isFalsePositive: r.isFalsePositive,
+        receiptHash: r.receiptHash,
+      }));
+      get().replacePipelineThreats(asPipeline);
+    } catch {
+      // Non-fatal: polling / other sync paths may recover.
+    }
+  },
+
+  refreshActiveThreatsFromDb: async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const res = await fetch("/api/threats/active", { cache: "no-store" });
+      if (!res.ok) return;
+      const activeRows = (await res.json()) as PipelineThreat[];
+      const optimistic = useAgentStore.getState().activeThreats ?? [];
+      const withOptimistic = [
+        ...activeRows,
+        ...optimistic.filter((t) => !activeRows.some((db) => db.id === t.id)),
+      ];
+      const merged = useAgentStore.getState().setInitialThreats(withOptimistic);
+      get().replaceActiveThreats(merged);
+    } catch {
+      // Non-fatal
+    }
+  },
+
+  pulseThreatBoardsFromDb: async () => {
+    await Promise.all([get().refreshPipelineThreatsFromDb(), get().refreshActiveThreatsFromDb()]);
   },
 
   resolveHistoricalThreatName: async (id) => {

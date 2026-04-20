@@ -8,7 +8,11 @@ import { appendAuditLog, type CreateAuditLogInput } from "@/app/utils/auditLogge
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import type { SerializedCompany } from "@/app/components/GlobalHealthSummaryCardClient";
-import { createGrcBotThreatServer } from "@/app/actions/simulationActions";
+import {
+  createGrcBotThreatPlaceholderServer,
+  updateGrcBotThreatServer,
+} from "@/app/actions/simulationActions";
+import { GRC_SOURCE, GRC_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 
 const SECTORS = ["Healthcare", "Finance", "Energy"] as const;
 const TENANT_BY_SECTOR: Record<(typeof SECTORS)[number], string> = {
@@ -74,14 +78,26 @@ export async function runGrcBotCycle(options: GrcBotCycleOptions = {}): Promise<
   const canonicalTenant = TENANT_BY_SECTOR[sector];
   const liability = Number((Math.random() * 8 + 0.5).toFixed(1));
   const severity = Math.min(10, Math.max(1, Math.round(liability)));
-  const threatName = `Vendor artifact GRCBOT ${cycleId}`;
+  const threatName = `${GRC_THREAT_TITLE_PREFIX} Vendor artifact GRCBOT ${cycleId}`;
 
-  const created = await createGrcBotThreatServer({
+  const placeholder = await createGrcBotThreatPlaceholderServer();
+  const placeholderCard: PipelineThreat = {
+    id: placeholder.id,
+    name: placeholder.title,
+    loss: placeholder.financialRisk_cents / 100_000_000,
+    score: placeholder.score,
+    industry: placeholder.targetEntity,
+    source: placeholder.sourceAgent,
+    description: "GRCBOT: initializing vendor artifact simulation…",
+  };
+  useRiskStore.getState().upsertPipelineThreat(placeholderCard);
+
+  const created = await updateGrcBotThreatServer(placeholder.id, {
     title: threatName,
     // targetEntity in ThreatEvent must be a canonical tenant name to preserve DB integrity.
     sector: canonicalTenant,
     liability,
-    source: "GRCBOT (Simulation)",
+    source: GRC_SOURCE,
     severity,
   });
 

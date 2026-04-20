@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
-import prisma from "@/lib/prisma";
 import { mapActiveThreatFromDbToPipelineThreat } from "@/app/utils/mapActiveThreatFromDbToPipelineThreat";
 import {
-  activeThreatBoardSelect,
-  getActiveThreatWhereClause,
+  findActiveThreatEventRowsForBoard,
   mapThreatEventRowsToPipelineThreatFromDb,
 } from "@/app/utils/activeThreatsBoardQuery";
 
@@ -14,11 +12,7 @@ export const fetchCache = "force-no-store";
 
 export async function GET() {
   noStore();
-  const rows = await prisma.threatEvent.findMany({
-    where: getActiveThreatWhereClause(),
-    select: activeThreatBoardSelect,
-    orderBy: { updatedAt: "desc" },
-  });
+  const rows = await findActiveThreatEventRowsForBoard();
   console.log("FETCHED THREATS COUNT:", rows.length);
   const fromDb = mapThreatEventRowsToPipelineThreatFromDb(rows);
   const formatted = fromDb.map(mapActiveThreatFromDbToPipelineThreat);

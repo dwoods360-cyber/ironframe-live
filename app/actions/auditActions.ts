@@ -62,9 +62,10 @@ export async function getRecentAuditLogs(limit = 5): Promise<RecentAuditLogRow[]
  * Does not throw; logs errors to console.
  */
 export async function logThreatActivity(
-  threatId: string,
+  threatId: string | null,
   actionName: string,
   details: string,
+  options?: { isSimulation?: boolean },
 ): Promise<void> {
   try {
     await prisma.auditLog.create({
@@ -73,7 +74,7 @@ export async function logThreatActivity(
         justification: details,
         operatorId: 'THREAT_ACTIVITY',
         threatId,
-        isSimulation: false,
+        isSimulation: options?.isSimulation ?? false,
       },
     });
   } catch (error) {

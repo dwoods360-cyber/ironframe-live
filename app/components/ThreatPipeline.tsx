@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Bot, ExternalLink, Skull } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
+import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositionReceiptBar";
+import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
 import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
@@ -13,8 +15,20 @@ import { appendAuditLog } from "@/app/utils/auditLogger";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
+import { SIMULATION_MODE_COOKIE } from "@/app/store/systemConfigStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import {
+  GRC_SOURCE,
+  GRC_THREAT_TITLE_PREFIX,
+  KIMBOT_THREAT_SOURCE_AGENT,
+  LEGACY_KIMBOT_THREAT_SOURCE_AGENT,
+  KIMBOT_THREAT_TITLE_PREFIX,
+  LEGACY_KIMBOT_THREAT_TITLE_PREFIX,
+} from "@/app/config/agents";
+import ChaosShadowAuditFeed, {
+  isChaosShadowPlaneThreat,
+} from "@/app/components/chaos/ChaosShadowAuditFeed";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -141,6 +155,7 @@ function PipelineThreatCard({
   }, [tttStopped]);
 
   const acknowledgeThreat = useRiskStore((s) => s.acknowledgeThreat);
+  const chaosFlight = useRiskStore((s) => s.chaosFlightRecorderByThreatId[threat.id]);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
@@ -155,10 +170,12 @@ function PipelineThreatCard({
   const scoreM = threat.score ?? threat.loss;
   const srcUpper = (threat.source ?? "").toUpperCase();
   const isKimbotThreat =
-    srcUpper === "KIMBOT" ||
-    srcUpper === "IRONBLOOM" ||
-    (threat.name ?? "").startsWith("[KIMBOT]") ||
-    (threat.name ?? "").startsWith("[IRONBLOOM]");
+    srcUpper !== GRC_SOURCE &&
+    !(threat.name ?? "").startsWith(GRC_THREAT_TITLE_PREFIX) &&
+    (srcUpper === KIMBOT_THREAT_SOURCE_AGENT ||
+      srcUpper === LEGACY_KIMBOT_THREAT_SOURCE_AGENT ||
+      (threat.name ?? "").startsWith(KIMBOT_THREAT_TITLE_PREFIX) ||
+      (threat.name ?? "").startsWith(LEGACY_KIMBOT_THREAT_TITLE_PREFIX));
   const existingNotes = threat.notes ?? [];
   const scopeTag = `industry:${threat.industry ?? activeIndustry}|tenant:${activeTenant ?? "GLOBAL"}|threatId:${threat.id}`;
 
@@ -225,9 +242,16 @@ function PipelineThreatCard({
     (isTopSectorThreat && grcTrimmed === TOP_SECTOR_JUSTIFICATION_TEXT);
 
   const ackEnabled = true;
+  const chaosFlightLocksAck =
+    chaosFlight != null &&
+    (chaosFlight.step === 1 ||
+      chaosFlight.step === 2 ||
+      chaosFlight.step === 3 ||
+      chaosFlight.step === 4);
+  const showChaosShadowFeed = isChaosShadowPlaneThreat(threat.ingestionDetails);
 
   const handleAcknowledgeClick = async () => {
-    if (!ackEnabled || ackPending) return;
+    if (!ackEnabled || ackPending || chaosFlightLocksAck) return;
 
     setAckPending(true);
     setThreatActionError({ active: false, message: "" });
@@ -246,14 +270,13 @@ function PipelineThreatCard({
     try {
       const workNotePayload = grcTrimmed;
 
-      await acknowledgeThreat(
+      const outcome = await acknowledgeThreat(
         threat.id,
         operatorId,
         workNotePayload,
         resolveTenantId(activeTenant)
       );
-      const err = useRiskStore.getState().threatActionError;
-      if (err.active && err.message) {
+      if (!outcome.success) {
         updatePipelineThreat(threat.id, {
           lifecycleState: "pipeline",
           lastTriageAction: undefined,
@@ -314,54 +337,57 @@ function PipelineThreatCard({
       }
     >
       <div className="p-4 space-y-4">
-        {/* Header — Ironbloom / legacy KIMBOT source layout */}
+        {/* Header — single horizontal flow (flex-wrap) so chips never overlap; title flexes, pills stay shrink-0 */}
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              {isKimbotThreat && <Skull className="h-4 w-4 shrink-0 text-red-500" aria-hidden />}
-              <span
-                className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                  severityLabelText === "MEDIUM"
-                    ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
-                    : severityLabelText === "HIGH"
-                      ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
-                      : "bg-red-500/10 border-red-500/60 text-red-300"
-                }`}
-              >
-                {severityLabelText}
-              </span>
-              <Link
-                href={`/threats/${threat.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedThreatId(threat.id);
-                }}
-                className="min-w-0 truncate text-sm font-semibold text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-950 rounded"
-              >
-                {threat.name}
-              </Link>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <span className="rounded-full border border-emerald-500/50 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
-                ${scoreM.toFixed(2)}M Liability
-              </span>
-              {isKimbotThreat && (
-                <span className="rounded-full border border-amber-500/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
-                  {kimbotAttackQueueCount} ATTACKS IN QUEUE
+          <div className="flex w-full min-w-0 flex-row flex-wrap items-center gap-x-3 gap-y-2">
+            {isKimbotThreat && (
+              <>
+                <span className="shrink-0 rounded border border-rose-500/70 bg-rose-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-rose-200">
+                  SIM
                 </span>
-              )}
-              <Link
-                href={`/threats/${threat.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setSelectedThreatId(threat.id);
-                }}
-                className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 hover:border-blue-500/60 hover:text-blue-200"
-              >
-                <ExternalLink className="h-3 w-3" aria-hidden />
-                VIEW DETAILS
-              </Link>
-            </div>
+                <Skull className="h-4 w-4 shrink-0 text-red-500" aria-hidden />
+              </>
+            )}
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                severityLabelText === "MEDIUM"
+                  ? "bg-amber-500/10 border-amber-500/40 text-amber-300"
+                  : severityLabelText === "HIGH"
+                    ? "bg-orange-500/10 border-orange-500/50 text-orange-300"
+                    : "bg-red-500/10 border-red-500/60 text-red-300"
+              }`}
+            >
+              {severityLabelText}
+            </span>
+            <Link
+              href={`/threats/${threat.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedThreatId(threat.id);
+              }}
+              className="min-w-0 max-w-full flex-[1_1_10rem] truncate text-sm font-semibold text-white hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-950 rounded sm:max-w-[min(100%,28rem)]"
+            >
+              {threat.name}
+            </Link>
+            <span className="shrink-0 rounded-full border border-emerald-500/50 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-300">
+              ${scoreM.toFixed(2)}M Liability
+            </span>
+            {isKimbotThreat && (
+              <span className="shrink-0 rounded-full border border-amber-500/50 bg-amber-950/30 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-200">
+                {kimbotAttackQueueCount} ATTACKS IN QUEUE
+              </span>
+            )}
+            <Link
+              href={`/threats/${threat.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedThreatId(threat.id);
+              }}
+              className="inline-flex shrink-0 items-center gap-1 rounded border border-slate-600 bg-slate-800/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 hover:border-blue-500/60 hover:text-blue-200"
+            >
+              <ExternalLink className="h-3 w-3" aria-hidden />
+              VIEW DETAILS
+            </Link>
           </div>
           <p className="font-mono text-[10px] text-slate-500 break-all">{threat.id}</p>
           <p className="text-[10px] text-slate-400">
@@ -376,6 +402,18 @@ function PipelineThreatCard({
               Triage clock {tttDisplay}
             </span>
           </div>
+          {showChaosShadowFeed ? (
+            <ChaosShadowAuditFeed
+              ingestionDetails={threat.ingestionDetails}
+              pendingStatusLine={chaosFlight?.statusLine ?? null}
+            />
+          ) : chaosFlight ? (
+            <div className="rounded-sm border border-zinc-900 bg-black px-2 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]">
+              <p className="text-[10px] font-mono font-medium leading-snug text-[#ffb000]">
+                {chaosFlight.statusLine}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {/* TRIAGE — liability, target, L / I, risk score */}
@@ -562,21 +600,44 @@ function PipelineThreatCard({
           </div>
         </div>
 
+        <div className="rounded-md border border-cyan-900/45 bg-slate-950/35 p-2">
+          <p className="mb-1.5 text-[9px] font-bold uppercase tracking-wide text-cyan-200/90">
+            GRC disposition · Pass / False positive / Receipt
+          </p>
+          <ClearanceDispositionReceiptBar
+            threatId={threat.id}
+            threatStatus={threat.threatStatus}
+            dispositionStatus={threat.dispositionStatus ?? undefined}
+            receiptHash={threat.receiptHash ?? undefined}
+            onDispositionComplete={onActionSuccess}
+          />
+        </div>
+
         {/* Primary ACK */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={!ackEnabled || !ackRequirementsMet || ackPending}
+            disabled={!ackEnabled || !ackRequirementsMet || ackPending || chaosFlightLocksAck}
             onClick={handleAcknowledgeClick}
             className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
-              ackEnabled && ackRequirementsMet && !ackPending
+              ackEnabled && ackRequirementsMet && !ackPending && !chaosFlightLocksAck
                 ? "border-slate-500 bg-slate-700 text-white hover:bg-slate-600 cursor-pointer"
                 : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
             }`}
           >
-            {ackPending ? "Acknowledging…" : "Acknowledge"}
+            {ackPending ? "Acknowledging…" : chaosFlightLocksAck ? "Acknowledge (flight recorder)" : "Acknowledge"}
           </button>
         </div>
+
+        <PipelineSelfTestBar
+          threatId={threat.id}
+          threatTitle={threat.name}
+          threatStatus={threat.threatStatus ?? null}
+          likelihood={likelihood}
+          impact={impact}
+          ingestionDetails={threat.ingestionDetails ?? null}
+          onAfterAction={onActionSuccess}
+        />
       </div>
     </div>
   );
@@ -594,6 +655,9 @@ export default function ThreatPipeline({
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
+  const boardsRef = useRef({ pipeline: pipelineThreats, active: activeThreats });
+  boardsRef.current = { pipeline: pipelineThreats, active: activeThreats };
+  const reconcileDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const upsertPipelineThreat = useRiskStore((s) => s.upsertPipelineThreat);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
@@ -667,11 +731,26 @@ export default function ThreatPipeline({
   // # DATA_PERSISTENCE_FILTER — derive per-industry/tenant pipeline view from master pipelineThreats (store arrays stay untouched)
   const riskSearchLower = riskSearchQuery.trim().toLowerCase();
   const filteredRisks = pipelineThreats.filter((t) => {
-    const isSimulationThreat = (t.source?.toUpperCase().includes("SIMULATION") ?? false);
+    const src = (t.source ?? "").trim().toUpperCase();
+    /** Bot rows use `targetEntity` as canonical tenant name (e.g. Medshield), not UI sector — bypass strict industry match. */
+    const isBotOrSimPipelineSource =
+      src.includes("SIMULATION") ||
+      src === "GRC_BOT" ||
+      src === "KIMBOT" ||
+      src === "IRONBLOOM" ||
+      src === "ATTACK_BOT" ||
+      src === "ATTBOT_SIMULATION" ||
+      src === "IRONCHAOS";
     const matchesIndustry =
-      isSimulationThreat || !selectedIndustry || !t.industry || t.industry === selectedIndustry;
+      isBotOrSimPipelineSource ||
+      !selectedIndustry ||
+      !t.industry ||
+      t.industry === selectedIndustry;
+    const tenantSel = (selectedTenantName ?? "").trim();
     const matchesTenant =
-      !selectedTenantName || (t.target ?? "") === selectedTenantName;
+      tenantSel === "" ||
+      (t.target ?? "").trim() === tenantSel ||
+      (t.industry ?? "").trim() === tenantSel;
     return matchesIndustry && matchesTenant;
   });
   const visiblePipelineThreatsBase = riskSearchLower
@@ -982,71 +1061,95 @@ export default function ThreatPipeline({
     prevGrcBotEnabled.current = grcBotEnabled;
   }, [grcBotEnabled, syncThreatEventsFromDb]);
 
-  // Sync & Reconcile: periodically validate card IDs against DB and remove ghosts
+  // Sync & Reconcile: debounced POST on board churn + stable interval (no double-fire on store updates)
   const SYNC_RECONCILE_INTERVAL_MS = 60 * 1000;
-  useEffect(() => {
+  const SYNC_RECONCILE_DEBOUNCE_MS = 400;
+
+  const runSyncImpl = useCallback(async () => {
+    if (useRiskStore.getState().isAcknowledgeInFlight) return;
+
+    /** TEMP GRC override: silence reconcile radar when shadow simulation cookie is on (race / ghost diagnostics). */
+    if (
+      typeof document !== "undefined" &&
+      document.cookie.split(";").some((c) => c.trim().startsWith(`${SIMULATION_MODE_COOKIE}=1`))
+    ) {
+      return;
+    }
+
+    const { pipeline: pt, active: at } = boardsRef.current;
+
     function isDbBackedId(id: string): boolean {
       if (/^\d+$/.test(id) || /^(?:center-)?risk-\d+$/.test(id)) return true;
       if (id.length >= 20 && id.length <= 30 && /^c[a-z0-9]+$/i.test(id)) return true;
       return false;
     }
 
-    async function runSync() {
-      const allIds = [
-        ...pipelineThreats.map((t) => t.id),
-        ...activeThreats.map((t) => t.id),
-      ];
-      const toValidate = [...new Set(allIds)].filter(isDbBackedId);
-      if (toValidate.length === 0) return;
+    const allIds = [...pt.map((t) => t.id), ...at.map((t) => t.id)];
+    const toValidate = [...new Set(allIds)].filter(isDbBackedId);
+    if (toValidate.length === 0) return;
 
-      try {
-        const res = await fetch("/api/threats/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: toValidate }),
+    try {
+      const res = await fetch("/api/threats/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: toValidate }),
+      });
+      const data = (await res.json()) as { validIds?: string[] };
+      const validSet = new Set(data.validIds ?? []);
+      const ghostIds = toValidate.filter((id) => !validSet.has(id));
+      if (ghostIds.length > 0) {
+        const now = Date.now();
+        const localById = new Map(
+          useAgentStore.getState().activeThreats.map((t) => [t.id, t]),
+        );
+        const boardById = new Map([...pt, ...at].map((t) => [t.id, t]));
+        const removableGhostIds = ghostIds.filter((id) => {
+          const local = localById.get(id);
+          const board = boardById.get(id);
+          const createdIso = local?.createdAt ?? board?.createdAt;
+          const createdMs = createdIso ? Date.parse(createdIso) : NaN;
+          if (Number.isNaN(createdMs)) return true;
+          return now - createdMs >= 60_000;
         });
-        const data = (await res.json()) as { validIds?: string[] };
-        const validSet = new Set(data.validIds ?? []);
-        const ghostIds = toValidate.filter((id) => !validSet.has(id));
-        if (ghostIds.length > 0) {
-          const now = Date.now();
-          const localById = new Map(
-            useAgentStore.getState().activeThreats.map((t) => [t.id, t]),
-          );
-          const boardById = new Map(
-            [...pipelineThreats, ...activeThreats].map((t) => [t.id, t]),
-          );
-          const removableGhostIds = ghostIds.filter((id) => {
-            const local = localById.get(id);
-            const board = boardById.get(id);
-            const createdIso = local?.createdAt ?? board?.createdAt;
-            const createdMs = createdIso ? Date.parse(createdIso) : NaN;
-            if (Number.isNaN(createdMs)) return true;
-            return now - createdMs >= 60_000;
-          });
-          if (removableGhostIds.length === 0) return;
-          removeGhostThreats(removableGhostIds);
-          const toastCount = removableGhostIds.filter((id) => {
-            const local = localById.get(id);
-            const board = boardById.get(id);
-            const createdIso = local?.createdAt ?? board?.createdAt;
-            const createdMs = createdIso ? Date.parse(createdIso) : NaN;
-            if (Number.isNaN(createdMs)) return true;
-            return now - createdMs >= 120_000;
-          }).length;
-          if (toastCount > 0) {
-            setRecordExpiredToast({ active: true, count: toastCount });
-          }
+        if (removableGhostIds.length === 0) return;
+        removeGhostThreats(removableGhostIds);
+        const toastCount = removableGhostIds.filter((id) => {
+          const local = localById.get(id);
+          const board = boardById.get(id);
+          const createdIso = local?.createdAt ?? board?.createdAt;
+          const createdMs = createdIso ? Date.parse(createdIso) : NaN;
+          if (Number.isNaN(createdMs)) return true;
+          return now - createdMs >= 120_000;
+        }).length;
+        if (toastCount > 0) {
+          setRecordExpiredToast({ active: true, count: toastCount });
         }
-      } catch (_) {
-        // Network or server error; skip this cycle
       }
+    } catch (_) {
+      // Network or server error; skip this cycle
     }
+  }, [removeGhostThreats, setRecordExpiredToast]);
 
-    runSync();
-    const interval = setInterval(runSync, SYNC_RECONCILE_INTERVAL_MS);
+  useEffect(() => {
+    if (reconcileDebounceRef.current) clearTimeout(reconcileDebounceRef.current);
+    reconcileDebounceRef.current = setTimeout(() => {
+      reconcileDebounceRef.current = null;
+      void runSyncImpl();
+    }, SYNC_RECONCILE_DEBOUNCE_MS);
+    return () => {
+      if (reconcileDebounceRef.current) {
+        clearTimeout(reconcileDebounceRef.current);
+        reconcileDebounceRef.current = null;
+      }
+    };
+  }, [pipelineThreats, activeThreats, runSyncImpl]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void runSyncImpl();
+    }, SYNC_RECONCILE_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [pipelineThreats, activeThreats, removeGhostThreats, setRecordExpiredToast]);
+  }, [runSyncImpl]);
 
   return (
     <section className="border-b border-slate-800 bg-slate-900/50 px-4 py-6 font-sans">
@@ -1433,14 +1536,8 @@ export default function ThreatPipeline({
                   }}
                 >
                   {/* When collapsed: only first card is rendered; stack badge shows total count */}
-                  <PipelineThreatCard
-                    key={visiblePipelineThreats[0].id}
-                    threat={visiblePipelineThreats[0]}
-                    onActionSuccess={() => router.refresh()}
-                    setSelectedThreatId={setSelectedThreatId}
-                  />
                   {totalThreats > 0 && (
-                    <div className="absolute top-2 right-2 flex items-center gap-2">
+                    <div className="mb-2 flex flex-wrap items-center justify-end gap-2">
                       <span className="rounded-full border border-emerald-400/70 bg-slate-900/95 px-2 py-0.5 text-[9px] font-mono font-semibold tracking-wide text-emerald-300 shadow">
                         {formattedLiability}
                       </span>
@@ -1458,6 +1555,12 @@ export default function ThreatPipeline({
                       )}
                     </div>
                   )}
+                  <PipelineThreatCard
+                    key={visiblePipelineThreats[0].id}
+                    threat={visiblePipelineThreats[0]}
+                    onActionSuccess={() => router.refresh()}
+                    setSelectedThreatId={setSelectedThreatId}
+                  />
                 </div>
 
                 {/* Full list only when expanded — no slice(1) cards in DOM when collapsed */}

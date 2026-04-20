@@ -144,7 +144,7 @@ export function ThreatCard({
   const forceIngressGray = statusNorm === "ACTIVE" && ingestionBootstrapOn;
   const probeTrimmed = (infrastructureErrorProbeText ?? "").trim();
   const infrastructureLimit = isGrcInfrastructureLimitMessage(probeTrimmed);
-  /** Irontech/Chaos only — never infer from ACTIVE + low attempt count alone (avoids Ironbloom/GRC bleed). */
+  /** Irontech/Chaos only — never infer from ACTIVE + low attempt count alone (avoids Kimbot/GRC bleed). */
   const isIrontechOperation =
     Boolean(ironTechAgentPhase) || irontechAttemptCount > 0;
   const forceMitigatingSpinner =
@@ -442,8 +442,8 @@ export function ThreatCard({
         </div>
       ) : null}
       {chaosScenario === "CASCADING" && statusNorm === "ESCALATED" && handoffState !== "CONNECTED" ? (
-        <div className="mb-3 rounded-md border border-orange-500/80 bg-orange-950/45 px-3 py-2 shadow-[0_0_18px_rgba(249,115,22,0.32)]">
-          <p className="text-[10px] font-black uppercase tracking-wide text-orange-100">
+        <div className="mb-3 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+          <p className="text-[10px] font-black uppercase tracking-wide text-zinc-200">
             CASCADING FAILURE DETECTED: Irontech attempted Local and Global mitigation paths, but both failed. The threat is a zero-day variant. Human intervention is strictly required. Please click 'Authorize Remote Access' below.
           </p>
         </div>

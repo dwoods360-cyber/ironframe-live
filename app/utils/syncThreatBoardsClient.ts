@@ -28,6 +28,11 @@ export async function syncThreatBoardsClient(
     source: r.source,
     description: r.description,
     createdAt: r.createdAt,
+    threatStatus: r.threatStatus,
+    ingestionDetails: r.ingestionDetails ?? undefined,
+    dispositionStatus: r.dispositionStatus,
+    isFalsePositive: r.isFalsePositive,
+    receiptHash: r.receiptHash,
   }));
 
   const asActiveFromDb: PipelineThreat[] = activeRows;

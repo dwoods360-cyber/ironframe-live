@@ -45,7 +45,7 @@ Legacy systems lack N-th party visibility. Ironframe graphs the entire chain.
 
 ### ESG, Social, & Compliance Mapping
 Legacy systems treat ESG as an afterthought. Ironframe enforces strict data integrity.
-*   **Ironbloom (Agent 17):** Sustainability Analyst. Solves greenwashing by strictly requiring physical units (kWh, Liters) for Scope 1-3 Carbon ALE, rejecting monetary-only proxies.
+*   **Kimbot (Agent 17):** Sustainability Analyst. Solves greenwashing by strictly requiring physical units (kWh, Liters, km) for Scope 1-3 Carbon ALE, rejecting monetary-only proxies.
 *   **Ironethic (Agent 18):** Social & DEI Monitor. Solves PII liability via a strict No-PII Lock, ensuring all social data is aggregated and salted.
 *   **Irontally (Agent 19):** Disclosure & Framework Mapper. Solves manual compliance fatigue by automatically cross-walking data against CSRD, GRI, and ISSB frameworks.
 

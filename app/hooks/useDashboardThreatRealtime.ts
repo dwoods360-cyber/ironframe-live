@@ -28,6 +28,7 @@ function readIngestionDetailsString(row: Record<string, unknown>): string | null
  *
  * ```sql
  * alter publication supabase_realtime add table "ThreatEvent";
+ * alter publication supabase_realtime add table "SimThreatEvent";
  * -- select * from pg_publication_tables where pubname = 'supabase_realtime';
  * ```
  */
@@ -74,6 +75,8 @@ function playNewThreatChime(): void {
 
 type Params = {
   enabled: boolean;
+  /** When true, subscribe to `SimThreatEvent` instead of `ThreatEvent` (shadow plane). */
+  isSimulationMode: boolean;
   /** Company PKs (`companies.id`) for the active tenant; empty = no tenant filter (receive all). */
   tenantCompanyIds: string[];
   replacePipelineThreats: (threats: PipelineThreat[]) => void;
@@ -85,11 +88,12 @@ type Params = {
 };
 
 /**
- * Supabase Realtime on `ThreatEvent`: INSERT syncs immediately (&lt;500ms target); UPDATE debounced.
+ * Supabase Realtime on `ThreatEvent` or `SimThreatEvent`: INSERT syncs immediately (&lt;500ms target); UPDATE debounced.
  * Rows are filtered to `tenantCompanyIds` when the set is non-empty.
  */
 export function useDashboardThreatRealtime({
   enabled,
+  isSimulationMode,
   tenantCompanyIds,
   replacePipelineThreats,
   replaceActiveThreats,
@@ -214,11 +218,14 @@ export function useDashboardThreatRealtime({
       }
     };
 
+    const threatTable = isSimulationMode ? "SimThreatEvent" : "ThreatEvent";
     const channel = supabase
-      .channel(`dashboard-threat-event-${tenantCompanyIds.join(",") || "all"}`)
+      .channel(
+        `dashboard-threat-${isSimulationMode ? "sim-" : ""}${tenantCompanyIds.join(",") || "all"}`,
+      )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "ThreatEvent" },
+        { event: "INSERT", schema: "public", table: threatTable },
         (payload) => {
           const row = payload.new as Record<string, unknown>;
           if (row && typeof row === "object") handleInsert(row);
@@ -226,7 +233,7 @@ export function useDashboardThreatRealtime({
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "ThreatEvent" },
+        { event: "UPDATE", schema: "public", table: threatTable },
         (payload) => {
           handleUpdate({
             new: payload.new as Record<string, unknown>,
@@ -236,10 +243,10 @@ export function useDashboardThreatRealtime({
       )
       .subscribe((status, err) => {
         if (process.env.NODE_ENV === "development") {
-          console.info("[Realtime] ThreatEvent channel:", status, err ?? "");
+          console.info(`[Realtime] ${threatTable} channel:`, status, err ?? "");
         }
         if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
-          console.warn("[Realtime] ThreatEvent dashboard channel:", status, err ?? "");
+          console.warn(`[Realtime] ${threatTable} dashboard channel:`, status, err ?? "");
         }
       });
 
@@ -247,5 +254,5 @@ export function useDashboardThreatRealtime({
       if (updateTimer) clearTimeout(updateTimer);
       void supabase.removeChannel(channel);
     };
-  }, [enabled, tenantCompanyIds.join("|")]);
+  }, [enabled, isSimulationMode, tenantCompanyIds.join("|")]);
 }

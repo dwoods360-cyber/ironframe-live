@@ -3,17 +3,10 @@
 /**
  * Dashboard header: production title strip with tenant label and controls.
  */
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { purgeSimulation } from "@/app/actions/purgeSimulation";
-import { clearAllAuditLogs } from "@/app/utils/auditLogger";
-import { useKimbotStore } from "@/app/store/kimbotStore";
-import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useRiskStore } from "@/app/store/riskStore";
-import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
-import { sleepBlueTeam } from "@/app/utils/blueTeamSync";
 import { IronframeHexMark } from "@/app/components/IronframeHexMark";
+import { PurgeBoardButton } from "@/app/components/PurgeBoardButton";
 
 const CONSULTANT_TENANT_OPTIONS = [
   "MedShield Clinic",
@@ -28,41 +21,14 @@ type HeaderProps = {
 };
 
 export default function Header({ tenantNames = [] }: HeaderProps) {
-  const router = useRouter();
-  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
-  const [purging, setPurging] = useState(false);
-  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
   const options = [
     "",
     ...new Set([...CONSULTANT_TENANT_OPTIONS, ...tenantNames].filter(Boolean)),
   ];
-
-  const handlePurge = async () => {
-    if (purging) return;
-    setPurging(true);
-    try {
-      const result = await purgeSimulation();
-      if (result.ok) {
-        clearAllAuditLogs();
-        useKimbotStore.getState().resetSimulationCounters();
-        useGrcBotStore.getState().stop();
-        useRiskStore.getState().clearAllRiskStateForPurge();
-        useRiskStore.getState().setSelectedThreatId(null);
-        useAgentStore
-          .getState()
-          .addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
-        sleepBlueTeam();
-      }
-      setShowPurgeConfirm(false);
-      router.refresh();
-    } finally {
-      setPurging(false);
-    }
-  };
 
   return (
     <div
@@ -120,41 +86,7 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
             {expertModeEnabled ? "ON" : "OFF"}
           </span>
         </div>
-        <div className="shrink-0 text-right text-[10px] leading-tight text-[#ff4b4b] font-mono whitespace-nowrap">
-          Master State Reset. ⚠️ DEV ONLY:
-          <br />
-          Do not deploy to Prod!
-        </div>
-        {showPurgeConfirm ? (
-          <div className="flex items-center gap-2 rounded border border-slate-600 bg-slate-900/90 px-2 py-1">
-            <span className="text-[10px] text-slate-300">Purge simulation?</span>
-            <button
-              type="button"
-              onClick={handlePurge}
-              disabled={purging}
-              className="rounded border border-rose-500/60 bg-rose-500/20 px-2 py-1 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-500/30 disabled:opacity-50"
-            >
-              {purging ? "…" : "Yes"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPurgeConfirm(false)}
-              disabled={purging}
-              className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-700"
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowPurgeConfirm(true)}
-            disabled={purging}
-            className="rounded border border-rose-500/60 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
-          >
-            Purge
-          </button>
-        )}
+        <PurgeBoardButton />
       </div>
     </div>
   );

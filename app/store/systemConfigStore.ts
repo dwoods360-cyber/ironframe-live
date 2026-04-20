@@ -486,6 +486,11 @@ export function setSimulationMode(mode: boolean) {
   emitChange();
 }
 
-export function useSystemConfigStore() {
-  return useSyncExternalStore(subscribeSystemConfig, getSystemConfigSnapshot, getSystemConfigSnapshot);
+export type SystemConfigStoreSnapshot = SystemConfigState & {
+  setSimulationMode: typeof setSimulationMode;
+};
+
+export function useSystemConfigStore(): SystemConfigStoreSnapshot {
+  useSyncExternalStore(subscribeSystemConfig, getSystemConfigSnapshot, getSystemConfigSnapshot);
+  return { ...getSystemConfigSnapshot(), setSimulationMode };
 }

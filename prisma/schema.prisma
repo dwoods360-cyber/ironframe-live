@@ -353,6 +353,22 @@ model AuditLog {
   @@map("AuditLog")
 }
 
+/// Immutable bot test disposition ledger (DMZ / pipeline receipts).
+model BotAuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt   DateTime @default(now())
+  botType     String
+  disposition String
+  tenantId    String   @db.Uuid
+  operator    String
+  metadata    Json?
+
+  @@index([createdAt])
+  @@index([tenantId])
+  @@index([botType])
+  @@map("BotAuditLog")
+}
+
 // ------------------------------------------------------
 // SOVEREIGN AGENT MODELS
 // ------------------------------------------------------

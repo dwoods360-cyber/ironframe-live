@@ -14,6 +14,7 @@ import type {
 import { resolveOperationalDeficiencyReportAction } from "@/app/actions/operationalDeficiencyActions";
 import { clearShadowPlaneLogs, teleportThreatToProduction } from "@/app/actions/teleportActions";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { useAgentStore } from "@/app/store/agentStore";
 import { ThreatState } from "@prisma/client";
 import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositionReceiptBar";
 import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
@@ -73,13 +74,42 @@ type DiagReplayState = {
   sourceComponentPath: string;
 };
 
+export type LedgerSurface = "grid" | "narrative";
+
 export type OpSupportClientProps = {
   mainTab: OpSupportWorkspaceTab;
+  /** Operational grid vs Master Intelligence narrative stream. */
+  ledgerSurface?: LedgerSurface;
+  onLedgerSurfaceChange?: (surface: LedgerSurface) => void;
 };
 
-export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
+export default function OpSupportClient({
+  mainTab,
+  ledgerSurface: ledgerSurfaceProp,
+  onLedgerSurfaceChange,
+}: OpSupportClientProps) {
   const router = useRouter();
-  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  const { isSimulationMode, setSimulationMode } = useSystemConfigStore();
+  const [ledgerSurfaceInternal, setLedgerSurfaceInternal] = useState<LedgerSurface>("grid");
+  const ledgerSurface = ledgerSurfaceProp ?? ledgerSurfaceInternal;
+  const setLedgerSurface = onLedgerSurfaceChange ?? setLedgerSurfaceInternal;
+
+  const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
+  const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
+  const narrativeScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const narrativeLines = useMemo(() => {
+    const intel = [...intelligenceStream].reverse();
+    const risk = riskIngestionTerminalLines;
+    return [...intel, ...risk.map((line) => `> [INGEST] ${line}`)];
+  }, [intelligenceStream, riskIngestionTerminalLines]);
+
+  useEffect(() => {
+    if (ledgerSurface !== "narrative") return;
+    const el = narrativeScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [ledgerSurface, narrativeLines.length]);
   const [cards, setCards] = useState<OpSupportClearanceCard[]>([]);
   const [simRows, setSimRows] = useState<OpSupportSimAuditRow[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -229,10 +259,10 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
   };
 
   return (
-    <div className="min-h-full bg-[#050508] text-slate-200">
-      <div className="border-b border-zinc-800/90 bg-gradient-to-r from-zinc-950 via-[#0a0a12] to-zinc-950 px-6 py-4">
+    <div className="min-h-full w-full bg-black font-mono text-[11px] leading-tight text-amber-50 antialiased">
+      <div className="w-full border-b border-amber-900/45 bg-black px-3 py-3 sm:px-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-500/90">
               Structural Isolation Plane · Dev
             </p>
@@ -244,22 +274,50 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
               history grouped by component path. Golden production triage stays in Integrity Hub.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px]">
-            <span className="rounded border border-zinc-700 bg-black/60 px-2 py-1 text-zinc-400">
+          <div className="flex flex-wrap items-center gap-3 text-[10px]">
+            <div
+              className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 p-1 shadow-sm"
+              role="group"
+              aria-label="Session plane"
+            >
+              <button
+                type="button"
+                onClick={() => setSimulationMode(false)}
+                className={`rounded px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest transition-colors ${
+                  !isSimulationMode
+                    ? "bg-zinc-800 font-semibold text-zinc-100 ring-1 ring-zinc-600/90"
+                    : "text-zinc-400 hover:text-zinc-300"
+                }`}
+              >
+                PRODUCTION
+              </button>
+              <button
+                type="button"
+                onClick={() => setSimulationMode(true)}
+                className={`rounded px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest transition-all ${
+                  isSimulationMode
+                    ? "font-semibold text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.45)] ring-1 ring-amber-500/50"
+                    : "text-zinc-400 hover:text-amber-400/80"
+                }`}
+              >
+                SHADOW PLANE
+              </button>
+            </div>
+            <span className="rounded border border-amber-900/60 bg-black px-2 py-1 text-amber-400/90">
               POLL {POLL_MS}ms
             </span>
-            <span className="rounded border border-emerald-800/60 bg-emerald-950/30 px-2 py-1 text-emerald-300/90">
+            <span className="rounded border border-amber-800/50 bg-amber-950/20 px-2 py-1 text-amber-200/95">
               LAST {lastTick ? new Date(lastTick).toLocaleTimeString() : "—"}
             </span>
             <Link
               href="/admin/clearance"
-              className="rounded border border-rose-800/50 bg-rose-950/30 px-2 py-1 font-bold uppercase text-rose-200 hover:bg-rose-900/40"
+              className="rounded border border-rose-900/50 bg-rose-950/25 px-2 py-1 font-bold uppercase text-rose-200 hover:bg-rose-950/40"
             >
               DMZ Clearance
             </Link>
             <Link
               href="/"
-              className="rounded border border-zinc-600 bg-zinc-900 px-2 py-1 font-bold uppercase text-zinc-300 hover:border-zinc-500"
+              className="rounded border border-amber-900/50 bg-black px-2 py-1 font-bold uppercase text-amber-100 hover:border-amber-600/60"
             >
               Dashboard
             </Link>
@@ -267,14 +325,79 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
         </div>
       </div>
 
-      <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-5 pb-28">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/60 bg-[#08080a] px-3 py-2 sm:px-4">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Master ledger surface</p>
+        <div
+          className="flex rounded-md border border-zinc-700/70 bg-[#050509] p-0.5 ring-1 ring-white/[0.04]"
+          role="tablist"
+          aria-label="Ledger surface"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={ledgerSurface === "grid"}
+            onClick={() => setLedgerSurface("grid")}
+            className={`rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+              ledgerSurface === "grid"
+                ? "bg-zinc-800 text-amber-100 shadow-sm"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Operational grid
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={ledgerSurface === "narrative"}
+            onClick={() => setLedgerSurface("narrative")}
+            className={`rounded px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
+              ledgerSurface === "narrative"
+                ? "bg-zinc-800 text-amber-100 shadow-sm"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Narrative feed
+          </button>
+        </div>
+      </div>
+
+      {ledgerSurface === "narrative" ? (
+        <section
+          aria-label="Master Intelligence stream"
+          className="mx-2 mb-4 mt-3 flex min-h-[min(52vh,420px)] flex-col rounded-md border border-zinc-800/80 bg-[#050509] ring-1 ring-white/[0.04] sm:mx-4"
+        >
+          <div className="border-b border-zinc-800/80 px-3 py-2">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-amber-400/95">
+              Master Intelligence stream
+            </h2>
+            <p className="mt-0.5 text-[9px] text-zinc-500">
+              Amber/white agent narrative + risk ingestion lines (live store; auto-scroll).
+            </p>
+          </div>
+          <div
+            ref={narrativeScrollRef}
+            className="max-h-[min(60vh,520px)] min-h-[200px] flex-1 overflow-y-auto px-3 py-2 font-mono text-[10px] leading-relaxed text-amber-100/95"
+          >
+            {narrativeLines.length === 0 ? (
+              <p className="text-amber-700/80">No intelligence lines yet.</p>
+            ) : (
+              narrativeLines.map((line, i) => (
+                <p key={`${i}-${line.slice(0, 48)}`} className="whitespace-pre-wrap border-b border-zinc-900/40 py-1 text-amber-50/95 last:border-0">
+                  {line}
+                </p>
+              ))
+            )}
+          </div>
+        </section>
+      ) : (
+      <div className="w-full max-w-none space-y-4 px-2 py-4 pb-28 sm:px-4">
         {error ? (
-          <div className="rounded border border-rose-700/50 bg-rose-950/40 px-4 py-3 font-mono text-sm text-rose-100">
+          <div className="rounded border border-rose-700/60 bg-rose-950/30 px-3 py-2 text-[11px] text-rose-100">
             {error}
           </div>
         ) : null}
         {diagnosticError && mainTab === "diagnostic" ? (
-          <div className="rounded border border-rose-700/50 bg-rose-950/40 px-4 py-3 font-mono text-sm text-rose-100">
+          <div className="rounded border border-rose-700/60 bg-rose-950/30 px-3 py-2 text-[11px] text-rose-100">
             {diagnosticError}
           </div>
         ) : null}
@@ -284,22 +407,22 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
           id="opsupport-panel-ingestion"
           role="tabpanel"
           aria-labelledby="opsupport-tab-ingestion"
-          className="rounded-lg border border-zinc-800 bg-[#08080f] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
+          className="rounded-sm border border-amber-900/40 bg-black shadow-[inset_0_1px_0_0_rgba(251,191,36,0.06)]"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 px-4 py-2">
-            <h2 className="font-mono text-[11px] font-black uppercase tracking-widest text-cyan-400/90">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-900/35 px-3 py-2 sm:px-4">
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-amber-300/95">
               Live Ingestion Stream · Clearance Queue
             </h2>
-            <div className="flex flex-wrap gap-2 font-mono text-[10px] text-zinc-500">
-              <span className="rounded bg-black/50 px-2 py-0.5 text-zinc-300">PIPELINE {stats.pipe}</span>
-              <span className="rounded bg-black/50 px-2 py-0.5 text-rose-200/90">QUARANTINED {stats.q}</span>
-              <span className="rounded bg-black/50 px-2 py-0.5">TOTAL {stats.total}</span>
+            <div className="flex flex-wrap gap-2 text-[10px] text-amber-500/90">
+              <span className="rounded bg-black/70 px-2 py-0.5 text-amber-100">PIPELINE {stats.pipe}</span>
+              <span className="rounded bg-black/70 px-2 py-0.5 text-rose-200/90">QUARANTINED {stats.q}</span>
+              <span className="rounded bg-black/70 px-2 py-0.5 text-amber-200/80">TOTAL {stats.total}</span>
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse font-mono text-[11px]">
+            <table className="w-full min-w-[960px] border-collapse text-[10px] sm:text-[11px]">
               <thead>
-                <tr className="border-b border-zinc-800 text-left uppercase tracking-wider text-zinc-500">
+                <tr className="border-b border-amber-900/40 text-left uppercase tracking-wider text-amber-600/90">
                   <th className="px-3 py-2">Status</th>
                   <th className="px-3 py-2">Created</th>
                   <th className="px-3 py-2">Source</th>
@@ -315,7 +438,7 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
               <tbody>
                 {cards.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-zinc-600">
+                    <td colSpan={10} className="px-3 py-8 text-center text-amber-700/80">
                       No PIPELINE / QUARANTINED rows for this tenant (or no company linked).
                     </td>
                   </tr>
@@ -323,8 +446,8 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
                   cards.map((c) => (
                     <tr
                       key={c.id}
-                      className={`border-b border-zinc-900/80 transition-colors ${
-                        flashIds.has(c.id) ? "bg-cyan-950/35" : "hover:bg-zinc-900/40"
+                      className={`border-b border-amber-950/40 transition-colors ${
+                        flashIds.has(c.id) ? "bg-amber-950/25" : "hover:bg-amber-950/15"
                       }`}
                     >
                       <td className="px-3 py-1.5">
@@ -339,17 +462,17 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
                           </span>
                         ) : null}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-1.5 text-zinc-400">
+                      <td className="whitespace-nowrap px-3 py-1.5 text-amber-500/85">
                         {new Date(c.createdAt).toLocaleString()}
                       </td>
-                      <td className="max-w-[140px] truncate px-3 py-1.5 text-amber-200/90">{c.sourceAgent}</td>
-                      <td className="max-w-[280px] truncate px-3 py-1.5 text-zinc-200">{c.title}</td>
-                      <td className="max-w-[120px] truncate px-3 py-1.5 text-zinc-500">{c.targetEntity}</td>
-                      <td className="whitespace-nowrap px-3 py-1.5 text-emerald-300/80">
+                      <td className="max-w-[140px] truncate px-3 py-1.5 text-amber-200/95">{c.sourceAgent}</td>
+                      <td className="max-w-[280px] truncate px-3 py-1.5 text-white">{c.title}</td>
+                      <td className="max-w-[120px] truncate px-3 py-1.5 text-amber-400/80">{c.targetEntity}</td>
+                      <td className="whitespace-nowrap px-3 py-1.5 text-emerald-300/90">
                         {formatCentsShort(c.financialRisk_cents)}
                       </td>
-                      <td className="max-w-[160px] truncate px-3 py-1.5 text-zinc-500">{c.companyName ?? "—"}</td>
-                      <td className="max-w-[200px] truncate px-3 py-1.5 text-zinc-600">{c.id}</td>
+                      <td className="max-w-[160px] truncate px-3 py-1.5 text-amber-400/75">{c.companyName ?? "—"}</td>
+                      <td className="max-w-[200px] truncate px-3 py-1.5 text-amber-600/80">{c.id}</td>
                       <td className="min-w-[200px] max-w-[280px] px-3 py-1.5 align-top">
                         <div className="space-y-1">
                           <ClearanceDispositionReceiptBar
@@ -701,6 +824,7 @@ export default function OpSupportClient({ mainTab }: OpSupportClientProps) {
         </section>
         ) : null}
       </div>
+      )}
 
       {diagReplay ? (
         <DiagnosticReportModal

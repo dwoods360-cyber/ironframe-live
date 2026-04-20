@@ -7,11 +7,70 @@ import { useScenarioStore } from "@/app/store/scenarioStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficiency";
-import type { RecentAuditLogRow } from "@/app/actions/auditActions";
+import type { BotAuditLogRow, RecentAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
 import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { Leaf } from "lucide-react";
+import { Grid, Card, Text, Metric } from "@tremor/react";
+
+export function ExecutiveSummaryAudit({ logs }: { logs: BotAuditLogRow[] }) {
+  const { totalTests, passRate, totalMitigated } = useMemo(() => {
+    const totalTests = logs.length;
+    const passes = logs.filter((log) => log.disposition.toUpperCase() === "PASS").length;
+    const passRate = totalTests > 0 ? (passes / totalTests) * 100 : 0;
+    const totalMitigated = logs.reduce((sum, log) => {
+      const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+      const delta = metadata.aleDeltaCents;
+      if (delta !== undefined && delta !== null) {
+        try {
+          const cents =
+            typeof delta === "bigint"
+              ? delta
+              : typeof delta === "number"
+                ? BigInt(Math.trunc(delta))
+                : BigInt(String(delta).trim());
+          const m = Number(cents) / 100_000_000;
+          if (Number.isFinite(m)) return sum + m;
+        } catch {
+          /* fall through */
+        }
+      }
+      const direct = metadata.aleMitigated;
+      if (typeof direct === "number" && Number.isFinite(direct)) return sum + direct;
+      if (typeof direct === "string" && direct.trim() !== "" && Number.isFinite(Number(direct))) {
+        return sum + Number(direct);
+      }
+      const initial = Number(metadata.initialAle ?? 0);
+      const final = Number(metadata.finalAle ?? 0);
+      if (Number.isFinite(initial) && Number.isFinite(final)) return sum + (initial - final);
+      return sum;
+    }, 0);
+    return { totalTests, passRate, totalMitigated };
+  }, [logs]);
+
+  return (
+    <div className="rounded-md border border-zinc-800/90 bg-[#050509]/95 p-3 ring-1 ring-white/[0.04]">
+      <Text className="mb-2 text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+        Executive Briefing
+      </Text>
+      <Grid numItems={1} numItemsMd={3} className="gap-3">
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Compliance Readiness</Text>
+          <Metric className="text-zinc-100">{passRate.toFixed(1)}%</Metric>
+        </Card>
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Total Mitigated Risk (ALE)</Text>
+          <Metric className="text-zinc-100">${totalMitigated.toFixed(2)}M</Metric>
+        </Card>
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Verified Controls</Text>
+          <Metric className="text-zinc-100">{totalTests}</Metric>
+        </Card>
+      </Grid>
+    </div>
+  );
+}
 
 function formatOperatorDisplay(operatorId: string): string {
   const id = operatorId.trim();

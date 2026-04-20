@@ -82,7 +82,7 @@ export default function SystemConfigPage() {
   };
 
   return (
-    <div className="min-h-full bg-slate-950 p-6">
+    <div className="min-h-full bg-[#050509] p-6">
       <section className="rounded border border-slate-800 bg-slate-900/40 p-4">
         <h1 className="mb-4 text-[11px] font-bold uppercase tracking-wide text-white">SYSTEM CONFIGURATION // SOC EMAIL ORCHESTRATION</h1>
         <div className="mb-4 rounded border border-emerald-500/60 bg-emerald-500/10 px-3 py-2">

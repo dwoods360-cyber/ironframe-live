@@ -25,7 +25,10 @@ export type AuditActionType =
   | "STATE_REGRESSION"
   | "RISK_REJECTED"
   | "SYSTEM_WARNING"
-  | "TIME_TO_TRIAGE";
+  | "TIME_TO_TRIAGE"
+  | "OPERATIONAL_DEFICIENCY_REPORT"
+  | "OPERATIONAL_DEFICIENCY_RESOLVED"
+  | "OPERATIONAL_SELF_TEST_PASS";
 export type AuditLogType = "GRC" | "APP_SYSTEM" | "SERVER" | "TELEMETRY" | "SIMULATION";
 
 export type AuditLogRecord = Readonly<{

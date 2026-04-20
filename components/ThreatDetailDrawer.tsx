@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import ThreatDetailClient from '@/app/threats/[id]/ThreatDetailClient';
 import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import { appendAuditLog } from '@/app/utils/auditLogger';
@@ -152,6 +152,8 @@ function toDrawerThreatData(
 }
 
 export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash, onFocusHandled, linkInterrupted = false }: ThreatDetailDrawerProps) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [threat, setThreat] = useState<ThreatData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,10 +173,11 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   console.log('[GRC DEBUG] Active Threat Data:', JSON.stringify(threat, null, 2));
 
   useEffect(() => {
+    const ac = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/threats/${threatId}`)
+    fetch(`/api/threats/${threatId}`, { signal: ac.signal })
       .then((res) => {
         if (!res.ok) {
           const fallbackThreat = useRiskStore.getState().threatIndexById[threatId];
@@ -185,14 +188,29 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
             }
             return null;
           }
-          throw new Error(res.status === 404 ? 'Threat not found' : 'Failed to load');
+          if (res.status === 404) {
+            console.warn("[UI] Focused threat no longer exists. Clearing selection.");
+            if (!cancelled) {
+              useRiskStore.getState().setSelectedThreatId(null);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("clear-threat-modals"));
+              }
+              onCloseRef.current();
+              setError(null);
+            }
+            return null;
+          }
+          throw new Error('Failed to load');
         }
         return res.json();
       })
       .then((data) => {
         if (!cancelled && data) setThreat(data);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        const isAbort =
+          err instanceof Error && (err.name === "AbortError" || err.message === "The user aborted a request.");
+        if (isAbort) return;
         if (!cancelled) {
           const fallbackThreat = useRiskStore.getState().threatIndexById[threatId];
           if (fallbackThreat) {
@@ -206,7 +224,10 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
   }, [threatId]);
 
   useEffect(() => {

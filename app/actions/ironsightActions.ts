@@ -139,6 +139,61 @@ export type TriggerDeepTraceResult =
   | { success: true; aiTrace: IronsightAiTracePayload }
   | { success: false; error: string };
 
+type IronsightTraceRow = {
+  id: string;
+  title: string;
+  targetEntity: string;
+  sourceAgent: string;
+  score: number;
+  financialRisk_cents: bigint;
+  ingestionDetails: string | null;
+};
+
+const traceRowSelect = {
+  id: true,
+  title: true,
+  targetEntity: true,
+  sourceAgent: true,
+  score: true,
+  financialRisk_cents: true,
+  ingestionDetails: true,
+} as const;
+
+async function persistIronsightIngestionDetails(
+  id: string,
+  plane: 'prod' | 'sim',
+  nextIngestion: string,
+): Promise<void> {
+  if (plane === 'sim') {
+    await prisma.simThreatEvent.update({
+      where: { id },
+      data: { ingestionDetails: nextIngestion },
+    });
+  } else {
+    await prisma.threatEvent.update({
+      where: { id },
+      data: { ingestionDetails: nextIngestion },
+    });
+  }
+}
+
+async function resolveThreatRowForIronsight(id: string): Promise<{
+  row: IronsightTraceRow;
+  plane: 'prod' | 'sim';
+} | null> {
+  const prod = await prisma.threatEvent.findUnique({
+    where: { id },
+    select: traceRowSelect,
+  });
+  if (prod) return { row: prod, plane: 'prod' };
+  const sim = await prisma.simThreatEvent.findUnique({
+    where: { id },
+    select: traceRowSelect,
+  });
+  if (sim) return { row: sim, plane: 'sim' };
+  return null;
+}
+
 function readChaosScenarioFromIngestion(
   ingestionDetails: string | null | undefined,
 ):
@@ -180,35 +235,16 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
     return { success: false, error: 'Missing threat id.' };
   }
 
-  type TraceRow = {
-    id: string;
-    title: string;
-    targetEntity: string;
-    sourceAgent: string;
-    score: number;
-    financialRisk_cents: bigint;
-    ingestionDetails: string | null;
-  };
-
-  let row: TraceRow | null = null;
+  let row: IronsightTraceRow | null = null;
+  let plane: 'prod' | 'sim' = 'prod';
 
   try {
-    row = await prisma.threatEvent.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        title: true,
-        targetEntity: true,
-        sourceAgent: true,
-        score: true,
-        financialRisk_cents: true,
-        ingestionDetails: true,
-      },
-    });
-
-    if (!row) {
+    const resolved = await resolveThreatRowForIronsight(id);
+    if (!resolved) {
       return { success: false, error: 'Threat not found.' };
     }
+    row = resolved.row;
+    plane = resolved.plane;
 
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
@@ -241,10 +277,7 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
       const nextIngestion = mergeIngestionDetailsPatch(row.ingestionDetails, {
         aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
       });
-      await prisma.threatEvent.update({
-        where: { id },
-        data: { ingestionDetails: nextIngestion },
-      });
+      await persistIronsightIngestionDetails(id, plane, nextIngestion);
       revalidatePath("/");
       return { success: true, aiTrace };
     }
@@ -265,10 +298,7 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
       aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
     });
 
-    await prisma.threatEvent.update({
-      where: { id },
-      data: { ingestionDetails: nextIngestion },
-    });
+    await persistIronsightIngestionDetails(id, plane, nextIngestion);
 
     revalidatePath('/');
     return { success: true, aiTrace };
@@ -288,10 +318,7 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
             complianceTags: [],
           },
         });
-        await prisma.threatEvent.update({
-          where: { id },
-          data: { ingestionDetails: nextIngestion },
-        });
+        await persistIronsightIngestionDetails(id, plane, nextIngestion);
       } catch (persistErr) {
         console.error('[IRONSIGHT_ERROR] Failed to persist FAILED aiTrace', persistErr);
       }
@@ -323,33 +350,51 @@ export async function executeTraceAction(
 
   try {
     await prisma.$transaction(async (tx) => {
-      const row = await tx.threatEvent.findUnique({
+      const prodRow = await tx.threatEvent.findUnique({
         where: { id },
         select: { id: true, financialRisk_cents: true },
       });
-      if (!row) {
+      const simRow =
+        prodRow == null
+          ? await tx.simThreatEvent.findUnique({
+              where: { id },
+              select: { id: true, financialRisk_cents: true },
+            })
+          : null;
+
+      if (!prodRow && !simRow) {
         throw new Error('THREAT_NOT_FOUND');
       }
 
-      const currentCents = row.financialRisk_cents;
+      const currentCents = (prodRow ?? simRow)!.financialRisk_cents;
+      const isSim = prodRow == null;
       const residualRiskCents = currentCents / 2n;
       const mitigatedCents = currentCents - residualRiskCents;
 
-      await tx.threatEvent.update({
-        where: { id },
-        data: { financialRisk_cents: residualRiskCents },
-      });
+      if (isSim) {
+        await tx.simThreatEvent.update({
+          where: { id },
+          data: { financialRisk_cents: residualRiskCents },
+        });
+      } else {
+        await tx.threatEvent.update({
+          where: { id },
+          data: { financialRisk_cents: residualRiskCents },
+        });
+      }
 
       const mitigatedFormatted = formatBigIntCentsForIrontrustNote(mitigatedCents);
       const noteText = `[IRONTRUST] Execution Authorized: ${label}. Residual Risk reduced by ${mitigatedFormatted}.`;
 
-      await tx.workNote.create({
-        data: {
-          text: noteText,
-          operatorId: op,
-          threatId: id,
-        },
-      });
+      if (!isSim) {
+        await tx.workNote.create({
+          data: {
+            text: noteText,
+            operatorId: op,
+            threatId: id,
+          },
+        });
+      }
 
       const justificationPayload = JSON.stringify({
         actionId: aid,
@@ -357,6 +402,7 @@ export async function executeTraceAction(
         operatorId: op,
         mitigatedCents: mitigatedCents.toString(),
         residualRiskCents: residualRiskCents.toString(),
+        ...(isSim ? { simThreatId: id, plane: 'sim' as const } : {}),
       });
 
       await tx.auditLog.create({
@@ -364,7 +410,8 @@ export async function executeTraceAction(
           action: 'AI_REMEDIATION_TRIGGERED',
           justification: justificationPayload,
           operatorId: op,
-          threatId: id,
+          threatId: isSim ? null : id,
+          isSimulation: isSim,
         },
       });
     });

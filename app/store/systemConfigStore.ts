@@ -45,9 +45,22 @@ type SystemConfigState = {
   vendorTypeRequirements: VendorTypeRequirements;
   /** Off (startup/novice): hide complex ALE math + raw telemetry. On: show full exposure + logs. */
   expertModeEnabled: boolean;
+  /** Master toggle: shadow-plane simulation for the whole client session (mirrored to ironframe-simulation-mode cookie). */
+  isSimulationMode: boolean;
 };
 
 const STORAGE_KEY = "ironframe-system-config-v1";
+
+/** Non-HttpOnly cookie so Server Components / route handlers can read simulation plane (Path=/; SameSite=Lax). */
+export const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
+
+const SIMULATION_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 365;
+
+export function syncSimulationModeCookie(mode: boolean): void {
+  if (typeof document === "undefined") return;
+  const value = mode ? "1" : "0";
+  document.cookie = `${SIMULATION_MODE_COOKIE}=${value}; Path=/; Max-Age=${SIMULATION_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+}
 
 const listeners = new Set<() => void>();
 
@@ -172,6 +185,7 @@ let systemConfigState: SystemConfigState = {
   generalRfiChecklist: DEFAULT_GENERAL_RFI_CHECKLIST,
   vendorTypeRequirements: DEFAULT_VENDOR_TYPE_REQUIREMENTS,
   expertModeEnabled: true,
+  isSimulationMode: false,
 };
 
 function emitChange() {
@@ -288,11 +302,14 @@ export function hydrateSystemConfig() {
       generalRfiChecklist: sanitizeChecklist(parsed.generalRfiChecklist),
       vendorTypeRequirements: sanitizeVendorTypeRequirements(parsed.vendorTypeRequirements),
       expertModeEnabled: parsed.expertModeEnabled ?? true,
+      isSimulationMode: Boolean(parsed.isSimulationMode),
     };
     emitChange();
     ensureLoginAuditEvent();
   } catch {
     // no-op
+  } finally {
+    syncSimulationModeCookie(systemConfigState.isSimulationMode);
   }
 }
 
@@ -302,6 +319,7 @@ function persistSystemConfig() {
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(systemConfigState));
+  syncSimulationModeCookie(systemConfigState.isSimulationMode);
 }
 
 export function subscribeSystemConfig(listener: () => void) {
@@ -448,6 +466,21 @@ export function setExpertModeEnabled(enabled: boolean) {
     log_type: "GRC",
     metadata_tag: "GRC_GOVERNANCE",
     description: `Expert Mode ${enabled ? "enabled" : "disabled"}.`,
+  });
+  persistSystemConfig();
+  emitChange();
+}
+
+export function setSimulationMode(mode: boolean) {
+  systemConfigState = {
+    ...systemConfigState,
+    isSimulationMode: mode,
+  };
+  appendAuditLog({
+    action_type: "CONFIG_CHANGE",
+    log_type: "GRC",
+    metadata_tag: "GRC_GOVERNANCE",
+    description: `Simulation Mode (master) ${mode ? "enabled — SHADOW_PLANE" : "disabled — production"}.`,
   });
   persistSystemConfig();
   emitChange();

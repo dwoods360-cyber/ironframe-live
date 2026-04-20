@@ -3,6 +3,8 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { ingressGateway } from "@/app/lib/security/ingressGateway";
+import { ATTACK_SOURCE, ATTACK_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { ThreatState } from "@prisma/client";
 import { logIronwatch } from "@/app/utils/ironwatchLog";
@@ -22,7 +24,31 @@ function maskDatabaseUrlForLog(raw: string | undefined): string {
   return raw.replace(/:\/\/([^:/?#]+):([^@/?#]+)@/, "://$1:****@");
 }
 
-export async function triggerAttbotSimulation() {
+const CENTS_PER_MILLION = 100_000_000;
+
+/** Serializable card for `useRiskStore.getState().upsertPipelineThreat` (matches `PipelineThreat` shape). */
+export type AttbotPipelineThreatPayload = {
+  id: string;
+  name: string;
+  loss: number;
+  score: number;
+  industry?: string;
+  source?: string;
+  description?: string;
+  createdAt?: string;
+  threatStatus?: string;
+  lifecycleState?: "pipeline" | "active" | "confirmed" | "resolved";
+};
+
+export type TriggerAttbotSimulationResult =
+  | { ok: true; pipelineThreat: AttbotPipelineThreatPayload }
+  | { ok: false; error: string };
+
+/**
+ * Immediate ThreatEvent row + finalize after company resolution so the client can `upsertPipelineThreat`
+ * without waiting for the polling interval.
+ */
+export async function triggerAttbotSimulation(): Promise<TriggerAttbotSimulationResult> {
   const store = await cookies();
   const cookieRaw = store.get("ironframe-tenant")?.value ?? null;
   const tenantId = await getActiveTenantUuidFromCookies();
@@ -38,7 +64,7 @@ export async function triggerAttbotSimulation() {
       detail: "No active tenant cookie / UUID.",
       severity: "ERROR",
     });
-    throw new Error("No active tenant.");
+    return { ok: false, error: "No active tenant." };
   }
 
   attbotDevLog("tenant resolution", {
@@ -52,7 +78,9 @@ export async function triggerAttbotSimulation() {
       url: maskDatabaseUrlForLog(process.env.DATABASE_URL),
     });
 
-    let company = await prisma.company.findFirst();
+    let company = await prisma.company.findFirst({
+      where: { tenantId },
+    });
     let bootstrapCompany = false;
 
     if (!company) {
@@ -88,6 +116,22 @@ export async function triggerAttbotSimulation() {
       bootstrapCompany,
     });
 
+    const draft = await ingressGateway.writeThreatEvent({
+      tenantCompanyId: company.id,
+      status: ThreatState.PIPELINE,
+      sourceAgent: ATTACK_SOURCE,
+      score: 10,
+      title: `${ATTACK_THREAT_TITLE_PREFIX} Initializing…`,
+      targetEntity: "—",
+      financialRisk_cents: 0n,
+      ttlSeconds: 259200,
+      ingestionDetails: JSON.stringify({
+        phase: "INGESTING",
+        vector: "SQL_INJECTION",
+      }),
+      aiReport: "ATTACK_BOT: Initializing simulation row…",
+    });
+
     const mockPayload = {
       vector: "SQL_INJECTION",
       ip: "192.168.1.105",
@@ -98,21 +142,32 @@ export async function triggerAttbotSimulation() {
         "SELECT * FROM users WHERE email = 'admin@ironframe.ai' OR 1=1--",
     };
 
-    await prisma.threatEvent.create({
-      data: {
-        tenantCompanyId: company.id,
-        status: ThreatState.PIPELINE,
-        sourceAgent: "ATTBOT_SIMULATION",
-        score: 10,
-        title: "Automated simulated SQL Injection attack via Attbot.",
-        targetEntity: mockPayload.target,
-        financialRisk_cents: 0n,
-        ttlSeconds: 259200,
-        ingestionDetails: JSON.stringify(mockPayload),
-        aiReport:
-          "Ironquery Initial Scan: Simulated hostile payload detected. Matches known SQLi patterns. Recommend isolation.",
-      },
+    await ingressGateway.updateThreatEvent(draft.id, {
+      title: `${ATTACK_THREAT_TITLE_PREFIX} Automated simulated SQL Injection attack (Attbot).`,
+      targetEntity: mockPayload.target,
+      financialRisk_cents: 0n,
+      ingestionDetails: JSON.stringify(mockPayload),
+      aiReport:
+        "Ironquery Initial Scan: Simulated hostile payload detected. Matches known SQLi patterns. Recommend isolation.",
     });
+
+    const final = await ingressGateway.findThreatEventByIdForBots(draft.id);
+    if (!final) {
+      return { ok: false, error: "Threat row missing after ATTBOT update." };
+    }
+
+    const pipelineThreat: AttbotPipelineThreatPayload = {
+      id: final.id,
+      name: final.title,
+      loss: Number(final.financialRisk_cents) / CENTS_PER_MILLION,
+      score: final.score,
+      industry: final.targetEntity,
+      source: final.sourceAgent,
+      description: `Simulated SQLi · ${final.targetEntity}`,
+      createdAt: final.createdAt.toISOString(),
+      threatStatus: ThreatState.PIPELINE,
+      lifecycleState: "pipeline",
+    };
 
     await logIronwatch({
       event_type: "ATTBOT_SIMULATION_OK",
@@ -120,12 +175,15 @@ export async function triggerAttbotSimulation() {
       detail: JSON.stringify({
         companyId: company.id.toString(),
         bootstrapCompany,
+        threatId: final.id,
       }),
       severity: "INFO",
     });
 
     revalidatePath("/admin/clearance");
     revalidatePath("/admin/chat");
+
+    return { ok: true, pipelineThreat };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await logIronwatch({
@@ -137,6 +195,6 @@ export async function triggerAttbotSimulation() {
       }),
       severity: "ERROR",
     });
-    throw err;
+    return { ok: false, error: message };
   }
 }

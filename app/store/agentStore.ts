@@ -55,6 +55,8 @@ type AgentStore = {
   setThreatTelemetry: (threatId: string, telemetry: ThreatTelemetryEntry | null) => void;
   setSystemLatencyMs: (ms: number | null) => void;
   runSentinelSweep: (instruction: string) => void;
+  /** Master purge: intelligence stream, ingestion lines, DMZ telemetry scratch — back to cold-boot baseline. */
+  resetAgentStreamsForPurge: () => void;
 };
 
 const INITIAL_MESSAGES: string[] = [
@@ -205,5 +207,23 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       }));
     }, 3000);
   },
+  resetAgentStreamsForPurge: () =>
+    set({
+      intelligenceStream: [...INITIAL_MESSAGES],
+      riskIngestionTerminalLines: [],
+      activeThreats: [],
+      threatTelemetry: {},
+      ironwaveTelemetry: {
+        phase: "ASSIGNED",
+        tenantUuid: null,
+        lockedUntil: 0,
+      },
+      systemLatencyMs: null,
+      agents: {
+        ironsight: { status: "HEALTHY" },
+        coreintel: { status: "HEALTHY" },
+        agentManager: { status: "HEALTHY" },
+      },
+    }),
 }));
 

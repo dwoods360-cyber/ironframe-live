@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
@@ -16,8 +15,10 @@ import { useTenantContext } from '../context/TenantProvider';
 import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
+import { useSystemConfigStore } from '../store/systemConfigStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
+import IrontechLeftPaneControls from './IrontechLeftPaneControls';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -75,14 +76,15 @@ type Props = {
 };
 
 /**
- * Main Ops shell — primary “ear” for `ThreatEvent` Realtime (cards + RISK INGESTION terminal), tenant-scoped.
- * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent`).
+ * Main Ops shell — primary “ear” for `ThreatEvent` / `SimThreatEvent` Realtime (cards + RISK INGESTION terminal), tenant-scoped.
+ * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent` or `SimThreatEvent` when simulation mode is on).
  */
 export default function DashboardHomeClient({ children }: Props) {
-  const router = useRouter();
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const { tenantFetch, activeTenantUuid } = useTenantContext();
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
+  const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -90,6 +92,8 @@ export default function DashboardHomeClient({ children }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
   const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const isLaunchingRef = useRef(false);
   /** Bootstrap companies (e.g. Ironchaos) may not be in the last GET /api/dashboard payload yet. */
   const [realtimeCompanyAllowlistExtras, setRealtimeCompanyAllowlistExtras] = useState<string[]>([]);
 
@@ -107,6 +111,15 @@ export default function DashboardHomeClient({ children }: Props) {
   useEffect(() => {
     setRealtimeCompanyAllowlistExtras([]);
   }, [dashboardTenantUuid]);
+
+  useEffect(() => {
+    const onClearThreatModals = () => {
+      setSelectedThreatId(null);
+      setDrawerFocus(null);
+    };
+    window.addEventListener("clear-threat-modals", onClearThreatModals);
+    return () => window.removeEventListener("clear-threat-modals", onClearThreatModals);
+  }, []);
 
   useEffect(() => {
     const onAllowlist = (e: Event) => {
@@ -132,11 +145,11 @@ export default function DashboardHomeClient({ children }: Props) {
 
   useDashboardThreatRealtime({
     enabled: Boolean(data) && !loading && tenantCompanyIds.length > 0,
+    isSimulationMode,
     tenantCompanyIds,
     replacePipelineThreats,
     replaceActiveThreats,
     onNewThreatDetected,
-    onAfterSync: () => router.refresh(),
   });
 
   useEffect(() => {
@@ -201,8 +214,73 @@ export default function DashboardHomeClient({ children }: Props) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
-        <p className="text-slate-400">Loading dashboard…</p>
+      <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
+        <aside
+          className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-y-auto overscroll-y-contain border-r border-slate-800/50 bg-slate-950/50 [scrollbar-gutter:stable]"
+          aria-hidden
+        >
+          <div className="space-y-3 p-4">
+            <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
+            <div className="flex justify-between gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
+              ))}
+            </div>
+            <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
+              <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+              </div>
+            </div>
+          </div>
+          <div className="min-h-[120px] flex-1 border-t border-slate-800/60 p-4">
+            <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
+            <div className="mt-3 space-y-2">
+              <div className="h-16 animate-pulse rounded bg-slate-800/70" />
+              <div className="h-16 animate-pulse rounded bg-slate-800/50" />
+            </div>
+          </div>
+        </aside>
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-slate-800 bg-slate-950"
+          data-testid="dashboard-main"
+          aria-busy
+          aria-label="Loading pipeline and active risks"
+        >
+          <div className="border-b border-slate-800 px-6 pt-4">
+            <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
+          </div>
+          <div className="min-h-0 flex-1 space-y-6 overflow-hidden p-4 sm:p-6">
+            <div>
+              <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-lg border border-slate-800/80 bg-slate-900/80"
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-lg border border-slate-800/60 bg-slate-900/60" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+        <aside className="flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50">
+          <div className="space-y-3 p-4">
+            <div className="h-3 w-32 animate-pulse rounded bg-slate-800" />
+            <div className="h-40 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+          </div>
+        </aside>
       </div>
     );
   }
@@ -223,7 +301,7 @@ export default function DashboardHomeClient({ children }: Props) {
       drawerFocus={drawerFocus}
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
-      <div className="flex h-full overflow-hidden bg-slate-950">
+      <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
         <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
         <LiabilityAlertToast />
         <RecordExpiredToast />
@@ -253,12 +331,19 @@ export default function DashboardHomeClient({ children }: Props) {
             </div>
           </div>
         ) : null}
-        <aside className="w-[446px] h-full flex flex-col bg-slate-950/50 border-r border-slate-800/50 overflow-y-auto min-h-0">
-          <StrategicIntel />
+        <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
+          {isSimulationMode && !loading && data ? (
+            <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
+              <IrontechLeftPaneControls variant="sidebar" />
+            </div>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">
+            <StrategicIntel />
+          </div>
         </aside>
 
         <section
-          className="flex min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
           data-testid="dashboard-main"
         >
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
@@ -283,7 +368,7 @@ export default function DashboardHomeClient({ children }: Props) {
           />
         </section>
 
-        <aside className="w-[400px] h-full flex flex-col bg-slate-950/50 border-l border-slate-800/50 overflow-hidden">
+        <aside className="relative z-0 flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50">
           <AuditIntelligence
             serverAuditLogs={serverAuditLogsForAudit}
             onOpenThreat={(threatId, focus) => {
@@ -292,6 +377,7 @@ export default function DashboardHomeClient({ children }: Props) {
             }}
           />
         </aside>
+
       </div>
     </DashboardWithDrawer>
   );

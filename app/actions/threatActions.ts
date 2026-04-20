@@ -18,11 +18,40 @@ import { isGrcInfrastructureLimitMessage } from '@/app/utils/grcInfrastructureLi
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { recordSustainabilityImpact } from '@/app/actions/sustainabilityActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
+import { shadowReceiptAuditStub } from '@/app/lib/grc/threatReceipt';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
 import {
   assigneeKeyToDisplayName,
   operatorIdToDisplayName,
 } from '@/app/utils/assignmentChainOfCustody';
+import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
+import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
+
+type AcknowledgeResolvedThreat =
+  | { plane: 'prod'; row: { financialRisk_cents: bigint; sourceAgent: string } }
+  | { plane: 'shadow'; row: { financialRisk_cents: bigint; sourceAgent: string } };
+
+/** Strict tenant isolation: production first, then shadow — same `tenantCompanyId` scope for both planes. */
+async function resolveThreatForAcknowledge(
+  threatId: string,
+  companyId: bigint | null,
+): Promise<AcknowledgeResolvedThreat | null> {
+  const grcSelect = { financialRisk_cents: true, sourceAgent: true } as const;
+  if (companyId == null) return null;
+
+  const prod = await prisma.threatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: grcSelect,
+  });
+  if (prod) return { plane: 'prod', row: prod };
+
+  const sim = await prisma.simThreatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: grcSelect,
+  });
+  if (sim) return { plane: 'shadow', row: sim };
+  return null;
+}
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
@@ -153,14 +182,50 @@ type TransactionClient = {
   workNote: { create: (args: unknown) => Promise<any> };
 };
 
-type MissingRecordResponse = { success: false; error: 'AUDIT_LOG_FAILURE: Record no longer exists.' };
+type MissingRecordResponse = { success: false; error: string };
 type ActionFailureResponse = { success: false; error: string };
 
-/** Validate threat exists, then run update + audit create in one transaction. Throws AUDIT_LOG_FAILURE if threat does not exist. */
+const DEFAULT_THREAT_TX_GUARD_ERROR = 'AUDIT_LOG_FAILURE: Record no longer exists.';
+
+/** Post-pipeline states: acknowledge already applied (ThreatState has no separate ACKNOWLEDGED — ACTIVE is that milestone). */
+const IDEMPOTENT_ACK_STATUSES: ThreatState[] = [
+  ThreatState.ACTIVE,
+  ThreatState.CONFIRMED,
+  ThreatState.ESCALATED,
+  ThreatState.PENDING_REMOTE_INTERVENTION,
+  ThreatState.RESOLVED,
+];
+
+/** Idempotent repeat-ack: row already ACTIVE+ under the same tenant scope (prod or shadow). */
+async function tryIdempotentAcknowledgeSuccess(
+  id: string,
+  sessionCompanyId: bigint | null,
+): Promise<{ success: true } | null> {
+  if (sessionCompanyId == null) return null;
+  const statusIn = { in: IDEMPOTENT_ACK_STATUSES };
+
+  const prodScoped = await prisma.threatEvent.findFirst({
+    where: { id, tenantCompanyId: sessionCompanyId, status: statusIn },
+    select: { id: true },
+  });
+  if (prodScoped) return { success: true };
+
+  const simScoped = await prisma.simThreatEvent.findFirst({
+    where: { id, tenantCompanyId: sessionCompanyId, status: statusIn },
+    select: { id: true },
+  });
+  if (simScoped) return { success: true };
+
+  return null;
+}
+
+/** Validate production ThreatEvent exists, then run update + audit create in one transaction. (Always uses threatEvent — never SimThreatEvent.) */
 async function runThreatTransaction<T>(
   id: string,
   run: (tx: TransactionClient) => Promise<T>,
+  options?: { missingRecordError?: string },
 ): Promise<T> {
+  const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   return prisma.$transaction(async (tx) => {
     const client = tx as unknown as TransactionClient;
     const exists = await client.threatEvent.findUnique({
@@ -168,31 +233,67 @@ async function runThreatTransaction<T>(
       select: { id: true },
     });
     if (exists == null) {
-      console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id}`);
-      return { success: false, error: 'AUDIT_LOG_FAILURE: Record no longer exists.' } as unknown as T;
+      console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id} (${missingErr})`);
+      return { success: false, error: missingErr } as unknown as T;
     }
     return run(client);
   });
 }
+
+export type AcknowledgeThreatActionResult =
+  | { success: true; warning?: string }
+  | ActionFailureResponse
+  | void;
 
 export async function acknowledgeThreatAction(
   id: string,
   tenantId: string,
   operatorId: string,
   justification?: string,
-): Promise<{ success: true } | ActionFailureResponse | void> {
+): Promise<AcknowledgeThreatActionResult> {
   if (tenantId == null || tenantId === undefined || tenantId === '') {
     throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
   }
-  console.log(`[ACTION] Starting Acknowledge for ID: ${id}`);
+
+  const sessionCompanyId = await getCompanyIdForActiveTenant();
+  if (sessionCompanyId == null) {
+    throw new Error('Irongate Rejection: Missing company context for tenant isolation.');
+  }
 
   const TOP_SECTOR_SOURCE = 'Top Sector Threats';
   const TOP_SECTOR_JUSTIFICATION = 'Top Sector Threat';
 
-  const existing = await prisma.threatEvent.findUnique({
-    where: { id },
-    select: { financialRisk_cents: true, sourceAgent: true },
+  const grcAckSelect = { financialRisk_cents: true, sourceAgent: true } as const;
+
+  const prodRow = await prisma.threatEvent.findFirst({
+    where: { id, tenantCompanyId: sessionCompanyId },
+    select: grcAckSelect,
   });
+
+  let resolved: AcknowledgeResolvedThreat | null = null;
+  if (prodRow) {
+    resolved = { plane: 'prod', row: prodRow };
+  } else {
+    const simRow = await prisma.simThreatEvent.findFirst({
+      where: { id, tenantCompanyId: sessionCompanyId },
+      select: grcAckSelect,
+    });
+    if (simRow) {
+      resolved = { plane: 'shadow', row: simRow };
+    }
+  }
+
+  if (!resolved) {
+    const idem = await tryIdempotentAcknowledgeSuccess(id, sessionCompanyId);
+    if (idem) {
+      revalidatePath('/');
+      return idem;
+    }
+    throw new Error(`Threat not found or access denied. (ID: ${id})`);
+  }
+
+  const isShadowAck = resolved.plane === 'shadow';
+  const existing = resolved.row;
   if (existing && existing.financialRisk_cents != null) {
     const threshold = getGrcThresholdCents();
     const cents = BigInt(existing.financialRisk_cents);
@@ -211,9 +312,12 @@ export async function acknowledgeThreatAction(
     }
   }
 
-  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
-    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+  if (!prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
+    return;
+  }
+  if (!isShadowAck && !prismaDelegates.threatEvent?.update) {
+    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     return;
   }
 
@@ -228,50 +332,245 @@ export async function acknowledgeThreatAction(
     }
     const savedWorkNoteText = parsedJustification.data.text;
 
-    const result = await runThreatTransaction(id, async (tx) => {
-      const prismaTx = tx as unknown as {
-        threatEvent: {
-          findUnique: typeof prisma.threatEvent.findUnique;
-          update: typeof prisma.threatEvent.update;
-        };
-        workNote: typeof prisma.workNote;
-        auditLog: typeof prisma.auditLog;
-      };
-      const detailsRow = await prismaTx.threatEvent.findUnique({
-        where: { id },
-        select: { ingestionDetails: true },
+    if (isShadowAck) {
+      await prisma.$transaction(async (tx) => {
+        const detailsRow = await tx.simThreatEvent.findUnique({
+          where: { id },
+          select: { ingestionDetails: true },
+        });
+        if (detailsRow == null) {
+          console.warn(`[Acknowledge Phase 2] SimThreatEvent missing inside TX after resolve: ${id}`);
+          throw new Error(
+            '[Acknowledge Phase 2 – Shadow TX] simThreatEvent row missing before update (race delete or ID mismatch; production ThreatEvent guard not used here).',
+          );
+        }
+        const chaosAckPatch = buildChaosFinalAckIngestionPatch(detailsRow.ingestionDetails ?? null);
+        const nextIngestionDetails = mergeIngestionDetailsPatch(detailsRow.ingestionDetails ?? null, {
+          grcJustification: savedWorkNoteText,
+          ...(chaosAckPatch ?? {}),
+        });
+        await tx.simThreatEvent.update({
+          where: { id },
+          data: {
+            status: ThreatState.ACTIVE,
+            ingestionDetails: nextIngestionDetails,
+          },
+          select: { id: true },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: 'THREAT_ACKNOWLEDGED',
+            justification: JSON.stringify({
+              ...shadowReceiptAuditStub(id),
+              text: savedWorkNoteText,
+            }),
+            operatorId,
+            threatId: null,
+            isSimulation: true,
+          },
+        });
       });
-      const nextIngestionDetails = mergeIngestionDetailsPatch(detailsRow?.ingestionDetails ?? null, {
-        grcJustification: savedWorkNoteText,
+      revalidatePath('/');
+      return { success: true as const };
+    } else {
+      const result = await runThreatTransaction(
+        id,
+        async (tx) => {
+          const prismaTx = tx as unknown as {
+            threatEvent: {
+              findUnique: typeof prisma.threatEvent.findUnique;
+              update: typeof prisma.threatEvent.update;
+            };
+            workNote: typeof prisma.workNote;
+            auditLog: typeof prisma.auditLog;
+          };
+          const detailsRow = await prismaTx.threatEvent.findUnique({
+            where: { id },
+            select: { ingestionDetails: true },
+          });
+          const chaosAckPatch = buildChaosFinalAckIngestionPatch(detailsRow?.ingestionDetails ?? null);
+          const nextIngestionDetails = mergeIngestionDetailsPatch(detailsRow?.ingestionDetails ?? null, {
+            grcJustification: savedWorkNoteText,
+            ...(chaosAckPatch ?? {}),
+          });
+
+          await prismaTx.workNote.create({
+            data: {
+              text: savedWorkNoteText,
+              operatorId,
+              threatId: id,
+            },
+          });
+          // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
+          await prismaTx.threatEvent.update({
+            where: { id },
+            data: {
+              status: ThreatState.ACTIVE,
+              ingestionDetails: nextIngestionDetails,
+            },
+            select: { id: true },
+          });
+          await prismaTx.auditLog.create({
+            data: {
+              action: 'THREAT_ACKNOWLEDGED',
+              justification: savedWorkNoteText,
+              operatorId,
+              threatId: id,
+            },
+          });
+        },
+        {
+          missingRecordError:
+            '[Acknowledge Phase 3 – Prod TX / runThreatTransaction] threatEvent missing inside transaction guard (shadow row never uses this path).',
+        },
+      );
+      const maybeMissing = result as unknown as MissingRecordResponse | undefined;
+      if (maybeMissing?.success === false) {
+        return maybeMissing;
+      }
+      const maybeFailure = result as unknown as ActionFailureResponse | undefined;
+      if (maybeFailure?.success === false) {
+        return maybeFailure;
+      }
+
+      revalidatePath('/');
+      return { success: true as const };
+    }
+  } catch (error) {
+    console.error('[ACTION FAILED]:', error);
+    const base = error instanceof Error ? error.message : String(error);
+    const diag = `(ID: ${id}, CoID: ${sessionCompanyId.toString()}, plane: ${isShadowAck ? 'shadow' : 'prod'})`;
+    return {
+      success: false,
+      error: `${base} ${diag}`,
+    };
+  }
+}
+
+export async function confirmThreatAction(
+  id: string,
+  operatorId: string,
+): Promise<{ success: true } | ActionFailureResponse | void> {
+  const sessionCompanyId = await getCompanyIdForActiveTenant();
+  const resolved = await resolveThreatForAcknowledge(id, sessionCompanyId);
+  if (resolved == null) {
+    return {
+      success: false,
+      error:
+        '[Confirm Phase 0] No ThreatEvent or SimThreatEvent for this id and tenant scope.',
+    };
+  }
+
+  const isShadow = resolved.plane === 'shadow';
+
+  if (!prismaDelegates.auditLog?.create) {
+    if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
+    return;
+  }
+  if (!isShadow && !prismaDelegates.threatEvent?.update) {
+    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+    return;
+  }
+
+  try {
+    if (isShadow) {
+      await prisma.$transaction(async (tx) => {
+        const row = await tx.simThreatEvent.findUnique({
+          where: { id },
+          select: { id: true },
+        });
+        if (row == null) {
+          console.warn(`[Confirm Phase 2] SimThreatEvent missing inside TX after resolve: ${id}`);
+          throw new Error(
+            '[Confirm Phase 2 – Shadow TX] simThreatEvent row missing before update (race delete or ID mismatch).',
+          );
+        }
+        await tx.simThreatEvent.update({
+          where: { id },
+          data: { status: ThreatState.CONFIRMED },
+          select: { id: true },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: 'THREAT_CONFIRMED',
+            justification: JSON.stringify(shadowReceiptAuditStub(id)),
+            operatorId,
+            threatId: null,
+            isSimulation: true,
+          },
+        });
+      });
+      revalidatePath('/');
+      await logThreatActivity(null, 'STATUS_UPDATED', `Threat status changed to CONFIRMED (shadow). simThreatId:${id}`, {
+        isSimulation: true,
       });
 
-      await prismaTx.workNote.create({
-        data: {
-          text: savedWorkNoteText,
-          operatorId,
+      try {
+        const threat = await prisma.simThreatEvent.findUnique({
+          where: { id },
+          select: { title: true, status: true, financialRisk_cents: true },
+        });
+        const threatTitle = threat?.title ?? id;
+        const state = threat?.status ?? 'CONFIRMED';
+        const financialRisk_cents = threat?.financialRisk_cents ?? BigInt(0);
+        console.log(`[CONFIRM] Dispatching confirmation email for shadow threat ${id} (${threatTitle})...`);
+
+        const briefThreat: SecurityBriefThreat = {
+          title: threatTitle,
+          id,
+          financialRisk_cents,
+        };
+        await sendRiskNotification(
+          targetEmail,
+          `[GRC ALERT] Threat Confirmed: ${threatTitle}`,
+          generateSecurityBrief(briefThreat, 'CONFIRMED'),
+        );
+
+        const emailResult = await sendThreatConfirmationEmail({
           threatId: id,
-        },
-      });
-      // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
-      await prismaTx.threatEvent.update({
-        where: { id },
-        data: {
-          status: ThreatState.ACTIVE,
-          ingestionDetails: nextIngestionDetails,
-        },
-        select: { id: true },
-      });
-      console.log(`[DB] Threat updated to ACTIVE (ingestionDetails.grcJustification persisted)`);
-      await prismaTx.auditLog.create({
-        data: {
-          action: 'THREAT_ACKNOWLEDGED',
-          justification: savedWorkNoteText,
+          threatTitle,
           operatorId,
-          threatId: id,
-        },
-      });
-      console.log(`[DB] Audit log created successfully`);
-    });
+        });
+        if (emailResult.success) {
+          console.log('[CONFIRM] Confirmation email sent successfully.');
+        } else {
+          console.error('[EMAIL ERROR]', emailResult.error);
+        }
+        await routeRiskNotification({
+          id,
+          title: threatTitle,
+          state: String(state),
+          financialRisk_cents: Number(financialRisk_cents),
+        });
+      } catch (emailError) {
+        console.error('[EMAIL ERROR]', emailError);
+      }
+
+      return { success: true };
+    }
+
+    const result = await runThreatTransaction(
+      id,
+      async (tx) => {
+        await tx.threatEvent.update({
+          where: { id },
+          data: { status: ThreatState.CONFIRMED },
+          select: { id: true },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: 'THREAT_CONFIRMED',
+            justification: null,
+            operatorId,
+            threatId: id,
+          },
+        });
+      },
+      {
+        missingRecordError:
+          '[Confirm Phase 3 – Prod TX / runThreatTransaction] threatEvent missing inside transaction guard (shadow row never uses this path).',
+      },
+    );
     const maybeMissing = result as unknown as MissingRecordResponse | undefined;
     if (maybeMissing?.success === false) {
       return maybeMissing;
@@ -282,46 +581,9 @@ export async function acknowledgeThreatAction(
     }
 
     revalidatePath('/');
-    console.log(`[UI] Path revalidated`);
-    return { success: true };
-  } catch (error) {
-    console.error('[ACTION FAILED]:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-export async function confirmThreatAction(id: string, operatorId: string): Promise<{ success: true } | void> {
-  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
-    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
-    if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
-    return;
-  }
-
-  try {
-    await runThreatTransaction(id, async (tx) => {
-      await tx.threatEvent.update({
-        where: { id },
-        data: { status: ThreatState.CONFIRMED },
-        select: { id: true },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: 'THREAT_CONFIRMED',
-          justification: null,
-          operatorId,
-          threatId: id,
-        },
-      });
-    });
-
-    revalidatePath('/');
 
     await logThreatActivity(id, 'STATUS_UPDATED', `Threat status changed to CONFIRMED.`);
 
-    // Dispatch confirmation email and GRC-routed notification
     try {
       const threat = await prisma.threatEvent.findUnique({
         where: { id },
@@ -353,7 +615,6 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
       } else {
         console.error('[EMAIL ERROR]', emailResult.error);
       }
-      // Enterprise GRC: route notification by liability/state (EXECUTIVE / OPERATIONAL / COMPLIANCE)
       await routeRiskNotification({
         id,
         title: threatTitle,
@@ -367,7 +628,12 @@ export async function confirmThreatAction(id: string, operatorId: string): Promi
     return { success: true };
   } catch (error) {
     console.error('[ACTION FAILED] confirmThreatAction:', error);
-    throw error;
+    const base = error instanceof Error ? error.message : String(error);
+    const diag = `(ID: ${id}, CoID: ${sessionCompanyId?.toString() ?? 'null'}, plane: ${isShadow ? 'shadow' : 'prod'})`;
+    return {
+      success: false,
+      error: `${base} ${diag}`,
+    };
   }
 }
 
@@ -433,9 +699,9 @@ export async function resolveThreatAction(
 
   await logThreatActivity(id, 'STATUS_UPDATED', `Threat status changed to RESOLVED.`);
 
-  const ironbloom = await recordSustainabilityImpact(id);
-  if (!ironbloom.ok) {
-    console.error('[Ironbloom] recordSustainabilityImpact failed:', ironbloom.error);
+  const ironbloomSustainability = await recordSustainabilityImpact(id);
+  if (!ironbloomSustainability.ok) {
+    console.error('[Ironbloom] recordSustainabilityImpact failed:', ironbloomSustainability.error);
   }
 
   try {
@@ -525,7 +791,10 @@ export async function deAcknowledgeThreatAction(
     select: { financialRisk_cents: true },
   });
   if (!existing) {
-    return { success: false, error: 'Threat not found.' };
+    return {
+      success: false,
+      error: `[deAcknowledgeThreatAction] threatEvent.findUnique: no row for id ${id}`,
+    };
   }
 
   const threshold = getGrcThresholdCents();
@@ -705,7 +974,10 @@ export async function setThreatAssigneeAction(
     select: { id: true, tenantCompanyId: true },
   });
   if (!row) {
-    return { success: false, error: 'Threat not found.' };
+    return {
+      success: false,
+      error: `[setThreatAssigneeAction] threatEvent.findUnique: no row for threatId ${threatId}`,
+    };
   }
   if (row.tenantCompanyId != null) {
     const company = await prisma.company.findUnique({
@@ -801,7 +1073,10 @@ export async function addWorkNoteAction(threatId: string, text: string, operator
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;
     if (code === 'P2003') {
-      return { success: false, error: 'Threat record not found. Save the threat from the pipeline first, or open a threat that exists in the system.' };
+      return {
+        success: false,
+        error: `[appendWorkNoteToThreat] FK P2003: threatEvent id ${threatId} missing — save pipeline threat first`,
+      };
     }
     const message = err instanceof Error ? err.message : 'Failed to save note.';
     return { success: false, error: message };
@@ -874,7 +1149,8 @@ export async function getManualRecoveryData(
       ingestionDetails: true,
     },
   });
-  if (!threat) return { error: "Threat not found" };
+  if (!threat)
+    return { error: `[getManualRecoveryData] threatEvent.findUnique: no row for threatId ${tid}` };
   const op = await prisma.agentOperation.findUnique({
     where: { threatId_agentName: { threatId: tid, agentName: IRONTECH_AGENT_NAME } },
   });
@@ -923,7 +1199,10 @@ export async function acknowledgeGrcInfrastructureLimitAndResetAgent(
     select: { ingestionDetails: true },
   });
   if (!threat) {
-    return { success: false, error: "Threat not found." };
+    return {
+      success: false,
+      error: `[acknowledgeGrcInfrastructureLimitAndResetAgent] threatEvent.findUnique: no row for ${tid}`,
+    };
   }
   const op = await prisma.agentOperation.findUnique({
     where: { threatId_agentName: { threatId: tid, agentName: IRONTECH_AGENT_NAME } },
@@ -1095,7 +1374,10 @@ export async function toggleRemoteAccessAuthorization(
     select: { isRemoteAccessAuthorized: true },
   });
   if (!row) {
-    return { success: false, error: "Threat not found." };
+    return {
+      success: false,
+      error: `[toggleRemoteAccessAuthorization] threatEvent.findUnique: no row for ${tid}`,
+    };
   }
   const next = !row.isRemoteAccessAuthorized;
   await prisma.threatEvent.update({

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_noStore as noStore } from 'next/cache';
+import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
+import { readSimulationPlaneEnabled } from '@/app/lib/security/ingressGateway';
+import { getActiveThreatWhereClause } from '@/app/utils/activeThreatsBoardQuery';
 
 /** Never statically cache this route — dashboard must reflect live DB (assignee, risks, logs). */
 export const dynamic = 'force-dynamic';
@@ -38,6 +41,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const simPlane = await readSimulationPlaneEnabled();
+
     const [companies, serverAuditLogs, risks, threatEvents] = await prisma.$transaction([
       prisma.company.findMany({
         where: { tenantId: activeTenantUuid },
@@ -66,32 +71,48 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { score_cents: 'desc' },
       }),
-      // LKG: no separate Operator/User join — actor display names live in AuditLog.justification JSON for ASSIGNMENT_CHANGED.
-      prisma.threatEvent.findMany({
-        select: {
-          id: true,
-          title: true,
-          sourceAgent: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-          assigneeId: true,
-          ttlSeconds: true,
-          ingestionDetails: true,
-          auditTrail: {
-            where: { action: 'ASSIGNMENT_CHANGED' },
-            orderBy: { createdAt: 'asc' },
+      simPlane
+        ? prisma.simThreatEvent.findMany({
+            where: getActiveThreatWhereClause() as Prisma.SimThreatEventWhereInput,
             select: {
               id: true,
-              action: true,
-              justification: true,
-              operatorId: true,
+              title: true,
+              sourceAgent: true,
+              status: true,
               createdAt: true,
+              updatedAt: true,
+              assigneeId: true,
+              ttlSeconds: true,
+              ingestionDetails: true,
             },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      }),
+            orderBy: { updatedAt: 'desc' },
+          })
+        : prisma.threatEvent.findMany({
+            where: getActiveThreatWhereClause(),
+            select: {
+              id: true,
+              title: true,
+              sourceAgent: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              assigneeId: true,
+              ttlSeconds: true,
+              ingestionDetails: true,
+              auditTrail: {
+                where: { action: 'ASSIGNMENT_CHANGED' },
+                orderBy: { createdAt: 'asc' },
+                select: {
+                  id: true,
+                  action: true,
+                  justification: true,
+                  operatorId: true,
+                  createdAt: true,
+                },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
+          }),
     ]);
 
     const filteredRisks = risks.filter((r) => !EXCLUDED_BASELINE_RISK_TITLES.has(r.title));
@@ -159,21 +180,25 @@ export async function GET(request: NextRequest) {
       infrastructure_val_cents: c.infrastructure_val_cents ?? null,
     }));
 
-    /** ThreatEvent rows with assigneeId + ASSIGNMENT_CHANGED chain-of-custody. */
-    const threatEventsPayload = threatEvents.map((t) => ({
-      id: t.id,
-      title: t.title,
-      sourceAgent: t.sourceAgent,
-      status: t.status,
-      assigneeId: t.assigneeId ?? null,
-      assignmentHistory: (t.auditTrail ?? []).map((log) => ({
-        id: log.id,
-        action: log.action,
-        justification: log.justification,
-        operatorId: log.operatorId,
-        createdAt: log.createdAt.toISOString(),
-      })),
-    }));
+    /** ThreatEvent / SimThreatEvent rows with assigneeId + optional ASSIGNMENT_CHANGED chain. */
+    const threatEventsPayload = threatEvents.map((t) => {
+      const auditTrail =
+        'auditTrail' in t && Array.isArray(t.auditTrail) ? t.auditTrail : [];
+      return {
+        id: t.id,
+        title: t.title,
+        sourceAgent: t.sourceAgent,
+        status: t.status,
+        assigneeId: t.assigneeId ?? null,
+        assignmentHistory: auditTrail.map((log) => ({
+          id: log.id,
+          action: log.action,
+          justification: log.justification,
+          operatorId: log.operatorId,
+          createdAt: log.createdAt.toISOString(),
+        })),
+      };
+    });
 
     const data = {
       companies: serializedCompanies,

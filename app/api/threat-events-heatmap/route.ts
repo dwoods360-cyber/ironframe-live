@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { ThreatState } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +64,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ threats: [] as HeatMapThreatPayload[] });
   }
 
-  const rows = await prisma.threatEvent.findMany({
+  const simPlane = await readSimulationPlaneEnabled();
+  const heatQuery = {
     where: {
       tenantCompanyId: company.id,
       status: { in: HEAT_MAP_STATUSES },
@@ -76,9 +78,12 @@ export async function GET(request: NextRequest) {
       sourceAgent: true,
       targetEntity: true,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { updatedAt: "desc" as const },
     take: 200,
-  });
+  };
+  const rows = simPlane
+    ? await prisma.simThreatEvent.findMany(heatQuery)
+    : await prisma.threatEvent.findMany(heatQuery);
 
   const threats: HeatMapThreatPayload[] = rows.map((t) => {
     const { likelihood, impact } = deriveLikelihoodImpactFromScore(t.score);

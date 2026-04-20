@@ -10,6 +10,7 @@ import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficien
 import type { RecentAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
 import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { Leaf } from "lucide-react";
 
 function formatOperatorDisplay(operatorId: string): string {
@@ -29,7 +30,7 @@ type ExecutiveSummaryProps = {
   telemetryData: GlobalTelemetry;
   /** Tenant-scoped AuditLog rows from the primary DB. */
   auditLogs: RecentAuditLogRow[];
-  /** Ironbloom ledger (tenant-scoped); JSON-serializable numbers only. */
+  /** Ironbloom (production) sustainability ledger (tenant-scoped); physical units only — kWh, L, CO₂e; monetary-only rejected (TAS). */
   sustainabilityImpact: GlobalSustainabilityImpact;
 };
 
@@ -202,16 +203,18 @@ export default function ExecutiveSummary({
             </p>
           </div>
 
-          {/* CSRD / Ironbloom — live sustainability ledger */}
+          {/* CSRD / Ironbloom — production sustainability ledger */}
           <div className="rounded-lg border border-emerald-900/50 bg-slate-950/40 p-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-emerald-400/90">
               <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              CSRD · Ironbloom
+              CSRD · {IRONBLOOM_PRODUCTION_LABEL}
             </div>
             <div className="mt-3 font-mono text-lg font-semibold leading-tight text-emerald-300">
               {sustainabilityImpact.co2OffsetKgChip}
             </div>
             <p className="mt-2 text-[11px] leading-snug text-slate-400">
+              {IRONBLOOM_PRODUCTION_LABEL} (production) records physical sustainability only (kWh, L, km-class CO₂e);
+              monetary-only inputs are rejected per TAS.
               Outcome reporting: verified CO₂e offset from resolved threats (SustainabilityMetric ledger). Use System
               Pulse above for fleet health.
             </p>

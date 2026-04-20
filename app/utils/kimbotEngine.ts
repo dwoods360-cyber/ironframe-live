@@ -4,6 +4,8 @@
  * Occasionally fires Critical (>$10M) to test GRC gates and 15-min notification.
  */
 
+import { KIMBOT_THREAT_TITLE_PREFIX } from "@/app/config/agents";
+
 export type KimbotAttackType = "Ransomware" | "Data Leak" | "API Breach";
 
 export type KimbotRawSignal = {
@@ -193,11 +195,12 @@ export function generateKimbotSignal(
   const title = pick(attack.titles);
   const description = pick(attack.descriptions);
 
+  /** Placeholder only — persisted rows use `createKimbotThreatServer().id` (DB cuid); callers must overwrite. */
   const id = `kimbot-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
   return {
     id,
-    title: `[IRONBLOOM] ${title}`,
+    title: `${KIMBOT_THREAT_TITLE_PREFIX} ${title}`,
     source: "AGENT_NOTICE",
     severity,
     severityScore,

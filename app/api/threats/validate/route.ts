@@ -51,12 +51,22 @@ export async function POST(request: Request) {
     }
 
     if (threatEventIds.length > 0) {
-      const found = await prisma.threatEvent.findMany({
-        where: { id: { in: threatEventIds } },
-        select: { id: true },
-      });
-      for (const t of found) {
-        if (ids.includes(t.id)) validIds.push(t.id);
+      const [prodRows, simRows] = await Promise.all([
+        prisma.threatEvent.findMany({
+          where: { id: { in: threatEventIds } },
+          select: { id: true },
+        }),
+        prisma.simThreatEvent.findMany({
+          where: { id: { in: threatEventIds } },
+          select: { id: true },
+        }),
+      ]);
+      const existing = new Set([
+        ...prodRows.map((r) => r.id),
+        ...simRows.map((r) => r.id),
+      ]);
+      for (const id of threatEventIds) {
+        if (existing.has(id) && ids.includes(id)) validIds.push(id);
       }
     }
 

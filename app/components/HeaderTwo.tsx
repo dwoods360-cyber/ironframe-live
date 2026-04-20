@@ -172,6 +172,13 @@ export default function HeaderTwo({
                   AUDIT TRAIL
                 </Link>
                 <Link
+                  href="/opsupport"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-cyan-700/60 bg-cyan-950/50 px-4 py-2 text-[10px] font-bold text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50"
+                  data-testid="header-opsupport-chip"
+                >
+                  OP SUPPORT
+                </Link>
+                <Link
                   href="/admin/clearance"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-[10px] font-medium text-white transition-all hover:bg-red-700"
                   data-testid="header-dmz-quarantine-chip"

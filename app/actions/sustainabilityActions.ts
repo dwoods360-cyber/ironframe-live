@@ -173,7 +173,12 @@ function isHighSeverity(score: number): boolean {
 }
 
 /**
- * Records Ironbloom sustainability impact when a threat is mitigated (RESOLVED).
+ * Records **Ironbloom** (production CSRD) sustainability impact when a threat is mitigated (RESOLVED).
+ *
+ * **TAS / physical units:** This path only persists kWh, liters (cooling water), and CO₂e mass (grams). It does not
+ * accept monetary-only carbon or USD-denominated “offsets”. Any future ingestion MUST validate physical quantities
+ * before calling this function; reject payloads that only carry currency fields.
+ *
  * Idempotent per threat via upsert on `threatId`.
  */
 export async function recordSustainabilityImpact(
@@ -196,6 +201,7 @@ export async function recordSustainabilityImpact(
     }
 
     const high = isHighSeverity(threat.score);
+    // Derived physical estimates from resolution context — not from monetary inputs (TAS).
     const kwhAverted = high ? 2500n : 500n;
     const carbonOffsetGrams = high ? 1500n : 300n; // 1.5 kg vs 0.3 kg CO2e
     const coolingWaterLiters = Number(kwhAverted) * 1.8;

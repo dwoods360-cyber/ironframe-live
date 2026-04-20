@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { flushSync } from 'react-dom';
 import type { ChangeEvent, MouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -23,9 +24,11 @@ import { parseIrontechLiveFromIngestion } from '@/app/utils/irontechLiveStream';
 import { joinErrorProbeParts } from '@/app/utils/grcInfrastructureLimit';
 import { useAgentStore } from '@/app/store/agentStore';
 import { ThreatCard } from '@/app/components/ThreatCard';
+import { PipelineSelfTestBar } from '@/app/components/ui/PipelineSelfTestBar';
 import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
 import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
 import { grantRemoteAccessAction } from '@/app/actions/chaosActions';
+import ChaosShadowAuditFeed from '@/app/components/chaos/ChaosShadowAuditFeed';
 import { fetchChaosLedgerClientAttribution } from '@/app/utils/chaosClientAttribution';
 import {
   chaosComplianceCoverageLabel,
@@ -58,6 +61,17 @@ function resolveTenantId(selectedTenantName: string | null): string {
   if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
   if (n === 'gridcore') return TENANT_UUIDS.gridcore;
   return TENANT_UUIDS.medshield;
+}
+
+/** Chaos flight-recorder step 3: auto-ack handoff line (client-only). */
+function ChaosFlightSelfHealedBanner({ threatId }: { threatId: string }) {
+  const line = useRiskStore((s) => s.chaosSelfHealedLineByThreatId[threatId]);
+  if (!line) return null;
+  return (
+    <div className="mb-3 w-full rounded-md border border-emerald-500/45 bg-emerald-950/25 px-2 py-2">
+      <p className="text-[10px] font-mono font-semibold uppercase tracking-wide text-emerald-200">{line}</p>
+    </div>
+  );
 }
 
 type RiskRow = {
@@ -366,7 +380,14 @@ function isChaosDrillThreat(threatLike: unknown): boolean {
   const o = threatLike as Record<string, unknown>;
   const src = (typeof o.source === 'string' ? o.source : '').trim().toUpperCase();
   const srcAgent = (typeof o.sourceAgent === 'string' ? o.sourceAgent : '').trim().toUpperCase();
-  if (src === 'IRONCHAOS' || srcAgent === 'IRONCHAOS') return true;
+  if (
+    src === "IRONCHAOS" ||
+    srcAgent === "IRONCHAOS" ||
+    src === "ATTACK_BOT" ||
+    srcAgent === "ATTACK_BOT"
+  ) {
+    return true;
+  }
   const rec = parseJsonRecord(o.ingestionDetails);
   if (rec && rec.isChaosTest === true) return true;
   return false;
@@ -805,6 +826,11 @@ export default function ActiveRisksClient({
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const enginesOn = kimbotEnabled || grcBotEnabled;
 
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    console.log("DEBUG: Engines State:", { enginesOn, kimbotEnabled, grcBotEnabled });
+  }, [enginesOn, kimbotEnabled, grcBotEnabled]);
+
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
   const [workNotes, setWorkNotes] = useState<Record<string, WorkNote[]>>({});
@@ -818,7 +844,6 @@ export default function ActiveRisksClient({
   const [traceRunningThreatId, setTraceRunningThreatId] = useState<string | null>(null);
   const [executingActionKey, setExecutingActionKey] = useState<string | null>(null);
   const [recoveryThreatId, setRecoveryThreatId] = useState<string | null>(null);
-  const [localThreats, setLocalThreats] = useState<PipelineThreat[]>(activeThreats);
   const [resolvingThreatIds, setResolvingThreatIds] = useState<Record<string, boolean>>({});
   const [remoteAccessAdminEligible, setRemoteAccessAdminEligible] = useState(false);
   const [remoteAccessBusyThreatId, setRemoteAccessBusyThreatId] = useState<string | null>(null);
@@ -853,7 +878,8 @@ export default function ActiveRisksClient({
   /** One-way visual valve: after RESOLVED is seen, keep emerald styling for 60s even if a fetch returns stale ACTIVE. */
   const RESOLVED_STICKY_MS = 60_000;
   const resolvedStickyUntilRef = useRef<Map<string, number>>(new Map());
-  const [, stickyClockTick] = useState(0);
+  /** Bumped only when expired sticky entries are pruned — drives memoized sticky map without list-wide tick reads. */
+  const [resolvedStickySweep, setResolvedStickySweep] = useState(0);
   const [, startTraceTransition] = useTransition();
   const [, startExecTransition] = useTransition();
 
@@ -893,7 +919,8 @@ export default function ActiveRisksClient({
       if (!threat?.id) return;
       const processingMs = Math.max(2000, ce.detail?.processingMs ?? 3000);
       optimisticProcessingUntilRef.current.set(threat.id, Date.now() + processingMs);
-      setLocalThreats((prev) => [threat, ...prev.filter((t) => t.id !== threat.id)]);
+      const { activeThreats: at, replaceActiveThreats: rep } = useRiskStore.getState();
+      rep([threat, ...at.filter((t) => t.id !== threat.id)]);
     };
     const onOptimisticSuccess = (e: Event) => {
       const ce = e as CustomEvent<{ optimisticId?: string }>;
@@ -903,13 +930,15 @@ export default function ActiveRisksClient({
       const waitMs = Math.max(0, until - Date.now());
       clearSettleTimer(id);
       const settleTimer = window.setTimeout(() => {
-        setLocalThreats((prev) =>
-          prev.map((t) =>
+        const { activeThreats: at, replaceActiveThreats: rep } = useRiskStore.getState();
+        rep(
+          at.map((t) =>
             t.id === id ? { ...t, threatStatus: 'RESOLVED', lifecycleState: 'resolved' } : t,
           ),
         );
         const removeTimer = window.setTimeout(() => {
-          setLocalThreats((prev) => prev.filter((t) => t.id !== id));
+          const { activeThreats: at2, replaceActiveThreats: rep2 } = useRiskStore.getState();
+          rep2(at2.filter((t) => t.id !== id));
           optimisticProcessingUntilRef.current.delete(id);
           optimisticSettleTimersRef.current.delete(id);
         }, 1200);
@@ -922,7 +951,8 @@ export default function ActiveRisksClient({
       const id = ce.detail?.optimisticId?.trim();
       if (!id) return;
       clearSettleTimer(id);
-      setLocalThreats((prev) => prev.filter((t) => t.id !== id));
+      const { activeThreats: at, replaceActiveThreats: rep } = useRiskStore.getState();
+      rep(at.filter((t) => t.id !== id));
       optimisticProcessingUntilRef.current.delete(id);
     };
     window.addEventListener('ironframe:chaos-drill-optimistic-start', onOptimisticStart);
@@ -963,22 +993,6 @@ export default function ActiveRisksClient({
   }, [activeThreats]);
 
   useEffect(() => {
-    const now = Date.now();
-    setLocalThreats((prev) => {
-      const stickyOptimistic = prev.filter((t) => {
-        if (!t.isLocalOnly) return false;
-        const until = optimisticProcessingUntilRef.current.get(t.id) ?? 0;
-        return until > now;
-      });
-      const merged = [...activeThreats];
-      for (const t of stickyOptimistic) {
-        if (!merged.some((m) => m.id === t.id)) merged.push(t);
-      }
-      return merged;
-    });
-  }, [activeThreats]);
-
-  useEffect(() => {
     const id = window.setInterval(() => {
       const now = Date.now();
       let pruned = false;
@@ -988,7 +1002,8 @@ export default function ActiveRisksClient({
           pruned = true;
         }
       }
-      if (pruned) stickyClockTick((n) => n + 1);
+      const stillTracking = resolvedStickyUntilRef.current.size > 0;
+      if (pruned || stillTracking) setResolvedStickySweep((n) => n + 1);
     }, 2000);
     return () => window.clearInterval(id);
   }, []);
@@ -1067,8 +1082,55 @@ export default function ActiveRisksClient({
   const [selectedReason, setSelectedReason] = useState('');
   const [customJustification, setCustomJustification] = useState('');
   const [assignments, setAssignments] = useState<Record<string, string>>({});
+  /** After master purge, dashboard `risks` props can lag `router.refresh()` — hide prop-sourced rows until parent sends []. */
+  const [purgePropRisksHidden, setPurgePropRisksHidden] = useState(false);
   const currentUser = 'dereck';
   const actorDisplayLabel = SESSION_OPERATOR_LABEL[currentUser] ?? currentUser;
+
+  useEffect(() => {
+    if (purgePropRisksHidden && risks.length === 0) {
+      setPurgePropRisksHidden(false);
+    }
+  }, [risks, purgePropRisksHidden]);
+
+  useEffect(() => {
+    const onPurgeDetonated = () => {
+      flushSync(() => {
+        setPurgePropRisksHidden(true);
+        setNoteDrafts({});
+        setResolutionDrafts({});
+        setWorkNotes({});
+        setStates({});
+        setSuccessFlash({});
+        setRiskSearchQuery('');
+        setResolvingThreatIds({});
+        setRecoveryThreatId(null);
+        setTraceRunningThreatId(null);
+        setExecutingActionKey(null);
+        setExecutionToast(null);
+        setRemoteAccessBusyThreatId(null);
+        setGrantRemoteJitBusyThreatId(null);
+        setManualRecoveryBusyThreatId(null);
+        setRecoveryFailureProbeById({});
+        setAuditHistoryModalOpen(false);
+        setActiveAction(null);
+        setActiveActionCardId(null);
+        setActiveActionThreatId(null);
+        setSelectedReason('');
+        setCustomJustification('');
+        setAssignments({});
+        resolvedStickyUntilRef.current.clear();
+        ironsightAutoIgnitedRef.current.clear();
+        for (const t of optimisticSettleTimersRef.current.values()) {
+          window.clearTimeout(t);
+        }
+        optimisticSettleTimersRef.current.clear();
+        optimisticProcessingUntilRef.current.clear();
+      });
+    };
+    window.addEventListener('ironframe:grc-purge-detonated', onPurgeDetonated);
+    return () => window.removeEventListener('ironframe:grc-purge-detonated', onPurgeDetonated);
+  }, []);
 
   const persistThreatAssignee = async (
     cardKey: string,
@@ -1113,23 +1175,26 @@ export default function ActiveRisksClient({
     router.refresh();
   };
 
+  const risksForBoard = purgePropRisksHidden ? [] : risks;
+
   // Only show DB risks that are non-simulation when engines are OFF + optional tenant filter
-  const filteredRisks = risks.filter((r) => {
+  const filteredRisks = risksForBoard.filter((r) => {
     if (!enginesOn && r.isSimulation === true) return false;
     if (selectedTenantName && r.company.name !== selectedTenantName) return false;
     return true;
   });
-  // Only show activeThreats that are non-simulation (no grcbot-/kimbot- ids) when engines are OFF
-  const filteredActiveThreats = localThreats.filter(
-    (t) => {
+  // Only hide legacy optimistic ids when engines are OFF. DB-backed ids always pass that gate.
+  const filteredActiveThreats = useMemo(() => {
+    return activeThreats.filter((t) => {
       if (!enginesOn && (t.id.startsWith("grcbot-") || t.id.startsWith("kimbot-"))) return false;
       if (selectedTenantName) {
-        // Best-effort tenant filter: if threat has a target, match it; otherwise hide to avoid cross-tenant bleed.
-        return (t.target ?? "") === selectedTenantName;
+        const sel = selectedTenantName.trim();
+        // Active API maps `targetEntity` → `industry` only; `target` is often unset — match both.
+        return (t.target ?? "").trim() === sel || (t.industry ?? "").trim() === sel;
       }
       return true;
-    }
-  );
+    });
+  }, [activeThreats, enginesOn, selectedTenantName]);
 
   const visibleRisks = filteredRisks.filter((r) => states[r.id] !== 'resolved');
   const visibleActiveThreats = filteredActiveThreats.filter(
@@ -1180,6 +1245,16 @@ export default function ActiveRisksClient({
       (a.calculatedRiskScore ?? a.score ?? a.loss ?? 0),
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
+
+  const stickyResolvedVisualByThreatId = useMemo(() => {
+    const now = Date.now();
+    const m = new Map<string, boolean>();
+    for (const t of sortedActiveThreats) {
+      const until = resolvedStickyUntilRef.current.get(t.id);
+      m.set(t.id, until != null && until > now);
+    }
+    return m;
+  }, [sortedActiveThreats, resolvedStickySweep]);
 
   const showCompliance = useComplianceOverlayStore((s) => s.showCompliance);
   const appendGrAuditEntry = useComplianceOverlayStore((s) => s.appendAuditEntry);
@@ -1274,7 +1349,7 @@ export default function ActiveRisksClient({
       );
       if (!hasActiveItems) return;
       void refreshActiveThreatsFromDbRef.current();
-    }, 15_000);
+    }, 5_000);
     return () => window.clearInterval(interval);
   }, [router]);
 
@@ -1498,11 +1573,7 @@ export default function ActiveRisksClient({
           </div>
         ) : null}
         {sortedActiveThreats.map((threat) => {
-          console.log("THREAT ASSIGNEE:", threat.assignedTo, threat);
-          void stickyClockTick;
-          const stickyUntil = resolvedStickyUntilRef.current.get(threat.id);
-          const stickyResolvedVisual =
-            stickyUntil != null && stickyUntil > Date.now();
+          const stickyResolvedVisual = stickyResolvedVisualByThreatId.get(threat.id) ?? false;
           const isResolvedInDb =
             (threat.threatStatus ?? '').trim().toUpperCase() === 'RESOLVED';
           const statusRaw = (() => {
@@ -1752,6 +1823,12 @@ export default function ActiveRisksClient({
                           : ''
               } p-4`}
             >
+              <ChaosFlightSelfHealedBanner threatId={threat.id} />
+              {isChaosBoardThreat ? (
+                <div className="mb-2">
+                  <ChaosShadowAuditFeed ingestionDetails={threat.ingestionDetails} />
+                </div>
+              ) : null}
               <div className="flex w-full items-start justify-between text-left">
                 <div>
                   <h3 className="text-sm font-bold tracking-tight text-slate-200">
@@ -2043,6 +2120,16 @@ export default function ActiveRisksClient({
                     >
                       Add Note
                     </button>
+                    <PipelineSelfTestBar
+                      threatId={threat.id}
+                      threatTitle={threat.name}
+                      threatStatus={statusRaw || null}
+                      likelihood={threat.likelihood ?? 8}
+                      impact={threat.impact ?? 9}
+                      ingestionDetails={threat.ingestionDetails ?? null}
+                      sourceComponentPath="app/components/ActiveRisksClient.tsx"
+                      onAfterAction={() => router.refresh()}
+                    />
                   </div>
 
                   {lifecycle === 'confirmed' &&

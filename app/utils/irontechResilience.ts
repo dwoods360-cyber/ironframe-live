@@ -1366,8 +1366,8 @@ export async function executeWithRetry(
       });
       revalidateDashboardAndIntegrityPath();
       try {
-        const ironbloom = await recordSustainabilityImpact(tid);
-        if (!ironbloom.ok) console.warn("[Irontech] Sustainability hook skipped:", ironbloom);
+        const ironbloomSustainability = await recordSustainabilityImpact(tid);
+        if (!ironbloomSustainability.ok) console.warn("[Irontech] Ironbloom sustainability hook skipped:", ironbloomSustainability);
       } catch {
         /* non-fatal */
       }

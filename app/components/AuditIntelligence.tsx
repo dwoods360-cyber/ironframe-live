@@ -55,6 +55,9 @@ const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
   STATE_REGRESSION: "State Regression",
   RISK_REJECTED: "Risk Rejected",
   SYSTEM_WARNING: "System Warning",
+  OPERATIONAL_DEFICIENCY_REPORT: "Operational deficiency",
+  OPERATIONAL_DEFICIENCY_RESOLVED: "Deficiency resolved",
+  OPERATIONAL_SELF_TEST_PASS: "Self-test pass",
 };
 
 const SERVER_ACTION_LABELS: Record<string, string> = {
@@ -70,6 +73,9 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   STATE_REGRESSION: "State Regression",
   RISK_REJECTED: "Risk Rejected",
   SYSTEM_WARNING: "System Warning",
+  OPERATIONAL_DEFICIENCY_REPORT: "Operational deficiency",
+  OPERATIONAL_DEFICIENCY_RESOLVED: "Deficiency resolved",
+  OPERATIONAL_SELF_TEST_PASS: "Self-test pass",
 };
 
 function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {

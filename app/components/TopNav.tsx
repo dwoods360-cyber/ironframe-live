@@ -26,6 +26,7 @@ export default function TopNav() {
   const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
   const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
+  const isOpSupportRoute = pathname === "/opsupport" || pathname.startsWith("/opsupport/");
 
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
@@ -45,6 +46,8 @@ export default function TopNav() {
       ? "EVIDENCE LOCKER"
     : isIntegrityHubRoute
       ? "INTEGRITY HUB // AUDIT LEDGER"
+    : isOpSupportRoute
+      ? "OP SUPPORT // INGRESS & SANITIZATION"
       : "ACTIVE GRC";
 
   const handleVendorDownload = () => {

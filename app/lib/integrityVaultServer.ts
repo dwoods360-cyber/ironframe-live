@@ -24,7 +24,7 @@ export const LKG_WORKFORCE_ROSTER = [
   "Irongate",
   "Ironquery",
   "Ironscout",
-  "Ironbloom",
+  "Kimbot",
   "Ironethic",
   "Irontally",
 ] as const;

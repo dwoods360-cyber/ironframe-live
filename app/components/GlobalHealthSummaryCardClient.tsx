@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Activity, Droplets, Leaf, Zap } from "lucide-react";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
 import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
@@ -78,10 +79,13 @@ export default function GlobalHealthSummaryCardClient({
       <div className="mb-5 flex flex-col gap-2 rounded-lg border border-emerald-900/40 bg-slate-950/60 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-6 sm:gap-y-2">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/95">
-            CSRD · Ironbloom
+            CSRD · {IRONBLOOM_PRODUCTION_LABEL}
           </span>
           <span className="hidden h-3 w-px bg-slate-700 sm:block" aria-hidden />
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span
+            className="text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+            title={`${IRONBLOOM_PRODUCTION_LABEL} (production): physical units only (kWh, L, km); monetary-only sustainability data rejected (TAS).`}
+          >
             Sustainability ledger
           </span>
         </div>
@@ -176,7 +180,7 @@ export default function GlobalHealthSummaryCardClient({
       <div className="mt-6 rounded-xl border border-slate-700/90 bg-slate-950/50 p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-200">
-            Outcome Reporting · Sustainability (Ironbloom)
+            Outcome Reporting · Sustainability ({IRONBLOOM_PRODUCTION_LABEL})
           </h3>
           <span className="text-[9px] font-mono uppercase text-slate-500">
             {sustainabilityImpact.recordCount} ledger{" "}

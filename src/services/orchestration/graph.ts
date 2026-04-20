@@ -1,3 +1,7 @@
+/**
+ * Irontech / structural repair (Section 4.3): consume shadow-plane `SimulationDiagnosticLog` rows where
+ * `action === "OPERATIONAL_DEFICIENCY_REPORT"`; payload `snapshot.ingestionDetailsFull` is the full ingestion blob.
+ */
 import { StateGraph, END } from "@langchain/langgraph";
 import { SovereignGraphState } from "./state";
 import { IronCore } from "../agents/ironcore";

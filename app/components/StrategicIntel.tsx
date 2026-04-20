@@ -21,16 +21,11 @@ import { useShallow } from 'zustand/react/shallow';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useSystemConfigStore } from '@/app/store/systemConfigStore';
-import { triggerAttbotSimulation } from '@/app/actions/attbotActions';
-import ControlRoom from '@/app/components/ControlRoom';
 import { getDbQueryMs } from '@/app/actions/simulation';
 import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
 import { clearAllAuditLogs, purgeSimulationAuditLogs } from '@/app/utils/auditLogger';
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
-import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
-import { createKimbotThreatServer } from "@/app/actions/simulationActions";
-import { pollResilienceIntelStreamLines } from "@/app/actions/resilienceIntelStreamActions";
 
 /** Formats BigInt cents into a readable USD string (e.g. $10.9M). */
 function formatCurrency(cents: bigint): string {
@@ -87,7 +82,6 @@ export default function StrategicIntel() {
   const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
-  const resilienceStreamCursorRef = useRef<string | null>(null);
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
   const dashboardLiabilities = useRiskStore((state) => state.dashboardLiabilities);
@@ -101,6 +95,7 @@ export default function StrategicIntel() {
   const acceptedThreatImpacts = useRiskStore((state) => state.acceptedThreatImpacts);
   const setDraftTemplate = useRiskStore((state) => state.setDraftTemplate);
   const removeThreatFromPipeline = useRiskStore((state) => state.removeThreatFromPipeline);
+  const upsertPipelineThreat = useRiskStore((state) => state.upsertPipelineThreat);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
   const currencyScale = useRiskStore((state) => state.currencyScale);
@@ -117,107 +112,12 @@ export default function StrategicIntel() {
   const setSystemLatencyMs = useAgentStore((s) => s.setSystemLatencyMs);
 
   const isKimbotActive = useKimbotStore((s) => s.enabled);
-  const kimbotIntensity = useKimbotStore((s) => s.intensity);
-  const kimbotAttackType = useKimbotStore((s) => s.attackType);
-  const addKimbotInjectedSignal = useKimbotStore((s) => s.addInjectedSignal);
-  const setKimbotEnabled = useKimbotStore((s) => s.setEnabled);
   const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
   const isGrcbotActive = useGrcBotStore((s) => s.enabled);
-  const setGrcbotEnabled = useGrcBotStore((s) => s.setEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
   const router = useRouter();
 
-  const toggleKimbot = () => setKimbotEnabled(!isKimbotActive);
-  const toggleGrcbot = () => setGrcbotEnabled(!isGrcbotActive);
-
-  async function handleMasterPurge() {
-    const result = await purgeSimulation();
-    if (result.ok) {
-      clearAllAuditLogs();
-      useKimbotStore.getState().resetSimulationCounters();
-      useGrcBotStore.getState().stop();
-      useRiskStore.getState().clearAllRiskStateForPurge();
-      useRiskStore.getState().setSelectedThreatId(null);
-      addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
-      sleepBlueTeam();
-      router.refresh();
-    }
-  }
-
-  // Ironbloom (sim) engine loop: when enabled (chip or terminal), generate simulated attacks + terminal logs.
-  const kimbotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    if (!isKimbotActive) {
-      if (kimbotIntervalRef.current) {
-        clearInterval(kimbotIntervalRef.current);
-        kimbotIntervalRef.current = null;
-      }
-      return;
-    }
-
-    const tick = () => {
-      const signal = generateKimbotSignal(selectedIndustry, kimbotAttackType, kimbotIntensity);
-      (async () => {
-        try {
-          const created = await createKimbotThreatServer({
-            title: signal.title,
-            sector: signal.targetSector ?? selectedIndustry,
-            liability: signal.liability,
-            source: "IRONBLOOM",
-            severity: Math.min(10, Math.max(1, Math.round(signal.severityScore / 10))),
-          });
-          useRiskStore.getState().upsertPipelineThreat({
-            id: created.id,
-            name: created.title,
-            loss: created.financialRisk_cents / 100_000_000,
-            score: created.score,
-            industry: created.targetEntity,
-            source: created.sourceAgent,
-            description: `Red Team Attack - $${(created.financialRisk_cents / 100_000_000).toFixed(1)}M - ${created.sourceAgent}`,
-          });
-          useKimbotStore.getState().addInjectedSignal({
-            ...signal,
-            id: created.id,
-          });
-          addStreamMessage(`> [${new Date().toISOString()}] IRONBLOOM: ${signal.title} (${signal.severity})`);
-        } catch (e) {
-          addStreamMessage(`> [IRONBLOOM] Failed to persist: ${e instanceof Error ? e.message : "Unknown"}`);
-        }
-      })();
-    };
-
-    tick();
-    const ms = kimbotIntervalMs(kimbotIntensity);
-    kimbotIntervalRef.current = setInterval(tick, ms);
-
-    return () => {
-      if (kimbotIntervalRef.current) {
-        clearInterval(kimbotIntervalRef.current);
-        kimbotIntervalRef.current = null;
-      }
-    };
-  }, [isKimbotActive, kimbotIntensity, kimbotAttackType, selectedIndustry, addKimbotInjectedSignal, addStreamMessage]);
-
-  // Server-persisted Irontech / Ironintel resilience lines → Intelligence Stream (see `irontechResilience` + AuditLog).
-  useEffect(() => {
-    resilienceStreamCursorRef.current = new Date().toISOString();
-    const id = setInterval(() => {
-      void (async () => {
-        const since = resilienceStreamCursorRef.current;
-        const rows = await pollResilienceIntelStreamLines(since);
-        if (rows.length === 0) return;
-        const add = useAgentStore.getState().addStreamMessage;
-        for (const r of rows) {
-          add(r.line);
-        }
-        resilienceStreamCursorRef.current = rows[rows.length - 1]!.createdAt;
-      })();
-    }, 2500);
-    return () => clearInterval(id);
-  }, []);
-
-  // Agent status: Healthy (green) or Alerting (red) when Ironbloom sim is active for Ironsight / Ironintel
+  // Agent status: Healthy (green) or Alerting (red) when Kimbot sim is active for Ironsight / Ironintel
   const getAgentStatus = (agentName: string) => {
     if (isKimbotActive && (agentName === 'Ironsight' || agentName === 'Ironintel')) {
       return { label: 'Alerting', color: 'text-red-500', dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]' };
@@ -263,7 +163,7 @@ export default function StrategicIntel() {
     return hasCriticalAccess ? 9.2 : 8.6;
   };
 
-  // Terminal command handler: form submit — ironbloom | grcbot [n] | purg (kimbot aliases retained)
+  // Terminal: kimbot | grcbot | purg — Kimbot is the red-team injector (Ironbloom is production CSRD; not toggled here).
   const handleTerminalCommand = async (e: React.FormEvent) => {
     e.preventDefault();
     const input = terminalInput.trim();
@@ -277,19 +177,17 @@ export default function StrategicIntel() {
     try {
       switch (cmd) {
         case 'kimbot':
-        case 'ironbloom':
-          setLogs((prev) => [...prev, '[SYSTEM] IRONBLOOM_START: Initiating adversarial stress test (19-agent Iron roster)']);
+          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_START: Red-team adversary injector (SIM)']);
           useKimbotStore.getState().setEnabled(true);
           wakeBlueTeam();
-          addStreamMessage('> [CMD] IRONBLOOM_START: Defensive agents deployed.');
+          addStreamMessage('> [CMD] KIMBOT_START: Defensive agents deployed.');
           break;
 
         case 'kimbotx':
-        case 'ironbloomx':
-          setLogs((prev) => [...prev, '[SYSTEM] IRONBLOOM_STOP: Agents reset']);
+          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_STOP: Agents reset']);
           useKimbotStore.getState().setEnabled(false);
           sleepBlueTeam();
-          addStreamMessage('> [CMD] IRONBLOOM_STOP: Agents reset to Healthy.');
+          addStreamMessage('> [CMD] KIMBOT_STOP: Agents reset to Healthy.');
           break;
 
         case 'grcbot': {
@@ -374,14 +272,14 @@ export default function StrategicIntel() {
     const cmd = raw.trim().toLowerCase();
     if (!cmd) return;
 
-    if (cmd === 'kimbot' || cmd === 'ironbloom') {
+    if (cmd === 'kimbot') {
       useKimbotStore.getState().setEnabled(true);
       wakeBlueTeam();
-      addStreamMessage('> [CMD] IRONBLOOM_START: Defensive agents deployed.');
-    } else if (cmd === 'kimbotx' || cmd === 'ironbloomx') {
+      addStreamMessage('> [CMD] KIMBOT_START: Defensive agents deployed.');
+    } else if (cmd === 'kimbotx') {
       useKimbotStore.getState().setEnabled(false);
       sleepBlueTeam();
-      addStreamMessage('> [CMD] IRONBLOOM_STOP: Agents reset to Healthy.');
+      addStreamMessage('> [CMD] KIMBOT_STOP: Agents reset to Healthy.');
     } else if (cmd === 'grcbotx') {
       useGrcBotStore.getState().setEnabled(false);
       addStreamMessage('> [CMD] GRCBOT_STOP: Simulation halted.');
@@ -412,7 +310,7 @@ export default function StrategicIntel() {
         }
       });
     } else {
-      addStreamMessage(`> [CMD] UNKNOWN: "${cmd}". Use: ironbloom | ironbloomx | grcbot [1-100] | grcbotx | purg`);
+      addStreamMessage(`> [CMD] UNKNOWN: "${cmd}". Use: kimbot | kimbotx | grcbot [1-100] | grcbotx | purg`);
     }
     setTerminalCommand('');
   };
@@ -450,7 +348,7 @@ export default function StrategicIntel() {
     el.scrollTop = el.scrollHeight;
   }, [intelligenceStream.length, logs.length]);
 
-  // Wake up instrumented agents: when Ironbloom sim is active, set core trio to ACTIVE_DEFENSE (green pulsing).
+  // Wake up instrumented agents: when Kimbot sim is active, set core trio to ACTIVE_DEFENSE (green pulsing).
   useEffect(() => {
     if (isKimbotActive) {
       setAgentStatus('ironsight', 'ACTIVE_DEFENSE');
@@ -642,55 +540,6 @@ export default function StrategicIntel() {
         <div className="w-full h-px bg-zinc-800" />
       </div>
 
-      <section className="p-4 border-b border-zinc-900 bg-[#050509]">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-[11px] font-black uppercase tracking-widest text-zinc-300">Control Room</h2>
-          <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-        </div>
-        <div className="flex justify-between text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-4">
-          <Link href="/" className="hover:text-emerald-500 transition-colors">Dashboard</Link>
-          <Link href="/reports/ops" className="hover:text-emerald-500 transition-colors">Reports</Link>
-          <Link href="/integrity" className="hover:text-emerald-500 transition-colors">Audit Trail</Link>
-          <Link href="/settings" className="hover:text-emerald-500 transition-colors">Settings</Link>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={toggleKimbot}
-            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isKimbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
-          >
-            Ironbloom {isKimbotActive ? 'On' : 'Off'}
-          </button>
-          <button
-            type="button"
-            onClick={toggleGrcbot}
-            className={`py-1.5 border text-[9px] font-black uppercase tracking-widest rounded-sm transition-colors ${isGrcbotActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-600'}`}
-          >
-            Grcbot {isGrcbotActive ? 'On' : 'Off'}
-          </button>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 items-start">
-          <form action={triggerAttbotSimulation} className="min-w-0">
-            <button
-              type="submit"
-              className="w-full min-w-0 py-1.5 border border-amber-900/40 bg-amber-950/20 text-[9px] font-black uppercase tracking-widest rounded-sm text-amber-300 hover:bg-amber-900/30 transition-colors"
-            >
-              ATTBOT
-            </button>
-          </form>
-          <button
-            type="button"
-            onClick={() => void handleMasterPurge()}
-            className="min-w-0 w-full py-1.5 bg-red-950/30 border border-red-900/50 text-[9px] font-black text-red-500 rounded-sm hover:bg-red-900/50 hover:text-red-400 transition-colors uppercase tracking-widest self-start"
-          >
-            Master Purge
-          </button>
-          <div className="col-span-2">
-            <ControlRoom />
-          </div>
-        </div>
-      </section>
-
       {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
       <div className="flex flex-col gap-0 w-full px-2 overflow-y-auto">
       {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
@@ -853,7 +702,7 @@ export default function StrategicIntel() {
               value={terminalInput}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalInput(e.target.value)}
               className="bg-transparent border-none outline-none text-zinc-400 font-mono text-xs w-full placeholder:text-zinc-700 selection:bg-emerald-500/30"
-              placeholder="ironbloom | ironbloomx | grcbot [1-100] | grcbotx |"
+              placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx | purg"
             />
             <button type="submit" className="flex items-center gap-2 pr-1 outline-none">
               <span className="text-[10px] font-bold text-white uppercase tracking-tighter bg-zinc-800 px-3 py-1 rounded hover:bg-emerald-600 transition-colors">RUN</span>

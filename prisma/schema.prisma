@@ -187,17 +187,83 @@ model ThreatEvent {
   /// Also carries merged JSON: Ironsight `aiTrace`, GRC `grcJustification`, etc. (shallow-merge on write).
   ingestionDetails String? @db.Text
 
+  /// GRC disposition: operator marked the finding as a false positive (twin with SimThreatEvent).
+  isFalsePositive Boolean @default(false) @map("is_false_positive")
+  /// GRC disposition label (e.g. CLEARANCE_PASSED, CLEARANCE_FALSE_POSITIVE); optional until triaged.
+  dispositionStatus String? @map("disposition_status")
+  /// SHA-256 hex of canonical digital receipt JSON at last disposition commit (golden-source anchor).
+  receiptHash String? @map("receipt_hash")
+
   // Relations
   notes                 WorkNote[]
   auditTrail            AuditLog[]
   sustainabilityMetric  SustainabilityMetric?
   agentOperations       AgentOperation[]
+  /// Persisted assignee / claim rows — must be purged before `ThreatEvent` (FK is non-cascading in DB).
+  assignments         ThreatAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantCompanyId])
   @@map("ThreatEvent")
+}
+
+/// Structural isolation plane: bot-generated threats when `ironframe-simulation-mode=1` (mirror of ThreatEvent scalars; no DMZ/orchestration child FKs).
+model SimThreatEvent {
+  id                       String      @id @default(cuid())
+  title                    String
+  sourceAgent              String
+  score                    Int
+  targetEntity             String
+  financialRisk_cents      BigInt      @default(0)
+  tenantCompanyId          BigInt?
+  status                   ThreatState @default(PIPELINE)
+  remoteTechId             String?     @map("remote_tech_id")
+  isRemoteAccessAuthorized Boolean     @default(false) @map("remoteAccessAuthorized")
+  ttlSeconds               Int         @default(259200)
+  deAckReason              DeAckReason?
+  assigneeId               String?     @map("assignee_id")
+  aiReport                 String?     @db.Text
+  ingestionDetails         String?     @db.Text
+  isFalsePositive          Boolean     @default(false) @map("is_false_positive")
+  dispositionStatus        String?     @map("disposition_status")
+  receiptHash              String?     @map("receipt_hash")
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  @@index([tenantCompanyId])
+  @@map("SimThreatEvent")
+}
+
+/// Shadow-plane only: structural self-test & deficiency trail (never ThreatEvent / production ledger).
+model SimulationDiagnosticLog {
+  id          String    @id @default(cuid())
+  tenantUuid  String    @db.Uuid
+  simThreatId String?
+  action      String
+  payload     Json
+  operatorId  String
+  createdAt   DateTime  @default(now())
+  /// Set when a deficiency report row is cleared (GRC 4.9 TTR); null while unresolved.
+  resolvedAt  DateTime?
+
+  @@index([tenantUuid, createdAt])
+  @@index([simThreatId])
+  @@map("SimulationDiagnosticLog")
+}
+
+/// GRC execution-board assignments (tenant-scoped). Purge before `ThreatEvent` to avoid P2003.
+model ThreatAssignment {
+  id       String @id @default(cuid())
+  threatId String
+  tenantId String @db.Uuid
+
+  threat ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Restrict)
+
+  @@index([threatId])
+  @@index([tenantId])
+  @@map("ThreatAssignment")
 }
 
 /// Agent 11 (Irontech): persisted checkpoint + retry state for orchestration (not Zustand).
@@ -240,7 +306,7 @@ model SystemConfig {
   @@map("SystemConfig")
 }
 
-/// Ironbloom (Epic 5): physical sustainability ledger — kWh, liters, CO2e grams (not USD).
+/// Kimbot (Epic 5 / Agent 17): physical sustainability ledger — kWh, liters, CO2e grams (not USD); monetary-only proxies rejected.
 model SustainabilityMetric {
   id                  String   @id @default(uuid())
   threatId            String   @unique

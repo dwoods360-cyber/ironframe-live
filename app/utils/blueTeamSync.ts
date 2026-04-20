@@ -1,7 +1,7 @@
 import { useAgentStore } from "@/app/store/agentStore";
 
 /**
- * When Ironbloom sim starts, wake Blue Team: set Ironsight, Coreintel (Ironintel), Agent Manager to ACTIVE_DEFENSE.
+ * When Kimbot sim starts, wake Blue Team: set Ironsight, Coreintel (Ironintel), Agent Manager to ACTIVE_DEFENSE.
  */
 export function wakeBlueTeam(): void {
   const setAgentStatus = useAgentStore.getState().setAgentStatus;
@@ -10,7 +10,7 @@ export function wakeBlueTeam(): void {
   setAgentStatus("agentManager", "ACTIVE_DEFENSE");
 }
 
-/** When Ironbloom sim stops, return agents to HEALTHY. */
+/** When Kimbot sim stops, return agents to HEALTHY. */
 export function sleepBlueTeam(): void {
   const setAgentStatus = useAgentStore.getState().setAgentStatus;
   setAgentStatus("ironsight", "HEALTHY");

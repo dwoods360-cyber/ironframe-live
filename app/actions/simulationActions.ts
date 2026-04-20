@@ -1,9 +1,11 @@
 "use server";
 
-import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { GRC_SOURCE, GRC_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import {
   queryActiveThreatsForBoard,
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
@@ -45,31 +47,21 @@ export async function createKimbotThreatServer(
   input: CreateKimbotThreatInput
 ): Promise<GrcBotThreatCreated> {
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
-  const created = await prisma.threatEvent.create({
-    data: {
-      title: input.title,
-      sourceAgent: input.source,
-      score,
-      targetEntity: input.sector,
-      financialRisk_cents: millionsToCents(input.liability),
-      status: ThreatState.PIPELINE,
-      ttlSeconds: DEFAULT_TTL_SECONDS,
-      tenantCompanyId: company?.id,
-    },
-    select: {
-      id: true,
-      title: true,
-      sourceAgent: true,
-      score: true,
-      targetEntity: true,
-      financialRisk_cents: true,
-      status: true,
-    },
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) {
+    throw new Error(
+      "GRC: No Company for the active tenant session; cannot create Kimbot threat without tenantCompanyId.",
+    );
+  }
+  const created = await ingressGateway.writeThreatEvent({
+    title: input.title,
+    sourceAgent: input.source,
+    score,
+    targetEntity: input.sector,
+    financialRisk_cents: millionsToCents(input.liability),
+    status: ThreatState.PIPELINE,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+    tenantCompanyId: companyId,
   });
   return {
     ...created,
@@ -89,45 +81,63 @@ function centsToMillions(value: bigint | number): number {
 }
 
 /**
- * Persist a GRCBOT-simulated threat to the database before the UI shows the card.
- * The bot (grcBotEngine) awaits this server action and only then calls addThreatToPipeline,
- * so every card the user sees is backed by a ThreatEvent row and triage/audit succeed.
+ * GRC bot placeholder row (pipeline). Resolve tenant company first, then a single `create`
+ * — matches the last known-good ingestion shape (no split create/update for company link).
  */
-export async function createGrcBotThreatServer(
-  input: CreateGrcBotThreatInput
-): Promise<GrcBotThreatCreated> {
-  const score = Math.min(10, Math.max(1, Math.round(input.severity)));
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
-  const created = await prisma.threatEvent.create({
-    data: {
-      title: input.title,
-      sourceAgent: input.source,
-      score,
-      targetEntity: input.sector,
-      financialRisk_cents: millionsToCents(input.liability),
-      status: ThreatState.PIPELINE,
-      ttlSeconds: DEFAULT_TTL_SECONDS,
-      tenantCompanyId: company?.id,
-    },
-    select: {
-      id: true,
-      title: true,
-      sourceAgent: true,
-      score: true,
-      targetEntity: true,
-      financialRisk_cents: true,
-      status: true,
-    },
+export async function createGrcBotThreatPlaceholderServer(): Promise<GrcBotThreatCreated> {
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) {
+    throw new Error(
+      "GRC: No Company for the active tenant session; cannot create bot placeholder without tenantCompanyId.",
+    );
+  }
+  const created = await ingressGateway.writeThreatEvent({
+    title: `${GRC_THREAT_TITLE_PREFIX} Initializing…`,
+    sourceAgent: GRC_SOURCE,
+    score: 1,
+    targetEntity: "—",
+    financialRisk_cents: 0n,
+    status: ThreatState.PIPELINE,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+    tenantCompanyId: companyId,
   });
   return {
     ...created,
     state: created.status,
     financialRisk_cents: Number(created.financialRisk_cents),
   } as GrcBotThreatCreated;
+}
+
+/** Finalize placeholder row created by `createGrcBotThreatPlaceholderServer` with real simulation fields. */
+export async function updateGrcBotThreatServer(
+  id: string,
+  input: CreateGrcBotThreatInput,
+): Promise<GrcBotThreatCreated> {
+  const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+  const updated = await ingressGateway.updateThreatEvent(id, {
+    title: input.title,
+    sourceAgent: input.source,
+    score,
+    targetEntity: input.sector,
+    financialRisk_cents: millionsToCents(input.liability),
+    status: ThreatState.PIPELINE,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+  });
+  return {
+    ...updated,
+    state: updated.status,
+    financialRisk_cents: Number(updated.financialRisk_cents),
+  } as GrcBotThreatCreated;
+}
+
+/**
+ * Single-shot GRC create (placeholder + finalize in one flow for legacy callers).
+ */
+export async function createGrcBotThreatServer(
+  input: CreateGrcBotThreatInput,
+): Promise<GrcBotThreatCreated> {
+  const placeholder = await createGrcBotThreatPlaceholderServer();
+  return updateGrcBotThreatServer(placeholder.id, input);
 }
 
 export type PipelineThreatFromDb = PipelineThreatFromDbImported;
@@ -145,8 +155,9 @@ function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefin
  * so the UI shows only real, actionable cards.
  */
 export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
-  const rows = await prisma.threatEvent.findMany({
-    where: { status: ThreatState.PIPELINE },
+  const sim = await readSimulationPlaneEnabled();
+  const pipelineQuery = {
+    where: { status: { in: [ThreatState.PIPELINE, ThreatState.QUARANTINED] } },
     select: {
       id: true,
       title: true,
@@ -156,9 +167,17 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       sourceAgent: true,
       createdAt: true,
       assigneeId: true,
+      status: true,
+      ingestionDetails: true,
+      dispositionStatus: true,
+      isFalsePositive: true,
+      receiptHash: true,
     },
-    orderBy: { createdAt: "desc" },
-  });
+    orderBy: { createdAt: "desc" as const },
+  };
+  const rows = sim
+    ? await prisma.simThreatEvent.findMany(pipelineQuery)
+    : await prisma.threatEvent.findMany(pipelineQuery);
   return rows.map((r) => ({
     id: r.id,
     name: r.title,
@@ -169,6 +188,11 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
     description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
     createdAt: r.createdAt.toISOString(),
     assignedTo: r.assigneeId?.trim() || undefined,
+    threatStatus: String(r.status),
+    ingestionDetails: r.ingestionDetails ?? undefined,
+    dispositionStatus: r.dispositionStatus ?? undefined,
+    isFalsePositive: r.isFalsePositive,
+    receiptHash: r.receiptHash ?? undefined,
   }));
 }
 
@@ -180,7 +204,5 @@ export async function fetchActiveThreatsFromDb(
 ): Promise<PipelineThreatFromDb[]> {
   void _cacheBuster;
   noStore();
-  revalidatePath("/dashboard");
-  revalidatePath("/");
   return queryActiveThreatsForBoard();
 }

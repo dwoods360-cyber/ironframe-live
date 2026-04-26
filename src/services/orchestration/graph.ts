@@ -10,12 +10,20 @@ import { IronTrust } from "../agents/irontrust";
 import { TheWarden } from "../agents/warden";
 import { IronTech } from "./checkpointer";
 
+/** Sprint placeholder nodes: registered now, wired with real logic next sprint. */
+const passThroughIronsight = (state: any) => state;
+const passThroughIronquery = (state: any) => state;
+const passThroughIrontally = (state: any) => state;
+
 export async function createSovereignGraph() {
   const workflow = new StateGraph(SovereignGraphState)
     .addNode("ironcore", IronCore.route)
     .addNode("ironscribe", IronScribe.extract)
     .addNode("warden", TheWarden.validate)
     .addNode("irontrust", IronTrust.analyzeRisk)
+    .addNode("ironsight", passThroughIronsight)
+    .addNode("ironquery", passThroughIronquery)
+    .addNode("irontally", passThroughIrontally)
 
     .addEdge("__start__", "ironcore");
 
@@ -31,10 +39,13 @@ export async function createSovereignGraph() {
     }
   );
 
-  // Sequential Specialist Edges (Warden validates LLM output before Irontrust)
+  // Sequential Specialist Edges (new placeholders are registered in-chain for future wiring)
   workflow.addEdge("ironscribe", "warden");
   workflow.addEdge("warden", "irontrust");
-  workflow.addEdge("irontrust", END);
+  workflow.addEdge("irontrust", "ironsight");
+  workflow.addEdge("ironsight", "ironquery");
+  workflow.addEdge("ironquery", "irontally");
+  workflow.addEdge("irontally", END);
 
   const checkpointer = await IronTech.getCheckpointer();
   return workflow.compile({ checkpointer });

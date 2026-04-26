@@ -491,16 +491,34 @@ model EvidenceAttachment {
 }
 
 model IntegrityEvent {
-  id          String   @id @default(cuid())
-  tenantId    String   @db.Uuid @map("tenant_id")
-  eventType   String   @map("event_type")
-  message     String
-  actorUserId String   @map("actor_user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id            String      @id @default(cuid())
+  tenantId      String      @db.Uuid @map("tenant_id")
+  eventType     String      @map("event_type")
+  entityType    String      @map("entity_type")
+  entityId      String      @map("entity_id")
+  payloadHash   String      @map("payload_hash")
+  prevEventHash String?     @map("prev_event_hash")
+  eventHash     String      @map("event_hash")
+  actorUserId   String      @map("actor_user_id")
+  source        EventSource
+  createdAt     DateTime    @default(now()) @map("created_at")
 
-  @@index([tenantId, createdAt])
-  @@index([eventType, createdAt])
+  @@index([tenantId])
   @@map("integrity_events")
+}
+
+model IntegrityExport {
+  id              String   @id @default(cuid())
+  tenantId        String   @db.Uuid @map("tenant_id")
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  manifestHash    String   @map("manifest_hash")
+  signature       String
+  createdByUserId String   @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@map("integrity_exports")
 }
 
 model AuditLog {
@@ -723,4 +741,10 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum EventSource {
+  LANGGRAPH
+  SYSTEM
+  ADMIN
 }

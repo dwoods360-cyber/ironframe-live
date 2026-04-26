@@ -1,111 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// --- AGENT WORKFORCE ENUMS ---
-enum RiskTier {
-  CRITICAL
-  HIGH
-  MED
-  LOW
-}
-
-enum AgentStatus {
-  ONLINE
-  OFFLINE
-  THINKING
-  ERROR
-}
-
-// ------------------------------------------------------
-// TENANT (Constitutional - Standardized to UUID for RLS)
-// ------------------------------------------------------
 model Tenant {
-  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  slug         String @unique
-  industry     String @default("Secure Enclave")
-  ale_baseline BigInt @default(0) // ALE math remains BigInt cents
-
-  vendors    Vendor[]
-  agent_logs AgentLog[]
-  companies  Company[]
-
-  createdAt  DateTime   @default(now())
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String
+  slug                      String                      @unique
+  industry                  String                      @default("Secure Enclave")
+  ale_baseline              BigInt                      @default(0)
+  createdAt                 DateTime                    @default(now())
+  agent_logs                AgentLog[]
+  audit_exports             audit_exports[]
+  companies                 Company[]
+  compliance_snapshots      compliance_snapshots[]
+  governance_policy_history governance_policy_history[]
+  governance_settings       governance_settings?
+  vendors                   Vendor[]
 
   @@map("tenants")
 }
 
-// ------------------------------------------------------
-// THE TENANT BOUNDARY (Standardized to BigInt for high-count scale)
-// ------------------------------------------------------
 model Company {
-  id                       BigInt  @id @default(autoincrement())
+  id                       BigInt       @id @default(autoincrement())
   name                     String
   sector                   String
-  industry_avg_loss_cents  BigInt? // BIGINT Cents
-  infrastructure_val_cents BigInt? // BIGINT Cents
+  industry_avg_loss_cents  BigInt?
+  infrastructure_val_cents BigInt?
   /// Bootstrap / ATTBOT fallback rows — safe to purge without touching prod companies
-  isTestRecord             Boolean @default(false) @map("is_test_record")
-
-  tenantId String  @db.Uuid
-  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  departments Department[]
-  policies    Policy[]
-  risks       ActiveRisk[]
+  isTestRecord             Boolean      @default(false) @map("is_test_record")
+  tenantId                 String       @db.Uuid
+  risks                    ActiveRisk[]
+  tenant                   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departments              Department[]
+  policies                 Policy[]
 
   @@index([tenantId])
   @@map("companies")
 }
 
 model Department {
-  id         BigInt @id @default(autoincrement())
+  id         BigInt  @id @default(autoincrement())
   company_id BigInt
   name       String
-
-  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("departments")
 }
 
 model Policy {
-  id         BigInt @id @default(autoincrement())
+  id         BigInt  @id @default(autoincrement())
   company_id BigInt
   name       String
   status     String
-  last_scan  String @default("Today")
-
-  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  last_scan  String  @default("Today")
+  company    Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@map("policies")
 }
 
 model ActiveRisk {
-  id             BigInt   @id @default(autoincrement())
-  company_id     BigInt
-  title          String
-  status         String
-  assigneeId     String?  @map("assignee_id")
-  score_cents    BigInt   // REFACTORED: Unified to BIGINT cents
-  source         String
-  isSimulation   Boolean  @default(false) @map("issimulation")
-
-  company Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  id           BigInt  @id @default(autoincrement())
+  company_id   BigInt
+  title        String
+  status       String
+  assigneeId   String? @map("assignee_id")
+  score_cents  BigInt
+  source       String
+  isSimulation Boolean @default(false) @map("issimulation")
+  company      Company @relation(fields: [company_id], references: [id], onDelete: Cascade)
 
   @@index([company_id])
   @@map("active_risks")
 }
 
-// ------------------------------------------------------
-// SUPPLY CHAIN (Standardized to UUID to match Tenant)
-// ------------------------------------------------------
 model Vendor {
   id       String @id @default(uuid())
   name     String
@@ -126,111 +99,80 @@ model AgentLog {
   @@map("agent_logs")
 }
 
-// --- GRC Workflow Enums ---
-enum ThreatState {
-  PIPELINE // Sitting in SOC/AGENT Stream
-  /// Ironlock / Irongate automatic containment (DMZ or malicious verdict)
-  QUARANTINED
-  ACTIVE // Acknowledged, sitting in Active Threats
-  CONFIRMED // Stakeholders emailed, awaiting resolution
-  ESCALATED // Irontech Retry-3 exhausted + Phone Home — manual recovery required
-  PENDING_REMOTE_INTERVENTION // Manual attempt 4 failed — remote tech dispatch / specialist queue
-  RESOLVED // Fix applied, risk mitigated
-  DE_ACKNOWLEDGED // Dismissed by operator
-}
-
-enum DeAckReason {
-  FALSE_POSITIVE
-  COMPENSATING_CONTROL
-  ACCEPTABLE_RISK
-  DUPLICATE
-}
-
-/// Irontech (Epic 6): resilient agent operations (Retry-3-then-Escalate).
-enum AgentOperationStatus {
-  PENDING
-  RETRYING
-  CHAOS_INTERRUPTED
-  FAILED
-  COMPLETED
-  ESCALATED
-  EXTERNALLY_RESOLVED
-}
-
-// --- Core Threat Model ---
 model ThreatEvent {
-  id             String @id @default(cuid())
-  title          String
-  sourceAgent    String // e.g., 'IRONSIGHT', 'COREINTEL'
-  score          Int
-  targetEntity   String // e.g., 'Healthcare', 'Gridcore Energy'
-  financialRisk_cents BigInt @default(0) // Liability in cents (e.g., $4.9M => 490000000)
-
-  // RLS: tenant_isolation_policy depends on this column — do not remove
-  tenantCompanyId BigInt?
-
-  // State Machine
-  status      ThreatState  @default(PIPELINE)
+  id                       String                @id @default(cuid())
+  title                    String
+  sourceAgent              String
+  score                    Int
+  targetEntity             String
+  financialRisk_cents      BigInt                @default(0)
+  tenantCompanyId          BigInt?
+  status                   ThreatState           @default(PIPELINE)
   /// Level-3 remote tech dispatch: assigned specialist ref (set on URGENT DISPATCH).
-  remoteTechId String? @map("remote_tech_id")
+  remoteTechId             String?               @map("remote_tech_id")
   /// GRC: Admin/Owner authorized vendor remote session (column legacy name: remoteAccessAuthorized).
-  isRemoteAccessAuthorized Boolean @default(false) @map("remoteAccessAuthorized")
-  ttlSeconds  Int          @default(259200) // 72 hours default
-  deAckReason DeAckReason? // Required if status is DE_ACKNOWLEDGED
+  isRemoteAccessAuthorized Boolean               @default(false) @map("remoteAccessAuthorized")
+  ttlSeconds               Int                   @default(259200)
+  deAckReason              DeAckReason?
   /// Operational owner (execution board / claim); persisted with the threat row
-  assigneeId  String?      @map("assignee_id")
-
-  // AI investigation report (CoreIntel agent output)
-  aiReport String? @db.Text
-
+  assigneeId               String?               @map("assignee_id")
+  aiReport                 String?
   /// Raw Irongate / ingress payload (quarantine details before promotion); optional
   /// Also carries merged JSON: Ironsight `aiTrace`, GRC `grcJustification`, etc. (shallow-merge on write).
-  ingestionDetails String? @db.Text
-
-  /// GRC disposition: operator marked the finding as a false positive (twin with SimThreatEvent).
-  isFalsePositive Boolean @default(false) @map("is_false_positive")
+  ingestionDetails         String?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
   /// GRC disposition label (e.g. CLEARANCE_PASSED, CLEARANCE_FALSE_POSITIVE); optional until triaged.
-  dispositionStatus String? @map("disposition_status")
+  dispositionStatus        String?               @map("disposition_status")
+  /// GRC disposition: operator marked the finding as a false positive (twin with SimThreatEvent).
+  isFalsePositive          Boolean               @default(false) @map("is_false_positive")
   /// SHA-256 hex of canonical digital receipt JSON at last disposition commit (golden-source anchor).
-  receiptHash String? @map("receipt_hash")
-
-  // Relations
-  notes                 WorkNote[]
-  auditTrail            AuditLog[]
-  sustainabilityMetric  SustainabilityMetric?
-  agentOperations       AgentOperation[]
-  /// Persisted assignee / claim rows — must be purged before `ThreatEvent` (FK is non-cascading in DB).
-  assignments         ThreatAssignment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  receiptHash              String?               @map("receipt_hash")
+  ingestion_fingerprint    String?               @unique
+  agentOperations          AgentOperation[]
+  auditTrail               AuditLog[]
+  sustainabilityMetric     SustainabilityMetric?
+  assignments              ThreatAssignment[]
+  notes                    WorkNote[]
+  approvals                ThreatApproval[]
+  resolutionApprovalId     String?               @map("resolution_approval_id")
+  resolutionApproval       ThreatApproval?       @relation("ThreatResolutionApproval", fields: [resolutionApprovalId], references: [id], onDelete: SetNull)
 
   @@index([tenantCompanyId])
+  @@index([resolutionApprovalId])
   @@map("ThreatEvent")
 }
 
 /// Structural isolation plane: bot-generated threats when `ironframe-simulation-mode=1` (mirror of ThreatEvent scalars; no DMZ/orchestration child FKs).
 model SimThreatEvent {
-  id                       String      @id @default(cuid())
+  id                       String       @id @default(cuid())
   title                    String
   sourceAgent              String
   score                    Int
   targetEntity             String
-  financialRisk_cents      BigInt      @default(0)
+  financialRisk_cents      BigInt       @default(0)
   tenantCompanyId          BigInt?
-  status                   ThreatState @default(PIPELINE)
-  remoteTechId             String?     @map("remote_tech_id")
-  isRemoteAccessAuthorized Boolean     @default(false) @map("remoteAccessAuthorized")
-  ttlSeconds               Int         @default(259200)
+  status                   ThreatState  @default(PIPELINE)
+  remoteTechId             String?      @map("remote_tech_id")
+  isRemoteAccessAuthorized Boolean      @default(false) @map("remoteAccessAuthorized")
+  ttlSeconds               Int          @default(259200)
   deAckReason              DeAckReason?
-  assigneeId               String?     @map("assignee_id")
-  aiReport                 String?     @db.Text
-  ingestionDetails         String?     @db.Text
-  isFalsePositive          Boolean     @default(false) @map("is_false_positive")
-  dispositionStatus        String?     @map("disposition_status")
-  receiptHash              String?     @map("receipt_hash")
-  createdAt                DateTime    @default(now())
-  updatedAt                DateTime    @updatedAt
+  assigneeId               String?      @map("assignee_id")
+  aiReport                 String?
+  ingestionDetails         String?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  dispositionStatus        String?      @map("disposition_status")
+  isFalsePositive          Boolean      @default(false) @map("is_false_positive")
+  receiptHash              String?      @map("receipt_hash")
+  assignment_history       Json?
+  category                 String?
+  impact_radius            Float?
+  priority_score           Int          @default(0)
+  remediation_status       String       @default("PENDING")
+  severity                 String       @default("LOW")
+  ingestion_fingerprint    String?      @unique
+  AuditLog                 AuditLog[]
 
   @@index([tenantCompanyId])
   @@map("SimThreatEvent")
@@ -253,13 +195,152 @@ model SimulationDiagnosticLog {
   @@map("SimulationDiagnosticLog")
 }
 
+/// Global Integrity / Control Room simulation flags (single row `id = "global"`). Secure-by-default: no automated stakeholder posts until explicitly enabled.
+model SimulationConfig {
+  id                        String    @id
+  automatedUpdatesEnabled   Boolean   @default(false) @map("automated_updates_enabled")
+  /// Executive board report: minimum operational readiness score before UI enters BREACHED state.
+  targetReadinessScore      Int       @default(90) @map("target_readiness_score")
+  /// Compliance badge latch: set true once 7-day resilience criteria is satisfied.
+  isCertified               Boolean   @default(false) @map("is_certified")
+  /// UTC instant certification was awarded.
+  certifiedAt               DateTime? @map("certified_at")
+  /// Lifecycle state for 30-day certificate validity.
+  certificateStatus         CertificateStatus @default(IN_PROGRESS) @map("certificate_status")
+  /// UTC instant for certificate issuance; validity window is 30 days.
+  certificateIssuedAt       DateTime? @map("certificate_issued_at")
+  /// Lowest operational readiness score observed (0–100); updated when a new minimum is recorded.
+  historicalLowestScore     Int       @default(100) @map("historical_lowest_score")
+  /// UTC instant when `historicalLowestScore` was last set (baseline seed or new low).
+  historicalLowestRecordedAt DateTime? @map("historical_lowest_recorded_at")
+  /// Consecutive daily snapshots meeting resilience threshold (score >= 95).
+  currentStreak             Int       @default(0) @map("current_streak")
+  /// Best streak on record (all-time high resilience run).
+  longestStreak             Int       @default(0) @map("longest_streak")
+  /// Most recent primary reason for streak reset (post-mortem classifier).
+  lastResetReason           StreakResetReason? @map("last_reset_reason")
+  /// Start of active 2-hour streak protection grace window (50+ day streak only).
+  graceWindowStartedAt      DateTime? @map("grace_window_started_at")
+  /// End of active 2-hour streak protection grace window.
+  graceWindowExpiresAt      DateTime? @map("grace_window_expires_at")
+  /// Count of recovered grace windows where readiness was restored before expiry.
+  successfulGraceRecoveries Int       @default(0) @map("successful_grace_recoveries")
+  /// Legacy badge for operators with 5+ successful grace recoveries.
+  isEliteOperator           Boolean   @default(false) @map("is_elite_operator")
+  /// Analyst maturation: threat-library deep dives completed in Strategic Intel.
+  completedDeepDives        String[]  @default([]) @map("completed_deep_dives")
+  /// UTC instant when the latest Strategic Intel drill was launched.
+  lastSimulationStartedAt   DateTime? @map("last_simulation_started_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  @@map("simulation_config")
+}
+
+enum StreakResetReason {
+  WEBHOOK_FAILURE
+  SCORE_DIP
+  VIP_BREACH
+  MANUAL_RESET
+}
+
+enum CertificateStatus {
+  VALID
+  EXPIRED
+  IN_PROGRESS
+}
+
+/// Board Report: one UTC calendar row per day — readiness score + aggregate synthetic loss snapshot.
+model DailySnapshot {
+  id             String   @id @default(cuid())
+  date           DateTime @unique @db.Date
+  score          Int
+  totalLossCents BigInt   @default(0) @map("total_loss_cents")
+  premiumCents   BigInt   @default(0) @map("premium_cents")
+  executiveSummary String? @db.Text @map("executive_summary")
+  isApproved     Boolean  @default(false) @map("is_approved")
+  approvedBy     String?  @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("daily_snapshots")
+}
+
+/// Historical post-mortem ledger for resilience streak resets.
+model StreakFailureLog {
+  id                String            @id @default(cuid())
+  reason            StreakResetReason
+  resetAt           DateTime          @default(now()) @map("reset_at")
+  lostStreakDays    Int               @map("lost_streak_days")
+  isExcludedFromAnalytics Boolean      @default(false) @map("is_excluded_from_analytics")
+  exclusionReason   String?           @map("exclusion_reason") @db.VarChar(256)
+
+  @@index([reason, resetAt])
+  @@map("streak_failure_logs")
+}
+
+/// Stakeholder webhook destinations (Slack / Teams / generic). URLs stored encrypted at rest; egress validated by Irongate (Agent 14).
+enum NotificationChannelType {
+  SLACK
+  TEAMS
+  WEBHOOK
+}
+
+model NotificationEndpoint {
+  id              String                  @id @default(cuid())
+  name            String
+  urlEncrypted    String                  @map("url_encrypted") @db.Text
+  channelType     NotificationChannelType @map("channel_type")
+  isEnabled       Boolean                 @default(true) @map("is_enabled")
+  /// Last connectivity test (does not change `isEnabled` on failure).
+  lastProbeAt     DateTime?               @map("last_probe_at")
+  lastProbeOk     Boolean?                @map("last_probe_ok")
+  lastProbeDetail String?                 @map("last_probe_detail") @db.VarChar(512)
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  @@index([isEnabled])
+  @@map("notification_endpoints")
+}
+
+/// Shadow directory for simulator-only targets (never maps to real authentication users / production directory).
+model SyntheticEmployee {
+  id                 String    @id @default(uuid())
+  name               String
+  /// Simulator inbox only (e.g. target-01@ironframe.local) — not routable production mail.
+  email              String    @unique
+  role               String
+  /// Effective clearance tier 1–5 for simulation scoping (InfilBot / PhishBot selection).
+  clearanceLevel     Int
+  vulnerabilityScore Float
+  /// Access / blast-radius economics in USD **cents** (e.g. 50_000_000 = $500,000.00).
+  monetaryValue      BigInt    @default(0)
+  /// Last time this persona was selected for a simulated attack (null = never).
+  lastAttackedAt     DateTime?
+  /// Cumulative simulated financial loss in USD cents.
+  totalLossIncurred  BigInt    @default(0)
+  /// Level-5 VIP: blue-team hardening spend halves effective PhishBot vulnerability on hook rolls.
+  isHardened         Boolean   @default(false) @map("is_hardened")
+  /// Active shadow-plane compromise state for per-target restore controls.
+  isBreached         Boolean   @default(false) @map("is_breached")
+  /// Runtime protection state shown in Shadow Plane registry.
+  status             SyntheticEmployeeStatus @default(PROTECTED)
+  createdAt          DateTime  @default(now())
+
+  @@index([vulnerabilityScore])
+  @@map("SyntheticEmployee")
+}
+
+enum SyntheticEmployeeStatus {
+  PROTECTED
+  BREACHED
+}
+
 /// GRC execution-board assignments (tenant-scoped). Purge before `ThreatEvent` to avoid P2003.
 model ThreatAssignment {
-  id       String @id @default(cuid())
+  id       String      @id @default(cuid())
   threatId String
-  tenantId String @db.Uuid
-
-  threat ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Restrict)
+  tenantId String      @db.Uuid
+  threat   ThreatEvent @relation(fields: [threatId], references: [id])
 
   @@index([threatId])
   @@index([tenantId])
@@ -270,7 +351,6 @@ model ThreatAssignment {
 model AgentOperation {
   id           String               @id @default(uuid())
   threatId     String
-  threat       ThreatEvent          @relation(fields: [threatId], references: [id], onDelete: Cascade)
   agentName    String
   status       AgentOperationStatus @default(PENDING)
   /// Failed-attempt tally for Retry-3; increments on each caught failure.
@@ -279,6 +359,7 @@ model AgentOperation {
   snapshot     Json?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
+  threat       ThreatEvent          @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@unique([threatId, agentName])
   @@index([threatId])
@@ -308,48 +389,139 @@ model SystemConfig {
 
 /// Kimbot (Epic 5 / Agent 17): physical sustainability ledger — kWh, liters, CO2e grams (not USD); monetary-only proxies rejected.
 model SustainabilityMetric {
-  id                  String   @id @default(uuid())
-  threatId            String   @unique
-  threat              ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  id                 String      @id @default(uuid())
+  threatId           String      @unique
   /// Energy averted by preventing recovery compute (integer kWh).
-  kwhAverted          BigInt
+  kwhAverted         BigInt
   /// Cooling water saved (liters), derived from kWh × factor.
-  coolingWaterLiters  Float
+  coolingWaterLiters Float
   /// CO2e reduction in grams (integer).
-  carbonOffsetGrams   BigInt
-  createdAt           DateTime @default(now())
+  carbonOffsetGrams  BigInt
+  createdAt          DateTime    @default(now())
+  threat             ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@map("SustainabilityMetric")
 }
 
-// --- Appendable Work Notes ---
 model WorkNote {
-  id         String @id @default(cuid())
-  text       String @db.Text
-  operatorId String // The user who wrote the note
-
-  threatId String
-  threat   ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  id         String      @id @default(cuid())
+  text       String
+  operatorId String
+  threatId   String
+  createdAt  DateTime    @default(now())
+  threat     ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@map("WorkNote")
 }
 
-// --- Immutable Audit Log ---
+model UserRoleAssignment {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tenantId  String   @db.Uuid @map("tenant_id")
+  role      UserRole
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  @@index([tenantId, role])
+  @@index([userId, tenantId])
+  @@map("user_role_assignments")
+}
+
+model ThreatApproval {
+  id                  String         @id @default(cuid())
+  threatId            String         @map("threat_id")
+  tenantId            String         @db.Uuid @map("tenant_id")
+  status              ApprovalStatus @default(PENDING)
+  requestedByUserId   String         @map("requested_by_user_id")
+  approvedByUserId    String?        @map("approved_by_user_id")
+  approvalNote        String?        @map("approval_note") @db.Text
+  approvalPayloadHash String?        @map("approval_payload_hash")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  approvedAt          DateTime?      @map("approved_at")
+  threat              ThreatEvent    @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  evidenceArtifacts   EvidenceArtifact[]
+  resolvedThreats     ThreatEvent[]  @relation("ThreatResolutionApproval")
+
+  @@index([threatId, tenantId])
+  @@index([tenantId, status])
+  @@index([requestedByUserId])
+  @@map("threat_approvals")
+}
+
+model EvidenceArtifact {
+  id               String          @id @default(cuid())
+  tenantId         String          @db.Uuid @map("tenant_id")
+  uploadedByUserId String          @map("uploaded_by_user_id")
+  sha256           String
+  storagePath      String          @map("storage_path")
+  mimeType         String          @map("mime_type")
+  threatApprovalId String?         @map("threat_approval_id")
+  threatApproval   ThreatApproval? @relation(fields: [threatApprovalId], references: [id], onDelete: SetNull)
+  attachments      EvidenceAttachment[]
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([threatApprovalId])
+  @@index([sha256])
+  @@map("evidence_artifacts")
+}
+
+enum EvidenceEntityType {
+  THREAT_EVENT
+  BOT_AUDIT_LOG
+  AUDIT_LOG
+  INTEGRITY_EVENT
+}
+
+model EvidenceAttachment {
+  id               String             @id @default(cuid())
+  tenantId         String             @db.Uuid @map("tenant_id")
+  artifactId       String             @map("artifact_id")
+  entityType       EvidenceEntityType @map("entity_type")
+  entityId         String             @map("entity_id")
+  attachedByUserId String             @map("attached_by_user_id")
+  attachmentNote   String?            @map("attachment_note")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  artifact         EvidenceArtifact   @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, entityType])
+  @@index([tenantId, createdAt])
+  @@index([artifactId])
+  @@map("evidence_attachments")
+}
+
+model IntegrityEvent {
+  id          String   @id @default(cuid())
+  tenantId    String   @db.Uuid @map("tenant_id")
+  eventType   String   @map("event_type")
+  message     String
+  actorUserId String   @map("actor_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("integrity_events")
+}
+
 model AuditLog {
-  id            String   @id @default(cuid())
-  action        String   // e.g., 'THREAT_ACKNOWLEDGED', 'TTL_CHANGED'
-  justification String?  @db.Text // Mandatory for De-Ack
-  operatorId    String
-  isSimulation  Boolean  @default(false)
-
-  threatId String?
-  threat   ThreatEvent? @relation(fields: [threatId], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
+  id                     String           @id @default(cuid())
+  action                 String
+  justification          String?
+  operatorId             String
+  isSimulation           Boolean          @default(false)
+  threatId               String?
+  createdAt              DateTime         @default(now())
+  simThreatId            String?
+  governance_tenant_uuid String?          @db.Uuid
+  updated_by             String?
+  SimThreatEvent         SimThreatEvent?  @relation(fields: [simThreatId], references: [id])
+  threat                 ThreatEvent?     @relation(fields: [threatId], references: [id])
+  audit_comments         audit_comments[]
 
   @@index([createdAt])
+  @@index([governance_tenant_uuid, createdAt])
+  @@index([isSimulation, simThreatId])
+  @@index([simThreatId])
   @@map("AuditLog")
 }
 
@@ -368,10 +540,6 @@ model BotAuditLog {
   @@index([botType])
   @@map("BotAuditLog")
 }
-
-// ------------------------------------------------------
-// SOVEREIGN AGENT MODELS
-// ------------------------------------------------------
 
 /// Agent 1: Ironcore - Persistence & Self-Healing Registry
 model Failed_Jobs {
@@ -403,20 +571,15 @@ model Ironscout_Tasks {
   @@index([expires_at])
 }
 
-// ------------------------------------------------------
-// SYSTEM CONFIG (GRC Template Editor persistence)
-// ------------------------------------------------------
 model GrcTemplateConfig {
-  id                     String   @id // single row keyed by "default"
-  generalRfiChecklist     Json     // string[]
-  vendorTypeRequirements Json     // Record<VendorType, string[]>
+  id                     String   @id
+  generalRfiChecklist    Json
+  vendorTypeRequirements Json
   updatedAt              DateTime @updatedAt
+
   @@map("grc_template_config")
 }
 
-// ------------------------------------------------------
-// IRONWATCH LOG (exists in DB; preserve to avoid db push dropping table)
-// ------------------------------------------------------
 model IronwatchLog {
   id         String   @id
   event_type String
@@ -431,9 +594,6 @@ model IronwatchLog {
   @@map("ironwatch_log")
 }
 
-// ------------------------------------------------------
-// Irongate quarantine file drop (single-DB; formerly prisma-dmz)
-// ------------------------------------------------------
 model QuarantineRecord {
   id          String   @id @default(cuid())
   tenantId    String   @db.Uuid
@@ -447,4 +607,120 @@ model QuarantineRecord {
 
   @@index([tenantId])
   @@map("quarantine_records")
+}
+
+model audit_comments {
+  id           String   @id
+  audit_log_id String
+  operator_id  String
+  comment_text String
+  created_at   DateTime @default(now())
+  AuditLog     AuditLog @relation(fields: [audit_log_id], references: [id], onDelete: Cascade)
+
+  @@index([audit_log_id])
+}
+
+model audit_exports {
+  id            String   @id
+  tenant_id     String   @db.Uuid
+  generated_by  String
+  manifest_hash String
+  filters       Json
+  created_at    DateTime @default(now())
+  tenants       Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+}
+
+model compliance_snapshots {
+  id                String   @id
+  tenant_id         String   @db.Uuid
+  timestamp         DateTime @default(now())
+  total_risks       Int
+  total_ale         BigInt
+  compliance_score  Int
+  framework_metrics Json
+  tenants           Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+}
+
+model governance_policy_history {
+  id            String   @id
+  tenant_id     String   @db.Uuid
+  previous_mode String
+  new_mode      String
+  changed_by    String
+  reason        String?
+  created_at    DateTime @default(now())
+  tenants       Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([tenant_id])
+}
+
+model governance_settings {
+  id           String   @id
+  tenantId     String   @unique @db.Uuid
+  logging_mode String   @default("GRC_ATOMIC")
+  updatedAt    DateTime
+  updated_by   String?
+  tenants      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+enum RiskTier {
+  CRITICAL
+  HIGH
+  MED
+  LOW
+}
+
+enum AgentStatus {
+  ONLINE
+  OFFLINE
+  THINKING
+  ERROR
+}
+
+enum ThreatState {
+  PIPELINE
+  /// Ironlock / Irongate automatic containment (DMZ or malicious verdict)
+  QUARANTINED
+  ACTIVE
+  CONFIRMED
+  ESCALATED
+  PENDING_REMOTE_INTERVENTION
+  RESOLVED
+  DE_ACKNOWLEDGED
+  MANUAL_HOLD
+}
+
+enum DeAckReason {
+  FALSE_POSITIVE
+  COMPENSATING_CONTROL
+  ACCEPTABLE_RISK
+  DUPLICATE
+}
+
+/// Irontech (Epic 6): resilient agent operations (Retry-3-then-Escalate).
+enum AgentOperationStatus {
+  PENDING
+  RETRYING
+  CHAOS_INTERRUPTED
+  FAILED
+  COMPLETED
+  ESCALATED
+  EXTERNALLY_RESOLVED
+}
+
+enum UserRole {
+  GRC_ANALYST
+  GRC_MANAGER
+  AUDITOR
+  GLOBAL_ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

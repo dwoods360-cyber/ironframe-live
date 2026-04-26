@@ -5,6 +5,7 @@ import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
 // ---> NEW: Import your Enclave components
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
+import { getMetaAuditConsoleAccess } from "@/app/actions/auditActions";
 
 type HeaderTwoProps = {
   isVendorOverviewRoute: boolean;
@@ -25,6 +26,7 @@ export default function HeaderTwo({
 }: HeaderTwoProps) {
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [canViewAudit, setCanViewAudit] = useState(false);
   
   // ---> NEW: Portal State
   const [isPortalOpen, setIsPortalOpen] = useState(false);
@@ -55,6 +57,17 @@ export default function HeaderTwo({
       observer?.disconnect();
     };
   }, [isVendorOverviewRoute, isVendorsRoute, isConfigRoute, showPrimaryActionChips]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getMetaAuditConsoleAccess().then((res) => {
+      if (cancelled) return;
+      setCanViewAudit(res.canAccess);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const scrollChipBar = (direction: "left" | "right") => {
     if (!chipBarRef.current) {
@@ -170,6 +183,21 @@ export default function HeaderTwo({
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >
                   AUDIT TRAIL
+                </Link>
+                {canViewAudit ? (
+                  <Link
+                    href="/audit"
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-600/70 bg-emerald-950/45 px-4 py-2 text-[10px] font-black text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/50"
+                  >
+                    <span aria-hidden>🛡️</span>
+                    INTEGRITY & AUDIT
+                  </Link>
+                ) : null}
+                <Link
+                  href="/board-report"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-violet-600/50 bg-violet-950/40 px-4 py-2 text-[10px] font-bold text-violet-100 transition-all hover:border-violet-400 hover:bg-violet-900/50"
+                >
+                  BOARD REPORT
                 </Link>
                 <Link
                   href="/opsupport"

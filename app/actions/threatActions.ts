@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState, DeAckReason, AgentOperationStatus } from '@prisma/client';
+import { createHash } from "crypto";
 import { executeWithRetry, type ExecuteWithRetryResult } from '@/app/utils/irontechResilience';
 import {
   isRemoteAccessAdminEligible,
@@ -26,6 +27,7 @@ import {
 } from '@/app/utils/assignmentChainOfCustody';
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 
 type AcknowledgeResolvedThreat =
   | { plane: 'prod'; row: { financialRisk_cents: bigint; sourceAgent: string } }
@@ -248,11 +250,29 @@ export type AcknowledgeThreatActionResult =
 export async function acknowledgeThreatAction(
   id: string,
   tenantId: string,
-  operatorId: string,
+  _operatorId: string,
   justification?: string,
 ): Promise<AcknowledgeThreatActionResult> {
   if (tenantId == null || tenantId === undefined || tenantId === '') {
     throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
+  }
+
+  const sessionUser = await getSupabaseSessionUser();
+  if (sessionUser == null) {
+    return {
+      success: false,
+      error: "Authentication required. Sign in to acknowledge threats.",
+    };
+  }
+  const operatorId =
+    (typeof sessionUser.id === "string" && sessionUser.id.trim() ? sessionUser.id.trim() : "") ||
+    sessionUser.email?.trim() ||
+    "";
+  if (operatorId.length < 1) {
+    return {
+      success: false,
+      error: "Invalid session: no operator id or email for attribution.",
+    };
   }
 
   const sessionCompanyId = await getCompanyIdForActiveTenant();
@@ -989,6 +1009,11 @@ export async function setThreatAssigneeAction(
     }
   }
 
+  const su = await getSupabaseSessionUser();
+  const idFromSession =
+    (su && typeof su.id === "string" && su.id.trim() ? su.id.trim() : su?.email?.trim()) || "";
+  const effectiveOperatorId = idFromSession || operatorId;
+
   try {
     const created = await prisma.$transaction(async (tx) => {
       const existing = await tx.threatEvent.findUnique({
@@ -1006,7 +1031,7 @@ export async function setThreatAssigneeAction(
         select: { id: true },
       });
       const ts = new Date().toISOString();
-      const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
+      const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(effectiveOperatorId)).trim();
       const newAssignee =
         value == null ? null : assigneeKeyToDisplayName(value);
       return tx.auditLog.create({
@@ -1015,10 +1040,10 @@ export async function setThreatAssigneeAction(
           justification: JSON.stringify({
             newAssignee,
             actor,
-            actorId: operatorId,
+            actorId: effectiveOperatorId,
             timestamp: ts,
           }),
-          operatorId,
+          operatorId: effectiveOperatorId,
           threatId,
         },
       });
@@ -1406,5 +1431,363 @@ export async function toggleRemoteAccessAuthorization(
 export async function getRemoteAccessAdminEligibility(): Promise<{ eligible: boolean }> {
   const eligible = await isRemoteAccessAdminEligible();
   return { eligible };
+}
+
+function parseSyntheticEmployeeIdFromIngestion(ingestionDetails: string | null | undefined): string | null {
+  if (!ingestionDetails || !ingestionDetails.trim()) return null;
+  try {
+    const parsed = JSON.parse(ingestionDetails) as { syntheticEmployeeId?: unknown };
+    if (typeof parsed.syntheticEmployeeId === "string" && parsed.syntheticEmployeeId.trim()) {
+      return parsed.syntheticEmployeeId.trim();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export async function requestThreatResolution(
+  threatId: string,
+  resolutionNote: string,
+  artifactId?: string,
+): Promise<{ success: true; approvalId: string } | { success: false; error: string }> {
+  const requestedId = threatId.trim();
+  const note = resolutionNote.trim();
+  if (!requestedId) return { success: false, error: "Missing threat id." };
+  if (note.length < 10) {
+    return { success: false, error: "Resolution note must be at least 10 characters." };
+  }
+
+  const user = await getSupabaseSessionUser();
+  if (!user?.id?.trim()) {
+    return { success: false, error: "Authentication required." };
+  }
+  const requestedByUserId = user.id.trim();
+
+  try {
+    const tid = await resolveThreatIdForResolutionRequest(requestedId);
+    if (!tid) return { success: false, error: "Threat not found for this target." };
+
+    const threat = await prisma.threatEvent.findUnique({
+      where: { id: tid },
+      select: { id: true, tenantCompanyId: true },
+    });
+    if (!threat) return { success: false, error: "Threat not found." };
+    if (threat.tenantCompanyId == null) {
+      return { success: false, error: "Threat is missing tenant company context." };
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: threat.tenantCompanyId },
+      select: { tenantId: true },
+    });
+    if (!company?.tenantId) {
+      return { success: false, error: "Unable to resolve tenant for threat." };
+    }
+
+    const payloadHash = createHash("sha256")
+      .update(JSON.stringify({ threatId: tid, resolutionNote: note, requestedByUserId, artifactId: artifactId?.trim() || null }))
+      .digest("hex");
+
+    const created = await prisma.$transaction(async (tx) => {
+      const approval = await (tx as any).threatApproval.create({
+        data: {
+          threatId: tid,
+          tenantId: company.tenantId,
+          status: "PENDING",
+          requestedByUserId,
+          approvalNote: note,
+          approvalPayloadHash: payloadHash,
+        },
+        select: { id: true },
+      });
+
+      const normalizedArtifactId = artifactId?.trim() || "";
+      if (normalizedArtifactId) {
+        const artifact = await (tx as any).evidenceArtifact.findFirst({
+          where: { id: normalizedArtifactId, tenantId: company.tenantId },
+          select: { id: true },
+        });
+        if (artifact?.id) {
+          await (tx as any).evidenceArtifact.update({
+            where: { id: artifact.id },
+            data: { threatApprovalId: approval.id },
+          });
+        }
+      }
+
+      await (tx as any).integrityEvent.create({
+        data: {
+          tenantId: company.tenantId,
+          eventType: "THREAT_RESOLUTION_REQUESTED",
+          message: `Resolution requested by ${requestedByUserId}`,
+          actorUserId: requestedByUserId,
+        },
+      });
+      return approval;
+    });
+
+    revalidatePath("/");
+    return { success: true, approvalId: created.id as string };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to request resolution.";
+    return { success: false, error: message };
+  }
+}
+
+export async function approveThreatResolution(
+  approvalId: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const aid = approvalId.trim();
+  if (!aid) return { success: false, error: "Missing approval id." };
+
+  const user = await getSupabaseSessionUser();
+  const approverUserId = user?.id?.trim() ?? "";
+  if (!approverUserId) {
+    return { success: false, error: "Authentication required." };
+  }
+
+  try {
+    const approval = await (prisma as any).threatApproval.findUnique({
+      where: { id: aid },
+      select: {
+        id: true,
+        status: true,
+        tenantId: true,
+        threatId: true,
+        threat: {
+          select: {
+            id: true,
+            targetEntity: true,
+            ingestionDetails: true,
+          },
+        },
+      },
+    });
+    if (!approval) return { success: false, error: "Approval record not found." };
+
+    const roleAssignment = await (prisma as any).userRoleAssignment.findFirst({
+      where: {
+        userId: approverUserId,
+        tenantId: approval.tenantId,
+        role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+      },
+      select: { id: true },
+    });
+    if (!roleAssignment) {
+      return { success: false, error: "Only GRC_MANAGER or GLOBAL_ADMIN can approve." };
+    }
+
+    if (approval.status === "APPROVED") {
+      return { success: true };
+    }
+
+    const syntheticEmployeeId = parseSyntheticEmployeeIdFromIngestion(
+      approval.threat?.ingestionDetails ?? null,
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await (tx as any).threatApproval.update({
+        where: { id: aid },
+        data: {
+          status: "APPROVED",
+          approvedByUserId: approverUserId,
+          approvedAt: new Date(),
+        },
+      });
+
+      await tx.threatEvent.update({
+        where: { id: approval.threatId as string },
+        data: ({ resolutionApprovalId: aid } as any),
+      });
+
+      if (syntheticEmployeeId) {
+        await (tx as any).syntheticEmployee.update({
+          where: { id: syntheticEmployeeId },
+          data: {
+            isBreached: false,
+            status: "PROTECTED",
+          },
+        });
+      } else if (typeof approval.threat?.targetEntity === "string" && approval.threat.targetEntity.trim()) {
+        await (tx as any).syntheticEmployee.updateMany({
+          where: { email: approval.threat.targetEntity.trim() },
+          data: {
+            isBreached: false,
+            status: "PROTECTED",
+          },
+        });
+      }
+
+      await (tx as any).integrityEvent.create({
+        data: {
+          tenantId: approval.tenantId as string,
+          eventType: "THREAT_RESOLUTION_APPROVED",
+          message: `Resolution approved and executed by ${approverUserId}`,
+          actorUserId: approverUserId,
+        },
+      });
+    });
+
+    revalidatePath("/");
+    revalidatePath("/integrity");
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to approve resolution.";
+    return { success: false, error: message };
+  }
+}
+
+export type PendingThreatResolutionItem = {
+  approvalId: string;
+  threatId: string;
+  threatTitle: string;
+  targetEntity: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedByUserId: string;
+  approvalNote: string;
+  createdAt: string;
+};
+
+async function resolveThreatIdForResolutionRequest(inputId: string): Promise<string | null> {
+  const direct = await prisma.threatEvent.findUnique({
+    where: { id: inputId },
+    select: { id: true },
+  });
+  if (direct?.id) return direct.id;
+
+  const synthetic = await (prisma as any).syntheticEmployee.findUnique({
+    where: { id: inputId },
+    select: { email: true },
+  });
+  const email = typeof synthetic?.email === "string" ? synthetic.email.trim() : "";
+  if (!email) return null;
+
+  const linked = await prisma.threatEvent.findFirst({
+    where: { targetEntity: email },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  return linked?.id ?? null;
+}
+
+export async function listPendingThreatResolutions(): Promise<
+  { ok: true; items: PendingThreatResolutionItem[] } | { ok: false; error: string; items: [] }
+> {
+  try {
+    const rows = await (prisma as any).threatApproval.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        threatId: true,
+        status: true,
+        requestedByUserId: true,
+        approvalNote: true,
+        createdAt: true,
+        threat: {
+          select: {
+            title: true,
+            targetEntity: true,
+          },
+        },
+      },
+    });
+    return {
+      ok: true,
+      items: rows.map((row: any) => ({
+        approvalId: row.id,
+        threatId: row.threatId,
+        threatTitle: row.threat?.title ?? row.threatId,
+        targetEntity: row.threat?.targetEntity ?? null,
+        status: row.status,
+        requestedByUserId: row.requestedByUserId,
+        approvalNote: row.approvalNote,
+        createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date().toISOString(),
+      })),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load pending resolutions.";
+    return { ok: false, error: message, items: [] };
+  }
+}
+
+export async function getThreatResolutionReviewEligibility(): Promise<{ eligible: boolean }> {
+  const user = await getSupabaseSessionUser();
+  const uid = user?.id?.trim() ?? "";
+  if (!uid) return { eligible: false };
+
+  const assignment = await (prisma as any).userRoleAssignment.findFirst({
+    where: {
+      userId: uid,
+      role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+    },
+    select: { id: true },
+  });
+  return { eligible: Boolean(assignment?.id) };
+}
+
+export async function rejectThreatResolution(
+  approvalId: string,
+  rejectionNote?: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const aid = approvalId.trim();
+  if (!aid) return { success: false, error: "Missing approval id." };
+
+  const user = await getSupabaseSessionUser();
+  const approverUserId = user?.id?.trim() ?? "";
+  if (!approverUserId) return { success: false, error: "Authentication required." };
+
+  try {
+    const approval = await (prisma as any).threatApproval.findUnique({
+      where: { id: aid },
+      select: { id: true, tenantId: true, status: true, approvalNote: true },
+    });
+    if (!approval) return { success: false, error: "Approval record not found." };
+
+    const roleAssignment = await (prisma as any).userRoleAssignment.findFirst({
+      where: {
+        userId: approverUserId,
+        tenantId: approval.tenantId,
+        role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+      },
+      select: { id: true },
+    });
+    if (!roleAssignment) {
+      return { success: false, error: "Only GRC_MANAGER or GLOBAL_ADMIN can reject." };
+    }
+
+    const note =
+      typeof rejectionNote === "string" && rejectionNote.trim()
+        ? `${approval.approvalNote}\n\n[REJECTED] ${rejectionNote.trim()}`
+        : approval.approvalNote;
+
+    await prisma.$transaction(async (tx) => {
+      await (tx as any).threatApproval.update({
+        where: { id: aid },
+        data: {
+          status: "REJECTED",
+          approvedByUserId: approverUserId,
+          approvedAt: new Date(),
+          approvalNote: note,
+        },
+      });
+      await (tx as any).integrityEvent.create({
+        data: {
+          tenantId: approval.tenantId,
+          eventType: "THREAT_RESOLUTION_REJECTED",
+          message: `Resolution rejected by ${approverUserId}`,
+          actorUserId: approverUserId,
+        },
+      });
+    });
+
+    revalidatePath("/");
+    revalidatePath("/integrity");
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reject resolution.";
+    return { success: false, error: message };
+  }
 }
 

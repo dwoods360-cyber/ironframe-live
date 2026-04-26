@@ -3,8 +3,10 @@
 import { revalidatePath } from 'next/cache';
 import type { Prisma } from '@prisma/client';
 import { ThreatState } from '@prisma/client';
+import { createHash, createHmac } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
+import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
 
 async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
@@ -467,4 +469,187 @@ export async function voidReceiptAndReopen(
       error: error instanceof Error ? error.message : 'Administrative void failed.',
     };
   }
+}
+
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+
+export type MetaAuditExportData = {
+  tenantId: string;
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+  integrityEvents: Array<Record<string, JsonValue>>;
+  threatApprovals: Array<Record<string, JsonValue>>;
+  evidenceArtifacts: Array<Record<string, JsonValue>>;
+};
+
+export type MetaAuditExportBundle = {
+  exportId: string;
+  data: MetaAuditExportData;
+  manifestHash: string;
+  signature: string;
+};
+
+function toJsonSafe(value: unknown): JsonValue {
+  if (value == null) return null;
+  if (typeof value === 'bigint') return value.toString();
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((v) => toJsonSafe(v));
+  if (typeof value === 'object') {
+    const out: Record<string, JsonValue> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = toJsonSafe(v);
+    }
+    return out;
+  }
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+  return String(value);
+}
+
+function sortKeysDeep(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) return value.map((entry) => sortKeysDeep(entry));
+  if (value && typeof value === 'object') {
+    const sorted: Record<string, JsonValue> = {};
+    for (const key of Object.keys(value as Record<string, JsonValue>).sort((a, b) => a.localeCompare(b))) {
+      sorted[key] = sortKeysDeep((value as Record<string, JsonValue>)[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+function deterministicStringify(input: JsonValue): string {
+  return JSON.stringify(sortKeysDeep(input));
+}
+
+function hashSha256(content: string): string {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+function signManifest(manifestHash: string): string {
+  return createHmac('sha256', process.env.AUDIT_SECRET || 'dev-secret')
+    .update(manifestHash)
+    .digest('hex');
+}
+
+async function ensureAuditorOrAdminRole(tenantId: string): Promise<{ userId: string } | null> {
+  const sessionUser = await getSupabaseSessionUser();
+  const userId = sessionUser?.id?.trim() || sessionUser?.email?.trim() || '';
+  if (!userId) return null;
+  const assignment = await (prisma as any).userRoleAssignment.findFirst({
+    where: {
+      userId,
+      tenantId,
+      role: { in: ['AUDITOR', 'GLOBAL_ADMIN'] },
+    },
+    select: { id: true },
+  });
+  if (!assignment?.id) return null;
+  return { userId };
+}
+
+export async function generateSignedExport(
+  tenantId: string,
+  periodStart: string,
+  periodEnd: string,
+): Promise<{ ok: true; bundle: MetaAuditExportBundle } | { ok: false; error: string }> {
+  const tid = tenantId.trim();
+  const startDate = new Date(periodStart);
+  const endDate = new Date(periodEnd);
+  if (!tid) return { ok: false, error: 'tenantId is required.' };
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return { ok: false, error: 'Invalid date range.' };
+  }
+  if (startDate > endDate) return { ok: false, error: 'periodStart must be before periodEnd.' };
+
+  try {
+    const role = await ensureAuditorOrAdminRole(tid);
+    if (!role) return { ok: false, error: 'Auditor or global admin role required.' };
+
+    const [integrityEvents, threatApprovals, evidenceArtifacts] = await Promise.all([
+      (prisma as any).integrityEvent.findMany({
+        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+      (prisma as any).threatApproval.findMany({
+        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+      prisma.evidenceArtifact.findMany({
+        where: { tenantId: tid, createdAt: { gte: startDate, lte: endDate } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      }),
+    ]);
+
+    const data: MetaAuditExportData = {
+      tenantId: tid,
+      periodStart: startDate.toISOString(),
+      periodEnd: endDate.toISOString(),
+      generatedAt: new Date().toISOString(),
+      integrityEvents: toJsonSafe(integrityEvents) as Array<Record<string, JsonValue>>,
+      threatApprovals: toJsonSafe(threatApprovals) as Array<Record<string, JsonValue>>,
+      evidenceArtifacts: toJsonSafe(evidenceArtifacts) as Array<Record<string, JsonValue>>,
+    };
+
+    const canonicalJson = deterministicStringify(data);
+    const manifestHash = hashSha256(canonicalJson);
+    const signature = signManifest(manifestHash);
+
+    const saved = await (prisma as any).integrityExport.create({
+      data: {
+        tenantId: tid,
+        periodStart: startDate,
+        periodEnd: endDate,
+        manifestHash,
+        signature,
+        createdByUserId: role.userId,
+      },
+      select: { id: true },
+    });
+
+    return {
+      ok: true,
+      bundle: {
+        exportId: saved.id as string,
+        data,
+        manifestHash,
+        signature,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to generate export.';
+    return { ok: false, error: message };
+  }
+}
+
+export async function verifyExportManifest(
+  exportBundle: MetaAuditExportBundle,
+): Promise<{ isValid: boolean; message: string }> {
+  try {
+    const canonicalJson = deterministicStringify(toJsonSafe(exportBundle.data));
+    const computedHash = hashSha256(canonicalJson);
+    if (computedHash !== exportBundle.manifestHash) {
+      return { isValid: false, message: 'Manifest hash mismatch: bundle data was modified.' };
+    }
+    const computedSignature = signManifest(exportBundle.manifestHash);
+    if (computedSignature !== exportBundle.signature) {
+      return { isValid: false, message: 'Signature mismatch: invalid signing key or tampered hash.' };
+    }
+    return { isValid: true, message: 'Export is valid. Hash and signature verified.' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Verification failed.';
+    return { isValid: false, message };
+  }
+}
+
+export async function getMetaAuditConsoleAccess(): Promise<{
+  canAccess: boolean;
+  tenantId: string | null;
+}> {
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) return { canAccess: false, tenantId: null };
+  const role = await ensureAuditorOrAdminRole(tenantId);
+  return { canAccess: role != null, tenantId };
 }

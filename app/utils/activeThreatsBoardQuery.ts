@@ -8,6 +8,29 @@ import { ThreatState } from "@prisma/client";
 
 const CENTS_PER_MILLION = 100_000_000;
 
+function parseShadowCisoHandshakeFromIngestionLocal(ingestionDetails: string | null | undefined): {
+  resolutionApprovalId: string | null;
+  resolutionApprovalStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+} {
+  try {
+    const j = JSON.parse(ingestionDetails ?? "{}") as {
+      shadowCisoHandshake?: {
+        resolutionApprovalId?: string;
+        resolutionApprovalStatus?: string;
+      };
+    };
+    const h = j?.shadowCisoHandshake;
+    const id = typeof h?.resolutionApprovalId === "string" ? h.resolutionApprovalId.trim() : null;
+    const st = h?.resolutionApprovalStatus;
+    if (id && st === "APPROVED") {
+      return { resolutionApprovalId: id, resolutionApprovalStatus: "APPROVED" };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { resolutionApprovalId: null, resolutionApprovalStatus: null };
+}
+
 function centsToMillions(value: bigint | number): number {
   return Number(value) / CENTS_PER_MILLION;
 }
@@ -43,6 +66,18 @@ export const activeThreatBoardSelect = {
       createdAt: true,
     },
   },
+  agentReasonings: {
+    orderBy: { createdAt: "desc" as const },
+    select: {
+      id: true,
+      agentId: true,
+      reasoning: true,
+      metadata: true,
+      createdAt: true,
+    },
+  },
+  resolutionApprovalId: true,
+  resolutionApproval: { select: { status: true } },
 } satisfies Prisma.ThreatEventSelect;
 
 export type ActiveThreatEventRow = Prisma.ThreatEventGetPayload<{
@@ -79,14 +114,23 @@ export type ActiveBoardUnionRow = ActiveThreatEventRow | SimActiveThreatEventRow
  */
 export function getActiveThreatWhereClause(): Prisma.ThreatEventWhereInput {
   return {
-    status: {
-      in: [
-        ThreatState.ACTIVE,
-        ThreatState.CONFIRMED,
-        ThreatState.ESCALATED,
-        ThreatState.PENDING_REMOTE_INTERVENTION,
-      ],
-    },
+    AND: [
+      {
+        status: {
+          notIn: [ThreatState.RESOLVED, ThreatState.DE_ACKNOWLEDGED],
+        },
+      },
+      {
+        status: {
+          in: [
+            ThreatState.ACTIVE,
+            ThreatState.CONFIRMED,
+            ThreatState.ESCALATED,
+            ThreatState.PENDING_REMOTE_INTERVENTION,
+          ],
+        },
+      },
+    ],
   };
 }
 
@@ -116,6 +160,27 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
     const auditTrail =
       "auditTrail" in r && Array.isArray(r.auditTrail) ? r.auditTrail : [];
     const notes = "notes" in r && Array.isArray(r.notes) ? r.notes : [];
+    const agentReasonings =
+      "agentReasonings" in r && Array.isArray(r.agentReasonings)
+        ? r.agentReasonings.map((a) => ({
+            id: a.id,
+            agentId: a.agentId,
+            reasoning: a.reasoning,
+            metadata: a.metadata,
+            createdAt: a.createdAt.toISOString(),
+          }))
+        : undefined;
+    const shadow = parseShadowCisoHandshakeFromIngestionLocal(r.ingestionDetails);
+    let prodResolutionId: string | null = null;
+    let prodResolutionStatus: "PENDING" | "APPROVED" | "REJECTED" | null = null;
+    if ("resolutionApprovalId" in r) {
+      const te = r as ActiveThreatEventRow;
+      prodResolutionId = te.resolutionApprovalId ?? null;
+      const st = te.resolutionApproval?.status;
+      if (st === "APPROVED" || st === "PENDING" || st === "REJECTED") {
+        prodResolutionStatus = st;
+      }
+    }
     return {
       id: r.id,
       name: r.title,
@@ -144,6 +209,9 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
       threatStatus: String(r.status),
       isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
       remoteTechId: r.remoteTechId ?? null,
+      agentReasonings,
+      resolutionApprovalId: prodResolutionId ?? shadow.resolutionApprovalId,
+      resolutionApprovalStatus: prodResolutionId ? prodResolutionStatus : shadow.resolutionApprovalStatus,
     };
   });
 }
@@ -175,6 +243,15 @@ export type PipelineThreatFromDb = {
   dispositionStatus?: string | null;
   isFalsePositive?: boolean;
   receiptHash?: string | null;
+  agentReasonings?: Array<{
+    id: string;
+    agentId: string;
+    reasoning: string;
+    metadata: unknown;
+    createdAt: string;
+  }>;
+  resolutionApprovalId?: string | null;
+  resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */

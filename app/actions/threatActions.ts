@@ -1,10 +1,11 @@
 'use server';
 
+import { createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
+import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { ThreatState, DeAckReason, AgentOperationStatus } from '@prisma/client';
-import { createHash } from "crypto";
+import { EventSource, ThreatState, DeAckReason, AgentOperationStatus, type UserRole } from '@prisma/client';
 import { executeWithRetry, type ExecuteWithRetryResult } from '@/app/utils/irontechResilience';
 import {
   isRemoteAccessAdminEligible,
@@ -28,6 +29,18 @@ import {
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { integrityService } from "@/src/services/integrityService";
+import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+
+/** Threat resolution approve / reject / review — program leadership. */
+const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
+  "GRC_MANAGER",
+  "GLOBAL_ADMIN",
+  "CISO",
+  "DIRECTOR_OF_COMPLIANCE",
+];
 
 type AcknowledgeResolvedThreat =
   | { plane: 'prod'; row: { financialRisk_cents: bigint; sourceAgent: string } }
@@ -69,6 +82,94 @@ const prismaDelegates = prisma as unknown as {
 
 const AUDIT_LOG_FAILURE =
   'AUDIT_LOG_FAILURE: Cannot log action for non-existent Threat ID.';
+const GRC_PROTOCOL_VIOLATION =
+  "GRC_PROTOCOL_VIOLATION: Missing approved attestation or evidence artifact.";
+
+/** Kimbot System Integrity drill: vault manifest satisfies evidence gate when no DMZ attachment exists. */
+const SIM_MANIFEST_EVIDENCE_URL = "https://vault.internal/sim-manifest.pdf";
+
+const GRC_CISO_SIMULATION_AUTH_EVENT = "[GRC] CISO Simulation Authorization";
+
+/** System Integrity Control Room: Kimbot, Grcbot, or Attbot + chaos test JSON. */
+function isSystemIntegrityBotChaosDrillThreatOnServer(args: {
+  title: string;
+  ingestionDetails: string | null | undefined;
+}): boolean {
+  const title = args.title.trim().toUpperCase();
+  const isBotLine =
+    title.includes("KIMBOT") || title.includes("GRCBOT") || title.includes("ATTBOT");
+  if (!isBotLine) return false;
+  try {
+    const o = JSON.parse(args.ingestionDetails ?? "{}") as Record<string, unknown>;
+    if (o.isChaosTest === true) return true;
+  } catch {
+    /* ignore */
+  }
+  return title.includes("SYSTEM INTEGRITY");
+}
+
+/** Alias — same rules as `isSystemIntegrityBotChaosDrillThreatOnServer`. */
+const isSystemIntegrityKimbotDrillThreatOnServer = isSystemIntegrityBotChaosDrillThreatOnServer;
+
+function ingestionHasVaultSimManifest(ingestionDetails: string | null | undefined): boolean {
+  try {
+    const o = JSON.parse(ingestionDetails ?? "{}") as Record<string, unknown>;
+    return o.evidenceLink === SIM_MANIFEST_EVIDENCE_URL;
+  } catch {
+    return false;
+  }
+}
+
+function parseShadowHandshakeApproval(ingestionDetails: string | null | undefined): {
+  resolutionApprovalId: string | null;
+  resolutionApprovalStatus: string | null;
+} {
+  try {
+    const j = JSON.parse(ingestionDetails ?? "{}") as {
+      shadowCisoHandshake?: {
+        resolutionApprovalId?: string;
+        resolutionApprovalStatus?: string;
+      };
+    };
+    const h = j?.shadowCisoHandshake;
+    const id = typeof h?.resolutionApprovalId === "string" ? h.resolutionApprovalId.trim() : null;
+    const st = typeof h?.resolutionApprovalStatus === "string" ? h.resolutionApprovalStatus.trim() : null;
+    return { resolutionApprovalId: id, resolutionApprovalStatus: st };
+  } catch {
+    return { resolutionApprovalId: null, resolutionApprovalStatus: null };
+  }
+}
+
+function ingestionIsChaosSimulationTest(ingestionDetails: string | null | undefined): boolean {
+  try {
+    const o = JSON.parse(ingestionDetails ?? "{}") as Record<string, unknown>;
+    return o.isChaosTest === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Shadow plane: Epic 11 / CISO attestation lives in `ingestionDetails.shadowCisoHandshake`, not `ThreatApproval`.
+ * Kimbot System Integrity drill also requires the vault manifest URL on the row.
+ */
+function simShadowPassesResolutionProtocol(title: string, ingestionDetails: string | null | undefined): boolean {
+  const shadow = parseShadowHandshakeApproval(ingestionDetails);
+  const approved =
+    Boolean(shadow.resolutionApprovalId) && shadow.resolutionApprovalStatus === "APPROVED";
+
+  if (isSystemIntegrityBotChaosDrillThreatOnServer({ title, ingestionDetails })) {
+    return approved && ingestionHasVaultSimManifest(ingestionDetails);
+  }
+
+  if (approved) return true;
+
+  if (ingestionIsChaosSimulationTest(ingestionDetails)) {
+    return true;
+  }
+
+  return false;
+}
 
 /** Explicit GRC notification recipient; use verified Gmail to avoid Zoho 550. */
 const targetEmail = 'dwoods360@gmail.com'.trim();
@@ -174,11 +275,15 @@ function warnMissingDelegate(delegateName: string) {
 
 type TransactionClient = {
   threatEvent: {
-    findUnique: (args: {
-      where: { id: string };
-      select?: { id?: boolean };
-    }) => Promise<{ id: string } | null>;
+    findUnique: (args: unknown) => Promise<any>;
     update: (args: unknown) => Promise<any>;
+  };
+  company: {
+    findUnique: (args: unknown) => Promise<{ tenantId: string } | null>;
+  };
+  integrityEvent: {
+    findFirst: (args: unknown) => Promise<{ eventHash: string } | null>;
+    create: (args: unknown) => Promise<unknown>;
   };
   auditLog: { create: (args: unknown) => Promise<any> };
   workNote: { create: (args: unknown) => Promise<any> };
@@ -396,15 +501,7 @@ export async function acknowledgeThreatAction(
       const result = await runThreatTransaction(
         id,
         async (tx) => {
-          const prismaTx = tx as unknown as {
-            threatEvent: {
-              findUnique: typeof prisma.threatEvent.findUnique;
-              update: typeof prisma.threatEvent.update;
-            };
-            workNote: typeof prisma.workNote;
-            auditLog: typeof prisma.auditLog;
-          };
-          const detailsRow = await prismaTx.threatEvent.findUnique({
+          const detailsRow = await tx.threatEvent.findUnique({
             where: { id },
             select: { ingestionDetails: true },
           });
@@ -414,7 +511,7 @@ export async function acknowledgeThreatAction(
             ...(chaosAckPatch ?? {}),
           });
 
-          await prismaTx.workNote.create({
+          await tx.workNote.create({
             data: {
               text: savedWorkNoteText,
               operatorId,
@@ -422,15 +519,18 @@ export async function acknowledgeThreatAction(
             },
           });
           // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
-          await prismaTx.threatEvent.update({
-            where: { id },
-            data: {
-              status: ThreatState.ACTIVE,
+          await transitionThreatStatus({
+            threatId: id,
+            newStatus: ThreatState.ACTIVE,
+            actorUserId: operatorId,
+            eventType: "THREAT_ACKNOWLEDGED",
+            tx,
+            extraChanges: {
               ingestionDetails: nextIngestionDetails,
             },
             select: { id: true },
           });
-          await prismaTx.auditLog.create({
+          await tx.auditLog.create({
             data: {
               action: 'THREAT_ACKNOWLEDGED',
               justification: savedWorkNoteText,
@@ -572,9 +672,12 @@ export async function confirmThreatAction(
     const result = await runThreatTransaction(
       id,
       async (tx) => {
-        await tx.threatEvent.update({
-          where: { id },
-          data: { status: ThreatState.CONFIRMED },
+        await transitionThreatStatus({
+          threatId: id,
+          newStatus: ThreatState.CONFIRMED,
+          actorUserId: operatorId,
+          eventType: "THREAT_CONFIRMED",
+          tx,
           select: { id: true },
         });
         await tx.auditLog.create({
@@ -671,6 +774,69 @@ export async function resolveThreatAction(
   if (!parsedNote.success) {
     return { success: false, financialRisk_cents: 0 };
   }
+
+  const sessionCompanyIdForResolve = await getCompanyIdForActiveTenant();
+  if (sessionCompanyIdForResolve != null && (await readSimulationPlaneEnabled())) {
+    const simRow = await prisma.simThreatEvent.findFirst({
+      where: { id, tenantCompanyId: sessionCompanyIdForResolve },
+      select: {
+        id: true,
+        title: true,
+        ingestionDetails: true,
+        financialRisk_cents: true,
+        status: true,
+      },
+    });
+    if (simRow) {
+      if (simRow.status === ThreatState.RESOLVED) {
+        return {
+          success: true,
+          financialRisk_cents: Number(simRow.financialRisk_cents ?? BigInt(0)),
+        };
+      }
+      if (!simShadowPassesResolutionProtocol(simRow.title, simRow.ingestionDetails)) {
+        throw new Error(GRC_PROTOCOL_VIOLATION);
+      }
+      const ts = new Date().toISOString();
+      const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
+      const justificationPayload = JSON.stringify({
+        resolution: trimmed,
+        actor,
+        actorId: operatorId,
+        timestamp: ts,
+      });
+      const mergedIngestion = mergeIngestionDetailsPatch(simRow.ingestionDetails ?? null, {
+        resolutionJustification: trimmed,
+      });
+      await prisma.$transaction(async (tx) => {
+        await tx.simThreatEvent.update({
+          where: { id: simRow.id },
+          data: {
+            status: ThreatState.RESOLVED,
+            ingestionDetails: mergedIngestion,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            action: "THREAT_RESOLVED",
+            justification: justificationPayload,
+            operatorId,
+            threatId: null,
+            isSimulation: true,
+          },
+        });
+      });
+      revalidatePath("/");
+      await logThreatActivity(null, "STATUS_UPDATED", `Threat status changed to RESOLVED (shadow). simThreatId:${id}`, {
+        isSimulation: true,
+      });
+      return {
+        success: true,
+        financialRisk_cents: Number(simRow.financialRisk_cents ?? BigInt(0)),
+      };
+    }
+  }
+
   if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
@@ -686,13 +852,88 @@ export async function resolveThreatAction(
     timestamp: ts,
   });
 
+  const threatForGate = await prisma.threatEvent.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      tenantCompanyId: true,
+      resolutionApprovalId: true,
+      ingestionDetails: true,
+      title: true,
+    },
+  });
+  if (!threatForGate?.tenantCompanyId || !threatForGate.resolutionApprovalId) {
+    throw new Error(GRC_PROTOCOL_VIOLATION);
+  }
+  const company = await prisma.company.findUnique({
+    where: { id: threatForGate.tenantCompanyId },
+    select: { tenantId: true },
+  });
+  if (!company?.tenantId) {
+    throw new Error(GRC_PROTOCOL_VIOLATION);
+  }
+  const approval = await prisma.threatApproval.findUnique({
+    where: { id: threatForGate.resolutionApprovalId },
+    select: { id: true, status: true, threatId: true, tenantId: true },
+  });
+  if (
+    !approval ||
+    approval.status !== "APPROVED" ||
+    approval.threatId !== id ||
+    approval.tenantId !== company.tenantId
+  ) {
+    throw new Error(GRC_PROTOCOL_VIOLATION);
+  }
+  const linkedEvidence = await prisma.evidenceAttachment.findFirst({
+    where: {
+      tenantId: company.tenantId,
+      entityType: "THREAT_EVENT",
+      entityId: id,
+    },
+    select: { id: true },
+  });
+  const allowSimKimbotManifest =
+    isSystemIntegrityKimbotDrillThreatOnServer({
+      title: threatForGate.title ?? "",
+      ingestionDetails: threatForGate.ingestionDetails,
+    }) && ingestionHasVaultSimManifest(threatForGate.ingestionDetails);
+  if (!linkedEvidence && !allowSimKimbotManifest) {
+    throw new Error(GRC_PROTOCOL_VIOLATION);
+  }
+
   const updated = await runThreatTransaction(id, async (tx) => {
-    const updatedRow = await tx.threatEvent.update({
-      where: { id },
-      data: { status: ThreatState.RESOLVED },
+    const prismaTx = tx as unknown as Prisma.TransactionClient;
+    const updatedRow = await transitionThreatStatus<{ financialRisk_cents?: bigint }>({
+      threatId: id,
+      newStatus: ThreatState.RESOLVED,
+      approvalId: approval.id,
+      actorUserId: operatorId,
+      eventType: "THREAT_RESOLVED",
+      tx: prismaTx,
       select: { financialRisk_cents: true },
     });
-    await tx.auditLog.create({
+    const approvedArtifacts = await prismaTx.evidenceArtifact.findMany({
+      where: {
+        tenantId: approval.tenantId,
+        attachments: {
+          some: {
+            entityType: "THREAT_EVENT",
+            entityId: id,
+          },
+        },
+      },
+      select: { storagePath: true },
+    });
+    if (approvedArtifacts.length > 0) {
+      await prismaTx.quarantineRecord.updateMany({
+        where: {
+          tenantId: approval.tenantId,
+          storagePath: { in: approvedArtifacts.map((artifact) => artifact.storagePath) },
+        },
+        data: { status: "PERMANENT" },
+      });
+    }
+    await prismaTx.auditLog.create({
       data: {
         action: 'THREAT_RESOLVED',
         justification: justificationPayload,
@@ -760,10 +1001,12 @@ export async function archiveThreat(
   const id = threatId.trim();
   if (!id) return { success: false, error: "Missing threat id." };
   try {
-    await prisma.threatEvent.update({
-      where: { id },
-      data: {
-        status: ThreatState.DE_ACKNOWLEDGED,
+    await transitionThreatStatus({
+      threatId: id,
+      newStatus: ThreatState.DE_ACKNOWLEDGED,
+      actorUserId: "system-archive",
+      eventType: "THREAT_ARCHIVED",
+      extraChanges: {
         deAckReason: DeAckReason.ACCEPTABLE_RISK,
       },
     });
@@ -838,12 +1081,7 @@ export async function deAcknowledgeThreatAction(
   const savedDeAckWorkNoteText = parsedDeAckNote.data.text;
 
   const result = await runThreatTransaction(id, async (tx) => {
-    const prismaTx = tx as unknown as {
-      threatEvent: { update: typeof prisma.threatEvent.update };
-      auditLog: typeof prisma.auditLog;
-      workNote: typeof prisma.workNote;
-    };
-    await prismaTx.workNote.create({
+    await tx.workNote.create({
       data: {
         text: savedDeAckWorkNoteText,
         operatorId,
@@ -851,15 +1089,18 @@ export async function deAcknowledgeThreatAction(
       },
     });
     const mappedReason = normalizeDeAckReason(trimmedReason);
-    await prismaTx.threatEvent.update({
-      where: { id },
-      data: {
-        status: ThreatState.DE_ACKNOWLEDGED,
+    await transitionThreatStatus({
+      threatId: id,
+      newStatus: ThreatState.DE_ACKNOWLEDGED,
+      actorUserId: operatorId,
+      eventType: "THREAT_DE_ACKNOWLEDGED",
+      tx,
+      extraChanges: {
         deAckReason: mappedReason,
       },
       select: { id: true },
     });
-    await prismaTx.auditLog.create({
+    await tx.auditLog.create({
       data: {
         action: 'THREAT_DE_ACKNOWLEDGED',
         justification: trimmedJustification,
@@ -868,7 +1109,7 @@ export async function deAcknowledgeThreatAction(
       },
     });
     // # GRC_ACTION_CHIPS / audit directive — De-Ack must log STATE_REGRESSION
-    await prismaTx.auditLog.create({
+    await tx.auditLog.create({
       data: {
         action: 'STATE_REGRESSION',
         justification: 'User reversed acknowledgment of risk.',
@@ -903,9 +1144,13 @@ export async function revertThreatToPipelineAction(
   }
 
   const result = await runThreatTransaction(id, async (tx) => {
-    await tx.threatEvent.update({
-      where: { id },
-      data: { status: ThreatState.PIPELINE, deAckReason: null },
+    await transitionThreatStatus({
+      threatId: id,
+      newStatus: ThreatState.PIPELINE,
+      actorUserId: operatorId,
+      eventType: "THREAT_REVERTED_TO_PIPELINE",
+      tx,
+      extraChanges: { deAckReason: null },
       select: { id: true },
     });
     await tx.auditLog.create({
@@ -965,7 +1210,7 @@ export type AssignmentChangedLogEntry = {
   createdAt: string;
 };
 
-/** Persist execution-board assignee on the ThreatEvent row and append AuditLog (ASSIGNMENT_CHANGED). */
+/** Persist execution-board assignee on ThreatEvent or SimThreatEvent and append AuditLog (ASSIGNMENT_CHANGED). */
 export async function setThreatAssigneeAction(
   threatId: string,
   assigneeId: string | null,
@@ -980,8 +1225,7 @@ export async function setThreatAssigneeAction(
   if (!tenantId?.trim()) {
     return { success: false, error: 'Irongate Rejection: Missing Tenant Context.' };
   }
-  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.auditLog?.create) {
-    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+  if (!prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
     return { success: false, error: 'Database update failed.' };
   }
@@ -989,84 +1233,153 @@ export async function setThreatAssigneeAction(
   const value =
     normalized === '' || normalized.toLowerCase() === 'unassigned' ? null : normalized;
 
-  const row = await prisma.threatEvent.findUnique({
-    where: { id: threatId },
-    select: { id: true, tenantCompanyId: true },
+  const company = await prisma.company.findFirst({
+    where: { tenantId: tenantId.trim() },
+    select: { id: true },
   });
-  if (!row) {
-    return {
-      success: false,
-      error: `[setThreatAssigneeAction] threatEvent.findUnique: no row for threatId ${threatId}`,
-    };
+  if (!company) {
+    return { success: false, error: 'Irongate Rejection: No company for tenant context.' };
   }
-  if (row.tenantCompanyId != null) {
-    const company = await prisma.company.findUnique({
-      where: { id: row.tenantCompanyId },
-      select: { tenantId: true },
-    });
-    if (company && company.tenantId !== tenantId) {
-      return { success: false, error: 'Tenant mismatch for this threat.' };
-    }
-  }
+  const tenantCompanyId = company.id;
 
   const su = await getSupabaseSessionUser();
   const idFromSession =
     (su && typeof su.id === "string" && su.id.trim() ? su.id.trim() : su?.email?.trim()) || "";
   const effectiveOperatorId = idFromSession || operatorId;
 
-  try {
-    const created = await prisma.$transaction(async (tx) => {
-      const existing = await tx.threatEvent.findUnique({
-        where: { id: threatId },
-        select: { assigneeId: true },
-      });
-      if (!existing) return null;
-      const prev = existing.assigneeId ?? null;
-      if (prev === value) {
-        return null;
-      }
-      await tx.threatEvent.update({
-        where: { id: threatId },
-        data: { assigneeId: value },
-        select: { id: true },
-      });
-      const ts = new Date().toISOString();
-      const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(effectiveOperatorId)).trim();
-      const newAssignee =
-        value == null ? null : assigneeKeyToDisplayName(value);
-      return tx.auditLog.create({
-        data: {
-          action: 'ASSIGNMENT_CHANGED',
-          justification: JSON.stringify({
-            newAssignee,
-            actor,
-            actorId: effectiveOperatorId,
-            timestamp: ts,
-          }),
-          operatorId: effectiveOperatorId,
-          threatId,
-        },
-      });
+  const buildJustification = (isSimulation: boolean) => {
+    const t = new Date().toISOString();
+    const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(effectiveOperatorId)).trim();
+    const newAssignee = value == null ? null : assigneeKeyToDisplayName(value);
+    return JSON.stringify({
+      newAssignee,
+      actor,
+      actorId: effectiveOperatorId,
+      timestamp: t,
+      isSimulation,
     });
+  };
 
-    revalidatePath('/');
-    if (!created) {
+  const prod = await prisma.threatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId },
+    select: { id: true, assigneeId: true },
+  });
+
+  if (prod) {
+    if (!prismaDelegates.threatEvent?.update) {
+      if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+      return { success: false, error: 'Database update failed.' };
+    }
+    const prev = prod.assigneeId ?? null;
+    if (prev === value) {
+      revalidatePath('/');
       return { success: true, newLog: null };
     }
-    return {
-      success: true,
-      newLog: {
-        id: created.id,
-        action: created.action,
-        justification: created.justification,
-        operatorId: created.operatorId,
-        createdAt: created.createdAt.toISOString(),
-      },
-    };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to save assignee.';
-    return { success: false, error: message };
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const existing = await tx.threatEvent.findUnique({
+          where: { id: threatId },
+          select: { assigneeId: true },
+        });
+        if (!existing) return null;
+        if ((existing.assigneeId ?? null) === value) return null;
+        await updateThreatWithIntegrity({
+          threatId,
+          changes: { assigneeId: value },
+          actorUserId: effectiveOperatorId,
+          eventType: "THREAT_ASSIGNEE_CHANGED",
+          tx,
+          select: { id: true },
+        });
+        return tx.auditLog.create({
+          data: {
+            action: 'ASSIGNMENT_CHANGED',
+            justification: buildJustification(false),
+            operatorId: effectiveOperatorId,
+            threatId,
+            isSimulation: false,
+          },
+        });
+      });
+      revalidatePath('/');
+      if (!created) {
+        return { success: true, newLog: null };
+      }
+      return {
+        success: true,
+        newLog: {
+          id: created.id,
+          action: created.action,
+          justification: created.justification,
+          operatorId: created.operatorId,
+          createdAt: created.createdAt.toISOString(),
+        },
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save assignee.';
+      return { success: false, error: message };
+    }
   }
+
+  const sim = await prisma.simThreatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId },
+    select: { id: true, assigneeId: true },
+  });
+
+  if (sim) {
+    const prev = sim.assigneeId ?? null;
+    if (prev === value) {
+      revalidatePath('/');
+      return { success: true, newLog: null };
+    }
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const row = await tx.simThreatEvent.findUnique({
+          where: { id: threatId },
+          select: { assigneeId: true },
+        });
+        if (!row) return null;
+        if ((row.assigneeId ?? null) === value) return null;
+        await tx.simThreatEvent.update({
+          where: { id: threatId },
+          data: { assigneeId: value },
+          select: { id: true },
+        });
+        return tx.auditLog.create({
+          data: {
+            action: 'ASSIGNMENT_CHANGED',
+            justification: buildJustification(true),
+            operatorId: effectiveOperatorId,
+            threatId: null,
+            isSimulation: true,
+            simThreatId: threatId,
+          },
+        });
+      });
+      revalidatePath('/');
+      if (!created) {
+        return { success: true, newLog: null };
+      }
+      return {
+        success: true,
+        newLog: {
+          id: created.id,
+          action: created.action,
+          justification: created.justification,
+          operatorId: created.operatorId,
+          createdAt: created.createdAt.toISOString(),
+        },
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save assignee.';
+      return { success: false, error: message };
+    }
+  }
+
+  return {
+    success: false,
+    error: `[setThreatAssigneeAction] No ThreatEvent or SimThreatEvent for threatId ${threatId} in this tenant scope.`,
+  };
 }
 
 export async function addWorkNoteAction(threatId: string, text: string, operatorId: string): Promise<{ success: true } | { success: false; error: string }> {
@@ -1116,9 +1429,12 @@ export async function saveAIReportToThreat(threatId: string, aiReport: string): 
   }
   try {
     await runThreatTransaction(threatId, async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: threatId },
-        data: { aiReport },
+      await updateThreatWithIntegrity({
+        threatId,
+        changes: { aiReport },
+        actorUserId: "CoreIntel",
+        eventType: "AI_REPORT_SAVED",
+        tx,
         select: { id: true },
       });
       await tx.auditLog.create({
@@ -1256,10 +1572,13 @@ export async function acknowledgeGrcInfrastructureLimitAndResetAgent(
   base.grcInfrastructureLimitAcknowledgedAt = new Date().toISOString();
   const nextSnap: Record<string, unknown> = { ...snap, failures: [] };
   await prisma.$transaction(async (tx) => {
-    await tx.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.ACTIVE,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.ACTIVE,
+      actorUserId: "grc-desktop",
+      eventType: "GRC_INFRA_RESET_ACTIVE",
+      tx,
+      extraChanges: {
         ingestionDetails: JSON.stringify(base),
       },
     });
@@ -1319,9 +1638,11 @@ export async function manualMitigationFourthAttempt(
   threatId: string,
 ): Promise<ManualMitigationFourthAttemptResult> {
   const tid = threatId.trim();
-  await prisma.threatEvent.update({
-    where: { id: tid },
-    data: { status: ThreatState.ACTIVE },
+  await transitionThreatStatus({
+    threatId: tid,
+    newStatus: ThreatState.ACTIVE,
+    actorUserId: "grc-desktop",
+    eventType: "MANUAL_MITIGATION_REARMED",
   });
   await prisma.agentOperation.updateMany({
     where: { threatId: tid, agentName: IRONTECH_AGENT_NAME },
@@ -1405,9 +1726,11 @@ export async function toggleRemoteAccessAuthorization(
     };
   }
   const next = !row.isRemoteAccessAuthorized;
-  await prisma.threatEvent.update({
-    where: { id: tid },
-    data: { isRemoteAccessAuthorized: next },
+  await updateThreatWithIntegrity({
+    threatId: tid,
+    changes: { isRemoteAccessAuthorized: next },
+    actorUserId: userId,
+    eventType: "REMOTE_ACCESS_AUTHORIZATION",
   });
   await prisma.auditLog.create({
     data: {
@@ -1444,6 +1767,47 @@ function parseSyntheticEmployeeIdFromIngestion(ingestionDetails: string | null |
     return null;
   }
   return null;
+}
+
+async function resolveThreatTargetClearance(
+  tx: Prisma.TransactionClient,
+  threatId: string,
+  targetEntity: string | null | undefined,
+  ingestionDetails: string | null | undefined,
+): Promise<number | null> {
+  const syntheticEmployeeId = parseSyntheticEmployeeIdFromIngestion(ingestionDetails);
+  if (syntheticEmployeeId) {
+    const direct = await tx.syntheticEmployee.findUnique({
+      where: { id: syntheticEmployeeId },
+      select: { clearanceLevel: true },
+    });
+    if (typeof direct?.clearanceLevel === "number") {
+      return direct.clearanceLevel;
+    }
+  }
+
+  const normalizedTarget = typeof targetEntity === "string" ? targetEntity.trim() : "";
+  if (!normalizedTarget) return null;
+
+  const byEmail = await tx.syntheticEmployee.findFirst({
+    where: { email: normalizedTarget },
+    select: { clearanceLevel: true },
+  });
+  if (typeof byEmail?.clearanceLevel === "number") {
+    return byEmail.clearanceLevel;
+  }
+
+  const fallbackThreat = await tx.threatEvent.findUnique({
+    where: { id: threatId },
+    select: { targetEntity: true },
+  });
+  const fallbackEmail = fallbackThreat?.targetEntity?.trim() ?? "";
+  if (!fallbackEmail) return null;
+  const fallback = await tx.syntheticEmployee.findFirst({
+    where: { email: fallbackEmail },
+    select: { clearanceLevel: true },
+  });
+  return typeof fallback?.clearanceLevel === "number" ? fallback.clearanceLevel : null;
 }
 
 export async function requestThreatResolution(
@@ -1485,47 +1849,70 @@ export async function requestThreatResolution(
       return { success: false, error: "Unable to resolve tenant for threat." };
     }
 
-    const payloadHash = createHash("sha256")
-      .update(JSON.stringify({ threatId: tid, resolutionNote: note, requestedByUserId, artifactId: artifactId?.trim() || null }))
-      .digest("hex");
+    const normalizedArtifactId = artifactId?.trim() || "";
 
     const created = await prisma.$transaction(async (tx) => {
-      const approval = await (tx as any).threatApproval.create({
+      const threatForClearance = await tx.threatEvent.findUnique({
+        where: { id: tid },
+        select: { targetEntity: true, ingestionDetails: true },
+      });
+      if (!threatForClearance) {
+        throw new Error("Threat not found.");
+      }
+
+      const targetClearance = await resolveThreatTargetClearance(
+        tx,
+        tid,
+        threatForClearance.targetEntity,
+        threatForClearance.ingestionDetails,
+      );
+      if (targetClearance != null && targetClearance >= 4 && !normalizedArtifactId) {
+        throw new Error("PROTOCOL_VIOLATION_EVIDENCE_REQUIRED");
+      }
+
+      const approval = await tx.threatApproval.create({
         data: {
           threatId: tid,
           tenantId: company.tenantId,
           status: "PENDING",
           requestedByUserId,
           approvalNote: note,
-          approvalPayloadHash: payloadHash,
+          approvalPayloadHash: null,
         },
         select: { id: true },
       });
 
-      const normalizedArtifactId = artifactId?.trim() || "";
-      if (normalizedArtifactId) {
-        const artifact = await (tx as any).evidenceArtifact.findFirst({
-          where: { id: normalizedArtifactId, tenantId: company.tenantId },
-          select: { id: true },
-        });
-        if (artifact?.id) {
-          await (tx as any).evidenceArtifact.update({
-            where: { id: artifact.id },
-            data: { threatApprovalId: approval.id },
-          });
-        }
-      }
-
-      await (tx as any).integrityEvent.create({
-        data: {
-          tenantId: company.tenantId,
-          eventType: "THREAT_RESOLUTION_REQUESTED",
-          message: `Resolution requested by ${requestedByUserId}`,
-          actorUserId: requestedByUserId,
+      const ledgerEntry = await integrityService.logEvent(tx, {
+        tenantId: company.tenantId,
+        eventType: "THREAT_RESOLUTION_REQUESTED",
+        entityType: "THREAT_APPROVAL",
+        entityId: approval.id,
+        actorUserId: requestedByUserId,
+        payload: {
+          threatId: tid,
+          requestedByUserId,
+          resolutionNote: note,
+          artifactId: normalizedArtifactId || null,
         },
+        source: EventSource.SYSTEM,
+      });
+      await tx.threatApproval.update({
+        where: { id: approval.id },
+        data: { approvalPayloadHash: ledgerEntry.payloadHash },
       });
       return approval;
     });
+    if (normalizedArtifactId) {
+      const attachment = await attachEvidenceToThreat(
+        normalizedArtifactId,
+        tid,
+        `Resolution request linkage. approvalId:${created.id}`,
+      );
+      if (!attachment.success) {
+        await prisma.threatApproval.delete({ where: { id: created.id } });
+        return { success: false, error: attachment.error };
+      }
+    }
 
     revalidatePath("/");
     return { success: true, approvalId: created.id as string };
@@ -1548,7 +1935,7 @@ export async function approveThreatResolution(
   }
 
   try {
-    const approval = await (prisma as any).threatApproval.findUnique({
+    const approval = await prisma.threatApproval.findUnique({
       where: { id: aid },
       select: {
         id: true,
@@ -1566,16 +1953,19 @@ export async function approveThreatResolution(
     });
     if (!approval) return { success: false, error: "Approval record not found." };
 
-    const roleAssignment = await (prisma as any).userRoleAssignment.findFirst({
+    const roleAssignment = await prisma.userRoleAssignment.findFirst({
       where: {
         userId: approverUserId,
         tenantId: approval.tenantId,
-        role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+        role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
       },
       select: { id: true },
     });
     if (!roleAssignment) {
-      return { success: false, error: "Only GRC_MANAGER or GLOBAL_ADMIN can approve." };
+      return {
+        success: false,
+        error: "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can approve.",
+      };
     }
 
     if (approval.status === "APPROVED") {
@@ -1587,7 +1977,25 @@ export async function approveThreatResolution(
     );
 
     await prisma.$transaction(async (tx) => {
-      await (tx as any).threatApproval.update({
+      const targetClearance = await resolveThreatTargetClearance(
+        tx,
+        approval.threatId as string,
+        approval.threat?.targetEntity,
+        approval.threat?.ingestionDetails,
+      );
+      const evidenceAttachment = await tx.evidenceAttachment.findFirst({
+        where: {
+          tenantId: approval.tenantId,
+          entityType: "THREAT_EVENT",
+          entityId: approval.threatId as string,
+        },
+        select: { id: true },
+      });
+      if (targetClearance != null && targetClearance >= 4 && !evidenceAttachment) {
+        throw new Error("PROTOCOL_VIOLATION_EVIDENCE_REQUIRED");
+      }
+
+      await tx.threatApproval.update({
         where: { id: aid },
         data: {
           status: "APPROVED",
@@ -1596,13 +2004,16 @@ export async function approveThreatResolution(
         },
       });
 
-      await tx.threatEvent.update({
-        where: { id: approval.threatId as string },
-        data: ({ resolutionApprovalId: aid } as any),
+      await updateThreatWithIntegrity({
+        threatId: approval.threatId as string,
+        changes: ({ resolutionApprovalId: aid } as Prisma.ThreatEventUpdateInput),
+        actorUserId: approverUserId,
+        eventType: "THREAT_RESOLUTION_LINKED_APPROVAL",
+        tx,
       });
 
       if (syntheticEmployeeId) {
-        await (tx as any).syntheticEmployee.update({
+        await tx.syntheticEmployee.update({
           where: { id: syntheticEmployeeId },
           data: {
             isBreached: false,
@@ -1610,7 +2021,7 @@ export async function approveThreatResolution(
           },
         });
       } else if (typeof approval.threat?.targetEntity === "string" && approval.threat.targetEntity.trim()) {
-        await (tx as any).syntheticEmployee.updateMany({
+        await tx.syntheticEmployee.updateMany({
           where: { email: approval.threat.targetEntity.trim() },
           data: {
             isBreached: false,
@@ -1619,13 +2030,17 @@ export async function approveThreatResolution(
         });
       }
 
-      await (tx as any).integrityEvent.create({
-        data: {
-          tenantId: approval.tenantId as string,
-          eventType: "THREAT_RESOLUTION_APPROVED",
-          message: `Resolution approved and executed by ${approverUserId}`,
-          actorUserId: approverUserId,
+      await integrityService.createLedgerEntry(tx, {
+        tenantId: approval.tenantId as string,
+        eventType: "THREAT_RESOLUTION_APPROVED",
+        entityType: "THREAT_APPROVAL",
+        entityId: aid,
+        actorUserId: approverUserId,
+        payload: {
+          threatId: approval.threatId,
+          approvedByUserId: approverUserId,
         },
+        source: EventSource.SYSTEM,
       });
     });
 
@@ -1634,6 +2049,476 @@ export async function approveThreatResolution(
     return { success: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to approve resolution.";
+    return { success: false, error: message };
+  }
+}
+
+const HANDSHAKE_ROLE_COOKIE = "ironframe-handshake-role";
+
+function isKimbotSimulationIngestion(ingestionDetails: string | null | undefined, sourceAgent: string): boolean {
+  const src = (sourceAgent ?? "").toUpperCase();
+  if (src.includes("KIMBOT")) return true;
+  try {
+    const j = JSON.parse(ingestionDetails ?? "{}") as Record<string, unknown>;
+    if (j?.simulator === "KIMBOT" || j?.simulator === "ATTBOT") return true;
+    if (j?.category === "SIMULATION") return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+async function actorMayAttestAsCiso(
+  userId: string,
+  tenantUuid: string,
+  handshakeRaw: string | undefined,
+): Promise<boolean> {
+  if ((handshakeRaw ?? "").trim().toUpperCase() === "CISO") return true;
+  const row = await prisma.userRoleAssignment.findFirst({
+    where: {
+      userId,
+      tenantId: tenantUuid,
+      role: { in: ["CISO", "GRC_MANAGER"] },
+    },
+    select: { id: true },
+  });
+  return row != null;
+}
+
+/**
+ * Lab / handshake: CISO attestation that primes `resolutionApprovalId` so an ADMIN-class operator can Resolve (Epic 11).
+ * Shadow plane stores attestation on `ingestionDetails.shadowCisoHandshake`; prod uses `ThreatApproval` + link.
+ */
+export async function generateCisoApproval(
+  threatId: string,
+): Promise<{ success: true; approvalId: string } | { success: false; error: string }> {
+  const tid = threatId.trim();
+  if (!tid) return { success: false, error: "Missing threat id." };
+
+  const user = await getSupabaseSessionUser();
+  const uid = user?.id?.trim() ?? "";
+  if (!uid) return { success: false, error: "Authentication required." };
+
+  const jar = await cookies();
+  const handshakeRole = jar.get(HANDSHAKE_ROLE_COOKIE)?.value;
+
+  try {
+    const sim = await readSimulationPlaneEnabled();
+    if (sim) {
+      const row = await prisma.simThreatEvent.findUnique({
+        where: { id: tid },
+        select: { id: true, ingestionDetails: true, sourceAgent: true, tenantCompanyId: true },
+      });
+      if (!row) return { success: false, error: "Shadow threat not found." };
+      if (!row.tenantCompanyId) {
+        return { success: false, error: "Shadow threat is missing tenant company context." };
+      }
+      const company = await prisma.company.findUnique({
+        where: { id: row.tenantCompanyId },
+        select: { tenantId: true },
+      });
+      if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for shadow threat." };
+      const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+      if (!may) {
+        return {
+          success: false,
+          error: "CISO identity required: use Control Room [CISO] or sign in with a CISO/GRC_MANAGER assignment.",
+        };
+      }
+      const approvalId = `shadow-ciso-${randomUUID()}`;
+      const secret =
+        process.env.HANDSHAKE_ATTESTATION_SECRET?.trim() ||
+        process.env.PRIVATE_KEY?.trim()?.slice(0, 48) ||
+        "ironframe-dev-handshake-attestation";
+      const attestationSignature = createHmac("sha256", secret)
+        .update(`${tid}:${approvalId}:${uid}`)
+        .digest("hex");
+      const merged = mergeIngestionDetailsPatch(row.ingestionDetails ?? null, {
+        shadowCisoHandshake: {
+          resolutionApprovalId: approvalId,
+          resolutionApprovalStatus: "APPROVED",
+          approvedByUserId: uid,
+          approvedAt: new Date().toISOString(),
+          attestationSignature,
+        },
+      });
+      await prisma.simThreatEvent.update({
+        where: { id: tid },
+        data: { ingestionDetails: merged },
+      });
+      revalidatePath("/");
+      return { success: true, approvalId };
+    }
+
+    const threat = await prisma.threatEvent.findUnique({
+      where: { id: tid },
+      select: {
+        id: true,
+        tenantCompanyId: true,
+        sourceAgent: true,
+        ingestionDetails: true,
+        resolutionApprovalId: true,
+        targetEntity: true,
+      },
+    });
+    if (!threat) return { success: false, error: "Threat not found." };
+    if (threat.tenantCompanyId == null) {
+      return { success: false, error: "Threat is missing tenant company context." };
+    }
+    const company = await prisma.company.findUnique({
+      where: { id: threat.tenantCompanyId },
+      select: { tenantId: true },
+    });
+    if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for threat." };
+
+    const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+    if (!may) {
+      return {
+        success: false,
+        error: "CISO identity required: use Control Room [CISO] or sign in with a CISO/GRC_MANAGER assignment.",
+      };
+    }
+
+    if (threat.resolutionApprovalId) {
+      const existing = await prisma.threatApproval.findUnique({
+        where: { id: threat.resolutionApprovalId },
+        select: { id: true, status: true },
+      });
+      if (existing?.status === "APPROVED") {
+        return { success: true, approvalId: existing.id };
+      }
+    }
+
+    const skipEvidenceForSimKimbot = isKimbotSimulationIngestion(threat.ingestionDetails, threat.sourceAgent);
+
+    const approvalIdOut = await prisma.$transaction(async (tx) => {
+      if (!skipEvidenceForSimKimbot) {
+        const targetClearance = await resolveThreatTargetClearance(
+          tx,
+          tid,
+          threat.targetEntity,
+          threat.ingestionDetails,
+        );
+        const evidenceAttachment = await tx.evidenceAttachment.findFirst({
+          where: {
+            tenantId: company.tenantId,
+            entityType: "THREAT_EVENT",
+            entityId: tid,
+          },
+          select: { id: true },
+        });
+        if (targetClearance != null && targetClearance >= 4 && !evidenceAttachment) {
+          throw new Error("PROTOCOL_VIOLATION_EVIDENCE_REQUIRED");
+        }
+      }
+
+      const approval = await tx.threatApproval.create({
+        data: {
+          threatId: tid,
+          tenantId: company.tenantId,
+          status: "APPROVED",
+          requestedByUserId: uid,
+          approvedByUserId: uid,
+          approvedAt: new Date(),
+          approvalNote: "CISO handshake attestation (generateCisoApproval).",
+          approvalPayloadHash: null,
+        },
+        select: { id: true },
+      });
+
+      const ledgerEntry = await integrityService.logEvent(tx, {
+        tenantId: company.tenantId,
+        eventType: "THREAT_RESOLUTION_APPROVED",
+        entityType: "THREAT_APPROVAL",
+        entityId: approval.id,
+        actorUserId: uid,
+        payload: {
+          threatId: tid,
+          handshake: "generateCisoApproval",
+        },
+        source: EventSource.SYSTEM,
+      });
+
+      await tx.threatApproval.update({
+        where: { id: approval.id },
+        data: { approvalPayloadHash: ledgerEntry.payloadHash },
+      });
+
+      await updateThreatWithIntegrity({
+        threatId: tid,
+        changes: { resolutionApprovalId: approval.id } as Prisma.ThreatEventUpdateInput,
+        actorUserId: uid,
+        eventType: "THREAT_RESOLUTION_LINKED_APPROVAL",
+        tx,
+      });
+
+      const syntheticEmployeeId = parseSyntheticEmployeeIdFromIngestion(threat.ingestionDetails);
+      if (syntheticEmployeeId) {
+        await tx.syntheticEmployee.update({
+          where: { id: syntheticEmployeeId },
+          data: { isBreached: false, status: "PROTECTED" },
+        });
+      } else {
+        const email = typeof threat.targetEntity === "string" ? threat.targetEntity.trim() : "";
+        if (email) {
+          await tx.syntheticEmployee.updateMany({
+            where: { email },
+            data: { isBreached: false, status: "PROTECTED" },
+          });
+        }
+      }
+      return approval.id;
+    });
+
+    revalidatePath("/");
+    revalidatePath("/integrity");
+    return { success: true, approvalId: approvalIdOut };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to generate CISO approval.";
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Kimbot System Integrity drill: CISO step — persist vault manifest URL, shadow handshake (sim) or
+ * approved ThreatApproval + IntegrityEvent (prod), so Admin can execute resolution without GRC_PROTOCOL_VIOLATION.
+ */
+export async function generateSimulationApproval(
+  threatId: string,
+): Promise<{ success: true; approvalId: string } | { success: false; error: string }> {
+  const tid = threatId.trim();
+  if (!tid) return { success: false, error: "Missing threat id." };
+
+  const user = await getSupabaseSessionUser();
+  const uid = user?.id?.trim() ?? "";
+  if (!uid) return { success: false, error: "Authentication required." };
+
+  const jar = await cookies();
+  const handshakeRole = jar.get(HANDSHAKE_ROLE_COOKIE)?.value;
+
+  try {
+    const sim = await readSimulationPlaneEnabled();
+    if (sim) {
+      const row = await prisma.simThreatEvent.findUnique({
+        where: { id: tid },
+        select: { id: true, title: true, ingestionDetails: true, tenantCompanyId: true },
+      });
+      if (!row) return { success: false, error: "Shadow threat not found." };
+      if (
+        !isSystemIntegrityKimbotDrillThreatOnServer({
+          title: row.title,
+          ingestionDetails: row.ingestionDetails,
+        })
+      ) {
+        return {
+          success: false,
+          error:
+          "Simulation authorization applies only to Kimbot, Grcbot, or Attbot System Integrity drill cards.",
+        };
+      }
+      if (!row.tenantCompanyId) {
+        return { success: false, error: "Shadow threat is missing tenant company context." };
+      }
+      const company = await prisma.company.findUnique({
+        where: { id: row.tenantCompanyId },
+        select: { tenantId: true },
+      });
+      if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for shadow threat." };
+      const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+      if (!may) {
+        return {
+          success: false,
+          error: "CISO identity required: use Control Room [CISO] or sign in with a CISO/GRC_MANAGER assignment.",
+        };
+      }
+      const prev = parseShadowHandshakeApproval(row.ingestionDetails);
+      if (
+        prev.resolutionApprovalStatus === "APPROVED" &&
+        prev.resolutionApprovalId &&
+        ingestionHasVaultSimManifest(row.ingestionDetails)
+      ) {
+        return { success: true, approvalId: prev.resolutionApprovalId };
+      }
+      const manifestToken = randomUUID();
+      const approvalId = `sim-ciso-${manifestToken}`;
+      const secret =
+        process.env.HANDSHAKE_ATTESTATION_SECRET?.trim() ||
+        process.env.PRIVATE_KEY?.trim()?.slice(0, 48) ||
+        "ironframe-dev-handshake-attestation";
+      const attestationSignature = createHmac("sha256", secret)
+        .update(`${tid}:${approvalId}:${uid}`)
+        .digest("hex");
+      const merged = mergeIngestionDetailsPatch(row.ingestionDetails ?? null, {
+        evidenceLink: SIM_MANIFEST_EVIDENCE_URL,
+        shadowCisoHandshake: {
+          resolutionApprovalId: approvalId,
+          resolutionApprovalStatus: "APPROVED",
+          approvedByUserId: uid,
+          approvedAt: new Date().toISOString(),
+          attestationSignature,
+          simulationAuthorization: true,
+        },
+      });
+      await prisma.$transaction(async (tx) => {
+        await tx.simThreatEvent.update({
+          where: { id: tid },
+          data: { ingestionDetails: merged },
+        });
+        await integrityService.logEvent(tx, {
+          tenantId: company.tenantId,
+          eventType: GRC_CISO_SIMULATION_AUTH_EVENT,
+          entityType: "THREAT_EVENT",
+          entityId: tid,
+          actorUserId: uid,
+          payload: {
+            threatId: tid,
+            evidenceLink: SIM_MANIFEST_EVIDENCE_URL,
+            shadowPlane: true,
+          },
+          source: EventSource.SYSTEM,
+        });
+      });
+      revalidatePath("/");
+      return { success: true, approvalId };
+    }
+
+    const threat = await prisma.threatEvent.findUnique({
+      where: { id: tid },
+      select: {
+        id: true,
+        title: true,
+        tenantCompanyId: true,
+        sourceAgent: true,
+        ingestionDetails: true,
+        resolutionApprovalId: true,
+        targetEntity: true,
+      },
+    });
+    if (!threat) return { success: false, error: "Threat not found." };
+    if (threat.tenantCompanyId == null) {
+      return { success: false, error: "Threat is missing tenant company context." };
+    }
+    if (
+      !isSystemIntegrityKimbotDrillThreatOnServer({
+        title: threat.title,
+        ingestionDetails: threat.ingestionDetails,
+      })
+    ) {
+      return {
+        success: false,
+        error:
+          "Simulation authorization applies only to Kimbot, Grcbot, or Attbot System Integrity drill cards.",
+      };
+    }
+    const company = await prisma.company.findUnique({
+      where: { id: threat.tenantCompanyId },
+      select: { tenantId: true },
+    });
+    if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for threat." };
+
+    const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+    if (!may) {
+      return {
+        success: false,
+        error: "CISO identity required: use Control Room [CISO] or sign in with a CISO/GRC_MANAGER assignment.",
+      };
+    }
+
+    if (threat.resolutionApprovalId) {
+      const existing = await prisma.threatApproval.findUnique({
+        where: { id: threat.resolutionApprovalId },
+        select: { id: true, status: true },
+      });
+      if (existing?.status === "APPROVED") {
+        return { success: true, approvalId: existing.id };
+      }
+    }
+
+    const mergedIngestionBase = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+      evidenceLink: SIM_MANIFEST_EVIDENCE_URL,
+    });
+
+    const skipEvidenceGate =
+      isKimbotSimulationIngestion(threat.ingestionDetails, threat.sourceAgent) ||
+      isSystemIntegrityKimbotDrillThreatOnServer({
+        title: threat.title,
+        ingestionDetails: threat.ingestionDetails,
+      });
+
+    const approvalIdOut = await prisma.$transaction(async (tx) => {
+      if (!skipEvidenceGate) {
+        const targetClearance = await resolveThreatTargetClearance(
+          tx,
+          tid,
+          threat.targetEntity,
+          threat.ingestionDetails,
+        );
+        const evidenceAttachment = await tx.evidenceAttachment.findFirst({
+          where: {
+            tenantId: company.tenantId,
+            entityType: "THREAT_EVENT",
+            entityId: tid,
+          },
+          select: { id: true },
+        });
+        if (targetClearance != null && targetClearance >= 4 && !evidenceAttachment) {
+          throw new Error("PROTOCOL_VIOLATION_EVIDENCE_REQUIRED");
+        }
+      }
+
+      const approval = await tx.threatApproval.create({
+        data: {
+          threatId: tid,
+          tenantId: company.tenantId,
+          status: "APPROVED",
+          requestedByUserId: uid,
+          approvedByUserId: uid,
+          approvedAt: new Date(),
+          approvalNote: "CISO simulation authorization (generateSimulationApproval).",
+          approvalPayloadHash: null,
+        },
+        select: { id: true },
+      });
+
+      const ledgerEntry = await integrityService.logEvent(tx, {
+        tenantId: company.tenantId,
+        eventType: GRC_CISO_SIMULATION_AUTH_EVENT,
+        entityType: "THREAT_EVENT",
+        entityId: tid,
+        actorUserId: uid,
+        payload: {
+          threatId: tid,
+          approvalId: approval.id,
+          evidenceLink: SIM_MANIFEST_EVIDENCE_URL,
+        },
+        source: EventSource.SYSTEM,
+      });
+
+      await tx.threatApproval.update({
+        where: { id: approval.id },
+        data: { approvalPayloadHash: ledgerEntry.payloadHash },
+      });
+
+      await updateThreatWithIntegrity({
+        threatId: tid,
+        changes: {
+          resolutionApprovalId: approval.id,
+          ingestionDetails: mergedIngestionBase,
+        } as Prisma.ThreatEventUpdateInput,
+        actorUserId: uid,
+        eventType: "THREAT_RESOLUTION_LINKED_APPROVAL",
+        tx,
+      });
+
+      return approval.id;
+    });
+
+    revalidatePath("/");
+    revalidatePath("/integrity");
+    return { success: true, approvalId: approvalIdOut };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to generate simulation authorization.";
     return { success: false, error: message };
   }
 }
@@ -1656,7 +2541,7 @@ async function resolveThreatIdForResolutionRequest(inputId: string): Promise<str
   });
   if (direct?.id) return direct.id;
 
-  const synthetic = await (prisma as any).syntheticEmployee.findUnique({
+  const synthetic = await prisma.syntheticEmployee.findUnique({
     where: { id: inputId },
     select: { email: true },
   });
@@ -1675,7 +2560,7 @@ export async function listPendingThreatResolutions(): Promise<
   { ok: true; items: PendingThreatResolutionItem[] } | { ok: false; error: string; items: [] }
 > {
   try {
-    const rows = await (prisma as any).threatApproval.findMany({
+    const rows = await prisma.threatApproval.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "desc" },
       select: {
@@ -1695,14 +2580,14 @@ export async function listPendingThreatResolutions(): Promise<
     });
     return {
       ok: true,
-      items: rows.map((row: any) => ({
+      items: rows.map((row) => ({
         approvalId: row.id,
         threatId: row.threatId,
         threatTitle: row.threat?.title ?? row.threatId,
         targetEntity: row.threat?.targetEntity ?? null,
         status: row.status,
         requestedByUserId: row.requestedByUserId,
-        approvalNote: row.approvalNote,
+        approvalNote: row.approvalNote ?? "",
         createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date().toISOString(),
       })),
     };
@@ -1717,10 +2602,10 @@ export async function getThreatResolutionReviewEligibility(): Promise<{ eligible
   const uid = user?.id?.trim() ?? "";
   if (!uid) return { eligible: false };
 
-  const assignment = await (prisma as any).userRoleAssignment.findFirst({
+  const assignment = await prisma.userRoleAssignment.findFirst({
     where: {
       userId: uid,
-      role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+      role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
     },
     select: { id: true },
   });
@@ -1739,22 +2624,25 @@ export async function rejectThreatResolution(
   if (!approverUserId) return { success: false, error: "Authentication required." };
 
   try {
-    const approval = await (prisma as any).threatApproval.findUnique({
+    const approval = await prisma.threatApproval.findUnique({
       where: { id: aid },
       select: { id: true, tenantId: true, status: true, approvalNote: true },
     });
     if (!approval) return { success: false, error: "Approval record not found." };
 
-    const roleAssignment = await (prisma as any).userRoleAssignment.findFirst({
+    const roleAssignment = await prisma.userRoleAssignment.findFirst({
       where: {
         userId: approverUserId,
         tenantId: approval.tenantId,
-        role: { in: ["GRC_MANAGER", "GLOBAL_ADMIN"] },
+        role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
       },
       select: { id: true },
     });
     if (!roleAssignment) {
-      return { success: false, error: "Only GRC_MANAGER or GLOBAL_ADMIN can reject." };
+        return {
+          success: false,
+          error: "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can reject.",
+        };
     }
 
     const note =
@@ -1763,7 +2651,7 @@ export async function rejectThreatResolution(
         : approval.approvalNote;
 
     await prisma.$transaction(async (tx) => {
-      await (tx as any).threatApproval.update({
+      await tx.threatApproval.update({
         where: { id: aid },
         data: {
           status: "REJECTED",
@@ -1772,13 +2660,18 @@ export async function rejectThreatResolution(
           approvalNote: note,
         },
       });
-      await (tx as any).integrityEvent.create({
-        data: {
-          tenantId: approval.tenantId,
-          eventType: "THREAT_RESOLUTION_REJECTED",
-          message: `Resolution rejected by ${approverUserId}`,
-          actorUserId: approverUserId,
+      await integrityService.logEvent(tx, {
+        tenantId: approval.tenantId,
+        eventType: "THREAT_RESOLUTION_REJECTED",
+        entityType: "THREAT_APPROVAL",
+        entityId: aid,
+        actorUserId: approverUserId,
+        payload: {
+          approvalId: aid,
+          approvedByUserId: approverUserId,
+          note,
         },
+        source: EventSource.SYSTEM,
       });
     });
 

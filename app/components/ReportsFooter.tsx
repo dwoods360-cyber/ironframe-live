@@ -11,6 +11,8 @@ import { useRiskStore } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { sleepBlueTeam } from "@/app/utils/blueTeamSync";
 import { useComputeBilling } from "@/app/hooks/useComputeBilling";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from "@/src/constants/grcManualPurge";
 
 const DB_POLL_INTERVAL_MS = 3000;
 
@@ -68,6 +70,13 @@ export default function ReportsFooter() {
       useGrcBotStore.getState().stop();
       useRiskStore.getState().clearAllRiskStateForPurge();
       useRiskStore.getState().setSelectedThreatId(null);
+      await syncThreatBoardsClient(
+        useRiskStore.getState().replacePipelineThreats,
+        useRiskStore.getState().replaceActiveThreats,
+      ).catch(() => {});
+      useAgentStore.getState().addStreamMessage(
+        `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
+      );
       useAgentStore.getState().addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
       sleepBlueTeam();
       setPurgeMessage(`Purge complete. ${purgedLogs} audit log(s) cleared. Historical Entries reset to 0.`);

@@ -2,6 +2,7 @@
 
 import prisma from '@/lib/prisma';
 import { resolveTenantUuidFromSlugOrUuid } from '@/app/utils/serverTenantContext';
+import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
 
 export async function uploadToQuarantine(formData: FormData, tenantId: string) {
   const file = formData.get('file') as File | null;
@@ -10,6 +11,12 @@ export async function uploadToQuarantine(formData: FormData, tenantId: string) {
   try {
     const tenantUuid = resolveTenantUuidFromSlugOrUuid(tenantId);
     const storagePath = `${tenantUuid}/dmz/${Date.now()}-${file.name}`;
+    const sessionUser = await getSupabaseSessionUser();
+    const uploadedBy =
+      (typeof sessionUser?.user_metadata?.full_name === 'string' &&
+        sessionUser.user_metadata.full_name.trim()) ||
+      sessionUser?.email?.trim() ||
+      'SYSTEM_UPLOAD';
 
     const record = await prisma.quarantineRecord.create({
       data: {
@@ -17,7 +24,7 @@ export async function uploadToQuarantine(formData: FormData, tenantId: string) {
         fileName: file.name,
         fileSize: file.size,
         storagePath,
-        uploadedBy: 'J. DOE (CISO)',
+        uploadedBy,
       },
     });
 

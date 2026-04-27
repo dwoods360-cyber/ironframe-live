@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import type { Prisma, ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
+import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Must match client `SIMULATION_MODE_COOKIE` / `syncSimulationModeCookie` values (`1` / `0`). */
 export const INGRESS_SIMULATION_COOKIE = "ironframe-simulation-mode";
@@ -55,22 +57,63 @@ export type IngressAttbotThreatRow = {
   createdAt: Date;
 };
 
+function attachSimulationCategoryToIngestionDetails(
+  details: string | null | undefined,
+  sourceAgent: string | null | undefined,
+  forceSimulation: boolean,
+): string {
+  const shouldTag =
+    forceSimulation || (typeof sourceAgent === "string" && SIMULATION_SOURCE_AGENTS.has(sourceAgent));
+  if (!shouldTag) return details ?? "";
+
+  const simulationTag = {
+    category: "SIMULATION",
+    sourcePlane: "SHADOW",
+  } as const;
+
+  if (!details || !details.trim()) {
+    return JSON.stringify(simulationTag);
+  }
+
+  try {
+    const parsed = JSON.parse(details) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return JSON.stringify({ ...(parsed as Record<string, unknown>), ...simulationTag });
+    }
+  } catch {
+    // Preserve original text while still adding mandatory simulation tagging metadata.
+  }
+
+  return JSON.stringify({
+    raw: details,
+    ...simulationTag,
+  });
+}
+
 async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThreatCreated> {
   const isSim = await readSimulationPlaneEnabled();
+  const payloadWithCategory: IngressPayload = {
+    ...payload,
+    ingestionDetails: attachSimulationCategoryToIngestionDetails(
+      typeof payload.ingestionDetails === "string" ? payload.ingestionDetails : undefined,
+      typeof payload.sourceAgent === "string" ? payload.sourceAgent : undefined,
+      isSim,
+    ),
+  };
   if (isSim) {
-    if (payload.tenantCompanyId == null) {
+    if (payloadWithCategory.tenantCompanyId == null) {
       throw new Error(
         "Ingress: SimThreatEvent requires tenantCompanyId (shadow plane must match production isolation).",
       );
     }
     const row = await prisma.simThreatEvent.create({
-      data: payload as Prisma.SimThreatEventUncheckedCreateInput,
+      data: payloadWithCategory as Prisma.SimThreatEventUncheckedCreateInput,
       select: BOT_THREAT_WRITE_SELECT,
     });
     return row;
   }
   return prisma.threatEvent.create({
-    data: payload,
+    data: payloadWithCategory,
     select: BOT_THREAT_WRITE_SELECT,
   });
 }
@@ -81,17 +124,27 @@ async function updateThreatEvent(
   data: Prisma.ThreatEventUncheckedUpdateInput,
 ): Promise<IngressBotThreatCreated> {
   const isSim = await readSimulationPlaneEnabled();
+  const updateWithCategory: Prisma.ThreatEventUncheckedUpdateInput = {
+    ...data,
+    ingestionDetails: attachSimulationCategoryToIngestionDetails(
+      typeof data.ingestionDetails === "string" ? data.ingestionDetails : undefined,
+      typeof data.sourceAgent === "string" ? data.sourceAgent : undefined,
+      isSim,
+    ),
+  };
   if (isSim) {
     const row = await prisma.simThreatEvent.update({
       where: { id },
-      data: data as Prisma.SimThreatEventUncheckedUpdateInput,
+      data: updateWithCategory as Prisma.SimThreatEventUncheckedUpdateInput,
       select: BOT_THREAT_WRITE_SELECT,
     });
     return row;
   }
-  return prisma.threatEvent.update({
-    where: { id },
-    data,
+  return updateThreatWithIntegrity<IngressBotThreatCreated>({
+    threatId: id,
+    changes: updateWithCategory as Prisma.ThreatEventUpdateInput,
+    actorUserId: "irongate-ingress",
+    eventType: "INGRESS_GATEWAY_UPDATE",
     select: BOT_THREAT_WRITE_SELECT,
   });
 }

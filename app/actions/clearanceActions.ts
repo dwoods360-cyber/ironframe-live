@@ -28,6 +28,7 @@ import { parseIrongateScanFromIngestionDetails } from "@/app/utils/irongateScan"
 import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
+import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 const DMZ_PROMOTE_GRC_JUSTIFICATION = "Cleared and Promoted via DMZ Quarantine";
 
@@ -56,9 +57,11 @@ async function updateClearanceThreatRow(
     });
     return;
   }
-  await prisma.threatEvent.update({
-    where: { id: threatId },
-    data,
+  await updateThreatWithIntegrity({
+    threatId,
+    changes: data as Prisma.ThreatEventUpdateInput,
+    actorUserId: "clearance-operator",
+    eventType: "CLEARANCE_ROW_UPDATED",
     select: { id: true },
   });
 }

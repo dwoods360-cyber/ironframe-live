@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { flushSync } from "react-dom";
 import { Cpu, Skull } from "lucide-react";
 import {
@@ -15,6 +16,23 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { IRONCHAOS_INGRESS_INITIATED_LINE } from "@/app/utils/dmzIngressRealtime";
 import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore";
+import { appendAuditLog } from "@/app/utils/auditLogger";
+import { syncShadowSimulatorArmAction } from "@/app/actions/shadowSimulatorArmActions";
+import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+
+/**
+ * Dropdown copy uses **Infil:** / **Phish:** prefixes; each `<option value>` is the `ChaosScenario` enum passed to
+ * `injectChaosThreatAction` (authoritative for `PHISHBOT_SIMULATION` / `INFILBOT_SIMULATION` and `/integrity` refresh).
+ */
+function isChaosInfilScenario(s: ChaosScenario): boolean {
+  return s === "INFIL_CRED_STUFFING" || s === "INFIL_LATERAL_PIVOT";
+}
+
+function isChaosPhishScenario(s: ChaosScenario): boolean {
+  return s === "PHISH_CEO_FRAUD" || s === "PHISH_IT_HELPDESK";
+}
 
 type Props = {
   embedded?: boolean;
@@ -35,6 +53,7 @@ const WAIT_MS = 4000;
 const waitChaosTick = () => new Promise<void>((r) => setTimeout(r, WAIT_MS));
 
 export default function IrontechChaosDeploy({ embedded = false }: Props) {
+  const router = useRouter();
   const [logDive, setLogDive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInjecting, setIsInjecting] = useState(false);
@@ -81,6 +100,18 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
     });
 
     void (async () => {
+      const setInfiltrActive = useAdversarySimulatorStore.getState().setInfiltrActive;
+      const setPhishActive = useAdversarySimulatorStore.getState().setPhishActive;
+      const syncArm = async () => {
+        try {
+          const snap = await syncShadowSimulatorArmAction();
+          setInfiltrActive(snap.infiltrBotSimActive);
+          setPhishActive(snap.phishBotSimActive);
+        } catch {
+          /* ignore */
+        }
+      };
+
       try {
         const clientAttr = await fetchChaosLedgerClientAttribution();
         const res = await injectChaosThreatAction(
@@ -98,6 +129,26 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           );
           setError(res.error?.trim() ? res.error : attestationMsg);
           return;
+        }
+
+        applyManualSimulationStandDownResumeFeed();
+
+        if (isChaosInfilScenario(scenario)) {
+          setInfiltrActive(true);
+          appendAuditLog({
+            action_type: "RED_TEAM_SIMULATION_START",
+            log_type: "SIMULATION",
+            description: `Chaos drill armed (09 — InfilBot): ${scenarioLabelForServer || scenario}.`,
+            metadata_tag: `SIMULATION|INFILBOT_CHAOS|${scenario}`,
+          });
+        } else if (isChaosPhishScenario(scenario)) {
+          setPhishActive(true);
+          appendAuditLog({
+            action_type: "RED_TEAM_SIMULATION_START",
+            log_type: "SIMULATION",
+            description: `Chaos drill armed (10 — PhishBot): ${scenarioLabelForServer || scenario}.`,
+            metadata_tag: `SIMULATION|PHISHBOT_CHAOS|${scenario}`,
+          });
         }
 
         const threatId = res.threatId;
@@ -162,10 +213,17 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
         }
 
         store.setChaosSelfHealedLine(threatId, "Status: Self-Healed & Resolved");
+
+        await syncThreatBoardsClient(
+          useRiskStore.getState().replacePipelineThreats,
+          useRiskStore.getState().replaceActiveThreats,
+        ).catch(() => undefined);
+        router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
         flushSync(() => setIsInjecting(false));
+        await syncArm();
       }
     })();
   };
@@ -173,6 +231,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const controls = (
     <>
       <div className="mt-1 flex w-full flex-wrap items-stretch gap-2">
+        {/* Infil:/Phish: labels pair with INFIL_* / PHISH_* option values for one-click ingress. */}
         <select
           aria-label="Chaos scenario"
           value={selectedScenario}
@@ -193,6 +252,10 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           <option value="CLOUD_EXFIL">3 - CLOUD EXFILTRATION (INTERNAL QUARANTINE)</option>
           <option value="REMOTE_SUPPORT">4 - REMOTE SUPPORT DRILL (HUMAN HANDOFF)</option>
           <option value="CASCADING_FAILURE">5 - CASCADING FAILURE (DOOMSDAY LOCKDOWN)</option>
+          <option value="INFIL_CRED_STUFFING">Infil: Shadow Credential Stuffing</option>
+          <option value="INFIL_LATERAL_PIVOT">Infil: Lateral Pivot Attempt</option>
+          <option value="PHISH_CEO_FRAUD">Phish: CEO Fraud (Urgent Wire)</option>
+          <option value="PHISH_IT_HELPDESK">Phish: IT Helpdesk Trap</option>
         </select>
         <button
           type="button"
@@ -225,7 +288,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             aria-hidden
           />
           <span className="truncate text-[9px] font-black uppercase tracking-widest text-cyan-200/90">
-            Irontech · Chaos drills (1–5)
+            Irontech · Chaos drills & adversary scenarios
           </span>
         </div>
         {logDive ? (

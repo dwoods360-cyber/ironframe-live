@@ -17,6 +17,12 @@ export function chaosComplianceCoverageLabel(
   if (s === "CASCADING_FAILURE") {
     return "Control: ISO 27001 A.17 (Continuity)";
   }
+  if (s === "INFIL_CRED_STUFFING" || s === "INFIL_LATERAL_PIVOT") {
+    return "Control: NIST PR.AC-7 (User / privileged account abuse)";
+  }
+  if (s === "PHISH_CEO_FRAUD" || s === "PHISH_IT_HELPDESK") {
+    return "Control: SOC 2 CC1.2 (Fraud / phishing awareness)";
+  }
   return null;
 }
 
@@ -33,6 +39,8 @@ export function frameworkBadgesForChaosScenario(
   if (s === "REMOTE_SUPPORT") return ["SOC2"];
   if (s === "CASCADING_FAILURE") return ["ISO"];
   if (s === "CLOUD_EXFIL") return ["SOC2", "NIST"];
+  if (s === "INFIL_CRED_STUFFING" || s === "INFIL_LATERAL_PIVOT") return ["NIST"];
+  if (s === "PHISH_CEO_FRAUD" || s === "PHISH_IT_HELPDESK") return ["SOC2"];
   return isChaosTest ? ["NIST"] : [];
 }
 

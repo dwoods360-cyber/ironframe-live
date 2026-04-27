@@ -4,6 +4,7 @@ import { ThreatState } from '@prisma/client';
 import { threatIngressSchema } from '@/app/utils/irongateSchema';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { ZodError } from 'zod';
+import { assertSimulationInjectAllowedForTenant } from '@/app/lib/simulationStandDown';
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 const CENTS_PER_MILLION = 100_000_000;
@@ -85,6 +86,15 @@ export async function POST(request: NextRequest) {
 
     const financialRisk_cents = parseLossToCents(lossRaw);
     const score = 8; // default 1–10 for manual entry
+
+    try {
+      await assertSimulationInjectAllowedForTenant(tenantId);
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('SIMULATION_STAND_DOWN')) {
+        return NextResponse.json({ error: err.message }, { status: 423 });
+      }
+      throw err;
+    }
 
     const company = await prisma.company.findFirst({
       where: { tenantId: tenantId },

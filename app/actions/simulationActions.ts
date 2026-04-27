@@ -2,9 +2,11 @@
 
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
-import { ThreatState } from "@prisma/client";
+import { ThreatState, type Prisma } from "@prisma/client";
 import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertSimulationInjectAllowedForTenant } from "@/app/lib/simulationStandDown";
 import { GRC_SOURCE, GRC_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import {
   queryActiveThreatsForBoard,
@@ -12,6 +14,29 @@ import {
 } from "@/app/utils/activeThreatsBoardQuery";
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
+
+function parseShadowCisoHandshakeFromIngestion(ingestionDetails: string | null | undefined): {
+  resolutionApprovalId: string | null;
+  resolutionApprovalStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+} {
+  try {
+    const j = JSON.parse(ingestionDetails ?? "{}") as {
+      shadowCisoHandshake?: {
+        resolutionApprovalId?: string;
+        resolutionApprovalStatus?: string;
+      };
+    };
+    const h = j?.shadowCisoHandshake;
+    const id = typeof h?.resolutionApprovalId === "string" ? h.resolutionApprovalId.trim() : null;
+    const st = h?.resolutionApprovalStatus;
+    if (id && st === "APPROVED") {
+      return { resolutionApprovalId: id, resolutionApprovalStatus: "APPROVED" };
+    }
+  } catch {
+    /* ignore */
+  }
+  return { resolutionApprovalId: null, resolutionApprovalStatus: null };
+}
 
 export type CreateGrcBotThreatInput = {
   title: string;
@@ -46,6 +71,10 @@ export type CreateKimbotThreatInput = {
 export async function createKimbotThreatServer(
   input: CreateKimbotThreatInput
 ): Promise<GrcBotThreatCreated> {
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (tenantUuid?.trim()) {
+    await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
+  }
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
   const companyId = await getCompanyIdForActiveTenant();
   if (companyId == null) {
@@ -85,6 +114,10 @@ function centsToMillions(value: bigint | number): number {
  * — matches the last known-good ingestion shape (no split create/update for company link).
  */
 export async function createGrcBotThreatPlaceholderServer(): Promise<GrcBotThreatCreated> {
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (tenantUuid?.trim()) {
+    await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
+  }
   const companyId = await getCompanyIdForActiveTenant();
   if (companyId == null) {
     throw new Error(
@@ -156,44 +189,104 @@ function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefin
  */
 export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
   const sim = await readSimulationPlaneEnabled();
-  const pipelineQuery = {
-    where: { status: { in: [ThreatState.PIPELINE, ThreatState.QUARANTINED] } },
-    select: {
-      id: true,
-      title: true,
-      financialRisk_cents: true,
-      score: true,
-      targetEntity: true,
-      sourceAgent: true,
-      createdAt: true,
-      assigneeId: true,
-      status: true,
-      ingestionDetails: true,
-      dispositionStatus: true,
-      isFalsePositive: true,
-      receiptHash: true,
+  const pipelineWhere = {
+    where: {
+      AND: [
+        {
+          status: {
+            notIn: [ThreatState.RESOLVED, ThreatState.DE_ACKNOWLEDGED],
+          },
+        },
+        { status: { in: [ThreatState.PIPELINE, ThreatState.QUARANTINED] } },
+      ],
     },
     orderBy: { createdAt: "desc" as const },
   };
+  const pipelineScalars = {
+    id: true,
+    title: true,
+    financialRisk_cents: true,
+    score: true,
+    targetEntity: true,
+    sourceAgent: true,
+    createdAt: true,
+    assigneeId: true,
+    status: true,
+    ingestionDetails: true,
+    dispositionStatus: true,
+    isFalsePositive: true,
+    receiptHash: true,
+  } satisfies Prisma.ThreatEventSelect;
+  const pipelineProdSelect = {
+    ...pipelineScalars,
+    resolutionApprovalId: true,
+    resolutionApproval: {
+      select: { id: true, status: true },
+    },
+    agentReasonings: {
+      orderBy: { createdAt: "desc" as const },
+      select: {
+        id: true,
+        agentId: true,
+        reasoning: true,
+        metadata: true,
+        createdAt: true,
+      },
+    },
+  } satisfies Prisma.ThreatEventSelect;
+
   const rows = sim
-    ? await prisma.simThreatEvent.findMany(pipelineQuery)
-    : await prisma.threatEvent.findMany(pipelineQuery);
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.title,
-    loss: centsToMillions(r.financialRisk_cents),
-    score: r.score,
-    industry: r.targetEntity,
-    source: r.sourceAgent,
-    description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
-    createdAt: r.createdAt.toISOString(),
-    assignedTo: r.assigneeId?.trim() || undefined,
-    threatStatus: String(r.status),
-    ingestionDetails: r.ingestionDetails ?? undefined,
-    dispositionStatus: r.dispositionStatus ?? undefined,
-    isFalsePositive: r.isFalsePositive,
-    receiptHash: r.receiptHash ?? undefined,
-  }));
+    ? await prisma.simThreatEvent.findMany({
+        ...pipelineWhere,
+        select: pipelineScalars,
+      })
+    : await prisma.threatEvent.findMany({
+        ...pipelineWhere,
+        select: pipelineProdSelect,
+      });
+
+  return rows.map((r) => {
+    const agentReasonings =
+      "agentReasonings" in r && Array.isArray(r.agentReasonings)
+        ? r.agentReasonings.map((a) => ({
+            id: a.id,
+            agentId: a.agentId,
+            reasoning: a.reasoning,
+            metadata: a.metadata,
+            createdAt: a.createdAt.toISOString(),
+          }))
+        : undefined;
+    const shadow = sim ? parseShadowCisoHandshakeFromIngestion(r.ingestionDetails) : null;
+    const resolutionApprovalId = sim
+      ? shadow?.resolutionApprovalId ?? null
+      : (r as { resolutionApprovalId?: string | null; resolutionApproval?: { id: string; status: string } | null })
+          .resolutionApprovalId ??
+        (r as { resolutionApproval?: { id: string; status: string } | null }).resolutionApproval?.id ??
+        null;
+    const resolutionApprovalStatus = sim
+      ? shadow?.resolutionApprovalStatus ?? null
+      : (((r as { resolutionApproval?: { status: string } | null }).resolutionApproval?.status ??
+          null) as "PENDING" | "APPROVED" | "REJECTED" | null);
+    return {
+      id: r.id,
+      name: r.title,
+      loss: centsToMillions(r.financialRisk_cents),
+      score: r.score,
+      industry: r.targetEntity,
+      source: r.sourceAgent,
+      description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+      createdAt: r.createdAt.toISOString(),
+      assignedTo: r.assigneeId?.trim() || undefined,
+      threatStatus: String(r.status),
+      ingestionDetails: r.ingestionDetails ?? undefined,
+      dispositionStatus: r.dispositionStatus ?? undefined,
+      isFalsePositive: r.isFalsePositive,
+      receiptHash: r.receiptHash ?? undefined,
+      agentReasonings,
+      resolutionApprovalId,
+      resolutionApprovalStatus,
+    };
+  });
 }
 
 /**

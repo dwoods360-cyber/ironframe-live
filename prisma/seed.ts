@@ -1,4 +1,5 @@
-import { PrismaClient, ThreatState } from '@prisma/client';
+import { PrismaClient, ThreatState, UserRole } from '@prisma/client';
+import { seedSyntheticEmployees, SYNTHETIC_SEED_ROW_COUNT } from './seed-synthetic';
 
 const prisma = new PrismaClient();
 
@@ -8,6 +9,27 @@ const TENANT_UUIDS = {
   vaultbank: 'c6932d16-a716-4a07-9bc4-6ec987f641e2',
   gridcore: '4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7',
 } as const;
+
+/**
+ * Seeds `GLOBAL_ADMIN` on all canonical tenants for the Supabase user id in `IRONFRAME_DEV_SUPABASE_USER_ID`
+ * so Meta-Audit / Integrity Hub RBAC (`ensureAuditorOrAdminRole`) passes in local dev.
+ */
+async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void> {
+  const userId = process.env.IRONFRAME_DEV_SUPABASE_USER_ID?.trim();
+  if (!userId) {
+    console.log(
+      'ℹ️  Skipping UserRoleAssignment GLOBAL_ADMIN seed — set IRONFRAME_DEV_SUPABASE_USER_ID to your Supabase `auth.users.id`.',
+    );
+    return;
+  }
+  await prisma.userRoleAssignment.deleteMany({ where: { userId } });
+  for (const tenantId of Object.values(TENANT_UUIDS)) {
+    await prisma.userRoleAssignment.create({
+      data: { userId, tenantId, role: UserRole.GLOBAL_ADMIN },
+    });
+  }
+  console.log(`✅ UserRoleAssignment GLOBAL_ADMIN for dev user across tenants (${userId.slice(0, 8)}…).`);
+}
 
 async function main() {
   console.log('🧹 Purging legacy data...');
@@ -239,6 +261,29 @@ async function main() {
     });
   }
   console.log('✅ Sandbox Company Seeded.');
+
+  await seedSyntheticEmployees(prisma);
+  console.log(`✅ Synthetic Shadow Directory Seeded (${SYNTHETIC_SEED_ROW_COUNT} personas).`);
+
+  await prisma.simulationConfig.upsert({
+    where: { id: 'global' },
+    update: {},
+    create: {
+      id: 'global',
+      automatedUpdatesEnabled: false,
+      targetReadinessScore: 90,
+      isCertified: false,
+      certifiedAt: null,
+      certificateStatus: "IN_PROGRESS",
+      certificateIssuedAt: null,
+      historicalLowestScore: 100,
+      historicalLowestRecordedAt: null,
+      simulationStandDownExpiresAtByTenant: {},
+    } as any,
+  });
+  console.log('✅ Simulation config (automated updates secure-by-default).');
+
+  await seedDevGlobalAdminAssignments(prisma);
 }
 
 main()

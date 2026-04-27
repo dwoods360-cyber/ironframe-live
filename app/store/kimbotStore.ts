@@ -25,7 +25,29 @@ export const useKimbotStore = create<KimbotState>((set) => ({
   attackType: "Ransomware",
   injectedSignals: [],
   totalSignalsGenerated: 0,
-  setEnabled: (enabled) => set({ enabled }),
+  setEnabled: (enabled) => {
+    if (!enabled) {
+      set({ enabled: false });
+      return;
+    }
+    void (async () => {
+      try {
+        const { clearStandDownForManualSimulationInjectAction } = await import(
+          "@/app/actions/simulationStandDownActions"
+        );
+        const r = await clearStandDownForManualSimulationInjectAction();
+        if (r.ok) {
+          const { applyManualSimulationStandDownResumeFeed } = await import(
+            "@/app/utils/manualSimulationStandDownFeed"
+          );
+          applyManualSimulationStandDownResumeFeed();
+        }
+      } catch {
+        /* non-fatal */
+      }
+      set({ enabled: true });
+    })();
+  },
   setIntensity: (intensity) => set({ intensity: Math.max(1, Math.min(10, intensity)) }),
   setAttackType: (attackType) => set({ attackType }),
   addInjectedSignal: (signal) =>

@@ -5,11 +5,22 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, HardDrive } from "lucide-react";
+import { listIntegritySyntheticTargetsAction } from "@/app/actions/integritySyntheticTargetsActions";
 import { reverifyLkgColdStoreAction } from "@/app/actions/integrityVaultActions";
-import type { IntegrityVaultSnapshot, LkgWorkforceRow } from "@/app/types/integrityVault";
+import type {
+  IntegrityHubShadowArmState,
+  IntegrityHubSyntheticTarget,
+  IntegrityVaultSnapshot,
+  LkgWorkforceRow,
+} from "@/app/types/integrityVault";
+import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore";
+import { SIMULATION_AGENTS, SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
 import { LKG_COLD_STORE_ROOT } from "@/app/utils/integrityVaultConstants";
 import IntegrityEvidenceLedger from "@/app/components/integrity/IntegrityEvidenceLedger";
+import ShadowPlaneRegistry from "@/app/components/ShadowPlaneRegistry";
 import type { ServerIntegrityLedgerRow } from "@/app/types/integrityLedger";
+import IrontechChaosDeploy from "@/app/(dashboard)/opsupport/IrontechChaosDeploy";
+import ControlRoom from "@/app/components/ControlRoom";
 
 function statusPill(status: LkgWorkforceRow["status"]) {
   if (status === "LKG_VERIFIED")
@@ -31,17 +42,128 @@ function statusPill(status: LkgWorkforceRow["status"]) {
   );
 }
 
+function inventoryCard(opts: {
+  title: string;
+  statusNode: ReactNode;
+  sha256: string | null;
+  remediating?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-1.5 rounded border bg-slate-900/50 px-2.5 py-2 ${
+        opts.remediating
+          ? "motion-safe:animate-pulse border-emerald-500/50 shadow-[0_0_26px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/25 [animation-duration:2.8s]"
+          : "border-slate-800/90"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-bold leading-tight text-white">{opts.title}</span>
+          {opts.remediating ? (
+            <div className="flex flex-col gap-1">
+              <span className="w-fit rounded border border-emerald-500/50 bg-emerald-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-500 shadow-[0_0_12px_rgba(52,211,153,0.28)] motion-safe:animate-pulse [animation-duration:2.8s]">
+                REMEDIATING
+              </span>
+              {opts.statusNode}
+            </div>
+          ) : (
+            opts.statusNode
+          )}
+        </div>
+      </div>
+      <p className="text-[7px] uppercase tracking-wide text-slate-600">SHA256 (manifest)</p>
+      {opts.sha256 ? (
+        <p className="break-all font-mono text-[8px] leading-snug text-slate-400">{opts.sha256}</p>
+      ) : (
+        <p className="font-mono text-[8px] text-slate-600">—</p>
+      )}
+    </div>
+  );
+}
+
+function redTeamSimStatusPill(active: boolean) {
+  if (active) {
+    return (
+      <span className="rounded border border-rose-500/70 bg-rose-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-100">
+        SIM_ACTIVE
+      </span>
+    );
+  }
+  return (
+    <span className="rounded border border-slate-700/70 bg-slate-900/70 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
+      SIM_IDLE
+    </span>
+  );
+}
+
+/** Same card rhythm as Blue Team `inventoryCard` — tactical red shell for shadow simulators. */
+function redTeamAgentCard(opts: { title: string; statusNode: ReactNode; role: string; sourceAgent: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded border border-rose-900/50 bg-gradient-to-b from-rose-950/25 to-slate-950/60 px-2.5 py-2 ring-1 ring-rose-950/35">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-bold leading-tight text-rose-50">{opts.title}</span>
+          {opts.statusNode}
+        </div>
+      </div>
+      <p className="text-[7px] uppercase tracking-wide text-rose-900/70">Shadow vector</p>
+      <p className="text-[8px] leading-snug text-rose-100/85">{opts.role}</p>
+      <p className="text-[7px] uppercase tracking-wide text-rose-900/70">source_agent</p>
+      <p className="break-all font-mono text-[8px] leading-snug text-rose-300/90">{opts.sourceAgent}</p>
+    </div>
+  );
+}
+
 type Props = {
   initialVault: IntegrityVaultSnapshot;
   ledgerRows: ServerIntegrityLedgerRow[];
+  /** Shadow-directory targets (Tier 3); isolated from production `User` records. */
+  syntheticTargets: IntegrityHubSyntheticTarget[];
+  /** DB-backed armed state for InfilBot / PhishBot (synced with Control Room toggles). */
+  shadowArmState: IntegrityHubShadowArmState;
   /** ALE hero — composed in `integrity/page.tsx` with server-derived `totalMitigated`. */
   aleHero: ReactNode;
 };
 
-export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }: Props) {
+export default function IntegrityHubClient({
+  initialVault,
+  ledgerRows,
+  syntheticTargets,
+  shadowArmState,
+  aleHero,
+}: Props) {
   const router = useRouter();
   const [vault, setVault] = useState<IntegrityVaultSnapshot>(initialVault);
   const [isPending, startTransition] = useTransition();
+  const [syntheticRows, setSyntheticRows] =
+    useState<IntegrityHubSyntheticTarget[]>(syntheticTargets);
+  const [syntheticLoadError, setSyntheticLoadError] = useState<string | null>(null);
+  const [blueRemediationPulse, setBlueRemediationPulse] = useState(false);
+
+  const infiltrActive = useAdversarySimulatorStore((s) => s.infiltrActive);
+  const phishActive = useAdversarySimulatorStore((s) => s.phishActive);
+  const setInfiltrActive = useAdversarySimulatorStore((s) => s.setInfiltrActive);
+  const setPhishActive = useAdversarySimulatorStore((s) => s.setPhishActive);
+
+  useEffect(() => {
+    setInfiltrActive(shadowArmState.infiltrBotSimActive);
+    setPhishActive(shadowArmState.phishBotSimActive);
+  }, [shadowArmState.infiltrBotSimActive, shadowArmState.phishBotSimActive, setInfiltrActive, setPhishActive]);
+
+  useEffect(() => {
+    setSyntheticRows(syntheticTargets);
+  }, [syntheticTargets]);
+
+  useEffect(() => {
+    void listIntegritySyntheticTargetsAction().then((r) => {
+      if (r.ok) {
+        setSyntheticRows(r.targets);
+        setSyntheticLoadError(null);
+      } else {
+        setSyntheticLoadError(r.error);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -98,6 +220,21 @@ export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }
           <span className="font-mono text-slate-300">{LKG_COLD_STORE_ROOT}</span>, and workforce verification state.
         </p>
       </div>
+
+      <section
+        className="rounded-lg border border-zinc-800/90 bg-[#050509] p-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
+        aria-labelledby="shadow-control-deck-heading"
+      >
+        <h2 id="shadow-control-deck-heading" className="sr-only">
+          Shadow simulation control deck
+        </h2>
+        <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+          Simulation — adversary · chaos drills
+        </p>
+        <ControlRoom>
+          <IrontechChaosDeploy embedded />
+        </ControlRoom>
+      </section>
 
       <IntegrityEvidenceLedger serverRows={ledgerRows} liveSyncActive />
 
@@ -193,25 +330,59 @@ export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }
 
             <div className="mt-3 w-full min-w-0">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {vault.agents.map((agent) => (
-                  <div
-                    key={agent.name}
-                    className="flex flex-col gap-1.5 rounded border border-slate-800/90 bg-slate-900/50 px-2.5 py-2"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold leading-tight text-white">{agent.name}</span>
-                      {statusPill(agent.status)}
+                {vault.agents.map((agent, idx) => {
+                  const blueRemediating =
+                    blueRemediationPulse &&
+                    (agent.name === "Ironcore" || agent.name === "Irontally");
+                  return (
+                    <div key={agent.name}>
+                      {inventoryCard({
+                        title: `${String(idx + 1).padStart(2, "0")} — ${agent.name}`,
+                        statusNode: statusPill(agent.status),
+                        sha256: agent.sha256,
+                        remediating: blueRemediating,
+                      })}
                     </div>
-                    <p className="text-[7px] uppercase tracking-wide text-slate-600">SHA256 (manifest)</p>
-                    {agent.sha256 ? (
-                      <p className="break-all font-mono text-[8px] leading-snug text-slate-400">{agent.sha256}</p>
-                    ) : (
-                      <p className="font-mono text-[8px] text-slate-600">—</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
+
+            <div className="mt-6 border-t border-slate-800/90 pt-5">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-200/95">
+                Shadow plane / security simulator
+              </h3>
+              <p className="mt-1 text-[10px] text-rose-200/60">
+                Red Team roster (01—10) · <span className="font-mono text-rose-300/80">SIMULATION_SOURCE_AGENTS</span>
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {SIMULATION_AGENTS.filter((a) => SIMULATION_SOURCE_AGENTS.has(a.sourceAgent)).map((agent) => {
+                  const simActive =
+                    agent.sourceAgent === "INFILBOT_SIMULATION"
+                      ? infiltrActive
+                      : agent.sourceAgent === "PHISHBOT_SIMULATION"
+                        ? phishActive
+                        : false;
+                  return (
+                    <div key={agent.key}>
+                      {redTeamAgentCard({
+                        title: agent.label,
+                        statusNode: redTeamSimStatusPill(simActive),
+                        role: agent.role,
+                        sourceAgent: agent.sourceAgent,
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <ShadowPlaneRegistry
+              syntheticRows={syntheticRows}
+              syntheticLoadError={syntheticLoadError}
+              onSyntheticRowsChange={setSyntheticRows}
+              onRemediationVisualChange={setBlueRemediationPulse}
+            />
           </div>
       </section>
     </div>

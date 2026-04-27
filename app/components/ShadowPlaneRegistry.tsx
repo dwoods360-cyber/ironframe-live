@@ -25,8 +25,7 @@ import {
 } from "@/app/utils/remediationStakeholderBrief";
 import { formatSyntheticLastAttacked, formatUsdFromCentsString } from "@/app/utils/syntheticPersonaDisplay";
 import ResolutionAttestationModal from "@/app/components/ResolutionAttestationModal";
-
-const RECEIPT_OPERATOR_NAME = "Dereck";
+import { useUser } from "@/app/hooks/useUser";
 
 /** Blue-team pulse duration after the receipt modal paints (aligned with remediation “report” beat). */
 const PULSE_AFTER_MODAL_MS = 2600;
@@ -74,7 +73,7 @@ function simulatedValidationHash(seed: string): string {
   return `SIM-VAL-${hi}${lo}`;
 }
 
-function buildReceiptFileBody(report: RemediationImpactReport): string {
+function buildReceiptFileBody(report: RemediationImpactReport, operatorDisplayName: string): string {
   const hash = simulatedValidationHash(
     `${report.timestamp}|${report.totalRecoveredCents}|${report.affectedCount}|${report.highestValueTarget ?? ""}|IRONFRAME-LAB-RECEIPT`,
   );
@@ -84,7 +83,7 @@ function buildReceiptFileBody(report: RemediationImpactReport): string {
   return [
     "IRONFRAME — REMEDIATION RECEIPT (LAB)",
     "========================================",
-    `Operator: ${RECEIPT_OPERATOR_NAME}`,
+    `Attested GRC officer: ${operatorDisplayName}`,
     `Issued (UTC): ${report.timestamp}`,
     `Validation Hash (simulated): ${hash}`,
     "",
@@ -97,8 +96,8 @@ function buildReceiptFileBody(report: RemediationImpactReport): string {
   ].join("\n");
 }
 
-function downloadRemediationReceipt(report: RemediationImpactReport) {
-  const body = buildReceiptFileBody(report);
+function downloadRemediationReceipt(report: RemediationImpactReport, operatorDisplayName: string) {
+  const body = buildReceiptFileBody(report, operatorDisplayName);
   const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -126,6 +125,7 @@ export default function ShadowPlaneRegistry({
   onSyntheticRowsChange,
   onRemediationVisualChange,
 }: Props) {
+  const { displayName: operatorDisplayName } = useUser();
   const automatedUpdatesEnabled = useSimulationConfigStore((s) => s.automatedUpdatesEnabled);
   const hydrateSimulationConfig = useSimulationConfigStore((s) => s.hydrate);
 
@@ -410,7 +410,7 @@ export default function ShadowPlaneRegistry({
                     <div className="flex flex-col gap-2 sm:flex-row">
                       <button
                         type="button"
-                        onClick={() => downloadRemediationReceipt(impactReport)}
+                        onClick={() => downloadRemediationReceipt(impactReport, operatorDisplayName)}
                         className="flex flex-1 items-center justify-center gap-2 rounded-md border border-amber-600/50 bg-amber-950/30 py-2 text-[10px] font-black uppercase tracking-widest text-amber-200 transition-all duration-150 hover:border-amber-400/60 hover:bg-amber-950/50"
                       >
                         <Download className="h-3.5 w-3.5 shrink-0" aria-hidden />

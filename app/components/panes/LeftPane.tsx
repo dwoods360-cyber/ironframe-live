@@ -12,11 +12,10 @@ type Props = {
 
 export default function LeftPane({ company, onThreatClick, liveData = {}, onUpdateData }: Props) {
   const handleSetClock = () => {
-    // FIX: Explicitly cast to string or provide fallback to satisfy parseFloat(string)
     const inputVal = String(liveData?.input || '0');
-    const hours = parseFloat(inputVal);
+    const hours = Number(inputVal);
 
-    if (!isNaN(hours) && hours > 0 && onUpdateData) {
+    if (!Number.isNaN(hours) && hours > 0 && onUpdateData) {
       onUpdateData('timer', {
         timer: Math.floor(hours * 3600),
       });

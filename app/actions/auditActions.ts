@@ -2,11 +2,22 @@
 
 import { revalidatePath } from 'next/cache';
 import type { Prisma } from '@prisma/client';
-import { ThreatState } from '@prisma/client';
-import { createHash, createHmac } from 'crypto';
+import { ThreatState, type UserRole } from '@prisma/client';
+import { createHash, createSign, createVerify } from 'crypto';
 import prisma from '@/lib/prisma';
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
+import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
+
+/** Meta-audit / Integrity Hub — professional GRC roles only. */
+const META_AUDIT_ELIGIBLE_ROLES: UserRole[] = [
+  'INTERNAL_AUDITOR',
+  'EXTERNAL_AUDITOR',
+  'GLOBAL_ADMIN',
+  'CISO',
+  'DIRECTOR_OF_COMPLIANCE',
+  'GRC_MANAGER',
+];
 
 async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
@@ -136,7 +147,7 @@ export type VoidReceiptAndReopenResult =
  */
 export async function logTestCompletion(data: LogTestCompletionInput): Promise<{ ok: true }> {
   const tenantId = data.tenantId?.trim();
-  const fallbackOperator = process.env.DMZ_DISPOSITION_OPERATOR_ID?.trim() || 'SYSTEM_OPERATOR';
+  const fallbackOperator = process.env.DMZ_DISPOSITION_OPERATOR_ID?.trim() || 'SYSTEM';
   const operator = data.operator?.trim() || fallbackOperator;
   const botType = data.botType?.trim();
   const disposition = data.disposition?.trim();
@@ -259,9 +270,12 @@ export async function logTestCompletion(data: LogTestCompletionInput): Promise<{
             metadata: metadataWithThreatFinancials as Prisma.InputJsonValue,
           },
         });
-        await tx.threatEvent.update({
-          where: { id: threatId },
-          data: { status: ThreatState.RESOLVED },
+        await transitionThreatStatus<{ id: string }>({
+          threatId,
+          newStatus: ThreatState.RESOLVED,
+          actorUserId: operator,
+          eventType: "AUDIT_DISPOSITION_RESOLVED",
+          tx,
           select: { id: true },
         });
       });
@@ -338,7 +352,7 @@ export async function voidReceiptAndReopen(
   const rid = receiptId.trim();
   const tid = threatId.trim();
   const reason = voidReason.trim();
-  const operator = operatorId.trim() || process.env.DMZ_DISPOSITION_OPERATOR_ID?.trim() || 'SYSTEM_OPERATOR';
+  const operator = operatorId.trim() || process.env.DMZ_DISPOSITION_OPERATOR_ID?.trim() || 'SYSTEM';
   if (!rid || !tid || !reason) {
     return { ok: false, error: 'Missing required void fields (receiptId, threatId, reason).' };
   }
@@ -407,9 +421,27 @@ export async function voidReceiptAndReopen(
         },
       });
 
-      const updatedThreat = await tx.threatEvent.update({
-        where: { id: tid },
-        data: { status: ThreatState.ACTIVE },
+      const updatedThreat = await updateThreatWithIntegrity<{
+        id: string;
+        title: string;
+        sourceAgent: string;
+        score: number | null;
+        targetEntity: string | null;
+        financialRisk_cents: bigint;
+        createdAt: Date;
+        assigneeId: string | null;
+        ingestionDetails: Prisma.JsonValue | null;
+        aiReport: string | null;
+        ttlSeconds: number | null;
+        status: ThreatState;
+        remoteTechId: string | null;
+        isRemoteAccessAuthorized: boolean | null;
+      }>({
+        threatId: tid,
+        changes: { status: ThreatState.ACTIVE },
+        actorUserId: operator,
+        eventType: "ADMINISTRATIVE_VOID_REACTIVATED",
+        tx,
         select: {
           id: true,
           title: true,
@@ -439,18 +471,23 @@ export async function voidReceiptAndReopen(
           id: updatedThreat.id,
           name: updatedThreat.title,
           loss,
-          score: updatedThreat.score,
-          industry: updatedThreat.targetEntity,
+          score: updatedThreat.score ?? loss,
+          industry: updatedThreat.targetEntity ?? undefined,
           source: updatedThreat.sourceAgent,
           description,
           createdAt: updatedThreat.createdAt.toISOString(),
           assignedTo: updatedThreat.assigneeId ?? undefined,
-          ingestionDetails: updatedThreat.ingestionDetails ?? undefined,
+          ingestionDetails:
+            typeof updatedThreat.ingestionDetails === "string"
+              ? updatedThreat.ingestionDetails
+              : updatedThreat.ingestionDetails != null
+                ? JSON.stringify(updatedThreat.ingestionDetails)
+                : undefined,
           aiReport: updatedThreat.aiReport ?? null,
           ttlSeconds: updatedThreat.ttlSeconds ?? null,
           threatStatus: String(updatedThreat.status),
           remoteTechId: updatedThreat.remoteTechId ?? null,
-          isRemoteAccessAuthorized: updatedThreat.isRemoteAccessAuthorized,
+          isRemoteAccessAuthorized: updatedThreat.isRemoteAccessAuthorized ?? undefined,
           lifecycleState: 'active' as const,
         },
       };
@@ -487,6 +524,7 @@ export type MetaAuditExportBundle = {
   exportId: string;
   data: MetaAuditExportData;
   manifestHash: string;
+  publicKeyId: string;
   signature: string;
 };
 
@@ -528,21 +566,54 @@ function hashSha256(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function normalizePemValue(raw: string): string {
+  return raw.replace(/\\n/g, '\n').trim();
+}
+
+function getActiveSigningKeyConfig():
+  | { privateKeyPem: string; publicKeyId: string }
+  | { error: string } {
+  const privateKeyRaw = process.env.PRIVATE_KEY?.trim() ?? '';
+  const publicKeyId = process.env.PUBLIC_KEY_ID?.trim() ?? '';
+  if (!privateKeyRaw) return { error: 'Missing PRIVATE_KEY for export signing.' };
+  if (!publicKeyId) return { error: 'Missing PUBLIC_KEY_ID for export signing.' };
+  return {
+    privateKeyPem: normalizePemValue(privateKeyRaw),
+    publicKeyId,
+  };
+}
+
+function resolvePublicKeyPemById(publicKeyId: string): string | null {
+  const normalizedId = publicKeyId.trim();
+  if (!normalizedId) return null;
+  const upper = normalizedId.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+  const dynamicEnvKey = `PUBLIC_KEY_${upper}`;
+  const fromDynamic = process.env[dynamicEnvKey]?.trim();
+  if (fromDynamic) return normalizePemValue(fromDynamic);
+  const configuredId = process.env.PUBLIC_KEY_ID?.trim();
+  const fallback = process.env.PUBLIC_KEY?.trim();
+  if (configuredId === normalizedId && fallback) return normalizePemValue(fallback);
+  return null;
+}
+
 function signManifest(manifestHash: string): string {
-  return createHmac('sha256', process.env.AUDIT_SECRET || 'dev-secret')
-    .update(manifestHash)
-    .digest('hex');
+  const signingConfig = getActiveSigningKeyConfig();
+  if ('error' in signingConfig) throw new Error(signingConfig.error);
+  const signer = createSign('RSA-SHA256');
+  signer.update(manifestHash);
+  signer.end();
+  return signer.sign(signingConfig.privateKeyPem, 'base64');
 }
 
 async function ensureAuditorOrAdminRole(tenantId: string): Promise<{ userId: string } | null> {
   const sessionUser = await getSupabaseSessionUser();
   const userId = sessionUser?.id?.trim() || sessionUser?.email?.trim() || '';
   if (!userId) return null;
-  const assignment = await (prisma as any).userRoleAssignment.findFirst({
+  const assignment = await prisma.userRoleAssignment.findFirst({
     where: {
       userId,
       tenantId,
-      role: { in: ['AUDITOR', 'GLOBAL_ADMIN'] },
+      role: { in: [...META_AUDIT_ELIGIBLE_ROLES] },
     },
     select: { id: true },
   });
@@ -595,6 +666,10 @@ export async function generateSignedExport(
 
     const canonicalJson = deterministicStringify(data);
     const manifestHash = hashSha256(canonicalJson);
+    const signingConfig = getActiveSigningKeyConfig();
+    if ('error' in signingConfig) {
+      return { ok: false, error: signingConfig.error };
+    }
     const signature = signManifest(manifestHash);
 
     const saved = await (prisma as any).integrityExport.create({
@@ -603,6 +678,7 @@ export async function generateSignedExport(
         periodStart: startDate,
         periodEnd: endDate,
         manifestHash,
+        publicKeyId: signingConfig.publicKeyId,
         signature,
         createdByUserId: role.userId,
       },
@@ -615,6 +691,7 @@ export async function generateSignedExport(
         exportId: saved.id as string,
         data,
         manifestHash,
+        publicKeyId: signingConfig.publicKeyId,
         signature,
       },
     };
@@ -633,8 +710,15 @@ export async function verifyExportManifest(
     if (computedHash !== exportBundle.manifestHash) {
       return { isValid: false, message: 'Manifest hash mismatch: bundle data was modified.' };
     }
-    const computedSignature = signManifest(exportBundle.manifestHash);
-    if (computedSignature !== exportBundle.signature) {
+    const publicKeyPem = resolvePublicKeyPemById(exportBundle.publicKeyId);
+    if (!publicKeyPem) {
+      return { isValid: false, message: `Verification key not configured for key id: ${exportBundle.publicKeyId}` };
+    }
+    const verifier = createVerify('RSA-SHA256');
+    verifier.update(exportBundle.manifestHash);
+    verifier.end();
+    const signatureOk = verifier.verify(publicKeyPem, exportBundle.signature, 'base64');
+    if (!signatureOk) {
       return { isValid: false, message: 'Signature mismatch: invalid signing key or tampered hash.' };
     }
     return { isValid: true, message: 'Export is valid. Hash and signature verified.' };
@@ -652,4 +736,63 @@ export async function getMetaAuditConsoleAccess(): Promise<{
   if (!tenantId) return { canAccess: false, tenantId: null };
   const role = await ensureAuditorOrAdminRole(tenantId);
   return { canAccess: role != null, tenantId };
+}
+
+/** Bank Vault rows for Integrity Hub / audit page (hash chain metadata only — payloads are not persisted). */
+export type IntegrityLedgerRow = {
+  id: string;
+  createdAt: string;
+  eventType: string;
+  entityType: string;
+  entityId: string;
+  actorUserId: string;
+  source: string;
+  payloadHash: string;
+  prevEventHash: string | null;
+  eventHash: string;
+};
+
+/**
+ * Latest `IntegrityEvent` rows for the active tenant (Meta-Audit eligible roles only).
+ */
+export async function listIntegrityLedgerForMetaAudit(
+  tenantId: string,
+  limit = 75,
+): Promise<IntegrityLedgerRow[]> {
+  const tid = tenantId.trim();
+  if (!tid) return [];
+  const role = await ensureAuditorOrAdminRole(tid);
+  if (!role) return [];
+
+  const take = Math.min(200, Math.max(1, limit));
+  const rows = await prisma.integrityEvent.findMany({
+    where: { tenantId: tid },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    take,
+    select: {
+      id: true,
+      createdAt: true,
+      eventType: true,
+      entityType: true,
+      entityId: true,
+      actorUserId: true,
+      source: true,
+      payloadHash: true,
+      prevEventHash: true,
+      eventHash: true,
+    },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.createdAt.toISOString(),
+    eventType: r.eventType,
+    entityType: r.entityType,
+    entityId: r.entityId,
+    actorUserId: r.actorUserId,
+    source: r.source,
+    payloadHash: r.payloadHash,
+    prevEventHash: r.prevEventHash,
+    eventHash: r.eventHash,
+  }));
 }

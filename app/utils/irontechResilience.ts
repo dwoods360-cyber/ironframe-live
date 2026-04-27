@@ -14,6 +14,7 @@ import {
   type IrontechLiveAttemptEntry,
 } from "@/app/utils/irontechLiveStream";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
+import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Passed from server actions (inject / JIT grant) for Integrity Hub forensic fields. */
 export type IntegrityForensicAttribution = { userId: string; displayName: string };
@@ -58,6 +59,8 @@ const CASCADE_DRILL_STAGE_3_MS = 3000;
 const CASCADE_DRILL_STAGE_4_MS = 3000;
 /** GRC cold-store attestation (SSD mock); Scenario 5 rebirth requires this manifest. */
 const LKG_ATTESTATION_MANIFEST_PATH = "G:\\ironframe_store\\manifest\\lkg_signatures.json";
+/** When G: is EISDIR/unmapped or webpack resolution fails, use this repo-local file (readFileSync only). */
+const LKG_LOCAL_MANIFEST_REL = ["storage", "manifest", "lkg_signatures.json"] as const;
 const LKG_VAULT_VERIFY_SIM_MS = 2000;
 
 const REMOTE_SUPPORT_STAGE_1_MS = 2000;
@@ -145,13 +148,15 @@ async function persistIrontechLivePatch(
     agentName: INTERNAL_DRILL_AGENT,
     streamedAt: new Date().toISOString(),
   } satisfies Record<string, unknown>;
-  await prisma.threatEvent.update({
-    where: { id: threatId },
-    data: {
+  await updateThreatWithIntegrity({
+    threatId,
+    changes: {
       ingestionDetails: mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
         irontechLive: irontechLive as unknown as Prisma.InputJsonValue,
       }),
     },
+    actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+    eventType: "IRONTECH_LIVE_PATCH_UPDATED",
   });
 }
 
@@ -246,10 +251,12 @@ export async function runIsolatedInternalDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_INTERNAL_RESOLVED",
+      extraChanges: {
         ingestionDetails: merged,
         assigneeId: INTERNAL_DRILL_OPERATOR_ID,
       },
@@ -418,10 +425,12 @@ export async function runIsolatedHomeServerDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_HOME_SERVER_RESOLVED",
+      extraChanges: {
         ingestionDetails: merged,
         assigneeId: INTERNAL_DRILL_OPERATOR_ID,
       },
@@ -589,10 +598,12 @@ export async function runIsolatedEscalationDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_CLOUD_EXFIL_RESOLVED",
+      extraChanges: {
         ingestionDetails: merged,
         assigneeId: INTERNAL_DRILL_OPERATOR_ID,
       },
@@ -771,10 +782,12 @@ export async function runIsolatedRemoteSupportDrill(
           }
         : {}),
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.PENDING_REMOTE_INTERVENTION,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.PENDING_REMOTE_INTERVENTION,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_REMOTE_SUPPORT_PENDING_GRANT",
+      extraChanges: {
         ingestionDetails: mergedHalt,
       },
     });
@@ -897,10 +910,12 @@ export async function resumeIsolatedRemoteSupportDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.threatEvent.update({
-      where: { id: tid },
-      data: {
-        status: ThreatState.RESOLVED,
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_REMOTE_SUPPORT_RESOLVED",
+      extraChanges: {
         ingestionDetails: merged,
         assigneeId: INTERNAL_DRILL_OPERATOR_ID,
       },
@@ -1074,36 +1089,77 @@ export async function runIsolatedCascadeDrill(
       tid,
     );
 
-    // Dynamic import keeps `node:fs` off the graph for isomorphic imports of this module (e.g. agent services).
+    // Dynamic import keeps `node:fs` / `node:path` off the graph for isomorphic imports of this module.
     const fsMod = await import("node:fs");
+    const pathMod = await import("node:path");
+    const lkgLocalFallback = pathMod.join(process.cwd(), ...LKG_LOCAL_MANIFEST_REL);
     let lkgAttestationIroncoreSha256: string | undefined;
-    if (fsMod.existsSync(LKG_ATTESTATION_MANIFEST_PATH)) {
-      console.log(
-        "[S5] GRC ATTESTATION: Verified LKG Signatures from SSD Vault (G:).",
-      );
+
+    const tryReadLkgWithReadFileSync = (p: string): string | null => {
       try {
-        const txt = fsMod.readFileSync(LKG_ATTESTATION_MANIFEST_PATH, "utf8");
-        const manifest = JSON.parse(txt) as {
-          agents?: Array<{ name?: string; sha256?: string }>;
-        };
-        const ironcoreEntry = manifest.agents?.find(
-          (a) => (a.name ?? "").toLowerCase() === "ironcore",
-        );
-        if (typeof ironcoreEntry?.sha256 === "string" && ironcoreEntry.sha256.trim()) {
-          lkgAttestationIroncoreSha256 = ironcoreEntry.sha256.trim();
+        if (!fsMod.existsSync(p)) {
+          return null;
         }
-      } catch {
-        // Manifest unreadable — rebirth continues; UI omits checksum
+        const st = fsMod.statSync(p);
+        if (!st.isFile()) {
+          return null;
+        }
+        return fsMod.readFileSync(p, "utf8");
+      } catch (e) {
+        const err = e as NodeJS.ErrnoException;
+        if (
+          err?.code === "EISDIR" ||
+          err?.code === "EACCES" ||
+          err?.code === "ENOENT" ||
+          err?.code === "EPERM" ||
+          err?.code === "UNKNOWN"
+        ) {
+          return null;
+        }
+        return null;
       }
-      await recordResilienceIntelStreamLine(
-        "> [GRC] LKG attestation manifest present — SSD cold store (G:) — 19-agent verify window",
-        tid,
+    };
+
+    let manifestTxt: string | null = tryReadLkgWithReadFileSync(LKG_ATTESTATION_MANIFEST_PATH);
+    let lkgSource: "G" | "local" | null = manifestTxt != null ? "G" : null;
+    if (manifestTxt == null) {
+      console.warn(
+        "[S5] LKG: G: volume missing, EISDIR, or unreadable — trying local fallback ./storage/manifest/lkg_signatures.json",
       );
-      await new Promise((r) => setTimeout(r, LKG_VAULT_VERIFY_SIM_MS));
-    } else {
-      console.error("[S5] GRC CRITICAL: Cold Store (G:) unreachable. Rebirth Failed.");
+      manifestTxt = tryReadLkgWithReadFileSync(lkgLocalFallback);
+      lkgSource = manifestTxt != null ? "local" : null;
+    }
+
+    if (manifestTxt == null) {
+      console.error(
+        "[S5] GRC CRITICAL: No LKG manifest (G: and local storage fallback). Rebirth Failed.",
+      );
       return { success: false, error: "Vault Offline" };
     }
+
+    try {
+      console.log(
+        lkgSource === "G"
+          ? "[S5] GRC ATTESTATION: LKG from G: cold store."
+          : "[S5] GRC ATTESTATION: LKG from local storage fallback (./storage/manifest/).",
+      );
+      const manifest = JSON.parse(manifestTxt) as {
+        agents?: Array<{ name?: string; sha256?: string }>;
+      };
+      const ironcoreEntry = manifest.agents?.find(
+        (a) => (a.name ?? "").toLowerCase() === "ironcore",
+      );
+      if (typeof ironcoreEntry?.sha256 === "string" && ironcoreEntry.sha256.trim()) {
+        lkgAttestationIroncoreSha256 = ironcoreEntry.sha256.trim();
+      }
+    } catch {
+      // JSON parse error — rebirth continues; UI omits checksum
+    }
+    await recordResilienceIntelStreamLine(
+      "> [GRC] LKG attestation manifest present — verify window (G: or local notary path)",
+      tid,
+    );
+    await new Promise((r) => setTimeout(r, LKG_VAULT_VERIFY_SIM_MS));
 
     console.log(
       "[S5] Stage 4: Lockdown confirmed. Irontech executing total Workforce Rebirth from LKG Gold Images. Restoring all 19 agents to verified state.",
@@ -1200,8 +1256,8 @@ export async function runIsolatedCascadeDrill(
 
     let newLedgerRow: { id: string };
     try {
-      const [created] = await prisma.$transaction([
-        prisma.threatEvent.create({
+      const created = await prisma.$transaction(async (tx) => {
+        const createdRow = await tx.threatEvent.create({
           data: {
             title: ledgerTitle,
             sourceAgent: row.sourceAgent?.trim() || "IRONCHAOS_LEDGER",
@@ -1216,16 +1272,20 @@ export async function runIsolatedCascadeDrill(
             aiReport: "IRONCHAOS: Scenario 5 immutable ledger append (resolved).",
             ingestionDetails: JSON.stringify(ledgerIngestionPayload),
           },
-        }),
-        prisma.threatEvent.update({
-          where: { id: tid },
-          data: {
-            status: ThreatState.RESOLVED,
+        });
+        await transitionThreatStatus({
+          threatId: tid,
+          newStatus: ThreatState.RESOLVED,
+          actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+          eventType: "IRONTECH_SCENARIO_CASCADE_RESOLVED",
+          extraChanges: {
             ingestionDetails: merged,
             assigneeId: INTERNAL_DRILL_OPERATOR_ID,
           },
-        }),
-      ]);
+          tx,
+        });
+        return createdRow;
+      });
       newLedgerRow = created;
     } catch (error) {
       console.error("GRC PERSISTENCE ERROR:", error);
@@ -1360,9 +1420,12 @@ export async function executeWithRetry(
         autonomousRecovery: true,
         autonomousRecoveredAt: recoveredAt,
       });
-      await prisma.threatEvent.update({
-        where: { id: tid },
-        data: { status: ThreatState.RESOLVED, ingestionDetails: merged },
+      await transitionThreatStatus({
+        threatId: tid,
+        newStatus: ThreatState.RESOLVED,
+        actorUserId: agent,
+        eventType: "IRONTECH_RETRY_EXECUTION_RESOLVED",
+        extraChanges: { ingestionDetails: merged },
       });
       revalidateDashboardAndIntegrityPath();
       try {

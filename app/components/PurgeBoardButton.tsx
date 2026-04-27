@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { purgeAllDataAction } from "@/app/actions/purgeSimulation";
 import { useRiskStore } from "@/app/store/riskStore";
+import { useAgentStore } from "@/app/store/agentStore";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from "@/src/constants/grcManualPurge";
 
 /**
  * Purge chip: server bulk-resolves threats (DB rows kept for history); local store cleared via
@@ -35,6 +38,13 @@ export function PurgeBoardButton() {
                   return;
                 }
                 useRiskStore.getState().clearAllRiskStateForPurge();
+                await syncThreatBoardsClient(
+                  useRiskStore.getState().replacePipelineThreats,
+                  useRiskStore.getState().replaceActiveThreats,
+                ).catch(() => {});
+                useAgentStore.getState().addStreamMessage(
+                  `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
+                );
                 setShowPurgeConfirm(false);
               } finally {
                 setPurging(false);

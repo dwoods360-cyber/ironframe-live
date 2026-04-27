@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
+import { EventSource } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
@@ -211,12 +212,36 @@ export async function attachEvidenceToThreat(
         },
       });
 
+      const prev = await tx.integrityEvent.findFirst({
+        where: { tenantId: tenantCtx.tenantId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { eventHash: true },
+      });
+      const createdAt = new Date();
+      const payload = JSON.stringify({
+        artifactHash: artifact.sha256,
+        threatId: tenantCtx.threatId,
+        artifactId: artifact.id,
+        note: normalizedNote,
+      });
+      const payloadHash = createHash("sha256").update(payload).digest("hex");
+      const prevEventHash = prev?.eventHash ?? null;
+      const eventHash = createHash("sha256")
+        .update(`${payloadHash}|${prevEventHash ?? ""}|${createdAt.toISOString()}`)
+        .digest("hex");
+
       await tx.integrityEvent.create({
         data: {
           tenantId: tenantCtx.tenantId,
           eventType: "EVIDENCE_ATTACHED",
-          message: `Artifact ${artifact.sha256} attached to Threat ${tenantCtx.threatId}`,
+          entityType: "THREAT_EVENT",
+          entityId: tenantCtx.threatId,
+          payloadHash,
+          prevEventHash,
+          eventHash,
           actorUserId: userId,
+          source: EventSource.SYSTEM,
+          createdAt,
         },
       });
     });

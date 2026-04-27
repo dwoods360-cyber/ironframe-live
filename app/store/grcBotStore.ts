@@ -26,9 +26,29 @@ export const useGrcBotStore = create<GrcBotState>((set, get) => ({
   simulatedCompanies: [],
 
   setEnabled: (enabled) => {
-    if (enabled) get().start();
-    else get().stop();
-    set({ enabled });
+    if (!enabled) {
+      get().stop();
+      set({ enabled: false });
+      return;
+    }
+    void (async () => {
+      try {
+        const { clearStandDownForManualSimulationInjectAction } = await import(
+          "@/app/actions/simulationStandDownActions"
+        );
+        const r = await clearStandDownForManualSimulationInjectAction();
+        if (r.ok) {
+          const { applyManualSimulationStandDownResumeFeed } = await import(
+            "@/app/utils/manualSimulationStandDownFeed"
+          );
+          applyManualSimulationStandDownResumeFeed();
+        }
+      } catch {
+        /* non-fatal */
+      }
+      set({ enabled: true });
+      get().start();
+    })();
   },
 
   setCompanyCount: (count) => {

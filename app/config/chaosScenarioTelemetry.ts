@@ -21,7 +21,11 @@ export type ChaosTelemetryScenario =
   | "HOME_SERVER"
   | "REMOTE_SUPPORT"
   | "CASCADING_FAILURE"
-  | "CLOUD_EXFIL";
+  | "CLOUD_EXFIL"
+  | "INFIL_CRED_STUFFING"
+  | "INFIL_LATERAL_PIVOT"
+  | "PHISH_CEO_FRAUD"
+  | "PHISH_IT_HELPDESK";
 
 /** One persisted telemetry beat (Irongate → Irontech → Irontech → SYSTEM @ T12). */
 export type ChaosShadowDrillStageDef = {
@@ -50,7 +54,13 @@ export function getChaosShadowDrillStages(scenario: ChaosTelemetryScenario): Cha
     flightStatusLine: "> T0 · Irongate (14) · sanitization / ingestion…",
   };
 
-  if (scenario === "INTERNAL") {
+  if (
+    scenario === "INTERNAL" ||
+    scenario === "INFIL_CRED_STUFFING" ||
+    scenario === "INFIL_LATERAL_PIVOT" ||
+    scenario === "PHISH_CEO_FRAUD" ||
+    scenario === "PHISH_IT_HELPDESK"
+  ) {
     return [
       ingestion,
       {

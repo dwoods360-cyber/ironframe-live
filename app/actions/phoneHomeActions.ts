@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 import { sendEscalationEmail } from "@/app/actions/email";
+import { transitionThreatStatus } from "@/src/services/threatStateService";
 
 export type PhoneHomeDiagnosticPacket = {
   threatId: string;
@@ -305,10 +306,12 @@ export async function dispatchRemoteSupportAction(
     return { success: false, error: sent.error ?? "Email send failed" };
   }
 
-  await prisma.threatEvent.update({
-    where: { id: tid },
-    data: {
-      status: ThreatState.PENDING_REMOTE_INTERVENTION,
+  await transitionThreatStatus({
+    threatId: tid,
+    newStatus: ThreatState.PENDING_REMOTE_INTERVENTION,
+    actorUserId: "system-phone-home",
+    eventType: "REMOTE_INTERVENTION_DISPATCHED",
+    extraChanges: {
       remoteTechId: techId,
     },
   });

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
+import { transitionThreatStatus } from "@/src/services/threatStateService";
 
 export type UpdateRiskStatusResult = { status: string };
 
@@ -37,9 +38,11 @@ export async function updateRiskStatus(
 
   const previousStatus = existing.status;
 
-  await prisma.threatEvent.update({
-    where: { id: riskId },
-    data: { status: ThreatState.QUARANTINED },
+  await transitionThreatStatus({
+    threatId: riskId,
+    newStatus: ThreatState.QUARANTINED,
+    actorUserId: "system-risk-update",
+    eventType: "RISK_STATUS_UPDATED",
   });
 
   if (previousStatus !== ThreatState.QUARANTINED) {

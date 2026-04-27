@@ -332,9 +332,9 @@ export default function DashboardHomeClient({ children }: Props) {
           </div>
         ) : null}
         <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
-          {isSimulationMode && !loading && data ? (
+          {!loading && data ? (
             <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
-              <IrontechLeftPaneControls variant="sidebar" />
+              <IrontechLeftPaneControls />
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">

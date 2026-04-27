@@ -11,11 +11,13 @@ import {
   setThreatAssigneeAction,
   getRemoteAccessAdminEligibility,
   toggleRemoteAccessAuthorization,
+  generateSimulationApproval,
   type AssignmentChangedLogEntry,
 } from '@/app/actions/threatActions';
 import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
 import type { PipelineThreat } from '@/app/store/riskStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
+import { useShadowHandshakeRoleStore } from '@/app/store/shadowHandshakeRoleStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 import { appendAuditLog } from '@/app/utils/auditLogger';
@@ -35,6 +37,7 @@ import {
   frameworkBadgesForChaosScenario,
 } from '@/app/utils/grcComplianceUi';
 import { useComplianceOverlayStore } from '@/app/store/complianceOverlayStore';
+import { hasResolutionApprovalIdOnThreat } from '@/app/utils/cisoBreachSignal';
 import { createClient } from '@/lib/supabase/client';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
@@ -372,6 +375,89 @@ function readChaosClosureMeta(
   const hasResolutionJustification =
     typeof rec.resolutionJustification === "string" && rec.resolutionJustification.trim().length > 0;
   return { scenario, hasResolutionJustification };
+}
+
+function isChaosTestIngestionCard(threat: { ingestionDetails?: string | null }): boolean {
+  return parseJsonRecord(threat.ingestionDetails)?.isChaosTest === true;
+}
+
+/**
+ * Full Spectrum system-integrity dual-key: title must include one of KIMBOT, GRCBOT, ATTBOT
+ * and `ingestionDetails.isChaosTest`. Drives claim → log → CISO → admin execute.
+ */
+function isDualKeyHandshakeDrillCard(threat: { name?: string; ingestionDetails?: string | null }): boolean {
+  if (!isChaosTestIngestionCard(threat)) return false;
+  const n = (threat.name ?? "").toUpperCase();
+  return n.includes("KIMBOT") || n.includes("GRCBOT") || n.includes("ATTBOT");
+}
+
+type SimIntegrityBotKind = "KIMBOT" | "GRCBOT" | "ATTBOT";
+
+function getDualKeySimBotKind(threat: {
+  name?: string;
+  ingestionDetails?: string | null;
+}): SimIntegrityBotKind | null {
+  if (!isDualKeyHandshakeDrillCard(threat)) return null;
+  const n = (threat.name ?? "").toUpperCase();
+  if (n.includes("KIMBOT")) return "KIMBOT";
+  if (n.includes("GRCBOT")) return "GRCBOT";
+  if (n.includes("ATTBOT")) return "ATTBOT";
+  return null;
+}
+
+function getDualKeySopLabelForBot(bot: SimIntegrityBotKind): string {
+  if (bot === "GRCBOT") {
+    return "POLICY DEVIATION JUSTIFICATION (MIN 50 CHARACTERS). Input justification, then switch to CISO to unlock AUTHORIZE & SIGN MANIFEST.";
+  }
+  if (bot === "ATTBOT") {
+    return "MANDATORY RECOVERY LOG (MIN 50 CHARACTERS). DOCUMENT COUNTERMEASURES IMMEDIATELY. SWITCH TO CISO FOR EMERGENCY SIGN-OFF.";
+  }
+  return "RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS). Input justification, then switch to CISO to unlock AUTHORIZE & SIGN MANIFEST.";
+}
+
+function getCisoDualKeyHandshakeButtonLabel(
+  bot: SimIntegrityBotKind | null,
+): "CISO EMERGENCY ATTESTATION" | "AUTHORIZE & SIGN MANIFEST" {
+  return bot === "ATTBOT" ? "CISO EMERGENCY ATTESTATION" : "AUTHORIZE & SIGN MANIFEST";
+}
+
+/** Fires a one-shot “power-on” SOP line when `assigneeId` transitions from unassigned to assigned. */
+function AttbotRecoveryLogSopLabel({
+  assigneeId,
+  className,
+  children,
+}: {
+  assigneeId: string | null | undefined;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const prev = useRef<string | null | undefined>(undefined);
+  const [powerOn, setPowerOn] = useState(false);
+  useEffect(() => {
+    const now = (assigneeId ?? "").trim() || null;
+    if (prev.current === undefined) {
+      prev.current = now;
+      return;
+    }
+    if (!prev.current && now) {
+      setPowerOn(true);
+      prev.current = now;
+      const t = window.setTimeout(() => setPowerOn(false), 520);
+      return () => window.clearTimeout(t);
+    }
+    prev.current = now;
+  }, [assigneeId]);
+  return (
+    <p
+      className={`mb-2 text-[10px] font-bold uppercase leading-relaxed ${
+        powerOn
+          ? "animate-in fade-in slide-in-from-top-1 duration-500 ease-out [animation-fill-mode:forwards] motion-reduce:animate-none"
+          : ""
+      } ${className}`}
+    >
+      {children}
+    </p>
+  );
 }
 
 /** Chaos / Ironchaos — no Ironsight auto-ignite or deep-trace on these cards. */
@@ -825,6 +911,13 @@ export default function ActiveRisksClient({
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const enginesOn = kimbotEnabled || grcBotEnabled;
+  const handshakeRole = useShadowHandshakeRoleStore((s) => s.handshakeRole);
+
+  useEffect(() => {
+    if (handshakeRole === 'ADMIN') {
+      setCisoSimAuthFlashByThreatId({});
+    }
+  }, [handshakeRole]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -836,6 +929,7 @@ export default function ActiveRisksClient({
   const [workNotes, setWorkNotes] = useState<Record<string, WorkNote[]>>({});
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
+  const [cisoSimAuthFlashByThreatId, setCisoSimAuthFlashByThreatId] = useState<Record<string, boolean>>({});
   const [riskSearchQuery, setRiskSearchQuery] = useState('');
   const [executionToast, setExecutionToast] = useState<{
     text: string;
@@ -853,6 +947,8 @@ export default function ActiveRisksClient({
   const [recoveryFailureProbeById, setRecoveryFailureProbeById] = useState<Record<string, string>>({});
   const optimisticProcessingUntilRef = useRef<Map<string, number>>(new Map());
   const optimisticSettleTimersRef = useRef<Map<string, number>>(new Map());
+  /** After dual-key claim, `focus()` moves the cursor into the remediation log (one textarea per card id). */
+  const resolutionTextareaByCardIdRef = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const handleManualRecoveryBusy = useCallback((threatId: string, busy: boolean) => {
     setManualRecoveryBusyThreatId((prev) => {
       if (busy) return threatId;
@@ -1157,20 +1253,34 @@ export default function ActiveRisksClient({
       setThreatActionError({ active: true, message: res.error });
       return;
     }
-    if (
-      res &&
-      typeof res === 'object' &&
-      'success' in res &&
-      res.success === true &&
-      'newLog' in res
-    ) {
-      const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
-      updatePipelineThreat(threatEventId, {
-        assignedTo: value === 'unassigned' ? undefined : value,
-        ...(res.newLog
-          ? { assignmentHistory: [...(prev?.assignmentHistory ?? []), res.newLog] }
-          : {}),
-      });
+    if (res && typeof res === "object" && "success" in res && res.success === true) {
+      const unassigned = value === "unassigned" || !value;
+      const assign = unassigned ? undefined : value;
+      if ("newLog" in res && res.newLog) {
+        const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
+        updatePipelineThreat(threatEventId, {
+          assigneeId: assign,
+          assignedTo: assign,
+          ...(res.newLog
+            ? { assignmentHistory: [...(prev?.assignmentHistory ?? []), res.newLog] }
+            : {}),
+        });
+      } else {
+        updatePipelineThreat(threatEventId, {
+          assigneeId: assign,
+          assignedTo: assign,
+        });
+      }
+      if (!unassigned) {
+        const t = useRiskStore.getState().activeThreats.find((x) => x.id === threatEventId);
+        if (t && isDualKeyHandshakeDrillCard(t)) {
+          const el = () => resolutionTextareaByCardIdRef.current[cardKey]?.focus();
+          requestAnimationFrame(() => {
+            el();
+            window.setTimeout(el, 120);
+          });
+        }
+      }
     }
     router.refresh();
   };
@@ -1502,31 +1612,100 @@ export default function ActiveRisksClient({
     setCustomJustification('');
   };
 
-  const resolutionJustificationBlock = (cardKey: string) => {
+  const resolutionJustificationBlock = (
+    cardKey: string,
+    options?: {
+      sopLabel?: string | null;
+      claimLocked?: boolean;
+      attbotBreach?: boolean;
+      /** For ATTBOT SOP “power-on” when assigneeId becomes set. */
+      threatAssigneeId?: string | null;
+      /** After claim, which placeholder copy to use. */
+      unlockedSop?: "att" | "governance" | "generic";
+    },
+  ) => {
     const resolutionText = resolutionDrafts[cardKey] ?? '';
+    const len = resolutionText.length;
+    const lenOk = len >= 50;
+    const claimLocked = options?.claimLocked === true;
+    const attbotBreach = options?.attbotBreach === true;
+    const unlockedSop = options?.unlockedSop ?? "generic";
+    const labelText = options?.sopLabel?.trim()
+      ? options.sopLabel
+      : "RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS)";
+    const placeholder = (() => {
+      if (claimLocked) return "Ownership required to initiate log...";
+      if (unlockedSop === "att")
+        return "Document countermeasures and recovery steps here...";
+      if (unlockedSop === "governance") return "Input justification for governance manifest...";
+      return attbotBreach
+        ? "Document countermeasures and recovery steps here..."
+        : options?.sopLabel
+          ? "Minimum 50 characters, then follow Control Room identity: CISO → approve, then ADMIN → execute."
+          : "Explain remediation outcome and closure rationale for the audit trail...";
+    })();
     return (
       <div
-        className="space-y-1 rounded-md border-2 border-amber-400/70 bg-amber-950/20 p-3"
+        className={`block w-full max-w-full min-w-0 rounded-md border-2 p-4 ${
+          claimLocked ? "opacity-60 grayscale-[0.5] " : ""
+        }${
+          attbotBreach
+            ? "border-slate-100/15 bg-slate-950/80 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+            : "border-amber-400/70 bg-amber-950/20"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">
-          RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS)
-        </p>
+        {attbotBreach && !claimLocked ? (
+          <AttbotRecoveryLogSopLabel
+            assigneeId={options?.threatAssigneeId}
+            className="text-slate-100/90"
+          >
+            {labelText}
+          </AttbotRecoveryLogSopLabel>
+        ) : (
+          <p
+            className={`mb-2 text-[10px] font-bold uppercase leading-relaxed ${
+              attbotBreach ? "text-slate-100/90" : "text-amber-200"
+            }`}
+          >
+            {labelText}
+          </p>
+        )}
         <textarea
+          ref={(el) => {
+            resolutionTextareaByCardIdRef.current[cardKey] = el;
+          }}
           rows={4}
           value={resolutionText}
+          disabled={claimLocked}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
             setResolutionDrafts((prev) => ({ ...prev, [cardKey]: e.target.value }))
           }
           onClick={(e) => e.stopPropagation()}
-          placeholder="Explain remediation outcome and closure rationale for the audit trail..."
-          className="w-full min-h-[96px] resize-y rounded border border-amber-500/60 bg-slate-950 px-2 py-2 text-[11px] text-slate-100 placeholder:text-amber-200/40 outline-none focus:border-amber-400"
+          placeholder={placeholder}
+          className={`mb-4 w-full min-h-[96px] min-w-0 max-w-full resize-y rounded border bg-slate-950 px-3 py-2 text-[11px] text-slate-100 outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+            attbotBreach
+              ? "border-slate-200/20 placeholder:text-slate-500 focus:border-slate-200/35"
+              : "border-amber-500/60 placeholder:text-amber-200/40 focus:border-amber-400"
+          }`}
           aria-label="Resolution justification"
         />
-        <div className="flex justify-between text-[10px] font-semibold text-amber-200/90">
-          <span>50+ characters required to resolve.</span>
-          <span>
-            {resolutionText.length} / 50 min
+        <div
+          className={`flex flex-col gap-1 border-t pt-3 text-[10px] font-semibold sm:flex-row sm:items-center sm:justify-between ${
+            attbotBreach ? "border-slate-100/10" : "border-amber-500/25"
+          } ${claimLocked ? "hidden" : ""}`}
+          aria-hidden={claimLocked || undefined}
+        >
+          <span
+            className={`leading-snug ${lenOk ? (attbotBreach ? "text-white" : "text-slate-200") : "text-slate-500"}`}
+          >
+            50+ characters required to resolve.
+          </span>
+          <span
+            className={`font-mono tabular-nums ${lenOk ? (attbotBreach ? "text-white" : "text-slate-200") : "text-slate-500"}`}
+            aria-label={`${len} of 50 minimum characters`}
+          >
+            {len} / 50 min
           </span>
         </div>
       </div>
@@ -1587,7 +1766,8 @@ export default function ActiveRisksClient({
               ? 'resolved'
               : (states[threat.id] as LifecycleState | undefined) ??
                 ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
-          const assigneeValue = assignedFor(threat.id, threat.assignedTo, threat.id);
+          const threatServerAssignee = (threat.assigneeId ?? threat.assignedTo ?? null) as string | null;
+          const assigneeValue = assignedFor(threat.id, threatServerAssignee, threat.id);
           /** `user_00` and other non-empty assignees are treated as assigned (not unassigned). */
           const isUnassigned = assigneeValue === 'unassigned';
           const isActive =
@@ -1728,10 +1908,13 @@ export default function ActiveRisksClient({
             statusRaw === 'ESCALATED' ||
             statusRaw === 'PENDING_REMOTE_INTERVENTION';
 
-          const buttonLabel =
-            lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
+          const isDualKeyDrill = isDualKeyHandshakeDrillCard(threat);
+          const dualKeySimBot = getDualKeySimBotKind(threat);
+          const hasDualKeyResolutionApproval = hasResolutionApprovalIdOnThreat(threat);
+          const attbotPreAuthorizationGlow =
+            isDualKeyDrill && dualKeySimBot === "ATTBOT" && !hasDualKeyResolutionApproval;
 
-          const onPrimaryClick =
+          const defaultConfirmResolve =
             lifecycle === 'active'
               ? async () => {
                   await confirmThreat(threat.id, 'admin-user-01');
@@ -1741,26 +1924,100 @@ export default function ActiveRisksClient({
                   setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [threat.id]: false })), 1500);
                 }
               : lifecycle === 'confirmed'
-              ? async () => {
-                  try {
-                    setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
-                    await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
-                    setResolutionDrafts((prev) => {
-                      const next = { ...prev };
-                      delete next[threat.id];
-                      return next;
-                    });
-                  } catch {
-                    // threatActionError set in store
-                  } finally {
-                    setResolvingThreatIds((prev) => {
-                      const next = { ...prev };
-                      delete next[threat.id];
-                      return next;
-                    });
+                ? async () => {
+                    try {
+                      setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
+                      await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
+                      setResolutionDrafts((prev) => {
+                        const next = { ...prev };
+                        delete next[threat.id];
+                        return next;
+                      });
+                    } catch {
+                      // threatActionError set in store
+                    } finally {
+                      setResolvingThreatIds((prev) => {
+                        const next = { ...prev };
+                        delete next[threat.id];
+                        return next;
+                      });
+                    }
                   }
+                : undefined;
+
+          /** Full Spectrum (KIM/GRC/ATT): `!threat.assigneeId` (and assignedTo alias) means unclaimed — log + CISO/Admin stay locked. */
+          const hasPersistedAssignee = Boolean(
+            String((threat.assigneeId ?? (threat as { assignedTo?: string }).assignedTo ?? "").trim())
+          );
+          const needsDualKeyClaim = isDualKeyDrill && !hasPersistedAssignee; // i.e. !threat.assigneeId for dual-key cards
+
+          let buttonLabel =
+            lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
+          let onPrimaryClick: (() => void | Promise<void>) | undefined = defaultConfirmResolve;
+
+          if (needsDualKeyClaim) {
+            buttonLabel = 'CLAIM & ASSIGN THREAT';
+            onPrimaryClick = () => void persistThreatAssignee(threat.id, threat.id, currentUser);
+          } else if (isDualKeyDrill && lifecycle === 'confirmed') {
+            if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
+              buttonLabel = getCisoDualKeyHandshakeButtonLabel(dualKeySimBot);
+              onPrimaryClick = async () => {
+                try {
+                  setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
+                  setThreatActionError({ active: false, message: '' });
+                  const res = await generateSimulationApproval(threat.id);
+                  if (!res.success) {
+                    setThreatActionError({ active: true, message: res.error });
+                    return;
+                  }
+                  setCisoSimAuthFlashByThreatId((prev) => ({ ...prev, [threat.id]: true }));
+                  await refreshActiveThreatsFromDb();
+                  router.refresh();
+                } finally {
+                  setResolvingThreatIds((prev) => {
+                    const next = { ...prev };
+                    delete next[threat.id];
+                    return next;
+                  });
                 }
-              : undefined;
+              };
+            } else if (hasDualKeyResolutionApproval && handshakeRole === 'ADMIN') {
+              buttonLabel = 'EXECUTE RESOLUTION';
+              onPrimaryClick = defaultConfirmResolve;
+            } else if (hasDualKeyResolutionApproval && handshakeRole === 'CISO') {
+              buttonLabel = 'AUTHORIZATION COMPLETE';
+              onPrimaryClick = undefined;
+            } else {
+              buttonLabel = 'EXECUTE RESOLUTION';
+              onPrimaryClick = undefined;
+            }
+          }
+
+          const dualKeyAssignmentBlocked = needsDualKeyClaim;
+
+          const dualKeyPrimaryLocked = (() => {
+            if (!isDualKeyDrill) return false;
+            if (needsDualKeyClaim) return false; // only enabled control is claim primary
+            if (lifecycle !== 'confirmed') return false;
+            if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
+              return !resolutionLenOk;
+            }
+            if (handshakeRole === 'CISO' && hasDualKeyResolutionApproval) {
+              return true;
+            }
+            if (handshakeRole === 'ADMIN' && hasDualKeyResolutionApproval) {
+              return false;
+            }
+            return true;
+          })();
+
+          const defaultPrimaryDisabled = lifecycle === 'confirmed' && !isDualKeyDrill && !resolutionLenOk;
+          const primaryActionDisabled =
+            !onPrimaryClick || defaultPrimaryDisabled || dualKeyPrimaryLocked;
+          // For KIM/GRC/ATT, `needsDualKeyClaim` (no assigneeId) drives the single CLAIM & ASSIGN CTA; otherwise dualKeyPrimaryLocked enforces CISO/justification rules once assigned.
+          const dualKeyResolutionFooterTitle = needsDualKeyClaim
+            ? 'Assign this threat to yourself, then the remediation log and CISO/Admin actions unlock.'
+            : undefined;
 
           return (
             <ThreatCard
@@ -1821,6 +2078,10 @@ export default function ActiveRisksClient({
                         : shouldFlash
                           ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
                           : ''
+              } ${
+                attbotPreAuthorizationGlow
+                  ? "ring-1 ring-inset ring-slate-100/20 border-slate-100/15 bg-slate-950/90 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
+                  : ""
               } p-4`}
             >
               <ChaosFlightSelfHealedBanner threatId={threat.id} />
@@ -1850,6 +2111,28 @@ export default function ActiveRisksClient({
                     Target: <span className="text-slate-400">{threat.target ?? threat.industry ?? 'Healthcare'}</span>
                   </p>
                   <p className="mt-1 text-[10px] text-slate-400">{displayDescription}</p>
+                  {threat.agentReasonings && threat.agentReasonings.length > 0 ? (
+                    <div
+                      className="mt-2 w-full max-w-md rounded border border-emerald-500/35 bg-emerald-950/25 px-2 py-1.5"
+                      role="region"
+                      aria-label="Audit-Ready Reason"
+                    >
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-200/90">
+                        Audit-Ready Reason
+                      </p>
+                      <ul className="mt-1 max-h-32 space-y-1.5 overflow-y-auto text-left">
+                        {threat.agentReasonings.map((ar) => (
+                          <li
+                            key={ar.id}
+                            className="border-l-2 border-emerald-500/40 pl-2 text-[10px] leading-snug text-slate-300"
+                          >
+                            <span className="font-mono text-[9px] text-emerald-400/90">{ar.agentId}</span>
+                            <p className="whitespace-pre-wrap text-slate-400">{ar.reasoning}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-2" onPointerDown={blockEscalatedCardOverlay}>
                   {isChaosBoardThreat ? (
@@ -1897,17 +2180,17 @@ export default function ActiveRisksClient({
                       <button
                         type="button"
                         onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser)}
-                        disabled={assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser}
+                        disabled={assigneeValue === currentUser}
                         className={`px-2 py-1 border rounded transition-colors ${
-                          assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser
+                          assigneeValue === currentUser
                             ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
                             : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                         }`}
                       >
-                        {assignedFor(threat.id, threat.assignedTo, threat.id) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                        {assigneeValue === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
                       </button>
                       <select
-                        value={assignedFor(threat.id, threat.assignedTo, threat.id)}
+                        value={assigneeValue}
                         onChange={(e) => void persistThreatAssignee(threat.id, threat.id, e.target.value)}
                         className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
                       >
@@ -2132,11 +2415,57 @@ export default function ActiveRisksClient({
                     />
                   </div>
 
-                  {lifecycle === 'confirmed' &&
-                    !suppressOpsTechnicalPanels &&
-                    resolutionJustificationBlock(threat.id)}
+                  <div className="mt-1 w-full max-w-full space-y-4">
+                    {lifecycle === 'confirmed' && !suppressOpsTechnicalPanels && (
+                      <div className="w-full min-w-0 max-w-full">
+                        {resolutionJustificationBlock(threat.id, {
+                          sopLabel: (() => {
+                            if (isDualKeyDrill) {
+                              return getDualKeySopLabelForBot(dualKeySimBot ?? "KIMBOT");
+                            }
+                            if (isChaosTestIngestionCard(threat)) {
+                              return getDualKeySopLabelForBot("KIMBOT");
+                            }
+                            return null;
+                          })(),
+                          claimLocked: dualKeyAssignmentBlocked,
+                          attbotBreach: isDualKeyDrill && dualKeySimBot === "ATTBOT",
+                          threatAssigneeId: threat.assigneeId ?? null,
+                          unlockedSop: dualKeyAssignmentBlocked
+                            ? "generic"
+                            : isDualKeyDrill && dualKeySimBot === "ATTBOT"
+                              ? "att"
+                              : isDualKeyDrill
+                                ? "governance"
+                                : "generic",
+                        })}
+                        {dualKeyAssignmentBlocked ? (
+                          <p
+                            className="mt-2 text-[9px] font-semibold leading-snug text-amber-300/95"
+                            role="note"
+                            aria-live="polite"
+                          >
+                            Claim and assign this threat before entering justification or authorization.
+                          </p>
+                        ) : null}
+                        {isDualKeyDrill && !dualKeyAssignmentBlocked && lifecycle === 'confirmed' ? (
+                          <>
+                            {resolutionLenOk && handshakeRole === 'ADMIN' && !hasDualKeyResolutionApproval ? (
+                              <p className="mt-2 text-[9px] font-medium leading-relaxed text-sky-300/95" role="status">
+                                Justification met. Switch to CISO to Authorize.
+                              </p>
+                            ) : null}
+                            {handshakeRole === 'CISO' && !resolutionLenOk && !hasDualKeyResolutionApproval ? (
+                              <p className="mt-2 text-[9px] text-slate-400" role="status">
+                                Awaiting justification (min 50 characters).
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                      </div>
+                    )}
 
-                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2">
                     {successFlash[threat.id] && (
                       <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
                         Stakeholders Notified
@@ -2159,7 +2488,34 @@ export default function ActiveRisksClient({
                       </div>
                     )}
                     {!suppressOpsTechnicalPanels && (
-                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <div
+                      className={`flex w-full min-w-0 flex-col gap-2 ${
+                        lifecycle === 'confirmed' && isDualKeyDrill ? 'items-stretch' : 'ml-auto items-end'
+                      }`}
+                    >
+                      {(cisoSimAuthFlashByThreatId[threat.id] ||
+                        (handshakeRole === 'CISO' && hasDualKeyResolutionApproval)) &&
+                      isDualKeyDrill &&
+                      lifecycle === 'confirmed' ? (
+                        <div
+                          role="status"
+                          className="w-full max-w-md rounded border border-emerald-600/50 bg-emerald-950/35 px-2 py-2 text-left"
+                        >
+                          <p className="text-[9px] font-black uppercase tracking-wide text-emerald-200">
+                            Success: Authorization generated
+                          </p>
+                          <p className="mt-1 text-[9px] leading-snug text-emerald-100/95">
+                            Switch back to Admin to finalize.
+                          </p>
+                        </div>
+                      ) : null}
+                      <div
+                        className={`flex w-full flex-wrap gap-2 ${
+                          lifecycle === 'confirmed' && isDualKeyDrill
+                            ? 'flex-col items-stretch sm:flex-row sm:items-center sm:justify-end'
+                            : 'items-center justify-end'
+                        }`}
+                      >
                       {activeActionCardId === threat.id && activeAction ? (
                         <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
@@ -2237,9 +2593,13 @@ export default function ActiveRisksClient({
                                   // Store logs; form stays open for retry
                                 }
                               }}
-                              disabled={!selectedReason.trim() || customJustification.trim().length < 50}
+                              disabled={
+                                !selectedReason.trim() ||
+                                customJustification.trim().length < 50 ||
+                                dualKeyAssignmentBlocked
+                              }
                               className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
-                                customJustification.trim().length < 50
+                                customJustification.trim().length < 50 || dualKeyAssignmentBlocked
                                   ? 'opacity-50 cursor-not-allowed grayscale'
                                   : 'opacity-100 cursor-pointer hover:bg-opacity-80'
                               }`}
@@ -2255,6 +2615,16 @@ export default function ActiveRisksClient({
                             </button>
                           </div>
                         </div>
+                      ) : needsDualKeyClaim ? (
+                        <button
+                          type="button"
+                          disabled={primaryActionDisabled}
+                          title={dualKeyResolutionFooterTitle}
+                          onClick={() => void onPrimaryClick?.()}
+                          className="w-full rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow sm:w-auto bg-amber-500 text-black hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {buttonLabel}
+                        </button>
                       ) : (
                         <>
                           {lifecycle === 'active' && (
@@ -2305,21 +2675,34 @@ export default function ActiveRisksClient({
                           {lifecycle !== 'active' && (
                             <button
                               type="button"
-                              disabled={!onPrimaryClick || (lifecycle === 'confirmed' && !resolutionLenOk)}
+                              disabled={primaryActionDisabled}
+                              title={dualKeyResolutionFooterTitle}
                               onClick={() => void onPrimaryClick?.()}
                               className={`rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow ${
+                                lifecycle === 'confirmed' && isDualKeyDrill ? 'w-full sm:w-auto' : ''
+                              } ${
                                 lifecycle === 'confirmed'
                                   ? 'bg-amber-500 text-black hover:bg-amber-400'
                                   : 'bg-slate-600 text-slate-400 cursor-not-allowed'
                               } disabled:cursor-not-allowed disabled:opacity-40`}
                             >
-                              {buttonLabel}
+                              {resolvingThreatIds[threat.id] &&
+                              isDualKeyDrill &&
+                              lifecycle === 'confirmed' &&
+                              handshakeRole === 'CISO' &&
+                              !hasDualKeyResolutionApproval
+                                ? dualKeySimBot === "ATTBOT"
+                                  ? "Attesting…"
+                                  : "Signing…"
+                                : buttonLabel}
                             </button>
                           )}
                         </>
                       )}
+                      </div>
                     </div>
                     )}
+                    </div>
                   </div>
                 </div>
               )}

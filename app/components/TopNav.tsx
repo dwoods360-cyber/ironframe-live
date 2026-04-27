@@ -1,13 +1,42 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
 import HeaderTwo from "@/app/components/HeaderTwo";
 import TenantSwitcher from "./TenantSwitcher";
 import { useRiskStore } from "@/app/store/riskStore"; 
+import { createClient } from "@/lib/supabase/client";
+import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
 
 export default function TopNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const [user, setUser] = useState<User | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) {
+        setUser(data.user);
+        setUserLoading(false);
+      }
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setUserLoading(false);
+    });
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
   
   // 1. Detect if we are inside a tenant enclave (e.g., /medshield)
   const segments = pathname.split('/').filter(Boolean);
@@ -26,6 +55,7 @@ export default function TopNav() {
   const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
   const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
+  const isBoardReportRoute = pathname === "/board-report" || pathname.startsWith("/board-report/");
   const isOpSupportRoute = pathname === "/opsupport" || pathname.startsWith("/opsupport/");
 
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
@@ -46,6 +76,8 @@ export default function TopNav() {
       ? "EVIDENCE LOCKER"
     : isIntegrityHubRoute
       ? "INTEGRITY HUB // AUDIT LEDGER"
+    : isBoardReportRoute
+      ? "EXECUTIVE // BOARD REPORT"
     : isOpSupportRoute
       ? "OP SUPPORT // INGRESS & SANITIZATION"
       : "ACTIVE GRC";
@@ -55,6 +87,21 @@ export default function TopNav() {
       return;
     }
     window.dispatchEvent(new CustomEvent("vendors:download", { detail: { format: "both" } }));
+  };
+
+  const identityName =
+    (typeof user?.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim()) ||
+    user?.email?.trim() ||
+    "UNAUTHENTICATED";
+
+  const identityRole = mapSupabaseMetadataRoleToDisplay(
+    typeof user?.user_metadata?.role === "string" ? user.user_metadata.role : undefined,
+  );
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
   };
 
   return (
@@ -88,7 +135,16 @@ export default function TopNav() {
               <path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </div>
-          <span className="text-[10px] font-bold text-white">J. DOE (CISO)</span>
+          <span className="text-[10px] font-bold text-white">
+            {userLoading ? "Loading operator..." : `${identityName} (${identityRole})`}
+          </span>
+          <Link
+            href="/profile"
+            className="text-[9px] font-bold uppercase tracking-wide text-emerald-400/90 underline-offset-2 hover:text-emerald-300 hover:underline"
+            data-testid="topnav-security-profile-link"
+          >
+            Security profile
+          </Link>
           <span className="h-3 w-px bg-slate-700" />
           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-1">
@@ -98,6 +154,16 @@ export default function TopNav() {
             </svg>
             <span className="text-[9px] font-bold uppercase text-emerald-500">SECURE SESSION</span>
           </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={userLoading}
+            className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 transition hover:border-rose-400/60 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
+            title="Logout"
+          >
+            <LogOut size={12} />
+            Logout
+          </button>
         </div>
       </div>
 

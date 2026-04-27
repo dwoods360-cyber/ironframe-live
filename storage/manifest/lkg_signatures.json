@@ -1,0 +1,7 @@
+{
+  "timestamp": "2026-04-20T00:00:00Z",
+  "vault_status": "LOCAL_NOTARY",
+  "agents": [
+    { "name": "ironcore", "version": "1.0.0", "sha256": "00abababababababababababababababababababababababababababababab" }
+  ]
+}

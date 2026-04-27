@@ -137,10 +137,26 @@ model ThreatEvent {
   approvals                ThreatApproval[]
   resolutionApprovalId     String?               @map("resolution_approval_id")
   resolutionApproval       ThreatApproval?       @relation("ThreatResolutionApproval", fields: [resolutionApprovalId], references: [id], onDelete: SetNull)
+  agentReasonings          AgentReasoning[]
 
   @@index([tenantCompanyId])
   @@index([resolutionApprovalId])
   @@map("ThreatEvent")
+}
+
+/// Agent-orchestration reasoning (append-only / read-only in product UI). One row per agent per threat.
+model AgentReasoning {
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now()) @map("created_at")
+  agentId    String      @map("agent_id")
+  threatId   String      @map("threat_id")
+  threat     ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  reasoning  String      @db.Text
+  metadata   Json        @default("{}")
+
+  @@unique([agentId, threatId])
+  @@index([threatId])
+  @@map("agent_reasoning")
 }
 
 /// Structural isolation plane: bot-generated threats when `ironframe-simulation-mode=1` (mirror of ThreatEvent scalars; no DMZ/orchestration child FKs).
@@ -231,6 +247,8 @@ model SimulationConfig {
   completedDeepDives        String[]  @default([]) @map("completed_deep_dives")
   /// UTC instant when the latest Strategic Intel drill was launched.
   lastSimulationStartedAt   DateTime? @map("last_simulation_started_at")
+  /// Per-tenant ISO timestamps: `{ "<tenantUuid>": "<expiresAtIso>" }` — set after Master Purge to silence auto-inject.
+  simulationStandDownExpiresAtByTenant Json? @map("simulation_stand_down_expires_at_by_tenant")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
   @@map("simulation_config")
@@ -513,6 +531,7 @@ model IntegrityExport {
   periodStart     DateTime @map("period_start")
   periodEnd       DateTime @map("period_end")
   manifestHash    String   @map("manifest_hash")
+  publicKeyId     String   @map("public_key_id")
   signature       String
   createdByUserId String   @map("created_by_user_id")
   createdAt       DateTime @default(now()) @map("created_at")
@@ -730,10 +749,15 @@ enum AgentOperationStatus {
   EXTERNALLY_RESOLVED
 }
 
+/// Professional GRC titles (cookie + `UserRoleAssignment.role`).
 enum UserRole {
-  GRC_ANALYST
+  JR_GRC_ANALYST
+  SR_GRC_ANALYST
   GRC_MANAGER
-  AUDITOR
+  DIRECTOR_OF_COMPLIANCE
+  CISO
+  INTERNAL_AUDITOR
+  EXTERNAL_AUDITOR
   GLOBAL_ADMIN
 }
 

@@ -36,6 +36,16 @@ const threatDetailSelect = {
       justification: true,
     },
   },
+  agentReasonings: {
+    orderBy: { createdAt: 'desc' as const },
+    select: {
+      id: true,
+      agentId: true,
+      reasoning: true,
+      metadata: true,
+      createdAt: true,
+    },
+  },
 } as const;
 
 /** SimThreatEvent mirrors ThreatEvent scalars but has no WorkNote / AuditLog FK graph. */
@@ -61,7 +71,7 @@ type ProdThreatDetail = Prisma.ThreatEventGetPayload<{ select: typeof threatDeta
 type SimThreatScalars = Prisma.SimThreatEventGetPayload<{ select: typeof simThreatDetailSelect }>;
 type ApiThreatDetail =
   | ProdThreatDetail
-  | (SimThreatScalars & { notes: []; auditTrail: [] });
+  | (SimThreatScalars & { notes: []; auditTrail: []; agentReasonings: [] });
 
 function serializeThreatPayload(
   payload: Record<string, unknown>,
@@ -99,7 +109,7 @@ export async function GET(
         });
         if (sim) {
           isSimulation = true;
-          threatRow = { ...sim, notes: [], auditTrail: [] };
+          threatRow = { ...sim, notes: [], auditTrail: [], agentReasonings: [] };
         }
       }
     } else {
@@ -116,7 +126,7 @@ export async function GET(
         });
         if (sim) {
           isSimulation = true;
-          threatRow = { ...sim, notes: [], auditTrail: [] };
+          threatRow = { ...sim, notes: [], auditTrail: [], agentReasonings: [] };
         }
       }
     }

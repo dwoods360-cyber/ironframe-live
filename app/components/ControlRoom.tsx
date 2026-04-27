@@ -1,10 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Lock, Megaphone, Radio, ShieldCheck } from "lucide-react";
+import {
+  clearAllThreatsAction,
+  triggerSystemIntegrityDrillAction,
+  type SystemIntegrityDrillId,
+} from "@/app/actions/chaosActions";
 import { getIrontechActiveLogDive } from "@/app/actions/irontechUiActions";
 import { fetchNotificationAuditSummary } from "@/app/actions/notificationAuditActions";
+import { getMetaAuditConsoleAccess } from "@/app/actions/auditActions";
 import {
   approveThreatResolution,
   getThreatResolutionReviewEligibility,
@@ -12,18 +19,31 @@ import {
   rejectThreatResolution,
   type PendingThreatResolutionItem,
 } from "@/app/actions/threatActions";
+import MetaAuditConsole from "@/app/components/MetaAuditConsole";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useComplianceOverlayStore } from "@/app/store/complianceOverlayStore";
 import { useSimulationConfigStore } from "@/app/store/simulationConfigStore";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { useAgentStore } from "@/app/store/agentStore";
 import NotificationEndpointsModal from "@/app/components/NotificationEndpointsModal";
 import ConfigChangeWidget from "@/app/components/ConfigChangeWidget";
 import type { NotificationAuditSummary } from "@/app/utils/notificationAuditSummary";
+import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttribution";
+import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from "@/src/constants/grcManualPurge";
+import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
+import { useShadowHandshakeRoleStore } from "@/app/store/shadowHandshakeRoleStore";
+import { syncHandshakeRoleCookie } from "@/app/utils/handshakeRoleCookie";
+import { isCisoBreachAttestationPendingInSets } from "@/app/utils/cisoBreachSignal";
 
 /**
  * Left-pane Irontech enclave: compliance overlay + chaos controls.
  * Solid zinc frame only — no dashed “cage”, no redundant chrome (parent section owns “CONTROL ROOM”).
  */
 export default function ControlRoom({ children }: { children?: ReactNode }) {
+  const router = useRouter();
+  const handshakeRole = useShadowHandshakeRoleStore((s) => s.handshakeRole);
+  const setHandshakeRole = useShadowHandshakeRoleStore((s) => s.setHandshakeRole);
   const [logDive, setLogDive] = useState(false);
   const selectedThreatId = useRiskStore((s) => s.selectedThreatId);
   const showCompliance = useComplianceOverlayStore((s) => s.showCompliance);
@@ -39,6 +59,22 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const [reviewEligible, setReviewEligible] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [metaAuditTenantId, setMetaAuditTenantId] = useState<string | null>(null);
+  const [metaAuditAccess, setMetaAuditAccess] = useState(false);
+  const [drillBusyKey, setDrillBusyKey] = useState<string | null>(null);
+  const [purgeBusy, setPurgeBusy] = useState(false);
+  const [drillError, setDrillError] = useState<string | null>(null);
+  const [drillRunCount, setDrillRunCount] = useState(0);
+  const [drillDefeatedCount, setDrillDefeatedCount] = useState(0);
+  const isSimulationActive = useSystemConfigStore().isSimulationMode;
+  const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
+  const activeThreats = useRiskStore((s) => s.activeThreats);
+  const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
+
+  const cisoBreachSignalActive = useMemo(
+    () => isCisoBreachAttestationPendingInSets(pipelineThreats, activeThreats),
+    [pipelineThreats, activeThreats],
+  );
 
   const automatedUpdatesEnabled = useSimulationConfigStore((s) => s.automatedUpdatesEnabled);
   const activeEndpointCount = useSimulationConfigStore((s) => s.activeEndpointCount);
@@ -46,6 +82,27 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const refreshActiveEndpointCount = useSimulationConfigStore((s) => s.refreshActiveEndpointCount);
   const toggleAutomatedUpdates = useSimulationConfigStore((s) => s.toggleAutomatedUpdates);
   const [endpointsModalOpen, setEndpointsModalOpen] = useState(false);
+
+  useEffect(() => {
+    const all = [...pipelineThreats, ...activeThreats];
+    const drills = all.filter((t) => {
+      const source = (t.source ?? "").toUpperCase();
+      return (
+        source.includes("ATTACK_BOT") ||
+        source.includes("KIMBOT") ||
+        source.includes("GRC_BOT") ||
+        source.includes("INFILBOT_SIMULATION") ||
+        source.includes("PHISHBOT_SIMULATION") ||
+        source.includes("IRONCHAOS")
+      );
+    });
+    const defeatedFromThreats = drills.filter(
+      (t) => (t.threatStatus ?? "").toUpperCase() === "RESOLVED" || t.lifecycleState === "resolved",
+    ).length;
+    const defeatedFromFeed = intelligenceStream.filter((line) => /resolved|neutralized|defeated/i.test(line)).length;
+    setDrillRunCount(drills.length);
+    setDrillDefeatedCount(Math.max(defeatedFromThreats, Math.min(drills.length, defeatedFromFeed)));
+  }, [activeThreats, pipelineThreats, intelligenceStream]);
 
   useEffect(() => {
     void hydrateSimulationConfig();
@@ -111,6 +168,18 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     };
   }, [boardPrepRefresh]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getMetaAuditConsoleAccess().then((res) => {
+      if (cancelled) return;
+      setMetaAuditAccess(res.canAccess);
+      setMetaAuditTenantId(res.tenantId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function handleReviewAction(approvalId: string, decision: "APPROVE" | "REJECT") {
     setReviewBusyId(approvalId);
     setReviewError(null);
@@ -136,8 +205,166 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     }
   }
 
+  const chaosPercent = drillRunCount > 0 ? Math.round((drillDefeatedCount / drillRunCount) * 100) : 100;
+  const agentReasoningFeed = [...activeThreats, ...pipelineThreats]
+    .flatMap((threat) =>
+      (threat.agentReasonings ?? []).map((ar) => ({
+        time: new Date(ar.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+        text: `Agent ${ar.agentId} reasoning on ${threat.name}: ${ar.reasoning}`,
+      })),
+    )
+    .slice(0, 4);
+  const ironcastFeed = intelligenceStream
+    .filter((line) => /\[IRONCAST\]|\[IRONGATE\]|\[IRONCORE\]|\[IRONLOCK\]/i.test(line))
+    .slice(0, 6 - agentReasoningFeed.length)
+    .map((line) => ({
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
+      text: line.replace(/^>\s*/, ""),
+    }));
+  const liveFeed = [...agentReasoningFeed, ...ironcastFeed].slice(0, 6);
+
+  async function handleSystemIntegrityDrill(drillId: SystemIntegrityDrillId) {
+    if (drillBusyKey || purgeBusy) return;
+    setDrillBusyKey(drillId);
+    setDrillError(null);
+    try {
+      const attribution = await fetchChaosLedgerClientAttribution();
+      const result = await triggerSystemIntegrityDrillAction(drillId, attribution ?? undefined);
+      if (!result.ok) {
+        setDrillError(result.error);
+      } else {
+        applyManualSimulationStandDownResumeFeed();
+        const replacePipeline = useRiskStore.getState().replacePipelineThreats;
+        const replaceActive = useRiskStore.getState().replaceActiveThreats;
+        await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => undefined);
+        setBoardPrepRefresh((n) => n + 1);
+        router.refresh();
+      }
+    } catch (error) {
+      setDrillError(error instanceof Error ? error.message : "System integrity drill failed.");
+    } finally {
+      setDrillBusyKey(null);
+    }
+  }
+
+  async function handleMasterPurge() {
+    if (purgeBusy || drillBusyKey) return;
+    if (!window.confirm("CAUTION: This will wipe all current simulation data. Proceed?")) {
+      return;
+    }
+    setPurgeBusy(true);
+    setDrillError(null);
+    try {
+      const result = await clearAllThreatsAction();
+      if (!result.ok) {
+        setDrillError(result.message || "Master purge failed.");
+        return;
+      }
+      useRiskStore.getState().clearAllRiskStateForPurge();
+      useAgentStore.getState().resetAgentStreamsForPurge();
+      useAgentStore.getState().addStreamMessage(
+        `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
+      );
+      setDrillRunCount(0);
+      setDrillDefeatedCount(0);
+      const replacePipeline = useRiskStore.getState().replacePipelineThreats;
+      const replaceActive = useRiskStore.getState().replaceActiveThreats;
+      await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => {});
+    } catch (error) {
+      setDrillError(error instanceof Error ? error.message : "Master purge failed.");
+    } finally {
+      setPurgeBusy(false);
+    }
+  }
+
   return (
     <div className="col-span-full w-full max-w-full rounded-sm border border-zinc-800/90 bg-[#050509] p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
+      <div className="mb-2 rounded border border-cyan-900/60 bg-cyan-950/15 p-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-cyan-300/90">Chaos Meter</p>
+          <p className="text-[10px] font-black text-cyan-100">{chaosPercent}% Neutralized</p>
+        </div>
+        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-900">
+          <div
+            className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-emerald-500 transition-all"
+            style={{ width: `${Math.min(100, Math.max(0, chaosPercent))}%` }}
+          />
+        </div>
+        <p className="mt-1 text-[8px] uppercase tracking-wide text-zinc-500">
+          Total drills run: {drillRunCount} · Defeated: {drillDefeatedCount}
+        </p>
+      </div>
+
+      <div className="mb-2 rounded border border-violet-900/55 bg-violet-950/20 px-2 py-1.5">
+        <p className="mb-1 text-[8px] font-black uppercase tracking-widest text-violet-300/90">
+          Identity toggle (GRC handshake)
+        </p>
+        <div className="flex flex-wrap gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setHandshakeRole("ADMIN");
+              syncHandshakeRoleCookie("ADMIN");
+            }}
+            className={`rounded-sm border px-2 py-1 text-[8px] font-black uppercase tracking-wide transition-colors ${
+              handshakeRole === "ADMIN"
+                ? "border-violet-400/70 bg-violet-900/50 text-violet-100"
+                : "border-zinc-700 bg-zinc-950 text-zinc-500 hover:border-zinc-600"
+            }`}
+          >
+            ADMIN
+          </button>
+          <div
+            className="relative inline-block"
+            title={
+              cisoBreachSignalActive
+                ? "Breach / ATTBOT attestation required — at least one open threat needs CISO approval"
+                : undefined
+            }
+          >
+            {cisoBreachSignalActive ? (
+              <span
+                className="pointer-events-none absolute -right-0.5 -top-0.5 z-10 flex h-2.5 w-2.5"
+                aria-hidden
+              >
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full border border-red-900/60 bg-red-500" />
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setHandshakeRole("CISO");
+                syncHandshakeRoleCookie("CISO");
+              }}
+              aria-label={
+                cisoBreachSignalActive
+                  ? "CISO — Breach/ATTBOT attestation pending in pipeline (switch to CISO to approve)"
+                  : "CISO"
+              }
+              className={`rounded-sm border px-2 py-1 text-[8px] font-black uppercase tracking-wide transition-colors ${
+                cisoBreachSignalActive
+                  ? "shadow-[0_0_15px_rgba(239,68,68,0.4)] motion-safe:animate-pulse"
+                  : ""
+              } ${
+                handshakeRole === "CISO"
+                  ? cisoBreachSignalActive
+                    ? "border-violet-300/50 bg-violet-900/50 text-violet-100 ring-1 ring-red-500/30"
+                    : "border-violet-400/70 bg-violet-900/50 text-violet-100"
+                  : cisoBreachSignalActive
+                    ? "border-red-500/50 bg-rose-950/30 text-rose-100/90 hover:border-red-400/55"
+                    : "border-zinc-700 bg-zinc-950 text-zinc-500 hover:border-zinc-600"
+              }`}
+            >
+              CISO
+            </button>
+          </div>
+        </div>
+        <p className="mt-1 text-[7px] leading-snug text-zinc-500">
+          CISO: generate approval on Kimbot cards. Admin: acknowledge, then resolve once Epic 11 keys are present.
+        </p>
+      </div>
+
       <div className="flex w-full flex-wrap items-stretch gap-2">
         <button
           type="button"
@@ -224,6 +451,23 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         <ConfigChangeWidget refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`} />
       </div>
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Live Agent Feed</h3>
+        <p className="mt-1 text-[9px] text-zinc-500">
+          AgentReasoning + Ironcast engagement stream.
+        </p>
+        <div className="mt-2 space-y-1.5">
+          {liveFeed.length === 0 ? (
+            <p className="text-[9px] text-zinc-600">No active live engagements.</p>
+          ) : (
+            liveFeed.map((entry, idx) => (
+              <p key={`${entry.time}-${idx}`} className="text-[9px] text-zinc-300">
+                <span className="font-mono text-cyan-400">[{entry.time}]</span> {entry.text}
+              </p>
+            ))
+          )}
+        </div>
+      </div>
+      <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">
             Review Queue
@@ -273,7 +517,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
                   </div>
                 ) : (
                   <p className="mt-1 text-[8px] text-zinc-600">
-                    Manager role required (GRC_MANAGER / GLOBAL_ADMIN).
+                    Manager role required (GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE).
                   </p>
                 )}
               </div>
@@ -281,6 +525,57 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           )}
         </div>
       </div>
+      {metaAuditTenantId ? (
+        <div className="mt-3">
+          <MetaAuditConsole
+            tenantId={metaAuditTenantId}
+            canAccess={metaAuditAccess}
+            showIntegrityLedger={false}
+          />
+        </div>
+      ) : null}
+      {isSimulationActive ? (
+        <div className="mt-3 rounded border border-rose-900/60 bg-rose-950/20 p-2">
+          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-rose-300/95">
+            Simulation Bots (A-D) · Separate from 19-Agent Workforce
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              disabled={drillBusyKey !== null || purgeBusy}
+              onClick={() => void handleSystemIntegrityDrill("kimbot")}
+              className="rounded border border-rose-700/80 bg-gradient-to-r from-rose-950/95 to-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-rose-200 hover:border-rose-500/80 disabled:opacity-50"
+            >
+              BOT B: KIMBOT (RED TEAM) OFF
+            </button>
+            <button
+              type="button"
+              disabled={drillBusyKey !== null || purgeBusy}
+              onClick={() => void handleSystemIntegrityDrill("grcbot")}
+              className="rounded border border-zinc-700/90 bg-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
+            >
+              BOT C: GRCBOT (QA) OFF
+            </button>
+            <button
+              type="button"
+              disabled={drillBusyKey !== null || purgeBusy}
+              onClick={() => void handleSystemIntegrityDrill("attbot")}
+              className="rounded border border-amber-600/90 bg-gradient-to-r from-amber-950/90 to-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-amber-200 hover:border-amber-500 disabled:opacity-50"
+            >
+              BOT A: ATTBOT
+            </button>
+            <button
+              type="button"
+              disabled={purgeBusy || drillBusyKey !== null}
+              onClick={() => void handleMasterPurge()}
+              className="rounded border border-rose-500/90 bg-rose-900/85 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-rose-100 hover:bg-rose-800 disabled:opacity-50"
+            >
+              {purgeBusy ? "MASTER PURGE (WORKING...)" : "MASTER PURGE"}
+            </button>
+          </div>
+          {drillError ? <p className="mt-1.5 text-[9px] text-rose-300">{drillError}</p> : null}
+        </div>
+      ) : null}
       {children ? <div className="mt-2 min-w-0">{children}</div> : null}
     </div>
   );

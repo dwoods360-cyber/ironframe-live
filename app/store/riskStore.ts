@@ -12,6 +12,11 @@ import { useAgentStore } from "@/app/store/agentStore";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+import {
+  getTotalCurrentRiskCentsString,
+  millionsNumberToCents,
+  toBigIntCents,
+} from "@/app/utils/riskStoreBigIntMath";
 
 /** TEMP GRC/QA: identify callers that surface threatActionError (active). */
 function logThreatActionErrorActivation(message: string, source: string) {
@@ -116,6 +121,17 @@ export type PipelineThreat = {
     impactedAssets?: string[];
     complianceTags?: string[];
   };
+  /** Server-backed agent reasoning rows (read-only in UI). */
+  agentReasonings?: Array<{
+    id: string;
+    agentId: string;
+    reasoning: string;
+    metadata: unknown;
+    createdAt: string;
+  }>;
+  /** Epic 11 lifecycle linkage: approval required before resolve. */
+  resolutionApprovalId?: string | null;
+  resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -228,6 +244,12 @@ interface RiskState {
   // Global industry profile (synced from StrategicIntel)
   selectedIndustry: string;
   setSelectedIndustry: (industry: string) => void;
+  /** Analyst maturation: deep-dive threat IDs completed in Strategic Intel. */
+  completedDeepDives: string[];
+  markDeepDiveCompleted: (threatId: string) => void;
+  /** Last drill start (ISO UTC) used by Strategic Intel stability timer. */
+  lastSimulationStartedAt: string | null;
+  setLastSimulationStartedAt: (iso: string | null) => void;
 
   /** GRC report framework chips (`/reports`) — IDs from `app/config/grcFrameworks`. */
   activeFrameworkIds: string[];
@@ -875,6 +897,20 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   selectedIndustry: "Healthcare",
   setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
+  completedDeepDives: [],
+  markDeepDiveCompleted: (threatId) =>
+    set((state) => {
+      const id = (threatId ?? "").trim();
+      if (!id) return state;
+      if (state.completedDeepDives.includes(id)) return state;
+      return { completedDeepDives: [...state.completedDeepDives, id] };
+    }),
+  lastSimulationStartedAt: null,
+  setLastSimulationStartedAt: (iso) =>
+    set({
+      lastSimulationStartedAt:
+        typeof iso === "string" && iso.trim().length > 0 ? iso : null,
+    }),
 
   activeFrameworkIds: [],
   toggleFramework: (frameworkId) =>
@@ -948,6 +984,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       riskReductionFlash: false,
       chaosFlightRecorderByThreatId: {},
       chaosSelfHealedLineByThreatId: {},
+      completedDeepDives: [],
+      lastSimulationStartedAt: null,
     });
     /** Let Active Risks flush local React state + veil stale dashboard props until the shell refetches. */
     if (typeof window !== "undefined") {
@@ -1003,37 +1041,44 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   getTotalCurrentRiskCents: () => {
     const state = get();
-    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
-    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
-    const offsetM = state.riskOffset;
-    const totalM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
-    const cents = BigInt(Math.round(totalM * 100_000_000));
-    return cents.toString();
+    return getTotalCurrentRiskCentsString(
+      state.acceptedThreatImpacts,
+      state.dashboardLiabilities,
+      state.riskOffset,
+    );
   },
 
   getGrcGapCents: () => {
     const state = get();
     const industry = state.selectedIndustry ?? "Healthcare";
-    const baseImpactByIndustry: Record<string, number> = {
-      Healthcare: 15.2,
-      Finance: 18.0,
-      Energy: 17.0,
-      Technology: 12.0,
-      Defense: 16.0,
+    const baseImpactByIndustry: Record<string, bigint> = {
+      Healthcare: 1_210_000_000n,
+      Finance: 680_000_000n,
+      Technology: 530_000_000n,
+      "Public Sector": 320_000_000n,
+      Energy: 1_700_000_000n,
+      Defense: 1_600_000_000n,
     };
-    const baseImpactM = baseImpactByIndustry[industry] ?? 15.2;
-    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
-    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
-    const pipelinePendingM = state.pipelineThreats.reduce(
-      (sum, t) => sum + (t.score ?? t.loss ?? 0),
-      0
+    const baseImpactCents = baseImpactByIndustry[industry] ?? 1_520_000_000n;
+    const sumAcceptedCents = Object.values(state.acceptedThreatImpacts).reduce(
+      (sum, value) => sum + millionsNumberToCents(value),
+      0n,
     );
-    const offsetM = state.riskOffset;
-    const currentM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
-    const potentialM = Math.max(0, baseImpactM + sumAcceptedM + pipelinePendingM - offsetM);
-    const gapM = Math.max(0, potentialM - currentM);
-    const cents = BigInt(Math.round(gapM * 100_000_000));
-    return cents.toString();
+    const sumDashboardCents = Object.values(state.dashboardLiabilities).reduce(
+      (sum, value) => sum + millionsNumberToCents(value),
+      0n,
+    );
+    const pipelinePendingCents = state.pipelineThreats.reduce((sum, t) => {
+      const millions = t.score ?? t.loss ?? 0;
+      return sum + millionsNumberToCents(millions);
+    }, 0n);
+    const offsetCents = millionsNumberToCents(state.riskOffset);
+    const currentCents = sumAcceptedCents + sumDashboardCents - offsetCents;
+    const potentialCents = baseImpactCents + sumAcceptedCents + pipelinePendingCents - offsetCents;
+    const clampedCurrent = currentCents > 0n ? currentCents : 0n;
+    const clampedPotential = potentialCents > 0n ? potentialCents : 0n;
+    const gapCents = clampedPotential > clampedCurrent ? clampedPotential - clampedCurrent : 0n;
+    return gapCents.toString();
   },
 
   isManualFormOpen: false,
@@ -1042,11 +1087,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     const title = typeof data.title === 'string' ? data.title.trim() : '';
     const source = typeof data.source === 'string' ? data.source.trim() : '';
     const target = typeof data.target === 'string' ? data.target.trim() : '';
-    const loss = typeof data.loss === 'string' ? data.loss.trim() : '';
-    if (!title || !source || !target || !loss) {
+    const rawLoss = typeof data.loss === 'string' ? data.loss.trim() : '';
+    const lossCents = toBigIntCents(rawLoss);
+    if (!title || !source || !target || lossCents <= 0n) {
       throw new Error('DraftTemplate requires non-empty title, source, target, and loss');
     }
-    set({ draftTemplate: { title, source, target, loss }, isManualFormOpen: true });
+    set({ draftTemplate: { title, source, target, loss: lossCents.toString() }, isManualFormOpen: true });
   },
   clearDraftTemplate: () => set({ draftTemplate: null, isManualFormOpen: false }),
   setManualFormOpen: (open) => set({ isManualFormOpen: open }),
@@ -1127,6 +1173,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         dispositionStatus: r.dispositionStatus,
         isFalsePositive: r.isFalsePositive,
         receiptHash: r.receiptHash,
+        agentReasonings: r.agentReasonings,
+        resolutionApprovalId: r.resolutionApprovalId ?? undefined,
+        resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
       }));
       get().replacePipelineThreats(asPipeline);
     } catch {

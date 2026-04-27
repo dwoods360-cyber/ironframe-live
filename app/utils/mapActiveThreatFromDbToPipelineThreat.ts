@@ -24,5 +24,8 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     threatStatus: r.threatStatus,
     remoteTechId: r.remoteTechId ?? null,
     isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
+    agentReasonings: r.agentReasonings,
+    resolutionApprovalId: r.resolutionApprovalId ?? undefined,
+    resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
   };
 }

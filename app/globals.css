@@ -442,3 +442,26 @@ body {
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 2px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.5); }
+
+/* Board Report: print-friendly executive view (triggered via [ GENERATE EXECUTIVE PDF ] → window.print) */
+@media print {
+  body.board-report-print-mode .command-center-surface {
+    margin-top: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body.board-report-print-mode .fixed.z-50 {
+    display: none !important;
+  }
+  body.board-report-print-mode #board-report-print-root,
+  body.board-report-print-mode #board-report-print-root * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+  body.board-report-print-mode #board-report-print-root .rounded-xl,
+  body.board-report-print-mode #board-report-print-root .rounded-lg {
+    background: #fff !important;
+  }
+}

@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
+import { updateThreatWithIntegrity } from '@/src/services/threatStateService';
 
 const IRONSIGHT_TRACE_MODEL =
   process.env.GEMINI_IRONSIGHT_MODEL?.trim() || 'gemini-2.5-flash';
@@ -170,9 +171,11 @@ async function persistIronsightIngestionDetails(
       data: { ingestionDetails: nextIngestion },
     });
   } else {
-    await prisma.threatEvent.update({
-      where: { id },
-      data: { ingestionDetails: nextIngestion },
+    await updateThreatWithIntegrity({
+      threatId: id,
+      changes: { ingestionDetails: nextIngestion },
+      actorUserId: 'ironsight-agent',
+      eventType: 'IRONSIGHT_INGESTION_PATCHED',
     });
   }
 }
@@ -204,6 +207,10 @@ function readChaosScenarioFromIngestion(
   | "CASCADING_FAILURE"
   | "CLOUD_EXFIL"
   | "REMOTE_SUPPORT"
+  | "INFIL_CRED_STUFFING"
+  | "INFIL_LATERAL_PIVOT"
+  | "PHISH_CEO_FRAUD"
+  | "PHISH_IT_HELPDESK"
   | null {
   if (!ingestionDetails || !ingestionDetails.trim()) return null;
   try {
@@ -218,7 +225,11 @@ function readChaosScenarioFromIngestion(
       v === "CASCADING" ||
       v === "CASCADING_FAILURE" ||
       v === "CLOUD_EXFIL" ||
-      v === "REMOTE_SUPPORT"
+      v === "REMOTE_SUPPORT" ||
+      v === "INFIL_CRED_STUFFING" ||
+      v === "INFIL_LATERAL_PIVOT" ||
+      v === "PHISH_CEO_FRAUD" ||
+      v === "PHISH_IT_HELPDESK"
       ? v
       : null;
   } catch {
@@ -377,9 +388,12 @@ export async function executeTraceAction(
           data: { financialRisk_cents: residualRiskCents },
         });
       } else {
-        await tx.threatEvent.update({
-          where: { id },
-          data: { financialRisk_cents: residualRiskCents },
+        await updateThreatWithIntegrity({
+          threatId: id,
+          changes: { financialRisk_cents: residualRiskCents },
+          actorUserId: op,
+          eventType: 'IRONTRUST_TRACE_EXECUTED',
+          tx,
         });
       }
 

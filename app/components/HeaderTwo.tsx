@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { UserRound } from "lucide-react";
 import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
 // ---> NEW: Import your Enclave components
@@ -177,6 +178,15 @@ export default function HeaderTwo({
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >
                   SYSTEM CONFIG
+                </Link>
+                <Link
+                  href="/profile"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-950/35 px-3 py-2 text-[10px] font-bold text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/45"
+                  data-testid="header-security-profile-link"
+                  title="Security profile"
+                >
+                  <UserRound className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                  SECURITY PROFILE
                 </Link>
                 <Link
                   href="/integrity"

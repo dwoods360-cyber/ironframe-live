@@ -7,7 +7,7 @@ import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import type { ChaosClientAttribution } from "@/app/utils/chaosClientAttribution";
-import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
 import { mergeIngestionDetailsPatch, parseIngestionDetailsForMerge } from "@/app/utils/ingestionDetailsMerge";
 import {
@@ -21,6 +21,9 @@ import {
 } from "@/app/utils/irontechResilience";
 import { ATTACK_SOURCE, ATTACK_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import { CHAOS_ASSIGNEE_IRONGATE_14 } from "@/app/config/chaosShadowAudit";
+import { purgeSimulation } from "@/app/actions/purgeSimulation";
+import { clearSimulationStandDown } from "@/app/lib/simulationStandDown";
+import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Human-triggered chaos: prefer client-captured Supabase / cookie id; else same-request server session. */
 async function resolveChaosInjectAttribution(
@@ -42,7 +45,46 @@ export type ChaosScenario =
   | "HOME_SERVER"
   | "REMOTE_SUPPORT"
   | "CASCADING_FAILURE"
-  | "CLOUD_EXFIL";
+  | "CLOUD_EXFIL"
+  | "INFIL_CRED_STUFFING"
+  | "INFIL_LATERAL_PIVOT"
+  | "PHISH_CEO_FRAUD"
+  | "PHISH_IT_HELPDESK";
+
+export type SystemIntegrityDrillId =
+  | "attbot"
+  | "kimbot"
+  | "grcbot"
+  | "chaos1"
+  | "chaos2"
+  | "chaos3"
+  | "chaos4"
+  | "chaos5"
+  | "infilbot"
+  | "phishbot";
+
+const SYSTEM_INTEGRITY_DRILL_TO_SCENARIO: Record<SystemIntegrityDrillId, ChaosScenario> = {
+  attbot: "INTERNAL",
+  kimbot: "HOME_SERVER",
+  grcbot: "REMOTE_SUPPORT",
+  chaos1: "INTERNAL",
+  chaos2: "HOME_SERVER",
+  chaos3: "CLOUD_EXFIL",
+  chaos4: "REMOTE_SUPPORT",
+  chaos5: "CASCADING_FAILURE",
+  infilbot: "INFIL_CRED_STUFFING",
+  phishbot: "PHISH_CEO_FRAUD",
+};
+
+function chaosIngressSourceAgent(scenario: ChaosScenario): string {
+  if (scenario === "INFIL_CRED_STUFFING" || scenario === "INFIL_LATERAL_PIVOT") {
+    return "INFILBOT_SIMULATION";
+  }
+  if (scenario === "PHISH_CEO_FRAUD" || scenario === "PHISH_IT_HELPDESK") {
+    return "PHISHBOT_SIMULATION";
+  }
+  return ATTACK_SOURCE;
+}
 
 function normalizeScenario(scenario: ChaosScenario): ChaosScenario {
   if (
@@ -50,7 +92,11 @@ function normalizeScenario(scenario: ChaosScenario): ChaosScenario {
     scenario === "HOME_SERVER" ||
     scenario === "REMOTE_SUPPORT" ||
     scenario === "CASCADING_FAILURE" ||
-    scenario === "CLOUD_EXFIL"
+    scenario === "CLOUD_EXFIL" ||
+    scenario === "INFIL_CRED_STUFFING" ||
+    scenario === "INFIL_LATERAL_PIVOT" ||
+    scenario === "PHISH_CEO_FRAUD" ||
+    scenario === "PHISH_IT_HELPDESK"
   ) {
     return scenario;
   }
@@ -70,6 +116,18 @@ function chaosDrillGrcJustificationForScenario(scenario: ChaosScenario): string 
   }
   if (scenario === "CASCADING_FAILURE") {
     return "SYSTEM TEST: Cascading Failure Drill. Validating Irongate lockdown and Ironcast mass alerting.";
+  }
+  if (scenario === "INFIL_CRED_STUFFING") {
+    return "SYSTEM TEST: InfilBot shadow credential stuffing. Validating lateral ingress detection (simulation).";
+  }
+  if (scenario === "INFIL_LATERAL_PIVOT") {
+    return "SYSTEM TEST: InfilBot lateral pivot attempt. Validating east-west movement containment (simulation).";
+  }
+  if (scenario === "PHISH_CEO_FRAUD") {
+    return "SYSTEM TEST: PhishBot CEO fraud (urgent wire). Validating executive impersonation controls (simulation).";
+  }
+  if (scenario === "PHISH_IT_HELPDESK") {
+    return "SYSTEM TEST: PhishBot IT helpdesk trap. Validating credential harvest / ticket spoof handling (simulation).";
   }
   return "SYSTEM TEST: Internal Chaos Drill. Validating Irontech autonomous recovery.";
 }
@@ -115,12 +173,29 @@ function chaosThreatFinalizeData(
   tenantCompanyId: bigint,
   scenario: ChaosScenario,
   cardTitle: string,
+  /** When `null`, set `assigneeId` to null (Unassigned). When omitted, default Irongate 14. */
+  opts?: { initialAssigneeId: string | null | undefined },
 ) {
   const scenarioNorm = normalizeScenario(scenario);
+  const sourceAgent = chaosIngressSourceAgent(scenarioNorm);
+  const aiReport =
+    sourceAgent === "INFILBOT_SIMULATION"
+      ? "INFILBOT_SIMULATION: Controlled infiltr drill (shadow plane)."
+      : sourceAgent === "PHISHBOT_SIMULATION"
+        ? "PHISHBOT_SIMULATION: Controlled social-engineering drill (shadow plane)."
+        : "ATTACK_BOT: Controlled chaos ingress (Irontech resilience drill).";
+  const chaosShadowAgentRoleCaption =
+    sourceAgent === "INFILBOT_SIMULATION"
+      ? ("09 — InfilBot" as const)
+      : sourceAgent === "PHISHBOT_SIMULATION"
+        ? ("10 — PhishBot" as const)
+        : null;
+
   const ingestionDetails = JSON.stringify({
     isChaosTest: true,
     chaosScenario: scenarioNorm,
     chaosScenarioDisplayLabel: cardTitle,
+    ...(chaosShadowAgentRoleCaption ? { chaosShadowAgentRoleCaption } : {}),
     grcJustification: chaosDrillGrcJustificationForScenario(scenarioNorm),
     /** TAS §2 Level-2 DMZ: all chaos ingress attributed to Irongate (Agent 14) at create. */
     dmzIrongateIngress: {
@@ -133,19 +208,28 @@ function chaosThreatFinalizeData(
     /** GRC agent handoff chain (timestamp, assignee, directive) per 4s transition. */
     chaosAssigneeHandoffHistory: [],
   });
+  const assigneeIdOnRow =
+    opts === undefined
+      ? CHAOS_ASSIGNEE_IRONGATE_14
+      : opts.initialAssigneeId === null
+        ? null
+        : opts.initialAssigneeId === undefined
+          ? CHAOS_ASSIGNEE_IRONGATE_14
+          : opts.initialAssigneeId;
+
   return {
     tenantCompanyId,
     status: ThreatState.PIPELINE,
-    sourceAgent: ATTACK_SOURCE,
+    sourceAgent,
     score: 10,
     title: cardTitle,
     targetEntity: "ChaosLab",
     financialRisk_cents: 0n,
     ttlSeconds: 259200,
-    /** Birth owner: Irongate (Agent 14) — DMZ sanitization lane. */
-    assigneeId: CHAOS_ASSIGNEE_IRONGATE_14,
+    /** Birth owner: Irongate (14) for generic chaos; `null` for dual-key (KIM/GRC/ATT) so pipeline is Unassigned. */
+    assigneeId: assigneeIdOnRow,
     ingestionDetails,
-    aiReport: "ATTACK_BOT: Controlled chaos ingress (Irontech resilience drill).",
+    aiReport,
   } as const;
 }
 
@@ -175,7 +259,11 @@ function mapThreatRowToChaosPipelinePayload(row: {
     industry: row.targetEntity,
     source: row.sourceAgent,
     description:
-      "ATTACK_BOT: Controlled chaos ingress. Monitoring Irontech Retry-3 and Phone Home.",
+      row.sourceAgent === "INFILBOT_SIMULATION"
+        ? "INFILBOT_SIMULATION: Credential / lateral movement simulation."
+        : row.sourceAgent === "PHISHBOT_SIMULATION"
+          ? "PHISHBOT_SIMULATION: Phishing / personnel simulation."
+          : "ATTACK_BOT: Controlled chaos ingress. Monitoring Irontech Retry-3 and Phone Home.",
     createdAt: row.createdAt.toISOString(),
     threatStatus: row.status,
     lifecycleState: onActiveBoard ? "active" : "pipeline",
@@ -217,6 +305,11 @@ export type InjectChaosThreatOptions = {
    * shadow audit + acknowledge path. Set false to restore legacy drill auto-resolution.
    */
   skipIsolatedDrill?: boolean;
+  /**
+   * When `null`, created threat has no `assignee_id` (pipeline shows Unassigned) — KIM/GRC/ATT system integrity.
+   * When omitted, default birth owner is Irongate (Agent 14) per DMZ ingress.
+   */
+  initialAssigneeId?: string | null;
 };
 
 export async function injectChaosThreatAction(
@@ -233,6 +326,7 @@ export async function injectChaosThreatAction(
   if (!tenantId) {
     return { ok: false, error: "No active tenant." };
   }
+  await clearSimulationStandDown(tenantId);
 
   const scenarioNorm = normalizeScenario(scenario);
   const cardTitle = resolveChaosCardTitle(scenarioNorm, scenarioDisplayLabel);
@@ -264,20 +358,19 @@ export async function injectChaosThreatAction(
       });
     }
 
-    const finalize = chaosThreatFinalizeData(company.id, scenarioNorm, cardTitle);
+    const initialAssigneeId = options?.initialAssigneeId;
+    const finalize = chaosThreatFinalizeData(
+      company.id,
+      scenarioNorm,
+      cardTitle,
+      initialAssigneeId === undefined ? undefined : { initialAssigneeId },
+    );
     const isSim = await readSimulationPlaneEnabled();
 
-    const draft = isSim
-      ? await prisma.simThreatEvent.create({
-          data: finalize,
-          select: { id: true },
-        })
-      : await prisma.threatEvent.create({
-          data: finalize,
-          select: { id: true },
-        });
-
-    const threatId = draft.id;
+    const created = await ingressGateway.writeThreatEvent(
+      finalize as unknown as Prisma.ThreatEventUncheckedCreateInput,
+    );
+    const threatId = created.id;
 
     if (!skipIsolatedDrill) {
       const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
@@ -342,6 +435,34 @@ export async function injectChaosThreatAction(
     const message = e instanceof Error ? e.message : String(e);
     return { ok: false, error: message };
   }
+}
+
+/**
+ * Control Room red-team chip trigger. Normalizes 01-10 drill ids to canonical chaos scenarios.
+ */
+/** KIM/GRC/ATT Full Spectrum: no Irongate auto-assign at birth — operator must claim. */
+const DUAL_KEY_HANDSHAKE_DRILLS: SystemIntegrityDrillId[] = ["attbot", "kimbot", "grcbot"];
+
+export async function triggerSystemIntegrityDrillAction(
+  drillId: SystemIntegrityDrillId,
+  clientAttribution?: ChaosClientAttribution | null,
+): Promise<
+  | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
+  | { ok: false; error: string }
+> {
+  const scenario = SYSTEM_INTEGRITY_DRILL_TO_SCENARIO[drillId] ?? "INTERNAL";
+  const dualKeyHandshake = DUAL_KEY_HANDSHAKE_DRILLS.includes(drillId);
+  return injectChaosThreatAction(
+    scenario,
+    clientAttribution,
+    `System Integrity Drill — ${drillId.toUpperCase()}`,
+    dualKeyHandshake ? { initialAssigneeId: null } : undefined,
+  );
+}
+
+/** Tactical control-room purge endpoint for active simulation data. */
+export async function clearAllThreatsAction(): Promise<{ ok: boolean; message: string }> {
+  return purgeSimulation();
 }
 
 /** Optional shell-style `>` then bracketed agent tag (matches historical `irontechResilience` stream lines). */
@@ -479,12 +600,14 @@ export async function applyChaosShadowDrillTelemetryStepAction(
         },
       });
     } else {
-      await prisma.threatEvent.update({
-        where: { id },
-        data: {
+      await updateThreatWithIntegrity({
+        threatId: id,
+        changes: {
           assigneeId: assigneeUpdate,
           ingestionDetails: merged,
         },
+        actorUserId: "chaos-handoff",
+        eventType: "CHAOS_ASSIGNEE_HANDOFF",
       });
     }
 

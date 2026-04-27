@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
-import { Bot, ExternalLink, Skull } from "lucide-react";
+import { Bot, ChevronRight, ExternalLink, Skull } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositionReceiptBar";
@@ -18,6 +18,7 @@ import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { SIMULATION_MODE_COOKIE } from "@/app/store/systemConfigStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { toBigIntCents } from "@/app/utils/riskStoreBigIntMath";
 import {
   GRC_SOURCE,
   GRC_THREAT_TITLE_PREFIX,
@@ -26,6 +27,12 @@ import {
   KIMBOT_THREAT_TITLE_PREFIX,
   LEGACY_KIMBOT_THREAT_TITLE_PREFIX,
 } from "@/app/config/agents";
+import { getSupabaseOperatorIdForAcknowledge } from "@/app/actions/attributionActions";
+import { useUser } from "@/app/hooks/useUser";
+import { usePermissions } from "@/app/hooks/usePermissions";
+import type { GrcWorkspaceRole } from "@/app/lib/grcRoles";
+import { useShadowHandshakeRoleStore } from "@/app/store/shadowHandshakeRoleStore";
+import { generateCisoApproval } from "@/app/actions/threatActions";
 import ChaosShadowAuditFeed, {
   isChaosShadowPlaneThreat,
 } from "@/app/components/chaos/ChaosShadowAuditFeed";
@@ -75,7 +82,22 @@ function centsStringToMillionsInput(centsString: string): string {
   return `${negative ? "-" : ""}${wholeMillions.toString()}.${tenths.toString()}`;
 }
 
-const CURRENT_USER_ID = "Dereck";
+function parseMillionsInputToCents(input: string): string | null {
+  const trimmed = input.trim();
+  if (!/^\d+(?:\.\d{1,8})?$/.test(trimmed)) return null;
+  const [wholePart, fractionPart = ""] = trimmed.split(".");
+  const whole = BigInt(wholePart);
+  const fraction = BigInt(fractionPart.padEnd(8, "0"));
+  const cents = whole * 100_000_000n + fraction;
+  if (cents <= 0n) return null;
+  return cents.toString();
+}
+
+function formatBigIntCentsLabel(value: bigint): string {
+  const sign = value < 0n ? "-" : "";
+  const digits = (value < 0n ? -value : value).toString();
+  return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+}
 
 const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
 
@@ -98,11 +120,16 @@ function isManualTopSectorIntelSource(source: string): boolean {
   return s === TOP_SECTOR_SOURCE_LABEL || s === STRATEGIC_INTEL_PROFILE_SOURCE;
 }
 
-function sendStakeholderEmail(threat: PipelineThreat, notes: string[], liabilityM: number) {
+function sendStakeholderEmail(
+  threat: PipelineThreat,
+  notes: string[],
+  liabilityM: number,
+  acknowledgedByLabel: string,
+) {
   const notesText = notes.length > 0 ? notes.join(" | ") : "None";
   const template = `URGENT: GRC Event Registered. Threat: ${threat.name}, Liability: $${liabilityM.toFixed(
     1,
-  )}M, Acknowledged By: ${CURRENT_USER_ID}, Notes: ${notesText}.`;
+  )}M, Acknowledged By: ${acknowledgedByLabel}, Notes: ${notesText}.`;
 
   // Hard-coded recipient; stage alert and log to Coreintel stream
   useAgentStore.getState().addStreamMessage(`> [SYSTEM] Stakeholder alert staged for ${STAKEHOLDER_EMAIL_RECIPIENT}.`);
@@ -139,12 +166,19 @@ function PipelineThreatCard({
   const [assignedTo, setAssignedTo] = useState("unassigned");
   const [likelihood, setLikelihood] = useState(threat.likelihood ?? 8);
   const [impact, setImpact] = useState(threat.impact ?? 9);
-  const currentUser = "dereck";
+  const { displayName: operatorDisplayName, assigneeSelectValue: currentUser, userId } = useUser();
+  const { role } = usePermissions();
+  const handshakeRole = useShadowHandshakeRoleStore((s) => s.handshakeRole);
+  const effectiveRole: GrcWorkspaceRole =
+    handshakeRole === "CISO" ? "CISO" : handshakeRole === "ADMIN" ? "GLOBAL_ADMIN" : role;
 
   // Time-to-Triage: starts when card mounts, stops on Acknowledge
   const startedAtRef = useRef<number>(Date.now());
   const [tttSeconds, setTttSeconds] = useState(0);
   const [tttStopped, setTttStopped] = useState(false);
+  const [auditReasonExpanded, setAuditReasonExpanded] = useState(false);
+  const [resolvePending, setResolvePending] = useState(false);
+  const [genApprovalPending, setGenApprovalPending] = useState(false);
 
   useEffect(() => {
     if (tttStopped) return;
@@ -155,6 +189,7 @@ function PipelineThreatCard({
   }, [tttStopped]);
 
   const acknowledgeThreat = useRiskStore((s) => s.acknowledgeThreat);
+  const resolveThreat = useRiskStore((s) => s.resolveThreat);
   const chaosFlight = useRiskStore((s) => s.chaosFlightRecorderByThreatId[threat.id]);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
@@ -166,6 +201,10 @@ function PipelineThreatCard({
     setLikelihood(threat.likelihood ?? 8);
     setImpact(threat.impact ?? 9);
   }, [threat.likelihood, threat.impact]);
+
+  useEffect(() => {
+    setAuditReasonExpanded(false);
+  }, [threat.id]);
 
   const scoreM = threat.score ?? threat.loss;
   const srcUpper = (threat.source ?? "").toUpperCase();
@@ -249,6 +288,15 @@ function PipelineThreatCard({
       chaosFlight.step === 3 ||
       chaosFlight.step === 4);
   const showChaosShadowFeed = isChaosShadowPlaneThreat(threat.ingestionDetails);
+  const isResolveRoleAuthorized =
+    effectiveRole === "CISO" ||
+    effectiveRole === "GRC_MANAGER" ||
+    effectiveRole === "GLOBAL_ADMIN";
+  const hasResolutionApproval =
+    threat.resolutionApprovalStatus === "PENDING" || threat.resolutionApprovalStatus === "APPROVED";
+  const resolutionReady =
+    threat.resolutionApprovalStatus === "APPROVED" && Boolean(threat.resolutionApprovalId);
+  const showResolve = isResolveRoleAuthorized && hasResolutionApproval;
 
   const handleAcknowledgeClick = async () => {
     if (!ackEnabled || ackPending || chaosFlightLocksAck) return;
@@ -257,7 +305,12 @@ function PipelineThreatCard({
     setThreatActionError({ active: false, message: "" });
     setTttStopped(true);
     const timeToTriageSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
-    const operatorId = "admin-user-01";
+    let operatorId = "admin-user-01";
+    try {
+      operatorId = await getSupabaseOperatorIdForAcknowledge();
+    } catch {
+      // fallback stays admin-user-01
+    }
 
     updatePipelineThreat(threat.id, {
       lastTriageAction: "ACKNOWLEDGE",
@@ -290,7 +343,7 @@ function PipelineThreatCard({
         });
         return;
       }
-      sendStakeholderEmail(threat, existingNotes, scoreM);
+      sendStakeholderEmail(threat, existingNotes, scoreM, operatorDisplayName);
       appendAuditLog({
         action_type: "TIME_TO_TRIAGE",
         log_type: "GRC",
@@ -315,14 +368,46 @@ function PipelineThreatCard({
         log_type: "GRC",
         description: `Acknowledge failed for threat: ${threat.name}`,
         metadata_tag: scopeTag,
-        user_id: "admin-user-01",
+        user_id: operatorId,
       });
     } finally {
       setAckPending(false);
     }
   };
 
+  const handleResolveClick = async () => {
+    if (!resolutionReady || resolvePending) return;
+    setResolvePending(true);
+    try {
+      const effectiveOperatorId = userId.trim() || currentUser || "admin-user-01";
+      await resolveThreat(threat.id, effectiveOperatorId, grcTrimmed, operatorDisplayName);
+      onActionSuccess?.();
+    } finally {
+      setResolvePending(false);
+    }
+  };
+
+  const showKimbotCisoGenerate = isKimbotThreat && handshakeRole === "CISO";
+
+  const handleGenerateCisoApprovalClick = async () => {
+    if (!showKimbotCisoGenerate || genApprovalPending) return;
+    setGenApprovalPending(true);
+    setThreatActionError({ active: false, message: "" });
+    try {
+      const res = await generateCisoApproval(threat.id);
+      if (!res.success) {
+        setThreatActionError({ active: true, message: res.error });
+        return;
+      }
+      await useRiskStore.getState().refreshPipelineThreatsFromDb().catch(() => undefined);
+      onActionSuccess?.();
+    } finally {
+      setGenApprovalPending(false);
+    }
+  };
+
   const liabilityMillions = threat.loss ?? threat.score ?? 0;
+  const liabilityIntegrityCents = toBigIntCents(`${liabilityMillions}M`);
   const sectorKeys = Object.keys(INDUSTRY_TO_ENTITY) as Array<keyof typeof INDUSTRY_TO_ENTITY>;
   const selectedSector = (threat.industry && sectorKeys.includes(threat.industry as keyof typeof INDUSTRY_TO_ENTITY)
     ? threat.industry
@@ -414,6 +499,49 @@ function PipelineThreatCard({
               </p>
             </div>
           ) : null}
+          {threat.agentReasonings && threat.agentReasonings.length > 0 ? (
+            <div className="mt-2 w-full">
+              <button
+                type="button"
+                onClick={() => setAuditReasonExpanded((open) => !open)}
+                className="flex w-full items-center justify-between gap-2 rounded border border-emerald-500/35 bg-emerald-950/25 px-2 py-1.5 text-left transition hover:border-emerald-500/55"
+                aria-expanded={auditReasonExpanded}
+                aria-controls={`pipeline-audit-reason-${threat.id}`}
+                id={`pipeline-audit-reason-toggle-${threat.id}`}
+              >
+                <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-200/90">
+                  Audit-Ready Reason
+                  <span className="ml-1 font-mono font-normal normal-case text-emerald-400/80">
+                    ({threat.agentReasonings.length})
+                  </span>
+                </span>
+                <ChevronRight
+                  className={`h-3.5 w-3.5 shrink-0 text-emerald-400/90 transition-transform ${auditReasonExpanded ? "rotate-90" : ""}`}
+                  aria-hidden
+                />
+              </button>
+              {auditReasonExpanded ? (
+                <div
+                  id={`pipeline-audit-reason-${threat.id}`}
+                  role="region"
+                  aria-labelledby={`pipeline-audit-reason-toggle-${threat.id}`}
+                  className="mt-1 w-full rounded border border-emerald-500/35 bg-emerald-950/25 px-2 py-1.5"
+                >
+                  <ul className="max-h-32 space-y-1.5 overflow-y-auto text-left">
+                    {threat.agentReasonings.map((ar) => (
+                      <li
+                        key={ar.id}
+                        className="border-l-2 border-emerald-500/40 pl-2 text-[10px] leading-snug text-slate-300"
+                      >
+                        <span className="font-mono text-[9px] text-emerald-400/90">{ar.agentId}</span>
+                        <p className="whitespace-pre-wrap text-slate-400">{ar.reasoning}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {/* TRIAGE — liability, target, L / I, risk score */}
@@ -428,14 +556,18 @@ function PipelineThreatCard({
                 step={0.1}
                 value={Number(liabilityMillions.toFixed(1))}
                 onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  if (Number.isNaN(v)) return;
+                  const parsedCents = toBigIntCents(`${e.target.value}M`);
+                  const v = Number(parsedCents) / 100_000_000;
+                  if (!Number.isFinite(v)) return;
                   updatePipelineThreat(threat.id, { score: v, loss: v } as Parameters<
                     typeof updatePipelineThreat
                   >[1] & { loss: number; industry?: string });
                 }}
                 className="w-20 rounded border border-slate-600 bg-slate-950 px-2 py-1 font-mono text-slate-100 outline-none focus:border-blue-500"
               />
+              <span className="text-[10px] font-mono text-amber-300/80">
+                Vault Integrity: {formatBigIntCentsLabel(liabilityIntegrityCents)}¢ (BigInt Verified)
+              </span>
             </label>
             <label className="flex flex-col gap-1 text-slate-400">
               <span>Target</span>
@@ -554,7 +686,7 @@ function PipelineThreatCard({
             className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
           >
             <option value="unassigned">Unassigned</option>
-            <option value="dereck">Dereck</option>
+            <option value={currentUser}>{operatorDisplayName} (you)</option>
             <option value="user_00">user_00</option>
             <option value="user_01">user_01</option>
             <option value="secops">SecOps Team</option>
@@ -613,20 +745,57 @@ function PipelineThreatCard({
           />
         </div>
 
-        {/* Primary ACK */}
+        {/* Primary ACK — Kimbot + CISO jumper: prime approval id; ADMIN acknowledges then resolves. */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={!ackEnabled || !ackRequirementsMet || ackPending || chaosFlightLocksAck}
-            onClick={handleAcknowledgeClick}
-            className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
-              ackEnabled && ackRequirementsMet && !ackPending && !chaosFlightLocksAck
-                ? "border-slate-500 bg-slate-700 text-white hover:bg-slate-600 cursor-pointer"
-                : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
-            }`}
-          >
-            {ackPending ? "Acknowledging…" : chaosFlightLocksAck ? "Acknowledge (flight recorder)" : "Acknowledge"}
-          </button>
+          {showKimbotCisoGenerate ? (
+            <button
+              type="button"
+              disabled={genApprovalPending || Boolean(resolutionReady)}
+              onClick={() => void handleGenerateCisoApprovalClick()}
+              className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+                !genApprovalPending && !resolutionReady
+                  ? "border-amber-500/70 bg-amber-950/40 text-amber-100 hover:bg-amber-950/60 cursor-pointer"
+                  : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
+              }`}
+            >
+              {genApprovalPending
+                ? "Signing…"
+                : resolutionReady
+                  ? "Approval ID Ready"
+                  : "GENERATE APPROVAL ID"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!ackEnabled || !ackRequirementsMet || ackPending || chaosFlightLocksAck}
+              onClick={handleAcknowledgeClick}
+              className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+                ackEnabled && ackRequirementsMet && !ackPending && !chaosFlightLocksAck
+                  ? "border-slate-500 bg-slate-700 text-white hover:bg-slate-600 cursor-pointer"
+                  : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
+              }`}
+            >
+              {ackPending ? "Acknowledging…" : chaosFlightLocksAck ? "Acknowledge (flight recorder)" : "Acknowledge"}
+            </button>
+          )}
+          {showResolve ? (
+            <button
+              type="button"
+              disabled={!resolutionReady || resolvePending}
+              onClick={handleResolveClick}
+              className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+                resolutionReady && !resolvePending
+                  ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
+                  : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
+              }`}
+            >
+              {resolvePending
+                ? "Resolving…"
+                : resolutionReady
+                  ? "Resolve"
+                  : "Resolve (Awaiting approval)"}
+            </button>
+          ) : null}
         </div>
 
         <PipelineSelfTestBar
@@ -890,10 +1059,11 @@ export default function ThreatPipeline({
       );
       return;
     }
-    const parsedLoss = Number.parseFloat(manualLoss);
-    const lossM = Number.isFinite(parsedLoss) && parsedLoss > 0 ? parsedLoss : 1.0;
-    const lossCents = Math.round(lossM * 100_000_000);
-    const loss = String(lossCents);
+    const loss = parseMillionsInputToCents(manualLoss);
+    if (!loss) {
+      setRegisterError("Loss must be a positive amount with up to 8 decimal places.");
+      return;
+    }
 
     const newThreatPayload = {
       title,

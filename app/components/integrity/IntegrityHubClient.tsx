@@ -21,6 +21,17 @@ import ShadowPlaneRegistry from "@/app/components/ShadowPlaneRegistry";
 import type { ServerIntegrityLedgerRow } from "@/app/types/integrityLedger";
 import IrontechChaosDeploy from "@/app/(dashboard)/opsupport/IrontechChaosDeploy";
 import ControlRoom from "@/app/components/ControlRoom";
+import { useRiskStore } from "@/app/store/riskStore";
+import {
+  WORKFORCE_SIMULATION_PROCESSING_EVENT,
+  combineThreatPlanesForWorkforce,
+  type WorkforceSimulationProcessingDetail,
+} from "@/app/utils/workforceInventoryActive";
+import { mergeInventoryAgentWithPulse, type AgentPulseState } from "@/app/utils/workforceAgentState";
+
+/** Matches card shell `animate-pulse` so cursor blink stays phase-aligned at 3s linear. */
+const WORKFORCE_PULSE_MOTION =
+  "motion-safe:animate-pulse [animation-duration:3s] [animation-timing-function:linear]";
 
 function statusPill(status: LkgWorkforceRow["status"]) {
   if (status === "LKG_VERIFIED")
@@ -47,14 +58,33 @@ function inventoryCard(opts: {
   statusNode: ReactNode;
   sha256: string | null;
   remediating?: boolean;
+  statusKey: LkgWorkforceRow["status"];
+  pulseState: AgentPulseState;
 }) {
+  const ps = opts.pulseState;
+  const shell = opts.remediating
+    ? "remediating"
+    : ps === "ALERT"
+      ? "alert"
+      : ps === "ACTIVE"
+        ? "active"
+        : "idle";
+
+  const borderClasses =
+    opts.remediating
+      ? "motion-safe:animate-pulse border-emerald-500/50 shadow-[0_0_26px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/25 [animation-duration:2.8s]"
+      : shell === "alert"
+        ? "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.5)] motion-safe:animate-pulse [animation-duration:3s]"
+        : shell === "active"
+          ? "border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.4)] motion-safe:animate-pulse [animation-duration:3s]"
+          : "border-slate-800/90";
+
+  const showLkgPulse =
+    opts.statusKey === "LKG_VERIFIED" && !opts.remediating && (ps === "ACTIVE" || ps === "ALERT");
+
   return (
     <div
-      className={`flex flex-col gap-1.5 rounded border bg-slate-900/50 px-2.5 py-2 ${
-        opts.remediating
-          ? "motion-safe:animate-pulse border-emerald-500/50 shadow-[0_0_26px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/25 [animation-duration:2.8s]"
-          : "border-slate-800/90"
-      }`}
+      className={`flex flex-col gap-1.5 rounded border bg-slate-900/50 px-2.5 py-2 transition-all duration-700 ${borderClasses}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-col gap-1">
@@ -67,7 +97,27 @@ function inventoryCard(opts: {
               {opts.statusNode}
             </div>
           ) : (
-            opts.statusNode
+            <div className="flex flex-wrap items-center gap-1.5">
+              {opts.statusNode}
+              {showLkgPulse && ps === "ACTIVE" ? (
+                <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-sky-500">
+                  {">> ENFORCING"}
+                  <span
+                    className={`inline-block h-2.5 w-px bg-sky-500 ${WORKFORCE_PULSE_MOTION}`}
+                    aria-hidden
+                  />
+                </span>
+              ) : null}
+              {showLkgPulse && ps === "ALERT" ? (
+                <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-orange-500">
+                  {">> COUNTER-MEASURE ACTIVE"}
+                  <span
+                    className={`inline-block h-2.5 w-px bg-orange-500 ${WORKFORCE_PULSE_MOTION}`}
+                    aria-hidden
+                  />
+                </span>
+              ) : null}
+            </div>
           )}
         </div>
       </div>
@@ -139,6 +189,51 @@ export default function IntegrityHubClient({
     useState<IntegrityHubSyntheticTarget[]>(syntheticTargets);
   const [syntheticLoadError, setSyntheticLoadError] = useState<string | null>(null);
   const [blueRemediationPulse, setBlueRemediationPulse] = useState(false);
+  const [interactionPulseUntil, setInteractionPulseUntil] = useState<Record<string, number>>({});
+
+  const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
+  const activeThreats = useRiskStore((s) => s.activeThreats);
+
+  const combinedThreats = useMemo(
+    () => combineThreatPlanesForWorkforce(activeThreats, pipelineThreats),
+    [activeThreats, pipelineThreats],
+  );
+
+  useEffect(() => {
+    const onPulse = (e: Event) => {
+      const d = (e as CustomEvent<WorkforceSimulationProcessingDetail>).detail;
+      if (!d?.agents?.length) return;
+      const ttlMs = d.ttlMs ?? 2600;
+      const until = Date.now() + ttlMs;
+      setInteractionPulseUntil((prev) => {
+        const next = { ...prev };
+        for (const a of d.agents) {
+          next[a] = Math.max(next[a] ?? 0, until);
+        }
+        return next;
+      });
+    };
+    window.addEventListener(WORKFORCE_SIMULATION_PROCESSING_EVENT, onPulse);
+    return () => window.removeEventListener(WORKFORCE_SIMULATION_PROCESSING_EVENT, onPulse);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setInteractionPulseUntil((prev) => {
+        const next = { ...prev };
+        let dirty = false;
+        for (const k of Object.keys(next)) {
+          if ((next[k] ?? 0) <= now) {
+            delete next[k];
+            dirty = true;
+          }
+        }
+        return dirty ? next : prev;
+      });
+    }, 400);
+    return () => window.clearInterval(id);
+  }, []);
 
   const infiltrActive = useAdversarySimulatorStore((s) => s.infiltrActive);
   const phishActive = useAdversarySimulatorStore((s) => s.phishActive);
@@ -334,6 +429,11 @@ export default function IntegrityHubClient({
                   const blueRemediating =
                     blueRemediationPulse &&
                     (agent.name === "Ironcore" || agent.name === "Irontally");
+                  const pulseState = mergeInventoryAgentWithPulse(
+                    agent.name,
+                    combinedThreats,
+                    interactionPulseUntil,
+                  );
                   return (
                     <div key={agent.name}>
                       {inventoryCard({
@@ -341,6 +441,8 @@ export default function IntegrityHubClient({
                         statusNode: statusPill(agent.status),
                         sha256: agent.sha256,
                         remediating: blueRemediating,
+                        statusKey: agent.status,
+                        pulseState: blueRemediating ? "IDLE" : pulseState,
                       })}
                     </div>
                   );

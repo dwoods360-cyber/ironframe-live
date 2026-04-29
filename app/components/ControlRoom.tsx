@@ -35,6 +35,17 @@ import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimu
 import { useShadowHandshakeRoleStore } from "@/app/store/shadowHandshakeRoleStore";
 import { syncHandshakeRoleCookie } from "@/app/utils/handshakeRoleCookie";
 import { isCisoBreachAttestationPendingInSets } from "@/app/utils/cisoBreachSignal";
+import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
+import type { PipelineThreat } from "@/app/store/riskStore";
+import {
+  combineThreatPlanes,
+  getAgentState,
+  hasAnyOpenSimulationBotThreat,
+  type AgentPulseState,
+} from "@/app/utils/workforceAgentState";
+
+export type { AgentPulseState };
+export { getAgentState };
 
 /**
  * Left-pane Irontech enclave: compliance overlay + chaos controls.
@@ -66,6 +77,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const [drillError, setDrillError] = useState<string | null>(null);
   const [drillRunCount, setDrillRunCount] = useState(0);
   const [drillDefeatedCount, setDrillDefeatedCount] = useState(0);
+  const [feedTelemetryActiveAt, setFeedTelemetryActiveAt] = useState<number>(Date.now());
+  const [irongateClaimFlash, setIrongateClaimFlash] = useState(false);
   const isSimulationActive = useSystemConfigStore().isSimulationMode;
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
@@ -180,6 +193,15 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const onClaim = () => {
+      setIrongateClaimFlash(true);
+      window.setTimeout(() => setIrongateClaimFlash(false), 2000);
+    };
+    window.addEventListener("ironframe:irongate-claim-attestation", onClaim);
+    return () => window.removeEventListener("ironframe:irongate-claim-attestation", onClaim);
+  }, []);
+
   async function handleReviewAction(approvalId: string, decision: "APPROVE" | "REJECT") {
     setReviewBusyId(approvalId);
     setReviewError(null);
@@ -206,28 +228,29 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   }
 
   const chaosPercent = drillRunCount > 0 ? Math.round((drillDefeatedCount / drillRunCount) * 100) : 100;
-  const agentReasoningFeed = [...activeThreats, ...pipelineThreats]
-    .flatMap((threat) =>
-      (threat.agentReasonings ?? []).map((ar) => ({
-        time: new Date(ar.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-        text: `Agent ${ar.agentId} reasoning on ${threat.name}: ${ar.reasoning}`,
-      })),
-    )
-    .slice(0, 4);
-  const ironcastFeed = intelligenceStream
-    .filter((line) => /\[IRONCAST\]|\[IRONGATE\]|\[IRONCORE\]|\[IRONLOCK\]/i.test(line))
-    .slice(0, 6 - agentReasoningFeed.length)
-    .map((line) => ({
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }),
-      text: line.replace(/^>\s*/, ""),
-    }));
-  const liveFeed = [...agentReasoningFeed, ...ironcastFeed].slice(0, 6);
+
+  const combinedThreats = useMemo(
+    () => combineThreatPlanes(activeThreats, pipelineThreats),
+    [activeThreats, pipelineThreats],
+  );
+
+  const ingressSignalActive = useMemo(
+    () => hasAnyOpenSimulationBotThreat(combinedThreats),
+    [combinedThreats],
+  );
 
   async function handleSystemIntegrityDrill(drillId: SystemIntegrityDrillId) {
     if (drillBusyKey || purgeBusy) return;
     setDrillBusyKey(drillId);
     setDrillError(null);
     try {
+      const isFullSpectrum =
+        drillId === "attbot" || drillId === "kimbot" || drillId === "grcbot";
+      if (isFullSpectrum) {
+        // Fresh subscription posture for live feed when full-spectrum drill toggles.
+        useAgentStore.getState().resetAgentStreamsForPurge();
+        window.dispatchEvent(new CustomEvent("ironframe:resilience-feed-resubscribe"));
+      }
       const attribution = await fetchChaosLedgerClientAttribution();
       const result = await triggerSystemIntegrityDrillAction(drillId, attribution ?? undefined);
       if (!result.ok) {
@@ -238,6 +261,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         const replaceActive = useRiskStore.getState().replaceActiveThreats;
         await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => undefined);
         setBoardPrepRefresh((n) => n + 1);
+        setFeedTelemetryActiveAt(Date.now());
         router.refresh();
       }
     } catch (error) {
@@ -451,20 +475,63 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         <ConfigChangeWidget refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`} />
       </div>
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Live Agent Feed</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Agent Status Pulse</h3>
+          <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                ingressSignalActive ? "bg-slate-400 motion-safe:animate-pulse" : "bg-slate-500"
+              }`}
+              aria-hidden
+            />
+            TELEMETRY ACTIVE
+          </span>
+        </div>
         <p className="mt-1 text-[9px] text-zinc-500">
-          AgentReasoning + Ironcast engagement stream.
+          19-agent workforce heartbeat — drill-driven alert paths.
         </p>
-        <div className="mt-2 space-y-1.5">
-          {liveFeed.length === 0 ? (
-            <p className="text-[9px] text-zinc-600">No active live engagements.</p>
-          ) : (
-            liveFeed.map((entry, idx) => (
-              <p key={`${entry.time}-${idx}`} className="text-[9px] text-zinc-300">
-                <span className="font-mono text-cyan-400">[{entry.time}]</span> {entry.text}
-              </p>
-            ))
-          )}
+        <p className="mt-1 text-[8px] text-zinc-600">
+          Last resubscribe: {new Date(feedTelemetryActiveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        </p>
+        <div
+          className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1.5"
+          role="list"
+          aria-label="19-agent status pulse"
+        >
+          {CORE_WORKFORCE_AGENTS.map((agent, index) => {
+            let pulse = getAgentState(agent.name, combinedThreats);
+            if (agent.name === "Irongate" && irongateClaimFlash) {
+              pulse = "ACTIVE";
+            }
+            const staggerMs = (index % 12) * 95;
+            const dotPulseMotion =
+              "motion-safe:animate-pulse [animation-duration:3s] [animation-timing-function:linear]";
+            const dotPulse =
+              pulse === "ALERT"
+                ? `bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)] ${dotPulseMotion}`
+                : pulse === "ACTIVE"
+                  ? `bg-sky-500 shadow-[0_0_6px_rgba(14,165,233,0.45)] ${dotPulseMotion}`
+                  : "bg-slate-600";
+            return (
+              <div key={agent.name} role="listitem" className="min-w-0 w-full">
+                <div className="flex min-w-0 w-full items-center gap-x-1.5">
+                  <span
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotPulse}`}
+                    style={
+                      pulse !== "IDLE"
+                        ? { animationDelay: `${staggerMs}ms` }
+                        : undefined
+                    }
+                    title={pulse}
+                    aria-label={`${agent.name} ${pulse}`}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+                    {agent.name}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">

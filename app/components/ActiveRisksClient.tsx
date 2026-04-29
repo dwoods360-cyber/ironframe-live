@@ -38,6 +38,10 @@ import {
 } from '@/app/utils/grcComplianceUi';
 import { useComplianceOverlayStore } from '@/app/store/complianceOverlayStore';
 import { hasResolutionApprovalIdOnThreat } from '@/app/utils/cisoBreachSignal';
+import {
+  dispatchWorkforceSimulationProcessing,
+  workforceAgentsForDualKeyBot,
+} from '@/app/utils/workforceInventoryActive';
 import { createClient } from '@/lib/supabase/client';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
@@ -866,7 +870,27 @@ function computeSupplyChainImpact(input: {
   return hasCriticalAccess ? 9.2 : 8.6;
 }
 
-function AssigneeHistorySection({ entries }: { entries: AssignmentChangedLogEntry[] }) {
+function AssigneeHistorySection({
+  entries,
+  historyThreatEventId,
+}: {
+  entries: AssignmentChangedLogEntry[];
+  /** Dev-only: logs when history is empty so `entityId` can be checked against AuditLog. */
+  historyThreatEventId?: string | null;
+}) {
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV === 'development' &&
+      entries.length === 0 &&
+      historyThreatEventId?.trim()
+    ) {
+      console.log(
+        '[AssigneeHistory] No assignee audit rows yet; threat entityId =',
+        historyThreatEventId.trim(),
+      );
+    }
+  }, [entries, historyThreatEventId]);
+
   if (entries.length === 0) {
     return (
       <div className="rounded border border-slate-700/80 bg-slate-950/50 p-2">
@@ -1256,6 +1280,18 @@ export default function ActiveRisksClient({
     if (res && typeof res === "object" && "success" in res && res.success === true) {
       const unassigned = value === "unassigned" || !value;
       const assign = unassigned ? undefined : value;
+      if (!unassigned && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ironframe:irongate-claim-attestation"));
+        const threat =
+          useRiskStore.getState().activeThreats.find((x) => x.id === threatEventId) ??
+          useRiskStore.getState().pipelineThreats.find((x) => x.id === threatEventId);
+        if (threat && isDualKeyHandshakeDrillCard(threat)) {
+          const bot = getDualKeySimBotKind(threat);
+          if (bot) {
+            dispatchWorkforceSimulationProcessing(workforceAgentsForDualKeyBot(bot));
+          }
+        }
+      }
       if ("newLog" in res && res.newLog) {
         const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
         updatePipelineThreat(threatEventId, {
@@ -1922,6 +1958,12 @@ export default function ActiveRisksClient({
                   setStates((prev) => ({ ...prev, [threat.id]: 'confirmed' }));
                   setSuccessFlash((prev) => ({ ...prev, [threat.id]: true }));
                   setTimeout(() => setSuccessFlash((prev) => ({ ...prev, [threat.id]: false })), 1500);
+                  if (isDualKeyDrill) {
+                    const bot = getDualKeySimBotKind(threat);
+                    if (bot) {
+                      dispatchWorkforceSimulationProcessing(workforceAgentsForDualKeyBot(bot));
+                    }
+                  }
                 }
               : lifecycle === 'confirmed'
                 ? async () => {
@@ -1933,6 +1975,12 @@ export default function ActiveRisksClient({
                         delete next[threat.id];
                         return next;
                       });
+                      if (isDualKeyDrill) {
+                        const bot = getDualKeySimBotKind(threat);
+                        if (bot) {
+                          dispatchWorkforceSimulationProcessing(workforceAgentsForDualKeyBot(bot));
+                        }
+                      }
                     } catch {
                       // threatActionError set in store
                     } finally {
@@ -1969,6 +2017,9 @@ export default function ActiveRisksClient({
                   if (!res.success) {
                     setThreatActionError({ active: true, message: res.error });
                     return;
+                  }
+                  if (dualKeySimBot) {
+                    dispatchWorkforceSimulationProcessing(workforceAgentsForDualKeyBot(dualKeySimBot));
                   }
                   setCisoSimAuthFlashByThreatId((prev) => ({ ...prev, [threat.id]: true }));
                   await refreshActiveThreatsFromDb();
@@ -2242,7 +2293,10 @@ export default function ActiveRisksClient({
               {isExpanded && (
                 <div className="mt-3 space-y-3 rounded-md border border-slate-800 bg-slate-950/60 p-3">
                   <div className="space-y-1">
-                    <AssigneeHistorySection entries={assigneeHistoryForCard} />
+                    <AssigneeHistorySection
+                      entries={assigneeHistoryForCard}
+                      historyThreatEventId={threat.id}
+                    />
                     {irontechLive && irontechLive.attempts.length > 0 ? (
                       <div className="rounded border border-cyan-800/45 bg-cyan-950/25 p-2">
                         <p className="text-[9px] font-black uppercase tracking-wide text-cyan-200/95">
@@ -2824,7 +2878,10 @@ export default function ActiveRisksClient({
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
                 >
-                  <AssigneeHistorySection entries={riskAssigneeHistory} />
+                  <AssigneeHistorySection
+                    entries={riskAssigneeHistory}
+                    historyThreatEventId={risk.threatId ?? undefined}
+                  />
                   <ImpactedBlastRadiusSection
                     threatLike={risk}
                     threatEventId={risk.threatId ?? null}

@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
 import { readSimulationPlaneEnabled } from '@/app/lib/security/ingressGateway';
 import { getActiveThreatWhereClause } from '@/app/utils/activeThreatsBoardQuery';
+import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from '@/app/utils/assignmentChainOfCustody';
 
 /** Never statically cache this route — dashboard must reflect live DB (assignee, risks, logs). */
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,17 @@ export async function GET(request: NextRequest) {
               assigneeId: true,
               ttlSeconds: true,
               ingestionDetails: true,
+              AuditLog: {
+                where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+                orderBy: { createdAt: 'desc' },
+                select: {
+                  id: true,
+                  action: true,
+                  justification: true,
+                  operatorId: true,
+                  createdAt: true,
+                },
+              },
             },
             orderBy: { updatedAt: 'desc' },
           })
@@ -100,8 +112,8 @@ export async function GET(request: NextRequest) {
               ttlSeconds: true,
               ingestionDetails: true,
               auditTrail: {
-                where: { action: 'ASSIGNMENT_CHANGED' },
-                orderBy: { createdAt: 'asc' },
+                where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+                orderBy: { createdAt: 'desc' },
                 select: {
                   id: true,
                   action: true,
@@ -180,10 +192,21 @@ export async function GET(request: NextRequest) {
       infrastructure_val_cents: c.infrastructure_val_cents ?? null,
     }));
 
-    /** ThreatEvent / SimThreatEvent rows with assigneeId + optional ASSIGNMENT_CHANGED chain. */
+    /** ThreatEvent / SimThreatEvent rows with assigneeId + optional assignee audit chain (prod + simulation). */
     const threatEventsPayload = threatEvents.map((t) => {
-      const auditTrail =
-        'auditTrail' in t && Array.isArray(t.auditTrail) ? t.auditTrail : [];
+      type AuditSlice = {
+        id: string;
+        action: string;
+        justification: string | null;
+        operatorId: string;
+        createdAt: Date;
+      };
+      const auditTrail: AuditSlice[] =
+        'auditTrail' in t && Array.isArray(t.auditTrail)
+          ? t.auditTrail
+          : 'AuditLog' in t && Array.isArray((t as { AuditLog?: AuditSlice[] }).AuditLog)
+            ? (t as { AuditLog: AuditSlice[] }).AuditLog
+            : [];
       return {
         id: t.id,
         title: t.title,

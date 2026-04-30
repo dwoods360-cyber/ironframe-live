@@ -1,3 +1,6 @@
+/** Prisma `AuditLog.action` values for assignee chain-of-custody (legacy + hardened lock). */
+export const THREAT_ASSIGNEE_AUDIT_ACTIONS = ['ASSIGNMENT_CHANGED', 'ASSIGNEE_CHANGE'] as const;
+
 /**
  * Display labels for assignee dropdown keys (execution board) — no PII beyond existing operator ids.
  */

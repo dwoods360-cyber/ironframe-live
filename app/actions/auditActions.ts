@@ -81,16 +81,24 @@ export async function logThreatActivity(
   threatId: string | null,
   actionName: string,
   details: string,
-  options?: { isSimulation?: boolean },
+  options?: {
+    isSimulation?: boolean;
+    operatorId?: string;
+    /** When set, audit row links to `SimThreatEvent` (`threatId` cleared). */
+    simThreatId?: string | null;
+  },
 ): Promise<void> {
   try {
+    const simId = options?.simThreatId?.trim() || null;
+    const linkSim = Boolean(simId);
     await prisma.auditLog.create({
       data: {
         action: actionName,
         justification: details,
-        operatorId: 'THREAT_ACTIVITY',
-        threatId,
-        isSimulation: options?.isSimulation ?? false,
+        operatorId: options?.operatorId?.trim() || 'THREAT_ACTIVITY',
+        threatId: linkSim ? null : threatId,
+        simThreatId: linkSim ? simId : null,
+        isSimulation: linkSim ? true : (options?.isSimulation ?? false),
       },
     });
   } catch (error) {

@@ -7,6 +7,7 @@ import { Cpu, Skull } from "lucide-react";
 import {
   applyChaosShadowDrillTelemetryStepAction,
   injectChaosThreatAction,
+  runChaosDrillIrontechLifecycleGatedAction,
   type ChaosScenario,
 } from "@/app/actions/chaosActions";
 import { getIrontechActiveLogDive } from "@/app/actions/irontechUiActions";
@@ -51,6 +52,15 @@ function resolveDashboardTenantUuid(selectedTenantName: string | null): string {
 
 const WAIT_MS = 4000;
 const waitChaosTick = () => new Promise<void>((r) => setTimeout(r, WAIT_MS));
+
+function parseIngestionEntityType(raw: string | null | undefined): string | null {
+  try {
+    const j = JSON.parse(raw ?? "{}") as { entityType?: unknown };
+    return typeof j.entityType === "string" ? j.entityType : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const router = useRouter();
@@ -199,17 +209,31 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
         store.setChaosFlightRecorder(threatId, null);
 
-        const tenantId = resolveDashboardTenantUuid(store.selectedTenantName ?? null);
-        const outcome = await store.acknowledgeThreat(
-          threatId,
-          "admin-user-01",
-          CHAOS_FLIGHT_AUTO_ACK_JUSTIFICATION,
-          tenantId,
-        );
+        const pipelineSnap = useRiskStore.getState().pipelineThreats.find((t) => t.id === threatId);
+        const chaosEntityType = parseIngestionEntityType(pipelineSnap?.ingestionDetails);
+        const useIrontechChaosDrillLifecycle =
+          scenario === "INTERNAL" && chaosEntityType === "CHAOS_DRILL";
 
-        if (!outcome.success) {
-          setError(outcome.error ?? "Automated acknowledge failed.");
-          return;
+        if (useIrontechChaosDrillLifecycle) {
+          const lr = await runChaosDrillIrontechLifecycleGatedAction(threatId);
+          if (!lr.ok) {
+            fail(lr.error ?? "Irontech chaos drill lifecycle failed.");
+            return;
+          }
+          router.refresh();
+        } else {
+          const tenantId = resolveDashboardTenantUuid(store.selectedTenantName ?? null);
+          const outcome = await store.acknowledgeThreat(
+            threatId,
+            "admin-user-01",
+            CHAOS_FLIGHT_AUTO_ACK_JUSTIFICATION,
+            tenantId,
+          );
+
+          if (!outcome.success) {
+            setError(outcome.error ?? "Automated acknowledge failed.");
+            return;
+          }
         }
 
         store.setChaosSelfHealedLine(threatId, "Status: Self-Healed & Resolved");

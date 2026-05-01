@@ -7,6 +7,7 @@ import {
   revertThreatToPipelineAction,
   addWorkNoteAction,
 } from '@/app/actions/threatActions';
+import { runChaosDrillIrontechLifecycleGatedAction } from '@/app/actions/chaosActions';
 import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
 import { useAgentStore } from "@/app/store/agentStore";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
@@ -17,6 +18,18 @@ import {
   millionsNumberToCents,
   toBigIntCents,
 } from "@/app/utils/riskStoreBigIntMath";
+
+/** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
+function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
+  const raw = ingestionDetails?.trim();
+  if (!raw) return false;
+  try {
+    const j = JSON.parse(raw) as { entityType?: unknown; chaosDrillEntityType?: unknown };
+    return j.entityType === "CHAOS_DRILL" || j.chaosDrillEntityType === "CHAOS_DRILL";
+  } catch {
+    return false;
+  }
+}
 
 /** TEMP GRC/QA: identify callers that surface threatActionError (active). */
 function logThreatActionErrorActivation(message: string, source: string) {
@@ -706,6 +719,61 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     }
   },
   resolveThreat: async (id, operatorId, resolutionJustification, actorDisplayName) => {
+    const threatSnapshot = get().threatIndexById[id];
+    if (ingestionIndicatesChaosDrill(threatSnapshot?.ingestionDetails)) {
+      set({ threatActionError: { active: false, message: '' } });
+      try {
+        const gated = await runChaosDrillIrontechLifecycleGatedAction(id);
+        if (!gated.ok) {
+          logThreatActionErrorActivation(
+            gated.error || 'Chaos drill lifecycle failed.',
+            'resolveThreat:chaosLifecycleFailure',
+          );
+          set({
+            threatActionError: {
+              active: true,
+              message: gated.error || 'Chaos drill lifecycle failed.',
+            },
+          });
+          throw new Error(gated.error || 'Chaos drill lifecycle failed.');
+        }
+        const reductionM = (gated.financialRisk_cents ?? 0) / 100_000_000;
+        set((state) => {
+          const nextImpacts = { ...state.acceptedThreatImpacts };
+          delete nextImpacts[id];
+          const nextIndustries = { ...state.acceptedThreatIndustries };
+          delete nextIndustries[id];
+          return {
+            threatActionError: { active: false, message: '' },
+            riskOffset: state.riskOffset + reductionM,
+            activeThreats: state.activeThreats.filter((t) => t.id !== id),
+            activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
+            acceptedThreatImpacts: nextImpacts,
+            acceptedThreatIndustries: nextIndustries,
+            threatIndexById: buildThreatIndexById(
+              state.pipelineThreats,
+              state.activeThreats.filter((t) => t.id !== id),
+            ),
+          };
+        });
+      } catch (error) {
+        console.error('runChaosDrillIrontechLifecycleGatedAction failed', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        const display = msg.includes('AUDIT_LOG_FAILURE')
+          ? 'Threat record not found or already processed.'
+          : msg;
+        logThreatActionErrorActivation(display, 'resolveThreat:chaosCatch');
+        set({
+          threatActionError: {
+            active: true,
+            message: display,
+          },
+        });
+        throw error;
+      }
+      return;
+    }
+
     const trimmed = resolutionJustification.trim();
     if (trimmed.length < 50) {
       logThreatActionErrorActivation(

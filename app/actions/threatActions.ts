@@ -33,6 +33,7 @@ import { integrityService } from "@/src/services/integrityService";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 
 /** Threat resolution approve / reject / review — program leadership. */
 const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
@@ -89,6 +90,13 @@ const GRC_PROTOCOL_VIOLATION =
 const SIM_MANIFEST_EVIDENCE_URL = "https://vault.internal/sim-manifest.pdf";
 
 const GRC_CISO_SIMULATION_AUTH_EVENT = "[GRC] CISO Simulation Authorization";
+
+function resolveTelemetryBotTag(title: string | null | undefined): "[ATTBOT]" | "[KIMBOT]" | "[GRCBOT]" {
+  const normalized = (title ?? "").toUpperCase();
+  if (normalized.includes("ATTBOT")) return "[ATTBOT]";
+  if (normalized.includes("KIMBOT")) return "[KIMBOT]";
+  return "[GRCBOT]";
+}
 
 /** System Integrity Control Room: Kimbot, Grcbot, or Attbot + chaos test JSON. */
 function isSystemIntegrityBotChaosDrillThreatOnServer(args: {
@@ -633,7 +641,11 @@ export async function confirmThreatAction(
         const threatTitle = threat?.title ?? id;
         const state = threat?.status ?? 'CONFIRMED';
         const financialRisk_cents = threat?.financialRisk_cents ?? BigInt(0);
-        console.log(`[CONFIRM] Dispatching confirmation email for shadow threat ${id} (${threatTitle})...`);
+        const botTag = resolveTelemetryBotTag(threatTitle);
+        await recordResilienceIntelStreamLine(
+          `> ${botTag} [CONFIRM] Dispatching confirmation email for shadow threat ${id} (${threatTitle})...`,
+          id,
+        );
 
         const briefThreat: SecurityBriefThreat = {
           title: threatTitle,
@@ -652,7 +664,10 @@ export async function confirmThreatAction(
           operatorId,
         });
         if (emailResult.success) {
-          console.log('[CONFIRM] Confirmation email sent successfully.');
+          await recordResilienceIntelStreamLine(
+            `> ${botTag} [CONFIRM] Confirmation email sent successfully for ${id}.`,
+            id,
+          );
         } else {
           console.error('[EMAIL ERROR]', emailResult.error);
         }
@@ -715,7 +730,11 @@ export async function confirmThreatAction(
       const threatTitle = threat?.title ?? id;
       const state = threat?.status ?? 'CONFIRMED';
       const financialRisk_cents = threat?.financialRisk_cents ?? BigInt(0);
-      console.log(`[CONFIRM] Dispatching confirmation email for threat ${id} (${threatTitle})...`);
+      const botTag = resolveTelemetryBotTag(threatTitle);
+      await recordResilienceIntelStreamLine(
+        `> ${botTag} [CONFIRM] Dispatching confirmation email for threat ${id} (${threatTitle})...`,
+        id,
+      );
 
       const briefThreat: SecurityBriefThreat = {
         title: threatTitle,
@@ -734,7 +753,10 @@ export async function confirmThreatAction(
         operatorId,
       });
       if (emailResult.success) {
-        console.log('[CONFIRM] Confirmation email sent successfully.');
+        await recordResilienceIntelStreamLine(
+          `> ${botTag} [CONFIRM] Confirmation email sent successfully for ${id}.`,
+          id,
+        );
       } else {
         console.error('[EMAIL ERROR]', emailResult.error);
       }
@@ -1201,7 +1223,115 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
   }
 }
 
-/** Serialized audit row for ASSIGNMENT_CHANGED — matches client `assignmentHistory` entries. */
+function revalidateThreatAssigneeSurfaces(): void {
+  revalidatePath('/');
+  revalidatePath('/control-room');
+  revalidatePath('/integrity');
+}
+
+/** Canonical agent / autonomous mutations: threat row + immutable AuditLog + WorkNote (prod) + surface revalidation. */
+export type AgentForensicAuditAction = 'ASSIGNEE_CHANGE' | 'STATE_TRANSITION';
+
+export type ExecuteAgentActionArgs = {
+  plane: 'prod' | 'shadow';
+  threatId: string;
+  tenantCompanyId: bigint;
+  operatorId: string;
+  /** Stored verbatim on WorkNote (prod) and inside AuditLog JSON narrative. */
+  justification: string;
+  auditAction: AgentForensicAuditAction;
+  integrityEventType: string;
+  prodChanges?: Prisma.ThreatEventUpdateInput;
+  shadowChanges?: Prisma.SimThreatEventUpdateInput;
+};
+
+/**
+ * Single entry point for autonomous agent-driven updates (chaos telemetry, bots, orchestration).
+ * Persists threat/sim row, appends AuditLog, mirrors justification to WorkNote on prod ThreatEvent,
+ * then revalidates assignee / control-room / integrity surfaces.
+ */
+export async function executeAgentAction(
+  args: ExecuteAgentActionArgs,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const narrative = args.justification.trim();
+  if (!narrative) {
+    return { ok: false, error: 'Missing agent justification.' };
+  }
+  if (!prismaDelegates.auditLog?.create) {
+    warnMissingDelegate('auditLog');
+    return { ok: false, error: 'Audit log unavailable.' };
+  }
+
+  const auditJustification = JSON.stringify({
+    source: 'executeAgentAction',
+    narrative,
+    auditAction: args.auditAction,
+    plane: args.plane,
+    threatId: args.threatId,
+    tenantCompanyId: String(args.tenantCompanyId),
+    at: new Date().toISOString(),
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      if (args.plane === 'prod') {
+        if (!args.prodChanges) {
+          throw new Error('executeAgentAction: prodChanges required for prod plane.');
+        }
+        await updateThreatWithIntegrity({
+          threatId: args.threatId,
+          changes: args.prodChanges,
+          actorUserId: args.operatorId,
+          eventType: args.integrityEventType,
+          tx,
+        });
+        await tx.auditLog.create({
+          data: {
+            action: args.auditAction,
+            justification: auditJustification,
+            operatorId: args.operatorId,
+            threatId: args.threatId,
+            isSimulation: false,
+          },
+        });
+        await tx.workNote.create({
+          data: {
+            threatId: args.threatId,
+            text: narrative,
+            operatorId: args.operatorId,
+          },
+        });
+      } else {
+        if (!args.shadowChanges) {
+          throw new Error('executeAgentAction: shadowChanges required for shadow plane.');
+        }
+        await tx.simThreatEvent.update({
+          where: { id: args.threatId },
+          data: args.shadowChanges,
+        });
+        await tx.auditLog.create({
+          data: {
+            action: args.auditAction,
+            justification: auditJustification,
+            operatorId: args.operatorId,
+            threatId: null,
+            simThreatId: args.threatId,
+            isSimulation: true,
+          },
+        });
+      }
+    });
+
+    revalidateThreatAssigneeSurfaces();
+    revalidatePath('/control-room');
+    return { ok: true };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
+}
+
+/** Serialized audit row for assignee custody (`ASSIGNMENT_CHANGED` legacy + `ASSIGNEE_CHANGE`) — matches client `assignmentHistory`. */
 export type AssignmentChangedLogEntry = {
   id: string;
   action: string;
@@ -1210,7 +1340,7 @@ export type AssignmentChangedLogEntry = {
   createdAt: string;
 };
 
-/** Persist execution-board assignee on ThreatEvent or SimThreatEvent and append AuditLog (ASSIGNMENT_CHANGED). */
+/** Persist execution-board assignee on ThreatEvent or SimThreatEvent and append AuditLog (`ASSIGNEE_CHANGE`). */
 export async function setThreatAssigneeAction(
   threatId: string,
   assigneeId: string | null,
@@ -1247,18 +1377,34 @@ export async function setThreatAssigneeAction(
     (su && typeof su.id === "string" && su.id.trim() ? su.id.trim() : su?.email?.trim()) || "";
   const effectiveOperatorId = idFromSession || operatorId;
 
-  const buildJustification = (isSimulation: boolean) => {
+  const buildAssigneeChangeJustification = (
+    entityId: string,
+    isSimulation: boolean,
+    prevAssigneeKey: string | null,
+  ) => {
     const t = new Date().toISOString();
     const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(effectiveOperatorId)).trim();
-    const newAssignee = value == null ? null : assigneeKeyToDisplayName(value);
+    const fromDisplay =
+      prevAssigneeKey == null ? 'Unassigned' : assigneeKeyToDisplayName(prevAssigneeKey);
+    const newAssigneeDisplay = value == null ? null : assigneeKeyToDisplayName(value);
+    const toMetadata = value == null ? 'Unassigned' : assigneeKeyToDisplayName(value);
     return JSON.stringify({
-      newAssignee,
+      entityType: 'THREAT',
+      entityId,
+      metadata: {
+        from: fromDisplay,
+        to: toMetadata,
+        plane: isSimulation ? 'simulation' : 'prod',
+      },
+      newAssignee: newAssigneeDisplay,
       actor,
       actorId: effectiveOperatorId,
       timestamp: t,
       isSimulation,
     });
   };
+  const assignedDisplayName = value == null ? "Unassigned" : assigneeKeyToDisplayName(value);
+  const assignmentTelemetryLine = `> [IRONGATE] Identity verified. Ownership assigned to ${assignedDisplayName}. Forensic gate sealed.`;
 
   const prod = await prisma.threatEvent.findFirst({
     where: { id: threatId, tenantCompanyId },
@@ -1272,7 +1418,7 @@ export async function setThreatAssigneeAction(
     }
     const prev = prod.assigneeId ?? null;
     if (prev === value) {
-      revalidatePath('/');
+      revalidateThreatAssigneeSurfaces();
       return { success: true, newLog: null };
     }
     try {
@@ -1293,17 +1439,20 @@ export async function setThreatAssigneeAction(
         });
         return tx.auditLog.create({
           data: {
-            action: 'ASSIGNMENT_CHANGED',
-            justification: buildJustification(false),
+            action: 'ASSIGNEE_CHANGE',
+            justification: buildAssigneeChangeJustification(threatId, false, existing.assigneeId ?? null),
             operatorId: effectiveOperatorId,
             threatId,
             isSimulation: false,
           },
         });
       });
-      revalidatePath('/');
+      revalidateThreatAssigneeSurfaces();
       if (!created) {
         return { success: true, newLog: null };
+      }
+      if (value != null) {
+        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatId);
       }
       return {
         success: true,
@@ -1329,7 +1478,7 @@ export async function setThreatAssigneeAction(
   if (sim) {
     const prev = sim.assigneeId ?? null;
     if (prev === value) {
-      revalidatePath('/');
+      revalidateThreatAssigneeSurfaces();
       return { success: true, newLog: null };
     }
     try {
@@ -1347,8 +1496,8 @@ export async function setThreatAssigneeAction(
         });
         return tx.auditLog.create({
           data: {
-            action: 'ASSIGNMENT_CHANGED',
-            justification: buildJustification(true),
+            action: 'ASSIGNEE_CHANGE',
+            justification: buildAssigneeChangeJustification(threatId, true, row.assigneeId ?? null),
             operatorId: effectiveOperatorId,
             threatId: null,
             isSimulation: true,
@@ -1356,9 +1505,12 @@ export async function setThreatAssigneeAction(
           },
         });
       });
-      revalidatePath('/');
+      revalidateThreatAssigneeSurfaces();
       if (!created) {
         return { success: true, newLog: null };
+      }
+      if (value != null) {
+        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatId);
       }
       return {
         success: true,

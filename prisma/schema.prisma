@@ -724,6 +724,8 @@ enum ThreatState {
   QUARANTINED
   ACTIVE
   CONFIRMED
+  /// GRC / Irontech chaos lifecycle: attestation submitted (awaiting final resolve).
+  SUBMITTED
   ESCALATED
   PENDING_REMOTE_INTERVENTION
   RESOLVED

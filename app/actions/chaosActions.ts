@@ -763,9 +763,15 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
  */
 export async function runChaosDrillIrontechLifecycleGatedAction(
   threatId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; financialRisk_cents: number } | { ok: false; error: string }> {
   const id = threatId?.trim();
   if (!id) return { ok: false, error: "Missing threat id." };
+
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) {
+    return { ok: false, error: "Missing company context for tenant isolation." };
+  }
+  const isSim = await readSimulationPlaneEnabled();
 
   for (let s = 1; s <= 4; s++) {
     if (s > 1) {
@@ -774,7 +780,20 @@ export async function runChaosDrillIrontechLifecycleGatedAction(
     const next = await executeChaosDrillIrontechLifecycleStepAction(id, s as 1 | 2 | 3 | 4);
     if (!next.ok) return next;
   }
-  return { ok: true };
+
+  const row = isSim
+    ? await prisma.simThreatEvent.findFirst({
+        where: { id, tenantCompanyId: companyId },
+        select: { financialRisk_cents: true },
+      })
+    : await prisma.threatEvent.findFirst({
+        where: { id, tenantCompanyId: companyId },
+        select: { financialRisk_cents: true },
+      });
+
+  const cents =
+    row?.financialRisk_cents != null ? Number(row.financialRisk_cents) : 0;
+  return { ok: true, financialRisk_cents: cents };
 }
 
 /**

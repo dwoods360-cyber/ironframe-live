@@ -70,6 +70,7 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   THREAT_DE_ACKNOWLEDGED: "De-Acknowledged",
   THREAT_DEACKNOWLEDGED: "De-Acknowledged",
   THREAT_CONFIRMED: "Confirmed",
+  ATTESTATION_SUBMITTED: "Attestation submitted",
   THREAT_RESOLVED: "Resolved",
   TTL_CHANGED: "TTL Changed",
   AI_REPORT_SAVED: "AI Report Saved",
@@ -297,11 +298,82 @@ function buildForensicEntryJson(item: LogEntryItem): string {
   );
 }
 
+function safeParseJustificationRecord(raw: string | null | undefined): Record<string, unknown> | null {
+  const t = raw?.trim();
+  if (!t?.startsWith("{")) return null;
+  try {
+    const v = JSON.parse(t) as unknown;
+    return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Display name for structured lifecycle JSON (Irontech chaos, etc.); falls back to operator display. */
+function resolveForensicIdentityFromJustification(
+  parsed: Record<string, unknown> | null,
+  fallbackDisplay: string,
+): string {
+  if (!parsed) return fallbackDisplay;
+  const a = parsed.actor;
+  if (typeof a === "string" && a.trim()) return a.trim();
+  const name = parsed.agentName;
+  const title = parsed.agentTitle;
+  if (typeof name === "string" && name.trim()) {
+    const nt = typeof title === "string" && title.trim() ? title.trim() : "";
+    return nt ? `${name.trim()} (${nt})` : name.trim();
+  }
+  return fallbackDisplay;
+}
+
+/** True when justification carries chaos lifecycle / agent identity fields (not plain assignment blobs). */
+function justificationSupportsLifecycleNarrative(parsed: Record<string, unknown> | null): boolean {
+  if (!parsed) return false;
+  const g = parsed.gate;
+  if (typeof g === "number" && g >= 1 && g <= 4) return true;
+  const n = parsed.agentName;
+  const t = parsed.agentTitle;
+  return typeof n === "string" && n.trim() !== "" && typeof t === "string" && t.trim() !== "";
+}
+
+const LIFECYCLE_FORENSIC_ACTIONS = new Set([
+  "ASSIGNEE_CHANGE",
+  "THREAT_CONFIRMED",
+  "ATTESTATION_SUBMITTED",
+  "THREAT_RESOLVED",
+]);
+
 /** Single-sentence human interpretation for the audit modal (non-legal; raw JSON remains evidence). */
 function getForensicNarrative(item: LogEntryItem): string {
   const e = item.entry;
   const actor = operatorIdToDisplayName(e.user_id ?? "");
   const action = (e.action_type ?? "").trim();
+  const parsedJustification = safeParseJustificationRecord(e.justification);
+  const identity = resolveForensicIdentityFromJustification(parsedJustification, actor);
+
+  if (
+    parsedJustification &&
+    LIFECYCLE_FORENSIC_ACTIONS.has(action) &&
+    justificationSupportsLifecycleNarrative(parsedJustification)
+  ) {
+    const entityLabel =
+      typeof parsedJustification.entityType === "string" && parsedJustification.entityType.trim()
+        ? parsedJustification.entityType.trim()
+        : "risk";
+    switch (action) {
+      case "ASSIGNEE_CHANGE":
+        return `${identity} has assumed authority over this record to begin forensic remediation.`;
+      case "THREAT_CONFIRMED":
+        return `The threat has been verified by ${identity}. Initial blast-radius and signatures match known ${entityLabel} patterns.`;
+      case "ATTESTATION_SUBMITTED":
+        return `Formal attestation submitted. ${identity} has verified that the proposed resolution complies with the Ironframe Constitution.`;
+      case "THREAT_RESOLVED":
+        return `Final neutralization complete. ${identity} has restored the system to a Last Known Good (LKG) state and closed the incident.`;
+      default:
+        break;
+    }
+  }
+
   const metaUpper = (e.metadata_tag ?? "").toUpperCase();
   const desc = e.description ?? "";
   const threatRef =
@@ -377,22 +449,15 @@ function getForensicNarrative(item: LogEntryItem): string {
     return `${actor} authenticated into the Ironframe control session.`;
   }
 
-  const rawJ = e.justification?.trim();
-  if (rawJ?.startsWith("{")) {
-    try {
-      const jo = JSON.parse(rawJ) as Record<string, unknown>;
-      if (jo.source === "client_audit_logger") {
-        const sub = typeof jo.description === "string" ? jo.description : desc;
-        const at =
-          typeof jo.action_type === "string"
-            ? displayLabelForAuditEntry(jo.action_type)
-            : displayLabelForAuditEntry(action);
-        const clip = sub.length > 160 ? `${sub.slice(0, 157)}…` : sub;
-        return `${actor} logged ${at}: ${clip}`;
-      }
-    } catch {
-      /* fall through */
-    }
+  if (parsedJustification?.source === "client_audit_logger") {
+    const jo = parsedJustification;
+    const sub = typeof jo.description === "string" ? jo.description : desc;
+    const at =
+      typeof jo.action_type === "string"
+        ? displayLabelForAuditEntry(jo.action_type)
+        : displayLabelForAuditEntry(action);
+    const clip = sub.length > 160 ? `${sub.slice(0, 157)}…` : sub;
+    return `${actor} logged ${at}: ${clip}`;
   }
 
   const label = displayLabelForAuditEntry(action) || action || "event";

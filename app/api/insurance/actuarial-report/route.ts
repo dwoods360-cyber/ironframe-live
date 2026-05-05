@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
+import prisma from "@/lib/prisma";
 import { generateBudgetReport } from "@/app/utils/generateBudgetReport";
 import { normalizeCarrierKey } from "@/app/utils/carrierTemplates";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +37,36 @@ export async function GET(request: NextRequest) {
   const carrierKey = normalizeCarrierKey(request.nextUrl.searchParams.get("carrierKey"));
 
   const model = await fetchInsuranceModelForTenant(activeTenantUuid);
+  const isSimulation = await readSimulationPlaneEnabled();
+
+  const auditReceiptRows = await prisma.auditReceipt.findMany({
+    where: { tenantId: activeTenantUuid },
+    orderBy: { shreddedAt: "desc" },
+    take: 10,
+    select: {
+      shreddedAt: true,
+      titleSnapshot: true,
+      sectorSnapshot: true,
+      receiptHashSha256: true,
+    },
+  });
+  const shreddingLogRows = auditReceiptRows.map((r) => ({
+    timestampIso: r.shreddedAt.toISOString(),
+    assetName: r.titleSnapshot,
+    sector: r.sectorSnapshot?.trim() || "—",
+    agentId: "Ironwatch (Agent 13)",
+    sha256Signature: r.receiptHashSha256,
+  }));
+
   const bytes = generateBudgetReport({
     basePremium_cents,
     framework: model.framework,
     hasContinuousMonitoring: model.hasContinuousMonitoring,
     hasDueDiligencePdfs: model.hasDueDiligencePdfs,
     carrierKey,
+    isSimulation,
+    glossaryIndustryLabel: model.industry ?? model.framework,
+    shreddingLogRows,
   });
 
   const slug = carrierKey.toLowerCase().replace(/_/g, "-");

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
+import { resolveTenantIndustryForBenchmarks } from "@/app/utils/tenantIndustryBenchmark";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { ThreatState } from "@prisma/client";
 
@@ -62,13 +63,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
+  const [tenantRow, company] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantUuid },
+      select: { industry: true },
+    }),
+    prisma.company.findFirst({
+      where: { tenantId: tenantUuid },
+      select: { id: true },
+    }),
+  ]);
+
+  const tenantIndustry = resolveTenantIndustryForBenchmarks(tenantRow?.industry);
 
   if (!company) {
-    return NextResponse.json({ threats: [] as HeatMapThreatPayload[] });
+    return NextResponse.json({
+      threats: [] as HeatMapThreatPayload[],
+      tenantIndustry,
+    });
   }
 
   const simPlane = await readSimulationPlaneEnabled();
@@ -109,5 +121,5 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  return NextResponse.json({ threats });
+  return NextResponse.json({ threats, tenantIndustry });
 }

@@ -34,6 +34,7 @@ async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
+  await prisma.marketBenchmarkSnapshot.deleteMany();
   await prisma.threatEvent.deleteMany();
   await prisma.agentLog.deleteMany();
   await prisma.vendor.deleteMany();
@@ -68,6 +69,28 @@ async function main() {
   const gridcore = await prisma.company.create({
     data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
   });
+
+  // 2b. Weekly industry mean ALE snapshots (benchmark trend chart; Healthcare last point +25% WoW for volatility demo)
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+  const anchorMs = Date.now();
+  const pctVolatileDemo = [88, 90, 92, 94, 96, 98, 100, 125] as const;
+  const pctStable = [88, 90, 92, 94, 96, 98, 100, 101] as const;
+  const benchmarkRows: Array<{ industry: string; averageAleCents: bigint; timestamp: Date }> = [];
+  const pushEightWeeks = (industry: string, baseCents: bigint, pcts: readonly number[]) => {
+    for (let i = 0; i < 8; i++) {
+      const p = pcts[i]!;
+      benchmarkRows.push({
+        industry,
+        averageAleCents: (baseCents * BigInt(p)) / 100n,
+        timestamp: new Date(anchorMs - (7 - i) * MS_WEEK),
+      });
+    }
+  };
+  pushEightWeeks('Healthcare', 1_110_000_000n, pctVolatileDemo);
+  pushEightWeeks('Finance', 590_000_000n, pctStable);
+  pushEightWeeks('Energy', 470_000_000n, pctStable);
+  await prisma.marketBenchmarkSnapshot.createMany({ data: benchmarkRows });
+  console.log('✅ Market benchmark snapshots (8 weeks × 3 industries).');
 
   // 3. Inject initial ThreatEvent records (Epic 7 + board baseline)
   // Note: `financialRisk_cents` is BIGINT cents (no floats). Example: 5,000,000 cents = $50,000.

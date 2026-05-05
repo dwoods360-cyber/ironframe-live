@@ -2,6 +2,8 @@
 
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
+import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
 
 export type CoverageFramework = "SOC2" | "ISO27001" | "NIST";
 
@@ -174,6 +176,146 @@ export async function getFrameworkCoverage(
         gapControls: gaps.length,
         potentialAleExposureCents: gapsTotalExposure.toString(),
       },
+    },
+  };
+}
+
+export type RemediationCompanySlice = {
+  companyId: string;
+  companyName: string;
+  aleContributionCents: string;
+};
+
+export type RankedRemediationTask = {
+  rank: number;
+  controlId: string;
+  potentialAleExposureCents: string;
+  /** Display label e.g. "$5.9M" — financial weight of this gap (ALE pool contribution). */
+  financialWeightLabel: string;
+  contributionByCompany: RemediationCompanySlice[];
+  /** Company with largest ALE slice for Ironscribe narrative (e.g. Vaultbank Global). */
+  primaryAssetLabel: string;
+};
+
+export type RankedRemediationPayload = {
+  framework: CoverageFramework;
+  tasks: RankedRemediationTask[];
+  /** Ironscribe strategic line for HUD / gaps page. */
+  strategicRecommendation: string;
+  gapPoolTotalCents: string;
+};
+
+function gapExposureWhereClause(
+  fw: CoverageFramework,
+  controlId: string,
+  companyId: bigint,
+): Parameters<typeof prisma.riskEvent.aggregate>[0]["where"] {
+  return {
+    tenantCompanyId: companyId,
+    complianceFramework: fw,
+    status: { in: OPEN_RISK_STATES },
+    OR: [{ mappedControls: { isEmpty: true } }, { NOT: { mappedControls: { has: controlId } } }],
+  };
+}
+
+/**
+ * Ironscribe-style ranked remediation: each gap’s weight is aggregate open-risk ALE (BigInt cents)
+ * mapped across tenant companies (Medshield, Vaultbank, …), sorted by total contribution descending.
+ */
+export async function getRankedRemediationTasks(
+  tenantUuid: string,
+  frameworkOverride?: string,
+): Promise<{ ok: true; payload: RankedRemediationPayload } | { ok: false; error: string }> {
+  const tid = tenantUuid.trim();
+  if (!UUID_RE.test(tid)) return { ok: false, error: "Invalid tenant UUID." };
+
+  let fw: CoverageFramework;
+  if (frameworkOverride?.trim()) {
+    fw = normalizeFramework(frameworkOverride);
+  } else {
+    const model = await fetchInsuranceModelForTenant(tid);
+    fw = normalizeFramework(model.framework);
+  }
+
+  const coverageRes = await getFrameworkCoverage(tid, fw);
+  if (!coverageRes.ok) return coverageRes;
+
+  const companies = await prisma.company.findMany({
+    where: { tenantId: tid },
+    select: { id: true, name: true },
+    orderBy: { id: "asc" },
+  });
+
+  const gapPoolTotalCents = coverageRes.coverage.totals.potentialAleExposureCents;
+  const gapPoolBn = BigInt(gapPoolTotalCents || "0");
+
+  const tasks: RankedRemediationTask[] = [];
+  let rank = 1;
+  for (const gap of coverageRes.coverage.gaps) {
+    const slices: RemediationCompanySlice[] = [];
+    for (const co of companies) {
+      const agg = await prisma.riskEvent.aggregate({
+        where: gapExposureWhereClause(fw, gap.controlId, co.id),
+        _sum: { financialRisk_cents: true },
+      });
+      const cents = agg._sum.financialRisk_cents ?? 0n;
+      if (cents <= 0n) continue;
+      slices.push({
+        companyId: co.id.toString(),
+        companyName: co.name.trim() || `Company ${co.id}`,
+        aleContributionCents: cents.toString(),
+      });
+    }
+    slices.sort((a, b) => {
+      const av = BigInt(a.aleContributionCents);
+      const bv = BigInt(b.aleContributionCents);
+      return av === bv ? 0 : bv > av ? 1 : -1;
+    });
+    const primary = slices[0];
+    const primaryAssetLabel = primary?.companyName ?? "tenant workload";
+
+    tasks.push({
+      rank: rank++,
+      controlId: gap.controlId,
+      potentialAleExposureCents: gap.potentialAleExposureCents,
+      financialWeightLabel: formatCentsToUSD(gap.potentialAleExposureCents),
+      contributionByCompany: slices,
+      primaryAssetLabel,
+    });
+  }
+
+  tasks.sort((a, b) => {
+    const av = BigInt(a.potentialAleExposureCents);
+    const bv = BigInt(b.potentialAleExposureCents);
+    if (av === bv) return a.controlId.localeCompare(b.controlId);
+    return bv > av ? 1 : -1;
+  });
+  tasks.forEach((t, i) => {
+    t.rank = i + 1;
+  });
+
+  let strategicRecommendation: string;
+  if (tasks.length === 0) {
+    strategicRecommendation =
+      "🤖 [STRATEGIC_REMEDIATION] | No open control gaps detected for this framework — posture is clear for Ironscribe review.";
+  } else {
+    const top = tasks[0]!;
+    const topAle = BigInt(top.potentialAleExposureCents);
+    const pct =
+      gapPoolBn > 0n
+        ? Math.round((Number(topAle) / Number(gapPoolBn)) * 10000) / 100
+        : 0;
+    strategicRecommendation =
+      `🤖 [STRATEGIC_REMEDIATION] | Validating control ${top.controlId} on ${top.primaryAssetLabel} will reduce the GRC Gap by ${top.financialWeightLabel} (${pct.toFixed(0)}%). This is your highest-leverage task for today.`;
+  }
+
+  return {
+    ok: true,
+    payload: {
+      framework: fw,
+      tasks,
+      strategicRecommendation,
+      gapPoolTotalCents,
     },
   };
 }

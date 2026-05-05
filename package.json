@@ -18,6 +18,9 @@
     "install-hooks": "node scripts/install-pre-commit.mjs",
     "cold-store:init": "node scripts/init-ironframe-cold-store.mjs",
     "db:seed": "prisma db seed",
+    "db:seed:benchmarks": "npx tsx prisma/seedBenchmarks.ts",
+    "db:seed:omni": "npx tsx prisma/stressMarketVolatilitySpike.ts",
+    "db:stress:market-spike": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:seed:synthetic": "npx ts-node --project prisma/tsconfig.seed.json prisma/seed-synthetic.ts"
   },
   "dependencies": {

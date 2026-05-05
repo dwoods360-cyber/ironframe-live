@@ -43,6 +43,7 @@ import { integrityService } from "@/src/services/integrityService";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { runShadowMarketVolatilityExpertLifecycleHook } from "@/app/actions/agentActions";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import {
   buildDualTimestamps,
@@ -3163,6 +3164,9 @@ export async function executeExpertAgentLifecycle(
   }
 
   const isSim = await readSimulationPlaneEnabled();
+  if (isSim) {
+    await runShadowMarketVolatilityExpertLifecycleHook(id);
+  }
 
   const row = isSim
     ? await prisma.riskEvent.findFirst({

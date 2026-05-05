@@ -18,6 +18,7 @@ import {
   millionsNumberToCents,
   toBigIntCents,
 } from "@/app/utils/riskStoreBigIntMath";
+import { calculateGrcGapCents } from "@/app/utils/grcMath";
 
 /** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
 function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
@@ -1121,7 +1122,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   getGrcGapCents: () => {
     const state = get();
     const industry = state.selectedIndustry ?? "Healthcare";
-    const baseImpactByIndustry: Record<string, bigint> = {
+    /** Sector peer-mean ALE baseline (integer cents) — same scale as `getTotalCurrentRiskCents`. */
+    const industryAverageBySector: Record<string, bigint> = {
       Healthcare: 1_210_000_000n,
       Finance: 680_000_000n,
       Technology: 530_000_000n,
@@ -1129,25 +1131,15 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       Energy: 1_700_000_000n,
       Defense: 1_600_000_000n,
     };
-    const baseImpactCents = baseImpactByIndustry[industry] ?? 1_520_000_000n;
-    const sumAcceptedCents = Object.values(state.acceptedThreatImpacts).reduce(
-      (sum, value) => sum + millionsNumberToCents(value),
-      0n,
+    const industryAverageCents = industryAverageBySector[industry] ?? 1_520_000_000n;
+    const currentMitigatedCents = BigInt(
+      getTotalCurrentRiskCentsString(
+        state.acceptedThreatImpacts,
+        state.dashboardLiabilities,
+        state.riskOffset,
+      ),
     );
-    const sumDashboardCents = Object.values(state.dashboardLiabilities).reduce(
-      (sum, value) => sum + millionsNumberToCents(value),
-      0n,
-    );
-    const pipelinePendingCents = state.pipelineThreats.reduce((sum, t) => {
-      const millions = t.score ?? t.loss ?? 0;
-      return sum + millionsNumberToCents(millions);
-    }, 0n);
-    const offsetCents = millionsNumberToCents(state.riskOffset);
-    const currentCents = sumAcceptedCents + sumDashboardCents - offsetCents;
-    const potentialCents = baseImpactCents + sumAcceptedCents + pipelinePendingCents - offsetCents;
-    const clampedCurrent = currentCents > 0n ? currentCents : 0n;
-    const clampedPotential = potentialCents > 0n ? potentialCents : 0n;
-    const gapCents = clampedPotential > clampedCurrent ? clampedPotential - clampedCurrent : 0n;
+    const gapCents = calculateGrcGapCents(industryAverageCents, currentMitigatedCents);
     return gapCents.toString();
   },
 

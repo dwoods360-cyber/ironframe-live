@@ -24,6 +24,17 @@ export type BulkEvidenceRow = {
   mheHumanHours: number;
   /** Derived: post-mortem on file and terminal closure state. */
   underwriterReady: boolean;
+  /** Effective export-control flags (persisted chapter + Defense ITAR/CMMC title rules). */
+  isExportControlled: boolean;
+  /** Required clearance to view/download when export-controlled (PUBLIC | CONFIDENTIAL | SECRET | TOP_SECRET). */
+  requiredClearance: string;
+  /** Defense / Aerospace retention policy (365-day validation window). */
+  retention?: {
+    highRiskSector: boolean;
+    /** Countdown within the 365-day window; 0 when overdue. */
+    daysRemaining: number;
+    pendingShred: boolean;
+  };
 };
 
 export type BulkEvidenceBundle = {

@@ -8,8 +8,18 @@ import { getBulkEvidenceBundle, submitBulkEvidenceBrokerMock } from "@/app/actio
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
+import { applyBrokerConfidenceCompliancePremium } from "@/app/utils/grcMath";
+import { CLEARANCE_LEVELS, USER_CLEARANCE_COOKIE_NAME, clearanceElevationTarget } from "@/app/utils/clearanceLogic";
+import EvidenceVaultItem from "@/components/EvidenceVaultItem";
+import ClearanceRequestModal from "@/components/ClearanceRequestModal";
+import NotificationCenter from "@/components/NotificationCenter";
+import ShredderUI, { ShredderControl } from "@/components/ShredderUI";
+import { listAuditReceiptsForTenant, type AuditReceiptRow } from "@/app/actions/shredderActions";
+import { useRiskStore } from "@/app/store/riskStore";
+import { useShallow } from "zustand/react/shallow";
 import { CARRIER_EXPORT_OPTIONS, type CarrierKey } from "@/app/utils/carrierTemplates";
 import type { BulkEvidenceBundle } from "@/app/types/bulkEvidenceBundle";
+import { useEvidenceStore } from "@/app/store/evidenceStore";
 
 type RangePreset = "CY2025" | "FY2025" | "LAST90" | "CUSTOM";
 type CoverageFramework = "SOC2" | "ISO27001" | "NIST";
@@ -36,11 +46,23 @@ function rangeForPreset(preset: RangePreset, customStart: string, customEnd: str
 }
 
 export default function EvidenceVaultClient() {
+  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const grcGapDeps = useRiskStore(
+    useShallow((s) => ({
+      industry: s.selectedIndustry,
+      impacts: s.acceptedThreatImpacts,
+      liabilities: s.dashboardLiabilities,
+      riskOffset: s.riskOffset,
+    })),
+  );
+  const getGrcGapCents = useRiskStore((s) => s.getGrcGapCents);
+
   const { activeTenantUuid } = useTenantContext();
   const dashboardTenantUuid = useMemo(
     () => resolveDashboardTenantUuid(activeTenantUuid),
     [activeTenantUuid],
   );
+  const evidenceLockerRows = useEvidenceStore();
 
   const [preset, setPreset] = useState<RangePreset>("FY2025");
   const [customStart, setCustomStart] = useState("2025-01-01");
@@ -65,6 +87,31 @@ export default function EvidenceVaultClient() {
   const [peerAvgPct, setPeerAvgPct] = useState<number | null>(null);
   const [peerBucket, setPeerBucket] = useState<"Top 10" | "Median" | "Bottom" | null>(null);
   const [peerInsight, setPeerInsight] = useState<string | null>(null);
+  const [simulatedUserClearance, setSimulatedUserClearance] = useState("PUBLIC");
+  const [clearanceModal, setClearanceModal] = useState<{
+    riskEventId: string;
+    targetClearance: string;
+  } | null>(null);
+  const [ironcastToast, setIroncastToast] = useState<string | null>(null);
+  const [shredReceipts, setShredReceipts] = useState<AuditReceiptRow[]>([]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const m = document.cookie.match(new RegExp(`${USER_CLEARANCE_COOKIE_NAME}=([^;]+)`));
+    if (m?.[1]) {
+      try {
+        setSimulatedUserClearance(decodeURIComponent(m[1].trim()));
+      } catch {
+        setSimulatedUserClearance(m[1].trim());
+      }
+    }
+  }, []);
+
+  const persistClearanceCookie = useCallback((level: string) => {
+    const v = encodeURIComponent(level);
+    document.cookie = `${USER_CLEARANCE_COOKIE_NAME}=${v}; path=/; max-age=31536000; SameSite=Lax`;
+    setSimulatedUserClearance(level);
+  }, []);
 
   const range = useMemo(() => rangeForPreset(preset, customStart, customEnd), [preset, customStart, customEnd]);
   const gaugeDeg = useMemo(() => {
@@ -101,6 +148,9 @@ export default function EvidenceVaultClient() {
         required: coverageRes.coverage.totals.requiredControls,
       });
     }
+    const shredList = await listAuditReceiptsForTenant();
+    setShredReceipts(shredList.ok ? shredList.receipts : []);
+
     const peerRes = await getIndustryBenchmarks(dashboardTenantUuid);
     if (peerRes.ok) {
       setPeerBenchmarkingEnabled(peerRes.payload.benchmarkingEnabled);
@@ -138,8 +188,50 @@ export default function EvidenceVaultClient() {
 
   const cumulativeRoi = bundle?.totals.cumulativeRoiCents ?? "0";
 
+  /** Readiness vs peer — carrier-facing confidence signal when benchmarking is on (+ compliance premium in grcMath). */
+  const brokerConfidencePct = useMemo(() => {
+    if (readinessPct == null) return null;
+    let base: number;
+    if (!peerBenchmarkingEnabled || peerAvgPct == null || peerAvgPct <= 0) {
+      base = readinessPct;
+    } else {
+      const delta = readinessPct - peerAvgPct;
+      base = Math.max(0, Math.min(100, Math.round((readinessPct + delta / 2) * 100) / 100));
+    }
+    const industry = selectedIndustry ?? grcGapDeps.industry ?? "Healthcare";
+    return applyBrokerConfidenceCompliancePremium(base, industry, getGrcGapCents());
+  }, [
+    readinessPct,
+    peerBenchmarkingEnabled,
+    peerAvgPct,
+    selectedIndustry,
+    grcGapDeps,
+    getGrcGapCents,
+  ]);
+
   return (
     <div className="mx-auto w-full max-w-[min(100%,96rem)] px-4 py-4 text-slate-100 md:px-8">
+      <NotificationCenter message={ironcastToast} onDismiss={() => setIroncastToast(null)} durationMs={12000} />
+
+      {clearanceModal ? (
+        <ClearanceRequestModal
+          open
+          riskEventId={clearanceModal.riskEventId}
+          targetClearance={clearanceModal.targetClearance}
+          onClose={() => setClearanceModal(null)}
+          onResolved={(res) => {
+            setClearanceModal(null);
+            if (res.approved && res.targetClearance) {
+              persistClearanceCookie(res.targetClearance);
+              const label = res.targetClearance.replace(/_/g, " ");
+              setIroncastToast(
+                `🔓 Access Granted: Your ${label} clearance is now active. Restricted chapters are unlocked.`,
+              );
+            }
+          }}
+        />
+      ) : null}
+
       <header className="mb-6 border-b border-slate-800 pb-4">
         <h1 className="text-sm font-black uppercase tracking-widest text-cyan-300">Evidence vault</h1>
         <p className="mt-1 max-w-3xl text-[11px] text-slate-400">
@@ -189,6 +281,10 @@ export default function EvidenceVaultClient() {
             ) : null}
             {peerBenchmarkingEnabled && peerAvgPct != null && readinessPct != null ? (
               <>
+                <p className="mt-2 text-[9px] font-black uppercase tracking-wide text-slate-500">Broker confidence</p>
+                <p className="font-mono text-[13px] font-bold text-cyan-200">
+                  {brokerConfidencePct == null ? "—" : `${brokerConfidencePct.toFixed(1)}%`}
+                </p>
                 <div className="mt-2 h-2 w-44 overflow-hidden rounded-full bg-slate-800">
                   <div
                     className="h-full bg-cyan-500"
@@ -203,7 +299,13 @@ export default function EvidenceVaultClient() {
                 </p>
               </>
             ) : (
-              <p className="mt-1 text-[9px] text-slate-500">Peer benchmarking is off for this tenant.</p>
+              <>
+                <p className="mt-2 text-[9px] font-black uppercase tracking-wide text-slate-500">Broker confidence</p>
+                <p className="font-mono text-[13px] font-bold text-slate-400">
+                  {brokerConfidencePct == null ? "—" : `${brokerConfidencePct.toFixed(1)}%`}
+                </p>
+                <p className="mt-1 text-[9px] text-slate-500">Peer benchmarking is off — score uses readiness plus sector compliance premium where applicable.</p>
+              </>
             )}
           </div>
         </div>
@@ -292,6 +394,22 @@ export default function EvidenceVaultClient() {
           Peer Benchmarking
         </label>
 
+        <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          Simulated clearance
+          <select
+            value={simulatedUserClearance}
+            onChange={(e) => persistClearanceCookie(e.target.value)}
+            className="mt-1 block w-44 rounded border border-slate-600 bg-slate-950 px-2 py-2 text-[11px] text-slate-100"
+            title="Sets the ironframe-user-clearance cookie for export-control checks (Irongate / incident-report PDF)."
+          >
+            {CLEARANCE_LEVELS.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                {lvl.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <button
           type="button"
           onClick={() => void load()}
@@ -313,6 +431,12 @@ export default function EvidenceVaultClient() {
           className="rounded border border-amber-700/70 bg-amber-950/35 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-amber-100 hover:border-amber-500"
         >
           Internal health check
+        </Link>
+        <Link
+          href="/evidence/sectors"
+          className="rounded border border-violet-700/70 bg-violet-950/35 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-violet-100 hover:border-violet-500"
+        >
+          Sector comparison
         </Link>
       </div>
 
@@ -356,18 +480,19 @@ export default function EvidenceVaultClient() {
               <th className="px-3 py-2 text-right">Labor save</th>
               <th className="px-3 py-2 text-right">ROI</th>
               <th className="px-3 py-2 text-right">MHE (h)</th>
+              <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                   Loading bundle…
                 </td>
               </tr>
             ) : !bundle || bundle.rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
                   No closed or validated risk events in this range.
                 </td>
               </tr>
@@ -379,6 +504,19 @@ export default function EvidenceVaultClient() {
                       {r.title}
                     </div>
                     <div className="font-mono text-[9px] text-slate-500">{r.riskEventId.slice(0, 12)}…</div>
+                    {r.retention?.highRiskSector ? (
+                      <div className="mt-1 text-[8px] font-bold uppercase tracking-wide">
+                        {r.retention.pendingShred ? (
+                          <span className="text-rose-400" title="Retention policy: 365-day validation window exceeded">
+                            Pending shred · overdue
+                          </span>
+                        ) : (
+                          <span className="text-amber-300/90" title="Days remaining before retention review">
+                            Days remaining: {r.retention.daysRemaining}
+                          </span>
+                        )}
+                      </div>
+                    ) : null}
                   </td>
                   <td className="px-3 py-2 text-slate-300">{r.status}</td>
                   <td className="px-3 py-2">
@@ -403,12 +541,87 @@ export default function EvidenceVaultClient() {
                     {formatCentsToUSD(r.valueCreatedCents)}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-slate-400">{r.mheHumanHours.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right align-top">
+                    <div className="flex flex-col items-end gap-1">
+                      <EvidenceVaultItem
+                        row={r}
+                        userClearance={simulatedUserClearance}
+                        onRequestElevation={() =>
+                          setClearanceModal({
+                            riskEventId: r.riskEventId,
+                            targetClearance: clearanceElevationTarget(r.requiredClearance),
+                          })
+                        }
+                      />
+                      <ShredderControl chapterId={r.riskEventId} onComplete={() => void load()} />
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      <ShredderUI receipts={shredReceipts} />
+
+      <section className="mt-10 rounded border border-slate-800 bg-slate-900/40">
+        <div className="border-b border-slate-800 px-4 py-3">
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-white">Evidence locker</h2>
+          <p className="mt-1 text-[10px] text-slate-500">
+            Local ledger entries (simulation store). Distinct from the shadow RiskEvent bundle above.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[10px] text-slate-200">
+            <thead className="border-b border-slate-800 bg-slate-950/70">
+              <tr>
+                <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white">
+                  Document Name
+                </th>
+                <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white">Hash ID</th>
+                <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white">
+                  Source Entity
+                </th>
+                <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white">
+                  Timestamp
+                </th>
+                <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide text-white">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {evidenceLockerRows.map((row, index) => {
+                const isVerified = row.status === "VERIFIED";
+                return (
+                  <tr
+                    key={row.id}
+                    className={`border-b border-slate-800 ${index % 2 === 0 ? "bg-slate-900/30" : "bg-slate-950/20"}`}
+                  >
+                    <td className="px-3 py-2 font-semibold text-white">{row.name}</td>
+                    <td className="px-3 py-2 text-slate-300">{row.hash}</td>
+                    <td className="px-3 py-2 text-slate-300">{row.entity}</td>
+                    <td className="px-3 py-2 text-slate-300">{row.timestamp}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase ${
+                          isVerified ? "text-emerald-400" : "text-amber-400"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isVerified ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
+                          }`}
+                        />
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

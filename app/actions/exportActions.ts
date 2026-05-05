@@ -12,6 +12,7 @@ import {
   getCarrierBrokerRoute,
 } from "@/app/utils/brokerGateways";
 import { normalizeCarrierKey, type CarrierKey } from "@/app/utils/carrierTemplates";
+import { resolveEffectiveEvidenceChapter } from "@/app/utils/clearanceLogic";
 
 const TENANT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -260,6 +261,18 @@ export async function getBulkEvidenceBundle(
     ThreatState.CLOSED_ARCHIVED,
   ];
 
+  const tenantIndustryRow = await prisma.tenant.findUnique({
+    where: { id: tid },
+    select: { industry: true },
+  });
+  const tenantIndustry = tenantIndustryRow?.industry ?? null;
+
+  const shreddedReceipts = await prisma.auditReceipt.findMany({
+    where: { tenantId: tid },
+    select: { riskEventId: true },
+  });
+  const shreddedRiskIds = new Set(shreddedReceipts.map((r) => r.riskEventId));
+
   const events = await prisma.riskEvent.findMany({
     where: {
       tenantCompanyId: { in: companyIds },
@@ -280,6 +293,27 @@ export async function getBulkEvidenceBundle(
     orderBy: { updatedAt: "desc" },
   });
 
+  const chapterRows =
+    events.length === 0
+      ? []
+      : await prisma.evidenceChapter.findMany({
+          where: { riskEventId: { in: events.map((e) => e.id) } },
+          select: {
+            riskEventId: true,
+            isExportControlled: true,
+            requiredClearance: true,
+          },
+        });
+  const chapterByRiskId = new Map(
+    chapterRows.map((c) => [
+      c.riskEventId,
+      { isExportControlled: c.isExportControlled, requiredClearance: c.requiredClearance },
+    ]),
+  );
+
+  const RETENTION_HIGH_RISK_INDUSTRIES = new Set(["Defense", "Aerospace"]);
+  const MS_PER_DAY = 86_400_000;
+
   let totalMitigatedAle = 0n;
   let totalPotentialLoss = 0n;
   let totalLabor = 0n;
@@ -288,6 +322,9 @@ export async function getBulkEvidenceBundle(
 
   const rows: BulkEvidenceRow[] = [];
   for (const ev of events) {
+    if (shreddedRiskIds.has(ev.id)) {
+      continue;
+    }
     const b = calculateBudgetJustification(ev);
     totalMitigatedAle += b.aleCents;
     totalPotentialLoss += b.potentialLossCents;
@@ -298,6 +335,23 @@ export async function getBulkEvidenceBundle(
     const hasPdf = Boolean(ev.postMortemReportPath?.trim());
     const underwriterReady =
       hasPdf && (ev.status === ThreatState.RESOLVED || ev.status === ThreatState.CLOSED_ARCHIVED);
+
+    const persistedChapter = chapterByRiskId.get(ev.id) ?? null;
+    const exportFlags = resolveEffectiveEvidenceChapter(ev.title, tenantIndustry, persistedChapter);
+
+    let retention: BulkEvidenceRow["retention"];
+    if (tenantIndustry && RETENTION_HIGH_RISK_INDUSTRIES.has(tenantIndustry)) {
+      const daysSince = (Date.now() - ev.updatedAt.getTime()) / MS_PER_DAY;
+      if (daysSince > 365) {
+        retention = { highRiskSector: true, daysRemaining: 0, pendingShred: true };
+      } else {
+        retention = {
+          highRiskSector: true,
+          daysRemaining: Math.max(0, Math.floor(365 - daysSince)),
+          pendingShred: false,
+        };
+      }
+    }
 
     rows.push({
       riskEventId: ev.id,
@@ -313,6 +367,9 @@ export async function getBulkEvidenceBundle(
       valueCreatedCents: b.totalValueCreatedCents.toString(),
       mheHumanHours: b.mheHumanHours,
       underwriterReady,
+      isExportControlled: exportFlags.isExportControlled,
+      requiredClearance: exportFlags.requiredClearance,
+      retention,
     });
   }
 

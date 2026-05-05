@@ -1,8 +1,11 @@
 import { readFile } from "fs/promises";
 import path from "path";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { irongateInterceptRestrictedEvidenceChapterAccess } from "@/app/actions/agentActions";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { USER_CLEARANCE_COOKIE_NAME } from "@/app/utils/clearanceLogic";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +26,16 @@ export async function GET(_req: Request, ctx: { params: Promise<{ threatId: stri
   const companyId = await getCompanyIdForActiveTenant();
   if (companyId == null) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const cookieStore = await cookies();
+  const userClearance = cookieStore.get(USER_CLEARANCE_COOKIE_NAME)?.value ?? "PUBLIC";
+  const gate = await irongateInterceptRestrictedEvidenceChapterAccess({
+    riskEventId: threatId,
+    userClearance,
+  });
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.message }, { status: gate.httpStatus });
   }
 
   const row = await prisma.riskEvent.findFirst({

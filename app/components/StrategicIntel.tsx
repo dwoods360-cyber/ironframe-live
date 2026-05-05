@@ -4,16 +4,6 @@ import React, { useState, useEffect, useRef, useMemo, ChangeEvent, useTransition
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Zap, CheckCircle2, ShieldCheck, Brain, Shield, Search, ChevronDown, Info } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  Legend,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from 'recharts';
 import { useRiskStore, type PipelineThreat } from '@/app/store/riskStore';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAgentStore } from '@/app/store/agentStore';
@@ -37,6 +27,14 @@ import {
   type ThreatIntelEntry,
   threatImpactToLossM,
 } from "@/lib/simulation/threatLibrary";
+import { useTenantContext } from "@/app/context/TenantProvider";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import { getIndustryTrendData, type IndustryTrendPayload } from "@/app/actions/benchmarkActions";
+import { triggerMarketVolatilityAutoHardening } from "@/app/actions/agentActions";
+import RiskExposureTrend from "@/components/RiskExposureTrend";
+import PublicSectorProgress from "@/components/PublicSectorProgress";
+import MarketVolatilityAlert from "@/components/MarketVolatilityAlert";
+import { ExposureDefinitionHint } from "@/components/ExposureDefinitions";
 
 export default function StrategicIntel() {
   const [mounted, setMounted] = useState(false);
@@ -47,12 +45,18 @@ export default function StrategicIntel() {
   const [terminalCommand, setTerminalCommand] = useState('');
   const [terminalInput, setTerminalInput] = useState('');
   const [logs, setLogs] = useState<string[]>([]);
-  const [activeRiskTooltip, setActiveRiskTooltip] = useState<'industry' | 'current' | 'potential' | 'gap' | null>(null);
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const [activeDrillThreatId, setActiveDrillThreatId] = useState<string | null>(null);
   const [deepDiveEntry, setDeepDiveEntry] = useState<ThreatIntelEntry | null>(null);
   const [isDrillPending, startDrillTransition] = useTransition();
+  const [trendPayload, setTrendPayload] = useState<IndustryTrendPayload | null>(null);
+  const [trendLoading, setTrendLoading] = useState(false);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
+  const { activeTenantUuid } = useTenantContext();
+  const dashboardTenantUuid = useMemo(
+    () => resolveDashboardTenantUuid(activeTenantUuid),
+    [activeTenantUuid],
+  );
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
   const dashboardLiabilities = useRiskStore((state) => state.dashboardLiabilities);
@@ -92,26 +96,42 @@ export default function StrategicIntel() {
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
   const router = useRouter();
 
+  useEffect(() => {
+    let cancelled = false;
+    setTrendLoading(true);
+    void (async () => {
+      const res = await getIndustryTrendData(dashboardTenantUuid, selectedIndustry);
+      if (cancelled) return;
+      setTrendLoading(false);
+      if (!res.ok) {
+        setTrendPayload(null);
+        return;
+      }
+      setTrendPayload(res.payload);
+      if (res.payload.isMarketVolatile && res.payload.volatilityEpisodeKey) {
+        const hr = await triggerMarketVolatilityAutoHardening(
+          dashboardTenantUuid,
+          res.payload.volatilityEpisodeKey,
+          res.payload.marketVolatilityDeltaV,
+        );
+        if (!cancelled && hr.ok && hr.created > 0) {
+          addStreamMessage(
+            `> [MARKET] Auto-hardening: ${hr.created} priority validation event(s) · Ironsight/Ironlock 4h window.`,
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboardTenantUuid, selectedIndustry, addStreamMessage]);
+
   // Agent status: Healthy (green) or Alerting (red) when Kimbot sim is active for Ironsight / Ironintel
   const getAgentStatus = (agentName: string) => {
     if (isKimbotActive && (agentName === 'Ironsight' || agentName === 'Ironintel')) {
       return { label: 'Alerting', color: 'text-red-500', dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]' };
     }
     return { label: 'Healthy', color: 'text-emerald-500', dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]' };
-  };
-
-  /** Peer breach-cost baselines (USD millions) — aligned to Threat Library industry set. */
-  const industryMetrics: Record<string, number> = {
-    Healthcare: 12.1,
-    Finance: 6.8,
-    Technology: 5.3,
-    "Public Sector": 3.2,
-  };
-
-  const riskLevel = (m: number) => {
-    if (m >= 20) return { label: "CRITICAL", className: "text-red-400" };
-    if (m >= 10) return { label: "ELEVATED", className: "text-amber-400" };
-    return { label: "NORMAL", className: "text-emerald-400" };
   };
 
   const { strategicStatusLabel, strategicStatusClass, activeSimulationCount } = useMemo(() => {
@@ -380,7 +400,16 @@ export default function StrategicIntel() {
     setMounted(true);
   }, []);
 
-  const validProfileIndustries = ["Healthcare", "Finance", "Technology", "Public Sector"] as const;
+  const validProfileIndustries = [
+    "Defense",
+    "Federal Government",
+    "Aerospace",
+    "State & Local",
+    "Public Sector",
+    "Healthcare",
+    "Finance",
+    "Technology",
+  ] as const;
   useEffect(() => {
     if (!validProfileIndustries.includes(selectedIndustry as (typeof validProfileIndustries)[number])) {
       setSelectedIndustry("Healthcare");
@@ -490,18 +519,25 @@ export default function StrategicIntel() {
 
   if (!mounted) return <div className="p-4 bg-slate-900/50 animate-pulse rounded border border-slate-800 m-2">Initializing Command Center...</div>;
 
-  const trendPhases = ['T-4', 'T-3', 'T-2', 'T-1', 'Now'] as const;
+  /** Peer ALE baselines (USD millions) — GRC-Gold Strategic Intel strip. */
+  const industryMetrics: Record<string, number> = {
+    Defense: 25,
+    "Federal Government": 20,
+    Aerospace: 17,
+    "State & Local": 11,
+    "Public Sector": 15,
+    Healthcare: 12.1,
+    Finance: 18,
+    Technology: 9.5,
+  };
   const industryAverageMillions = industryMetrics[selectedIndustry] ?? 12.1;
-  const industryAverageUsd = Math.max(0, industryAverageMillions * 1_000_000);
-
   const totalCurrentRiskCents = getTotalCurrentRiskCents();
   const grcGapCents = getGrcGapCents();
   const currentRiskFormatted = formatRiskExposure(totalCurrentRiskCents, currencyScale);
   const grcGapFormatted = formatRiskExposure(grcGapCents, currencyScale);
   const currentRiskCentsBig = BigInt(totalCurrentRiskCents || "0");
-  const grcGapCentsBig = BigInt(grcGapCents || "0");
-  const currentRiskMillions = Number(currentRiskCentsBig) / 100_000_000;
   const totalVipCount = pipelineThreats.filter((t) => (t.target ?? "").toLowerCase().includes("vip")).length;
+  const currentRiskMillions = Number(currentRiskCentsBig) / 100_000_000;
   const readinessProxy = Math.max(0, Math.min(100, 100 - Math.round(currentRiskMillions)));
   const premiumMultiplierPercent = Math.max(
     0,
@@ -514,30 +550,6 @@ export default function StrategicIntel() {
   })();
   const potentialImpactCents = premiumCents + deductibleCents;
   const potentialImpactDisplay = `$${formatRiskExposure(potentialImpactCents.toString(), currencyScale)}`;
-
-  const currentRiskUsd = Math.max(0, Number(currentRiskCentsBig) / 100);
-  const potentialImpactUsd = Math.max(0, Number(potentialImpactCents) / 100);
-  const riskTrendChartData = trendPhases.map((phase, index) => {
-    const progress = index / Math.max(1, trendPhases.length - 1);
-    const currentRiskActual = Math.max(0, currentRiskUsd * (0.55 + progress * 0.45));
-    const potentialImpactCeiling = Math.max(
-      currentRiskActual,
-      currentRiskActual + (potentialImpactUsd - currentRiskActual) * (0.5 + progress * 0.5),
-    );
-    const unmitigatedRiskGap = Math.max(0, potentialImpactCeiling - currentRiskActual);
-    return {
-      phase,
-      currentRiskActual,
-      industryAverageBenchmark: industryAverageUsd,
-      potentialImpactCeiling,
-      unmitigatedRiskGap,
-    };
-  });
-
-  const currentRiskWidth = currentRiskCentsBig <= 0n ? '0%' : `${Math.min(100, Math.max(8, Math.round((currentRiskUsd / 20_000_000) * 100)))}%`;
-  const impactWidth = potentialImpactCents <= 0n ? '0%' : `${Math.min(100, Math.max(10, Math.round((potentialImpactUsd / 20_000_000) * 100)))}%`;
-  const industryAverageWidth = `${Math.min(100, Math.max(10, Math.round((industryAverageUsd / 20_000_000) * 100)))}%`;
-  const grcGapWidth = grcGapCentsBig <= 0n ? "0%" : `${Math.min(100, Math.max(8, Math.round((Number(grcGapCentsBig) / 2_000_000_000) * 100)))}%`;
 
   function agentLabel(agentId: ThreatIntelEntry["agentId"]): string {
     switch (agentId) {
@@ -601,7 +613,7 @@ export default function StrategicIntel() {
     setDeepDiveEntry(null);
   }
 
-  // Single sidebar layout: always show the master block (Industry Profile, 4-bar Risk Exposure, Dynamic Top Sector Threats, Unicode Agent Grid).
+  // Single sidebar layout: master block (Industry Profile, Risk Exposure trend chart, Top Sector Threats, Agent grid).
   // Previously a "Dark Start" branch ran when !hasActiveIntelligenceStream and showed different/older UI, so edits were not visible.
   return (
     <div className="flex h-full flex-col bg-[#050509] text-white font-sans border-r border-zinc-900 overflow-hidden">
@@ -667,50 +679,78 @@ export default function StrategicIntel() {
               onChange={(e) => setSelectedIndustry(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded text-sm mb-2 text-white outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
             >
+              <option value="Defense">Defense</option>
+              <option value="Federal Government">Federal Government</option>
+              <option value="Aerospace">Aerospace</option>
+              <option value="State & Local">State &amp; Local</option>
+              <option value="Public Sector">Public Sector</option>
               <option value="Healthcare">Healthcare</option>
               <option value="Finance">Finance</option>
               <option value="Technology">Technology</option>
-              <option value="Public Sector">Public Sector</option>
             </select>
           </div>
         )}
       </section>
 
-      {/* 2. RISK EXPOSURE METRICS (4-Bar Layout & Hover Pop-up) ? driven by selected industry */}
-      <section className="p-4 space-y-4 border-b border-zinc-900 bg-[#050509] relative group cursor-help">
-        <div className="flex justify-between items-center mb-1">
+      {/* 2. RISK EXPOSURE — benchmark trend (local ALE vs industry mean) + volatility alert */}
+      <section className="p-4 space-y-3 border-b border-zinc-900 bg-[#050509] relative">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
           <span className="text-[10px] font-bold text-zinc-600 font-mono tracking-widest">ID: 0x8F22</span>
         </div>
-        
-        <div className="space-y-3.5">
-          {[
-            { label: 'INDUSTRY AVERAGE', val: `$${industryAverageMillions.toFixed(1)}M`, color: 'bg-[#3b82f6]', text: 'text-[#3b82f6]', w: industryAverageWidth },
-            { label: 'YOUR CURRENT RISK', val: `$${currentRiskFormatted}`, color: 'bg-[#f59e0b]', text: 'text-[#f59e0b]', w: currentRiskWidth },
-            { label: 'POTENTIAL IMPACT', val: potentialImpactDisplay, color: 'bg-[#ef4444]', text: 'text-[#ef4444]', w: impactWidth },
-            { label: 'GRC GAP', val: `$${grcGapFormatted}`, color: 'bg-[#a855f7]', text: 'text-[#a855f7]', w: grcGapWidth }
-          ].map((metric) => (
-            <div key={metric.label} className="space-y-1.5">
-              <div className="flex justify-between items-end">
-                <span className="text-[11px] font-black font-sans uppercase tracking-wide text-zinc-300">{metric.label}</span>
-                <span className={`text-[12px] font-black font-sans ${metric.text}`}>{metric.val}</span>
-              </div>
-              <div className="h-[3px] w-full bg-zinc-900/80 rounded-full overflow-hidden transition-all duration-500">
-                <div className={`h-full ${metric.color} transition-all duration-500`} style={{ width: metric.w }} />
-              </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Hover Definition Pop-up Modal ? above section */}
-        <div className="absolute z-50 left-4 right-4 bottom-full mb-2 translate-y-[2in] p-3 bg-zinc-950 border border-zinc-700 shadow-2xl rounded-sm opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none">
-          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-2 border-b border-zinc-800/50 pb-1">Exposure Definitions</p>
-          <ul className="space-y-2">
-            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Industry Average:</strong>Baseline financial exposure for peer organizations in this sector.</li>
-            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Your Current Risk:</strong>Calculated real-time exposure based on active telemetry.</li>
-            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">Potential Impact:</strong>Maximum localized blast radius if vulnerabilities are exploited.</li>
-            <li className="text-[9px] leading-tight text-zinc-400 font-sans"><strong className="text-zinc-200 font-black tracking-wide mr-1">GRC Gap:</strong>Delta between current controls and compliance mandates.</li>
-          </ul>
+        <div className="space-y-1">
+          {trendLoading ? (
+            <p className="py-8 text-center text-[10px] text-zinc-500 animate-pulse">Loading benchmark trend…</p>
+          ) : (
+            <>
+              <MarketVolatilityAlert isMarketVolatile={trendPayload?.isMarketVolatile ?? false} />
+              <PublicSectorProgress activeIndustry={selectedIndustry} />
+              <div className="mb-2 rounded border border-amber-500/20 bg-zinc-950/90 px-2.5 py-2 ring-1 ring-violet-500/10">
+                <p className="mb-1.5 text-[8px] font-black uppercase tracking-widest text-amber-500/70">
+                  GRC-Gold exposure pivot
+                </p>
+                <div className="grid grid-cols-1 gap-2 text-[10px]">
+                  <div className="flex items-start justify-between gap-2 border-b border-amber-500/10 pb-2">
+                    <span className="flex min-w-0 items-center gap-1 font-black uppercase tracking-wide text-zinc-400">
+                      Industry Average
+                      <ExposureDefinitionHint definitionId="industryAverage" industryLabel={selectedIndustry} />
+                    </span>
+                    <span className="shrink-0 font-mono font-bold text-blue-400">
+                      ${industryAverageMillions.toFixed(1)}M
+                    </span>
+                  </div>
+                  <div className="flex items-start justify-between gap-2 border-b border-amber-500/10 pb-2">
+                    <span className="flex min-w-0 items-center gap-1 font-black uppercase tracking-wide text-zinc-400">
+                      Your Current Risk
+                      <ExposureDefinitionHint definitionId="currentRisk" industryLabel={selectedIndustry} />
+                    </span>
+                    <span className="shrink-0 font-mono font-bold text-amber-400">${currentRiskFormatted}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-2 border-b border-amber-500/10 pb-2">
+                    <span className="flex min-w-0 items-center gap-1 font-black uppercase tracking-wide text-zinc-400">
+                      Potential Impact
+                      <ExposureDefinitionHint definitionId="potentialImpact" industryLabel={selectedIndustry} />
+                    </span>
+                    <span className="shrink-0 font-mono font-bold text-red-400">{potentialImpactDisplay}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-1 font-black uppercase tracking-wide text-zinc-400">
+                      GRC Gap
+                      <ExposureDefinitionHint definitionId="grcGap" industryLabel={selectedIndustry} />
+                    </span>
+                    <span className="shrink-0 font-mono font-bold text-violet-400">${grcGapFormatted}</span>
+                  </div>
+                </div>
+              </div>
+              <RiskExposureTrend
+                points={trendPayload?.points ?? []}
+                currencyScale={currencyScale}
+                activeIndustry={selectedIndustry}
+                weekOverWeekChangePct={trendPayload?.weekOverWeekChangePct ?? null}
+              />
+            </>
+          )}
         </div>
       </section>
 

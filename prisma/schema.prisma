@@ -27,6 +27,17 @@ model Tenant {
   @@map("tenants")
 }
 
+/// Weekly anonymized industry mean ALE (cents) for Ironethic benchmark trend charts.
+model MarketBenchmarkSnapshot {
+  id              String   @id @default(cuid())
+  industry        String
+  averageAleCents BigInt   @map("average_ale_cents")
+  timestamp       DateTime @default(now())
+
+  @@index([industry, timestamp])
+  @@map("market_benchmark_snapshots")
+}
+
 model Company {
   id                       BigInt       @id @default(autoincrement())
   name                     String
@@ -204,10 +215,59 @@ model RiskEvent {
   postMortemReportPath     String?      @map("post_mortem_report_path")
   AuditLog                 AuditLog[]
   reasoningLogs            ReasoningLog[]
+  evidenceChapter          EvidenceChapter?
 
   @@index([tenantCompanyId])
   @@index([complianceFramework])
   @@map("SimThreatEvent")
+}
+
+/// Evidence vault chapter metadata — export control & clearance (shadow-plane RiskEvent attachment).
+model EvidenceChapter {
+  id                  String    @id @default(cuid())
+  riskEventId         String    @unique @map("risk_event_id")
+  riskEvent           RiskEvent @relation(fields: [riskEventId], references: [id], onDelete: Cascade)
+  isExportControlled  Boolean   @default(false) @map("is_export_controlled")
+  requiredClearance   String    @default("PUBLIC") @map("required_clearance")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("evidence_chapters")
+}
+
+/// Simulated PERSEC / personnel clearance elevation (Defense & Aerospace restricted chapters).
+model ClearanceRequest {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Supabase `auth.users` id (or `shadow-operator` when unauthenticated in simulation).
+  userId           String   @map("user_id")
+  riskEventId      String?  @map("risk_event_id")
+  targetClearance  String   @map("target_clearance")
+  status           String   @default("PENDING")
+  justification    String   @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([userId, status])
+  @@index([riskEventId])
+  @@map("clearance_requests")
+}
+
+/// Non-repudiable certificate of destruction (NIST 800-88 digital shred) — Ironwatch-attested.
+model AuditReceipt {
+  id                String   @id @default(cuid())
+  tenantId          String   @db.Uuid @map("tenant_id")
+  riskEventId       String   @map("risk_event_id")
+  receiptNumber     String   @unique @map("receipt_number")
+  narrative         String   @db.Text
+  receiptHashSha256 String   @map("receipt_hash_sha256")
+  titleSnapshot     String   @map("title_snapshot")
+  sectorSnapshot    String?  @map("sector_snapshot")
+  aleImpactCents    String   @map("ale_impact_cents")
+  shreddedByUserId  String   @map("shredded_by_user_id")
+  shreddedAt        DateTime @default(now()) @map("shredded_at")
+
+  @@unique([tenantId, riskEventId])
+  @@index([tenantId, shreddedAt])
+  @@map("audit_receipts")
 }
 
 /// Agentic brain — self-correction ledger (shadow `RiskEvent` plane). Confidence + escalation math are audit-facing.

@@ -29,10 +29,13 @@ import {
   normalizeIngestionDetailsToString,
 } from "@/app/utils/ingestionDetailsMerge";
 import { parseIrongateScanFromIngestionDetails } from "@/app/utils/irongateScan";
-import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
+import { getSupabaseSessionUser, resolveDispositionOperatorId } from "@/app/utils/serverAuth";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
 import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import { cookies } from "next/headers";
+import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
+import { USER_CLEARANCE_COOKIE_NAME, normalizeClearanceLevel } from "@/app/utils/clearanceLogic";
 
 const DMZ_PROMOTE_GRC_JUSTIFICATION = "Cleared and Promoted via DMZ Quarantine";
 
@@ -530,4 +533,122 @@ export async function getThreatDigitalReceiptAction(
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+const ELEVATION_TARGETS = new Set(["CONFIDENTIAL", "SECRET", "TOP_SECRET"]);
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export type SubmitClearanceElevationResult =
+  | { ok: true; requestId: string }
+  | { ok: false; error: string };
+
+/** Creates a pending simulated clearance elevation (PERSEC / Ironlock pipeline). */
+export async function submitClearanceElevationRequest(payload: {
+  targetClearance: string;
+  justification: string;
+  riskEventId?: string;
+}): Promise<SubmitClearanceElevationResult> {
+  noStore();
+  const justification = payload.justification.trim();
+  if (!justification) {
+    return { ok: false, error: "Justification is required." };
+  }
+  const normalized = normalizeClearanceLevel(payload.targetClearance);
+  if (!ELEVATION_TARGETS.has(normalized)) {
+    return { ok: false, error: "Target clearance must be CONFIDENTIAL, SECRET, or TOP_SECRET." };
+  }
+
+  const sessionUser = await getSupabaseSessionUser();
+  const userId =
+    typeof sessionUser?.id === "string" && sessionUser.id.trim().length > 0
+      ? sessionUser.id.trim()
+      : "shadow-operator";
+
+  const rid = payload.riskEventId?.trim();
+  const created = await prisma.clearanceRequest.create({
+    data: {
+      userId,
+      riskEventId: rid && rid.length > 0 ? rid : null,
+      targetClearance: normalized,
+      status: "PENDING",
+      justification,
+    },
+    select: { id: true },
+  });
+
+  return { ok: true, requestId: created.id };
+}
+
+export type ProcessClearanceRequestResult =
+  | { ok: true; approved: true; targetClearance: string; userId: string }
+  | { ok: true; approved: false }
+  | { ok: false; error: string };
+
+/**
+ * Ironlock simulation: fixed delay, ~90% approval; updates request row, resilience intel + clearance cookie on approve.
+ */
+export async function processClearanceRequest(requestId: string): Promise<ProcessClearanceRequestResult> {
+  noStore();
+  const id = requestId.trim();
+  if (!id) return { ok: false, error: "Missing request id." };
+
+  const row = await prisma.clearanceRequest.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      userId: true,
+      targetClearance: true,
+      riskEventId: true,
+    },
+  });
+  if (!row) return { ok: false, error: "Request not found." };
+  if (row.status !== "PENDING") {
+    return { ok: false, error: "Request is no longer pending." };
+  }
+
+  await sleep(5000);
+
+  const approved = Math.random() < 0.9;
+  const streamTie = row.riskEventId?.trim() || row.id;
+
+  if (!approved) {
+    await prisma.clearanceRequest.update({
+      where: { id: row.id },
+      data: { status: "DENIED" },
+      select: { id: true },
+    });
+    await recordResilienceIntelStreamLine(
+      `🤖 [IRONLOCK] | Clearance elevation denied for User [${row.userId}] after identity verification check.`,
+      streamTie,
+    );
+    return { ok: true, approved: false };
+  }
+
+  await prisma.clearanceRequest.update({
+    where: { id: row.id },
+    data: { status: "APPROVED" },
+    select: { id: true },
+  });
+
+  const level = normalizeClearanceLevel(row.targetClearance);
+  await recordResilienceIntelStreamLine(
+    `🤖 [IRONLOCK] | Clearance for User [${row.userId}] elevated to [${level}] after identity verification.`,
+    streamTie,
+  );
+
+  const cookieStore = await cookies();
+  cookieStore.set(USER_CLEARANCE_COOKIE_NAME, level, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+    httpOnly: false,
+  });
+
+  revalidatePath("/evidence");
+
+  return { ok: true, approved: true, targetClearance: level, userId: row.userId };
 }

@@ -2,6 +2,47 @@ import type { RiskEvent } from "@prisma/client";
 import { computeMheHumanHours, parseLaborTracker } from "@/app/utils/sentinelLaborTracker";
 import type { IncidentReportPayload } from "@/app/utils/incidentReportData";
 
+/**
+ * GRC Gap (dashboard): peer industry-mean ALE minus current mitigated / observed exposure.
+ * Pure BigInt subtraction in **integer cents** — no framework multipliers (NIST/ISO/SOC), no asset counts,
+ * and no double-application of regulatory uplift (those apply only in `computeBudgetCore` / budget justification).
+ *
+ * @returns `max(0n, industryAverageCents - currentMitigatedCents)` so the HUD does not show a negative gap
+ * when exposure is already below the sector baseline.
+ */
+export function calculateGrcGapCents(
+  industryAverageCents: bigint,
+  currentMitigatedCents: bigint,
+): bigint {
+  const delta = industryAverageCents - currentMitigatedCents;
+  return delta > 0n ? delta : 0n;
+}
+
+/** Sectors where zero GRC gap triggers a broker-confidence compliance premium (higher scrutiny). */
+const BROKER_CONFIDENCE_PREMIUM_SECTORS = new Set(["Defense", "Federal Government"]);
+
+/**
+ * Broker Confidence uplift: Defense and Federal tenants with **$0 GRC Gap** receive a +15% compliance premium
+ * on the base score (multiplicative, capped at 100%).
+ */
+export function applyBrokerConfidenceCompliancePremium(
+  baseConfidencePct: number,
+  selectedIndustry: string,
+  grcGapCentsDecimalString: string,
+): number {
+  if (!BROKER_CONFIDENCE_PREMIUM_SECTORS.has(selectedIndustry)) {
+    return baseConfidencePct;
+  }
+  let gap = 0n;
+  try {
+    gap = BigInt(grcGapCentsDecimalString.trim() || "0");
+  } catch {
+    return baseConfidencePct;
+  }
+  if (gap !== 0n) return baseConfidencePct;
+  return Math.min(100, Math.round(baseConfidencePct * 1.15 * 100) / 100);
+}
+
 /** Assumed fully burdened forensic analyst rate for budget narrative (USD/hr). */
 export const FORENSIC_ANALYST_HOURLY_RATE_USD = 150;
 

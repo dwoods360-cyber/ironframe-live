@@ -5,6 +5,8 @@ import { calculateInsuranceIncentive, type InsuranceIncentiveResult } from "@/ap
 
 export type InsuranceTenantModel = {
   framework: string;
+  /** Tenant `industry` for glossary / $ALE$ sector context (may be null). */
+  industry: string | null;
   hasContinuousMonitoring: boolean;
   hasDueDiligencePdfs: boolean;
   incentive: InsuranceIncentiveResult;
@@ -16,10 +18,18 @@ export type InsuranceTenantModel = {
  */
 export async function fetchInsuranceModelForTenant(activeTenantUuid: string): Promise<InsuranceTenantModel> {
   const simPlane = await readSimulationPlaneEnabled();
-  const companies = await prisma.company.findMany({
-    where: { tenantId: activeTenantUuid },
-    select: { id: true },
-  });
+
+  const [tenantRow, companies] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: activeTenantUuid },
+      select: { industry: true },
+    }),
+    prisma.company.findMany({
+      where: { tenantId: activeTenantUuid },
+      select: { id: true },
+    }),
+  ]);
+  const industry = tenantRow?.industry?.trim() || null;
   const tenantCompanyIds = companies.map((c) => c.id);
 
   if (!simPlane || tenantCompanyIds.length === 0) {
@@ -30,6 +40,7 @@ export async function fetchInsuranceModelForTenant(activeTenantUuid: string): Pr
     });
     return {
       framework: "SOC2",
+      industry,
       hasContinuousMonitoring: false,
       hasDueDiligencePdfs: false,
       incentive,
@@ -83,6 +94,7 @@ export async function fetchInsuranceModelForTenant(activeTenantUuid: string): Pr
 
   return {
     framework,
+    industry,
     hasContinuousMonitoring,
     hasDueDiligencePdfs,
     incentive,

@@ -27,7 +27,8 @@ export type ClearanceThreatRow = {
   id: string;
   title: string;
   sourceAgent: string;
-  ingestionDetails: string | null;
+  /** Production: string column; shadow sim: JSONB (`Json`). */
+  ingestionDetails: string | Prisma.JsonValue | null;
   tenantCompanyId: bigint | null;
   status: ThreatState;
   isFalsePositive: boolean;
@@ -84,7 +85,7 @@ export async function resolveClearanceThreatForActiveTenant(
     status: { in: CLEARANCE_QUEUE_STATUSES },
   };
   const threat = sim
-    ? await prisma.simThreatEvent.findFirst({ where, select: clearanceThreatSelect })
+    ? await prisma.riskEvent.findFirst({ where, select: clearanceThreatSelect })
     : await prisma.threatEvent.findFirst({ where, select: clearanceThreatSelect });
   if (!threat) {
     throw new Error("Threat not found, not in clearance queue, or tenant isolation denied.");
@@ -117,7 +118,7 @@ export async function resolveThreatForReceiptForActiveTenant(
   const sim = await readSimulationPlaneEnabled();
   const where = { id: threatId, tenantCompanyId: companyId };
   const threat = sim
-    ? await prisma.simThreatEvent.findFirst({ where, select: receiptThreatSelect })
+    ? await prisma.riskEvent.findFirst({ where, select: receiptThreatSelect })
     : await prisma.threatEvent.findFirst({ where, select: receiptThreatSelect });
   if (!threat) {
     throw new Error("Threat not found or tenant isolation denied.");

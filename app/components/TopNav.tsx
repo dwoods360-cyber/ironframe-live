@@ -51,7 +51,11 @@ export default function TopNav() {
   const isVendorOverviewRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const showPrimaryActionChips = !isAuditTrailRoute;
   const isConfigRoute = pathname === `${prefix}/config` || pathname.startsWith(`${prefix}/config/`);
-  const isEvidenceRoute = pathname === `${prefix}/evidence` || pathname.startsWith(`${prefix}/evidence/`);
+  const isEvidenceRoute =
+    pathname === "/evidence" ||
+    pathname.startsWith("/evidence/") ||
+    pathname === `${prefix}/evidence` ||
+    pathname.startsWith(`${prefix}/evidence/`);
   const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
   const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
@@ -73,7 +77,7 @@ export default function TopNav() {
     : isFrameworksRoute
       ? "GRC CORE // CONTROL MAPPING & CROSSWALK"
     : isEvidenceRoute
-      ? "EVIDENCE LOCKER"
+      ? "EVIDENCE VAULT // BULK EXPORT"
     : isIntegrityHubRoute
       ? "INTEGRITY HUB // AUDIT LEDGER"
     : isBoardReportRoute

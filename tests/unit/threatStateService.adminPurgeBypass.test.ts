@@ -44,7 +44,7 @@ describe("transitionThreatStatus RESOLVED admin purge bypass", () => {
     prismaMock.threatEvent.findUnique.mockImplementation(async (args: { select?: Record<string, boolean> }) => {
       const s = args?.select ?? {};
       if (s.status && s.tenantCompanyId && s.id) {
-        return { id: "t1", tenantCompanyId: "c1", status: ThreatState.ACTIVE };
+        return { id: "t1", tenantCompanyId: "c1", status: ThreatState.CONFIRMED };
       }
       if (s.resolutionApprovalId !== undefined) {
         return { id: "t1", tenantCompanyId: "c1", resolutionApprovalId: null };

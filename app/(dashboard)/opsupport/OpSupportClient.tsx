@@ -15,7 +15,7 @@ import { resolveOperationalDeficiencyReportAction } from "@/app/actions/operatio
 import { clearShadowPlaneLogs, teleportThreatToProduction } from "@/app/actions/teleportActions";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useAgentStore } from "@/app/store/agentStore";
-import { ThreatState } from "@prisma/client";
+import { ThreatState, type ThreatStateValue } from "@/app/types/clientSafePrismaEnums";
 import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositionReceiptBar";
 import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
 import { DiagnosticReportModal } from "@/app/components/ui/DiagnosticReportModal";
@@ -40,8 +40,8 @@ function formatAvgTtr(avgSeconds: number | null, sampleCount: number): string {
   return `${h}h ${m}m`;
 }
 
-function statusChip(status: ThreatState): string {
-  if (status === ThreatState.QUARANTINED) {
+function statusChip(status: ThreatStateValue): string {
+  if (status === ThreatState.MITIGATED) {
     return "border-rose-500/60 bg-rose-950/50 text-rose-200";
   }
   return "border-amber-500/50 bg-amber-950/40 text-amber-100";
@@ -226,7 +226,7 @@ export default function OpSupportClient({
     (deletedSimThreats: number, deletedAuditLogs: number, deletedSimulationDiagnosticLogs: number) => {
       if (shadowPurgeToastTimerRef.current) clearTimeout(shadowPurgeToastTimerRef.current);
       setShadowPurgeToast(
-        `Shadow data cleared · SimThreatEvent ${deletedSimThreats} · AuditLog ${deletedAuditLogs} · SimulationDiagnosticLog ${deletedSimulationDiagnosticLogs}`,
+        `Shadow data cleared · RiskEvent ${deletedSimThreats} · AuditLog ${deletedAuditLogs} · SimulationDiagnosticLog ${deletedSimulationDiagnosticLogs}`,
       );
       shadowPurgeToastTimerRef.current = setTimeout(() => {
         setShadowPurgeToast(null);
@@ -237,8 +237,8 @@ export default function OpSupportClient({
   );
 
   const stats = useMemo(() => {
-    const pipe = cards.filter((c) => c.status === ThreatState.PIPELINE).length;
-    const q = cards.filter((c) => c.status === ThreatState.QUARANTINED).length;
+    const pipe = cards.filter((c) => c.status === ThreatState.IDENTIFIED).length;
+    const q = cards.filter((c) => c.status === ThreatState.MITIGATED).length;
     return { total: cards.length, pipe, q };
   }, [cards]);
 
@@ -564,7 +564,7 @@ export default function OpSupportClient({
           <div className="flex flex-col gap-2 border-b border-rose-900/40 bg-gradient-to-r from-rose-950/35 via-black/40 to-rose-950/25 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-mono text-[10px] leading-relaxed text-rose-200/90">
               <span className="font-black uppercase tracking-wide text-rose-100">Purge shadow plane</span> — removes
-              duplicate or stale <code className="text-rose-300/90">SimThreatEvent</code>,{" "}
+              duplicate or stale <code className="text-rose-300/90">RiskEvent</code>,{" "}
               <code className="text-rose-300/90">SimulationDiagnosticLog</code>, and sim-flagged{" "}
               <code className="text-rose-300/90">AuditLog</code> rows for this tenant only.
             </p>

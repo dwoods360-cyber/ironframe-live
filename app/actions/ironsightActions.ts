@@ -6,7 +6,11 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
+import {
+  mergeIngestionDetailsPatch,
+  mergeIngestionDetailsPatchJson,
+  parseIngestionDetailsForMerge,
+} from '@/app/utils/ingestionDetailsMerge';
 import { updateThreatWithIntegrity } from '@/src/services/threatStateService';
 
 const IRONSIGHT_TRACE_MODEL =
@@ -147,7 +151,7 @@ type IronsightTraceRow = {
   sourceAgent: string;
   score: number;
   financialRisk_cents: bigint;
-  ingestionDetails: string | null;
+  ingestionDetails: string | Prisma.JsonValue | null;
 };
 
 const traceRowSelect = {
@@ -163,17 +167,19 @@ const traceRowSelect = {
 async function persistIronsightIngestionDetails(
   id: string,
   plane: 'prod' | 'sim',
-  nextIngestion: string,
+  nextIngestion: string | Prisma.InputJsonValue,
 ): Promise<void> {
   if (plane === 'sim') {
-    await prisma.simThreatEvent.update({
+    await prisma.riskEvent.update({
       where: { id },
       data: { ingestionDetails: nextIngestion },
     });
   } else {
+    const detailsStr =
+      typeof nextIngestion === 'string' ? nextIngestion : JSON.stringify(nextIngestion);
     await updateThreatWithIntegrity({
       threatId: id,
-      changes: { ingestionDetails: nextIngestion },
+      changes: { ingestionDetails: detailsStr },
       actorUserId: 'ironsight-agent',
       eventType: 'IRONSIGHT_INGESTION_PATCHED',
     });
@@ -189,7 +195,7 @@ async function resolveThreatRowForIronsight(id: string): Promise<{
     select: traceRowSelect,
   });
   if (prod) return { row: prod, plane: 'prod' };
-  const sim = await prisma.simThreatEvent.findUnique({
+  const sim = await prisma.riskEvent.findUnique({
     where: { id },
     select: traceRowSelect,
   });
@@ -198,7 +204,7 @@ async function resolveThreatRowForIronsight(id: string): Promise<{
 }
 
 function readChaosScenarioFromIngestion(
-  ingestionDetails: string | null | undefined,
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
 ):
   | "INTERNAL"
   | "HOME_SERVER"
@@ -212,29 +218,23 @@ function readChaosScenarioFromIngestion(
   | "PHISH_CEO_FRAUD"
   | "PHISH_IT_HELPDESK"
   | null {
-  if (!ingestionDetails || !ingestionDetails.trim()) return null;
-  try {
-    const parsed = JSON.parse(ingestionDetails) as { chaosScenario?: unknown };
-    const v =
-      typeof parsed.chaosScenario === "string"
-        ? parsed.chaosScenario.trim().toUpperCase()
-        : "";
-    return v === "INTERNAL" ||
-      v === "HOME_SERVER" ||
-      v === "REMOTE" ||
-      v === "CASCADING" ||
-      v === "CASCADING_FAILURE" ||
-      v === "CLOUD_EXFIL" ||
-      v === "REMOTE_SUPPORT" ||
-      v === "INFIL_CRED_STUFFING" ||
-      v === "INFIL_LATERAL_PIVOT" ||
-      v === "PHISH_CEO_FRAUD" ||
-      v === "PHISH_IT_HELPDESK"
-      ? v
-      : null;
-  } catch {
-    return null;
-  }
+  if (ingestionDetails == null) return null;
+  const base = parseIngestionDetailsForMerge(ingestionDetails);
+  const v =
+    typeof base.chaosScenario === "string" ? base.chaosScenario.trim().toUpperCase() : "";
+  return v === "INTERNAL" ||
+    v === "HOME_SERVER" ||
+    v === "REMOTE" ||
+    v === "CASCADING" ||
+    v === "CASCADING_FAILURE" ||
+    v === "CLOUD_EXFIL" ||
+    v === "REMOTE_SUPPORT" ||
+    v === "INFIL_CRED_STUFFING" ||
+    v === "INFIL_LATERAL_PIVOT" ||
+    v === "PHISH_CEO_FRAUD" ||
+    v === "PHISH_IT_HELPDESK"
+    ? v
+    : null;
 }
 
 /**
@@ -285,9 +285,14 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
         complianceTags: ["SOC2: CC7.1"],
         generatedAt: new Date().toISOString(),
       };
-      const nextIngestion = mergeIngestionDetailsPatch(row.ingestionDetails, {
-        aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
-      });
+      const nextIngestion =
+        plane === "sim"
+          ? mergeIngestionDetailsPatchJson(row.ingestionDetails, {
+              aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
+            })
+          : mergeIngestionDetailsPatch(row.ingestionDetails, {
+              aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
+            });
       await persistIronsightIngestionDetails(id, plane, nextIngestion);
       revalidatePath("/");
       return { success: true, aiTrace };
@@ -305,9 +310,14 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
       generatedAt: new Date().toISOString(),
     };
 
-    const nextIngestion = mergeIngestionDetailsPatch(row.ingestionDetails, {
-      aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
-    });
+    const nextIngestion =
+      plane === "sim"
+        ? mergeIngestionDetailsPatchJson(row.ingestionDetails, {
+            aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
+          })
+        : mergeIngestionDetailsPatch(row.ingestionDetails, {
+            aiTrace: aiTrace as unknown as Prisma.InputJsonValue,
+          });
 
     await persistIronsightIngestionDetails(id, plane, nextIngestion);
 
@@ -320,15 +330,21 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
 
     if (row) {
       try {
-        const nextIngestion = mergeIngestionDetailsPatch(row.ingestionDetails, {
-          aiTrace: {
-            status: 'FAILED',
-            report,
-            actions: [],
-            impactedAssets: [],
-            complianceTags: [],
-          },
-        });
+        const failedTrace = {
+          status: 'FAILED',
+          report,
+          actions: [],
+          impactedAssets: [],
+          complianceTags: [],
+        };
+        const nextIngestion =
+          plane === "sim"
+            ? mergeIngestionDetailsPatchJson(row.ingestionDetails, {
+                aiTrace: failedTrace as unknown as Prisma.InputJsonValue,
+              })
+            : mergeIngestionDetailsPatch(row.ingestionDetails, {
+                aiTrace: failedTrace as unknown as Prisma.InputJsonValue,
+              });
         await persistIronsightIngestionDetails(id, plane, nextIngestion);
       } catch (persistErr) {
         console.error('[IRONSIGHT_ERROR] Failed to persist FAILED aiTrace', persistErr);
@@ -367,7 +383,7 @@ export async function executeTraceAction(
       });
       const simRow =
         prodRow == null
-          ? await tx.simThreatEvent.findUnique({
+          ? await tx.riskEvent.findUnique({
               where: { id },
               select: { id: true, financialRisk_cents: true },
             })
@@ -383,7 +399,7 @@ export async function executeTraceAction(
       const mitigatedCents = currentCents - residualRiskCents;
 
       if (isSim) {
-        await tx.simThreatEvent.update({
+        await tx.riskEvent.update({
           where: { id },
           data: { financialRisk_cents: residualRiskCents },
         });

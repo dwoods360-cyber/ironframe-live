@@ -284,7 +284,7 @@ async function loadFinancialBlock(): Promise<BoardFinancialBlock> {
   const [capAgg, simThreatBleed, threatBleed, simLossCount, threatLossCount, remediatedSim, remediatedThreat] =
     await Promise.all([
       prisma.syntheticEmployee.aggregate({ _sum: { monetaryValue: true, totalLossIncurred: true } }),
-      prisma.simThreatEvent.aggregate({
+      prisma.riskEvent.aggregate({
         where: simLossWhereSince(thirty),
         _sum: { financialRisk_cents: true },
       }),
@@ -292,9 +292,9 @@ async function loadFinancialBlock(): Promise<BoardFinancialBlock> {
         where: simLossWhereSince(thirty),
         _sum: { financialRisk_cents: true },
       }),
-      prisma.simThreatEvent.count({ where: simLossWhereSince(thirty) }),
+      prisma.riskEvent.count({ where: simLossWhereSince(thirty) }),
       prisma.threatEvent.count({ where: simLossWhereSince(thirty) }),
-      prisma.simThreatEvent.count({
+      prisma.riskEvent.count({
         where: {
           updatedAt: { gte: thirty },
           ...LAB_REMEDIATED_FILTER,

@@ -1,9 +1,27 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
+import { subHours } from "date-fns";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { getActiveThreatWhereClause } from "@/app/utils/activeThreatsBoardQuery";
+import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
+import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
+import { incrementSentinelDeepMonitoringLabor } from "@/app/actions/sentinelLaborActions";
+import { reasoningLogIndicatesControlMapped } from "@/app/utils/reasoningLogControlMapping";
+import { calculateBudgetJustification } from "@/app/utils/grcMath";
+import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
+
+const COMMUNITY_WEIGHT = 0.1;
+
+function controlsForFramework(framework: string): string[] {
+  if (framework === "ISO27001") return ["ISO27001 Annex A.8.2"];
+  if (framework === "NIST") return ["NIST PR.AC-3"];
+  return ["SOC2 CC6.1"];
+}
 
 export type GlobalTelemetry = {
   activeExposureUsd: number;
@@ -48,7 +66,7 @@ function centsBigIntToUsd(value: bigint | null | undefined): number {
   return Number(n) / 100;
 }
 
-const MITIGATED_STATUSES: ThreatState[] = [ThreatState.DE_ACKNOWLEDGED, ThreatState.RESOLVED];
+const MITIGATED_STATUSES: ThreatState[] = [ThreatState.RESOLVED];
 
 /** Force-filter undefined/null for Prisma `in` strictness. */
 const validClearanceStatuses = CLEARANCE_QUEUE_STATUSES.filter(
@@ -77,7 +95,7 @@ export async function getGlobalTelemetry(tenantUuidOverride?: string): Promise<G
       oldestThreat,
     ] = await Promise.all([
       prisma.threatEvent.aggregate({
-        where: { ...tenantWhere, status: ThreatState.ACTIVE },
+        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
         _sum: { financialRisk_cents: true },
       }),
       prisma.threatEvent.aggregate({
@@ -94,7 +112,7 @@ export async function getGlobalTelemetry(tenantUuidOverride?: string): Promise<G
         _sum: { financialRisk_cents: true },
       }),
       prisma.threatEvent.count({
-        where: { ...tenantWhere, status: ThreatState.ACTIVE },
+        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
       }),
       prisma.threatEvent.count({
         where: { ...tenantWhere, status: { in: validClearanceStatuses } },
@@ -127,4 +145,681 @@ export async function getGlobalTelemetry(tenantUuidOverride?: string): Promise<G
     console.error("[dashboardActions] telemetry_query_error:", err);
     return NULL_TELEMETRY;
   }
+}
+
+/** JSON-safe row for Server Actions / client consumers (BigInt → string, dates ISO). */
+export type ActiveThreatSummary = {
+  id: string;
+  title: string;
+  status: ThreatState;
+  sourceAgent: string;
+  targetEntity: string;
+  score: number;
+  financialRisk_cents: string;
+  updatedAt: string;
+};
+
+/**
+ * Tenant-scoped open threats: anything not terminal (`RESOLVED` or `CLOSED_ARCHIVED`).
+ * Prefer this over `status: { not: "CLOSED_ARCHIVED" }` alone — that would still include resolved rows.
+ */
+export async function getActiveThreats(
+  tenantUuidOverride?: string,
+): Promise<ActiveThreatSummary[]> {
+  const companyId = await getCompanyIdForActiveTenant(tenantUuidOverride);
+  if (companyId == null) return [];
+
+  try {
+    const rows = await prisma.threatEvent.findMany({
+      where: {
+        tenantCompanyId: companyId,
+        status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        sourceAgent: true,
+        targetEntity: true,
+        score: true,
+        financialRisk_cents: true,
+        updatedAt: true,
+      },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      sourceAgent: r.sourceAgent,
+      targetEntity: r.targetEntity,
+      score: r.score,
+      financialRisk_cents: r.financialRisk_cents.toString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+  } catch (err) {
+    console.error("[dashboardActions] getActiveThreats_error:", err);
+    return [];
+  }
+}
+
+/** Baseline seed titles excluded from dashboard risk strip (matches `GET /api/dashboard`). */
+const DASHBOARD_EXCLUDED_BASELINE_RISK_TITLES = new Set([
+  "Schneider Electric SCADA Vulnerability",
+  "Azure Health API Exposure",
+  "Palo Alto Firewall Misconfiguration",
+]);
+
+/** JSON-safe serializer for mixed BigInt/Date payloads returned by server actions. */
+function serializeBigInt<T>(obj: T): T {
+  return JSON.parse(
+    JSON.stringify(obj, (_key, value) => (typeof value === "bigint" ? value.toString() : value)),
+  ) as T;
+}
+
+export type DashboardPayload = {
+  companies: Array<
+    Record<string, unknown> & {
+      id: unknown;
+      industry_avg_loss_cents: unknown;
+      infrastructure_val_cents: unknown;
+    }
+  >;
+  serverAuditLogs: Array<{
+    id: string;
+    action: string;
+    operatorId: string;
+    createdAt: string;
+    threatId: string | null;
+    justification: string | null;
+  }>;
+  risks: Array<{
+    id: string;
+    title: string;
+    source: string;
+    assigneeId?: string;
+    threatId: string | null;
+    score_cents: unknown;
+    company: { name: string; sector: string };
+    isSimulation: boolean;
+    ingestionDetails?: string;
+    ttlSeconds?: number;
+    threatCreatedAt?: string;
+  }>;
+  threatEvents: Array<{
+    id: string;
+    title: string;
+    sourceAgent: string;
+    status: ThreatState;
+    assigneeId: string | null;
+    /** Epic 11: primary compliance framework (shadow `RiskEvent`); production defaults to NIST for HUD. */
+    complianceFramework: string;
+    mappedControls: string[];
+    remediationStatus: string;
+    financialRiskCents: string;
+    assignmentHistory: Array<{
+      id: string;
+      action: string;
+      justification: string | null;
+      operatorId: string;
+      createdAt: string;
+    }>;
+  }>;
+  /** Sum of `financialRisk_cents` (ALE-style exposure) per asset / scope for active risk events. */
+  aleExposureByAssetCents: Record<string, string>;
+  /** Count of shadow-plane events with no mapped controls (compliance drift signal). */
+  complianceDriftOpenCount: number;
+  /** Current scrutiny density (active reasoning window). */
+  currentHeat: Record<string, { total: number; agents: Record<string, number> }>;
+  scrutinyHeatmap: Record<string, { total: number; agents: Record<string, number> }>;
+  /** Predicted scrutiny density for ghost-pulse rendering. */
+  predictiveHeat: Record<string, number>;
+  isConflictDetected: boolean;
+  ironwatchAlerts: string[];
+  /** Shadow plane: validated controls per hour (1 / mean hours from RiskEvent.createdAt to first control-mapping ReasoningLog). */
+  complianceVelocity: number | null;
+  /** Mean hours from risk-event open to first mapped-control reasoning entry (null if no samples). */
+  avgHoursToControlMapping: number | null;
+  /** Shadow plane: sum of budget `totalValueCreatedCents` for RESOLVED/CLOSED_ARCHIVED rows YTD (UTC year). */
+  totalValueMitigatedYtdCents: string;
+  /** Annual cyber insurance renewal incentive projection (cents), default $50k premium basis. */
+  projectedInsuranceSavingsCents: string;
+  insuranceModelFramework: string;
+  insuranceHasContinuousMonitoring: boolean;
+  insuranceHasDueDiligencePdfs: boolean;
+  /** Premium basis used for the projection (cents string). */
+  insuranceDefaultPremiumCents: string;
+  insuranceTotalDiscountBps: number;
+};
+
+function complianceDriftSortScore(
+  row: {
+    status: ThreatState;
+    updatedAt: Date;
+    mappedControls?: string[];
+    remediation_status?: string;
+  },
+  simPlane: boolean,
+): number {
+  let s = 0;
+  if (simPlane && (!row.mappedControls || row.mappedControls.length === 0)) s += 10_000;
+  if (row.status === ThreatState.IDENTIFIED) s += 5_000;
+  if (row.status === ThreatState.CONFIRMED) s += 3_000;
+  if (row.status === ThreatState.MITIGATED) s += 1_000;
+  if (row.remediation_status === "PENDING") s += 500;
+  return s + Math.min(999, Math.floor(row.updatedAt.getTime() / 1_000_000));
+}
+
+/**
+ * Full tenant dashboard dataset (companies, audit tail, active risks, risk-event board rows).
+ * Used by `GET /api/dashboard` — keeps Prisma off client bundles (`DashboardHomeClient` only fetches the API).
+ */
+export async function getDashboardPayloadForTenant(activeTenantUuid: string): Promise<DashboardPayload> {
+  const simPlane = await readSimulationPlaneEnabled();
+  const oneHourAgo = subHours(new Date(), 1);
+
+  const [companies, serverAuditLogs, risks, threatEvents] = await prisma.$transaction([
+    prisma.company.findMany({
+      where: { tenantId: activeTenantUuid },
+      include: {
+        policies: true,
+        risks: true,
+      },
+    }),
+    prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        action: true,
+        operatorId: true,
+        createdAt: true,
+        threatId: true,
+        justification: true,
+      },
+    }),
+    prisma.activeRisk.findMany({
+      where: { company: { tenantId: activeTenantUuid } },
+      select: {
+        id: true,
+        company_id: true,
+        title: true,
+        status: true,
+        assigneeId: true,
+        score_cents: true,
+        source: true,
+        isSimulation: true,
+        company: { select: { name: true, sector: true } },
+      },
+      orderBy: { score_cents: "desc" },
+    }),
+    simPlane
+      ? prisma.riskEvent.findMany({
+          where: getActiveThreatWhereClause() as Prisma.RiskEventWhereInput,
+          select: {
+            id: true,
+            title: true,
+            sourceAgent: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            assigneeId: true,
+            ttlSeconds: true,
+            ingestionDetails: true,
+            complianceFramework: true,
+            mappedControls: true,
+            remediation_status: true,
+            financialRisk_cents: true,
+            AuditLog: {
+              where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                action: true,
+                justification: true,
+                operatorId: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        })
+      : prisma.threatEvent.findMany({
+          where: getActiveThreatWhereClause(),
+          select: {
+            id: true,
+            title: true,
+            sourceAgent: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            assigneeId: true,
+            ttlSeconds: true,
+            ingestionDetails: true,
+            financialRisk_cents: true,
+            auditTrail: {
+              where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                action: true,
+                justification: true,
+                operatorId: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        }),
+  ]);
+
+  const threatEventsSorted = [...threatEvents].sort(
+    (a, b) =>
+      complianceDriftSortScore(
+        {
+          status: b.status,
+          updatedAt: b.updatedAt,
+          ...("mappedControls" in b ? { mappedControls: b.mappedControls } : {}),
+          ...("remediation_status" in b ? { remediation_status: b.remediation_status } : {}),
+        },
+        simPlane,
+      ) -
+      complianceDriftSortScore(
+        {
+          status: a.status,
+          updatedAt: a.updatedAt,
+          ...("mappedControls" in a ? { mappedControls: a.mappedControls } : {}),
+          ...("remediation_status" in a ? { remediation_status: a.remediation_status } : {}),
+        },
+        simPlane,
+      ),
+  );
+
+  const filteredRisks = risks.filter((r) => !DASHBOARD_EXCLUDED_BASELINE_RISK_TITLES.has(r.title));
+  const normalize = (value: string) => value.trim().toLowerCase();
+  const threatByCompositeKey = new Map<string, string>();
+  for (const t of threatEventsSorted) {
+    const key = `${normalize(t.title)}::${normalize(t.sourceAgent)}`;
+    if (!threatByCompositeKey.has(key)) {
+      threatByCompositeKey.set(key, t.id);
+    }
+  }
+  const threatByTitle = new Map<string, string>();
+  for (const t of threatEventsSorted) {
+    const key = normalize(t.title);
+    if (!threatByTitle.has(key)) {
+      threatByTitle.set(key, t.id);
+    }
+  }
+
+  const assigneeByThreatEventId = new Map<string, string | null>();
+  const ingestionDetailsByThreatId = new Map<string, string | null>();
+  const ttlSecondsByThreatId = new Map<string, number>();
+  const threatCreatedAtByThreatId = new Map<string, string>();
+  for (const t of threatEventsSorted) {
+    assigneeByThreatEventId.set(t.id, t.assigneeId);
+    ingestionDetailsByThreatId.set(
+      t.id,
+      normalizeIngestionDetailsToString(t.ingestionDetails) ?? null,
+    );
+    ttlSecondsByThreatId.set(t.id, t.ttlSeconds);
+    threatCreatedAtByThreatId.set(t.id, t.createdAt.toISOString());
+  }
+
+  const serializedRisks = filteredRisks.map((risk) => {
+    const threatId =
+      threatByCompositeKey.get(`${normalize(risk.title)}::${normalize(risk.source)}`) ??
+      threatByTitle.get(normalize(risk.title)) ??
+      null;
+    const teAssignee = threatId ? assigneeByThreatEventId.get(threatId) ?? null : null;
+    const merged = risk.assigneeId ?? teAssignee;
+    const assigneeId =
+      merged != null && String(merged).trim() !== "" ? String(merged).trim() : undefined;
+    const ingestionDetails =
+      threatId != null ? ingestionDetailsByThreatId.get(threatId) ?? undefined : undefined;
+    const ttlSeconds = threatId != null ? ttlSecondsByThreatId.get(threatId) : undefined;
+    const threatCreatedAt =
+      threatId != null ? threatCreatedAtByThreatId.get(threatId) : undefined;
+    return {
+      id: risk.id.toString(),
+      title: risk.title,
+      source: risk.source,
+      assigneeId,
+      threatId,
+      score_cents: risk.score_cents,
+      company: { name: risk.company.name, sector: risk.company.sector },
+      isSimulation: risk.isSimulation,
+      ...(ingestionDetails != null ? { ingestionDetails } : {}),
+      ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
+      ...(threatCreatedAt !== undefined ? { threatCreatedAt } : {}),
+    };
+  });
+
+  const serializedCompanies = companies.map((c) => ({
+    ...c,
+    id: c.id,
+    industry_avg_loss_cents: c.industry_avg_loss_cents ?? null,
+    infrastructure_val_cents: c.infrastructure_val_cents ?? null,
+  }));
+  const tenantCompanyIds = serializedCompanies
+    .map((c) => c.id)
+    .filter((id): id is bigint => typeof id === "bigint");
+
+  const scrutinyHeatmap: Record<string, { total: number; agents: Record<string, number> }> = {};
+  if (tenantCompanyIds.length > 0) {
+    const scrutinyRows = await prisma.reasoningLog.groupBy({
+      by: ["agentName", "targetAsset", "threatId"],
+      where: {
+        createdAt: { gte: oneHourAgo },
+        threat: { tenantCompanyId: { in: tenantCompanyIds } },
+      },
+      _count: { _all: true },
+    });
+
+    const threatIds = [...new Set(scrutinyRows.map((r) => r.threatId))];
+    const threatAssets = await prisma.riskEvent.findMany({
+      where: { id: { in: threatIds } },
+      select: { id: true, targetEntity: true },
+    });
+    const assetByThreatId = new Map(
+      threatAssets.map((row) => [row.id, row.targetEntity || "General Infrastructure"]),
+    );
+
+    for (const item of scrutinyRows) {
+      const asset =
+        (item.targetAsset?.trim() || assetByThreatId.get(item.threatId) || "General Infrastructure");
+      if (!scrutinyHeatmap[asset]) {
+        scrutinyHeatmap[asset] = { total: 0, agents: {} };
+      }
+      scrutinyHeatmap[asset].total += item._count._all;
+      scrutinyHeatmap[asset].agents[item.agentName] =
+        (scrutinyHeatmap[asset].agents[item.agentName] ?? 0) + item._count._all;
+    }
+  }
+
+  const localPredictiveHeat: Record<string, number> = {};
+  let finalPredictiveHeat: Record<string, number> = localPredictiveHeat;
+  let finalConflictDetected = false;
+  let finalIronwatchAlerts: string[] = [];
+  if (simPlane && tenantCompanyIds.length > 0) {
+    const activeSims = await prisma.riskEvent.findMany({
+      where: {
+        tenantCompanyId: { in: tenantCompanyIds },
+        status: { not: ThreatState.CLOSED_ARCHIVED },
+      },
+      select: { id: true, targetEntity: true, predictedAssets: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    for (const sim of activeSims) {
+      const assets =
+        sim.predictedAssets && typeof sim.predictedAssets === "object" && !Array.isArray(sim.predictedAssets)
+          ? (sim.predictedAssets as Record<string, unknown>)
+          : null;
+      if (!assets) continue;
+      for (const [asset, value] of Object.entries(assets)) {
+        const n = typeof value === "number" ? value : Number(value);
+        if (!Number.isFinite(n)) continue;
+        localPredictiveHeat[asset] = (localPredictiveHeat[asset] ?? 0) + n;
+      }
+    }
+    const communityPredictiveHeat: Record<string, number> = {};
+    // Community intelligence weighted contribution: Wc * credibilityScore * heatValue
+    const communityPatterns = await prisma.communityIntelligence.findMany({
+      where: { active: true },
+      select: { patternData: true, credibilityScore: true },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
+    for (const row of communityPatterns) {
+      const patterns =
+        row.patternData && typeof row.patternData === "object" && !Array.isArray(row.patternData)
+          ? (row.patternData as Record<string, unknown>)
+          : null;
+      if (!patterns) continue; // forensic guardrail: empty/invalid community payload is skipped safely
+
+      const credibility =
+        typeof row.credibilityScore === "number" && Number.isFinite(row.credibilityScore)
+          ? row.credibilityScore
+          : 1.0;
+      const weight = COMMUNITY_WEIGHT * credibility;
+
+      for (const [asset, value] of Object.entries(patterns)) {
+        const n = typeof value === "number" ? value : Number(value);
+        if (!Number.isFinite(n)) continue;
+        communityPredictiveHeat[asset] = (communityPredictiveHeat[asset] ?? 0) + n * weight;
+      }
+    }
+
+    const predictiveHeatMerged: Record<string, number> = {};
+    const ironwatchAlerts: string[] = [];
+    const anomalyLogs: Array<{ threatId: string; targetAsset: string; variancePct: number }> = [];
+    const allAssets = new Set<string>([
+      ...Object.keys(localPredictiveHeat),
+      ...Object.keys(communityPredictiveHeat),
+    ]);
+    for (const asset of allAssets) {
+      const local = localPredictiveHeat[asset] ?? 0;
+      const community = communityPredictiveHeat[asset] ?? 0;
+      const varianceRatio = Math.abs(local - community) / Math.max(local, 1);
+      if (varianceRatio > 0.5) {
+        const variancePct = Math.round(varianceRatio * 10000) / 100;
+        ironwatchAlerts.push(
+          `🤖 [IRONWATCH_ANOMALY_DETECTED] Significant divergence detected between local prediction math and community intelligence. Variance: ${variancePct.toFixed(
+            2,
+          )}%. Quarantining community influence for Asset: ${asset}.`,
+        );
+        // Quarantine community influence this cycle (protect local baseline).
+        predictiveHeatMerged[asset] = local;
+        const anchor = activeSims.find((sim) => sim.targetEntity === asset) ?? activeSims[0];
+        if (anchor?.id) {
+          anomalyLogs.push({ threatId: anchor.id, targetAsset: asset, variancePct });
+        }
+      } else {
+        predictiveHeatMerged[asset] = local + community;
+      }
+    }
+
+    if (anomalyLogs.length > 0) {
+      await prisma.reasoningLog.createMany({
+        data: anomalyLogs.map((log) => ({
+          threatId: log.threatId,
+          agentName: "Ironwatch",
+          targetAsset: log.targetAsset,
+          escalationLogic: "IRONWATCH_CONFLICT_ALERT | variance(local,community) > 50%",
+          plan: {
+            severity: "HIGH",
+            variancePct: log.variancePct,
+            action: "COMMUNITY_INFLUENCE_QUARANTINED",
+          } satisfies Prisma.JsonObject,
+          reasoning:
+            `🤖 [IRONWATCH_ANOMALY_DETECTED] Significant divergence detected between local prediction math and community intelligence. ` +
+            `Variance: ${log.variancePct.toFixed(2)}%. Quarantining community influence for Asset: ${log.targetAsset}.`,
+          confidence: 0.97,
+          isCorrection: true,
+          operationalMode: "AUTONOMOUS",
+        })),
+      });
+      for (const log of anomalyLogs) {
+        await incrementSentinelDeepMonitoringLabor(log.threatId, "Ironwatch", 1);
+      }
+    }
+
+    finalPredictiveHeat = predictiveHeatMerged;
+    finalConflictDetected = ironwatchAlerts.length > 0;
+    finalIronwatchAlerts = ironwatchAlerts;
+  }
+  type AuditSlice = {
+    id: string;
+    action: string;
+    justification: string | null;
+    operatorId: string;
+    createdAt: Date;
+  };
+
+  const complianceDriftOpenCount = simPlane
+    ? threatEventsSorted.filter(
+        (t) => "mappedControls" in t && Array.isArray(t.mappedControls) && t.mappedControls.length === 0,
+      ).length
+    : 0;
+
+  let aleExposureByAssetCents: Record<string, string> = {};
+  if (tenantCompanyIds.length > 0) {
+    const aleRows = simPlane
+      ? await prisma.riskEvent.findMany({
+          where: {
+            tenantCompanyId: { in: tenantCompanyIds },
+            status: { not: ThreatState.CLOSED_ARCHIVED },
+          },
+          select: { targetEntity: true, financialRisk_cents: true },
+        })
+      : await prisma.threatEvent.findMany({
+          where: {
+            tenantCompanyId: { in: tenantCompanyIds },
+            status: { not: ThreatState.CLOSED_ARCHIVED },
+          },
+          select: { targetEntity: true, financialRisk_cents: true },
+        });
+    const acc = new Map<string, bigint>();
+    for (const r of aleRows) {
+      const asset = r.targetEntity?.trim() || "General Infrastructure";
+      acc.set(asset, (acc.get(asset) ?? 0n) + r.financialRisk_cents);
+    }
+    aleExposureByAssetCents = Object.fromEntries([...acc.entries()].map(([k, v]) => [k, v.toString()]));
+  }
+
+  let complianceVelocity: number | null = null;
+  let avgHoursToControlMapping: number | null = null;
+  if (simPlane && tenantCompanyIds.length > 0) {
+    const reForVelocity = await prisma.riskEvent.findMany({
+      where: { tenantCompanyId: { in: tenantCompanyIds } },
+      select: { id: true, createdAt: true },
+    });
+    if (reForVelocity.length > 0) {
+      const ids = reForVelocity.map((e) => e.id);
+      const velocityLogs = await prisma.reasoningLog.findMany({
+        where: { threatId: { in: ids } },
+        orderBy: { createdAt: "asc" },
+        select: {
+          threatId: true,
+          createdAt: true,
+          plan: true,
+          escalationLogic: true,
+          reasoning: true,
+          agentName: true,
+        },
+      });
+      const createdMs = new Map(reForVelocity.map((e) => [e.id, e.createdAt.getTime()]));
+      const firstMapMs = new Map<string, number>();
+      for (const log of velocityLogs) {
+        if (firstMapMs.has(log.threatId)) continue;
+        if (!reasoningLogIndicatesControlMapped(log)) continue;
+        firstMapMs.set(log.threatId, log.createdAt.getTime());
+      }
+      const deltasHours: number[] = [];
+      for (const [tid, mapMs] of firstMapMs) {
+        const c0 = createdMs.get(tid);
+        if (c0 == null) continue;
+        const h = (mapMs - c0) / 3_600_000;
+        if (h >= 0 && Number.isFinite(h)) deltasHours.push(h);
+      }
+      if (deltasHours.length > 0) {
+        const sum = deltasHours.reduce((a, b) => a + b, 0);
+        avgHoursToControlMapping = sum / deltasHours.length;
+        complianceVelocity = avgHoursToControlMapping > 0 ? 1 / avgHoursToControlMapping : null;
+      }
+    }
+  }
+
+  let totalValueMitigatedYtdCents = "0";
+  if (simPlane && tenantCompanyIds.length > 0) {
+    const ytdStart = new Date();
+    ytdStart.setUTCMonth(0, 1);
+    ytdStart.setUTCHours(0, 0, 0, 0);
+    const closedYtd = await prisma.riskEvent.findMany({
+      where: {
+        tenantCompanyId: { in: tenantCompanyIds },
+        status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+        updatedAt: { gte: ytdStart },
+      },
+      select: {
+        financialRisk_cents: true,
+        complianceFramework: true,
+        ingestionDetails: true,
+      },
+    });
+    let ytdAcc = 0n;
+    for (const ev of closedYtd) {
+      ytdAcc += calculateBudgetJustification(ev).totalValueCreatedCents;
+    }
+    totalValueMitigatedYtdCents = ytdAcc.toString();
+  }
+
+  const insuranceModel = await fetchInsuranceModelForTenant(activeTenantUuid);
+
+  const threatEventsPayload = threatEventsSorted.map((t) => {
+    const auditTrail: AuditSlice[] =
+      "auditTrail" in t && Array.isArray(t.auditTrail)
+        ? t.auditTrail
+        : "AuditLog" in t && Array.isArray((t as { AuditLog?: AuditSlice[] }).AuditLog)
+          ? (t as { AuditLog: AuditSlice[] }).AuditLog
+          : [];
+    const complianceFramework =
+      simPlane && "complianceFramework" in t ? String(t.complianceFramework) : "NIST";
+    const mappedControls =
+      simPlane && "mappedControls" in t && Array.isArray(t.mappedControls)
+        ? t.mappedControls.length > 0
+          ? t.mappedControls
+          : controlsForFramework(complianceFramework)
+        : [];
+    const remediationStatus =
+      simPlane && "remediation_status" in t ? String(t.remediation_status) : "PENDING";
+    const financialRiskCents =
+      "financialRisk_cents" in t ? (t.financialRisk_cents as bigint).toString() : "0";
+    return {
+      id: t.id,
+      title: t.title,
+      sourceAgent: t.sourceAgent,
+      status: t.status,
+      assigneeId: t.assigneeId ?? null,
+      complianceFramework,
+      mappedControls,
+      remediationStatus,
+      financialRiskCents,
+      assignmentHistory: auditTrail.map((log) => ({
+        id: log.id,
+        action: log.action,
+        justification: log.justification,
+        operatorId: log.operatorId,
+        createdAt: log.createdAt.toISOString(),
+      })),
+    };
+  });
+
+  return serializeBigInt({
+    companies: serializedCompanies,
+    serverAuditLogs: serverAuditLogs.map((row) => ({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    risks: serializedRisks,
+    threatEvents: threatEventsPayload,
+    aleExposureByAssetCents,
+    complianceDriftOpenCount,
+    currentHeat: scrutinyHeatmap,
+    scrutinyHeatmap,
+    predictiveHeat: finalPredictiveHeat,
+    isConflictDetected: finalConflictDetected,
+    ironwatchAlerts: finalIronwatchAlerts,
+    complianceVelocity,
+    avgHoursToControlMapping,
+    totalValueMitigatedYtdCents,
+    projectedInsuranceSavingsCents: insuranceModel.incentive.totalEstimatedSavings_cents.toString(),
+    insuranceModelFramework: insuranceModel.framework,
+    insuranceHasContinuousMonitoring: insuranceModel.hasContinuousMonitoring,
+    insuranceHasDueDiligencePdfs: insuranceModel.hasDueDiligencePdfs,
+    insuranceDefaultPremiumCents: insuranceModel.incentive.basePremium_cents.toString(),
+    insuranceTotalDiscountBps: insuranceModel.incentive.totalDiscountBps,
+  });
 }

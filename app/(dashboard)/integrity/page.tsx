@@ -2,7 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import IntegrityAleHeroCard from "@/app/components/integrity/IntegrityAleHeroCard";
 import IntegrityHubClient from "@/app/components/integrity/IntegrityHubClient";
 import { fetchResolvedChaosLedgerRows } from "@/app/lib/integrityLedgerServer";
-import { readIntegrityVaultSnapshot } from "@/app/lib/integrityVaultServer";
+import { readIntegrityVaultSnapshotWithRegistry } from "@/app/lib/integrityVaultServer";
 import { readShadowSimulatorArmSnapshot } from "@/app/lib/shadowSimulatorArmServer";
 import type { IntegrityHubShadowArmState, IntegrityHubSyntheticTarget } from "@/app/types/integrityVault";
 import { toIntegrityHubSyntheticTarget } from "@/app/lib/integritySyntheticTargetsSerialize";
@@ -33,7 +33,7 @@ export const metadata = {
 export default async function IntegrityPage() {
   noStore();
   const [initialVault, ledgerRows, syntheticTargets, shadowArmState] = await Promise.all([
-    readIntegrityVaultSnapshot(),
+    readIntegrityVaultSnapshotWithRegistry(),
     fetchResolvedChaosLedgerRows(),
     (async (): Promise<IntegrityHubSyntheticTarget[]> => {
       try {
@@ -63,11 +63,13 @@ export default async function IntegrityPage() {
   ]);
 
   const totalMitigated = formatAleUsdFromCents(ALE_MITIGATED_PLACEHOLDER_CENTS);
+  const serverTimeEpochMs = Date.now();
 
   return (
     <div className="min-h-0 bg-slate-950 px-4 pt-2 pb-3 text-slate-100 md:px-8 md:pt-2">
       <div className="mx-auto w-full max-w-[min(100%,96rem)]">
         <IntegrityHubClient
+          serverTimeEpochMs={serverTimeEpochMs}
           initialVault={initialVault}
           ledgerRows={ledgerRows}
           syntheticTargets={syntheticTargets}

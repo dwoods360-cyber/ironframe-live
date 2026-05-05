@@ -78,6 +78,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const [drillRunCount, setDrillRunCount] = useState(0);
   const [drillDefeatedCount, setDrillDefeatedCount] = useState(0);
   const [feedTelemetryActiveAt, setFeedTelemetryActiveAt] = useState<number>(Date.now());
+  const [isMounted, setIsMounted] = useState(false);
   const [irongateClaimFlash, setIrongateClaimFlash] = useState(false);
   const isSimulationActive = useSystemConfigStore().isSimulationMode;
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
@@ -201,6 +202,19 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     window.addEventListener("ironframe:irongate-claim-attestation", onClaim);
     return () => window.removeEventListener("ironframe:irongate-claim-attestation", onClaim);
   }, []);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const formattedResubscribeTime = useMemo(() => {
+    if (!isMounted) return null;
+    return new Date(feedTelemetryActiveAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }, [isMounted, feedTelemetryActiveAt]);
 
   async function handleReviewAction(approvalId: string, decision: "APPROVE" | "REJECT") {
     setReviewBusyId(approvalId);
@@ -491,7 +505,17 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           19-agent workforce heartbeat — drill-driven alert paths.
         </p>
         <p className="mt-1 text-[8px] text-zinc-600">
-          Last resubscribe: {new Date(feedTelemetryActiveAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          Last resubscribe:{" "}
+          {formattedResubscribeTime != null ? (
+            formattedResubscribeTime
+          ) : (
+            <span
+              className="font-mono tabular-nums animate-pulse text-zinc-500"
+              aria-label="Syncing telemetry clock"
+            >
+              --:--:--
+            </span>
+          )}
         </p>
         <div
           className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1.5"

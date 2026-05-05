@@ -311,7 +311,7 @@ describe("Epic 11 bank vault positive chain", () => {
       tenantCompanyId: 9001n,
       targetEntity: "target@ironframe.local",
       ingestionDetails: "{}",
-      status: "ACTIVE",
+      status: "CONFIRMED",
       resolutionApprovalId: null,
       financialRisk_cents: 920_000_000n,
       title: "Vault chain success threat",

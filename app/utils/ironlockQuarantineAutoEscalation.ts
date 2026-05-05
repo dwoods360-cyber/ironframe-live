@@ -31,15 +31,15 @@ const QUARANTINE_BODY_SUMMARY =
   "Ironlock has automatically quarantined this threat due to a security protocol breach.";
 
 /**
- * Brain-to-voice: when a threat enters QUARANTINED, notify via Ironcast (Resend + React Email).
- * No-op if already quarantined or no recipients configured.
+ * Brain-to-voice: when a threat enters `MITIGATED` (Ironlock quarantine), notify via Ironcast.
+ * No-op if already in `MITIGATED` or no recipients configured.
  */
 export async function dispatchIronlockQuarantineAutoEscalation(params: {
   threatId: string;
   tenantUuid: string;
   previousStatus: ThreatState | null;
 }): Promise<void> {
-  if (params.previousStatus === ThreatState.QUARANTINED) return;
+  if (params.previousStatus === ThreatState.MITIGATED) return;
 
   logStructuredEvent("Ironlock", "auto_escalation_triggered", { threatId: params.threatId });
 

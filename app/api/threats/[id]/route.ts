@@ -68,7 +68,7 @@ const simThreatDetailSelect = {
 } as const;
 
 type ProdThreatDetail = Prisma.ThreatEventGetPayload<{ select: typeof threatDetailSelect }>;
-type SimThreatScalars = Prisma.SimThreatEventGetPayload<{ select: typeof simThreatDetailSelect }>;
+type SimThreatScalars = Prisma.RiskEventGetPayload<{ select: typeof simThreatDetailSelect }>;
 type ApiThreatDetail =
   | ProdThreatDetail
   | (SimThreatScalars & { notes: []; auditTrail: []; agentReasonings: [] });
@@ -103,7 +103,7 @@ export async function GET(
       if (prod) {
         threatRow = prod;
       } else {
-        const sim = await prisma.simThreatEvent.findFirst({
+        const sim = await prisma.riskEvent.findFirst({
           where: { id, tenantCompanyId },
           select: simThreatDetailSelect,
         });
@@ -120,7 +120,7 @@ export async function GET(
       if (prod) {
         threatRow = prod;
       } else {
-        const sim = await prisma.simThreatEvent.findUnique({
+        const sim = await prisma.riskEvent.findUnique({
           where: { id },
           select: simThreatDetailSelect,
         });

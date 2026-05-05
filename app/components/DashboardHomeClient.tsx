@@ -15,10 +15,17 @@ import { useTenantContext } from '../context/TenantProvider';
 import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
+import { useAgentStore } from '../store/agentStore';
 import { useSystemConfigStore } from '../store/systemConfigStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 import IrontechLeftPaneControls from './IrontechLeftPaneControls';
+import ClockDriftBanner from './ClockDriftBanner';
+import ClockDriftMonitor from './ClockDriftMonitor';
+import SentinelIntakeForm from '@/components/SentinelIntakeForm';
+import RiskEventCard from '@/components/RiskEventCard';
+import BudgetJustification from '@/components/BudgetJustification';
+import { formatCentsToUSD } from '@/app/utils/formatCentsToUSD';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -41,6 +48,7 @@ type DashboardData = {
     operatorId: string;
     createdAt: string;
     threatId: string | null;
+    justification: string | null;
   }>;
   risks: Array<{
     id: string;
@@ -59,7 +67,12 @@ type DashboardData = {
     id: string;
     title: string;
     sourceAgent: string;
+    status?: string;
     assigneeId: string | null;
+    complianceFramework?: string;
+    mappedControls?: string[];
+    remediationStatus?: string;
+    financialRiskCents?: string;
     assignmentHistory?: Array<{
       id: string;
       action: string;
@@ -68,18 +81,37 @@ type DashboardData = {
       createdAt: string;
     }>;
   }>;
+  aleExposureByAssetCents?: Record<string, string>;
+  complianceDriftOpenCount?: number;
+  scrutinyHeatmap?: Record<string, { total: number; agents: Record<string, number> }>;
+  currentHeat?: Record<string, { total: number; agents: Record<string, number> }>;
+  predictiveHeat?: Record<string, number>;
+  isConflictDetected?: boolean;
+  ironwatchAlerts?: string[];
+  complianceVelocity?: number | null;
+  avgHoursToControlMapping?: number | null;
+  /** Sum of budget-justification value (cents) for closed YTD shadow RiskEvents — JSON string for BigInt safety. */
+  totalValueMitigatedYtdCents?: string;
+  projectedInsuranceSavingsCents?: string;
+  insuranceModelFramework?: string;
+  insuranceHasContinuousMonitoring?: boolean;
+  insuranceHasDueDiligencePdfs?: boolean;
+  insuranceDefaultPremiumCents?: string;
+  insuranceTotalDiscountBps?: number;
 };
 
 type Props = {
   /** Server-rendered Enterprise Risk Posture strip (async RSC child). */
   children: ReactNode;
+  /** Request-time epoch from RSC — client compares for GRC clock drift HUD. */
+  serverTimeEpochMs?: number;
 };
 
 /**
- * Main Ops shell — primary “ear” for `ThreatEvent` / `SimThreatEvent` Realtime (cards + RISK INGESTION terminal), tenant-scoped.
- * See `useDashboardThreatRealtime` (postgres_changes on `public.ThreatEvent` or `SimThreatEvent` when simulation mode is on).
+ * Main Ops shell — primary “ear” for production `ThreatEvent` and shadow `RiskEvent` (DB table `SimThreatEvent`) realtime, tenant-scoped.
+ * See `useDashboardThreatRealtime` (postgres_changes on `ThreatEvent` or `SimThreatEvent` when simulation mode is on).
  */
-export default function DashboardHomeClient({ children }: Props) {
+export default function DashboardHomeClient({ children, serverTimeEpochMs }: Props) {
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const { tenantFetch, activeTenantUuid } = useTenantContext();
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
@@ -91,6 +123,10 @@ export default function DashboardHomeClient({ children }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
+  const [scrutinyView, setScrutinyView] = useState<"TOTAL_WORKFORCE" | "AGENT_FOCUS">("TOTAL_WORKFORCE");
+  const [focusedAgent, setFocusedAgent] = useState<string>("Ironsight");
+  const scrutinySignatureRef = useRef<string>("");
+  const forecastSignatureRef = useRef<string>("");
   const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const isLaunchingRef = useRef(false);
@@ -212,6 +248,129 @@ export default function DashboardHomeClient({ children }: Props) {
     }));
   }, [data?.serverAuditLogs]);
 
+  const scrutinyHeatmap = data?.currentHeat ?? data?.scrutinyHeatmap ?? {};
+  const predictiveHeat = data?.predictiveHeat ?? {};
+  const aleExposureByAssetCents = data?.aleExposureByAssetCents ?? {};
+  const complianceDriftOpenCount = data?.complianceDriftOpenCount ?? 0;
+  const ironwatchAlerts = data?.ironwatchAlerts ?? [];
+  const isConflictDetected = data?.isConflictDetected === true;
+  const complianceVelocity = data?.complianceVelocity ?? null;
+  const avgHoursToControlMapping = data?.avgHoursToControlMapping ?? null;
+  const totalValueMitigatedYtdCents = data?.totalValueMitigatedYtdCents ?? "0";
+  const projectedInsuranceSavingsCents = data?.projectedInsuranceSavingsCents ?? "0";
+  const insuranceModelFramework = data?.insuranceModelFramework ?? "SOC2";
+  const insuranceHasContinuousMonitoring = data?.insuranceHasContinuousMonitoring === true;
+  const insuranceHasDueDiligencePdfs = data?.insuranceHasDueDiligencePdfs === true;
+  const insuranceDefaultPremiumCents = data?.insuranceDefaultPremiumCents ?? "5000000";
+  const insuranceDiscountPct =
+    data?.insuranceTotalDiscountBps != null && Number.isFinite(data.insuranceTotalDiscountBps)
+      ? (data.insuranceTotalDiscountBps / 100).toFixed(2)
+      : null;
+  const scrutinyAgentNames = useMemo(() => {
+    const names = new Set<string>();
+    Object.values(scrutinyHeatmap).forEach((asset) => {
+      Object.keys(asset.agents ?? {}).forEach((agent) => {
+        if (agent.trim()) names.add(agent);
+      });
+    });
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }, [scrutinyHeatmap]);
+
+  useEffect(() => {
+    if (scrutinyAgentNames.length === 0) return;
+    if (!scrutinyAgentNames.includes(focusedAgent)) {
+      setFocusedAgent(scrutinyAgentNames[0]);
+    }
+  }, [scrutinyAgentNames, focusedAgent]);
+
+  const maxAleCentsBigInt = useMemo(() => {
+    const vals = Object.values(aleExposureByAssetCents).map((s) => {
+      try {
+        return BigInt(s || "0");
+      } catch {
+        return 0n;
+      }
+    });
+    return vals.reduce((m, v) => (v > m ? v : m), 0n);
+  }, [aleExposureByAssetCents]);
+
+  const scrutinyCards = useMemo(() => {
+    const keys = new Set<string>([
+      ...Object.keys(scrutinyHeatmap),
+      ...Object.keys(predictiveHeat),
+      ...Object.keys(aleExposureByAssetCents),
+    ]);
+    return [...keys]
+      .map((asset) => {
+        const payload = scrutinyHeatmap[asset] ?? { total: 0, agents: {} };
+        const focusHeat =
+          scrutinyView === "TOTAL_WORKFORCE"
+            ? payload.total
+            : (payload.agents?.[focusedAgent] ?? 0);
+        let aleCents = 0n;
+        try {
+          aleCents = BigInt(aleExposureByAssetCents[asset] ?? "0");
+        } catch {
+          aleCents = 0n;
+        }
+        return {
+          asset,
+          total: payload.total,
+          agents: payload.agents ?? {},
+          focusHeat,
+          predicted: predictiveHeat[asset] ?? 0,
+          aleCents,
+        };
+      })
+      .sort((a, b) => {
+        const aleOrder = Number(b.aleCents - a.aleCents);
+        if (aleOrder !== 0) return aleOrder;
+        return (b.focusHeat + b.predicted) - (a.focusHeat + a.predicted);
+      });
+  }, [scrutinyHeatmap, predictiveHeat, scrutinyView, focusedAgent, aleExposureByAssetCents]);
+  const sentinelAssetOptions = useMemo(
+    () => scrutinyCards.map((card) => card.asset).filter(Boolean),
+    [scrutinyCards],
+  );
+
+  useEffect(() => {
+    const signature = JSON.stringify(scrutinyHeatmap);
+    if (!signature || signature === "{}") return;
+    if (signature === scrutinySignatureRef.current) return;
+    scrutinySignatureRef.current = signature;
+
+    const hottest = scrutinyCards[0];
+    if (!hottest || hottest.total <= 0) return;
+
+    const topAgents = Object.entries(hottest.agents)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([name]) => name);
+    const topAgentLine =
+      topAgents.length >= 2
+        ? `${topAgents[0]} and ${topAgents[1]}`
+        : topAgents[0] ?? "core workforce";
+
+    useAgentStore.getState().addStreamMessage(
+      `🤖 [GRC_SCRUTINY] | Exposure map updated. High reasoning density on '${hottest.asset}'. ${topAgentLine} recorded ${hottest.total} cycles in the last 60 minutes (resilience audit telemetry).`,
+    );
+  }, [scrutinyHeatmap, scrutinyCards]);
+
+  useEffect(() => {
+    const signature = JSON.stringify(predictiveHeat);
+    if (!signature || signature === "{}") return;
+    if (signature === forecastSignatureRef.current) return;
+    forecastSignatureRef.current = signature;
+
+    const top = Object.entries(predictiveHeat).sort((a, b) => b[1] - a[1])[0];
+    if (!top) return;
+    const [asset, score] = top;
+    const pct = Math.max(1, Math.min(99, Math.round(score)));
+    useAgentStore.getState().addStreamMessage(
+      `🤖 [FORECAST_INITIATED] | Ironsight projects a ${pct}% probability of threat lateral movement to '${asset}'. Workforce pre-positioning scrutiny to mitigate predictive blast radius.`,
+    );
+  }, [predictiveHeat]);
+
   if (loading) {
     return (
       <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
@@ -248,7 +407,7 @@ export default function DashboardHomeClient({ children }: Props) {
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-slate-800 bg-slate-950"
           data-testid="dashboard-main"
           aria-busy
-          aria-label="Loading pipeline and active risks"
+          aria-label="Loading pipeline and active risk posture"
         >
           <div className="border-b border-slate-800 px-6 pt-4">
             <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
@@ -302,6 +461,9 @@ export default function DashboardHomeClient({ children }: Props) {
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
       <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
+        {typeof serverTimeEpochMs === 'number' ? (
+          <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
+        ) : null}
         <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
         <LiabilityAlertToast />
         <RecordExpiredToast />
@@ -331,6 +493,22 @@ export default function DashboardHomeClient({ children }: Props) {
             </div>
           </div>
         ) : null}
+        {isConflictDetected && ironwatchAlerts.length > 0 ? (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="fixed top-[8.5rem] left-1/2 z-[99] w-[min(96vw,40rem)] -translate-x-1/2 rounded-lg border border-amber-500/70 bg-amber-950/90 px-4 py-3 shadow-[0_0_20px_rgba(245,158,11,0.25)]"
+          >
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+              Compliance drift signal (Ironwatch)
+            </p>
+            {ironwatchAlerts.slice(0, 2).map((msg, idx) => (
+              <p key={`${idx}-${msg.slice(0, 24)}`} className="mt-1 text-[11px] leading-relaxed text-amber-100">
+                {msg}
+              </p>
+            ))}
+          </div>
+        ) : null}
         <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
           {!loading && data ? (
             <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
@@ -346,8 +524,201 @@ export default function DashboardHomeClient({ children }: Props) {
           className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
           data-testid="dashboard-main"
         >
+          {typeof serverTimeEpochMs === "number" ? (
+            <ClockDriftBanner
+              serverTimeEpochMs={serverTimeEpochMs}
+              className="sticky top-0 z-[49] mx-4 mt-3"
+            />
+          ) : null}
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
           <Header tenantNames={companies.map((c) => c.name)} />
+          <section
+            aria-labelledby="scrutiny-heatmap-heading"
+            className="border-b border-slate-800 bg-slate-950/70 px-6 py-4"
+          >
+            {complianceDriftOpenCount > 0 ? (
+              <div className="mb-3 rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[10px] text-amber-100/95">
+                <span className="font-bold uppercase tracking-wide text-amber-300">Compliance drift — </span>
+                {complianceDriftOpenCount} risk event{complianceDriftOpenCount === 1 ? "" : "s"} lack mapped controls (SOC 2 / ISO 27001 / NIST). Prioritize control mapping before operational alerts.
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <h2
+                id="scrutiny-heatmap-heading"
+                className="text-xs font-black uppercase tracking-wider text-cyan-300"
+              >
+                GRC ALE exposure map
+              </h2>
+              <div
+                className="rounded border border-violet-800/50 bg-violet-950/35 px-3 py-2 text-[10px] text-violet-100/95"
+                title="Validated controls per hour (shadow plane): inverse of mean hours to first control-mapping ReasoningLog"
+              >
+                <p className="font-black uppercase tracking-wide text-violet-300/90">Compliance velocity</p>
+                <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-violet-100">
+                  {complianceVelocity != null && Number.isFinite(complianceVelocity)
+                    ? `${complianceVelocity.toFixed(2)} ctl/hr`
+                    : "—"}
+                </p>
+                {avgHoursToControlMapping != null && Number.isFinite(avgHoursToControlMapping) ? (
+                  <p className="mt-0.5 text-[9px] text-violet-300/80">
+                    Avg. map latency: {avgHoursToControlMapping.toFixed(1)}h
+                  </p>
+                ) : null}
+              </div>
+              {isSimulationMode ? (
+                <div
+                  className="rounded border border-emerald-800/50 bg-emerald-950/35 px-3 py-2 text-[10px] text-emerald-100/95"
+                  title="Year-to-date sum of budget justification value (potential loss avoided minus modeled analyst labor) for RESOLVED and CLOSED_ARCHIVED risk events"
+                >
+                  <p className="font-black uppercase tracking-wide text-emerald-300/90">Value mitigated (YTD)</p>
+                  <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-emerald-100">
+                    {formatCentsToUSD(totalValueMitigatedYtdCents)}
+                  </p>
+                </div>
+              ) : null}
+              {isSimulationMode ? (
+                <div
+                  className="rounded border border-teal-800/50 bg-teal-950/35 px-3 py-2 text-[10px] text-teal-100/95"
+                  title="Annual cyber insurance renewal incentive (illustrative): modeled % off default $50k premium using framework tier, Ironwatch activity (last hour), and due diligence PDFs on file"
+                >
+                  <p className="font-black uppercase tracking-wide text-teal-300/90">Projected insurance savings</p>
+                  <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-teal-100">
+                    {formatCentsToUSD(projectedInsuranceSavingsCents)}
+                    {insuranceDiscountPct != null ? (
+                      <span className="ml-1 text-[9px] font-normal text-teal-200/85">
+                        ({insuranceDiscountPct}% off premium)
+                      </span>
+                    ) : null}
+                  </p>
+                </div>
+              ) : null}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScrutinyView("TOTAL_WORKFORCE")}
+                  className={`rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                    scrutinyView === "TOTAL_WORKFORCE"
+                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-200"
+                      : "border-slate-700 bg-slate-900/50 text-slate-400"
+                  }`}
+                >
+                  Total Workforce
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScrutinyView("AGENT_FOCUS")}
+                  className={`rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                    scrutinyView === "AGENT_FOCUS"
+                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-200"
+                      : "border-slate-700 bg-slate-900/50 text-slate-400"
+                  }`}
+                >
+                  Agent Focus
+                </button>
+                {scrutinyView === "AGENT_FOCUS" ? (
+                  <select
+                    value={focusedAgent}
+                    onChange={(e) => setFocusedAgent(e.target.value)}
+                    className="rounded border border-slate-700 bg-slate-900/70 px-2 py-1 text-[10px] text-slate-200"
+                  >
+                    {scrutinyAgentNames.length > 0 ? (
+                      scrutinyAgentNames.map((agent) => (
+                        <option key={agent} value={agent}>
+                          {agent}
+                        </option>
+                      ))
+                    ) : (
+                      <option value={focusedAgent}>{focusedAgent}</option>
+                    )}
+                  </select>
+                ) : null}
+              </div>
+            </div>
+
+            {isSimulationMode && (data?.threatEvents?.length ?? 0) > 0 ? (
+              <div className="mt-3">
+                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                  Risk events · regulatory overlay
+                </p>
+                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable]">
+                  {(data?.threatEvents ?? []).slice(0, 14).map((te) => (
+                    <RiskEventCard
+                      key={te.id}
+                      id={te.id}
+                      title={te.title}
+                      complianceFramework={te.complianceFramework ?? "NIST"}
+                      financialRiskCents={te.financialRiskCents ?? "0"}
+                      status={te.status}
+                      onOpen={(tid) => setSelectedThreatId(tid)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {isSimulationMode && data ? (
+              <div className="mt-3 max-w-md">
+                <BudgetJustification
+                  framework={insuranceModelFramework}
+                  hasContinuousMonitoring={insuranceHasContinuousMonitoring}
+                  hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
+                  defaultPremiumCents={insuranceDefaultPremiumCents}
+                  tenantFetch={tenantFetch}
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {scrutinyCards.slice(0, 6).map((card) => {
+                const denom = maxAleCentsBigInt > 0n ? maxAleCentsBigInt : 1n;
+                const aleRatio = Number(card.aleCents) / Number(denom);
+                const alpha = Math.min(0.82, 0.12 + aleRatio * 0.68);
+                const ghostAlpha = Math.min(0.55, 0.06 + card.predicted / 140);
+                const aleDisplay =
+                  card.aleCents > 0n
+                    ? `${card.aleCents.toString()} ¢ ALE`
+                    : "0 ¢ ALE";
+                return (
+                  <div
+                    key={card.asset}
+                    className="rounded border border-cyan-900/40 p-3 transition-colors"
+                    style={{ backgroundColor: `rgba(8,145,178,${alpha})` }}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[11px] font-bold text-cyan-100">{card.asset}</p>
+                      {card.predicted > 0 ? (
+                        <span
+                          className="rounded border border-cyan-300/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-200"
+                          style={{ backgroundColor: `rgba(8,145,178,${ghostAlpha})` }}
+                          title="Predictive exposure overlay (control positioning)"
+                        >
+                          Forecast
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-[10px] font-semibold text-slate-100">
+                      ALE exposure (cents): {aleDisplay}
+                    </p>
+                    <p className="text-[9px] text-slate-300/85">
+                      Resilience audit cycles: {card.focusHeat}{" "}
+                      {scrutinyView === "AGENT_FOCUS" ? `(${focusedAgent})` : "(all agents)"}
+                    </p>
+                    <p className="text-[9px] text-slate-300/80">Total cycles: {card.total}</p>
+                    <p className="text-[9px] text-cyan-200/85">
+                      Predictive overlay: {card.predicted.toFixed(1)}
+                    </p>
+                  </div>
+                );
+              })}
+              {scrutinyCards.length === 0 ? (
+                <div className="rounded border border-slate-800 bg-slate-900/50 p-3 text-[10px] text-slate-400">
+                  No ALE exposure or audit telemetry in the current observation window.
+                </div>
+              ) : null}
+            </div>
+          </section>
           <section aria-labelledby="enterprise-risk-posture-heading">
             <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
               ENTERPRISE RISK POSTURE
@@ -361,6 +732,9 @@ export default function DashboardHomeClient({ children }: Props) {
             incomingAgentAlerts={liveAlerts}
             setSelectedThreatId={setSelectedThreatId}
           />
+          <div className="px-4 pb-2">
+            <SentinelIntakeForm assetOptions={sentinelAssetOptions} />
+          </div>
           <ActiveRisksClient
             risks={data.risks}
             threatEvents={data.threatEvents ?? []}

@@ -21,6 +21,8 @@ import ShadowPlaneRegistry from "@/app/components/ShadowPlaneRegistry";
 import type { ServerIntegrityLedgerRow } from "@/app/types/integrityLedger";
 import IrontechChaosDeploy from "@/app/(dashboard)/opsupport/IrontechChaosDeploy";
 import ControlRoom from "@/app/components/ControlRoom";
+import ClockDriftBanner from "@/app/components/ClockDriftBanner";
+import ClockDriftMonitor from "@/app/components/ClockDriftMonitor";
 import { useRiskStore } from "@/app/store/riskStore";
 import {
   WORKFORCE_SIMULATION_PROCESSING_EVENT,
@@ -33,17 +35,42 @@ import { mergeInventoryAgentWithPulse, type AgentPulseState } from "@/app/utils/
 const WORKFORCE_PULSE_MOTION =
   "motion-safe:animate-pulse [animation-duration:3s] [animation-timing-function:linear]";
 
+/** SSR-safe placeholder until client mount (aligns with UTC verified line shape). */
+const VERIFIED_UTC_SYNC_PLACEHOLDER = "Verified: -------- --:-- UTC";
+
+/** Ledger / vault clock placeholders — avoids hydration mismatch vs locale-formatting. */
+const LAST_READ_SYNC_PLACEHOLDER = "-------- --:--:--";
+
+/** Registry `lastHealthCheck` ISO → “Verified: YYYY-MM-DD HH:mm UTC”. */
+function formatVerifiedUtcLine(iso: string | null | undefined): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `Verified: ${y}-${mo}-${day} ${h}:${mi} UTC`;
+}
+
 function statusPill(status: LkgWorkforceRow["status"]) {
   if (status === "LKG_VERIFIED")
     return (
-      <span className="rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-300">
+      <span className="rounded border border-emerald-500/70 bg-emerald-950/35 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-400/35 [box-shadow:0_0_22px_rgba(16,185,129,0.45)]">
         LKG_VERIFIED
       </span>
     );
-  if (status === "NO_MANIFEST_ENTRY")
+  if (status === "NO_ENTRY")
     return (
-      <span className="rounded border border-amber-700/50 bg-amber-950/40 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-200/90">
+      <span className="rounded border border-amber-500/75 bg-amber-950/45 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.35)]">
         NO_ENTRY
+      </span>
+    );
+  if (status === "RE_VERIFICATION_REQUIRED")
+    return (
+      <span className="rounded border border-amber-500/80 bg-amber-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-200 shadow-[0_0_14px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/30">
+        RE-VERIFICATION_REQUIRED
       </span>
     );
   return (
@@ -60,6 +87,10 @@ function inventoryCard(opts: {
   remediating?: boolean;
   statusKey: LkgWorkforceRow["status"];
   pulseState: AgentPulseState;
+  /** Shown under status when `LKG_VERIFIED` (Ironscout / Ironwatch TTL anchor). */
+  verifiedUtcLine?: string | null;
+  /** GRC: render dynamic UTC only after mount (Option 2 client guard). */
+  timeDisplayReady: boolean;
 }) {
   const ps = opts.pulseState;
   const shell = opts.remediating
@@ -73,11 +104,15 @@ function inventoryCard(opts: {
   const borderClasses =
     opts.remediating
       ? "motion-safe:animate-pulse border-emerald-500/50 shadow-[0_0_26px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/25 [animation-duration:2.8s]"
+      : opts.statusKey === "RE_VERIFICATION_REQUIRED"
+        ? "border-amber-500/55 shadow-[0_0_20px_rgba(245,158,11,0.38)] ring-1 ring-amber-500/35 motion-safe:animate-pulse [animation-duration:3s]"
       : shell === "alert"
         ? "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.5)] motion-safe:animate-pulse [animation-duration:3s]"
         : shell === "active"
           ? "border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.4)] motion-safe:animate-pulse [animation-duration:3s]"
-          : "border-slate-800/90";
+          : opts.statusKey === "LKG_VERIFIED"
+            ? "border-emerald-500/50 shadow-[0_0_26px_rgba(16,185,129,0.48)] ring-1 ring-emerald-400/35 [box-shadow:0_0_28px_rgba(16,185,129,0.38)]"
+            : "border-slate-800/90";
 
   const showLkgPulse =
     opts.statusKey === "LKG_VERIFIED" && !opts.remediating && (ps === "ACTIVE" || ps === "ALERT");
@@ -97,25 +132,41 @@ function inventoryCard(opts: {
               {opts.statusNode}
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {opts.statusNode}
-              {showLkgPulse && ps === "ACTIVE" ? (
-                <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-sky-500">
-                  {">> ENFORCING"}
-                  <span
-                    className={`inline-block h-2.5 w-px bg-sky-500 ${WORKFORCE_PULSE_MOTION}`}
-                    aria-hidden
-                  />
-                </span>
-              ) : null}
-              {showLkgPulse && ps === "ALERT" ? (
-                <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-orange-500">
-                  {">> COUNTER-MEASURE ACTIVE"}
-                  <span
-                    className={`inline-block h-2.5 w-px bg-orange-500 ${WORKFORCE_PULSE_MOTION}`}
-                    aria-hidden
-                  />
-                </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {opts.statusNode}
+                {showLkgPulse && ps === "ACTIVE" ? (
+                  <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-sky-500">
+                    {">> ENFORCING"}
+                    <span
+                      className={`inline-block h-2.5 w-px bg-sky-500 ${WORKFORCE_PULSE_MOTION}`}
+                      aria-hidden
+                    />
+                  </span>
+                ) : null}
+                {showLkgPulse && ps === "ALERT" ? (
+                  <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-orange-500">
+                    {">> COUNTER-MEASURE ACTIVE"}
+                    <span
+                      className={`inline-block h-2.5 w-px bg-orange-500 ${WORKFORCE_PULSE_MOTION}`}
+                      aria-hidden
+                    />
+                  </span>
+                ) : null}
+              </div>
+              {opts.statusKey === "LKG_VERIFIED" ? (
+                <p className="font-mono text-[7px] font-semibold leading-tight text-emerald-400/95">
+                  {opts.timeDisplayReady ? (
+                    opts.verifiedUtcLine ?? "—"
+                  ) : (
+                    <span
+                      className="inline-block animate-pulse text-emerald-400/75"
+                      aria-label="Syncing verification time"
+                    >
+                      {VERIFIED_UTC_SYNC_PLACEHOLDER}
+                    </span>
+                  )}
+                </p>
               ) : null}
             </div>
           )}
@@ -165,6 +216,8 @@ function redTeamAgentCard(opts: { title: string; statusNode: ReactNode; role: st
 }
 
 type Props = {
+  /** Server RSC epoch for GRC clock drift comparison (HUD + audit metadata). */
+  serverTimeEpochMs: number;
   initialVault: IntegrityVaultSnapshot;
   ledgerRows: ServerIntegrityLedgerRow[];
   /** Shadow-directory targets (Tier 3); isolated from production `User` records. */
@@ -176,6 +229,7 @@ type Props = {
 };
 
 export default function IntegrityHubClient({
+  serverTimeEpochMs,
   initialVault,
   ledgerRows,
   syntheticTargets,
@@ -190,6 +244,7 @@ export default function IntegrityHubClient({
   const [syntheticLoadError, setSyntheticLoadError] = useState<string | null>(null);
   const [blueRemediationPulse, setBlueRemediationPulse] = useState(false);
   const [interactionPulseUntil, setInteractionPulseUntil] = useState<Record<string, number>>({});
+  const [isMounted, setIsMounted] = useState(false);
 
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
@@ -198,6 +253,10 @@ export default function IntegrityHubClient({
     () => combineThreatPlanesForWorkforce(activeThreats, pipelineThreats),
     [activeThreats, pipelineThreats],
   );
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const onPulse = (e: Event) => {
@@ -293,7 +352,9 @@ export default function IntegrityHubClient({
   }, [vault.verifiedAt]);
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="relative flex w-full flex-col gap-6">
+      <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
+      <ClockDriftBanner serverTimeEpochMs={serverTimeEpochMs} />
       <div className="flex flex-col">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="min-w-0 max-w-3xl flex-1">
@@ -443,6 +504,11 @@ export default function IntegrityHubClient({
                         remediating: blueRemediating,
                         statusKey: agent.status,
                         pulseState: blueRemediating ? "IDLE" : pulseState,
+                        verifiedUtcLine:
+                          agent.status === "LKG_VERIFIED"
+                            ? formatVerifiedUtcLine(agent.lastVerifiedAtUtc ?? undefined)
+                            : null,
+                        timeDisplayReady: isMounted,
                       })}
                     </div>
                   );

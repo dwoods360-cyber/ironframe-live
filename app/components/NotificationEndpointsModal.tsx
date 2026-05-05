@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Loader2, Trash2, X } from "lucide-react";
-import { NotificationChannelType } from "@prisma/client";
+import {
+  NotificationChannelType,
+  type NotificationChannelTypeValue,
+} from "@/app/types/clientSafePrismaEnums";
 import {
   createNotificationEndpoint,
   deleteNotificationEndpoint,
@@ -19,7 +22,7 @@ type Props = {
   onRegistryChanged: () => void;
 };
 
-const CHANNEL_OPTIONS: { value: NotificationChannelType; label: string }[] = [
+const CHANNEL_OPTIONS: { value: NotificationChannelTypeValue; label: string }[] = [
   { value: NotificationChannelType.SLACK, label: "Slack" },
   { value: NotificationChannelType.TEAMS, label: "Teams" },
   { value: NotificationChannelType.WEBHOOK, label: "Webhook" },
@@ -32,7 +35,7 @@ export default function NotificationEndpointsModal({ open, onClose, onRegistryCh
   const [busy, setBusy] = useState(false);
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
-  const [formType, setFormType] = useState<NotificationChannelType>(NotificationChannelType.SLACK);
+  const [formType, setFormType] = useState<NotificationChannelTypeValue>(NotificationChannelType.SLACK);
   const [formError, setFormError] = useState<string | null>(null);
   const [testBusyId, setTestBusyId] = useState<string | null>(null);
   const [testFlash, setTestFlash] = useState<Record<string, { ok: boolean; message: string }>>({});
@@ -255,7 +258,7 @@ export default function NotificationEndpointsModal({ open, onClose, onRegistryCh
             />
             <select
               value={formType}
-              onChange={(e) => setFormType(e.target.value as NotificationChannelType)}
+              onChange={(e) => setFormType(e.target.value as NotificationChannelTypeValue)}
               className="w-full rounded border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-[10px] text-zinc-200"
             >
               {CHANNEL_OPTIONS.map((o) => (

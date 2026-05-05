@@ -12,7 +12,9 @@ import {
   DISPOSITION_STATUS_FALSE_POSITIVE,
   DISPOSITION_STATUS_PASSED,
 } from "@/app/lib/grc/dispositionConstants";
-import { ThreatState } from "@prisma/client";
+
+/** Client-safe: mirrors `ThreatState` strings — do not import `@prisma/client` in client modules. */
+const CLEARANCE_ALLOWED_STATUSES = new Set(["IDENTIFIED", "MITIGATED"]);
 
 const DMZ_OPERATOR_COOKIE = "ironframe-operator-id";
 const DMZ_DEFAULT_OPERATOR = "ironframe-dmz-console";
@@ -56,9 +58,8 @@ export default function ClearanceDispositionReceiptBar({
     ensureDispositionOperatorCookie();
   }, []);
 
-  const status = (threatStatus ?? ThreatState.PIPELINE) as ThreatState;
-  const canDisposition =
-    status === ThreatState.PIPELINE || status === ThreatState.QUARANTINED;
+  const statusNorm = (threatStatus?.trim().toUpperCase() || "IDENTIFIED");
+  const canDisposition = CLEARANCE_ALLOWED_STATUSES.has(statusNorm);
 
   const passChecked = dispositionStatus === DISPOSITION_STATUS_PASSED;
   const fpChecked = dispositionStatus === DISPOSITION_STATUS_FALSE_POSITIVE;

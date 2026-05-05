@@ -191,17 +191,17 @@ export function useDashboardThreatRealtime({
         }
       }
 
-      if (id && newSt !== "ESCALATED") {
+      if (id && newSt !== "MITIGATED") {
         loggedEscalationTerminalForThreatId.delete(id);
       }
 
-      if (newSt === "ESCALATED" && id) {
+      if (newSt === "MITIGATED" && id) {
         if (loggedEscalationTerminalForThreatId.has(id)) {
           scheduleUpdateSync();
           return;
         }
         const oldHadStatus = oldSt !== "";
-        const transitionFromOld = oldHadStatus && oldSt !== "ESCALATED";
+        const transitionFromOld = oldHadStatus && oldSt !== "MITIGATED";
         const firstEscalatedSeenHere = !oldHadStatus;
         if (transitionFromOld || firstEscalatedSeenHere) {
           loggedEscalationTerminalForThreatId.add(id);

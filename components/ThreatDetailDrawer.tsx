@@ -26,17 +26,18 @@ function getRiskBadgeClass(state: string, financialRisk_cents: number, score: nu
   if (isHigh) return 'bg-orange-500/20 text-orange-300 border border-orange-500/40';
   if (state === 'RESOLVED') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
   if (state === 'CONFIRMED') return 'bg-orange-500/20 text-orange-300 border border-orange-500/40';
-  if (state === 'ACTIVE') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
-  if (state === 'DE_ACKNOWLEDGED') return 'bg-slate-600/30 text-slate-400 border border-slate-500/40';
+  if (state === 'MITIGATED') return 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40';
+  if (state === 'IDENTIFIED') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
+  if (state === 'CLOSED_ARCHIVED') return 'bg-slate-600/30 text-slate-400 border border-slate-500/40';
   return 'bg-slate-500/20 text-slate-300 border border-slate-500/40';
 }
 
 const STATE_BADGE_CLASS: Record<string, string> = {
-  PIPELINE: 'bg-slate-500/20 text-slate-300 border border-slate-500/40',
-  ACTIVE: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
-  CONFIRMED: 'bg-orange-500/20 text-orange-300 border border-orange-500/40',
+  IDENTIFIED: 'bg-slate-500/20 text-slate-300 border border-slate-500/40',
+  CONFIRMED: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+  MITIGATED: 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40',
   RESOLVED: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
-  DE_ACKNOWLEDGED: 'bg-slate-600/30 text-slate-400 border border-slate-500/40',
+  CLOSED_ARCHIVED: 'bg-slate-600/30 text-slate-400 border border-slate-500/40',
 };
 
 function formatAction(action: string | undefined): string {

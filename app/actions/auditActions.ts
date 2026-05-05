@@ -446,7 +446,7 @@ export async function voidReceiptAndReopen(
         isRemoteAccessAuthorized: boolean | null;
       }>({
         threatId: tid,
-        changes: { status: ThreatState.ACTIVE },
+        changes: { status: ThreatState.CONFIRMED },
         actorUserId: operator,
         eventType: "ADMINISTRATIVE_VOID_REACTIVATED",
         tx,

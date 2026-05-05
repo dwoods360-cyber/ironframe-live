@@ -23,7 +23,11 @@ import {
   type ClearanceThreatRow,
 } from "@/app/lib/grc/clearanceThreatResolve";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
-import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+import {
+  mergeIngestionDetailsPatch,
+  mergeIngestionDetailsPatchJson,
+  normalizeIngestionDetailsToString,
+} from "@/app/utils/ingestionDetailsMerge";
 import { parseIrongateScanFromIngestionDetails } from "@/app/utils/irongateScan";
 import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
@@ -47,12 +51,12 @@ function threatScalarsForHash(
 async function updateClearanceThreatRow(
   mode: "sim" | "prod",
   threatId: string,
-  data: Prisma.ThreatEventUncheckedUpdateInput,
+  data: Prisma.ThreatEventUncheckedUpdateInput | Prisma.RiskEventUncheckedUpdateInput,
 ): Promise<void> {
   if (mode === "sim") {
-    await prisma.simThreatEvent.update({
+    await prisma.riskEvent.update({
       where: { id: threatId },
-      data: data as Prisma.SimThreatEventUncheckedUpdateInput,
+      data: data as Prisma.RiskEventUncheckedUpdateInput,
       select: { id: true },
     });
     return;
@@ -117,16 +121,21 @@ export async function runIrongateSanitization(
     const status = computeIrongateVerdict(threat);
     const scannedAt = new Date().toISOString();
     const irongateScanJson: Prisma.InputJsonValue = { status, scannedAt };
-    const merged = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
-      irongateScan: irongateScanJson,
-    });
+    const merged =
+      mode === "sim"
+        ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
+            irongateScan: irongateScanJson,
+          })
+        : mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+            irongateScan: irongateScanJson,
+          });
     const previousStatus = threat.status;
-    const data: Prisma.ThreatEventUncheckedUpdateInput = {
+    const data: Prisma.RiskEventUncheckedUpdateInput | Prisma.ThreatEventUncheckedUpdateInput = {
       ingestionDetails: merged,
-      ...(status === "MALICIOUS" ? { status: ThreatState.QUARANTINED } : {}),
+      ...(status === "MALICIOUS" ? { status: ThreatState.MITIGATED } : {}),
     };
     await updateClearanceThreatRow(mode, threatId, data);
-    if (status === "MALICIOUS" && previousStatus !== ThreatState.QUARANTINED) {
+    if (status === "MALICIOUS" && previousStatus !== ThreatState.MITIGATED) {
       void dispatchIronlockQuarantineAutoEscalation({
         threatId,
         tenantUuid,
@@ -173,7 +182,7 @@ export async function getPendingThreatActivityLogsForClearance() {
       },
     };
     const logs = simPlane
-      ? await prisma.simThreatEvent.findMany(clearanceQuery)
+      ? await prisma.riskEvent.findMany(clearanceQuery)
       : await prisma.threatEvent.findMany(clearanceQuery);
     return { success: true as const, logs };
   } catch (error) {
@@ -200,9 +209,14 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
             : "Irongate: payload not sanitized or verdict missing — CLEAN required before promotion.",
       };
     }
-    const promotedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
-      grcJustification: DMZ_PROMOTE_GRC_JUSTIFICATION,
-    });
+    const promotedIngestionDetails =
+      mode === "sim"
+        ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_PROMOTE_GRC_JUSTIFICATION,
+          })
+        : mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_PROMOTE_GRC_JUSTIFICATION,
+          });
 
     const promotedDetails =
       mode === "sim"
@@ -246,11 +260,11 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
 
     const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
     const nextScalars = threatScalarsForHash(threat, {
-      status: ThreatState.ACTIVE,
+      status: ThreatState.CONFIRMED,
       dispositionStatus: DISPOSITION_STATUS_PASSED,
       isFalsePositive: false,
       deAckReason: null,
-      ingestionDetails: promotedIngestionDetails,
+      ingestionDetails: normalizeIngestionDetailsToString(promotedIngestionDetails) ?? "",
       updatedAt: new Date().toISOString(),
     });
     const { hash: receiptHash } = buildDigitalReceiptDocument({
@@ -261,7 +275,7 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
     });
 
     await updateClearanceThreatRow(mode, threatId, {
-      status: ThreatState.ACTIVE,
+      status: ThreatState.CONFIRMED,
       ingestionDetails: promotedIngestionDetails,
       dispositionStatus: DISPOSITION_STATUS_PASSED,
       isFalsePositive: false,
@@ -292,9 +306,14 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
   try {
     const operatorId = await resolveDispositionOperatorId();
     const { threat, mode } = await resolveClearanceThreatForActiveTenant(threatId);
-    const rejectedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
-      grcJustification: DMZ_REJECT_WORK_NOTE,
-    });
+    const rejectedIngestionDetails =
+      mode === "sim"
+        ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_REJECT_WORK_NOTE,
+          })
+        : mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_REJECT_WORK_NOTE,
+          });
 
     if (mode === "prod") {
       await prisma.workNote.create({
@@ -333,11 +352,11 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
 
     const tail = await loadAuditTailForDigitalReceipt(mode, threat.id);
     const nextScalars = threatScalarsForHash(threat, {
-      status: ThreatState.DE_ACKNOWLEDGED,
+      status: ThreatState.RESOLVED,
       dispositionStatus: DISPOSITION_STATUS_FALSE_POSITIVE,
       isFalsePositive: true,
       deAckReason: DeAckReason.FALSE_POSITIVE,
-      ingestionDetails: rejectedIngestionDetails,
+      ingestionDetails: normalizeIngestionDetailsToString(rejectedIngestionDetails) ?? "",
       updatedAt: new Date().toISOString(),
     });
     const { hash: receiptHash } = buildDigitalReceiptDocument({
@@ -348,7 +367,7 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
     });
 
     await updateClearanceThreatRow(mode, threatId, {
-      status: ThreatState.DE_ACKNOWLEDGED,
+      status: ThreatState.RESOLVED,
       deAckReason: DeAckReason.FALSE_POSITIVE,
       ingestionDetails: rejectedIngestionDetails,
       dispositionStatus: DISPOSITION_STATUS_FALSE_POSITIVE,
@@ -374,9 +393,14 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
   try {
     const operatorId = await resolveDispositionOperatorId();
     const { threat, mode } = await resolveClearanceThreatForActiveTenant(threatId);
-    const escalatedIngestionDetails = mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
-      grcJustification: DMZ_ESCALATE_WORK_NOTE,
-    });
+    const escalatedIngestionDetails =
+      mode === "sim"
+        ? mergeIngestionDetailsPatchJson(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_ESCALATE_WORK_NOTE,
+          })
+        : mergeIngestionDetailsPatch(threat.ingestionDetails ?? null, {
+            grcJustification: DMZ_ESCALATE_WORK_NOTE,
+          });
 
     if (mode === "prod") {
       await prisma.workNote.create({
@@ -414,7 +438,7 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
     const nextScalars = threatScalarsForHash(threat, {
       status: ThreatState.CONFIRMED,
       dispositionStatus: DISPOSITION_STATUS_ESCALATED,
-      ingestionDetails: escalatedIngestionDetails,
+      ingestionDetails: normalizeIngestionDetailsToString(escalatedIngestionDetails) ?? "",
       updatedAt: new Date().toISOString(),
     });
     const { hash: receiptHash } = buildDigitalReceiptDocument({

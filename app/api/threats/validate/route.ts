@@ -56,7 +56,7 @@ export async function POST(request: Request) {
           where: { id: { in: threatEventIds } },
           select: { id: true },
         }),
-        prisma.simThreatEvent.findMany({
+        prisma.riskEvent.findMany({
           where: { id: { in: threatEventIds } },
           select: { id: true },
         }),

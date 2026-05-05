@@ -138,7 +138,7 @@ export async function fetchResolvedChaosLedgerRows(): Promise<ServerIntegrityLed
 
   const rows = await prisma.threatEvent.findMany({
     where: {
-      status: { in: [ThreatState.RESOLVED, ThreatState.DE_ACKNOWLEDGED] },
+      status: { in: [ThreatState.RESOLVED] },
     },
     orderBy: { updatedAt: "desc" },
     take: 400,

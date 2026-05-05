@@ -12,15 +12,21 @@ import {
   queryActiveThreatsForBoard,
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
 } from "@/app/utils/activeThreatsBoardQuery";
+import {
+  normalizeIngestionDetailsToString,
+  parseIngestionDetailsForMerge,
+} from "@/app/utils/ingestionDetailsMerge";
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 
-function parseShadowCisoHandshakeFromIngestion(ingestionDetails: string | null | undefined): {
+function parseShadowCisoHandshakeFromIngestion(
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
+): {
   resolutionApprovalId: string | null;
   resolutionApprovalStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
 } {
   try {
-    const j = JSON.parse(ingestionDetails ?? "{}") as {
+    const j = parseIngestionDetailsForMerge(ingestionDetails ?? null) as {
       shadowCisoHandshake?: {
         resolutionApprovalId?: string;
         resolutionApprovalStatus?: string;
@@ -88,7 +94,7 @@ export async function createKimbotThreatServer(
     score,
     targetEntity: input.sector,
     financialRisk_cents: millionsToCents(input.liability),
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     ttlSeconds: DEFAULT_TTL_SECONDS,
     tenantCompanyId: companyId,
   });
@@ -130,7 +136,7 @@ export async function createGrcBotThreatPlaceholderServer(): Promise<GrcBotThrea
     score: 1,
     targetEntity: "—",
     financialRisk_cents: 0n,
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     ttlSeconds: DEFAULT_TTL_SECONDS,
     tenantCompanyId: companyId,
   });
@@ -153,7 +159,7 @@ export async function updateGrcBotThreatServer(
     score,
     targetEntity: input.sector,
     financialRisk_cents: millionsToCents(input.liability),
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     ttlSeconds: DEFAULT_TTL_SECONDS,
   });
   return {
@@ -194,10 +200,10 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       AND: [
         {
           status: {
-            notIn: [ThreatState.RESOLVED, ThreatState.DE_ACKNOWLEDGED],
+            notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED],
           },
         },
-        { status: { in: [ThreatState.PIPELINE, ThreatState.QUARANTINED] } },
+        { status: { in: [ThreatState.IDENTIFIED, ThreatState.MITIGATED] } },
       ],
     },
     orderBy: { createdAt: "desc" as const },
@@ -236,7 +242,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
   } satisfies Prisma.ThreatEventSelect;
 
   const rows = sim
-    ? await prisma.simThreatEvent.findMany({
+    ? await prisma.riskEvent.findMany({
         ...pipelineWhere,
         select: pipelineScalars,
       })
@@ -278,7 +284,7 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       createdAt: r.createdAt.toISOString(),
       assignedTo: r.assigneeId?.trim() || undefined,
       threatStatus: String(r.status),
-      ingestionDetails: r.ingestionDetails ?? undefined,
+      ingestionDetails: normalizeIngestionDetailsToString(r.ingestionDetails) ?? undefined,
       dispositionStatus: r.dispositionStatus ?? undefined,
       isFalsePositive: r.isFalsePositive,
       receiptHash: r.receiptHash ?? undefined,

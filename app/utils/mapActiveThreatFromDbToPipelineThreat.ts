@@ -27,5 +27,6 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     agentReasonings: r.agentReasonings,
     resolutionApprovalId: r.resolutionApprovalId ?? undefined,
     resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
+    postMortemReportPath: r.postMortemReportPath ?? undefined,
   };
 }

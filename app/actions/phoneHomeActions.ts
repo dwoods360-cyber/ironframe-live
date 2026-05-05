@@ -229,13 +229,17 @@ export async function dispatchRemoteSupportAction(
       score: true,
       targetEntity: true,
       isRemoteAccessAuthorized: true,
+      remoteTechId: true,
     },
   });
   if (!threat) {
     return { success: false, error: "Threat not found." };
   }
 
-  if (threat.status === ThreatState.PENDING_REMOTE_INTERVENTION) {
+  if (
+    threat.status === ThreatState.MITIGATED &&
+    (threat.remoteTechId || threat.isRemoteAccessAuthorized)
+  ) {
     return { success: true, to: "(already queued)", skipped: true };
   }
 
@@ -308,7 +312,7 @@ export async function dispatchRemoteSupportAction(
 
   await transitionThreatStatus({
     threatId: tid,
-    newStatus: ThreatState.PENDING_REMOTE_INTERVENTION,
+    newStatus: ThreatState.MITIGATED,
     actorUserId: "system-phone-home",
     eventType: "REMOTE_INTERVENTION_DISPATCHED",
     extraChanges: {

@@ -57,6 +57,8 @@ const AUDIT_LOG_STORAGE_KEY = "ironframe-audit-intelligence-log-v1";
 const DEFAULT_USER_ID = "Dereck";
 const DEFAULT_IP = "127.0.0.1";
 
+import { appendClockDriftToMetadataTag } from "@/app/utils/sessionClockDrift";
+
 const listeners = new Set<() => void>();
 
 let auditLogState: ReadonlyArray<AuditLogRecord> = Object.freeze([]) as ReadonlyArray<AuditLogRecord>;
@@ -132,7 +134,7 @@ export function appendAuditLog(input: CreateAuditLogInput) {
     user_id: input.user_id ?? DEFAULT_USER_ID,
     action_type: input.action_type,
     log_type: input.log_type ?? "APP_SYSTEM",
-    metadata_tag: input.metadata_tag ?? null,
+    metadata_tag: appendClockDriftToMetadataTag(input.metadata_tag),
     description: input.description,
     ip_address: input.ip_address ?? DEFAULT_IP,
   });

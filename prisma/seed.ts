@@ -81,7 +81,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(5_000_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.QUARANTINED,
+        status: ThreatState.MITIGATED,
         ingestionDetails: JSON.stringify({
           summary: 'Outbound traffic matched restricted egress patterns; quarantine engaged.',
           epic: 7,
@@ -94,7 +94,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(2_500_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
         ingestionDetails: JSON.stringify({
           summary: 'Stale privileged MFA token detected; active remediation required.',
           epic: 7,
@@ -116,7 +116,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(900_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
 
       // --- Vaultbank (Finance) ---
@@ -127,7 +127,7 @@ async function main() {
         targetEntity: 'Vaultbank Global',
         financialRisk_cents: BigInt(4_000_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
       {
         title: 'Privileged Session Anomaly',
@@ -145,7 +145,7 @@ async function main() {
         targetEntity: 'Vaultbank Global',
         financialRisk_cents: BigInt(1_800_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
       {
         title: 'Outbound DNS Tunneling Signal',
@@ -154,7 +154,7 @@ async function main() {
         targetEntity: 'Vaultbank Global',
         financialRisk_cents: BigInt(6_500_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
 
       // --- Gridcore (Energy) ---
@@ -165,7 +165,7 @@ async function main() {
         targetEntity: 'Gridcore Energy',
         financialRisk_cents: BigInt(5_750_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
       {
         title: 'ICS Remote Access Misconfiguration',
@@ -183,7 +183,7 @@ async function main() {
         targetEntity: 'Gridcore Energy',
         financialRisk_cents: BigInt(2_200_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
       {
         title: 'East-West Lateral Movement Signature',
@@ -192,7 +192,7 @@ async function main() {
         targetEntity: 'Gridcore Energy',
         financialRisk_cents: BigInt(3_600_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
     ],
   });

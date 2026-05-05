@@ -36,9 +36,9 @@ export async function readShadowSimulatorArmSnapshot(): Promise<ShadowSimulatorA
 
   const [iProd, iSim, pProd, pSim] = await Promise.all([
     prisma.threatEvent.count({ where: whereInfil }),
-    prisma.simThreatEvent.count({ where: whereInfil }),
+    prisma.riskEvent.count({ where: whereInfil }),
     prisma.threatEvent.count({ where: wherePhish }),
-    prisma.simThreatEvent.count({ where: wherePhish }),
+    prisma.riskEvent.count({ where: wherePhish }),
   ]);
 
   return {

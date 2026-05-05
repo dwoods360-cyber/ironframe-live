@@ -19,7 +19,7 @@ describe("Epic 6: TTL Boundary Enforcement", () => {
       ale_impact: initialAle,
     });
 
-    expect(quarantineState.status).toBe("QUARANTINED");
+    expect(quarantineState.status).toBe("MITIGATED");
     expect(quarantineState.interrupt_reason).toBe("TTL_EXCEEDED");
 
     expect(typeof quarantineState.ale_impact).toBe("bigint");

@@ -189,6 +189,12 @@ export default function HeaderTwo({
                   SECURITY PROFILE
                 </Link>
                 <Link
+                  href="/evidence"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-teal-600/60 bg-teal-950/40 px-3 py-2 text-[10px] font-bold text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/45"
+                >
+                  EVIDENCE VAULT
+                </Link>
+                <Link
                   href="/integrity"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >

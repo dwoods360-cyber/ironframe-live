@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import ActiveRisksClient from './ActiveRisksClient';
 
 // Baseline seed titles to exclude (full purge / waiting-state flow)
@@ -35,8 +36,8 @@ export default async function ActiveRisks() {
         updatedAt: true,
         assigneeId: true,
         auditTrail: {
-          where: { action: 'ASSIGNMENT_CHANGED' },
-          orderBy: { createdAt: 'asc' },
+          where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+          orderBy: { createdAt: 'desc' },
           select: {
             id: true,
             action: true,

@@ -1,9 +1,15 @@
-export type WorkforceLkgStatus = "LKG_VERIFIED" | "NO_MANIFEST_ENTRY" | "VAULT_UNREACHABLE";
+export type WorkforceLkgStatus =
+  | "LKG_VERIFIED"
+  | "NO_ENTRY"
+  | "RE_VERIFICATION_REQUIRED"
+  | "VAULT_UNREACHABLE";
 
 export type LkgWorkforceRow = {
   name: string;
   sha256: string | null;
   status: WorkforceLkgStatus;
+  /** Registry `lastHealthCheck` as ISO UTC — shown as “Verified” on LKG_VERIFIED rows. */
+  lastVerifiedAtUtc?: string | null;
 };
 
 export type IntegrityVaultSnapshot = {

@@ -241,7 +241,7 @@ export async function clearShadowSimulatorPipeline(
         eventType: "SHADOW_SIMULATOR_CLEAR",
       });
     }
-    await prisma.simThreatEvent.updateMany({
+    await prisma.riskEvent.updateMany({
         where: {
           tenantCompanyId: company.id,
           sourceAgent,
@@ -364,7 +364,7 @@ export async function triggerAttbotSimulation(): Promise<TriggerAttbotSimulation
 
     const draft = await ingressGateway.writeThreatEvent({
       tenantCompanyId: company.id,
-      status: ThreatState.PIPELINE,
+      status: ThreatState.IDENTIFIED,
       sourceAgent: ATTACK_SOURCE,
       score: 10,
       title: `${ATTACK_THREAT_TITLE_PREFIX} Initializing…`,
@@ -424,7 +424,7 @@ export async function triggerAttbotSimulation(): Promise<TriggerAttbotSimulation
       source: final.sourceAgent,
       description: `Simulated SQLi · ${final.targetEntity}`,
       createdAt: final.createdAt.toISOString(),
-      threatStatus: ThreatState.PIPELINE,
+      threatStatus: ThreatState.IDENTIFIED,
       lifecycleState: "pipeline",
     };
 
@@ -477,7 +477,7 @@ export async function triggerPhishbotSimulation(): Promise<TriggerAttbotSimulati
 
   const created = await ingressGateway.writeThreatEvent({
     tenantCompanyId: company.id,
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     sourceAgent: "PHISHBOT_SIMULATION",
     score: 7,
     title: `[PHISHBOT] Simulated phishing lure against ${target.name}.`,
@@ -554,7 +554,7 @@ export async function triggerPhishbotSimulation(): Promise<TriggerAttbotSimulati
       source: created.sourceAgent,
       description: `Simulated Phish · ${target.email}`,
       createdAt: new Date().toISOString(),
-      threatStatus: ThreatState.PIPELINE,
+      threatStatus: ThreatState.IDENTIFIED,
       lifecycleState: "pipeline",
     },
   };
@@ -588,7 +588,7 @@ export async function launchSimulatedAttack(
     const lossCents = lossMillionsToCents(estimatedLossM);
     const created = await ingressGateway.writeThreatEvent({
       tenantCompanyId: company.id,
-      status: ThreatState.PIPELINE,
+      status: ThreatState.IDENTIFIED,
       sourceAgent: "IRONSIGHT_SIMULATION",
       score: 9,
       title: `[IRONSIGHT · Agent 03] Blast-radius drill — ${displayTitle}`,
@@ -636,7 +636,7 @@ export async function launchSimulatedAttack(
         source: created.sourceAgent,
         description: `Strategic Intel · Ironsight · ${displayTitle}`,
         createdAt: new Date().toISOString(),
-        threatStatus: ThreatState.PIPELINE,
+        threatStatus: ThreatState.IDENTIFIED,
         lifecycleState: "pipeline",
       },
     };
@@ -647,7 +647,7 @@ export async function launchSimulatedAttack(
     const lossCents = lossMillionsToCents(estimatedLossM);
     const created = await ingressGateway.writeThreatEvent({
       tenantCompanyId: company.id,
-      status: ThreatState.PIPELINE,
+      status: ThreatState.IDENTIFIED,
       sourceAgent: "IRONMAP_SIMULATION",
       score: 8,
       title: `[IRONMAP · Agent 15] Vendor dependency drill — ${displayTitle}`,
@@ -700,7 +700,7 @@ export async function launchSimulatedAttack(
         source: created.sourceAgent,
         description: `Strategic Intel · Ironmap · ${displayTitle}`,
         createdAt: new Date().toISOString(),
-        threatStatus: ThreatState.PIPELINE,
+        threatStatus: ThreatState.IDENTIFIED,
         lifecycleState: "pipeline",
       },
     };
@@ -768,7 +768,7 @@ export async function launchSimulatedAttack(
 
   const created = await ingressGateway.writeThreatEvent({
     tenantCompanyId: company.id,
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     sourceAgent: "PHISHBOT_SIMULATION",
     score: financialLure ? 9 : 8,
     title,
@@ -827,7 +827,7 @@ export async function launchSimulatedAttack(
       source: created.sourceAgent,
       description: `Strategic Drill · PhishBot · ${target.email}`,
       createdAt: new Date().toISOString(),
-      threatStatus: ThreatState.PIPELINE,
+      threatStatus: ThreatState.IDENTIFIED,
       lifecycleState: "pipeline",
     },
   };
@@ -866,7 +866,7 @@ export async function triggerInfilbotSimulation(
 
   const created = await ingressGateway.writeThreatEvent({
     tenantCompanyId: company.id,
-    status: ThreatState.PIPELINE,
+    status: ThreatState.IDENTIFIED,
     sourceAgent: "INFILBOT_SIMULATION",
     score: 8,
     title,
@@ -921,7 +921,7 @@ export async function triggerInfilbotSimulation(
         ? `Strategic Intel · InfilBot · ${target.email}`
         : `Simulated Infil · ${target.email}`,
       createdAt: new Date().toISOString(),
-      threatStatus: ThreatState.PIPELINE,
+      threatStatus: ThreatState.IDENTIFIED,
       lifecycleState: "pipeline",
     },
   };

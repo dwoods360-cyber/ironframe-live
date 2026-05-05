@@ -2,18 +2,25 @@
  * Shared Prisma query for the Active board — used by Server Actions and GET /api/threats/active.
  */
 import prisma from "@/lib/prisma";
+import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import {
+  normalizeIngestionDetailsToString,
+  parseIngestionDetailsForMerge,
+} from "@/app/utils/ingestionDetailsMerge";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 
 const CENTS_PER_MILLION = 100_000_000;
 
-function parseShadowCisoHandshakeFromIngestionLocal(ingestionDetails: string | null | undefined): {
+function parseShadowCisoHandshakeFromIngestionLocal(
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
+): {
   resolutionApprovalId: string | null;
   resolutionApprovalStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
 } {
   try {
-    const j = JSON.parse(ingestionDetails ?? "{}") as {
+    const j = parseIngestionDetailsForMerge(ingestionDetails ?? null) as {
       shadowCisoHandshake?: {
         resolutionApprovalId?: string;
         resolutionApprovalStatus?: string;
@@ -56,8 +63,8 @@ export const activeThreatBoardSelect = {
     select: { text: true, operatorId: true, createdAt: true },
   },
   auditTrail: {
-    where: { action: "ASSIGNMENT_CHANGED" as const },
-    orderBy: { createdAt: "asc" as const },
+    where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+    orderBy: { createdAt: "desc" as const },
     select: {
       id: true,
       action: true,
@@ -84,7 +91,7 @@ export type ActiveThreatEventRow = Prisma.ThreatEventGetPayload<{
   select: typeof activeThreatBoardSelect;
 }>;
 
-/** SimThreatEvent has no WorkNote / AuditLog relations — scalars only (same board mapper, empty history). */
+/** Simulation plane: same scalars as prod + assignee audit rows linked via `simThreatId`. */
 export const simActiveThreatBoardSelect = {
   id: true,
   title: true,
@@ -100,45 +107,40 @@ export const simActiveThreatBoardSelect = {
   ingestionDetails: true,
   aiReport: true,
   ttlSeconds: true,
-} satisfies Prisma.SimThreatEventSelect;
+  postMortemReportPath: true,
+  AuditLog: {
+    where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
+    orderBy: { createdAt: "desc" as const },
+    select: {
+      id: true,
+      action: true,
+      justification: true,
+      operatorId: true,
+      createdAt: true,
+    },
+  },
+} satisfies Prisma.RiskEventSelect;
 
-export type SimActiveThreatEventRow = Prisma.SimThreatEventGetPayload<{
+export type SimActiveThreatEventRow = Prisma.RiskEventGetPayload<{
   select: typeof simActiveThreatBoardSelect;
 }>;
 
 export type ActiveBoardUnionRow = ActiveThreatEventRow | SimActiveThreatEventRow;
 
 /**
- * Main Ops active board: only in-flight workflow states used by ThreatEvent.
- * This prevents board flooding from `PIPELINE`/`DE_ACKNOWLEDGED` rows while keeping live work visible.
+ * Main Ops active board: acknowledged / in-mitigation work (excludes raw `IDENTIFIED` intake and terminal states).
  */
 export function getActiveThreatWhereClause(): Prisma.ThreatEventWhereInput {
   return {
-    AND: [
-      {
-        status: {
-          notIn: [ThreatState.RESOLVED, ThreatState.DE_ACKNOWLEDGED],
-        },
-      },
-      {
-        status: {
-          in: [
-            ThreatState.ACTIVE,
-            ThreatState.CONFIRMED,
-            ThreatState.ESCALATED,
-            ThreatState.PENDING_REMOTE_INTERVENTION,
-          ],
-        },
-      },
-    ],
+    status: { in: [ThreatState.CONFIRMED, ThreatState.MITIGATED] },
   };
 }
 
 export async function findActiveThreatEventRowsForBoard(): Promise<ActiveBoardUnionRow[]> {
   const sim = await readSimulationPlaneEnabled();
   if (sim) {
-    return prisma.simThreatEvent.findMany({
-      where: getActiveThreatWhereClause() as Prisma.SimThreatEventWhereInput,
+    return prisma.riskEvent.findMany({
+      where: getActiveThreatWhereClause() as Prisma.RiskEventWhereInput,
       select: simActiveThreatBoardSelect,
       orderBy: { updatedAt: "desc" },
     });
@@ -158,7 +160,11 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
     const liabilityLine = `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`;
     const ar = r.aiReport?.trim();
     const auditTrail =
-      "auditTrail" in r && Array.isArray(r.auditTrail) ? r.auditTrail : [];
+      "auditTrail" in r && Array.isArray(r.auditTrail)
+        ? r.auditTrail
+        : "AuditLog" in r && Array.isArray(r.AuditLog)
+          ? r.AuditLog
+          : [];
     const notes = "notes" in r && Array.isArray(r.notes) ? r.notes : [];
     const agentReasonings =
       "agentReasonings" in r && Array.isArray(r.agentReasonings)
@@ -204,7 +210,7 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
         user: n.operatorId,
         timestamp: n.createdAt.toISOString(),
       })),
-      ingestionDetails: r.ingestionDetails ?? undefined,
+      ingestionDetails: normalizeIngestionDetailsToString(r.ingestionDetails) ?? undefined,
       ttlSeconds: r.ttlSeconds,
       threatStatus: String(r.status),
       isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
@@ -212,6 +218,10 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
       agentReasonings,
       resolutionApprovalId: prodResolutionId ?? shadow.resolutionApprovalId,
       resolutionApprovalStatus: prodResolutionId ? prodResolutionStatus : shadow.resolutionApprovalStatus,
+      postMortemReportPath:
+        "postMortemReportPath" in r
+          ? ((r as { postMortemReportPath?: string | null }).postMortemReportPath ?? null)
+          : null,
     };
   });
 }
@@ -252,6 +262,8 @@ export type PipelineThreatFromDb = {
   }>;
   resolutionApprovalId?: string | null;
   resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  /** Sim plane: post-mortem PDF path after expert Gate 7 resolve. */
+  postMortemReportPath?: string | null;
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */

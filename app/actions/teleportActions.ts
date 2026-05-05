@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 
 export type TeleportThreatResult =
   | { ok: true; productionId: string }
@@ -30,7 +31,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
   });
   const companyIds = new Set(companies.map((c) => c.id));
 
-  const row = await prisma.simThreatEvent.findUnique({ where: { id } });
+  const row = await prisma.riskEvent.findUnique({ where: { id } });
   if (!row) {
     return { ok: false, error: "Shadow threat not found." };
   }
@@ -49,14 +50,14 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
           targetEntity: row.targetEntity,
           financialRisk_cents: row.financialRisk_cents,
           tenantCompanyId: row.tenantCompanyId,
-          status: ThreatState.PIPELINE,
+          status: ThreatState.IDENTIFIED,
           remoteTechId: null,
           isRemoteAccessAuthorized: row.isRemoteAccessAuthorized,
           ttlSeconds: row.ttlSeconds,
           deAckReason: null,
           assigneeId: null,
           aiReport: row.aiReport,
-          ingestionDetails: row.ingestionDetails,
+          ingestionDetails: normalizeIngestionDetailsToString(row.ingestionDetails) ?? null,
         },
       });
 
@@ -70,7 +71,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
         },
       });
 
-      await tx.simThreatEvent.delete({ where: { id } });
+      await tx.riskEvent.delete({ where: { id } });
       return created.id;
     });
 
@@ -118,7 +119,7 @@ export async function clearShadowPlaneLogs(): Promise<ClearShadowLogsResult> {
         if (companyIds.length === 0) {
           return { deletedSimThreats: 0, deletedAuditLogs: 0, deletedSimulationDiagnosticLogs: diag.count };
         }
-        const sim = await tx.simThreatEvent.deleteMany({
+        const sim = await tx.riskEvent.deleteMany({
           where: { tenantCompanyId: { in: companyIds } },
         });
         const audit = await tx.auditLog.deleteMany({

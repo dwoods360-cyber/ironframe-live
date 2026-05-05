@@ -37,7 +37,7 @@ export async function purgeSimulation(): Promise<{ ok: boolean; message: string 
         where: { status: { not: ThreatState.RESOLVED } },
         data: { status: ThreatState.RESOLVED },
       });
-      const sim = await tx.simThreatEvent.updateMany({
+      const sim = await tx.riskEvent.updateMany({
         where: { status: { not: ThreatState.RESOLVED } },
         data: { status: ThreatState.RESOLVED },
       });

@@ -84,6 +84,8 @@ type Props = {
   showCompliance?: boolean;
   /** Use parent card surface classes without internal status color overrides. */
   suppressAutoSurfaceOverride?: boolean;
+  /** When set, AGENT_PIVOT HUD flash targets this threat id (amber pulse + overlay). */
+  cardThreatId?: string | null;
 };
 
 /**
@@ -113,8 +115,9 @@ export function ThreatCard({
   suppressRemoteTechnicianHeader = false,
   showCompliance = false,
   suppressAutoSurfaceOverride = false,
+  cardThreatId = null,
 }: Props) {
-  const activateOverlay = (threatStatus ?? "").trim().toUpperCase() === "ESCALATED" && onEscalatedActivate;
+  const activateOverlay = isEscalated && onEscalatedActivate;
   const [failureAnimOn, setFailureAnimOn] = useState(false);
   const [handoffState, setHandoffState] = useState<"IDLE" | "AUTHORIZING" | "CONNECTED">("IDLE");
   const ingestionBootstrapOn = useIngestionBootstrapVisual(
@@ -124,7 +127,7 @@ export function ThreatCard({
   );
   const statusNorm = (threatStatus ?? "").trim().toUpperCase();
   const isHeartbeatVisualStatus =
-    statusNorm === "ACTIVE" || statusNorm === "QUARANTINED";
+    statusNorm === "CONFIRMED" || statusNorm === "MITIGATED";
   /**
    * Selector narrowing: subscribe only to this card's effective heartbeat phase.
    * If telemetry scope is unavailable/misaligned, fall back to "ASSIGNED" (server-side baseline shell).
@@ -138,10 +141,10 @@ export function ThreatCard({
   });
   const hasLiveCardTelemetry = isHeartbeatVisualStatus && cardTelemetryPhase !== "ASSIGNED";
   const isResolvedThreat = statusNorm === "RESOLVED";
-  const isStrictEscalated = statusNorm === "ESCALATED";
+  const isStrictEscalated = isEscalated;
   const devRbacBypass = process.env.NODE_ENV !== "production";
   const effectiveCanAuthorizeRemoteAccess = canAuthorizeRemoteAccess || devRbacBypass;
-  const forceIngressGray = statusNorm === "ACTIVE" && ingestionBootstrapOn;
+  const forceIngressGray = statusNorm === "CONFIRMED" && ingestionBootstrapOn;
   const probeTrimmed = (infrastructureErrorProbeText ?? "").trim();
   const infrastructureLimit = isGrcInfrastructureLimitMessage(probeTrimmed);
   /** Irontech/Chaos only — never infer from ACTIVE + low attempt count alone (avoids Kimbot/GRC bleed). */
@@ -150,7 +153,7 @@ export function ThreatCard({
   const forceMitigatingSpinner =
     !isResolvedThreat &&
     isIrontechOperation &&
-    statusNorm === "ACTIVE" &&
+    statusNorm === "CONFIRMED" &&
     irontechAttemptCount < 3 &&
     !infrastructureLimit;
   const retryAfterSec = infrastructureLimit
@@ -215,6 +218,14 @@ export function ThreatCard({
       };
     }
   })();
+
+  const pivotFlash = useAgentStore((s) => s.agentPivotFlash);
+  const cardIdTrimmed = cardThreatId?.trim() ?? "";
+  const pivotHudActive =
+    Boolean(cardIdTrimmed) &&
+    pivotFlash != null &&
+    pivotFlash.threatId === cardIdTrimmed &&
+    Date.now() < pivotFlash.until;
 
   const chaosScenario = chaosMeta.scenario;
   const complianceCoverageLabel = chaosComplianceCoverageLabel(
@@ -347,6 +358,17 @@ export function ThreatCard({
             : ""
       }`}
     >
+      {pivotHudActive ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-[40] flex justify-center px-2 pt-1"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="rounded border border-amber-500/85 bg-amber-950/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-amber-50 shadow-[0_0_22px_rgba(245,158,11,0.5)]">
+            ⚠️ AGENT PIVOT: Strategy Recalibrated
+          </span>
+        </div>
+      ) : null}
       {showCompliance && complianceCoverageLabel ? (
         <span
           className={`pointer-events-none absolute right-3 z-[24] max-w-[min(240px,50vw)] rounded border border-teal-600/55 bg-slate-950/95 px-2 py-1 text-left text-[7px] font-bold uppercase leading-snug tracking-wide text-teal-100/95 shadow-[0_0_10px_rgba(45,212,191,0.15)] ${
@@ -434,14 +456,14 @@ export function ThreatCard({
           </p>
         </div>
       ) : null}
-      {chaosScenario === "REMOTE" && statusNorm === "ESCALATED" && handoffState !== "CONNECTED" ? (
+      {chaosScenario === "REMOTE" && statusNorm === "MITIGATED" && handoffState !== "CONNECTED" ? (
         <div className="mb-3 rounded-md border border-rose-400/80 bg-rose-950/45 px-3 py-2 shadow-[0_0_18px_rgba(244,63,94,0.32)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-rose-100">
             MITIGATION FAILED: An automated diagnostic packet has been emailed to Ironframe Support. Please click 'Authorize Remote Access' below to allow our human tech team to intervene.
           </p>
         </div>
       ) : null}
-      {chaosScenario === "CASCADING" && statusNorm === "ESCALATED" && handoffState !== "CONNECTED" ? (
+      {chaosScenario === "CASCADING" && statusNorm === "MITIGATED" && handoffState !== "CONNECTED" ? (
         <div className="mb-3 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-zinc-200">
             CASCADING FAILURE DETECTED: Irontech attempted Local and Global mitigation paths, but both failed. The threat is a zero-day variant. Human intervention is strictly required. Please click 'Authorize Remote Access' below.

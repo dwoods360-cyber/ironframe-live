@@ -27,6 +27,9 @@ export type ThreatTelemetryEntry = {
   irontechMitigating?: boolean;
 };
 
+/** HUD flash when expert lifecycle emits AGENT_PIVOT (2s amber pulse on Active Risks card). */
+export type AgentPivotFlashState = { threatId: string; until: number } | null;
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   intelligenceStream: string[];
@@ -41,6 +44,10 @@ type AgentStore = {
   threatTelemetry: Record<string, ThreatTelemetryEntry | undefined>;
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
+  /** Expert strategic pivot — drives amber border + overlay on matching ThreatCard until `until` epoch. */
+  agentPivotFlash: AgentPivotFlashState;
+  flashAgentPivot: (threatId: string, durationMs?: number) => void;
+  clearAgentPivotFlash: () => void;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
@@ -81,6 +88,21 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
   threatTelemetry: {},
   systemLatencyMs: null,
+  agentPivotFlash: null,
+  flashAgentPivot: (threatId, durationMs = 2000) => {
+    if (typeof window === "undefined") return;
+    const tid = threatId.trim();
+    if (!tid) return;
+    const until = Date.now() + durationMs;
+    set({ agentPivotFlash: { threatId: tid, until } });
+    window.setTimeout(() => {
+      const cur = get().agentPivotFlash;
+      if (cur?.threatId === tid && cur.until === until) {
+        set({ agentPivotFlash: null });
+      }
+    }, durationMs);
+  },
+  clearAgentPivotFlash: () => set({ agentPivotFlash: null }),
   setAgentStatus: (agent, status) =>
     set((state) => ({
       agents: {
@@ -213,6 +235,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       riskIngestionTerminalLines: [],
       activeThreats: [],
       threatTelemetry: {},
+      agentPivotFlash: null,
       ironwaveTelemetry: {
         phase: "ASSIGNED",
         tenantUuid: null,

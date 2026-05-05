@@ -5,6 +5,7 @@ import { ThreatState } from "@prisma/client";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import type { OpSupportClearanceCard } from "@/app/lib/opsupportDashTypes";
+import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,7 +40,7 @@ export async function GET() {
   const simPlane = await readSimulationPlaneEnabled();
   const clearanceQuery = {
     where: {
-      status: { in: [ThreatState.PIPELINE, ThreatState.QUARANTINED] },
+      status: { in: [ThreatState.IDENTIFIED, ThreatState.MITIGATED] },
       tenantCompanyId: { in: companyIds },
     },
     orderBy: { createdAt: "desc" as const },
@@ -62,7 +63,7 @@ export async function GET() {
     },
   };
   const rows = simPlane
-    ? await prisma.simThreatEvent.findMany(clearanceQuery)
+    ? await prisma.riskEvent.findMany(clearanceQuery)
     : await prisma.threatEvent.findMany(clearanceQuery);
 
   const cards: OpSupportClearanceCard[] = rows.map((r) => {
@@ -84,7 +85,7 @@ export async function GET() {
       dispositionStatus: r.dispositionStatus ?? null,
       isFalsePositive: r.isFalsePositive,
       receiptHash: r.receiptHash ?? null,
-      ingestionDetails: r.ingestionDetails ?? null,
+      ingestionDetails: normalizeIngestionDetailsToString(r.ingestionDetails) ?? null,
     };
   });
 

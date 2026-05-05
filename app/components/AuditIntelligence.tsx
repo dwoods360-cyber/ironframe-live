@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Copy, Info } from "lucide-react";
 import { appendAuditLog, ensureLoginAuditEvent, getAuditLogs, hydrateAuditLogger, purgeSimulationAuditLogs, type AuditLogType, type AuditActionType } from "@/app/utils/auditLogger";
+import { getSessionClockDriftMs } from "@/app/utils/sessionClockDrift";
 import { useAuditLoggerStore } from "@/app/utils/auditLoggerStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
@@ -70,6 +71,7 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   THREAT_DE_ACKNOWLEDGED: "De-Acknowledged",
   THREAT_DEACKNOWLEDGED: "De-Acknowledged",
   THREAT_CONFIRMED: "Confirmed",
+  HANDOFF_INITIATED: "Handoff",
   ATTESTATION_SUBMITTED: "Attestation submitted",
   THREAT_RESOLVED: "Resolved",
   TTL_CHANGED: "TTL Changed",
@@ -82,6 +84,10 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   OPERATIONAL_DEFICIENCY_REPORT: "Operational deficiency",
   OPERATIONAL_DEFICIENCY_RESOLVED: "Deficiency resolved",
   OPERATIONAL_SELF_TEST_PASS: "Self-test pass",
+  CHAIN_OF_CUSTODY: "Chain of custody",
+  EXPERT_AUTHORITY_SCOPED: "Authority scoped",
+  EXPERT_CUSTODY_DECISION: "Custody decision",
+  AGENT_PIVOT: "[AGENT_PIVOT] Strategy shifted due to new telemetry",
 };
 
 function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {
@@ -249,10 +255,12 @@ function auditEntryMatchesSearch(
 ): boolean {
   if (!searchLower) return true;
   const label = displayLabelForAuditEntry(entry.action_type).toLowerCase();
+  const iron = (ironscribeNarrativeFromJustification(entry.justification) ?? "").toLowerCase();
   const meta = ((entry as { metadata_tag?: string | null }).metadata_tag ?? "").toLowerCase();
   const entityId = (entry.threatId ?? "").toLowerCase();
   const haystack = [
     label,
+    iron,
     (entry.action_type ?? "").toLowerCase(),
     (entry.description ?? "").toLowerCase(),
     entityId,
@@ -278,12 +286,15 @@ function buildForensicEntryJson(item: LogEntryItem): string {
     }
   }
   const utcIso = item.createdAt.toISOString();
+  const drift = getSessionClockDriftMs();
   return JSON.stringify(
     {
       id: e.id,
       timestamp: e.timestamp,
       /** Canonical UTC instant for GRC / legal correlation (ISO-8601) */
       utc_iso_8601: utcIso,
+      /** Client vs server RSC clock skew (ms) measured at session ClockDriftBanner mount; null if not yet sampled. */
+      forensic_session_clock_drift_ms: drift,
       action_type: e.action_type,
       description: e.description,
       user_id: e.user_id,
@@ -307,6 +318,31 @@ function safeParseJustificationRecord(raw: string | null | undefined): Record<st
   } catch {
     return null;
   }
+}
+
+/** Prefer Ironscribe clerk line when embedded in audit justification JSON. */
+function ironscribeNarrativeFromJustification(raw: string | null | undefined): string | null {
+  const p = safeParseJustificationRecord(raw);
+  const n = p?.ironscribeNarrative;
+  return typeof n === "string" && n.trim() !== "" ? n.trim() : null;
+}
+
+function truncateAuditSidebarLine(text: string, maxChars = 160): string {
+  const t = text.trim();
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, maxChars - 1)}…`;
+}
+
+/** Sidebar primary line: polished Ironscribe narrative when present (Task 4). */
+function sidebarAuditPrimaryLabel(entry: LogEntryItem["entry"]): string {
+  const iron = ironscribeNarrativeFromJustification(entry.justification);
+  if (iron) return truncateAuditSidebarLine(iron);
+  return (
+    (ACTION_LABELS[entry.action_type as AuditActionType] ??
+      SERVER_ACTION_LABELS[entry.action_type] ??
+      entry.action_type) ||
+    entry.description
+  );
 }
 
 /** Display name for structured lifecycle JSON (Irontech chaos, etc.); falls back to operator display. */
@@ -349,6 +385,8 @@ function getForensicNarrative(item: LogEntryItem): string {
   const actor = operatorIdToDisplayName(e.user_id ?? "");
   const action = (e.action_type ?? "").trim();
   const parsedJustification = safeParseJustificationRecord(e.justification);
+  const ironscribeLine = ironscribeNarrativeFromJustification(e.justification);
+  if (ironscribeLine) return ironscribeLine;
   const identity = resolveForensicIdentityFromJustification(parsedJustification, actor);
 
   if (
@@ -724,11 +762,7 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
                     ? new Date(item.entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
                     : item.entry.timestamp
                   : "—";
-              const actionLabel =
-                (ACTION_LABELS[item.entry.action_type as AuditActionType] ??
-                  SERVER_ACTION_LABELS[item.entry.action_type] ??
-                  item.entry.action_type) ||
-                item.entry.description;
+              const actionLabel = sidebarAuditPrimaryLabel(item.entry);
               return (
                 <div
                   key={item.id}
@@ -813,7 +847,10 @@ export default function AuditIntelligence({ showRetentionBadge = false, logTypeF
                       dateStyle: "medium",
                       timeStyle: "medium",
                     })}{" "}
-                    | UTC: {selectedEntry.createdAt.toISOString()}
+                    |{" "}
+                    <span className="font-bold text-slate-200">
+                      UTC: {selectedEntry.createdAt.toISOString()}
+                    </span>
                   </p>
                 </div>
                 <button

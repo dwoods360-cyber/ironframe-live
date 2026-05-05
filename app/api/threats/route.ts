@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     });
 
     const destination = (body.destination ?? 'pipeline').toLowerCase();
-    const status = destination === 'active' ? ThreatState.ACTIVE : ThreatState.PIPELINE;
+    const status = destination === 'active' ? ThreatState.CONFIRMED : ThreatState.IDENTIFIED;
 
     const requestedGrc = typeof body.grcJustification === 'string' ? body.grcJustification.trim() : '';
     const applyTopSectorIngestion =
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
       tenantId,
       assignedTo: 'unassigned',
-      lifecycleState: created.status === ThreatState.ACTIVE ? 'active' : 'pipeline',
+      lifecycleState: created.status === ThreatState.CONFIRMED ? 'active' : 'pipeline',
       createdAt: new Date().toISOString(),
     });
   } catch (e) {

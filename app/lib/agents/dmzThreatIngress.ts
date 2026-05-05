@@ -85,7 +85,7 @@ export async function writeDmzThreatActivityWithIronlock(params: {
       targetEntity: "Irongate",
       financialRisk_cents: 0n,
       tenantCompanyId: company.id,
-      status: built.quarantined ? ThreatState.QUARANTINED : ThreatState.PIPELINE,
+      status: built.quarantined ? ThreatState.MITIGATED : ThreatState.IDENTIFIED,
       ingestionDetails: built.details,
       aiReport: ironqueryInsight,
     },

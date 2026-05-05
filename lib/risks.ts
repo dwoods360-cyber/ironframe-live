@@ -6,14 +6,14 @@ import { transitionThreatStatus } from "@/src/services/threatStateService";
 export type UpdateRiskStatusResult = { status: string };
 
 /**
- * Programmatic ThreatEvent status change. Entering `QUARANTINED` runs the Ironlock
+ * Programmatic ThreatEvent status change. Entering `MITIGATED` (quarantine) runs the Ironlock
  * auto-escalation path (Ironcast / Resend).
  */
 export async function updateRiskStatus(
   riskId: string,
   nextStatus: string,
 ): Promise<UpdateRiskStatusResult> {
-  if (nextStatus !== "QUARANTINED") {
+  if (nextStatus !== "MITIGATED") {
     throw new Error(`Unsupported risk status for updateRiskStatus: ${nextStatus}`);
   }
 
@@ -40,12 +40,12 @@ export async function updateRiskStatus(
 
   await transitionThreatStatus({
     threatId: riskId,
-    newStatus: ThreatState.QUARANTINED,
+    newStatus: ThreatState.MITIGATED,
     actorUserId: "system-risk-update",
     eventType: "RISK_STATUS_UPDATED",
   });
 
-  if (previousStatus !== ThreatState.QUARANTINED) {
+  if (previousStatus !== ThreatState.MITIGATED) {
     await dispatchIronlockQuarantineAutoEscalation({
       threatId: riskId,
       tenantUuid: company.tenantId,
@@ -53,5 +53,5 @@ export async function updateRiskStatus(
     });
   }
 
-  return { status: "QUARANTINED" };
+  return { status: "MITIGATED" };
 }

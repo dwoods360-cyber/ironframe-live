@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
-import type { DeAckReason, ThreatState } from "@prisma/client";
+import type { DeAckReason, Prisma, ThreatState } from "@prisma/client";
+import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 
 export type ReceiptThreatRowInput = {
   id: string;
@@ -11,7 +12,7 @@ export type ReceiptThreatRowInput = {
   isFalsePositive: boolean;
   dispositionStatus: string | null;
   receiptHash: string | null;
-  ingestionDetails: string | null;
+  ingestionDetails: string | Prisma.JsonValue | null;
   updatedAt: Date;
   score: number;
   targetEntity: string;
@@ -33,7 +34,7 @@ export function toReceiptThreatScalars(
     isFalsePositive: row.isFalsePositive,
     dispositionStatus: row.dispositionStatus,
     receiptHash: row.receiptHash,
-    ingestionDetails: row.ingestionDetails,
+    ingestionDetails: normalizeIngestionDetailsToString(row.ingestionDetails) ?? null,
     updatedAt: row.updatedAt.toISOString(),
     score: row.score,
     targetEntity: row.targetEntity,

@@ -236,7 +236,7 @@ export function getChaosShadowDrillStages(scenario: ChaosTelemetryScenario): Cha
 
 /** Appended on successful GRC acknowledge so the handoff chain closes in Prisma JSON. */
 export function buildChaosFinalAckIngestionPatch(
-  prevIngestionDetails: string | null,
+  prevIngestionDetails: string | Prisma.JsonValue | null,
 ): Record<string, Prisma.InputJsonValue> | null {
   const base = parseIngestionDetailsForMerge(prevIngestionDetails);
   if (base.isChaosTest !== true) {

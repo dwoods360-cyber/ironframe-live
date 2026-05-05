@@ -106,8 +106,8 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
         "Ingress: SimThreatEvent requires tenantCompanyId (shadow plane must match production isolation).",
       );
     }
-    const row = await prisma.simThreatEvent.create({
-      data: payloadWithCategory as Prisma.SimThreatEventUncheckedCreateInput,
+    const row = await prisma.riskEvent.create({
+      data: payloadWithCategory as Prisma.RiskEventUncheckedCreateInput,
       select: BOT_THREAT_WRITE_SELECT,
     });
     return row;
@@ -133,9 +133,9 @@ async function updateThreatEvent(
     ),
   };
   if (isSim) {
-    const row = await prisma.simThreatEvent.update({
+    const row = await prisma.riskEvent.update({
       where: { id },
-      data: updateWithCategory as Prisma.SimThreatEventUncheckedUpdateInput,
+      data: updateWithCategory as Prisma.RiskEventUncheckedUpdateInput,
       select: BOT_THREAT_WRITE_SELECT,
     });
     return row;
@@ -153,7 +153,7 @@ async function updateThreatEvent(
 async function findThreatEventByIdForBots(id: string): Promise<IngressAttbotThreatRow | null> {
   const isSim = await readSimulationPlaneEnabled();
   if (isSim) {
-    return prisma.simThreatEvent.findUnique({
+    return prisma.riskEvent.findUnique({
       where: { id },
       select: ATT_FETCH_SELECT,
     });

@@ -6,6 +6,12 @@ import type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus } from
 import prisma from "@/lib/prisma";
 import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
 import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
+import {
+  mergeAgentRegistryIntoSnapshot,
+  performWorkforceAudit,
+} from "@/app/lib/workforceAgentRegistryServer";
+
+export { performWorkforceAudit, mergeAgentRegistryIntoSnapshot } from "@/app/lib/workforceAgentRegistryServer";
 
 export { LKG_COLD_STORE_ROOT, LKG_MANIFEST_PATH };
 export type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus };
@@ -82,7 +88,7 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
         name === "Ironbloom"
           ? sustainabilityLedgerReady
             ? ("LKG_VERIFIED" as const)
-            : ("NO_MANIFEST_ENTRY" as const)
+            : ("NO_ENTRY" as const)
           : ("VAULT_UNREACHABLE" as const),
     }));
     return {
@@ -109,7 +115,7 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
         name === "Ironbloom"
           ? sustainabilityLedgerReady
             ? ("LKG_VERIFIED" as const)
-            : ("NO_MANIFEST_ENTRY" as const)
+            : ("NO_ENTRY" as const)
           : ("VAULT_UNREACHABLE" as const),
     }));
     return {
@@ -128,14 +134,14 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
       return {
         name,
         sha256: byName.get(name.toLowerCase()) ?? null,
-        status: sustainabilityLedgerReady ? ("LKG_VERIFIED" as const) : ("NO_MANIFEST_ENTRY" as const),
+        status: sustainabilityLedgerReady ? ("LKG_VERIFIED" as const) : ("NO_ENTRY" as const),
       };
     }
     const sha = byName.get(name.toLowerCase()) ?? null;
     return {
       name,
       sha256: sha,
-      status: sha ? ("LKG_VERIFIED" as const) : ("NO_MANIFEST_ENTRY" as const),
+      status: sha ? ("LKG_VERIFIED" as const) : ("NO_ENTRY" as const),
     };
   });
 
@@ -146,4 +152,14 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
     verifiedAt,
     agents,
   };
+}
+
+/**
+ * Integrity Hub entrypoint: runs `performWorkforceAudit()` (AgentRegistry TTL + Ironwatch pulses),
+ * reads cold-store manifest snapshot, then overlays DB workforce status on each roster row.
+ */
+export async function readIntegrityVaultSnapshotWithRegistry(): Promise<IntegrityVaultSnapshot> {
+  await performWorkforceAudit();
+  const snap = await readIntegrityVaultSnapshot();
+  return mergeAgentRegistryIntoSnapshot(snap);
 }

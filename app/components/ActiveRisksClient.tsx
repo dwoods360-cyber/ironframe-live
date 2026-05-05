@@ -12,6 +12,8 @@ import {
   getRemoteAccessAdminEligibility,
   toggleRemoteAccessAuthorization,
   generateSimulationApproval,
+  deprioritizeAllAgentsPanicAction,
+  triggerInfiltrationDrill,
   type AssignmentChangedLogEntry,
 } from '@/app/actions/threatActions';
 import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
@@ -26,6 +28,7 @@ import { parseIrontechLiveFromIngestion } from '@/app/utils/irontechLiveStream';
 import { joinErrorProbeParts } from '@/app/utils/grcInfrastructureLimit';
 import { useAgentStore } from '@/app/store/agentStore';
 import { ThreatCard } from '@/app/components/ThreatCard';
+import PostMortemReportSection from '@/app/components/PostMortemReportSection';
 import { PipelineSelfTestBar } from '@/app/components/ui/PipelineSelfTestBar';
 import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
 import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
@@ -109,7 +112,7 @@ type RiskRow = {
   };
 };
 
-/** Live ThreatEvent slice from GET /api/dashboard — assigneeId + ASSIGNMENT_CHANGED history. */
+/** Live risk-event slice from GET /api/dashboard — assigneeId + ASSIGNMENT_CHANGED history + Epic 11 GRC fields. */
 export type DashboardThreatEventRow = {
   id: string;
   title: string;
@@ -117,6 +120,10 @@ export type DashboardThreatEventRow = {
   /** ThreatEvent.status (e.g. ESCALATED after Phone Home). */
   status?: string;
   assigneeId: string | null;
+  complianceFramework?: string;
+  mappedControls?: string[];
+  remediationStatus?: string;
+  financialRiskCents?: string;
   assignmentHistory?: AssignmentChangedLogEntry[];
 };
 
@@ -919,6 +926,17 @@ export default function ActiveRisksClient({
   setSelectedThreatId: setSelectedThreatIdProp,
 }: Props) {
   const router = useRouter();
+  const addStreamMessage = useAgentStore((s) => s.addStreamMessage);
+  const [panicRunPending, startPanicRun] = useTransition();
+  const [drillRunPending, startDrillRun] = useTransition();
+  const [panicArmed, setPanicArmed] = useState(false);
+  const panicDisarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (panicDisarmTimerRef.current) clearTimeout(panicDisarmTimerRef.current);
+    };
+  }, []);
   const activeThreats = useRiskStore((state) => state.activeThreats);
   const replaceActiveThreats = useRiskStore((state) => state.replaceActiveThreats);
   const confirmThreat = useRiskStore((state) => state.confirmThreat);
@@ -1750,8 +1768,63 @@ export default function ActiveRisksClient({
 
   return (
     <div className="p-6 font-sans" data-testid="active-risks-board">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">ACTIVE RISKS</h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">ACTIVE RISKS</h2>
+          <button
+            type="button"
+            disabled={panicRunPending}
+            onClick={() => {
+              if (panicRunPending) return;
+              if (!panicArmed) {
+                setPanicArmed(true);
+                if (panicDisarmTimerRef.current) clearTimeout(panicDisarmTimerRef.current);
+                panicDisarmTimerRef.current = setTimeout(() => {
+                  setPanicArmed(false);
+                  panicDisarmTimerRef.current = null;
+                }, 3000);
+                return;
+              }
+              if (panicDisarmTimerRef.current) {
+                clearTimeout(panicDisarmTimerRef.current);
+                panicDisarmTimerRef.current = null;
+              }
+              setPanicArmed(false);
+              startPanicRun(async () => {
+                const r = await deprioritizeAllAgentsPanicAction(Date.now());
+                if (r.ok) {
+                  addStreamMessage(r.narrative);
+                  router.refresh();
+                }
+              });
+            }}
+            className={`shrink-0 rounded border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              panicArmed
+                ? "motion-safe:animate-pulse border-rose-600 bg-rose-600/45 text-rose-50 shadow-[0_0_16px_rgba(225,29,72,0.55)] hover:border-rose-500 hover:bg-rose-600/55"
+                : "border-rose-600/70 bg-rose-950/40 text-rose-100 shadow-[0_0_12px_rgba(244,63,94,0.35)] hover:border-rose-500 hover:bg-rose-900/50"
+            }`}
+          >
+            {panicRunPending ? "Applying…" : panicArmed ? "CONFIRM OVERRIDE?" : "Deprioritize all"}
+          </button>
+          <button
+            type="button"
+            disabled={drillRunPending}
+            onClick={() =>
+              startDrillRun(async () => {
+                const r = await triggerInfiltrationDrill(Date.now());
+                if (r.ok) {
+                  addStreamMessage(
+                    `> [INFILTRATION_DRILL] Mode ${r.mode} — threat ${r.threatId.slice(0, 8)}… lifecycle queued.`,
+                  );
+                  router.refresh();
+                }
+              })
+            }
+            className="shrink-0 rounded border border-cyan-500/50 bg-slate-900/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-100 transition-colors hover:border-cyan-400 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {drillRunPending ? "Starting…" : "Infiltration drill"}
+          </button>
+        </div>
         <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
           {sortedActiveThreats.length + sortedRisks.length} Live Findings
         </span>
@@ -1789,16 +1862,18 @@ export default function ActiveRisksClient({
         ) : null}
         {sortedActiveThreats.map((threat) => {
           const stickyResolvedVisual = stickyResolvedVisualByThreatId.get(threat.id) ?? false;
-          const isResolvedInDb =
-            (threat.threatStatus ?? '').trim().toUpperCase() === 'RESOLVED';
+          const dbStatusUpper = (threat.threatStatus ?? '').trim().toUpperCase();
+          const isArchived = dbStatusUpper === 'CLOSED_ARCHIVED';
+          const isResolvedInDb = dbStatusUpper === 'RESOLVED';
           const statusRaw = (() => {
+            if (isArchived) return 'CLOSED_ARCHIVED';
             if (isResolvedInDb || stickyResolvedVisual) return 'RESOLVED';
             return (threat.threatStatus ?? '').trim().toUpperCase();
           })();
           const isActuallyResolved = statusRaw === 'RESOLVED';
 
           const lifecycle: LifecycleState =
-            isResolvedInDb || stickyResolvedVisual
+            isResolvedInDb || stickyResolvedVisual || isArchived
               ? 'resolved'
               : (states[threat.id] as LifecycleState | undefined) ??
                 ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
@@ -1808,9 +1883,22 @@ export default function ActiveRisksClient({
           const isUnassigned = assigneeValue === 'unassigned';
           const isActive =
             !isActuallyResolved &&
-            (statusRaw === 'ACTIVE' || statusRaw === 'ESCALATED');
+            !isArchived &&
+            (statusRaw === 'CONFIRMED' || statusRaw === 'MITIGATED');
           /** Resolved always wins emerald styling; never flash red on resolved rows. */
-          const shouldFlash = !isActuallyResolved && isUnassigned && isActive;
+          const shouldFlash = !isActuallyResolved && !isArchived && isUnassigned && isActive;
+          let infiltrationCriticalFlash = false;
+          try {
+            const ing = JSON.parse(
+              (threat.ingestionDetails as string | undefined) ?? "{}",
+            ) as Record<string, unknown>;
+            const ae = ing.autoEscalation as Record<string, unknown> | undefined;
+            infiltrationCriticalFlash =
+              !isActuallyResolved &&
+              (ing.severityBadge === "CRITICAL" || ae?.label === "CRITICAL");
+          } catch {
+            infiltrationCriticalFlash = false;
+          }
           const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
           const grcDisplayText = displayGrcJustificationForActiveThreat({
             justification: threat.justification,
@@ -1836,13 +1924,14 @@ export default function ActiveRisksClient({
           const resolutionText = resolutionDrafts[threat.id] ?? '';
           const resolutionLenOk = resolutionText.trim().length >= 50;
 
-          const isRemoteIntervention = statusRaw === 'PENDING_REMOTE_INTERVENTION';
+          const isRemoteIntervention =
+            statusRaw === 'MITIGATED' &&
+            Boolean(threat.remoteTechId || threat.isRemoteAccessAuthorized);
           const isEscalatedThreat =
-            statusRaw === 'ESCALATED' || isRemoteIntervention;
+            statusRaw === 'MITIGATED' && !isRemoteIntervention;
           const chaosClosureMeta = readChaosClosureMeta(threat.ingestionDetails ?? null);
           const isRemoteSupportJitGate =
-            statusRaw === 'PENDING_REMOTE_INTERVENTION' &&
-            chaosClosureMeta.scenario === 'REMOTE_SUPPORT';
+            isRemoteIntervention && chaosClosureMeta.scenario === 'REMOTE_SUPPORT';
           const optimisticProcessing =
             (optimisticProcessingUntilRef.current.get(threat.id) ?? 0) > Date.now();
           const isResolveInFlight = resolvingThreatIds[threat.id] === true;
@@ -1880,7 +1969,7 @@ export default function ActiveRisksClient({
               ? null
               : optimisticProcessing
                 ? 'mitigating'
-              : statusRaw === 'ACTIVE' &&
+              : statusRaw === 'CONFIRMED' &&
                   irontechAttemptCount < 3 &&
                   isIrontechFamilySource
                 ? 'mitigating'
@@ -1940,9 +2029,7 @@ export default function ActiveRisksClient({
             : undefined;
 
           const suppressOpsTechnicalPanels =
-            isAutonomousClosed ||
-            statusRaw === 'ESCALATED' ||
-            statusRaw === 'PENDING_REMOTE_INTERVENTION';
+            isAutonomousClosed || statusRaw === 'MITIGATED';
 
           const isDualKeyDrill = isDualKeyHandshakeDrillCard(threat);
           const dualKeySimBot = getDualKeySimBotKind(threat);
@@ -2073,13 +2160,14 @@ export default function ActiveRisksClient({
           return (
             <ThreatCard
               key={threat.id}
+              cardThreatId={threat.id}
               showCompliance={showCompliance}
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}
               ironTechAgentPhase={ironTechAgentPhase}
               ingestionBootstrapFromIso={threat.createdAt ?? null}
               ingestionBootstrapEnabled={
-                statusRaw === 'ACTIVE' && !isRemoteIntervention && !isEscalatedThreat
+                statusRaw === 'CONFIRMED' && !isRemoteIntervention && !isEscalatedThreat
               }
               threatStatus={statusRaw || null}
               irontechAttemptCount={irontechAttemptCount}
@@ -2094,7 +2182,7 @@ export default function ActiveRisksClient({
                 router.refresh();
               }}
               manualRecoveryInline={
-                statusRaw === 'ESCALATED' && !isRemoteIntervention ? (
+                statusRaw === 'MITIGATED' && !isRemoteIntervention ? (
                   <InlineManualRecoveryBlock
                     threatId={threat.id}
                     onBusyChange={handleManualRecoveryBusy}
@@ -2120,12 +2208,14 @@ export default function ActiveRisksClient({
               className={`group flex flex-col justify-between rounded-lg overflow-hidden border border-slate-800 bg-slate-950/80 shadow-inner transition-all duration-500 ${
                 isChaosBoardThreat
                   ? chaosCardShellClass
-                  : isActuallyResolved
+                  : isActuallyResolved || isArchived
                     ? 'border-emerald-400 bg-emerald-900/40 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
                     : isRemoteIntervention
                       ? 'border-amber-800/50 bg-amber-950/25 hover:border-amber-600/50 z-10'
                       : isEscalatedThreat
                         ? 'border-rose-600/55 bg-rose-950/15 hover:border-rose-500/70 z-10'
+                        : infiltrationCriticalFlash
+                          ? 'animate-pulse border-red-600 bg-red-950/25 shadow-[0_0_24px_rgba(239,68,68,0.55)] z-10'
                         : shouldFlash
                           ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
                           : ''
@@ -2276,9 +2366,9 @@ export default function ActiveRisksClient({
                       ? 'Processing'
                       : isAutonomousClosed
                       ? 'Autonomous recovery completed'
-                      : statusRaw === 'PENDING_REMOTE_INTERVENTION'
+                      : isRemoteIntervention
                       ? 'Remote specialist queue'
-                      : statusRaw === 'ESCALATED'
+                      : statusRaw === 'MITIGATED'
                       ? 'Escalated — manual recovery'
                       : lifecycle === 'active'
                         ? 'Just Acknowledged'
@@ -2400,6 +2490,17 @@ export default function ActiveRisksClient({
                         {grcDisplayText}
                       </p>
                     </div>
+
+                    {isActuallyResolved && !isArchived && threat.postMortemReportPath ? (
+                      <PostMortemReportSection threatId={threat.id} threatName={threat.name} />
+                    ) : null}
+                    {isArchived && threat.postMortemReportPath ? (
+                      <div className="rounded border border-slate-600/50 bg-slate-900/40 p-2 text-[9px] text-slate-500">
+                        Forensic post-mortem on file — case status{' '}
+                        <span className="font-mono text-slate-400">CLOSED_ARCHIVED</span> (Product Owner
+                        signed).
+                      </div>
+                    ) : null}
 
                     {!suppressOpsTechnicalPanels && (
                       <>

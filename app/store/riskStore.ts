@@ -145,6 +145,8 @@ export type PipelineThreat = {
   /** Epic 11 lifecycle linkage: approval required before resolve. */
   resolutionApprovalId?: string | null;
   resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  /** Simulation plane: PDF path after Gate 7 expert lifecycle post-mortem generation. */
+  postMortemReportPath?: string | null;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;

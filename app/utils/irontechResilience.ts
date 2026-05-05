@@ -784,7 +784,7 @@ export async function runIsolatedRemoteSupportDrill(
     });
     await transitionThreatStatus({
       threatId: tid,
-      newStatus: ThreatState.PENDING_REMOTE_INTERVENTION,
+      newStatus: ThreatState.MITIGATED,
       actorUserId: INTERNAL_DRILL_OPERATOR_ID,
       eventType: "IRONTECH_REMOTE_SUPPORT_PENDING_GRANT",
       extraChanges: {
@@ -1457,7 +1457,7 @@ export async function executeWithRetry(
         },
       });
       await prisma.threatEvent
-        .update({ where: { id: tid }, data: { status: ThreatState.ESCALATED } })
+        .update({ where: { id: tid }, data: { status: ThreatState.MITIGATED } })
         .catch(() => {});
       return { ok: false, escalated: true, error: lastError };
     }

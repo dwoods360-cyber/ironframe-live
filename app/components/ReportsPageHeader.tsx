@@ -38,7 +38,7 @@ export default function ReportsPageHeader({ co2OffsetChip }: ReportsPageHeaderPr
             onClick={() => setHeatMapOpen(true)}
             className="inline-flex items-center gap-2 rounded-full border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase text-amber-200 hover:bg-amber-500/20"
           >
-            View Enterprise Heat Map
+            View Residual Risk Density Map
           </button>
         </div>
       </div>

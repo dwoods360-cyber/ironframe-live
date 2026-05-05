@@ -12,7 +12,8 @@ model Tenant {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                      String
   slug                      String                      @unique
-  industry                  String                      @default("Secure Enclave")
+  industry                  String?
+  shareAnonymizedBenchmarks Boolean                     @default(false)
   ale_baseline              BigInt                      @default(0)
   createdAt                 DateTime                    @default(now())
   agent_logs                AgentLog[]
@@ -107,7 +108,7 @@ model ThreatEvent {
   targetEntity             String
   financialRisk_cents      BigInt                @default(0)
   tenantCompanyId          BigInt?
-  status                   ThreatState           @default(PIPELINE)
+  status                   ThreatState           @default(IDENTIFIED)
   /// Level-3 remote tech dispatch: assigned specialist ref (set on URGENT DISPATCH).
   remoteTechId             String?               @map("remote_tech_id")
   /// GRC: Admin/Owner authorized vendor remote session (column legacy name: remoteAccessAuthorized).
@@ -124,7 +125,7 @@ model ThreatEvent {
   updatedAt                DateTime              @updatedAt
   /// GRC disposition label (e.g. CLEARANCE_PASSED, CLEARANCE_FALSE_POSITIVE); optional until triaged.
   dispositionStatus        String?               @map("disposition_status")
-  /// GRC disposition: operator marked the finding as a false positive (twin with SimThreatEvent).
+  /// GRC disposition: operator marked the finding as a false positive (twin shadow row: `RiskEvent` / table `SimThreatEvent`).
   isFalsePositive          Boolean               @default(false) @map("is_false_positive")
   /// SHA-256 hex of canonical digital receipt JSON at last disposition commit (golden-source anchor).
   receiptHash              String?               @map("receipt_hash")
@@ -159,23 +160,30 @@ model AgentReasoning {
   @@map("agent_reasoning")
 }
 
-/// Structural isolation plane: bot-generated threats when `ironframe-simulation-mode=1` (mirror of ThreatEvent scalars; no DMZ/orchestration child FKs).
-model SimThreatEvent {
+/// Shadow / simulation plane risk ledger (`ironframe-simulation-mode=1`): mirrors `ThreatEvent` scalars (Epic 11 — framework-mapped control exposure).
+model RiskEvent {
   id                       String       @id @default(cuid())
   title                    String
   sourceAgent              String
+  source                   SimThreatSource @default(SYSTEM)
   score                    Int
   targetEntity             String
   financialRisk_cents      BigInt       @default(0)
   tenantCompanyId          BigInt?
-  status                   ThreatState  @default(PIPELINE)
+  status                   ThreatState  @default(IDENTIFIED)
+  /// Epic 11: primary compliance framework for this risk event (HUD prioritizes drift vs. control mapping).
+  complianceFramework    ComplianceFramework @default(SOC2)
+  /// Mapped control identifiers (e.g. SOC2 CC6.1, ISO A.8.2, NIST PR.AC-3).
+  mappedControls           String[]     @default([])
   remoteTechId             String?      @map("remote_tech_id")
   isRemoteAccessAuthorized Boolean      @default(false) @map("remoteAccessAuthorized")
   ttlSeconds               Int          @default(259200)
+  monitoringExpiry         DateTime?
   deAckReason              DeAckReason?
   assigneeId               String?      @map("assignee_id")
   aiReport                 String?
-  ingestionDetails         String?
+  /// Shadow-plane metadata as JSONB (Prisma `Json`) — use `mergeIngestionDetailsPatchJson` on writes.
+  ingestionDetails         Json?
   createdAt                DateTime     @default(now())
   updatedAt                DateTime     @updatedAt
   dispositionStatus        String?      @map("disposition_status")
@@ -187,11 +195,40 @@ model SimThreatEvent {
   priority_score           Int          @default(0)
   remediation_status       String       @default("PENDING")
   severity                 String       @default("LOW")
+  /// Predictive exposure map from Ironlogic: `{ assetName: heatValue }` (resilience audit positioning).
+  predictedAssets          Json?
+  /// Resilience audit / drill progression multiplier used in predictive overlay scoring.
+  threatVelocity           Float        @default(1.0)
   ingestion_fingerprint    String?      @unique
+  /// GRC post-mortem PDF path (local `uploads/...` or `supabase://bucket/...`) after expert Gate 7 resolve.
+  postMortemReportPath     String?      @map("post_mortem_report_path")
   AuditLog                 AuditLog[]
+  reasoningLogs            ReasoningLog[]
 
   @@index([tenantCompanyId])
+  @@index([complianceFramework])
   @@map("SimThreatEvent")
+}
+
+/// Agentic brain — self-correction ledger (shadow `RiskEvent` plane). Confidence + escalation math are audit-facing.
+model ReasoningLog {
+  id               String         @id @default(cuid())
+  threatId         String
+  agentName        String
+  /// Optional asset focus label (e.g. "Primary_DB", "Auth_Gateway", "S3_Bucket_01").
+  targetAsset      String?
+  escalationLogic  String? /// The math (e.g. V*P + B)
+  plan             Json /// Step-by-step strategy
+  reasoning        String         @db.Text
+  confidence       Float /// 0.0–1.0 (audit band)
+  isCorrection     Boolean        @default(false)
+  operationalMode  String         @default("AUTONOMOUS") /// AUTONOMOUS or HYBRID
+  createdAt        DateTime       @default(now())
+  threat           RiskEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+
+  @@index([threatId])
+  @@index([agentName])
+  @@index([targetAsset])
 }
 
 /// Shadow-plane only: structural self-test & deficiency trail (never ThreatEvent / production ledger).
@@ -249,6 +286,10 @@ model SimulationConfig {
   lastSimulationStartedAt   DateTime? @map("last_simulation_started_at")
   /// Per-tenant ISO timestamps: `{ "<tenantUuid>": "<expiresAtIso>" }` — set after Master Purge to silence auto-inject.
   simulationStandDownExpiresAtByTenant Json? @map("simulation_stand_down_expires_at_by_tenant")
+  /// Active Risks panic: freezes gate progression and forces passive observation across the workforce roster.
+  workforcePanicPassiveMonitor Boolean @default(false) @map("workforce_panic_passive_monitor")
+  workforcePanicEngagedAt       DateTime? @map("workforce_panic_engaged_at")
+  workforcePanicAuthorityLabel  String?   @db.VarChar(128) @map("workforce_panic_authority_label")
   updatedAt                 DateTime  @updatedAt @map("updated_at")
 
   @@map("simulation_config")
@@ -320,6 +361,32 @@ model NotificationEndpoint {
   @@map("notification_endpoints")
 }
 
+/// Community-safe anonymized lessons repository (export-ready tactical intelligence only).
+model CommunityInsights {
+  id                      String   @id @default(cuid())
+  sourceThreatId          String   @map("source_threat_id")
+  anonymizedSummary       Json     @map("anonymized_summary")
+  predictiveAccuracyScore Float?   @map("predictive_accuracy_score")
+  mitigationStrategy      String?  @map("mitigation_strategy")
+  exportHash              String   @map("export_hash")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@index([sourceThreatId, createdAt])
+  @@map("community_insights")
+}
+
+/// Shared community intelligence repository used for weighted predictive overlays.
+model CommunityIntelligence {
+  id               String   @id @default(cuid())
+  patternData      Json     @map("pattern_data")
+  credibilityScore Float    @default(1.0) @map("credibility_score")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([active, createdAt])
+  @@map("community_intelligence")
+}
+
 /// Shadow directory for simulator-only targets (never maps to real authentication users / production directory).
 model SyntheticEmployee {
   id                 String    @id @default(uuid())
@@ -383,6 +450,14 @@ model AgentOperation {
   @@index([threatId])
   @@index([status])
   @@map("AgentOperation")
+}
+
+/// Expert roll call — workforce row per constitutional agent (Integrity Hub / LKG handshake).
+model AgentRegistry {
+  id              String   @id @default(cuid())
+  agentName       String   @unique
+  status          String   @default("LKG_VERIFIED")
+  lastHealthCheck DateTime @default(now())
 }
 
 /// Irontech Ironchaos: test harness — injects random failures when active (single global row).
@@ -551,7 +626,7 @@ model AuditLog {
   simThreatId            String?
   governance_tenant_uuid String?          @db.Uuid
   updated_by             String?
-  SimThreatEvent         SimThreatEvent?  @relation(fields: [simThreatId], references: [id])
+  riskEvent              RiskEvent?       @relation(fields: [simThreatId], references: [id])
   threat                 ThreatEvent?     @relation(fields: [threatId], references: [id])
   audit_comments         audit_comments[]
 
@@ -719,18 +794,16 @@ enum AgentStatus {
 }
 
 enum ThreatState {
-  PIPELINE
-  /// Ironlock / Irongate automatic containment (DMZ or malicious verdict)
-  QUARANTINED
-  ACTIVE
+  /// Ingress
+  IDENTIFIED
+  /// Escalated via Math (V*P + B)
   CONFIRMED
-  /// GRC / Irontech chaos lifecycle: attestation submitted (awaiting final resolve).
-  SUBMITTED
-  ESCALATED
-  PENDING_REMOTE_INTERVENTION
+  /// 7-Gate Lifecycle in progress
+  MITIGATED
+  /// Final Gate cleared
   RESOLVED
-  DE_ACKNOWLEDGED
-  MANUAL_HOLD
+  /// Post-Mortem signed; Forensic Finality
+  CLOSED_ARCHIVED
 }
 
 enum DeAckReason {
@@ -773,4 +846,17 @@ enum EventSource {
   LANGGRAPH
   SYSTEM
   ADMIN
+}
+
+enum SimThreatSource {
+  SYSTEM
+  HUMAN_SENTINEL
+  COMMUNITY
+}
+
+/// Epic 11 — compliance framework anchor for risk events (GRC monitorization).
+enum ComplianceFramework {
+  SOC2
+  ISO27001
+  NIST
 }

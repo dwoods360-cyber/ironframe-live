@@ -14,6 +14,7 @@ import prisma from "@/lib/prisma";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { resolveDispositionOperatorId } from "@/app/utils/serverAuth";
+import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 import {
   extractIngestionDiagnostics,
   OPERATIONAL_DEFICIENCY_REPORT,
@@ -84,7 +85,7 @@ export async function submitOperationalDeficiencyReportAction(input: {
       return { success: false, error: "No company for active tenant." };
     }
 
-    const row = await prisma.simThreatEvent.findFirst({
+    const row = await prisma.riskEvent.findFirst({
       where: { id: input.threatId, tenantCompanyId: companyId },
       select: {
         id: true,
@@ -102,7 +103,8 @@ export async function submitOperationalDeficiencyReportAction(input: {
     const likelihood = clampTriage(input.likelihood, 8);
     const impact = clampTriage(input.impact, 9);
     const residualScore = likelihood * impact;
-    const ingestionFull = row.ingestionDetails ?? null;
+    const ingestionFull =
+      normalizeIngestionDetailsToString(row.ingestionDetails ?? null) ?? null;
     const snapshot = {
       threatId: row.id,
       threatTitle: row.title,
@@ -185,7 +187,7 @@ export async function submitOperationalSelfTestPassAction(input: {
       return { success: false, error: "No company for active tenant." };
     }
 
-    const row = await prisma.simThreatEvent.findFirst({
+    const row = await prisma.riskEvent.findFirst({
       where: { id: input.threatId, tenantCompanyId: companyId },
       select: { id: true, title: true, status: true, score: true, ingestionDetails: true },
     });

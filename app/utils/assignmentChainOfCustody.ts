@@ -1,3 +1,5 @@
+import { displayForExpertAssigneeKey } from "@/app/config/expertAgentPersona";
+
 /** Prisma `AuditLog.action` values for assignee chain-of-custody (legacy + hardened lock). */
 export const THREAT_ASSIGNEE_AUDIT_ACTIONS = ['ASSIGNMENT_CHANGED', 'ASSIGNEE_CHANGE'] as const;
 
@@ -25,8 +27,11 @@ const OPERATOR_ID_LABELS: Record<string, string> = {
 
 export function assigneeKeyToDisplayName(key: string | null | undefined): string {
   if (key == null || String(key).trim() === '') return 'Unassigned';
-  const k = String(key).trim().toLowerCase();
-  return ASSIGNEE_KEY_LABELS[k] ?? String(key).trim();
+  const raw = String(key).trim();
+  const expert = displayForExpertAssigneeKey(raw);
+  if (expert) return expert;
+  const k = raw.toLowerCase();
+  return ASSIGNEE_KEY_LABELS[k] ?? raw;
 }
 
 export function operatorIdToDisplayName(operatorId: string): string {

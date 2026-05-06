@@ -51,10 +51,10 @@ async function main() {
     data: { id: TENANT_UUIDS.medshield, name: 'Medshield Health', slug: 'medshield', industry: 'Healthcare', ale_baseline: 1110000000n }
   });
   const tenantVaultbank = await prisma.tenant.create({
-    data: { id: TENANT_UUIDS.vaultbank, name: 'Vaultbank Global', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
+    data: { id: TENANT_UUIDS.vaultbank, name: 'Vaultbank NA', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
   });
   const tenantGridcore = await prisma.tenant.create({
-    data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Energy', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
+    data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Infrastructure', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
   });
 
   // 2. Establish Companies (The 1st Party / Tenant Boundary) — each company scoped to one tenant
@@ -63,11 +63,11 @@ async function main() {
   });
 
   const vaultbank = await prisma.company.create({
-    data: { name: 'Vaultbank Global', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n, tenantId: tenantVaultbank.id }
+    data: { name: 'Vaultbank NA', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n, tenantId: tenantVaultbank.id }
   });
 
   const gridcore = await prisma.company.create({
-    data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
+    data: { name: 'Gridcore Infrastructure', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
   });
 
   // 2b. Weekly industry mean ALE snapshots (benchmark trend chart; Healthcare last point +25% WoW for volatility demo)
@@ -147,7 +147,7 @@ async function main() {
         title: 'SWIFT Connector Token Reuse',
         sourceAgent: 'IRONGATE',
         score: 8,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(4_000_000),
         tenantCompanyId: vaultbank.id,
         status: ThreatState.CONFIRMED,
@@ -156,7 +156,7 @@ async function main() {
         title: 'Privileged Session Anomaly',
         sourceAgent: 'IRONSIGHT',
         score: 7,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(3_100_000),
         tenantCompanyId: vaultbank.id,
         status: ThreatState.CONFIRMED,
@@ -165,7 +165,7 @@ async function main() {
         title: 'Legacy TLS Downgrade Attempt',
         sourceAgent: 'COREINTEL',
         score: 6,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(1_800_000),
         tenantCompanyId: vaultbank.id,
         status: ThreatState.IDENTIFIED,
@@ -174,7 +174,7 @@ async function main() {
         title: 'Outbound DNS Tunneling Signal',
         sourceAgent: 'IRONGATE',
         score: 9,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(6_500_000),
         tenantCompanyId: vaultbank.id,
         status: ThreatState.CONFIRMED,
@@ -185,7 +185,7 @@ async function main() {
         title: 'Vendor Supply Chain Breach',
         sourceAgent: 'IRONMAP',
         score: 9,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(5_750_000),
         tenantCompanyId: gridcore.id,
         status: ThreatState.CONFIRMED,
@@ -194,7 +194,7 @@ async function main() {
         title: 'ICS Remote Access Misconfiguration',
         sourceAgent: 'IRONSIGHT',
         score: 8,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(4_400_000),
         tenantCompanyId: gridcore.id,
         status: ThreatState.CONFIRMED,
@@ -203,7 +203,7 @@ async function main() {
         title: 'Unapproved Firmware Image Detected',
         sourceAgent: 'COREINTEL',
         score: 7,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(2_200_000),
         tenantCompanyId: gridcore.id,
         status: ThreatState.IDENTIFIED,
@@ -212,7 +212,7 @@ async function main() {
         title: 'East-West Lateral Movement Signature',
         sourceAgent: 'IRONLOCK',
         score: 8,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(3_600_000),
         tenantCompanyId: gridcore.id,
         status: ThreatState.CONFIRMED,
@@ -232,9 +232,18 @@ async function main() {
     ]
   });
 
-  // 3. Inject Initial High-Risk Findings (Agent 4 Targets) — baseline empty after full purge; add risks via ingestion/triage.
+  // 3. Professional GRC baseline row (non-fictional program anchor)
   await prisma.activeRisk.createMany({
-    data: [],
+    data: [
+      {
+        company_id: vaultbank.id,
+        title: 'Compliance Audit 2026 — documented control sampling baseline',
+        status: 'OPEN',
+        score_cents: 0n,
+        source: 'GRC_BASELINE',
+        isSimulation: false,
+      },
+    ],
   });
 
   // 4. Inject N-Tier Supply Chain (Agent 10 / Ironmap Targets) - Tenant-scoped
@@ -253,7 +262,7 @@ async function main() {
     data: { tenantId: tenantVaultbank.id, name: 'Palo Alto Networks', riskTier: 'CRITICAL' }
   });
 
-  console.log('✅ Ironframe Baseline Seed Complete.');
+  console.log('✅ Ironframe Baseline Seed Complete (Vaultbank NA · Gridcore Infrastructure · Compliance Audit 2026).');
 
   // --- Sandbox boundary (default dev tenant UUID) — ensures Attbot / simulations always have a Company row ---
   const SANDBOX_TENANT_ID = '00000000-0000-0000-0000-000000000000';

@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import { ThreatState, type UserRole } from '@prisma/client';
 import { createHash, createSign, createVerify } from 'crypto';
 import prisma from '@/lib/prisma';
+import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
@@ -91,7 +92,7 @@ export async function logThreatActivity(
   try {
     const simId = options?.simThreatId?.trim() || null;
     const linkSim = Boolean(simId);
-    await prisma.auditLog.create({
+    await auditLogCreateLoose({
       data: {
         action: actionName,
         justification: details,
@@ -419,7 +420,7 @@ export async function voidReceiptAndReopen(
         },
       });
 
-      await tx.auditLog.create({
+      await auditLogCreateLooseTx(tx, {
         data: {
           action: 'ADMINISTRATIVE_VOID',
           justification: `Administrative void on receipt ${rid}: ${reason}`,

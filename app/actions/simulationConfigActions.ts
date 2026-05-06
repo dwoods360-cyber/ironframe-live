@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 
@@ -17,7 +18,7 @@ async function appendGlobalNotificationsToggleAudit(next: boolean): Promise<void
   try {
     const { userId, displayName } = await resolveIntegrityLedgerAuthorizedLabel();
     const truth = next ? "True" : "False";
-    await prisma.auditLog.create({
+    await auditLogCreateLoose({
       data: {
         action: "GLOBAL_NOTIFICATIONS",
         justification: `Operator [${displayName}] changed GLOBAL_NOTIFICATIONS to ${truth}`,
@@ -68,7 +69,7 @@ export async function updateTargetReadinessScore(
     });
     try {
       const { userId, displayName } = await resolveIntegrityLedgerAuthorizedLabel();
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "SYSTEM_EVENT",
           justification: `Operator [${displayName}] updated Readiness Target to ${clamped}.`,

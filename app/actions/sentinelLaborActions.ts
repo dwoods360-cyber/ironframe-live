@@ -20,7 +20,7 @@ export async function incrementSentinelDeepMonitoringLabor(
 ): Promise<void> {
   const tid = threatId?.trim();
   if (!tid) return;
-  const row = await prisma.riskEvent.findUnique({
+  const row = await prisma.riskEvent.findFirst({
     where: { id: tid },
     select: { source: true, ingestionDetails: true },
   });
@@ -36,7 +36,7 @@ export async function incrementSentinelDeepMonitoringLabor(
   const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails, {
     laborTracker: laborTracker as Prisma.InputJsonValue,
   });
-  await prisma.riskEvent.update({
+  await prisma.riskEvent.updateMany({
     where: { id: tid },
     data: { ingestionDetails: merged },
   });

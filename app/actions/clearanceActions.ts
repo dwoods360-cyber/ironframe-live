@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { ThreatState, DeAckReason, type Prisma } from "@prisma/client";
 import type { DigitalReceiptThreatScalars } from "@/app/lib/grc/threatReceipt";
 import {
@@ -57,10 +58,9 @@ async function updateClearanceThreatRow(
   data: Prisma.ThreatEventUncheckedUpdateInput | Prisma.RiskEventUncheckedUpdateInput,
 ): Promise<void> {
   if (mode === "sim") {
-    await prisma.riskEvent.update({
+    await prisma.riskEvent.updateMany({
       where: { id: threatId },
       data: data as Prisma.RiskEventUncheckedUpdateInput,
-      select: { id: true },
     });
     return;
   }
@@ -235,7 +235,7 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
             ingestion: threat.ingestionDetails,
           });
 
-    const promoted = await prisma.auditLog.create({
+    const promoted = await auditLogCreateLoose({
       data: {
         action: `CLEARANCE_PROMOTED:${threat.sourceAgent}`,
         justification: promotedDetails,
@@ -244,7 +244,7 @@ export async function promoteThreatToSanctum(threatId: string): Promise<PromoteT
         isSimulation: mode === "sim",
       },
     });
-    await prisma.auditLog.create({
+    await auditLogCreateLoose({
       data: {
         action: "CHAIN_OF_CUSTODY_TRANSFER",
         justification:
@@ -326,7 +326,7 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
           threatId,
         },
       });
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_FALSE_POSITIVE",
           justification: JSON.stringify({
@@ -339,7 +339,7 @@ export async function rejectAndArchiveThreat(threatId: string): Promise<Disposit
         },
       });
     } else {
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_FALSE_POSITIVE",
           justification: JSON.stringify({
@@ -413,7 +413,7 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
           threatId,
         },
       });
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_ESCALATED",
           justification: JSON.stringify({ threatId, text: DMZ_ESCALATE_WORK_NOTE }),
@@ -423,7 +423,7 @@ export async function escalateToSecOps(threatId: string): Promise<DispositionRes
         },
       });
     } else {
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "CLEARANCE_ESCALATED",
           justification: JSON.stringify({

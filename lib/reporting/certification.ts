@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
 
 type SimulationConfigCertificationRow = {
@@ -320,7 +321,7 @@ export async function verifyAndUpdateResilienceCertification(
     ];
     if (protection.shouldAuditTrigger) {
       writes.push(
-        prisma.auditLog.create({
+        auditLogCreateLoose({
           data: {
             action: "SYSTEM_EVENT",
             justification: "Streak Protection triggered for Operator. Grace window initiated.",
@@ -344,7 +345,7 @@ export async function verifyAndUpdateResilienceCertification(
     }
     if (shouldAuditRenewal) {
       writes.push(
-        prisma.auditLog.create({
+        auditLogCreateLoose({
           data: {
             action: "SYSTEM_EVENT",
             justification: "Compliance Milestone Reached: 7-Day Resilience Certified.",

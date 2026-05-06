@@ -120,7 +120,7 @@ export async function GET(
       if (prod) {
         threatRow = prod;
       } else {
-        const sim = await prisma.riskEvent.findUnique({
+        const sim = await prisma.riskEvent.findFirst({
           where: { id },
           select: simThreatDetailSelect,
         });

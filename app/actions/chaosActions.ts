@@ -503,7 +503,7 @@ export async function injectChaosThreatAction(
     } as const;
 
     const row = isSim
-      ? await prisma.riskEvent.findUnique({
+      ? await prisma.riskEvent.findFirst({
           where: { id: threatId },
           select: rowSelect,
         })
@@ -646,7 +646,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
     await prisma.$transaction(async (tx) => {
       if (step === 1) {
         if (isSim) {
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: { assigneeId: CHAOS_ASSIGNEE_IRONTECH_11 },
           });
@@ -661,7 +661,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
         }
       } else if (step === 2) {
         if (isSim) {
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: {
               status: ThreatState.CONFIRMED,
@@ -682,7 +682,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
         }
       } else if (step === 3) {
         if (isSim) {
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: {
               status: ThreatState.MITIGATED,
@@ -703,7 +703,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
         }
       } else {
         if (isSim) {
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: {
               status: ThreatState.RESOLVED,
@@ -931,7 +931,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
     if (isT12 && isChaosDrillRow) {
       await prisma.$transaction(async (tx) => {
         if (isSim) {
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: {
               assigneeId: assigneeUpdate,

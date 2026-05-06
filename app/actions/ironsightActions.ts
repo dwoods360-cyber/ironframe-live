@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import {
   mergeIngestionDetailsPatch,
   mergeIngestionDetailsPatchJson,
@@ -170,7 +171,7 @@ async function persistIronsightIngestionDetails(
   nextIngestion: string | Prisma.InputJsonValue,
 ): Promise<void> {
   if (plane === 'sim') {
-    await prisma.riskEvent.update({
+    await prisma.riskEvent.updateMany({
       where: { id },
       data: { ingestionDetails: nextIngestion },
     });
@@ -195,7 +196,7 @@ async function resolveThreatRowForIronsight(id: string): Promise<{
     select: traceRowSelect,
   });
   if (prod) return { row: prod, plane: 'prod' };
-  const sim = await prisma.riskEvent.findUnique({
+  const sim = await prisma.riskEvent.findFirst({
     where: { id },
     select: traceRowSelect,
   });
@@ -383,7 +384,7 @@ export async function executeTraceAction(
       });
       const simRow =
         prodRow == null
-          ? await tx.riskEvent.findUnique({
+          ? await tx.riskEvent.findFirst({
               where: { id },
               select: { id: true, financialRisk_cents: true },
             })
@@ -399,7 +400,7 @@ export async function executeTraceAction(
       const mitigatedCents = currentCents - residualRiskCents;
 
       if (isSim) {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { financialRisk_cents: residualRiskCents },
         });
@@ -435,7 +436,7 @@ export async function executeTraceAction(
         ...(isSim ? { simThreatId: id, plane: 'sim' as const } : {}),
       });
 
-      await tx.auditLog.create({
+      await auditLogCreateLooseTx(tx, {
         data: {
           action: 'AI_REMEDIATION_TRIGGERED',
           justification: justificationPayload,

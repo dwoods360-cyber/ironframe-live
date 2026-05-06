@@ -4,6 +4,7 @@ import { createHash, createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import type { Prisma } from "@prisma/client";
 import {
   EventSource,
@@ -168,7 +169,7 @@ async function patchWorkforcePanicFreeze(args: {
     rawFacts: `Manual override engaged during expert lifecycle; progression halted after gate ${args.frozenAfterGate}. Workforce passive monitor — read-only observation.`,
   });
   if (args.isSim) {
-    const snap = await prisma.riskEvent.findUnique({
+    const snap = await prisma.riskEvent.findFirst({
       where: { id: args.threatId },
       select: { ingestionDetails: true },
     });
@@ -176,7 +177,7 @@ async function patchWorkforcePanicFreeze(args: {
       expertPanicFrozenAfterGate: args.frozenAfterGate,
       expertPanicFreezeNote: msg,
     });
-    await prisma.riskEvent.update({
+    await prisma.riskEvent.updateMany({
       where: { id: args.threatId },
       data: { ingestionDetails: merged },
     });
@@ -762,7 +763,7 @@ export async function acknowledgeThreatAction(
 
     if (isShadowAck) {
       await prisma.$transaction(async (tx) => {
-        const detailsRow = await tx.riskEvent.findUnique({
+        const detailsRow = await tx.riskEvent.findFirst({
           where: { id },
           select: { ingestionDetails: true },
         });
@@ -777,15 +778,14 @@ export async function acknowledgeThreatAction(
           grcJustification: savedWorkNoteText,
           ...(chaosAckPatch ?? {}),
         });
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: {
             status: ThreatState.CONFIRMED,
             ingestionDetails: nextIngestionDetails,
           },
-          select: { id: true },
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: 'THREAT_ACKNOWLEDGED',
             justification: JSON.stringify({
@@ -833,7 +833,7 @@ export async function acknowledgeThreatAction(
             },
             select: { id: true },
           });
-          await tx.auditLog.create({
+          await auditLogCreateLooseTx(tx, {
             data: {
               action: 'THREAT_ACKNOWLEDGED',
               justification: savedWorkNoteText,
@@ -898,7 +898,7 @@ export async function confirmThreatAction(
   try {
     if (isShadow) {
       await prisma.$transaction(async (tx) => {
-        const row = await tx.riskEvent.findUnique({
+        const row = await tx.riskEvent.findFirst({
           where: { id },
           select: { id: true },
         });
@@ -908,12 +908,11 @@ export async function confirmThreatAction(
             '[Confirm Phase 2 – Shadow TX] simThreatEvent row missing before update (race delete or ID mismatch).',
           );
         }
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { status: ThreatState.CONFIRMED },
-          select: { id: true },
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: 'THREAT_CONFIRMED',
             justification: JSON.stringify(shadowReceiptAuditStub(id)),
@@ -929,7 +928,7 @@ export async function confirmThreatAction(
       });
 
       try {
-        const threat = await prisma.riskEvent.findUnique({
+        const threat = await prisma.riskEvent.findFirst({
           where: { id },
           select: { title: true, status: true, financialRisk_cents: true },
         });
@@ -990,7 +989,7 @@ export async function confirmThreatAction(
           tx,
           select: { id: true },
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: 'THREAT_CONFIRMED',
             justification: null,
@@ -1126,14 +1125,14 @@ export async function resolveThreatAction(
         resolutionJustification: trimmed,
       });
       await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id: simRow.id },
           data: {
             status: ThreatState.RESOLVED,
             ingestionDetails: mergedIngestion,
           },
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: "THREAT_RESOLVED",
             justification: justificationPayload,
@@ -1250,7 +1249,7 @@ export async function resolveThreatAction(
         data: { status: "PERMANENT" },
       });
     }
-    await prismaTx.auditLog.create({
+    await auditLogCreateLooseTx(prismaTx, {
       data: {
         action: 'THREAT_RESOLVED',
         justification: justificationPayload,
@@ -1417,7 +1416,7 @@ export async function deAcknowledgeThreatAction(
       },
       select: { id: true },
     });
-    await tx.auditLog.create({
+    await auditLogCreateLooseTx(tx, {
       data: {
         action: 'THREAT_DE_ACKNOWLEDGED',
         justification: trimmedJustification,
@@ -1426,7 +1425,7 @@ export async function deAcknowledgeThreatAction(
       },
     });
     // # GRC_ACTION_CHIPS / audit directive — De-Ack must log STATE_REGRESSION
-    await tx.auditLog.create({
+    await auditLogCreateLooseTx(tx, {
       data: {
         action: 'STATE_REGRESSION',
         justification: 'User reversed acknowledgment of risk.',
@@ -1470,7 +1469,7 @@ export async function revertThreatToPipelineAction(
       extraChanges: { deAckReason: null },
       select: { id: true },
     });
-    await tx.auditLog.create({
+    await auditLogCreateLooseTx(tx, {
       data: {
         action: 'REVERT_TO_PIPELINE',
         justification: 'Re-escalated from Active Risks to Attack Velocity pipeline.',
@@ -1493,7 +1492,7 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
     return;
   }
   try {
-    await prismaDelegates.auditLog.create({
+    await auditLogCreateLooseTx(prismaDelegates, {
       data: {
         action: 'RISK_REJECTED',
         justification: 'User rejected risk ingestion/registration.',
@@ -1505,7 +1504,7 @@ export async function rejectThreatAction(id: string, operatorId: string): Promis
     return { success: true };
   } catch {
     // Threat may not exist (e.g. client-only pipeline); create audit without FK
-    await prismaDelegates.auditLog.create({
+    await auditLogCreateLooseTx(prismaDelegates, {
       data: {
         action: 'RISK_REJECTED',
         justification: `User rejected risk ingestion/registration. threat_id: ${id}`,
@@ -1580,7 +1579,7 @@ export async function executeAgentAction(
           eventType: args.integrityEventType,
           tx,
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: args.auditAction,
             justification: auditJustification,
@@ -1600,11 +1599,11 @@ export async function executeAgentAction(
         if (!args.shadowChanges) {
           throw new Error('executeAgentAction: shadowChanges required for shadow plane.');
         }
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id: args.threatId },
           data: args.shadowChanges,
         });
-        await tx.auditLog.create({
+        await auditLogCreateLooseTx(tx, {
           data: {
             action: args.auditAction,
             justification: auditJustification,
@@ -1732,7 +1731,7 @@ export async function setThreatAssigneeAction(
           tx,
           select: { id: true },
         });
-        return tx.auditLog.create({
+        return auditLogCreateLooseTx(tx, {
           data: {
             action: 'ASSIGNEE_CHANGE',
             justification: buildAssigneeChangeJustification(threatId, false, existing.assigneeId ?? null),
@@ -1778,18 +1777,17 @@ export async function setThreatAssigneeAction(
     }
     try {
       const created = await prisma.$transaction(async (tx) => {
-        const row = await tx.riskEvent.findUnique({
+        const row = await tx.riskEvent.findFirst({
           where: { id: threatId },
           select: { assigneeId: true },
         });
         if (!row) return null;
         if ((row.assigneeId ?? null) === value) return null;
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id: threatId },
           data: { assigneeId: value },
-          select: { id: true },
         });
-        return tx.auditLog.create({
+        return auditLogCreateLooseTx(tx, {
           data: {
             action: 'ASSIGNEE_CHANGE',
             justification: buildAssigneeChangeJustification(threatId, true, row.assigneeId ?? null),
@@ -1884,7 +1882,7 @@ export async function saveAIReportToThreat(threatId: string, aiReport: string): 
         tx,
         select: { id: true },
       });
-      await tx.auditLog.create({
+      await auditLogCreateLooseTx(tx, {
         data: {
           action: 'AI_REPORT_SAVED',
           justification: null,
@@ -2050,7 +2048,7 @@ export async function acknowledgeGrcInfrastructureLimitAndResetAgent(
       });
     }
   });
-  await prisma.auditLog.create({
+  await auditLogCreateLoose({
     data: {
       action: "GRC_INFRASTRUCTURE_LIMIT_ACKNOWLEDGED",
       justification:
@@ -2132,7 +2130,7 @@ export async function authorizeManualResolution(
     where: { threatId: tid, agentName: IRONTECH_AGENT_NAME },
     data: { status: AgentOperationStatus.COMPLETED, lastError: null },
   });
-  await prisma.auditLog.create({
+  await auditLogCreateLoose({
     data: {
       action: "MANUAL_RESOLUTION_AUTHORIZED",
       justification: `Desktop recovery: operator ${op} authorized closure after escalation.`,
@@ -2179,7 +2177,7 @@ export async function toggleRemoteAccessAuthorization(
     actorUserId: userId,
     eventType: "REMOTE_ACCESS_AUTHORIZATION",
   });
-  await prisma.auditLog.create({
+  await auditLogCreateLoose({
     data: {
       action: "REMOTE_ACCESS_AUTHORIZATION",
       operatorId: userId,
@@ -2552,7 +2550,7 @@ export async function generateCisoApproval(
   try {
     const sim = await readSimulationPlaneEnabled();
     if (sim) {
-      const row = await prisma.riskEvent.findUnique({
+      const row = await prisma.riskEvent.findFirst({
         where: { id: tid },
         select: { id: true, ingestionDetails: true, sourceAgent: true, tenantCompanyId: true },
       });
@@ -2589,7 +2587,7 @@ export async function generateCisoApproval(
           attestationSignature,
         },
       });
-      await prisma.riskEvent.update({
+      await prisma.riskEvent.updateMany({
         where: { id: tid },
         data: { ingestionDetails: merged },
       });
@@ -2746,7 +2744,7 @@ export async function generateSimulationApproval(
   try {
     const sim = await readSimulationPlaneEnabled();
     if (sim) {
-      const row = await prisma.riskEvent.findUnique({
+      const row = await prisma.riskEvent.findFirst({
         where: { id: tid },
         select: { id: true, title: true, ingestionDetails: true, tenantCompanyId: true },
       });
@@ -2807,7 +2805,7 @@ export async function generateSimulationApproval(
         },
       });
       await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id: tid },
           data: { ingestionDetails: merged },
         });
@@ -3286,7 +3284,7 @@ export async function executeExpertAgentLifecycle(
       if (evidenceCount <= 0) {
         const monitoringExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
         await prisma.$transaction(async (tx) => {
-          const snap = await tx.riskEvent.findUnique({
+          const snap = await tx.riskEvent.findFirst({
             where: { id },
             select: { ingestionDetails: true },
           });
@@ -3313,7 +3311,7 @@ export async function executeExpertAgentLifecycle(
             },
             laborTracker,
           });
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: {
               status: ThreatState.IDENTIFIED,
@@ -3364,7 +3362,7 @@ export async function executeExpertAgentLifecycle(
     // --- Step 1: claim / assignee ---
     if (isSim) {
       await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { assigneeId: assignKey(activeAgent) },
         });
@@ -3398,7 +3396,7 @@ export async function executeExpertAgentLifecycle(
       await prisma.$transaction(async (tx) => {
         let mergedIngestion: Prisma.InputJsonValue | undefined;
         if (isHumanSentinelThreat && sentinelTargetAsset) {
-          const snap = await tx.riskEvent.findUnique({
+          const snap = await tx.riskEvent.findFirst({
             where: { id },
             select: { ingestionDetails: true },
           });
@@ -3417,7 +3415,7 @@ export async function executeExpertAgentLifecycle(
           simScope.mappedControls.length > 0
             ? simScope.mappedControls
             : mappedControlsForFramework(simScope.complianceFramework);
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: {
             status: ThreatState.CONFIRMED,
@@ -3494,7 +3492,7 @@ export async function executeExpertAgentLifecycle(
 
       if (isSim) {
         await prisma.$transaction(async (tx) => {
-          const snap = await tx.riskEvent.findUnique({
+          const snap = await tx.riskEvent.findFirst({
             where: { id },
             select: { ingestionDetails: true },
           });
@@ -3506,7 +3504,7 @@ export async function executeExpertAgentLifecycle(
             expertReferralFrom: fromAgent,
             expertReferralTo: toAgent,
           });
-          await tx.riskEvent.update({
+          await tx.riskEvent.updateMany({
             where: { id },
             data: { ingestionDetails: merged },
           });
@@ -3540,7 +3538,7 @@ export async function executeExpertAgentLifecycle(
       activeAgent = toAgent;
 
       if (isSim) {
-        await prisma.riskEvent.update({
+        await prisma.riskEvent.updateMany({
           where: { id },
           data: { assigneeId: assignKey(activeAgent) },
         });
@@ -3586,7 +3584,7 @@ export async function executeExpertAgentLifecycle(
     const expertFactsForIronscribe = getExpertJustification(activeAgent, threatSignal);
     if (isSim) {
       await prisma.$transaction(async (tx) => {
-        const snap = await tx.riskEvent.findUnique({
+        const snap = await tx.riskEvent.findFirst({
           where: { id },
           select: { ingestionDetails: true },
         });
@@ -3602,7 +3600,7 @@ export async function executeExpertAgentLifecycle(
           expertLifecycleWorkNoteAtUtc: dual.timestampUtc,
           expertLifecycleWorkNoteAtLocal: dual.timestampLocal,
         });
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { ingestionDetails: merged, assigneeId: assignKey(activeAgent) },
         });
@@ -3639,7 +3637,7 @@ export async function executeExpertAgentLifecycle(
     // --- Step 6: submitted ---
     if (isSim) {
       await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { status: ThreatState.MITIGATED, assigneeId: assignKey(activeAgent) },
         });
@@ -3667,7 +3665,7 @@ export async function executeExpertAgentLifecycle(
     // --- Step 7: resolved ---
     if (isSim) {
       await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.update({
+        await tx.riskEvent.updateMany({
           where: { id },
           data: { status: ThreatState.RESOLVED, assigneeId: assignKey(activeAgent) },
         });
@@ -3693,14 +3691,14 @@ export async function executeExpertAgentLifecycle(
       try {
         const predictive = await calculatePredictiveFidelityForSimThreat(id);
         if (predictive) {
-          const snap = await prisma.riskEvent.findUnique({
+          const snap = await prisma.riskEvent.findFirst({
             where: { id },
             select: { ingestionDetails: true },
           });
           const merged = mergeIngestionDetailsPatchJson(snap?.ingestionDetails ?? null, {
             predictiveFidelity: predictive,
           });
-          await prisma.riskEvent.update({
+          await prisma.riskEvent.updateMany({
             where: { id },
             data: { ingestionDetails: merged },
           });
@@ -3750,7 +3748,7 @@ async function closeExpiredSentinelHypothesis(threatId: string, targetAsset: str
   const expiryNarrative =
     "🤖 [HYPOTHESIS_EXPIRED] | No corroborating evidence found after 24h continuous control validation. Closing as Negative Finding.";
   await prisma.$transaction(async (tx) => {
-    const snap = await tx.riskEvent.findUnique({
+    const snap = await tx.riskEvent.findFirst({
       where: { id: threatId },
       select: { ingestionDetails: true },
     });
@@ -3772,7 +3770,7 @@ async function closeExpiredSentinelHypothesis(threatId: string, targetAsset: str
       hypothesisExpiryNarrative: expiryNarrative,
       laborTracker,
     });
-    await tx.riskEvent.update({
+    await tx.riskEvent.updateMany({
       where: { id: threatId },
       data: {
         status: ThreatState.RESOLVED,
@@ -3847,7 +3845,7 @@ export async function runExpertWorkforceLifecycle(
     operationalMode,
     infiltrationDrill: true,
   });
-  await prisma.riskEvent.update({
+  await prisma.riskEvent.updateMany({
     where: { id },
     data: { ingestionDetails: merged },
   });
@@ -3909,7 +3907,7 @@ function computeJaccardPercent(predicted: readonly string[], actual: readonly st
 async function calculatePredictiveFidelityForSimThreat(
   threatId: string,
 ): Promise<PredictiveFidelitySummary | null> {
-  const row = await prisma.riskEvent.findUnique({
+  const row = await prisma.riskEvent.findFirst({
     where: { id: threatId },
     select: {
       id: true,
@@ -4143,6 +4141,14 @@ export async function triggerInfiltrationDrill(
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
+  const infiltrationTenant = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { tenantId: true },
+  });
+  if (infiltrationTenant?.tenantId == null) {
+    return { ok: false, error: "Missing tenant boundary for infiltration drill." };
+  }
+
   const currentMode =
     infiltrationDrillLastMode === "AUTONOMOUS" ? "HYBRID" : "AUTONOMOUS";
   infiltrationDrillLastMode = currentMode;
@@ -4202,6 +4208,7 @@ export async function triggerInfiltrationDrill(
       score: Math.round(escalationTotal * 10),
       targetEntity: "SIM_SHADOW_AUTH",
       tenantCompanyId: companyId,
+      tenantId: infiltrationTenant.tenantId,
       status: ThreatState.IDENTIFIED,
       severity,
       priority_score:

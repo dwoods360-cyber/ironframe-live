@@ -147,12 +147,13 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
   const receiptHashSha256 = await ironwatchSignShredReceiptPayload(canonicalPayload);
 
   await prisma.$transaction([
-    prisma.riskEvent.update({
+    prisma.riskEvent.updateMany({
       where: { id: risk.id },
       data: { postMortemReportPath: null },
-      select: { id: true },
     }),
-    prisma.evidenceChapter.deleteMany({ where: { riskEventId: risk.id } }),
+    prisma.evidenceChapter.deleteMany({
+      where: { riskEventTenantId: tenantUuid, riskEventId: risk.id },
+    }),
     prisma.auditReceipt.create({
       data: {
         tenantId: tenantUuid,

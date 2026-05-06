@@ -36,6 +36,7 @@ import { generateCisoApproval } from "@/app/actions/threatActions";
 import ChaosShadowAuditFeed, {
   isChaosShadowPlaneThreat,
 } from "@/app/components/chaos/ChaosShadowAuditFeed";
+import GovernanceHeartbeat from "@/components/GovernanceHeartbeat";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -192,6 +193,7 @@ function PipelineThreatCard({
   const resolveThreat = useRiskStore((s) => s.resolveThreat);
   const chaosFlight = useRiskStore((s) => s.chaosFlightRecorderByThreatId[threat.id]);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
+  const setForensicPlaybackThreatId = useRiskStore((s) => s.setForensicPlaybackThreatId);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
@@ -486,6 +488,16 @@ function PipelineThreatCard({
             <span className="font-mono" title="Time since detection">
               Triage clock {tttDisplay}
             </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <GovernanceHeartbeat threatId={threat.id} className="text-slate-400" />
+            <button
+              type="button"
+              onClick={() => setForensicPlaybackThreatId(threat.id)}
+              className="rounded border border-violet-700/55 bg-violet-950/40 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-violet-200/95 hover:bg-violet-900/45"
+            >
+              Why?
+            </button>
           </div>
           {showChaosShadowFeed ? (
             <ChaosShadowAuditFeed

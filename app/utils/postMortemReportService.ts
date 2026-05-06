@@ -45,7 +45,7 @@ export async function generateAndAttachPostMortemReport(
     bytes,
   });
 
-  await prisma.riskEvent.update({
+  await prisma.riskEvent.updateMany({
     where: { id: threatId },
     data: { postMortemReportPath: storedPath },
   });

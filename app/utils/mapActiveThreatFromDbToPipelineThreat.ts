@@ -1,5 +1,6 @@
 import type { PipelineThreat } from "@/app/store/riskStore";
 import type { PipelineThreatFromDb } from "@/app/actions/simulationActions";
+import { parseForensicCustodyFromIngestion } from "@/app/utils/forensicPathCustody";
 
 /** Client-safe: map `fetchActiveThreatsFromDb` rows to `PipelineThreat` (Ironsight / GRC JSON on `ingestionDetails`). */
 export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): PipelineThreat {
@@ -28,5 +29,6 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     resolutionApprovalId: r.resolutionApprovalId ?? undefined,
     resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
     postMortemReportPath: r.postMortemReportPath ?? undefined,
+    forensicCustody: parseForensicCustodyFromIngestion(r.ingestionDetails ?? undefined),
   };
 }

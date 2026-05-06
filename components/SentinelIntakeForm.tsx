@@ -19,9 +19,17 @@ const SYMPTOM_OPTIONS: Array<{ value: SentinelObservedSymptom; label: string }> 
 
 type Props = {
   assetOptions: string[];
+  /** Manual Risk Registration chip / pipeline draft flow is active */
+  manualRiskChipActive?: boolean;
+  /** Kimbot, GRC bot, Chaos / adversary sim — governed path via Sentinel interview only */
+  presetSimulationActive?: boolean;
 };
 
-export default function SentinelIntakeForm({ assetOptions }: Props) {
+export default function SentinelIntakeForm({
+  assetOptions,
+  manualRiskChipActive = false,
+  presetSimulationActive = false,
+}: Props) {
   const options = useMemo(() => {
     const clean = assetOptions.map((a) => a.trim()).filter(Boolean);
     return clean.length > 0 ? [...new Set(clean)] : ["General Infrastructure"];
@@ -34,6 +42,8 @@ export default function SentinelIntakeForm({ assetOptions }: Props) {
   const [complianceFramework, setComplianceFramework] = useState<ComplianceFramework>("SOC2");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const sentinelInterviewRequired = presetSimulationActive;
 
   const submit = () => {
     setFeedback(null);
@@ -52,11 +62,48 @@ export default function SentinelIntakeForm({ assetOptions }: Props) {
     });
   };
 
+  if (!manualRiskChipActive) {
+    return (
+      <section className="rounded border border-slate-800/80 bg-slate-950/50 p-3">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Deficiency Discovery Gate</h3>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+          {sentinelInterviewRequired ? (
+            <>
+              Preset simulation or Sentinel sweep is active. Complete the{" "}
+              <span className="font-semibold text-slate-400">Sentinel GRC interview</span> via{" "}
+              <span className="font-semibold text-amber-400/90">RUN SENTINEL SWEEP</span> in Strategic Intel before
+              governed ingestion.
+            </>
+          ) : (
+            <>
+              Open <span className="font-semibold text-slate-400">Manual Risk Registration</span> in the threat pipeline
+              to record a deficiency hypothesis.
+            </>
+          )}
+        </p>
+      </section>
+    );
+  }
+
+  if (sentinelInterviewRequired) {
+    return (
+      <section className="rounded border border-amber-900/45 bg-slate-950/70 p-3">
+        <h3 className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">Deficiency Discovery Gate</h3>
+        <p className="mt-2 text-[10px] leading-relaxed text-slate-400">
+          Kimbot, Chaos, or Sentinel sweep paths require the{" "}
+          <span className="font-semibold text-amber-300/95">Sentinel GRC interview</span>. Use{" "}
+          <span className="font-semibold text-amber-400">RUN SENTINEL SWEEP</span> in Strategic Intel, sign as Product
+          Owner, then <span className="font-semibold text-slate-200">Authorize agent action</span>.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="rounded border border-violet-900/50 bg-slate-950/70 p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-[11px] font-bold uppercase tracking-wide text-violet-200">Deficiency Discovery Gate</h3>
-        <span className="text-[9px] text-violet-300/80">GRC control hypothesis</span>
+        <span className="text-[9px] text-violet-300/80">Manual risk registration</span>
       </div>
 
       <label className="mb-2 block text-[10px] text-slate-300">
@@ -73,7 +120,6 @@ export default function SentinelIntakeForm({ assetOptions }: Props) {
           ))}
         </select>
       </label>
-
       <label className="mb-2 block text-[10px] text-slate-300">
         Which Control Deficiency are you observing?
         <select
@@ -88,7 +134,6 @@ export default function SentinelIntakeForm({ assetOptions }: Props) {
           ))}
         </select>
       </label>
-
       <label className="mb-2 block text-[10px] text-slate-300">
         Which Compliance Framework is affected?
         <select
@@ -101,7 +146,6 @@ export default function SentinelIntakeForm({ assetOptions }: Props) {
           <option value="NIST">NIST</option>
         </select>
       </label>
-
       <label className="mb-2 block text-[10px] text-slate-300">
         Confidence Level ({confidenceLevel}%)
         <input

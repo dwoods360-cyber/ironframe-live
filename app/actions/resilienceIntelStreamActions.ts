@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 async function getCompanyIdsForActiveTenant(): Promise<bigint[]> {
@@ -31,7 +32,7 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
           where: { id: tid },
           select: { id: true },
         }),
-        prisma.riskEvent.findUnique({
+        prisma.riskEvent.findFirst({
           where: { id: tid },
           select: { id: true },
         }),
@@ -42,7 +43,7 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
     }
 
     if (prod) {
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: RESILIENCE_ACTION,
           justification: line,
@@ -55,7 +56,7 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
     }
 
     if (sim) {
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: RESILIENCE_ACTION,
           justification: line,
@@ -69,7 +70,7 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
     }
 
     // Fallback: if row was removed between emit + write, keep line for debugging visibility.
-    await prisma.auditLog.create({
+    await auditLogCreateLoose({
       data: {
         action: RESILIENCE_ACTION,
         justification: line,

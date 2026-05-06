@@ -8,11 +8,8 @@ import {
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { getCarrierTemplate, type CarrierTemplate } from "@/app/utils/carrierTemplates";
 import { generateSimulationSignature } from "@/app/utils/simulationSignature";
-import {
-  buildGovernanceGlossaryEntries,
-  GOVERNANCE_ALE_FORMULA_LINES,
-  GOVERNANCE_ALE_FORMULA_TITLE,
-} from "@/app/utils/governanceGlossary";
+import { GOVERNANCE_ALE_FORMULA_LINES, GOVERNANCE_ALE_FORMULA_TITLE } from "@/lib/constants/grcGovernance";
+import { buildGovernanceGlossaryEntries } from "@/app/utils/governanceGlossary";
 
 const MARGIN = 14;
 const PAGE_W = 210;

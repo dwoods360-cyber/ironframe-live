@@ -74,7 +74,7 @@ export async function logPostMortemReportDownloadAction(
     grcForensicPostMortemSigned: true,
   });
 
-  await prisma.riskEvent.update({
+  await prisma.riskEvent.updateMany({
     where: { id: tid, tenantCompanyId: companyId },
     data: {
       status: ThreatState.CLOSED_ARCHIVED,

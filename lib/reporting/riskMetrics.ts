@@ -4,6 +4,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
 
 /** Standard (clearance 1–4) successful-sim penalty per affected persona. */
@@ -220,7 +221,7 @@ export async function recordReadinessHistoricalLowIfNeeded(currentScore: number)
           historicalLowestRecordedAt: new Date(),
         } as any),
       }),
-      prisma.auditLog.create({
+      auditLogCreateLoose({
         data: {
           action: "READINESS_HISTORICAL_LOW",
           justification: `New Historical Vulnerability Low reached: ${score}`,

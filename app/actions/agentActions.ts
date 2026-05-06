@@ -12,6 +12,14 @@ import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
 import { hasClearance, resolveEffectiveEvidenceChapter } from "@/app/utils/clearanceLogic";
 import { ironwatchSignShredReceiptPayloadSync } from "@/app/utils/ironwatchShredReceipt";
+import {
+  IRONWATCH_AGENT13_ATTESTATION_LINE,
+  IRONWATCH_INTEL_MATCH_SIDEBAR,
+} from "@/lib/constants/grcGovernance";
+import { searchAgent13HybridCorpus, type Agent13ChunkMatch } from "@/lib/db/agent13HybridSearch";
+import { deterministicUnitEmbeddingFromText } from "@/lib/ml/deterministicEmbedding1536";
+
+/** Ironwatch hybrid governance: import from `@/app/actions/ironwatchGovernanceActions` (avoid re-export in this `use server` module for Next.js 15). */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -19,7 +27,7 @@ const CROWN_JEWEL_SLUGS = new Set(["medshield", "vaultbank"]);
 
 const PRIORITY_MAPPED_CONTROLS_SOC2 = ["SOC2 CC6.1", "SOC2 CC6.7"] as const;
 
-export type MarketVolatilityHardeningResult =
+type MarketVolatilityHardeningResult =
   | { ok: true; created: number; threatIds: string[]; skipped: boolean; reason?: string }
   | { ok: false; error: string };
 
@@ -100,7 +108,10 @@ export async function triggerMarketVolatilityAutoHardening(
         priority_score: 100,
         targetEntity: co.name,
         tenantCompanyId: co.id,
+        tenantId: tid,
         financialRisk_cents: financialSeed,
+        baseImpactCents: financialSeed,
+        governanceImpactMultiplier: 100n,
         complianceFramework: ComplianceFramework.SOC2,
         mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
         monitoringExpiry,
@@ -270,7 +281,7 @@ export async function runShadowMarketVolatilityExpertLifecycleHook(threatId: str
   );
 }
 
-export type IrongateEvidenceChapterGateResult =
+type IrongateEvidenceChapterGateResult =
   | { ok: true }
   | { ok: false; httpStatus: number; message: string };
 
@@ -294,7 +305,7 @@ export async function irongateInterceptRestrictedEvidenceChapterAccess(params: {
 
   const row = await prisma.riskEvent.findFirst({
     where: { id: tid, tenantCompanyId: companyId },
-    select: { id: true, title: true, tenantCompanyId: true },
+    select: { id: true, title: true, tenantCompanyId: true, tenantId: true },
   });
   if (!row || row.tenantCompanyId == null) {
     return { ok: false, httpStatus: 404, message: "Not found." };
@@ -305,8 +316,8 @@ export async function irongateInterceptRestrictedEvidenceChapterAccess(params: {
     select: { tenant: { select: { industry: true } } },
   });
 
-  const chapter = await prisma.evidenceChapter.findUnique({
-    where: { riskEventId: tid },
+  const chapter = await prisma.evidenceChapter.findFirst({
+    where: { riskEventTenantId: row.tenantId, riskEventId: tid },
     select: { isExportControlled: true, requiredClearance: true },
   });
 
@@ -347,4 +358,34 @@ export async function ironwatchEmitForensicShredIntel(params: {
     `🗑️ [IRONWATCH] | Forensic Shredding Complete. Receipt #${params.receiptNumber} stored in the Non-Repudiable Ledger.`,
     params.riskEventId,
   );
+}
+
+/** Persisted ReasoningLog / ingestion signature — copy from `@/lib/constants/grcGovernance`. */
+export async function getIronwatchAgent13Attestation(): Promise<string> {
+  return IRONWATCH_AGENT13_ATTESTATION_LINE;
+}
+
+/** Resilience Intel stream — copy from `@/lib/constants/grcGovernance`. */
+export async function getIronwatchMatchMessage(): Promise<string> {
+  return IRONWATCH_INTEL_MATCH_SIDEBAR;
+}
+
+/**
+ * Agent 13 — cosine KNN over `agent13_hybrid_chunk` using pgvector `<=>` (HNSW cosine ops).
+ * Used for shadow-dissent / continuity probes; query embedding is deterministic when no live embedder is configured.
+ */
+export async function probeShadowDissentWithAgent13CosineKnn(params: {
+  tenantCompanyId: bigint;
+  queryUtf8: string;
+  limit?: number;
+}): Promise<{ matches: Agent13ChunkMatch[]; embeddingDims: number }> {
+  const q = params.queryUtf8.trim();
+  if (!q) return { matches: [], embeddingDims: 1536 };
+  const queryEmbedding = deterministicUnitEmbeddingFromText(q);
+  const matches = await searchAgent13HybridCorpus(prisma, {
+    tenantCompanyId: params.tenantCompanyId,
+    queryEmbedding,
+    limit: params.limit ?? 8,
+  });
+  return { matches, embeddingDims: queryEmbedding.length };
 }

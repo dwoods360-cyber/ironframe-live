@@ -165,6 +165,41 @@ function emptyGlobalSustainabilityImpact(): GlobalSustainabilityImpact {
   };
 }
 
+/** Reject monetary-only “offsets” and payloads without explicit physical quantities (Ironbloom / CSRD readiness). */
+const IRONBLOOM_CURRENCY_SYMBOL_RE = /[\u0024\u00A2\u00A3\u20AC\u00A5\uFFE5]/;
+const IRONBLOOM_PHYSICAL_UNITS_RE =
+  /\bkWh\b|\bKWH\b|\bCO2e\b|\bCO₂e\b|\b\d+(\.\d+)?\s*L\b|\bL\b(?=\s*[,}\]]|\s*$)/i;
+
+export class IronbloomIngestUnprocessableError extends Error {
+  readonly httpStatus = 422;
+  constructor(message: string) {
+    super(message);
+    this.name = "IronbloomIngestUnprocessableError";
+  }
+}
+
+/**
+ * Strict gate for external Ironbloom ingestion: no currency tokens; must cite kWh, L, and/or CO2e.
+ */
+export function validateIronbloomSustainabilityPayload(payload: unknown): void {
+  const raw =
+    typeof payload === "string"
+      ? payload
+      : payload != null && typeof payload === "object"
+        ? JSON.stringify(payload)
+        : String(payload);
+  if (IRONBLOOM_CURRENCY_SYMBOL_RE.test(raw)) {
+    throw new IronbloomIngestUnprocessableError(
+      "Ironbloom ingestion rejected: currency symbols are forbidden (monetary-only offsets not accepted).",
+    );
+  }
+  if (!IRONBLOOM_PHYSICAL_UNITS_RE.test(raw)) {
+    throw new IronbloomIngestUnprocessableError(
+      "Ironbloom ingestion rejected: payload must include physical units (kWh, L, CO2e).",
+    );
+  }
+}
+
 /** High tier: 1–10 severity 8–10, or 0–100 scale ≥80. */
 function isHighSeverity(score: number): boolean {
   if (score >= 8 && score <= 10) return true;

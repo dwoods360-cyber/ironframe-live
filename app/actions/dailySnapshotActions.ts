@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { UserRole } from "@prisma/client";
 import { getReadinessAndLossForSnapshot } from "@/lib/reporting/boardReportQueries";
 import {
@@ -138,7 +139,7 @@ export async function approveBoardCommentary(): Promise<
     } as any));
     try {
       const { displayName, userId } = await resolveIntegrityLedgerAuthorizedLabel();
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "SYSTEM_EVENT",
           justification: `Board Report commentary approved by ${displayName}.`,
@@ -183,7 +184,7 @@ export async function toggleFailureExclusion(
     });
     try {
       const { displayName, userId } = await resolveIntegrityLedgerAuthorizedLabel();
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "SYSTEM_EVENT",
           justification: nextExcluded

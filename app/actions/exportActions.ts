@@ -111,7 +111,7 @@ export async function contributeAnonymizedLessonsAction(
   const tid = threatId.trim();
   if (!tid) return { ok: false, error: "Missing threat id." };
 
-  const sim = await prisma.riskEvent.findUnique({
+  const sim = await prisma.riskEvent.findFirst({
     where: { id: tid },
     select: {
       id: true,

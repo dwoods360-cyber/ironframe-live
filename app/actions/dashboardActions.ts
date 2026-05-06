@@ -14,6 +14,10 @@ import { incrementSentinelDeepMonitoringLabor } from "@/app/actions/sentinelLabo
 import { reasoningLogIndicatesControlMapped } from "@/app/utils/reasoningLogControlMapping";
 import { calculateBudgetJustification } from "@/app/utils/grcMath";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
+import {
+  buildReasoningWaterfallFromIngestion,
+  type ReasoningWaterfallVM,
+} from "@/app/utils/reasoningWaterfallFromIngestion";
 
 const COMMUNITY_WEIGHT = 0.1;
 
@@ -265,6 +269,7 @@ export type DashboardPayload = {
       operatorId: string;
       createdAt: string;
     }>;
+    reasoningWaterfall?: ReasoningWaterfallVM | null;
   }>;
   /** Sum of `financialRisk_cents` (ALE-style exposure) per asset / scope for active risk events. */
   aleExposureByAssetCents: Record<string, string>;
@@ -367,6 +372,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
             assigneeId: true,
             ttlSeconds: true,
             ingestionDetails: true,
+            forensicSeal: true,
             complianceFramework: true,
             mappedControls: true,
             remediation_status: true,
@@ -777,6 +783,13 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       simPlane && "remediation_status" in t ? String(t.remediation_status) : "PENDING";
     const financialRiskCents =
       "financialRisk_cents" in t ? (t.financialRisk_cents as bigint).toString() : "0";
+    const reasoningWaterfall =
+      simPlane && ("ingestionDetails" in t || "forensicSeal" in t)
+        ? buildReasoningWaterfallFromIngestion(
+            "ingestionDetails" in t ? t.ingestionDetails : null,
+            "forensicSeal" in t ? t.forensicSeal : undefined,
+          )
+        : null;
     return {
       id: t.id,
       title: t.title,
@@ -794,6 +807,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         operatorId: log.operatorId,
         createdAt: log.createdAt.toISOString(),
       })),
+      reasoningWaterfall,
     };
   });
 

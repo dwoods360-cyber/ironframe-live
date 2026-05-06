@@ -7,6 +7,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ClipboardList, ExternalLink, Loader2, ShieldCheck, Radar } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
+import { useHasMounted } from '@/app/hooks/useHasMounted';
+import {
+  FORENSIC_CUSTODY_PRODUCT_OWNER_AGENT_ID,
+  parseForensicCustodyFromIngestion,
+} from '@/app/utils/forensicPathCustody';
+import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from '@/lib/constants/grcGovernance';
 import {
   setThreatAssigneeAction,
   getRemoteAccessAdminEligibility,
@@ -32,6 +38,7 @@ import PostMortemReportSection from '@/app/components/PostMortemReportSection';
 import { PipelineSelfTestBar } from '@/app/components/ui/PipelineSelfTestBar';
 import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
 import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
+import GovernanceHeartbeat from '@/components/GovernanceHeartbeat';
 import { grantRemoteAccessAction } from '@/app/actions/chaosActions';
 import ChaosShadowAuditFeed from '@/app/components/chaos/ChaosShadowAuditFeed';
 import { fetchChaosLedgerClientAttribution } from '@/app/utils/chaosClientAttribution';
@@ -949,6 +956,9 @@ export default function ActiveRisksClient({
   const storeSetSelectedThreatId = useRiskStore((state) => state.setSelectedThreatId);
   const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
   const recoveryBoardSyncPending = useRiskStore((state) => state.recoveryBoardSyncPending);
+  const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
+  const setForensicPlaybackThreatId = useRiskStore((state) => state.setForensicPlaybackThreatId);
+  const hasMountedClient = useHasMounted();
 
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
@@ -2157,6 +2167,9 @@ export default function ActiveRisksClient({
             ? 'Assign this threat to yourself, then the remediation log and CISO/Admin actions unlock.'
             : undefined;
 
+          const activeRiskShieldBadge =
+            hasMountedClient && selectedIndustry === "Defense" ? DEFENSE_REGULATORY_SHIELD_BADGE_LABEL : null;
+
           return (
             <ThreatCard
               key={threat.id}
@@ -2246,12 +2259,62 @@ export default function ActiveRisksClient({
                       {threat.name}
                     </Link>
                   </h3>
+                  {hasMountedClient && activeRiskShieldBadge ? (
+                    <span
+                      className="mt-1 inline-flex rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-bold tracking-wide text-emerald-100/95"
+                      title="GRC Gold — CMMC L3 regulatory shield (defense profile or governed ingest)"
+                    >
+                      {activeRiskShieldBadge}
+                    </span>
+                  ) : null}
+                  {(() => {
+                    const custody =
+                      threat.forensicCustody ??
+                      parseForensicCustodyFromIngestion(threat.ingestionDetails ?? undefined);
+                    if (!custody?.length) return null;
+                    return (
+                      <div
+                        className="mt-2 w-full max-w-md rounded border border-violet-800/40 bg-violet-950/20 px-2 py-1.5"
+                        role="region"
+                        aria-label="Forensic chain of custody"
+                      >
+                        <p className="text-[8px] font-black uppercase tracking-wider text-violet-300/90">
+                          Forensic path (chain of custody)
+                        </p>
+                        <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-[9px] text-slate-400">
+                          {custody.map((step) => (
+                            <li key={`${threat.id}-${step.agentId}-${step.signedAt}`}>
+                              <span className="font-mono text-violet-400/90">
+                                {step.agentId === FORENSIC_CUSTODY_PRODUCT_OWNER_AGENT_ID
+                                  ? "Product Owner"
+                                  : `Agent ${step.agentId}`}
+                              </span>{" "}
+                              {step.phase} ·{" "}
+                              <time dateTime={step.signedAt} className="text-slate-500">
+                                {new Date(step.signedAt).toLocaleString()}
+                              </time>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    );
+                  })()}
                   <IronsightComplianceTagsBadges threatLike={threat} />
                   <p className="mt-1 font-mono text-[10px] text-slate-500">{threat.id}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     Target: <span className="text-slate-400">{threat.target ?? threat.industry ?? 'Healthcare'}</span>
                   </p>
                   <p className="mt-1 text-[10px] text-slate-400">{displayDescription}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <GovernanceHeartbeat threatId={threat.id} className="text-slate-400" />
+                    <button
+                      type="button"
+                      onClick={() => setForensicPlaybackThreatId(threat.id)}
+                      className="rounded border border-violet-700/55 bg-violet-950/40 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-violet-200/95 hover:bg-violet-900/45"
+                    >
+                      Why?
+                    </button>
+                  </div>
                   {threat.agentReasonings && threat.agentReasonings.length > 0 ? (
                     <div
                       className="mt-2 w-full max-w-md rounded border border-emerald-500/35 bg-emerald-950/25 px-2 py-1.5"

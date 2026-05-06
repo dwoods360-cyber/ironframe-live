@@ -17,14 +17,34 @@ model Tenant {
   ale_baseline              BigInt                      @default(0)
   createdAt                 DateTime                    @default(now())
   agent_logs                AgentLog[]
+  agentComputeLogs          AgentComputeLog[]
   audit_exports             audit_exports[]
   companies                 Company[]
   compliance_snapshots      compliance_snapshots[]
   governance_policy_history governance_policy_history[]
   governance_settings       governance_settings?
   vendors                   Vendor[]
+  riskEvents                RiskEvent[]
+  forensicSealLedgers       ForensicSealLedger[]
 
   @@map("tenants")
+}
+
+/// Agentic compute telemetry — HASH-partitioned by `tenant_id` for billing and audit (Postgres 18).
+model AgentComputeLog {
+  tenantId       String   @map("tenant_id") @db.Uuid
+  id             String   @default(cuid())
+  agentId        String   @map("agent_id")
+  durationMs     Int      @map("duration_ms")
+  tokensIn       Int      @default(0) @map("tokens_in")
+  tokensOut      Int      @default(0) @map("tokens_out")
+  operationType  String   @map("operation_type")
+  createdAt      DateTime @default(now()) @map("created_at")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@index([tenantId, createdAt])
+  @@map("agent_compute_log")
 }
 
 /// Weekly anonymized industry mean ALE (cents) for Ironethic benchmark trend charts.
@@ -172,15 +192,28 @@ model AgentReasoning {
 }
 
 /// Shadow / simulation plane risk ledger (`ironframe-simulation-mode=1`): mirrors `ThreatEvent` scalars (Epic 11 — framework-mapped control exposure).
+/// HASH-partitioned by `tenant_id` (Postgres declarative); composite PK prevents cross-tenant row identity collisions at the storage layer.
 model RiskEvent {
-  id                       String       @id @default(cuid())
+  id                       String       @default(cuid())
   title                    String
   sourceAgent              String
   source                   SimThreatSource @default(SYSTEM)
   score                    Int
   targetEntity             String
   financialRisk_cents      BigInt       @default(0)
+  /// Immutable base impact (cents) — DB-level law: governed_impact = (base_impact_cents * governance_impact_multiplier) / 100.
+  /// Example: 1.6× governance uses multiplier 160 → same integer cents as (base_impact_cents * 160) / 100.
+  baseImpactCents          BigInt       @default(0) @map("base_impact_cents")
+  /// Integer multiplier in basis points (100 = 1.00×, 160 = 1.60×). All monetary fields BigInt.
+  governanceImpactMultiplier BigInt     @default(100) @map("governance_impact_multiplier")
+  /// Postgres 18 GENERATED ALWAYS STORED BIGINT — deterministic integer cents; no float drift.
+  governedImpact           BigInt       @default(dbgenerated("(\"base_impact_cents\" * \"governance_impact_multiplier\") / 100")) @map("governed_impact")
+  /// SHA-256 (hex) CISO/PO attestation + ingestion anchor (see `lib/crypto` canonical binding).
+  governanceHash           String?      @map("governance_hash")
   tenantCompanyId          BigInt?
+  /// Denormalized from `companies.tenantId` — HASH partition key (NOT NULL for partitioned rows).
+  tenantId                 String       @map("tenant_id") @db.Uuid
+  tenant                   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   status                   ThreatState  @default(IDENTIFIED)
   /// Epic 11: primary compliance framework for this risk event (HUD prioritizes drift vs. control mapping).
   complianceFramework    ComplianceFramework @default(SOC2)
@@ -210,28 +243,52 @@ model RiskEvent {
   predictedAssets          Json?
   /// Resilience audit / drill progression multiplier used in predictive overlay scoring.
   threatVelocity           Float        @default(1.0)
-  ingestion_fingerprint    String?      @unique
+  ingestion_fingerprint    String?
   /// GRC post-mortem PDF path (local `uploads/...` or `supabase://bucket/...`) after expert Gate 7 resolve.
   postMortemReportPath     String?      @map("post_mortem_report_path")
+  /// GRC Gold — Product Owner digital signature + verification metadata (JSONB).
+  forensicSeal             Json?        @map("forensic_seal")
   AuditLog                 AuditLog[]
   reasoningLogs            ReasoningLog[]
   evidenceChapter          EvidenceChapter?
+  forensicSealLedgerRows   ForensicSealLedger[]
 
+  @@id([tenantId, id])
+  @@unique([tenantId, ingestion_fingerprint])
   @@index([tenantCompanyId])
+  @@index([tenantId])
   @@index([complianceFramework])
   @@map("SimThreatEvent")
+}
+
+/// HASH-partitioned forensic seal snapshots (`forensic_seal_ledger`); complements JSONB `forensic_seal` on RiskEvent.
+model ForensicSealLedger {
+  tenantId       String    @map("tenant_id") @db.Uuid
+  id             String
+  riskEventId    String    @map("risk_event_id")
+  governanceHash String?   @map("governance_hash")
+  sealJson       Json      @map("seal_json")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  riskEvent      RiskEvent @relation(fields: [tenantId, riskEventId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@index([riskEventId])
+  @@map("forensic_seal_ledger")
 }
 
 /// Evidence vault chapter metadata — export control & clearance (shadow-plane RiskEvent attachment).
 model EvidenceChapter {
   id                  String    @id @default(cuid())
-  riskEventId         String    @unique @map("risk_event_id")
-  riskEvent           RiskEvent @relation(fields: [riskEventId], references: [id], onDelete: Cascade)
+  riskEventTenantId   String    @map("risk_event_tenant_id") @db.Uuid
+  riskEventId         String    @map("risk_event_id")
+  riskEvent           RiskEvent @relation(fields: [riskEventTenantId, riskEventId], references: [tenantId, id], onDelete: Cascade)
   isExportControlled  Boolean   @default(false) @map("is_export_controlled")
   requiredClearance   String    @default("PUBLIC") @map("required_clearance")
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
+  @@unique([riskEventTenantId, riskEventId])
   @@map("evidence_chapters")
 }
 
@@ -273,6 +330,8 @@ model AuditReceipt {
 /// Agentic brain — self-correction ledger (shadow `RiskEvent` plane). Confidence + escalation math are audit-facing.
 model ReasoningLog {
   id               String         @id @default(cuid())
+  /// Filled by `lib/prisma` query extension from `threatId` + `SimThreatEvent.tenant_id` before INSERT.
+  threatTenantId   String?        @map("threat_tenant_id") @db.Uuid
   threatId         String
   agentName        String
   /// Optional asset focus label (e.g. "Primary_DB", "Auth_Gateway", "S3_Bucket_01").
@@ -284,11 +343,27 @@ model ReasoningLog {
   isCorrection     Boolean        @default(false)
   operationalMode  String         @default("AUTONOMOUS") /// AUTONOMOUS or HYBRID
   createdAt        DateTime       @default(now())
-  threat           RiskEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  threat           RiskEvent? @relation(fields: [threatTenantId, threatId], references: [tenantId, id], onDelete: Cascade)
 
-  @@index([threatId])
+  @@index([threatTenantId, threatId])
   @@index([agentName])
   @@index([targetAsset])
+}
+
+/// Agent 17 — durable outbox for scheduled Sentinel sweeps (`pg_cron` inserts PENDING rows; HTTP/worker drains).
+model SentinelAutomationOutbox {
+  id          String    @id @default(uuid()) @db.Uuid
+  jobKind     String    @default("AGENT17_SENTINEL_SWEEP") @map("job_kind")
+  tenantScope String?   @map("tenant_scope") @db.Uuid
+  status      String    @default("PENDING")
+  runAfter    DateTime  @default(now()) @map("run_after")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  payload     Json?
+  claimedAt   DateTime? @map("claimed_at")
+  completedAt DateTime? @map("completed_at")
+  lastError   String?   @map("last_error")
+
+  @@map("sentinel_automation_outbox")
 }
 
 /// Shadow-plane only: structural self-test & deficiency trail (never ThreatEvent / production ledger).
@@ -676,7 +751,7 @@ model IntegrityExport {
 }
 
 model AuditLog {
-  id                     String           @id @default(cuid())
+  id                     String           @default(cuid())
   action                 String
   justification          String?
   operatorId             String
@@ -684,16 +759,21 @@ model AuditLog {
   threatId               String?
   createdAt              DateTime         @default(now())
   simThreatId            String?
+  simThreatTenantId      String?          @map("sim_threat_tenant_id") @db.Uuid
   governance_tenant_uuid String?          @db.Uuid
+  /// HASH partition key (NOT NULL in DB).
+  tenantId               String           @map("tenant_id") @db.Uuid
   updated_by             String?
-  riskEvent              RiskEvent?       @relation(fields: [simThreatId], references: [id])
+  riskEvent              RiskEvent?       @relation(fields: [simThreatTenantId, simThreatId], references: [tenantId, id])
   threat                 ThreatEvent?     @relation(fields: [threatId], references: [id])
   audit_comments         audit_comments[]
 
+  @@id([tenantId, id])
   @@index([createdAt])
+  @@index([tenantId, createdAt])
   @@index([governance_tenant_uuid, createdAt])
   @@index([isSimulation, simThreatId])
-  @@index([simThreatId])
+  @@index([simThreatTenantId, simThreatId])
   @@map("AuditLog")
 }
 
@@ -782,14 +862,15 @@ model QuarantineRecord {
 }
 
 model audit_comments {
-  id           String   @id
-  audit_log_id String
-  operator_id  String
-  comment_text String
-  created_at   DateTime @default(now())
-  AuditLog     AuditLog @relation(fields: [audit_log_id], references: [id], onDelete: Cascade)
+  id                String   @id
+  auditLogTenantId  String   @map("audit_log_tenant_id") @db.Uuid
+  audit_log_id      String   @map("audit_log_id")
+  operator_id       String   @map("operator_id")
+  comment_text      String   @map("comment_text")
+  created_at        DateTime @default(now()) @map("created_at")
+  AuditLog          AuditLog @relation(fields: [auditLogTenantId, audit_log_id], references: [tenantId, id], onDelete: Cascade)
 
-  @@index([audit_log_id])
+  @@index([auditLogTenantId, audit_log_id])
 }
 
 model audit_exports {

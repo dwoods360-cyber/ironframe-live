@@ -23,6 +23,8 @@ type HeaderProps = {
 export default function Header({ tenantNames = [] }: HeaderProps) {
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
+  const auditorViewEnabled = useRiskStore((s) => s.auditorViewEnabled);
+  const setAuditorViewEnabled = useRiskStore((s) => s.setAuditorViewEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
 
   const options = [
@@ -59,6 +61,31 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
       </select>
 
       <div className="ml-auto flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto">
+        <div className="flex shrink-0 items-center gap-2">
+          <label
+            htmlFor="auditor-view-toggle"
+            className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
+          >
+            Auditor view
+          </label>
+          <button
+            id="auditor-view-toggle"
+            type="button"
+            role="switch"
+            aria-checked={auditorViewEnabled}
+            onClick={() => setAuditorViewEnabled(!auditorViewEnabled)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+              auditorViewEnabled ? "bg-amber-600" : "bg-slate-700"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                auditorViewEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-slate-500">{auditorViewEnabled ? "ON" : "OFF"}</span>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <label
             htmlFor="expert-mode-toggle"

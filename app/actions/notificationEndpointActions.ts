@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { NotificationChannelType } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import { encryptNotificationUrl, decryptNotificationUrl } from "@/lib/security/notificationEndpointCrypto";
 import { assertWebhookUrlPassesIrongate } from "@/lib/security/irongateOutboundWebhook";
@@ -21,7 +22,7 @@ function maskWebhookUrl(plaintext: string): string {
 async function auditNotificationConfigLedger(action: string, justification: string): Promise<void> {
   try {
     const { userId } = await resolveIntegrityLedgerAuthorizedLabel();
-    await prisma.auditLog.create({
+    await auditLogCreateLoose({
       data: {
         action,
         justification,

@@ -106,8 +106,23 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
         "Ingress: SimThreatEvent requires tenantCompanyId (shadow plane must match production isolation).",
       );
     }
+    let tenantId: string | undefined =
+      (payloadWithCategory as { tenantId?: string | null }).tenantId ?? undefined;
+    if (tenantId == null) {
+      const c = await prisma.company.findUnique({
+        where: { id: payloadWithCategory.tenantCompanyId },
+        select: { tenantId: true },
+      });
+      tenantId = c?.tenantId ?? undefined;
+    }
+    if (tenantId == null) {
+      throw new Error("Ingress: SimThreatEvent requires tenantId (shadow plane tenant boundary).");
+    }
     const row = await prisma.riskEvent.create({
-      data: payloadWithCategory as Prisma.RiskEventUncheckedCreateInput,
+      data: {
+        ...(payloadWithCategory as Prisma.RiskEventUncheckedCreateInput),
+        tenantId,
+      },
       select: BOT_THREAT_WRITE_SELECT,
     });
     return row;
@@ -133,11 +148,15 @@ async function updateThreatEvent(
     ),
   };
   if (isSim) {
-    const row = await prisma.riskEvent.update({
+    await prisma.riskEvent.updateMany({
       where: { id },
       data: updateWithCategory as Prisma.RiskEventUncheckedUpdateInput,
+    });
+    const row = await prisma.riskEvent.findFirst({
+      where: { id },
       select: BOT_THREAT_WRITE_SELECT,
     });
+    if (!row) throw new Error(`Ingress: SimThreatEvent not found after update (id=${id}).`);
     return row;
   }
   return updateThreatWithIntegrity<IngressBotThreatCreated>({
@@ -153,7 +172,7 @@ async function updateThreatEvent(
 async function findThreatEventByIdForBots(id: string): Promise<IngressAttbotThreatRow | null> {
   const isSim = await readSimulationPlaneEnabled();
   if (isSim) {
-    return prisma.riskEvent.findUnique({
+    return prisma.riskEvent.findFirst({
       where: { id },
       select: ATT_FETCH_SELECT,
     });

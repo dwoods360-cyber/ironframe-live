@@ -25,7 +25,22 @@ import ClockDriftMonitor from './ClockDriftMonitor';
 import SentinelIntakeForm from '@/components/SentinelIntakeForm';
 import RiskEventCard from '@/components/RiskEventCard';
 import BudgetJustification from '@/components/BudgetJustification';
+import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
+import AuditorRiskLedger from '@/components/AuditorRiskLedger';
 import { formatCentsToUSD } from '@/app/utils/formatCentsToUSD';
+import { getSectorRegulatoryProfile } from '@/app/utils/sectorRegulatoryProfile';
+import { useKimbotStore } from '@/app/store/kimbotStore';
+import { useGrcBotStore } from '@/app/store/grcBotStore';
+import { useAdversarySimulatorStore } from '@/app/store/adversarySimulatorStore';
+import { useHasMounted } from '@/app/hooks/useHasMounted';
+import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from '@/lib/constants/grcGovernance';
+import {
+  GRC_GOLD_AUDITOR_LEDGER_HEADING,
+  GRC_GOLD_AUDITOR_VIEW_INTRO,
+  GRC_GOLD_AUDITOR_VIEW_TITLE,
+} from '@/lib/constants/grcGold';
+import type { ReasoningWaterfallVM } from '@/app/utils/reasoningWaterfallFromIngestion';
+import ResourceMonitor from '@/app/components/ResourceMonitor';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -73,6 +88,7 @@ type DashboardData = {
     mappedControls?: string[];
     remediationStatus?: string;
     financialRiskCents?: string;
+    reasoningWaterfall?: ReasoningWaterfallVM | null;
     assignmentHistory?: Array<{
       id: string;
       action: string;
@@ -117,6 +133,18 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
+  const isManualFormOpen = useRiskStore((s) => s.isManualFormOpen);
+  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const kimbotEnabled = useKimbotStore((s) => s.enabled);
+  const grcBotEnabled = useGrcBotStore((s) => s.enabled);
+  const adversarySimActive = useAdversarySimulatorStore(
+    (s) => s.infiltrActive || s.phishActive,
+  );
+  const presetRiskSelected = kimbotEnabled || grcBotEnabled || adversarySimActive;
+  const auditorViewEnabled = useRiskStore((s) => s.auditorViewEnabled);
+  const forensicPlaybackThreatId = useRiskStore((s) => s.forensicPlaybackThreatId);
+  const setForensicPlaybackThreatId = useRiskStore((s) => s.setForensicPlaybackThreatId);
+  const hasMounted = useHasMounted();
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
@@ -333,6 +361,12 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     [scrutinyCards],
   );
 
+  const discoveryRegulatoryBadge = useMemo(() => {
+    if (!hasMounted) return null;
+    if (selectedIndustry === "Defense") return DEFENSE_REGULATORY_SHIELD_BADGE_LABEL;
+    return getSectorRegulatoryProfile(selectedIndustry)?.shieldDiscoveryBadge ?? null;
+  }, [hasMounted, selectedIndustry]);
+
   useEffect(() => {
     const signature = JSON.stringify(scrutinyHeatmap);
     if (!signature || signature === "{}") return;
@@ -510,14 +544,23 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           </div>
         ) : null}
         <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
-          {!loading && data ? (
-            <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
-              <IrontechLeftPaneControls />
+          {auditorViewEnabled ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">{GRC_GOLD_AUDITOR_VIEW_TITLE}</p>
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{GRC_GOLD_AUDITOR_VIEW_INTRO}</p>
             </div>
-          ) : null}
-          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">
-            <StrategicIntel />
-          </div>
+          ) : (
+            <>
+              {!loading && data ? (
+                <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
+                  <IrontechLeftPaneControls />
+                </div>
+              ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">
+                <StrategicIntel />
+              </div>
+            </>
+          )}
         </aside>
 
         <section
@@ -532,6 +575,9 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           ) : null}
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
           <Header tenantNames={companies.map((c) => c.name)} />
+          <div className="border-b border-slate-800/80 px-6 py-2">
+            <ResourceMonitor />
+          </div>
           <section
             aria-labelledby="scrutiny-heatmap-heading"
             className="border-b border-slate-800 bg-slate-950/70 px-6 py-4"
@@ -542,6 +588,24 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                 {complianceDriftOpenCount} risk event{complianceDriftOpenCount === 1 ? "" : "s"} lack mapped controls (SOC 2 / ISO 27001 / NIST). Prioritize control mapping before operational alerts.
               </div>
             ) : null}
+            {auditorViewEnabled ? (
+              <div className="mt-1 space-y-4">
+                <div>
+                  <h2
+                    id="scrutiny-heatmap-heading"
+                    className="text-xs font-black uppercase tracking-wider text-amber-300/95"
+                  >
+                    {GRC_GOLD_AUDITOR_LEDGER_HEADING}
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-[10px] leading-relaxed text-slate-500">
+                    SimThreatEvent records for this tenant: mapped controls, governance SHA-256, and Product owner / designated
+                    CISO signature from the forensic seal. Heatmaps and illustrative overlays are hidden in Auditor view.
+                  </p>
+                </div>
+                <AuditorRiskLedger />
+              </div>
+            ) : (
+              <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-3">
               <h2
@@ -651,6 +715,8 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                       complianceFramework={te.complianceFramework ?? "NIST"}
                       financialRiskCents={te.financialRiskCents ?? "0"}
                       status={te.status}
+                      showDefenseIndustryBadge={hasMounted && selectedIndustry === "Defense"}
+                      reasoningWaterfall={te.reasoningWaterfall ?? null}
                       onOpen={(tid) => setSelectedThreatId(tid)}
                     />
                   ))}
@@ -680,6 +746,11 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                   card.aleCents > 0n
                     ? `${card.aleCents.toString()} ¢ ALE`
                     : "0 ¢ ALE";
+                const preAnalyzedAgents = Object.entries(card.agents)
+                  .filter(([, n]) => n > 0)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 6)
+                  .map(([name]) => name);
                 return (
                   <div
                     key={card.asset}
@@ -688,15 +759,25 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-[11px] font-bold text-cyan-100">{card.asset}</p>
-                      {card.predicted > 0 ? (
-                        <span
-                          className="rounded border border-cyan-300/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-200"
-                          style={{ backgroundColor: `rgba(8,145,178,${ghostAlpha})` }}
-                          title="Predictive exposure overlay (control positioning)"
-                        >
-                          Forecast
-                        </span>
-                      ) : null}
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                        {discoveryRegulatoryBadge ? (
+                          <span
+                            className="rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-bold tracking-wide text-emerald-100/95"
+                            title="Industry profile regulatory overlay"
+                          >
+                            {discoveryRegulatoryBadge}
+                          </span>
+                        ) : null}
+                        {card.predicted > 0 ? (
+                          <span
+                            className="rounded border border-cyan-300/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-200"
+                            style={{ backgroundColor: `rgba(8,145,178,${ghostAlpha})` }}
+                            title="Predictive exposure overlay (control positioning)"
+                          >
+                            Forecast
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <p className="mt-1 text-[10px] font-semibold text-slate-100">
                       ALE exposure (cents): {aleDisplay}
@@ -709,6 +790,22 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                     <p className="text-[9px] text-cyan-200/85">
                       Predictive overlay: {card.predicted.toFixed(1)}
                     </p>
+                    {preAnalyzedAgents.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1 border-t border-cyan-900/30 pt-2">
+                        <span className="w-full text-[8px] font-black uppercase tracking-wider text-cyan-500/90">
+                          Pre-analyzed
+                        </span>
+                        {preAnalyzedAgents.map((agent) => (
+                          <span
+                            key={`${card.asset}-${agent}`}
+                            title={`${agent} pre-analyzed exposure on this asset (scrutiny telemetry)`}
+                            className="rounded-full border border-violet-700/45 bg-slate-950/65 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-violet-200/95"
+                          >
+                            {agent.length > 12 ? `${agent.slice(0, 11)}…` : agent}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -718,28 +815,42 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                 </div>
               ) : null}
             </div>
+              </>
+            )}
           </section>
-          <section aria-labelledby="enterprise-risk-posture-heading">
-            <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
-              ENTERPRISE RISK POSTURE
-            </h2>
-            {children}
-          </section>
+          {!auditorViewEnabled ? (
+            <section aria-labelledby="enterprise-risk-posture-heading">
+              <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+                ENTERPRISE RISK POSTURE
+              </h2>
+              {children}
+            </section>
+          ) : null}
 
-          <ThreatPipeline
-            supplyChainThreat={null}
-            showSocStream={true}
-            incomingAgentAlerts={liveAlerts}
-            setSelectedThreatId={setSelectedThreatId}
-          />
-          <div className="px-4 pb-2">
-            <SentinelIntakeForm assetOptions={sentinelAssetOptions} />
-          </div>
-          <ActiveRisksClient
-            risks={data.risks}
-            threatEvents={data.threatEvents ?? []}
-            setSelectedThreatId={setSelectedThreatId}
-          />
+          {!auditorViewEnabled ? (
+            <ThreatPipeline
+              supplyChainThreat={null}
+              showSocStream={true}
+              incomingAgentAlerts={liveAlerts}
+              setSelectedThreatId={setSelectedThreatId}
+            />
+          ) : null}
+          {!auditorViewEnabled ? (
+            <div className="px-4 pb-2">
+              <SentinelIntakeForm
+                assetOptions={sentinelAssetOptions}
+                manualRiskChipActive={isManualFormOpen}
+                presetSimulationActive={presetRiskSelected}
+              />
+            </div>
+          ) : null}
+          {!auditorViewEnabled ? (
+            <ActiveRisksClient
+              risks={data.risks}
+              threatEvents={data.threatEvents ?? []}
+              setSelectedThreatId={setSelectedThreatId}
+            />
+          ) : null}
         </section>
 
         <aside className="relative z-0 flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50">
@@ -753,6 +864,10 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
         </aside>
 
       </div>
+      <ForensicReasoningPlaybackModal
+        threatId={forensicPlaybackThreatId}
+        onClose={() => setForensicPlaybackThreatId(null)}
+      />
     </DashboardWithDrawer>
   );
 }

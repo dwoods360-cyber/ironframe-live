@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { CANONICAL_MEDSHIELD_ALE_BASELINE_CENTS } from "@/lib/simulation/remediation";
 import { sendRemediationStakeholderBroadcast } from "@/lib/simulation/remediationBroadcast";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import type { RemediationImpactReport } from "@/app/types/remediationReceipt";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
@@ -121,7 +122,7 @@ export async function restoreSystemIntegrityAction(): Promise<
 
     try {
       const { userId, displayName } = await resolveIntegrityLedgerAuthorizedLabel();
-      await prisma.auditLog.create({
+      await auditLogCreateLoose({
         data: {
           action: "LAB_RESTORATION_SUCCESS",
           justification: `[${displayName}] Lab integrity restore: recovered ${result.clearedLossCents} cents (simulated) across ${result.impactReport.affectedCount} personas; ${result.taggedThreatEvents} threat row(s) tagged remediated.`,

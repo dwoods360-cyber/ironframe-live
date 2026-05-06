@@ -1,6 +1,26 @@
 /**
- * Shared GRC-Gold governance definitions (Strategic Intel tooltips + Budget PDF appendix).
+ * GRC glossary entries + ingestion helpers. Shared constants live in `@/lib/constants`.
  */
+
+export {
+  DEFENSE_REGULATORY_SHIELD_BADGE_LABEL,
+  GOVERNANCE_ALE_FORMULA_LINES,
+  GOVERNANCE_ALE_FORMULA_TITLE,
+  IRONWATCH_AGENT13_ATTESTATION_LINE,
+  IRONWATCH_CLOSED_AUDIT_GAP_RE,
+  IRONWATCH_HISTORICAL_CHAPTER_HREF,
+  IRONWATCH_HISTORICAL_FLEXIBILITY_RE,
+  IRONWATCH_HISTORICAL_MEMORY_KEYWORDS,
+  IRONWATCH_INTEL_MATCH_SIDEBAR,
+  IRONWATCH_LOW_CONFIDENCE_SEMANTIC_DRIFT,
+  IRONWATCH_MODERN_REGULATORY_STRICT_RE,
+  IRONWATCH_RESILIENCE_INTEL_MATCH_LINE,
+  IRONWATCH_SEMANTIC_DRIFT_THRESHOLD,
+  IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL,
+  IRONWATCH_SHADOW_DISSENT_LABEL,
+  matchesIronwatchHistoricalMemoryKeywords,
+  normalizeGrcProfileName,
+} from "@/lib/constants/grcGovernance";
 
 export type GovernanceGlossaryEntry = {
   term: string;
@@ -38,10 +58,15 @@ export function buildGovernanceGlossaryEntries(_industryLabel?: string): Governa
   ];
 }
 
-/** Narrative lines for ALE = SLE × ARO (PDF appendix). */
-export const GOVERNANCE_ALE_FORMULA_TITLE = "Mathematical context (risk quantification)";
-export const GOVERNANCE_ALE_FORMULA_LINES = [
-  "ALE = SLE × ARO",
-  "SLE — Single Loss Expectancy: the monetary loss if a single adverse event occurs.",
-  "ARO — Annual Rate of Occurrence: the estimated frequency of that event per year.",
-] as const;
+/** Read `regulatoryShieldBadge` from governed ingestion JSON (Active Risk cards). */
+export function parseRegulatoryShieldBadgeFromIngestion(ingestionDetails: string | null | undefined): string | null {
+  const raw = ingestionDetails?.trim();
+  if (!raw) return null;
+  try {
+    const j = JSON.parse(raw) as { regulatoryShieldBadge?: unknown };
+    const b = j?.regulatoryShieldBadge;
+    return typeof b === "string" && b.length > 0 ? b : null;
+  } catch {
+    return null;
+  }
+}

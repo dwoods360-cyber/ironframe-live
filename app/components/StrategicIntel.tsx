@@ -35,6 +35,13 @@ import RiskExposureTrend from "@/components/RiskExposureTrend";
 import PublicSectorProgress from "@/components/PublicSectorProgress";
 import MarketVolatilityAlert from "@/components/MarketVolatilityAlert";
 import { ExposureDefinitionHint } from "@/components/ExposureDefinitions";
+import SentinelSweepModal from "@/components/SentinelSweepModal";
+import {
+  DEFENSE_REGULATORY_SHIELD_BADGE_LABEL,
+  IRONWATCH_HISTORICAL_CHAPTER_HREF,
+  IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL,
+  IRONWATCH_SHADOW_DISSENT_LABEL,
+} from "@/lib/constants/grcGovernance";
 
 export default function StrategicIntel() {
   const [mounted, setMounted] = useState(false);
@@ -48,6 +55,8 @@ export default function StrategicIntel() {
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const [activeDrillThreatId, setActiveDrillThreatId] = useState<string | null>(null);
   const [deepDiveEntry, setDeepDiveEntry] = useState<ThreatIntelEntry | null>(null);
+  const [sentinelSweepModalOpen, setSentinelSweepModalOpen] = useState(false);
+  const [ironwatchSidebarAlert, setIronwatchSidebarAlert] = useState<string | null>(null);
   const [isDrillPending, startDrillTransition] = useTransition();
   const [trendPayload, setTrendPayload] = useState<IndustryTrendPayload | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
@@ -85,7 +94,6 @@ export default function StrategicIntel() {
   const agents = useAgentStore((s) => s.agents);
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
   const addStreamMessage = useAgentStore((s) => s.addStreamMessage);
-  const runSentinelSweep = useAgentStore((s) => s.runSentinelSweep);
   const setAgentStatus = useAgentStore((s) => s.setAgentStatus);
   const systemLatencyMs = useAgentStore((s) => s.systemLatencyMs);
   const setSystemLatencyMs = useAgentStore((s) => s.setSystemLatencyMs);
@@ -645,6 +653,56 @@ export default function StrategicIntel() {
         </div>
       </section>
 
+      {ironwatchSidebarAlert ? (
+        <div
+          role="alert"
+          className={`shrink-0 border-b px-4 py-2.5 ${
+            ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
+            ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL)
+              ? "border-red-600/70 bg-red-950/40"
+              : "border-emerald-700/50 bg-emerald-950/35"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p
+                className={`text-[10px] leading-snug ${
+                  ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
+                  ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL)
+                    ? "text-red-100/95"
+                    : "text-emerald-100/95"
+                }`}
+              >
+                {ironwatchSidebarAlert}
+              </p>
+              <Link
+                href={IRONWATCH_HISTORICAL_CHAPTER_HREF}
+                className={`mt-1.5 inline-block text-[9px] font-bold uppercase tracking-wide underline underline-offset-2 ${
+                  ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
+                  ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL)
+                    ? "text-red-300 decoration-red-500/60 hover:text-red-200"
+                    : "text-emerald-400 decoration-emerald-500/60 hover:text-emerald-300"
+                }`}
+              >
+                Open evidence gap index (Evidence Vault)
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIronwatchSidebarAlert(null)}
+              className={`shrink-0 rounded border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
+                ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL)
+                  ? "border-red-700/60 text-red-200 hover:bg-red-950/80"
+                  : "border-emerald-700/60 text-emerald-200 hover:bg-emerald-950/80"
+              }`}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* STRATEGIC INTEL / AGENT MANAGER header */}
       <div className="flex flex-col gap-3 p-4 border-b border-zinc-900 bg-black/20">
         <div className="flex justify-between items-center">
@@ -688,6 +746,14 @@ export default function StrategicIntel() {
               <option value="Finance">Finance</option>
               <option value="Technology">Technology</option>
             </select>
+            {selectedIndustry === "Defense" ? (
+              <p
+                className="mb-2 inline-flex rounded border border-emerald-700/45 bg-emerald-950/35 px-2 py-1 text-[9px] font-bold tracking-wide text-emerald-100/95"
+                title="Defense ALE uses the governed 1.6× CMMC Level 3 multiplier on Sentinel ingest"
+              >
+                {DEFENSE_REGULATORY_SHIELD_BADGE_LABEL}
+              </p>
+            ) : null}
           </div>
         )}
       </section>
@@ -1055,17 +1121,7 @@ export default function StrategicIntel() {
             />
             <button
               type="button"
-              onClick={() => {
-                const instruction = agentInstruction.trim();
-                if (!instruction) return;
-                runSentinelSweep(instruction);
-                appendAuditLog({
-                  action_type: 'GRC_SENTINEL_SWEEP',
-                  log_type: 'GRC',
-                  description: `Sentinel sweep dispatched with instruction: ${instruction}`,
-                });
-                setAgentInstruction('');
-              }}
+              onClick={() => setSentinelSweepModalOpen(true)}
               className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2"
             >
               <div className="bg-black/80 text-white w-5 h-5 flex items-center justify-center rounded-full text-[9px]">N</div>
@@ -1077,6 +1133,16 @@ export default function StrategicIntel() {
       </div>
 
       </div>
+
+      <SentinelSweepModal
+        open={sentinelSweepModalOpen}
+        onClose={() => setSentinelSweepModalOpen(false)}
+        initialAgentInstruction={agentInstruction}
+        onGovernanceIntelAlert={(msg) => {
+          if (msg) setIronwatchSidebarAlert(msg);
+        }}
+        onCompleted={() => setAgentInstruction("")}
+      />
 
       <ThreatDetailModal
         open={deepDiveEntry != null}

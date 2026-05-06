@@ -148,6 +148,8 @@ export type PipelineThreat = {
   resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   /** Simulation plane: PDF path after Gate 7 expert lifecycle post-mortem generation. */
   postMortemReportPath?: string | null;
+  /** GRC Gold — Agent 5 / 6 / 13 forensic chain parsed from `ingestionDetails.forensicPath`. */
+  forensicCustody?: Array<{ agentId: number; phase: string; signedAt: string }>;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -337,6 +339,19 @@ interface RiskState {
   clearDraftTemplate: () => void;
   /** Open or close manual form without changing draft. */
   setManualFormOpen: (open: boolean) => void;
+
+  /** Sentinel GRC interview completed — Deficiency Discovery Gate uses governance (AUTHORIZE) mode. */
+  sentinelGovernanceModeActive: boolean;
+  setSentinelGovernanceModeActive: (active: boolean) => void;
+
+  /** Forensic reasoning playback modal (global — pipeline + active cards). */
+  forensicPlaybackThreatId: string | null;
+  setForensicPlaybackThreatId: (id: string | null) => void;
+
+  /** Examiner mode: suppress charts; show raw ledger table. */
+  auditorViewEnabled: boolean;
+  setAuditorViewEnabled: (enabled: boolean) => void;
+
   /**
    * Register a threat via POST /api/threats and route it to pipeline or active risks.
    * Ensures entries always have a valid DB-backed id (no phantoms).
@@ -1057,6 +1072,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       chaosSelfHealedLineByThreatId: {},
       completedDeepDives: [],
       lastSimulationStartedAt: null,
+      sentinelGovernanceModeActive: false,
+      forensicPlaybackThreatId: null,
+      auditorViewEnabled: false,
     });
     /** Let Active Risks flush local React state + veil stale dashboard props until the shell refetches. */
     if (typeof window !== "undefined") {
@@ -1158,6 +1176,15 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   },
   clearDraftTemplate: () => set({ draftTemplate: null, isManualFormOpen: false }),
   setManualFormOpen: (open) => set({ isManualFormOpen: open }),
+
+  sentinelGovernanceModeActive: false,
+  setSentinelGovernanceModeActive: (active) => set({ sentinelGovernanceModeActive: active }),
+
+  forensicPlaybackThreatId: null,
+  setForensicPlaybackThreatId: (id) => set({ forensicPlaybackThreatId: id }),
+
+  auditorViewEnabled: false,
+  setAuditorViewEnabled: (enabled) => set({ auditorViewEnabled: enabled }),
 
   registerThreatViaApi: async (payload) => {
     const res = await fetch('/api/threats', {

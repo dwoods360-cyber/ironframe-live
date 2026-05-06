@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
@@ -31,7 +32,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
   });
   const companyIds = new Set(companies.map((c) => c.id));
 
-  const row = await prisma.riskEvent.findUnique({ where: { id } });
+  const row = await prisma.riskEvent.findFirst({ where: { id } });
   if (!row) {
     return { ok: false, error: "Shadow threat not found." };
   }
@@ -61,7 +62,7 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
         },
       });
 
-      await tx.auditLog.create({
+      await auditLogCreateLooseTx(tx, {
         data: {
           action: "TELEPORT",
           justification: "[TELEPORT] Card moved from Shadow Plane to Production Vault.",
@@ -71,7 +72,9 @@ export async function teleportThreatToProduction(simId: string): Promise<Telepor
         },
       });
 
-      await tx.riskEvent.delete({ where: { id } });
+      await tx.riskEvent.delete({
+        where: { tenantId_id: { tenantId: row.tenantId, id } },
+      });
       return created.id;
     });
 

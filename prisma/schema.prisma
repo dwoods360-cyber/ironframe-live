@@ -206,8 +206,8 @@ model RiskEvent {
   baseImpactCents          BigInt       @default(0) @map("base_impact_cents")
   /// Integer multiplier in basis points (100 = 1.00×, 160 = 1.60×). All monetary fields BigInt.
   governanceImpactMultiplier BigInt     @default(100) @map("governance_impact_multiplier")
-  /// Postgres 18 GENERATED ALWAYS STORED BIGINT — deterministic integer cents; no float drift.
-  governedImpact           BigInt       @default(dbgenerated("(\"base_impact_cents\" * \"governance_impact_multiplier\") / 100")) @map("governed_impact")
+  /// Postgres GENERATED ALWAYS STORED BIGINT — expression lives in migrations / DB.
+  governedImpact           BigInt       @map("governed_impact") @default(dbgenerated())
   /// SHA-256 (hex) CISO/PO attestation + ingestion anchor (see `lib/crypto` canonical binding).
   governanceHash           String?      @map("governance_hash")
   tenantCompanyId          BigInt?
@@ -935,6 +935,8 @@ enum AgentStatus {
 }
 
 enum ThreatState {
+  /// DMZ / ingress queue (pipeline staging before triage)
+  PIPELINE
   /// Ingress
   IDENTIFIED
   /// Escalated via Math (V*P + B)

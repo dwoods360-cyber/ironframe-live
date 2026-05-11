@@ -24,6 +24,7 @@ let remediationState: RemediationState = {
     medshield: 0,
     vaultbank: 0,
     gridcore: 0,
+    defense: 0,
   },
   auditTrail: [],
   isSidebarOpen: false,

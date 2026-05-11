@@ -24,6 +24,9 @@ const SECTOR_PRIOR_CENTS: Record<(typeof INDUSTRIES)[number], bigint> = {
   Healthcare: 1_210_000_000n,
   Finance: 1_800_000_000n,
   Technology: 950_000_000n,
+  Manufacturing: 1_350_000_000n,
+  Retail: 980_000_000n,
+  Infrastructure: 2_050_000_000n,
 };
 
 /** WoW surge for Week 8 vs Week 7: 21% .. 29% inclusive (always above 20% alert threshold). */

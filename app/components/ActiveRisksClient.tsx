@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ClipboardList, ExternalLink, Loader2, ShieldCheck, Radar } from 'lucide-react';
 import { useRiskStore } from '@/app/store/riskStore';
+import { useTenantContext } from '@/app/context/TenantProvider';
 import { useHasMounted } from '@/app/hooks/useHasMounted';
 import {
   FORENSIC_CUSTODY_PRODUCT_OWNER_AGENT_ID,
@@ -27,7 +28,8 @@ import type { PipelineThreat } from '@/app/store/riskStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useShadowHandshakeRoleStore } from '@/app/store/shadowHandshakeRoleStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
-import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
+import { useSystemConfigStore } from '@/app/store/systemConfigStore';
+import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { formatAssignmentHistoryNarrative } from '@/app/utils/assignmentChainOfCustody';
 import { parseIrontechLiveFromIngestion } from '@/app/utils/irontechLiveStream';
@@ -72,13 +74,6 @@ const SESSION_OPERATOR_LABEL: Record<string, string> = {
   grc: 'GRC Team',
   netsec: 'NetSec',
 };
-
-function resolveTenantId(selectedTenantName: string | null): string {
-  const n = (selectedTenantName ?? '').trim().toLowerCase();
-  if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
-  if (n === 'gridcore') return TENANT_UUIDS.gridcore;
-  return TENANT_UUIDS.medshield;
-}
 
 /** Chaos flight-recorder step 3: auto-ack handoff line (client-only). */
 function ChaosFlightSelfHealedBanner({ threatId }: { threatId: string }) {
@@ -162,6 +157,46 @@ const CONFIRM_REASONS = [
 ] as const;
 
 type LifecycleState = 'active' | 'confirmed' | 'resolved';
+
+/** Primary CTA copy: simulation = drill lexicon; production = forensic lifecycle lexicon. */
+function displayPrimaryCtaLabel(simulationMode: boolean, raw: string): string {
+  if (simulationMode) return raw;
+  switch (raw) {
+    case 'CONFIRM THREAT':
+      return 'ACKNOWLEDGE';
+    case 'CLAIM & ASSIGN THREAT':
+      return 'CLAIM & ASSIGN';
+    case 'RESOLVE THREAT':
+    case 'EXECUTE RESOLUTION':
+      return 'VERIFY EVIDENCE';
+    case 'RESOLVED':
+      return '✅ AUDITED';
+    default:
+      return raw;
+  }
+}
+
+function chaosBoardStatusPillText(
+  simulationMode: boolean,
+  lower: 'assigned' | 'processing' | 'corrected' | null,
+  chaos: 'active' | 'processing' | 'resolved' | null,
+): string {
+  if (simulationMode) {
+    if (lower === 'corrected') return 'CORRECTED';
+    if (lower === 'processing') return 'PROCESSING';
+    if (lower === 'assigned') return 'CLAIM DRILL';
+    if (chaos === 'resolved') return 'RESOLVED';
+    if (chaos === 'processing') return 'PROCESSING';
+    return 'ACTIVE';
+  }
+  if (lower === 'corrected') return '✅ AUDITED';
+  if (lower === 'processing') return 'VERIFY EVIDENCE';
+  if (lower === 'assigned') return 'CLAIM & ASSIGN';
+  if (chaos === 'resolved') return '✅ AUDITED';
+  if (chaos === 'processing') return 'VERIFY EVIDENCE';
+  if (chaos === 'active') return 'ACKNOWLEDGE';
+  return 'ACKNOWLEDGE';
+}
 
 type WorkNote = { timestamp: string; text: string; user: string };
 
@@ -930,7 +965,6 @@ function AssigneeHistorySection({
 export default function ActiveRisksClient({
   risks,
   threatEvents = [],
-  setSelectedThreatId: setSelectedThreatIdProp,
 }: Props) {
   const router = useRouter();
   const addStreamMessage = useAgentStore((s) => s.addStreamMessage);
@@ -953,16 +987,21 @@ export default function ActiveRisksClient({
   const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
   const updatePipelineThreat = useRiskStore((state) => state.updatePipelineThreat);
   const setThreatActionError = useRiskStore((state) => state.setThreatActionError);
-  const storeSetSelectedThreatId = useRiskStore((state) => state.setSelectedThreatId);
-  const setSelectedThreatId = setSelectedThreatIdProp ?? storeSetSelectedThreatId;
+  const setActiveRiskIdStore = useRiskStore((state) => state.setActiveRiskId);
   const recoveryBoardSyncPending = useRiskStore((state) => state.recoveryBoardSyncPending);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setForensicPlaybackThreatId = useRiskStore((state) => state.setForensicPlaybackThreatId);
   const hasMountedClient = useHasMounted();
+  const { activeTenantUuid } = useTenantContext();
+  const effectiveTenantUuid = useMemo(
+    () => resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName),
+    [activeTenantUuid, selectedTenantName],
+  );
 
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const enginesOn = kimbotEnabled || grcBotEnabled;
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const handshakeRole = useShadowHandshakeRoleStore((s) => s.handshakeRole);
 
   useEffect(() => {
@@ -1294,10 +1333,23 @@ export default function ActiveRisksClient({
       });
       return;
     }
+    const tenantForAction = effectiveTenantUuid;
+    if (!tenantForAction) {
+      appendAuditLog({
+        action_type: "SYSTEM_WARNING",
+        log_type: "GRC",
+        description: "Assignee not persisted: no active tenant scope (set cookie or tenant route).",
+      });
+      return;
+    }
+    /**
+     * Drawer suppression: success path MUST NOT call `setSelectedThreatId` (opens ThreatDetailDrawer).
+     * Only `setActiveRiskId` below — keeps dashboard flat so Audit Intelligence retains focus.
+     */
     const res = await setThreatAssigneeAction(
       threatEventId,
       value === 'unassigned' ? null : value,
-      resolveTenantId(selectedTenantName),
+      tenantForAction,
       currentUser,
       SESSION_OPERATOR_LABEL[currentUser] ?? currentUser,
     );
@@ -1306,6 +1358,15 @@ export default function ActiveRisksClient({
       return;
     }
     if (res && typeof res === "object" && "success" in res && res.success === true) {
+      const sealedThreatId = threatEventId.trim();
+      useRiskStore.getState().setActiveRiskId(sealedThreatId);
+      appendAuditLog({
+        action_type: "GRC_PROCESS_THREAT",
+        log_type: "GRC",
+        user_id: SESSION_OPERATOR_LABEL[currentUser] ?? currentUser,
+        metadata_tag: `threatId:${threatEventId}|tenant:${tenantForAction}|ASSIGNEE_CHANGE|plane:shadow`,
+        description: `Irongate assignment sealed for threat ${threatEventId.slice(0, 12)}… — Audit Intelligence synced.`,
+      });
       const unassigned = value === "unassigned" || !value;
       const assign = unassigned ? undefined : value;
       if (!unassigned && typeof window !== "undefined") {
@@ -1319,6 +1380,9 @@ export default function ActiveRisksClient({
             dispatchWorkforceSimulationProcessing(workforceAgentsForDualKeyBot(bot));
           }
         }
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
       }
       if ("newLog" in res && res.newLog) {
         const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
@@ -2141,6 +2205,8 @@ export default function ActiveRisksClient({
             }
           }
 
+          const primaryCtaDisplayLabel = displayPrimaryCtaLabel(isSimulationMode, buttonLabel);
+
           const dualKeyAssignmentBlocked = needsDualKeyClaim;
 
           const dualKeyPrimaryLocked = (() => {
@@ -2178,7 +2244,12 @@ export default function ActiveRisksClient({
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}
               ironTechAgentPhase={ironTechAgentPhase}
-              ingestionBootstrapFromIso={threat.createdAt ?? null}
+              ingestionBootstrapFromIso={
+                threat.createdAt ??
+                (isSimulationMode
+                  ? '2000-01-01T00:00:00.000Z'
+                  : null)
+              }
               ingestionBootstrapEnabled={
                 statusRaw === 'CONFIRMED' && !isRemoteIntervention && !isEscalatedThreat
               }
@@ -2252,7 +2323,7 @@ export default function ActiveRisksClient({
                       onClick={(e) => {
                         blockEscalatedCardOverlay?.(e);
                         e.preventDefault();
-                        setSelectedThreatId(threat.id);
+                        setActiveRiskIdStore(threat.id);
                       }}
                       className="hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-slate-950 rounded"
                     >
@@ -2354,17 +2425,11 @@ export default function ActiveRisksClient({
                       ) : (
                         <AlertTriangle className="h-3 w-3" aria-hidden />
                       )}
-                      {lowerSeverityVisualState === 'corrected'
-                        ? 'CORRECTED'
-                        : lowerSeverityVisualState === 'processing'
-                          ? 'PROCESSING'
-                          : lowerSeverityVisualState === 'assigned'
-                            ? 'ASSIGNED'
-                      : chaosVisualState === 'resolved'
-                        ? 'RESOLVED'
-                        : chaosVisualState === 'processing'
-                          ? 'PROCESSING'
-                          : 'ACTIVE'}
+                      {chaosBoardStatusPillText(
+                        isSimulationMode,
+                        lowerSeverityVisualState,
+                        chaosVisualState,
+                      )}
                     </span>
                   ) : null}
                   <Link
@@ -2372,7 +2437,7 @@ export default function ActiveRisksClient({
                     onClick={(e) => {
                       blockEscalatedCardOverlay?.(e);
                       e.preventDefault();
-                      setSelectedThreatId(threat.id);
+                      setActiveRiskIdStore(threat.id);
                     }}
                     className="inline-flex items-center gap-1 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 transition-colors hover:border-blue-500/60 hover:bg-blue-500/10 hover:text-blue-200"
                   >
@@ -2391,7 +2456,11 @@ export default function ActiveRisksClient({
                             : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                         }`}
                       >
-                        {assigneeValue === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                        {assigneeValue === currentUser
+                          ? '✔️ Claimed'
+                          : isSimulationMode
+                            ? '🖐️ Claim'
+                            : '🖐️ Claim & Assign'}
                       </button>
                       <select
                         value={assigneeValue}
@@ -2426,18 +2495,28 @@ export default function ActiveRisksClient({
                   )}
                   <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                     {optimisticProcessing
-                      ? 'Processing'
+                      ? isSimulationMode
+                        ? 'Processing'
+                        : 'VERIFY EVIDENCE'
                       : isAutonomousClosed
-                      ? 'Autonomous recovery completed'
-                      : isRemoteIntervention
-                      ? 'Remote specialist queue'
-                      : statusRaw === 'MITIGATED'
-                      ? 'Escalated — manual recovery'
-                      : lifecycle === 'active'
-                        ? 'Just Acknowledged'
-                        : lifecycle === 'confirmed'
-                          ? 'Confirmed'
-                          : 'Resolved'}
+                        ? isSimulationMode
+                          ? 'Autonomous recovery completed'
+                          : '✅ AUDITED'
+                        : isRemoteIntervention
+                          ? 'Remote specialist queue'
+                          : statusRaw === 'MITIGATED'
+                            ? 'Escalated — manual recovery'
+                            : lifecycle === 'active'
+                              ? isSimulationMode
+                                ? 'Just Acknowledged'
+                                : 'ACKNOWLEDGE'
+                              : lifecycle === 'confirmed'
+                                ? isSimulationMode
+                                  ? 'Confirmed'
+                                  : 'VERIFY EVIDENCE'
+                                : isSimulationMode
+                                  ? 'Resolved'
+                                  : '✅ AUDITED'}
                   </span>
                   <ActiveRiskSlaBadge ttlSeconds={threat.ttlSeconds ?? null} createdAtIso={threat.createdAt ?? null} />
                 </div>
@@ -2771,7 +2850,15 @@ export default function ActiveRisksClient({
                                 const reason = selectedReason.trim();
                                 const justification = customJustification.trim();
                                 if (!reason || justification.length < 50) return;
-                                const tenantId = resolveTenantId(selectedTenantName);
+                                const tenantId = effectiveTenantUuid;
+                                if (!tenantId) {
+                                  appendAuditLog({
+                                    action_type: "SYSTEM_WARNING",
+                                    log_type: "GRC",
+                                    description: "Action blocked: no active tenant scope.",
+                                  });
+                                  return;
+                                }
                                 const operatorId = 'admin-user-01';
                                 try {
                                   if (activeAction === 'DISMISS') {
@@ -2841,7 +2928,7 @@ export default function ActiveRisksClient({
                           onClick={() => void onPrimaryClick?.()}
                           className="w-full rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow sm:w-auto bg-amber-500 text-black hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {buttonLabel}
+                          {primaryCtaDisplayLabel}
                         </button>
                       ) : (
                         <>
@@ -2886,7 +2973,7 @@ export default function ActiveRisksClient({
                                 }}
                                 className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
                               >
-                                CONFIRM THREAT
+                                {isSimulationMode ? 'CONFIRM THREAT' : 'ACKNOWLEDGE'}
                               </button>
                             </>
                           )}
@@ -2912,7 +2999,7 @@ export default function ActiveRisksClient({
                                 ? dualKeySimBot === "ATTBOT"
                                   ? "Attesting…"
                                   : "Signing…"
-                                : buttonLabel}
+                                : primaryCtaDisplayLabel}
                             </button>
                           )}
                         </>
@@ -2945,8 +3032,9 @@ export default function ActiveRisksClient({
           const resolutionText = resolutionDrafts[risk.id] ?? '';
           const resolutionLenOk = resolutionText.trim().length >= 50;
 
-          const buttonLabel =
+          const buttonLabelRaw =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
+          const buttonLabel = displayPrimaryCtaLabel(isSimulationMode, buttonLabelRaw);
 
           const onPrimaryClick =
             lifecycle === 'active'
@@ -2958,23 +3046,24 @@ export default function ActiveRisksClient({
           return (
             <div
               key={risk.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                if (risk.threatId) setSelectedThreatId(risk.threatId);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && risk.threatId) setSelectedThreatId(risk.threatId);
-              }}
-              className={`group flex cursor-pointer flex-col justify-between rounded-lg border transition-all duration-500 ${
+              className={`group flex flex-col justify-between rounded-lg border transition-all duration-500 ${
                 shouldFlash
                   ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
-                  : 'border-slate-800 bg-slate-900/60 hover:border-blue-500/50'
+                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700/80'
               } p-4`}
             >
               <div className="flex w-full items-start justify-between text-left">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-200 group-hover:text-blue-200 group-hover:underline">{risk.title}</h3>
+                  <button
+                    type="button"
+                    aria-label={`View threat details: ${risk.title}`}
+                    className="text-left text-sm font-medium text-slate-200 hover:text-blue-200 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 rounded"
+                    onClick={() => {
+                      if (risk.threatId) setActiveRiskIdStore(risk.threatId);
+                    }}
+                  >
+                    {risk.title}
+                  </button>
                   <IronsightComplianceTagsBadges threatLike={risk} />
                   <p className="mt-1 font-mono text-[10px] text-slate-500">{risk.id}</p>
                   <p className="mt-1 text-xs text-slate-500">
@@ -2993,7 +3082,11 @@ export default function ActiveRisksClient({
                           : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                       }`}
                     >
-                      {assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser ? '✔️ Claimed' : '🖐️ Claim'}
+                      {assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
+                        ? '✔️ Claimed'
+                        : isSimulationMode
+                          ? '🖐️ Claim'
+                          : '🖐️ Claim & Assign'}
                     </button>
                     <select
                       value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
@@ -3027,10 +3120,16 @@ export default function ActiveRisksClient({
                   )}
                   <span className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
                     {lifecycle === 'active'
-                      ? 'Just Acknowledged'
+                      ? isSimulationMode
+                        ? 'Just Acknowledged'
+                        : 'ACKNOWLEDGE'
                       : lifecycle === 'confirmed'
-                      ? 'Confirmed'
-                      : 'Resolved'}
+                        ? isSimulationMode
+                          ? 'Confirmed'
+                          : 'VERIFY EVIDENCE'
+                        : isSimulationMode
+                          ? 'Resolved'
+                          : '✅ AUDITED'}
                   </span>
                   <ActiveRiskSlaBadge ttlSeconds={risk.ttlSeconds ?? null} createdAtIso={risk.threatCreatedAt ?? null} />
                 </div>
@@ -3206,7 +3305,7 @@ export default function ActiveRisksClient({
                           }}
                           className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
                         >
-                          CONFIRM THREAT
+                          {isSimulationMode ? 'CONFIRM THREAT' : 'ACKNOWLEDGE'}
                         </button>
                       ) : null}
                       {lifecycle !== 'active' && (

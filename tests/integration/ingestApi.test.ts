@@ -6,6 +6,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/threats/ingest/route';
 
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock('@/lib/prisma', () => ({
   default: {
     threatEvent: {
@@ -18,13 +22,24 @@ vi.mock('@/app/actions/threatActions', () => ({
   acknowledgeThreatAction: vi.fn(),
 }));
 
+vi.mock('@/app/utils/serverTenantContext', () => ({
+  getActiveTenantUuidFromCookies: vi.fn(),
+  isValidTenantUuid: (v: string | null | undefined): v is string =>
+    typeof v === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v.trim()),
+}));
+
 import prisma from '@/lib/prisma';
 import { acknowledgeThreatAction } from '@/app/actions/threatActions';
+import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
+
+const SAMPLE_TENANT = '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01';
 
 describe('POST /api/threats/ingest — GRC gate', () => {
   beforeEach(() => {
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue(null);
     vi.mocked(acknowledgeThreatAction).mockResolvedValue({ success: true });
+    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(SAMPLE_TENANT);
   });
 
   it('returns 400 when threatId is missing', async () => {
@@ -39,7 +54,8 @@ describe('POST /api/threats/ingest — GRC gate', () => {
     expect(body.error).toMatch(/Missing threatId/i);
   });
 
-  it('returns 400 when tenantId is missing', async () => {
+  it('returns 400 when tenantId is missing and session tenant cannot be resolved', async () => {
+    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValueOnce(null as unknown as string);
     const req = new NextRequest('http://localhost/api/threats/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,7 +64,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
     const res = await POST(req);
     const body = await res.json();
     expect(res.status).toBe(400);
-    expect(body.error).toMatch(/Missing tenantId|Zero-Trust/i);
+    expect(body.error).toMatch(/Missing tenant scope/i);
   });
 
   it('returns 400 when threat is $10M and justification is missing', async () => {

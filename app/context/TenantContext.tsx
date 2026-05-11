@@ -2,19 +2,19 @@
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-// Defining our primary Ironframe clients based on the ALE Baselines
+// Legacy Ironframe client keys (ALE baselines). Prefer `TenantProvider` + cookie for routing.
 export type TenantId = 'medshield-id' | 'vaultbank-id' | 'gridcore-id';
 
 interface TenantContextType {
-  activeTenant: TenantId;
-  setActiveTenant: (tenant: TenantId) => void;
+  /** Null at boot — no implicit Medshield / index-0 default. */
+  activeTenant: TenantId | null;
+  setActiveTenant: (tenant: TenantId | null) => void;
 }
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  // Defaulting the dashboard to Medshield Health on initial load
-  const [activeTenant, setActiveTenant] = useState<TenantId>('medshield-id');
+  const [activeTenant, setActiveTenant] = useState<TenantId | null>(null);
 
   return (
     <TenantContext.Provider value={{ activeTenant, setActiveTenant }}>
@@ -23,7 +23,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook so any component can instantly know who the active client is
 export function useTenant() {
   const context = useContext(TenantContext);
   if (context === undefined) {

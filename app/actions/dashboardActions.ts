@@ -7,7 +7,7 @@ import { subHours } from "date-fns";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { CLEARANCE_QUEUE_STATUSES } from "@/app/utils/clearanceQueue";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
-import { getActiveThreatWhereClause } from "@/app/utils/activeThreatsBoardQuery";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 import { incrementSentinelDeepMonitoringLabor } from "@/app/actions/sentinelLaborActions";
@@ -262,6 +262,7 @@ export type DashboardPayload = {
     mappedControls: string[];
     remediationStatus: string;
     financialRiskCents: string;
+    governedImpactCents?: string;
     assignmentHistory: Array<{
       id: string;
       action: string;
@@ -298,6 +299,20 @@ export type DashboardPayload = {
   insuranceTotalDiscountBps: number;
 };
 
+/** Dashboard threat strip: DMZ pipeline + in-flight lifecycle (“simulation” / stress drills use PIPELINE–MITIGATED; “active” ≈ CONFIRMED+). */
+function dashboardOpenThreatStatusWhere(): Prisma.ThreatEventWhereInput {
+  return {
+    status: {
+      in: [
+        ThreatState.PIPELINE,
+        ThreatState.IDENTIFIED,
+        ThreatState.CONFIRMED,
+        ThreatState.MITIGATED,
+      ],
+    },
+  };
+}
+
 function complianceDriftSortScore(
   row: {
     status: ThreatState;
@@ -305,10 +320,10 @@ function complianceDriftSortScore(
     mappedControls?: string[];
     remediation_status?: string;
   },
-  simPlane: boolean,
+  threatStripUsesRiskEventTable: boolean,
 ): number {
   let s = 0;
-  if (simPlane && (!row.mappedControls || row.mappedControls.length === 0)) s += 10_000;
+  if (threatStripUsesRiskEventTable && (!row.mappedControls || row.mappedControls.length === 0)) s += 10_000;
   if (row.status === ThreatState.IDENTIFIED) s += 5_000;
   if (row.status === ThreatState.CONFIRMED) s += 3_000;
   if (row.status === ThreatState.MITIGATED) s += 1_000;
@@ -322,17 +337,91 @@ function complianceDriftSortScore(
  */
 export async function getDashboardPayloadForTenant(activeTenantUuid: string): Promise<DashboardPayload> {
   const simPlane = await readSimulationPlaneEnabled();
+  /** Bots + Chaos drills write `ThreatEvent` whenever env shadow is on (`ingressUsesRiskEventTable`); else cookie-sim alone uses `RiskEvent`. */
+  const envShadowPlane = isShadowPlaneActiveFromEnv();
+  const dashboardThreatsFromRiskTable = simPlane && !envShadowPlane;
   const oneHourAgo = subHours(new Date(), 1);
 
-  const [companies, serverAuditLogs, risks, threatEvents] = await prisma.$transaction([
-    prisma.company.findMany({
-      where: { tenantId: activeTenantUuid },
-      include: {
-        policies: true,
-        risks: true,
+  const companies = await prisma.company.findMany({
+    where: { tenantId: activeTenantUuid },
+    include: {
+      policies: true,
+      risks: true,
+    },
+  });
+
+  const tenantCompanyIdsEarly = companies
+    .map((c) => c.id)
+    .filter((id): id is bigint => typeof id === "bigint");
+
+  const assigneeAuditActions = [...THREAT_ASSIGNEE_AUDIT_ACTIONS];
+
+  const riskEventSelect = {
+    id: true,
+    title: true,
+    sourceAgent: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+    assigneeId: true,
+    ttlSeconds: true,
+    ingestionDetails: true,
+    forensicSeal: true,
+    complianceFramework: true,
+    mappedControls: true,
+    remediation_status: true,
+    financialRisk_cents: true,
+    governedImpact: true,
+    AuditLog: {
+      where: { action: { in: assigneeAuditActions } },
+      orderBy: { createdAt: "desc" as const },
+      select: {
+        id: true,
+        action: true,
+        justification: true,
+        operatorId: true,
+        createdAt: true,
       },
-    }),
+    },
+  };
+
+  const threatEventSelect = {
+    id: true,
+    title: true,
+    sourceAgent: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+    assigneeId: true,
+    ttlSeconds: true,
+    ingestionDetails: true,
+    financialRisk_cents: true,
+    auditTrail: {
+      where: { action: { in: assigneeAuditActions } },
+      orderBy: { createdAt: "desc" as const },
+      select: {
+        id: true,
+        action: true,
+        justification: true,
+        operatorId: true,
+        createdAt: true,
+      },
+    },
+  };
+
+  const openWhere = dashboardOpenThreatStatusWhere();
+  const openRiskWhere: Prisma.RiskEventWhereInput = {
+    AND: [
+      { tenantId: activeTenantUuid },
+      {
+        status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+      },
+    ],
+  };
+
+  const [serverAuditLogs, risks, threatEvents] = await Promise.all([
     prisma.auditLog.findMany({
+      where: { tenantId: activeTenantUuid },
       orderBy: { createdAt: "desc" },
       take: 100,
       select: {
@@ -341,6 +430,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         operatorId: true,
         createdAt: true,
         threatId: true,
+        simThreatId: true,
         justification: true,
       },
     }),
@@ -359,68 +449,62 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       },
       orderBy: { score_cents: "desc" },
     }),
-    simPlane
+    dashboardThreatsFromRiskTable
       ? prisma.riskEvent.findMany({
-          where: getActiveThreatWhereClause() as Prisma.RiskEventWhereInput,
-          select: {
-            id: true,
-            title: true,
-            sourceAgent: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-            assigneeId: true,
-            ttlSeconds: true,
-            ingestionDetails: true,
-            forensicSeal: true,
-            complianceFramework: true,
-            mappedControls: true,
-            remediation_status: true,
-            financialRisk_cents: true,
-            AuditLog: {
-              where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
-              orderBy: { createdAt: "desc" },
-              select: {
-                id: true,
-                action: true,
-                justification: true,
-                operatorId: true,
-                createdAt: true,
-              },
-            },
-          },
+          where: openRiskWhere,
+          select: riskEventSelect,
           orderBy: { updatedAt: "desc" },
         })
-      : prisma.threatEvent.findMany({
-          where: getActiveThreatWhereClause(),
-          select: {
-            id: true,
-            title: true,
-            sourceAgent: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-            assigneeId: true,
-            ttlSeconds: true,
-            ingestionDetails: true,
-            financialRisk_cents: true,
-            auditTrail: {
-              where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
-              orderBy: { createdAt: "desc" },
-              select: {
-                id: true,
-                action: true,
-                justification: true,
-                operatorId: true,
-                createdAt: true,
-              },
+      : tenantCompanyIdsEarly.length === 0
+        ? Promise.resolve([])
+        : prisma.threatEvent.findMany({
+            where: {
+              AND: [{ tenantCompanyId: { in: tenantCompanyIdsEarly } }, openWhere],
             },
-          },
-          orderBy: { updatedAt: "desc" },
-        }),
+            select: threatEventSelect,
+            orderBy: { updatedAt: "desc" },
+          }),
   ]);
 
-  const threatEventsSorted = [...threatEvents].sort(
+  /**
+   * Shadow + simulation cookie: dashboard reads `ThreatEvent`; legacy Chaos rows may still live on `RiskEvent`.
+   * Merge chaos drills (`isChaosTest` / CHAOS_DRILL) so §4.3 operational diagnostics isolation does not hide Irontech drills from the pipeline strip (simulation mode Amendment §5).
+   */
+  let mergedThreatStripRows = threatEvents as unknown[];
+  if (envShadowPlane && simPlane && !dashboardThreatsFromRiskTable) {
+    const bridgeCandidates = await prisma.riskEvent.findMany({
+      where: {
+        tenantId: activeTenantUuid,
+        status: { notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] },
+      },
+      select: riskEventSelect,
+    });
+    const chaosBridge = bridgeCandidates.filter((r) => {
+      const raw = r.ingestionDetails;
+      if (raw == null) return false;
+      try {
+        const j =
+          typeof raw === "object" && raw !== null && !Array.isArray(raw)
+            ? (raw as Record<string, unknown>)
+            : (JSON.parse(String(raw)) as Record<string, unknown>);
+        if (j.isChaosTest === true) return true;
+        if (j.incident_type === "CHAOS") return true;
+        if (j.category === "INFRASTRUCTURE" && (j.isChaosTest === true || j.incident_type === "CHAOS"))
+          return true;
+        const et = String(j.entityType ?? "");
+        return et.includes("CHAOS") || et === "CHAOS_DRILL";
+      } catch {
+        return false;
+      }
+    });
+    const seen = new Set(threatEvents.map((t) => t.id));
+    mergedThreatStripRows = [
+      ...threatEvents,
+      ...chaosBridge.filter((r) => !seen.has(r.id)),
+    ];
+  }
+
+  const threatEventsSorted = (mergedThreatStripRows as typeof threatEvents).sort(
     (a, b) =>
       complianceDriftSortScore(
         {
@@ -429,7 +513,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
           ...("mappedControls" in b ? { mappedControls: b.mappedControls } : {}),
           ...("remediation_status" in b ? { remediation_status: b.remediation_status } : {}),
         },
-        simPlane,
+        dashboardThreatsFromRiskTable,
       ) -
       complianceDriftSortScore(
         {
@@ -438,7 +522,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
           ...("mappedControls" in a ? { mappedControls: a.mappedControls } : {}),
           ...("remediation_status" in a ? { remediation_status: a.remediation_status } : {}),
         },
-        simPlane,
+        dashboardThreatsFromRiskTable,
       ),
   );
 
@@ -664,7 +748,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     createdAt: Date;
   };
 
-  const complianceDriftOpenCount = simPlane
+  const complianceDriftOpenCount = dashboardThreatsFromRiskTable
     ? threatEventsSorted.filter(
         (t) => "mappedControls" in t && Array.isArray(t.mappedControls) && t.mappedControls.length === 0,
       ).length
@@ -765,6 +849,10 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   const insuranceModel = await fetchInsuranceModelForTenant(activeTenantUuid);
 
   const threatEventsPayload = threatEventsSorted.map((t) => {
+    /** `RiskEvent` strip rows (sim shadow / merged chaos bridge) vs production `ThreatEvent`. */
+    const useRiskShape =
+      dashboardThreatsFromRiskTable ||
+      ("complianceFramework" in t && "AuditLog" in t && !("auditTrail" in t));
     const auditTrail: AuditSlice[] =
       "auditTrail" in t && Array.isArray(t.auditTrail)
         ? t.auditTrail
@@ -772,19 +860,21 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
           ? (t as { AuditLog: AuditSlice[] }).AuditLog
           : [];
     const complianceFramework =
-      simPlane && "complianceFramework" in t ? String(t.complianceFramework) : "NIST";
+      useRiskShape && "complianceFramework" in t ? String(t.complianceFramework) : "NIST";
     const mappedControls =
-      simPlane && "mappedControls" in t && Array.isArray(t.mappedControls)
+      useRiskShape && "mappedControls" in t && Array.isArray(t.mappedControls)
         ? t.mappedControls.length > 0
           ? t.mappedControls
           : controlsForFramework(complianceFramework)
         : [];
     const remediationStatus =
-      simPlane && "remediation_status" in t ? String(t.remediation_status) : "PENDING";
+      useRiskShape && "remediation_status" in t ? String(t.remediation_status) : "PENDING";
     const financialRiskCents =
       "financialRisk_cents" in t ? (t.financialRisk_cents as bigint).toString() : "0";
+    const governedImpactCents =
+      useRiskShape && "governedImpact" in t ? (t.governedImpact as bigint).toString() : undefined;
     const reasoningWaterfall =
-      simPlane && ("ingestionDetails" in t || "forensicSeal" in t)
+      useRiskShape && ("ingestionDetails" in t || "forensicSeal" in t)
         ? buildReasoningWaterfallFromIngestion(
             "ingestionDetails" in t ? t.ingestionDetails : null,
             "forensicSeal" in t ? t.forensicSeal : undefined,
@@ -800,6 +890,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       mappedControls,
       remediationStatus,
       financialRiskCents,
+      governedImpactCents,
       assignmentHistory: auditTrail.map((log) => ({
         id: log.id,
         action: log.action,
@@ -814,7 +905,11 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
   return serializeBigInt({
     companies: serializedCompanies,
     serverAuditLogs: serverAuditLogs.map((row) => ({
-      ...row,
+      id: row.id,
+      action: row.action,
+      operatorId: row.operatorId,
+      threatId: row.threatId ?? row.simThreatId ?? null,
+      justification: row.justification,
       createdAt: row.createdAt.toISOString(),
     })),
     risks: serializedRisks,

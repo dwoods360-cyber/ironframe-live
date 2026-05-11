@@ -4,6 +4,7 @@ import { useState } from "react";
 import { purgeAllDataAction } from "@/app/actions/purgeSimulation";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
+import { appendAuditLog } from "@/app/utils/auditLogger";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from "@/src/constants/grcManualPurge";
 
@@ -42,6 +43,15 @@ export function PurgeBoardButton() {
                   useRiskStore.getState().replacePipelineThreats,
                   useRiskStore.getState().replaceActiveThreats,
                 ).catch(() => {});
+                const purgeLine =
+                  "[ ☢️ PURGE ] | SYSTEM STATE RESET. ALL FORENSIC DATA CLEARED (DEV-ONLY ACTION).";
+                appendAuditLog({
+                  action_type: "SYSTEM_WARNING",
+                  log_type: "GRC",
+                  description: purgeLine,
+                  metadata_tag: "GRC_PURGE|MASTER_STATE_RESET|DEV_ONLY",
+                });
+                useAgentStore.getState().addStreamMessage(purgeLine);
                 useAgentStore.getState().addStreamMessage(
                   `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
                 );

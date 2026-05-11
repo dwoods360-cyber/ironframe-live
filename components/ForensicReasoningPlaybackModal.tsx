@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { getForensicReasoningPlayback, type FlemmingForensicReasoningLogV1 } from "@/app/actions/sentinelActions";
 import { generateForensicReceipt } from "@/app/actions/forensicReceiptActions";
+import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
 
 type Props = {
   threatId: string | null;
@@ -151,6 +152,18 @@ export default function ForensicReasoningPlaybackModal({ threatId, onClose }: Pr
                     log.agent3IrontrustDeterministic.financialRiskCentsDecimal ??
                     "—"}
                 </span>
+                {log.agent3IrontrustDeterministic.governedImpactCentsDecimal ||
+                log.agent3IrontrustDeterministic.financialRiskCentsDecimal ? (
+                  <span className="ml-2 font-sans text-emerald-200/90">
+                    (
+                    {formatCentsToAccountingUSD(
+                      log.agent3IrontrustDeterministic.governedImpactCentsDecimal ??
+                        log.agent3IrontrustDeterministic.financialRiskCentsDecimal ??
+                        "0",
+                    )}
+                    )
+                  </span>
+                ) : null}
               </p>
             </section>
             <section>

@@ -4,6 +4,7 @@ import BoardReportClient from "./BoardReportClient";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { isRemoteAccessAdminEligible } from "@/app/utils/serverAuth";
+import { GRC_GOLD_TENANT_DISPLAY_FALLBACK } from "@/lib/constants/grcGovernance";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,7 +24,7 @@ export default async function BoardReportPage() {
         where: { id: tenantId },
         select: { name: true },
       });
-      return t?.name ?? "Medshield Health";
+      return t?.name ?? GRC_GOLD_TENANT_DISPLAY_FALLBACK;
     })(),
     isRemoteAccessAdminEligible(),
   ]);

@@ -2,6 +2,10 @@ import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import type { PipelineThreat } from "@/app/store/riskStore";
+import {
+  endActiveThreatsBoardFetchIfCurrent,
+  supersedeActiveThreatsBoardFetch,
+} from "@/app/utils/activeThreatsBoardFetchCoop";
 
 /** Refetch pipeline + active ThreatEvents from the server and push into the risk store (client). */
 export async function syncThreatBoardsClient(
@@ -10,14 +14,28 @@ export async function syncThreatBoardsClient(
 ): Promise<void> {
   await new Promise((r) => setTimeout(r, 800)); // 800ms settlement delay
   const activeUrl = "/api/threats/active";
-  const [pipeRows, activeRes] = await Promise.all([
-    fetchPipelineThreatsFromDb(),
-    fetch(activeUrl, { cache: "no-store" }),
-  ]);
-  if (!activeRes.ok) {
-    throw new Error(`GET ${activeUrl} failed: ${activeRes.status}`);
+  const activeCtrl = supersedeActiveThreatsBoardFetch();
+  let pipeRows: Awaited<ReturnType<typeof fetchPipelineThreatsFromDb>>;
+  let activeRows: PipelineThreat[];
+  try {
+    const [p, activeRes] = await Promise.all([
+      fetchPipelineThreatsFromDb(),
+      fetch(activeUrl, { cache: "no-store", signal: activeCtrl.signal }),
+    ]);
+    pipeRows = p;
+    if (!activeRes.ok) {
+      throw new Error(`GET ${activeUrl} failed: ${activeRes.status}`);
+    }
+    activeRows = (await activeRes.json()) as PipelineThreat[];
+  } catch (e) {
+    const aborted =
+      (e instanceof DOMException && e.name === "AbortError") ||
+      (e instanceof Error && e.name === "AbortError");
+    if (aborted) return;
+    throw e;
+  } finally {
+    endActiveThreatsBoardFetchIfCurrent(activeCtrl);
   }
-  const activeRows = (await activeRes.json()) as PipelineThreat[];
 
   const asPipeline: PipelineThreat[] = pipeRows.map((r) => ({
     id: r.id,
@@ -33,6 +51,7 @@ export async function syncThreatBoardsClient(
     dispositionStatus: r.dispositionStatus,
     isFalsePositive: r.isFalsePositive,
     receiptHash: r.receiptHash,
+    governanceHash: r.governanceHash,
   }));
 
   const asActiveFromDb: PipelineThreat[] = activeRows;

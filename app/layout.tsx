@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import DebugPanel from "./components/dev/DebugPanel";
+import IronguardBootstrap from "./components/IronguardBootstrap";
 import { TenantProvider } from "./context/TenantProvider";
 import GlobalDropZone from "./components/GlobalDropZone";
 
@@ -27,11 +28,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="font-sans">
+    <html lang="en" className="min-h-screen font-sans" suppressHydrationWarning>
+      {/* suppressHydrationWarning: Prevents crashes from browser extensions (Grammarly, etc.) injecting attributes into the DOM. */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen overflow-x-hidden antialiased font-sans`}
+        suppressHydrationWarning
       >
         <TenantProvider>
+          <IronguardBootstrap />
           <GlobalDropZone />
           <AppShell>{children}</AppShell>
           <DebugPanel />

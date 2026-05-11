@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { getActiveTenantUuidFromCookies, resolveTenantUuidForThreatScope } from "@/app/utils/serverTenantContext";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import type { ChaosClientAttribution } from "@/app/utils/chaosClientAttribution";
-import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { ingressGateway, ingressUsesRiskEventTable } from "@/app/lib/security/ingressGateway";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
 import {
   mergeIngestionDetailsPatch,
@@ -274,8 +275,14 @@ function chaosThreatFinalizeData(
         ? ("10 — PhishBot" as const)
         : null;
 
+  const drillLevel = chaosScenarioToInternalDrillLevel(scenarioNorm);
   const ingestionDetails = JSON.stringify({
     isChaosTest: true,
+    incident_type: "CHAOS",
+    category: "INFRASTRUCTURE",
+    chaos_level: drillLevel,
+    threatCategoryDisplay: "Infrastructure Drift",
+    shadowSimulationStatus: "simulated",
     ...(opts?.includeChaosDrillEntityType ? { entityType: CHAOS_DRILL_ENTITY_TYPE } : {}),
     chaosScenario: scenarioNorm,
     chaosScenarioDisplayLabel: cardTitle,
@@ -395,6 +402,8 @@ export type InjectChaosThreatOptions = {
    * When true, do not stamp `ingestionDetails.entityType: CHAOS_DRILL` (ATTBOT/KIMBOT/GRCBOT system integrity only).
    */
   suppressChaosDrillEntityType?: boolean;
+  /** Optional explicit tenant UUID/slug from client active context; server validates and scopes writes to this tenant. */
+  tenantUuidOverride?: string;
 };
 
 export async function injectChaosThreatAction(
@@ -407,9 +416,28 @@ export async function injectChaosThreatAction(
   | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
   | { ok: false; error: string }
 > {
-  const tenantId = await getActiveTenantUuidFromCookies();
+  const tenantFromCookie = await getActiveTenantUuidFromCookies();
+  const tenantId = options?.tenantUuidOverride?.trim()
+    ? await resolveTenantUuidForThreatScope(options.tenantUuidOverride.trim())
+    : tenantFromCookie;
   if (!tenantId) {
     return { ok: false, error: "No active tenant." };
+  }
+  if (options?.tenantUuidOverride?.trim()) {
+    const override = options.tenantUuidOverride.trim();
+    const resolvedOverride = await resolveTenantUuidForThreatScope(override);
+    if (!resolvedOverride) {
+      return {
+        ok: false,
+        error: `Invalid tenant override for chaos inject: ${override}`,
+      };
+    }
+    if (resolvedOverride !== tenantFromCookie && !isShadowPlaneActiveFromEnv()) {
+      return {
+        ok: false,
+        error: `Tenant override mismatch: cookie ${tenantFromCookie} != override ${resolvedOverride}`,
+      };
+    }
   }
   await clearSimulationStandDown(tenantId);
 
@@ -455,7 +483,6 @@ export async function injectChaosThreatAction(
       ...(initialAssigneeId === undefined ? {} : { initialAssigneeId }),
       includeChaosDrillEntityType,
     });
-    const isSim = await readSimulationPlaneEnabled();
 
     const created = await ingressGateway.writeThreatEvent(
       finalize as unknown as Prisma.ThreatEventUncheckedCreateInput,
@@ -502,7 +529,8 @@ export async function injectChaosThreatAction(
       assigneeId: true,
     } as const;
 
-    const row = isSim
+    const useRiskEventTable = await ingressUsesRiskEventTable();
+    const row = useRiskEventTable
       ? await prisma.riskEvent.findFirst({
           where: { id: threatId },
           select: rowSelect,
@@ -617,9 +645,9 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
-  const isSim = await readSimulationPlaneEnabled();
+  const useRiskEventTable = await ingressUsesRiskEventTable();
 
-  const row = isSim
+  const row = useRiskEventTable
     ? await prisma.riskEvent.findFirst({
         where: { id, tenantCompanyId: companyId },
         select: { ingestionDetails: true },
@@ -645,7 +673,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
   try {
     await prisma.$transaction(async (tx) => {
       if (step === 1) {
-        if (isSim) {
+        if (useRiskEventTable) {
           await tx.riskEvent.updateMany({
             where: { id },
             data: { assigneeId: CHAOS_ASSIGNEE_IRONTECH_11 },
@@ -660,7 +688,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
           });
         }
       } else if (step === 2) {
-        if (isSim) {
+        if (useRiskEventTable) {
           await tx.riskEvent.updateMany({
             where: { id },
             data: {
@@ -681,7 +709,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
           });
         }
       } else if (step === 3) {
-        if (isSim) {
+        if (useRiskEventTable) {
           await tx.riskEvent.updateMany({
             where: { id },
             data: {
@@ -702,7 +730,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
           });
         }
       } else {
-        if (isSim) {
+        if (useRiskEventTable) {
           await tx.riskEvent.updateMany({
             where: { id },
             data: {
@@ -722,7 +750,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
             tx,
           });
         }
-        if (!isSim) {
+        if (!useRiskEventTable) {
           await tx.workNote.create({
             data: {
               threatId: id,
@@ -735,16 +763,18 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
     });
 
     if (step === 1) {
-      await logIrontechChaosDrillGateActivity(id, isSim, "ASSIGNEE_CHANGE", {
+      await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "ASSIGNEE_CHANGE", {
         gate: 1,
         assigneeDisplay: IRONTECH_ASSIGNEE_AUDIT_DISPLAY,
       });
     } else if (step === 2) {
-      await logIrontechChaosDrillGateActivity(id, isSim, "THREAT_CONFIRMED", { gate: 2 });
+      await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "THREAT_CONFIRMED", { gate: 2 });
     } else if (step === 3) {
-      await logIrontechChaosDrillGateActivity(id, isSim, "ATTESTATION_SUBMITTED", { gate: 3 });
+      await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "ATTESTATION_SUBMITTED", {
+        gate: 3,
+      });
     } else {
-      await logIrontechChaosDrillGateActivity(id, isSim, "THREAT_RESOLVED", { gate: 4 });
+      await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "THREAT_RESOLVED", { gate: 4 });
     }
 
     if (step === 4) {
@@ -772,7 +802,7 @@ export async function runChaosDrillIrontechLifecycleGatedAction(
   if (companyId == null) {
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
-  const isSim = await readSimulationPlaneEnabled();
+  const useRiskEventTable = await ingressUsesRiskEventTable();
 
   for (let s = 1; s <= 4; s++) {
     if (s > 1) {
@@ -782,7 +812,7 @@ export async function runChaosDrillIrontechLifecycleGatedAction(
     if (!next.ok) return next;
   }
 
-  const row = isSim
+  const row = useRiskEventTable
     ? await prisma.riskEvent.findFirst({
         where: { id, tenantCompanyId: companyId },
         select: { financialRisk_cents: true },
@@ -833,12 +863,12 @@ export async function applyChaosShadowDrillTelemetryStepAction(
     return { ok: false, error: "Missing company context for tenant isolation." };
   }
 
-  const isSim = await readSimulationPlaneEnabled();
+  const useRiskEventTable = await ingressUsesRiskEventTable();
   const at = new Date().toISOString();
   const tone = step.terminalTone ?? "amber";
 
   try {
-    const row = isSim
+    const row = useRiskEventTable
       ? await prisma.riskEvent.findFirst({
           where: { id, tenantCompanyId: companyId },
           select: { ingestionDetails: true },
@@ -925,12 +955,12 @@ export async function applyChaosShadowDrillTelemetryStepAction(
 
     const persistenceIngestionForReturn =
       normalizeIngestionDetailsToString(
-        isSim ? persistenceIngestionShadow : persistenceIngestionProd,
+        useRiskEventTable ? persistenceIngestionShadow : persistenceIngestionProd,
       ) ?? "";
 
     if (isT12 && isChaosDrillRow) {
       await prisma.$transaction(async (tx) => {
-        if (isSim) {
+        if (useRiskEventTable) {
           await tx.riskEvent.updateMany({
             where: { id },
             data: {
@@ -955,14 +985,14 @@ export async function applyChaosShadowDrillTelemetryStepAction(
     }
 
     if (isT12) {
-      const prodChangesLegacy: Prisma.ThreatEventUpdateInput | undefined = !isSim
+      const prodChangesLegacy: Prisma.ThreatEventUpdateInput | undefined = !useRiskEventTable
         ? {
             assigneeId: assigneeUpdate,
             ingestionDetails: persistenceIngestionProd,
             status: ThreatState.RESOLVED,
           }
         : undefined;
-      const shadowChangesLegacy: Prisma.RiskEventUpdateInput | undefined = isSim
+      const shadowChangesLegacy: Prisma.RiskEventUpdateInput | undefined = useRiskEventTable
         ? {
             assigneeId: assigneeUpdate,
             ingestionDetails: persistenceIngestionShadow,
@@ -970,7 +1000,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
           }
         : undefined;
       const autonomyT12 = await executeAgentAction({
-        plane: isSim ? "shadow" : "prod",
+        plane: useRiskEventTable ? "shadow" : "prod",
         threatId: id,
         tenantCompanyId: companyId,
         operatorId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
@@ -989,14 +1019,14 @@ export async function applyChaosShadowDrillTelemetryStepAction(
       return { ok: true, ingestionDetails: persistenceIngestionForReturn };
     }
 
-    const prodChanges: Prisma.ThreatEventUpdateInput | undefined = !isSim
+    const prodChanges: Prisma.ThreatEventUpdateInput | undefined = !useRiskEventTable
       ? {
           assigneeId: assigneeUpdate,
           ingestionDetails: persistenceIngestionProd,
         }
       : undefined;
 
-    const shadowChanges: Prisma.RiskEventUpdateInput | undefined = isSim
+    const shadowChanges: Prisma.RiskEventUpdateInput | undefined = useRiskEventTable
       ? {
           assigneeId: assigneeUpdate,
           ingestionDetails: persistenceIngestionShadow as Prisma.InputJsonValue,
@@ -1004,7 +1034,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
       : undefined;
 
     const autonomy = await executeAgentAction({
-      plane: isSim ? "shadow" : "prod",
+      plane: useRiskEventTable ? "shadow" : "prod",
       threatId: id,
       tenantCompanyId: companyId,
       operatorId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
@@ -1020,6 +1050,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
     }
 
     revalidatePath("/", "layout");
+    revalidatePath("/integrity");
     return { ok: true, ingestionDetails: persistenceIngestionForReturn };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

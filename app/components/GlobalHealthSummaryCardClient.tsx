@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Activity, Droplets, Leaf, Zap } from "lucide-react";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
-import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import type { GlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
 import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useRiskStore } from "@/app/store/riskStore";

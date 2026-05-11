@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReasoningWaterfallVM } from "@/app/utils/reasoningWaterfallFromIngestion";
+import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
 import {
   GRC_GOLD_WATERFALL_CONTINUITY_CLEAR,
   GRC_GOLD_WATERFALL_CONTINUITY_DISSENT,
@@ -41,8 +42,14 @@ export default function ReasoningWaterfall({ data }: { data: ReasoningWaterfallV
             <p className="text-[9px] font-bold text-slate-200">{GRC_GOLD_WATERFALL_STAGE_IRONTRUST}</p>
             <StageChip ok={data.irontrust.complete} />
           </div>
-          <p className="mt-1 font-mono text-[8px] text-slate-400">
-            Governed impact (cents): {data.irontrust.governedImpactCents || "—"}
+          <p className="mt-1 text-[8px] text-slate-200">
+            Governed liability:{" "}
+            {data.irontrust.governedImpactCents
+              ? formatCentsToAccountingUSD(data.irontrust.governedImpactCents)
+              : "—"}
+          </p>
+          <p className="mt-0.5 font-mono text-[8px] text-slate-500">
+            governed_impact_cents: {data.irontrust.governedImpactCents || "—"}
           </p>
           {data.irontrust.formula ? (
             <p className="mt-0.5 text-[8px] leading-snug text-slate-500">{data.irontrust.formula}</p>

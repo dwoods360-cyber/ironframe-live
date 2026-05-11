@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getFrameworkCoverage } from "@/app/actions/complianceActions";
+import { getFrameworkCoverage, getTenantGovernanceMultiplierBps } from "@/app/actions/complianceActions";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 
@@ -35,15 +35,30 @@ export default function PublicSectorProgress({ activeIndustry }: Props) {
     "Public Sector",
     "State & Local",
   ].includes(activeIndustry);
-  const regulatoryMultiplierStart = activeIndustry === "Federal Government" ? 1.5 : 1.4;
-
   const { activeTenantUuid } = useTenantContext();
   const tenantUuid = useMemo(() => resolveDashboardTenantUuid(activeTenantUuid), [activeTenantUuid]);
+  const [govMultiplierBps, setGovMultiplierBps] = useState<number | null>(null);
   const [readinessPct, setReadinessPct] = useState<number | null>(null);
   const [validated, setValidated] = useState(0);
   const [required, setRequired] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!tenantUuid) {
+      setGovMultiplierBps(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const g = await getTenantGovernanceMultiplierBps(tenantUuid);
+      if (cancelled) return;
+      if (g.ok) setGovMultiplierBps(g.bps);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantUuid]);
 
   useEffect(() => {
     if (!showRegulatoryBar) {
@@ -77,6 +92,9 @@ export default function PublicSectorProgress({ activeIndustry }: Props) {
       cancelled = true;
     };
   }, [tenantUuid, showRegulatoryBar]);
+
+  /** Upper bound of the regulatory uplift curve — from `Tenant.industry` / industrial seed (bps), not a UI guess. */
+  const regulatoryMultiplierStart = govMultiplierBps != null ? govMultiplierBps / 100 : 1.4;
 
   const effectiveRegulatoryMult = useMemo(() => {
     const r = readinessPct ?? 0;

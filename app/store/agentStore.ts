@@ -1,5 +1,49 @@
 import { create } from "zustand";
 import type { PipelineThreat } from "@/app/store/riskStore";
+import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import type { WorkforceAgentCanonicalName } from "@/app/utils/agentKillAttribution";
+
+const AGENT_KILL_STORAGE_PREFIX = "ironframe-agent-kills-v1:";
+
+function emptyKillLedger(): Record<WorkforceAgentCanonicalName, number> {
+  const o = {} as Record<WorkforceAgentCanonicalName, number>;
+  for (const a of CORE_WORKFORCE_AGENTS) {
+    o[a.name as WorkforceAgentCanonicalName] = 0;
+  }
+  return o;
+}
+
+function tenantKeyForKills(): string {
+  if (typeof document === "undefined") return "global";
+  return resolveDashboardTenantUuid(null) ?? "global";
+}
+
+function loadKillLedger(): Record<WorkforceAgentCanonicalName, number> {
+  const base = emptyKillLedger();
+  if (typeof localStorage === "undefined") return base;
+  try {
+    const raw = localStorage.getItem(`${AGENT_KILL_STORAGE_PREFIX}${tenantKeyForKills()}`);
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    for (const a of CORE_WORKFORCE_AGENTS) {
+      const v = parsed[a.name];
+      if (typeof v === "number" && v >= 0) base[a.name as WorkforceAgentCanonicalName] = v;
+    }
+    return base;
+  } catch {
+    return base;
+  }
+}
+
+function persistKillLedger(kills: Record<WorkforceAgentCanonicalName, number>): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(`${AGENT_KILL_STORAGE_PREFIX}${tenantKeyForKills()}`, JSON.stringify(kills));
+  } catch {
+    /* ignore quota */
+  }
+}
 
 /** Ironwave (DMZ) visual telemetry — v1.0 state machine (tenant-scoped). */
 export type IronwaveTelemetryPhase = "ASSIGNED" | "SCANNING" | "VERIFIED";
@@ -32,6 +76,12 @@ export type AgentPivotFlashState = { threatId: string; until: number } | null;
 
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
+  /** Constitutional 19-agent fleet — increments when a threat card is resolved (tenant-scoped persistence). */
+  agentKills: Record<WorkforceAgentCanonicalName, number>;
+  hydrateAgentKillsFromStorage: () => void;
+  incrementAgentKill: (agentName: WorkforceAgentCanonicalName) => void;
+  /** Sum of per-agent kill counts (resolved threats attributed to the 19-agent roster). */
+  getTotalKillCount: () => number;
   intelligenceStream: string[];
   /** Local optimistic active cards (simple list). */
   activeThreats: PipelineThreat[];
@@ -77,6 +127,22 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     coreintel: { status: "HEALTHY" },
     agentManager: { status: "HEALTHY" },
   },
+  agentKills: emptyKillLedger(),
+  hydrateAgentKillsFromStorage: () => {
+    set({ agentKills: loadKillLedger() });
+  },
+  incrementAgentKill: (agentName) => {
+    const roster = new Set(CORE_WORKFORCE_AGENTS.map((a) => a.name));
+    const key = roster.has(agentName) ? agentName : ("Irontech" as WorkforceAgentCanonicalName);
+    set((state) => {
+      const prev = state.agentKills[key] ?? 0;
+      const next = { ...state.agentKills, [key]: prev + 1 };
+      persistKillLedger(next);
+      return { agentKills: next };
+    });
+  },
+  getTotalKillCount: () =>
+    Object.values(get().agentKills).reduce((sum, n) => sum + (typeof n === "number" ? n : 0), 0),
   intelligenceStream: INITIAL_MESSAGES,
   activeThreats: [],
   riskIngestionTerminalLines: [],

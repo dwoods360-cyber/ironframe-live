@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   IronbloomIngestUnprocessableError,
   validateIronbloomSustainabilityPayload,
-} from "@/app/actions/sustainabilityActions";
+} from "@/lib/sustainability/constants";
 
 /**
  * Ironbloom (CSRD) intake probe — validates physical-unit discipline before any persistence path.

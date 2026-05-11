@@ -9,7 +9,7 @@ import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficiency";
 import type { BotAuditLogRow, RecentAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
-import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import type { GlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
 import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { Leaf } from "lucide-react";
 import { Grid, Card, Text, Metric } from "@tremor/react";

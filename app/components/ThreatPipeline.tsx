@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
 import { Bot, ChevronRight, ExternalLink, Skull } from "lucide-react";
@@ -10,12 +10,14 @@ import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositio
 import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
 import type { StreamAlert } from "@/app/hooks/useAlerts";
 import type { TenantKey } from "@/app/utils/tenantIsolation";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
+import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
+import { useTenantContext } from "@/app/context/TenantProvider";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { useAgentStore } from "@/app/store/agentStore";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
-import { SIMULATION_MODE_COOKIE } from "@/app/store/systemConfigStore";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { toBigIntCents } from "@/app/utils/riskStoreBigIntMath";
@@ -27,6 +29,7 @@ import {
   KIMBOT_THREAT_TITLE_PREFIX,
   LEGACY_KIMBOT_THREAT_TITLE_PREFIX,
 } from "@/app/config/agents";
+import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
 import { getSupabaseOperatorIdForAcknowledge } from "@/app/actions/attributionActions";
 import { useUser } from "@/app/hooks/useUser";
 import { usePermissions } from "@/app/hooks/usePermissions";
@@ -37,6 +40,13 @@ import ChaosShadowAuditFeed, {
   isChaosShadowPlaneThreat,
 } from "@/app/components/chaos/ChaosShadowAuditFeed";
 import GovernanceHeartbeat from "@/components/GovernanceHeartbeat";
+import { isShadowPlaneActiveClient } from "@/app/utils/shadowPlaneActive";
+import { useHasMounted } from "@/app/hooks/useHasMounted";
+import {
+  chaosLevelForCardDisplay,
+  getChaosLevelVisual,
+  resolveChaosDrillLevelForUi,
+} from "@/app/utils/chaosLevelVisual";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -60,16 +70,8 @@ const INDUSTRY_TO_ENTITY: Record<string, { entityKey: TenantKey; entityLabel: st
   Finance: { entityKey: "vaultbank", entityLabel: "VAULTBANK" },
   Energy: { entityKey: "gridcore", entityLabel: "GRIDCORE" },
   Technology: { entityKey: "medshield", entityLabel: "MEDSHIELD" },
-  Defense: { entityKey: "gridcore", entityLabel: "GRIDCORE" },
+  Defense: { entityKey: "defense", entityLabel: "DEFENSE" },
 };
-
-/** Resolve selectedTenantName (UI) to tenant UUID for Irongate. Default: medshield. */
-function resolveTenantId(selectedTenantName: string | null): string {
-  const n = (selectedTenantName ?? '').trim().toLowerCase();
-  if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
-  if (n === 'gridcore') return TENANT_UUIDS.gridcore;
-  return TENANT_UUIDS.medshield;
-}
 
 function centsStringToMillionsInput(centsString: string): string {
   const trimmed = centsString.trim();
@@ -147,6 +149,27 @@ function sendStakeholderEmail(
   });
 }
 
+/** Shadow-plane Chaos / INFRASTRUCTURE lane label for Irontech remediation visibility. */
+function parseInfrastructureDriftLabel(details: string | undefined): string | null {
+  if (!details?.trim()) return null;
+  try {
+    const j = JSON.parse(details) as {
+      threatCategoryDisplay?: unknown;
+      incident_type?: unknown;
+      category?: unknown;
+    };
+    if (typeof j.threatCategoryDisplay === "string" && j.threatCategoryDisplay.trim()) {
+      return j.threatCategoryDisplay.trim();
+    }
+    if (j.incident_type === "CHAOS" && j.category === "INFRASTRUCTURE") {
+      return "Infrastructure Drift";
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 function PipelineThreatCard({
   threat,
   onActionSuccess,
@@ -198,6 +221,11 @@ function PipelineThreatCard({
   const activeIndustry = useRiskStore((s) => s.selectedIndustry);
   const activeTenant = useRiskStore((s) => s.selectedTenantName);
   const kimbotAttackQueueCount = useKimbotStore((s) => s.injectedSignals.length);
+  const { activeTenantUuid } = useTenantContext();
+  const tenantUuidForActions = useMemo(
+    () => resolveEffectiveTenantUuidForActions(activeTenantUuid, activeTenant),
+    [activeTenantUuid, activeTenant],
+  );
 
   useEffect(() => {
     setLikelihood(threat.likelihood ?? 8);
@@ -239,8 +267,27 @@ function PipelineThreatCard({
     return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}s`;
   })();
 
+  const chaosDrillLevel =
+    typeof threat.chaosLevel === "number" && Number.isFinite(threat.chaosLevel)
+      ? Math.min(5, Math.max(1, Math.round(threat.chaosLevel)))
+      : resolveChaosDrillLevelForUi(undefined, threat.ingestionDetails);
+  const infrastructureDriftLabel = parseInfrastructureDriftLabel(threat.ingestionDetails);
+  const chaosInPipelineLane =
+    chaosDrillLevel != null ||
+    isChaosShadowPlaneThreat(threat.ingestionDetails) ||
+    (threat.industry ?? "").trim().toUpperCase() === "CHAOSLAB";
+  const chaosDisplayLevel = chaosLevelForCardDisplay(
+    threat.chaosLevel,
+    threat.ingestionDetails,
+    chaosInPipelineLane,
+  );
+  const chaosVisual = chaosDisplayLevel != null ? getChaosLevelVisual(chaosDisplayLevel) : null;
+  const ChaosLevelIcon = chaosVisual?.icon;
+
   let severityLabelText: "MEDIUM" | "HIGH" | "CRITICAL";
-  if (residualScore < 30) {
+  if (chaosInPipelineLane) {
+    severityLabelText = "CRITICAL";
+  } else if (residualScore < 30) {
     severityLabelText = "MEDIUM";
   } else if (residualScore <= 70) {
     severityLabelText = "HIGH";
@@ -302,6 +349,16 @@ function PipelineThreatCard({
 
   const handleAcknowledgeClick = async () => {
     if (!ackEnabled || ackPending || chaosFlightLocksAck) return;
+    if (!tenantUuidForActions) {
+      appendAuditLog({
+        action_type: "SYSTEM_WARNING",
+        log_type: "GRC",
+        description: `Acknowledge blocked for "${threat.name}": no active tenant scope.`,
+        metadata_tag: scopeTag,
+        user_id: "Ironguard",
+      });
+      return;
+    }
 
     setAckPending(true);
     setThreatActionError({ active: false, message: "" });
@@ -329,7 +386,7 @@ function PipelineThreatCard({
         threat.id,
         operatorId,
         workNotePayload,
-        resolveTenantId(activeTenant)
+        tenantUuidForActions,
       );
       if (!outcome.success) {
         updatePipelineThreat(threat.id, {
@@ -446,6 +503,20 @@ function PipelineThreatCard({
             >
               {severityLabelText}
             </span>
+            {chaosVisual && ChaosLevelIcon ? (
+              <span
+                className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${chaosVisual.chipClass}`}
+                title={chaosVisual.label}
+              >
+                <ChaosLevelIcon className="h-3 w-3 shrink-0 opacity-95" aria-hidden />
+                Chaos L{chaosVisual.level}
+              </span>
+            ) : null}
+            {infrastructureDriftLabel ? (
+              <span className="shrink-0 rounded-full border border-cyan-500/45 bg-cyan-950/35 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-cyan-200">
+                {infrastructureDriftLabel}
+              </span>
+            ) : null}
             <Link
               href={`/threats/${threat.id}`}
               onClick={(e) => {
@@ -481,6 +552,9 @@ function PipelineThreatCard({
             Source: {threat.source ?? "—"} · Sector: {threat.industry ?? "—"} · Target:{" "}
             {threat.target ?? threat.industry ?? "—"}
           </p>
+          {threat.systemImpact?.trim() ? (
+            <p className="text-[10px] text-amber-200/85">System impact: {threat.systemImpact.trim()}</p>
+          ) : null}
           <p className="text-[10px] text-slate-500">
             Liability: ${scoreM.toFixed(1)}M · {threat.source ?? "—"}
           </p>
@@ -824,6 +898,10 @@ function PipelineThreatCard({
   );
 }
 
+/**
+ * Pipeline cards are driven by `riskStore` + DB sync — not gated on insurance handshake phase.
+ * Shadow Plane / simulation: there is no `handshakePhase === 'verified'` wall here; upstream `HandshakeStatusBar` / GRC Gold blocks are informational only for this board.
+ */
 export default function ThreatPipeline({
   supplyChainThreat,
   showSocStream,
@@ -846,6 +924,12 @@ export default function ThreatPipeline({
   const setRecordExpiredToast = useRiskStore((s) => s.setRecordExpiredToast);
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const { activeTenantUuid, activeTenantKey } = useTenantContext();
+  const tenantUuidForManualRegister = useMemo(
+    () => resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName),
+    [activeTenantUuid, selectedTenantName],
+  );
+  const playbookRouteTenantKey = activeTenantKey ?? tenantKeyFromUuid(tenantUuidForManualRegister);
   const setLiabilityAlert = useRiskStore((s) => s.setLiabilityAlert);
   const liabilityAlert = useRiskStore((s) => s.liabilityAlert);
   const setLiveMonitoringCount = useRiskStore((s) => s.setLiveMonitoringCount);
@@ -861,6 +945,25 @@ export default function ThreatPipeline({
   const removeInjectedSignal = useKimbotStore((s) => s.removeInjectedSignal);
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  const shadowPlaneHandshakeAuthorized = useRiskStore((s) => s.shadowPlaneHandshakeAuthorized);
+  const mounted = useHasMounted();
+  /**
+   * Cookie-based shadow lane only after mount — avoids SSR/client hydration mismatch (`document.cookie` absent on server).
+   * `NEXT_PUBLIC_SHADOW_PLANE_ACTIVE` is build-inlined and stable for SSR.
+   */
+  const isShadowPlaneLiveRange =
+    isSimulationMode ||
+    (typeof process !== "undefined" &&
+      (process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "true" ||
+        process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "1")) ||
+    (mounted && isShadowPlaneActiveClient());
+  /** Stress/shadow never block on raw-signal “WAITING…”; hide when pipeline or active DB-backed rows exist (Chaos may land on active board first). */
+  const suppressIngestionStreamWaiting =
+    shadowPlaneHandshakeAuthorized ||
+    isShadowPlaneLiveRange ||
+    pipelineThreats.length > 0 ||
+    activeThreats.length > 0;
   const enginesOn = kimbotEnabled || grcBotEnabled;
   const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
   const [manualTitle, setManualTitle] = useState("");
@@ -913,23 +1016,39 @@ export default function ThreatPipeline({
   const riskSearchLower = riskSearchQuery.trim().toLowerCase();
   const filteredRisks = pipelineThreats.filter((t) => {
     const src = (t.source ?? "").trim().toUpperCase();
-    /** Bot rows use `targetEntity` as canonical tenant name (e.g. Medshield), not UI sector — bypass strict industry match. */
-    const isBotOrSimPipelineSource =
+    const agentUpper = ((t as { sourceAgent?: string }).sourceAgent ?? "").trim().toUpperCase();
+    /** Irontech Chaos cards use `targetEntity` ChaosLab — keep visible when industry rail ≠ ChaosLab. */
+    const chaosLabLane =
+      (t.industry ?? "").trim().toUpperCase() === "CHAOSLAB" ||
+      ((t as { target?: string }).target ?? "").trim().toUpperCase() === "CHAOSLAB";
+    /** Shadow bots + chaos — visible even when Command Center has no tenant chip selected (Global / Unassigned lane). */
+    const isSimulationLaneThreat =
+      chaosLabLane ||
       src.includes("SIMULATION") ||
-      src === "GRC_BOT" ||
-      src === "KIMBOT" ||
+      src === GRC_SOURCE ||
+      src === KIMBOT_THREAT_SOURCE_AGENT ||
       src === "IRONBLOOM" ||
       src === "ATTACK_BOT" ||
       src === "ATTBOT_SIMULATION" ||
-      src === "IRONCHAOS";
+      src === "IRONCHAOS" ||
+      src === "INFILBOT_SIMULATION" ||
+      src === "PHISHBOT_SIMULATION" ||
+      SIMULATION_SOURCE_AGENTS.has(agentUpper) ||
+      agentUpper === KIMBOT_THREAT_SOURCE_AGENT ||
+      agentUpper === GRC_SOURCE ||
+      agentUpper === "ATTACK_BOT" ||
+      agentUpper === "INFILBOT_SIMULATION" ||
+      agentUpper === "PHISHBOT_SIMULATION" ||
+      agentUpper.startsWith("CHAOS_");
     const matchesIndustry =
-      isBotOrSimPipelineSource ||
+      isSimulationLaneThreat ||
       !selectedIndustry ||
       !t.industry ||
       t.industry === selectedIndustry;
     const tenantSel = (selectedTenantName ?? "").trim();
     const matchesTenant =
       tenantSel === "" ||
+      isSimulationLaneThreat ||
       (t.target ?? "").trim() === tenantSel ||
       (t.industry ?? "").trim() === tenantSel;
     return matchesIndustry && matchesTenant;
@@ -1063,6 +1182,10 @@ export default function ThreatPipeline({
     setRegisterError(null);
     const title = manualTitle.trim();
     if (!title) return;
+    if (!tenantUuidForManualRegister) {
+      setRegisterError("Select a tenant scope (cookie, route, or Command Center) before registering a risk.");
+      return;
+    }
     if (!manualRegisterJustificationMet) {
       setRegisterError(
         isManualTopSectorIntelSource(manualSource)
@@ -1083,7 +1206,7 @@ export default function ThreatPipeline({
       target: manualTarget.trim() || undefined,
       loss,
       description: manualDescription.trim() || undefined,
-      tenantId: resolveTenantId(selectedTenantName),
+      tenantId: tenantUuidForManualRegister,
       destination: "active" as const,
       ...(isManualTopSectorIntelSource(manualSource)
         ? { grcJustification: TOP_SECTOR_JUSTIFICATION_TEXT }
@@ -1250,14 +1373,6 @@ export default function ThreatPipeline({
   const runSyncImpl = useCallback(async () => {
     if (useRiskStore.getState().isAcknowledgeInFlight) return;
 
-    /** TEMP GRC override: silence reconcile radar when shadow simulation cookie is on (race / ghost diagnostics). */
-    if (
-      typeof document !== "undefined" &&
-      document.cookie.split(";").some((c) => c.trim().startsWith(`${SIMULATION_MODE_COOKIE}=1`))
-    ) {
-      return;
-    }
-
     const { pipeline: pt, active: at } = boardsRef.current;
 
     function isDbBackedId(id: string): boolean {
@@ -1394,9 +1509,25 @@ export default function ThreatPipeline({
             aria-label="Search ingestion"
           />
           {sortedAlerts.length === 0 ? (
-            <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-              [ WAITING FOR INGESTION STREAM... ]
-            </div>
+            suppressIngestionStreamWaiting ? (
+              isShadowPlaneLiveRange ? (
+              <div className="rounded border border-dashed border-cyan-600/40 bg-cyan-950/25 p-4 text-center font-sans text-sm text-cyan-100/90 animate-pulse">
+                [ LIVE RANGE · INGESTION CHANNEL OPEN — NO RAW SIGNALS QUEUED ]
+              </div>
+            ) : (
+              <div className="rounded border border-dashed border-emerald-600/35 bg-emerald-950/20 p-4 text-center font-sans text-sm text-emerald-100/85">
+                [ PIPELINE ACTIVE · RAW SIGNAL STREAM IDLE — DB CARDS BELOW ]
+              </div>
+            )
+            ) : isShadowPlaneLiveRange ? (
+              <div className="rounded border border-dashed border-cyan-600/40 bg-cyan-950/25 p-4 text-center font-sans text-sm text-cyan-100/90 animate-pulse">
+                [ SHADOW PLANE · INGESTION IDLE — PIPELINE BELOW ]
+              </div>
+            ) : (
+              <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
+                [ WAITING FOR INGESTION STREAM... ]
+              </div>
+            )
           ) : (
             <div className="space-y-3">
               <div className="space-y-2">
@@ -1407,9 +1538,25 @@ export default function ThreatPipeline({
                   </span>
                 </div>
                 {agentAlerts.length === 0 ? (
-                  <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-                    [ WAITING FOR INGESTION STREAM... ]
-                  </div>
+                  suppressIngestionStreamWaiting ? (
+                    isShadowPlaneLiveRange ? (
+                    <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
+                      [ LIVE RANGE · AGENT STREAM IDLE ]
+                    </div>
+                  ) : (
+                    <div className="rounded border border-dashed border-emerald-600/30 bg-slate-950/50 p-4 text-center font-sans text-sm text-emerald-200/75">
+                      [ PIPELINE ACTIVE · AGENT STREAM IDLE ]
+                    </div>
+                  )
+                  ) : isShadowPlaneLiveRange ? (
+                    <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
+                      [ SHADOW PLANE · AGENT STREAM IDLE ]
+                    </div>
+                  ) : (
+                    <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
+                      [ WAITING FOR INGESTION STREAM... ]
+                    </div>
+                  )
                 ) : (
                   <div className="flex flex-col gap-2">
                     {agentAlerts.slice(0, 1).map((signal) => (
@@ -1478,9 +1625,25 @@ export default function ThreatPipeline({
                   </span>
                 </div>
                 {socAlerts.length === 0 ? (
-                  <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-                    [ WAITING FOR INGESTION STREAM... ]
-                  </div>
+                  suppressIngestionStreamWaiting ? (
+                    isShadowPlaneLiveRange ? (
+                    <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
+                      [ LIVE RANGE · SOC EMAIL IDLE ]
+                    </div>
+                  ) : (
+                    <div className="rounded border border-dashed border-emerald-600/30 bg-slate-950/50 p-4 text-center font-sans text-sm text-emerald-200/75">
+                      [ PIPELINE ACTIVE · SOC EMAIL IDLE ]
+                    </div>
+                  )
+                  ) : isShadowPlaneLiveRange ? (
+                    <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
+                      [ SHADOW PLANE · SOC EMAIL IDLE ]
+                    </div>
+                  ) : (
+                    <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
+                      [ WAITING FOR INGESTION STREAM... ]
+                    </div>
+                  )
                 ) : (
                   <div className="flex flex-col gap-2">
                     {socAlerts.map((signal) => (
@@ -1666,9 +1829,15 @@ export default function ThreatPipeline({
               </div>
             </div>
           ) : pipelineThreats.length === 0 ? (
-            <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-              [ WAITING FOR TRIAGE SELECTIONS... ]
-            </div>
+            isShadowPlaneLiveRange ? (
+              <div className="rounded border border-dashed border-amber-500/45 bg-amber-950/20 p-4 text-center font-sans text-sm text-amber-100/90 animate-pulse">
+                [ EMPTY PIPELINE · LIVE RANGE — CARDS APPEAR WHEN DB ROWS MATCH ACTIVE TENANT UUID ]
+              </div>
+            ) : (
+              <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
+                [ WAITING FOR TRIAGE SELECTIONS... ]
+              </div>
+            )
           ) : null}
           {pipelineThreats.length > 0 && visiblePipelineThreats.length === 0 ? (
             <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
@@ -1783,7 +1952,15 @@ export default function ThreatPipeline({
                 type="button"
                 onClick={() => {
                   onRemediateSupplyChainThreat?.(supplyChainThreat.vendorName);
-                  router.push("/medshield/playbooks");
+                  if (playbookRouteTenantKey) {
+                    router.push(`/${playbookRouteTenantKey}/playbooks`);
+                  } else {
+                    appendAuditLog({
+                      action_type: "SYSTEM_WARNING",
+                      log_type: "GRC",
+                      description: "REMEDIATE skipped: no tenant route in context for playbook navigation.",
+                    });
+                  }
                 }}
                 className="rounded border border-blue-500/70 bg-blue-500/15 px-3 py-1 text-[10px] font-bold uppercase text-blue-200"
               >

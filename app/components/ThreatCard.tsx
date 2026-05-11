@@ -12,6 +12,11 @@ import {
   formatRecoverySlaParts,
   frameworkBadgesForChaosScenario,
 } from "@/app/utils/grcComplianceUi";
+import {
+  chaosLevelForCardDisplay,
+  getChaosLevelSurfaceAccent,
+  getChaosLevelVisual,
+} from "@/app/utils/chaosLevelVisual";
 
 function useIngestionBootstrapVisual(
   createdAtIso: string | null | undefined,
@@ -165,10 +170,19 @@ export function ThreatCard({
     (forceMitigatingSpinner || Boolean(ironTechAgentPhase));
   const chaosMeta = (() => {
     const raw = (ingestionDetailsRaw ?? "").trim();
-    if (!raw) return { scenario: null, isChaosTest: false, hasAutonomousJustification: false };
+    if (!raw)
+      return {
+        scenario: null,
+        isChaosTest: false,
+        hasAutonomousJustification: false,
+        autonomousRecoveredAt: "",
+        lkgAttestationIroncoreSha256: "",
+        chaosLevelNum: null as number | null,
+      };
     try {
       const parsed = JSON.parse(raw) as {
         chaosScenario?: unknown;
+        chaos_level?: unknown;
         isChaosTest?: unknown;
         resolutionJustification?: unknown;
         autonomousRecoveredAt?: unknown;
@@ -185,6 +199,22 @@ export function ThreatCard({
         v === "REMOTE_SUPPORT"
           ? v
           : null;
+      let chaosLevelNum: number | null =
+        typeof parsed.chaos_level === "number" && Number.isFinite(parsed.chaos_level)
+          ? Math.min(5, Math.max(1, Math.round(parsed.chaos_level)))
+          : null;
+      if (chaosLevelNum == null && scenario != null) {
+        const map: Record<string, number> = {
+          INTERNAL: 1,
+          HOME_SERVER: 2,
+          CLOUD_EXFIL: 3,
+          REMOTE: 4,
+          REMOTE_SUPPORT: 4,
+          CASCADING: 5,
+          CASCADING_FAILURE: 5,
+        };
+        chaosLevelNum = map[scenario] ?? null;
+      }
       const isChaosTest = parsed.isChaosTest === true ? true : false;
       const justification =
         typeof parsed.resolutionJustification === "string"
@@ -207,6 +237,7 @@ export function ThreatCard({
         hasAutonomousJustification,
         autonomousRecoveredAt,
         lkgAttestationIroncoreSha256,
+        chaosLevelNum,
       };
     } catch {
       return {
@@ -215,6 +246,7 @@ export function ThreatCard({
         hasAutonomousJustification: false,
         autonomousRecoveredAt: "",
         lkgAttestationIroncoreSha256: "",
+        chaosLevelNum: null as number | null,
       };
     }
   })();
@@ -228,6 +260,19 @@ export function ThreatCard({
     Date.now() < pivotFlash.until;
 
   const chaosScenario = chaosMeta.scenario;
+  const chaosLaneCard =
+    chaosMeta.isChaosTest ||
+    Boolean(chaosScenario) ||
+    (ingestionDetailsRaw ?? "").toLowerCase().includes("chaos_drill");
+  const chaosDisplayLevel = chaosLevelForCardDisplay(
+    chaosMeta.chaosLevelNum ?? undefined,
+    ingestionDetailsRaw ?? undefined,
+    chaosLaneCard,
+  );
+  const chaosVisualActive = chaosDisplayLevel != null ? getChaosLevelVisual(chaosDisplayLevel) : null;
+  const ChaosCardIcon = chaosVisualActive?.icon;
+  const chaosSurfaceAccent =
+    chaosVisualActive != null ? getChaosLevelSurfaceAccent(chaosVisualActive.level) : "";
   const complianceCoverageLabel = chaosComplianceCoverageLabel(
     chaosScenario,
     chaosMeta.isChaosTest,
@@ -323,8 +368,9 @@ export function ThreatCard({
         : forceIngressGray && !infrastructureLimit
           ? "!border-zinc-700 !bg-zinc-900"
           : isIrontechOperation || chaosScenario
-            ? ironwaveIrontechShell ||
-              "!border-blue-900/40 !bg-gradient-to-br !from-slate-950/90 !to-blue-950/30"
+            ? [chaosSurfaceAccent, ironwaveIrontechShell || "!border-blue-900/40 !bg-gradient-to-br !from-slate-950/90 !to-blue-950/30"]
+                .filter(Boolean)
+                .join(" ")
             : "";
 
   return (
@@ -389,6 +435,17 @@ export function ThreatCard({
               {b === "SOC2" ? "[SOC 2]" : b === "ISO" ? "[ISO]" : "[NIST]"}
             </span>
           ))}
+        </div>
+      ) : null}
+      {chaosVisualActive && ChaosCardIcon ? (
+        <div className="relative z-[12] mb-2 flex flex-wrap items-center gap-1.5">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-wide ${chaosVisualActive.chipClass}`}
+            title={chaosVisualActive.label}
+          >
+            <ChaosCardIcon className="h-3 w-3 shrink-0" aria-hidden />
+            Irontech Chaos L{chaosVisualActive.level}
+          </span>
         </div>
       ) : null}
       {infrastructureLimit || showIronTechWorkingBadge ? (

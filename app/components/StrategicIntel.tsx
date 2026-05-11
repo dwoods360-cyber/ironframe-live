@@ -16,7 +16,6 @@ import { wakeBlueTeam, sleepBlueTeam } from '@/app/utils/blueTeamSync';
 import { purgeSimulation } from '@/app/actions/purgeSimulation';
 import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from '@/src/constants/grcManualPurge';
 import { syncThreatBoardsClient } from '@/app/utils/syncThreatBoardsClient';
-import { clearAllAuditLogs, purgeSimulationAuditLogs } from '@/app/utils/auditLogger';
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { triggerLiveThreatSimulation } from "@/app/actions/attbotActions";
 import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
@@ -30,6 +29,7 @@ import {
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import { getIndustryTrendData, type IndustryTrendPayload } from "@/app/actions/benchmarkActions";
+import { getTenantGovernanceMultiplierBps } from "@/app/actions/complianceActions";
 import { triggerMarketVolatilityAutoHardening } from "@/app/actions/agentActions";
 import RiskExposureTrend from "@/components/RiskExposureTrend";
 import PublicSectorProgress from "@/components/PublicSectorProgress";
@@ -42,6 +42,7 @@ import {
   IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL,
   IRONWATCH_SHADOW_DISSENT_LABEL,
 } from "@/lib/constants/grcGovernance";
+import { INDUSTRY_PROFILE_SELECT_OPTIONS } from "@/app/utils/omniBenchmarkIndustries";
 
 export default function StrategicIntel() {
   const [mounted, setMounted] = useState(false);
@@ -60,6 +61,7 @@ export default function StrategicIntel() {
   const [isDrillPending, startDrillTransition] = useTransition();
   const [trendPayload, setTrendPayload] = useState<IndustryTrendPayload | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
+  const [tenantGovernanceMultX, setTenantGovernanceMultX] = useState<number | null>(null);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
   const { activeTenantUuid } = useTenantContext();
   const dashboardTenantUuid = useMemo(
@@ -105,7 +107,28 @@ export default function StrategicIntel() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!dashboardTenantUuid) {
+      setTenantGovernanceMultX(null);
+      return;
+    }
     let cancelled = false;
+    void (async () => {
+      const g = await getTenantGovernanceMultiplierBps(dashboardTenantUuid);
+      if (cancelled) return;
+      if (g.ok) setTenantGovernanceMultX(g.bps / 100);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboardTenantUuid]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!dashboardTenantUuid) {
+      setTrendLoading(false);
+      setTrendPayload(null);
+      return;
+    }
     setTrendLoading(true);
     void (async () => {
       const res = await getIndustryTrendData(dashboardTenantUuid, selectedIndustry);
@@ -280,7 +303,6 @@ export default function StrategicIntel() {
           setLogs((prev) => [...prev, '[SYSTEM] DATA_PURGE: Wiping simulation records']);
           const result = await purgeSimulation();
           if (result.ok) {
-            const purgedAuditEntries = clearAllAuditLogs();
             useKimbotStore.getState().resetSimulationCounters();
             useGrcBotStore.getState().stop();
             useRiskStore.getState().clearAllRiskStateForPurge();
@@ -293,7 +315,10 @@ export default function StrategicIntel() {
             addStreamMessage(
               `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
             );
-            setLogs((prev) => [...prev, `[AUDIT] Cleared ${purgedAuditEntries} local audit entr${purgedAuditEntries === 1 ? 'y' : 'ies'}.`]);
+            setLogs((prev) => [
+              ...prev,
+              '[AUDIT] Forensic ledger preserved — use Audit Intelligence → Master Purge to wipe local buffer.',
+            ]);
             setLogs((prev) => [...prev, '[SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.']);
             addStreamMessage('> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.');
             router.refresh();
@@ -374,7 +399,6 @@ export default function StrategicIntel() {
       addStreamMessage('> [CMD] PURGE: Initiating deep wipe (DB + uploads + audit)...');
       purgeSimulation().then((result) => {
         if (result.ok) {
-          const purgedAuditEntries = clearAllAuditLogs();
           useKimbotStore.getState().resetSimulationCounters();
           useGrcBotStore.getState().stop();
           useRiskStore.getState().clearAllRiskStateForPurge();
@@ -387,7 +411,9 @@ export default function StrategicIntel() {
           addStreamMessage(
             `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
           );
-          addStreamMessage(`> [AUDIT] Cleared ${purgedAuditEntries} local audit entr${purgedAuditEntries === 1 ? 'y' : 'ies'}.`);
+          addStreamMessage(
+            '> [AUDIT] Forensic ledger preserved — Master Purge (Audit Intelligence) clears local buffer.',
+          );
           addStreamMessage('> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.');
           router.refresh();
         } else {
@@ -737,19 +763,16 @@ export default function StrategicIntel() {
               onChange={(e) => setSelectedIndustry(e.target.value)}
               className="w-full bg-zinc-950 border border-zinc-800 p-3 rounded text-sm mb-2 text-white outline-none focus:border-blue-600 transition-colors appearance-none cursor-pointer"
             >
-              <option value="Defense">Defense</option>
-              <option value="Federal Government">Federal Government</option>
-              <option value="Aerospace">Aerospace</option>
-              <option value="State & Local">State &amp; Local</option>
-              <option value="Public Sector">Public Sector</option>
-              <option value="Healthcare">Healthcare</option>
-              <option value="Finance">Finance</option>
-              <option value="Technology">Technology</option>
+              {INDUSTRY_PROFILE_SELECT_OPTIONS.map((label) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
             </select>
             {selectedIndustry === "Defense" ? (
               <p
                 className="mb-2 inline-flex rounded border border-emerald-700/45 bg-emerald-950/35 px-2 py-1 text-[9px] font-bold tracking-wide text-emerald-100/95"
-                title="Defense ALE uses the governed 1.6× CMMC Level 3 multiplier on Sentinel ingest"
+                title={`Defense ALE uses the governed ${(tenantGovernanceMultX ?? 1.6).toFixed(1)}× CMMC Level 3 multiplier on Sentinel ingest (tenant governance bps)`}
               >
                 {DEFENSE_REGULATORY_SHIELD_BADGE_LABEL}
               </p>
@@ -814,6 +837,7 @@ export default function StrategicIntel() {
                 currencyScale={currencyScale}
                 activeIndustry={selectedIndustry}
                 weekOverWeekChangePct={trendPayload?.weekOverWeekChangePct ?? null}
+                isGenesisTrend={Boolean(trendPayload?.genesisTrend)}
               />
             </>
           )}

@@ -16,12 +16,14 @@ import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { IRONCHAOS_INGRESS_INITIATED_LINE } from "@/app/utils/dmzIngressRealtime";
 import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttribution";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { syncShadowSimulatorArmAction } from "@/app/actions/shadowSimulatorArmActions";
 import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { useTenantContext } from "@/app/context/TenantProvider";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 
 /**
  * Dropdown copy uses **Infil:** / **Phish:** prefixes; each `<option value>` is the `ChaosScenario` enum passed to
@@ -43,13 +45,6 @@ type Props = {
 const CHAOS_FLIGHT_AUTO_ACK_JUSTIFICATION =
   "[IRONTECH CHAOS FLIGHT RECORDER] 12-second supervised telemetry complete: Irongate (14) → Irontech (11) → observation → SYSTEM conclusion; GRC acknowledge to Active Risks.";
 
-function resolveDashboardTenantUuid(selectedTenantName: string | null): string {
-  const n = (selectedTenantName ?? "").trim().toLowerCase();
-  if (n === "vaultbank") return TENANT_UUIDS.vaultbank;
-  if (n === "gridcore") return TENANT_UUIDS.gridcore;
-  return TENANT_UUIDS.medshield;
-}
-
 const WAIT_MS = 4000;
 const waitChaosTick = () => new Promise<void>((r) => setTimeout(r, WAIT_MS));
 
@@ -64,6 +59,8 @@ function parseIngestionEntityType(raw: string | null | undefined): string | null
 
 export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const router = useRouter();
+  const { activeTenantUuid, tenantFetch } = useTenantContext();
+  const { isSimulationMode } = useSystemConfigStore();
   const [logDive, setLogDive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInjecting, setIsInjecting] = useState(false);
@@ -124,11 +121,18 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
       try {
         const clientAttr = await fetchChaosLedgerClientAttribution();
+        const tenantForChaos =
+          activeTenantUuid?.trim() ||
+          (isSimulationMode ? TENANT_UUIDS.medshield : "");
+        if (!tenantForChaos) {
+          setError("No active tenant in session. Chaos inject blocked.");
+          return;
+        }
         const res = await injectChaosThreatAction(
           scenario,
           clientAttr ?? undefined,
           scenarioLabelForServer.length > 0 ? scenarioLabelForServer : null,
-          { skipIsolatedDrill: true },
+          { skipIsolatedDrill: true, tenantUuidOverride: tenantForChaos },
         );
         if (!res.ok) {
           const attestationMsg = "Attestation Failed: Could not write to immutable ledger.";
@@ -171,6 +175,9 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             }),
           );
         }
+        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+        void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+        void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
 
         const fail = (msg: string) => {
           setError(msg);
@@ -205,6 +212,9 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             return;
           }
           patch(stepRes.ingestionDetails, st.assigneeId);
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+          void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+          void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
         }
 
         store.setChaosFlightRecorder(threatId, null);
@@ -222,7 +232,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           }
           router.refresh();
         } else {
-          const tenantId = resolveDashboardTenantUuid(store.selectedTenantName ?? null);
+          const tenantId = tenantForChaos;
           const outcome = await store.acknowledgeThreat(
             threatId,
             "admin-user-01",
@@ -242,6 +252,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           useRiskStore.getState().replacePipelineThreats,
           useRiskStore.getState().replaceActiveThreats,
         ).catch(() => undefined);
+        void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));

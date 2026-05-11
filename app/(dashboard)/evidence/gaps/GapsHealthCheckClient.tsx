@@ -6,6 +6,7 @@ import { getIndustryBenchmarks } from "@/app/actions/benchmarkActions";
 import {
   getFrameworkCoverage,
   getRankedRemediationTasks,
+  getTenantGovernanceMultiplierBps,
   type RankedRemediationPayload,
 } from "@/app/actions/complianceActions";
 import { triggerSentinelHunch } from "@/app/actions/sentinelActions";
@@ -55,7 +56,7 @@ function symptomForAle(aleCents: string): "PERFORMANCE_DROP" | "INTEGRITY_ALERT"
 export default function GapsHealthCheckClient() {
   const evidenceLockerRows = useEvidenceStore();
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
-  const regulatoryProfile = useMemo(() => getSectorRegulatoryProfile(selectedIndustry), [selectedIndustry]);
+  const [tenantGovBps, setTenantGovBps] = useState<number | null>(null);
 
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => {
@@ -64,6 +65,27 @@ export default function GapsHealthCheckClient() {
 
   const { activeTenantUuid } = useTenantContext();
   const tenantUuid = useMemo(() => resolveDashboardTenantUuid(activeTenantUuid), [activeTenantUuid]);
+
+  const regulatoryProfile = useMemo(
+    () => getSectorRegulatoryProfile(selectedIndustry, tenantGovBps ?? undefined),
+    [selectedIndustry, tenantGovBps],
+  );
+
+  useEffect(() => {
+    if (!tenantUuid) {
+      setTenantGovBps(null);
+      return;
+    }
+    let c = false;
+    void (async () => {
+      const r = await getTenantGovernanceMultiplierBps(tenantUuid);
+      if (c) return;
+      if (r.ok) setTenantGovBps(r.bps);
+    })();
+    return () => {
+      c = true;
+    };
+  }, [tenantUuid]);
   const [framework, setFramework] = useState<CoverageFramework>("SOC2");
   const [data, setData] = useState<CoveragePayload | null>(null);
   const [loading, setLoading] = useState(true);

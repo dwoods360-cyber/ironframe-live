@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFrameworkCoverage } from "@/app/actions/complianceActions";
 import { getIndustryBenchmarks, setShareAnonymizedBenchmarks } from "@/app/actions/benchmarkActions";
 import { getBulkEvidenceBundle, submitBulkEvidenceBrokerMock } from "@/app/actions/exportActions";
@@ -46,6 +47,12 @@ function rangeForPreset(preset: RangePreset, customStart: string, customEnd: str
 }
 
 export default function EvidenceVaultClient() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter");
+  const contextParam = searchParams.get("context");
+  const itarVaultDeepLink = filterParam?.trim().toUpperCase() === "ITAR";
+  const vaultContextRiskId = contextParam?.trim() ?? "";
+
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const grcGapDeps = useRiskStore(
     useShallow((s) => ({
@@ -187,6 +194,22 @@ export default function EvidenceVaultClient() {
   }, [dashboardTenantUuid, range, carrierKey]);
 
   const cumulativeRoi = bundle?.totals.cumulativeRoiCents ?? "0";
+
+  const vaultTableRows = useMemo(() => {
+    const rows = bundle?.rows ?? [];
+    if (!itarVaultDeepLink) return rows;
+    return rows.filter((r) => r.isExportControlled);
+  }, [bundle?.rows, itarVaultDeepLink]);
+
+  const contextHighlightRef = useRef<HTMLTableRowElement | null>(null);
+
+  useEffect(() => {
+    if (!vaultContextRiskId || loading) return;
+    const el = contextHighlightRef.current;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [vaultContextRiskId, loading, vaultTableRows]);
 
   /** Readiness vs peer — carrier-facing confidence signal when benchmarking is on (+ compliance premium in grcMath). */
   const brokerConfidencePct = useMemo(() => {
@@ -451,6 +474,26 @@ export default function EvidenceVaultClient() {
         </div>
       ) : null}
 
+      {itarVaultDeepLink || vaultContextRiskId ? (
+        <div
+          className="mb-4 rounded-lg border border-cyan-700/45 bg-cyan-950/25 px-4 py-3 text-[10px] text-cyan-100"
+          role="status"
+        >
+          {itarVaultDeepLink ? (
+            <p className="font-black uppercase tracking-wide text-cyan-300">ITAR evidence filter active</p>
+          ) : null}
+          {vaultContextRiskId ? (
+            <p className="mt-1 font-mono text-[10px] text-slate-300">
+              Forensic context (risk event):{" "}
+              <span className="font-bold text-white">{vaultContextRiskId}</span>
+            </p>
+          ) : null}
+          <p className="mt-2 text-[9px] leading-relaxed text-slate-500">
+            Rows below emphasize export-controlled chapters when ITAR filter is on; matching risk id is highlighted when present in the bundle.
+          </p>
+        </div>
+      ) : null}
+
       {mockResult ? (
         <div
           className="mb-6 rounded-lg border border-teal-700/50 bg-teal-950/30 px-4 py-3 text-[11px] text-teal-100"
@@ -490,15 +533,25 @@ export default function EvidenceVaultClient() {
                   Loading bundle…
                 </td>
               </tr>
-            ) : !bundle || bundle.rows.length === 0 ? (
+            ) : !bundle || vaultTableRows.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-3 py-8 text-center text-slate-500">
-                  No closed or validated risk events in this range.
+                  {bundle && bundle.rows.length > 0 && itarVaultDeepLink
+                    ? "No ITAR / export-controlled rows in this range — adjust filters or date range."
+                    : "No closed or validated risk events in this range."}
                 </td>
               </tr>
             ) : (
-              bundle.rows.map((r) => (
-                <tr key={r.riskEventId} className="border-b border-slate-800/80 hover:bg-slate-900/50">
+              vaultTableRows.map((r) => {
+                const isContextRow = Boolean(vaultContextRiskId && r.riskEventId === vaultContextRiskId);
+                return (
+                <tr
+                  key={r.riskEventId}
+                  ref={isContextRow ? contextHighlightRef : undefined}
+                  className={`border-b border-slate-800/80 hover:bg-slate-900/50 ${
+                    isContextRow ? "bg-cyan-950/35 ring-1 ring-inset ring-cyan-500/45" : ""
+                  }`}
+                >
                   <td className="px-3 py-2">
                     <div className="max-w-[200px] truncate font-medium text-slate-200" title={r.title}>
                       {r.title}
@@ -557,7 +610,8 @@ export default function EvidenceVaultClient() {
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>

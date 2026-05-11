@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { purgeSimulation } from "@/app/actions/purgeSimulation";
 import { getDbQueryMs } from "@/app/actions/simulation";
-import { clearAllAuditLogs } from "@/app/utils/auditLogger";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { useRiskStore } from "@/app/store/riskStore";
@@ -65,7 +64,6 @@ export default function ReportsFooter() {
         setPurgeMessage(result.message);
         return;
       }
-      const purgedLogs = clearAllAuditLogs();
       useKimbotStore.getState().resetSimulationCounters();
       useGrcBotStore.getState().stop();
       useRiskStore.getState().clearAllRiskStateForPurge();
@@ -79,7 +77,9 @@ export default function ReportsFooter() {
       );
       useAgentStore.getState().addStreamMessage("> [SYSTEM] Simulation environment wiped. System status: CLEAN.");
       sleepBlueTeam();
-      setPurgeMessage(`Purge complete. ${purgedLogs} audit log(s) cleared. Historical Entries reset to 0.`);
+      setPurgeMessage(
+        "Purge complete. Local forensic ledger unchanged — use Audit Intelligence → Master Purge to clear.",
+      );
       updateZustandSync();
       router.refresh();
     } catch (e) {

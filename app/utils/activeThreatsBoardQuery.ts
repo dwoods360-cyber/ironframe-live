@@ -3,7 +3,12 @@
  */
 import prisma from "@/lib/prisma";
 import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
-import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import {
+  ingressUsesRiskEventTable,
+  readSimulationPlaneEnabled,
+} from "@/app/lib/security/ingressGateway";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import {
   normalizeIngestionDetailsToString,
   parseIngestionDetailsForMerge,
@@ -40,6 +45,47 @@ function parseShadowCisoHandshakeFromIngestionLocal(
 
 function centsToMillions(value: bigint | number): number {
   return Number(value) / CENTS_PER_MILLION;
+}
+
+const CHAOS_SCENARIO_TO_LEVEL: Record<string, number> = {
+  INTERNAL: 1,
+  HOME_SERVER: 2,
+  CLOUD_EXFIL: 3,
+  REMOTE_SUPPORT: 4,
+  CASCADING_FAILURE: 5,
+};
+
+/** Irontech Chaos JSON on `ingestionDetails` (string or Json) — optional `chaos_level` / `system_impact`. */
+function parseChaosMetadataFromIngestion(
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
+): { chaosLevel: number | null; systemImpact: string | null } {
+  let chaosLevel: number | null = null;
+  let systemImpact: string | null = null;
+  try {
+    const raw =
+      ingestionDetails == null
+        ? null
+        : typeof ingestionDetails === "object" && !Array.isArray(ingestionDetails)
+          ? ingestionDetails
+          : JSON.parse(String(ingestionDetails));
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return { chaosLevel: null, systemImpact: null };
+    }
+    const j = raw as Record<string, unknown>;
+    if (typeof j.chaos_level === "number" && Number.isFinite(j.chaos_level)) {
+      chaosLevel = Math.min(5, Math.max(1, Math.round(j.chaos_level)));
+    }
+    if (typeof j.system_impact === "string" && j.system_impact.trim()) {
+      systemImpact = j.system_impact.trim();
+    }
+    if (chaosLevel == null && typeof j.chaosScenario === "string") {
+      const key = j.chaosScenario.trim().toUpperCase();
+      chaosLevel = CHAOS_SCENARIO_TO_LEVEL[key] ?? null;
+    }
+  } catch {
+    /* non-JSON or partial payload */
+  }
+  return { chaosLevel, systemImpact };
 }
 
 /** Stable select shape so `findMany` infers `notes` / `auditTrail` on each row. */
@@ -108,6 +154,7 @@ export const simActiveThreatBoardSelect = {
   aiReport: true,
   ttlSeconds: true,
   postMortemReportPath: true,
+  governanceHash: true,
   AuditLog: {
     where: { action: { in: [...THREAT_ASSIGNEE_AUDIT_ACTIONS] } },
     orderBy: { createdAt: "desc" as const },
@@ -136,17 +183,88 @@ export function getActiveThreatWhereClause(): Prisma.ThreatEventWhereInput {
   };
 }
 
+/** Chaos drills stamp `ingestionDetails` with `isChaosTest` / optional `entityType: CHAOS_DRILL` (see `chaosActions`). */
+function chaosIdentifiedThreatEventClause(): Prisma.ThreatEventWhereInput {
+  return {
+    AND: [
+      { status: ThreatState.IDENTIFIED },
+      {
+        OR: [
+          { ingestionDetails: { contains: '"isChaosTest":true', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"isChaosTest": true', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"incident_type":"CHAOS"', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"incident_type": "CHAOS"', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"category":"INFRASTRUCTURE"', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"category": "INFRASTRUCTURE"', mode: "insensitive" } },
+          { ingestionDetails: { contains: "Infrastructure Drift", mode: "insensitive" } },
+          { ingestionDetails: { contains: "CHAOS_DRILL", mode: "insensitive" } },
+          { ingestionDetails: { contains: "IRONCHAOS", mode: "insensitive" } },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * Active board: acknowledged/mitigation work. In shadow read scope (env `SHADOW_PLANE_ACTIVE` and/or simulation cookie),
+ * also return in-flight Chaos drills (`IDENTIFIED` + chaos / infrastructure drift markers) so `/api/threats/active` stays aligned with Irontech remediation.
+ */
+function getThreatEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.ThreatEventWhereInput {
+  const base = getActiveThreatWhereClause();
+  if (!shadowReadScope) return base;
+  return { OR: [base, chaosIdentifiedThreatEventClause()] };
+}
+
+function getRiskEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.RiskEventWhereInput {
+  const base: Prisma.RiskEventWhereInput = {
+    status: { in: [ThreatState.CONFIRMED, ThreatState.MITIGATED] },
+  };
+  if (!shadowReadScope) return base;
+  return {
+    OR: [
+      base,
+      {
+        AND: [
+          { status: ThreatState.IDENTIFIED },
+          {
+            OR: [
+              { ingestionDetails: { path: ["isChaosTest"], equals: true } },
+              { ingestionDetails: { path: ["entityType"], equals: "CHAOS_DRILL" } },
+              { ingestionDetails: { path: ["incident_type"], equals: "CHAOS" } },
+              { ingestionDetails: { path: ["category"], equals: "INFRASTRUCTURE" } },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export async function findActiveThreatEventRowsForBoard(): Promise<ActiveBoardUnionRow[]> {
-  const sim = await readSimulationPlaneEnabled();
-  if (sim) {
+  /** Must match `ingressGateway.writeThreatEvent` — shadow env + sim cookie still reads `ThreatEvent` for active board. */
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  const shadowReadScope =
+    isShadowPlaneActiveFromEnv() || (await readSimulationPlaneEnabled());
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (useRiskEventTable) {
     return prisma.riskEvent.findMany({
-      where: getActiveThreatWhereClause() as Prisma.RiskEventWhereInput,
+      where: {
+        AND: [{ tenantId: tenantUuid }, getRiskEventWhereForActiveBoard(shadowReadScope)],
+      },
       select: simActiveThreatBoardSelect,
       orderBy: { updatedAt: "desc" },
     });
   }
+  const companies = await prisma.company.findMany({
+    where: { tenantId: tenantUuid },
+    select: { id: true },
+  });
+  const companyIds = companies.map((c) => c.id);
+  if (companyIds.length === 0) return [];
   return prisma.threatEvent.findMany({
-    where: getActiveThreatWhereClause(),
+    where: {
+      AND: [{ tenantCompanyId: { in: companyIds } }, getThreatEventWhereForActiveBoard(shadowReadScope)],
+    },
     select: activeThreatBoardSelect,
     orderBy: { updatedAt: "desc" },
   });
@@ -177,6 +295,7 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
           }))
         : undefined;
     const shadow = parseShadowCisoHandshakeFromIngestionLocal(r.ingestionDetails);
+    const chaosMeta = parseChaosMetadataFromIngestion(r.ingestionDetails);
     let prodResolutionId: string | null = null;
     let prodResolutionStatus: "PENDING" | "APPROVED" | "REJECTED" | null = null;
     if ("resolutionApprovalId" in r) {
@@ -222,6 +341,12 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
         "postMortemReportPath" in r
           ? ((r as { postMortemReportPath?: string | null }).postMortemReportPath ?? null)
           : null,
+      governanceHash:
+        "governanceHash" in r
+          ? ((r as { governanceHash?: string | null }).governanceHash ?? null)
+          : null,
+      chaosLevel: chaosMeta.chaosLevel,
+      systemImpact: chaosMeta.systemImpact,
     };
   });
 }
@@ -253,6 +378,8 @@ export type PipelineThreatFromDb = {
   dispositionStatus?: string | null;
   isFalsePositive?: boolean;
   receiptHash?: string | null;
+  /** Shadow plane: `computeSimThreatTenantBindingHash` hex (ingest seal). */
+  governanceHash?: string | null;
   agentReasonings?: Array<{
     id: string;
     agentId: string;
@@ -264,6 +391,10 @@ export type PipelineThreatFromDb = {
   resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
   /** Sim plane: post-mortem PDF path after expert Gate 7 resolve. */
   postMortemReportPath?: string | null;
+  /** Irontech Chaos drill level (1–5) from `ingestionDetails` JSON when present. */
+  chaosLevel?: number | null;
+  /** Optional infrastructure / resilience impact line from chaos JSON. */
+  systemImpact?: string | null;
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */

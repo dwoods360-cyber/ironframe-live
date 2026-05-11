@@ -1,53 +1,79 @@
 /**
- * UI Industry Profile labels -> regulatory framing for gaps page and exports.
- * Multipliers are presentation-tier signals for underwriter narratives (not pricing engines).
+ * UI Industry Profile labels → regulatory framing for gaps page and exports.
+ * Multiplier display is driven by `governanceMultiplierBps` from the **`tenants`** row (via server action),
+ * with sector defaults only when bps is omitted — integer bps only; labels format as decimal × for UX.
  */
+
+/** Fallback bps when tenant-specific value not loaded — aligned with industrial seed / governance maps. */
+const DEFAULT_BPS_BY_PROFILE: Record<string, number> = {
+  Defense: 160,
+  "Federal Government": 140,
+  Aerospace: 150,
+  "State & Local": 110,
+  "Public Sector": 120,
+};
 
 export type SectorRegulatoryProfile = {
   multiplierLabel: string;
   frameworkLabel: string;
-  /** Short banner line, e.g. "NIST 1.5x Applied" */
   badgeHeadline: string;
-  /** Discovery Gate / center-pane shield line, e.g. "🛡️ 1.6× CMMC L3" */
   shieldDiscoveryBadge: string;
 };
 
-export function getSectorRegulatoryProfile(industry: string): SectorRegulatoryProfile | null {
-  switch (industry.trim()) {
+function xDisplayFromBps(bps: number): { ascii: string; unicode: string } {
+  const factor = bps / 100;
+  return {
+    ascii: `${factor.toFixed(2)}x`,
+    unicode: `${factor.toFixed(2)}×`,
+  };
+}
+
+/**
+ * @param governanceMultiplierBps — from {@link getTenantGovernanceMultiplierBps} (`tenants.industry`); overrides sector defaults.
+ */
+export function getSectorRegulatoryProfile(
+  industry: string,
+  governanceMultiplierBps?: number,
+): SectorRegulatoryProfile | null {
+  const key = industry.trim();
+  const bps = governanceMultiplierBps ?? DEFAULT_BPS_BY_PROFILE[key] ?? 100;
+  const { ascii: xAscii, unicode: xUni } = xDisplayFromBps(bps);
+
+  switch (key) {
     case "Defense":
       return {
-        multiplierLabel: "1.6x",
+        multiplierLabel: xAscii,
         frameworkLabel: "CMMC Level 3 / ITAR",
-        badgeHeadline: "CMMC 1.6x Applied",
-        shieldDiscoveryBadge: "🛡️ 1.6× CMMC L3",
+        badgeHeadline: `CMMC ${xAscii} Applied`,
+        shieldDiscoveryBadge: `🛡️ ${xUni} CMMC L3`,
       };
     case "Federal Government":
       return {
-        multiplierLabel: "1.5x",
+        multiplierLabel: xAscii,
         frameworkLabel: "FISMA High / NIST SP 800-53",
-        badgeHeadline: "NIST 1.5x Applied",
-        shieldDiscoveryBadge: "🛡️ 1.5× NIST SP 800-53",
+        badgeHeadline: `NIST ${xAscii} Applied`,
+        shieldDiscoveryBadge: `🛡️ ${xUni} NIST SP 800-53`,
       };
     case "Aerospace":
       return {
-        multiplierLabel: "1.45x",
+        multiplierLabel: xAscii,
         frameworkLabel: "AS9100 Rev D",
-        badgeHeadline: "AS9100 1.45x Applied",
-        shieldDiscoveryBadge: "🛡️ 1.45× AS9100",
+        badgeHeadline: `AS9100 ${xAscii} Applied`,
+        shieldDiscoveryBadge: `🛡️ ${xUni} AS9100`,
       };
     case "State & Local":
       return {
-        multiplierLabel: "1.25x",
+        multiplierLabel: xAscii,
         frameworkLabel: "CJIS-aligned / state procurement controls",
-        badgeHeadline: "State 1.25x Applied",
-        shieldDiscoveryBadge: "🛡️ 1.25× CJIS-aligned",
+        badgeHeadline: `State ${xAscii} Applied`,
+        shieldDiscoveryBadge: `🛡️ ${xUni} CJIS-aligned`,
       };
     case "Public Sector":
       return {
-        multiplierLabel: "1.4x",
+        multiplierLabel: xAscii,
         frameworkLabel: "NIST SP 800-53 (general government)",
-        badgeHeadline: "NIST 1.4x Applied",
-        shieldDiscoveryBadge: "🛡️ 1.4× NIST (gov)",
+        badgeHeadline: `NIST ${xAscii} Applied`,
+        shieldDiscoveryBadge: `🛡️ ${xUni} NIST (gov)`,
       };
     default:
       return null;

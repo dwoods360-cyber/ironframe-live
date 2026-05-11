@@ -38,6 +38,7 @@ import {
   operatorIdToDisplayName,
 } from '@/app/utils/assignmentChainOfCustody';
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
+import { resolveTenantUuidForThreatScope } from '@/app/utils/serverTenantContext';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { integrityService } from "@/src/services/integrityService";
@@ -1657,14 +1658,47 @@ export async function setThreatAssigneeAction(
   const value =
     normalized === '' || normalized.toLowerCase() === 'unassigned' ? null : normalized;
 
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantId.trim() },
-    select: { id: true },
-  });
-  if (!company) {
-    return { success: false, error: 'Irongate Rejection: No company for tenant context.' };
+  /** Commit guard: allow shadow-plane `riskEvent.create` / ingress to finish before assignee read-after-write. */
+  await new Promise((r) => setTimeout(r, 500));
+
+  const tenantUuid = await resolveTenantUuidForThreatScope(tenantId);
+  if (!tenantUuid) {
+    return {
+      success: false,
+      error:
+        'Irongate Rejection: Tenant context did not resolve to a workspace UUID (check tenant slug vs `tenants.id`).',
+    };
   }
-  const tenantCompanyId = company.id;
+
+  /** `RiskEvent.id` / `ThreatEvent.id` are Prisma cuids (`cm…`); `tenant_id` on SimThreatEvent is UUID. Lookup is `(id, tenantId)` only — **not** `governanceHash`. Ingress seals use the same bps as `getTenantGovernanceMultiplierBps` via `resolveGovernanceMultiplierBpsForTenantUuid`; a seal mismatch does not affect this query. */
+  const threatEntityId = threatId.trim();
+  if (!threatEntityId) {
+    return { success: false, error: 'Irongate Rejection: Missing threat id.' };
+  }
+  const activeTenantId = tenantUuid;
+  console.log("DEBUG: Target ThreatID:", threatEntityId);
+  console.log("DEBUG: Resolved TenantID from Cookie:", activeTenantId);
+  console.log("DEBUG: Type of ThreatID:", typeof threatEntityId);
+
+  const globalCheck = await prisma.riskEvent.findFirst({
+    where: { id: threatEntityId },
+    select: { id: true, tenantId: true },
+  });
+  if (!globalCheck) {
+    console.log(
+      "[FORENSIC PROOF] Global SimThreatEvent search returned NULL. Row was not written to SimThreatEvent.",
+    );
+  } else if (globalCheck.tenantId !== activeTenantId) {
+    console.log(
+      "[FORENSIC PROOF] Tenant mismatch detected.",
+      "db.tenant_id:",
+      globalCheck.tenantId,
+      "cookie tenant_id:",
+      activeTenantId,
+    );
+  } else {
+    console.log("[FORENSIC PROOF] Global SimThreatEvent search matched tenant scope.");
+  }
 
   const su = await getSupabaseSessionUser();
   const idFromSession =
@@ -1700,10 +1734,114 @@ export async function setThreatAssigneeAction(
   const assignedDisplayName = value == null ? "Unassigned" : assigneeKeyToDisplayName(value);
   const assignmentTelemetryLine = `> [IRONGATE] Identity verified. Ownership assigned to ${assignedDisplayName}. Forensic gate sealed.`;
 
-  const prod = await prisma.threatEvent.findFirst({
-    where: { id: threatId, tenantCompanyId },
-    select: { id: true, assigneeId: true },
+  /** All companies under this tenant UUID (prod threats key off `tenantCompanyId`, not tenant UUID). */
+  const tenantCompanyRows = await prisma.company.findMany({
+    where: { tenantId: tenantUuid },
+    select: { id: true },
   });
+  const tenantCompanyIds = tenantCompanyRows.map((c) => c.id);
+
+  const simulationPlaneEnabled = await readSimulationPlaneEnabled();
+  /** Shadow ledger first when the ingress cookie selects the simulation plane (matches SimThreatEvent reads). */
+  const prioritizeSimThreatRow =
+    simulationPlaneEnabled || threatEntityId.startsWith("shadow_sim_");
+
+  /** Resolve prod vs shadow row under the active tenant UUID (cookie-aligned). Retry briefly for write-after-simulation races. */
+  let prod: { id: string; assigneeId: string | null } | null = null;
+  let sim: { id: string; tenantCompanyId: bigint | null; assigneeId: string | null } | null = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const simRow = await prisma.riskEvent.findFirst({
+      where: { id: threatEntityId, tenantId: tenantUuid },
+      select: { id: true, tenantCompanyId: true, assigneeId: true },
+    });
+    const prodRow =
+      tenantCompanyIds.length > 0
+        ? await prisma.threatEvent.findFirst({
+            where: {
+              id: threatEntityId,
+              tenantCompanyId: { in: tenantCompanyIds },
+            },
+            select: { id: true, assigneeId: true },
+          })
+        : null;
+    if (simRow || prodRow) {
+      if (prioritizeSimThreatRow && simRow) {
+        prod = null;
+        sim = simRow;
+      } else {
+        prod = prodRow;
+        sim = simRow;
+      }
+      break;
+    }
+    if (!simRow && !prodRow && attempt >= 5) {
+      try {
+        const probe = await prisma.$queryRaw<Array<{ n: bigint }>>`
+          SELECT COUNT(*)::bigint AS n FROM "SimThreatEvent"
+          WHERE "tenant_id" = ${tenantUuid} AND id = ${threatEntityId}
+        `;
+        if (probe[0]?.n != null && probe[0].n > 0n) {
+          await new Promise((r) => setTimeout(r, 280));
+          continue;
+        }
+      } catch {
+        /* optional existence probe */
+      }
+    }
+    await new Promise((r) => setTimeout(r, 120 + attempt * 55));
+  }
+
+  if (prioritizeSimThreatRow && sim) {
+    const prev = sim.assigneeId ?? null;
+    if (prev === value) {
+      revalidateThreatAssigneeSurfaces();
+      return { success: true, newLog: null };
+    }
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const row = await tx.riskEvent.findFirst({
+          where: { id: threatEntityId, tenantId: tenantUuid },
+          select: { assigneeId: true },
+        });
+        if (!row) return null;
+        if ((row.assigneeId ?? null) === value) return null;
+        await tx.riskEvent.updateMany({
+          where: { id: threatEntityId, tenantId: tenantUuid },
+          data: { assigneeId: value },
+        });
+        return auditLogCreateLooseTx(tx, {
+          data: {
+            action: 'ASSIGNEE_CHANGE',
+            justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
+            operatorId: effectiveOperatorId,
+            threatId: null,
+            isSimulation: true,
+            simThreatId: threatEntityId,
+          },
+        });
+      });
+      revalidateThreatAssigneeSurfaces();
+      if (!created) {
+        return { success: true, newLog: null };
+      }
+      if (value != null) {
+        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatEntityId);
+      }
+      return {
+        success: true,
+        newLog: {
+          id: created.id,
+          action: created.action,
+          justification: created.justification,
+          operatorId: created.operatorId,
+          createdAt: created.createdAt.toISOString(),
+        },
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to save assignee.';
+      return { success: false, error: message };
+    }
+  }
 
   if (prod) {
     if (!prismaDelegates.threatEvent?.update) {
@@ -1718,13 +1856,13 @@ export async function setThreatAssigneeAction(
     try {
       const created = await prisma.$transaction(async (tx) => {
         const existing = await tx.threatEvent.findUnique({
-          where: { id: threatId },
+          where: { id: threatEntityId },
           select: { assigneeId: true },
         });
         if (!existing) return null;
         if ((existing.assigneeId ?? null) === value) return null;
         await updateThreatWithIntegrity({
-          threatId,
+          threatId: threatEntityId,
           changes: { assigneeId: value },
           actorUserId: effectiveOperatorId,
           eventType: "THREAT_ASSIGNEE_CHANGED",
@@ -1734,9 +1872,9 @@ export async function setThreatAssigneeAction(
         return auditLogCreateLooseTx(tx, {
           data: {
             action: 'ASSIGNEE_CHANGE',
-            justification: buildAssigneeChangeJustification(threatId, false, existing.assigneeId ?? null),
+            justification: buildAssigneeChangeJustification(threatEntityId, false, existing.assigneeId ?? null),
             operatorId: effectiveOperatorId,
-            threatId,
+            threatId: threatEntityId,
             isSimulation: false,
           },
         });
@@ -1746,7 +1884,7 @@ export async function setThreatAssigneeAction(
         return { success: true, newLog: null };
       }
       if (value != null) {
-        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatId);
+        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatEntityId);
       }
       return {
         success: true,
@@ -1763,11 +1901,6 @@ export async function setThreatAssigneeAction(
       return { success: false, error: message };
     }
   }
-
-  const sim = await prisma.riskEvent.findFirst({
-    where: { id: threatId, tenantCompanyId },
-    select: { id: true, assigneeId: true },
-  });
 
   if (sim) {
     const prev = sim.assigneeId ?? null;
@@ -1778,23 +1911,23 @@ export async function setThreatAssigneeAction(
     try {
       const created = await prisma.$transaction(async (tx) => {
         const row = await tx.riskEvent.findFirst({
-          where: { id: threatId },
+          where: { id: threatEntityId, tenantId: tenantUuid },
           select: { assigneeId: true },
         });
         if (!row) return null;
         if ((row.assigneeId ?? null) === value) return null;
         await tx.riskEvent.updateMany({
-          where: { id: threatId },
+          where: { id: threatEntityId, tenantId: tenantUuid },
           data: { assigneeId: value },
         });
         return auditLogCreateLooseTx(tx, {
           data: {
             action: 'ASSIGNEE_CHANGE',
-            justification: buildAssigneeChangeJustification(threatId, true, row.assigneeId ?? null),
+            justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
             operatorId: effectiveOperatorId,
             threatId: null,
             isSimulation: true,
-            simThreatId: threatId,
+            simThreatId: threatEntityId,
           },
         });
       });
@@ -1803,7 +1936,7 @@ export async function setThreatAssigneeAction(
         return { success: true, newLog: null };
       }
       if (value != null) {
-        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatId);
+        await recordResilienceIntelStreamLine(assignmentTelemetryLine, threatEntityId);
       }
       return {
         success: true,
@@ -1821,9 +1954,28 @@ export async function setThreatAssigneeAction(
     }
   }
 
+  let sqlProbeSimExists = false;
+  try {
+    const lastProbe = await prisma.$queryRaw<Array<{ n: bigint }>>`
+      SELECT COUNT(*)::bigint AS n FROM "SimThreatEvent"
+      WHERE "tenant_id" = ${tenantUuid} AND id = ${threatEntityId}
+    `;
+    sqlProbeSimExists = Boolean(lastProbe[0]?.n != null && lastProbe[0]!.n > 0n);
+  } catch {
+    sqlProbeSimExists = false;
+  }
+
+  if (!globalCheck) {
+    console.error("VERDICT: ROW_NOT_WRITTEN - Simulation failed to persist.");
+  } else if (globalCheck.tenantId !== activeTenantId) {
+    console.error("VERDICT: TENANT_MISMATCH - Cookie and DB entry do not align.");
+  } else {
+    console.error("VERDICT: SCOPED_LOOKUP_OK_BUT_UPDATE_FAILED - Check Prisma transaction state.");
+  }
+
   return {
     success: false,
-    error: `[setThreatAssigneeAction] No ThreatEvent or SimThreatEvent for threatId ${threatId} in this tenant scope.`,
+    error: `[setThreatAssigneeAction] No ThreatEvent or SimThreatEvent for threatId ${threatEntityId} in tenant ${tenantUuid.slice(0, 8)}… scope (confirm simulation row committed and tenant cookie matches).${sqlProbeSimExists ? " Raw SQL sees SimThreatEvent row — ORM tenant/id mismatch or session scope." : ""}`,
   };
 }
 

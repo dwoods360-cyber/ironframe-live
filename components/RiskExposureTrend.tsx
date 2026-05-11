@@ -19,6 +19,8 @@ export type RiskExposureTrendProps = {
   /** Active sector label for header (must match Strategic Intel dropdown); typically `selectedIndustry`. */
   activeIndustry: string;
   weekOverWeekChangePct?: number | null;
+  /** Peer snapshots missing — chart uses deterministic genesis cohort curve. */
+  isGenesisTrend?: boolean;
 };
 
 function centsToUsd(centsStr: string): number {
@@ -60,6 +62,7 @@ export default function RiskExposureTrend({
   currencyScale,
   activeIndustry,
   weekOverWeekChangePct,
+  isGenesisTrend,
 }: RiskExposureTrendProps) {
   const data = points.map((p) => ({
     weekIso: p.weekLabel,
@@ -76,6 +79,13 @@ export default function RiskExposureTrend({
     );
   }
 
+  const genesisNote =
+    isGenesisTrend === true ? (
+      <p className="mb-2 text-[8px] font-mono uppercase tracking-wide text-amber-500/90">
+        Genesis trend — no peer snapshots yet; cohort curve from tenant / sector baseline (ALE cents).
+      </p>
+    ) : null;
+
   const formatUsd = (v: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -88,6 +98,7 @@ export default function RiskExposureTrend({
 
   return (
     <div className="w-full min-w-0">
+      {genesisNote}
       <p className="mb-1 text-[9px] font-mono uppercase tracking-wider text-zinc-500">
         IRONETHIC INDUSTRY MEAN ALE (WEEKLY) - {industryUpper.toUpperCase()}
         {weekOverWeekChangePct != null ? (

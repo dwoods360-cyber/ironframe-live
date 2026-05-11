@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { useRiskStore } from "@/app/store/riskStore";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 
 /** Dot size bounds (px) — ALE weight within GRC bands. */
@@ -107,14 +106,22 @@ export default function EnterpriseHeatMap() {
 
   useEffect(() => {
     let cancelled = false;
-    const tenantUuid = activeTenantUuid ?? TENANT_UUIDS.medshield;
+
+    if (!activeTenantUuid) {
+      setLoading(false);
+      setError(null);
+      setPoints([]);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setLoading(true);
     setError(null);
 
     tenantFetch("/api/threat-events-heatmap", {
       cache: "no-store",
-      headers: { "x-tenant-id": tenantUuid } as HeadersInit,
+      headers: { "x-tenant-id": activeTenantUuid } as HeadersInit,
     })
       .then(async (res) => {
         if (!res.ok) {

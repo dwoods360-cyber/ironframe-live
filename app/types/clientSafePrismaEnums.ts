@@ -4,6 +4,7 @@
  */
 
 export const ControlState = {
+  PIPELINE: "PIPELINE",
   IDENTIFIED: "IDENTIFIED",
   CONFIRMED: "CONFIRMED",
   MITIGATED: "MITIGATED",

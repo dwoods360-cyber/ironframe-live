@@ -15,7 +15,7 @@ type AlertPayload = {
 const DEBUG_PANEL_POSITION_STORAGE_KEY = "dev-tenant-switcher-position-v1";
 
 export default function DebugPanel() {
-  const { activeTenantKey, activeTenantUuid, setDevTenantOverride } = useTenantContext();
+  const { activeTenantKey, activeTenantUuid, switchDevTenantColdBoot } = useTenantContext();
   const isDevelopment = process.env.NODE_ENV === "development";
   const panelRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef({
@@ -159,14 +159,19 @@ export default function DebugPanel() {
         setDebugMessage("Cross-tenant fetch was not blocked (same-tenant or unrestricted context).");
       }
     } catch (error) {
-      setDebugMessage(`Debug fetch error: ${(error as Error).message}`);
+      const msg = (error as Error).message;
+      if (msg.includes("IRONGUARD BREACH")) {
+        setDebugMessage("CLIENT IRONGUARD: cross-tenant fetch aborted before network (expected).");
+      } else {
+        setDebugMessage(`Debug fetch error: ${msg}`);
+      }
     } finally {
       setIsTesting(false);
     }
   };
 
   const setTenant = (tenant: TenantKey | null) => {
-    setDevTenantOverride(tenant);
+    switchDevTenantColdBoot(tenant);
     setDebugMessage(tenant ? `Dev tenant override set to ${tenant.toUpperCase()}` : "Dev tenant override cleared.");
   };
 
@@ -184,7 +189,7 @@ export default function DebugPanel() {
       onPointerLeave={() => setIsPanelHovered(false)}
       onMouseEnter={() => setIsPanelHovered(true)}
       onMouseLeave={() => setIsPanelHovered(false)}
-      className="fixed z-[80] w-72 rounded border border-slate-700/40 bg-slate-950/5 p-3 shadow-2xl backdrop-blur-xl transition-opacity duration-200"
+      className="fixed z-[120] w-72 rounded border border-slate-700/40 bg-slate-900/95 p-3 shadow-2xl backdrop-blur-sm transition-opacity duration-200"
       style={panelPosition ? { left: `${panelPosition.x}px`, top: `${panelPosition.y}px`, opacity: isPanelHovered ? 1 : 0.5 } : { right: "16px", bottom: "16px", opacity: isPanelHovered ? 1 : 0.5 }}
     >
       <button
@@ -198,11 +203,11 @@ export default function DebugPanel() {
       <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-white">Dev Tenant Switcher</p>
       <p className="mb-2 text-[9px] text-slate-400">Active: {activeTenantKey ? activeTenantKey.toUpperCase() : "NONE"}</p>
 
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setTenant("medshield")} className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Medshield</button>
-        <button type="button" onClick={() => setTenant("vaultbank")} className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Vaultbank</button>
-        <button type="button" onClick={() => setTenant("gridcore")} className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Gridcore</button>
-        <button type="button" onClick={() => setTenant(null)} className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Clear</button>
+      <div className="relative z-10 mb-3 grid grid-cols-2 gap-2 rounded-md border border-slate-800 bg-slate-900 p-2 shadow-inner shadow-black/40">
+        <button type="button" onClick={() => setTenant("medshield")} className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Medshield</button>
+        <button type="button" onClick={() => setTenant("vaultbank")} className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Vaultbank</button>
+        <button type="button" onClick={() => setTenant("gridcore")} className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Gridcore</button>
+        <button type="button" onClick={() => setTenant(null)} className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500">Clear</button>
       </div>
 
       <button
@@ -214,7 +219,7 @@ export default function DebugPanel() {
         {isTesting ? "Testing..." : "ATTEMPT CROSS-TENANT FETCH"}
       </button>
       <p className="text-[9px] text-slate-500 font-mono mt-1 italic leading-tight">
-        ILLEGAL_FETCH_HELP: This action simulates an illegal cross-tenant fetch and should be blocked with a 403 guardrail.
+        ILLEGAL_FETCH_HELP: Ironguard blocks mismatched tenant headers client-side; server may still return 403 when headers align.
       </p>
       <p className="text-[9px] text-slate-500 font-mono leading-tight">
         SYSTEM_NOTE: Cross-tenant alerts utilize Medshield liability baselines by design.

@@ -4,7 +4,11 @@
  * professional formatting (system font, Confidential footer), and Historical Entries count
  * matching the sidebar filtered count.
  */
-import type { AuditLogRecord, AuditActionType } from "@/app/utils/auditLogger";
+import {
+  type AuditLogRecord,
+  type AuditActionType,
+  formatLedgerSequenceLabel,
+} from "@/app/utils/auditLogger";
 
 const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
   LOGIN: "Login",
@@ -186,11 +190,15 @@ function buildPdfLines(params: BuildAuditPdfParams): string[] {
 
   for (const entry of entries) {
     const actionLabel = (ACTION_LABELS[entry.action_type] ?? entry.action_type) as string;
+    const seqPrefix =
+      typeof entry.ledger_sequence === "number" && Number.isFinite(entry.ledger_sequence)
+        ? `${formatLedgerSequenceLabel(entry.ledger_sequence)} `
+        : "";
     const impact = supplyChainImpactForAuditEntry(entry);
     const descText =
       impact != null
-        ? `${escapePdfText(entry.description)} [Supply Chain Impact: ${impact.toFixed(1)}/10]`
-        : escapePdfText(entry.description);
+        ? `${seqPrefix}${escapePdfText(entry.description)} [Supply Chain Impact: ${impact.toFixed(1)}/10]`
+        : `${seqPrefix}${escapePdfText(entry.description)}`;
     lines.push(`[ ${actionLabel} ] ${entry.timestamp}`);
     lines.push(descText);
     lines.push("");

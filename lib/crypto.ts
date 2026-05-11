@@ -1,6 +1,19 @@
 import { createHash } from "crypto";
 
 /**
+ * Shadow-plane chain-of-custody: binds `SimThreatEvent` composite identity `(tenantId, id)` to the
+ * governance multiplier (bps) at ingest — integer-only canonical string; no floats.
+ */
+export function computeSimThreatTenantBindingHash(input: {
+  tenantId: string;
+  riskEventId: string;
+  governanceImpactMultiplierBps: bigint;
+}): string {
+  const canonical = `IRONFRAME_SIM_TENANT_BIND|${input.tenantId.trim()}|${input.riskEventId.trim()}|${input.governanceImpactMultiplierBps.toString()}`;
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+/**
  * CISO / Product Owner attestation seal: SHA-256 over canonical UTF-8
  * `CISO_Name \\n Timestamp_ISO \\n Risk_ID` (concatenation-safe delimiters).
  */

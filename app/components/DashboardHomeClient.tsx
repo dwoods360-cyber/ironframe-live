@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
@@ -16,10 +17,12 @@ import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
 import { useAgentStore } from '../store/agentStore';
+import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useSystemConfigStore } from '../store/systemConfigStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 import IrontechLeftPaneControls from './IrontechLeftPaneControls';
+import Sidebar from './Sidebar';
 import ClockDriftBanner from './ClockDriftBanner';
 import ClockDriftMonitor from './ClockDriftMonitor';
 import SentinelIntakeForm from '@/components/SentinelIntakeForm';
@@ -28,12 +31,11 @@ import BudgetJustification from '@/components/BudgetJustification';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
 import AuditorRiskLedger from '@/components/AuditorRiskLedger';
 import { formatCentsToUSD } from '@/app/utils/formatCentsToUSD';
-import { getSectorRegulatoryProfile } from '@/app/utils/sectorRegulatoryProfile';
+import { getTenantGovernanceMultiplierBps } from '@/app/actions/complianceActions';
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useAdversarySimulatorStore } from '@/app/store/adversarySimulatorStore';
 import { useHasMounted } from '@/app/hooks/useHasMounted';
-import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from '@/lib/constants/grcGovernance';
 import {
   GRC_GOLD_AUDITOR_LEDGER_HEADING,
   GRC_GOLD_AUDITOR_VIEW_INTRO,
@@ -41,12 +43,27 @@ import {
 } from '@/lib/constants/grcGold';
 import type { ReasoningWaterfallVM } from '@/app/utils/reasoningWaterfallFromIngestion';
 import ResourceMonitor from '@/app/components/ResourceMonitor';
+import GrcGoldLivingAuditBlock from '@/app/components/GrcGoldLivingAuditBlock';
+import HandshakeStatusBar, {
+  type SyncHandshakePhase,
+  HANDSHAKE_SYSTEM_READY_LINE,
+} from '@/app/components/HandshakeStatusBar';
+import { TENANT_API_CACHE_INVALIDATE_EVENT } from '@/app/utils/apiCacheCoordinator';
+import { isShadowPlaneActiveClient } from '@/app/utils/shadowPlaneActive';
+import { useShadowPlaneThreatRefetch } from '@/app/hooks/useShadowPlaneThreatRefetch';
+import { ChevronRight } from 'lucide-react';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
   'Azure Health API Exposure',
   'Palo Alto Firewall Misconfiguration',
 ]);
+
+/** Strip legacy Medshield ghost rows from secondary asset metadata (forensic anchor is authoritative). */
+function isMedshieldGhostAsset(asset: string): boolean {
+  const n = asset.trim().toLowerCase();
+  return n === "medshield" || n === "medshield health";
+}
 
 type DashboardData = {
   companies: Array<{
@@ -82,12 +99,15 @@ type DashboardData = {
     id: string;
     title: string;
     sourceAgent: string;
+    targetEntity?: string;
     status?: string;
     assigneeId: string | null;
     complianceFramework?: string;
     mappedControls?: string[];
     remediationStatus?: string;
     financialRiskCents?: string;
+    /** SimThreatEvent.governed_impact (cents) — Epic 8 USD chip on RiskEventCard */
+    governedImpactCents?: string;
     reasoningWaterfall?: ReasoningWaterfallVM | null;
     assignmentHistory?: Array<{
       id: string;
@@ -123,18 +143,79 @@ type Props = {
   serverTimeEpochMs?: number;
 };
 
+/** Pre-tenant dashboard shell: global systems render; tenant-scoped fields stay empty until Command Center selection. */
+const EMPTY_DASHBOARD_DATA: DashboardData = {
+  companies: [],
+  serverAuditLogs: [],
+  risks: [],
+  threatEvents: [],
+  aleExposureByAssetCents: {},
+  complianceDriftOpenCount: 0,
+  scrutinyHeatmap: {},
+  currentHeat: {},
+  predictiveHeat: {},
+  isConflictDetected: false,
+  ironwatchAlerts: [],
+  complianceVelocity: null,
+  avgHoursToControlMapping: null,
+  totalValueMitigatedYtdCents: "0",
+  projectedInsuranceSavingsCents: "0",
+  insuranceModelFramework: "SOC2",
+  insuranceHasContinuousMonitoring: false,
+  insuranceHasDueDiligencePdfs: false,
+  insuranceDefaultPremiumCents: "0",
+  insuranceTotalDiscountBps: 0,
+};
+
+function InsuranceForensicHandshakeConnector({ flowActive }: { flowActive: boolean }) {
+  const bridge = (
+    <div className="relative w-full overflow-visible">
+      <div className="relative h-px w-full">
+        <div className="absolute inset-0 border-t border-dashed border-cyan-600/40" />
+        {flowActive ? (
+          <div className="pointer-events-none absolute left-0 top-1/2 h-4 w-[min(55%,10rem)] -translate-y-1/2 rounded-full bg-gradient-to-r from-cyan-200/95 via-cyan-400/88 to-transparent blur-[3px] ironframe-connector-flow-x" />
+        ) : null}
+      </div>
+      <div className="mt-2 flex justify-center">
+        <ChevronRight
+          className="text-cyan-500/55 drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+          strokeWidth={2.25}
+          size={18}
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div
+        className="relative hidden min-h-[8rem] w-12 shrink-0 flex-col justify-center px-0.5 lg:flex"
+        aria-hidden
+      >
+        {bridge}
+      </div>
+      <div className="relative flex w-full shrink-0 py-1 lg:hidden" aria-hidden>
+        {bridge}
+      </div>
+    </>
+  );
+}
+
 /**
  * Main Ops shell — primary “ear” for production `ThreatEvent` and shadow `RiskEvent` (DB table `SimThreatEvent`) realtime, tenant-scoped.
  * See `useDashboardThreatRealtime` (postgres_changes on `ThreatEvent` or `SimThreatEvent` when simulation mode is on).
  */
 export default function DashboardHomeClient({ children, serverTimeEpochMs }: Props) {
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
-  const { tenantFetch, activeTenantUuid } = useTenantContext();
+  const { tenantFetch, activeTenantUuid, activeTenantKey } = useTenantContext();
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
   const isManualFormOpen = useRiskStore((s) => s.isManualFormOpen);
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const activeRiskId = useRiskStore((s) => s.activeRiskId);
   const kimbotEnabled = useKimbotStore((s) => s.enabled);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
   const adversarySimActive = useAdversarySimulatorStore(
@@ -145,10 +226,20 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   const forensicPlaybackThreatId = useRiskStore((s) => s.forensicPlaybackThreatId);
   const setForensicPlaybackThreatId = useRiskStore((s) => s.setForensicPlaybackThreatId);
   const hasMounted = useHasMounted();
+  /** Cookie lane only after mount — matches ThreatPipeline / avoids handshake UI SSR mismatch. */
+  const shadowHandshakeBypassActive = useMemo(
+    () =>
+      isSimulationMode ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "true" ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "1" ||
+      (hasMounted && isShadowPlaneActiveClient()),
+    [isSimulationMode, hasMounted],
+  );
+  const router = useRouter();
   const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null);
   const [drawerFocus, setDrawerFocus] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
   const [scrutinyView, setScrutinyView] = useState<"TOTAL_WORKFORCE" | "AGENT_FOCUS">("TOTAL_WORKFORCE");
@@ -158,14 +249,68 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const isLaunchingRef = useRef(false);
+  const [tenantGovernanceBps, setTenantGovernanceBps] = useState<number | null>(null);
+  const [localCycleBumpsByAsset, setLocalCycleBumpsByAsset] = useState<Record<string, number>>({});
   /** Bootstrap companies (e.g. Ironchaos) may not be in the last GET /api/dashboard payload yet. */
   const [realtimeCompanyAllowlistExtras, setRealtimeCompanyAllowlistExtras] = useState<string[]>([]);
+  /** Premium/carrier/discount fingerprint from `BudgetJustification` — ties Forensic Audit to insurance edits. */
+  const [insuranceClientPostureSig, setInsuranceClientPostureSig] = useState("");
+  /** Skip first `insurancePostureSignal` baseline; subsequent changes drive central handshake + GRC audit ledger. */
+  const insuranceSigPrevForAuditRef = useRef<string | null>(null);
+  /** War Room handshake strip — aligned with Forensic recalc + sign-off gate. */
+  const [handshakePhase, setHandshakePhase] = useState<SyncHandshakePhase>("idle");
+  /** Browser timer handles — `number` in DOM typings (Node `Timeout` conflicts in strict composite projects). */
+  const verifiedHandshakeTimeoutRef = useRef<number | null>(null);
+  const driftHandshakeTimeoutRef = useRef<number | null>(null);
+
+  const clearHandshakeTimers = useCallback(() => {
+    if (verifiedHandshakeTimeoutRef.current) {
+      clearTimeout(verifiedHandshakeTimeoutRef.current);
+      verifiedHandshakeTimeoutRef.current = null;
+    }
+    if (driftHandshakeTimeoutRef.current) {
+      clearTimeout(driftHandshakeTimeoutRef.current);
+      driftHandshakeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const onHandshakeSignOffComplete = useCallback(() => {
+    clearHandshakeTimers();
+    setHandshakePhase("idle");
+  }, [clearHandshakeTimers]);
 
   const dashboardTenantUuid = useMemo(
     () => resolveDashboardTenantUuid(activeTenantUuid),
     [activeTenantUuid],
   );
 
+  /** One verification ledger row per tenant UUID session scope — deferred append (Audit Intelligence subscribe-safe). */
+  const handshakeBaselineLoggedForUuid = useRef<string | null>(null);
+  useEffect(() => {
+    if (!dashboardTenantUuid) {
+      handshakeBaselineLoggedForUuid.current = null;
+      return;
+    }
+    if (handshakeBaselineLoggedForUuid.current === dashboardTenantUuid) {
+      return;
+    }
+    handshakeBaselineLoggedForUuid.current = dashboardTenantUuid;
+
+    const tenantDisplay =
+      selectedTenantName?.trim() ||
+      (activeTenantKey ? activeTenantKey.toUpperCase() : null) ||
+      "COMMAND CENTER TARGET";
+
+    Promise.resolve().then(() => {
+      appendAuditLog({
+        action_type: "CONFIG_CHANGE",
+        log_type: "GRC",
+        user_id: "Irongate-Audit",
+        description: `[ 🤝 HANDSHAKE TEST ] | LOGIC BRIDGE VERIFIED FOR TENANT: ${tenantDisplay}. NEW BASELINE ESTABLISHED.`,
+        metadata_tag: "GRC_HANDSHAKE|LOGIC_BRIDGE_VERIFIED",
+      });
+    });
+  }, [dashboardTenantUuid, selectedTenantName, activeTenantKey]);
   const tenantCompanyIds = useMemo(() => {
     const base = (data?.companies ?? []).map((c) => String(c.id)).filter(Boolean);
     const merged = [...new Set([...base, ...realtimeCompanyAllowlistExtras])];
@@ -174,6 +319,78 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
 
   useEffect(() => {
     setRealtimeCompanyAllowlistExtras([]);
+  }, [dashboardTenantUuid]);
+
+  const setShadowPlaneHandshakeAuthorized = useRiskStore((s) => s.setShadowPlaneHandshakeAuthorized);
+
+  /**
+   * von Flywheel: env/simulation shadow flags only here (stable SSR + first client render).
+   * Cookie-based “live range” is applied in a normal `useEffect` after `hasMounted` so HTML matches hydration.
+   */
+  useLayoutEffect(() => {
+    if (!dashboardTenantUuid) return;
+    if (
+      isSimulationMode ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "true" ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "1"
+    ) {
+      clearHandshakeTimers();
+      setHandshakePhase("verified");
+      setShadowPlaneHandshakeAuthorized(true);
+    }
+  }, [
+    dashboardTenantUuid,
+    isSimulationMode,
+    clearHandshakeTimers,
+    setShadowPlaneHandshakeAuthorized,
+  ]);
+
+  useEffect(() => {
+    if (!hasMounted || !dashboardTenantUuid) return;
+    if (!isShadowPlaneActiveClient()) return;
+    clearHandshakeTimers();
+    setHandshakePhase("verified");
+    setShadowPlaneHandshakeAuthorized(true);
+  }, [hasMounted, dashboardTenantUuid, clearHandshakeTimers, setShadowPlaneHandshakeAuthorized]);
+
+  useEffect(() => {
+    setInsuranceClientPostureSig("");
+    insuranceSigPrevForAuditRef.current = null;
+    if (!dashboardTenantUuid) {
+      clearHandshakeTimers();
+      setHandshakePhase("idle");
+      setShadowPlaneHandshakeAuthorized(false);
+      return;
+    }
+    clearHandshakeTimers();
+    const shadowImmediate =
+      isSimulationMode ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "true" ||
+      process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "1" ||
+      (typeof document !== "undefined" && isShadowPlaneActiveClient());
+    if (shadowImmediate) {
+      setHandshakePhase("verified");
+      setShadowPlaneHandshakeAuthorized(true);
+    } else {
+      setHandshakePhase("idle");
+      setShadowPlaneHandshakeAuthorized(false);
+    }
+  }, [dashboardTenantUuid, clearHandshakeTimers, setShadowPlaneHandshakeAuthorized, isSimulationMode]);
+
+  useEffect(() => {
+    if (!dashboardTenantUuid) {
+      setTenantGovernanceBps(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const r = await getTenantGovernanceMultiplierBps(dashboardTenantUuid);
+      if (cancelled) return;
+      if (r.ok) setTenantGovernanceBps(r.bps);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [dashboardTenantUuid]);
 
   useEffect(() => {
@@ -198,6 +415,20 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     return () => window.removeEventListener("ironframe:tenant-company-allowlist", onAllowlist);
   }, []);
 
+  /** Cold-boot invalidation (Dev Tenant Switcher / Command Center): drop insurance fingerprint + dashboard payload cache before refetch. */
+  useEffect(() => {
+    const onTenantApiCacheInvalidate = () => {
+      setInsuranceClientPostureSig("");
+      insuranceSigPrevForAuditRef.current = null;
+      clearHandshakeTimers();
+      setHandshakePhase("idle");
+      setShadowPlaneHandshakeAuthorized(false);
+      setData(null);
+    };
+    window.addEventListener(TENANT_API_CACHE_INVALIDATE_EVENT, onTenantApiCacheInvalidate);
+    return () => window.removeEventListener(TENANT_API_CACHE_INVALIDATE_EVENT, onTenantApiCacheInvalidate);
+  }, [clearHandshakeTimers, setShadowPlaneHandshakeAuthorized]);
+
   const onNewThreatDetected = useCallback((title: string) => {
     if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
     setNewThreatToast({ title });
@@ -207,13 +438,47 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     }, 5200);
   }, []);
 
+  const refetchDashboard = useCallback(() => {
+    if (!dashboardTenantUuid) return;
+    void tenantFetch('/api/dashboard', {
+      cache: 'no-store',
+      headers: { 'x-tenant-id': dashboardTenantUuid } as HeadersInit,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then((json: DashboardData) => setData(json))
+      .catch(() => undefined);
+  }, [tenantFetch, dashboardTenantUuid]);
+
+  useEffect(() => {
+    const onRefetch = () => {
+      refetchDashboard();
+      void pulseThreatBoardsFromDb().catch(() => undefined);
+    };
+    window.addEventListener('ironframe:dashboard-refetch', onRefetch);
+    return () => window.removeEventListener('ironframe:dashboard-refetch', onRefetch);
+  }, [refetchDashboard, pulseThreatBoardsFromDb]);
+
+  useShadowPlaneThreatRefetch({
+    dashboardTenantUuid,
+    isSimulationMode,
+    pulseThreatBoardsFromDb,
+    refetchDashboard,
+  });
+
   useDashboardThreatRealtime({
-    enabled: Boolean(data) && !loading && tenantCompanyIds.length > 0,
+    enabled: Boolean(data) && Boolean(dashboardTenantUuid) && !loading && tenantCompanyIds.length > 0,
     isSimulationMode,
     tenantCompanyIds,
     replacePipelineThreats,
     replaceActiveThreats,
     onNewThreatDetected,
+    onAfterSync: () => {
+      refetchDashboard();
+      router.refresh();
+    },
   });
 
   useEffect(() => {
@@ -224,7 +489,15 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
 
   useEffect(() => {
     let cancelled = false;
-    if (!data) setLoading(true);
+    if (!dashboardTenantUuid) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoading(true);
     setError(null);
     tenantFetch('/api/dashboard', {
       cache: 'no-store',
@@ -243,7 +516,9 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [tenantFetch, dashboardTenantUuid]);
 
   const liveAlerts: StreamAlert[] = useMemo(() => {
@@ -277,7 +552,14 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   }, [data?.serverAuditLogs]);
 
   const scrutinyHeatmap = data?.currentHeat ?? data?.scrutinyHeatmap ?? {};
-  const predictiveHeat = data?.predictiveHeat ?? {};
+  const predictiveHeatRaw = data?.predictiveHeat ?? {};
+  /** Guard rail: never render predictive overlays if active tenant context diverges from dashboard scope. */
+  const predictiveHeat = useMemo(() => {
+    if (activeTenantUuid?.trim() && activeTenantUuid.trim() !== dashboardTenantUuid) {
+      return {} as Record<string, number>;
+    }
+    return predictiveHeatRaw;
+  }, [activeTenantUuid, dashboardTenantUuid, predictiveHeatRaw]);
   const aleExposureByAssetCents = data?.aleExposureByAssetCents ?? {};
   const complianceDriftOpenCount = data?.complianceDriftOpenCount ?? 0;
   const ironwatchAlerts = data?.ironwatchAlerts ?? [];
@@ -289,11 +571,129 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   const insuranceModelFramework = data?.insuranceModelFramework ?? "SOC2";
   const insuranceHasContinuousMonitoring = data?.insuranceHasContinuousMonitoring === true;
   const insuranceHasDueDiligencePdfs = data?.insuranceHasDueDiligencePdfs === true;
-  const insuranceDefaultPremiumCents = data?.insuranceDefaultPremiumCents ?? "5000000";
+  const insuranceDefaultPremiumCents =
+    data?.insuranceDefaultPremiumCents ?? (!dashboardTenantUuid ? "0" : "5000000");
   const insuranceDiscountPct =
     data?.insuranceTotalDiscountBps != null && Number.isFinite(data.insuranceTotalDiscountBps)
       ? (data.insuranceTotalDiscountBps / 100).toFixed(2)
       : null;
+
+  const insurancePostureSignal = useMemo(
+    () =>
+      [
+        insuranceDefaultPremiumCents,
+        projectedInsuranceSavingsCents,
+        insuranceModelFramework,
+        data?.insuranceTotalDiscountBps ?? "",
+        insuranceHasContinuousMonitoring,
+        insuranceHasDueDiligencePdfs,
+        insuranceClientPostureSig,
+      ].join("|"),
+    [
+      insuranceDefaultPremiumCents,
+      projectedInsuranceSavingsCents,
+      insuranceModelFramework,
+      data?.insuranceTotalDiscountBps,
+      insuranceHasContinuousMonitoring,
+      insuranceHasDueDiligencePdfs,
+      insuranceClientPostureSig,
+    ],
+  );
+
+  const onInsurancePostureChange = useCallback((signature: string) => {
+    setInsuranceClientPostureSig(signature);
+  }, []);
+
+  /** Handshake GRC lines: `appendAuditLog` only via `Promise.resolve().then` (avoids “Cannot update while rendering” on AuditIntelligence). */
+  useEffect(() => {
+    if (!dashboardTenantUuid) return;
+
+    /** Shadow / Simulation Mode: skip insurance sync / 60s drift — verified immediately (no manual sign-off gate). */
+    if (shadowHandshakeBypassActive) {
+      clearHandshakeTimers();
+      setHandshakePhase("verified");
+      setShadowPlaneHandshakeAuthorized(true);
+      return;
+    }
+
+    setShadowPlaneHandshakeAuthorized(false);
+
+    const next = insurancePostureSignal;
+    const prev = insuranceSigPrevForAuditRef.current;
+    if (prev === null) {
+      insuranceSigPrevForAuditRef.current = next;
+      return;
+    }
+    if (prev === next) return;
+    insuranceSigPrevForAuditRef.current = next;
+
+    clearHandshakeTimers();
+
+    const syncStartLine = "[ 🛡️ SYNC ] | INITIATING FINANCIAL-FORENSIC HANDSHAKE...";
+    Promise.resolve().then(() => {
+      appendAuditLog({
+        action_type: "CONFIG_CHANGE",
+        log_type: "GRC",
+        description: syncStartLine,
+        metadata_tag: "GRC_HANDSHAKE|SYNC_START",
+      });
+      useAgentStore.getState().addStreamMessage(syncStartLine);
+    });
+
+    setHandshakePhase("syncing");
+
+    verifiedHandshakeTimeoutRef.current = window.setTimeout(() => {
+      verifiedHandshakeTimeoutRef.current = null;
+      const syncDoneLine =
+        "[ ✅ SYNC ] | HANDSHAKE VERIFIED. POSTURE ALIGNED AT 1.60x MULTIPLIER.";
+      Promise.resolve().then(() => {
+        appendAuditLog({
+          action_type: "CONFIG_CHANGE",
+          log_type: "GRC",
+          description: syncDoneLine,
+          metadata_tag: "GRC_HANDSHAKE|SYNC_VERIFIED",
+        });
+        useAgentStore.getState().addStreamMessage(syncDoneLine);
+      });
+      setHandshakePhase("verified");
+
+      /** Drift sentry: only after postural baseline (`verified`); 60s integrity window (requires tenant — guarded above). */
+      driftHandshakeTimeoutRef.current = window.setTimeout(() => {
+        driftHandshakeTimeoutRef.current = null;
+        let transitioned = false;
+        setHandshakePhase((p) => {
+          if (p !== "verified") return p;
+          transitioned = true;
+          return "drift";
+        });
+        if (transitioned) {
+          const driftLine =
+            "[ ⚠️ DRIFT ] | CRITICAL: POSTURAL INTEGRITY TIMEOUT. RE-AUTHORIZATION REQUIRED.";
+          Promise.resolve().then(() => {
+            appendAuditLog({
+              action_type: "SYSTEM_WARNING",
+              log_type: "GRC",
+              description: driftLine,
+              metadata_tag: "GRC_HANDSHAKE|DRIFT_TIMEOUT",
+            });
+            useAgentStore.getState().addStreamMessage(driftLine);
+          });
+        }
+      }, 60000);
+    }, 1500);
+
+    return () => {
+      clearHandshakeTimers();
+    };
+  }, [
+    insurancePostureSignal,
+    clearHandshakeTimers,
+    dashboardTenantUuid,
+    isSimulationMode,
+    shadowHandshakeBypassActive,
+    setShadowPlaneHandshakeAuthorized,
+  ]);
+
   const scrutinyAgentNames = useMemo(() => {
     const names = new Set<string>();
     Object.values(scrutinyHeatmap).forEach((asset) => {
@@ -311,18 +711,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     }
   }, [scrutinyAgentNames, focusedAgent]);
 
-  const maxAleCentsBigInt = useMemo(() => {
-    const vals = Object.values(aleExposureByAssetCents).map((s) => {
-      try {
-        return BigInt(s || "0");
-      } catch {
-        return 0n;
-      }
-    });
-    return vals.reduce((m, v) => (v > m ? v : m), 0n);
-  }, [aleExposureByAssetCents]);
-
-  const scrutinyCards = useMemo(() => {
+  const scrutinyAssetTelemetryRows = useMemo(() => {
     const keys = new Set<string>([
       ...Object.keys(scrutinyHeatmap),
       ...Object.keys(predictiveHeat),
@@ -335,6 +724,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           scrutinyView === "TOTAL_WORKFORCE"
             ? payload.total
             : (payload.agents?.[focusedAgent] ?? 0);
+        const localCycleBump = localCycleBumpsByAsset[asset] ?? 0;
         let aleCents = 0n;
         try {
           aleCents = BigInt(aleExposureByAssetCents[asset] ?? "0");
@@ -345,9 +735,10 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           asset,
           total: payload.total,
           agents: payload.agents ?? {},
-          focusHeat,
+          focusHeat: focusHeat + localCycleBump,
           predicted: predictiveHeat[asset] ?? 0,
           aleCents,
+          localCycleBump,
         };
       })
       .sort((a, b) => {
@@ -355,17 +746,11 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
         if (aleOrder !== 0) return aleOrder;
         return (b.focusHeat + b.predicted) - (a.focusHeat + a.predicted);
       });
-  }, [scrutinyHeatmap, predictiveHeat, scrutinyView, focusedAgent, aleExposureByAssetCents]);
+  }, [scrutinyHeatmap, predictiveHeat, scrutinyView, focusedAgent, aleExposureByAssetCents, localCycleBumpsByAsset]);
   const sentinelAssetOptions = useMemo(
-    () => scrutinyCards.map((card) => card.asset).filter(Boolean),
-    [scrutinyCards],
+    () => scrutinyAssetTelemetryRows.map((card) => card.asset).filter(Boolean),
+    [scrutinyAssetTelemetryRows],
   );
-
-  const discoveryRegulatoryBadge = useMemo(() => {
-    if (!hasMounted) return null;
-    if (selectedIndustry === "Defense") return DEFENSE_REGULATORY_SHIELD_BADGE_LABEL;
-    return getSectorRegulatoryProfile(selectedIndustry)?.shieldDiscoveryBadge ?? null;
-  }, [hasMounted, selectedIndustry]);
 
   useEffect(() => {
     const signature = JSON.stringify(scrutinyHeatmap);
@@ -373,7 +758,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     if (signature === scrutinySignatureRef.current) return;
     scrutinySignatureRef.current = signature;
 
-    const hottest = scrutinyCards[0];
+    const hottest = scrutinyAssetTelemetryRows[0];
     if (!hottest || hottest.total <= 0) return;
 
     const topAgents = Object.entries(hottest.agents)
@@ -388,7 +773,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     useAgentStore.getState().addStreamMessage(
       `🤖 [GRC_SCRUTINY] | Exposure map updated. High reasoning density on '${hottest.asset}'. ${topAgentLine} recorded ${hottest.total} cycles in the last 60 minutes (resilience audit telemetry).`,
     );
-  }, [scrutinyHeatmap, scrutinyCards]);
+  }, [scrutinyHeatmap, scrutinyAssetTelemetryRows]);
 
   useEffect(() => {
     const signature = JSON.stringify(predictiveHeat);
@@ -405,9 +790,41 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     );
   }, [predictiveHeat]);
 
-  if (loading) {
+  useEffect(() => {
+    const focusId = activeRiskId?.trim();
+    if (!focusId || !data?.threatEvents?.length) return;
+    const threat = data.threatEvents.find((t) => t.id === focusId);
+    if (!threat?.targetEntity) return;
+    const asset = threat.targetEntity.trim();
+    if (!asset) return;
+    setLocalCycleBumpsByAsset((prev) => ({ ...prev, [asset]: (prev[asset] ?? 0) + 1 }));
+    useAgentStore.getState().addStreamMessage(
+      `🛡️ [IRONWATCH] | ACKNOWLEDGED ${focusId.slice(0, 8)}… → resilience audit cycle advanced for '${asset}'.`,
+    );
+  }, [activeRiskId, data?.threatEvents]);
+
+  const globalOpsHeartbeatOnce = useRef(false);
+  /** Standby audit row: `appendAuditLog` deferred to microtask (same as handshake). */
+  useEffect(() => {
+    if (globalOpsHeartbeatOnce.current) return;
+    globalOpsHeartbeatOnce.current = true;
+    Promise.resolve().then(() => {
+      appendAuditLog({
+        action_type: "CONFIG_CHANGE",
+        log_type: "GRC",
+        description: HANDSHAKE_SYSTEM_READY_LINE,
+        metadata_tag: "GRC_HANDSHAKE|SYSTEM_READY_STANDBY",
+      });
+      useAgentStore.getState().addStreamMessage(
+        "> [SYSTEM] Global ops heartbeat · Agent mesh / Audit Intelligence / Sentinel nominal — awaiting Command Center tenant scope.",
+      );
+      useAgentStore.getState().addStreamMessage(HANDSHAKE_SYSTEM_READY_LINE);
+    });
+  }, []);
+
+  if (loading && dashboardTenantUuid) {
     return (
-      <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-slate-950">
         <aside
           className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-y-auto overscroll-y-contain border-r border-slate-800/50 bg-slate-950/50 [scrollbar-gutter:stable]"
           aria-hidden
@@ -438,7 +855,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           </div>
         </aside>
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-r border-slate-800 bg-slate-950"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-slate-800 bg-slate-950 [scrollbar-gutter:stable]"
           data-testid="dashboard-main"
           aria-busy
           aria-label="Loading pipeline and active risk posture"
@@ -446,7 +863,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           <div className="border-b border-slate-800 px-6 pt-4">
             <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
           </div>
-          <div className="min-h-0 flex-1 space-y-6 overflow-hidden p-4 sm:p-6">
+          <div className="min-h-0 flex-1 space-y-6 overflow-visible p-4 sm:p-6">
             <div>
               <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
               <div className="flex gap-3 overflow-x-auto pb-2">
@@ -477,15 +894,19 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
       </div>
     );
   }
-  if (error || !data) {
+  if (error && dashboardTenantUuid) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-950">
-        <p className="text-red-400">{error ?? 'Failed to load dashboard'}</p>
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-slate-950">
+        <p className="text-red-400">{error ?? "Failed to load dashboard"}</p>
       </div>
     );
   }
 
-  const companies = data.companies;
+  const effectiveData = data ?? EMPTY_DASHBOARD_DATA;
+  const companies = effectiveData.companies;
+  const defenseIndustryUi =
+    selectedIndustry === "Defense" ||
+    (companies?.some((c) => /\bdefense\b/i.test(c.sector ?? "") || /\bdefense\b/i.test(c.name ?? "")) ?? false);
 
   return (
     <DashboardWithDrawer
@@ -494,7 +915,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
       drawerFocus={drawerFocus}
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
-      <div className="flex h-[100dvh] min-h-0 w-full overflow-hidden bg-slate-950">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-slate-950">
         {typeof serverTimeEpochMs === 'number' ? (
           <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
         ) : null}
@@ -544,6 +965,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           </div>
         ) : null}
         <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
+          <Sidebar />
           {auditorViewEnabled ? (
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">{GRC_GOLD_AUDITOR_VIEW_TITLE}</p>
@@ -551,11 +973,9 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
             </div>
           ) : (
             <>
-              {!loading && data ? (
-                <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
-                  <IrontechLeftPaneControls />
-                </div>
-              ) : null}
+              <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
+                <IrontechLeftPaneControls />
+              </div>
               <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">
                 <StrategicIntel />
               </div>
@@ -564,7 +984,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
         </aside>
 
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-0"
+          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-slate-800 bg-slate-950 p-0 [scrollbar-gutter:stable]"
           data-testid="dashboard-main"
         >
           {typeof serverTimeEpochMs === "number" ? (
@@ -574,7 +994,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
             />
           ) : null}
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
-          <Header tenantNames={companies.map((c) => c.name)} />
+          <Header />
           <div className="border-b border-slate-800/80 px-6 py-2">
             <ResourceMonitor />
           </div>
@@ -714,8 +1134,9 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                       title={te.title}
                       complianceFramework={te.complianceFramework ?? "NIST"}
                       financialRiskCents={te.financialRiskCents ?? "0"}
+                      governedImpactCents={te.governedImpactCents}
                       status={te.status}
-                      showDefenseIndustryBadge={hasMounted && selectedIndustry === "Defense"}
+                      showDefenseIndustryBadge={hasMounted && defenseIndustryUi}
                       reasoningWaterfall={te.reasoningWaterfall ?? null}
                       onOpen={(tid) => setSelectedThreatId(tid)}
                     />
@@ -724,96 +1145,60 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
               </div>
             ) : null}
 
-            {isSimulationMode && data ? (
-              <div className="mt-3 max-w-md">
-                <BudgetJustification
-                  framework={insuranceModelFramework}
-                  hasContinuousMonitoring={insuranceHasContinuousMonitoring}
-                  hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
-                  defaultPremiumCents={insuranceDefaultPremiumCents}
-                  tenantFetch={tenantFetch}
-                />
+            <div className="mt-4 space-y-4">
+              <HandshakeStatusBar phase={handshakePhase} />
+              <div
+                className={`flex flex-col gap-4 lg:items-stretch ${isSimulationMode ? "lg:flex-row" : ""}`}
+              >
+                {isSimulationMode ? (
+                  <div className="min-w-0 flex-[2]">
+                    <BudgetJustification
+                      framework={insuranceModelFramework}
+                      hasContinuousMonitoring={insuranceHasContinuousMonitoring}
+                      hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
+                      defaultPremiumCents={insuranceDefaultPremiumCents}
+                      tenantFetch={tenantFetch}
+                      onInsurancePostureChange={onInsurancePostureChange}
+                    />
+                  </div>
+                ) : null}
+                {isSimulationMode ? (
+                  <InsuranceForensicHandshakeConnector
+                    flowActive={handshakePhase === "syncing"}
+                  />
+                ) : null}
+                <div
+                  className={`min-w-0 self-start ${isSimulationMode ? "flex-1" : "w-full"}`}
+                >
+                  <GrcGoldLivingAuditBlock
+                    variant="grid"
+                    industry={selectedIndustry}
+                    dashboardCompanyName={null}
+                    handshakePhase={handshakePhase}
+                    onHandshakeSignOff={onHandshakeSignOffComplete}
+                    shadowPlaneAuthorizesSignOff={shadowHandshakeBypassActive}
+                  />
+                </div>
               </div>
-            ) : null}
+            </div>
 
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {scrutinyCards.slice(0, 6).map((card) => {
-                const denom = maxAleCentsBigInt > 0n ? maxAleCentsBigInt : 1n;
-                const aleRatio = Number(card.aleCents) / Number(denom);
-                const alpha = Math.min(0.82, 0.12 + aleRatio * 0.68);
-                const ghostAlpha = Math.min(0.55, 0.06 + card.predicted / 140);
-                const aleDisplay =
-                  card.aleCents > 0n
-                    ? `${card.aleCents.toString()} ¢ ALE`
-                    : "0 ¢ ALE";
-                const preAnalyzedAgents = Object.entries(card.agents)
-                  .filter(([, n]) => n > 0)
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 6)
-                  .map(([name]) => name);
-                return (
+              {scrutinyAssetTelemetryRows
+                .filter((row) => !isMedshieldGhostAsset(row.asset))
+                .slice(0, 8)
+                .map((row) => (
                   <div
-                    key={card.asset}
-                    className="rounded border border-cyan-900/40 p-3 transition-colors"
-                    style={{ backgroundColor: `rgba(8,145,178,${alpha})` }}
+                    key={row.asset}
+                    className="rounded border border-slate-800/70 bg-slate-950/35 p-2 text-[9px] text-slate-500"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-[11px] font-bold text-cyan-100">{card.asset}</p>
-                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-                        {discoveryRegulatoryBadge ? (
-                          <span
-                            className="rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-bold tracking-wide text-emerald-100/95"
-                            title="Industry profile regulatory overlay"
-                          >
-                            {discoveryRegulatoryBadge}
-                          </span>
-                        ) : null}
-                        {card.predicted > 0 ? (
-                          <span
-                            className="rounded border border-cyan-300/60 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-200"
-                            style={{ backgroundColor: `rgba(8,145,178,${ghostAlpha})` }}
-                            title="Predictive exposure overlay (control positioning)"
-                          >
-                            Forecast
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <p className="mt-1 text-[10px] font-semibold text-slate-100">
-                      ALE exposure (cents): {aleDisplay}
+                    <p className="truncate font-medium text-slate-400" title={row.asset}>
+                      {row.asset}
                     </p>
-                    <p className="text-[9px] text-slate-300/85">
-                      Resilience audit cycles: {card.focusHeat}{" "}
-                      {scrutinyView === "AGENT_FOCUS" ? `(${focusedAgent})` : "(all agents)"}
+                    <p className="mt-1 font-mono text-[8px] text-slate-600">
+                      Cycles {row.total} · focus {row.focusHeat} · forecast {row.predicted.toFixed(1)}
                     </p>
-                    <p className="text-[9px] text-slate-300/80">Total cycles: {card.total}</p>
-                    <p className="text-[9px] text-cyan-200/85">
-                      Predictive overlay: {card.predicted.toFixed(1)}
-                    </p>
-                    {preAnalyzedAgents.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1 border-t border-cyan-900/30 pt-2">
-                        <span className="w-full text-[8px] font-black uppercase tracking-wider text-cyan-500/90">
-                          Pre-analyzed
-                        </span>
-                        {preAnalyzedAgents.map((agent) => (
-                          <span
-                            key={`${card.asset}-${agent}`}
-                            title={`${agent} pre-analyzed exposure on this asset (scrutiny telemetry)`}
-                            className="rounded-full border border-violet-700/45 bg-slate-950/65 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-violet-200/95"
-                          >
-                            {agent.length > 12 ? `${agent.slice(0, 11)}…` : agent}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
-                );
-              })}
-              {scrutinyCards.length === 0 ? (
-                <div className="rounded border border-slate-800 bg-slate-900/50 p-3 text-[10px] text-slate-400">
-                  No ALE exposure or audit telemetry in the current observation window.
-                </div>
-              ) : null}
+                ))}
             </div>
               </>
             )}
@@ -846,16 +1231,20 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           ) : null}
           {!auditorViewEnabled ? (
             <ActiveRisksClient
-              risks={data.risks}
-              threatEvents={data.threatEvents ?? []}
+              risks={effectiveData.risks}
+              threatEvents={effectiveData.threatEvents ?? []}
               setSelectedThreatId={setSelectedThreatId}
             />
           ) : null}
         </section>
 
-        <aside className="relative z-0 flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50">
+        <aside
+          data-ironframe-audit-intelligence="true"
+          className="relative z-0 flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50"
+        >
           <AuditIntelligence
             serverAuditLogs={serverAuditLogsForAudit}
+            tenantGovernanceBps={tenantGovernanceBps}
             onOpenThreat={(threatId, focus) => {
               setSelectedThreatId(threatId);
               setDrawerFocus(focus ?? null);

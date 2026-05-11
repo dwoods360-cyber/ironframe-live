@@ -10,6 +10,7 @@ import {
 import { runChaosDrillIrontechLifecycleGatedAction } from '@/app/actions/chaosActions';
 import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
 import { useAgentStore } from "@/app/store/agentStore";
+import { inferAgentKillAttribution } from "@/app/utils/agentKillAttribution";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
@@ -19,6 +20,10 @@ import {
   toBigIntCents,
 } from "@/app/utils/riskStoreBigIntMath";
 import { calculateGrcGapCents } from "@/app/utils/grcMath";
+import {
+  endActiveThreatsBoardFetchIfCurrent,
+  supersedeActiveThreatsBoardFetch,
+} from "@/app/utils/activeThreatsBoardFetchCoop";
 
 /** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
 function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
@@ -112,6 +117,8 @@ export type PipelineThreat = {
   dispositionStatus?: string | null;
   isFalsePositive?: boolean;
   receiptHash?: string | null;
+  /** SimThreatEvent tenant binding SHA-256 (shadow ingest seal); complements disposition `receiptHash`. */
+  governanceHash?: string | null;
   /** Assigned remote technician ref (Level-3 dispatch). */
   remoteTechId?: string | null;
   /** Admin/Owner-authorized remote session (GRC). */
@@ -121,6 +128,9 @@ export type PipelineThreat = {
   affectedSystems?: string[];
   blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
   ingestionDetails?: string;
+  /** Irontech Chaos (active board / DB hydration) — optional JSON-derived fields. */
+  chaosLevel?: number | null;
+  systemImpact?: string | null;
   /** ThreatEvent.aiReport — CoreIntel / ingress narrative; also used for card body fallback. */
   aiReport?: string | null;
   /** Optimistic client ingress (e.g. chaos) pending DB confirmation. */
@@ -316,6 +326,9 @@ interface RiskState {
   /** Threat detail drawer (dashboard): when set, open slide-over for this threat id */
   selectedThreatId: string | null;
   setSelectedThreatId: (id: string | null) => void;
+  /** Audit Intelligence / forensic strip focus — independent of drawer; assign & claim use this without opening the slide-over. */
+  activeRiskId: string | null;
+  setActiveRiskId: (id: string | null) => void;
 
   /** Global currency magnitude selector for risk exposure (AUTO, K, M, B, T). */
   currencyMagnitude: CurrencyMagnitude;
@@ -351,6 +364,12 @@ interface RiskState {
   /** Examiner mode: suppress charts; show raw ledger table. */
   auditorViewEnabled: boolean;
   setAuditorViewEnabled: (enabled: boolean) => void;
+
+  /**
+   * Shadow plane / stress drill: UI treats GRC handshake as satisfied (`setHandshakePhase('verified')` companion).
+   */
+  shadowPlaneHandshakeAuthorized: boolean;
+  setShadowPlaneHandshakeAuthorized: (v: boolean) => void;
 
   /**
    * Register a threat via POST /api/threats and route it to pipeline or active risks.
@@ -620,6 +639,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           return {
             threatActionError: { active: false, message: "" },
             selectedThreatId: null,
+            activeRiskId: null,
             activeThreats,
             acceptedThreatImpacts: merged
               ? { ...state.acceptedThreatImpacts, [id]: impactRounded }
@@ -664,6 +684,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         return {
           threatActionError: { active: false, message: "" },
           selectedThreatId: null,
+          activeRiskId: null,
           threatIndexById: buildThreatIndexById(
             state.pipelineThreats.filter((t) => t.id !== id),
             toActive ? [...state.activeThreats, toActive] : state.activeThreats,
@@ -711,7 +732,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         });
         return;
       }
+      await get().pulseThreatBoardsFromDb().catch(() => undefined);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+      }
       set((state) => ({
+        /** Forensic lifecycle: focus audit strip via `activeRiskId` only — do not open ThreatDetailDrawer. */
+        activeRiskId: id,
         activeThreats: state.activeThreats.map((t) =>
           t.id === id ? { ...t, lifecycleState: "confirmed" } : t
         ),
@@ -738,6 +765,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   },
   resolveThreat: async (id, operatorId, resolutionJustification, actorDisplayName) => {
     const threatSnapshot = get().threatIndexById[id];
+    const recordAgentKill = () => {
+      const agent = inferAgentKillAttribution(threatSnapshot, actorDisplayName);
+      useAgentStore.getState().incrementAgentKill(agent);
+    };
     if (ingestionIndicatesChaosDrill(threatSnapshot?.ingestionDetails)) {
       set({ threatActionError: { active: false, message: '' } });
       try {
@@ -774,6 +805,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
             ),
           };
         });
+        recordAgentKill();
       } catch (error) {
         console.error('runChaosDrillIrontechLifecycleGatedAction failed', error);
         const msg = error instanceof Error ? error.message : String(error);
@@ -819,6 +851,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         throw new Error("Resolve failed");
       }
       const reductionM = (result.financialRisk_cents ?? 0) / 100_000_000;
+      recordAgentKill();
       set((state) => {
         const nextImpacts = { ...state.acceptedThreatImpacts };
         delete nextImpacts[id];
@@ -1075,6 +1108,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       sentinelGovernanceModeActive: false,
       forensicPlaybackThreatId: null,
       auditorViewEnabled: false,
+      shadowPlaneHandshakeAuthorized: false,
     });
     /** Let Active Risks flush local React state + veil stale dashboard props until the shell refetches. */
     if (typeof window !== "undefined") {
@@ -1121,7 +1155,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   isAcknowledgeInFlight: false,
 
   selectedThreatId: null,
-  setSelectedThreatId: (id) => set({ selectedThreatId: id }),
+  activeRiskId: null,
+  setSelectedThreatId: (id) =>
+    set({
+      selectedThreatId: id,
+      ...(id != null ? { activeRiskId: id } : {}),
+    }),
+  setActiveRiskId: (id) => set({ activeRiskId: id }),
 
   currencyMagnitude: "AUTO",
   currencyScale: "AUTO",
@@ -1185,6 +1225,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   auditorViewEnabled: false,
   setAuditorViewEnabled: (enabled) => set({ auditorViewEnabled: enabled }),
+
+  shadowPlaneHandshakeAuthorized: false,
+  setShadowPlaneHandshakeAuthorized: (v) => set({ shadowPlaneHandshakeAuthorized: v }),
 
   registerThreatViaApi: async (payload) => {
     const res = await fetch('/api/threats', {
@@ -1262,6 +1305,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         dispositionStatus: r.dispositionStatus,
         isFalsePositive: r.isFalsePositive,
         receiptHash: r.receiptHash,
+        governanceHash: r.governanceHash,
         agentReasonings: r.agentReasonings,
         resolutionApprovalId: r.resolutionApprovalId ?? undefined,
         resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
@@ -1274,8 +1318,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   refreshActiveThreatsFromDb: async () => {
     if (typeof window === "undefined") return;
+    const ctrl = supersedeActiveThreatsBoardFetch();
     try {
-      const res = await fetch("/api/threats/active", { cache: "no-store" });
+      const res = await fetch("/api/threats/active", { cache: "no-store", signal: ctrl.signal });
       if (!res.ok) return;
       const activeRows = (await res.json()) as PipelineThreat[];
       const optimistic = useAgentStore.getState().activeThreats ?? [];
@@ -1285,8 +1330,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       ];
       const merged = useAgentStore.getState().setInitialThreats(withOptimistic);
       get().replaceActiveThreats(merged);
-    } catch {
-      // Non-fatal
+    } catch (e) {
+      const aborted =
+        (e instanceof DOMException && e.name === "AbortError") ||
+        (e instanceof Error && e.name === "AbortError");
+      if (aborted) return;
+    } finally {
+      endActiveThreatsBoardFetchIfCurrent(ctrl);
     }
   },
 

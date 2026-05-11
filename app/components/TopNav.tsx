@@ -40,7 +40,7 @@ export default function TopNav() {
   
   // 1. Detect if we are inside a tenant enclave (e.g., /medshield)
   const segments = pathname.split('/').filter(Boolean);
-  const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"];
+  const VALID_TENANTS = ["medshield", "vaultbank", "gridcore", "defense"];
   const currentTenant = VALID_TENANTS.includes(segments[0]?.toLowerCase()) ? segments[0].toLowerCase() : null;
   
   // 2. Create the dynamic prefix (will be empty on the global dashboard)
@@ -54,6 +54,8 @@ export default function TopNav() {
   const isEvidenceRoute =
     pathname === "/evidence" ||
     pathname.startsWith("/evidence/") ||
+    pathname === "/vault" ||
+    pathname.startsWith("/vault/") ||
     pathname === `${prefix}/evidence` ||
     pathname.startsWith(`${prefix}/evidence/`);
   const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
@@ -62,7 +64,7 @@ export default function TopNav() {
   const isBoardReportRoute = pathname === "/board-report" || pathname.startsWith("/board-report/");
   const isOpSupportRoute = pathname === "/opsupport" || pathname.startsWith("/opsupport/");
 
-  const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore)\/playbooks(\/|$)/);
+  const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore|defense)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
   const isPlaybookRoute = Boolean(playbookEntity);
 
@@ -123,8 +125,8 @@ export default function TopNav() {
           </span>
         </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <div className="flex items-center gap-2">
+        <div className="pointer-events-none absolute left-1/2 z-[60] -translate-x-1/2">
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-tighter text-white">LIVE MONITORING</span>
             <span className="text-[10px] font-bold text-slate-700">|</span>

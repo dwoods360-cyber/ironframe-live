@@ -18,6 +18,32 @@ function benchmarkSnapshotWindowStart(): Date {
   return new Date(Date.now() - 8 * MS_WEEK_MS);
 }
 
+/** Peer mean ALE (cents) for empty DB — aligned with `useRiskStore.getGrcGapCents` sector baselines where they overlap. */
+function genesisIndustryMeanAleCents(
+  cohortIndustryLabel: string,
+  tenantAleBaseline: bigint | null | undefined,
+): bigint {
+  if (tenantAleBaseline != null && tenantAleBaseline > 0n) {
+    return tenantAleBaseline;
+  }
+  const v = cohortIndustryLabel.trim();
+  const PEER: Record<string, bigint> = {
+    Defense: 1_600_000_000n,
+    "Federal Government": 2_000_000_000n,
+    Aerospace: 1_700_000_000n,
+    "State & Local": 310_000_000n,
+    "Public Sector": 320_000_000n,
+    Healthcare: 1_210_000_000n,
+    Finance: 680_000_000n,
+    Technology: 530_000_000n,
+    Manufacturing: 900_000_000n,
+    Retail: 450_000_000n,
+    Infrastructure: 800_000_000n,
+    Energy: 1_700_000_000n,
+  };
+  return PEER[v] ?? 1_520_000_000n;
+}
+
 export type IndustryBenchmarkPayload = {
   benchmarkingEnabled: boolean;
   tenantIndustry: string;
@@ -138,6 +164,8 @@ export type IndustryTrendPoint = {
 export type IndustryTrendPayload = {
   industry: string;
   points: IndustryTrendPoint[];
+  /** True when peer `MarketBenchmarkSnapshot` rows were missing and a flat cohort curve was synthesized. */
+  genesisTrend?: boolean;
   /** True when ΔV = (ALE_avg(current) − ALE_avg(last)) / ALE_avg(last) > 0.20 */
   isMarketVolatile: boolean;
   /** Same ratio as ΔV, expressed as percent (e.g. 25.5 for +25.5%). */
@@ -167,7 +195,7 @@ export async function getIndustryTrendData(
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tid },
-    select: { industry: true },
+    select: { industry: true, ale_baseline: true },
   });
   const industryFromTenant = resolveTenantIndustryForBenchmarks(tenant?.industry);
   const hasUiCohort = chartIndustry != null && chartIndustry.trim() !== "";
@@ -207,7 +235,7 @@ export async function getIndustryTrendData(
 
   const lastIndustry = chronological.length > 0 ? chronological[chronological.length - 1]!.averageAleCents : 0n;
 
-  const points: IndustryTrendPoint[] = chronological.map((row) => {
+  let points: IndustryTrendPoint[] = chronological.map((row) => {
     const localScaled =
       lastIndustry > 0n ? (localCurrentAle * row.averageAleCents) / lastIndustry : localCurrentAle;
     const d = row.timestamp;
@@ -219,6 +247,25 @@ export async function getIndustryTrendData(
       localAleCents: localScaled.toString(),
     };
   });
+
+  let genesisTrend = false;
+  if (points.length === 0) {
+    genesisTrend = true;
+    const genesisAle = genesisIndustryMeanAleCents(industry, tenant?.ale_baseline ?? null);
+    const localLine =
+      localCurrentAle > 0n ? localCurrentAle : genesisAle;
+    const now = Date.now();
+    for (let w = 7; w >= 0; w--) {
+      const d = new Date(now - w * MS_WEEK_MS);
+      const weekStartIso = d.toISOString().slice(0, 10);
+      points.push({
+        weekLabel: weekStartIso,
+        weekStartIso,
+        industryAleCents: genesisAle.toString(),
+        localAleCents: localLine.toString(),
+      });
+    }
+  }
 
   let weekOverWeekChangePct: number | null = null;
   let marketVolatilityDeltaV: number | null = null;
@@ -246,12 +293,24 @@ export async function getIndustryTrendData(
     payload: {
       industry,
       points,
+      genesisTrend,
       isMarketVolatile,
       weekOverWeekChangePct,
       marketVolatilityDeltaV,
       volatilityEpisodeKey,
     },
   };
+}
+
+/**
+ * Alias for enterprise / GRC naming (“benchmark data”). Same contract as {@link getIndustryTrendData}
+ * (weekly cohort snapshots + optional genesis fallback when `MarketBenchmarkSnapshot` is empty).
+ */
+export async function getBenchmarkData(
+  tenantUuid: string,
+  chartIndustry?: string | null,
+): Promise<{ ok: true; payload: IndustryTrendPayload } | { ok: false; error: string }> {
+  return getIndustryTrendData(tenantUuid, chartIndustry);
 }
 
 export type SectorMarketStatus = "Stable" | "Hardening" | "Volatile";

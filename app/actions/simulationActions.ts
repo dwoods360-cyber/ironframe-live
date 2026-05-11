@@ -1,13 +1,21 @@
 "use server";
 
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState, type Prisma } from "@prisma/client";
 import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { assertSimulationInjectAllowedForTenant } from "@/app/lib/simulationStandDown";
-import { GRC_SOURCE, GRC_THREAT_TITLE_PREFIX } from "@/app/config/agents";
+import {
+  ATTACK_SOURCE,
+  ATTACK_THREAT_TITLE_PREFIX,
+  GRC_SOURCE,
+  GRC_THREAT_TITLE_PREFIX,
+  KIMBOT_SOURCE,
+  KIMBOT_THREAT_TITLE_PREFIX,
+} from "@/app/config/agents";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import {
   queryActiveThreatsForBoard,
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
@@ -194,21 +202,22 @@ function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefin
  * so the UI shows only real, actionable cards.
  */
 export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
+  noStore();
   const sim = await readSimulationPlaneEnabled();
-  const pipelineWhere = {
-    where: {
-      AND: [
-        {
-          status: {
-            notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED],
-          },
+  /** Cookie-aligned tenant UUID — SimThreatEvent rows MUST match this or assignee actions fail scope checks. */
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+
+  const statusClause = {
+    AND: [
+      {
+        status: {
+          notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED],
         },
-        { status: { in: [ThreatState.IDENTIFIED, ThreatState.MITIGATED] } },
-      ],
-    },
-    orderBy: { createdAt: "desc" as const },
+      },
+      { status: { in: [ThreatState.IDENTIFIED, ThreatState.MITIGATED] } },
+    ],
   };
-  const pipelineScalars = {
+  const pipelineScalarsProd = {
     id: true,
     title: true,
     financialRisk_cents: true,
@@ -223,8 +232,13 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
     isFalsePositive: true,
     receiptHash: true,
   } satisfies Prisma.ThreatEventSelect;
+  /** Shadow plane: tenant binding SHA-256 (`computeSimThreatTenantBindingHash`) for Audit Intelligence / forensic strip. */
+  const pipelineScalarsSim = {
+    ...pipelineScalarsProd,
+    governanceHash: true,
+  } satisfies Prisma.RiskEventSelect;
   const pipelineProdSelect = {
-    ...pipelineScalars,
+    ...pipelineScalarsProd,
     resolutionApprovalId: true,
     resolutionApproval: {
       select: { id: true, status: true },
@@ -243,13 +257,27 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
 
   const rows = sim
     ? await prisma.riskEvent.findMany({
-        ...pipelineWhere,
-        select: pipelineScalars,
+        where: {
+          AND: [{ tenantId: tenantUuid }, statusClause],
+        },
+        orderBy: { createdAt: "desc" },
+        select: pipelineScalarsSim,
       })
-    : await prisma.threatEvent.findMany({
-        ...pipelineWhere,
-        select: pipelineProdSelect,
-      });
+    : await (async () => {
+        const companies = await prisma.company.findMany({
+          where: { tenantId: tenantUuid },
+          select: { id: true },
+        });
+        const companyIds = companies.map((c) => c.id);
+        if (companyIds.length === 0) return [];
+        return prisma.threatEvent.findMany({
+          where: {
+            AND: [{ tenantCompanyId: { in: companyIds } }, statusClause],
+          },
+          orderBy: { createdAt: "desc" },
+          select: pipelineProdSelect,
+        });
+      })();
 
   return rows.map((r) => {
     const agentReasonings =
@@ -288,6 +316,9 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       dispositionStatus: r.dispositionStatus ?? undefined,
       isFalsePositive: r.isFalsePositive,
       receiptHash: r.receiptHash ?? undefined,
+      governanceHash: sim
+        ? ((r as { governanceHash?: string | null }).governanceHash ?? undefined)
+        : undefined,
       agentReasonings,
       resolutionApprovalId,
       resolutionApprovalStatus,
@@ -304,4 +335,69 @@ export async function fetchActiveThreatsFromDb(
   void _cacheBuster;
   noStore();
   return queryActiveThreatsForBoard();
+}
+
+/**
+ * Shadow-plane / simulation lab: inject 15–20 randomized KIM / GRC / Attbot pipeline threats.
+ */
+export async function fireAdversarialSalvoServerAction(): Promise<
+  { ok: true; injected: number } | { ok: false; error: string }
+> {
+  noStore();
+  const planeEnv = isShadowPlaneActiveFromEnv();
+  const simPlane = await readSimulationPlaneEnabled();
+  if (!planeEnv && !simPlane) {
+    return {
+      ok: false,
+      error: "Enable SHADOW_PLANE_ACTIVE or simulation mode (ironframe-simulation-mode cookie).",
+    };
+  }
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid?.trim()) {
+    return { ok: false, error: "No active tenant (ironframe-tenant cookie)." };
+  }
+  await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
+
+  const sectors = ["Healthcare", "Finance", "Technology", "Defense", "Energy"] as const;
+  const total = 15 + Math.floor(Math.random() * 6);
+  let injected = 0;
+  for (let i = 0; i < total; i++) {
+    const roll = Math.floor(Math.random() * 3);
+    const sector = sectors[Math.floor(Math.random() * sectors.length)]!;
+    const liability = 1.2 + Math.random() * 8;
+    const sev = 3 + Math.floor(Math.random() * 7);
+    const stamp = Date.now();
+    try {
+      if (roll === 0) {
+        await createKimbotThreatServer({
+          title: `${KIMBOT_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: KIMBOT_SOURCE,
+          severity: sev,
+        });
+      } else if (roll === 1) {
+        await createGrcBotThreatServer({
+          title: `${GRC_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: GRC_SOURCE,
+          severity: sev,
+        });
+      } else {
+        await createKimbotThreatServer({
+          title: `${ATTACK_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: ATTACK_SOURCE,
+          severity: sev,
+        });
+      }
+      injected++;
+    } catch (e) {
+      console.error("[fireAdversarialSalvoServerAction]", e);
+    }
+  }
+  revalidatePath("/");
+  return { ok: true, injected };
 }

@@ -11,8 +11,14 @@ export const targetIndustries = [
   "Healthcare",
   "Finance",
   "Technology",
+  "Manufacturing",
+  "Retail",
+  "Infrastructure",
 ] as const;
 
 export const OMNI_BENCHMARK_INDUSTRIES = targetIndustries;
 
 export type OmniBenchmarkIndustry = (typeof targetIndustries)[number];
+
+/** Renders `<option>` list for Industry Profile (must stay in sync with {@link tenantIndustryCodeToProfileLabel}). */
+export const INDUSTRY_PROFILE_SELECT_OPTIONS = targetIndustries;

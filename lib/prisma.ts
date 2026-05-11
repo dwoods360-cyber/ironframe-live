@@ -1,3 +1,9 @@
+/**
+ * Tenant isolation today: Prisma query extensions + request cookies / explicit `tenantId` filters.
+ * Postgres RLS: `ironguard_set_session_tenant` sets `app.current_tenant_id` (see
+ * `prisma/migrations/20260507200000_ironguard_session_tenant_guc`). Table-level ENABLE RLS + POLICY
+ * rollout is phased — until then, never omit tenant predicates on tenant-scoped models.
+ */
 import { PrismaClient } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 

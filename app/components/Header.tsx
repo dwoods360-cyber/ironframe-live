@@ -1,66 +1,43 @@
 "use client";
 
 /**
- * Dashboard header: production title strip with tenant label and controls.
+ * Dashboard header: left-aligned title only — no logo (TAS UI anchor).
+ * Tenant label mirrors Command Center (`selectedTenantName`); initial store state is null → `[ PENDING SELECTION ]`
+ * until the user selects a tenant (no default seeding).
  */
 import { useRiskStore } from "@/app/store/riskStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
-import { IronframeHexMark } from "@/app/components/IronframeHexMark";
 import { PurgeBoardButton } from "@/app/components/PurgeBoardButton";
 
-const CONSULTANT_TENANT_OPTIONS = [
-  "MedShield Clinic",
-  "St. Jude Hospital",
-  "Medshield Health",
-  "Vaultbank Global",
-  "Gridcore Energy",
-];
-
-type HeaderProps = {
-  tenantNames?: string[];
-};
-
-export default function Header({ tenantNames = [] }: HeaderProps) {
+export default function Header() {
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
-  const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
   const auditorViewEnabled = useRiskStore((s) => s.auditorViewEnabled);
   const setAuditorViewEnabled = useRiskStore((s) => s.setAuditorViewEnabled);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
 
-  const options = [
-    "",
-    ...new Set([...CONSULTANT_TENANT_OPTIONS, ...tenantNames].filter(Boolean)),
-  ];
+  const tenantTitle = selectedTenantName?.trim() || "[ PENDING SELECTION ]";
 
   return (
     <div
-      className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
+      className="flex w-full flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/30 px-4 py-3 sm:px-6"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
-      <div className="flex shrink-0 items-center gap-2">
-        <IronframeHexMark className="h-9 w-9 shrink-0" aria-hidden />
-        <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-          IRONFRAME v1.0 — ENTERPRISE RISK POSTURE
+      <div className="min-w-0 flex-1 basis-0 text-left">
+        <h1 className="text-left text-sm font-bold tracking-wide text-white">
+          <span className="uppercase tracking-wider">IRONFRAME V1.0 — </span>
+          <span
+            className={
+              selectedTenantName?.trim()
+                ? "font-semibold normal-case tracking-normal text-white"
+                : "uppercase tracking-wider text-slate-300"
+            }
+          >
+            {tenantTitle}
+          </span>
         </h1>
       </div>
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        PROTECTED TENANTS (HEALTHCARE)
-      </span>
-      <select
-        value={selectedTenantName ?? ""}
-        onChange={(e) => setSelectedTenantName(e.target.value || null)}
-        className="rounded border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[8.5px] font-medium text-slate-200 outline-none focus:border-blue-500"
-        aria-label="Tenant selection"
-      >
-        <option value="">My Organization</option>
-        {options.filter((v) => v !== "").map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
 
-      <div className="ml-auto flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto">
+      <div className="flex shrink-0 max-w-full flex-nowrap items-center gap-2 overflow-x-auto sm:ml-auto">
         <div className="flex shrink-0 items-center gap-2">
           <label
             htmlFor="auditor-view-toggle"

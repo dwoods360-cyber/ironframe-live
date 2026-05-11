@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getRecentAuditLogs } from "@/app/actions/auditActions";
 import { getGlobalTelemetry } from "@/app/actions/dashboardActions";
-import { getGlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import { getGlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
 import ExecutiveSummary from "../components/ExecutiveSummary";
 import SimulationHud from "../components/SimulationHud";
 import RiskScenarioSimulator from "../components/RiskScenarioSimulator";

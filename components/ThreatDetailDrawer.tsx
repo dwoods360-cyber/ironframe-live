@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTenantContext } from '@/app/context/TenantProvider';
+import { resolveDashboardTenantUuid } from '@/app/utils/clientTenantCookie';
 import ThreatDetailClient from '@/app/threats/[id]/ThreatDetailClient';
 import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import { appendAuditLog } from '@/app/utils/auditLogger';
@@ -171,7 +173,18 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   const [ingestError, setIngestError] = useState<string | null>(null);
   const globalLogs = useAuditLoggerStore();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
-  console.log('[GRC DEBUG] Active Threat Data:', JSON.stringify(threat, null, 2));
+  const { activeTenantUuid } = useTenantContext();
+
+  /** Align POST /api/threats/ingest tenant_id with GET /api/dashboard (cookie + route scope). */
+  const tenantIdForIngest = useMemo(() => {
+    const fromScope = resolveDashboardTenantUuid(activeTenantUuid);
+    if (fromScope) return fromScope;
+    const n = (selectedTenantName ?? '').trim().toLowerCase();
+    if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
+    if (n === 'gridcore') return TENANT_UUIDS.gridcore;
+    if (n === 'defense' || n.includes('defense')) return TENANT_UUIDS.defense;
+    return TENANT_UUIDS.medshield;
+  }, [activeTenantUuid, selectedTenantName]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -312,12 +325,6 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   }, [allNotes, threatActions]);
 
   const effectiveLinkStatus = linkInterrupted ? 'interrupted' : linkStatus;
-  const tenantIdForIngest = (() => {
-    const n = (selectedTenantName ?? '').trim().toLowerCase();
-    if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
-    if (n === 'gridcore') return TENANT_UUIDS.gridcore;
-    return TENANT_UUIDS.medshield;
-  })();
 
   const glassBg = isDarkMode ? 'bg-slate-900/20' : 'bg-white/20';
   const glassBorder = isDarkMode ? 'border-slate-600/40' : 'border-white/20';
@@ -374,6 +381,10 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
         return;
       }
       setJustification('');
+      void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ironframe:dashboard-refetch'));
+      }
       onClose();
     } finally {
       setIngestLoading(false);

@@ -170,6 +170,9 @@ const UI_INDUSTRY_TO_ENUM: Record<string, IndustryThreatEnumKey> = {
   "Federal Government": "PUBLIC_SECTOR",
   Aerospace: "TECHNOLOGY",
   "State & Local": "PUBLIC_SECTOR",
+  Manufacturing: "TECHNOLOGY",
+  Retail: "FINANCE",
+  Infrastructure: "PUBLIC_SECTOR",
 };
 
 const ENUM_TO_UI_INDUSTRY: Record<IndustryThreatEnumKey, string> = {

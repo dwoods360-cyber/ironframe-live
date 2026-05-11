@@ -4,6 +4,7 @@ import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
+import { resolveGovernanceMultiplierBpsForTenantUuid } from "@/app/utils/tenantGovernanceBps";
 
 export type CoverageFramework = "SOC2" | "ISO27001" | "NIST";
 
@@ -318,4 +319,14 @@ export async function getRankedRemediationTasks(
       gapPoolTotalCents,
     },
   };
+}
+
+/**
+ * Tenant-scoped governance multiplier (bps). Authoritative source is the **`tenants`** row:
+ * `Tenant.industry` (DB code) mapped to bps — aligned with `prisma/seedIndustrialBaselines.ts`.
+ */
+export async function getTenantGovernanceMultiplierBps(
+  tenantUuid: string,
+): Promise<{ ok: true; bps: number } | { ok: false; error: string }> {
+  return resolveGovernanceMultiplierBpsForTenantUuid(tenantUuid);
 }

@@ -2,7 +2,15 @@ import { cookies } from "next/headers";
 import type { Prisma, ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
+import {
+  resolveGovernanceMultiplierBpsForTenantUuid,
+  TENANT_UUID_REGEX,
+} from "@/app/utils/tenantGovernanceBps";
+import { computeSimThreatTenantBindingHash } from "@/lib/crypto";
 import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { tenantIndustryCodeToProfileLabel } from "@/app/utils/tenantIndustryProfile";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 
 /** Must match client `SIMULATION_MODE_COOKIE` / `syncSimulationModeCookie` values (`1` / `0`). */
 export const INGRESS_SIMULATION_COOKIE = "ironframe-simulation-mode";
@@ -12,6 +20,15 @@ export async function readSimulationPlaneEnabled(): Promise<boolean> {
   const store = await cookies();
   const raw = store.get(INGRESS_SIMULATION_COOKIE)?.value?.trim();
   return raw === "1";
+}
+
+/**
+ * SimThreatEvent (`RiskEvent`) vs `ThreatEvent`: dashboard strips read `ThreatEvent` whenever
+ * `SHADOW_PLANE_ACTIVE` is set (`getDashboardPayloadForTenant`), so ingress must write the same table.
+ */
+export async function ingressUsesRiskEventTable(): Promise<boolean> {
+  const simCookie = await readSimulationPlaneEnabled();
+  return simCookie && !isShadowPlaneActiveFromEnv();
 }
 
 /** Unchecked create payload shared by `ThreatEvent` and `SimThreatEvent` (same scalar layout). */
@@ -47,6 +64,8 @@ const ATT_FETCH_SELECT = {
   createdAt: true,
 } as const satisfies Prisma.ThreatEventSelect;
 
+const BLOCKED_GHOST_TENANT_ID = "9e8d7c6b-5a4f-4321-9e8d-7c6b5a4f3210";
+
 export type IngressAttbotThreatRow = {
   id: string;
   title: string;
@@ -78,7 +97,23 @@ function attachSimulationCategoryToIngestionDetails(
   try {
     const parsed = JSON.parse(details) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return JSON.stringify({ ...(parsed as Record<string, unknown>), ...simulationTag });
+      const p = parsed as Record<string, unknown>;
+      const merged: Record<string, unknown> = { ...p, ...simulationTag };
+      /** Irontech Chaos / Levels 1–5: GRC auditor lane — keep `INFRASTRUCTURE` + `CHAOS` visible for remediation logic (do not leave only generic SIMULATION). */
+      const chaosPlane =
+        p.isChaosTest === true ||
+        p.incident_type === "CHAOS" ||
+        (typeof p.entityType === "string" && String(p.entityType).toUpperCase().includes("CHAOS"));
+      if (chaosPlane) {
+        merged.category = "INFRASTRUCTURE";
+        merged.incident_type = "CHAOS";
+        merged.shadowSimulationStatus =
+          typeof p.shadowSimulationStatus === "string" && p.shadowSimulationStatus.trim()
+            ? p.shadowSimulationStatus.trim()
+            : "simulated";
+        merged.sourcePlane = "SHADOW";
+      }
+      return JSON.stringify(merged);
     }
   } catch {
     // Preserve original text while still adding mandatory simulation tagging metadata.
@@ -90,42 +125,117 @@ function attachSimulationCategoryToIngestionDetails(
   });
 }
 
+/** Same boundary as `getCompanyIdForActiveTenant` — inlined to avoid circular import with `clearanceThreatResolve` → this module. */
+async function resolveCanonicalCompanyIdForSessionTenant(): Promise<bigint | null> {
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const primary = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid, isTestRecord: false },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  if (primary) return primary.id;
+  const fallback = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  return fallback?.id ?? null;
+}
+
 async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThreatCreated> {
-  const isSim = await readSimulationPlaneEnabled();
+  const useRiskEventTable = await ingressUsesRiskEventTable();
   const payloadWithCategory: IngressPayload = {
     ...payload,
     ingestionDetails: attachSimulationCategoryToIngestionDetails(
       typeof payload.ingestionDetails === "string" ? payload.ingestionDetails : undefined,
       typeof payload.sourceAgent === "string" ? payload.sourceAgent : undefined,
-      isSim,
+      useRiskEventTable,
     ),
   };
-  if (isSim) {
-    if (payloadWithCategory.tenantCompanyId == null) {
+  if (useRiskEventTable) {
+    /** Irongate (Agent 14): stamp shadow writes from the active dashboard session — cookie + canonical company for that tenant (Dev Switcher / ironframe-tenant). */
+    const cookieTenantUuid = (await getActiveTenantUuidFromCookies()).trim();
+    if (!cookieTenantUuid || !TENANT_UUID_REGEX.test(cookieTenantUuid)) {
       throw new Error(
-        "Ingress: SimThreatEvent requires tenantCompanyId (shadow plane must match production isolation).",
+        "Ingress: SimThreatEvent requires a valid active tenant session (set ironframe-tenant cookie / Dev Tenant Switcher).",
       );
     }
-    let tenantId: string | undefined =
-      (payloadWithCategory as { tenantId?: string | null }).tenantId ?? undefined;
-    if (tenantId == null) {
-      const c = await prisma.company.findUnique({
-        where: { id: payloadWithCategory.tenantCompanyId },
-        select: { tenantId: true },
-      });
-      tenantId = c?.tenantId ?? undefined;
+    const canonicalCompanyId = await resolveCanonicalCompanyIdForSessionTenant();
+    if (canonicalCompanyId == null) {
+      throw new Error(
+        "Ingress: SimThreatEvent requires tenantCompanyId for the active tenant (no Company row for session tenant).",
+      );
     }
-    if (tenantId == null) {
-      throw new Error("Ingress: SimThreatEvent requires tenantId (shadow plane tenant boundary).");
+    const companyRow = await prisma.company.findUnique({
+      where: { id: canonicalCompanyId },
+      select: { tenantId: true },
+    });
+    const tenantId = cookieTenantUuid;
+    if (!companyRow?.tenantId || companyRow.tenantId.trim() !== tenantId) {
+      throw new Error(
+        "Ingress: active company ↔ session tenant alignment failed (Irongate stamp rejected).",
+      );
     }
+    payloadWithCategory.tenantCompanyId = canonicalCompanyId;
+    if (tenantId === BLOCKED_GHOST_TENANT_ID) {
+      throw new Error("BLOCK: Hardcoded Sandbox ID detected in Production Write.");
+    }
+    const tenantRow = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { industry: true },
+    });
+    const tenantIndustryProfile = tenantIndustryCodeToProfileLabel(tenantRow?.industry);
+    const targetEntity = String((payloadWithCategory as { targetEntity?: unknown }).targetEntity ?? "");
+    if (
+      targetEntity.toLowerCase().includes("defense") &&
+      tenantIndustryProfile !== "Defense"
+    ) {
+      throw new Error(
+        `Ingress: Defense context assertion failed (tenant industry ${tenantIndustryProfile}, targetEntity ${targetEntity}).`,
+      );
+    }
+    /** Same bps as server `getTenantGovernanceMultiplierBps` / `resolveGovernanceMultiplierBpsForTenantUuid` — seal uses row multiplier post-insert. */
+    const gov = await resolveGovernanceMultiplierBpsForTenantUuid(tenantId);
+    if (!gov.ok) {
+      throw new Error(`Ingress: governance multiplier — ${gov.error}`);
+    }
+    const governanceImpactMultiplier = BigInt(gov.bps);
     const row = await prisma.riskEvent.create({
       data: {
         ...(payloadWithCategory as Prisma.RiskEventUncheckedCreateInput),
         tenantId,
+        governanceImpactMultiplier,
       },
-      select: BOT_THREAT_WRITE_SELECT,
+      select: {
+        ...BOT_THREAT_WRITE_SELECT,
+        governanceImpactMultiplier: true,
+      },
     });
-    return row;
+    console.log(
+      "SUCCESS: Row written to DB for Tenant:",
+      tenantId,
+      "with ID:",
+      row.id,
+    );
+    const multBps = row.governanceImpactMultiplier ?? 100n;
+    const tenantBindingSeal = computeSimThreatTenantBindingHash({
+      tenantId,
+      riskEventId: row.id,
+      governanceImpactMultiplierBps: multBps,
+    });
+    await prisma.riskEvent.updateMany({
+      where: { tenantId, id: row.id },
+      data: { governanceHash: tenantBindingSeal },
+    });
+    return {
+      id: row.id,
+      title: row.title,
+      sourceAgent: row.sourceAgent,
+      score: row.score,
+      targetEntity: row.targetEntity,
+      financialRisk_cents: row.financialRisk_cents,
+      status: row.status,
+    };
   }
   return prisma.threatEvent.create({
     data: payloadWithCategory,
@@ -138,22 +248,29 @@ async function updateThreatEvent(
   id: string,
   data: Prisma.ThreatEventUncheckedUpdateInput,
 ): Promise<IngressBotThreatCreated> {
-  const isSim = await readSimulationPlaneEnabled();
+  const useRiskEventTable = await ingressUsesRiskEventTable();
   const updateWithCategory: Prisma.ThreatEventUncheckedUpdateInput = {
     ...data,
     ingestionDetails: attachSimulationCategoryToIngestionDetails(
       typeof data.ingestionDetails === "string" ? data.ingestionDetails : undefined,
       typeof data.sourceAgent === "string" ? data.sourceAgent : undefined,
-      isSim,
+      useRiskEventTable,
     ),
   };
-  if (isSim) {
-    await prisma.riskEvent.updateMany({
+  if (useRiskEventTable) {
+    const scope = await prisma.riskEvent.findFirst({
       where: { id },
+      select: { tenantId: true },
+    });
+    if (!scope?.tenantId) {
+      throw new Error(`Ingress: SimThreatEvent missing tenant scope for update (id=${id}).`);
+    }
+    await prisma.riskEvent.updateMany({
+      where: { id, tenantId: scope.tenantId },
       data: updateWithCategory as Prisma.RiskEventUncheckedUpdateInput,
     });
     const row = await prisma.riskEvent.findFirst({
-      where: { id },
+      where: { id, tenantId: scope.tenantId },
       select: BOT_THREAT_WRITE_SELECT,
     });
     if (!row) throw new Error(`Ingress: SimThreatEvent not found after update (id=${id}).`);
@@ -170,8 +287,8 @@ async function updateThreatEvent(
 
 /** Fetch a single bot row by id on the same plane as create/update for this request. */
 async function findThreatEventByIdForBots(id: string): Promise<IngressAttbotThreatRow | null> {
-  const isSim = await readSimulationPlaneEnabled();
-  if (isSim) {
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  if (useRiskEventTable) {
     return prisma.riskEvent.findFirst({
       where: { id },
       select: ATT_FETCH_SELECT,

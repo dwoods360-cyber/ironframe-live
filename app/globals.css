@@ -374,6 +374,10 @@ body {
 .activity-time { font-size: 10px; color: var(--text-tertiary); }
 
 @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+/* GRC Gold Defense ALE baseline — 2s heartbeat on live dot (ties to $16.0M forensic strip). */
+.grc-gold-ale-live-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
 @keyframes scanlineMove {
   0% { transform: translateY(0); }
   100% { transform: translateY(16px); }
@@ -464,4 +468,22 @@ body {
   body.board-report-print-mode #board-report-print-root .rounded-lg {
     background: #fff !important;
   }
+}
+
+/* Insurance ↔ Forensic connector: left-to-right cyan flow during posture sync */
+@keyframes ironframe-connector-flow-x {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(220%);
+    opacity: 0.15;
+  }
+}
+.ironframe-connector-flow-x {
+  animation: ironframe-connector-flow-x 1.15s ease-in-out infinite;
 }

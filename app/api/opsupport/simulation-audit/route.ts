@@ -1,8 +1,10 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,8 +23,14 @@ function previewFromJsonPayload(payload: unknown): string {
  * Simulation / drill audit: Prisma `AuditLog` (sim-flagged, bots, SIMULATION actions) plus
  * `SimulationDiagnosticLog` (structural self-test — never mixed into production `ThreatEvent`).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   noStore();
+  const untilRaw = request.nextUrl.searchParams.get("until");
+  const untilDate =
+    untilRaw != null && untilRaw.trim() !== "" ? new Date(untilRaw.trim()) : null;
+  const untilValid =
+    untilDate != null && !Number.isNaN(untilDate.getTime()) ? untilDate : null;
+
   const tenantUuid = await getActiveTenantUuidFromCookies();
   if (!tenantUuid) {
     return NextResponse.json(
@@ -52,9 +60,13 @@ export async function GET() {
               { operatorId: { equals: "GRCBOT", mode: "insensitive" } },
               { operatorId: { equals: "KIMBOT", mode: "insensitive" } },
               { action: { contains: "SIMULATION", mode: "insensitive" } },
+              {
+                AND: [{ action: "THREAT_RESOLVED" }, { isSimulation: true }],
+              },
             ],
           },
           { OR: [...threatScope] },
+          ...(untilValid ? [{ createdAt: { lte: untilValid } }] : []),
         ],
       },
       orderBy: { createdAt: "desc" },
@@ -70,7 +82,10 @@ export async function GET() {
       },
     }),
     prisma.simulationDiagnosticLog.findMany({
-      where: { tenantUuid },
+      where: {
+        tenantUuid,
+        ...(untilValid ? { createdAt: { lte: untilValid } } : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: 150,
       select: {
@@ -113,7 +128,12 @@ export async function GET() {
     .slice(0, 150);
 
   return NextResponse.json(
-    { tenantUuid, rows: merged },
+    {
+      tenantUuid,
+      rows: merged,
+      shadowPlaneEnv: isShadowPlaneActiveFromEnv(),
+      replayUntil: untilValid?.toISOString() ?? null,
+    },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );
 }

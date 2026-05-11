@@ -13,7 +13,6 @@ import {
   evaluatePhishbotHookSucceeded,
 } from "@/lib/simulation/phishbotAttackModel";
 import { calculateOutOfPocketExposure } from "@/lib/reporting/riskMetrics";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { clearSimulationStandDown } from "@/app/lib/simulationStandDown";
 import {
   findThreatIntelById,
@@ -104,6 +103,7 @@ async function selectSyntheticTarget(profile: SimulatorProfile): Promise<Synthet
 
 async function applyHeistRetentionForSuccessfulPhish(opts: {
   target: SyntheticTarget;
+  tenantId: string;
 }): Promise<{
   breachLossCents: bigint;
   deductibleCents: bigint;
@@ -118,7 +118,7 @@ async function applyHeistRetentionForSuccessfulPhish(opts: {
 
   await prisma.$transaction(async (tx) => {
     const medshield = await tx.tenant.findUnique({
-      where: { id: TENANT_UUIDS.medshield },
+      where: { id: opts.tenantId },
       select: { ale_baseline: true },
     });
     const appliedDeductible =
@@ -129,7 +129,7 @@ async function applyHeistRetentionForSuccessfulPhish(opts: {
           : medshield.ale_baseline;
     if (medshield != null && appliedDeductible > 0n) {
       await tx.tenant.update({
-        where: { id: TENANT_UUIDS.medshield },
+        where: { id: opts.tenantId },
         data: { ale_baseline: medshield.ale_baseline - appliedDeductible },
       });
     }
@@ -517,6 +517,7 @@ export async function triggerPhishbotSimulation(): Promise<TriggerAttbotSimulati
   if (phishSimTargetHooked) {
     const heist = await applyHeistRetentionForSuccessfulPhish({
       target,
+      tenantId,
     });
     await ingressGateway.updateThreatEvent(created.id, {
       financialRisk_cents: heist.breachLossCents,
@@ -798,7 +799,7 @@ export async function launchSimulatedAttack(
   });
 
   if (phishSimTargetHooked) {
-    const heist = await applyHeistRetentionForSuccessfulPhish({ target });
+    const heist = await applyHeistRetentionForSuccessfulPhish({ target, tenantId });
     await ingressGateway.updateThreatEvent(created.id, {
       financialRisk_cents: heist.breachLossCents,
       ingestionDetails: JSON.stringify({

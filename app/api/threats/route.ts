@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
 import { threatIngressSchema } from '@/app/utils/irongateSchema';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { ZodError } from 'zod';
 import { assertSimulationInjectAllowedForTenant } from '@/app/lib/simulationStandDown';
+import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
+import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
+
+/** Align bot/header UUID with Command Center cookie under shadow plane (RLS + dashboard scope). */
+function shadowPlaneActive(request: NextRequest): boolean {
+  if (isShadowPlaneActiveFromEnv()) return true;
+  return request.cookies.get('ironframe-simulation-mode')?.value === '1';
+}
+
+function tenantUuidFromHeader(request: NextRequest): string | null {
+  const raw = request.headers.get('x-tenant-id')?.trim();
+  return raw && isValidTenantUuid(raw) ? raw : null;
+}
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 const CENTS_PER_MILLION = 100_000_000;
@@ -39,12 +53,15 @@ export type CreateThreatBody = {
 /**
  * POST /api/threats — create a threat event and return the full record with DB id.
  * Used by manual risk registration so the pipeline never gets phantom ids.
- * Constitutional: requires x-tenant-id header (tenant UUID); returns 401 if missing.
+ * Tenant scope: `x-tenant-id` header, except shadow plane (`SHADOW_PLANE_ACTIVE` / simulation cookie) — then `ironframe-tenant` cookie wins so bots align with the dashboard.
  */
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = request.headers.get('x-tenant-id')?.trim() || null;
-    if (!tenantId) {
+    const headerTenant = tenantUuidFromHeader(request);
+    let tenantId = headerTenant;
+    if (shadowPlaneActive(request)) {
+      tenantId = headerTenant ?? (await getActiveTenantUuidFromCookies());
+    } else if (!tenantId) {
       return NextResponse.json(
         { error: 'Tenant context required. Send x-tenant-id header (tenant UUID).' },
         { status: 401 }
@@ -143,6 +160,12 @@ export async function POST(request: NextRequest) {
 
     const lossM = centsToMillions(created.financialRisk_cents);
 
+    revalidatePath('/');
+    revalidatePath('/integrity');
+
+    const headers = new Headers();
+    headers.set('X-Ironframe-Client-Refresh', '1');
+
     return NextResponse.json({
       id: created.id,
       name: created.title,
@@ -160,7 +183,7 @@ export async function POST(request: NextRequest) {
       assignedTo: 'unassigned',
       lifecycleState: created.status === ThreatState.CONFIRMED ? 'active' : 'pipeline',
       createdAt: new Date().toISOString(),
-    });
+    }, { headers });
   } catch (e) {
     console.error('[api/threats POST]', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

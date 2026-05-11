@@ -28,6 +28,9 @@ export const IRONWATCH_HISTORICAL_MEMORY_KEYWORDS = [
 /** Deep link for Ironwatch intelligence match sidebar (evidence gap index). */
 export const IRONWATCH_HISTORICAL_CHAPTER_HREF = "/evidence/gaps";
 
+/** Center pane / board report when tenant record name is not yet resolved. */
+export const GRC_GOLD_TENANT_DISPLAY_FALLBACK = "Defense Logistics";
+
 /** Defense industry profile — center pane + Active Risk shield (sync with governed ingest). */
 export const DEFENSE_REGULATORY_SHIELD_BADGE_LABEL = "🛡️ 1.6× CMMC L3";
 

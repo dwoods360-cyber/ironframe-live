@@ -40,7 +40,6 @@ import type { PipelineThreat } from "@/app/store/riskStore";
 import {
   combineThreatPlanes,
   getAgentState,
-  hasAnyOpenSimulationBotThreat,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
 
@@ -248,11 +247,6 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     [activeThreats, pipelineThreats],
   );
 
-  const ingressSignalActive = useMemo(
-    () => hasAnyOpenSimulationBotThreat(combinedThreats),
-    [combinedThreats],
-  );
-
   async function handleSystemIntegrityDrill(drillId: SystemIntegrityDrillId) {
     if (drillBusyKey || purgeBusy) return;
     setDrillBusyKey(drillId);
@@ -271,11 +265,14 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         setDrillError(result.error);
       } else {
         applyManualSimulationStandDownResumeFeed();
+        void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
         const replacePipeline = useRiskStore.getState().replacePipelineThreats;
         const replaceActive = useRiskStore.getState().replaceActiveThreats;
         await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => undefined);
         setBoardPrepRefresh((n) => n + 1);
         setFeedTelemetryActiveAt(Date.now());
+        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+        void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
         router.refresh();
       }
     } catch (error) {
@@ -491,14 +488,12 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Agent Status Pulse</h3>
-          <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
             <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                ingressSignalActive ? "bg-slate-400 motion-safe:animate-pulse" : "bg-slate-500"
-              }`}
+              className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]"
               aria-hidden
             />
-            TELEMETRY ACTIVE
+            LIVE
           </span>
         </div>
         <p className="mt-1 text-[9px] text-zinc-500">

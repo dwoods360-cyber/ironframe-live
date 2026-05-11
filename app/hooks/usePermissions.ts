@@ -10,7 +10,7 @@ import {
   isAuditorFamilyRole,
 } from "@/app/lib/grcRoles";
 
-const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"] as const;
+const VALID_TENANTS = ["medshield", "vaultbank", "gridcore", "defense"] as const;
 export type TenantSlug = (typeof VALID_TENANTS)[number];
 
 /** @deprecated Prefer `GrcWorkspaceRole`; kept for imports that still alias `RoleType`. */

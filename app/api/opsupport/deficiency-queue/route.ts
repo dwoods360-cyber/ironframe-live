@@ -4,25 +4,28 @@ import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { loadOperationalDeficiencyQueueState } from "@/app/lib/opsupport/operationalDeficiencyDb";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/** Shadow-only: unresolved deficiency reports from `SimulationDiagnosticLog` (OpSupport airlock). */
+const EMPTY_PAYLOAD = { unresolvedCount: 0, unresolved: [] as unknown[] };
+
+/** Shadow-only: unresolved deficiency reports from `SimulationDiagnosticLog` (OpSupport airlock). Lightweight when inactive so polling does not contend with threat pipeline. */
 export async function GET() {
   noStore();
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!tenantUuid) {
-    return NextResponse.json({ error: "No active tenant.", unresolvedCount: 0, unresolved: [] }, { status: 401 });
-  }
+  const simCookie = await readSimulationPlaneEnabled();
+  const envShadow = isShadowPlaneActiveFromEnv();
+  const shadowDiagnostics = simCookie || envShadow;
 
-  const shadow = await readSimulationPlaneEnabled();
-  if (!shadow) {
+  if (!shadowDiagnostics) {
     return NextResponse.json(
-      { tenantUuid, unresolvedCount: 0, unresolved: [] },
+      { tenantUuid: null, ...EMPTY_PAYLOAD },
       { headers: { "Cache-Control": "no-store, max-age=0" } },
     );
   }
+
+  const tenantUuid = await getActiveTenantUuidFromCookies();
 
   const companies = await prisma.company.findMany({
     where: { tenantId: tenantUuid },

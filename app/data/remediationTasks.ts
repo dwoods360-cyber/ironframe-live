@@ -25,4 +25,30 @@ export const REMEDIATION_TASKS_BY_ENTITY: Record<TenantKey, RemediationTask[]> =
     { id: "gridcore-task-policy", assetId: "gc-scada-terminal", remediationType: "POLICY_FIX", title: "Update Vendor SLA to mandate 24hr patching", savings: 650000, riskReductionM: 0.65 },
     { id: "gridcore-task-financial", assetId: "gc-scada-terminal", remediationType: "FINANCIAL_FIX", title: "Re-allocate $50k budget to Identity Access Management", savings: 500000, riskReductionM: 0.5 },
   ],
+  defense: [
+    {
+      id: "defense-task-tech",
+      assetId: "dl-mission-net",
+      remediationType: "TECHNICAL_FIX",
+      title: "Segment mission-partner uplinks per CMMC SC.L2 boundary",
+      savings: 3200000,
+      riskReductionM: 3.2,
+    },
+    {
+      id: "defense-task-policy",
+      assetId: "dl-cmmc-boundary",
+      remediationType: "POLICY_FIX",
+      title: "Refresh supplier DFARS flow-down attestation cadence",
+      savings: 1400000,
+      riskReductionM: 1.4,
+    },
+    {
+      id: "defense-task-financial",
+      assetId: "dl-classified-edge",
+      remediationType: "FINANCIAL_FIX",
+      title: "Fund continuous OT IR retainers for classified enclave",
+      savings: 900000,
+      riskReductionM: 0.9,
+    },
+  ],
 };

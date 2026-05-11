@@ -26,7 +26,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <>
         <AirlockBanner />
         <main
-          className={`command-center-surface mt-0 h-screen overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
+          className={`command-center-surface mt-0 min-h-screen overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
         >
           {children}
         </main>
@@ -47,11 +47,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <TopNav />
       </div>
       <main
-        className={`command-center-surface overflow-y-auto ${
+        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
           isSimulationMode ? "mt-[144px] h-[calc(100vh-144px)]" : "mt-[108px] h-[calc(100vh-108px)]"
         } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
       >
-        {children}
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] ${
+            isBoardReport ? "print:overflow-visible" : ""
+          }`}
+        >
+          {children}
+        </div>
       </main>
     </>
   );

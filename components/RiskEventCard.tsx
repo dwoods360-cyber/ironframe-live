@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEstimatedFineLabel } from "@/app/utils/formatCentsToUSD";
+import { formatCentsToAccountingUSD, formatEstimatedFineLabel } from "@/app/utils/formatCentsToUSD";
 import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from "@/lib/constants/grcGovernance";
 import { useHasMounted } from "@/app/hooks/useHasMounted";
 import { useRiskStore } from "@/app/store/riskStore";
@@ -27,6 +27,8 @@ export type RiskEventCardProps = {
   complianceFramework: string;
   /** Integer cents as string (JSON-safe from dashboard). */
   financialRiskCents: string;
+  /** Sim ledger: Postgres `governed_impact` (cents), optional — Epic 8 governed liability chip. */
+  governedImpactCents?: string;
   /** ThreatState or workflow label — controls budget PDF eligibility. */
   status?: string | null;
   /** Industry Profile = Defense (hydration-safe when parent passes hasMounted && Defense). */
@@ -44,6 +46,7 @@ export default function RiskEventCard({
   title,
   complianceFramework,
   financialRiskCents,
+  governedImpactCents,
   status,
   showDefenseIndustryBadge = false,
   reasoningWaterfall = null,
@@ -97,6 +100,14 @@ export default function RiskEventCard({
         </p>
       ) : null}
       <div className="mt-2 flex flex-col gap-2">
+        {governedImpactCents != null && governedImpactCents !== "" ? (
+          <span
+            className="inline-flex w-fit rounded-full border border-cyan-900/40 bg-cyan-950/30 px-2 py-1 text-[9px] font-semibold tabular-nums text-cyan-100/95"
+            title="Immutable governed ledger (Postgres governed_impact cents → USD)"
+          >
+            Governed liability · {formatCentsToAccountingUSD(governedImpactCents)}
+          </span>
+        ) : null}
         <span
           className="inline-flex rounded-full border border-amber-900/35 bg-amber-950/25 px-2 py-1 text-[9px] font-medium leading-tight text-amber-100/90"
           title="Potential fine proxy: ALE × regulatory multiplier (illustrative)"

@@ -29,6 +29,9 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     resolutionApprovalId: r.resolutionApprovalId ?? undefined,
     resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
     postMortemReportPath: r.postMortemReportPath ?? undefined,
+    governanceHash: r.governanceHash ?? undefined,
     forensicCustody: parseForensicCustodyFromIngestion(r.ingestionDetails ?? undefined),
+    chaosLevel: r.chaosLevel ?? undefined,
+    systemImpact: r.systemImpact ?? undefined,
   };
 }

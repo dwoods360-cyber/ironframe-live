@@ -1,5 +1,5 @@
 import { Droplets, Leaf, Zap } from "lucide-react";
-import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import type { GlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
 
 type Props = {
   data: GlobalSustainabilityImpact;

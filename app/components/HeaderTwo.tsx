@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { UserRound } from "lucide-react";
+import { Folder, UserRound } from "lucide-react";
 import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
 // ---> NEW: Import your Enclave components
@@ -189,9 +189,11 @@ export default function HeaderTwo({
                   SECURITY PROFILE
                 </Link>
                 <Link
-                  href="/evidence"
+                  href="/vault"
                   className="flex shrink-0 items-center gap-1.5 rounded-md border border-teal-600/60 bg-teal-950/40 px-3 py-2 text-[10px] font-bold text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/45"
+                  title="Evidence Vault"
                 >
+                  <Folder className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                   EVIDENCE VAULT
                 </Link>
                 <Link

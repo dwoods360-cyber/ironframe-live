@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { calculateInsuranceIncentive } from "@/app/utils/insuranceMath";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { CARRIER_EXPORT_OPTIONS, type CarrierKey } from "@/app/utils/carrierTemplates";
+import { useRiskStore } from "@/app/store/riskStore";
 
 export type BudgetJustificationProps = {
   framework: string;
@@ -12,6 +13,8 @@ export type BudgetJustificationProps = {
   /** Default annual premium (cents) from dashboard model. */
   defaultPremiumCents: string;
   tenantFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+  /** Fires when premium, carrier, or modeled discount posture changes — links Forensic Audit pulse. */
+  onInsurancePostureChange?: (signature: string) => void;
 };
 
 function dollarsToCentsInput(raw: string): bigint | null {
@@ -28,7 +31,11 @@ export default function BudgetJustification({
   hasDueDiligencePdfs,
   defaultPremiumCents,
   tenantFetch,
+  onInsurancePostureChange,
 }: BudgetJustificationProps) {
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const tenantScoped = Boolean(selectedTenantName?.trim());
+
   const defaultDollars = useMemo(() => {
     try {
       return (Number(BigInt(defaultPremiumCents)) / 100).toLocaleString("en-US", {
@@ -64,6 +71,22 @@ export default function BudgetJustification({
     [premiumCents, framework, hasContinuousMonitoring, hasDueDiligencePdfs],
   );
 
+  useEffect(() => {
+    if (!onInsurancePostureChange) return;
+    const sig = [
+      premiumCents.toString(),
+      carrierKey,
+      incentive.totalEstimatedSavings_cents.toString(),
+      String(incentive.totalDiscountBps),
+    ].join("|");
+    onInsurancePostureChange(sig);
+  }, [
+    onInsurancePostureChange,
+    premiumCents,
+    carrierKey,
+    incentive,
+  ]);
+
   const exportPdf = useCallback(async () => {
     const params = new URLSearchParams({
       premiumCents: premiumCents.toString(),
@@ -85,9 +108,17 @@ export default function BudgetJustification({
 
   const discountLabel = `${(incentive.totalDiscountBps / 100).toFixed(2)}%`;
 
+  const projectedSavingsDisplay = tenantScoped ? incentive.totalEstimatedSavings_cents : 0n;
+  const discountLabelDisplay = tenantScoped ? discountLabel : "0.00%";
+
   return (
     <div className="rounded border border-slate-700/80 bg-slate-900/40 px-3 py-3 text-[10px] text-slate-200">
       <p className="font-black uppercase tracking-wide text-cyan-300/90">Cyber insurance optimization</p>
+      {!tenantScoped ? (
+        <p className="mt-1 rounded border border-slate-700/80 bg-slate-950/60 px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+          Tenant scope pending — financial projections frozen at $0 until Command Center selection.
+        </p>
+      ) : null}
       <p className="mt-1 text-[9px] text-slate-400">
         Model: {framework}
         {hasContinuousMonitoring ? " · Ironwatch active (last hour)" : ""}
@@ -125,8 +156,8 @@ export default function BudgetJustification({
       <div className="mt-3 rounded border border-teal-800/50 bg-teal-950/30 px-2 py-2">
         <p className="text-[9px] font-bold uppercase tracking-wide text-teal-300/90">Projected renewal discount</p>
         <p className="mt-0.5 font-mono text-[12px] font-semibold text-teal-100">
-          {formatCentsToUSD(incentive.totalEstimatedSavings_cents)}{" "}
-          <span className="text-[10px] font-normal text-teal-200/80">({discountLabel} of premium)</span>
+          {formatCentsToUSD(projectedSavingsDisplay)}{" "}
+          <span className="text-[10px] font-normal text-teal-200/80">({discountLabelDisplay} of premium)</span>
         </p>
       </div>
 

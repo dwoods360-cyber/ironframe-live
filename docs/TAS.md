@@ -1,9 +1,26 @@
 /docs/TAS.md — Technical Architecture Specification
 Project: Ironframe
-Version: 2.0.1 (Sovereign Build State)
-Last Updated: 2026-04-16
+Version: 2.0.2 (Sovereign Build State)
+Last Updated: 2026-05-07
 Authority: Supreme Architectural Authority (Layers 2 & 5)
 This document serves as the constitutional foundation for the Ironframe platform. Any deviation from this specification requires a formal TAS Amendment Proposal. Silent structural changes are strictly forbidden.
+
+### LOGGING DIRECTIVE (mandatory — Audit Intelligence)
+
+**LOGGING DIRECTIVE:** All agent actions and adversarial detections **must** be logged to the Audit Intelligence panel with **100% fidelity**. Silencing logs for agentic or adversarial activity is a **terminal violation** of the Forensic Model.
+
+### GRC forensic constitution & identity (mandatory)
+
+These rules permanently anchor forensic UI components and dashboard identity; changing them requires a **TAS Amendment Proposal**.
+
+- **Identity rule:** The dashboard MUST initialize in **`[ PENDING SELECTION ]`** tenant state with **no default tenant seeding**. Tenant binding occurs only after explicit **Command Center** tenant selection (and the aligned client cookie sync).
+
+- **Handshake protocol:** Financial optimization / insurance posture alignment MUST trigger a **60-second post-verification drift countdown** (post-handshake integrity window before drift).
+
+- **Forensic artifacts:** The **Print Chip** (Audit Intelligence PDF export) and **Sign-off** control (GRC Gold forensic seal / SHA-256 receipt path) are **non-negotiable gates** for establishing and attesting the **Defense ALE baseline** and associated ledger semantics.
+
+- **UI anchor:** The legacy **header logo** and redundant **“My Organization”** tenant dropdown are **permanently decommissioned** to preserve horizontal density; tenant identity is conveyed via **Command Center** and the **header title line** (`IRONFRAME V1.0 — [tenant | PENDING SELECTION]`).
+
 1. Core Architectural Philosophy
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
 Modular Execution: Strict separation of concerns enforced via a specialized agent workforce.
@@ -55,6 +72,10 @@ These baselines are immutable and serve as the foundation for Irontrust (Agent 3
 Medshield: 11,100,000 USD (1110000000 cents)
 Vaultbank: 5,900,000 USD (590000000 cents)
 Gridcore: 4,700,000 USD (470000000 cents)
+Defense (CMMC L3 anchor): 16,000,000 USD (1600000000 cents)
+
+**METRICS:** The Version Manifest (Audit Intelligence sidebar footer) MUST include **DRIFT_DELTA**: real-time variance between **active ALE** (BIGINT aggregate from `getTotalCurrentRiskCentsString` / Command Center posture) and the **constitutional industry baseline** for the bound tenant (Medshield / Vaultbank / Gridcore / Defense cents above). Display uses a **Δ** prefix; negative Δ (active below baseline) indicates optimization posture; positive Δ indicates elevated exposure vs. baseline. When no tenant route/dev scope is bound, the line shows **Δ ---**.
+
 Sustainability Data (Kimbot Mandate):
 Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Kimbot (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies.
 ### 4.3 Diagnostics & Isolation (Shadow Plane)
@@ -79,9 +100,41 @@ The Irontech workforce MUST treat components with **`healthBarPercent` below 50%
 Every filed deficiency MUST retain the full **Gemini repair packet** and ingestion context required for deterministic repair; replay is surfaced via the OpSupport Diagnostic History / reliability dashboard (read-only modal), not by mutating production records.
 
 5. Multi-Tenant Isolation
+
+**AMENDMENT:** Any function, agent, or fetch call that lacks a validated tenant_id context is prohibited and must be quarantined by Ironlock.
+
+**DIRECTIVE:** Cross-tenant data retrieval is a terminal failure. The system must hard-crash rather than return data from an unrestricted context.
+
 Strict RLS & Memory Bleed Prevention:
-Database Level: Supabase Row Level Security (RLS) must be explicitly defined and enforced on every table. No query may execute without a validated tenant_id context.
+Database Level: Supabase Row Level Security (RLS) must be explicitly defined and enforced on every tenant-scoped table (direct `tenant_id` / `tenantId` columns or an approved join path documented below). Global reference tables (e.g. anonymized industry benchmarks) are exempt only where explicitly listed in schema commentary. No tenant-bound query may execute without a validated tenant context; Postgres sessions SHOULD set `app.current_tenant_id` (via `ironguard_set_session_tenant`) before RLS-protected operations once policies are enabled.
+
+**Schema reality (verification):** Some legacy surfaces use indirect tenancy (e.g. `ThreatEvent.tenantCompanyId` → `companies.tenantId`). RLS policies MUST encode those join paths; tables without any tenancy linkage remain engineering debt and must not carry tenant-controlled payloads until amended.
+
 LangGraph Level: Reinterpreting tenant boundaries or allowing cross-tenant memory bleed in LangGraph is a forbidden action. Every LangGraph thread ID must be cryptographically bound to the active tenant_id. State checkpoints must be isolated per tenant.
+
+Client plane (Ironguard): Outbound same-origin `/api` requests that carry `x-tenant-id` / `x-target-tenant-id` must match the Command-Center–resolved effective tenant session or the client throws `[ 🚫 IRONGUARD BREACH ] | UNAUTHORIZED CROSS-TENANT FETCH BLOCKED.` Same-origin `/api` reads/writes without an optional-route carve-out must resolve an effective tenant UUID; otherwise the client throws `[ 🚫 IRONGUARD ] | FETCH BLOCKED: NO TENANT CONTEXT.` All such requests automatically attach `X-Tenant-ID` from the secure session after injection.
+
+**Rule:** The Dev Tenant Switcher must trigger a **Cold Boot** of all data stores (`switchDevTenantColdBoot`): risks, audit buffer, agent streams, cached dashboard/insurance payloads, and session tenant flush — **before** the new override applies. No cross-tenant data persistence is permitted between those transitions.
+
+Command Center tenant switches MUST purge client tenant scope (risk boards, agent streams, audit buffer) and invalidate tenant-scoped API cache hints before loading the next tenant.
+
+### Immutable Directives (Isolation — Non-Bypassable)
+
+The following rules are **constitutional**: bypass requires a formal **TAS Amendment** and PO sign-off.
+
+1. **Kernel:** PostgreSQL RLS **must** ultimately enforce `tenant_id` (or approved join-path equivalents) for tenant-bound rows. Tables lacking a tenant discriminator suitable for policy attachment are **engineering debt** and must not hold unsliced tenant payloads until remediated (see `docs/FORENSIC_INTEGRITY_REPORT.md`).
+
+2. **Gateway (server):** Tenant-scoped Route Handlers **must** validate `x-tenant-id` against the **`ironframe-tenant`** cookie session when the cookie is present; mismatch → **403 Forbidden**. Client-only tenant props are **never** sufficient authorization.
+
+3. **Gateway (client):** Ironguard **must** inject `X-Tenant-ID` from the secure effective session and **must** throw on cross-tenant header misuse; blocked attempts **must** emit the Sentinel audit line (`IRONGUARD|SENTINEL_BLOCK`) in Audit Intelligence.
+
+4. **Memory:** `resetAllStores()` **must** run **before** `tenantScopeCache.clear()` **before** binding a new tenant context on Command Center or Dev switcher transitions — **no shadow RAM** from prior tenant boards, bots, scenarios, or overlays.
+
+5. **Ledger:** Any isolation breach attempt blocked in the client **must** leave a durable sidebar audit entry (`[ 🚨 SECURITY ALERT ] | ISOLATION BREACH ATTEMPT BLOCKED…`).
+
+**Amendment — Internal Simulation Loop (Shadow Plane exception)**  
+Immutable directives **(1)–(5)** apply without exception in **production** tenant sessions. For the **internal simulation / shadow plane** only (`SHADOW_PLANE_ACTIVE` server-side, paired per §4.3 with `ironframe-simulation-mode` and/or `NEXT_PUBLIC_SHADOW_PLANE_ACTIVE` / Command Center simulation): server Route Handlers **may** accept a validated `x-tenant-id` when it conflicts with `ironframe-tenant` **solely** to unblock automated simulation clients and dashboard reads during drills — implemented in `assertIronguardApiTenantOr403` + shadow diagnostics elsewhere. This **does not** weaken PostgreSQL RLS or LangGraph tenant binding; it **only** prevents false **403** mismatches between cookie snapshot and bot-declared scope during testing. Quarantine and **SimulationDiagnosticLog** isolation from §4.3 remain mandatory.
+
 PII Lock: Ironethic (Agent 18) enforces a strict No-PII lock. All social and DEI data must be aggregated and salted before storage or processing. Raw PII must never persist in the LangGraph state or database.
 6. Product Roadmap — Epic Status (PO Authority)
 [COMPLETED] Epic 4: Ironwave (Executive Insights & GRC)

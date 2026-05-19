@@ -1,4 +1,4 @@
-import { db } from "@/infrastructure/db";
+import { getSovereignCheckpointChannelValues } from "@/src/services/orchestration/checkpointer";
 
 export type ResumedOrchestratorState = {
   status: string;
@@ -7,20 +7,31 @@ export type ResumedOrchestratorState = {
 };
 
 /**
- * Ironcore — resume LangGraph thread from persisted checkpoint after reconnect (Epic 6).
+ * Ironcore — resume LangGraph thread from Postgres checkpoint (Epic 15).
  */
 export const IroncoreOrchestrator = {
   async resumeFromCheckpoint(riskId: string, tenantId: string): Promise<ResumedOrchestratorState> {
-    const row = await db.langGraphCheckpoints.findUnique({
-      where: { id: riskId, tenant_id: tenantId },
-    });
-    if (!row) {
+    const values = await getSovereignCheckpointChannelValues(riskId, tenantId);
+    if (!values) {
       throw new Error(`IroncoreOrchestrator: no checkpoint for risk=${riskId} tenant=${tenantId}`);
     }
-    return {
-      status: row.persisted_state,
-      step: row.step,
-      ale_impact: BigInt(row.ale_impact),
-    };
+
+    const status =
+      typeof values.status === "string" && values.status.trim()
+        ? values.status
+        : "PROCESSING";
+    const step =
+      typeof values.current_agent === "string" && values.current_agent.trim()
+        ? values.current_agent
+        : "";
+
+    const aleRaw =
+      values.mitigated_value_cents ??
+      values.financial_ale_cents ??
+      values.sustainability_ale_cents ??
+      "0";
+    const ale_impact = BigInt(String(aleRaw));
+
+    return { status, step, ale_impact };
   },
 };

@@ -19,6 +19,17 @@ import {
 import { IroncastService } from "@/services/ironcast.service";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { persistAndDispatchPublicTransparency } from "@/app/lib/transparencyPublicDispatch";
+import {
+  aggregateProductionMitigatedValueCents,
+  isSimulationThreatForCsrdExport,
+} from "@/app/lib/ironbloom/productionCarbonLedger";
+import { IRONTALLY_CSRD_ESRS_E1_6 } from "@/app/config/irontallyFrameworkControls";
+import {
+  CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG,
+  isElectricityMapsApiConfigured,
+} from "@/app/services/ironbloom/rateEngine";
+import { fetchLiveCarbonIntensityForTenant } from "@/app/services/ironbloom/scoring";
+import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 
 const REPORT_ROOT = join(process.cwd(), "storage", "investor-reports");
 const WORM_PREFIX = "worm/global";
@@ -67,11 +78,25 @@ export type RunSustainabilityAchievementReportOutcome =
     }
   | { ok: false; error: string };
 
+export type RunSustainabilityAchievementReportOptions = {
+  /**
+   * When true (default for cron): CSRD export uses only Prisma `SustainabilityMetric.mitigated_value_cents`
+   * for production threats — simulation / chaos rows and Carbon Pulse scratch samples are excluded.
+   */
+  productionMode?: boolean;
+  /** Tenant scope for production ledger + live intensity (defaults to Medshield roster UUID). */
+  tenantUuid?: string;
+};
+
 /**
  * Ironscribe investor report: runs when self-healing streak hits multiples of 30 full days.
  * Deduped via `lastMilestoneDays` in scheduler state (resets if `selfHealingActiveSince` changes).
  */
-export async function runSustainabilityAchievementReportIfDue(): Promise<RunSustainabilityAchievementReportOutcome> {
+export async function runSustainabilityAchievementReportIfDue(
+  options: RunSustainabilityAchievementReportOptions = {},
+): Promise<RunSustainabilityAchievementReportOutcome> {
+  const productionMode = options.productionMode !== false;
+  const reportTenantUuid = options.tenantUuid?.trim() || TENANT_UUIDS.medshield;
   try {
     const row = await prisma.systemConfig.findUnique({
       where: { id: "global" },
@@ -101,27 +126,87 @@ export async function runSustainabilityAchievementReportIfDue(): Promise<RunSust
     }
 
     const cutoff = new Date(Date.now() - THIRTY_DAYS_MS);
-    const agg = await prisma.sustainabilityMetric.aggregate({
-      where: { createdAt: { gte: cutoff } },
-      _sum: { kwhAverted: true, mitigatedValueCents: true },
-    });
-    const totalKwh = agg._sum.kwhAverted ?? 0n;
-    const totalCents = agg._sum.mitigatedValueCents ?? 0n;
 
-    const intensities = flattenRecentPulseGridSamples();
-    const { average, delta } = gridStats(intensities);
+    let totalKwh = 0n;
+    let totalCents = 0n;
+
+    if (productionMode) {
+      totalCents = await aggregateProductionMitigatedValueCents(reportTenantUuid, { since: cutoff });
+      const productionMetrics = await prisma.sustainabilityMetric.findMany({
+        where: {
+          createdAt: { gte: cutoff },
+          threat: {
+            company: { tenantId: reportTenantUuid },
+          },
+        },
+        select: {
+          kwhAverted: true,
+          threat: { select: { sourceAgent: true, ingestionDetails: true } },
+        },
+      });
+      for (const row of productionMetrics) {
+        if (isSimulationThreatForCsrdExport(row.threat)) continue;
+        totalKwh += row.kwhAverted;
+      }
+    } else {
+      const agg = await prisma.sustainabilityMetric.aggregate({
+        where: { createdAt: { gte: cutoff } },
+        _sum: { kwhAverted: true, mitigatedValueCents: true },
+      });
+      totalKwh = agg._sum.kwhAverted ?? 0n;
+      totalCents = agg._sum.mitigatedValueCents ?? 0n;
+    }
+
+    let average: number | null = null;
+    let delta: number | null = null;
+    let gridIntensityTransparencyLabel: string | null = null;
+    if (productionMode) {
+      const tenantKey = tenantKeyFromUuid(reportTenantUuid);
+      if (tenantKey) {
+        const live = await fetchLiveCarbonIntensityForTenant(tenantKey);
+        average = live.carbonIntensityGco2PerKwh;
+        delta = null;
+        if (live.source === "FORENSIC_FALLBACK" || live.transparencyLabel) {
+          gridIntensityTransparencyLabel =
+            live.transparencyLabel ?? CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG;
+        }
+      }
+    } else {
+      const intensities = flattenRecentPulseGridSamples();
+      const stats = gridStats(intensities);
+      average = stats.average;
+      delta = stats.delta;
+    }
 
     const tas = assessTasMdIntegritySync();
     const constitutionalTasSha256 = tas.ok ? tas.sha256 : null;
 
+    const kimbotCsrdPath = productionMode ? "production" : "simulation";
+    const csrdComplianceStandard = IRONTALLY_CSRD_ESRS_E1_6.controlId;
     const compositePayload = {
       template: SUSTAINABILITY_ACHIEVEMENT_REPORT_TEMPLATE,
       generatedAt: new Date().toISOString(),
       milestoneDays: daysActive,
+      productionMode,
+      kimbotCsrdPath,
+      csrdProductionLedgerOnly: productionMode,
+      csrdComplianceStandard,
+      esrsE16IrontallyAnchor: IRONTALLY_CSRD_ESRS_E1_6,
       mitigatedSustainabilityAleCents: totalCents.toString(),
       totalKwhSaved: totalKwh.toString(),
       averageGridIntensityGco2PerKwh: average,
       gridIntensityDeltaGco2PerKwh: delta,
+      gridIntensitySource: productionMode
+        ? isElectricityMapsApiConfigured()
+          ? "electricity-maps"
+          : "FORENSIC_FALLBACK"
+        : "carbon-pulse-simulation",
+      gridIntensityTransparencyLabel:
+        gridIntensityTransparencyLabel ??
+        (productionMode && !isElectricityMapsApiConfigured()
+          ? CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG
+          : null),
+      irontallyFrameworkControls: [IRONTALLY_CSRD_ESRS_E1_6],
       constitutionalTasSha256,
       gavel: SUSTAINABILITY_ACHIEVEMENT_GAVEL_ATTESTATION,
     };
@@ -189,6 +274,10 @@ export async function runSustainabilityAchievementReportIfDue(): Promise<RunSust
           action: "GOVERNANCE_ACHIEVEMENT_LOG",
           justification: JSON.stringify({
             event: "SUSTAINABILITY_ACHIEVEMENT_REPORT",
+            kimbotCsrdPath,
+            csrdComplianceStandard,
+            gridIntensityTransparencyLabel: compositePayload.gridIntensityTransparencyLabel,
+            irontallyControlId: IRONTALLY_CSRD_ESRS_E1_6.controlId,
             template: SUSTAINABILITY_ACHIEVEMENT_REPORT_TEMPLATE,
             milestoneDays: daysActive,
             pdfSha256,

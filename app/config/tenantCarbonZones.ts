@@ -24,6 +24,29 @@ export const TENANT_ELECTRICITY_MAP_ZONES: Record<TenantKey, string> = {
   defense: "US-MIDA-PJM",
 };
 
+/**
+ * Tenant-anchored grid intensity (gCO₂/kWh) when Electricity Maps is unreachable.
+ * Derived from utility geography (`tenantUtilityLocation`) + regional grid profiles — not a global constant.
+ */
+export const TENANT_DEFAULT_CARBON_INTENSITY_GCO2: Record<TenantKey, number> = {
+  medshield: 392,
+  vaultbank: 318,
+  gridcore: 445,
+  defense: 412,
+};
+
+export function getDefaultCarbonIntensityGco2ForTenant(tenantKey: TenantKey): number {
+  return TENANT_DEFAULT_CARBON_INTENSITY_GCO2[tenantKey];
+}
+
+export function tenantKeyFromElectricityMapZone(zone: string): TenantKey | null {
+  const z = zone.trim();
+  for (const [key, mapped] of Object.entries(TENANT_ELECTRICITY_MAP_ZONES) as [TenantKey, string][]) {
+    if (mapped === z) return key;
+  }
+  return null;
+}
+
 /** Localized carbon penalty likelihood × impact (R_tax) as basis points (11500 = 1.15×). */
 export const TENANT_REGULATORY_CARBON_MULTIPLIER_BPS: Record<TenantKey, bigint> = {
   medshield: 11500n,

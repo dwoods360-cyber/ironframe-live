@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { CFO_SUSTAINABILITY_ROI_METADATA } from "@/app/config/cfoSustainabilityMetadata";
 import ForensicMetricChip from "@/app/components/ui/ForensicMetricChip";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 
@@ -8,6 +9,8 @@ export type GrcAleExposureMapProps = {
   isSimulationMode: boolean;
   complianceVelocity: number | null;
   avgHoursToControlMapping: number | null;
+  /** Production Ironbloom sealed `mitigated_value_cents` aggregate (CSRD — non-simulation ledger). */
+  carbonMitigatedValueCents?: string | null;
   totalValueMitigatedYtdCents: string | null | undefined;
   projectedInsuranceSavingsCents: string | null | undefined;
   insuranceDiscountPct: number | null;
@@ -23,6 +26,7 @@ export default function GrcAleExposureMap({
   isSimulationMode,
   complianceVelocity,
   avgHoursToControlMapping,
+  carbonMitigatedValueCents,
   totalValueMitigatedYtdCents,
   projectedInsuranceSavingsCents,
   insuranceDiscountPct,
@@ -50,6 +54,17 @@ export default function GrcAleExposureMap({
         </div>
 
         <div className="flex min-w-0 flex-wrap items-stretch gap-2 sm:justify-end">
+          {!isSimulationMode ? (
+            <ForensicMetricChip
+              label="Value mitigated"
+              value={formatCentsToUSD(carbonMitigatedValueCents ?? "0")}
+              sublabel={CFO_SUSTAINABILITY_ROI_METADATA}
+              tone="emerald"
+              title={`ICP $85/metric ton · kWh × gCO₂/kWh × sealed BigInt cents. ${CFO_SUSTAINABILITY_ROI_METADATA}`}
+              testId="carbon-ale-mitigated-chip"
+            />
+          ) : null}
+
           <ForensicMetricChip
             label="Compliance velocity"
             value={

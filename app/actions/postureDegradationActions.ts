@@ -34,7 +34,10 @@ import {
   type PostureDegradationWorkflowRecord,
 } from "@/app/lib/postureDegradationWorkflow";
 import { getSecurityPostureConfig } from "@/app/actions/securityPostureActions";
+import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { generatePostureDowngradeRiskImpactReport, type RiskImpactReport } from "@/app/lib/riskImpactReport";
+import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { getServerActionForensics } from "@/app/lib/serverRequestForensics";
 import { recordEntryWitnessDirect } from "@/app/lib/entryWitness";
 
@@ -50,7 +53,15 @@ export type PostureDegradationStatusDto = {
   currentPosture: typeof SECURITY_POSTURE_TRIPARTITE_LOCK | typeof SECURITY_POSTURE_DUAL_LOCK;
   riskImpactReport: RiskImpactReport | null;
   cfoFinancialRiskAcknowledged: boolean;
+  sustainabilityRoiDisplay: string | null;
 };
+
+async function loadCfoSustainabilityRoiDisplay(): Promise<string | null> {
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const roi = await resolveDashboardMitigatedValueCents(tenantUuid);
+  if (roi.mitigatedValueCents === "0") return null;
+  return formatCentsToUSD(roi.mitigatedValueCents);
+}
 
 async function tryAutoFinalizeWorkflow(
   workflow: PostureDegradationWorkflowRecord,
@@ -81,10 +92,14 @@ export async function getPostureDegradationStatus(): Promise<PostureDegradationS
       currentPosture: current.posture,
       riskImpactReport: null,
       cfoFinancialRiskAcknowledged: false,
+      sustainabilityRoiDisplay: null,
     };
   }
 
   const remainingMs = cooldownRemainingMs(workflow);
+  const sustainabilityRoiDisplay = workflow.riskImpactReport
+    ? await loadCfoSustainabilityRoiDisplay()
+    : null;
 
   return {
     active: true,
@@ -100,6 +115,7 @@ export async function getPostureDegradationStatus(): Promise<PostureDegradationS
     currentPosture: current.posture,
     riskImpactReport: workflow.riskImpactReport ?? null,
     cfoFinancialRiskAcknowledged: Boolean(workflow.cfoFinancialRiskAcknowledgedAt),
+    sustainabilityRoiDisplay,
   };
 }
 

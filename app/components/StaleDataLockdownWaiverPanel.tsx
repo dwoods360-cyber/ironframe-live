@@ -9,8 +9,11 @@ import {
   IRONTECH_STALE_LOCKDOWN_MESSAGE,
   LOCKDOWN_PROLONGED_OUTAGE_BANNER_TITLE,
 } from "@/app/config/sustainabilityStaleLockdown";
-import { IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS } from "@/app/lib/governanceMaturityState";
+import { FORENSIC_ATTESTATION_MIN_VOID } from "@/app/utils/constitutionalForensicGates";
 import { validateForensicJustification } from "@/app/utils/validateJustification";
+
+/** Ironlock stale-data waiver floor — matches `IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS` server-side. */
+const STALE_DATA_WAIVER_FORENSIC_MIN_CHARS = FORENSIC_ATTESTATION_MIN_VOID;
 
 /**
  * Settings → Nuclear posture: Tripartite seal waiver while sustainability live API is down ≥24h (Irontech lockdown).
@@ -89,8 +92,8 @@ export default function StaleDataLockdownWaiverPanel() {
   }, [vault, ciso, staff, forensicJustification, secondaryMfaToken, refreshIntegrity]);
 
   const fjTrim = forensicJustification.trim();
-  const forensicLenOk = fjTrim.length >= IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS;
-  const forensicQualityOk = validateForensicJustification(fjTrim, IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS).ok;
+  const forensicLenOk = fjTrim.length >= STALE_DATA_WAIVER_FORENSIC_MIN_CHARS;
+  const forensicQualityOk = validateForensicJustification(fjTrim, STALE_DATA_WAIVER_FORENSIC_MIN_CHARS).ok;
 
   if (!blocking) return null;
 
@@ -109,7 +112,7 @@ export default function StaleDataLockdownWaiverPanel() {
       <p className="mt-2 text-[9px] text-violet-200/80">
         Requires Tripartite emergency seal segments (Vault 22 + CISO 21 + Staff 21 hex) — same ceremony as nuclear
         override collusion gate (witnessed CISO + Staff fingerprints). A mandatory{" "}
-        {IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS}-character forensic justification (Ironlock quality gates) must
+        {STALE_DATA_WAIVER_FORENSIC_MIN_CHARS}-character forensic justification (Ironlock quality gates) must
         accompany every stale-data waiver.
       </p>
       <div className="mt-3 grid gap-2 font-mono text-[10px]">
@@ -151,9 +154,9 @@ export default function StaleDataLockdownWaiverPanel() {
         </label>
         <label className="block">
           <span className="text-violet-300/90">
-            Forensic justification (min {IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS} chars) —{" "}
+            Forensic justification (min {STALE_DATA_WAIVER_FORENSIC_MIN_CHARS} chars) —{" "}
             <span className={forensicLenOk ? "text-emerald-300/90" : "text-rose-300/90"}>{fjTrim.length}</span> /{" "}
-            {IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS}
+            {STALE_DATA_WAIVER_FORENSIC_MIN_CHARS}
             {forensicLenOk && !forensicQualityOk ? " — quality gate failed" : null}
           </span>
           <textarea

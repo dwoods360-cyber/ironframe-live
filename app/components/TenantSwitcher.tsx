@@ -12,7 +12,11 @@ import { tenantIndustryCodeToProfileLabel } from "@/app/utils/tenantIndustryProf
 import { useRiskStore } from "@/app/store/riskStore";
 import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
 import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import {
+  applyCommandCenterScopeFromCookie,
+  readIronframeTenantCookie,
+  syncIronguardForRedTeamLane,
+} from "@/app/utils/commandCenterScopeSync";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,31 +35,6 @@ function formatAleBaselineShort(centsStr: string): string {
   } catch {
     return "—";
   }
-}
-
-function readIronframeTenantCookie(): string | undefined {
-  if (typeof document === "undefined") return undefined;
-  const v = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("ironframe-tenant="))
-    ?.split("=")[1]
-    ?.trim();
-  return v || undefined;
-}
-
-function syncSelectedTenantNameFromRows(
-  rows: CommandCenterTenantRow[],
-  setSelectedTenantName: (name: string | null) => void,
-) {
-  const raw = readIronframeTenantCookie();
-  if (!raw || raw === "") {
-    setSelectedTenantName(null);
-    return;
-  }
-  const lower = raw.toLowerCase();
-  const tenant =
-    rows.find((r) => r.id.toLowerCase() === lower) ?? rows.find((r) => r.slug.toLowerCase() === lower);
-  setSelectedTenantName(tenant?.name?.trim() ? tenant.name.trim() : null);
 }
 
 function setIronframeTenantCookie(value: string | null): void {
@@ -107,17 +86,11 @@ export default function TenantSwitcher() {
     [setSelectedIndustry],
   );
 
-  /** Align Industry Profile + Header tenant label with restored cookie once tenant rows load. */
+  /** Align Industry Profile + header with restored cookie once tenant rows load. */
   useEffect(() => {
     if (rows.length === 0) return;
-    syncSelectedTenantNameFromRows(rows, setSelectedTenantName);
-    const raw = readIronframeTenantCookie();
-    if (!raw) return;
-    const lower = raw.toLowerCase();
-    const tenant =
-      rows.find((r) => r.id.toLowerCase() === lower) ?? rows.find((r) => r.slug.toLowerCase() === lower);
-    if (tenant) syncIndustryFromTenant(tenant);
-  }, [rows, syncIndustryFromTenant, cookieRevision, setSelectedTenantName]);
+    applyCommandCenterScopeFromCookie(rows, { setSelectedTenantName, setSelectedIndustry });
+  }, [rows, cookieRevision, setSelectedTenantName, setSelectedIndustry]);
 
   const selectedValue = useMemo(() => {
     void cookieRevision;
@@ -142,9 +115,8 @@ export default function TenantSwitcher() {
 
     if (v === "global") {
       setIronframeTenantCookie(null);
-      setIronguardEffectiveTenant(TENANT_UUIDS.medshield);
+      syncIronguardForRedTeamLane(true);
       setSelectedTenantName(null);
-      setSelectedIndustry("Healthcare");
       setCookieRevision((n) => n + 1);
       try {
         const logRes = await logTenantScopeChangeAction({ prevUuid, nextUuid: "global" });
@@ -163,7 +135,7 @@ export default function TenantSwitcher() {
     setIronframeTenantCookie(v);
     setIronguardEffectiveTenant(v);
     setSelectedTenantName(tenant?.name?.trim() ? tenant.name.trim() : null);
-    syncIndustryFromTenant(tenant);
+    if (tenant) syncIndustryFromTenant(tenant);
     setCookieRevision((n) => n + 1);
     try {
       const logRes = await logTenantScopeChangeAction({ prevUuid, nextUuid: v });

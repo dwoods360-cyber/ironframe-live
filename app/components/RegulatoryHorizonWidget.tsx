@@ -29,6 +29,10 @@ function severityClass(severity: string): string {
   return "border-slate-700 bg-slate-900/60 text-slate-200";
 }
 
+/**
+ * Not mounted on dashboard center pane (Epic-11 — no RiskEventsRegulatoryOverlay lane).
+ * Retained for compliance-drift admin / ops surfaces.
+ */
 export default function RegulatoryHorizonWidget() {
   const { tenantFetch } = useTenantContext();
   const [data, setData] = useState<DriftApiResponse | null>(null);

@@ -1,6 +1,7 @@
 /**
- * Epic 6 / LangGraph-style checkpoint persistence.
- * In-memory implementation with per-key serialization for optimistic concurrency tests.
+ * @deprecated Epic 15 — production LangGraph state uses `src/services/orchestration/checkpointer.ts`
+ * (`PostgresSaver` + `DATABASE_URL`). This in-memory store remains **only** for Ironguard
+ * optimistic-lock integration tests (`__tests__/integration/epic6-concurrency.test.ts`).
  */
 
 export type LangGraphCheckpointRecord = {

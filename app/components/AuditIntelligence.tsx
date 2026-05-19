@@ -39,7 +39,7 @@ import { getTotalCurrentRiskCentsString } from "@/app/utils/riskStoreBigIntMath"
 import { formatAleEngineManifestLine, formatBaselineDriftManifestParts } from "@/app/utils/baselineDriftManifest";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
 import { isShadowPlaneActiveClient } from "@/app/utils/shadowPlaneActive";
-import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
 import { fireAdversarialSalvoServerAction } from "@/app/actions/simulationActions";
 import {
   getPostMortemSummaryAction,
@@ -128,6 +128,7 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   EXPERT_CUSTODY_DECISION: "Custody decision",
   AGENT_PIVOT: "[AGENT_PIVOT] Strategy shifted due to new telemetry",
   CHAOS_AGENT_MOVEMENT: "Chaos agent movement",
+  RESILIENCE_INTEL_STREAM: "Resilience intel",
   ASSIGNEE_COMMENT: "Work note (ledger)",
   GOVERNANCE_ALERT: "Governance alert",
   GOVERNANCE_DEGRADATION_ABORT: "Governance degradation abort",
@@ -148,12 +149,18 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
 
 function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {
   const label = SERVER_ACTION_LABELS[row.action] ?? row.action;
+  const plainJustification = row.justification?.trim();
+  const intelLine =
+    row.action === "RESILIENCE_INTEL_STREAM" && plainJustification && !plainJustification.startsWith("{")
+      ? plainJustification
+      : null;
+  const suffix = row.threatId ? ` (threat ${row.threatId.slice(0, 8)}…)` : "";
   return {
     id: row.id,
     timestamp: typeof row.createdAt === "string" ? row.createdAt : new Date(row.createdAt).toLocaleString(),
     user_id: row.operatorId,
     action_type: row.action,
-    description: label + (row.threatId ? ` (threat ${row.threatId.slice(0, 8)}…)` : ""),
+    description: intelLine ? `${label} — ${intelLine}` : label + suffix,
     _sortTime: new Date(row.createdAt).getTime(),
     _fromServer: true,
     threatId: row.threatId,
@@ -525,6 +532,14 @@ function intelligencePayloadTextFromJustification(
   actionType: string,
   raw: string | null | undefined,
 ): string | null {
+  const trimmed = raw?.trim();
+  if (
+    actionType === "RESILIENCE_INTEL_STREAM" &&
+    trimmed &&
+    !trimmed.startsWith("{")
+  ) {
+    return trimmed;
+  }
   const p = safeParseJustificationRecord(raw);
   if (!p) return null;
   if (actionType === "GOVERNANCE_ALERT") {
@@ -686,9 +701,11 @@ function intelligenceRowKind(entry: LogEntryItem["entry"]): IntelligenceRowKind 
   }
   if (
     action === "CHAOS_AGENT_MOVEMENT" ||
+    action === "RESILIENCE_INTEL_STREAM" ||
     action === "ASSIGNEE_CHANGE" ||
     meta === "SIMULATION_DIAGNOSTIC_LOG" ||
-    (action.includes("AGENT") && action !== "ASSIGNEE_COMMENT")
+    (action.includes("AGENT") && action !== "ASSIGNEE_COMMENT") ||
+    /^SIM_BOT_/i.test((entry.user_id ?? "").trim())
   ) {
     return "agent";
   }
@@ -1013,7 +1030,73 @@ export default function AuditIntelligence({
   const resolveHistoricalThreatName = useRiskStore((state) => state.resolveHistoricalThreatName);
   const { expertModeEnabled, isSimulationMode } = useSystemConfigStore();
   const { activeTenantKey, activeTenantUuid, tenantFetch } = useTenantContext();
-  const tenantScopeForKills = resolveDashboardTenantUuid(activeTenantUuid);
+  const ledgerTenantUuid = useMemo(
+    () => resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName),
+    [activeTenantUuid, selectedTenantName],
+  );
+  const tenantScopeForKills = ledgerTenantUuid;
+  const [ledgerPollRows, setLedgerPollRows] = useState<ServerAuditLogRow[]>([]);
+
+  const refreshLedgerFeed = useCallback(() => {
+    if (!ledgerTenantUuid) {
+      setLedgerPollRows([]);
+      return undefined;
+    }
+    const ac = new AbortController();
+    void tenantFetch(
+      "/api/audit/ledger-feed?limit=100",
+      { cache: "no-store", signal: ac.signal },
+      ledgerTenantUuid,
+    )
+      .then((r) => (r.ok ? r.json() : { rows: [] }))
+      .then(
+        (data: {
+          rows?: Array<{
+            id: string;
+            action: string;
+            operatorId: string;
+            createdAt: string;
+            threatId: string | null;
+            justification: string | null;
+          }>;
+        }) => {
+          setLedgerPollRows(
+            (data.rows ?? []).map((row) => ({
+              ...row,
+              createdAt: new Date(row.createdAt),
+            })),
+          );
+        },
+      )
+      .catch(() => undefined);
+    return () => ac.abort();
+  }, [ledgerTenantUuid, tenantFetch]);
+
+  useEffect(() => {
+    const cleanup = refreshLedgerFeed();
+    return cleanup;
+  }, [refreshLedgerFeed]);
+
+  useEffect(() => {
+    const onRefetch = () => {
+      refreshLedgerFeed();
+    };
+    window.addEventListener("ironframe:dashboard-refetch", onRefetch);
+    return () => window.removeEventListener("ironframe:dashboard-refetch", onRefetch);
+  }, [refreshLedgerFeed]);
+
+  const effectiveServerAuditLogs = useMemo(() => {
+    const map = new Map<string, ServerAuditLogRow>();
+    for (const row of ledgerPollRows) {
+      map.set(row.id, row);
+    }
+    for (const row of serverAuditLogs ?? []) {
+      map.set(row.id, row);
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [ledgerPollRows, serverAuditLogs]);
   const agentKills = useAgentStore((s) => s.agentKills);
   const agentKillStats = useMemo(() => {
     const entries = Object.entries(agentKills) as [string, number][];
@@ -1038,7 +1121,7 @@ export default function AuditIntelligence({
 
   const resilienceGapFromPostMortem = useMemo(() => {
     let latest: { t: number; gap: boolean } | null = null;
-    for (const row of serverAuditLogs) {
+    for (const row of effectiveServerAuditLogs) {
       if (row.action !== "IRONSCRIBE_POST_MORTEM_STALE_DATA_OUTAGE") continue;
       const { resilienceGapDetected } = parseIronscribePostMortemAuditFlags(row.justification);
       const ts = new Date(row.createdAt).getTime();
@@ -1048,7 +1131,7 @@ export default function AuditIntelligence({
       }
     }
     return latest?.gap === true;
-  }, [serverAuditLogs]);
+  }, [effectiveServerAuditLogs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1235,15 +1318,15 @@ export default function AuditIntelligence({
       })
       .catch(() => setDiagnosticFeedItems([]));
     return () => ac.abort();
-  }, [focusId, serverAuditLogs]);
+  }, [focusId, effectiveServerAuditLogs]);
 
   const workNoteFeedItems = useMemo(
-    () => buildWorkNoteLogItemsFromThreats(Object.values(threatIndexById), serverAuditLogs ?? []),
-    [threatIndexById, serverAuditLogs],
+    () => buildWorkNoteLogItemsFromThreats(Object.values(threatIndexById), effectiveServerAuditLogs),
+    [threatIndexById, effectiveServerAuditLogs],
   );
 
   const mergedLogs = useMemo(() => {
-    const base = mergeUnifiedAuditLogs(serverAuditLogs ?? [], clientWithSort);
+    const base = mergeUnifiedAuditLogs(effectiveServerAuditLogs, clientWithSort);
     const enriched = [...base, ...diagnosticFeedItems, ...workNoteFeedItems];
     if (replayCutoffMs == null) return enriched;
     const cutoff = replayCutoffMs;
@@ -1255,7 +1338,7 @@ export default function AuditIntelligence({
     }
     return Array.from(map.values());
   }, [
-    serverAuditLogs,
+    effectiveServerAuditLogs,
     clientWithSort,
     replayCutoffMs,
     replayRows,

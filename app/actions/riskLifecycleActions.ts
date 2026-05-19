@@ -1,6 +1,9 @@
 "use server";
 
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import {
+  getActiveTenantUuidFromCookies,
+  getRedTeamSimulationTenantUuid,
+} from "@/app/utils/serverTenantContext";
 import { listRiskRegistryForTenant } from "@/app/lib/riskRegistryDb";
 import {
   ingestRedTeamAttackToRegistry,
@@ -16,8 +19,10 @@ export async function ingestRedTeamRiskAction(input: {
   sourceAgent: string;
   payload: unknown;
 }): Promise<{ ok: boolean; record: RiskRegistryRecord | null }> {
-  const tenantId = await getActiveTenantUuidFromCookies();
-  if (!tenantId) return { ok: false, record: null };
+  const tenantId = await getRedTeamSimulationTenantUuid();
+  if (!tenantId) {
+    return { ok: false, record: null };
+  }
   const record = await ingestRedTeamAttackToRegistry({
     tenantId,
     title: input.title,
@@ -32,7 +37,7 @@ export async function processRiskLifecycleAction(
   riskId: string,
   opts?: { riskEventId?: string },
 ): Promise<Awaited<ReturnType<typeof processRiskLifecycle>>> {
-  const tenantId = await getActiveTenantUuidFromCookies();
+  const tenantId = await getRedTeamSimulationTenantUuid();
   if (!tenantId) {
     return {
       ok: false,

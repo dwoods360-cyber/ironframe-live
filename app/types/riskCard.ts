@@ -22,6 +22,10 @@ export type RiskCardProcessedData = {
   governedLiability?: string;
   /** When set, render a high-contrast system-integrity badge (no separate overlay card). */
   systemIntegrityDrill?: SystemIntegrityDrillKind | null;
+  /** Linked threat / risk event id (forensic modal header). */
+  threatId?: string;
+  /** Ironscribe (Agent 5) markdown evidence locker artifact. */
+  markdownAuditBlock?: string;
 };
 
 export type RiskDeckCardItem = {

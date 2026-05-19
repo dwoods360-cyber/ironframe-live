@@ -5,16 +5,25 @@ import { join } from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
-export const GOVERNANCE_MATURITY_MIN = 1;
-export const GOVERNANCE_MATURITY_MAX = 10;
-export const GOVERNANCE_DEGRADATION_THRESHOLD = 5;
-export const GOVERNANCE_NEUTRALIZE_MIN_NORMAL = 50;
-export const GOVERNANCE_NEUTRALIZE_MIN_DEGRADED = 75;
-/** Ironlock (Agent 6): during Ironwatch Stale Data (live grid API down), raise attestation floor for human scrutiny. */
-export const IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS = 100;
-export const GOVERNANCE_MATURITY_TREND_DAYS = 30;
+export {
+  GOVERNANCE_DEGRADATION_ACTION,
+  GOVERNANCE_DEGRADATION_THRESHOLD,
+  GOVERNANCE_MATURITY_MAX,
+  GOVERNANCE_MATURITY_MIN,
+  GOVERNANCE_MATURITY_TREND_DAYS,
+  GOVERNANCE_NEUTRALIZE_MIN_DEGRADED,
+  GOVERNANCE_NEUTRALIZE_MIN_NORMAL,
+  IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS,
+} from "@/app/config/governanceMaturityConstants";
 
-export const GOVERNANCE_DEGRADATION_ACTION = "GOVERNANCE_DEGRADATION";
+import {
+  GOVERNANCE_MATURITY_MIN,
+  GOVERNANCE_MATURITY_MAX,
+  GOVERNANCE_NEUTRALIZE_MIN_NORMAL,
+  GOVERNANCE_NEUTRALIZE_MIN_DEGRADED,
+  IRONLOCK_STALE_DATA_FORENSIC_MIN_CHARS,
+  GOVERNANCE_MATURITY_TREND_DAYS,
+} from "@/app/config/governanceMaturityConstants";
 
 export type {
   GovernanceMaturitySnapshot,

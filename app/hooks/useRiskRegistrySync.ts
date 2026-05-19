@@ -22,6 +22,7 @@ export function useRiskRegistrySync(
   const initialSigRef = useRef<string | null>(null);
   const fetchedRef = useRef(false);
 
+  /** Registry store hygiene only — does not remove Active Risks cards (victory lap conductor owns UI purge). */
   useRiskRegistryResolvedPurge(enabled);
 
   useEffect(() => {

@@ -8,7 +8,10 @@ import {
 } from "@/app/lib/ironbloom/carbonPulseState";
 import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRoster";
 import { getTenantCarbonIntensityThresholdGco2 } from "@/app/config/tenantCarbonZones";
-import { computeSustainabilityAle } from "@/app/services/ironbloom/scoring";
+import {
+  computeSustainabilityAle,
+  fetchLiveCarbonIntensityForTenant,
+} from "@/app/services/ironbloom/scoring";
 import { runDirtyGridMonitorForTenant } from "@/src/services/agents/ironlock/dirtyGridMonitor";
 import {
   getIronlockThrottlePayloadSync,
@@ -196,6 +199,8 @@ export async function buildCarbonPulsePayload(tenantId: string): Promise<CarbonP
   const key = tenantKey ?? "medshield";
 
   const referenceKwh = Math.max(100, Number(process.env.IRONBLOOM_PULSE_REFERENCE_KWH ?? "500"));
+  const intensityQuote = await fetchLiveCarbonIntensityForTenant(key);
+
   const ale = await computeSustainabilityAle({
     tenantKey: key,
     unitsKwh: referenceKwh,
@@ -236,7 +241,7 @@ export async function buildCarbonPulsePayload(tenantId: string): Promise<CarbonP
     tenantKey,
     zone: monitor.zone,
     carbonIntensityGco2PerKwh: monitor.currentIntensityGco2PerKwh,
-    intensitySource: "electricity-maps",
+    intensitySource: intensityQuote.source,
     sustainabilityAleCents: ale.mitigatedValueCents.toString(),
     sustainabilityAleDisplay: formatCentsToAccountingUSD(ale.mitigatedValueCents),
     mitigatedValueCentsAggregate: mitigatedAgg.toString(),

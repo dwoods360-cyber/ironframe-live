@@ -66,7 +66,7 @@ export async function runDirtyGridMonitorForTenant(
 ): Promise<DirtyGridMonitorResult> {
   const tenantKey = tenantKeyFromUuid(tenantId) ?? "medshield";
   const zone = TENANT_ELECTRICITY_MAP_ZONES[tenantKey];
-  const quote = await fetchLiveCarbonIntensity(zone);
+  const quote = await fetchLiveCarbonIntensity(zone, tenantKey);
 
   let state = await readCarbonPulseState();
   const samples = pruneSamplesOlderThan24h(state.samplesByTenant[tenantId] ?? []);

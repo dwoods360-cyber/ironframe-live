@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
-import { getActiveTenantUuidFromCookies, resolveTenantUuidForThreatScope } from "@/app/utils/serverTenantContext";
+import {
+  getActiveTenantUuidFromCookies,
+  getRedTeamSimulationTenantUuid,
+  resolveTenantUuidForThreatScope,
+} from "@/app/utils/serverTenantContext";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import type { ChaosClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { ingressGateway, ingressUsesRiskEventTable } from "@/app/lib/security/ingressGateway";
@@ -464,14 +468,23 @@ export async function injectChaosThreatAction(
   | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
   | { ok: false; error: string }
 > {
-  const tenantFromCookie = await getActiveTenantUuidFromCookies();
+  /** Control Room Simulation Bots A–C: e79ea77 server default (cookie or Medshield) — not global-aggregate strict mode. */
+  const isControlRoomIntegrityBot = Boolean(options?.systemIntegrityDrillId);
+  const tenantFromCookie = isControlRoomIntegrityBot
+    ? await getActiveTenantUuidFromCookies()
+    : await getRedTeamSimulationTenantUuid();
   const tenantId = options?.tenantUuidOverride?.trim()
     ? await resolveTenantUuidForThreatScope(options.tenantUuidOverride.trim())
     : tenantFromCookie;
   if (!tenantId) {
-    return { ok: false, error: "No active tenant." };
+    return {
+      ok: false,
+      error: isControlRoomIntegrityBot
+        ? "No active tenant."
+        : "No active tenant — select Command Center scope or enable simulation / Shadow Plane.",
+    };
   }
-  if (options?.tenantUuidOverride?.trim()) {
+  if (options?.tenantUuidOverride?.trim() && !isControlRoomIntegrityBot) {
     const override = options.tenantUuidOverride.trim();
     const resolvedOverride = await resolveTenantUuidForThreatScope(override);
     if (!resolvedOverride) {
@@ -828,6 +841,7 @@ export async function triggerSystemIntegrityDrillAction(
     const ingressLine = ingressLineByDrillId[drillId];
     if (ingressLine) {
       await recordResilienceIntelStreamLine(ingressLine, result.threatId);
+      await logSystemIntegrityDrillAudit(drillId, result.threatId, ingressLine);
     }
   }
   return result;
@@ -862,6 +876,34 @@ export type ChaosShadowDrillTelemetryStep = {
   /** When true, sets `chaosObserverConcurrenceVerifiedAt` on the row JSON (GRC). */
   recordObserverConcurrenceVerified?: boolean;
 };
+
+/** Control Room Simulation Bots A–C: Audit Intelligence row (plain-text resilience + CHAOS_AGENT_MOVEMENT). */
+async function logSystemIntegrityDrillAudit(
+  drillId: SystemIntegrityDrillId,
+  threatId: string,
+  ingressLine: string,
+): Promise<void> {
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  const botTag = drillId.toUpperCase();
+  const justification = JSON.stringify({
+    message: ingressLine,
+    terminalLine: ingressLine,
+    drillId,
+    phase: "SYSTEM_INTEGRITY_DRILL_FIRE",
+    assigneeLabel: botTag,
+    directiveId: `SIM_BOT_${botTag}`,
+  });
+  await logThreatActivity(
+    useRiskEventTable ? null : threatId,
+    "CHAOS_AGENT_MOVEMENT",
+    justification,
+    {
+      operatorId: `SIM_BOT_${botTag}`,
+      simThreatId: useRiskEventTable ? threatId : null,
+      isSimulation: useRiskEventTable,
+    },
+  );
+}
 
 /** Audit Intelligence stream: one row per supervised chaos handoff (shadow uses `simThreatId`). */
 async function logChaosAgentMovementActivity(args: {

@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import RiskCard from "@/app/components/RiskCard";
 
 describe("RiskCard lifecycle pattern states", () => {
@@ -72,6 +72,28 @@ describe("RiskCard lifecycle pattern states", () => {
     expect(screen.getByText("SOC 2")).toBeTruthy();
     expect(screen.getByText("Governed liability")).toBeTruthy();
     expect(screen.getByText("$820,000.00")).toBeTruthy();
+  });
+
+  it("shows collapsed accordion and verify artifact footer", () => {
+    const onVerify = vi.fn();
+    render(
+      <RiskCard
+        processedData={{
+          title: "CSRD exposure",
+          value: "850",
+          delta: "Active",
+          status: "ACTIVE",
+          threatId: "abc12345-0000-4000-8000-000000000001",
+          frameworkLabel: "ESRS E1-6",
+          markdownAuditBlock: "# FORENSIC AUDIT TRAIL\n**Threat ID:** `t1`",
+        }}
+        onVerifyArtifact={onVerify}
+      />,
+    );
+    expect(screen.getByTestId("inline-audit-accordion")).toBeTruthy();
+    expect(screen.queryByTestId("inline-audit-accordion-body")).toBeNull();
+    fireEvent.click(screen.getByTestId("risk-card-verify-artifact"));
+    expect(onVerify).toHaveBeenCalledTimes(1);
   });
 
   it("RESOLVED shows checkmark and forensic closure", () => {

@@ -13,7 +13,7 @@ import LiabilityAlertToast from './LiabilityAlertToast';
 import RecordExpiredToast from './RecordExpiredToast';
 import ThreatActionErrorToast from './ThreatActionErrorToast';
 import { useTenantContext } from '../context/TenantProvider';
-import { resolveDashboardTenantUuid } from '../utils/clientTenantCookie';
+import { resolveEffectiveTenantUuidForActions } from '@/app/utils/resolveEffectiveTenantUuidForActions';
 import type { StreamAlert } from '../hooks/useAlerts';
 import { useRiskStore } from '../store/riskStore';
 import { useAgentStore } from '../store/agentStore';
@@ -162,6 +162,10 @@ type Props = {
   governanceMaturity?: GovernanceMaturitySnapshot | null;
   /** Hydrated `risk_registry` rows — Stage-1 Irongate sync (logs / assignee history, not a UI deck). */
   initialRiskRegistry?: RiskRegistryRecord[];
+  /** Production Ironbloom `mitigated_value_cents` aggregate (BigInt string, simulation excluded). */
+  carbonMitigatedValueCents?: string;
+  /** Formatted USD for CFO surfaces. */
+  carbonMitigatedDisplay?: string;
 };
 
 /** Pre-tenant dashboard shell: global systems render; tenant-scoped fields stay empty until Command Center selection. */
@@ -232,6 +236,8 @@ export default function DashboardHomeClient({
   serverTimeEpochMs,
   governanceMaturity = null,
   initialRiskRegistry = [],
+  carbonMitigatedValueCents = "0",
+  carbonMitigatedDisplay = "$0.00",
 }: Props) {
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
   useRiskRegistrySync(true, initialRiskRegistry);
@@ -304,9 +310,10 @@ export default function DashboardHomeClient({
     setHandshakePhase("idle");
   }, [clearHandshakeTimers]);
 
+  /** Align with ThreatPipeline / server actions: shadow+sim use Medshield when Global has no cookie. */
   const dashboardTenantUuid = useMemo(
-    () => resolveDashboardTenantUuid(activeTenantUuid),
-    [activeTenantUuid],
+    () => resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName),
+    [activeTenantUuid, selectedTenantName],
   );
 
   /** One verification ledger row per tenant UUID session scope — deferred append (Audit Intelligence subscribe-safe). */
@@ -1046,13 +1053,16 @@ export default function DashboardHomeClient({
                 </div>
               ) : null}
               <div className={`w-full py-5 pb-8 ${DASHBOARD_CENTER_PAD_X}`} data-testid="scrutiny-block">
-                <HandshakeStatusBar phase={handshakePhase} />
-                <GrcMaturityStrip maturity={governanceMaturity} className="mt-4" />
+                <GrcMaturityStrip maturity={governanceMaturity} className="mt-0" />
+                <div className="mt-4">
+                  <HandshakeStatusBar phase={handshakePhase} />
+                </div>
                 <GrcAleExposureMap
                   className="mt-5"
                   isSimulationMode={isSimulationMode}
                   complianceVelocity={complianceVelocity}
                   avgHoursToControlMapping={avgHoursToControlMapping}
+                  carbonMitigatedValueCents={carbonMitigatedValueCents}
                   totalValueMitigatedYtdCents={totalValueMitigatedYtdCents}
                   projectedInsuranceSavingsCents={projectedInsuranceSavingsCents}
                   insuranceDiscountPct={insuranceDiscountPct}
@@ -1093,25 +1103,6 @@ export default function DashboardHomeClient({
                   </div>
                 </div>
                 </GrcAleExposureMap>
-
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {scrutinyAssetTelemetryRows
-                    .filter((row) => !isMedshieldGhostAsset(row.asset))
-                    .slice(0, 8)
-                    .map((row) => (
-                      <div
-                        key={row.asset}
-                        className="rounded border border-slate-800/70 bg-slate-950/35 p-2 text-[9px] text-slate-500"
-                      >
-                        <p className="truncate font-medium text-slate-400" title={row.asset}>
-                          {row.asset}
-                        </p>
-                        <p className="mt-1 font-mono text-[8px] text-slate-600">
-                          Cycles {row.total} · focus {row.focusHeat} · forecast {row.predicted.toFixed(1)}
-                        </p>
-                      </div>
-                    ))}
-                </div>
               </div>
             </section>
           )}
@@ -1128,6 +1119,19 @@ export default function DashboardHomeClient({
           ) : null}
 
           {!auditorViewEnabled ? (
+            <section
+              className={DASHBOARD_CENTER_RISK_STACK}
+              aria-label="Active risks — four-stage lifecycle"
+              data-testid="active-risks-focal-section"
+            >
+              <ActiveRisksClient
+                risks={effectiveData.risks}
+                threatEvents={effectiveData.threatEvents ?? []}
+                setSelectedThreatId={setSelectedThreatId}
+              />
+            </section>
+          ) : null}
+          {!auditorViewEnabled ? (
             <ThreatPipeline
               supplyChainThreat={null}
               showSocStream={true}
@@ -1143,13 +1147,6 @@ export default function DashboardHomeClient({
                 presetSimulationActive={presetRiskSelected}
               />
             </div>
-          ) : null}
-          {!auditorViewEnabled ? (
-            <ActiveRisksClient
-              risks={effectiveData.risks}
-              threatEvents={effectiveData.threatEvents ?? []}
-              setSelectedThreatId={setSelectedThreatId}
-            />
           ) : null}
           </div>
           </div>

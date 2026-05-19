@@ -195,6 +195,118 @@ async function listRiskRegistryRawSql(
   }
 }
 
+export type PersistForensicStateInput = {
+  threatId: string;
+  tenantId: string;
+  status: "ACTIVE" | "INGESTED" | "REGISTERED";
+  currentAssignee: string | null;
+  financialImpactCents: bigint;
+  history: Array<{ agentId: string; timestamp: string; message: string }>;
+  /** Ironscribe (Agent 5) immutable markdown evidence locker artifact. */
+  rawAuditMarkdown?: string;
+};
+
+/**
+ * Epic 10.3 — final forensic pipeline handover to risk_registry (tenant-scoped).
+ */
+export async function persistForensicState(
+  input: PersistForensicStateInput,
+): Promise<RiskRegistryRecord | null> {
+  const threatId = input.threatId.trim();
+  const tenantId = input.tenantId.trim();
+  if (!threatId || !tenantId) return null;
+
+  const registry = riskRegistryDelegate();
+  if (!registry) {
+    warnMissingRiskRegistryClient();
+    return null;
+  }
+
+  const cents = input.financialImpactCents.toString();
+  const ironscribeAudit = input.rawAuditMarkdown?.trim();
+  const ingestionDetails = {
+    forensicPipeline: true,
+    financialImpactCents: cents,
+    assignee: input.currentAssignee,
+    history: input.history,
+    lastPersistedAt: new Date().toISOString(),
+    ...(ironscribeAudit
+      ? {
+          rawAuditMarkdown: ironscribeAudit,
+          ironscribeAgentId: "Agent_05_Ironscribe",
+          ironscribeSealedAt: new Date().toISOString(),
+        }
+      : {}),
+  };
+
+  const lifecycleStatus = input.status;
+  const deltaLabel = input.currentAssignee
+    ? `Assignee: ${input.currentAssignee}`
+    : deltaLabelForLifecycle(lifecycleStatus);
+  const telemetryValue = cents.slice(0, 120);
+  const sourceAgent = (
+    ironscribeAudit ? "Agent_05_Ironscribe" : (input.currentAssignee ?? "FORENSIC_PIPELINE")
+  ).slice(0, 64);
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const txRegistry = (tx as unknown as { riskRegistry: RiskRegistryPrismaDelegate }).riskRegistry;
+      if (!txRegistry?.findFirst) {
+        warnMissingRiskRegistryClient();
+        return null;
+      }
+
+      const existing = await txRegistry.findFirst({
+        where: { tenantId, riskEventId: threatId },
+      });
+
+      if (existing) {
+        let mergedDetails: Record<string, unknown> = ingestionDetails;
+        try {
+          const prev =
+            existing.ingestionDetails == null
+              ? {}
+              : typeof existing.ingestionDetails === "string"
+                ? (JSON.parse(existing.ingestionDetails) as Record<string, unknown>)
+                : (existing.ingestionDetails as Record<string, unknown>);
+          mergedDetails = { ...prev, ...ingestionDetails };
+        } catch {
+          mergedDetails = ingestionDetails;
+        }
+
+        const row = await txRegistry.update({
+          where: { id: existing.id },
+          data: {
+            lifecycleStatus,
+            telemetryValue,
+            deltaLabel,
+            sourceAgent,
+            ingestionDetails: mergedDetails as Prisma.InputJsonValue,
+          },
+        });
+        return row.tenantId === tenantId ? sanitizeRecord(row) : null;
+      }
+
+      const created = await txRegistry.create({
+        data: {
+          tenantId,
+          title: `Forensic threat ${threatId.slice(0, 32)}`,
+          telemetryValue,
+          sourceAgent,
+          lifecycleStatus,
+          deltaLabel,
+          riskEventId: threatId,
+          ingestionDetails: ingestionDetails as Prisma.InputJsonValue,
+        },
+      });
+      return sanitizeRecord(created);
+    });
+  } catch (err) {
+    if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
+    throw err;
+  }
+}
+
 export async function insertRiskRegistryIngested(input: {
   tenantId: string;
   title: string;
@@ -224,6 +336,31 @@ export async function insertRiskRegistryIngested(input: {
       },
     });
     return sanitizeRecord(row);
+  } catch (err) {
+    if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
+    throw err;
+  }
+}
+
+/** Tenant-scoped lookup by linked ThreatEvent / LangGraph thread id. */
+export async function findRiskRegistryByThreatEventId(
+  threatEventId: string,
+  tenantId: string,
+): Promise<RiskRegistryRecord | null> {
+  const threatId = threatEventId.trim();
+  const tid = tenantId.trim();
+  if (!threatId || !tid) return null;
+
+  const registry = riskRegistryDelegate();
+  if (!registry) {
+    warnMissingRiskRegistryClient();
+    return null;
+  }
+  try {
+    const row = await registry.findFirst({
+      where: { tenantId: tid, riskEventId: threatId },
+    });
+    return row ? sanitizeRecord(row) : null;
   } catch (err) {
     if (isMissingRiskRegistryTable(err) || isStaleDelegateError(err)) return null;
     throw err;

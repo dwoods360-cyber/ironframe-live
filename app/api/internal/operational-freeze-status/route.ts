@@ -26,7 +26,8 @@ export async function GET(req: NextRequest) {
       select: { stateFreezeActive: true },
     }),
   ]);
-  const globalStateFreeze = cfg?.stateFreezeActive === true;
+  const globalStateFreeze =
+    snap.globalSecurityFreezeActive || cfg?.stateFreezeActive === true;
   const staleLockdown = snap.isSystemFrozen;
   return NextResponse.json(
     {

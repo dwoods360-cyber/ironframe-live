@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { CarbonIntensityQuote } from "@/app/types/ironbloomScoring";
 import { resolveTenantLocation, US_ZIP_GEO_ANCHORS } from "@/app/config/tenantUtilityLocation";
 import {
   getCachedRateForTenant,
@@ -259,4 +260,35 @@ export async function getLatestUtilityRateForTenant(
   const cached = getCachedRateForTenant(state, tenantKey);
   if (cached) return cached.quote;
   return fetchUtilityRateForTenant(tenantKey);
+}
+
+/** gCO₂eq/kWh (US-MN 2026 Baseline) — forensic path when Electricity Maps is absent or returns null. */
+export const FALLBACK_CARBON_INTENSITY = 380;
+
+/** Kimbot CSRD transparency label when grid intensity is estimated from the regional anchor. */
+export const CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG = "[ESTIMATED: REGIONAL_AVG]";
+
+const FORENSIC_JITTER_RATIO = 0.025;
+
+export function isElectricityMapsApiConfigured(): boolean {
+  return Boolean(process.env.ELECTRICITY_MAPS_API_KEY?.trim());
+}
+
+/**
+ * ±2.5% forensic jitter on the US-MN anchor — dashboard telemetry stays alive without a live API key.
+ */
+export function jitterForensicCarbonIntensity(base = FALLBACK_CARBON_INTENSITY): number {
+  const delta = (Math.random() * 2 - 1) * FORENSIC_JITTER_RATIO;
+  const jittered = base * (1 + delta);
+  return Math.round(jittered * 10) / 10;
+}
+
+export function buildForensicFallbackQuote(zone: string): CarbonIntensityQuote {
+  return {
+    zone,
+    carbonIntensityGco2PerKwh: jitterForensicCarbonIntensity(),
+    source: "FORENSIC_FALLBACK",
+    transparencyLabel: CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG,
+    polledAt: new Date().toISOString(),
+  };
 }

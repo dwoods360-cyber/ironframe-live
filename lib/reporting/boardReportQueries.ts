@@ -16,19 +16,35 @@ function daysAgo(days: number): Date {
   return new Date(Date.now() - days * MS_DAY);
 }
 
-function simLossWhereSince(since: Date) {
+/** `ThreatEvent.ingestionDetails` is `String?` — supports `contains`. */
+function simLossThreatWhereSince(since: Date): Prisma.ThreatEventWhereInput {
   return {
     createdAt: { gte: since },
     OR: [
-      { ingestionDetails: { contains: "SIM_LOSS", mode: "insensitive" as const } },
-      { title: { contains: "SIM_LOSS", mode: "insensitive" as const } },
+      { ingestionDetails: { contains: "SIM_LOSS", mode: "insensitive" } },
+      { title: { contains: "SIM_LOSS", mode: "insensitive" } },
     ],
   };
 }
 
-const LAB_REMEDIATED_FILTER = {
-  ingestionDetails: { contains: "labRemediation", mode: "insensitive" as const },
-} as const;
+/** `RiskEvent.ingestionDetails` is `Json?` — use `string_contains`, not `contains`. */
+function simLossRiskWhereSince(since: Date): Prisma.RiskEventWhereInput {
+  return {
+    createdAt: { gte: since },
+    OR: [
+      { ingestionDetails: { string_contains: "SIM_LOSS" } },
+      { title: { contains: "SIM_LOSS", mode: "insensitive" } },
+    ],
+  };
+}
+
+const LAB_REMEDIATED_THREAT_FILTER = {
+  ingestionDetails: { contains: "labRemediation", mode: "insensitive" },
+} satisfies Prisma.ThreatEventWhereInput;
+
+const LAB_REMEDIATED_RISK_FILTER = {
+  ingestionDetails: { string_contains: "labRemediation" },
+} satisfies Prisma.RiskEventWhereInput;
 
 const BOARD_GOVERNANCE_ACTIONS = [
   ...NOTIFICATION_CONFIG_AUDIT_ACTIONS,
@@ -285,25 +301,25 @@ async function loadFinancialBlock(): Promise<BoardFinancialBlock> {
     await Promise.all([
       prisma.syntheticEmployee.aggregate({ _sum: { monetaryValue: true, totalLossIncurred: true } }),
       prisma.riskEvent.aggregate({
-        where: simLossWhereSince(thirty),
+        where: simLossRiskWhereSince(thirty),
         _sum: { financialRisk_cents: true },
       }),
       prisma.threatEvent.aggregate({
-        where: simLossWhereSince(thirty),
+        where: simLossThreatWhereSince(thirty),
         _sum: { financialRisk_cents: true },
       }),
-      prisma.riskEvent.count({ where: simLossWhereSince(thirty) }),
-      prisma.threatEvent.count({ where: simLossWhereSince(thirty) }),
+      prisma.riskEvent.count({ where: simLossRiskWhereSince(thirty) }),
+      prisma.threatEvent.count({ where: simLossThreatWhereSince(thirty) }),
       prisma.riskEvent.count({
         where: {
           updatedAt: { gte: thirty },
-          ...LAB_REMEDIATED_FILTER,
+          ...LAB_REMEDIATED_RISK_FILTER,
         },
       }),
       prisma.threatEvent.count({
         where: {
           updatedAt: { gte: thirty },
-          ...LAB_REMEDIATED_FILTER,
+          ...LAB_REMEDIATED_THREAT_FILTER,
         },
       }),
     ]);

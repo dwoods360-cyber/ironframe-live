@@ -13,6 +13,7 @@ type PulsePayload = {
   tenantId: string;
   zone: string;
   carbonIntensityGco2PerKwh: number;
+  intensitySource?: string;
   sustainabilityAleCents: string;
   sustainabilityAleDisplay: string;
   mitigatedValueCentsAggregate: string;
@@ -53,6 +54,7 @@ type ApiResponse = {
   ok: boolean;
   pulse?: PulsePayload;
   financialImpact?: CostOfNonComplianceResult;
+  source?: string;
   error?: string;
 };
 
@@ -212,6 +214,8 @@ export default function CarbonPulse() {
 
   const effectivePulse = pulse ?? fallbackBundle?.pulse;
   const effectiveFin = fin ?? fallbackBundle?.financialImpact;
+  const forensicFallbackActive =
+    effectivePulse?.intensitySource === "FORENSIC_FALLBACK" || data?.source === "FORENSIC_FALLBACK";
 
   const lkgTooltip = useMemo(() => {
     if (!lkgRecordedAt) {
@@ -268,6 +272,14 @@ export default function CarbonPulse() {
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {forensicFallbackActive ? (
+            <span
+              className="inline-flex items-center rounded border border-amber-700/50 bg-amber-950/40 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide text-amber-200/95"
+              title="ELECTRICITY_MAPS_API_KEY unset — US-MN 2026 forensic anchor (380 gCO₂eq/kWh ±2.5% jitter)"
+            >
+              Fallback Active
+            </span>
+          ) : null}
           {effectivePulse ? (
             <span
               className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[7px] font-black uppercase ${
@@ -313,7 +325,12 @@ export default function CarbonPulse() {
             >
               <p className="mb-1 flex items-center gap-1 text-[7px] uppercase text-slate-500">
                 <Gauge className="h-3 w-3" aria-hidden />
-                Intensity {isUsingFallback ? "(verified local)" : "(live)"}
+                Intensity{" "}
+                {forensicFallbackActive
+                  ? "(forensic fallback)"
+                  : isUsingFallback
+                    ? "(verified local)"
+                    : "(live)"}
               </p>
               {isUsingFallback ? (
                 <div className="flex items-center gap-2">
@@ -345,6 +362,11 @@ export default function CarbonPulse() {
                       {Math.round(effectivePulse.carbonIntensityGco2PerKwh)}
                       <span className="text-[9px] font-normal text-slate-400"> gCO₂eq/kWh</span>
                     </p>
+                    {forensicFallbackActive ? (
+                      <p className="mt-0.5 text-[7px] font-semibold uppercase tracking-wide text-amber-300/90">
+                        Fallback Active · US-MN anchor
+                      </p>
+                    ) : null}
                     <p className="mt-0.5 truncate text-[7px] text-slate-500" title={effectivePulse.zone}>
                       {effectivePulse.zone}
                     </p>

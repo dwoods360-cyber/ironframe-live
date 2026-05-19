@@ -11,8 +11,10 @@ import { IronCore } from "../agents/ironcore";
 import { IronScribe } from "../agents/ironscribe";
 import { IronTrust } from "../agents/irontrust";
 import { TheWarden } from "../agents/warden";
-import { IronTech } from "./checkpointer";
+import { getPostgresCheckpointer } from "./checkpointer";
 import { Ironbloom } from "../agents/ironbloom";
+import { ironsightCvePoll } from "../agents/ironsight";
+import { irontallyFrameworkMap } from "../agents/irontally";
 import {
   getIronlockGovernanceDelayMsForTenantSync,
   IRONLOCK_AUTO_THROTTLE_NOTIFICATION,
@@ -54,10 +56,16 @@ const irontallyThrottled = async (state: GraphState) => {
   return logs.length ? { agent_logs: logs } : {};
 };
 
-/** Sprint placeholder nodes: registered now; throttling hooks on background chain. */
+/** Background chain nodes — Epic 10.2 handlers + Ironlock governance delay. */
 const passThroughIronsight = async (state: GraphState) => {
   const idle = await ironsightThrottled(state);
-  return { ...idle };
+  const cve = await ironsightCvePoll((state.raw_payload ?? {}) as Record<string, unknown>);
+  return {
+    ...idle,
+    agent_logs: [
+      `Ironsight (Agent 04): ${cve.cve} blast radius ${cve.blastRadius}.`,
+    ],
+  };
 };
 const passThroughIronquery = async (state: GraphState) => {
   const idle = await ironqueryThrottled(state);
@@ -65,7 +73,15 @@ const passThroughIronquery = async (state: GraphState) => {
 };
 const passThroughIrontally = async (state: GraphState) => {
   const idle = await irontallyThrottled(state);
-  return { ...idle };
+  const mapping = await irontallyFrameworkMap(
+    (state.raw_payload ?? {}) as Record<string, unknown>,
+  );
+  return {
+    ...idle,
+    agent_logs: [
+      `Irontally (Agent 19): ${mapping.frameworkId} — ${mapping.controls.length} controls mapped.`,
+    ],
+  };
 };
 
 export async function createSovereignGraph() {
@@ -104,6 +120,8 @@ export async function createSovereignGraph() {
   workflow.addEdge("ironquery", "irontally");
   workflow.addEdge("irontally", END);
 
-  const checkpointer = await IronTech.getCheckpointer();
-  return workflow.compile({ checkpointer });
+  const postgresCheckpointer = await getPostgresCheckpointer();
+  return workflow.compile({ checkpointer: postgresCheckpointer });
 }
+
+export { executeAutonomousStateFreeze, getPostgresCheckpointer } from "./checkpointer";

@@ -112,3 +112,31 @@ export class Ironbloom {
     }
   }
 }
+
+export type IronbloomTelemetryMetric = {
+  value: number;
+  unit: string;
+  assetId: string;
+};
+
+function extractKwhFromPayload(payload: Record<string, unknown>): number {
+  if (typeof payload.units_kwh === "number") return payload.units_kwh;
+  if (typeof payload.kwh === "number") return payload.kwh;
+  if (typeof payload.unitsKwh === "number") return payload.unitsKwh;
+  if (typeof payload.kwhAverted === "number") return payload.kwhAverted;
+  return 0;
+}
+
+/** Epic 10.2 — physical sustainability telemetry capture for the forensic graph. */
+export async function ironbloomTelemetry(
+  sanitizedPayload: Record<string, unknown>,
+): Promise<IronbloomTelemetryMetric> {
+  const value = extractKwhFromPayload(sanitizedPayload);
+  const assetId =
+    typeof sanitizedPayload.asset_id === "string"
+      ? sanitizedPayload.asset_id
+      : typeof sanitizedPayload.assetId === "string"
+        ? sanitizedPayload.assetId
+        : "ESG_FORENSIC";
+  return { value, unit: "kWh", assetId };
+}

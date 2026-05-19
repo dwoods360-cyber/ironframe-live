@@ -72,33 +72,18 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const devUuid =
     process.env.NODE_ENV === "development" && devTenantOverride ? TENANT_UUIDS[devTenantOverride] : null;
 
-  /**
-   * When no route / dev override / cookie scope exists, default to Medshield so server queries
-   * (`GET /api/threats/active`, Ironguard) never run with an empty tenant filter (GRC “PENDING” lock).
-   */
-  const activeTenantUuid = routeUuid ?? devUuid ?? cookieTenantUuid ?? TENANT_UUIDS.medshield;
+  /** Null when Global Command Center has no cookie — aggregate dashboard stays unscoped (TAS). */
+  const activeTenantUuid = routeUuid ?? devUuid ?? cookieTenantUuid;
 
-  /** Derive chip key from cookie, else from resolved UUID (Medshield default) so ALE / handshake never stay orphaned. */
   const activeTenantKey =
     routeTenantKey ??
     (process.env.NODE_ENV === "development" ? devTenantOverride : null) ??
-    tenantKeyFromUuid(cookieTenantUuid ?? activeTenantUuid);
+    tenantKeyFromUuid(cookieTenantUuid);
 
   useEffect(() => {
     if (devIronguardCookieSyncSuppressed) return;
-    setIronguardEffectiveTenant(resolveDashboardTenantUuid(activeTenantUuid));
-  }, [activeTenantUuid]);
-
-  /** Cold boot: persist Medshield UUID to `ironframe-tenant` so Server Actions match client context. */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (routeUuid || devUuid) return;
-    if (resolveDashboardTenantUuid(null)) return;
-    const med = TENANT_UUIDS.medshield;
-    document.cookie = `ironframe-tenant=${encodeURIComponent(med)};path=/;max-age=31536000;SameSite=Lax`;
-    window.dispatchEvent(new CustomEvent("ironframe-tenant-changed"));
-    setIronguardEffectiveTenant(med);
-  }, [routeUuid, devUuid]);
+    setIronguardEffectiveTenant(resolveDashboardTenantUuid(routeUuid ?? devUuid ?? null));
+  }, [routeUuid, devUuid, cookieTenantUuid]);
 
   const setDevTenantOverride = useCallback((tenant: TenantKey | null) => {
     if (process.env.NODE_ENV !== "development") {

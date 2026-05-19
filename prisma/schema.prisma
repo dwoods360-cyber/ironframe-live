@@ -9,38 +9,43 @@ datasource db {
 }
 
 model Tenant {
-  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                      String
-  slug                      String                      @unique
-  industry                  String?
-  shareAnonymizedBenchmarks Boolean                     @default(false)
-  ale_baseline              BigInt                      @default(0)
-  createdAt                 DateTime                    @default(now())
-  agent_logs                AgentLog[]
-  agentComputeLogs          AgentComputeLog[]
-  audit_exports             audit_exports[]
-  companies                 Company[]
-  compliance_snapshots      compliance_snapshots[]
-  governance_policy_history governance_policy_history[]
-  governance_settings       governance_settings?
-  vendors                   Vendor[]
-  riskEvents                RiskEvent[]
-  forensicSealLedgers       ForensicSealLedger[]
+  id                           String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                         String
+  slug                         String                      @unique
+  industry                     String?
+  shareAnonymizedBenchmarks    Boolean                     @default(false)
+  ale_baseline                 BigInt                      @default(0)
+  createdAt                    DateTime                    @default(now())
+  /// Ironlock: hard-banned adversary correlated to this tenant — drives Audit Intelligence siege UX.
+  isUnderTargetedSiege         Boolean                     @default(false) @map("is_under_targeted_siege")
+  /// Successful constitutional chaos drill — lifts quarantine maturity penalty until next adversarial activity.
+  lastChaosForensicHardeningAt DateTime?                   @map("last_chaos_forensic_hardening_at")
+  riskEvents                   RiskEvent[]
+  agentComputeLogs             AgentComputeLog[]
+  agent_logs                   AgentLog[]
+  audit_exports                audit_exports[]
+  companies                    Company[]
+  compliance_snapshots         compliance_snapshots[]
+  forensicSealLedgers          ForensicSealLedger[]
+  governance_policy_history    governance_policy_history[]
+  governance_settings          governance_settings?
+  riskRegistry                 RiskRegistry[]
+  vendors                      Vendor[]
 
   @@map("tenants")
 }
 
 /// Agentic compute telemetry — HASH-partitioned by `tenant_id` for billing and audit (Postgres 18).
 model AgentComputeLog {
-  tenantId       String   @map("tenant_id") @db.Uuid
-  id             String   @default(cuid())
-  agentId        String   @map("agent_id")
-  durationMs     Int      @map("duration_ms")
-  tokensIn       Int      @default(0) @map("tokens_in")
-  tokensOut      Int      @default(0) @map("tokens_out")
-  operationType  String   @map("operation_type")
-  createdAt      DateTime @default(now()) @map("created_at")
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId      String   @map("tenant_id") @db.Uuid
+  id            String   @default(cuid())
+  agentId       String   @map("agent_id")
+  durationMs    Int      @map("duration_ms")
+  tokensIn      Int      @default(0) @map("tokens_in")
+  tokensOut     Int      @default(0) @map("tokens_out")
+  operationType String   @map("operation_type")
+  createdAt     DateTime @default(now()) @map("created_at")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@id([tenantId, id])
   @@index([tenantId, createdAt])
@@ -161,15 +166,17 @@ model ThreatEvent {
   /// SHA-256 hex of canonical digital receipt JSON at last disposition commit (golden-source anchor).
   receiptHash              String?               @map("receipt_hash")
   ingestion_fingerprint    String?               @unique
+  resolutionApprovalId     String?               @map("resolution_approval_id")
+  /// Financial + sustainability ALE rollup (native cents; replaces JSON metadata proxies).
+  mitigatedValueCents      BigInt?               @map("mitigated_value_cents")
   agentOperations          AgentOperation[]
   auditTrail               AuditLog[]
   sustainabilityMetric     SustainabilityMetric?
   assignments              ThreatAssignment[]
+  resolutionApproval       ThreatApproval?       @relation("ThreatResolutionApproval", fields: [resolutionApprovalId], references: [id])
   notes                    WorkNote[]
-  approvals                ThreatApproval[]
-  resolutionApprovalId     String?               @map("resolution_approval_id")
-  resolutionApproval       ThreatApproval?       @relation("ThreatResolutionApproval", fields: [resolutionApprovalId], references: [id], onDelete: SetNull)
   agentReasonings          AgentReasoning[]
+  approvals                ThreatApproval[]
 
   @@index([tenantCompanyId])
   @@index([resolutionApprovalId])
@@ -178,13 +185,13 @@ model ThreatEvent {
 
 /// Agent-orchestration reasoning (append-only / read-only in product UI). One row per agent per threat.
 model AgentReasoning {
-  id         String      @id @default(uuid())
-  createdAt  DateTime    @default(now()) @map("created_at")
-  agentId    String      @map("agent_id")
-  threatId   String      @map("threat_id")
-  threat     ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
-  reasoning  String      @db.Text
-  metadata   Json        @default("{}")
+  id        String      @id @default(uuid())
+  createdAt DateTime    @default(now()) @map("created_at")
+  agentId   String      @map("agent_id")
+  threatId  String      @map("threat_id")
+  reasoning String
+  metadata  Json        @default("{}")
+  threat    ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@unique([agentId, threatId])
   @@index([threatId])
@@ -194,64 +201,66 @@ model AgentReasoning {
 /// Shadow / simulation plane risk ledger (`ironframe-simulation-mode=1`): mirrors `ThreatEvent` scalars (Epic 11 — framework-mapped control exposure).
 /// HASH-partitioned by `tenant_id` (Postgres declarative); composite PK prevents cross-tenant row identity collisions at the storage layer.
 model RiskEvent {
-  id                       String       @default(cuid())
-  title                    String
-  sourceAgent              String
-  source                   SimThreatSource @default(SYSTEM)
-  score                    Int
-  targetEntity             String
-  financialRisk_cents      BigInt       @default(0)
+  id                         String               @default(cuid())
+  title                      String
+  sourceAgent                String
+  source                     SimThreatSource      @default(SYSTEM)
+  score                      Int
+  targetEntity               String
+  financialRisk_cents        BigInt               @default(0)
   /// Immutable base impact (cents) — DB-level law: governed_impact = (base_impact_cents * governance_impact_multiplier) / 100.
   /// Example: 1.6× governance uses multiplier 160 → same integer cents as (base_impact_cents * 160) / 100.
-  baseImpactCents          BigInt       @default(0) @map("base_impact_cents")
+  baseImpactCents            BigInt               @default(0) @map("base_impact_cents")
   /// Integer multiplier in basis points (100 = 1.00×, 160 = 1.60×). All monetary fields BigInt.
-  governanceImpactMultiplier BigInt     @default(100) @map("governance_impact_multiplier")
-  /// Postgres GENERATED ALWAYS STORED BIGINT — expression lives in migrations / DB.
-  governedImpact           BigInt       @map("governed_impact") @default(dbgenerated())
+  governanceImpactMultiplier BigInt               @default(100) @map("governance_impact_multiplier")
   /// SHA-256 (hex) CISO/PO attestation + ingestion anchor (see `lib/crypto` canonical binding).
-  governanceHash           String?      @map("governance_hash")
-  tenantCompanyId          BigInt?
+  governanceHash             String?              @map("governance_hash")
+  tenantCompanyId            BigInt?
   /// Denormalized from `companies.tenantId` — HASH partition key (NOT NULL for partitioned rows).
-  tenantId                 String       @map("tenant_id") @db.Uuid
-  tenant                   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  status                   ThreatState  @default(IDENTIFIED)
+  tenantId                   String               @map("tenant_id") @db.Uuid
+  status                     ThreatState          @default(IDENTIFIED)
   /// Epic 11: primary compliance framework for this risk event (HUD prioritizes drift vs. control mapping).
-  complianceFramework    ComplianceFramework @default(SOC2)
+  complianceFramework        ComplianceFramework  @default(SOC2)
   /// Mapped control identifiers (e.g. SOC2 CC6.1, ISO A.8.2, NIST PR.AC-3).
-  mappedControls           String[]     @default([])
-  remoteTechId             String?      @map("remote_tech_id")
-  isRemoteAccessAuthorized Boolean      @default(false) @map("remoteAccessAuthorized")
-  ttlSeconds               Int          @default(259200)
-  monitoringExpiry         DateTime?
-  deAckReason              DeAckReason?
-  assigneeId               String?      @map("assignee_id")
-  aiReport                 String?
+  mappedControls             String[]             @default([])
+  remoteTechId               String?              @map("remote_tech_id")
+  isRemoteAccessAuthorized   Boolean              @default(false) @map("remoteAccessAuthorized")
+  ttlSeconds                 Int                  @default(259200)
+  monitoringExpiry           DateTime?
+  deAckReason                DeAckReason?
+  assigneeId                 String?              @map("assignee_id")
+  aiReport                   String?
   /// Shadow-plane metadata as JSONB (Prisma `Json`) — use `mergeIngestionDetailsPatchJson` on writes.
-  ingestionDetails         Json?
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
-  dispositionStatus        String?      @map("disposition_status")
-  isFalsePositive          Boolean      @default(false) @map("is_false_positive")
-  receiptHash              String?      @map("receipt_hash")
-  assignment_history       Json?
-  category                 String?
-  impact_radius            Float?
-  priority_score           Int          @default(0)
-  remediation_status       String       @default("PENDING")
-  severity                 String       @default("LOW")
+  ingestionDetails           Json?
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  dispositionStatus          String?              @map("disposition_status")
+  isFalsePositive            Boolean              @default(false) @map("is_false_positive")
+  receiptHash                String?              @map("receipt_hash")
+  assignment_history         Json?
+  category                   String?
+  impact_radius              Float?
+  priority_score             Int                  @default(0)
+  remediation_status         String               @default("PENDING")
+  severity                   String               @default("LOW")
   /// Predictive exposure map from Ironlogic: `{ assetName: heatValue }` (resilience audit positioning).
-  predictedAssets          Json?
+  predictedAssets            Json?
   /// Resilience audit / drill progression multiplier used in predictive overlay scoring.
-  threatVelocity           Float        @default(1.0)
-  ingestion_fingerprint    String?
+  threatVelocity             Float                @default(1.0)
+  ingestion_fingerprint      String?
   /// GRC post-mortem PDF path (local `uploads/...` or `supabase://bucket/...`) after expert Gate 7 resolve.
-  postMortemReportPath     String?      @map("post_mortem_report_path")
+  postMortemReportPath       String?              @map("post_mortem_report_path")
   /// GRC Gold — Product Owner digital signature + verification metadata (JSONB).
-  forensicSeal             Json?        @map("forensic_seal")
-  AuditLog                 AuditLog[]
-  reasoningLogs            ReasoningLog[]
-  evidenceChapter          EvidenceChapter?
-  forensicSealLedgerRows   ForensicSealLedger[]
+  forensicSeal               Json?                @map("forensic_seal")
+  /// Postgres GENERATED ALWAYS STORED BIGINT — expression lives in migrations / DB.
+  governedImpact             BigInt               @default(dbgenerated("((base_impact_cents * governance_impact_multiplier) / 100)")) @map("governed_impact")
+  /// Sustainability / combined mitigated ALE cents (BigInt; migrated from JSON audit metadata).
+  mitigatedValueCents        BigInt?              @map("mitigated_value_cents")
+  AuditLog                   AuditLog[]
+  reasoningLogs              ReasoningLog[]
+  tenant                     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  evidenceChapter            EvidenceChapter?
+  forensicSealLedgerRows     ForensicSealLedger[]
 
   @@id([tenantId, id])
   @@unique([tenantId, ingestion_fingerprint])
@@ -279,14 +288,14 @@ model ForensicSealLedger {
 
 /// Evidence vault chapter metadata — export control & clearance (shadow-plane RiskEvent attachment).
 model EvidenceChapter {
-  id                  String    @id @default(cuid())
-  riskEventTenantId   String    @map("risk_event_tenant_id") @db.Uuid
-  riskEventId         String    @map("risk_event_id")
-  riskEvent           RiskEvent @relation(fields: [riskEventTenantId, riskEventId], references: [tenantId, id], onDelete: Cascade)
-  isExportControlled  Boolean   @default(false) @map("is_export_controlled")
-  requiredClearance   String    @default("PUBLIC") @map("required_clearance")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
+  id                 String    @id @default(cuid())
+  riskEventTenantId  String    @map("risk_event_tenant_id") @db.Uuid
+  riskEventId        String    @map("risk_event_id")
+  isExportControlled Boolean   @default(false) @map("is_export_controlled")
+  requiredClearance  String    @default("PUBLIC") @map("required_clearance")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  riskEvent          RiskEvent @relation(fields: [riskEventTenantId, riskEventId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([riskEventTenantId, riskEventId])
   @@map("evidence_chapters")
@@ -294,14 +303,14 @@ model EvidenceChapter {
 
 /// Simulated PERSEC / personnel clearance elevation (Defense & Aerospace restricted chapters).
 model ClearanceRequest {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Supabase `auth.users` id (or `shadow-operator` when unauthenticated in simulation).
-  userId           String   @map("user_id")
-  riskEventId      String?  @map("risk_event_id")
-  targetClearance  String   @map("target_clearance")
-  status           String   @default("PENDING")
-  justification    String   @db.Text
-  createdAt        DateTime @default(now()) @map("created_at")
+  userId          String   @map("user_id")
+  riskEventId     String?  @map("risk_event_id")
+  targetClearance String   @map("target_clearance")
+  status          String   @default("PENDING")
+  justification   String
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([userId, status])
   @@index([riskEventId])
@@ -311,10 +320,10 @@ model ClearanceRequest {
 /// Non-repudiable certificate of destruction (NIST 800-88 digital shred) — Ironwatch-attested.
 model AuditReceipt {
   id                String   @id @default(cuid())
-  tenantId          String   @db.Uuid @map("tenant_id")
+  tenantId          String   @map("tenant_id") @db.Uuid
   riskEventId       String   @map("risk_event_id")
   receiptNumber     String   @unique @map("receipt_number")
-  narrative         String   @db.Text
+  narrative         String
   receiptHashSha256 String   @map("receipt_hash_sha256")
   titleSnapshot     String   @map("title_snapshot")
   sectorSnapshot    String?  @map("sector_snapshot")
@@ -329,21 +338,25 @@ model AuditReceipt {
 
 /// Agentic brain — self-correction ledger (shadow `RiskEvent` plane). Confidence + escalation math are audit-facing.
 model ReasoningLog {
-  id               String         @id @default(cuid())
+  id              String     @id @default(cuid())
   /// Filled by `lib/prisma` query extension from `threatId` + `SimThreatEvent.tenant_id` before INSERT.
-  threatTenantId   String?        @map("threat_tenant_id") @db.Uuid
-  threatId         String
-  agentName        String
+  threatTenantId  String?    @map("threat_tenant_id") @db.Uuid
+  threatId        String
+  agentName       String
   /// Optional asset focus label (e.g. "Primary_DB", "Auth_Gateway", "S3_Bucket_01").
-  targetAsset      String?
-  escalationLogic  String? /// The math (e.g. V*P + B)
-  plan             Json /// Step-by-step strategy
-  reasoning        String         @db.Text
-  confidence       Float /// 0.0–1.0 (audit band)
-  isCorrection     Boolean        @default(false)
-  operationalMode  String         @default("AUTONOMOUS") /// AUTONOMOUS or HYBRID
-  createdAt        DateTime       @default(now())
-  threat           RiskEvent? @relation(fields: [threatTenantId, threatId], references: [tenantId, id], onDelete: Cascade)
+  targetAsset     String?
+  /// The math (e.g. V*P + B)
+  escalationLogic String?
+  /// Step-by-step strategy
+  plan            Json
+  reasoning       String
+  /// 0.0–1.0 (audit band)
+  confidence      Float
+  isCorrection    Boolean    @default(false)
+  /// AUTONOMOUS or HYBRID
+  operationalMode String     @default("AUTONOMOUS")
+  createdAt       DateTime   @default(now())
+  threat          RiskEvent? @relation(fields: [threatTenantId, threatId], references: [tenantId, id], onDelete: Cascade)
 
   @@index([threatTenantId, threatId])
   @@index([agentName])
@@ -385,104 +398,84 @@ model SimulationDiagnosticLog {
 
 /// Global Integrity / Control Room simulation flags (single row `id = "global"`). Secure-by-default: no automated stakeholder posts until explicitly enabled.
 model SimulationConfig {
-  id                        String    @id
-  automatedUpdatesEnabled   Boolean   @default(false) @map("automated_updates_enabled")
+  id                                   String             @id
+  automatedUpdatesEnabled              Boolean            @default(false) @map("automated_updates_enabled")
   /// Executive board report: minimum operational readiness score before UI enters BREACHED state.
-  targetReadinessScore      Int       @default(90) @map("target_readiness_score")
+  targetReadinessScore                 Int                @default(90) @map("target_readiness_score")
   /// Compliance badge latch: set true once 7-day resilience criteria is satisfied.
-  isCertified               Boolean   @default(false) @map("is_certified")
+  isCertified                          Boolean            @default(false) @map("is_certified")
   /// UTC instant certification was awarded.
-  certifiedAt               DateTime? @map("certified_at")
+  certifiedAt                          DateTime?          @map("certified_at")
   /// Lifecycle state for 30-day certificate validity.
-  certificateStatus         CertificateStatus @default(IN_PROGRESS) @map("certificate_status")
+  certificateStatus                    CertificateStatus  @default(IN_PROGRESS) @map("certificate_status")
   /// UTC instant for certificate issuance; validity window is 30 days.
-  certificateIssuedAt       DateTime? @map("certificate_issued_at")
+  certificateIssuedAt                  DateTime?          @map("certificate_issued_at")
   /// Lowest operational readiness score observed (0–100); updated when a new minimum is recorded.
-  historicalLowestScore     Int       @default(100) @map("historical_lowest_score")
+  historicalLowestScore                Int                @default(100) @map("historical_lowest_score")
   /// UTC instant when `historicalLowestScore` was last set (baseline seed or new low).
-  historicalLowestRecordedAt DateTime? @map("historical_lowest_recorded_at")
+  historicalLowestRecordedAt           DateTime?          @map("historical_lowest_recorded_at")
   /// Consecutive daily snapshots meeting resilience threshold (score >= 95).
-  currentStreak             Int       @default(0) @map("current_streak")
+  currentStreak                        Int                @default(0) @map("current_streak")
   /// Best streak on record (all-time high resilience run).
-  longestStreak             Int       @default(0) @map("longest_streak")
+  longestStreak                        Int                @default(0) @map("longest_streak")
   /// Most recent primary reason for streak reset (post-mortem classifier).
-  lastResetReason           StreakResetReason? @map("last_reset_reason")
+  lastResetReason                      StreakResetReason? @map("last_reset_reason")
   /// Start of active 2-hour streak protection grace window (50+ day streak only).
-  graceWindowStartedAt      DateTime? @map("grace_window_started_at")
+  graceWindowStartedAt                 DateTime?          @map("grace_window_started_at")
   /// End of active 2-hour streak protection grace window.
-  graceWindowExpiresAt      DateTime? @map("grace_window_expires_at")
+  graceWindowExpiresAt                 DateTime?          @map("grace_window_expires_at")
   /// Count of recovered grace windows where readiness was restored before expiry.
-  successfulGraceRecoveries Int       @default(0) @map("successful_grace_recoveries")
+  successfulGraceRecoveries            Int                @default(0) @map("successful_grace_recoveries")
   /// Legacy badge for operators with 5+ successful grace recoveries.
-  isEliteOperator           Boolean   @default(false) @map("is_elite_operator")
+  isEliteOperator                      Boolean            @default(false) @map("is_elite_operator")
   /// Analyst maturation: threat-library deep dives completed in Strategic Intel.
-  completedDeepDives        String[]  @default([]) @map("completed_deep_dives")
+  completedDeepDives                   String[]           @default([]) @map("completed_deep_dives")
   /// UTC instant when the latest Strategic Intel drill was launched.
-  lastSimulationStartedAt   DateTime? @map("last_simulation_started_at")
+  lastSimulationStartedAt              DateTime?          @map("last_simulation_started_at")
   /// Per-tenant ISO timestamps: `{ "<tenantUuid>": "<expiresAtIso>" }` — set after Master Purge to silence auto-inject.
-  simulationStandDownExpiresAtByTenant Json? @map("simulation_stand_down_expires_at_by_tenant")
+  simulationStandDownExpiresAtByTenant Json?              @map("simulation_stand_down_expires_at_by_tenant")
   /// Active Risks panic: freezes gate progression and forces passive observation across the workforce roster.
-  workforcePanicPassiveMonitor Boolean @default(false) @map("workforce_panic_passive_monitor")
-  workforcePanicEngagedAt       DateTime? @map("workforce_panic_engaged_at")
-  workforcePanicAuthorityLabel  String?   @db.VarChar(128) @map("workforce_panic_authority_label")
-  updatedAt                 DateTime  @updatedAt @map("updated_at")
+  workforcePanicPassiveMonitor         Boolean            @default(false) @map("workforce_panic_passive_monitor")
+  workforcePanicEngagedAt              DateTime?          @map("workforce_panic_engaged_at")
+  workforcePanicAuthorityLabel         String?            @map("workforce_panic_authority_label") @db.VarChar(128)
+  updatedAt                            DateTime           @updatedAt @map("updated_at")
 
   @@map("simulation_config")
 }
 
-enum StreakResetReason {
-  WEBHOOK_FAILURE
-  SCORE_DIP
-  VIP_BREACH
-  MANUAL_RESET
-}
-
-enum CertificateStatus {
-  VALID
-  EXPIRED
-  IN_PROGRESS
-}
-
 /// Board Report: one UTC calendar row per day — readiness score + aggregate synthetic loss snapshot.
 model DailySnapshot {
-  id             String   @id @default(cuid())
-  date           DateTime @unique @db.Date
-  score          Int
-  totalLossCents BigInt   @default(0) @map("total_loss_cents")
-  premiumCents   BigInt   @default(0) @map("premium_cents")
-  executiveSummary String? @db.Text @map("executive_summary")
-  isApproved     Boolean  @default(false) @map("is_approved")
-  approvedBy     String?  @map("approved_by")
-  approvedAt     DateTime? @map("approved_at")
-  createdAt      DateTime @default(now()) @map("created_at")
+  id               String    @id @default(cuid())
+  date             DateTime  @unique @db.Date
+  score            Int
+  totalLossCents   BigInt    @default(0) @map("total_loss_cents")
+  premiumCents     BigInt    @default(0) @map("premium_cents")
+  executiveSummary String?   @map("executive_summary")
+  isApproved       Boolean   @default(false) @map("is_approved")
+  approvedBy       String?   @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
 
   @@map("daily_snapshots")
 }
 
 /// Historical post-mortem ledger for resilience streak resets.
 model StreakFailureLog {
-  id                String            @id @default(cuid())
-  reason            StreakResetReason
-  resetAt           DateTime          @default(now()) @map("reset_at")
-  lostStreakDays    Int               @map("lost_streak_days")
-  isExcludedFromAnalytics Boolean      @default(false) @map("is_excluded_from_analytics")
-  exclusionReason   String?           @map("exclusion_reason") @db.VarChar(256)
+  id                      String            @id @default(cuid())
+  reason                  StreakResetReason
+  resetAt                 DateTime          @default(now()) @map("reset_at")
+  lostStreakDays          Int               @map("lost_streak_days")
+  isExcludedFromAnalytics Boolean           @default(false) @map("is_excluded_from_analytics")
+  exclusionReason         String?           @map("exclusion_reason") @db.VarChar(256)
 
   @@index([reason, resetAt])
   @@map("streak_failure_logs")
 }
 
-/// Stakeholder webhook destinations (Slack / Teams / generic). URLs stored encrypted at rest; egress validated by Irongate (Agent 14).
-enum NotificationChannelType {
-  SLACK
-  TEAMS
-  WEBHOOK
-}
-
 model NotificationEndpoint {
   id              String                  @id @default(cuid())
   name            String
-  urlEncrypted    String                  @map("url_encrypted") @db.Text
+  urlEncrypted    String                  @map("url_encrypted")
   channelType     NotificationChannelType @map("channel_type")
   isEnabled       Boolean                 @default(true) @map("is_enabled")
   /// Last connectivity test (does not change `isEnabled` on failure).
@@ -524,35 +517,30 @@ model CommunityIntelligence {
 
 /// Shadow directory for simulator-only targets (never maps to real authentication users / production directory).
 model SyntheticEmployee {
-  id                 String    @id @default(uuid())
+  id                 String                  @id @default(uuid())
   name               String
   /// Simulator inbox only (e.g. target-01@ironframe.local) — not routable production mail.
-  email              String    @unique
+  email              String                  @unique
   role               String
   /// Effective clearance tier 1–5 for simulation scoping (InfilBot / PhishBot selection).
   clearanceLevel     Int
   vulnerabilityScore Float
   /// Access / blast-radius economics in USD **cents** (e.g. 50_000_000 = $500,000.00).
-  monetaryValue      BigInt    @default(0)
+  monetaryValue      BigInt                  @default(0)
   /// Last time this persona was selected for a simulated attack (null = never).
   lastAttackedAt     DateTime?
   /// Cumulative simulated financial loss in USD cents.
-  totalLossIncurred  BigInt    @default(0)
+  totalLossIncurred  BigInt                  @default(0)
   /// Level-5 VIP: blue-team hardening spend halves effective PhishBot vulnerability on hook rolls.
-  isHardened         Boolean   @default(false) @map("is_hardened")
+  isHardened         Boolean                 @default(false) @map("is_hardened")
   /// Active shadow-plane compromise state for per-target restore controls.
-  isBreached         Boolean   @default(false) @map("is_breached")
+  isBreached         Boolean                 @default(false) @map("is_breached")
   /// Runtime protection state shown in Shadow Plane registry.
   status             SyntheticEmployeeStatus @default(PROTECTED)
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime                @default(now())
 
   @@index([vulnerabilityScore])
   @@map("SyntheticEmployee")
-}
-
-enum SyntheticEmployeeStatus {
-  PROTECTED
-  BREACHED
 }
 
 /// GRC execution-board assignments (tenant-scoped). Purge before `ThreatEvent` to avoid P2003.
@@ -587,6 +575,20 @@ model AgentOperation {
   @@map("AgentOperation")
 }
 
+/// Irontech (Agent 12): LKG — last-known-good verified healthy LangGraph/agent slice for respawn after Tier 2/3 quarantine.
+model AgentStateCheckpoint {
+  id              String   @id @default(cuid())
+  agentName       String   @map("agent_name")
+  tenantId        String   @map("tenant_id") @db.Uuid
+  stateHashSha256 String   @map("state_hash_sha256")
+  snapshot        Json
+  verifiedHealthy Boolean  @default(true) @map("verified_healthy")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([agentName, tenantId, createdAt])
+  @@map("agent_state_checkpoints")
+}
+
 /// Expert roll call — workforce row per constitutional agent (Integrity Hub / LKG handshake).
 model AgentRegistry {
   id              String   @id @default(cuid())
@@ -607,26 +609,158 @@ model ChaosConfig {
 
 /// Singleton app settings (Phone Home target, etc.). Row id is always `global`.
 model SystemConfig {
-  id              String   @id @default("global")
+  id                                   String          @id @default("global")
   /// Irontech escalation / diagnostic delivery (also exposed as admin_alert_email in API).
-  adminAlertEmail String?  @map("admin_alert_email")
-  updatedAt       DateTime @updatedAt
+  adminAlertEmail                      String?         @map("admin_alert_email")
+  updatedAt                            DateTime        @updatedAt
+  /// Nuclear override ceremony: DUAL_LOCK (2 keys) or TRIPARTITE_LOCK (3 keys).
+  securityPosture                      SecurityPosture @default(DUAL_LOCK) @map("security_posture")
+  /// Segmented emergency seal (vault/human or vault/ciso/staff) + master hash metadata — server-only.
+  emergencySeal                        Json?           @map("emergency_seal")
+  /// TRIPARTITE → DUAL board workflow (PENDING_DEGRADATION / COOLDOWN) — server-only.
+  postureDegradationWorkflow           Json?           @map("posture_degradation_workflow")
+  /// Dead Man's Switch — armed on constitutional void, 24h TTL until RESOLUTION_SIGNATURE.
+  deadManSwitch                        Json?           @map("dead_man_switch")
+  /// Agent 6 (Ironlock): autonomous background-agent throttling during dirty grid windows.
+  autonomousCarbonMitigation           Boolean         @default(false) @map("autonomous_carbon_mitigation")
+  /// System Maturity Score (1–10), 30-day trend, governance degradation penalty state.
+  governanceMaturity                   Json?           @map("governance_maturity")
+  /// Set when Ironcast stale-data notice sent; cleared on recovery.
+  ironwatchStaleDataNotifiedAt         DateTime?       @map("ironwatch_stale_data_notified_at")
+  /// When self-healing was last enabled (null when off — 30-day maturity continuity resets).
+  selfHealingActiveSince               DateTime?       @map("self_healing_active_since")
+  /// Ironcast (Agent 7): first PagerDuty / L1 forensic escalation when Irontech state freeze engages (cleared on recovery).
+  stateFreezeEscalatedAt               DateTime?       @map("state_freeze_escalated_at")
+  /// CISO voice ladder — Twilio dispatch timestamp after statutory delay if configured (cleared on recovery).
+  stateFreezeVoiceDispatchedAt         DateTime?       @map("state_freeze_voice_dispatched_at")
+  /// When Stale Data mode was last entered (cleared on live feed recovery) — used for 24h Irontech lockdown.
+  sustainabilityApiDegradedSince       DateTime?       @map("sustainability_api_degraded_since")
+  /// Consecutive failed Ironwatch checks (15m cadence); reset on success.
+  sustainabilityApiHeartbeatFailures   Int             @default(0) @map("sustainability_api_heartbeat_failures")
+  sustainabilityApiLastHeartbeatAt     DateTime?       @map("sustainability_api_last_heartbeat_at")
+  /// Ironwatch (Agent 15): Electricity Maps (or equivalent) live feed stale ≥4h — maturity −0.5 until recovery.
+  sustainabilityLiveApiDegraded        Boolean         @default(false) @map("sustainability_live_api_degraded")
+  /// Tripartite waiver: resume mutations while live feed still down (cleared when feed recovers).
+  sustainabilityStaleLockdownWaived    Boolean         @default(false) @map("sustainability_stale_lockdown_waived")
+  /// Set once when 24h lockdown threshold is crossed — Idempotency + cryptographic witness anchor in AuditLog.
+  sustainabilityStaleLockdownWitnessAt DateTime?       @map("sustainability_stale_lockdown_witness_at")
+  /// Ironlock (Agent 6): autonomous global mutation freeze (Ironguard circuit breaker — separate from sustainability stale lockdown).
+  stateFreezeActive                    Boolean         @default(false) @map("state_freeze_active")
 
   @@map("SystemConfig")
 }
 
+/// Ironwatch / platform SLO telemetry — external dependency heartbeats (Postgres retention; prune via ops).
+model SystemHealthLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now()) @map("created_at")
+  serviceKey String   @map("service_key")
+  ok         Boolean
+  httpStatus Int?     @map("http_status")
+  latencyMs  Int      @map("latency_ms")
+  detail     String?
+  meta       Json?
+
+  @@index([serviceKey, createdAt])
+  @@map("system_health_log")
+}
+
+/// Agent 13 (Ironguard): security violation rows for Ironwatch circuit breaker + Ironscribe audit synthesis.
+model IronguardViolation {
+  id                  String   @id @default(cuid())
+  createdAt           DateTime @default(now()) @map("created_at")
+  sessionTenantUuid   String?  @map("session_tenant_uuid") @db.Uuid
+  attemptedTenantUuid String?  @map("attempted_tenant_uuid") @db.Uuid
+  errorCode           String   @map("error_code")
+  path                String?  @map("path") @db.VarChar(1024)
+  metadata            Json?    @map("metadata")
+
+  @@index([createdAt])
+  @@map("ironguard_violation")
+}
+
+/// Agents 13 & 6: persistent IP / user recidivism ledger (probation hold + hard ban at 3 strikes).
+model QuarantineLedger {
+  id                      String   @id @default(cuid())
+  identifier              String   @unique @map("identifier")
+  offenseCount            Int      @default(1) @map("offense_count")
+  isHardBan               Boolean  @default(false) @map("is_hard_ban")
+  lastViolationAt         DateTime @map("last_violation_at")
+  /// Irontally-governed forensic rationale (ISO 27001 Annex A.5) for successful resets; linked as Governed Exception in Tenant Access Audit.
+  forensicJustification   String?  @map("forensic_justification")
+  createdAt               DateTime @default(now()) @map("created_at")
+  /// Correlated victim tenant (Ironguard / AuditLog synthesis) for maturity siege + Irontrust penalties.
+  primaryTargetTenantUuid String?  @map("primary_target_tenant_uuid") @db.Uuid
+  probationHoldActive     Boolean  @default(true) @map("probation_hold_active")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  resetByHumanId          String?  @map("reset_by_human_id") @db.Uuid
+
+  @@index([primaryTargetTenantUuid])
+  @@map("quarantine_ledger")
+}
+
+/// Unified GRC ingestion queue — Red Team attacks and lifecycle telemetry (INGESTED → RESOLVED).
+model RiskRegistry {
+  id               String              @id @default(cuid())
+  tenantId         String              @map("tenant_id") @db.Uuid
+  title            String
+  telemetryValue   String              @default("") @map("telemetry_value")
+  deltaLabel       String              @default("") @map("delta_label")
+  sourceAgent      String              @default("SYSTEM") @map("source_agent")
+  lifecycleStatus  RiskLifecycleStatus @default(INGESTED) @map("lifecycle_status")
+  riskEventId      String?             @map("risk_event_id")
+  ingestionDetails Json?               @map("ingestion_details")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, lifecycleStatus])
+  @@index([tenantId, createdAt])
+  @@map("risk_registry")
+}
+
+/// Governed operator sessions — purged by Dead Man's Switch (Scorched Earth).
+model GovernedSession {
+  id         String    @id @default(uuid())
+  sessionKey String    @unique @map("session_key")
+  operatorId String?   @map("operator_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime? @map("expires_at")
+  tenantId   String?   @map("tenant_id") @db.Uuid
+
+  @@index([tenantId])
+  @@map("GovernedSession")
+}
+
+/// Proof-of-presence witness on segmented key entry (IP + client fingerprint).
+model EntryWitness {
+  id              String   @id @default(uuid())
+  context         String
+  custodianRole   String   @map("custodian_role")
+  clientIp        String   @map("client_ip")
+  fingerprintHash String   @map("fingerprint_hash")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([context, custodianRole])
+  @@map("EntryWitness")
+}
+
 /// Kimbot (Epic 5 / Agent 17): physical sustainability ledger — kWh, liters, CO2e grams (not USD); monetary-only proxies rejected.
 model SustainabilityMetric {
-  id                 String      @id @default(uuid())
-  threatId           String      @unique
+  id                      String      @id @default(uuid())
+  threatId                String      @unique
   /// Energy averted by preventing recovery compute (integer kWh).
-  kwhAverted         BigInt
+  kwhAverted              BigInt
   /// Cooling water saved (liters), derived from kWh × factor.
-  coolingWaterLiters Float
+  coolingWaterLiters      Float
   /// CO2e reduction in grams (integer).
-  carbonOffsetGrams  BigInt
-  createdAt          DateTime    @default(now())
-  threat             ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  carbonOffsetGrams       BigInt
+  createdAt               DateTime    @default(now())
+  /// Ironbloom Gridcore sealed-node financial translation (physical units × utility rate).
+  mitigatedValueCents     BigInt      @default(0) @map("mitigated_value_cents")
+  /// Total Societal Value (TSV): SCC × avoided tonnes + internal ROI cents (Ironbloom VMAT / Kimbot).
+  totalSocietalValueCents BigInt?     @map("total_societal_value_cents")
+  threat                  ThreatEvent @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@map("SustainabilityMetric")
 }
@@ -645,7 +779,7 @@ model WorkNote {
 model UserRoleAssignment {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
-  tenantId  String   @db.Uuid @map("tenant_id")
+  tenantId  String   @map("tenant_id") @db.Uuid
   role      UserRole
   grantedAt DateTime @default(now()) @map("granted_at")
 
@@ -655,19 +789,19 @@ model UserRoleAssignment {
 }
 
 model ThreatApproval {
-  id                  String         @id @default(cuid())
-  threatId            String         @map("threat_id")
-  tenantId            String         @db.Uuid @map("tenant_id")
-  status              ApprovalStatus @default(PENDING)
-  requestedByUserId   String         @map("requested_by_user_id")
-  approvedByUserId    String?        @map("approved_by_user_id")
-  approvalNote        String?        @map("approval_note") @db.Text
-  approvalPayloadHash String?        @map("approval_payload_hash")
-  createdAt           DateTime       @default(now()) @map("created_at")
-  approvedAt          DateTime?      @map("approved_at")
-  threat              ThreatEvent    @relation(fields: [threatId], references: [id], onDelete: Cascade)
+  id                  String             @id @default(cuid())
+  threatId            String             @map("threat_id")
+  tenantId            String             @map("tenant_id") @db.Uuid
+  status              ApprovalStatus     @default(PENDING)
+  requestedByUserId   String             @map("requested_by_user_id")
+  approvedByUserId    String?            @map("approved_by_user_id")
+  approvalNote        String?            @map("approval_note")
+  approvalPayloadHash String?            @map("approval_payload_hash")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  approvedAt          DateTime?          @map("approved_at")
+  resolvedThreats     ThreatEvent[]      @relation("ThreatResolutionApproval")
   evidenceArtifacts   EvidenceArtifact[]
-  resolvedThreats     ThreatEvent[]  @relation("ThreatResolutionApproval")
+  threat              ThreatEvent        @relation(fields: [threatId], references: [id], onDelete: Cascade)
 
   @@index([threatId, tenantId])
   @@index([tenantId, status])
@@ -676,16 +810,16 @@ model ThreatApproval {
 }
 
 model EvidenceArtifact {
-  id               String          @id @default(cuid())
-  tenantId         String          @db.Uuid @map("tenant_id")
-  uploadedByUserId String          @map("uploaded_by_user_id")
+  id               String               @id @default(cuid())
+  tenantId         String               @map("tenant_id") @db.Uuid
+  uploadedByUserId String               @map("uploaded_by_user_id")
   sha256           String
-  storagePath      String          @map("storage_path")
-  mimeType         String          @map("mime_type")
-  threatApprovalId String?         @map("threat_approval_id")
-  threatApproval   ThreatApproval? @relation(fields: [threatApprovalId], references: [id], onDelete: SetNull)
+  storagePath      String               @map("storage_path")
+  mimeType         String               @map("mime_type")
+  threatApprovalId String?              @map("threat_approval_id")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  threatApproval   ThreatApproval?      @relation(fields: [threatApprovalId], references: [id])
   attachments      EvidenceAttachment[]
-  createdAt        DateTime        @default(now()) @map("created_at")
 
   @@index([tenantId])
   @@index([tenantId, createdAt])
@@ -694,16 +828,9 @@ model EvidenceArtifact {
   @@map("evidence_artifacts")
 }
 
-enum EvidenceEntityType {
-  THREAT_EVENT
-  BOT_AUDIT_LOG
-  AUDIT_LOG
-  INTEGRITY_EVENT
-}
-
 model EvidenceAttachment {
   id               String             @id @default(cuid())
-  tenantId         String             @db.Uuid @map("tenant_id")
+  tenantId         String             @map("tenant_id") @db.Uuid
   artifactId       String             @map("artifact_id")
   entityType       EvidenceEntityType @map("entity_type")
   entityId         String             @map("entity_id")
@@ -720,7 +847,7 @@ model EvidenceAttachment {
 
 model IntegrityEvent {
   id            String      @id @default(cuid())
-  tenantId      String      @db.Uuid @map("tenant_id")
+  tenantId      String      @map("tenant_id") @db.Uuid
   eventType     String      @map("event_type")
   entityType    String      @map("entity_type")
   entityId      String      @map("entity_id")
@@ -737,7 +864,7 @@ model IntegrityEvent {
 
 model IntegrityExport {
   id              String   @id @default(cuid())
-  tenantId        String   @db.Uuid @map("tenant_id")
+  tenantId        String   @map("tenant_id") @db.Uuid
   periodStart     DateTime @map("period_start")
   periodEnd       DateTime @map("period_end")
   manifestHash    String   @map("manifest_hash")
@@ -862,13 +989,13 @@ model QuarantineRecord {
 }
 
 model audit_comments {
-  id                String   @id
-  auditLogTenantId  String   @map("audit_log_tenant_id") @db.Uuid
-  audit_log_id      String   @map("audit_log_id")
-  operator_id       String   @map("operator_id")
-  comment_text      String   @map("comment_text")
-  created_at        DateTime @default(now()) @map("created_at")
-  AuditLog          AuditLog @relation(fields: [auditLogTenantId, audit_log_id], references: [tenantId, id], onDelete: Cascade)
+  id               String   @id
+  auditLogTenantId String   @map("audit_log_tenant_id") @db.Uuid
+  audit_log_id     String   @map("audit_log_id")
+  operator_id      String   @map("operator_id")
+  comment_text     String   @map("comment_text")
+  created_at       DateTime @default(now()) @map("created_at")
+  AuditLog         AuditLog @relation(fields: [auditLogTenantId, audit_log_id], references: [tenantId, id], onDelete: Cascade)
 
   @@index([auditLogTenantId, audit_log_id])
 }
@@ -920,6 +1047,44 @@ model governance_settings {
   tenants      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
+enum StreakResetReason {
+  WEBHOOK_FAILURE
+  SCORE_DIP
+  VIP_BREACH
+  MANUAL_RESET
+}
+
+enum CertificateStatus {
+  VALID
+  EXPIRED
+  IN_PROGRESS
+}
+
+/// Stakeholder webhook destinations (Slack / Teams / generic). URLs stored encrypted at rest; egress validated by Irongate (Agent 14).
+enum NotificationChannelType {
+  SLACK
+  TEAMS
+  WEBHOOK
+}
+
+enum SyntheticEmployeeStatus {
+  PROTECTED
+  BREACHED
+}
+
+/// Nuclear override key ceremony — dual (vault+human) vs tripartite (vault+CISO+staff).
+enum SecurityPosture {
+  DUAL_LOCK
+  TRIPARTITE_LOCK
+}
+
+enum EvidenceEntityType {
+  THREAT_EVENT
+  BOT_AUDIT_LOG
+  AUDIT_LOG
+  INTEGRITY_EVENT
+}
+
 enum RiskTier {
   CRITICAL
   HIGH
@@ -932,6 +1097,13 @@ enum AgentStatus {
   OFFLINE
   THINKING
   ERROR
+}
+
+enum RiskLifecycleStatus {
+  INGESTED
+  REGISTERED
+  ACTIVE
+  RESOLVED
 }
 
 enum ThreatState {

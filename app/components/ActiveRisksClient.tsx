@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { flushSync } from 'react-dom';
 import type { ChangeEvent, MouseEvent } from 'react';
 import Link from 'next/link';
@@ -31,7 +32,10 @@ import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useSystemConfigStore } from '@/app/store/systemConfigStore';
 import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
 import { appendAuditLog } from '@/app/utils/auditLogger';
-import { formatAssignmentHistoryNarrative } from '@/app/utils/assignmentChainOfCustody';
+import {
+  formatAssignmentHistoryNarrative,
+  mergeAssignmentHistoryEntries,
+} from '@/app/utils/assignmentChainOfCustody';
 import { parseIrontechLiveFromIngestion } from '@/app/utils/irontechLiveStream';
 import { joinErrorProbeParts } from '@/app/utils/grcInfrastructureLimit';
 import { useAgentStore } from '@/app/store/agentStore';
@@ -55,8 +59,95 @@ import {
   workforceAgentsForDualKeyBot,
 } from '@/app/utils/workforceInventoryActive';
 import { createClient } from '@/lib/supabase/client';
+import { mutate } from 'swr';
+import {
+  ACTIVE_THREAT_VICTORY_LAP_MS,
+  registerActiveThreatVictoryLapHandler,
+  requestVictoryLapFromNeutralize,
+} from '@/app/utils/activeThreatLifecycleBridge';
+import { isChaosThreatIdentifiedPipelineRow } from '@/app/utils/chaosDiscoveryHold';
+import {
+  FORENSIC_ATTESTATION_MIN,
+  chaosDrillOperatorConcurrenceSatisfied,
+  chaosRemoteSupportHandshakeSatisfied,
+  chaosVictoryLapPurgeBlocked,
+  hasUser00ForensicConcurrence,
+  isRemoteSupportAwaitingJitGrant,
+} from '@/app/utils/forensicAttestation';
+import {
+  markRegistryResolvedForThreatEvent,
+  runRiskRegistryResolvedPurgeNow,
+} from '@/app/utils/riskRegistryResolvedPurge';
+import { appendForensicScoreToMetadataTag } from '@/app/utils/grcLexicon';
+import { allThreatDraftsPassJustificationQuality } from '@/app/utils/validateJustification';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
+
+type WorkNote = { timestamp: string; text: string; user: string };
+
+/** Active Risks lifecycle registry: 4s IDENTIFIED chaos ingestion shell, 4s RESOLVED victory lap (any operator). */
+const ACTIVE_THREAT_LIFECYCLE_MS = ACTIVE_THREAT_VICTORY_LAP_MS;
+/** Full-opacity victory lap ends at 4s; content ghost + motion exit run the final 500ms. */
+const VICTORY_LAP_GHOST_MS = ACTIVE_THREAT_VICTORY_LAP_MS;
+const THREAT_EXIT_FADE_MS = 500;
+
+function isTerminalBoardThreatStatus(status: string): boolean {
+  const s = status.trim().toUpperCase();
+  return s === "RESOLVED" || s === "CLOSED_ARCHIVED";
+}
+
+function armVictoryLapRegistryEntry(
+  threat: PipelineThreat,
+): LifecycleRegistryEntry {
+  const purgeBlockedForHumanConcurrence = chaosVictoryLapPurgeBlocked(
+    threat.ingestionDetails,
+    { isRemoteAccessAuthorized: threat.isRemoteAccessAuthorized },
+  );
+  return {
+    kind: "victory",
+    startedAt: Date.now(),
+    isVictoryLap: true,
+    purgeBlockedForHumanConcurrence,
+  };
+}
+
+type LifecycleRegistryEntry =
+  | {
+      kind: 'ingestion';
+      startedAt: number;
+    }
+  | {
+      kind: 'victory';
+      startedAt: number;
+      /** Registry handoff: 4s victory lap arm (neutralize submit + RESOLVED conductor). */
+      isVictoryLap: true;
+      /** Agent-led RESOLVED: board purge waits for User_00 work note ≥50 chars. */
+      purgeBlockedForHumanConcurrence?: boolean;
+    };
+
+function mergedWorkNotesForThreat(
+  threatId: string,
+  threat: PipelineThreat,
+  localWorkNotes: Record<string, WorkNote[]>,
+): WorkNote[] {
+  const fromDb = threat.workNotes ?? [];
+  const local = localWorkNotes[threatId] ?? [];
+  return [...fromDb, ...local];
+}
+
+function readIngestionDiscoveryHoldMarkers(ingestionDetails?: string | null): boolean {
+  const raw = (ingestionDetails ?? '').trim();
+  if (!raw) return false;
+  try {
+    const j = JSON.parse(raw) as {
+      riskVelocityDiscoveryHold?: unknown;
+      discoveryIngestHoldStartedAt?: unknown;
+    };
+    return j.riskVelocityDiscoveryHold === true || j.discoveryIngestHoldStartedAt != null;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * GRC identity for Integrity Hub: Chaos Scenarios 1–5 are triggered from `ControlRoom.tsx`, which calls
@@ -68,7 +159,8 @@ const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
 /** UI session operator id → display label (matches assignee dropdown naming). */
 const SESSION_OPERATOR_LABEL: Record<string, string> = {
   dereck: 'Dereck',
-  user_00: 'user_00',
+  User_00: 'User_00',
+  user_00: 'User_00',
   user_01: 'user_01',
   secops: 'SecOps Team',
   grc: 'GRC Team',
@@ -197,8 +289,6 @@ function chaosBoardStatusPillText(
   if (chaos === 'active') return 'ACKNOWLEDGE';
   return 'ACKNOWLEDGE';
 }
-
-type WorkNote = { timestamp: string; text: string; user: string };
 
 const BLAST_RADIUS_PENDING_COPY = 'Standard Blast Radius (Pending Deep Scan)';
 
@@ -951,9 +1041,10 @@ function AssigneeHistorySection({
   return (
     <div className="rounded border border-slate-700/80 bg-slate-950/50 p-2">
       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">ASSIGNEE HISTORY</p>
-      <ul className="mt-2 max-h-32 space-y-1.5 overflow-y-auto">
-        {entries.map((entry) => (
-          <li key={entry.id} className="text-[10px] leading-snug text-slate-300">
+      <ul className="mt-2 max-h-40 space-y-1.5 overflow-y-auto">
+        {entries.map((entry, idx) => (
+          <li key={`${entry.id}-${idx}`} className="text-[10px] leading-snug text-slate-300">
+            <span className="font-mono text-slate-500">{idx + 1}.</span>{" "}
             {formatAssignmentHistoryNarrative(entry)}
           </li>
         ))}
@@ -991,6 +1082,7 @@ export default function ActiveRisksClient({
   const recoveryBoardSyncPending = useRiskStore((state) => state.recoveryBoardSyncPending);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setForensicPlaybackThreatId = useRiskStore((state) => state.setForensicPlaybackThreatId);
+  const chaosFlightRecorderByThreatId = useRiskStore((s) => s.chaosFlightRecorderByThreatId);
   const hasMountedClient = useHasMounted();
   const { activeTenantUuid } = useTenantContext();
   const effectiveTenantUuid = useMemo(
@@ -1018,6 +1110,11 @@ export default function ActiveRisksClient({
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
   const [workNotes, setWorkNotes] = useState<Record<string, WorkNote[]>>({});
+  const workNotesRef = useRef(workNotes);
+  workNotesRef.current = workNotes;
+  const [neutralizeAttestationDraftsByThreatId, setNeutralizeAttestationDraftsByThreatId] = useState<
+    Record<string, string>
+  >({});
   const [states, setStates] = useState<Record<string, LifecycleState>>({});
   const [successFlash, setSuccessFlash] = useState<Record<string, boolean>>({});
   const [cisoSimAuthFlashByThreatId, setCisoSimAuthFlashByThreatId] = useState<Record<string, boolean>>({});
@@ -1060,13 +1157,26 @@ export default function ActiveRisksClient({
       return next;
     });
   }, []);
+  /** Registry / bulk gates: neutralize attestation drafts (≥50 chars per id). */
+  const validateBulkNeutralizeAttestation = useCallback(
+    (threatIds: string[]) =>
+      allThreatDraftsPassJustificationQuality(threatIds, neutralizeAttestationDraftsByThreatId),
+    [neutralizeAttestationDraftsByThreatId],
+  );
   /** Prevents duplicate client-side `triggerDeepTrace` calls per threat id for this mount. */
   const ironsightAutoIgnitedRef = useRef(new Set<string>());
-  /** One-way visual valve: after RESOLVED is seen, keep emerald styling for 60s even if a fetch returns stale ACTIVE. */
-  const RESOLVED_STICKY_MS = 60_000;
-  const resolvedStickyUntilRef = useRef<Map<string, number>>(new Map());
-  /** Bumped only when expired sticky entries are pruned — drives memoized sticky map without list-wide tick reads. */
-  const [resolvedStickySweep, setResolvedStickySweep] = useState(0);
+  /** Central conductor: ingestion / victory windows + slot-collapse purge (replaces per-card timers). */
+  const [lifecycleRegistry, setLifecycleRegistry] = useState<Record<string, LifecycleRegistryEntry>>({});
+  const lifecycleRegistryRef = useRef(lifecycleRegistry);
+  lifecycleRegistryRef.current = lifecycleRegistry;
+  const [exitingThreatIds, setExitingThreatIds] = useState(() => new Set<string>());
+  const exitingThreatIdsRef = useRef(exitingThreatIds);
+  exitingThreatIdsRef.current = exitingThreatIds;
+  const [lifecycleSweep, setLifecycleSweep] = useState(0);
+  const threatStatusPrevRef = useRef<Record<string, string>>({});
+  const victoryPurgeScheduledRef = useRef(new Set<string>());
+  const terminalResolvedSeenAtRef = useRef(new Map<string, number>());
+  const humanConcurrenceAuditLoggedRef = useRef(new Set<string>());
   const [, startTraceTransition] = useTransition();
   const [, startExecTransition] = useTransition();
 
@@ -1120,16 +1230,12 @@ export default function ActiveRisksClient({
         const { activeThreats: at, replaceActiveThreats: rep } = useRiskStore.getState();
         rep(
           at.map((t) =>
-            t.id === id ? { ...t, threatStatus: 'RESOLVED', lifecycleState: 'resolved' } : t,
+            t.id === id
+              ? { ...t, threatStatus: 'RESOLVED', lifecycleState: 'active' as const }
+              : t,
           ),
         );
-        const removeTimer = window.setTimeout(() => {
-          const { activeThreats: at2, replaceActiveThreats: rep2 } = useRiskStore.getState();
-          rep2(at2.filter((t) => t.id !== id));
-          optimisticProcessingUntilRef.current.delete(id);
-          optimisticSettleTimersRef.current.delete(id);
-        }, 1200);
-        optimisticSettleTimersRef.current.set(id, removeTimer);
+        requestVictoryLapFromNeutralize(id);
       }, waitMs);
       optimisticSettleTimersRef.current.set(id, settleTimer);
     };
@@ -1166,35 +1272,6 @@ export default function ActiveRisksClient({
     void supabase.auth.getSession();
   }, []);
 
-  useEffect(() => {
-    const now = Date.now();
-    for (const t of activeThreats) {
-      const s = (t.threatStatus ?? '').trim().toUpperCase();
-      if (s === 'RESOLVED') {
-        resolvedStickyUntilRef.current.set(t.id, now + RESOLVED_STICKY_MS);
-      }
-    }
-    for (const [id, until] of [...resolvedStickyUntilRef.current.entries()]) {
-      if (until < now) resolvedStickyUntilRef.current.delete(id);
-    }
-  }, [activeThreats]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const now = Date.now();
-      let pruned = false;
-      for (const [tid, until] of [...resolvedStickyUntilRef.current.entries()]) {
-        if (until < now) {
-          resolvedStickyUntilRef.current.delete(tid);
-          pruned = true;
-        }
-      }
-      const stillTracking = resolvedStickyUntilRef.current.size > 0;
-      if (pruned || stillTracking) setResolvedStickySweep((n) => n + 1);
-    }, 2000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const refreshActiveThreatsFromDb = useCallback(async () => {
     const res = await fetch('/api/threats/active', { cache: 'no-store' });
     if (!res.ok) return;
@@ -1204,12 +1281,261 @@ export default function ActiveRisksClient({
   const refreshActiveThreatsFromDbRef = useRef(refreshActiveThreatsFromDb);
   refreshActiveThreatsFromDbRef.current = refreshActiveThreatsFromDb;
 
+  const purgeResolvedThreatFromBoard = useCallback(
+    (tid: string) => {
+      const id = tid.trim();
+      if (!id || victoryPurgeScheduledRef.current.has(id)) return;
+      victoryPurgeScheduledRef.current.add(id);
+      humanConcurrenceAuditLoggedRef.current.delete(id);
+      terminalResolvedSeenAtRef.current.delete(id);
+      setExitingThreatIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+      window.setTimeout(() => {
+        const { activeThreats: at, replaceActiveThreats: rep, removeThreatFromPipeline } =
+          useRiskStore.getState();
+        rep(at.filter((t) => t.id !== id));
+        removeThreatFromPipeline(id);
+        void useRiskStore.getState().refreshPipelineThreatsFromDb().catch(() => undefined);
+        useAgentStore.getState().clearActiveThreatById(id);
+        useRiskStore.getState().setNeutralizeVictoryAttestation(id, null);
+        markRegistryResolvedForThreatEvent(id);
+        runRiskRegistryResolvedPurgeNow();
+        setLifecycleRegistry((r) => {
+          if (!(id in r)) return r;
+          const { [id]: _d, ...rest } = r;
+          return rest;
+        });
+        setExitingThreatIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        void mutate("/api/threats/active");
+        optimisticProcessingUntilRef.current.delete(id);
+        victoryPurgeScheduledRef.current.delete(id);
+      }, THREAT_EXIT_FADE_MS);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    registerActiveThreatVictoryLapHandler((tid) => {
+      const id = tid.trim();
+      if (!id) return;
+      const storeThreat = useRiskStore.getState().activeThreats.find((t) => t.id === id);
+      const ingestion = storeThreat?.ingestionDetails ?? null;
+      const purgeBlocked = chaosVictoryLapPurgeBlocked(ingestion, {
+        isRemoteAccessAuthorized: storeThreat?.isRemoteAccessAuthorized,
+      });
+      markRegistryResolvedForThreatEvent(id);
+      useRiskStore.getState().setAuditLingerForThreat(id, ACTIVE_THREAT_LIFECYCLE_MS + THREAT_EXIT_FADE_MS + 200);
+      setLifecycleRegistry((prev) => {
+        const cur = prev[id];
+        if (cur?.kind === "victory" && !cur.purgeBlockedForHumanConcurrence) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [id]: {
+            kind: "victory",
+            startedAt: Date.now(),
+            isVictoryLap: true,
+            purgeBlockedForHumanConcurrence: purgeBlocked,
+          },
+        };
+      });
+    });
+    return () => registerActiveThreatVictoryLapHandler(null);
+  }, []);
+
+  useEffect(() => {
+    const prev = threatStatusPrevRef.current;
+    const activeIdSet = new Set(activeThreats.map((x) => x.id));
+
+    setLifecycleRegistry((reg) => {
+      let next = { ...reg };
+      let changed = false;
+
+      for (const t of activeThreats) {
+        const tid = t.id;
+        const s = (t.threatStatus ?? '').trim().toUpperCase();
+        const was = prev[tid];
+
+        if (s !== 'IDENTIFIED' && next[tid]?.kind === 'ingestion') {
+          const { [tid]: _removed, ...rest } = next;
+          next = rest;
+          changed = true;
+        }
+
+        if (isTerminalBoardThreatStatus(s)) {
+          const cur = next[tid];
+          if (!cur || cur.kind === "ingestion") {
+            markRegistryResolvedForThreatEvent(tid);
+            next = { ...next, [tid]: armVictoryLapRegistryEntry(t) };
+            changed = true;
+            useRiskStore.getState().setAuditLingerForThreat(
+              tid,
+              ACTIVE_THREAT_LIFECYCLE_MS + THREAT_EXIT_FADE_MS + 200,
+            );
+          }
+        }
+
+        if (
+          s === 'IDENTIFIED' &&
+          isChaosThreatIdentifiedPipelineRow(t) &&
+          readIngestionDiscoveryHoldMarkers(t.ingestionDetails)
+        ) {
+          if (!next[tid]) {
+            next = { ...next, [tid]: { kind: 'ingestion', startedAt: Date.now() } };
+            changed = true;
+          }
+        }
+      }
+
+      for (const key of Object.keys(next)) {
+        if (activeIdSet.has(key)) continue;
+        if (exitingThreatIdsRef.current.has(key)) continue;
+        if (next[key]?.kind === 'victory') continue;
+        const { [key]: _removed, ...rest } = next;
+        next = rest;
+        changed = true;
+      }
+
+      return changed ? next : reg;
+    });
+
+    threatStatusPrevRef.current = Object.fromEntries(
+      activeThreats.map((x) => [x.id, (x.threatStatus ?? '').trim().toUpperCase()]),
+    );
+  }, [activeThreats]);
+
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      const now = Date.now();
+
+      setLifecycleRegistry((prev) => {
+        let next = { ...prev };
+        let changed = false;
+        for (const [tid, e] of Object.entries(prev)) {
+          if (e.kind === 'ingestion' && now >= e.startedAt + ACTIVE_THREAT_LIFECYCLE_MS) {
+            const { [tid]: _r, ...rest } = next;
+            next = rest;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      const regSnapshot = { ...lifecycleRegistryRef.current };
+      for (const [tid, e] of Object.entries(regSnapshot)) {
+        if (e.kind !== 'victory') continue;
+
+        const storeThreat = useRiskStore.getState().activeThreats.find((t) => t.id === tid);
+        if (e.purgeBlockedForHumanConcurrence && storeThreat) {
+          const merged = mergedWorkNotesForThreat(tid, storeThreat, workNotesRef.current);
+          /** Chaos 4: remote handshake; all levels: GRC ack / User_00 concurrence. */
+          const grcAckReleasesPurge = chaosDrillOperatorConcurrenceSatisfied(
+            storeThreat.ingestionDetails,
+          );
+          const remoteHandshakeReleasesPurge =
+            storeThreat.isRemoteAccessAuthorized === true ||
+            chaosRemoteSupportHandshakeSatisfied(storeThreat.ingestionDetails);
+          if (
+            hasUser00ForensicConcurrence(merged) ||
+            grcAckReleasesPurge ||
+            remoteHandshakeReleasesPurge
+          ) {
+            const concurrenceBody = [...merged]
+              .reverse()
+              .find(
+                (n) =>
+                  (n.text ?? '').trim().length >= FORENSIC_ATTESTATION_MIN &&
+                  (n.user ?? '').trim().toLowerCase() === 'user_00',
+              );
+            if (concurrenceBody && !humanConcurrenceAuditLoggedRef.current.has(tid)) {
+              humanConcurrenceAuditLoggedRef.current.add(tid);
+              appendAuditLog({
+                action_type: 'NOTE_ADDED',
+                log_type: 'GRC',
+                description: `Human Concurrence (OFFICIAL — User_00): ${(concurrenceBody.text ?? '').trim().slice(0, 4000)}`,
+                metadata_tag: appendForensicScoreToMetadataTag(
+                  `threatId:${tid}|HUMAN_CONCURRENCE`,
+                  (concurrenceBody.text ?? '').trim(),
+                ),
+              });
+            }
+            setLifecycleRegistry((r) => {
+              const cur = r[tid];
+              if (!cur || cur.kind !== 'victory') return r;
+              return {
+                ...r,
+                [tid]: { ...cur, purgeBlockedForHumanConcurrence: false, startedAt: Date.now() },
+              };
+            });
+          }
+          continue;
+        }
+
+        if (now < e.startedAt + ACTIVE_THREAT_LIFECYCLE_MS) continue;
+        purgeResolvedThreatFromBoard(tid);
+      }
+
+      for (const t of useRiskStore.getState().activeThreats) {
+        const tid = t.id;
+        const st = (t.threatStatus ?? "").trim().toUpperCase();
+        if (!isTerminalBoardThreatStatus(st)) {
+          terminalResolvedSeenAtRef.current.delete(tid);
+          continue;
+        }
+        const reg = lifecycleRegistryRef.current[tid];
+        if (reg?.kind === "victory" && reg.purgeBlockedForHumanConcurrence) continue;
+
+        let anchorMs = reg?.kind === "victory" ? reg.startedAt : terminalResolvedSeenAtRef.current.get(tid);
+        if (anchorMs == null) {
+          terminalResolvedSeenAtRef.current.set(tid, now);
+          if (!reg || reg.kind === "ingestion") {
+            setLifecycleRegistry((r) => ({
+              ...r,
+              [tid]: armVictoryLapRegistryEntry(t),
+            }));
+          }
+          continue;
+        }
+        if (now < anchorMs + ACTIVE_THREAT_LIFECYCLE_MS) continue;
+        purgeResolvedThreatFromBoard(tid);
+      }
+
+      setLifecycleSweep((n) => n + 1);
+    }, 100);
+    return () => window.clearInterval(iv);
+  }, [purgeResolvedThreatFromBoard]);
+
   const handleRemoteAccessToggleForThreat = (tid: string) => {
     setRemoteAccessBusyThreatId(tid);
     void toggleRemoteAccessAuthorization(tid)
       .then((r) => {
         if (r.success) {
           updatePipelineThreat(tid, { isRemoteAccessAuthorized: r.isRemoteAccessAuthorized });
+          const activeRow = useRiskStore.getState().activeThreats.find((t) => t.id === tid);
+          if (activeRow) {
+            useRiskStore.getState().upsertActiveThreat({
+              ...activeRow,
+              isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
+            });
+          }
+          if (r.isRemoteAccessAuthorized) {
+            setLifecycleRegistry((reg) => {
+              const cur = reg[tid];
+              if (!cur || cur.kind !== 'victory' || !cur.purgeBlockedForHumanConcurrence) return reg;
+              return {
+                ...reg,
+                [tid]: { ...cur, purgeBlockedForHumanConcurrence: false, startedAt: Date.now() },
+              };
+            });
+          }
           router.refresh();
         } else {
           setThreatActionError({ active: true, message: r.error });
@@ -1306,7 +1632,11 @@ export default function ActiveRisksClient({
         setSelectedReason('');
         setCustomJustification('');
         setAssignments({});
-        resolvedStickyUntilRef.current.clear();
+        setLifecycleRegistry({});
+        setExitingThreatIds(new Set());
+        victoryPurgeScheduledRef.current.clear();
+        terminalResolvedSeenAtRef.current.clear();
+        humanConcurrenceAuditLoggedRef.current.clear();
         ironsightAutoIgnitedRef.current.clear();
         for (const t of optimisticSettleTimersRef.current.values()) {
           window.clearTimeout(t);
@@ -1384,21 +1714,24 @@ export default function ActiveRisksClient({
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
       }
-      if ("newLog" in res && res.newLog) {
-        const prev = useRiskStore.getState().activeThreats.find((t) => t.id === threatEventId);
-        updatePipelineThreat(threatEventId, {
-          assigneeId: assign,
-          assignedTo: assign,
-          ...(res.newLog
-            ? { assignmentHistory: [...(prev?.assignmentHistory ?? []), res.newLog] }
-            : {}),
-        });
-      } else {
-        updatePipelineThreat(threatEventId, {
-          assigneeId: assign,
-          assignedTo: assign,
-        });
-      }
+      const storeSnap = useRiskStore.getState();
+      const threatRow =
+        storeSnap.activeThreats.find((t) => t.id === threatEventId) ??
+        storeSnap.pipelineThreats.find((t) => t.id === threatEventId);
+      const baseHistory = mergeAssignmentHistoryEntries(
+        threatRow?.assignmentHistory,
+        threatRow?.ingestionDetails ?? null,
+      );
+      const nextHistory =
+        "newLog" in res && res.newLog
+          ? mergeAssignmentHistoryEntries([...baseHistory, res.newLog], threatRow?.ingestionDetails ?? null)
+          : baseHistory;
+      updatePipelineThreat(threatEventId, {
+        assigneeId: assign,
+        assignedTo: assign,
+        assignmentHistory: nextHistory,
+      });
+      void storeSnap.refreshActiveThreatsFromDb().catch(() => undefined);
       if (!unassigned) {
         const t = useRiskStore.getState().activeThreats.find((x) => x.id === threatEventId);
         if (t && isDualKeyHandshakeDrillCard(t)) {
@@ -1422,22 +1755,32 @@ export default function ActiveRisksClient({
     return true;
   });
   // Only hide legacy optimistic ids when engines are OFF. DB-backed ids always pass that gate.
+  /** Active rows come from `GET /api/threats/active`, already tenant-scoped — do not match `selectedTenantName`
+   *  (company handshake label like "Medshield Health") against `industry`/`target` (`ChaosLab`, sector entity, …) or all cards vanish. */
   const filteredActiveThreats = useMemo(() => {
     return activeThreats.filter((t) => {
       if (!enginesOn && (t.id.startsWith("grcbot-") || t.id.startsWith("kimbot-"))) return false;
-      if (selectedTenantName) {
-        const sel = selectedTenantName.trim();
-        // Active API maps `targetEntity` → `industry` only; `target` is often unset — match both.
-        return (t.target ?? "").trim() === sel || (t.industry ?? "").trim() === sel;
-      }
       return true;
     });
-  }, [activeThreats, enginesOn, selectedTenantName]);
+  }, [activeThreats, enginesOn]);
 
   const visibleRisks = filteredRisks.filter((r) => states[r.id] !== 'resolved');
-  const visibleActiveThreats = filteredActiveThreats.filter(
-    (t) => (states[t.id] ?? t.lifecycleState ?? 'active') !== 'resolved'
-  );
+  const visibleActiveThreats = filteredActiveThreats.filter((t) => {
+    if ((states[t.id] ?? t.lifecycleState ?? "active") === "resolved") return false;
+    const st = (t.threatStatus ?? "").trim().toUpperCase();
+    if (!isTerminalBoardThreatStatus(st)) return true;
+    const reg = lifecycleRegistry[t.id];
+    const now = Date.now();
+    const purgeBlocked =
+      reg?.kind === "victory" && Boolean(reg.purgeBlockedForHumanConcurrence);
+    const inVictoryLap =
+      reg?.kind === "victory" &&
+      !purgeBlocked &&
+      now < reg.startedAt + ACTIVE_THREAT_LIFECYCLE_MS;
+    return inVictoryLap;
+  });
+
+  void lifecycleSweep;
 
   const searchLower = riskSearchQuery.trim().toLowerCase();
 
@@ -1483,16 +1826,6 @@ export default function ActiveRisksClient({
       (a.calculatedRiskScore ?? a.score ?? a.loss ?? 0),
   );
   const sortedRisks = [...searchedRisks].sort((a, b) => b.score_cents - a.score_cents);
-
-  const stickyResolvedVisualByThreatId = useMemo(() => {
-    const now = Date.now();
-    const m = new Map<string, boolean>();
-    for (const t of sortedActiveThreats) {
-      const until = resolvedStickyUntilRef.current.get(t.id);
-      m.set(t.id, until != null && until > now);
-    }
-    return m;
-  }, [sortedActiveThreats, resolvedStickySweep]);
 
   const showCompliance = useComplianceOverlayStore((s) => s.showCompliance);
   const appendGrAuditEntry = useComplianceOverlayStore((s) => s.appendAuditEntry);
@@ -1658,10 +1991,20 @@ export default function ActiveRisksClient({
   const handleAddNote = (riskId: string) => {
     const draft = (noteDrafts[riskId] ?? '').trim();
     if (!draft) return;
+    const fromStore = useRiskStore.getState().activeThreats.find((t) => t.id === riskId);
+    const assigneeValue = assignedFor(
+      riskId,
+      fromStore?.assigneeId ?? (fromStore as { assignedTo?: string } | undefined)?.assignedTo,
+      riskId,
+    );
+    const noteUser =
+      assigneeValue === 'User_00' || assigneeValue.toLowerCase() === 'user_00'
+        ? 'User_00'
+        : SESSION_OPERATOR_LABEL[currentUser] ?? currentUser;
     const note: WorkNote = {
       timestamp: new Date().toISOString(),
       text: draft,
-      user: 'Dereck',
+      user: noteUser,
     };
     setWorkNotes((prev) => ({
       ...prev,
@@ -1934,11 +2277,33 @@ export default function ActiveRisksClient({
             </p>
           </div>
         ) : null}
+        <AnimatePresence mode="popLayout">
         {sortedActiveThreats.map((threat) => {
-          const stickyResolvedVisual = stickyResolvedVisualByThreatId.get(threat.id) ?? false;
+          void lifecycleSweep;
           const dbStatusUpper = (threat.threatStatus ?? '').trim().toUpperCase();
           const isArchived = dbStatusUpper === 'CLOSED_ARCHIVED';
           const isResolvedInDb = dbStatusUpper === 'RESOLVED';
+          const reg = lifecycleRegistry[threat.id];
+          const nowLifecycle = Date.now();
+          const purgeBlockedForConcurrence =
+            reg?.kind === 'victory' && Boolean(reg.purgeBlockedForHumanConcurrence);
+          const inVictoryLapWindow =
+            exitingThreatIds.has(threat.id) ||
+            (reg?.kind === 'victory' &&
+              reg.isVictoryLap &&
+              !purgeBlockedForConcurrence &&
+              nowLifecycle < reg.startedAt + ACTIVE_THREAT_LIFECYCLE_MS);
+          const stickyResolvedVisual = isResolvedInDb || inVictoryLapWindow;
+          const victoryLapContentGhost =
+            exitingThreatIds.has(threat.id) ||
+            (reg?.kind === 'victory' &&
+              reg.isVictoryLap &&
+              !purgeBlockedForConcurrence &&
+              nowLifecycle >= reg.startedAt + VICTORY_LAP_GHOST_MS);
+          const isIngestionDiscoveryHold = Boolean(
+            reg?.kind === 'ingestion' &&
+              nowLifecycle < reg.startedAt + ACTIVE_THREAT_LIFECYCLE_MS,
+          );
           const statusRaw = (() => {
             if (isArchived) return 'CLOSED_ARCHIVED';
             if (isResolvedInDb || stickyResolvedVisual) return 'RESOLVED';
@@ -1953,7 +2318,7 @@ export default function ActiveRisksClient({
                 ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
           const threatServerAssignee = (threat.assigneeId ?? threat.assignedTo ?? null) as string | null;
           const assigneeValue = assignedFor(threat.id, threatServerAssignee, threat.id);
-          /** `user_00` and other non-empty assignees are treated as assigned (not unassigned). */
+          /** Canonical `User_00` / legacy `user_00` — non-empty assignees are treated as assigned (not unassigned). */
           const isUnassigned = assigneeValue === 'unassigned';
           const isActive =
             !isActuallyResolved &&
@@ -1982,10 +2347,16 @@ export default function ActiveRisksClient({
           });
           const canRevertToPipeline = !isEnrichedIntelNoRevertSource(threat.source);
           const displayDescription = buildActiveThreatDisplayDescription(threat);
-          const assigneeHistoryForCard =
-            threat.assignmentHistory && threat.assignmentHistory.length > 0
-              ? threat.assignmentHistory
-              : threatEventHistoryById.get(threat.id) ?? [];
+          const assigneeHistoryForCard = mergeAssignmentHistoryEntries(
+            [
+              ...(threat.assignmentHistory ?? []),
+              ...(threatEventHistoryById.get(threat.id) ?? []).filter(
+                (row) =>
+                  !(threat.assignmentHistory ?? []).some((local) => local.id === row.id),
+              ),
+            ],
+            threat.ingestionDetails ?? null,
+          );
           const isExpanded = true;
           const liabilityM = threat.score ?? threat.loss;
           const supplyChainImpact = computeSupplyChainImpact({
@@ -1998,14 +2369,17 @@ export default function ActiveRisksClient({
           const resolutionText = resolutionDrafts[threat.id] ?? '';
           const resolutionLenOk = resolutionText.trim().length >= 50;
 
+          const chaosClosureMeta = readChaosClosureMeta(threat.ingestionDetails ?? null);
+          const isRemoteSupportJitGate = isRemoteSupportAwaitingJitGrant(
+            statusRaw,
+            threat.ingestionDetails ?? null,
+          );
           const isRemoteIntervention =
+            !isRemoteSupportJitGate &&
             statusRaw === 'MITIGATED' &&
             Boolean(threat.remoteTechId || threat.isRemoteAccessAuthorized);
           const isEscalatedThreat =
-            statusRaw === 'MITIGATED' && !isRemoteIntervention;
-          const chaosClosureMeta = readChaosClosureMeta(threat.ingestionDetails ?? null);
-          const isRemoteSupportJitGate =
-            isRemoteIntervention && chaosClosureMeta.scenario === 'REMOTE_SUPPORT';
+            statusRaw === 'MITIGATED' && !isRemoteIntervention && !isRemoteSupportJitGate;
           const optimisticProcessing =
             (optimisticProcessingUntilRef.current.get(threat.id) ?? 0) > Date.now();
           const isResolveInFlight = resolvingThreatIds[threat.id] === true;
@@ -2131,6 +2505,15 @@ export default function ActiveRisksClient({
                     try {
                       setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
                       await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
+                      appendAuditLog({
+                        action_type: 'NOTE_ADDED',
+                        log_type: 'GRC',
+                        description: `Human Concurrence (OFFICIAL — RESOLUTION): ${resolutionText.trim().slice(0, 4000)}`,
+                        metadata_tag: appendForensicScoreToMetadataTag(
+                          `threatId:${threat.id}|HUMAN_CONCURRENCE`,
+                          resolutionText.trim(),
+                        ),
+                      });
                       setResolutionDrafts((prev) => {
                         const next = { ...prev };
                         delete next[threat.id];
@@ -2236,9 +2619,23 @@ export default function ActiveRisksClient({
           const activeRiskShieldBadge =
             hasMountedClient && selectedIndustry === "Defense" ? DEFENSE_REGULATORY_SHIELD_BADGE_LABEL : null;
 
+          const showNeutralizeAttestation =
+            lifecycle === 'confirmed' &&
+            !isActuallyResolved &&
+            !isArchived &&
+            !isDualKeyDrill;
+
           return (
-            <ThreatCard
+            <motion.div
               key={threat.id}
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: THREAT_EXIT_FADE_MS / 1000, ease: 'easeOut' }}
+              className="min-h-0"
+            >
+            <ThreatCard
               cardThreatId={threat.id}
               showCompliance={showCompliance}
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
@@ -2257,13 +2654,28 @@ export default function ActiveRisksClient({
               irontechAttemptCount={irontechAttemptCount}
               infrastructureErrorProbeText={infrastructureErrorProbeText}
               ingestionDetailsRaw={threat.ingestionDetails ?? null}
-              onAutoDismiss={() => {
-                useAgentStore.getState().clearActiveThreatById(threat.id);
-                replaceActiveThreats(
-                  useRiskStore.getState().activeThreats.filter((t) => t.id !== threat.id),
-                );
-                void refreshActiveThreatsFromDb();
-                router.refresh();
+              isVictoryLap={inVictoryLapWindow}
+              victoryLapContentGhost={victoryLapContentGhost}
+              isIngestionDiscoveryHold={isIngestionDiscoveryHold}
+              intelligenceFooter={
+                isChaosBoardThreat ? (
+                  <ChaosShadowAuditFeed
+                    ingestionDetails={threat.ingestionDetails}
+                    pendingStatusLine={chaosFlightRecorderByThreatId[threat.id]?.statusLine ?? null}
+                  />
+                ) : undefined
+              }
+              showNeutralizeAttestation={showNeutralizeAttestation}
+              onNeutralizeAttestationDraftChange={(text) =>
+                setNeutralizeAttestationDraftsByThreatId((prev) => ({ ...prev, [threat.id]: text }))
+              }
+              actorDisplayNameForNeutralize={actorDisplayLabel}
+              registryNeutralizeAttestationOk={validateBulkNeutralizeAttestation([threat.id])}
+              neutralizeAttestationContext={{
+                threatName: threat.name,
+                target: threat.target,
+                industry: threat.industry,
+                selectedTenantName,
               }}
               manualRecoveryInline={
                 statusRaw === 'MITIGATED' && !isRemoteIntervention ? (
@@ -2310,9 +2722,15 @@ export default function ActiveRisksClient({
               } p-4`}
             >
               <ChaosFlightSelfHealedBanner threatId={threat.id} />
-              {isChaosBoardThreat ? (
-                <div className="mb-2">
-                  <ChaosShadowAuditFeed ingestionDetails={threat.ingestionDetails} />
+              {purgeBlockedForConcurrence ? (
+                <div className="mb-2 rounded border border-amber-500/50 bg-amber-950/30 px-2 py-2 text-[10px] leading-snug text-amber-100/95">
+                  <p className="font-black uppercase tracking-wide text-amber-200">
+                    Forensic gate — Chaos L4 remote handshake
+                  </p>
+                  <p className="mt-1">
+                    Remote Support requires verified JIT / sidecar handshake before this seat releases. Grant remote
+                    access or complete GRC concurrence, then the 4s victory lap will purge this row.
+                  </p>
                 </div>
               ) : null}
               <div className="flex w-full items-start justify-between text-left">
@@ -2469,7 +2887,7 @@ export default function ActiveRisksClient({
                       >
                         <option value="unassigned">Unassigned</option>
                         <option value="dereck">Dereck</option>
-                        <option value="user_00">user_00</option>
+                        <option value="User_00">User_00</option>
                         <option value="user_01">user_01</option>
                         <option value="secops">SecOps Team</option>
                         <option value="grc">GRC Team</option>
@@ -2606,6 +3024,7 @@ export default function ActiveRisksClient({
                                   return;
                                 }
                                 await refreshActiveThreatsFromDb();
+                                requestVictoryLapFromNeutralize(threat.id);
                                 router.refresh();
                               } finally {
                                 setGrantRemoteJitBusyThreatId(null);
@@ -3012,8 +3431,10 @@ export default function ActiveRisksClient({
                 </div>
               )}
             </ThreatCard>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
 
         {sortedRisks.map((risk) => {
           const lifecycle: LifecycleState = states[risk.id] ?? 'active';
@@ -3021,8 +3442,20 @@ export default function ActiveRisksClient({
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[risk.id] ?? [];
-          const riskAssigneeHistory =
-            (risk.threatId ? threatEventHistoryById.get(risk.threatId) : undefined) ?? [];
+          const riskThreatRow = risk.threatId
+            ? useRiskStore.getState().activeThreats.find((t) => t.id === risk.threatId) ??
+              useRiskStore.getState().pipelineThreats.find((t) => t.id === risk.threatId)
+            : undefined;
+          const riskAssigneeHistory = mergeAssignmentHistoryEntries(
+            [
+              ...(riskThreatRow?.assignmentHistory ?? []),
+              ...(risk.threatId ? (threatEventHistoryById.get(risk.threatId) ?? []) : []).filter(
+                (row) =>
+                  !(riskThreatRow?.assignmentHistory ?? []).some((local) => local.id === row.id),
+              ),
+            ],
+            riskThreatRow?.ingestionDetails ?? null,
+          );
           const isExpanded = true;
           const supplyChainImpact = computeSupplyChainImpact({
             title: risk.title,
@@ -3095,7 +3528,7 @@ export default function ActiveRisksClient({
                     >
                       <option value="unassigned">Unassigned</option>
                       <option value="dereck">Dereck</option>
-                      <option value="user_00">user_00</option>
+                      <option value="User_00">User_00</option>
                       <option value="user_01">user_01</option>
                       <option value="secops">SecOps Team</option>
                       <option value="grc">GRC Team</option>

@@ -15,6 +15,10 @@ type Props = {
  * Ingestion panel wrapper. Renders the ingestion UI so test runs and validation are always available.
  * Default: server + first client paint show the **base** loading shell; “live range” / cookie-driven subtree
  * only after mount — avoids Shadow Plane hydration mismatches (`ThreatPipeline` inside `children`).
+ *
+ * Risk Velocity (raw signals inside `ThreatPipeline`): only `status === 'pending'` (or legacy
+ * `velocityLifecycle === 'pending'`) lists; promoted / pipeline-backed ids are excluded.
+ * There is no dedicated Prisma `signals` table; persistence is `ThreatEvent.ingestionDetails` + client queue.
  */
 export default function IngestionPanel({
   children,

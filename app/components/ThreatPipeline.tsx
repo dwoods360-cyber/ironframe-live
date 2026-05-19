@@ -13,6 +13,11 @@ import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
 import { useTenantContext } from "@/app/context/TenantProvider";
+import {
+  useConstitutionalLockFlags,
+  useForensicAttestationMin,
+} from "@/app/context/ConstitutionalIntegrityProvider";
+import { FORENSIC_VOID_JUSTIFICATION_MESSAGE } from "@/app/utils/constitutionalForensicGates";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
@@ -47,6 +52,16 @@ import {
   getChaosLevelVisual,
   resolveChaosDrillLevelForUi,
 } from "@/app/utils/chaosLevelVisual";
+import {
+  belongsOnAttackVelocityPipeline,
+  CHAOS_DISCOVERY_HOLD_MS,
+  isChaosInDiscoveryWindow,
+  isInRemoteSupportAttackVelocityWindow,
+  isIrontechChaosDrillEntity,
+  isRemoteSupportChaosThreat,
+  REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS,
+} from "@/app/utils/chaosDiscoveryHold";
+import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -203,6 +218,7 @@ function PipelineThreatCard({
   const [auditReasonExpanded, setAuditReasonExpanded] = useState(false);
   const [resolvePending, setResolvePending] = useState(false);
   const [genApprovalPending, setGenApprovalPending] = useState(false);
+  const [discoveryUiTick, setDiscoveryUiTick] = useState(0);
 
   useEffect(() => {
     if (tttStopped) return;
@@ -284,6 +300,33 @@ function PipelineThreatCard({
   const chaosVisual = chaosDisplayLevel != null ? getChaosLevelVisual(chaosDisplayLevel) : null;
   const ChaosLevelIcon = chaosVisual?.icon;
 
+  const l4AttackVelocityLane =
+    isIrontechChaosDrillEntity(threat) && isRemoteSupportChaosThreat(threat);
+  const chaosDiscoveryHold = l4AttackVelocityLane
+    ? isInRemoteSupportAttackVelocityWindow(threat)
+    : isChaosInDiscoveryWindow(threat);
+  const discoveryHoldMs = l4AttackVelocityLane
+    ? REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS
+    : CHAOS_DISCOVERY_HOLD_MS;
+  const createdMsForDiscovery = Date.parse(threat.createdAt ?? "");
+  const discoveryProgressPct = useMemo(() => {
+    if (!chaosDiscoveryHold || !Number.isFinite(createdMsForDiscovery)) return 0;
+    return Math.min(100, ((Date.now() - createdMsForDiscovery) / discoveryHoldMs) * 100);
+  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryUiTick]);
+  const discoverySecondsRemaining = useMemo(() => {
+    if (!chaosDiscoveryHold || !Number.isFinite(createdMsForDiscovery)) return 0;
+    return Math.max(
+      0,
+      Math.ceil((discoveryHoldMs - (Date.now() - createdMsForDiscovery)) / 1000),
+    );
+  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryUiTick]);
+
+  useEffect(() => {
+    if (!chaosDiscoveryHold) return;
+    const id = window.setInterval(() => setDiscoveryUiTick((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, [chaosDiscoveryHold, threat.id]);
+
   let severityLabelText: "MEDIUM" | "HIGH" | "CRITICAL";
   if (chaosInPipelineLane) {
     severityLabelText = "CRITICAL";
@@ -323,13 +366,15 @@ function PipelineThreatCard({
     updatePipelineThreat(threat.id, { impact: next });
   };
 
+  const forensicMin = useForensicAttestationMin();
   const grcTrimmed = grcJustification.trim();
   const grcAckLen = grcTrimmed.length;
   const ackRequirementsMet =
-    grcAckLen >= 50 ||
+    grcAckLen >= forensicMin ||
     (isTopSectorThreat && grcTrimmed === TOP_SECTOR_JUSTIFICATION_TEXT);
 
-  const ackEnabled = true;
+  const { isLocked: constitutionalLock, isConstitutionalEmergency } = useConstitutionalLockFlags();
+  const ackEnabled = !constitutionalLock;
   const chaosFlightLocksAck =
     chaosFlight != null &&
     (chaosFlight.step === 1 ||
@@ -349,6 +394,14 @@ function PipelineThreatCard({
 
   const handleAcknowledgeClick = async () => {
     if (!ackEnabled || ackPending || chaosFlightLocksAck) return;
+    if (!ackRequirementsMet) {
+      const msg =
+        isConstitutionalEmergency && grcAckLen < forensicMin
+          ? FORENSIC_VOID_JUSTIFICATION_MESSAGE
+          : `GRC justification must be at least ${forensicMin} characters.`;
+      setThreatActionError({ active: true, message: msg });
+      return;
+    }
     if (!tenantUuidForActions) {
       appendAuditLog({
         action_type: "SYSTEM_WARNING",
@@ -440,6 +493,8 @@ function PipelineThreatCard({
     try {
       const effectiveOperatorId = userId.trim() || currentUser || "admin-user-01";
       await resolveThreat(threat.id, effectiveOperatorId, grcTrimmed, operatorDisplayName);
+      /** Dual sync: active threats + deficiency queue / OpSupport poll consumers via `ironframe-operational-refresh`. */
+      await useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
       onActionSuccess?.();
     } finally {
       setResolvePending(false);
@@ -474,13 +529,36 @@ function PipelineThreatCard({
 
   return (
     <div
-      className={
+      className={[
         isKimbotThreat
           ? "rounded border-2 border-red-500 bg-red-950/30 overflow-hidden font-sans animate-pulse"
-          : "rounded border border-slate-700 bg-slate-900/60 overflow-hidden font-sans"
-      }
+          : "rounded border border-slate-700 bg-slate-900/60 overflow-hidden font-sans",
+        chaosDiscoveryHold && !isKimbotThreat
+          ? "ring-2 ring-cyan-500/45 shadow-[0_0_22px_rgba(34,211,238,0.18)]"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <div className="p-4 space-y-4">
+        {chaosDiscoveryHold ? (
+          <div className="space-y-2 rounded-md border border-cyan-500/50 bg-cyan-950/25 px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-200">
+                Risk velocity · discovery
+              </span>
+              <span className="text-[10px] font-mono tabular-nums text-cyan-100/90">
+                {discoverySecondsRemaining}s
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-600 via-teal-500 to-emerald-500 shadow-[0_0_12px_rgba(34,211,238,0.35)] transition-[width] duration-200 ease-linear"
+                style={{ width: `${discoveryProgressPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
         {/* Header — single horizontal flow (flex-wrap) so chips never overlap; title flexes, pills stay shrink-0 */}
         <div className="flex flex-col gap-2">
           <div className="flex w-full min-w-0 flex-row flex-wrap items-center gap-x-3 gap-y-2">
@@ -773,7 +851,7 @@ function PipelineThreatCard({
           >
             <option value="unassigned">Unassigned</option>
             <option value={currentUser}>{operatorDisplayName} (you)</option>
-            <option value="user_00">user_00</option>
+            <option value="User_00">User_00</option>
             <option value="user_01">user_01</option>
             <option value="secops">SecOps Team</option>
             <option value="grc">GRC Team</option>
@@ -785,7 +863,7 @@ function PipelineThreatCard({
         <div className="space-y-1 rounded-md border-2 border-amber-400/70 bg-amber-950/20 p-3">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">
-              GRC justification required (min 50 characters)
+              GRC justification required (min {forensicMin} characters)
             </p>
             {isTopSectorThreat && (
               <span className="rounded-full border border-emerald-500/60 bg-emerald-950/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-200">
@@ -808,12 +886,14 @@ function PipelineThreatCard({
             <span>
               {isTopSectorThreat
                 ? "Top Sector Threats: fixed audit string — length waived by source authority."
-                : "50+ characters required to Acknowledge."}
+                : isConstitutionalEmergency && grcAckLen < forensicMin
+                  ? FORENSIC_VOID_JUSTIFICATION_MESSAGE
+                  : `${forensicMin}+ characters required to Acknowledge.`}
             </span>
             <span>
               {isTopSectorThreat
                 ? `Verified · ${TOP_SECTOR_JUSTIFICATION_TEXT.length}/${TOP_SECTOR_JUSTIFICATION_TEXT.length}`
-                : `${grcJustification.length} / 50 min`}
+                : `${grcJustification.length} / ${forensicMin} min`}
             </span>
           </div>
         </div>
@@ -867,7 +947,7 @@ function PipelineThreatCard({
           {showResolve ? (
             <button
               type="button"
-              disabled={!resolutionReady || resolvePending}
+              disabled={constitutionalLock || !resolutionReady || resolvePending}
               onClick={handleResolveClick}
               className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
                 resolutionReady && !resolvePending
@@ -958,6 +1038,19 @@ export default function ThreatPipeline({
       (process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "true" ||
         process.env.NEXT_PUBLIC_SHADOW_PLANE_ACTIVE === "1")) ||
     (mounted && isShadowPlaneActiveClient());
+
+  const anyChaosDiscoveryHold = useMemo(
+    () => pipelineThreats.some((t) => isChaosInDiscoveryWindow(t)),
+    [pipelineThreats],
+  );
+  useEffect(() => {
+    if (!anyChaosDiscoveryHold) return undefined;
+    const id = window.setInterval(() => {
+      useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+    }, 500);
+    return () => clearInterval(id);
+  }, [anyChaosDiscoveryHold]);
+
   /** Stress/shadow never block on raw-signal “WAITING…”; hide when pipeline or active DB-backed rows exist (Chaos may land on active board first). */
   const suppressIngestionStreamWaiting =
     shadowPlaneHandshakeAuthorized ||
@@ -994,6 +1087,10 @@ export default function ThreatPipeline({
     agentScore?: number;
     description: string;
     targetSector?: string;
+    /** Risk Velocity: only `pending` signals render; `promoted` clears baton after Active / DB ingest. */
+    status: "pending" | "promoted";
+    /** @deprecated Use `status` — kept for older client merges. */
+    velocityLifecycle?: "pending" | "promoted";
   };
 
   const [rawSignals, setRawSignals] = useState<RawSignal[]>([]);
@@ -1013,8 +1110,15 @@ export default function ThreatPipeline({
   };
 
   // # DATA_PERSISTENCE_FILTER — derive per-industry/tenant pipeline view from master pipelineThreats (store arrays stay untouched)
+  const activeThreatIdSet = useMemo(() => new Set(activeThreats.map((t) => t.id)), [activeThreats]);
   const riskSearchLower = riskSearchQuery.trim().toLowerCase();
   const filteredRisks = pipelineThreats.filter((t) => {
+    /** Chaos / all lanes: once a card is on Active Risks, it must not remain in Risk Ingestion / Attack Velocity. */
+    if (activeThreatIdSet.has(t.id)) return false;
+    if (!belongsOnAttackVelocityPipeline(t)) return false;
+    const st = (t.threatStatus ?? "").trim().toUpperCase();
+    if (st === "RESOLVED" || st === "CLOSED_ARCHIVED") return false;
+    if (isChaosForensicGavelClosed(t.ingestionDetails ?? null)) return false;
     const src = (t.source ?? "").trim().toUpperCase();
     const agentUpper = ((t as { sourceAgent?: string }).sourceAgent ?? "").trim().toUpperCase();
     /** Irontech Chaos cards use `targetEntity` ChaosLab — keep visible when industry rail ≠ ChaosLab. */
@@ -1258,16 +1362,30 @@ export default function ThreatPipeline({
       agentScore: alert.severityScore,
       description: alert.impact,
       targetSector: alert.sector,
+      status: "pending" as const,
     }));
+
+  /** Signals whose ids already exist as pipeline / active DB-backed threats stay out of Risk Velocity. */
+  const velocityThreatIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const t of pipelineThreats) {
+      if (t.id) ids.add(t.id);
+    }
+    for (const t of activeThreats) {
+      if (t.id) ids.add(t.id);
+    }
+    return ids;
+  }, [pipelineThreats, activeThreats]);
 
   // When engines (KIMBOT/GRCBOT) are off, exclude injected signals so RAW SIGNAL INGESTION stays a clean slate
   const mergedSignals = [
     ...agentSignalsFromSidebar,
     ...rawSignals,
-    ...(enginesOn ? injectedSignals : []),
-  ].filter(
-    (s) => !removedSignalIds.has(s.id),
-  );
+    ...(enginesOn ? injectedSignals.map((s) => ({ ...s, status: "pending" as const })) : []),
+  ].filter((s: RawSignal) => {
+    const st = s.status ?? s.velocityLifecycle ?? "pending";
+    return st === "pending" && !removedSignalIds.has(s.id) && !velocityThreatIds.has(s.id);
+  });
 
   // Sync LIVE MONITORING pulse: rawSignals + injectedSignals + active high-priority pipeline alerts
   const highPriorityPipelineCount = pipelineThreats.filter(

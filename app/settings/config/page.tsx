@@ -20,6 +20,24 @@ import {
   useSystemConfigStore,
 } from "@/app/store/systemConfigStore";
 import { getAdminAlertEmail, setAdminAlertEmail } from "@/app/actions/systemConfigDbActions";
+import {
+  getSecurityPostureConfig,
+  saveSecurityPostureConfig,
+  type SecurityPostureConfigDto,
+} from "@/app/actions/securityPostureActions";
+import {
+  SECURITY_POSTURE_DUAL_LOCK,
+  SECURITY_POSTURE_TRIPARTITE_LOCK,
+  SECURITY_POSTURE_LABELS,
+  type SecurityPosture,
+} from "@/app/config/securityPosture";
+import { FORENSIC_ATTESTATION_MIN_VOID } from "@/app/utils/constitutionalForensicGates";
+import ExecutiveDowngradeApprovalModal from "@/app/components/ExecutiveDowngradeApprovalModal";
+import StaleDataLockdownWaiverPanel from "@/app/components/StaleDataLockdownWaiverPanel";
+import {
+  getPostureDegradationStatus,
+  initiateBoardLevelDowngrade,
+} from "@/app/actions/postureDegradationActions";
 
 export default function SystemConfigPage() {
   const config = useSystemConfigStore();
@@ -32,9 +50,42 @@ export default function SystemConfigPage() {
   const [cadenceAlerts, setCadenceAlertsInput] = useState<CadenceAlertToggles>({ day90: true, day60: true, day30: true });
   const [status, setStatus] = useState<string | null>(null);
   const [adminEscalationEmail, setAdminEscalationEmailInput] = useState("");
+  const [securityPosture, setSecurityPosture] = useState<SecurityPosture>(SECURITY_POSTURE_DUAL_LOCK);
+  const [savedPosture, setSavedPosture] = useState<SecurityPosture>(SECURITY_POSTURE_DUAL_LOCK);
+  const [postureSealGeneratedAt, setPostureSealGeneratedAt] = useState<string | null>(null);
+  const [postureDistributionHint, setPostureDistributionHint] = useState<string | null>(null);
+  const [degradationJustification, setDegradationJustification] = useState("");
+  const [postureSaveBusy, setPostureSaveBusy] = useState(false);
+  const [executiveModalOpen, setExecutiveModalOpen] = useState(false);
+  const [degradationStatusLabel, setDegradationStatusLabel] = useState<string | null>(null);
 
   useEffect(() => {
     hydrateSystemConfig();
+  }, []);
+
+  const refreshPostureState = () => {
+    void getSecurityPostureConfig().then((cfg: SecurityPostureConfigDto) => {
+      setSecurityPosture(cfg.posture);
+      setSavedPosture(cfg.posture);
+      setPostureSealGeneratedAt(cfg.sealGeneratedAt);
+    });
+    void getPostureDegradationStatus().then((s) => {
+      if (!s.active) {
+        setDegradationStatusLabel(null);
+        return;
+      }
+      if (s.phase === "COOLDOWN" && s.remainingLabel) {
+        setDegradationStatusLabel(`PENDING_DEGRADATION — cool-down ${s.remainingLabel} until DUAL_LOCK`);
+      } else {
+        setDegradationStatusLabel("PENDING_DEGRADATION — awaiting CEO, CFO, CIO signatures");
+      }
+    });
+  };
+
+  useEffect(() => {
+    refreshPostureState();
+    const id = window.setInterval(refreshPostureState, 5000);
+    return () => window.clearInterval(id);
   }, []);
 
   useEffect(() => {
@@ -111,6 +162,150 @@ export default function SystemConfigPage() {
             {config.expertModeEnabled ? "ON" : "OFF"}
           </button>
         </div>
+
+        <div className="mb-4 rounded border border-rose-700/50 bg-rose-950/30 p-3">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-rose-200">
+            Nuclear Override Posture
+          </p>
+          <p className="mb-3 text-[10px] text-slate-400">
+            Controls how the emergency seal is split for constitutional void override. Saving regenerates a new seal and
+            resets spent override state. Segment values are never shown here — distribute offline per the hint after save.
+          </p>
+          {postureSealGeneratedAt ? (
+            <p className="mb-3 text-[10px] text-slate-500">
+              Active seal generated: {new Date(postureSealGeneratedAt).toLocaleString()}
+            </p>
+          ) : null}
+          <div className="mb-3 flex flex-col gap-2">
+            {([SECURITY_POSTURE_DUAL_LOCK, SECURITY_POSTURE_TRIPARTITE_LOCK] as const).map((posture) => (
+              <label
+                key={posture}
+                className="flex cursor-pointer items-start gap-2 rounded border border-slate-700 bg-slate-900/60 px-3 py-2 text-[10px] text-slate-200"
+              >
+                <input
+                  type="radio"
+                  name="security-posture"
+                  checked={securityPosture === posture}
+                  onChange={() => setSecurityPosture(posture)}
+                  className="mt-0.5 accent-rose-500"
+                />
+                <span>
+                  <span className="font-bold uppercase tracking-wide">{SECURITY_POSTURE_LABELS[posture]}</span>
+                  {posture === SECURITY_POSTURE_TRIPARTITE_LOCK ? (
+                    <span className="mt-1 block text-amber-300/90">
+                      Requires three custodians (Vault, CISO, Staff). Downgrade to Dual-Lock requires Board-Level
+                      Approval (CEO, CFO, CIO keys), {FORENSIC_ATTESTATION_MIN_VOID}+ char justification, and 24-hour
+                      cool-down.
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-slate-400">
+                      Vault + Human (SYSTEM_OWNER) segments — default dual-custody model.
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+          {savedPosture === SECURITY_POSTURE_TRIPARTITE_LOCK &&
+          securityPosture === SECURITY_POSTURE_DUAL_LOCK ? (
+            <div className="mb-3">
+              <label
+                htmlFor="posture-degradation-justification"
+                className="text-[10px] font-bold uppercase tracking-wide text-amber-200"
+              >
+                Degradation justification ({FORENSIC_ATTESTATION_MIN_VOID}+ chars)
+              </label>
+              <textarea
+                id="posture-degradation-justification"
+                value={degradationJustification}
+                onChange={(e) => setDegradationJustification(e.target.value)}
+                className="mt-1 h-24 w-full rounded border border-amber-700/60 bg-slate-900 px-3 py-2 text-[10px] text-slate-100 outline-none focus:border-amber-500"
+                placeholder="Forensic rationale for TRIPARTITE → DUAL downgrade…"
+              />
+              <p className="mt-1 text-[10px] text-slate-500">
+                {degradationJustification.trim().length} / {FORENSIC_ATTESTATION_MIN_VOID}
+              </p>
+            </div>
+          ) : null}
+          {degradationStatusLabel ? (
+            <p className="mb-3 rounded border border-amber-600/50 bg-amber-950/30 px-3 py-2 text-[10px] text-amber-200">
+              {degradationStatusLabel}
+            </p>
+          ) : null}
+          {postureDistributionHint ? (
+            <p className="mb-3 rounded border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-[10px] text-emerald-200">
+              {postureDistributionHint}
+            </p>
+          ) : null}
+          {savedPosture === SECURITY_POSTURE_TRIPARTITE_LOCK &&
+          securityPosture === SECURITY_POSTURE_DUAL_LOCK ? (
+            <button
+              type="button"
+              disabled={
+                postureSaveBusy || degradationJustification.trim().length < FORENSIC_ATTESTATION_MIN_VOID
+              }
+              onClick={() => {
+                void (async () => {
+                  setPostureSaveBusy(true);
+                  const result = await initiateBoardLevelDowngrade(degradationJustification);
+                  setPostureSaveBusy(false);
+                  if (!result.ok) {
+                    setStatus(result.error);
+                    return;
+                  }
+                  setStatus("Board-level downgrade initiated. Awaiting triple-executive signatures.");
+                  setExecutiveModalOpen(true);
+                  refreshPostureState();
+                })();
+              }}
+              className="mr-2 rounded border border-amber-500/70 bg-amber-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-200 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {postureSaveBusy ? "Initiating…" : "Initiate Board Downgrade"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={
+              postureSaveBusy ||
+              securityPosture === savedPosture ||
+              (savedPosture === SECURITY_POSTURE_TRIPARTITE_LOCK &&
+                securityPosture === SECURITY_POSTURE_DUAL_LOCK)
+            }
+            onClick={() => {
+              void (async () => {
+                setPostureSaveBusy(true);
+                const result = await saveSecurityPostureConfig(securityPosture);
+                setPostureSaveBusy(false);
+                if (!result.ok) {
+                  setStatus(result.error);
+                  return;
+                }
+                setSavedPosture(result.posture);
+                setPostureSealGeneratedAt(result.sealGeneratedAt);
+                setPostureDistributionHint(result.distributionHint);
+                setDegradationJustification("");
+                setStatus(`Nuclear override posture saved (${result.posture}). New emergency seal issued.`);
+                refreshPostureState();
+              })();
+            }}
+            className="rounded border border-rose-500/70 bg-rose-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-200 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {postureSaveBusy ? "Saving…" : "Save Posture & Regenerate Seal"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setExecutiveModalOpen(true)}
+            className="ml-2 rounded border border-slate-600 px-3 py-1.5 text-[10px] font-bold uppercase text-slate-300"
+          >
+            Open Executive Gate
+          </button>
+          <StaleDataLockdownWaiverPanel />
+        </div>
+        <ExecutiveDowngradeApprovalModal
+          open={executiveModalOpen}
+          onClose={() => setExecutiveModalOpen(false)}
+          onWorkflowChange={refreshPostureState}
+        />
 
         <div className="mb-4 rounded border border-slate-700 bg-slate-950/40 p-3">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-wide text-slate-200">Section A // SOC Core</p>

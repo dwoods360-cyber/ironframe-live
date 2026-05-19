@@ -9,6 +9,7 @@ import { useBoardReadinessStatusStore } from "@/app/store/boardReadinessStatusSt
 import { useAgenticComputeStore } from "@/app/store/agenticComputeStore";
 import { useComplianceOverlayStore } from "@/app/store/complianceOverlayStore";
 import { useScenarioStore } from "@/app/store/scenarioStore";
+import { useRiskRegistryStore } from "@/app/store/riskRegistryStore";
 
 /**
  * Cold-boot: wipe tenant-derived client RAM across Zustand surfaces (Command Center + Dev switcher).
@@ -16,6 +17,7 @@ import { useScenarioStore } from "@/app/store/scenarioStore";
  * Local forensic audit buffer is **not** cleared here — use Audit Intelligence → Master Purge only.
  */
 export function resetAllStores(): void {
+  useRiskRegistryStore.getState().clear();
   useRiskStore.getState().clearAllRiskStateForPurge();
   useRiskStore.getState().setSelectedTenantName(null);
 

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Lock, Megaphone, Radio, ShieldCheck } from "lucide-react";
 import {
   clearAllThreatsAction,
+  standDownAllSystemIntegrityDrillsAction,
   triggerSystemIntegrityDrillAction,
   type SystemIntegrityDrillId,
 } from "@/app/actions/chaosActions";
@@ -46,6 +47,34 @@ import {
 export type { AgentPulseState };
 export { getAgentState };
 
+const SIMULATION_BOT_INTEGRITY_DRILLS = ["attbot", "kimbot", "grcbot"] as const satisfies readonly SystemIntegrityDrillId[];
+
+type SimulationBotIntegrityDrillId = (typeof SIMULATION_BOT_INTEGRITY_DRILLS)[number];
+
+function isOpenSimulationBotThreat(
+  t: PipelineThreat,
+  drillId: SimulationBotIntegrityDrillId,
+): boolean {
+  const tag = drillId.toUpperCase();
+  const title = (t.name ?? "").trim().toUpperCase();
+  if (!title.includes("SYSTEM INTEGRITY") || !title.includes(tag)) return false;
+  const st = (t.threatStatus ?? "").trim().toUpperCase();
+  return st !== "RESOLVED" && st !== "CLOSED_ARCHIVED";
+}
+
+function countOpenSimulationBotDrills(
+  threats: PipelineThreat[],
+  drillId: SimulationBotIntegrityDrillId,
+): number {
+  return threats.filter((t) => isOpenSimulationBotThreat(t, drillId)).length;
+}
+
+const INITIAL_SIMULATION_BOT_ARMED: Record<SimulationBotIntegrityDrillId, boolean> = {
+  attbot: false,
+  kimbot: false,
+  grcbot: false,
+};
+
 /**
  * Left-pane Irontech enclave: compliance overlay + chaos controls.
  * Solid zinc frame only — no dashed “cage”, no redundant chrome (parent section owns “CONTROL ROOM”).
@@ -79,6 +108,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const [feedTelemetryActiveAt, setFeedTelemetryActiveAt] = useState<number>(Date.now());
   const [isMounted, setIsMounted] = useState(false);
   const [irongateClaimFlash, setIrongateClaimFlash] = useState(false);
+  /** Armed = bot channel ON; each click while armed fires another attack wave (stack on Attack Velocity). */
+  const [simulationBotsArmed, setSimulationBotsArmed] = useState(INITIAL_SIMULATION_BOT_ARMED);
   const isSimulationActive = useSystemConfigStore().isSimulationMode;
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
@@ -247,38 +278,96 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     [activeThreats, pipelineThreats],
   );
 
-  async function handleSystemIntegrityDrill(drillId: SystemIntegrityDrillId) {
-    if (drillBusyKey || purgeBusy) return;
+  async function syncBoardsAfterIntegrityDrillChange() {
+    applyManualSimulationStandDownResumeFeed();
+    void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+    const replacePipeline = useRiskStore.getState().replacePipelineThreats;
+    const replaceActive = useRiskStore.getState().replaceActiveThreats;
+    await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => undefined);
+    setBoardPrepRefresh((n) => n + 1);
+    setFeedTelemetryActiveAt(Date.now());
+    window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+    void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
+    router.refresh();
+  }
+
+  async function disarmSimulationBot(drillId: SimulationBotIntegrityDrillId) {
     setDrillBusyKey(drillId);
     setDrillError(null);
     try {
-      const isFullSpectrum =
-        drillId === "attbot" || drillId === "kimbot" || drillId === "grcbot";
-      if (isFullSpectrum) {
-        // Fresh subscription posture for live feed when full-spectrum drill toggles.
+      const standDown = await standDownAllSystemIntegrityDrillsAction(drillId);
+      if (!standDown.ok) {
+        setDrillError(standDown.error);
+        return;
+      }
+      const cleared = new Set(standDown.threatIds);
+      useRiskStore.getState().replacePipelineThreats(
+        useRiskStore.getState().pipelineThreats.filter((t) => !cleared.has(t.id)),
+      );
+      useRiskStore.getState().replaceActiveThreats(
+        useRiskStore.getState().activeThreats.filter((t) => !cleared.has(t.id)),
+      );
+      setSimulationBotsArmed((prev) => ({ ...prev, [drillId]: false }));
+      await syncBoardsAfterIntegrityDrillChange();
+    } catch (error) {
+      setDrillError(error instanceof Error ? error.message : "Simulation bot stand-down failed.");
+    } finally {
+      setDrillBusyKey(null);
+    }
+  }
+
+  async function handleSimulationBotPointer(
+    drillId: SimulationBotIntegrityDrillId,
+    disarm: boolean,
+  ) {
+    if (drillBusyKey || purgeBusy) return;
+    if (disarm) {
+      await disarmSimulationBot(drillId);
+      return;
+    }
+    setDrillBusyKey(drillId);
+    setDrillError(null);
+    try {
+      const wasArmed = simulationBotsArmed[drillId];
+      if (!wasArmed) {
         useAgentStore.getState().resetAgentStreamsForPurge();
         window.dispatchEvent(new CustomEvent("ironframe:resilience-feed-resubscribe"));
+        setSimulationBotsArmed((prev) => ({ ...prev, [drillId]: true }));
       }
       const attribution = await fetchChaosLedgerClientAttribution();
       const result = await triggerSystemIntegrityDrillAction(drillId, attribution ?? undefined);
       if (!result.ok) {
         setDrillError(result.error);
+        if (!wasArmed) {
+          setSimulationBotsArmed((prev) => ({ ...prev, [drillId]: false }));
+        }
       } else {
-        applyManualSimulationStandDownResumeFeed();
-        void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
-        const replacePipeline = useRiskStore.getState().replacePipelineThreats;
-        const replaceActive = useRiskStore.getState().replaceActiveThreats;
-        await syncThreatBoardsClient(replacePipeline, replaceActive).catch(() => undefined);
-        setBoardPrepRefresh((n) => n + 1);
-        setFeedTelemetryActiveAt(Date.now());
-        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
-        void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
-        router.refresh();
+        const pipelineRow: PipelineThreat = {
+          ...result.pipelineThreat,
+          lifecycleState: "pipeline",
+          threatStatus: result.pipelineThreat.threatStatus ?? "IDENTIFIED",
+        };
+        useRiskStore.getState().upsertPipelineThreat(pipelineRow);
+        const activeIds = new Set(useRiskStore.getState().activeThreats.map((t) => t.id));
+        if (activeIds.has(result.threatId)) {
+          useRiskStore
+            .getState()
+            .replaceActiveThreats(
+              useRiskStore.getState().activeThreats.filter((t) => t.id !== result.threatId),
+            );
+        }
+        await syncBoardsAfterIntegrityDrillChange();
       }
     } catch (error) {
-      setDrillError(error instanceof Error ? error.message : "System integrity drill failed.");
+      setDrillError(error instanceof Error ? error.message : "Simulation bot attack failed.");
     } finally {
       setDrillBusyKey(null);
+    }
+  }
+
+  async function handleSystemIntegrityDrill(drillId: SystemIntegrityDrillId) {
+    if (SIMULATION_BOT_INTEGRITY_DRILLS.includes(drillId as SimulationBotIntegrityDrillId)) {
+      await handleSimulationBotPointer(drillId as SimulationBotIntegrityDrillId, false);
     }
   }
 
@@ -625,30 +714,43 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           <p className="text-[8px] font-black uppercase tracking-[0.14em] text-rose-300/95">
             Simulation Bots (A-D) · Separate from 19-Agent Workforce
           </p>
+          <p className="mt-1 text-[7px] leading-snug text-rose-200/70">
+            Click to arm and fire (stack waves on Attack Velocity). Shift+click to disarm. Run A/B/C
+            together for varying scenarios — stress the 19-agent workforce.
+          </p>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             <button
               type="button"
               disabled={drillBusyKey !== null || purgeBusy}
-              onClick={() => void handleSystemIntegrityDrill("kimbot")}
+              onClick={(e) => void handleSimulationBotPointer("kimbot", e.shiftKey)}
               className="rounded border border-rose-700/80 bg-gradient-to-r from-rose-950/95 to-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-rose-200 hover:border-rose-500/80 disabled:opacity-50"
             >
-              BOT B: KIMBOT (RED TEAM) OFF
+              BOT B: KIMBOT (RED TEAM) {simulationBotsArmed.kimbot ? "ON" : "OFF"}
+              {countOpenSimulationBotDrills(combinedThreats, "kimbot") > 0
+                ? ` · ${countOpenSimulationBotDrills(combinedThreats, "kimbot")} live`
+                : ""}
             </button>
             <button
               type="button"
               disabled={drillBusyKey !== null || purgeBusy}
-              onClick={() => void handleSystemIntegrityDrill("grcbot")}
+              onClick={(e) => void handleSimulationBotPointer("grcbot", e.shiftKey)}
               className="rounded border border-zinc-700/90 bg-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-zinc-300 hover:border-zinc-500 disabled:opacity-50"
             >
-              BOT C: GRCBOT (QA) OFF
+              BOT C: GRCBOT (QA) {simulationBotsArmed.grcbot ? "ON" : "OFF"}
+              {countOpenSimulationBotDrills(combinedThreats, "grcbot") > 0
+                ? ` · ${countOpenSimulationBotDrills(combinedThreats, "grcbot")} live`
+                : ""}
             </button>
             <button
               type="button"
               disabled={drillBusyKey !== null || purgeBusy}
-              onClick={() => void handleSystemIntegrityDrill("attbot")}
+              onClick={(e) => void handleSimulationBotPointer("attbot", e.shiftKey)}
               className="rounded border border-amber-600/90 bg-gradient-to-r from-amber-950/90 to-zinc-950 px-2 py-2 text-left text-[8px] font-black uppercase tracking-wide text-amber-200 hover:border-amber-500 disabled:opacity-50"
             >
-              BOT A: ATTBOT
+              BOT A: ATTBOT {simulationBotsArmed.attbot ? "ON" : "OFF"}
+              {countOpenSimulationBotDrills(combinedThreats, "attbot") > 0
+                ? ` · ${countOpenSimulationBotDrills(combinedThreats, "attbot")} live`
+                : ""}
             </button>
             <button
               type="button"

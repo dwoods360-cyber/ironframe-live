@@ -36,9 +36,12 @@ export default function AirlockBanner() {
     };
     void tick();
     const id = window.setInterval(() => void tick(), POLL_MS);
+    const onOperationalRefresh = () => void tick();
+    window.addEventListener("ironframe-operational-refresh", onOperationalRefresh);
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      window.removeEventListener("ironframe-operational-refresh", onOperationalRefresh);
     };
   }, [isSimulationMode]);
 

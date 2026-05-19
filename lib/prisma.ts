@@ -13,6 +13,8 @@ if (!(BigInt.prototype as any).toJSON) {
   };
 }
 
+/** Side effect: `BigInt` serializes as a string in JSON (see root `instrumentation.ts` preload). */
+
 const prismaClientSingleton = () => {
   const base = new PrismaClient();
 

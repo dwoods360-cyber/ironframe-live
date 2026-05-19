@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
-
+import { recordIronguardViolation } from "@/app/lib/security/recordIronguardViolation";
 const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
 
 /** Bot / CLI simulation clients may send without `ironframe-tenant`; pair with `x-tenant-id` + Ironguard mismatch bypass. */
@@ -29,6 +29,18 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const IRONFRAME_TENANT_COOKIE = "ironframe-tenant";
 /** Keep dev/shadow tenant aligned with RLS for the browser session (no extra Ironguard client round-trips). */
 const SHADOW_TENANT_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 30;
+
+function ironguardLedgerMetadata(request: NextRequest): Record<string, unknown> {
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    undefined;
+  const userId = request.headers.get("x-ironframe-user-id")?.trim() || undefined;
+  const meta: Record<string, unknown> = { source: "ironguardApiGuard" };
+  if (clientIp) meta.clientIp = clientIp;
+  if (userId) meta.userId = userId;
+  return meta;
+}
 
 async function persistShadowPlaneTenantCookie(tenantUuid: string): Promise<void> {
   const store = await cookies();
@@ -73,7 +85,17 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
   | { ok: true; tenantUuid: string }
   | { ok: false; response: NextResponse }
 > {
+  /**
+   * `SHADOW_PLANE_ACTIVE`: honor `x-tenant-id` when present (Command Center tenant scope); otherwise default to
+   * canonical Medshield (`5c420f5a-…`) while session/cookie is still initializing.
+   */
   if (isShadowPlaneActiveFromEnv()) {
+    const headerEarly = request.headers.get("x-tenant-id")?.trim();
+    if (headerEarly && UUID_RE.test(normalizeUuid(headerEarly))) {
+      const hn = normalizeUuid(headerEarly);
+      await persistShadowPlaneTenantCookie(hn);
+      return { ok: true, tenantUuid: hn };
+    }
     const uuid = TENANT_UUIDS.medshield;
     await persistShadowPlaneTenantCookie(uuid);
     return { ok: true, tenantUuid: uuid };
@@ -87,6 +109,12 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
       await persistShadowPlaneTenantCookie(uuid);
       return { ok: true, tenantUuid: uuid };
     }
+    void recordIronguardViolation({
+      sessionTenantUuid: null,
+      attemptedTenantUuid: null,
+      errorCode: "IRONGUARD_NO_TENANT_HEADER",
+      path: request.nextUrl?.pathname ?? null,
+    }).catch(() => {});
     return {
       ok: false,
       response: NextResponse.json({ error: "Tenant context required. Send x-tenant-id (UUID)." }, { status: 401 }),
@@ -95,6 +123,13 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
 
   const headerNorm = normalizeUuid(headerRaw);
   if (!UUID_RE.test(headerNorm)) {
+    void recordIronguardViolation({
+      sessionTenantUuid: await getIronframeSessionTenantUuidFromCookies(),
+      attemptedTenantUuid: headerNorm,
+      errorCode: "IRONGUARD_INVALID_TENANT_ID",
+      path: request.nextUrl?.pathname ?? null,
+      metadata: ironguardLedgerMetadata(request),
+    }).catch(() => {});
     return {
       ok: false,
       response: NextResponse.json({ error: "Ironguard: invalid x-tenant-id format." }, { status: 400 }),
@@ -108,6 +143,13 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
       await persistShadowPlaneTenantCookie(headerNorm);
       return { ok: true, tenantUuid: headerNorm };
     }
+    void recordIronguardViolation({
+      sessionTenantUuid: sessionUuid,
+      attemptedTenantUuid: headerNorm,
+      errorCode: "IRONGUARD_SESSION_HEADER_MISMATCH",
+      path: request.nextUrl?.pathname ?? null,
+      metadata: ironguardLedgerMetadata(request),
+    }).catch(() => {});
     return {
       ok: false,
       response: NextResponse.json(

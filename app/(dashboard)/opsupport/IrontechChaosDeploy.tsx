@@ -6,10 +6,14 @@ import { flushSync } from "react-dom";
 import { Cpu, Skull } from "lucide-react";
 import {
   applyChaosShadowDrillTelemetryStepAction,
+  executeChaosDrillIrontechLifecycleStepAction,
   injectChaosThreatAction,
-  runChaosDrillIrontechLifecycleGatedAction,
+  runRemoteSupportChaosDrillAction,
   type ChaosScenario,
 } from "@/app/actions/chaosActions";
+import { listRiskRegistryRecordsAction } from "@/app/actions/riskLifecycleActions";
+import { REMOTE_SUPPORT_ATTACK_VELOCITY_MS } from "@/app/utils/chaosDiscoveryHold";
+import { useRiskRegistryStore } from "@/app/store/riskRegistryStore";
 import { getIrontechActiveLogDive } from "@/app/actions/irontechUiActions";
 import { getChaosShadowDrillStages } from "@/app/config/chaosScenarioTelemetry";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
@@ -20,10 +24,20 @@ import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore"
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { syncShadowSimulatorArmAction } from "@/app/actions/shadowSimulatorArmActions";
 import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
+import { requestVictoryLapFromNeutralize } from "@/app/utils/activeThreatLifecycleBridge";
+import { markRegistryResolvedForThreatEvent } from "@/app/utils/riskRegistryResolvedPurge";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import ChaosConstitutionalCollapsePanel from "@/app/components/ChaosConstitutionalCollapsePanel";
+import {
+  IRONTECH_CHAOS_LEVEL_DRILLS,
+  isIrontechChaosLevelScenario,
+} from "@/app/config/irontechChaosDrillOptions";
+import { isConstitutionalChaosDrill } from "@/app/config/chaosRegistry";
+
+type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE";
 
 /**
  * Dropdown copy uses **Infil:** / **Phish:** prefixes; each `<option value>` is the `ChaosScenario` enum passed to
@@ -43,10 +57,28 @@ type Props = {
 
 /** 12s supervised loop: four beats (Ingestion → Analysis → Observation → Conclusion) with 4s gaps; then GRC ack. */
 const CHAOS_FLIGHT_AUTO_ACK_JUSTIFICATION =
-  "[IRONTECH CHAOS FLIGHT RECORDER] 12-second supervised telemetry complete: Irongate (14) → Irontech (11) → observation → SYSTEM conclusion; GRC acknowledge to Active Risks.";
+  "[IRONTECH CHAOS FLIGHT RECORDER] 12-second supervised telemetry complete: Irongate (14) → Ironscribe (5) → Irontech (11) → System/Observer; GRC acknowledge to Active Risks.";
 
 const WAIT_MS = 4000;
+/** Matches `CHAOS_DRILL_LIFECYCLE_GATE_DELAY_MS` in chaosActions (Irontech gates 2–4). */
+const LIFECYCLE_GATE_WAIT_MS = 5000;
 const waitChaosTick = () => new Promise<void>((r) => setTimeout(r, WAIT_MS));
+const waitLifecycleGate = () => new Promise<void>((r) => setTimeout(r, LIFECYCLE_GATE_WAIT_MS));
+
+function pushChaosThreatToActiveBoard(threatId: string, patch: Partial<PipelineThreat>) {
+  const store = useRiskStore.getState();
+  const snap =
+    store.activeThreats.find((t) => t.id === threatId) ??
+    store.pipelineThreats.find((t) => t.id === threatId);
+  if (!snap) return;
+  const row: PipelineThreat = {
+    ...snap,
+    ...patch,
+    lifecycleState: "active",
+  };
+  store.updatePipelineThreat(threatId, patch);
+  store.upsertActiveThreat(row);
+}
 
 function parseIngestionEntityType(raw: string | null | undefined): string | null {
   try {
@@ -60,11 +92,12 @@ function parseIngestionEntityType(raw: string | null | undefined): string | null
 export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const router = useRouter();
   const { activeTenantUuid, tenantFetch } = useTenantContext();
+  const [collapseArmed, setCollapseArmed] = useState(false);
   const { isSimulationMode } = useSystemConfigStore();
   const [logDive, setLogDive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInjecting, setIsInjecting] = useState(false);
-  const [selectedScenario, setSelectedScenario] = useState<"" | ChaosScenario>("");
+  const [selectedScenario, setSelectedScenario] = useState<"" | ChaosDeployScenario>("");
   const [selectedScenarioLabel, setSelectedScenarioLabel] = useState("");
   const selectedThreatId = useRiskStore((s) => s.selectedThreatId);
   const lastLogDiveFetchRef = useRef<{ at: number; threatId: string | null }>({
@@ -128,11 +161,58 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           setError("No active tenant in session. Chaos inject blocked.");
           return;
         }
+
+        if (isConstitutionalChaosDrill(scenario)) {
+          const triggerRes = await tenantFetch("/api/chaos/trigger", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scenario: "CONSTITUTIONAL_COLLAPSE",
+              tenantId: tenantForChaos,
+            }),
+          });
+          const triggerJson = (await triggerRes.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+          };
+          if (!triggerRes.ok || !triggerJson.ok) {
+            setError(triggerJson.error ?? "Constitutional collapse trigger failed.");
+            return;
+          }
+          setCollapseArmed(true);
+          useRiskStore.getState().setConstitutionalIntegrityState({
+            isConstitutionalEmergency: true,
+            constitutionalRebaselinePending: false,
+            constitutionalDegradedMode: false,
+            requiredForensicAttestationMin: 100,
+            isOverrideSpent: false,
+            sha256: null,
+            sha256Short: "",
+            failureReason: "INVALID_HASH",
+            failureMessage: "[SIMULATION_DATA] Constitutional collapse chaos drill.",
+          });
+          appendAuditLog({
+            action_type: "CHAOS_CONSTITUTIONAL_COLLAPSE",
+            log_type: "SIMULATION",
+            description: `[SIMULATION_DATA] Constitutional collapse armed for tenant ${tenantForChaos.slice(0, 8)}…`,
+            metadata_tag: "SIMULATION|CONSTITUTIONAL_COLLAPSE",
+          });
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+          return;
+        }
+
+        const isRemoteSupportL4 = scenario === "REMOTE_SUPPORT";
+
         const res = await injectChaosThreatAction(
-          scenario,
+          scenario as ChaosScenario,
           clientAttr ?? undefined,
           scenarioLabelForServer.length > 0 ? scenarioLabelForServer : null,
-          { skipIsolatedDrill: true, tenantUuidOverride: tenantForChaos },
+          {
+            /** L4: registry + Attack Velocity first; drill via `runRemoteSupportChaosDrillAction` after 1s. */
+            deferRemoteSupportDrill: isRemoteSupportL4,
+            skipIsolatedDrill: true,
+            tenantUuidOverride: tenantForChaos,
+          },
         );
         if (!res.ok) {
           const attestationMsg = "Attestation Failed: Could not write to immutable ledger.";
@@ -167,7 +247,61 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
         const threatId = res.threatId;
         const store = useRiskStore.getState();
-        store.upsertPipelineThreat(res.pipelineThreat as PipelineThreat);
+        const injectedRow = res.pipelineThreat as PipelineThreat;
+
+        if (isRemoteSupportL4) {
+          const pipelineRow: PipelineThreat = {
+            ...injectedRow,
+            threatStatus: "IDENTIFIED",
+            lifecycleState: "pipeline",
+            industry: injectedRow.industry ?? "ChaosLab",
+          };
+          store.upsertPipelineThreat(pipelineRow);
+          const activeIds = new Set(store.activeThreats.map((t) => t.id));
+          if (activeIds.has(threatId)) {
+            store.replaceActiveThreats(store.activeThreats.filter((t) => t.id !== threatId));
+          }
+          void listRiskRegistryRecordsAction().then((reg) => {
+            if (reg.ok) useRiskRegistryStore.getState().hydrate(reg.records);
+          });
+          if (res.tenantCompanyId) {
+            window.dispatchEvent(
+              new CustomEvent("ironframe:tenant-company-allowlist", {
+                detail: { tenantCompanyId: res.tenantCompanyId },
+              }),
+            );
+          }
+          await new Promise<void>((r) => setTimeout(r, REMOTE_SUPPORT_ATTACK_VELOCITY_MS));
+
+          const drillRes = await runRemoteSupportChaosDrillAction(threatId, clientAttr ?? undefined);
+          if (!drillRes.ok) {
+            setError(drillRes.error?.trim() ? drillRes.error : "Remote Support drill failed.");
+            return;
+          }
+
+          pushChaosThreatToActiveBoard(threatId, {
+            threatStatus: "MITIGATED",
+            lifecycleState: "active",
+          });
+          store.setChaosFlightRecorder(threatId, null);
+          store.removeThreatFromPipeline(threatId);
+          await store.refreshActiveThreatsFromDb().catch(() => undefined);
+          void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+          store.setChaosSelfHealedLine(
+            threatId,
+            "Awaiting Tier-3 Remote Support — use GRANT 2-HOUR ACCESS on the Active Risks card.",
+          );
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+          void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+          router.refresh();
+          return;
+        }
+
+        store.upsertPipelineThreat(injectedRow);
+        pushChaosThreatToActiveBoard(threatId, {
+          threatStatus: injectedRow.threatStatus ?? "IDENTIFIED",
+        });
+        await store.refreshActiveThreatsFromDb().catch(() => undefined);
         if (res.tenantCompanyId) {
           window.dispatchEvent(
             new CustomEvent("ironframe:tenant-company-allowlist", {
@@ -184,11 +318,15 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           store.setChaosFlightRecorder(threatId, null);
         };
 
-        const patch = (ingestionDetails: string, assigneeId: string) => {
-          store.updatePipelineThreat(threatId, { ingestionDetails, assigneeId });
+        const patch = (ingestionDetails: string, assigneeId: string | null) => {
+          store.updatePipelineThreat(threatId, {
+            ingestionDetails,
+            assigneeId: assigneeId ?? undefined,
+          });
         };
 
         const stages = getChaosShadowDrillStages(scenario);
+        let forensicGavelStruck = false;
         for (let i = 0; i < stages.length; i++) {
           if (i > 0) {
             await waitChaosTick();
@@ -211,10 +349,25 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             fail(stepRes.error ?? `Telemetry step ${i + 1} failed.`);
             return;
           }
-          patch(stepRes.ingestionDetails, st.assigneeId);
-          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
-          void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
-          void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
+          const boardAssignee =
+            st.phase === "T12_RESOLUTION_SYSTEM" ? null : st.assigneeId;
+          patch(stepRes.ingestionDetails, boardAssignee);
+          if (stepRes.gavelStruck) {
+            forensicGavelStruck = true;
+            markRegistryResolvedForThreatEvent(threatId, stepRes.resolvedAt);
+            pushChaosThreatToActiveBoard(threatId, {
+              threatStatus: "RESOLVED",
+              assigneeId: undefined,
+              ingestionDetails: stepRes.ingestionDetails,
+            });
+            requestVictoryLapFromNeutralize(threatId);
+            window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+            void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+          } else {
+            window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+            void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+            void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
+          }
         }
 
         store.setChaosFlightRecorder(threatId, null);
@@ -222,14 +375,38 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
         const pipelineSnap = useRiskStore.getState().pipelineThreats.find((t) => t.id === threatId);
         const chaosEntityType = parseIngestionEntityType(pipelineSnap?.ingestionDetails);
         const useIrontechChaosDrillLifecycle =
-          scenario === "INTERNAL" && chaosEntityType === "CHAOS_DRILL";
+          isIrontechChaosLevelScenario(scenario) && chaosEntityType === "CHAOS_DRILL";
 
-        if (useIrontechChaosDrillLifecycle) {
-          const lr = await runChaosDrillIrontechLifecycleGatedAction(threatId);
-          if (!lr.ok) {
-            fail(lr.error ?? "Irontech chaos drill lifecycle failed.");
-            return;
+        if (useIrontechChaosDrillLifecycle && !forensicGavelStruck) {
+          const lifecycleStatusByGate: Record<1 | 2 | 3 | 4, string | undefined> = {
+            1: "IDENTIFIED",
+            2: "CONFIRMED",
+            3: "MITIGATED",
+            4: "RESOLVED",
+          };
+          for (let gate = 1; gate <= 4; gate++) {
+            if (gate > 1) {
+              await waitLifecycleGate();
+            }
+            const step = gate as 1 | 2 | 3 | 4;
+            const lr = await executeChaosDrillIrontechLifecycleStepAction(threatId, step);
+            if (!lr.ok) {
+              fail(lr.error ?? `Irontech chaos drill lifecycle gate ${gate} failed.`);
+              return;
+            }
+            const status = lifecycleStatusByGate[step];
+            if (status) {
+              pushChaosThreatToActiveBoard(threatId, {
+                threatStatus: status,
+                ...(gate === 4 ? { assigneeId: undefined } : {}),
+              });
+            }
+            window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+            await store.refreshActiveThreatsFromDb().catch(() => undefined);
           }
+          requestVictoryLapFromNeutralize(threatId);
+          router.refresh();
+        } else if (forensicGavelStruck) {
           router.refresh();
         } else {
           const tenantId = tenantForChaos;
@@ -248,11 +425,13 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
         store.setChaosSelfHealedLine(threatId, "Status: Self-Healed & Resolved");
 
-        await syncThreatBoardsClient(
-          useRiskStore.getState().replacePipelineThreats,
-          useRiskStore.getState().replaceActiveThreats,
-        ).catch(() => undefined);
-        void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
+        if (!useIrontechChaosDrillLifecycle) {
+          await syncThreatBoardsClient(
+            useRiskStore.getState().replacePipelineThreats,
+            useRiskStore.getState().replaceActiveThreats,
+          ).catch(() => undefined);
+          void useRiskStore.getState().refreshActiveThreatsFromDb().catch(() => undefined);
+        }
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -265,47 +444,64 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
   const controls = (
     <>
-      <div className="mt-1 flex w-full flex-wrap items-stretch gap-2">
-        {/* Infil:/Phish: labels pair with INFIL_* / PHISH_* option values for one-click ingress. */}
+      <div className="mt-1 flex w-full flex-col gap-2">
+        <label className="text-[8px] font-bold uppercase tracking-widest text-cyan-500/90">
+          Chaos drill scenario
+        </label>
         <select
-          aria-label="Chaos scenario"
           value={selectedScenario}
+          disabled={isInjecting}
           onChange={(e) => {
             const v = e.target.value;
             const opt = e.target.selectedOptions[0];
-            setSelectedScenario(v === "" ? "" : (v as ChaosScenario));
+            setSelectedScenario(v === "" ? "" : (v as ChaosDeployScenario));
             setSelectedScenarioLabel(v === "" ? "" : (opt?.textContent ?? "").trim());
           }}
-          disabled={isInjecting}
-          className="h-8 min-w-[10rem] shrink-0 rounded-sm border border-cyan-700/60 bg-zinc-950 px-2 text-[9px] font-bold uppercase tracking-wide text-cyan-200 outline-none transition-colors hover:border-cyan-500/70 focus:border-cyan-400 disabled:opacity-60"
+          className="w-full rounded-sm border border-cyan-800/60 bg-zinc-950/95 px-2 py-2 text-[9px] font-semibold uppercase tracking-wide text-cyan-50 outline-none focus:border-cyan-500/80 disabled:opacity-50"
         >
           <option value="" disabled>
-            SELECT CHAOS DRILL SCENARIO...
+            Select Irontech Chaos drill…
           </option>
-          <option value="INTERNAL">1 - INTERNAL CHAOS DRILL (QUICK FIX)</option>
-          <option value="HOME_SERVER">2 - HOME SERVER DRILL (REMOTE STRUGGLE)</option>
-          <option value="CLOUD_EXFIL">3 - CLOUD EXFILTRATION (INTERNAL QUARANTINE)</option>
-          <option value="REMOTE_SUPPORT">4 - REMOTE SUPPORT DRILL (HUMAN HANDOFF)</option>
-          <option value="CASCADING_FAILURE">5 - CASCADING FAILURE (DOOMSDAY LOCKDOWN)</option>
-          <option value="INFIL_CRED_STUFFING">Infil: Shadow Credential Stuffing</option>
-          <option value="INFIL_LATERAL_PIVOT">Infil: Lateral Pivot Attempt</option>
-          <option value="PHISH_CEO_FRAUD">Phish: CEO Fraud (Urgent Wire)</option>
-          <option value="PHISH_IT_HELPDESK">Phish: IT Helpdesk Trap</option>
+          <optgroup label="Irontech Chaos Levels 1–5">
+            {IRONTECH_CHAOS_LEVEL_DRILLS.map((d) => (
+              <option key={d.scenario} value={d.scenario}>
+                {d.label}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="Adversary simulations">
+            <option value="INFIL_CRED_STUFFING">Infil: Shadow Credential Stuffing</option>
+            <option value="INFIL_LATERAL_PIVOT">Infil: Lateral Pivot Attempt</option>
+            <option value="PHISH_CEO_FRAUD">Phish: CEO Fraud (Urgent Wire)</option>
+            <option value="PHISH_IT_HELPDESK">Phish: IT Helpdesk Trap</option>
+          </optgroup>
+          <optgroup label="Constitutional">
+            <option value="CONSTITUTIONAL_COLLAPSE">
+              Constitutional Collapse (TAS Void + DMS · 240s)
+            </option>
+          </optgroup>
         </select>
         <button
           type="button"
           disabled={isInjecting || selectedScenario === ""}
           onClick={runInject}
-          className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-sm border border-fuchsia-500/85 bg-gradient-to-r from-fuchsia-950/95 via-fuchsia-950/80 to-zinc-950/95 px-2 py-2 text-[9px] font-black uppercase tracking-widest text-fuchsia-50 shadow-[0_0_14px_rgba(217,70,239,0.35)] transition-colors hover:from-fuchsia-900/95 hover:to-zinc-900/95 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-sm border border-fuchsia-500/85 bg-gradient-to-r from-fuchsia-950/95 via-fuchsia-950/80 to-zinc-950/95 px-2 py-2 text-[9px] font-black uppercase tracking-widest text-fuchsia-50 shadow-[0_0_14px_rgba(217,70,239,0.35)] transition-colors hover:from-fuchsia-900/95 hover:to-zinc-900/95 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5 shrink-0 text-fuchsia-200" aria-hidden />
-          {isInjecting ? "Telemetry…" : "GENERATE CHAOS THREAT"}
+          {isInjecting
+            ? "Telemetry…"
+            : isConstitutionalChaosDrill(selectedScenario)
+              ? "ARM CONSTITUTIONAL COLLAPSE"
+              : "GENERATE CHAOS THREAT"}
         </button>
       </div>
       {error ? (
         <p className="mt-1 text-[8px] text-zinc-400" role="alert">
           {error}
         </p>
+      ) : null}
+      {collapseArmed || selectedScenario === "CONSTITUTIONAL_COLLAPSE" ? (
+        <ChaosConstitutionalCollapsePanel pollEnabled={collapseArmed} />
       ) : null}
     </>
   );

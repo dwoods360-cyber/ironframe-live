@@ -91,6 +91,16 @@ type ExecutiveSummaryProps = {
   auditLogs: RecentAuditLogRow[];
   /** Ironbloom (production) sustainability ledger (tenant-scoped); physical units only — kWh, L, CO₂e; monetary-only rejected (TAS). */
   sustainabilityImpact: GlobalSustainabilityImpact;
+  /** Optional: maturity / self-healing gavel copy for CFO audit summary (regulatory automation narrative). */
+  cfoResilienceGavel?: {
+    maturityScore: number;
+    maturityDisplayLabel?: string;
+    streakSummary: string;
+    gavelNarrative?: string;
+    /** Ironwatch Stale Data mode — LKG vs probabilistic liability (CFO gavel). */
+    staleDataLiabilityNarrative?: string;
+    dividendAtRiskDisplay?: string;
+  };
 };
 
 export default function ExecutiveSummary({
@@ -99,6 +109,7 @@ export default function ExecutiveSummary({
   telemetryData,
   auditLogs,
   sustainabilityImpact,
+  cfoResilienceGavel,
 }: ExecutiveSummaryProps) {
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
@@ -286,6 +297,37 @@ export default function ExecutiveSummary({
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GRC Audit Summary</span>
             <span className="text-[10px] text-slate-500">Last 10 events</span>
           </div>
+          {cfoResilienceGavel ? (
+            <div className="mb-3 rounded-md border border-amber-700/45 bg-amber-950/15 px-2.5 py-2">
+              <p className="text-[9px] font-black uppercase tracking-wide text-amber-200/90">
+                CFO · Self-healing &amp; maturity gavel
+              </p>
+              <p className="mt-1 text-[10px] text-slate-300">
+                System maturity {cfoResilienceGavel.maturityScore.toFixed(1)}/10
+                {cfoResilienceGavel.maturityDisplayLabel ? (
+                  <span className="ml-1.5 inline-flex items-center rounded border border-amber-600/50 bg-amber-950/40 px-1 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-200">
+                    {cfoResilienceGavel.maturityDisplayLabel}
+                  </span>
+                ) : null}
+                {" · "}
+                {cfoResilienceGavel.streakSummary}
+              </p>
+              {cfoResilienceGavel.staleDataLiabilityNarrative ? (
+                <p className="mt-1.5 text-[10px] leading-snug text-amber-100/90">
+                  {cfoResilienceGavel.staleDataLiabilityNarrative}
+                </p>
+              ) : null}
+              {cfoResilienceGavel.gavelNarrative ? (
+                <p className="mt-1.5 text-[10px] leading-snug text-slate-400">{cfoResilienceGavel.gavelNarrative}</p>
+              ) : null}
+              {cfoResilienceGavel.dividendAtRiskDisplay ? (
+                <p className="mt-1 font-mono text-[10px] text-rose-300/95">
+                  Estimated core governance dividend at risk if continuity bonus is lost:{" "}
+                  {cfoResilienceGavel.dividendAtRiskDisplay}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="overflow-hidden rounded-md border border-slate-800">
             <table className="min-w-full border-collapse text-[10px]">
               <thead className="bg-slate-900/80">

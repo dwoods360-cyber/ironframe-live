@@ -9,6 +9,8 @@ import {
 } from "@/app/lib/security/ingressGateway";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { chaosDiscoveryEligibleBefore } from "@/app/utils/chaosDiscoveryHold";
 import {
   normalizeIngestionDetailsToString,
   parseIngestionDetailsForMerge,
@@ -184,72 +186,215 @@ export function getActiveThreatWhereClause(): Prisma.ThreatEventWhereInput {
 }
 
 /** Chaos drills stamp `ingestionDetails` with `isChaosTest` / optional `entityType: CHAOS_DRILL` (see `chaosActions`). */
+function threatEventChaosIngestionMarkersOr(): Prisma.ThreatEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { contains: '"isChaosTest":true', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"isChaosTest": true', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"incident_type":"CHAOS"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"incident_type": "CHAOS"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"category":"INFRASTRUCTURE"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"category": "INFRASTRUCTURE"', mode: "insensitive" } },
+      { ingestionDetails: { contains: "Infrastructure Drift", mode: "insensitive" } },
+      { ingestionDetails: { contains: "CHAOS_DRILL", mode: "insensitive" } },
+      { ingestionDetails: { contains: "IRONCHAOS", mode: "insensitive" } },
+    ],
+  };
+}
+
 function chaosIdentifiedThreatEventClause(): Prisma.ThreatEventWhereInput {
+  return {
+    AND: [{ status: ThreatState.IDENTIFIED }, threatEventChaosIngestionMarkersOr()],
+  };
+}
+
+/** Irontech Levels 1–5 only — Simulation Bots A–C omit `entityType: CHAOS_DRILL`. */
+function chaosIdentifiedIrontechDrillThreatEventClause(): Prisma.ThreatEventWhereInput {
+  return {
+    AND: [{ status: ThreatState.IDENTIFIED }, threatEventIrontechChaosDrillEntityOr()],
+  };
+}
+
+/** Chaos `IDENTIFIED` still inside the 4s Risk Velocity / Ingestion discovery window. */
+function chaosIdentifiedThreatEventDiscoveryHold(): Prisma.ThreatEventWhereInput {
   return {
     AND: [
       { status: ThreatState.IDENTIFIED },
+      threatEventChaosIngestionMarkersOr(),
+      { createdAt: { gt: chaosDiscoveryEligibleBefore() } },
+    ],
+  };
+}
+
+/** `entityType: CHAOS_DRILL` only — excludes Simulation Bot A–C rows (no entity type stamp). */
+function threatEventIrontechChaosDrillEntityOr(): Prisma.ThreatEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { contains: '"entityType":"CHAOS_DRILL"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"entityType": "CHAOS_DRILL"', mode: "insensitive" } },
       {
-        OR: [
-          { ingestionDetails: { contains: '"isChaosTest":true', mode: "insensitive" } },
-          { ingestionDetails: { contains: '"isChaosTest": true', mode: "insensitive" } },
-          { ingestionDetails: { contains: '"incident_type":"CHAOS"', mode: "insensitive" } },
-          { ingestionDetails: { contains: '"incident_type": "CHAOS"', mode: "insensitive" } },
-          { ingestionDetails: { contains: '"category":"INFRASTRUCTURE"', mode: "insensitive" } },
-          { ingestionDetails: { contains: '"category": "INFRASTRUCTURE"', mode: "insensitive" } },
-          { ingestionDetails: { contains: "Infrastructure Drift", mode: "insensitive" } },
-          { ingestionDetails: { contains: "CHAOS_DRILL", mode: "insensitive" } },
-          { ingestionDetails: { contains: "IRONCHAOS", mode: "insensitive" } },
-        ],
+        ingestionDetails: {
+          contains: '"chaosDrillEntityType":"CHAOS_DRILL"',
+          mode: "insensitive",
+        },
       },
+      {
+        ingestionDetails: {
+          contains: '"chaosDrillEntityType": "CHAOS_DRILL"',
+          mode: "insensitive",
+        },
+      },
+    ],
+  };
+}
+
+function chaosIdentifiedIrontechDrillDiscoveryHold(): Prisma.ThreatEventWhereInput {
+  return {
+    AND: [
+      { status: ThreatState.IDENTIFIED },
+      threatEventIrontechChaosDrillEntityOr(),
+      { createdAt: { gt: chaosDiscoveryEligibleBefore() } },
     ],
   };
 }
 
 /**
- * Active board: acknowledged/mitigation work. In shadow read scope (env `SHADOW_PLANE_ACTIVE` and/or simulation cookie),
- * also return in-flight Chaos drills (`IDENTIFIED` + chaos / infrastructure drift markers) so `/api/threats/active` stays aligned with Irontech remediation.
+ * Shadow Attack Velocity / pipeline: Simulation Bots pass through; Irontech `CHAOS_DRILL` only while
+ * IDENTIFIED in discovery (or client L4 window). Prevents MITIGATED Irontech L4 from re-entering the lane.
  */
-function getThreatEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.ThreatEventWhereInput {
-  const base = getActiveThreatWhereClause();
-  if (!shadowReadScope) return base;
-  return { OR: [base, chaosIdentifiedThreatEventClause()] };
-}
-
-function getRiskEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.RiskEventWhereInput {
-  const base: Prisma.RiskEventWhereInput = {
-    status: { in: [ThreatState.CONFIRMED, ThreatState.MITIGATED] },
-  };
-  if (!shadowReadScope) return base;
+export function pipelineShadowChaosVelocityDedupeThreatEvent(): Prisma.ThreatEventWhereInput {
   return {
     OR: [
-      base,
-      {
-        AND: [
-          { status: ThreatState.IDENTIFIED },
-          {
-            OR: [
-              { ingestionDetails: { path: ["isChaosTest"], equals: true } },
-              { ingestionDetails: { path: ["entityType"], equals: "CHAOS_DRILL" } },
-              { ingestionDetails: { path: ["incident_type"], equals: "CHAOS" } },
-              { ingestionDetails: { path: ["category"], equals: "INFRASTRUCTURE" } },
-            ],
-          },
-        ],
-      },
+      { NOT: threatEventIrontechChaosDrillEntityOr() },
+      chaosIdentifiedIrontechDrillDiscoveryHold(),
     ],
   };
 }
 
-export async function findActiveThreatEventRowsForBoard(): Promise<ActiveBoardUnionRow[]> {
+/** Shadow-scope legacy exclude — prefer {@link pipelineShadowChaosVelocityDedupeThreatEvent} for pipeline fetch. */
+export function excludeActiveBoardChaosIdentifiedThreatEvent(): Prisma.ThreatEventWhereInput {
+  return { NOT: chaosIdentifiedThreatEventClause() };
+}
+
+function riskEventChaosIngestionMarkersOr(): Prisma.RiskEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { path: ["isChaosTest"], equals: true } },
+      { ingestionDetails: { path: ["entityType"], equals: "CHAOS_DRILL" } },
+      { ingestionDetails: { path: ["incident_type"], equals: "CHAOS" } },
+      { ingestionDetails: { path: ["category"], equals: "INFRASTRUCTURE" } },
+    ],
+  };
+}
+
+/** Same intent as {@link chaosIdentifiedThreatEventClause} for `RiskEvent` JSON (`SimThreatEvent`). */
+function chaosIdentifiedRiskEventClause(): Prisma.RiskEventWhereInput {
+  return {
+    AND: [{ status: ThreatState.IDENTIFIED }, riskEventChaosIngestionMarkersOr()],
+  };
+}
+
+function chaosIdentifiedRiskEventDiscoveryHold(): Prisma.RiskEventWhereInput {
+  return {
+    AND: [
+      { status: ThreatState.IDENTIFIED },
+      riskEventChaosIngestionMarkersOr(),
+      { createdAt: { gt: chaosDiscoveryEligibleBefore() } },
+    ],
+  };
+}
+
+function riskEventIrontechChaosDrillEntityOr(): Prisma.RiskEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { path: ["entityType"], equals: "CHAOS_DRILL" } },
+      { ingestionDetails: { path: ["chaosDrillEntityType"], equals: "CHAOS_DRILL" } },
+    ],
+  };
+}
+
+function chaosIdentifiedIrontechDrillRiskDiscoveryHold(): Prisma.RiskEventWhereInput {
+  return {
+    AND: [
+      { status: ThreatState.IDENTIFIED },
+      riskEventIrontechChaosDrillEntityOr(),
+      { createdAt: { gt: chaosDiscoveryEligibleBefore() } },
+    ],
+  };
+}
+
+export function pipelineShadowChaosVelocityDedupeRiskEvent(): Prisma.RiskEventWhereInput {
+  return {
+    OR: [
+      { NOT: riskEventIrontechChaosDrillEntityOr() },
+      chaosIdentifiedIrontechDrillRiskDiscoveryHold(),
+    ],
+  };
+}
+
+/** @deprecated Prefer {@link pipelineShadowChaosVelocityDedupeRiskEvent} */
+export function excludeActiveBoardChaosIdentifiedRiskEvent(): Prisma.RiskEventWhereInput {
+  return { NOT: chaosIdentifiedRiskEventClause() };
+}
+
+/** Prisma: hard-exclude terminal states from Active board reads (`NOT` form matches GRC audit wording). */
+const excludeTerminalThreatEvent: Prisma.ThreatEventWhereInput = {
+  NOT: { status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] } },
+};
+const excludeTerminalRiskEvent: Prisma.RiskEventWhereInput = {
+  NOT: { status: { in: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED] } },
+};
+
+/**
+ * Active board: acknowledged/mitigation work. In shadow read scope, also return Irontech `CHAOS_DRILL` `IDENTIFIED`
+ * rows during discovery — not Simulation Bot A–C integrity drills (those stay on Attack Velocity until claim/ack).
+ */
+function getThreatEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.ThreatEventWhereInput {
+  if (shadowReadScope) {
+    return {
+      OR: [getActiveThreatWhereClause(), chaosIdentifiedIrontechDrillThreatEventClause()],
+    };
+  }
+  return getActiveThreatWhereClause();
+}
+
+function chaosIdentifiedIrontechDrillRiskEventClause(): Prisma.RiskEventWhereInput {
+  return {
+    AND: [{ status: ThreatState.IDENTIFIED }, riskEventIrontechChaosDrillEntityOr()],
+  };
+}
+
+function getRiskEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.RiskEventWhereInput {
+  if (!shadowReadScope) {
+    return { status: { in: [ThreatState.CONFIRMED, ThreatState.MITIGATED] } };
+  }
+  return {
+    OR: [
+      { status: { in: [ThreatState.CONFIRMED, ThreatState.MITIGATED] } },
+      chaosIdentifiedIrontechDrillRiskEventClause(),
+    ],
+  };
+}
+
+export async function findActiveThreatEventRowsForBoard(
+  /** Prefer API `x-tenant-id` / tests; falls back to cookies then Medshield (avoids Active “blackout”). */
+  tenantUuidOverride?: string | null,
+): Promise<ActiveBoardUnionRow[]> {
   /** Must match `ingressGateway.writeThreatEvent` — shadow env + sim cookie still reads `ThreatEvent` for active board. */
   const useRiskEventTable = await ingressUsesRiskEventTable();
   const shadowReadScope =
     isShadowPlaneActiveFromEnv() || (await readSimulationPlaneEnabled());
-  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const tenantUuidRaw =
+    (tenantUuidOverride?.trim() || (await getActiveTenantUuidFromCookies())) ?? "";
+  const tenantUuid = tenantUuidRaw.trim() || TENANT_UUIDS.medshield;
   if (useRiskEventTable) {
     return prisma.riskEvent.findMany({
       where: {
-        AND: [{ tenantId: tenantUuid }, getRiskEventWhereForActiveBoard(shadowReadScope)],
+        AND: [
+          { tenantId: tenantUuid },
+          excludeTerminalRiskEvent,
+          getRiskEventWhereForActiveBoard(shadowReadScope),
+        ],
       },
       select: simActiveThreatBoardSelect,
       orderBy: { updatedAt: "desc" },
@@ -263,7 +408,11 @@ export async function findActiveThreatEventRowsForBoard(): Promise<ActiveBoardUn
   if (companyIds.length === 0) return [];
   return prisma.threatEvent.findMany({
     where: {
-      AND: [{ tenantCompanyId: { in: companyIds } }, getThreatEventWhereForActiveBoard(shadowReadScope)],
+      AND: [
+        { tenantCompanyId: { in: companyIds } },
+        excludeTerminalThreatEvent,
+        getThreatEventWhereForActiveBoard(shadowReadScope),
+      ],
     },
     select: activeThreatBoardSelect,
     orderBy: { updatedAt: "desc" },
@@ -398,7 +547,9 @@ export type PipelineThreatFromDb = {
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */
-export async function queryActiveThreatsForBoard(): Promise<PipelineThreatFromDb[]> {
-  const rows = await findActiveThreatEventRowsForBoard();
+export async function queryActiveThreatsForBoard(
+  tenantUuidOverride?: string | null,
+): Promise<PipelineThreatFromDb[]> {
+  const rows = await findActiveThreatEventRowsForBoard(tenantUuidOverride);
   return mapThreatEventRowsToPipelineThreatFromDb(rows);
 }

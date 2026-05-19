@@ -24,6 +24,8 @@ import {
   endActiveThreatsBoardFetchIfCurrent,
   supersedeActiveThreatsBoardFetch,
 } from "@/app/utils/activeThreatsBoardFetchCoop";
+import { belongsOnAttackVelocityPipeline } from "@/app/utils/chaosDiscoveryHold";
+import { isChaosForensicClosureLingerActive } from "@/app/utils/chaosForensicClosure";
 
 /** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
 function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
@@ -305,6 +307,10 @@ interface RiskState {
   /** Full reset for purg: pipeline, active, accepted impacts, dashboard liabilities, risk offset. Call after purgeSimulation(). */
   clearAllRiskStateForPurge: () => void;
 
+  /** Until this epoch (ms), active-board refetches stay empty (Master Purge anti-race). */
+  purgeBoardFreezeUntil: number;
+  setPurgeBoardFreezeUntil: (untilMs: number) => void;
+
   /** Sync & Reconcile: remove ghost cards (ids missing from DB) and show toast. */
   removeGhostThreats: (ids: string[]) => void;
 
@@ -365,6 +371,10 @@ interface RiskState {
   auditorViewEnabled: boolean;
   setAuditorViewEnabled: (enabled: boolean) => void;
 
+  /** GRC dashboard: technical maturity score vs executive CoNC dollars. */
+  grcDashboardViewMode: "technical" | "executive";
+  setGrcDashboardViewMode: (mode: "technical" | "executive") => void;
+
   /**
    * Shadow plane / stress drill: UI treats GRC handshake as satisfied (`setHandshakePhase('verified')` companion).
    */
@@ -385,6 +395,10 @@ interface RiskState {
     destination?: "pipeline" | "active";
     /** Top Sector / Strategic Intel registration — persisted as `ingestionDetails.grcJustification` on create. */
     grcJustification?: string;
+    /** Velocity queue signal id — stored on the threat row and clears duplicate Velocity rows client-side. */
+    sourceSignalId?: string;
+    /** Shadow deficiency `reportId` — closes the open deficiency diagnostic once the threat exists. */
+    deficiencyReportId?: string;
   }) => Promise<PipelineThreat>;
 
   /** Refetch pipeline-stage threats from DB (no settlement delay). Browser only. */
@@ -403,6 +417,52 @@ interface RiskState {
   /** Shown on Active Risks after auto-ack from chaos flight sequence. */
   chaosSelfHealedLineByThreatId: Record<string, string>;
   setChaosSelfHealedLine: (threatId: string, line: string | null) => void;
+
+  /** During RESOLVED victory lap: keep Intelligence Feed forensic strip on this threat until `until` (epoch ms). */
+  auditLingerThreatId: string | null;
+  auditLingerThreatIdUntil: number | null;
+  setAuditLingerForThreat: (threatId: string, durationMs?: number) => void;
+  clearAuditLinger: () => void;
+
+  /** After RESOLVED: 50-char User_00 attestation braid shown on card during victory lap. */
+  neutralizeVictoryAttestationByThreatId: Record<string, string>;
+  /** Short SHA-256 display (e.g. `7f83b1…3a92`) captured at neutralize — victory lap “seal”. */
+  neutralizeConstitutionalSealShortByThreatId: Record<string, string>;
+  setNeutralizeVictoryAttestation: (
+    threatId: string,
+    text: string | null,
+    constitutionalSealShort?: string | null,
+  ) => void;
+
+  /** Ironlock constitutional void — `/docs/TAS.md` missing, empty, or unreadable. */
+  isConstitutionalEmergency: boolean;
+  /** Irontech RE-BASELINE_VERIFICATION — cards stay non-interactable until lift. */
+  constitutionalRebaselinePending: boolean;
+  /** SYSTEM_OWNER override — 100-char forensic bar until TAS.md is valid. */
+  constitutionalDegradedMode: boolean;
+  /** Ironwatch Stale Data — Ironlock raises forensic minimum to 100. */
+  isSustainabilityApiDegraded: boolean;
+  /** Irontech (Agent 12): ≥24h degraded + no tripartite waiver — middleware blocks mutations. */
+  isSustainabilityStaleLockdownBlocking: boolean;
+  requiredForensicAttestationMin: number;
+  isOverrideSpent: boolean;
+  constitutionalSha256: string | null;
+  constitutionalSha256Short: string;
+  constitutionalFailureReason: string | null;
+  constitutionalFailureMessage: string | null;
+  setConstitutionalIntegrityState: (patch: {
+    isConstitutionalEmergency: boolean;
+    constitutionalRebaselinePending: boolean;
+    constitutionalDegradedMode: boolean;
+    requiredForensicAttestationMin: number;
+    isSustainabilityApiDegraded?: boolean;
+    isSustainabilityStaleLockdownBlocking?: boolean;
+    isOverrideSpent: boolean;
+    sha256: string | null;
+    sha256Short: string;
+    failureReason: string | null;
+    failureMessage: string | null;
+  }) => void;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -424,6 +484,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   pipelineThreats: [],
   activeThreats: [],
+  purgeBoardFreezeUntil: 0,
   threatIndexById: {},
   historicalThreatNames: {},
   acceptedThreatImpacts: {},
@@ -788,6 +849,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         }
         const reductionM = (gated.financialRisk_cents ?? 0) / 100_000_000;
         set((state) => {
+          const nextPipeline = state.pipelineThreats.filter((t) => t.id !== id);
+          const nextActive = state.activeThreats.filter((t) => t.id !== id);
           const nextImpacts = { ...state.acceptedThreatImpacts };
           delete nextImpacts[id];
           const nextIndustries = { ...state.acceptedThreatIndustries };
@@ -795,14 +858,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           return {
             threatActionError: { active: false, message: '' },
             riskOffset: state.riskOffset + reductionM,
-            activeThreats: state.activeThreats.filter((t) => t.id !== id),
+            pipelineThreats: nextPipeline,
+            activeThreats: nextActive,
             activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
             acceptedThreatImpacts: nextImpacts,
             acceptedThreatIndustries: nextIndustries,
-            threatIndexById: buildThreatIndexById(
-              state.pipelineThreats,
-              state.activeThreats.filter((t) => t.id !== id),
-            ),
+            threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
           };
         });
         recordAgentKill();
@@ -825,16 +886,15 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     }
 
     const trimmed = resolutionJustification.trim();
-    if (trimmed.length < 50) {
-      logThreatActionErrorActivation(
-        "Resolution justification must be at least 50 characters.",
-        "resolveThreat:validation",
-      );
+    const minLen = get().requiredForensicAttestationMin;
+    const isVoid = get().isConstitutionalEmergency || get().constitutionalDegradedMode;
+    if (trimmed.length < minLen) {
+      const msg = isVoid
+        ? "FORENSIC VOID: 100+ character justification required to override missing TAS.md authority."
+        : `Resolution justification must be at least ${minLen} characters.`;
+      logThreatActionErrorActivation(msg, "resolveThreat:validation");
       set({
-        threatActionError: {
-          active: true,
-          message: "Resolution justification must be at least 50 characters.",
-        },
+        threatActionError: { active: true, message: msg },
       });
       return;
     }
@@ -853,20 +913,20 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       const reductionM = (result.financialRisk_cents ?? 0) / 100_000_000;
       recordAgentKill();
       set((state) => {
+        const nextPipeline = state.pipelineThreats.filter((t) => t.id !== id);
+        const nextActive = state.activeThreats.filter((t) => t.id !== id);
         const nextImpacts = { ...state.acceptedThreatImpacts };
         delete nextImpacts[id];
         const nextIndustries = { ...state.acceptedThreatIndustries };
         delete nextIndustries[id];
         return {
           riskOffset: state.riskOffset + reductionM,
-          activeThreats: state.activeThreats.filter((t) => t.id !== id),
+          pipelineThreats: nextPipeline,
+          activeThreats: nextActive,
           activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
           acceptedThreatImpacts: nextImpacts,
           acceptedThreatIndustries: nextIndustries,
-          threatIndexById: buildThreatIndexById(
-            state.pipelineThreats,
-            state.activeThreats.filter((t) => t.id !== id),
-          ),
+          threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
         };
       });
     } catch (error) {
@@ -1068,6 +1128,67 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       return { chaosSelfHealedLineByThreatId: next };
     }),
 
+  auditLingerThreatId: null,
+  auditLingerThreatIdUntil: null,
+  setAuditLingerForThreat: (threatId, durationMs = 4500) => {
+    const id = threatId.trim();
+    if (!id) return;
+    set({
+      auditLingerThreatId: id,
+      auditLingerThreatIdUntil: Date.now() + Math.max(1000, durationMs),
+    });
+  },
+  clearAuditLinger: () => set({ auditLingerThreatId: null, auditLingerThreatIdUntil: null }),
+
+  neutralizeVictoryAttestationByThreatId: {},
+  neutralizeConstitutionalSealShortByThreatId: {},
+  setNeutralizeVictoryAttestation: (threatId, text, constitutionalSealShort) =>
+    set((state) => {
+      const id = threatId.trim();
+      const next = { ...state.neutralizeVictoryAttestationByThreatId };
+      const nextSeal = { ...state.neutralizeConstitutionalSealShortByThreatId };
+      if (!id || text == null || text === "") {
+        delete next[id];
+        delete nextSeal[id];
+      } else {
+        next[id] = text;
+        const seal = (constitutionalSealShort ?? "").trim();
+        if (seal) nextSeal[id] = seal;
+        else delete nextSeal[id];
+      }
+      return {
+        neutralizeVictoryAttestationByThreatId: next,
+        neutralizeConstitutionalSealShortByThreatId: nextSeal,
+      };
+    }),
+
+  isConstitutionalEmergency: false,
+  constitutionalRebaselinePending: false,
+  constitutionalDegradedMode: false,
+  isSustainabilityApiDegraded: false,
+  isSustainabilityStaleLockdownBlocking: false,
+  requiredForensicAttestationMin: 50,
+  isOverrideSpent: false,
+  constitutionalSha256: null,
+  constitutionalSha256Short: "",
+  constitutionalFailureReason: null,
+  constitutionalFailureMessage: null,
+  setConstitutionalIntegrityState: (patch) =>
+    set((state) => ({
+      isConstitutionalEmergency: patch.isConstitutionalEmergency,
+      constitutionalRebaselinePending: patch.constitutionalRebaselinePending,
+      constitutionalDegradedMode: patch.constitutionalDegradedMode,
+      requiredForensicAttestationMin: patch.requiredForensicAttestationMin,
+      isSustainabilityApiDegraded: patch.isSustainabilityApiDegraded ?? state.isSustainabilityApiDegraded,
+      isSustainabilityStaleLockdownBlocking:
+        patch.isSustainabilityStaleLockdownBlocking ?? state.isSustainabilityStaleLockdownBlocking,
+      isOverrideSpent: patch.isOverrideSpent,
+      constitutionalSha256: patch.sha256,
+      constitutionalSha256Short: patch.sha256Short,
+      constitutionalFailureReason: patch.failureReason,
+      constitutionalFailureMessage: patch.failureMessage,
+    })),
+
   clearSimulationFromActiveThreats: () =>
     set((state) => ({
       activeThreats: state.activeThreats.filter(
@@ -1103,6 +1224,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       riskReductionFlash: false,
       chaosFlightRecorderByThreatId: {},
       chaosSelfHealedLineByThreatId: {},
+      auditLingerThreatId: null,
+      auditLingerThreatIdUntil: null,
+      neutralizeVictoryAttestationByThreatId: {},
+      neutralizeConstitutionalSealShortByThreatId: {},
       completedDeepDives: [],
       lastSimulationStartedAt: null,
       sentinelGovernanceModeActive: false,
@@ -1128,6 +1253,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         delete newImpacts[id];
         delete newIndustries[id];
       });
+      const newNeutral = { ...state.neutralizeVictoryAttestationByThreatId };
+      const newSeal = { ...state.neutralizeConstitutionalSealShortByThreatId };
+      ids.forEach((id) => {
+        delete newNeutral[id];
+        delete newSeal[id];
+      });
       return {
         pipelineThreats: newPipeline,
         activeThreats: newActive,
@@ -1135,6 +1266,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         acceptedThreatImpacts: newImpacts,
         acceptedThreatIndustries: newIndustries,
         threatIndexById: buildThreatIndexById(newPipeline, newActive),
+        neutralizeVictoryAttestationByThreatId: newNeutral,
+        neutralizeConstitutionalSealShortByThreatId: newSeal,
       };
     }),
 
@@ -1226,8 +1359,22 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   auditorViewEnabled: false,
   setAuditorViewEnabled: (enabled) => set({ auditorViewEnabled: enabled }),
 
+  grcDashboardViewMode: "technical",
+  setGrcDashboardViewMode: (mode) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ironframe-grc-dashboard-view", mode);
+      } catch {
+        /* ignore */
+      }
+    }
+    set({ grcDashboardViewMode: mode });
+  },
+
   shadowPlaneHandshakeAuthorized: false,
   setShadowPlaneHandshakeAuthorized: (v) => set({ shadowPlaneHandshakeAuthorized: v }),
+
+  setPurgeBoardFreezeUntil: (untilMs) => set({ purgeBoardFreezeUntil: untilMs }),
 
   registerThreatViaApi: async (payload) => {
     const res = await fetch('/api/threats', {
@@ -1245,6 +1392,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         destination: payload.destination ?? 'pipeline',
         ...(payload.grcJustification?.trim()
           ? { grcJustification: payload.grcJustification.trim() }
+          : {}),
+        ...(payload.sourceSignalId?.trim()
+          ? { sourceSignalId: payload.sourceSignalId.trim() }
+          : {}),
+        ...(payload.deficiencyReportId?.trim()
+          ? { deficiencyReportId: payload.deficiencyReportId.trim() }
           : {}),
       }),
     });
@@ -1291,25 +1444,34 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     if (typeof window === "undefined") return;
     try {
       const pipeRows = await fetchPipelineThreatsFromDb();
-      const asPipeline: PipelineThreat[] = pipeRows.map((r) => ({
-        id: r.id,
-        name: r.name,
-        loss: r.loss,
-        score: r.score,
-        industry: r.industry,
-        source: r.source,
-        description: r.description,
-        createdAt: r.createdAt,
-        threatStatus: r.threatStatus,
-        ingestionDetails: r.ingestionDetails ?? undefined,
-        dispositionStatus: r.dispositionStatus,
-        isFalsePositive: r.isFalsePositive,
-        receiptHash: r.receiptHash,
-        governanceHash: r.governanceHash,
-        agentReasonings: r.agentReasonings,
-        resolutionApprovalId: r.resolutionApprovalId ?? undefined,
-        resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
-      }));
+      const asPipeline: PipelineThreat[] = pipeRows
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          loss: r.loss,
+          score: r.score,
+          industry: r.industry,
+          source: r.source,
+          description: r.description,
+          createdAt: r.createdAt,
+          threatStatus: r.threatStatus,
+          ingestionDetails: r.ingestionDetails ?? undefined,
+          dispositionStatus: r.dispositionStatus,
+          isFalsePositive: r.isFalsePositive,
+          receiptHash: r.receiptHash,
+          governanceHash: r.governanceHash,
+          agentReasonings: r.agentReasonings,
+          resolutionApprovalId: r.resolutionApprovalId ?? undefined,
+          resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
+        }))
+        .filter((row) =>
+          belongsOnAttackVelocityPipeline({
+            threatStatus: row.threatStatus,
+            ingestionDetails: row.ingestionDetails ?? null,
+            industry: row.industry,
+            createdAt: row.createdAt,
+          }),
+        );
       get().replacePipelineThreats(asPipeline);
     } catch {
       // Non-fatal: polling / other sync paths may recover.
@@ -1318,18 +1480,41 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   refreshActiveThreatsFromDb: async () => {
     if (typeof window === "undefined") return;
+    const freezeUntil = get().purgeBoardFreezeUntil;
+    if (freezeUntil > 0 && Date.now() < freezeUntil) {
+      get().replaceActiveThreats([]);
+      return;
+    }
     const ctrl = supersedeActiveThreatsBoardFetch();
     try {
       const res = await fetch("/api/threats/active", { cache: "no-store", signal: ctrl.signal });
       if (!res.ok) return;
       const activeRows = (await res.json()) as PipelineThreat[];
       const optimistic = useAgentStore.getState().activeThreats ?? [];
-      const withOptimistic = [
-        ...activeRows,
-        ...optimistic.filter((t) => !activeRows.some((db) => db.id === t.id)),
-      ];
+      const storeActive = get().activeThreats;
+      const terminal = new Set(["RESOLVED", "CLOSED_ARCHIVED"]);
+      const victoryLingerFromStore = storeActive.filter((t) => {
+        if (activeRows.some((db) => db.id === t.id)) return false;
+        return isChaosForensicClosureLingerActive(t.ingestionDetails ?? null);
+      });
+      const optimisticExtra = optimistic.filter((t) => {
+        if (activeRows.some((db) => db.id === t.id)) return false;
+        if (victoryLingerFromStore.some((v) => v.id === t.id)) return false;
+        const st = (t.threatStatus ?? "").trim().toUpperCase();
+        if (terminal.has(st)) return false;
+        return true;
+      });
+      const withOptimistic = [...activeRows, ...victoryLingerFromStore, ...optimisticExtra];
       const merged = useAgentStore.getState().setInitialThreats(withOptimistic);
-      get().replaceActiveThreats(merged);
+      const activeIdSet = new Set(merged.map((t) => t.id));
+      set((state) => ({
+        activeThreats: merged,
+        pipelineThreats: state.pipelineThreats.filter((t) => !activeIdSet.has(t.id)),
+        threatIndexById: buildThreatIndexById(
+          state.pipelineThreats.filter((t) => !activeIdSet.has(t.id)),
+          merged,
+        ),
+      }));
     } catch (e) {
       const aborted =
         (e instanceof DOMException && e.name === "AbortError") ||
@@ -1342,6 +1527,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   pulseThreatBoardsFromDb: async () => {
     await Promise.all([get().refreshPipelineThreatsFromDb(), get().refreshActiveThreatsFromDb()]);
+    if (typeof window !== "undefined") {
+      void fetch("/api/opsupport/deficiency-queue", { cache: "no-store" }).catch(() => undefined);
+      window.dispatchEvent(new CustomEvent("ironframe-operational-refresh"));
+    }
   },
 
   resolveHistoricalThreatName: async (id) => {

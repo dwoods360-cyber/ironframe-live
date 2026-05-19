@@ -34,6 +34,39 @@ export function systemIntegrityDrillFromTitle(
   return null;
 }
 
+export function parseIngestionDetailsObject(raw: unknown): Record<string, unknown> {
+  if (raw == null) return {};
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return {};
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      return parsed != null && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  return {};
+}
+
+export function extractRawAuditMarkdown(ingestionDetails: unknown): string | undefined {
+  const md = parseIngestionDetailsObject(ingestionDetails).rawAuditMarkdown;
+  return typeof md === "string" && md.trim() ? md.trim() : undefined;
+}
+
+export function isCsrdForensicArtifact(
+  markdownAuditBlock: string | undefined,
+  frameworkLabel: string | undefined,
+): boolean {
+  const haystack = `${markdownAuditBlock ?? ""} ${frameworkLabel ?? ""}`.toUpperCase();
+  return haystack.includes("CSRD") || haystack.includes("ESRS");
+}
+
 export function systemIntegrityDrillFromIngestion(
   ingestionDetails: string | null | undefined,
 ): SystemIntegrityDrillKind | null {

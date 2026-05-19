@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/cron/carbon-budget-reallocation",
+      "schedule": "0 9 1 * *"
+    }
+  ]
+}

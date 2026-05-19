@@ -5,7 +5,10 @@ import prisma from "@/lib/prisma";
 import { ThreatState, type Prisma } from "@prisma/client";
 import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import {
+  getActiveTenantUuidFromCookies,
+  getRedTeamSimulationTenantUuid,
+} from "@/app/utils/serverTenantContext";
 import { assertSimulationInjectAllowedForTenant } from "@/app/lib/simulationStandDown";
 import {
   ATTACK_SOURCE,
@@ -87,12 +90,29 @@ export type CreateKimbotThreatInput = {
 export async function createKimbotThreatServer(
   input: CreateKimbotThreatInput
 ): Promise<GrcBotThreatCreated> {
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (tenantUuid?.trim()) {
-    await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
+  const tenantUuid = await getRedTeamSimulationTenantUuid();
+  if (!tenantUuid?.trim()) {
+    throw new Error(
+      "KIMBOT: No tenant scope — select a Command Center tenant or enable Shadow Plane / simulation mode.",
+    );
   }
+  await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
-  const companyId = await getCompanyIdForActiveTenant();
+  const companyRow = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid.trim(), isTestRecord: false },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  const companyId =
+    companyRow?.id ??
+    (
+      await prisma.company.findFirst({
+        where: { tenantId: tenantUuid.trim() },
+        orderBy: { id: "asc" },
+        select: { id: true },
+      })
+    )?.id ??
+    null;
   if (companyId == null) {
     throw new Error(
       "GRC: No Company for the active tenant session; cannot create Kimbot threat without tenantCompanyId.",

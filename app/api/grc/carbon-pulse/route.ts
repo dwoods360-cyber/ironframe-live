@@ -13,7 +13,12 @@ export async function GET() {
   const { pulse, financialImpact } = await buildCarbonPulseFinancialBundle(tenantId);
 
   return NextResponse.json(
-    { ok: true, pulse, financialImpact },
+    {
+      ok: true,
+      pulse,
+      financialImpact,
+      source: pulse.intensitySource,
+    },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

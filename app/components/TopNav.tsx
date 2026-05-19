@@ -12,6 +12,7 @@ import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
 import { createClient } from "@/lib/supabase/client";
 import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
+import { isLegacyAuditTrailRedirectPath, isReportsAuditTrailPath } from "@/app/utils/grcRouteMatch";
 
 export default function TopNav() {
   const pathname = usePathname();
@@ -94,6 +95,8 @@ export default function TopNav() {
       ? "EVIDENCE VAULT // BULK EXPORT"
     : isIntegrityHubRoute
       ? "INTEGRITY HUB // AUDIT LEDGER"
+    : isAuditTrailRoute
+      ? "REPORTS // AUDIT TRAIL INTELLIGENCE"
     : isBoardReportRoute
       ? "EXECUTIVE // BOARD REPORT"
     : isOpSupportRoute

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTenantContext } from "@/app/context/TenantProvider";
 import { createKimbotThreatServer } from "@/app/actions/simulationActions";
 import {
   ingestRedTeamRiskAction,
@@ -15,6 +16,7 @@ import { useRiskRegistryStore } from "@/app/store/riskRegistryStore";
 import { deltaLabelForLifecycle } from "@/app/utils/riskRegistryCardMap";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
+import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
 import type { RiskRegistryRecord } from "@/app/types/riskLifecycle";
 
 function newLocalRegistryId(): string {
@@ -51,6 +53,8 @@ function localRegistryRecord(
  * Kimbot tick → unified risk_registry queue (INGESTED → REGISTERED → ACTIVE).
  */
 export function useKimbotPersistLoop() {
+  const { activeTenantUuid } = useTenantContext();
+  const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const isKimbotActive = useKimbotStore((s) => s.enabled);
   const kimbotIntensity = useKimbotStore((s) => s.intensity);
@@ -70,12 +74,20 @@ export function useKimbotPersistLoop() {
     }
 
     const tick = () => {
+      const tenantUuid = resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName);
       const signal = generateKimbotSignal(selectedIndustry, kimbotAttackType, kimbotIntensity);
       const targetAsset = signal.targetSector ?? selectedIndustry;
       const telemetryValue = `$${signal.liability.toFixed(1)}M ALE`;
 
       void (async () => {
         try {
+          if (!tenantUuid) {
+            addStreamMessage(
+              "> [KIMBOT] Paused: select a Command Center tenant or enable simulation / Shadow Plane.",
+            );
+            return;
+          }
+
           const trackerInput = {
             attackVector: signal.title,
             targetAsset,
@@ -183,6 +195,8 @@ export function useKimbotPersistLoop() {
       }
     };
   }, [
+    activeTenantUuid,
+    selectedTenantName,
     isKimbotActive,
     kimbotIntensity,
     kimbotAttackType,

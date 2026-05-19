@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
+import { readSimulationModeCookieEnabled } from "@/app/utils/simulationModeCookieServer";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 
 const SLUGS = new Set<TenantKey>(["medshield", "vaultbank", "gridcore", "defense"]);
@@ -16,17 +18,10 @@ const KNOWN_TENANT_UUIDS = new Set<string>([
 /** UUID pattern for validating client-provided tenant IDs (matches platform tenant UUIDs). */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * Resolves the active tenant UUID from the ironframe-tenant cookie (dashboard / clearance parity).
- * Accepts slug (medshield, …) or a known tenant UUID string.
- * Falls back to Medshield when the cookie is missing or unrecognized (same default as dashboard fetch).
- */
-export async function getActiveTenantUuidFromCookies(): Promise<string> {
-  const store = await cookies();
-  const rawFull = store.get("ironframe-tenant")?.value?.trim();
-  if (!rawFull) {
-    return TENANT_UUIDS.medshield;
-  }
+async function resolveTenantUuidFromIronframeCookieRaw(
+  rawFull: string | undefined,
+): Promise<string | null> {
+  if (!rawFull) return null;
   const rawLower = rawFull.toLowerCase();
 
   if (SLUGS.has(rawLower as TenantKey)) {
@@ -44,18 +39,45 @@ export async function getActiveTenantUuidFromCookies(): Promise<string> {
     if (tenantById) {
       return tenantById.id;
     }
-    return TENANT_UUIDS.medshield;
+    return null;
   }
 
   const tenantBySlug = await prisma.tenant.findUnique({
     where: { slug: rawLower },
     select: { id: true },
   });
-  if (tenantBySlug) {
-    return tenantBySlug.id;
-  }
+  return tenantBySlug?.id ?? null;
+}
 
-  return TENANT_UUIDS.medshield;
+/**
+ * Command Center cookie scope only — **null** when Global Aggregate (no `ironframe-tenant` cookie).
+ */
+export async function getScopedTenantUuidFromCookies(): Promise<string | null> {
+  const store = await cookies();
+  const rawFull = store.get("ironframe-tenant")?.value?.trim();
+  return resolveTenantUuidFromIronframeCookieRaw(rawFull);
+}
+
+/**
+ * Red-team / chaos server actions: explicit tenant cookie, else shadow-plane simulation default.
+ */
+export async function getRedTeamSimulationTenantUuid(): Promise<string | null> {
+  const scoped = await getScopedTenantUuidFromCookies();
+  if (scoped) return scoped;
+  if (isShadowPlaneActiveFromEnv() || (await readSimulationModeCookieEnabled())) {
+    return TENANT_UUIDS.medshield;
+  }
+  return null;
+}
+
+/**
+ * Resolves the active tenant UUID from the ironframe-tenant cookie (dashboard / clearance parity).
+ * Accepts slug (medshield, …) or a known tenant UUID string.
+ * Falls back to Medshield when the cookie is missing or unrecognized (same default as dashboard fetch).
+ */
+export async function getActiveTenantUuidFromCookies(): Promise<string> {
+  const scoped = await getScopedTenantUuidFromCookies();
+  return scoped ?? TENANT_UUIDS.medshield;
 }
 
 export function isValidTenantUuid(value: string | null | undefined): value is string {

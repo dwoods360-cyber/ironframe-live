@@ -5,7 +5,6 @@ import AppShell from "./components/AppShell";
 import IronguardBootstrap from "./components/IronguardBootstrap";
 import { TenantProvider } from "./context/TenantProvider";
 import { ConstitutionalIntegrityProvider } from "./context/ConstitutionalIntegrityProvider";
-import CommandCenter from "./components/CommandCenter";
 import GlobalDropZone from "./components/GlobalDropZone";
 import EmergencyOverlay from "./components/EmergencyOverlay";
 import ConstitutionalDegradedBanner from "./components/ConstitutionalDegradedBanner";
@@ -45,7 +44,6 @@ export default function RootLayout({
                 <EmergencyOverlay />
                 <ConstitutionalDegradedBanner />
                 <StaleDataLockdownBanner />
-                <CommandCenter />
                 <IronguardBootstrap />
                 <GlobalDropZone />
                 <AppShell>{children}</AppShell>

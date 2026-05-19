@@ -115,6 +115,7 @@ export default function ExecutiveDowngradeApprovalModal({ open, onClose, onWorkf
         {awaitingSignatures && riskReport ? (
           <CfoRiskImpactTable
             report={riskReport}
+            sustainabilityRoiDisplay={status?.sustainabilityRoiDisplay ?? null}
             acknowledged={cfoAcknowledged}
             acknowledgeBusy={ackBusy}
             onAcknowledge={() => {

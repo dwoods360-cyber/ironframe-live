@@ -197,10 +197,18 @@ export default function HeaderTwo({
                   EVIDENCE VAULT
                 </Link>
                 <Link
-                  href="/integrity"
+                  href="/reports/audit-trail"
+                  data-testid="header-audit-trail-chip"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >
                   AUDIT TRAIL
+                </Link>
+                <Link
+                  href="/integrity"
+                  data-testid="header-integrity-hub-chip"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-slate-500/60 bg-slate-900/80 px-4 py-2 text-[10px] font-bold text-slate-100 transition-all hover:border-blue-500 hover:bg-slate-800/80"
+                >
+                  INTEGRITY HUB
                 </Link>
                 {canViewAudit ? (
                   <Link

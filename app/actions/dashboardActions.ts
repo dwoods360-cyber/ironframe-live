@@ -11,6 +11,7 @@ import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { THREAT_ASSIGNEE_AUDIT_ACTIONS } from "@/app/utils/assignmentChainOfCustody";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 import { incrementSentinelDeepMonitoringLabor } from "@/app/actions/sentinelLaborActions";
+import { fetchTenantAuditLedgerRows } from "@/app/actions/auditActions";
 import { reasoningLogIndicatesControlMapped } from "@/app/utils/reasoningLogControlMapping";
 import { calculateBudgetJustification } from "@/app/utils/grcMath";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
@@ -910,14 +911,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
 
   return serializeBigInt({
     companies: serializedCompanies,
-    serverAuditLogs: serverAuditLogs.map((row) => ({
-      id: row.id,
-      action: row.action,
-      operatorId: row.operatorId,
-      threatId: row.threatId ?? row.simThreatId ?? null,
-      justification: row.justification,
-      createdAt: row.createdAt.toISOString(),
-    })),
+    serverAuditLogs,
     risks: serializedRisks,
     threatEvents: threatEventsPayload,
     aleExposureByAssetCents,

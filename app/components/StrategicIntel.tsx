@@ -42,7 +42,12 @@ import {
   IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL,
   IRONWATCH_SHADOW_DISSENT_LABEL,
 } from "@/lib/constants/grcGovernance";
-import { INDUSTRY_PROFILE_SELECT_OPTIONS } from "@/app/utils/omniBenchmarkIndustries";
+import {
+  INDUSTRY_PROFILE_SELECT_OPTIONS,
+  type OmniBenchmarkIndustry,
+} from "@/app/utils/omniBenchmarkIndustries";
+import { listCommandCenterTenants } from "@/app/actions/tenantActions";
+import { applyCommandCenterScopeFromCookie } from "@/app/utils/commandCenterScopeSync";
 
 export default function StrategicIntel() {
   const [mounted, setMounted] = useState(false);
@@ -84,6 +89,7 @@ export default function StrategicIntel() {
   const upsertPipelineThreat = useRiskStore((state) => state.upsertPipelineThreat);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
+  const setSelectedTenantName = useRiskStore((state) => state.setSelectedTenantName);
   const completedDeepDives = useRiskStore((state) => state.completedDeepDives);
   const markDeepDiveCompleted = useRiskStore((state) => state.markDeepDiveCompleted);
   const lastSimulationStartedAt = useRiskStore((state) => state.lastSimulationStartedAt);
@@ -434,18 +440,27 @@ export default function StrategicIntel() {
     setMounted(true);
   }, []);
 
-  const validProfileIndustries = [
-    "Defense",
-    "Federal Government",
-    "Aerospace",
-    "State & Local",
-    "Public Sector",
-    "Healthcare",
-    "Finance",
-    "Technology",
-  ] as const;
+  /** Keep Industry Profile aligned when Global Command Center changes tenant cookie. */
   useEffect(() => {
-    if (!validProfileIndustries.includes(selectedIndustry as (typeof validProfileIndustries)[number])) {
+    let cancelled = false;
+    const syncFromCommandCenter = () => {
+      void listCommandCenterTenants().then((rows) => {
+        if (cancelled || rows.length === 0) return;
+        applyCommandCenterScopeFromCookie(rows, { setSelectedTenantName, setSelectedIndustry });
+      });
+    };
+    syncFromCommandCenter();
+    window.addEventListener("ironframe-tenant-changed", syncFromCommandCenter);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("ironframe-tenant-changed", syncFromCommandCenter);
+    };
+  }, [setSelectedIndustry, setSelectedTenantName]);
+
+  useEffect(() => {
+    if (
+      !INDUSTRY_PROFILE_SELECT_OPTIONS.includes(selectedIndustry as OmniBenchmarkIndustry)
+    ) {
       setSelectedIndustry("Healthcare");
     }
   }, [selectedIndustry, setSelectedIndustry]);

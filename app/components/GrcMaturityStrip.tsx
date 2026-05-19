@@ -22,6 +22,9 @@ export default function GrcMaturityStrip({ maturity = null, className = "" }: Gr
       data-testid="grc-maturity-strip"
       aria-label="GRC maturity forensic strip"
     >
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+        GRC maturity
+      </p>
       <div className="flex min-w-0 flex-wrap items-stretch gap-2">
         {metrics.map((metric) => (
           <ForensicMetricChip

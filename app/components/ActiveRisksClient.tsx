@@ -80,6 +80,10 @@ import {
 } from '@/app/utils/riskRegistryResolvedPurge';
 import { appendForensicScoreToMetadataTag } from '@/app/utils/grcLexicon';
 import { allThreatDraftsPassJustificationQuality } from '@/app/utils/validateJustification';
+import { InlineAuditAccordion } from '@/app/components/InlineAuditAccordion';
+import { ForensicAuditModal } from '@/app/components/ForensicAuditModal';
+import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
+import { extractRawAuditMarkdown } from '@/app/utils/riskCardEnrichment';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
 
@@ -1131,6 +1135,10 @@ export default function ActiveRisksClient({
   const [remoteAccessBusyThreatId, setRemoteAccessBusyThreatId] = useState<string | null>(null);
   const [grantRemoteJitBusyThreatId, setGrantRemoteJitBusyThreatId] = useState<string | null>(null);
   const [auditHistoryModalOpen, setAuditHistoryModalOpen] = useState(false);
+  const [forensicAuditModal, setForensicAuditModal] = useState<{
+    threatId: string;
+    markdownAuditBlock: string;
+  } | null>(null);
   const [manualRecoveryBusyThreatId, setManualRecoveryBusyThreatId] = useState<string | null>(null);
   const [recoveryFailureProbeById, setRecoveryFailureProbeById] = useState<Record<string, string>>({});
   const optimisticProcessingUntilRef = useRef<Map<string, number>>(new Map());
@@ -1281,6 +1289,7 @@ export default function ActiveRisksClient({
   const refreshActiveThreatsFromDbRef = useRef(refreshActiveThreatsFromDb);
   refreshActiveThreatsFromDbRef.current = refreshActiveThreatsFromDb;
 
+  /** Sole board removal path for threat cards: 4s victory lap (T12 gavel / neutralize) then fade + store purge. */
   const purgeResolvedThreatFromBoard = useCallback(
     (tid: string) => {
       const id = tid.trim();
@@ -2280,6 +2289,7 @@ export default function ActiveRisksClient({
         <AnimatePresence mode="popLayout">
         {sortedActiveThreats.map((threat) => {
           void lifecycleSweep;
+          const threatForensicMarkdown = extractRawAuditMarkdown(threat.ingestionDetails);
           const dbStatusUpper = (threat.threatStatus ?? '').trim().toUpperCase();
           const isArchived = dbStatusUpper === 'CLOSED_ARCHIVED';
           const isResolvedInDb = dbStatusUpper === 'RESOLVED';
@@ -2947,6 +2957,15 @@ export default function ActiveRisksClient({
                       entries={assigneeHistoryForCard}
                       historyThreatEventId={threat.id}
                     />
+                    {threatForensicMarkdown ? (
+                      <div
+                        className="mt-2"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <InlineAuditAccordion markdownAuditBlock={threatForensicMarkdown} />
+                      </div>
+                    ) : null}
                     {irontechLive && irontechLive.attempts.length > 0 ? (
                       <div className="rounded border border-cyan-800/45 bg-cyan-950/25 p-2">
                         <p className="text-[9px] font-black uppercase tracking-wide text-cyan-200/95">
@@ -3232,6 +3251,16 @@ export default function ActiveRisksClient({
                             : 'items-center justify-end'
                         }`}
                       >
+                      {threatForensicMarkdown ? (
+                        <VerifyArtifactButton
+                          onClick={() =>
+                            setForensicAuditModal({
+                              threatId: threat.id,
+                              markdownAuditBlock: threatForensicMarkdown,
+                            })
+                          }
+                        />
+                      ) : null}
                       {activeActionCardId === threat.id && activeAction ? (
                         <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
@@ -3438,14 +3467,17 @@ export default function ActiveRisksClient({
 
         {sortedRisks.map((risk) => {
           const lifecycle: LifecycleState = states[risk.id] ?? 'active';
-          const isUnassigned = assignedFor(risk.id, risk.assigneeId, risk.threatId) === 'unassigned';
-          const isActive = lifecycle === 'active';
-          const shouldFlash = isUnassigned && isActive;
-          const notes = workNotes[risk.id] ?? [];
           const riskThreatRow = risk.threatId
             ? useRiskStore.getState().activeThreats.find((t) => t.id === risk.threatId) ??
               useRiskStore.getState().pipelineThreats.find((t) => t.id === risk.threatId)
             : undefined;
+          const riskForensicMarkdown = extractRawAuditMarkdown(
+            risk.ingestionDetails ?? riskThreatRow?.ingestionDetails ?? null,
+          );
+          const isUnassigned = assignedFor(risk.id, risk.assigneeId, risk.threatId) === 'unassigned';
+          const isActive = lifecycle === 'active';
+          const shouldFlash = isUnassigned && isActive;
+          const notes = workNotes[risk.id] ?? [];
           const riskAssigneeHistory = mergeAssignmentHistoryEntries(
             [
               ...(riskThreatRow?.assignmentHistory ?? []),
@@ -3578,6 +3610,15 @@ export default function ActiveRisksClient({
                     entries={riskAssigneeHistory}
                     historyThreatEventId={risk.threatId ?? undefined}
                   />
+                  {riskForensicMarkdown ? (
+                    <div
+                      className="mt-2"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <InlineAuditAccordion markdownAuditBlock={riskForensicMarkdown} />
+                    </div>
+                  ) : null}
                   <ImpactedBlastRadiusSection
                     threatLike={risk}
                     threatEventId={risk.threatId ?? null}
@@ -3647,6 +3688,16 @@ export default function ActiveRisksClient({
                       </div>
                     )}
                     <div className="ml-auto flex flex-wrap items-center gap-2">
+                      {riskForensicMarkdown ? (
+                        <VerifyArtifactButton
+                          onClick={() =>
+                            setForensicAuditModal({
+                              threatId: risk.threatId ?? risk.id,
+                              markdownAuditBlock: riskForensicMarkdown,
+                            })
+                          }
+                        />
+                      ) : null}
                       {activeActionCardId === risk.id && activeAction === 'CONFIRM' ? (
                         <div className="w-full space-y-2 rounded border border-slate-700 bg-slate-900/80 p-3">
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-slate-300">
@@ -3778,6 +3829,13 @@ export default function ActiveRisksClient({
           View audit logs
         </button>
       </div>
+
+      <ForensicAuditModal
+        isOpen={forensicAuditModal != null}
+        onClose={() => setForensicAuditModal(null)}
+        threatId={forensicAuditModal?.threatId ?? ""}
+        markdownAuditBlock={forensicAuditModal?.markdownAuditBlock ?? ""}
+      />
 
       {auditHistoryModalOpen ? (
         <div

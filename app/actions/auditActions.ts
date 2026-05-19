@@ -39,6 +39,39 @@ export type RecentAuditLogRow = {
   justification: string | null;
 };
 
+/** Tenant-scoped ledger rows for Audit Intelligence (dashboard + `/api/audit/ledger-feed`). */
+export type AuditLedgerFeedRow = RecentAuditLogRow;
+
+export async function fetchTenantAuditLedgerRows(
+  tenantUuid: string,
+  take = 100,
+): Promise<AuditLedgerFeedRow[]> {
+  const tid = tenantUuid.trim();
+  if (!tid) return [];
+  const rows = await prisma.auditLog.findMany({
+    where: { tenantId: tid },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(200, Math.max(1, take)),
+    select: {
+      id: true,
+      action: true,
+      operatorId: true,
+      createdAt: true,
+      threatId: true,
+      simThreatId: true,
+      justification: true,
+    },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    action: row.action,
+    operatorId: row.operatorId,
+    threatId: row.threatId ?? row.simThreatId ?? null,
+    justification: row.justification,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
 /**
  * Latest AuditLog rows for the active tenant (via linked ThreatEvent.tenantCompanyId).
  */

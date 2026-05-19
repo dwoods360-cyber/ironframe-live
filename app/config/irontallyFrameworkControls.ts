@@ -1,6 +1,16 @@
 import { CONSTITUTIONAL_DIRECTIVE_BY_ID } from "@/app/config/constitutionalDirectives";
 
-export type IrontallyFrameworkId = "nist_csf" | "iso_27001" | "soc2_type2";
+export type IrontallyFrameworkId = "nist_csf" | "iso_27001" | "soc2_type2" | "csrd_esrs";
+
+/** CSRD ESRS E1-6 — gross Scope 1/2/3 GHG emissions (Kimbot / Ironscribe sustainability export). */
+export const IRONTALLY_CSRD_ESRS_E1_6 = {
+  framework: "csrd_esrs" as const,
+  controlId: "ESRS E1-6",
+  controlTitle: "Gross Scopes 1, 2 and 3 GHG emissions",
+  directiveId: "irontally",
+  satisfaction:
+    "Kimbot CSRD production ledger maps sealed `mitigatedValueCents` and kWh-averted telemetry to ESRS E1-6 disclosure units; simulation/chaos rows are excluded in productionMode.",
+};
 
 export type TasFrameworkControlMapping = {
   directiveId: string;
@@ -136,6 +146,21 @@ export const IRONTALLY_FRAMEWORK_CONTROL_MAPPINGS: Record<
       controlTitle: "Monitoring controls",
       satisfaction:
         "Irontally shadow mode silently evaluates certification status after each chaos post-mortem.",
+    },
+  ],
+  csrd_esrs: [
+    {
+      ...directiveRef("irontally"),
+      controlId: IRONTALLY_CSRD_ESRS_E1_6.controlId,
+      controlTitle: IRONTALLY_CSRD_ESRS_E1_6.controlTitle,
+      satisfaction: IRONTALLY_CSRD_ESRS_E1_6.satisfaction,
+    },
+    {
+      ...directiveRef("ironscribe"),
+      controlId: "ESRS E1-5",
+      controlTitle: "Energy consumption and mix",
+      satisfaction:
+        "Ironscribe Carbon Pulse retention and achievement reports attest grid intensity samples used for CSRD energy disclosures.",
     },
   ],
 };

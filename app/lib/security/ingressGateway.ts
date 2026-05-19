@@ -305,3 +305,10 @@ export const ingressGateway = {
   updateThreatEvent,
   findThreatEventByIdForBots,
 };
+
+/** Ironguard / Ironlock quarantine surface (Agent 13 & 6) — re-exported for ingress-adjacent imports. */
+export {
+  evaluateQuarantineLedger,
+  bumpLedgerFromIronguardMetadata,
+  escalateQuarantineSecondStrikersAfterSystemFreeze,
+} from "./quarantineLedgerGuard";

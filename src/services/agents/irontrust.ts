@@ -17,16 +17,29 @@ export class IronTrust {
     const tenantType = state.raw_payload?.tenant_type as keyof typeof IronTrust.BASELINES;
 
     const baseline = IronTrust.BASELINES[tenantType] || BigInt(0);
-    const variance = payloadAmount - baseline;
+    const financialAleCents = state.financial_ale_cents
+      ? BigInt(state.financial_ale_cents)
+      : baseline;
+    const sustainabilityAleCents = state.sustainability_ale_cents
+      ? BigInt(state.sustainability_ale_cents)
+      : 0n;
+    const mitigatedValueCents = state.mitigated_value_cents
+      ? BigInt(state.mitigated_value_cents)
+      : payloadAmount + sustainabilityAleCents;
+
+    const variance = mitigatedValueCents - baseline;
     const isHighRisk = variance > BigInt(0);
 
     return {
-      current_agent: "END", // For now, we stop after financial analysis
+      current_agent: "END",
       status: "COMPLETED",
+      financial_ale_cents: financialAleCents.toString(),
+      sustainability_ale_cents: sustainabilityAleCents.toString(),
+      mitigated_value_cents: mitigatedValueCents.toString(),
       agent_logs: [
-        `Irontrust analyzed ${tenantType}: Baseline ${baseline}, Actual ${payloadAmount}, Variance ${variance}.`,
-        `Risk Status: ${isHighRisk ? 'CRITICAL_EXPOSURE' : 'SECURE'}`
-      ]
+        `Irontrust analyzed ${tenantType}: Baseline ${baseline}, Financial ${financialAleCents}, Sustainability ${sustainabilityAleCents}, Mitigated ${mitigatedValueCents}, Variance ${variance}.`,
+        `Risk Status: ${isHighRisk ? "CRITICAL_EXPOSURE" : "SECURE"}`,
+      ],
     };
   }
 }

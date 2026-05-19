@@ -5,11 +5,14 @@ import { useRouter } from "next/navigation";
 import { Building2 } from "lucide-react";
 import {
   listCommandCenterTenants,
+  logTenantScopeChangeAction,
   type CommandCenterTenantRow,
 } from "@/app/actions/tenantActions";
 import { tenantIndustryCodeToProfileLabel } from "@/app/utils/tenantIndustryProfile";
 import { useRiskStore } from "@/app/store/riskStore";
 import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
+import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,8 +54,7 @@ function syncSelectedTenantNameFromRows(
   }
   const lower = raw.toLowerCase();
   const tenant =
-    rows.find((r) => r.id.toLowerCase() === lower) ??
-    rows.find((r) => r.slug.toLowerCase() === lower);
+    rows.find((r) => r.id.toLowerCase() === lower) ?? rows.find((r) => r.slug.toLowerCase() === lower);
   setSelectedTenantName(tenant?.name?.trim() ? tenant.name.trim() : null);
 }
 
@@ -64,6 +66,11 @@ function setIronframeTenantCookie(value: string | null): void {
     return;
   }
   document.cookie = `ironframe-tenant=${value}; path=${path}; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function normalizeScopeToken(raw: string | undefined): string | null {
+  if (!raw?.trim()) return null;
+  return raw.trim().toLowerCase();
 }
 
 export default function TenantSwitcher() {
@@ -126,23 +133,47 @@ export default function TenantSwitcher() {
     return "global";
   }, [rows, cookieRevision]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
-    purgeClientTenantScopeAfterSwitch();
+    const prevToken = normalizeScopeToken(readIronframeTenantCookie());
+    const prevUuid = prevToken ?? "global";
+
+    await purgeClientTenantScopeAfterSwitch();
+
     if (v === "global") {
       setIronframeTenantCookie(null);
+      setIronguardEffectiveTenant(TENANT_UUIDS.medshield);
       setSelectedTenantName(null);
       setSelectedIndustry("Healthcare");
       setCookieRevision((n) => n + 1);
+      try {
+        const logRes = await logTenantScopeChangeAction({ prevUuid, nextUuid: "global" });
+        if (!logRes.ok) console.error("[TenantSwitcher] audit log rejected:", logRes.error);
+      } catch (err) {
+        console.error("[TenantSwitcher] audit log failed", err);
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ironframe-tenant-changed"));
+      }
       router.push("/");
       router.refresh();
       return;
     }
     const tenant = rows.find((r) => r.id === v);
     setIronframeTenantCookie(v);
+    setIronguardEffectiveTenant(v);
     setSelectedTenantName(tenant?.name?.trim() ? tenant.name.trim() : null);
     syncIndustryFromTenant(tenant);
     setCookieRevision((n) => n + 1);
+    try {
+      const logRes = await logTenantScopeChangeAction({ prevUuid, nextUuid: v });
+      if (!logRes.ok) console.error("[TenantSwitcher] audit log rejected:", logRes.error);
+    } catch (err) {
+      console.error("[TenantSwitcher] audit log failed", err);
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ironframe-tenant-changed"));
+    }
     router.push("/");
     router.refresh();
   };
@@ -155,7 +186,7 @@ export default function TenantSwitcher() {
       <Building2 className="h-4 w-4 shrink-0 text-cyan-500" />
       <select
         value={selectValue}
-        onChange={handleChange}
+        onChange={(ev) => void handleChange(ev)}
         className="max-w-[min(22rem,72vw)] cursor-pointer appearance-none bg-transparent pr-4 text-sm font-medium text-slate-200 outline-none focus:ring-0"
         aria-label="Global Command Center tenant scope"
       >

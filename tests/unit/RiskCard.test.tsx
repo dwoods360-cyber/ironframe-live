@@ -2,46 +2,91 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import RiskCard from "@/app/components/RiskCard";
 
-describe("RiskCard (Epic 6 — border telemetry only)", () => {
-  it("ASSIGNED uses steady cyan border", () => {
+describe("RiskCard lifecycle pattern states", () => {
+  it("INGESTED shows sensing skeleton at 50% opacity", () => {
     render(
       <RiskCard
-        status="ASSIGNED"
-        risk={{ title: "Supply chain exposure", ale_impact: 1_000_000n }}
+        processedData={{
+          title: "Probe",
+          value: "$1.6B",
+          delta: "Sensing…",
+          status: "INGESTED",
+        }}
       />,
     );
-
     const card = screen.getByTestId("risk-card");
-    expect(card).toHaveClass("border-cyan-400");
-    expect(card).not.toHaveClass("animate-pulse");
-    expect(card.getAttribute("data-risk-status")).toBe("ASSIGNED");
+    expect(card).toHaveAttribute("data-risk-status", "INGESTED");
+    expect(card).toHaveClass("opacity-50");
+    expect(screen.getByText("Sensing…")).toBeTruthy();
   });
 
-  it("PROCESSING uses amber border and pulse", () => {
+  it("REGISTERED is full opacity baseline logged", () => {
     render(
-      <RiskCard status="PROCESSING" risk={{ title: "Active review", ale_impact: 500n }} />,
+      <RiskCard
+        processedData={{
+          title: "Baseline",
+          value: "$2.0B",
+          delta: "Baseline Logged",
+          status: "REGISTERED",
+        }}
+      />,
     );
-
     const card = screen.getByTestId("risk-card");
-    expect(card).toHaveClass("border-amber-500");
+    expect(screen.getByText("Baseline Logged")).toBeTruthy();
+    expect(card).toHaveClass("opacity-100");
+    expect(card).not.toHaveClass("animate-pulse");
+  });
+
+  it("ACTIVE pulses with attack glow", () => {
+    render(
+      <RiskCard
+        processedData={{
+          title: "Attack live",
+          value: "$1.6B",
+          delta: "Impacting maturity",
+          status: "ACTIVE",
+        }}
+      />,
+    );
+    const card = screen.getByTestId("risk-card");
+    expect(card).toHaveClass("border-red-500");
     expect(card).toHaveClass("animate-pulse");
   });
 
-  it("VERIFIED uses steady emerald border", () => {
+  it("shows framework, governed liability, and system integrity badge", () => {
     render(
-      <RiskCard status="VERIFIED" risk={{ title: "Closed loop", ale_impact: 0n }} />,
+      <RiskCard
+        processedData={{
+          title: "System Integrity Drill — KIMBOT",
+          value: "$1.60M",
+          delta: "Exposure",
+          status: "PROCESSING",
+          frameworkLabel: "SOC 2",
+          governedLiability: "$820,000.00",
+          systemIntegrityDrill: "KIMBOT",
+        }}
+      />,
     );
-
-    const card = screen.getByTestId("risk-card");
-    expect(card).toHaveClass("border-emerald-500");
-    expect(card).not.toHaveClass("animate-pulse");
+    expect(screen.getByTestId("risk-card-integrity-badge")).toHaveTextContent("KIMBOT");
+    expect(screen.getByText("Framework")).toBeTruthy();
+    expect(screen.getByText("SOC 2")).toBeTruthy();
+    expect(screen.getByText("Governed liability")).toBeTruthy();
+    expect(screen.getByText("$820,000.00")).toBeTruthy();
   });
 
-  it("formats ale_impact from BigInt cents without float conversion", () => {
+  it("RESOLVED shows checkmark and forensic closure", () => {
     render(
-      <RiskCard status="ASSIGNED" risk={{ title: "ALE", ale_impact: 999n }} />,
+      <RiskCard
+        processedData={{
+          title: "Closed",
+          value: "$0",
+          delta: "done",
+          status: "RESOLVED",
+        }}
+      />,
     );
-
-    expect(screen.getByText(/\$9\.99/)).toBeTruthy();
+    const card = screen.getByTestId("risk-card");
+    expect(screen.getByText("Forensic Closure")).toBeTruthy();
+    expect(card).toHaveClass("opacity-70");
   });
 });

@@ -1,0 +1,70 @@
+{
+  "current": {
+    "score": 4.6000000000000005,
+    "scoreBeforeResilienceBonus": 4.6000000000000005,
+    "apiOutagePenaltyActive": false,
+    "selfHealingContinuity": {
+      "daysActive": 0,
+      "activeSince": null,
+      "bonusApplies": false
+    },
+    "calculatedAt": "2026-05-19T00:10:50.520Z",
+    "components": {
+      "attestationQuality": 5,
+      "chaosResilience": 6,
+      "directivity": 1
+    },
+    "weights": {
+      "attestation": 0.4,
+      "chaos": 0.4,
+      "directivity": 0.2
+    },
+    "governanceDegradationActive": true,
+    "neutralizeMinChars": 75,
+    "sampleSizes": {
+      "resolutionsSampled": 58,
+      "chaosReportAvailable": false
+    },
+    "notes": [
+      "Chaos resilience baseline — no Constitutional Collapse post-mortem on file."
+    ]
+  },
+  "trend": [
+    {
+      "date": "2026-05-16",
+      "score": 5.000000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-17",
+      "score": 5.000000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-18",
+      "score": 4.600000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 5
+      }
+    },
+    {
+      "date": "2026-05-19",
+      "score": 4.6000000000000005,
+      "components": {
+        "attestationQuality": 5,
+        "chaosResilience": 6,
+        "directivity": 1
+      }
+    }
+  ]
+}

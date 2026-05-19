@@ -17,6 +17,8 @@ import {
 } from "@/app/config/agents";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import {
+  pipelineShadowChaosVelocityDedupeRiskEvent,
+  pipelineShadowChaosVelocityDedupeThreatEvent,
   queryActiveThreatsForBoard,
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
 } from "@/app/utils/activeThreatsBoardQuery";
@@ -206,6 +208,8 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
   const sim = await readSimulationPlaneEnabled();
   /** Cookie-aligned tenant UUID — SimThreatEvent rows MUST match this or assignee actions fail scope checks. */
   const tenantUuid = await getActiveTenantUuidFromCookies();
+  /** Align with Active Risks shadow scope: Chaos `IDENTIFIED` rows must not duplicate in Attack Velocity / Risk Ingestion. */
+  const shadowChaosVelocityDedupe = isShadowPlaneActiveFromEnv() || sim;
 
   const statusClause = {
     AND: [
@@ -258,7 +262,11 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
   const rows = sim
     ? await prisma.riskEvent.findMany({
         where: {
-          AND: [{ tenantId: tenantUuid }, statusClause],
+          AND: [
+            { tenantId: tenantUuid },
+            statusClause,
+            ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
+          ],
         },
         orderBy: { createdAt: "desc" },
         select: pipelineScalarsSim,
@@ -272,7 +280,11 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
         if (companyIds.length === 0) return [];
         return prisma.threatEvent.findMany({
           where: {
-            AND: [{ tenantCompanyId: { in: companyIds } }, statusClause],
+            AND: [
+              { tenantCompanyId: { in: companyIds } },
+              statusClause,
+              ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
+            ],
           },
           orderBy: { createdAt: "desc" },
           select: pipelineProdSelect,

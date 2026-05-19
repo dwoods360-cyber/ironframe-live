@@ -1,6 +1,12 @@
 import { SovereignGraphState } from '../orchestration/state';
 import { saveCheckpoint } from '@/app/utils/irontechResilience';
 import prisma from '@/lib/prisma';
+import { getSustainabilityApiDegradedAsync } from "@/src/services/ironlock/validationRules";
+import {
+  electricityMapsStatusFromDegradedFlag,
+  resolveTaskLanes,
+} from "../ironmap/criticalPath";
+import { isConstitutionalEmergencyActive } from "../irontech/autonomousDecoupling";
 
 /** Injected by `routeToAgents` for AgentReasoning metadata (stripped before routing logic). */
 const TRACE_PAYLOAD_KEY = '__ironframe_trace_id';
@@ -31,10 +37,20 @@ export class IronCore {
       }
     }
 
-    const type = state.raw_payload?.type;
+    const raw = state.raw_payload as Record<string, unknown> | undefined;
+    const type = raw?.type;
     let nextStep = "END"; // Default to termination
+    const decoupleLogs: string[] = [];
 
-    if (type === "FINANCIAL_AUDIT") {
+    const blocked = state.irontech_blocked_paths ?? [];
+    if (
+      type === "SUSTAINABILITY_ESG" ||
+      type === "ESG_INGEST" ||
+      type === "CARBON_AUDIT" ||
+      raw?.requires_physical_units === true
+    ) {
+      nextStep = "IRONBLOOM"; // Agent 18
+    } else if (type === "FINANCIAL_AUDIT") {
       nextStep = "IRONTRUST"; // Agent 3
     } else if (type === "DOCUMENT_ANALYSIS") {
       nextStep = "IRONSCRIBE"; // Agent 5
@@ -42,9 +58,54 @@ export class IronCore {
       nextStep = "IRONGATE"; // Agent 14 (Sanitization)
     }
 
+    const carbonDown = await getSustainabilityApiDegradedAsync();
+    const emStatus = electricityMapsStatusFromDegradedFlag(carbonDown);
+    const lanes = resolveTaskLanes(emStatus);
+
+    if (blocked.includes("ironbloom") && nextStep === "IRONBLOOM") {
+      nextStep = "IRONTRUST";
+      decoupleLogs.push("IRONTECH_STICKY_BYPASS:blocked_path_ironbloom→IRONTRUST");
+    }
+
+    if (carbonDown && nextStep === "IRONBLOOM") {
+      const allowRegulatoryParallel =
+        raw?.ironmap_regulatory_parallel === true ||
+        raw?.regulatory_framework_only === true ||
+        type === "FINANCIAL_AUDIT";
+
+      const carbonExclusivePayload =
+        type === "CARBON_AUDIT" ||
+        type === "SUSTAINABILITY_ESG" ||
+        type === "ESG_INGEST" ||
+        raw?.requires_physical_units === true;
+
+      const carbonOnly = carbonExclusivePayload && !allowRegulatoryParallel;
+
+      if (!carbonOnly) {
+        nextStep = "IRONTRUST";
+        decoupleLogs.push(
+          `IRONMAP_DECOUPLE: ElectricityMaps=${emStatus}; Sustainability_Mapping=${lanes.Sustainability_Mapping}; Regulatory_Framework_Mapping=${lanes.Regulatory_Framework_Mapping}; partial state → IRONTRUST (parallel regulatory path)`,
+        );
+      } else {
+        decoupleLogs.push(
+          `IRONMAP: ElectricityMaps=${emStatus}; Sustainability_Mapping=${lanes.Sustainability_Mapping}; carbon-exclusive payload — IRONBLOOM retained pending live feed or explicit waiver`,
+        );
+      }
+    }
+
+    if (isConstitutionalEmergencyActive() && nextStep === "IRONBLOOM") {
+      nextStep = "END";
+      decoupleLogs.push(
+        "IRONTECH:constitutional_emergency_gate — autonomous IRONBLOOM routing suspended (>3 distinct agents in concurrent window)",
+      );
+    }
+
     const result = {
       current_agent: nextStep,
-      agent_logs: [`Ironcore routed payload type [${type}] to ${nextStep}`],
+      agent_logs: [
+        ...decoupleLogs,
+        `Ironcore routed payload type [${type}] to ${nextStep}`,
+      ],
       status: "PROCESSING" as const,
     };
 

@@ -1,24 +1,38 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { flushSync } from "react-dom";
 import { usePathname } from "next/navigation";
-import { assertTenantAccess, detectTenantFromPath, TENANT_UUIDS, TenantKey } from "@/app/utils/tenantIsolation";
+import {
+  assertTenantAccess,
+  detectTenantFromPath,
+  TENANT_UUIDS,
+  tenantKeyFromUuid,
+  TenantKey,
+} from "@/app/utils/tenantIsolation";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
 import { ironguardFetch } from "@/app/utils/apiClient";
 import { appendAuditLog } from "@/app/utils/auditLogger";
-import { resetAllStores } from "@/app/store/resetAllStores";
-import { tenantScopeCache } from "@/app/utils/apiCacheCoordinator";
+import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
 import { devTenantHandshakeAle, devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
 
 type TenantContextValue = {
   activeTenantKey: TenantKey | null;
   activeTenantUuid: string | null;
+  /** True when URL is `/medshield`-style; cookie-only scope still sets `activeTenantUuid`. */
   isTenantRoute: boolean;
   setDevTenantOverride: (tenant: TenantKey | null) => void;
   /** Dev / staging: cold-boot memory + cache before applying override (TAS clean-slate). */
-  switchDevTenantColdBoot: (next: TenantKey | null) => void;
+  switchDevTenantColdBoot: (next: TenantKey | null) => Promise<void>;
   tenantFetch: (input: RequestInfo | URL, init?: RequestInit, targetTenantUuid?: string) => Promise<Response>;
 };
 
@@ -27,19 +41,64 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 /** While true, `useEffect` does not re-apply the ironframe-tenant cookie over an explicit null Ironguard session (dev cold-boot). */
 let devIronguardCookieSyncSuppressed = false;
 
+function subscribeIronframeTenantCookie(onStoreChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener("ironframe-tenant-changed", onStoreChange);
+  window.addEventListener("focus", onStoreChange);
+  return () => {
+    window.removeEventListener("ironframe-tenant-changed", onStoreChange);
+    window.removeEventListener("focus", onStoreChange);
+  };
+}
+
+function snapshotIronframeTenantUuid(): string | null {
+  if (typeof window === "undefined") return null;
+  return resolveDashboardTenantUuid(null);
+}
+
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [devTenantOverride, setDevTenantOverrideState] = useState<TenantKey | null>(null);
 
+  /** Dev Tenant Switcher (`ironframe-tenant` cookie) — Medshield UUID `5c420f5a-…` when that tenant is selected (see `TENANT_UUIDS`). */
+  const cookieTenantUuid = useSyncExternalStore(
+    subscribeIronframeTenantCookie,
+    snapshotIronframeTenantUuid,
+    () => null,
+  );
+
   const routeTenantKey = detectTenantFromPath(pathname);
+  const routeUuid = routeTenantKey ? TENANT_UUIDS[routeTenantKey] : null;
+  const devUuid =
+    process.env.NODE_ENV === "development" && devTenantOverride ? TENANT_UUIDS[devTenantOverride] : null;
+
+  /**
+   * When no route / dev override / cookie scope exists, default to Medshield so server queries
+   * (`GET /api/threats/active`, Ironguard) never run with an empty tenant filter (GRC “PENDING” lock).
+   */
+  const activeTenantUuid = routeUuid ?? devUuid ?? cookieTenantUuid ?? TENANT_UUIDS.medshield;
+
+  /** Derive chip key from cookie, else from resolved UUID (Medshield default) so ALE / handshake never stay orphaned. */
   const activeTenantKey =
-    process.env.NODE_ENV === "development" && devTenantOverride ? devTenantOverride : routeTenantKey;
-  const activeTenantUuid = activeTenantKey ? TENANT_UUIDS[activeTenantKey] : null;
+    routeTenantKey ??
+    (process.env.NODE_ENV === "development" ? devTenantOverride : null) ??
+    tenantKeyFromUuid(cookieTenantUuid ?? activeTenantUuid);
 
   useEffect(() => {
     if (devIronguardCookieSyncSuppressed) return;
     setIronguardEffectiveTenant(resolveDashboardTenantUuid(activeTenantUuid));
   }, [activeTenantUuid]);
+
+  /** Cold boot: persist Medshield UUID to `ironframe-tenant` so Server Actions match client context. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (routeUuid || devUuid) return;
+    if (resolveDashboardTenantUuid(null)) return;
+    const med = TENANT_UUIDS.medshield;
+    document.cookie = `ironframe-tenant=${encodeURIComponent(med)};path=/;max-age=31536000;SameSite=Lax`;
+    window.dispatchEvent(new CustomEvent("ironframe-tenant-changed"));
+    setIronguardEffectiveTenant(med);
+  }, [routeUuid, devUuid]);
 
   const setDevTenantOverride = useCallback((tenant: TenantKey | null) => {
     if (process.env.NODE_ENV !== "development") {
@@ -55,7 +114,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const switchDevTenantColdBoot = useCallback((next: TenantKey | null) => {
+  const switchDevTenantColdBoot = useCallback(async (next: TenantKey | null) => {
     if (process.env.NODE_ENV !== "development") {
       return;
     }
@@ -70,9 +129,8 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Forensic ledger persists across tenant switches — Master Purge (Audit Intelligence) clears local buffer.
 
-      // 3. Insurance / forensic / command RAM + dashboard cache
-      resetAllStores();
-      tenantScopeCache.clear();
+      // 3. Insurance / forensic / command RAM + dashboard cache + shadow-arm re-hydration
+      await purgeClientTenantScopeAfterSwitch();
 
       // 4. Bind next tenant; re-assert Ironguard before fetches (useEffect is blocked until finally).
       flushSync(() => {
@@ -132,12 +190,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     return {
       activeTenantKey,
       activeTenantUuid,
-      isTenantRoute: Boolean(activeTenantKey),
+      isTenantRoute: Boolean(routeTenantKey),
       setDevTenantOverride,
       switchDevTenantColdBoot,
       tenantFetch,
     };
-  }, [activeTenantKey, activeTenantUuid, setDevTenantOverride, switchDevTenantColdBoot]);
+  }, [activeTenantKey, activeTenantUuid, routeTenantKey, setDevTenantOverride, switchDevTenantColdBoot]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }

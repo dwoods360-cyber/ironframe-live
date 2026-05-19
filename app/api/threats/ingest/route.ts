@@ -1,11 +1,19 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { unstable_noStore as noStore, revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { acknowledgeThreatAction } from '@/app/actions/threatActions';
+import { mergeIngestionDetailsPatch, mergeIngestionDetailsPatchJson, parseIngestionDetailsForMerge } from '@/app/utils/ingestionDetailsMerge';
+import { markOperationalDeficiencyReportPromotedToThreat } from '@/app/lib/opsupport/markDeficiencyPromoted';
 import { grcGatePass } from '@/app/utils/grcGate';
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
 import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
+import { ingressUsesRiskEventTable } from '@/app/lib/security/ingressGateway';
+import { chaosAcknowledgeBlockedByDiscoveryHold } from '@/app/utils/chaosDiscoveryHold';
 
 /** Canonical Medshield tenant UUID — aligns bot writes with default dev session / terminal logs when env shadow has no cookie. */
 const SHADOW_PLANE_DEFAULT_TENANT_UUID = TENANT_UUIDS.medshield;
@@ -19,6 +27,24 @@ function shadowPlaneActive(request: NextRequest): boolean {
 function tenantUuidFromHeader(request: NextRequest): string | null {
   const raw = request.headers.get('x-tenant-id')?.trim();
   return raw && isValidTenantUuid(raw) ? raw : null;
+}
+
+function isChaosLikeIngestion(parsed: Record<string, unknown>, botIngest: boolean): boolean {
+  const et = String(parsed.entityType ?? '').toUpperCase();
+  const chaosLevel = parsed.chaos_level;
+  const levelNum =
+    typeof chaosLevel === 'number' && Number.isFinite(chaosLevel)
+      ? chaosLevel
+      : typeof chaosLevel === 'string'
+        ? Number.parseInt(chaosLevel.trim(), 10)
+        : NaN;
+  return (
+    botIngest ||
+    parsed.isChaosTest === true ||
+    parsed.incident_type === 'CHAOS' ||
+    (Number.isFinite(levelNum) && levelNum >= 1 && levelNum <= 5) ||
+    et.includes('CHAOS')
+  );
 }
 
 /** KIM / GRC / Attbot-style callers — stamp tenant from session for RLS + pipeline (shadow plane). */
@@ -49,6 +75,7 @@ function isAdversarialBotIngestPayload(body: Record<string, unknown>): boolean {
  * Persistence: `acknowledgeThreatAction` writes ACK state + AuditLog server-side.
  */
 export async function POST(request: NextRequest) {
+  noStore();
   try {
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const threatId = typeof body.threatId === 'string' ? body.threatId.trim() : null;
@@ -106,15 +133,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const threat = await prisma.threatEvent.findUnique({
-      where: { id: threatId },
-      select: { financialRisk_cents: true },
-    });
+    const threat = await (async () => {
+      const useRisk = await ingressUsesRiskEventTable();
+      if (useRisk) {
+        return prisma.riskEvent.findFirst({
+          where: { id: threatId },
+          select: {
+            financialRisk_cents: true,
+            status: true,
+            createdAt: true,
+            ingestionDetails: true,
+            targetEntity: true,
+          },
+        });
+      }
+      return prisma.threatEvent.findUnique({
+        where: { id: threatId },
+        select: {
+          financialRisk_cents: true,
+          status: true,
+          createdAt: true,
+          ingestionDetails: true,
+          targetEntity: true,
+        },
+      });
+    })();
 
     if (!threat) {
       return NextResponse.json(
         { error: 'Threat not found.' },
         { status: 404 }
+      );
+    }
+
+    const discoveryHold = chaosAcknowledgeBlockedByDiscoveryHold({
+      status: String(threat.status),
+      ingestionDetails: threat.ingestionDetails,
+      industry: threat.targetEntity,
+      createdAt: threat.createdAt,
+    });
+    if (discoveryHold.blocked) {
+      return NextResponse.json(
+        {
+          error: `Chaos discovery phase: signal must stay in Risk Velocity (${Math.ceil(discoveryHold.retryAfterMs / 1000)}s remaining) before Active promotion.`,
+          code: 'CHAOS_DISCOVERY_HOLD',
+          retryAfterMs: discoveryHold.retryAfterMs,
+        },
+        { status: 425 },
       );
     }
 
@@ -127,13 +192,165 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    /**
+     * Chaos / bot: 4s “discovery” hold **after** persisting a non-promoting ingestion stamp, **before**
+     * `acknowledgeThreatAction` (IDENTIFIED/velocity → CONFIRMED / Active board).
+     */
+    const parsedForActiveHold = parseIngestionDetailsForMerge(threat.ingestionDetails ?? null) as Record<
+      string,
+      unknown
+    >;
+    const chaosLikeForHold = isChaosLikeIngestion(parsedForActiveHold, botIngest);
+    if (chaosLikeForHold) {
+      const holdIso = new Date().toISOString();
+      const useRiskTable = await ingressUsesRiskEventTable();
+      try {
+        if (useRiskTable) {
+          const rowIngest = await prisma.riskEvent.findFirst({
+            where: { id: threatId },
+            select: { tenantId: true, ingestionDetails: true },
+          });
+          if (rowIngest?.tenantId) {
+            const mergedHold = mergeIngestionDetailsPatchJson(rowIngest.ingestionDetails ?? null, {
+              discoveryIngestHoldStartedAt: holdIso,
+              riskVelocityDiscoveryHold: true,
+            });
+            await prisma.riskEvent.updateMany({
+              where: { id: threatId, tenantId: rowIngest.tenantId },
+              data: { ingestionDetails: mergedHold },
+            });
+          }
+        } else {
+          const te = await prisma.threatEvent.findUnique({
+            where: { id: threatId },
+            select: { ingestionDetails: true },
+          });
+          const mergedHold = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
+            discoveryIngestHoldStartedAt: holdIso,
+            riskVelocityDiscoveryHold: true,
+          });
+          await prisma.threatEvent.updateMany({
+            where: { id: threatId },
+            data: { ingestionDetails: mergedHold },
+          });
+        }
+      } catch (stampErr) {
+        console.warn("[api/threats/ingest] discovery hold stamp failed", stampErr);
+      }
+      await new Promise<void>((r) => setTimeout(r, 4000));
+    }
+
     const result = await acknowledgeThreatAction(threatId, tenantId, operatorId, justification);
 
     if (result && typeof result === 'object' && 'success' in result && result.success === false) {
+      const r = result as {
+        error?: string;
+        chaosDiscoveryHold?: true;
+        retryAfterMs?: number;
+      };
+      if (r.chaosDiscoveryHold === true && typeof r.retryAfterMs === 'number') {
+        return NextResponse.json(
+          {
+            error: r.error ?? 'Chaos discovery hold.',
+            code: 'CHAOS_DISCOVERY_HOLD',
+            retryAfterMs: r.retryAfterMs,
+          },
+          { status: 425 },
+        );
+      }
       return NextResponse.json(
-        { error: (result as { error?: string }).error ?? 'Acknowledge failed.' },
+        { error: r.error ?? 'Acknowledge failed.' },
         { status: 400 }
       );
+    }
+
+    /** Velocity → Active: stamp promoted signal / deficiency queue rows once this threat is acknowledged into Active work. */
+    const promotedSignalId =
+      typeof body.sourceSignalId === 'string'
+        ? body.sourceSignalId.trim()
+        : typeof body.signalId === 'string'
+          ? body.signalId.trim()
+          : '';
+    const deficiencyReportId =
+      typeof body.deficiencyReportId === 'string' ? body.deficiencyReportId.trim() : '';
+
+    try {
+      if (promotedSignalId) {
+        const te = await prisma.threatEvent.findUnique({
+          where: { id: threatId },
+          select: { ingestionDetails: true },
+        });
+        const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, {
+          promotedFromSignalId: promotedSignalId,
+          signalVelocityLifecycle: 'promoted',
+          riskVelocitySignalStatus: 'promoted',
+          /** Product “Active Risk” — DB uses `ThreatState.CONFIRMED` / MITIGATED (ack path promotes IDENTIFIED → CONFIRMED). */
+          commandCenterLifecycle: 'ACTIVE_RISK',
+        });
+        await prisma.threatEvent.updateMany({
+          where: { id: threatId },
+          data: { ingestionDetails: merged },
+        });
+      }
+      if (deficiencyReportId) {
+        await markOperationalDeficiencyReportPromotedToThreat(tenantId, deficiencyReportId, threatId);
+      }
+    } catch (stampErr) {
+      console.warn('[api/threats/ingest] promotion stamp failed', stampErr);
+    }
+
+    /** Chaos / bot ingest: hard-bind `User_00` on row + JSON (`assigned_to` / owner) for Active-board filters (ThreatEvent + SimThreatEvent). */
+    try {
+      const useRiskForChaos = await ingressUsesRiskEventTable();
+      const chaosPatch = {
+        assigned_to: 'User_00',
+        owner_id: 'User_00',
+        constitutionalAuthority: 'User_00',
+        constitutionalAuthorityMeta: {
+          role: 'CONSTITUTIONAL_AUTHORITY',
+          sealedAt: new Date().toISOString(),
+          source: 'api/threats/ingest',
+        },
+        riskVelocitySignalStatus: 'promoted',
+        signalVelocityLifecycle: 'promoted',
+        commandCenterLifecycle: 'ACTIVE_RISK',
+      } as const;
+
+      if (useRiskForChaos) {
+        const rowIngest = await prisma.riskEvent.findFirst({
+          where: { id: threatId },
+          select: { tenantId: true, ingestionDetails: true },
+        });
+        if (rowIngest) {
+          const parsed = parseIngestionDetailsForMerge(rowIngest.ingestionDetails ?? null) as Record<string, unknown>;
+          if (isChaosLikeIngestion(parsed, botIngest)) {
+            const mergedChaos = mergeIngestionDetailsPatchJson(rowIngest.ingestionDetails ?? null, {
+              ...chaosPatch,
+            });
+            await prisma.riskEvent.updateMany({
+              where: { id: threatId, tenantId: rowIngest.tenantId },
+              data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
+            });
+          }
+        }
+      } else {
+        const rowIngest = await prisma.threatEvent.findUnique({
+          where: { id: threatId },
+          select: { ingestionDetails: true },
+        });
+        const parsed = parseIngestionDetailsForMerge(rowIngest?.ingestionDetails ?? null) as Record<string, unknown>;
+        if (isChaosLikeIngestion(parsed, botIngest)) {
+          const mergedChaos = mergeIngestionDetailsPatch(rowIngest?.ingestionDetails ?? null, {
+            ...chaosPatch,
+          });
+          await prisma.threatEvent.updateMany({
+            where: { id: threatId },
+            data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
+          });
+        }
+      }
+    } catch (chaosStampErr) {
+      console.warn('[api/threats/ingest] chaos User_00 stamp failed', chaosStampErr);
     }
 
     if (shadow && tenantId) {

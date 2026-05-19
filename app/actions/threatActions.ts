@@ -26,6 +26,7 @@ import {
   mergeIngestionDetailsPatchJson,
   parseIngestionDetailsForMerge,
 } from '@/app/utils/ingestionDetailsMerge';
+import { chaosAcknowledgeBlockedByDiscoveryHold } from "@/app/utils/chaosDiscoveryHold";
 import { bumpSentinelLaborTracker, finalizeSentinelLaborAtClose } from "@/app/utils/sentinelLaborTracker";
 import { isGrcInfrastructureLimitMessage } from '@/app/utils/grcInfrastructureLimit';
 import { logThreatActivity } from '@/app/actions/auditActions';
@@ -40,11 +41,21 @@ import {
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
 import { resolveTenantUuidForThreatScope } from '@/app/utils/serverTenantContext';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
+import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
+import { CHAOS_ASSIGNEE_IRONTECH_11 } from "@/app/config/chaosShadowAudit";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { integrityService } from "@/src/services/integrityService";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
+import {
+  assertForensicAttestationLengthForContext,
+  assertTasMdIntegrityOrThrow,
+  getRequiredForensicAttestationMin,
+  isConstitutionalDegradedMode,
+} from "@/app/utils/tasFingerprint";
+import { assessTasMdIntegritySync } from "@/app/lib/tasMdIntegrity";
 import { runShadowMarketVolatilityExpertLifecycleHook } from "@/app/actions/agentActions";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import {
@@ -64,6 +75,7 @@ import {
 } from "@/app/utils/ironscribeNarrative";
 import { executeExpertSelfCorrectingObservation } from "@/app/lib/expertSelfCorrection";
 import { generateAndAttachPostMortemReport } from "@/app/utils/postMortemReportService";
+import { getHighScrutinyAuditFields } from "@/src/services/ironlock/validationRules";
 
 /** Threat resolution approve / reject / review — program leadership. */
 const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
@@ -73,9 +85,33 @@ const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
   "DIRECTOR_OF_COMPLIANCE",
 ];
 
+type AcknowledgeThreatGateResolved =
+  | {
+      plane: "prod";
+      row: {
+        financialRisk_cents: bigint;
+        sourceAgent: string;
+        status: ThreatState;
+        createdAt: Date;
+        ingestionDetails: string | null;
+        targetEntity: string;
+      };
+    }
+  | {
+      plane: "shadow";
+      row: {
+        financialRisk_cents: bigint;
+        sourceAgent: string;
+        status: ThreatState;
+        createdAt: Date;
+        ingestionDetails: Prisma.JsonValue | null;
+        targetEntity: string;
+      };
+    };
+
 type AcknowledgeResolvedThreat =
-  | { plane: 'prod'; row: { financialRisk_cents: bigint; sourceAgent: string } }
-  | { plane: 'shadow'; row: { financialRisk_cents: bigint; sourceAgent: string } };
+  | { plane: "prod"; row: { financialRisk_cents: bigint; sourceAgent: string } }
+  | { plane: "shadow"; row: { financialRisk_cents: bigint; sourceAgent: string } };
 
 /** Strict tenant isolation: production first, then shadow — same `tenantCompanyId` scope for both planes. */
 async function resolveThreatForAcknowledge(
@@ -597,7 +633,12 @@ type TransactionClient = {
 };
 
 type MissingRecordResponse = { success: false; error: string };
-type ActionFailureResponse = { success: false; error: string };
+type ActionFailureResponse = {
+  success: false;
+  error: string;
+  chaosDiscoveryHold?: true;
+  retryAfterMs?: number;
+};
 
 const DEFAULT_THREAT_TX_GUARD_ERROR = 'AUDIT_LOG_FAILURE: Record no longer exists.';
 
@@ -631,6 +672,15 @@ async function tryIdempotentAcknowledgeSuccess(
   return null;
 }
 
+/** When an operator acknowledges (begins processing), claim `assigneeId` if still open / literal “unassigned”. */
+function shouldClaimAssigneeOnAcknowledge(assigneeId: string | null | undefined): boolean {
+  const s = (assigneeId ?? "").trim();
+  return s === "" || s.toLowerCase() === "unassigned";
+}
+
+/** Execution-board owner shown after first-touch acknowledge (work notes / audit still use session `operatorId`). */
+const ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID = "User_00";
+
 /** Validate production ThreatEvent exists, then run update + audit create in one transaction. (Always uses threatEvent — never SimThreatEvent.) */
 async function runThreatTransaction<T>(
   id: string,
@@ -657,12 +707,30 @@ export type AcknowledgeThreatActionResult =
   | ActionFailureResponse
   | void;
 
+/** After T12 gavel, GRC ack must not downgrade RESOLVED → CONFIRMED (sticky Active Risks). */
+function acknowledgeTargetStatusAfterChaosForensicClose(
+  currentStatus: ThreatState,
+  ingestionDetails: string | Prisma.InputJsonValue | null | undefined,
+): ThreatState {
+  if (currentStatus === ThreatState.RESOLVED) return ThreatState.RESOLVED;
+  const raw =
+    ingestionDetails == null
+      ? null
+      : typeof ingestionDetails === "string"
+        ? ingestionDetails
+        : JSON.stringify(ingestionDetails);
+  if (isChaosForensicGavelClosed(raw)) return ThreatState.RESOLVED;
+  return ThreatState.CONFIRMED;
+}
+
 export async function acknowledgeThreatAction(
   id: string,
   tenantId: string,
   _operatorId: string,
   justification?: string,
 ): Promise<AcknowledgeThreatActionResult> {
+  assertTasMdIntegrityOrThrow();
+
   if (tenantId == null || tenantId === undefined || tenantId === '') {
     throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
   }
@@ -693,14 +761,21 @@ export async function acknowledgeThreatAction(
   const TOP_SECTOR_SOURCE = 'Top Sector Threats';
   const TOP_SECTOR_JUSTIFICATION = 'Top Sector Threat';
 
-  const grcAckSelect = { financialRisk_cents: true, sourceAgent: true } as const;
+  const grcAckSelect = {
+    financialRisk_cents: true,
+    sourceAgent: true,
+    status: true,
+    createdAt: true,
+    ingestionDetails: true,
+    targetEntity: true,
+  } as const;
 
   const prodRow = await prisma.threatEvent.findFirst({
     where: { id, tenantCompanyId: sessionCompanyId },
     select: grcAckSelect,
   });
 
-  let resolved: AcknowledgeResolvedThreat | null = null;
+  let resolved: AcknowledgeThreatGateResolved | null = null;
   if (prodRow) {
     resolved = { plane: 'prod', row: prodRow };
   } else {
@@ -722,6 +797,21 @@ export async function acknowledgeThreatAction(
     throw new Error(`Threat not found or access denied. (ID: ${id})`);
   }
 
+  const hold = chaosAcknowledgeBlockedByDiscoveryHold({
+    status: String(resolved.row.status),
+    ingestionDetails: resolved.row.ingestionDetails,
+    industry: resolved.row.targetEntity,
+    createdAt: resolved.row.createdAt,
+  });
+  if (hold.blocked) {
+    return {
+      success: false,
+      error: `Chaos discovery phase: keep this signal in Risk Velocity for the full window before Active promotion (${Math.ceil(hold.retryAfterMs / 1000)}s remaining).`,
+      chaosDiscoveryHold: true,
+      retryAfterMs: hold.retryAfterMs,
+    };
+  }
+
   const isShadowAck = resolved.plane === 'shadow';
   const existing = resolved.row;
   if (existing && existing.financialRisk_cents != null) {
@@ -729,7 +819,7 @@ export async function acknowledgeThreatAction(
     const cents = BigInt(existing.financialRisk_cents);
     const noteText = (justification ?? '').trim();
     const noteLen = noteText.length;
-    const requiredLen = cents >= threshold ? 50 : 10;
+    const requiredLen = cents >= threshold ? getRequiredForensicAttestationMin() : 10;
     const isTopSectorVerifiedIntel =
       existing.sourceAgent === TOP_SECTOR_SOURCE && noteText === TOP_SECTOR_JUSTIFICATION;
     const hasRequiredNote = isTopSectorVerifiedIntel || noteLen >= requiredLen;
@@ -737,7 +827,7 @@ export async function acknowledgeThreatAction(
       return {
         success: false,
         error:
-          'GRC Violation: High-value threats require a 50+ character work note/justification.',
+          `GRC Violation: High-value threats require a ${getRequiredForensicAttestationMin()}+ character work note/justification.`,
       };
     }
   }
@@ -766,7 +856,7 @@ export async function acknowledgeThreatAction(
       await prisma.$transaction(async (tx) => {
         const detailsRow = await tx.riskEvent.findFirst({
           where: { id },
-          select: { ingestionDetails: true },
+          select: { ingestionDetails: true, assigneeId: true },
         });
         if (detailsRow == null) {
           console.warn(`[Acknowledge Phase 2] SimThreatEvent missing inside TX after resolve: ${id}`);
@@ -779,11 +869,20 @@ export async function acknowledgeThreatAction(
           grcJustification: savedWorkNoteText,
           ...(chaosAckPatch ?? {}),
         });
+        const claimAssignee = shouldClaimAssigneeOnAcknowledge(detailsRow.assigneeId);
+        const ackStatus = acknowledgeTargetStatusAfterChaosForensicClose(
+          existing.status as ThreatState,
+          nextIngestionDetails,
+        );
         await tx.riskEvent.updateMany({
           where: { id },
           data: {
-            status: ThreatState.CONFIRMED,
+            status: ackStatus,
             ingestionDetails: nextIngestionDetails,
+            ...(claimAssignee && ackStatus !== ThreatState.RESOLVED
+              ? { assigneeId: ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID }
+              : {}),
+            ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
           },
         });
         await auditLogCreateLooseTx(tx, {
@@ -807,13 +906,18 @@ export async function acknowledgeThreatAction(
         async (tx) => {
           const detailsRow = await tx.threatEvent.findUnique({
             where: { id },
-            select: { ingestionDetails: true },
+            select: { ingestionDetails: true, assigneeId: true },
           });
           const chaosAckPatch = buildChaosFinalAckIngestionPatch(detailsRow?.ingestionDetails ?? null);
           const nextIngestionDetails = mergeIngestionDetailsPatch(detailsRow?.ingestionDetails ?? null, {
             grcJustification: savedWorkNoteText,
             ...(chaosAckPatch ?? {}),
           });
+          const claimAssignee = shouldClaimAssigneeOnAcknowledge(detailsRow?.assigneeId);
+          const ackStatus = acknowledgeTargetStatusAfterChaosForensicClose(
+            existing.status as ThreatState,
+            nextIngestionDetails,
+          );
 
           await tx.workNote.create({
             data: {
@@ -825,12 +929,16 @@ export async function acknowledgeThreatAction(
           // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
           await transitionThreatStatus({
             threatId: id,
-            newStatus: ThreatState.CONFIRMED,
+            newStatus: ackStatus,
             actorUserId: operatorId,
             eventType: "THREAT_ACKNOWLEDGED",
             tx,
             extraChanges: {
               ingestionDetails: nextIngestionDetails,
+              ...(claimAssignee && ackStatus !== ThreatState.RESOLVED
+                ? { assigneeId: ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID }
+                : {}),
+              ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
             },
             select: { id: true },
           });
@@ -1082,13 +1190,28 @@ export async function resolveThreatAction(
   operatorId: string,
   resolutionJustification: string,
   actorDisplayName?: string,
-): Promise<{ success: true; financialRisk_cents: number } | { success: false; financialRisk_cents: 0 }> {
+): Promise<
+  | { success: true; financialRisk_cents: number; constitutionalHash: string }
+  | { success: false; financialRisk_cents: 0 }
+> {
+  assertTasMdIntegrityOrThrow();
+
   const trimmed = resolutionJustification.trim();
-  if (trimmed.length < 50) {
+  try {
+    assertForensicAttestationLengthForContext(trimmed);
+  } catch {
     return { success: false, financialRisk_cents: 0 };
   }
   const parsedNote = workNoteSchema.safeParse({ text: trimmed });
   if (!parsedNote.success) {
+    return { success: false, financialRisk_cents: 0 };
+  }
+
+  let constitutionalHash = "";
+  const tasAssessment = assessTasMdIntegritySync();
+  if (tasAssessment.ok) {
+    constitutionalHash = tasAssessment.sha256;
+  } else if (!isConstitutionalDegradedMode()) {
     return { success: false, financialRisk_cents: 0 };
   }
 
@@ -1109,6 +1232,7 @@ export async function resolveThreatAction(
         return {
           success: true,
           financialRisk_cents: Number(simRow.financialRisk_cents ?? BigInt(0)),
+          constitutionalHash,
         };
       }
       if (!simShadowPassesResolutionProtocol(simRow.title, simRow.ingestionDetails)) {
@@ -1121,6 +1245,8 @@ export async function resolveThreatAction(
         actor,
         actorId: operatorId,
         timestamp: ts,
+        constitutionalHash,
+        ...getHighScrutinyAuditFields(),
       });
       const mergedIngestion = mergeIngestionDetailsPatchJson(simRow.ingestionDetails ?? null, {
         resolutionJustification: trimmed,
@@ -1150,7 +1276,93 @@ export async function resolveThreatAction(
       return {
         success: true,
         financialRisk_cents: Number(simRow.financialRisk_cents ?? BigInt(0)),
+        constitutionalHash,
       };
+    }
+
+    /** Shadow-plane Chaos on `ThreatEvent`: same cleared lifecycle as sim `RiskEvent` (no prod resolution-approval gate). */
+    const chaosThreat = await prisma.threatEvent.findFirst({
+      where: { id, tenantCompanyId: sessionCompanyIdForResolve },
+      select: {
+        id: true,
+        title: true,
+        ingestionDetails: true,
+        financialRisk_cents: true,
+        status: true,
+      },
+    });
+    if (chaosThreat) {
+      const normalized = parseIngestionDetailsForMerge(chaosThreat.ingestionDetails ?? null) as Record<
+        string,
+        unknown
+      >;
+      /** CHAOS_DRILL lifecycle clears via `executeChaosDrillIrontechLifecycleStepAction` (Agent 11 gates), not this shortcut. */
+      const isChaosDrillLifecycle =
+        normalized.entityType === "CHAOS_DRILL" || normalized.chaosDrillEntityType === "CHAOS_DRILL";
+      const isChaosInfrastructureShortcut =
+        !isChaosDrillLifecycle &&
+        (normalized.incident_type === "CHAOS" ||
+          normalized.entityType === "CHAOS" ||
+          normalized.isChaosTest === true ||
+          (typeof chaosThreat.title === "string" && chaosThreat.title.startsWith("CHAOS_SIM:")));
+      if (isChaosInfrastructureShortcut) {
+        if (chaosThreat.status === ThreatState.RESOLVED) {
+          return {
+            success: true,
+            financialRisk_cents: Number(chaosThreat.financialRisk_cents ?? BigInt(0)),
+            constitutionalHash,
+          };
+        }
+        const tsChaos = new Date().toISOString();
+        const actorChaos = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
+        const justificationPayloadChaos = JSON.stringify({
+          resolution: trimmed,
+          actor: actorChaos,
+          actorId: CHAOS_ASSIGNEE_IRONTECH_11,
+          agentAuditNote:
+            "TAS §3 — shadow Chaos clearance attributed to Irontech (Agent 11); governance exposure baseline 1.6B acknowledged.",
+          timestamp: tsChaos,
+          constitutionalHash,
+          ...getHighScrutinyAuditFields(),
+        });
+        const mergedIngestionChaos = mergeIngestionDetailsPatch(chaosThreat.ingestionDetails ?? null, {
+          resolutionJustification: trimmed,
+          tasSection3AgenticNeutralization: {
+            agentAssigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
+            governanceExposureBaselineBillions: 1.6,
+            settledAt: tsChaos,
+            auditProtocol: "IRONTECH_AGENT11_SHADOW_CLEARANCE",
+          },
+        });
+        await prisma.$transaction(async (tx) => {
+          await tx.threatEvent.updateMany({
+            where: { id: chaosThreat.id },
+            data: {
+              status: ThreatState.RESOLVED,
+              ingestionDetails: mergedIngestionChaos,
+              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
+            },
+          });
+          await auditLogCreateLooseTx(tx, {
+            data: {
+              action: "THREAT_RESOLVED",
+              justification: justificationPayloadChaos,
+              operatorId: CHAOS_ASSIGNEE_IRONTECH_11,
+              threatId: id,
+              isSimulation: true,
+            },
+          });
+        });
+        revalidatePath("/");
+        await logThreatActivity(id, "STATUS_UPDATED", `Threat status changed to RESOLVED (shadow Chaos).`, {
+          isSimulation: true,
+        });
+        return {
+          success: true,
+          financialRisk_cents: Number(chaosThreat.financialRisk_cents ?? BigInt(0)),
+          constitutionalHash,
+        };
+      }
     }
   }
 
@@ -1167,6 +1379,8 @@ export async function resolveThreatAction(
     actor,
     actorId: operatorId,
     timestamp: ts,
+    constitutionalHash,
+    ...getHighScrutinyAuditFields(),
   });
 
   const threatForGate = await prisma.threatEvent.findUnique({
@@ -1308,7 +1522,7 @@ export async function resolveThreatAction(
     console.error('[EMAIL ERROR] resolve GRC notification', e);
   }
 
-  return { success: true, financialRisk_cents };
+  return { success: true, financialRisk_cents, constitutionalHash };
 }
 
 /** Persist removal from Active board after autonomous resolve (UI "Acknowledge" kill-switch). */
@@ -1534,6 +1748,8 @@ export type ExecuteAgentActionArgs = {
   operatorId: string;
   /** Stored verbatim on WorkNote (prod) and inside AuditLog JSON narrative. */
   justification: string;
+  /** When set for `ASSIGNEE_CHANGE`, persisted on AuditLog for ASSIGNEE HISTORY UI (append-only). */
+  assigneeAuditJustification?: string;
   auditAction: AgentForensicAuditAction;
   integrityEventType: string;
   prodChanges?: Prisma.ThreatEventUpdateInput;
@@ -1557,15 +1773,19 @@ export async function executeAgentAction(
     return { ok: false, error: 'Audit log unavailable.' };
   }
 
-  const auditJustification = JSON.stringify({
-    source: 'executeAgentAction',
-    narrative,
-    auditAction: args.auditAction,
-    plane: args.plane,
-    threatId: args.threatId,
-    tenantCompanyId: String(args.tenantCompanyId),
-    at: new Date().toISOString(),
-  });
+  const structuredAssignee = args.assigneeAuditJustification?.trim();
+  const auditJustification =
+    args.auditAction === 'ASSIGNEE_CHANGE' && structuredAssignee
+      ? structuredAssignee
+      : JSON.stringify({
+          source: 'executeAgentAction',
+          narrative,
+          auditAction: args.auditAction,
+          plane: args.plane,
+          threatId: args.threatId,
+          tenantCompanyId: String(args.tenantCompanyId),
+          at: new Date().toISOString(),
+        });
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -1999,10 +2219,17 @@ export async function addWorkNoteAction(threatId: string, text: string, operator
         threatId,
       },
     });
+    const auditOperator =
+      operatorId.trim().toLowerCase() === "user_00" ? "User_00" : operatorId.trim();
     await logThreatActivity(
       threatId,
-      'NOTES_ADDED',
-      'Analyst appended new notes and context tags.',
+      "ASSIGNEE_COMMENT",
+      JSON.stringify({
+        source: "WORK_NOTE_MIRROR",
+        workNoteText: trimmedText,
+        constitutionalAuthority: auditOperator === "User_00" ? "User_00" : undefined,
+      }),
+      { operatorId: auditOperator },
     );
     return { success: true };
   } catch (err: unknown) {

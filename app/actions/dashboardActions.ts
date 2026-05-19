@@ -263,6 +263,7 @@ export type DashboardPayload = {
     remediationStatus: string;
     financialRiskCents: string;
     governedImpactCents?: string;
+    ingestionDetails?: string | null;
     assignmentHistory: Array<{
       id: string;
       action: string;
@@ -880,6 +881,10 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
             "forensicSeal" in t ? t.forensicSeal : undefined,
           )
         : null;
+    const ingestionDetailsStr =
+      "ingestionDetails" in t
+        ? normalizeIngestionDetailsToString(t.ingestionDetails) ?? null
+        : null;
     return {
       id: t.id,
       title: t.title,
@@ -891,6 +896,7 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       remediationStatus,
       financialRiskCents,
       governedImpactCents,
+      ingestionDetails: ingestionDetailsStr,
       assignmentHistory: auditTrail.map((log) => ({
         id: log.id,
         action: log.action,

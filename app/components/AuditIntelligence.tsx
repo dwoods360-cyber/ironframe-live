@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo, type MouseEvent } from "react";
-import { Copy, ExternalLink, Folder, Info, Printer, Trash2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useMemo,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
+import { AlertTriangle, Copy, Crosshair, ExternalLink, Folder, Info } from "lucide-react";
 import {
   appendAuditLog,
-  clearAllAuditLogs,
   ensureLoginAuditEvent,
   formatLedgerSequenceLabel,
   getAuditLogs,
@@ -15,14 +23,9 @@ import {
   type AuditActionType,
   type ForensicEventLevel,
 } from "@/app/utils/auditLogger";
-import {
-  buildAuditPdf,
-  computeRiskSummary,
-  getFilteredAuditLogsForReport,
-} from "@/app/utils/exportAudit";
 import { getSessionClockDriftMs } from "@/app/utils/sessionClockDrift";
 import { useAuditLoggerStore } from "@/app/utils/auditLoggerStore";
-import { useRiskStore } from "@/app/store/riskStore";
+import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import {
@@ -32,7 +35,6 @@ import {
 } from "@/app/utils/assignmentChainOfCustody";
 import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from "@/lib/constants/grcGovernance";
 import { useTenantContext } from "@/app/context/TenantProvider";
-import { DEV_TENANT_CONTROL_CHIPS } from "@/app/constants/devTenantRoster";
 import { getTotalCurrentRiskCentsString } from "@/app/utils/riskStoreBigIntMath";
 import { formatAleEngineManifestLine, formatBaselineDriftManifestParts } from "@/app/utils/baselineDriftManifest";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
@@ -43,6 +45,10 @@ import {
   getPostMortemSummaryAction,
   type PostMortemSummary,
 } from "@/app/actions/postMortemActions";
+import { ConstitutionalText } from "@/app/components/ConstitutionalText";
+import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
+import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
+import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
 
 // # AUDIT_STREAM_LOGIC (Real-time log mapping) — buildListItems, clientFiltered, listItems, filteredAuditLogs, hasAnyLogs
 
@@ -102,7 +108,8 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   THREAT_ACKNOWLEDGED: "Acknowledged",
   THREAT_DE_ACKNOWLEDGED: "De-Acknowledged",
   THREAT_DEACKNOWLEDGED: "De-Acknowledged",
-  THREAT_CONFIRMED: "Confirmed",
+  MATURITY_SCORE_DEGRADED_BY_THREAT: "Maturity degraded (threat targeting)",
+  LEDGER_HARD_BAN_TENANT_SIEGE: "Hard ban — tenant siege",
   HANDOFF_INITIATED: "Handoff",
   ATTESTATION_SUBMITTED: "Attestation submitted",
   THREAT_RESOLVED: "Resolved",
@@ -120,6 +127,23 @@ const SERVER_ACTION_LABELS: Record<string, string> = {
   EXPERT_AUTHORITY_SCOPED: "Authority scoped",
   EXPERT_CUSTODY_DECISION: "Custody decision",
   AGENT_PIVOT: "[AGENT_PIVOT] Strategy shifted due to new telemetry",
+  CHAOS_AGENT_MOVEMENT: "Chaos agent movement",
+  ASSIGNEE_COMMENT: "Work note (ledger)",
+  GOVERNANCE_ALERT: "Governance alert",
+  GOVERNANCE_DEGRADATION_ABORT: "Governance degradation abort",
+  POSTURE_DEGRADATION_COMPLETE: "Posture degradation complete",
+  CONFIG_DEGRADATION_EVENT: "Config degradation",
+  DMS_TRIGGERED: "Dead Man's Switch",
+  COLLUSION_WARNING: "Collusion warning",
+  LWT_SENT: "Last Will sent",
+  CHAOS_CONSTITUTIONAL_COLLAPSE: "Chaos · constitutional collapse",
+  PHOENIX_RESURRECTION: "Phoenix resurrection",
+  IRONTECH_POST_MORTEM: "Irontech post-mortem",
+  GOVERNANCE_DEGRADATION: "Governance degradation",
+  SYSTEM_MATURITY_RECALCULATED: "System maturity recalculated",
+  IRONWATCH_STALE_DATA_MODE: "Ironwatch · Stale Data mode",
+  IRONWATCH_SUSTAINABILITY_API_RECOVERED: "Ironwatch · sustainability API recovered",
+  TENANT_SCORCH: "Tenant scorch",
 };
 
 function formatServerLogForDisplay(row: ServerAuditLogRow): { id: string; timestamp: string; user_id: string; action_type: string; description: string; _sortTime: number; _fromServer: true; threatId?: string | null; ip_address?: string } {
@@ -348,7 +372,11 @@ function sortCombinedLogsNewestFirst(combinedLogs: LogEntryItem[]): LogEntryItem
   });
 }
 
-function displayLabelForAuditEntry(actionType: string): string {
+function displayLabelForAuditEntry(actionType: string, metadataTag?: string | null): string {
+  const meta = (metadataTag ?? "").toUpperCase();
+  if (meta.includes("RED_TEAM_ACTION_TRACKER")) {
+    return "Red Team · Action Tracker";
+  }
   const raw = (actionType ?? "").trim();
   return (
     (ACTION_LABELS[raw as AuditActionType] ?? SERVER_ACTION_LABELS[raw] ?? raw) || ""
@@ -361,7 +389,7 @@ function auditEntryMatchesSearch(
   searchLower: string,
 ): boolean {
   if (!searchLower) return true;
-  const label = displayLabelForAuditEntry(entry.action_type).toLowerCase();
+  const label = displayLabelForAuditEntry(entry.action_type, entry.metadata_tag).toLowerCase();
   const iron = (ironscribeNarrativeFromJustification(entry.justification) ?? "").toLowerCase();
   const meta = ((entry as { metadata_tag?: string | null }).metadata_tag ?? "").toLowerCase();
   const entityId = (entry.threatId ?? "").toLowerCase();
@@ -370,6 +398,7 @@ function auditEntryMatchesSearch(
     typeof seq === "number" && Number.isFinite(seq)
       ? formatLedgerSequenceLabel(seq).toLowerCase()
       : "";
+  const intel = (intelligencePayloadTextFromJustification(entry.action_type, entry.justification) ?? "").toLowerCase();
   const haystack = [
     label,
     iron,
@@ -379,8 +408,51 @@ function auditEntryMatchesSearch(
     meta,
     (entry.justification ?? "").toLowerCase(),
     seqHay,
+    intel,
   ].join(" ");
   return haystack.includes(searchLower);
+}
+
+/** Wrap active search matches for the action tracker log list. */
+function highlightSearchInText(text: string, searchLower: string): ReactNode {
+  if (!searchLower || !text) return text;
+  const lower = text.toLowerCase();
+  let cursor = 0;
+  let idx = lower.indexOf(searchLower, cursor);
+  if (idx === -1) return text;
+  const parts: ReactNode[] = [];
+  while (idx !== -1) {
+    if (idx > cursor) parts.push(text.slice(cursor, idx));
+    parts.push(
+      <mark
+        key={`${idx}-${cursor}`}
+        className="rounded bg-cyan-400/30 px-0.5 font-semibold text-cyan-50 ring-1 ring-cyan-500/40"
+      >
+        {text.slice(idx, idx + searchLower.length)}
+      </mark>,
+    );
+    cursor = idx + searchLower.length;
+    idx = lower.indexOf(searchLower, cursor);
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
+}
+
+function formatAuditEntryTimestamp(raw: string | undefined): { display: string; title: string } {
+  if (!raw?.trim()) return { display: "—", title: "" };
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return { display: raw, title: raw };
+  return {
+    display: d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }),
+    title: d.toISOString(),
+  };
 }
 
 /** Stringified JSON of the full audit entry for clipboard (Task 4). */
@@ -448,6 +520,181 @@ function ironscribeNarrativeFromJustification(raw: string | null | undefined): s
   return typeof n === "string" && n.trim() !== "" ? n.trim() : null;
 }
 
+/** Unified Intelligence Feed: pull human-readable agent / mirror text from audit `justification` JSON. */
+function intelligencePayloadTextFromJustification(
+  actionType: string,
+  raw: string | null | undefined,
+): string | null {
+  const p = safeParseJustificationRecord(raw);
+  if (!p) return null;
+  if (actionType === "GOVERNANCE_ALERT") {
+    const alert = p.alert;
+    if (typeof alert === "string" && alert.trim()) return alert.trim();
+  }
+  if (actionType === "CHAOS_AGENT_MOVEMENT") {
+    const m = p.message ?? p.terminalLine;
+    if (typeof m === "string" && m.trim()) return m.trim();
+  }
+  if (actionType === "ASSIGNEE_COMMENT" || p.source === "WORK_NOTE_MIRROR") {
+    const w = p.workNoteText;
+    if (typeof w === "string" && w.trim()) return w.trim();
+  }
+  const forensicHow =
+    p.how ??
+    p.forensicHow ??
+    p.forensicLine ??
+    p.telemetryLine ??
+    p.terminalTelemetry ??
+    p.stageNarrative;
+  if (typeof forensicHow === "string" && forensicHow.trim()) return forensicHow.trim();
+  const j = p.justification ?? p.message ?? p.text ?? p.narrative;
+  if (typeof j === "string" && j.trim()) return j.trim();
+  const stage = p.stage;
+  if (typeof stage === "string" && stage.trim()) {
+    const detail = typeof p.detail === "string" ? p.detail.trim() : "";
+    return detail ? `${stage.trim()} — ${detail}` : stage.trim();
+  }
+  return null;
+}
+
+function payloadSummaryFromDiagnosticPayload(payload: unknown): string {
+  if (payload == null) return "";
+  if (typeof payload !== "object" || Array.isArray(payload)) {
+    return typeof payload === "string" ? payload.trim() : String(payload);
+  }
+  const r = payload as Record<string, unknown>;
+  for (const k of ["message", "justification", "summary", "text", "narrative", "detail", "title"]) {
+    const v = r[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  try {
+    return JSON.stringify(payload).slice(0, 240);
+  } catch {
+    return "";
+  }
+}
+
+type IntelligenceDiagnosticRow = {
+  id: string;
+  createdAt: string;
+  action: string;
+  operatorId: string;
+  simThreatId: string | null;
+  payload: unknown;
+};
+
+function mapDiagnosticRowToLogItem(row: IntelligenceDiagnosticRow): LogEntryItem {
+  const createdAt = new Date(row.createdAt);
+  const ts = createdAt.getTime();
+  const summary = payloadSummaryFromDiagnosticPayload(row.payload);
+  const id = `diag-${row.id}`;
+  return {
+    id,
+    _sortTime: ts,
+    createdAt,
+    entry: {
+      id,
+      timestamp: createdAt.toLocaleString(),
+      user_id: row.operatorId,
+      action_type: row.action,
+      description: summary ? `${row.action} — ${summary.slice(0, 140)}` : row.action,
+      ip_address: "—",
+      threatId: row.simThreatId,
+      metadata_tag: "SIMULATION_DIAGNOSTIC_LOG",
+      justification:
+        typeof row.payload === "object" ? JSON.stringify(row.payload, null, 2) : String(row.payload ?? ""),
+      _fromServer: true,
+    },
+  };
+}
+
+/** Merge `ThreatEvent` work notes into the feed; skip rows already mirrored as `ASSIGNEE_COMMENT` on AuditLog. */
+function buildWorkNoteLogItemsFromThreats(
+  threats: PipelineThreat[],
+  serverAuditLogs: ServerAuditLogRow[],
+): LogEntryItem[] {
+  const seen = new Set<string>();
+  for (const row of serverAuditLogs) {
+    if (row.action !== "ASSIGNEE_COMMENT" || !row.threatId) continue;
+    const p = safeParseJustificationRecord(row.justification ?? null);
+    if (p?.source === "WORK_NOTE_MIRROR" && typeof p.workNoteText === "string") {
+      const t = new Date(row.createdAt).getTime();
+      seen.add(`${row.threatId}|${p.workNoteText.trim()}|${Math.floor(t / 2000)}`);
+    }
+  }
+
+  const out: LogEntryItem[] = [];
+  for (const t of threats) {
+    const wid = t.id?.trim();
+    if (!wid) continue;
+    const notes = t.workNotes ?? [];
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i]!;
+      const text = (n.text ?? "").trim();
+      if (!text) continue;
+      const createdAt = new Date(n.timestamp);
+      if (!Number.isFinite(createdAt.getTime())) continue;
+      const key = `${wid}|${text}|${Math.floor(createdAt.getTime() / 2000)}`;
+      if (seen.has(key)) continue;
+      const id = `wn-${wid}-${createdAt.getTime()}-${i}`;
+      out.push({
+        id,
+        _sortTime: createdAt.getTime(),
+        createdAt,
+        entry: {
+          id,
+          timestamp: createdAt.toLocaleString(),
+          user_id: (n.user ?? "—").trim() || "—",
+          action_type: "NOTE_ADDED",
+          description: "Work note",
+          ip_address: "—",
+          threatId: wid,
+          metadata_tag: "WORK_NOTE_THREAD",
+          justification: JSON.stringify({ workNoteText: text, source: "THREAT_WORK_NOTES_ARRAY" }),
+          _fromServer: true,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+type IntelligenceRowKind = "agent" | "human" | "constitutional" | "default";
+
+function intelligenceRowKind(entry: LogEntryItem["entry"]): IntelligenceRowKind {
+  const action = (entry.action_type ?? "").trim();
+  const meta = (entry.metadata_tag ?? "").trim();
+  const j = safeParseJustificationRecord(entry.justification ?? null);
+  if (j?.source === "IRONTECH_AUTONOMOUS_RESOLUTION") return "constitutional";
+  if (action === "THREAT_RESOLVED") return "constitutional";
+  if (
+    action === "GOVERNANCE_ALERT" ||
+    action === "GOVERNANCE_DEGRADATION_ABORT" ||
+    action === "POSTURE_DEGRADATION_COMPLETE" ||
+    action === "CONFIG_DEGRADATION_EVENT" ||
+    action === "DMS_TRIGGERED" ||
+    action === "COLLUSION_WARNING"
+  ) {
+    return "constitutional";
+  }
+  if (
+    action === "ASSIGNEE_COMMENT" ||
+    meta === "WORK_NOTE_THREAD" ||
+    (action === "NOTE_ADDED" && (entry.user_id ?? "").trim().toLowerCase() === "user_00")
+  ) {
+    return "human";
+  }
+  if (
+    action === "CHAOS_AGENT_MOVEMENT" ||
+    action === "ASSIGNEE_CHANGE" ||
+    meta === "SIMULATION_DIAGNOSTIC_LOG" ||
+    (action.includes("AGENT") && action !== "ASSIGNEE_COMMENT")
+  ) {
+    return "agent";
+  }
+  return "default";
+}
+
 function truncateAuditSidebarLine(text: string, maxChars = 160): string {
   const t = text.trim();
   if (t.length <= maxChars) return t;
@@ -456,6 +703,8 @@ function truncateAuditSidebarLine(text: string, maxChars = 160): string {
 
 /** Battlefield protocol line — full #[SEQ] | SOURCE | … single row. */
 function auditBattlefieldPrimaryLine(entry: LogEntryItem["entry"]): string {
+  const intel = intelligencePayloadTextFromJustification(entry.action_type, entry.justification);
+  if (intel) return truncateAuditSidebarLine(intel, 320);
   const d = (entry.description ?? "").trim();
   if (/^#\d{3}\s*\|/.test(d)) return truncateAuditSidebarLine(d, 320);
   const iron = ironscribeNarrativeFromJustification(entry.justification);
@@ -724,11 +973,11 @@ export default function AuditIntelligence({
   tenantGovernanceBps = null,
 }: AuditIntelligenceProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [auditLingerTick, setAuditLingerTick] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<LogEntryItem | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const [hashToast, setHashToast] = useState<{ message: string; tone: "ok" | "warn" } | null>(null);
   const [metadataModal, setMetadataModal] = useState<{ agentId: string; json: string } | null>(null);
-  const [masterPurgeOpen, setMasterPurgeOpen] = useState(false);
   const [timeTravelPct, setTimeTravelPct] = useState(100);
   const [replayRows, setReplayRows] = useState<LogEntryItem[] | null>(null);
   const auditLogs = useAuditLoggerStore();
@@ -742,16 +991,28 @@ export default function AuditIntelligence({
   const selectedThreatIdForAudit = useRiskStore((s) => s.selectedThreatId);
   /** Claim / assign updates `activeRiskId` only — drawer uses `selectedThreatId`; audit strip prefers claimed risk. */
   const activeRiskIdForAudit = useRiskStore((s) => s.activeRiskId);
-  const focusId = useMemo(
-    () => (activeRiskIdForAudit ?? selectedThreatIdForAudit)?.trim() ?? "",
-    [activeRiskIdForAudit, selectedThreatIdForAudit],
-  );
+  const auditLingerThreatId = useRiskStore((s) => s.auditLingerThreatId);
+  const auditLingerThreatIdUntil = useRiskStore((s) => s.auditLingerThreatIdUntil);
+  const clearAuditLinger = useRiskStore((s) => s.clearAuditLinger);
+  const focusId = useMemo(() => {
+    const base = (activeRiskIdForAudit ?? selectedThreatIdForAudit)?.trim() ?? "";
+    if (base) return base;
+    const until = auditLingerThreatIdUntil;
+    const lid = auditLingerThreatId?.trim() ?? "";
+    if (lid && until != null && Date.now() < until) return lid;
+    return "";
+  }, [
+    activeRiskIdForAudit,
+    selectedThreatIdForAudit,
+    auditLingerThreatId,
+    auditLingerThreatIdUntil,
+    auditLingerTick,
+  ]);
   const threatIndexById = useRiskStore((state) => state.threatIndexById);
   const historicalThreatNames = useRiskStore((state) => state.historicalThreatNames);
   const resolveHistoricalThreatName = useRiskStore((state) => state.resolveHistoricalThreatName);
   const { expertModeEnabled, isSimulationMode } = useSystemConfigStore();
-  const isDevSwitcher = process.env.NODE_ENV === "development";
-  const { switchDevTenantColdBoot, activeTenantKey, activeTenantUuid } = useTenantContext();
+  const { activeTenantKey, activeTenantUuid, tenantFetch } = useTenantContext();
   const tenantScopeForKills = resolveDashboardTenantUuid(activeTenantUuid);
   const agentKills = useAgentStore((s) => s.agentKills);
   const agentKillStats = useMemo(() => {
@@ -769,6 +1030,61 @@ export default function AuditIntelligence({
   const [postMortemOpen, setPostMortemOpen] = useState(false);
   const [postMortemLoading, setPostMortemLoading] = useState(false);
   const [postMortemSummary, setPostMortemSummary] = useState<PostMortemSummary | null>(null);
+  const [tasConstitutionalHashLive, setTasConstitutionalHashLive] = useState<string | null>(null);
+  const [adversarialMaturityUi, setAdversarialMaturityUi] = useState<{
+    underSiege: boolean;
+    penalty: number;
+  } | null>(null);
+
+  const resilienceGapFromPostMortem = useMemo(() => {
+    let latest: { t: number; gap: boolean } | null = null;
+    for (const row of serverAuditLogs) {
+      if (row.action !== "IRONSCRIBE_POST_MORTEM_STALE_DATA_OUTAGE") continue;
+      const { resilienceGapDetected } = parseIronscribePostMortemAuditFlags(row.justification);
+      const ts = new Date(row.createdAt).getTime();
+      if (!Number.isFinite(ts)) continue;
+      if (!latest || ts > latest.t) {
+        latest = { t: ts, gap: resilienceGapDetected };
+      }
+    }
+    return latest?.gap === true;
+  }, [serverAuditLogs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = () => {
+      void tenantFetch("/api/grc/governance-maturity?recalc=1")
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; isUnderTargetedSiege?: boolean; targetedAdversarialMaturityPenalty?: number }) => {
+          if (cancelled || !j?.ok) return;
+          setAdversarialMaturityUi({
+            underSiege: Boolean(j.isUnderTargetedSiege),
+            penalty: Number(j.targetedAdversarialMaturityPenalty) || 0,
+          });
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const id = window.setInterval(poll, 90_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [tenantFetch]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/grc/tas-fingerprint")
+      .then((r) => r.json())
+      .then((j: { sha256?: string }) => {
+        const h = typeof j.sha256 === "string" ? j.sha256.trim().toLowerCase() : "";
+        if (!cancelled && /^[a-f0-9]{64}$/.test(h)) setTasConstitutionalHashLive(h);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fireShadowSalvo = useCallback(async () => {
     setSalvoBusy(true);
@@ -865,6 +1181,22 @@ export default function AuditIntelligence({
     return { ...entry, _sortTime: ms };
   });
 
+  useEffect(() => {
+    const until = auditLingerThreatIdUntil;
+    if (until == null) return;
+    if (Date.now() >= until) {
+      clearAuditLinger();
+      return;
+    }
+    const t = window.setInterval(() => {
+      setAuditLingerTick((n) => n + 1);
+      if (Date.now() >= until) clearAuditLinger();
+    }, 400);
+    return () => window.clearInterval(t);
+  }, [auditLingerThreatIdUntil, auditLingerThreatId, clearAuditLinger]);
+
+  const [diagnosticFeedItems, setDiagnosticFeedItems] = useState<LogEntryItem[]>([]);
+
   const replayCutoffMs = useMemo(() => {
     if (timeTravelPct >= 99.5) return null;
     const spanMs = 7 * 24 * 60 * 60 * 1000;
@@ -891,18 +1223,45 @@ export default function AuditIntelligence({
     return () => ac.abort();
   }, [replayCutoffMs]);
 
+  useEffect(() => {
+    const ac = new AbortController();
+    const q = focusId
+      ? `?limit=100&threatId=${encodeURIComponent(focusId)}`
+      : "?limit=100";
+    void fetch(`/api/audit/intelligence-feed${q}`, { credentials: "include", signal: ac.signal })
+      .then((r) => (r.ok ? r.json() : { rows: [] }))
+      .then((data: { rows?: IntelligenceDiagnosticRow[] }) => {
+        setDiagnosticFeedItems((data.rows ?? []).map(mapDiagnosticRowToLogItem));
+      })
+      .catch(() => setDiagnosticFeedItems([]));
+    return () => ac.abort();
+  }, [focusId, serverAuditLogs]);
+
+  const workNoteFeedItems = useMemo(
+    () => buildWorkNoteLogItemsFromThreats(Object.values(threatIndexById), serverAuditLogs ?? []),
+    [threatIndexById, serverAuditLogs],
+  );
+
   const mergedLogs = useMemo(() => {
     const base = mergeUnifiedAuditLogs(serverAuditLogs ?? [], clientWithSort);
-    if (replayCutoffMs == null) return base;
+    const enriched = [...base, ...diagnosticFeedItems, ...workNoteFeedItems];
+    if (replayCutoffMs == null) return enriched;
     const cutoff = replayCutoffMs;
-    const clientSlice = base.filter((item) => new Date(item.createdAt).getTime() <= cutoff);
+    const clientSlice = enriched.filter((item) => new Date(item.createdAt).getTime() <= cutoff);
     const dbPart = replayRows ?? [];
     const map = new Map<string, LogEntryItem>();
     for (const x of [...dbPart, ...clientSlice]) {
       map.set(x.id, x);
     }
     return Array.from(map.values());
-  }, [serverAuditLogs, clientWithSort, replayCutoffMs, replayRows]);
+  }, [
+    serverAuditLogs,
+    clientWithSort,
+    replayCutoffMs,
+    replayRows,
+    diagnosticFeedItems,
+    workNoteFeedItems,
+  ]);
 
   const searchLower = searchTerm.trim().toLowerCase();
   /** Filter merged list first; then sort newest-first (Task 4). */
@@ -962,61 +1321,6 @@ export default function AuditIntelligence({
 
   const auditFocusId = focusId;
   const focusedThreat = auditFocusId ? threatIndexById[auditFocusId] : undefined;
-
-  /** Same pipeline as `app/reports/audit-trail/page.tsx` — GRC forensic ledger PDF + EXPORT_PDF audit row. */
-  const handleAuditPdfExport = useCallback(() => {
-    const logs = getAuditLogs();
-    const filter = {
-      logTypeFilter,
-      descriptionIncludes,
-      companyId,
-      selectedIndustry,
-      selectedTenantName,
-    };
-    const filteredEntries = getFilteredAuditLogsForReport(logs, filter);
-    const riskSummary = computeRiskSummary({
-      selectedIndustry,
-      acceptedThreatImpacts,
-      pipelineThreats,
-      dashboardLiabilities,
-      riskOffset,
-    });
-    const tenantLabel = selectedTenantName?.trim() || "[ PENDING SELECTION ]";
-    const pdf = buildAuditPdf({
-      activeTenantName: tenantLabel,
-      riskSummary,
-      entries: filteredEntries,
-      generatedAt: new Date().toISOString(),
-    });
-    const blob = new Blob([pdf], { type: "application/pdf" });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `audit-intelligence-${new Date().toISOString().slice(0, 10)}.pdf`;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
-    appendAuditLog({
-      action_type: "EXPORT_PDF",
-      log_type: logTypeFilter ?? "GRC",
-      description: `Forensic audit ledger export (${filteredEntries.length} entries)${
-        auditFocusId ? ` | active risk ${auditFocusId.slice(0, 8)}…` : ""
-      }`,
-      metadata_tag: auditFocusId
-        ? `AUDIT_INTEL_PDF|SHA256_LEDGER|focus:${auditFocusId.slice(0, 12)}`
-        : "AUDIT_INTEL_PDF|SHA256_LEDGER",
-    });
-  }, [
-    logTypeFilter,
-    descriptionIncludes,
-    companyId,
-    selectedIndustry,
-    selectedTenantName,
-    acceptedThreatImpacts,
-    pipelineThreats,
-    dashboardLiabilities,
-    riskOffset,
-    auditFocusId,
-  ]);
 
   const forensicReceiptSha256 =
     focusedThreat?.receiptHash?.trim() || focusedThreat?.governanceHash?.trim() || "";
@@ -1128,40 +1432,44 @@ export default function AuditIntelligence({
   const entryStatus = (entry: LogEntryItem["entry"]): "VERIFIED" | "PENDING" | "FLAGGED" =>
     (entry as { _fromServer?: true })._fromServer ? "VERIFIED" : "PENDING";
 
+  const showAdversarialTargetWarning =
+    adversarialMaturityUi != null &&
+    (adversarialMaturityUi.underSiege || adversarialMaturityUi.penalty > 0);
+
   return (
-    <div className="relative flex h-full min-h-0 flex-1 flex-col bg-slate-900/50 px-4 pt-4 pb-0 font-mono text-slate-200">
-      {/* # UI_GLASS_LAYER_CONTROLS — title + search aligned; separator; Immutable / retention */}
-      <div className="relative z-50 flex flex-col pt-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
-            AUDIT INTELLIGENCE
-          </h2>
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleAuditPdfExport}
-              className="inline-flex items-center gap-1 rounded border border-cyan-500/45 bg-slate-950/90 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-cyan-100 shadow-[inset_0_1px_0_rgba(34,211,238,0.12)] transition-colors hover:border-cyan-400/70 hover:bg-cyan-950/50 hover:text-white"
-              title="Export filtered audit ledger (PDF) — same scope as this panel"
-              aria-label="Export Audit Intelligence PDF"
-            >
-              <Printer className="h-3 w-3 shrink-0 text-cyan-300" strokeWidth={2} aria-hidden />
-              PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => setMasterPurgeOpen(true)}
-              className="inline-flex items-center gap-1 rounded border border-rose-500/45 bg-rose-950/80 px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-rose-100 shadow-[inset_0_1px_0_rgba(244,63,94,0.12)] transition-colors hover:border-rose-400/70 hover:bg-rose-950 hover:text-white"
-              title="Clear local forensic buffer only — server AuditLog rows unchanged"
-              aria-label="Master Purge local ledger"
-            >
-              <Trash2 className="h-3 w-3 shrink-0 text-rose-300" strokeWidth={2} aria-hidden />
-              Purge
-            </button>
-            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[8px] font-bold uppercase text-emerald-500">
-              Immutable
-            </span>
-          </div>
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
+      <div className="min-h-0 max-h-[min(24vh,220px)] shrink-0 overflow-y-auto overscroll-y-contain px-4 pt-4 [scrollbar-gutter:stable]">
+      <CarbonPulse />
+      {showAdversarialTargetWarning ? (
+        <div
+          className="relative z-50 mb-1 flex items-center gap-2 rounded border border-amber-500/60 bg-gradient-to-r from-amber-950/70 via-slate-950/80 to-slate-950/90 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-amber-100 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)]"
+          role="status"
+          title={`Score reduced by ${adversarialMaturityUi.penalty.toFixed(1)} due to persistent targeted activity from Hard-Banned identifiers.`}
+        >
+          <Crosshair className="h-4 w-4 shrink-0 text-amber-400" strokeWidth={2.25} aria-hidden />
+          <span>Adversarial target warning</span>
+          <span className="font-mono font-normal normal-case text-amber-200/95">
+            (Maturity penalty −{adversarialMaturityUi.penalty.toFixed(1)} · Ironlock siege / Irontrust)
+          </span>
         </div>
+      ) : null}
+      {resilienceGapFromPostMortem ? (
+        <div
+          className="relative z-50 mb-1 flex items-center gap-2 rounded border border-amber-500/55 bg-amber-950/55 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-amber-100 shadow-[inset_0_1px_0_rgba(251,191,36,0.12)]"
+          role="status"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" strokeWidth={2} aria-hidden />
+          <span>Resilience gap detected</span>
+          <span className="font-mono font-normal normal-case text-amber-200/90">
+            (Ironscribe preventative directive — chronic sustainability API instability)
+          </span>
+        </div>
+      ) : null}
+      </div>
+      <div className="sticky top-0 z-20 shrink-0 border-b border-slate-800/50 bg-slate-950 px-4 pt-3 pb-2 shadow-[0_10px_24px_rgba(15,23,42,0.88)]">
+        <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-300">
+          Audit Intelligence
+        </h2>
         {isSimulationMode ? (
           <div className="mb-2 animate-pulse rounded border border-amber-500/45 bg-gradient-to-r from-amber-950/90 via-cyan-950/35 to-amber-950/85 px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-wide text-amber-50 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
             [ ⚠️ SHADOW PLANE ACTIVE — SIMULATION MODE ]
@@ -1175,45 +1483,19 @@ export default function AuditIntelligence({
           className="mb-0 min-h-[40px] w-full rounded border border-slate-700 bg-slate-900 px-2 py-2 text-sm text-white placeholder:text-slate-500"
           aria-label="Filter audit logs"
         />
-        <div className="mt-3 space-y-1">
-          <div className="flex items-center justify-between gap-2 text-[8px] font-mono uppercase tracking-wide text-slate-500">
-            <span className="text-slate-400">Time-travel</span>
-            <span
-              className={
-                timeTravelPct >= 99.5
-                  ? "font-black text-emerald-400 drop-shadow-[0_0_6px_rgba(52,211,153,0.45)]"
-                  : "font-black text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]"
-              }
-            >
-              {timeTravelPct >= 99.5
-                ? "● LIVE"
-                : `REPLAY: ${
-                    replayCutoffMs != null ? new Date(replayCutoffMs).toLocaleString() : "…"
-                  }`}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={0.5}
-            value={timeTravelPct}
-            onChange={(e) => setTimeTravelPct(Number(e.target.value))}
-            className="h-2 w-full cursor-pointer accent-cyan-500"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={timeTravelPct}
-            aria-label="Scrub audit history — right is live stream, left loads DB simulation audit snapshot"
-          />
-          <p className="text-[8px] text-slate-600">
-            Past ← merges Prisma simulation audit (`/api/opsupport/simulation-audit?until=`) + client lines ≤ cutoff.
+        {searchLower ? (
+          <p className="mt-2 text-[8px] font-mono uppercase tracking-wide text-cyan-400/90">
+            {filteredLogs.length} match{filteredLogs.length === 1 ? "" : "es"} · highlight active
           </p>
-        </div>
-        <div className="border-b border-slate-800/50 mt-4 mb-2" aria-hidden />
+        ) : null}
+      </div>
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
         {auditFocusId ? (
           <div className="mb-3 rounded border border-emerald-700/40 bg-emerald-950/25 px-2.5 py-2 text-[9px] leading-snug text-emerald-100/95">
-            <p className="font-black uppercase tracking-wide text-emerald-400/90">Forensic stream — active risk</p>
+            <p className="font-black uppercase tracking-wide text-emerald-400/90">
+              Forensic stream — active risk (victory-lap focus retained)
+            </p>
             <p className="mt-1 font-mono text-[8px] text-slate-400">UUID {auditFocusId.slice(0, 12)}…</p>
             {govMultLabel ? (
               <p className="mt-1 font-mono text-emerald-200/90">
@@ -1312,7 +1594,6 @@ export default function AuditIntelligence({
             </span>
           </div>
         ) : null}
-      </div>
 
       {/* # Update 9: Immutable Log Feed — scroll-only region; dev strip + manifest are siblings below (no overlap). */}
       <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1324,7 +1605,7 @@ export default function AuditIntelligence({
         <div
           ref={logScrollRef}
           onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
-          className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+          className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
         >
           {logsToDisplay.length === 0 ? (
             <div className="mt-4 rounded-md border border-dashed border-slate-800 p-4 text-center text-sm font-mono italic text-slate-500">
@@ -1337,18 +1618,28 @@ export default function AuditIntelligence({
               {auditLogVirtual.slice.map((item, vi) => {
                 const index = auditLogVirtual.startIndex + vi;
                 const status = entryStatus(item.entry);
-                const timeStr =
-                  typeof item.entry.timestamp === "string" && item.entry.timestamp
-                    ? item.entry.timestamp.includes(",")
-                      ? new Date(item.entry.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                          hour12: false,
-                        })
-                      : item.entry.timestamp
-                    : "—";
+                const rowKind = intelligenceRowKind(item.entry);
+                const kindSurface =
+                  rowKind === "human"
+                    ? "rounded-r-md border border-sky-500/30 bg-sky-950/15 pr-1"
+                    : rowKind === "constitutional"
+                      ? "rounded-r-md border border-amber-400/35 bg-amber-950/15 pr-1 shadow-[inset_0_0_12px_rgba(251,191,36,0.06)]"
+                      : rowKind === "agent"
+                        ? "rounded-r-md border border-emerald-900/40 bg-slate-950/50 pr-1"
+                        : "";
+                const timestampMeta = formatAuditEntryTimestamp(
+                  typeof item.entry.timestamp === "string" ? item.entry.timestamp : undefined,
+                );
+                const actionLabel = displayLabelForAuditEntry(
+                  item.entry.action_type,
+                  item.entry.metadata_tag,
+                );
                 const primaryLine = auditBattlefieldPrimaryLine(item.entry);
+                const storedConstitutionalFp = extractConstitutionalHashFromLogEntry(item.entry);
+                const constitutionalDrift =
+                  Boolean(storedConstitutionalFp) &&
+                  Boolean(tasConstitutionalHashLive) &&
+                  storedConstitutionalFp !== tasConstitutionalHashLive;
                 const ledgerSeq = (item.entry as { ledger_sequence?: number }).ledger_sequence;
                 const showLedgerChip =
                   !auditPrimaryLineHasLedgerSeq(primaryLine) &&
@@ -1376,17 +1667,24 @@ export default function AuditIntelligence({
                       right: 0,
                       minHeight: AUDIT_LOG_ROW_EST_PX,
                     }}
-                    className={`group relative cursor-pointer border-l pl-3 pr-1 transition-colors ${auditRowForensicBorderClass(item.entry)}`}
+                    className={`group relative cursor-pointer border-l pl-3 pr-1 transition-colors ${auditRowForensicBorderClass(item.entry)} ${kindSurface}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="mb-0.5 flex items-center justify-between gap-2">
-                          <span className="text-[9px] font-bold text-slate-600">{timeStr}</span>
+                          <span
+                            className="shrink-0 font-mono text-[9px] font-bold tabular-nums text-slate-500"
+                            title={timestampMeta.title || item.createdAt.toISOString()}
+                          >
+                            {timestampMeta.display}
+                          </span>
                           <div className="flex shrink-0 items-center gap-1.5">
                             <span
                               className={`text-[8px] font-black uppercase tracking-tighter ${
                                 status === "VERIFIED"
-                                  ? "text-emerald-500"
+                                  ? rowKind === "agent"
+                                    ? "animate-pulse text-emerald-400"
+                                    : "text-emerald-500"
                                   : status === "FLAGGED"
                                     ? "text-amber-500"
                                     : "text-amber-500"
@@ -1394,6 +1692,18 @@ export default function AuditIntelligence({
                             >
                               {status}
                             </span>
+                            {rowKind === "human" ? (
+                              <span className="rounded border border-sky-500/55 bg-sky-950/60 px-1 py-0.5 text-[7px] font-black uppercase text-sky-100">
+                                {(item.entry.user_id ?? "").trim().toLowerCase() === "user_00"
+                                  ? "User_00"
+                                  : "Human note"}
+                              </span>
+                            ) : null}
+                            {rowKind === "constitutional" ? (
+                              <span className="rounded border border-amber-500/55 bg-amber-950/60 px-1 py-0.5 text-[7px] font-black uppercase text-amber-100">
+                                Constitutional
+                              </span>
+                            ) : null}
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1409,7 +1719,15 @@ export default function AuditIntelligence({
                           </div>
                         </div>
                         <p
-                          className={`line-clamp-2 break-words text-[9px] font-mono font-semibold leading-snug ${auditRowForensicClass(item.entry)}`}
+                          className={`line-clamp-2 break-words text-[9px] font-semibold leading-snug ${auditRowForensicClass(item.entry)} ${
+                            rowKind === "human"
+                              ? "font-sans not-italic text-sky-50/95"
+                              : rowKind === "agent"
+                                ? "font-mono"
+                                : rowKind === "constitutional"
+                                  ? "font-mono text-amber-50/95"
+                                  : "font-mono"
+                          }`}
                         >
                           {forensicLvl === "red_team" ? (
                             <span className="mr-0.5 inline select-none text-[9px] text-rose-400/80" aria-hidden>
@@ -1425,8 +1743,29 @@ export default function AuditIntelligence({
                               {formatLedgerSequenceLabel(ledgerSeq!)}
                             </span>
                           ) : null}
-                          {primaryLine}
+                          {searchLower ? (
+                            <span>{highlightSearchInText(primaryLine, searchLower)}</span>
+                          ) : (
+                            <ConstitutionalText text={primaryLine} tooltipTheme="slate" stopClickPropagation />
+                          )}
                         </p>
+                        <p className="mt-0.5 text-[8px] text-slate-600">
+                          {searchLower ? (
+                            <>
+                              Action: {highlightSearchInText(actionLabel, searchLower)}
+                            </>
+                          ) : (
+                            <>Action: {actionLabel}</>
+                          )}
+                        </p>
+                        {constitutionalDrift ? (
+                          <p
+                            className="mt-0.5 line-clamp-3 text-[8px] font-semibold leading-snug text-amber-300/95"
+                            role="status"
+                          >
+                            NOTICE: Constitutional Drift Detected. Policy has evolved since this resolution.
+                          </p>
+                        ) : null}
                         <p className="text-[9px] text-slate-500">Actor: {item.entry.user_id ?? "—"}</p>
                       </div>
                     </div>
@@ -1437,47 +1776,10 @@ export default function AuditIntelligence({
           )}
         </div>
       </div>
-
-      {isDevSwitcher ? (
-        <div
-          className="relative z-40 shrink-0 border-t border-slate-800 bg-slate-950 px-2 py-2 shadow-[0_-10px_28px_rgba(0,0,0,0.5)]"
-          aria-label="Development tenant switcher"
-        >
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500">
-              Dev tenant switcher
-            </p>
-            <span className="rounded bg-slate-800/80 px-1.5 py-0.5 text-[8px] font-mono text-slate-400">
-              Active: {activeTenantKey ? activeTenantKey.toUpperCase() : "NONE"}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-0.5 gap-y-1 font-mono text-[8px]">
-            {DEV_TENANT_CONTROL_CHIPS.map((chip, idx) => (
-              <span key={chip.key} className="flex items-center gap-x-0.5">
-                {idx > 0 ? <span className="select-none text-slate-600">|</span> : null}
-                <button
-                  type="button"
-                  onClick={() => switchDevTenantColdBoot(chip.key)}
-                  title={`${chip.title} — ${chip.aleDisplay} ALE (${chip.sector})`}
-                  className="rounded border border-slate-600 bg-slate-950 px-1.5 py-0.5 font-bold uppercase tracking-tight text-slate-200 hover:border-slate-400 hover:bg-slate-900/90"
-                >
-                  [{chip.title.toUpperCase()}]
-                </button>
-              </span>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => switchDevTenantColdBoot(null)}
-            className="mt-1.5 w-full rounded border border-slate-600 bg-slate-900 px-2 py-1 font-mono text-[8px] font-bold uppercase tracking-wide text-slate-300 hover:border-slate-500"
-          >
-            Clear override (global)
-          </button>
-        </div>
-      ) : null}
+      </div>
 
       <footer
-        className="relative z-30 shrink-0 space-y-0.5 border-t border-slate-800 bg-slate-900 px-1 py-2 pb-3 font-mono text-[8px] leading-tight text-slate-500/80 shadow-[0_-8px_24px_rgba(15,23,42,0.85)]"
+        className="relative z-30 min-h-0 shrink-0 space-y-0.5 border-t border-slate-800 bg-slate-900 px-1 py-2 pb-3 font-mono text-[8px] leading-tight text-slate-500/80 shadow-[0_-8px_24px_rgba(15,23,42,0.85)]"
         role="contentinfo"
         aria-label="GRC version manifest"
       >
@@ -1630,50 +1932,6 @@ export default function AuditIntelligence({
         </div>
       ) : null}
 
-      {masterPurgeOpen ? (
-        <div
-          className="fixed inset-0 z-[280] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="master-purge-title"
-        >
-          <div className="w-full max-w-md rounded-lg border border-rose-600/50 bg-slate-950 p-5 shadow-2xl shadow-rose-950/40">
-            <h3 id="master-purge-title" className="text-center text-[11px] font-black uppercase tracking-wide text-rose-100">
-              PERMANENTLY WIPE FORENSIC LEDGER?
-            </h3>
-            <p className="mt-3 text-center text-[10px] leading-relaxed text-slate-400">
-              Clears the <span className="font-bold text-slate-300">local</span> Audit Intelligence buffer only.
-              Server <span className="font-mono text-slate-300">AuditLog</span> rows are unchanged.
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <button
-                type="button"
-                className="rounded border border-slate-600 bg-slate-900 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:border-slate-500"
-                onClick={() => setMasterPurgeOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded border border-rose-500/70 bg-rose-950/90 px-4 py-2 text-[10px] font-black uppercase tracking-wide text-rose-50 hover:bg-rose-900"
-                onClick={() => {
-                  clearAllAuditLogs({ masterPurge: true });
-                  setMasterPurgeOpen(false);
-                  appendAuditLog({
-                    action_type: "SYSTEM_WARNING",
-                    log_type: "GRC",
-                    metadata_tag: "MASTER_PURGE_LOCAL",
-                    description: "Master Purge: local forensic ledger buffer cleared by operator.",
-                  });
-                }}
-              >
-                Confirm wipe
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {hashToast ? (
         <div
           role="status"
@@ -1774,8 +2032,8 @@ export default function AuditIntelligence({
               <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-slate-600">
                 Narrative Summary
               </p>
-              <p className="text-slate-200 text-sm italic border-l-2 border-emerald-500 pl-4 mb-6">
-                {getForensicNarrative(selectedEntry)}
+              <p className="mb-6 border-l-2 border-emerald-500 pl-4 text-sm italic text-slate-200">
+                <ConstitutionalText text={getForensicNarrative(selectedEntry)} tooltipTheme="parchment" />
               </p>
             </div>
 

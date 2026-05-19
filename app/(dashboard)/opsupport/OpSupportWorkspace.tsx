@@ -14,6 +14,7 @@ import { Tab, TabGroup, TabList, TabPanel, TabPanels } from "@tremor/react";
 import type { OpSupportWorkspaceTab } from "@/app/lib/opsupportDashTypes";
 import { OpSupportTabStrip } from "./OpSupportTabStrip";
 import OpSupportClient from "./OpSupportClient";
+import WorkforceCommandPostSection from "@/app/components/commandPost/WorkforceCommandPostSection";
 
 export default function OpSupportWorkspace() {
   const [hasMounted, setHasMounted] = useState(false);
@@ -177,6 +178,8 @@ export default function OpSupportWorkspace() {
         </div>
 
         <div className="border-t border-zinc-800/90 bg-[#050509] px-3 py-4 sm:px-5">{forensicDeck}</div>
+
+        <WorkforceCommandPostSection />
       </div>
 
       {analysisRow ? (

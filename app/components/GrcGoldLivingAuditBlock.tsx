@@ -5,6 +5,7 @@ import { useRiskStore } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import type { SyncHandshakePhase } from "@/app/components/HandshakeStatusBar";
+import MaturityBadge from "@/app/components/MaturityBadge";
 
 function formatVerifiedHms(d: Date): string {
   const h = d.getHours();
@@ -116,6 +117,7 @@ export default function GrcGoldLivingAuditBlock({
 
   const aleLine = (
     <p className="mt-0.5 font-mono text-[11px] font-semibold tabular-nums text-slate-100">
+      <span className="inline-flex flex-wrap items-center justify-between gap-x-2 gap-y-1 w-full">
       <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <span className="inline-flex items-center gap-1">
           <span>ALE Exposure</span>
@@ -138,6 +140,8 @@ export default function GrcGoldLivingAuditBlock({
         {!tenantExplicit ? (
           <span className="font-mono text-[10px] font-semibold text-slate-500">· Financial anchor $0 USD</span>
         ) : null}
+      </span>
+      {tenantExplicit ? <MaturityBadge /> : null}
       </span>
     </p>
   );

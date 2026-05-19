@@ -209,6 +209,12 @@ export default function OpSupportClient({
   }, [poll]);
 
   useEffect(() => {
+    const onOperationalRefresh = () => void poll();
+    window.addEventListener("ironframe-operational-refresh", onOperationalRefresh);
+    return () => window.removeEventListener("ironframe-operational-refresh", onOperationalRefresh);
+  }, [poll]);
+
+  useEffect(() => {
     if (mainTab !== "diagnostic") return;
     void fetchDiagnosticHistory();
     const id = window.setInterval(() => void fetchDiagnosticHistory(), POLL_MS);

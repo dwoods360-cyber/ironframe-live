@@ -254,10 +254,6 @@ A list of components, what they do, and how they work.
 - **What:** Irontech-specific dashboard view.
 - **How:** Feature dashboard.
 
-### **DebugPanel** (`app/components/dev/DebugPanel.tsx`)
-- **What:** Dev-only debug panel.
-- **How:** Used in development.
-
 ### **ReportActions** (`app/reports/[reportSlug]/ReportActions.tsx`)
 - **What:** Actions (e.g. export, share) for a report.
 - **How:** Report page actions.

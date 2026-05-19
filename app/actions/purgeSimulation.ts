@@ -23,22 +23,39 @@ function parseStandDownMap(raw: unknown): StandDownMap {
  * set per-tenant SimulationStandDown, and append a single IntegrityEvent (Bank Vault).
  * Does not delete rows or touch `auditLog`, `workNote`, `threatAssignment`, `quarantine`.
  */
-export async function purgeSimulation(): Promise<{ ok: boolean; message: string }> {
+export async function purgeSimulation(
+  tenantUuidOverride?: string | null,
+): Promise<{ ok: boolean; message: string }> {
   try {
-    const tenantId = await getActiveTenantUuidFromCookies();
+    const tenantId = tenantUuidOverride?.trim() || (await getActiveTenantUuidFromCookies());
     if (!tenantId?.trim()) {
       return { ok: false, message: "No active tenant context for purge." };
     }
     const tid = tenantId.trim();
     const standDownUntilIso = new Date(Date.now() + PURGE_STAND_DOWN_MS).toISOString();
 
+    const companies = await prisma.company.findMany({
+      where: { tenantId: tid },
+      select: { id: true },
+    });
+    const companyIds = companies.map((c) => c.id);
+
     const { prodCount, simCount } = await prisma.$transaction(async (tx) => {
-      const prod = await tx.threatEvent.updateMany({
-        where: { status: { not: ThreatState.RESOLVED } },
-        data: { status: ThreatState.RESOLVED },
-      });
+      const prod =
+        companyIds.length > 0
+          ? await tx.threatEvent.updateMany({
+              where: {
+                tenantCompanyId: { in: companyIds },
+                status: { not: ThreatState.RESOLVED },
+              },
+              data: { status: ThreatState.RESOLVED },
+            })
+          : { count: 0 };
       const sim = await tx.riskEvent.updateMany({
-        where: { status: { not: ThreatState.RESOLVED } },
+        where: {
+          tenantId: tid,
+          status: { not: ThreatState.RESOLVED },
+        },
         data: { status: ThreatState.RESOLVED },
       });
 
@@ -108,8 +125,10 @@ export async function purgeSimulation(): Promise<{ ok: boolean; message: string 
 /**
  * Dashboard Purge chip: bulk-resolves non-RESOLVED `ThreatEvent` rows, then revalidates shell + home.
  */
-export async function purgeAllDataAction(): Promise<{ ok: boolean; message: string }> {
-  const result = await purgeSimulation();
+export async function purgeAllDataAction(
+  tenantUuidOverride?: string | null,
+): Promise<{ ok: boolean; message: string }> {
+  const result = await purgeSimulation(tenantUuidOverride);
   if (result.ok) {
     revalidatePath("/", "layout");
     revalidatePath("/");

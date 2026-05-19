@@ -28,14 +28,35 @@ import {
 import { ATTACK_SOURCE, ATTACK_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import {
   CHAOS_ASSIGNEE_IRONGATE_14,
+  CHAOS_ASSIGNEE_IRONSCRIBE_5,
   CHAOS_ASSIGNEE_IRONTECH_11,
+  CHAOS_ASSIGNEE_SYSTEM,
+  CHAOS_DIRECTIVE,
 } from "@/app/config/chaosShadowAudit";
+import {
+  appendAssigneeHistory,
+  handoffWorkforceAgent,
+  strikeForensicGavel,
+} from "@/app/services/riskRegistryActions";
+import {
+  updateRiskRegistry,
+} from "@/app/lib/riskRegistryDb";
+import { ingestRedTeamAttackToRegistry } from "@/app/services/riskLifecycle";
+import { CHAOS_WORKFORCE_ASSIGNEE_LABELS } from "@/app/utils/assignmentChainOfCustody";
 import { purgeSimulation } from "@/app/actions/purgeSimulation";
 import { clearSimulationStandDown } from "@/app/lib/simulationStandDown";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
-import { executeAgentAction } from "@/app/actions/threatActions";
 import { logThreatActivity } from "@/app/actions/auditActions";
 import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import {
+  commitPhoneHome,
+  dispatchRemoteSupportAction,
+  sendPhoneHomeEmail,
+  type PhoneHomeDiagnosticPacket,
+} from "@/app/actions/phoneHomeActions";
+
+/** Primary human authority on Chaos rows (Irontech agents remain executor in `ingestionDetails`). */
+const CHAOS_PRIMARY_HUMAN_ASSIGNEE_ID = "User_00";
 
 /** Human-triggered chaos: prefer client-captured Supabase / cookie id; else same-request server session. */
 async function resolveChaosInjectAttribution(
@@ -161,6 +182,9 @@ function chaosIrontechLifecycleLogDetails(extra: Record<string, unknown>): strin
     agentName: IRONTECH_AGENT_NAME,
     agentTitle: IRONTECH_AGENT_TITLE,
     actor: IRONTECH_AGENT_ACTOR,
+    /** Constitutional finalizing authority on autonomous chaos lifecycle (AuditLog `operatorId` on resolve). */
+    supervisoryAuthority: CHAOS_PRIMARY_HUMAN_ASSIGNEE_ID,
+    executingAgent: IRONTECH_AGENT_NAME,
     ...extra,
   });
 }
@@ -172,7 +196,8 @@ async function logIrontechChaosDrillGateActivity(
   extra: Record<string, unknown>,
 ): Promise<void> {
   const details = chaosIrontechLifecycleLogDetails(extra);
-  const op = IRONTECH_CHAOS_AUDIT_OPERATOR_ID;
+  /** AuditLog.operatorId: constitutional authority on every lifecycle gate (video / GRC chain). */
+  const op = CHAOS_PRIMARY_HUMAN_ASSIGNEE_ID;
   if (isSim) {
     await logThreatActivity(null, actionName, details, {
       isSimulation: true,
@@ -235,14 +260,12 @@ export type ChaosPipelineThreatPayload = {
 const CHAOS_CARD_TITLE_MAX_LEN = 240;
 
 /** Primary header for Attack Velocity — exact dropdown label when provided by the client. */
-function resolveChaosCardTitle(
-  scenario: ChaosScenario,
-  scenarioDisplayLabel: string | null | undefined,
-): string {
-  const trimmed = (scenarioDisplayLabel ?? "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .slice(0, CHAOS_CARD_TITLE_MAX_LEN);
+function resolveChaosCardTitle(scenario: ChaosScenario, scenarioDisplayLabel: unknown): string {
+  const scenarioStr =
+    scenarioDisplayLabel instanceof Error
+      ? scenarioDisplayLabel.message
+      : String(scenarioDisplayLabel ?? "");
+  const trimmed = scenarioStr.trim().replace(/\s+/g, " ").slice(0, CHAOS_CARD_TITLE_MAX_LEN);
   if (trimmed.length > 0) {
     return trimmed;
   }
@@ -258,6 +281,7 @@ function chaosThreatFinalizeData(
     initialAssigneeId?: string | null | undefined;
     /** When true, stamps `entityType: CHAOS_DRILL` for Irontech closure lifecycle (not ATTBOT/KIMBOT/GRCBOT inject). */
     includeChaosDrillEntityType?: boolean;
+    systemIntegrityDrillId?: SystemIntegrityDrillId;
   },
 ) {
   const scenarioNorm = normalizeScenario(scenario);
@@ -276,29 +300,10 @@ function chaosThreatFinalizeData(
         : null;
 
   const drillLevel = chaosScenarioToInternalDrillLevel(scenarioNorm);
-  const ingestionDetails = JSON.stringify({
-    isChaosTest: true,
-    incident_type: "CHAOS",
-    category: "INFRASTRUCTURE",
-    chaos_level: drillLevel,
-    threatCategoryDisplay: "Infrastructure Drift",
-    shadowSimulationStatus: "simulated",
-    ...(opts?.includeChaosDrillEntityType ? { entityType: CHAOS_DRILL_ENTITY_TYPE } : {}),
-    chaosScenario: scenarioNorm,
-    chaosScenarioDisplayLabel: cardTitle,
-    ...(chaosShadowAgentRoleCaption ? { chaosShadowAgentRoleCaption } : {}),
-    grcJustification: chaosDrillGrcJustificationForScenario(scenarioNorm),
-    /** TAS §2 Level-2 DMZ: all chaos ingress attributed to Irongate (Agent 14) at create. */
-    dmzIrongateIngress: {
-      agentId: CHAOS_ASSIGNEE_IRONGATE_14,
-      routedAt: new Date().toISOString(),
-      sanitized: true,
-    },
-    /** Persisted terminal lines; appended by `applyChaosShadowDrillTelemetryStepAction`. */
-    chaosShadowAuditLog: [],
-    /** GRC agent handoff chain (timestamp, assignee, directive) per 4s transition. */
-    chaosAssigneeHandoffHistory: [],
-  });
+  /**
+   * Prisma `assigneeId`: Irongate (14) for generic chaos; `null` for Simulation Bots A–C (dual-key — operator must claim).
+   * Constitutional `User_00` remains in ingestion metadata only.
+   */
   const assigneeIdOnRow =
     opts === undefined
       ? CHAOS_ASSIGNEE_IRONGATE_14
@@ -307,6 +312,43 @@ function chaosThreatFinalizeData(
         : opts.initialAssigneeId === undefined
           ? CHAOS_ASSIGNEE_IRONGATE_14
           : opts.initialAssigneeId;
+
+  const constitutionalSealedAt = new Date().toISOString();
+  const ingestionDetails = JSON.stringify({
+    isChaosTest: true,
+    incident_type: "CHAOS",
+    category: "INFRASTRUCTURE",
+    chaos_level: drillLevel,
+    threatCategoryDisplay: "Infrastructure Drift",
+    shadowSimulationStatus: "simulated",
+    ...(opts?.includeChaosDrillEntityType ? { entityType: CHAOS_DRILL_ENTITY_TYPE } : {}),
+    ...(opts?.systemIntegrityDrillId ? { systemIntegrityDrillId: opts.systemIntegrityDrillId } : {}),
+    chaosScenario: scenarioNorm,
+    chaosScenarioDisplayLabel: cardTitle,
+    ...(chaosShadowAgentRoleCaption ? { chaosShadowAgentRoleCaption } : {}),
+    grcJustification: chaosDrillGrcJustificationForScenario(scenarioNorm),
+    /** Permanent human anchor (GRC): scalar `constitutionalAuthority` + row-level `assigneeId`. */
+    constitutionalAuthority: "User_00",
+    constitutionalAuthorityMeta: {
+      role: "CONSTITUTIONAL_AUTHORITY",
+      sealedAt: constitutionalSealedAt,
+      pairedIngressAgentId: CHAOS_ASSIGNEE_IRONGATE_14,
+    },
+    assigned_to: "User_00",
+    owner_id: "User_00",
+    /** TAS §2 Level-2 DMZ: all chaos ingress attributed to Irongate (Agent 14) at create. */
+    dmzIrongateIngress: {
+      agentId: CHAOS_ASSIGNEE_IRONGATE_14,
+      routedAt: constitutionalSealedAt,
+      sanitized: true,
+    },
+    /** Irontech (Agent 11) — execution / resilience; primary UI owner remains User_00 (`assigneeId`, assigned_to, owner_id). */
+    resilienceExecutorAgentId: CHAOS_ASSIGNEE_IRONTECH_11,
+    /** Persisted terminal lines; appended by `applyChaosShadowDrillTelemetryStepAction`. */
+    chaosShadowAuditLog: [],
+    /** GRC agent handoff chain (timestamp, assignee, directive) per 4s transition. */
+    chaosAssigneeHandoffHistory: [],
+  });
 
   return {
     tenantCompanyId,
@@ -317,7 +359,6 @@ function chaosThreatFinalizeData(
     targetEntity: "ChaosLab",
     financialRisk_cents: 0n,
     ttlSeconds: 259200,
-    /** Birth owner: Irongate (14) for generic chaos; `null` for dual-key (KIM/GRC/ATT) so pipeline is Unassigned. */
     assigneeId: assigneeIdOnRow,
     ingestionDetails,
     aiReport,
@@ -402,15 +443,22 @@ export type InjectChaosThreatOptions = {
    * When true, do not stamp `ingestionDetails.entityType: CHAOS_DRILL` (ATTBOT/KIMBOT/GRCBOT system integrity only).
    */
   suppressChaosDrillEntityType?: boolean;
+  /** Stamped on ingestion when {@link suppressChaosDrillEntityType} (Control Room Simulation Bots A–C). */
+  systemIntegrityDrillId?: SystemIntegrityDrillId;
   /** Optional explicit tenant UUID/slug from client active context; server validates and scopes writes to this tenant. */
   tenantUuidOverride?: string;
+  /**
+   * L4 only: create `IDENTIFIED` row + risk_registry ingress, then run isolated drill from
+   * `runRemoteSupportChaosDrillAction` after Attack Velocity hold (client).
+   */
+  deferRemoteSupportDrill?: boolean;
 };
 
 export async function injectChaosThreatAction(
   scenario: ChaosScenario = "INTERNAL",
   clientAttribution?: ChaosClientAttribution | null,
   /** Exact `<option>` label from the Control Room dropdown (ThreatEvent / SimThreatEvent title + pipeline header). */
-  scenarioDisplayLabel?: string | null,
+  scenarioDisplayLabel?: unknown,
   options?: InjectChaosThreatOptions,
 ): Promise<
   | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
@@ -443,7 +491,10 @@ export async function injectChaosThreatAction(
 
   const scenarioNorm = normalizeScenario(scenario);
   const cardTitle = resolveChaosCardTitle(scenarioNorm, scenarioDisplayLabel);
-  const skipIsolatedDrill = options?.skipIsolatedDrill !== false;
+  const deferRemoteSupportDrill =
+    scenarioNorm === "REMOTE_SUPPORT" && options?.deferRemoteSupportDrill === true;
+  const skipIsolatedDrill =
+    deferRemoteSupportDrill || options?.skipIsolatedDrill !== false;
 
   try {
     let company = await prisma.company.findFirst({
@@ -482,12 +533,28 @@ export async function injectChaosThreatAction(
     const finalize = chaosThreatFinalizeData(company.id, scenarioNorm, cardTitle, {
       ...(initialAssigneeId === undefined ? {} : { initialAssigneeId }),
       includeChaosDrillEntityType,
+      ...(options?.systemIntegrityDrillId
+        ? { systemIntegrityDrillId: options.systemIntegrityDrillId }
+        : {}),
     });
 
     const created = await ingressGateway.writeThreatEvent(
       finalize as unknown as Prisma.ThreatEventUncheckedCreateInput,
     );
     const threatId = created.id;
+
+    if (deferRemoteSupportDrill) {
+      const reg = await ingestRedTeamAttackToRegistry({
+        tenantId,
+        title: cardTitle,
+        telemetryValue: "Attack velocity",
+        sourceAgent: chaosIngressSourceAgent(scenarioNorm),
+        payload: parseIngestionDetailsForMerge(finalize.ingestionDetails),
+      });
+      if (reg?.id) {
+        await updateRiskRegistry(reg.id, tenantId, { riskEventId: threatId });
+      }
+    }
 
     if (!skipIsolatedDrill) {
       const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
@@ -561,6 +628,170 @@ export async function injectChaosThreatAction(
 /** KIM/GRC/ATT Full Spectrum: no Irongate auto-assign at birth — operator must claim. */
 const DUAL_KEY_HANDSHAKE_DRILLS: SystemIntegrityDrillId[] = ["attbot", "kimbot", "grcbot"];
 
+const SIMULATION_BOT_INTEGRITY_DRILLS: SystemIntegrityDrillId[] = ["attbot", "kimbot", "grcbot"];
+
+function systemIntegrityDrillTitleFragment(
+  drillId: SystemIntegrityDrillId,
+  waveIndex = 1,
+): string {
+  const base = `System Integrity Drill — ${drillId.toUpperCase()}`;
+  return waveIndex > 1 ? `${base} #${waveIndex}` : base;
+}
+
+const OPEN_INTEGRITY_DRILL_STATUSES: ThreatState[] = [
+  ThreatState.IDENTIFIED,
+  ThreatState.CONFIRMED,
+  ThreatState.MITIGATED,
+];
+
+function openSystemIntegrityDrillWhere(
+  drillId: SystemIntegrityDrillId,
+  tenantUuid: string,
+  companyId: bigint,
+  useRiskEventTable: boolean,
+): Prisma.RiskEventWhereInput | Prisma.ThreatEventWhereInput {
+  const titleNeedle = drillId.toUpperCase();
+  const titleClause = {
+    title: { contains: "System Integrity Drill", mode: "insensitive" as const },
+    AND: { title: { contains: titleNeedle, mode: "insensitive" as const } },
+  };
+  if (useRiskEventTable) {
+    return {
+      tenantId: tenantUuid,
+      status: { in: OPEN_INTEGRITY_DRILL_STATUSES },
+      ...titleClause,
+    };
+  }
+  return {
+    tenantCompanyId: companyId,
+    status: { in: OPEN_INTEGRITY_DRILL_STATUSES },
+    ...titleClause,
+  };
+}
+
+async function countOpenSystemIntegrityDrillsForBot(
+  drillId: SystemIntegrityDrillId,
+): Promise<number> {
+  if (!SIMULATION_BOT_INTEGRITY_DRILLS.includes(drillId)) return 0;
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid?.trim()) return 0;
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) return 0;
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  const where = openSystemIntegrityDrillWhere(
+    drillId,
+    tenantUuid.trim(),
+    companyId,
+    useRiskEventTable,
+  );
+  return useRiskEventTable
+    ? prisma.riskEvent.count({ where: where as Prisma.RiskEventWhereInput })
+    : prisma.threatEvent.count({ where: where as Prisma.ThreatEventWhereInput });
+}
+
+async function resolveOpenSystemIntegrityDrillRow(
+  drillId: SystemIntegrityDrillId,
+  threatId: string,
+  tenantUuid: string,
+  companyId: bigint,
+  useRiskEventTable: boolean,
+): Promise<void> {
+  const resolvedAt = new Date().toISOString();
+  const patch = {
+    systemIntegrityDrillStandDownAt: resolvedAt,
+    chaosDrillResolutionAt: resolvedAt,
+  };
+  if (useRiskEventTable) {
+    const existing = await prisma.riskEvent.findFirst({
+      where: { id: threatId, tenantId: tenantUuid },
+      select: { ingestionDetails: true },
+    });
+    const merged = mergeIngestionDetailsPatch(existing?.ingestionDetails ?? null, patch);
+    await prisma.riskEvent.update({
+      where: { tenantId_id: { tenantId: tenantUuid, id: threatId } },
+      data: { status: ThreatState.RESOLVED, ingestionDetails: merged },
+    });
+    return;
+  }
+  const existing = await prisma.threatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: { ingestionDetails: true },
+  });
+  const merged = mergeIngestionDetailsPatch(existing?.ingestionDetails ?? null, patch);
+  await updateThreatWithIntegrity({
+    threatId,
+    changes: {
+      status: ThreatState.RESOLVED,
+      ingestionDetails: merged,
+    },
+    actorUserId: "system-integrity-stand-down",
+    eventType: "SYSTEM_INTEGRITY_DRILL_STAND_DOWN",
+  });
+}
+
+/** Control Room Simulation Bots A–C: resolve every open integrity drill wave for this bot. */
+export async function standDownAllSystemIntegrityDrillsAction(
+  drillId: SystemIntegrityDrillId,
+): Promise<{ ok: true; threatIds: string[] } | { ok: false; error: string }> {
+  if (!SIMULATION_BOT_INTEGRITY_DRILLS.includes(drillId)) {
+    return { ok: false, error: "Stand-down applies only to Simulation Bots A–C." };
+  }
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  if (!tenantUuid?.trim()) {
+    return { ok: false, error: "No active tenant." };
+  }
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) {
+    return { ok: false, error: "No company scope for active tenant." };
+  }
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  const where = openSystemIntegrityDrillWhere(
+    drillId,
+    tenantUuid.trim(),
+    companyId,
+    useRiskEventTable,
+  );
+  const rows = useRiskEventTable
+    ? await prisma.riskEvent.findMany({
+        where: where as Prisma.RiskEventWhereInput,
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      })
+    : await prisma.threatEvent.findMany({
+        where: where as Prisma.ThreatEventWhereInput,
+        select: { id: true },
+        orderBy: { createdAt: "asc" },
+      });
+  if (rows.length === 0) {
+    return { ok: false, error: `No active ${drillId.toUpperCase()} system integrity drills.` };
+  }
+  try {
+    for (const row of rows) {
+      await resolveOpenSystemIntegrityDrillRow(
+        drillId,
+        row.id,
+        tenantUuid.trim(),
+        companyId,
+        useRiskEventTable,
+      );
+    }
+    revalidatePath("/", "layout");
+    return { ok: true, threatIds: rows.map((r) => r.id) };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
+}
+
+/** @deprecated Prefer {@link standDownAllSystemIntegrityDrillsAction} */
+export async function standDownSystemIntegrityDrillAction(
+  drillId: SystemIntegrityDrillId,
+): Promise<{ ok: true; threatId: string } | { ok: false; error: string }> {
+  const result = await standDownAllSystemIntegrityDrillsAction(drillId);
+  if (!result.ok) return result;
+  return { ok: true, threatId: result.threatIds[result.threatIds.length - 1] ?? "" };
+}
+
 export async function triggerSystemIntegrityDrillAction(
   drillId: SystemIntegrityDrillId,
   clientAttribution?: ChaosClientAttribution | null,
@@ -572,13 +803,17 @@ export async function triggerSystemIntegrityDrillAction(
   const dualKeyHandshake = DUAL_KEY_HANDSHAKE_DRILLS.includes(drillId);
   const suppressChaosDrillEntityType =
     drillId === "attbot" || drillId === "kimbot" || drillId === "grcbot";
+  const waveIndex = suppressChaosDrillEntityType
+    ? (await countOpenSystemIntegrityDrillsForBot(drillId)) + 1
+    : 1;
   const result = await injectChaosThreatAction(
     scenario,
     clientAttribution,
-    `System Integrity Drill — ${drillId.toUpperCase()}`,
+    systemIntegrityDrillTitleFragment(drillId, waveIndex),
     {
       ...(dualKeyHandshake ? { initialAssigneeId: null } : {}),
       suppressChaosDrillEntityType,
+      ...(dualKeyHandshake ? { systemIntegrityDrillId: drillId } : {}),
     },
   );
   if (result.ok) {
@@ -605,14 +840,14 @@ export async function clearAllThreatsAction(): Promise<{ ok: boolean; message: s
 
 /** Optional shell-style `>` then bracketed agent tag (matches historical `irontechResilience` stream lines). */
 const CHAOS_AUDIT_LINE_PREFIX =
-  /^(?:>\s*)?\[(IRONGATE|IRONTECH|SYSTEM|IRONLOCK|IRONFRAME|IRONCORE|GRIDCORE|IRONCAST|GRC)\]/;
+  /^(?:>\s*)?\[(IRONGATE|IRONSCRIBE|IRONTECH|SYSTEM|IRONLOCK|IRONFRAME|IRONCORE|GRIDCORE|IRONCAST|GRC)\]/;
 const CHAOS_AUDIT_LINE_MAX = 1600;
 
 /** Phases for persisted `chaosAssigneeHandoffHistory` (supervised telemetry). */
 export type ChaosDrillTelemetryPhase =
   | "T0_DMZ_IRONGATE"
-  | "T4_ANALYSIS_IRONTECH"
-  | "T8_OBSERVATION_IRONTECH"
+  | "T2_REGISTRATION_IRONSCRIBE"
+  | "T4_REMEDIATION_IRONTECH"
   | "T12_RESOLUTION_SYSTEM";
 
 export type ChaosShadowDrillTelemetryStep = {
@@ -627,6 +862,33 @@ export type ChaosShadowDrillTelemetryStep = {
   /** When true, sets `chaosObserverConcurrenceVerifiedAt` on the row JSON (GRC). */
   recordObserverConcurrenceVerified?: boolean;
 };
+
+/** Audit Intelligence stream: one row per supervised chaos handoff (shadow uses `simThreatId`). */
+async function logChaosAgentMovementActivity(args: {
+  threatId: string;
+  useRiskEventTable: boolean;
+  step: ChaosShadowDrillTelemetryStep;
+}): Promise<void> {
+  const { threatId, useRiskEventTable, step } = args;
+  const justification = JSON.stringify({
+    terminalLine: step.terminalLine,
+    message: step.terminalLine,
+    directiveId: step.directiveId,
+    phase: step.phase,
+    assigneeLabel: step.assigneeLabel,
+  });
+  const summary = `[${step.phase}] ${step.assigneeLabel} · ${step.directiveId}`;
+  await logThreatActivity(
+    useRiskEventTable ? null : threatId,
+    "CHAOS_AGENT_MOVEMENT",
+    justification,
+    {
+      operatorId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
+      simThreatId: useRiskEventTable ? threatId : null,
+      isSimulation: useRiskEventTable,
+    },
+  );
+}
 
 /**
  * Irontech Quick Fix (`entityType === CHAOS_DRILL` only): one atomic DB step + `logThreatActivity`.
@@ -650,11 +912,11 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
   const row = useRiskEventTable
     ? await prisma.riskEvent.findFirst({
         where: { id, tenantCompanyId: companyId },
-        select: { ingestionDetails: true },
+        select: { ingestionDetails: true, status: true },
       })
     : await prisma.threatEvent.findFirst({
         where: { id, tenantCompanyId: companyId },
-        select: { ingestionDetails: true },
+        select: { ingestionDetails: true, status: true },
       });
 
   if (!row) return { ok: false, error: "Threat not found or access denied." };
@@ -667,113 +929,93 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
     return { ok: false, error: "Lifecycle applies only when entityType is CHAOS_DRILL." };
   }
 
+  if (
+    row.status === ThreatState.RESOLVED ||
+    (typeof base.chaosDrillResolutionAt === "string" && base.chaosDrillResolutionAt.trim())
+  ) {
+    return { ok: true };
+  }
+
   const level = chaosScenarioToInternalDrillLevel(base.chaosScenario);
   const operatorId = IRONTECH_CHAOS_AUDIT_OPERATOR_ID;
+  const plane = useRiskEventTable ? "shadow" : "prod";
+
+  const lifecycleHandoffs: Record<
+    1 | 2 | 3 | 4,
+    {
+      assigneeId: string | null;
+      assigneeDisplay: string;
+      actorLabel: string;
+      phase: string;
+      status: ThreatState;
+      integrityEventType: string;
+    }
+  > = {
+    1: {
+      assigneeId: CHAOS_ASSIGNEE_IRONGATE_14,
+      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONGATE_14,
+      actorLabel: "Irongate (Agent 14)",
+      phase: "T0_DMZ_IRONGATE",
+      status: ThreatState.IDENTIFIED,
+      integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP1_ASSIGN",
+    },
+    2: {
+      assigneeId: CHAOS_ASSIGNEE_IRONSCRIBE_5,
+      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONSCRIBE_5,
+      actorLabel: "Ironscribe (Agent 5)",
+      phase: "T2_REGISTRATION_IRONSCRIBE",
+      status: ThreatState.CONFIRMED,
+      integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP2_CONFIRMED",
+    },
+    3: {
+      assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
+      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_11,
+      actorLabel: "Irontech (Agent 11)",
+      phase: "T4_REMEDIATION_IRONTECH",
+      status: ThreatState.MITIGATED,
+      integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP3_SUBMITTED",
+    },
+    4: {
+      assigneeId: CHAOS_ASSIGNEE_SYSTEM,
+      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.SYSTEM,
+      actorLabel: "System/Observer",
+      phase: "T12_RESOLUTION_SYSTEM",
+      status: ThreatState.RESOLVED,
+      integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP4_RESOLVED",
+    },
+  };
+
+  const cfg = lifecycleHandoffs[step];
 
   try {
-    await prisma.$transaction(async (tx) => {
-      if (step === 1) {
-        if (useRiskEventTable) {
-          await tx.riskEvent.updateMany({
-            where: { id },
-            data: { assigneeId: CHAOS_ASSIGNEE_IRONTECH_11 },
-          });
-        } else {
-          await updateThreatWithIntegrity({
-            threatId: id,
-            changes: { assigneeId: CHAOS_ASSIGNEE_IRONTECH_11 },
-            actorUserId: operatorId,
-            eventType: "CHAOS_DRILL_LIFECYCLE_STEP1_ASSIGN",
-            tx,
-          });
-        }
-      } else if (step === 2) {
-        if (useRiskEventTable) {
-          await tx.riskEvent.updateMany({
-            where: { id },
-            data: {
-              status: ThreatState.CONFIRMED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-          });
-        } else {
-          await updateThreatWithIntegrity({
-            threatId: id,
-            changes: {
-              status: ThreatState.CONFIRMED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-            actorUserId: operatorId,
-            eventType: "CHAOS_DRILL_LIFECYCLE_STEP2_CONFIRMED",
-            tx,
-          });
-        }
-      } else if (step === 3) {
-        if (useRiskEventTable) {
-          await tx.riskEvent.updateMany({
-            where: { id },
-            data: {
-              status: ThreatState.MITIGATED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-          });
-        } else {
-          await updateThreatWithIntegrity({
-            threatId: id,
-            changes: {
-              status: ThreatState.MITIGATED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-            actorUserId: operatorId,
-            eventType: "CHAOS_DRILL_LIFECYCLE_STEP3_SUBMITTED",
-            tx,
-          });
-        }
-      } else {
-        if (useRiskEventTable) {
-          await tx.riskEvent.updateMany({
-            where: { id },
-            data: {
-              status: ThreatState.RESOLVED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-          });
-        } else {
-          await updateThreatWithIntegrity({
-            threatId: id,
-            changes: {
-              status: ThreatState.RESOLVED,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-            },
-            actorUserId: operatorId,
-            eventType: "CHAOS_DRILL_LIFECYCLE_STEP4_RESOLVED",
-            tx,
-          });
-        }
-        if (!useRiskEventTable) {
-          await tx.workNote.create({
-            data: {
-              threatId: id,
-              text: chaosIrontechLifecycleClosureWorkNote(level),
-              operatorId,
-            },
-          });
-        }
-      }
+    const handoff = await appendAssigneeHistory({
+      plane,
+      threatId: id,
+      tenantCompanyId: companyId,
+      assigneeId: cfg.assigneeId,
+      assigneeDisplay: cfg.assigneeDisplay,
+      actorLabel: cfg.actorLabel,
+      operatorId,
+      phase: cfg.phase,
+      narrative:
+        step === 4
+          ? chaosIrontechLifecycleClosureWorkNote(level)
+          : `[CHAOS_DRILL] Gate ${step} — ${cfg.assigneeDisplay}`,
+      integrityEventType: cfg.integrityEventType,
+      prodExtra: plane === "prod" ? { status: cfg.status } : undefined,
+      shadowExtra: plane === "shadow" ? { status: cfg.status } : undefined,
     });
+    if (!handoff.ok) {
+      return { ok: false, error: handoff.error };
+    }
 
-    if (step === 1) {
-      await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "ASSIGNEE_CHANGE", {
-        gate: 1,
-        assigneeDisplay: IRONTECH_ASSIGNEE_AUDIT_DISPLAY,
-      });
-    } else if (step === 2) {
+    if (step === 2) {
       await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "THREAT_CONFIRMED", { gate: 2 });
     } else if (step === 3) {
       await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "ATTESTATION_SUBMITTED", {
         gate: 3,
       });
-    } else {
+    } else if (step === 4) {
       await logIrontechChaosDrillGateActivity(id, useRiskEventTable, "THREAT_RESOLVED", { gate: 4 });
     }
 
@@ -835,7 +1077,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
   threatId: string,
   step: ChaosShadowDrillTelemetryStep,
 ): Promise<
-  | { ok: true; ingestionDetails: string }
+  | { ok: true; ingestionDetails: string; gavelStruck?: boolean; resolvedAt?: string }
   | { ok: false; error: string }
 > {
   const id = threatId?.trim();
@@ -928,7 +1170,7 @@ export async function applyChaosShadowDrillTelemetryStepAction(
     const mergedJson = mergeIngestionDetailsPatchJson(row.ingestionDetails, patch);
     const mergedStr = mergeIngestionDetailsPatch(row.ingestionDetails, patch);
 
-    const assigneeUpdate = step.assigneeId.trim();
+    const plane = useRiskEventTable ? "shadow" : "prod";
     const isT12 = step.phase === "T12_RESOLUTION_SYSTEM";
     const forensicJustification = `[${step.phase}] ${step.directiveId}: ${trimmed.slice(0, 800)}`;
 
@@ -958,100 +1200,101 @@ export async function applyChaosShadowDrillTelemetryStepAction(
         useRiskEventTable ? persistenceIngestionShadow : persistenceIngestionProd,
       ) ?? "";
 
-    if (isT12 && isChaosDrillRow) {
-      await prisma.$transaction(async (tx) => {
-        if (useRiskEventTable) {
-          await tx.riskEvent.updateMany({
-            where: { id },
-            data: {
-              assigneeId: assigneeUpdate,
-              ingestionDetails: persistenceIngestionShadow,
-            },
-          });
-        } else {
-          await updateThreatWithIntegrity({
-            threatId: id,
-            changes: {
-              assigneeId: assigneeUpdate,
-              ingestionDetails: persistenceIngestionProd,
-            },
-            actorUserId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
-            eventType: "CHAOS_DRILL_T12_TELEMETRY_MERGE",
-            tx,
-          });
-        }
-      });
-      return { ok: true, ingestionDetails: persistenceIngestionForReturn };
-    }
+    const isGavel =
+      isT12 && step.directiveId === CHAOS_DIRECTIVE.T12_SYSTEM_CONCLUSION;
 
-    if (isT12) {
-      const prodChangesLegacy: Prisma.ThreatEventUpdateInput | undefined = !useRiskEventTable
-        ? {
-            assigneeId: assigneeUpdate,
-            ingestionDetails: persistenceIngestionProd,
-            status: ThreatState.RESOLVED,
-          }
-        : undefined;
-      const shadowChangesLegacy: Prisma.RiskEventUpdateInput | undefined = useRiskEventTable
-        ? {
-            assigneeId: assigneeUpdate,
-            ingestionDetails: persistenceIngestionShadow,
-            status: ThreatState.RESOLVED,
-          }
-        : undefined;
-      const autonomyT12 = await executeAgentAction({
-        plane: useRiskEventTable ? "shadow" : "prod",
-        threatId: id,
-        tenantCompanyId: companyId,
-        operatorId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
-        justification: forensicJustification,
-        auditAction: "STATE_TRANSITION",
-        integrityEventType: "CHAOS_TELEMETRY_T12_FORENSIC_CLOSE_LEGACY",
-        prodChanges: prodChangesLegacy,
-        shadowChanges: shadowChangesLegacy,
-      });
-      if (!autonomyT12.ok) {
-        return { ok: false, error: autonomyT12.error };
-      }
-      revalidatePath("/");
-      revalidatePath("/control-room");
-      revalidatePath("/", "layout");
-      return { ok: true, ingestionDetails: persistenceIngestionForReturn };
-    }
-
-    const prodChanges: Prisma.ThreatEventUpdateInput | undefined = !useRiskEventTable
-      ? {
-          assigneeId: assigneeUpdate,
-          ingestionDetails: persistenceIngestionProd,
-        }
-      : undefined;
-
-    const shadowChanges: Prisma.RiskEventUpdateInput | undefined = useRiskEventTable
-      ? {
-          assigneeId: assigneeUpdate,
-          ingestionDetails: persistenceIngestionShadow as Prisma.InputJsonValue,
-        }
-      : undefined;
-
-    const autonomy = await executeAgentAction({
-      plane: useRiskEventTable ? "shadow" : "prod",
+    const handoffBase = {
+      plane,
       threatId: id,
       tenantCompanyId: companyId,
       operatorId: IRONTECH_CHAOS_AUDIT_OPERATOR_ID,
-      justification: forensicJustification,
-      auditAction: "ASSIGNEE_CHANGE",
-      integrityEventType: "CHAOS_ASSIGNEE_HANDOFF",
-      prodChanges,
-      shadowChanges,
-    });
+      narrative: forensicJustification,
+      ingestionDetails: persistenceIngestionForReturn,
+    } as const;
 
-    if (!autonomy.ok) {
-      return { ok: false, error: autonomy.error };
+    let gavelStruck = false;
+    let resolvedAt: string | undefined;
+
+    if (isGavel) {
+      const tenantUuid = await getActiveTenantUuidFromCookies();
+      if (!tenantUuid) {
+        return { ok: false, error: "Missing tenant context for forensic gavel." };
+      }
+      const gavel = await strikeForensicGavel({
+        ...handoffBase,
+        tenantUuid,
+        narrative: forensicJustification,
+      });
+      if (!gavel.ok) return { ok: false, error: gavel.error };
+      gavelStruck = true;
+      resolvedAt = gavel.resolvedAt;
+    } else if (step.phase === "T0_DMZ_IRONGATE") {
+      const handoff = await handoffWorkforceAgent("IRONGATE", {
+        ...handoffBase,
+        integrityEventType: "CHAOS_ASSIGNEE_HANDOFF",
+      });
+      if (!handoff.ok) return { ok: false, error: handoff.error };
+    } else if (step.phase === "T2_REGISTRATION_IRONSCRIBE") {
+      const handoff = await handoffWorkforceAgent("IRONSCRIBE", {
+        ...handoffBase,
+        integrityEventType: "CHAOS_ASSIGNEE_HANDOFF",
+      });
+      if (!handoff.ok) return { ok: false, error: handoff.error };
+    } else if (step.phase === "T4_REMEDIATION_IRONTECH") {
+      const handoff = await handoffWorkforceAgent("IRONTECH", {
+        ...handoffBase,
+        integrityEventType: "CHAOS_ASSIGNEE_HANDOFF",
+      });
+      if (!handoff.ok) return { ok: false, error: handoff.error };
+    } else {
+      const handoff = await appendAssigneeHistory({
+        ...handoffBase,
+        assigneeId: step.assigneeId.trim(),
+        assigneeDisplay: step.assigneeLabel,
+        actorLabel: step.assigneeLabel.split("·")[0]?.trim() || step.assigneeLabel,
+        phase: step.phase,
+        integrityEventType: "CHAOS_ASSIGNEE_HANDOFF",
+      });
+      if (!handoff.ok) return { ok: false, error: handoff.error };
     }
 
+    await logChaosAgentMovementActivity({ threatId: id, useRiskEventTable, step });
+
+    if (isT12) {
+      revalidatePath("/");
+      revalidatePath("/control-room");
+    }
     revalidatePath("/", "layout");
     revalidatePath("/integrity");
-    return { ok: true, ingestionDetails: persistenceIngestionForReturn };
+    return {
+      ok: true,
+      ingestionDetails: persistenceIngestionForReturn,
+      ...(gavelStruck ? { gavelStruck: true, resolvedAt } : {}),
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
+}
+
+/** L4 — run isolated remote-support drill after Attack Velocity hold (row must still be `IDENTIFIED`). */
+export async function runRemoteSupportChaosDrillAction(
+  threatId: string,
+  clientAttribution?: ChaosClientAttribution | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const id = threatId?.trim();
+  if (!id) {
+    return { ok: false, error: "Missing threat id." };
+  }
+  try {
+    const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
+    const drillResult = await runIsolatedRemoteSupportDrill(id, ledgerAttribution);
+    if (!drillResult.success) {
+      return { ok: false, error: drillResult.error };
+    }
+    revalidatePath("/", "layout");
+    revalidatePath("/integrity");
+    return { ok: true };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     return { ok: false, error: message };
@@ -1068,10 +1311,17 @@ export async function grantRemoteAccessAction(
     return { ok: false, error: "Missing threat id." };
   }
 
-  const row = await prisma.threatEvent.findUnique({
+  const simRow = await prisma.riskEvent.findFirst({
     where: { id },
-    select: { status: true, ingestionDetails: true },
+    select: { status: true, ingestionDetails: true, tenantCompanyId: true },
   });
+  const prodRow = simRow
+    ? null
+    : await prisma.threatEvent.findUnique({
+        where: { id },
+        select: { status: true, ingestionDetails: true },
+      });
+  const row = simRow ?? prodRow;
   if (!row) {
     return { ok: false, error: "Threat not found." };
   }
@@ -1079,9 +1329,22 @@ export async function grantRemoteAccessAction(
     return { ok: false, error: "Threat is not awaiting remote authorization." };
   }
 
+  const ingestionRaw =
+    simRow != null
+      ? (() => {
+          try {
+            const v = simRow.ingestionDetails;
+            if (v == null) return "{}";
+            return typeof v === "string" ? v : JSON.stringify(v);
+          } catch {
+            return "{}";
+          }
+        })()
+      : (prodRow?.ingestionDetails ?? "{}");
+
   let chaosScenario: string | null = null;
   try {
-    const parsed = JSON.parse(row.ingestionDetails ?? "{}") as { chaosScenario?: unknown };
+    const parsed = JSON.parse(ingestionRaw) as { chaosScenario?: unknown };
     const v =
       typeof parsed.chaosScenario === "string" ? parsed.chaosScenario.trim().toUpperCase() : "";
     chaosScenario = v || null;
@@ -1112,4 +1375,38 @@ export async function grantRemoteAccessAction(
     console.error("[S4] grantRemoteAccessAction failed:", e);
     return { ok: false, error: message };
   }
+}
+
+/**
+ * Phone Home protocol — diagnostic packet + optional Ironcast email when `agentOperationId` is provided.
+ * Canonical escalation email path: {@link sendPhoneHomeEmail}.
+ */
+export async function triggerPhoneHome(
+  threatId: string,
+  agentOperationId?: string | null,
+): Promise<
+  | { ok: true; diagnostic: PhoneHomeDiagnosticPacket; email?: { to: string; messageId?: string } }
+  | { ok: false; error: string }
+> {
+  const id = threatId?.trim();
+  if (!id) {
+    return { ok: false, error: "Missing threat id." };
+  }
+  const diagnostic = await commitPhoneHome(id);
+  const opId = agentOperationId?.trim();
+  if (!opId) {
+    return { ok: true, diagnostic };
+  }
+  const sent = await sendPhoneHomeEmail(id, opId);
+  if (!sent.success) {
+    return { ok: false, error: sent.error };
+  }
+  return { ok: true, diagnostic, email: { to: sent.to, messageId: sent.messageId } };
+}
+
+/**
+ * “Despatched human” simulation — remote specialist dispatch + `MITIGATED` queue (`dispatchRemoteSupportAction`).
+ */
+export async function despatchedHumanSim(threatId: string) {
+  return dispatchRemoteSupportAction(threatId);
 }

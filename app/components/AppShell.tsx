@@ -7,6 +7,7 @@ import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
+import { useIronwatchTelemetryFeed } from "@/app/hooks/useIronwatchTelemetryFeed";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,6 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useKimbotPersistLoop();
   useResilienceIntelPoll();
+  useIronwatchTelemetryFeed(true);
 
   useEffect(() => {
     hydrateSystemConfig();
@@ -23,19 +25,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (isThreatDetailPage) {
     return (
-      <>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <AirlockBanner />
-        <main
-          className={`command-center-surface mt-0 min-h-screen overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
+        <div
+          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
         >
           {children}
-        </main>
-      </>
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className={isBoardReport ? "print:hidden" : undefined}>
         <AirlockBanner />
       </div>
@@ -46,19 +48,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <TopNav />
       </div>
-      <main
-        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
-          isSimulationMode ? "mt-[144px] h-[calc(100vh-144px)]" : "mt-[108px] h-[calc(100vh-108px)]"
+      <div
+        className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-x-hidden ${
+          isSimulationMode ? "mt-[144px]" : "mt-[108px]"
         } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
       >
         <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] ${
-            isBoardReport ? "print:overflow-visible" : ""
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+            isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""
           }`}
         >
           {children}
         </div>
-      </main>
-    </>
+      </div>
+    </div>
   );
 }

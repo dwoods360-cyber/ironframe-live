@@ -30,7 +30,7 @@ export default function Sidebar() {
 
   return (
     <nav
-      className="flex min-h-0 shrink-0 flex-col items-center gap-2 border-b border-slate-800/80 bg-slate-950/95 px-2 py-3"
+      className="flex min-h-0 w-full shrink-0 flex-col items-center gap-2 border-b border-slate-800/80 bg-slate-950/95 px-4 py-3"
       aria-label="Workspace shortcuts"
     >
       <Link

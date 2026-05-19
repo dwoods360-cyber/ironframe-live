@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Lock, Unlock, CheckCircle2 } from "lucide-react";
 import HeaderTwo from "@/app/components/HeaderTwo";
 import TenantSwitcher from "./TenantSwitcher";
-import { useRiskStore } from "@/app/store/riskStore"; 
+import { useRiskStore } from "@/app/store/riskStore";
+import { useLayoutStore } from "@/app/store/useLayoutStore";
+import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
 import { createClient } from "@/lib/supabase/client";
 import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
 
@@ -62,7 +64,11 @@ export default function TopNav() {
   const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
   const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
   const isBoardReportRoute = pathname === "/board-report" || pathname.startsWith("/board-report/");
-  const isOpSupportRoute = pathname === "/opsupport" || pathname.startsWith("/opsupport/");
+  const isOpSupportRoute =
+    pathname === "/opsupport" ||
+    pathname.startsWith("/opsupport/") ||
+    pathname === "/op-support" ||
+    pathname.startsWith("/op-support/");
 
   const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore|defense)\/playbooks(\/|$)/);
   const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
@@ -71,6 +77,12 @@ export default function TopNav() {
   const liveMonitoringCount = useRiskStore((s) => s.liveMonitoringCount);
   const currencyScale = useRiskStore((s) => s.currencyScale);
   const setCurrencyScale = useRiskStore((s) => s.setCurrencyScale);
+
+  const isUiLocked = useLayoutStore((s) => s.isUiLocked);
+  const lockToast = useLayoutStore((s) => s.lockToast);
+  const ironcastToast = useLayoutStore((s) => s.ironcastToast);
+  const dismissLockToast = useLayoutStore((s) => s.dismissLockToast);
+  const dismissIroncastToast = useLayoutStore((s) => s.dismissIroncastToast);
 
   const headerContextTitle = isPlaybookRoute
     ? `${playbookEntity} // INCIDENT RESPONSE PLAYBOOK`
@@ -110,6 +122,18 @@ export default function TopNav() {
     router.refresh();
   };
 
+  useEffect(() => {
+    if (!lockToast) return;
+    const id = window.setTimeout(() => dismissLockToast(), 6000);
+    return () => window.clearTimeout(id);
+  }, [lockToast, dismissLockToast]);
+
+  useEffect(() => {
+    if (!ironcastToast) return;
+    const id = window.setTimeout(() => dismissIroncastToast(), 7000);
+    return () => window.clearTimeout(id);
+  }, [ironcastToast, dismissIroncastToast]);
+
   return (
     <header className="w-full">
       <div className="relative h-10 bg-slate-950 flex items-center justify-between px-6 border-b border-slate-800/60">
@@ -144,6 +168,13 @@ export default function TopNav() {
           <span className="text-[10px] font-bold text-white">
             {userLoading ? "Loading operator..." : `${identityName} (${identityRole})`}
           </span>
+          <Link
+            href="/cockpit"
+            className="text-[9px] font-bold uppercase tracking-wide text-cyan-400/90 underline-offset-2 hover:text-cyan-300 hover:underline"
+          >
+            Command post
+          </Link>
+          <span className="h-3 w-px bg-slate-700" />
           <Link
             href="/profile"
             className="text-[9px] font-bold uppercase tracking-wide text-emerald-400/90 underline-offset-2 hover:text-emerald-300 hover:underline"
@@ -197,6 +228,7 @@ export default function TopNav() {
               ))}
             </div>
           </div>
+          <CommandPostFreezeControl variant="topnav" />
         </div>
         <div className="text-[10px] font-bold uppercase text-emerald-400 flex items-center gap-2">
             AGENT MANAGER: ONLINE
@@ -211,6 +243,45 @@ export default function TopNav() {
         onVendorDownload={handleVendorDownload}
         currentTenant={currentTenant} // ---> NEW: Passing the isolated tenant to the sub-nav
       />
+
+      {(lockToast || ironcastToast) ? (
+        <div className="fixed bottom-5 right-5 z-[500] flex max-w-sm flex-col gap-2">
+          {lockToast ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-start gap-2 rounded-lg border border-amber-500/70 bg-amber-950/95 px-3 py-2.5 text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
+            >
+              <Lock size={14} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+              <p className="text-[10px] leading-snug">{lockToast}</p>
+              <button
+                type="button"
+                onClick={() => dismissLockToast()}
+                className="shrink-0 rounded border border-amber-700/60 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-200 hover:bg-amber-900/50"
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+          {ironcastToast ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-start gap-2 rounded-lg border border-emerald-500/70 bg-emerald-950/95 px-3 py-2.5 text-emerald-50 shadow-[0_0_22px_rgba(16,185,129,0.22)]"
+            >
+              <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-300" aria-hidden />
+              <p className="text-[10px] leading-snug">{ironcastToast}</p>
+              <button
+                type="button"
+                onClick={() => dismissIroncastToast()}
+                className="shrink-0 rounded border border-emerald-700/60 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-200 hover:bg-emerald-900/50"
+              >
+                Dismiss
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </header>
   );
 }

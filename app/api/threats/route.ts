@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
 import { threatIngressSchema } from '@/app/utils/irongateSchema';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
+import { markOperationalDeficiencyReportPromotedToThreat } from '@/app/lib/opsupport/markDeficiencyPromoted';
 import { ZodError } from 'zod';
 import { assertSimulationInjectAllowedForTenant } from '@/app/lib/simulationStandDown';
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
@@ -48,6 +49,10 @@ export type CreateThreatBody = {
   destination?: 'pipeline' | 'active';
   /** When source is a Top Sector path and value is exactly this string, merged into `ingestionDetails` JSON. */
   grcJustification?: string;
+  /** Risk Velocity / raw signal id — stamped into ingestion when the signal becomes a DB-backed threat. */
+  sourceSignalId?: string;
+  /** Shadow deficiency queue `payload.reportId` — marks the diagnostic row promoted so the queue drops it. */
+  deficiencyReportId?: string;
 };
 
 /**
@@ -126,9 +131,39 @@ export async function POST(request: NextRequest) {
       requestedGrc === TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION &&
       TOP_SECTOR_REGISTRATION_SOURCES.has(source.trim());
 
-    const ingestionDetailsForCreate = applyTopSectorIngestion
+    const sourceSignalId =
+      typeof body.sourceSignalId === 'string' ? body.sourceSignalId.trim() : '';
+    const deficiencyReportId =
+      typeof body.deficiencyReportId === 'string' ? body.deficiencyReportId.trim() : '';
+
+    let ingestionDetailsForCreate: string | undefined = applyTopSectorIngestion
       ? mergeIngestionDetailsPatch(null, { grcJustification: TOP_SECTOR_DEFAULT_GRC_JUSTIFICATION })
       : undefined;
+    if (sourceSignalId || deficiencyReportId) {
+      ingestionDetailsForCreate = mergeIngestionDetailsPatch(ingestionDetailsForCreate ?? null, {
+        ...(sourceSignalId
+          ? { promotedFromSignalId: sourceSignalId, signalIngestionLifecycle: 'PROMOTED_TO_ACTIVE_RISK' }
+          : {}),
+        ...(deficiencyReportId
+          ? {
+              promotedFromDeficiencyReportId: deficiencyReportId,
+              deficiencyPromotionLifecycle: 'INGESTED',
+            }
+          : {}),
+      });
+    }
+
+    const manualIngestSealedAt = new Date().toISOString();
+    ingestionDetailsForCreate = mergeIngestionDetailsPatch(ingestionDetailsForCreate ?? null, {
+      assigned_to: 'User_00',
+      owner_id: 'User_00',
+      constitutionalAuthority: 'User_00',
+      constitutionalAuthorityMeta: {
+        role: 'CONSTITUTIONAL_AUTHORITY',
+        sealedAt: manualIngestSealedAt,
+        primaryAgentSource: source,
+      },
+    });
 
     const descriptionText = description
       ? `Source: ${source} · ${description}`
@@ -144,6 +179,7 @@ export async function POST(request: NextRequest) {
         status,
         ttlSeconds: DEFAULT_TTL_SECONDS,
         tenantCompanyId: company?.id,
+        assigneeId: 'User_00',
         aiReport: descriptionText,
         ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
       },
@@ -157,6 +193,14 @@ export async function POST(request: NextRequest) {
         status: true,
       },
     });
+
+    if (deficiencyReportId) {
+      try {
+        await markOperationalDeficiencyReportPromotedToThreat(tenantId, deficiencyReportId, created.id);
+      } catch (e) {
+        console.warn('[api/threats POST] deficiency promotion stamp failed', e);
+      }
+    }
 
     const lossM = centsToMillions(created.financialRisk_cents);
 

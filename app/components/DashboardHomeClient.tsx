@@ -26,7 +26,11 @@ import Sidebar from './Sidebar';
 import ClockDriftBanner from './ClockDriftBanner';
 import ClockDriftMonitor from './ClockDriftMonitor';
 import SentinelIntakeForm from '@/components/SentinelIntakeForm';
-import RiskEventCard from '@/components/RiskEventCard';
+import { useRiskRegistrySync } from '@/app/hooks/useRiskRegistrySync';
+import type { RiskRegistryRecord } from '@/app/types/riskLifecycle';
+import type { GovernanceMaturitySnapshot } from '@/app/types/governanceMaturity';
+import GrcMaturityStrip from '@/app/components/GrcMaturityStrip';
+import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
 import AuditorRiskLedger from '@/components/AuditorRiskLedger';
@@ -58,6 +62,19 @@ const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Azure Health API Exposure',
   'Palo Alto Firewall Misconfiguration',
 ]);
+
+import {
+  DASHBOARD_CENTER_CONTENT,
+  DASHBOARD_CENTER_PAD_X,
+  DASHBOARD_CENTER_PANE,
+  DASHBOARD_CENTER_RISK_STACK,
+  DASHBOARD_CENTER_SCROLL,
+  DASHBOARD_HOME_SHELL,
+  DASHBOARD_LEFT_PANE,
+  DASHBOARD_RIGHT_PANE,
+  DASHBOARD_RIGHT_SCROLL,
+  DASHBOARD_TRIPANE_SHELL,
+} from "@/app/lib/dashboardTripaneLayout";
 
 /** Strip legacy Medshield ghost rows from secondary asset metadata (forensic anchor is authoritative). */
 function isMedshieldGhostAsset(asset: string): boolean {
@@ -141,6 +158,10 @@ type Props = {
   children: ReactNode;
   /** Request-time epoch from RSC — client compares for GRC clock drift HUD. */
   serverTimeEpochMs?: number;
+  /** Server-ingress governance maturity snapshot for the forensic strip. */
+  governanceMaturity?: GovernanceMaturitySnapshot | null;
+  /** Hydrated `risk_registry` rows — Stage-1 Irongate sync (logs / assignee history, not a UI deck). */
+  initialRiskRegistry?: RiskRegistryRecord[];
 };
 
 /** Pre-tenant dashboard shell: global systems render; tenant-scoped fields stay empty until Command Center selection. */
@@ -206,8 +227,14 @@ function InsuranceForensicHandshakeConnector({ flowActive }: { flowActive: boole
  * Main Ops shell — primary “ear” for production `ThreatEvent` and shadow `RiskEvent` (DB table `SimThreatEvent`) realtime, tenant-scoped.
  * See `useDashboardThreatRealtime` (postgres_changes on `ThreatEvent` or `SimThreatEvent` when simulation mode is on).
  */
-export default function DashboardHomeClient({ children, serverTimeEpochMs }: Props) {
+export default function DashboardHomeClient({
+  children,
+  serverTimeEpochMs,
+  governanceMaturity = null,
+  initialRiskRegistry = [],
+}: Props) {
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  useRiskRegistrySync(true, initialRiskRegistry);
   const { tenantFetch, activeTenantUuid, activeTenantKey } = useTenantContext();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
@@ -242,8 +269,6 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
-  const [scrutinyView, setScrutinyView] = useState<"TOTAL_WORKFORCE" | "AGENT_FOCUS">("TOTAL_WORKFORCE");
-  const [focusedAgent, setFocusedAgent] = useState<string>("Ironsight");
   const scrutinySignatureRef = useRef<string>("");
   const forecastSignatureRef = useRef<string>("");
   const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -575,7 +600,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     data?.insuranceDefaultPremiumCents ?? (!dashboardTenantUuid ? "0" : "5000000");
   const insuranceDiscountPct =
     data?.insuranceTotalDiscountBps != null && Number.isFinite(data.insuranceTotalDiscountBps)
-      ? (data.insuranceTotalDiscountBps / 100).toFixed(2)
+      ? data.insuranceTotalDiscountBps / 100
       : null;
 
   const insurancePostureSignal = useMemo(
@@ -694,23 +719,6 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     setShadowPlaneHandshakeAuthorized,
   ]);
 
-  const scrutinyAgentNames = useMemo(() => {
-    const names = new Set<string>();
-    Object.values(scrutinyHeatmap).forEach((asset) => {
-      Object.keys(asset.agents ?? {}).forEach((agent) => {
-        if (agent.trim()) names.add(agent);
-      });
-    });
-    return [...names].sort((a, b) => a.localeCompare(b));
-  }, [scrutinyHeatmap]);
-
-  useEffect(() => {
-    if (scrutinyAgentNames.length === 0) return;
-    if (!scrutinyAgentNames.includes(focusedAgent)) {
-      setFocusedAgent(scrutinyAgentNames[0]);
-    }
-  }, [scrutinyAgentNames, focusedAgent]);
-
   const scrutinyAssetTelemetryRows = useMemo(() => {
     const keys = new Set<string>([
       ...Object.keys(scrutinyHeatmap),
@@ -720,10 +728,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
     return [...keys]
       .map((asset) => {
         const payload = scrutinyHeatmap[asset] ?? { total: 0, agents: {} };
-        const focusHeat =
-          scrutinyView === "TOTAL_WORKFORCE"
-            ? payload.total
-            : (payload.agents?.[focusedAgent] ?? 0);
+        const focusHeat = payload.total;
         const localCycleBump = localCycleBumpsByAsset[asset] ?? 0;
         let aleCents = 0n;
         try {
@@ -746,7 +751,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
         if (aleOrder !== 0) return aleOrder;
         return (b.focusHeat + b.predicted) - (a.focusHeat + a.predicted);
       });
-  }, [scrutinyHeatmap, predictiveHeat, scrutinyView, focusedAgent, aleExposureByAssetCents, localCycleBumpsByAsset]);
+  }, [scrutinyHeatmap, predictiveHeat, aleExposureByAssetCents, localCycleBumpsByAsset]);
   const sentinelAssetOptions = useMemo(
     () => scrutinyAssetTelemetryRows.map((card) => card.asset).filter(Boolean),
     [scrutinyAssetTelemetryRows],
@@ -824,11 +829,9 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
 
   if (loading && dashboardTenantUuid) {
     return (
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-slate-950">
-        <aside
-          className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-y-auto overscroll-y-contain border-r border-slate-800/50 bg-slate-950/50 [scrollbar-gutter:stable]"
-          aria-hidden
-        >
+      <div className={DASHBOARD_HOME_SHELL}>
+      <div className={DASHBOARD_TRIPANE_SHELL}>
+        <aside className={DASHBOARD_LEFT_PANE} aria-hidden>
           <div className="space-y-3 p-4">
             <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
             <div className="flex justify-between gap-2">
@@ -855,22 +858,23 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           </div>
         </aside>
         <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-slate-800 bg-slate-950 [scrollbar-gutter:stable]"
+          className={DASHBOARD_CENTER_PANE}
           data-testid="dashboard-main"
           aria-busy
           aria-label="Loading pipeline and active risk posture"
         >
+          <div className={DASHBOARD_CENTER_SCROLL}>
           <div className="border-b border-slate-800 px-6 pt-4">
             <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
           </div>
-          <div className="min-h-0 flex-1 space-y-6 overflow-visible p-4 sm:p-6">
+          <div className={DASHBOARD_CENTER_CONTENT}>
             <div>
               <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-lg border border-slate-800/80 bg-slate-900/80"
+                    className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-none border border-slate-800/80 bg-slate-900/80"
                   />
                 ))}
               </div>
@@ -879,18 +883,22 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
               <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="h-28 animate-pulse rounded-lg border border-slate-800/60 bg-slate-900/60" />
+                  <div key={i} className="h-28 animate-pulse rounded-none border border-slate-800/60 bg-slate-900/60" />
                 ))}
               </div>
             </div>
           </div>
+          </div>
         </section>
-        <aside className="flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50">
-          <div className="space-y-3 p-4">
-            <div className="h-3 w-32 animate-pulse rounded bg-slate-800" />
-            <div className="h-40 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+        <aside className={DASHBOARD_RIGHT_PANE}>
+          <div className={DASHBOARD_RIGHT_SCROLL}>
+            <div className="space-y-3 p-4">
+              <div className="h-3 w-32 animate-pulse rounded bg-slate-800" />
+              <div className="h-40 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+            </div>
           </div>
         </aside>
+      </div>
       </div>
     );
   }
@@ -915,8 +923,8 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
       drawerFocus={drawerFocus}
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 overflow-x-hidden bg-slate-950">
-        {typeof serverTimeEpochMs === 'number' ? (
+      <div className={DASHBOARD_HOME_SHELL}>
+        {typeof serverTimeEpochMs === "number" ? (
           <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
         ) : null}
         <IronwaveHeartbeat tenantUuid={dashboardTenantUuid ?? null} />
@@ -964,33 +972,33 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
             ))}
           </div>
         ) : null}
-        <aside className="relative z-0 flex h-full min-h-0 w-full max-w-[min(28rem,100%)] shrink-0 flex-col overflow-hidden border-r border-slate-800/50 bg-slate-950/50">
+      <div className={DASHBOARD_TRIPANE_SHELL}>
+        <aside className={DASHBOARD_LEFT_PANE}>
           <Sidebar />
           {auditorViewEnabled ? (
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="p-4">
               <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">{GRC_GOLD_AUDITOR_VIEW_TITLE}</p>
               <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{GRC_GOLD_AUDITOR_VIEW_INTRO}</p>
             </div>
           ) : (
             <>
-              <div className="min-h-0 max-h-[min(560px,55vh)] shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
+              <div className="max-h-[42vh] min-h-0 shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
                 <IrontechLeftPaneControls />
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]">
+              <div className="flex min-h-[10rem] flex-1 flex-col overflow-hidden">
                 <StrategicIntel />
               </div>
             </>
           )}
         </aside>
 
-        <section
-          className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain border-r border-slate-800 bg-slate-950 p-0 [scrollbar-gutter:stable]"
-          data-testid="dashboard-main"
-        >
+        <section className={DASHBOARD_CENTER_PANE} data-testid="dashboard-main">
+          <div className={DASHBOARD_CENTER_SCROLL}>
+          <div className={DASHBOARD_CENTER_CONTENT}>
           {typeof serverTimeEpochMs === "number" ? (
             <ClockDriftBanner
               serverTimeEpochMs={serverTimeEpochMs}
-              className="sticky top-0 z-[49] mx-4 mt-3"
+              className={`sticky top-0 z-[49] mt-3 ${DASHBOARD_CENTER_PAD_X}`}
             />
           ) : null}
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
@@ -998,17 +1006,17 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
           <div className="border-b border-slate-800/80 px-6 py-2">
             <ResourceMonitor />
           </div>
-          <section
-            aria-labelledby="scrutiny-heatmap-heading"
-            className="border-b border-slate-800 bg-slate-950/70 px-6 py-4"
-          >
-            {complianceDriftOpenCount > 0 ? (
-              <div className="mb-3 rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[10px] text-amber-100/95">
-                <span className="font-bold uppercase tracking-wide text-amber-300">Compliance drift — </span>
-                {complianceDriftOpenCount} risk event{complianceDriftOpenCount === 1 ? "" : "s"} lack mapped controls (SOC 2 / ISO 27001 / NIST). Prioritize control mapping before operational alerts.
-              </div>
-            ) : null}
-            {auditorViewEnabled ? (
+          {auditorViewEnabled ? (
+            <section
+              className={`w-full border-b border-slate-800 bg-slate-950/70 py-6 ${DASHBOARD_CENTER_PAD_X}`}
+              aria-labelledby="scrutiny-heatmap-heading"
+            >
+              {complianceDriftOpenCount > 0 ? (
+                <div className="mb-3 rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[10px] text-amber-100/95">
+                  <span className="font-bold uppercase tracking-wide text-amber-300">Compliance drift — </span>
+                  {complianceDriftOpenCount} risk event{complianceDriftOpenCount === 1 ? "" : "s"} lack mapped controls (SOC 2 / ISO 27001 / NIST). Prioritize control mapping before operational alerts.
+                </div>
+              ) : null}
               <div className="mt-1 space-y-4">
                 <div>
                   <h2
@@ -1017,198 +1025,105 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
                   >
                     {GRC_GOLD_AUDITOR_LEDGER_HEADING}
                   </h2>
-                  <p className="mt-2 max-w-3xl text-[10px] leading-relaxed text-slate-500">
+                  <p className="mt-2 w-full text-[10px] leading-relaxed text-slate-500">
                     SimThreatEvent records for this tenant: mapped controls, governance SHA-256, and Product owner / designated
                     CISO signature from the forensic seal. Heatmaps and illustrative overlays are hidden in Auditor view.
                   </p>
                 </div>
                 <AuditorRiskLedger />
               </div>
-            ) : (
-              <>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-3">
-              <h2
-                id="scrutiny-heatmap-heading"
-                className="text-xs font-black uppercase tracking-wider text-cyan-300"
-              >
-                GRC ALE exposure map
-              </h2>
-              <div
-                className="rounded border border-violet-800/50 bg-violet-950/35 px-3 py-2 text-[10px] text-violet-100/95"
-                title="Validated controls per hour (shadow plane): inverse of mean hours to first control-mapping ReasoningLog"
-              >
-                <p className="font-black uppercase tracking-wide text-violet-300/90">Compliance velocity</p>
-                <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-violet-100">
-                  {complianceVelocity != null && Number.isFinite(complianceVelocity)
-                    ? `${complianceVelocity.toFixed(2)} ctl/hr`
-                    : "—"}
-                </p>
-                {avgHoursToControlMapping != null && Number.isFinite(avgHoursToControlMapping) ? (
-                  <p className="mt-0.5 text-[9px] text-violet-300/80">
-                    Avg. map latency: {avgHoursToControlMapping.toFixed(1)}h
-                  </p>
-                ) : null}
-              </div>
-              {isSimulationMode ? (
-                <div
-                  className="rounded border border-emerald-800/50 bg-emerald-950/35 px-3 py-2 text-[10px] text-emerald-100/95"
-                  title="Year-to-date sum of budget justification value (potential loss avoided minus modeled analyst labor) for RESOLVED and CLOSED_ARCHIVED risk events"
-                >
-                  <p className="font-black uppercase tracking-wide text-emerald-300/90">Value mitigated (YTD)</p>
-                  <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-emerald-100">
-                    {formatCentsToUSD(totalValueMitigatedYtdCents)}
-                  </p>
+            </section>
+          ) : (
+            <section
+              data-testid="forensic-center-section"
+              className="flex w-full min-w-0 flex-1 flex-col border-b border-slate-800 bg-slate-950/70"
+              aria-label="Forensic center lane"
+            >
+              {complianceDriftOpenCount > 0 ? (
+                <div className={`mt-4 rounded border border-amber-800/60 bg-amber-950/30 px-3 py-2 text-[10px] text-amber-100/95 ${DASHBOARD_CENTER_PAD_X}`}>
+                  <span className="font-bold uppercase tracking-wide text-amber-300">Compliance drift — </span>
+                  {complianceDriftOpenCount} risk event{complianceDriftOpenCount === 1 ? "" : "s"} lack mapped controls (SOC 2 / ISO 27001 / NIST). Prioritize control mapping before operational alerts.
                 </div>
               ) : null}
-              {isSimulationMode ? (
-                <div
-                  className="rounded border border-teal-800/50 bg-teal-950/35 px-3 py-2 text-[10px] text-teal-100/95"
-                  title="Annual cyber insurance renewal incentive (illustrative): modeled % off default $50k premium using framework tier, Ironwatch activity (last hour), and due diligence PDFs on file"
+              <div className={`w-full py-5 pb-8 ${DASHBOARD_CENTER_PAD_X}`} data-testid="scrutiny-block">
+                <HandshakeStatusBar phase={handshakePhase} />
+                <GrcMaturityStrip maturity={governanceMaturity} className="mt-4" />
+                <GrcAleExposureMap
+                  className="mt-5"
+                  isSimulationMode={isSimulationMode}
+                  complianceVelocity={complianceVelocity}
+                  avgHoursToControlMapping={avgHoursToControlMapping}
+                  totalValueMitigatedYtdCents={totalValueMitigatedYtdCents}
+                  projectedInsuranceSavingsCents={projectedInsuranceSavingsCents}
+                  insuranceDiscountPct={insuranceDiscountPct}
                 >
-                  <p className="font-black uppercase tracking-wide text-teal-300/90">Projected insurance savings</p>
-                  <p className="mt-0.5 font-mono tabular-nums text-[11px] font-semibold text-teal-100">
-                    {formatCentsToUSD(projectedInsuranceSavingsCents)}
-                    {insuranceDiscountPct != null ? (
-                      <span className="ml-1 text-[9px] font-normal text-teal-200/85">
-                        ({insuranceDiscountPct}% off premium)
-                      </span>
-                    ) : null}
-                  </p>
-                </div>
-              ) : null}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setScrutinyView("TOTAL_WORKFORCE")}
-                  className={`rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                    scrutinyView === "TOTAL_WORKFORCE"
-                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-200"
-                      : "border-slate-700 bg-slate-900/50 text-slate-400"
-                  }`}
-                >
-                  Total Workforce
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setScrutinyView("AGENT_FOCUS")}
-                  className={`rounded border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                    scrutinyView === "AGENT_FOCUS"
-                      ? "border-cyan-400 bg-cyan-950/40 text-cyan-200"
-                      : "border-slate-700 bg-slate-900/50 text-slate-400"
-                  }`}
-                >
-                  Agent Focus
-                </button>
-                {scrutinyView === "AGENT_FOCUS" ? (
-                  <select
-                    value={focusedAgent}
-                    onChange={(e) => setFocusedAgent(e.target.value)}
-                    className="rounded border border-slate-700 bg-slate-900/70 px-2 py-1 text-[10px] text-slate-200"
-                  >
-                    {scrutinyAgentNames.length > 0 ? (
-                      scrutinyAgentNames.map((agent) => (
-                        <option key={agent} value={agent}>
-                          {agent}
-                        </option>
-                      ))
-                    ) : (
-                      <option value={focusedAgent}>{focusedAgent}</option>
-                    )}
-                  </select>
-                ) : null}
-              </div>
-            </div>
-
-            {isSimulationMode && (data?.threatEvents?.length ?? 0) > 0 ? (
-              <div className="mt-3">
-                <p className="mb-2 text-[9px] font-bold uppercase tracking-wide text-slate-500">
-                  Risk events · regulatory overlay
-                </p>
-                <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-gutter:stable]">
-                  {(data?.threatEvents ?? []).slice(0, 14).map((te) => (
-                    <RiskEventCard
-                      key={te.id}
-                      id={te.id}
-                      title={te.title}
-                      complianceFramework={te.complianceFramework ?? "NIST"}
-                      financialRiskCents={te.financialRiskCents ?? "0"}
-                      governedImpactCents={te.governedImpactCents}
-                      status={te.status}
-                      showDefenseIndustryBadge={hasMounted && defenseIndustryUi}
-                      reasoningWaterfall={te.reasoningWaterfall ?? null}
-                      onOpen={(tid) => setSelectedThreatId(tid)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mt-4 space-y-4">
-              <HandshakeStatusBar phase={handshakePhase} />
-              <div
-                className={`flex flex-col gap-4 lg:items-stretch ${isSimulationMode ? "lg:flex-row" : ""}`}
-              >
-                {isSimulationMode ? (
-                  <div className="min-w-0 flex-[2]">
-                    <BudgetJustification
-                      framework={insuranceModelFramework}
-                      hasContinuousMonitoring={insuranceHasContinuousMonitoring}
-                      hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
-                      defaultPremiumCents={insuranceDefaultPremiumCents}
-                      tenantFetch={tenantFetch}
-                      onInsurancePostureChange={onInsurancePostureChange}
-                    />
-                  </div>
-                ) : null}
-                {isSimulationMode ? (
-                  <InsuranceForensicHandshakeConnector
-                    flowActive={handshakePhase === "syncing"}
-                  />
-                ) : null}
-                <div
-                  className={`min-w-0 self-start ${isSimulationMode ? "flex-1" : "w-full"}`}
-                >
-                  <GrcGoldLivingAuditBlock
-                    variant="grid"
-                    industry={selectedIndustry}
-                    dashboardCompanyName={null}
-                    handshakePhase={handshakePhase}
-                    onHandshakeSignOff={onHandshakeSignOffComplete}
-                    shadowPlaneAuthorizesSignOff={shadowHandshakeBypassActive}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {scrutinyAssetTelemetryRows
-                .filter((row) => !isMedshieldGhostAsset(row.asset))
-                .slice(0, 8)
-                .map((row) => (
+                <div className="space-y-4">
                   <div
-                    key={row.asset}
-                    className="rounded border border-slate-800/70 bg-slate-950/35 p-2 text-[9px] text-slate-500"
+                    className={`flex flex-col gap-4 lg:items-stretch ${isSimulationMode ? "lg:flex-row" : ""}`}
                   >
-                    <p className="truncate font-medium text-slate-400" title={row.asset}>
-                      {row.asset}
-                    </p>
-                    <p className="mt-1 font-mono text-[8px] text-slate-600">
-                      Cycles {row.total} · focus {row.focusHeat} · forecast {row.predicted.toFixed(1)}
-                    </p>
+                    {isSimulationMode ? (
+                      <div className="min-w-0 flex-[2]">
+                        <BudgetJustification
+                          framework={insuranceModelFramework}
+                          hasContinuousMonitoring={insuranceHasContinuousMonitoring}
+                          hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
+                          defaultPremiumCents={insuranceDefaultPremiumCents}
+                          tenantFetch={tenantFetch}
+                          onInsurancePostureChange={onInsurancePostureChange}
+                        />
+                      </div>
+                    ) : null}
+                    {isSimulationMode ? (
+                      <InsuranceForensicHandshakeConnector
+                        flowActive={handshakePhase === "syncing"}
+                      />
+                    ) : null}
+                    <div
+                      className={`min-w-0 self-start ${isSimulationMode ? "flex-1" : "w-full"}`}
+                    >
+                      <GrcGoldLivingAuditBlock
+                        variant="grid"
+                        industry={selectedIndustry}
+                        dashboardCompanyName={null}
+                        handshakePhase={handshakePhase}
+                        onHandshakeSignOff={onHandshakeSignOffComplete}
+                        shadowPlaneAuthorizesSignOff={shadowHandshakeBypassActive}
+                      />
+                    </div>
                   </div>
-                ))}
-            </div>
-              </>
-            )}
-          </section>
+                </div>
+                </GrcAleExposureMap>
+
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {scrutinyAssetTelemetryRows
+                    .filter((row) => !isMedshieldGhostAsset(row.asset))
+                    .slice(0, 8)
+                    .map((row) => (
+                      <div
+                        key={row.asset}
+                        className="rounded border border-slate-800/70 bg-slate-950/35 p-2 text-[9px] text-slate-500"
+                      >
+                        <p className="truncate font-medium text-slate-400" title={row.asset}>
+                          {row.asset}
+                        </p>
+                        <p className="mt-1 font-mono text-[8px] text-slate-600">
+                          Cycles {row.total} · focus {row.focusHeat} · forecast {row.predicted.toFixed(1)}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </section>
+          )}
           {!auditorViewEnabled ? (
-            <section aria-labelledby="enterprise-risk-posture-heading">
-              <h2 id="enterprise-risk-posture-heading" className="border-b border-slate-800 bg-slate-950 px-6 pt-4 text-xs font-bold uppercase tracking-wider text-slate-500">
+            <section aria-labelledby="enterprise-risk-posture-heading" className="w-full min-w-0">
+              <h2
+                id="enterprise-risk-posture-heading"
+                className={`border-b border-slate-800 bg-slate-950 pt-5 pb-3 text-xs font-bold uppercase tracking-wider text-slate-500 ${DASHBOARD_CENTER_PAD_X}`}
+              >
                 ENTERPRISE RISK POSTURE
               </h2>
-              {children}
+              <div className="w-full min-w-0">{children}</div>
             </section>
           ) : null}
 
@@ -1221,7 +1136,7 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
             />
           ) : null}
           {!auditorViewEnabled ? (
-            <div className="px-4 pb-2">
+            <div className={`${DASHBOARD_CENTER_PAD_X} pb-2`}>
               <SentinelIntakeForm
                 assetOptions={sentinelAssetOptions}
                 manualRiskChipActive={isManualFormOpen}
@@ -1236,22 +1151,24 @@ export default function DashboardHomeClient({ children, serverTimeEpochMs }: Pro
               setSelectedThreatId={setSelectedThreatId}
             />
           ) : null}
+          </div>
+          </div>
         </section>
 
-        <aside
-          data-ironframe-audit-intelligence="true"
-          className="relative z-0 flex h-full min-h-0 w-[400px] max-w-[min(400px,100%)] shrink-0 flex-col overflow-hidden border-l border-slate-800/50 bg-slate-950/50"
-        >
-          <AuditIntelligence
-            serverAuditLogs={serverAuditLogsForAudit}
-            tenantGovernanceBps={tenantGovernanceBps}
-            onOpenThreat={(threatId, focus) => {
-              setSelectedThreatId(threatId);
-              setDrawerFocus(focus ?? null);
-            }}
-          />
+        <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
+          <div className={DASHBOARD_RIGHT_SCROLL}>
+            <AuditIntelligence
+              serverAuditLogs={serverAuditLogsForAudit}
+              tenantGovernanceBps={tenantGovernanceBps}
+              onOpenThreat={(threatId, focus) => {
+                setSelectedThreatId(threatId);
+                setDrawerFocus(focus ?? null);
+              }}
+            />
+          </div>
         </aside>
 
+      </div>
       </div>
       <ForensicReasoningPlaybackModal
         threatId={forensicPlaybackThreatId}

@@ -155,7 +155,7 @@ export async function runCarbonBudgetReallocationAlertIfDue(
           tenant_id: TENANT_UUIDS.medshield,
           sanitization_status: "VERIFIED_SYSTEM_GENERATED",
           irongate_trace_id: randomUUID(),
-          recipient: { email: notifyEmail, role: "CFO" },
+          recipient: { email: notifyEmail, role: "PRODUCT_OWNER" },
           notification: {
             priority: "HIGH",
             subject: `Ironcast · ${CARBON_BUDGET_REALLOCATION_ALERT_NAME}`,

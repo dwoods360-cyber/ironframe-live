@@ -54,12 +54,12 @@ export async function aggregateProductionMitigatedValueCents(
   const agg = await prisma.sustainabilityMetric.aggregate({
     where: {
       threatId: { in: productionIds },
-      mitigatedValueCents: { not: null },
+      mitigatedValueCents: { gt: 0n },
       ...(since ? { createdAt: { gte: since } } : {}),
     },
     _sum: { mitigatedValueCents: true },
   });
-  return agg._sum.mitigatedValueCents ?? 0n;
+  return agg._sum?.mitigatedValueCents ?? 0n;
 }
 
 /** Sum production `mitigated_value_cents` across all roster tenants since `options.since`. */

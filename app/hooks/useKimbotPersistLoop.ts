@@ -43,7 +43,12 @@ function localRegistryRecord(
     sourceAgent: KIMBOT_SOURCE,
     lifecycleStatus: partial.lifecycleStatus,
     riskEventId: partial.riskEventId ?? null,
-    ingestionDetails: partial.ingestionDetails ?? null,
+    ingestionDetails:
+      typeof partial.ingestionDetails === "string"
+        ? partial.ingestionDetails
+        : partial.ingestionDetails != null
+          ? JSON.stringify(partial.ingestionDetails)
+          : null,
     createdAt: now,
     updatedAt: now,
   };

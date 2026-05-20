@@ -181,12 +181,18 @@ export function belongsOnAttackVelocityPipeline(t: {
   industry?: string;
   createdAt?: string;
 }): boolean {
-  if (!isChaosMarkedThreat(t)) return true;
+  const scoped = {
+    threatStatus: t.threatStatus,
+    industry: t.industry,
+    createdAt: t.createdAt,
+    ingestionDetails: t.ingestionDetails ?? undefined,
+  };
+  if (!isChaosMarkedThreat(scoped)) return true;
   /** Simulation Bots A–C — normal Attack Velocity until claim/ack (not Irontech discovery/L4 windows). */
-  if (isSystemIntegrityDrillThreat(t)) return true;
-  if (!isIrontechChaosDrillEntity(t)) return true;
-  if (isRemoteSupportChaosThreat(t)) return isInRemoteSupportAttackVelocityWindow(t);
-  return isChaosInDiscoveryWindow(t);
+  if (isSystemIntegrityDrillThreat(scoped)) return true;
+  if (!isIrontechChaosDrillEntity(scoped)) return true;
+  if (isRemoteSupportChaosThreat(scoped)) return isInRemoteSupportAttackVelocityWindow(scoped);
+  return isChaosInDiscoveryWindow(scoped);
 }
 
 export function chaosAcknowledgeBlockedByDiscoveryHold(params: {
@@ -195,7 +201,8 @@ export function chaosAcknowledgeBlockedByDiscoveryHold(params: {
   industry?: string | null;
   createdAt: Date;
 }): { blocked: true; retryAfterMs: number } | { blocked: false } {
-  const ingestionStr = chaosIngestionDetailsToPipelineString(params.ingestionDetails);
+  const ingestionStr =
+    chaosIngestionDetailsToPipelineString(params.ingestionDetails ?? undefined) ?? undefined;
   const threatLike = {
     threatStatus: params.status,
     ingestionDetails: ingestionStr,

@@ -49,7 +49,7 @@ export async function extractDocumentText(input: ForensicIngestInput): Promise<s
       const { text } = await generateText({
         model: google(OCR_MODEL),
         prompt: `You are Ironscribe (Agent 5). Clean and structure this extracted regulatory PDF text (${input.filename}, ${input.authority}). Preserve section numbers and requirements.\n\n${naive.slice(0, 24_000)}`,
-        maxTokens: 8192,
+        maxOutputTokens: 8192,
       });
       if (text.trim().length > 80) return text.trim().slice(0, 200_000);
     } catch {

@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
         sustainabilityStaleLockdownWaived: true,
       },
     });
+    if (!row) {
+      return NextResponse.json({ ok: false, error: "System configuration row missing." }, { status: 500 });
+    }
     const lock = computeSustainabilityStaleLockdown(row);
     if (!lock.staleDataLockdownWindow) {
       return NextResponse.json(

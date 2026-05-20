@@ -227,7 +227,10 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
         applyManualSimulationStandDownResumeFeed();
 
-        if (isChaosInfilScenario(scenario)) {
+        const chaosScenario =
+          scenario === "CONSTITUTIONAL_COLLAPSE" ? null : (scenario as ChaosScenario);
+
+        if (chaosScenario && isChaosInfilScenario(chaosScenario)) {
           setInfiltrActive(true);
           appendAuditLog({
             action_type: "RED_TEAM_SIMULATION_START",
@@ -235,7 +238,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             description: `Chaos drill armed (09 — InfilBot): ${scenarioLabelForServer || scenario}.`,
             metadata_tag: `SIMULATION|INFILBOT_CHAOS|${scenario}`,
           });
-        } else if (isChaosPhishScenario(scenario)) {
+        } else if (chaosScenario && isChaosPhishScenario(chaosScenario)) {
           setPhishActive(true);
           appendAuditLog({
             action_type: "RED_TEAM_SIMULATION_START",
@@ -325,7 +328,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           });
         };
 
-        const stages = getChaosShadowDrillStages(scenario);
+        const stages = chaosScenario ? getChaosShadowDrillStages(chaosScenario) : [];
         let forensicGavelStruck = false;
         for (let i = 0; i < stages.length; i++) {
           if (i > 0) {

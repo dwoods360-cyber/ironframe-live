@@ -27,7 +27,8 @@ export type ChaosTelemetryScenario =
   | "INFIL_CRED_STUFFING"
   | "INFIL_LATERAL_PIVOT"
   | "PHISH_CEO_FRAUD"
-  | "PHISH_IT_HELPDESK";
+  | "PHISH_IT_HELPDESK"
+  | "CONSTITUTIONAL_COLLAPSE";
 
 /** One persisted telemetry beat (Irongate → Ironscribe → Irontech → SYSTEM @ T12). */
 export type ChaosShadowDrillStageDef = {

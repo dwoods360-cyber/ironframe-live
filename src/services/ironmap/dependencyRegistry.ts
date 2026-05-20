@@ -16,6 +16,7 @@ export type DependencyDownstreamAgent = {
    * True when missing provider primarily blocks this node (carbon / grid-truth path).
    * Used for “wait-listed / throttled” attestation language.
    */
+  carbonGate?: boolean;
   /**
    * True when this specialist could execute **regulatory / framework** sub-tasks without live
    * Electricity Maps (SOC2 mapping, vault controls, etc.). Used for Idle Debt + decoupling dividend.

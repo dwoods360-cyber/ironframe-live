@@ -909,9 +909,18 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     };
   });
 
+  const serverAuditLogsPayload = serverAuditLogs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    operatorId: log.operatorId,
+    threatId: log.threatId ?? log.simThreatId ?? null,
+    justification: log.justification,
+    createdAt: log.createdAt.toISOString(),
+  }));
+
   return serializeBigInt({
     companies: serializedCompanies,
-    serverAuditLogs,
+    serverAuditLogs: serverAuditLogsPayload,
     risks: serializedRisks,
     threatEvents: threatEventsPayload,
     aleExposureByAssetCents,

@@ -13,7 +13,7 @@ import {
 } from "@/app/lib/chaosRunTelemetry";
 import { fetchLastWillFromOffSite, findLatestLocalLwtArchiveId } from "@/app/lib/lastWillAndTestament";
 import { DEAD_MAN_SWITCH_SIMULATION_TTL_MS } from "@/app/lib/deadMansSwitch";
-import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
+import { readGovernanceMaturityStateSync } from "@/app/lib/governanceMaturityState";
 import {
   buildFinancialDefenseNarrative,
   computeCostOfNonCompliance,
@@ -372,6 +372,19 @@ export async function generateIrontechPostMortemReport(params: {
     minJustificationLength: forensicQuality.minJustificationLength,
     dmsWipeComplete: dmsLearning.wipeComplete,
   });
+
+  const maturityScoreAtEvent = readGovernanceMaturityStateSync().current.score;
+  const financialImpact = computeCostOfNonCompliance(maturityScoreAtEvent, {
+    baselineMode: "governance_envelope",
+  });
+  const financialDefenseSummary = {
+    maturityScoreAtEvent,
+    financialImpact,
+    narrative: buildFinancialDefenseNarrative(
+      financialImpact,
+      run?.scenario ?? "CONSTITUTIONAL_COLLAPSE",
+    ),
+  };
 
   const reportId = createHash("sha256")
     .update(`${tenantId}:${Date.now()}:${run?.runId ?? "orphan"}`, "utf8")

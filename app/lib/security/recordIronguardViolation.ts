@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { bumpLedgerFromIronguardMetadata } from "@/app/lib/security/quarantineLedgerGuard";
 
@@ -21,7 +22,10 @@ export async function recordIronguardViolation(input: RecordIronguardViolationIn
       attemptedTenantUuid: input.attemptedTenantUuid?.trim() || null,
       errorCode: code.slice(0, 256),
       path,
-      metadata: input.metadata === undefined || input.metadata === null ? undefined : input.metadata,
+      metadata:
+        input.metadata === undefined || input.metadata === null
+          ? undefined
+          : (input.metadata as Prisma.InputJsonValue),
     },
   });
   const meta =

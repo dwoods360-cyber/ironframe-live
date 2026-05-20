@@ -81,16 +81,17 @@ async function fetchFeed(feed: IndustryScoutFeed): Promise<CrawlDiscoveredItem[]
         if (!topicMatch(feed, text)) return null;
         const link = item.link.trim();
         const isPdf = /\.pdf($|\?)/i.test(link);
-        return {
+        const discovered: CrawlDiscoveredItem = {
           id: stableItemId(feed.id, link, item.title),
           feedId: feed.id,
           authority: feed.authority,
           title: item.title.replace(/<[^>]+>/g, "").slice(0, 300),
           link,
           description: item.description.replace(/<[^>]+>/g, "").slice(0, 2000),
-          publishedAt: item.pubDate,
           isPdf: isPdf || (feed.pdfDiscovery && /final rule|amendment|sp\s*800/i.test(text)),
-        } satisfies CrawlDiscoveredItem;
+        };
+        if (item.pubDate) discovered.publishedAt = item.pubDate;
+        return discovered;
       })
       .filter((x): x is CrawlDiscoveredItem => x != null);
   } catch {

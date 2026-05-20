@@ -33,7 +33,7 @@ export function chaosDrillOperatorConcurrenceSatisfied(
     const j = JSON.parse(raw) as {
       chaosGrcAckPersistedAt?: unknown;
       chaosObserverConcurrenceVerifiedAt?: unknown;
-      chaosAssigneeHandoffHistory?: Array<{ phase?: string }>;
+      chaosAssigneeHandoffHistory?: Array<{ phase?: string; directiveId?: string }>;
     };
     if (j.chaosGrcAckPersistedAt != null && String(j.chaosGrcAckPersistedAt).trim()) {
       return true;

@@ -16,6 +16,7 @@ import {
   maybeDispatchStateFreezeCisoVoiceFallback,
 } from "@/src/services/ironcast/stateFreezeCisoEscalation";
 import { runIrontechLkgSpawnProtocol } from "@/src/services/irontech/autonomousDecoupling";
+import { invokeTelemetryDropTriage } from "@/src/services/irontech/healthPostureMonitor";
 
 /** Logged on each check; matches `SystemHealthLog.serviceKey`. */
 export const IRONWATCH_SERVICE_KEY_ELECTRICITY_MAPS = "ELECTRICITY_MAPS_LIVE";
@@ -386,6 +387,20 @@ export async function runIronwatchElectricityMapsHeartbeat(): Promise<IronwatchH
 
       await ironcastNotifyStaleData();
       await recalculateSystemMaturityScore({ trigger: "IRONWATCH_STALE_DATA" });
+
+      try {
+        const t = await prisma.tenant.findFirst({ select: { id: true }, orderBy: { id: "asc" } });
+        if (t?.id) {
+          await invokeTelemetryDropTriage(t.id, failures, IRONWATCH_MIN_CONSECUTIVE_FAILURES);
+        }
+      } catch (e) {
+        logStructuredEvent(
+          "Ironwatch",
+          "tas_4_3_triage_hook_failed",
+          { detail: e instanceof Error ? e.message : String(e) },
+          "error",
+        );
+      }
     } else {
       await prisma.systemConfig.update({
         where: { id: "global" },

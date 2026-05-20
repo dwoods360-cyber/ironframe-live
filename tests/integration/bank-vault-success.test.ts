@@ -1,6 +1,18 @@
 import { createHash } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// Mock Next.js headers request store to prevent cookies() context errors in Vitest.
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => {
+      if (name === "ironframe-tenant") {
+        return { value: "tenant-medshield-uuid" };
+      }
+      return undefined;
+    },
+  })),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -144,8 +156,20 @@ Object.assign(prismaMock, {
       return { id: updatedThreat.id };
     }),
   },
+  tenant: {
+    findUnique: vi.fn(async (args: { where?: { id?: string; slug?: string } }) => {
+      const id = args?.where?.id;
+      const slug = args?.where?.slug;
+      if (id === "tenant-medshield-uuid" || slug === "medshield" || slug === "tenant-medshield-uuid") {
+        return { id: "tenant-medshield-uuid" };
+      }
+      return null;
+    }),
+    findFirst: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
+  },
   company: {
     findUnique: vi.fn(async () => ({ tenantId: "tenant-medshield-uuid" })),
+    findFirst: vi.fn(async () => ({ id: 9001n })),
   },
   threatApproval: {
     create: vi.fn(async (args: any) => {

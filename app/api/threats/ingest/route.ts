@@ -14,6 +14,10 @@ import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 import { ingressUsesRiskEventTable } from '@/app/lib/security/ingressGateway';
 import { chaosAcknowledgeBlockedByDiscoveryHold } from '@/app/utils/chaosDiscoveryHold';
+import {
+  ingestOrchestrationBusDisabled,
+  invokeIngestOrchestrationBus,
+} from '@/src/services/orchestration/ingestBusBridge';
 
 /** Canonical Medshield tenant UUID — aligns bot writes with default dev session / terminal logs when env shadow has no cookie. */
 const SHADOW_PLANE_DEFAULT_TENANT_UUID = TENANT_UUIDS.medshield;
@@ -73,6 +77,10 @@ function isAdversarialBotIngestPayload(body: Record<string, unknown>): boolean {
  * Shadow plane + bot passport: middleware bypasses Ironguard 403 when SHADOW_PLANE_ACTIVE or simulation cookie;
  * tenant resolution prefers `x-tenant-id`, then session cookie, then `SHADOW_PLANE_INGEST_TENANT_UUID`, then Medshield.
  * Persistence: `acknowledgeThreatAction` writes ACK state + AuditLog server-side.
+ *
+ * Epic 10.5: After acknowledgement, eligible requests invoke `compileSovereignOrchestrationBus`
+ * (Ironcore → Ironscribe → Ironsight → Ironquery → Ironlock/Ironcast). Set `skipOrchestrationBus: true`
+ * or `IRONFRAME_INGEST_BUS_DISABLED=1` to bypass.
  */
 export async function POST(request: NextRequest) {
   noStore();
@@ -357,6 +365,80 @@ export async function POST(request: NextRequest) {
       console.info('[api/threats/ingest] bot-passport OK — tenant scope:', tenantId, 'threatId:', threatId);
     }
 
+    /** Epic 10.5 — live workforce bus (non-blocking on failure; acknowledgement already committed). */
+    let orchestrationBus:
+      | Awaited<ReturnType<typeof invokeIngestOrchestrationBus>>
+      | undefined;
+    if (!ingestOrchestrationBusDisabled(body)) {
+      const rawData =
+        (body.rawData && typeof body.rawData === 'object' && !Array.isArray(body.rawData)
+          ? (body.rawData as Record<string, unknown>)
+          : null) ??
+        (body.raw_payload && typeof body.raw_payload === 'object' && !Array.isArray(body.raw_payload)
+          ? (body.raw_payload as Record<string, unknown>)
+          : null);
+
+      const parsedIngest = parseIngestionDetailsForMerge(threat.ingestionDetails ?? null) as Record<
+        string,
+        unknown
+      >;
+
+      orchestrationBus = await invokeIngestOrchestrationBus(
+        {
+          tenantId,
+          threatId,
+          rawPayload: {
+            ...parsedIngest,
+            ...(rawData ?? {}),
+            operatorId,
+            justification,
+          },
+          threadId: threatId,
+        },
+        { body },
+      );
+
+      if (orchestrationBus.ok) {
+        try {
+          const busPatch = {
+            orchestrationBusCycle: {
+              completedAt: new Date().toISOString(),
+              currentAgent: orchestrationBus.currentAgent,
+              ironquerySignature: orchestrationBus.ironquerySignature,
+              logLineCount: orchestrationBus.agentLogs.length,
+              status: orchestrationBus.status,
+            },
+          };
+          const useRiskTable = await ingressUsesRiskEventTable();
+          if (useRiskTable) {
+            const row = await prisma.riskEvent.findFirst({
+              where: { id: threatId },
+              select: { tenantId: true, ingestionDetails: true },
+            });
+            if (row?.tenantId) {
+              const merged = mergeIngestionDetailsPatchJson(row.ingestionDetails ?? null, busPatch);
+              await prisma.riskEvent.updateMany({
+                where: { id: threatId, tenantId: row.tenantId },
+                data: { ingestionDetails: merged },
+              });
+            }
+          } else {
+            const te = await prisma.threatEvent.findUnique({
+              where: { id: threatId },
+              select: { ingestionDetails: true },
+            });
+            const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, busPatch);
+            await prisma.threatEvent.updateMany({
+              where: { id: threatId },
+              data: { ingestionDetails: merged },
+            });
+          }
+        } catch (busStampErr) {
+          console.warn('[api/threats/ingest] orchestration bus ingestion stamp failed', busStampErr);
+        }
+      }
+    }
+
     console.info(
       '[api/threats/ingest] SUCCESS: Row written — tenant:',
       tenantId,
@@ -377,7 +459,25 @@ export async function POST(request: NextRequest) {
 
     revalidatePath('/', 'layout');
 
-    return NextResponse.json({ success: true, shadowPlaneIngest: shadow && botIngest }, { headers });
+    return NextResponse.json(
+      {
+        success: true,
+        shadowPlaneIngest: shadow && botIngest,
+        ...(orchestrationBus?.ok
+          ? {
+              orchestrationBus: {
+                executionAuditTrail: orchestrationBus.agentLogs,
+                assignedQuarantiner: orchestrationBus.currentAgent,
+                ironquerySignature: orchestrationBus.ironquerySignature,
+                status: orchestrationBus.status,
+              },
+            }
+          : orchestrationBus && !orchestrationBus.ok
+            ? { orchestrationBusError: orchestrationBus.error }
+            : {}),
+      },
+      { headers },
+    );
   } catch (e) {
     console.error('[api/threats/ingest]', e);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

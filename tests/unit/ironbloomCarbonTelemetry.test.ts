@@ -15,6 +15,10 @@ import {
   INTERNAL_CARBON_PRICE_CENTS_PER_TON,
   sealMitigatedValueCents,
 } from "@/app/services/ironbloom/scoring";
+import { executeGridcoreCarbonLedgerSync } from "@/app/services/ironbloom/gridcoreCarbonLedgerSync";
+import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
+import { readGridcoreCarbonLedgerStateSync } from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
+import { computeLedgerCarbonAleCents } from "@/app/utils/sustainabilityLedgerAle";
 
 describe("ironbloom carbon telemetry", () => {
   it("maps electricity maps zone back to tenant for location defaults", () => {
@@ -73,6 +77,35 @@ describe("ironbloom carbon telemetry", () => {
       } else {
         vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
       }
+    }
+  });
+
+  it("computeLedgerCarbonAleCents uses ICP $85/t BigInt path", () => {
+    const cents = computeLedgerCarbonAleCents([
+      { energyConsumedKwh: "25000", carbonIntensityGrams: "412" },
+    ]);
+    expect(cents).toBe((25000n * 412n * 8500n) / 1_000_000n);
+  });
+
+  it("executeGridcoreRatePoll re-exports carbon ledger sync from src/services", async () => {
+    expect(executeGridcoreRatePoll).toBe(executeGridcoreCarbonLedgerSync);
+  });
+
+  it("executeGridcoreCarbonLedgerSync writes roster zones under staging fallback", async () => {
+    const prior = process.env.ELECTRICITY_MAPS_API_KEY;
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "mock_staging_key");
+    try {
+      const result = await executeGridcoreCarbonLedgerSync();
+      expect(result.status).toBe("GRIDCORE_LEDGER_SYNCHRONIZED");
+      expect(result.recordsIngested).toBe(4);
+      expect(result.stagingFallback).toBe(true);
+      const state = readGridcoreCarbonLedgerStateSync();
+      expect(state.coefficients).toHaveLength(4);
+      expect(state.coefficients.some((c) => c.zone === "US-CO")).toBe(true);
+      expect(state.coefficients[0]?.telemetryFingerprint).toHaveLength(64);
+    } finally {
+      if (prior === undefined) vi.unstubAllEnvs();
+      else vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
     }
   });
 

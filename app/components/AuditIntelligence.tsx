@@ -47,6 +47,7 @@ import {
 } from "@/app/actions/postMortemActions";
 import { ConstitutionalText } from "@/app/components/ConstitutionalText";
 import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
+import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyticsPlane";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
 
@@ -1523,6 +1524,9 @@ export default function AuditIntelligence({
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
       <div className="min-h-0 max-h-[min(24vh,220px)] shrink-0 overflow-y-auto overscroll-y-contain px-4 pt-4 [scrollbar-gutter:stable]">
       <CarbonPulse />
+      <div className="mt-3">
+        <SustainabilityAnalyticsPlane />
+      </div>
       {showAdversarialTargetWarning ? (
         <div
           className="relative z-50 mb-1 flex items-center gap-2 rounded border border-amber-500/60 bg-gradient-to-r from-amber-950/70 via-slate-950/80 to-slate-950/90 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-amber-100 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)]"

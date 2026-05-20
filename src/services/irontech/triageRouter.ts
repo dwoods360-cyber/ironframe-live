@@ -148,7 +148,11 @@ export async function evaluateSystemTriage(
     { operatorId: IRONTECH_AGENT_12_ASSIGNEE, isSimulation: false },
   );
 
-  revalidatePath("/", "layout");
+  try {
+    revalidatePath("/", "layout");
+  } catch {
+    /* Non-Next runtimes (Vitest integration, isolated workers) */
+  }
 
   return {
     status: "TRIAGED_AND_HEALED",

@@ -2,48 +2,6 @@
   "samplesByTenant": {
     "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01": [
       {
-        "at": "2026-05-20T12:17:54.582Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 379.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T12:19:55.221Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 389.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T12:20:54.666Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 371.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T12:22:54.844Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T12:23:55.182Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T12:25:55.355Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.9,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
         "at": "2026-05-20T13:05:52.847Z",
         "zone": "US-NEIS",
         "gco2PerKwh": 378.7,
@@ -670,6 +628,48 @@
         "at": "2026-05-20T16:37:58.084Z",
         "zone": "US-NEIS",
         "gco2PerKwh": 374.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:38:48.722Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 384.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:39:00.709Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:40:03.253Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 374.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:40:18.790Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 375.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:41:05.706Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 374.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-20T16:41:48.712Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 373.6,
         "mitigatedValueCents": "1615",
         "dirty": false
       }
@@ -2116,8 +2116,8 @@
   "ironlockThrottleByTenant": {
     "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01": {
       "active": false,
-      "updatedAt": "2026-05-20T16:37:58.974Z",
-      "intensityGco2PerKwh": 374.7,
+      "updatedAt": "2026-05-20T16:41:49.552Z",
+      "intensityGco2PerKwh": 373.6,
       "thresholdGco2PerKwh": 400,
       "autonomousMitigationEnabled": false
     },

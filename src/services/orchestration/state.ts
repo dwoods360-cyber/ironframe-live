@@ -65,4 +65,28 @@ export const SovereignGraphState = Annotation.Root({
     },
     default: () => [],
   }),
+
+  /** Epic 10 bus — next node key (`ironlock` | `ironcast` | `ironscribe` | `END`). */
+  routing_target: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
+  }),
+
+  /** TAS §4.3 — workspace health bar (0–100); below 50% triggers Ironlock → Irontech triage path. */
+  health_bar_percent: Annotation<number>({
+    reducer: (_x: number, y: number) => (typeof y === "number" && Number.isFinite(y) ? y : _x),
+    default: () => 100,
+  }),
+
+  /** Optional threat correlation for audit + Ironcast egress. */
+  threat_id: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
+  }),
+
+  /** Ironquery (Agent 15) evidence-chain fingerprint from RAG cycle. */
+  ironquery_summary_signature: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
+  }),
 });

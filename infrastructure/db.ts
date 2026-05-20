@@ -1,8 +1,12 @@
 /**
- * @deprecated Epic 15 — production LangGraph state uses `src/services/orchestration/checkpointer.ts`
- * (`PostgresSaver` + `DATABASE_URL`). This in-memory store remains **only** for Ironguard
- * optimistic-lock integration tests (`__tests__/integration/epic6-concurrency.test.ts`).
+ * Epic 15 — Ironguard optimistic-lock checkpoint facade.
+ * All LangGraph state is persisted via `getPostgresCheckpointer()` (PostgresSaver + DATABASE_URL).
+ * In-process mutex chains remain for strict read–modify–write serialization per (id, tenant).
  */
+
+import { randomUUID } from "crypto";
+import type { Checkpoint } from "@langchain/langgraph-checkpoint";
+import { getPostgresCheckpointer } from "@/src/services/orchestration/checkpointer";
 
 export type LangGraphCheckpointRecord = {
   id: string;
@@ -16,13 +20,27 @@ export type LangGraphCheckpointRecord = {
   payload: Record<string, unknown>;
 };
 
-const store = new Map<string, LangGraphCheckpointRecord>();
+const IRONGUARD_CHANNEL = "ironguard_record" as const;
 
 /** Per-compound-key mutex tail for strict serialization of checkpoint mutations. */
 const langGraphLockChains = new Map<string, Promise<void>>();
 
 function compoundKey(id: string, tenant_id: string): string {
   return `${tenant_id}::${id}`;
+}
+
+function langGraphThreadId(id: string, tenant_id: string): string {
+  return compoundKey(id, tenant_id);
+}
+
+function runnableConfig(id: string, tenant_id: string, checkpoint_id?: string) {
+  return {
+    configurable: {
+      thread_id: langGraphThreadId(id, tenant_id),
+      checkpoint_ns: "",
+      ...(checkpoint_id ? { checkpoint_id } : {}),
+    },
+  };
 }
 
 function normalizeCreate(
@@ -41,6 +59,78 @@ function normalizeCreate(
   };
 }
 
+function parseRecord(channel_values: Record<string, unknown> | undefined): LangGraphCheckpointRecord | null {
+  if (!channel_values) return null;
+  const raw = channel_values[IRONGUARD_CHANNEL];
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = typeof r.id === "string" ? r.id : "";
+  const tenant_id = typeof r.tenant_id === "string" ? r.tenant_id : "";
+  if (!id || !tenant_id) return null;
+  const version = typeof r.version === "number" ? r.version : 1;
+  const status = typeof r.status === "string" ? r.status : "PROCESSING";
+  const persisted_state = typeof r.persisted_state === "string" ? r.persisted_state : status;
+  const step = typeof r.step === "string" ? r.step : "";
+  const ale_impact = typeof r.ale_impact === "string" ? r.ale_impact : "0";
+  const payload =
+    r.payload && typeof r.payload === "object" && !Array.isArray(r.payload)
+      ? { ...(r.payload as Record<string, unknown>) }
+      : {};
+  return {
+    id,
+    tenant_id,
+    version,
+    status,
+    persisted_state,
+    step,
+    ale_impact,
+    payload,
+  };
+}
+
+function buildCheckpoint(row: LangGraphCheckpointRecord, prior?: Checkpoint): Checkpoint {
+  const priorChannel = prior?.channel_versions?.[IRONGUARD_CHANNEL];
+  const nextChannelVersion =
+    typeof priorChannel === "number" ? priorChannel + 1 : typeof priorChannel === "string" ? 2 : 1;
+
+  return {
+    v: 4,
+    id: randomUUID(),
+    ts: new Date().toISOString(),
+    channel_values: {
+      tenant_id: row.tenant_id,
+      [IRONGUARD_CHANNEL]: {
+        ...row,
+        payload: { ...row.payload },
+      },
+    },
+    channel_versions: {
+      __start__: 1,
+      [IRONGUARD_CHANNEL]: nextChannelVersion,
+    },
+    versions_seen: prior?.versions_seen ?? { __input__: {} },
+  };
+}
+
+async function persistRecord(row: LangGraphCheckpointRecord): Promise<LangGraphCheckpointRecord> {
+  const cp = await getPostgresCheckpointer();
+  const readConfig = runnableConfig(row.id, row.tenant_id);
+  const tuple = await cp.getTuple(readConfig);
+  const parentCheckpointId =
+    typeof tuple?.config?.configurable?.checkpoint_id === "string"
+      ? tuple.config.configurable.checkpoint_id
+      : undefined;
+
+  const writeConfig = runnableConfig(row.id, row.tenant_id, parentCheckpointId);
+  const checkpoint = buildCheckpoint(row, tuple?.checkpoint);
+  const metadata = tuple
+    ? ({ source: "update" as const, step: row.version, parents: {} })
+    : ({ source: "input" as const, step: -1, parents: {} });
+
+  await cp.put(writeConfig, checkpoint, metadata, { [IRONGUARD_CHANNEL]: row.version });
+  return { ...row, payload: { ...row.payload } };
+}
+
 async function withSerializedCheckpoint<T>(riskId: string, tenant_id: string, fn: () => Promise<T>): Promise<T> {
   const key = compoundKey(riskId, tenant_id);
   const prev = langGraphLockChains.get(key) ?? Promise.resolve();
@@ -57,38 +147,52 @@ async function withSerializedCheckpoint<T>(riskId: string, tenant_id: string, fn
   }
 }
 
-export function resetLangGraphCheckpointStore(): void {
-  store.clear();
+/**
+ * Delete Ironguard LangGraph threads from Postgres (test isolation / teardown).
+ */
+export async function resetLangGraphCheckpointStore(scope?: {
+  id: string;
+  tenant_id: string;
+}): Promise<void> {
   langGraphLockChains.clear();
+  if (!process.env.DATABASE_URL?.trim()) return;
+  if (!scope) return;
+  const cp = await getPostgresCheckpointer();
+  await cp.deleteThread(langGraphThreadId(scope.id, scope.tenant_id));
 }
 
 export const db = {
-  /**
-   * Run a read–modify–write on one checkpoint without overlapping another on the same (id, tenant).
-   */
-  withSerializedCheckpoint: withSerializedCheckpoint,
+  withSerializedCheckpoint,
 
   langGraphCheckpoints: {
-    findUnique({
+    async findUnique({
       where,
     }: {
       where: { id: string; tenant_id: string };
     }): Promise<LangGraphCheckpointRecord | null> {
-      const row = store.get(compoundKey(where.id, where.tenant_id));
-      return Promise.resolve(row ? { ...row, payload: { ...row.payload } } : null);
+      const cp = await getPostgresCheckpointer();
+      const tuple = await cp.getTuple(runnableConfig(where.id, where.tenant_id));
+      const values = tuple?.checkpoint?.channel_values as Record<string, unknown> | undefined;
+      const row = parseRecord(values);
+      return row ? { ...row, payload: { ...row.payload } } : null;
     },
 
-    create({ data }: { data: Partial<LangGraphCheckpointRecord> & { id: string; tenant_id: string } }): Promise<LangGraphCheckpointRecord> {
-      const k = compoundKey(data.id, data.tenant_id);
-      if (store.has(k)) {
-        return Promise.reject(new Error(`LangGraphCheckpoint already exists: ${k}`));
+    async create({
+      data,
+    }: {
+      data: Partial<LangGraphCheckpointRecord> & { id: string; tenant_id: string };
+    }): Promise<LangGraphCheckpointRecord> {
+      const existing = await db.langGraphCheckpoints.findUnique({
+        where: { id: data.id, tenant_id: data.tenant_id },
+      });
+      if (existing) {
+        throw new Error(`LangGraphCheckpoint already exists: ${compoundKey(data.id, data.tenant_id)}`);
       }
       const row = normalizeCreate(data);
-      store.set(k, row);
-      return Promise.resolve({ ...row, payload: { ...row.payload } });
+      return persistRecord(row);
     },
 
-    upsert({
+    async upsert({
       where,
       create,
       update,
@@ -97,8 +201,7 @@ export const db = {
       create: Partial<LangGraphCheckpointRecord> & { id: string; tenant_id: string };
       update: Partial<Pick<LangGraphCheckpointRecord, "persisted_state" | "step" | "ale_impact" | "status">>;
     }): Promise<LangGraphCheckpointRecord> {
-      const k = compoundKey(where.id, where.tenant_id);
-      const existing = store.get(k);
+      const existing = await db.langGraphCheckpoints.findUnique({ where });
       const next: LangGraphCheckpointRecord = existing
         ? {
             ...existing,
@@ -111,17 +214,11 @@ export const db = {
             payload: { ...existing.payload },
           }
         : normalizeCreate({ ...create, ...update });
-      store.set(k, next);
-      return Promise.resolve({ ...next, payload: { ...next.payload } });
+      return persistRecord(next);
     },
 
-    /** Replace row after optimistic validation (use inside `withSerializedCheckpoint`). */
-    _replace(row: LangGraphCheckpointRecord): Promise<LangGraphCheckpointRecord> {
-      store.set(compoundKey(row.id, row.tenant_id), {
-        ...row,
-        payload: { ...row.payload },
-      });
-      return Promise.resolve({ ...row, payload: { ...row.payload } });
+    async _replace(row: LangGraphCheckpointRecord): Promise<LangGraphCheckpointRecord> {
+      return persistRecord({ ...row, payload: { ...row.payload } });
     },
   },
 };

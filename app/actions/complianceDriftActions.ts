@@ -71,7 +71,7 @@ ${tasExcerpt.slice(0, 8000)}`;
     const { text } = await generateText({
       model: google(AMENDMENT_MODEL),
       prompt,
-      maxTokens: 4096,
+      maxOutputTokens: 4096,
     });
 
     const draftId = hashAmendmentDraftId(alertId);

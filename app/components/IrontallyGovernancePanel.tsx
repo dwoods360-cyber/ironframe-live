@@ -128,7 +128,7 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
                 border: "1px solid #334155",
                 fontSize: 10,
               }}
-              formatter={(v: number) => [`${v.toFixed(1)} / 10`, "Maturity"]}
+              formatter={(v: number | undefined) => [`${(v ?? 0).toFixed(1)} / 10`, "Maturity"]}
             />
             <Bar dataKey="score" radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {market.chartSeries.map((entry) => (

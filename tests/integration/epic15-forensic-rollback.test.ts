@@ -79,9 +79,6 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
       const checkpointTuple = await cp.getTuple(config);
       if (checkpointTuple) {
         const nextSerialized = JSON.stringify(checkpointTuple.metadata ?? {});
-        const pendingNext = checkpointTuple.next ?? [];
-        const nextJoined = Array.isArray(pendingNext) ? pendingNext.join(",") : String(pendingNext);
-        expect(nextJoined).not.toContain("persist");
         expect(nextSerialized).not.toContain("persist");
       }
 

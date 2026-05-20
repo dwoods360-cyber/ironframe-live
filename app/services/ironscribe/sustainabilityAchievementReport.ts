@@ -132,18 +132,25 @@ export async function runSustainabilityAchievementReportIfDue(
 
     if (productionMode) {
       totalCents = await aggregateProductionMitigatedValueCents(reportTenantUuid, { since: cutoff });
-      const productionMetrics = await prisma.sustainabilityMetric.findMany({
-        where: {
-          createdAt: { gte: cutoff },
-          threat: {
-            company: { tenantId: reportTenantUuid },
-          },
-        },
-        select: {
-          kwhAverted: true,
-          threat: { select: { sourceAgent: true, ingestionDetails: true } },
-        },
-      });
+      const tenantCompanyIds = (
+        await prisma.company.findMany({
+          where: { tenantId: reportTenantUuid },
+          select: { id: true },
+        })
+      ).map((c) => c.id);
+      const productionMetrics =
+        tenantCompanyIds.length === 0
+          ? []
+          : await prisma.sustainabilityMetric.findMany({
+              where: {
+                createdAt: { gte: cutoff },
+                threat: { tenantCompanyId: { in: tenantCompanyIds } },
+              },
+              select: {
+                kwhAverted: true,
+                threat: { select: { sourceAgent: true, ingestionDetails: true } },
+              },
+            });
       for (const row of productionMetrics) {
         if (isSimulationThreatForCsrdExport(row.threat)) continue;
         totalKwh += row.kwhAverted;

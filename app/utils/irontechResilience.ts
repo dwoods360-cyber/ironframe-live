@@ -776,7 +776,7 @@ async function persistRemoteSupportLivePatch(
     operatorId: INTERNAL_DRILL_OPERATOR_ID,
     justification: lastTerminalLine,
     integrityEventType: "IRONTECH_LIVE_PATCH_UPDATED",
-    auditAction: "STATUS_UPDATED",
+    auditAction: "STATE_TRANSITION",
     shadowChanges: { ingestionDetails: merged },
   });
   if (!result.ok) {
@@ -825,7 +825,7 @@ async function applyRemoteSupportDrillStatus(
     operatorId: INTERNAL_DRILL_OPERATOR_ID,
     justification: eventType,
     integrityEventType: eventType,
-    auditAction: "STATUS_UPDATED",
+    auditAction: "STATE_TRANSITION",
     shadowChanges: {
       status: newStatus,
       ingestionDetails: merged,

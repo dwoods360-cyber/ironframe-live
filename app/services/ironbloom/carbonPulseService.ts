@@ -92,11 +92,11 @@ async function aggregateMitigatedCents(tenantId: string): Promise<bigint> {
   const agg = await prisma.sustainabilityMetric.aggregate({
     where: {
       threatId: { in: threats.map((t) => t.id) },
-      mitigatedValueCents: { not: null },
+      mitigatedValueCents: { gt: 0n },
     },
     _sum: { mitigatedValueCents: true },
   });
-  return agg._sum.mitigatedValueCents ?? 0n;
+  return agg._sum?.mitigatedValueCents ?? 0n;
 }
 
 async function findLatestSustainabilityMetricForTenant(tenantId: string): Promise<{

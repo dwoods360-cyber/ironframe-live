@@ -88,7 +88,7 @@ async function draftAmendmentFromRegulation(
     const { text } = await generateText({
       model: google(AMENDMENT_MODEL),
       prompt: `Irontally — 1-click TAS amendment for Section ${tasSection} from new regulation:\n${block.body.slice(0, 3000)}\n\nPreserve $${GOVERNANCE_EXPOSURE_ENVELOPE_BILLIONS}B posture.\n\nTAS excerpt:\n${tasExcerpt}`,
-      maxTokens: 2048,
+      maxOutputTokens: 2048,
     });
     return text.trim();
   } catch {

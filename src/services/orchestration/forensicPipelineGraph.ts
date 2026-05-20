@@ -48,6 +48,14 @@ export async function postgresCheckpointer(): Promise<PostgresSaver> {
   return getPostgresCheckpointer();
 }
 
+export { evaluateSystemTriage } from "@/src/services/irontech/triageRouter";
+export type {
+  SystemHealthAssessment,
+  TriageAssessment,
+  SystemTriageResult,
+  TriageIncidentZone,
+} from "@/src/services/irontech/triageRouter";
+
 export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOptions) {
   const workflow = new StateGraph(ForensicGraphState)
     .addNode("irongate", async (state) => {

@@ -19,5 +19,6 @@ export async function verifyAndCommitVaultResolutionAction(
   revalidatePath("/");
   revalidatePath("/integrity");
   revalidatePath("/admin/clearance");
+  revalidatePath("/admin/clearance/vault");
   return result;
 }

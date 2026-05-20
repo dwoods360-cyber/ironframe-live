@@ -322,6 +322,12 @@ export default function OpSupportClient({
               DMZ Clearance
             </Link>
             <Link
+              href="/admin/clearance/vault"
+              className="rounded border border-red-900/50 bg-red-950/25 px-2 py-1 font-bold uppercase text-red-200 hover:bg-red-950/40"
+            >
+              Vault Gate
+            </Link>
+            <Link
               href="/"
               className="rounded border border-amber-900/50 bg-black px-2 py-1 font-bold uppercase text-amber-100 hover:border-amber-600/60"
             >

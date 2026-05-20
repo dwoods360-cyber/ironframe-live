@@ -5,15 +5,9 @@ import {
   DASHBOARD_LAYOUT_RIGHT_RAIL,
 } from "@/app/lib/dashboardTripaneLayout";
 
-/** Symmetric sidebar vertebrae — both rails locked at w-96 (384px). */
-export const DASHBOARD_GROUP_LEFT_RAIL = "flex-none shrink-0 w-96";
-export const DASHBOARD_GROUP_RIGHT_RAIL = "flex-none shrink-0 w-96";
-
-export { DASHBOARD_LAYOUT_LEFT_RAIL, DASHBOARD_LAYOUT_RIGHT_RAIL };
-
 /**
  * Dashboard route group. Tripane rails are applied in `DashboardHomeClient`;
- * constants above match `DASHBOARD_LAYOUT_*_RAIL` in `dashboardTripaneLayout.ts`.
+ * rail class tokens live in `dashboardTripaneLayout.ts` and `app/config/layoutConstants.ts`.
  */
 export default function DashboardGroupLayout({ children }: { children: ReactNode }) {
   return (

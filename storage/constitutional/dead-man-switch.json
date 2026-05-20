@@ -1,8 +1,8 @@
 {
-  "armedAt": "2026-05-18T21:08:02.232Z",
-  "expiresAt": "2026-05-18T21:12:02.232Z",
+  "armedAt": "2026-05-20T17:54:01.772Z",
+  "expiresAt": "2026-05-20T17:58:01.772Z",
   "triggerTenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
-  "resolvedAt": "2026-05-18T21:08:03.105Z",
-  "resolutionSignature": "204c82f1cee226500f32d67afa4c47ac3befec36151aca902cd209acffa070bd",
+  "resolvedAt": "2026-05-20T17:54:07.974Z",
+  "resolutionSignature": "912b95041d95986b1c7819bea1b1f0f1d00c9c40a90db7c3a7f0a958ca3f4c46",
   "isSimulation": true
 }

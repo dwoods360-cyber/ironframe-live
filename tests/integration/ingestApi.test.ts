@@ -8,6 +8,7 @@ import { POST } from '@/app/api/threats/ingest/route';
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
+  unstable_noStore: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({
@@ -20,6 +21,15 @@ vi.mock('@/lib/prisma', () => ({
 
 vi.mock('@/app/actions/threatActions', () => ({
   acknowledgeThreatAction: vi.fn(),
+}));
+
+vi.mock('@/src/services/orchestration/ingestBusBridge', () => ({
+  ingestOrchestrationBusDisabled: vi.fn(() => true),
+  invokeIngestOrchestrationBus: vi.fn(),
+}));
+
+vi.mock('@/app/lib/security/ingressGateway', () => ({
+  ingressUsesRiskEventTable: vi.fn(async () => false),
 }));
 
 vi.mock('@/app/utils/serverTenantContext', () => ({
@@ -70,6 +80,10 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   it('returns 400 when threat is $10M and justification is missing', async () => {
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
+      status: 'IDENTIFIED',
+      createdAt: new Date(),
+      ingestionDetails: null,
+      targetEntity: 'Healthcare',
     } as any);
 
     const req = new NextRequest('http://localhost/api/threats/ingest', {
@@ -89,6 +103,10 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   it('returns 400 when threat is $10M and justification is under 50 characters', async () => {
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
+      status: 'IDENTIFIED',
+      createdAt: new Date(),
+      ingestionDetails: null,
+      targetEntity: 'Healthcare',
     } as any);
 
     const req = new NextRequest('http://localhost/api/threats/ingest', {
@@ -113,6 +131,10 @@ describe('POST /api/threats/ingest — GRC gate', () => {
   it('succeeds when threat is $10M and justification has 50+ characters', async () => {
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
       financialRisk_cents: BigInt(1_000_000_000),
+      status: 'IDENTIFIED',
+      createdAt: new Date(),
+      ingestionDetails: null,
+      targetEntity: 'Healthcare',
     } as any);
 
     const req = new NextRequest('http://localhost/api/threats/ingest', {

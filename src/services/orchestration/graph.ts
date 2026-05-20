@@ -15,6 +15,7 @@ import { getPostgresCheckpointer } from "./checkpointer";
 import { Ironbloom } from "../agents/ironbloom";
 import { ironsightCvePoll } from "../agents/ironsight";
 import { irontallyFrameworkMap } from "../agents/irontally";
+import { generateIronqueryAnalystInsight } from "../agents/ironquery";
 import {
   getIronlockGovernanceDelayMsForTenantSync,
   IRONLOCK_AUTO_THROTTLE_NOTIFICATION,
@@ -67,9 +68,24 @@ const passThroughIronsight = async (state: GraphState) => {
     ],
   };
 };
-const passThroughIronquery = async (state: GraphState) => {
-  const idle = await ironqueryThrottled(state);
-  return { ...idle };
+/** Epic 16 / TAS §3 — Ironquery analyst RAG over sovereign raw_payload (post-Ironsight). */
+const ironqueryAnalystNode = async (state: GraphState) => {
+  const throttle = await ironqueryThrottled(state);
+  const raw = (state.raw_payload ?? {}) as Record<string, unknown>;
+  const analystInsight = await generateIronqueryAnalystInsight(raw, {
+    tenantId: state.tenant_id,
+  });
+
+  const throttleLogs = throttle.agent_logs ?? [];
+  return {
+    ...throttle,
+    current_agent: "IRONQUERY",
+    agent_logs: [
+      ...throttleLogs,
+      `Ironquery (Agent 15): Structured query analyzed. Evidence chain registered: ${analystInsight.summarySignature}`,
+      `Ironquery disposition [${analystInsight.recommendedAction}]: ${analystInsight.insight}`,
+    ],
+  };
 };
 const passThroughIrontally = async (state: GraphState) => {
   const idle = await irontallyThrottled(state);
@@ -92,7 +108,7 @@ export async function createSovereignGraph() {
     .addNode("warden", TheWarden.validate)
     .addNode("irontrust", IronTrust.analyzeRisk)
     .addNode("ironsight", passThroughIronsight)
-    .addNode("ironquery", passThroughIronquery)
+    .addNode("ironquery", ironqueryAnalystNode)
     .addNode("irontally", passThroughIrontally)
 
     .addEdge("__start__", "ironcore");

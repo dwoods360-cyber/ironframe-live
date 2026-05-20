@@ -6,6 +6,7 @@ import { StateGraph, END } from "@langchain/langgraph";
 import { irongateSanitize } from "@/src/services/agents/irongateSanitize";
 import { ironsightCvePoll } from "@/src/services/agents/ironsight";
 import { irontallyFrameworkMap } from "@/src/services/agents/irontally";
+import { generateIronqueryAnalystInsight } from "@/src/services/agents/ironquery";
 import { ironbloomTelemetry } from "@/src/services/agents/ironbloom";
 import { irontrustMathEngine } from "@/src/services/irontrust/mathEngine";
 import { persistForensicState } from "@/app/lib/riskRegistryDb";
@@ -132,12 +133,29 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
       const cveData = await ironsightCvePoll(state.sanitizedPayload);
       return {
         currentAssignee: "Agent_04_Ironsight",
-        routingTarget: "irontrust",
+        routingTarget: "ironquery",
         historyLogs: [
           {
             agentId: "Ironsight (Agent 04)",
             timestamp: new Date().toISOString(),
             message: `Vulnerability verified. Blast radius cataloged: ${cveData.cve}.`,
+          },
+        ],
+      };
+    })
+    .addNode("ironquery", async (state) => {
+      const analystInsight = await generateIronqueryAnalystInsight(state.sanitizedPayload, {
+        tenantId: state.tenantId,
+      });
+
+      return {
+        currentAssignee: "Agent_15_Ironquery",
+        routingTarget: "irontrust",
+        historyLogs: [
+          {
+            agentId: "Ironquery (Agent 15)",
+            timestamp: new Date().toISOString(),
+            message: `Structured query analyzed. Evidence chain registered: ${analystInsight.summarySignature}`,
           },
         ],
       };
@@ -213,7 +231,8 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
   });
 
   workflow.addEdge("ironbloom", "irontrust");
-  workflow.addEdge("ironsight", "irontrust");
+  workflow.addEdge("ironsight", "ironquery");
+  workflow.addEdge("ironquery", "irontrust");
   workflow.addEdge("irontally", "irontrust");
   workflow.addEdge("irontrust", "persist");
   workflow.addEdge("persist", END);

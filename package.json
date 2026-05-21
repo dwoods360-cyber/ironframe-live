@@ -19,6 +19,8 @@
     "cold-store:init": "node scripts/init-ironframe-cold-store.mjs",
     "db:seed": "prisma db seed",
     "db:seed:benchmarks": "npx tsx prisma/seedBenchmarks.ts",
+    "db:seed:auditor-readiness": "npx tsx scripts/seed-auditor-readiness-telemetry.ts",
+    "live-fire:telemetry-ingest": "npx tsx scripts/live-fire-telemetry-ingest.ts",
     "db:seed:omni": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:stress:market-spike": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:seed:synthetic": "npx ts-node --project prisma/tsconfig.seed.json prisma/seed-synthetic.ts"
@@ -53,6 +55,7 @@
     "react-force-graph-2d": "^1.29.1",
     "recharts": "^3.7.0",
     "resend": "^6.10.0",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "swr": "^2.4.1",
     "uuid": "^13.0.0",

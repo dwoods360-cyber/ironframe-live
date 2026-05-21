@@ -14,12 +14,16 @@ import {
 } from "recharts";
 import type { IrontallyFrameworkId, TasFrameworkControlMapping } from "@/app/config/irontallyFrameworkControls";
 import type { IrontallyFrameworkSnapshot } from "@/app/services/irontallyMapper";
-import { downloadComplianceReadinessPdfAction } from "@/app/actions/irontallyActions";
+import {
+  downloadAuditMatrixCsvAction,
+  downloadExecutiveReadinessPdfAction,
+} from "@/app/actions/irontallyActions";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import type {
   FrameworkReadinessLabel,
   FrameworkReadinessSummary,
   IrontallyReadinessApiResponse,
+  VerifiedEvidenceLog,
 } from "@/app/types/irontallyReadiness";
 
 const FRAMEWORK_CHIPS: Array<{ id: IrontallyFrameworkId; label: string }> = [
@@ -37,7 +41,8 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
   const [selectedFramework, setSelectedFramework] = useState<IrontallyFrameworkId | null>(null);
   const [mappings, setMappings] = useState<TasFrameworkControlMapping[]>([]);
   const [drillLoading, setDrillLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  const [csvExporting, setCsvExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<FrameworkReadinessSummary[] | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
@@ -80,7 +85,7 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
         ? readiness
         : readiness.filter((r) => r.framework === evidenceFramework);
     return frameworks.flatMap((fw) =>
-      fw.verifiedEvidenceLogs.map((log) => ({
+      fw.verifiedEvidenceLogs.map((log: VerifiedEvidenceLog) => ({
         framework: fw.framework,
         passing: `${fw.passingControlsCount}/${fw.totalControlsMonitored}`,
         ...log,
@@ -106,12 +111,21 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
     [tenantFetch, snapshot.maturityScore],
   );
 
-  const onExport = () => {
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const onExportExecutivePdf = () => {
     void (async () => {
-      setExporting(true);
+      setPdfExporting(true);
       setExportMsg(null);
-      const res = await downloadComplianceReadinessPdfAction();
-      setExporting(false);
+      const res = await downloadExecutiveReadinessPdfAction();
+      setPdfExporting(false);
       if (!res.ok) {
         setExportMsg(res.error);
         return;
@@ -119,14 +133,23 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
       const bin = atob(res.base64Pdf);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = res.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      setExportMsg("Audit-ready PDF exported.");
+      downloadBlob(new Blob([bytes], { type: "application/pdf" }), res.filename);
+      setExportMsg("Executive PDF exported with live readiness attestations.");
+    })();
+  };
+
+  const onExportAuditCsv = () => {
+    void (async () => {
+      setCsvExporting(true);
+      setExportMsg(null);
+      const res = await downloadAuditMatrixCsvAction();
+      setCsvExporting(false);
+      if (!res.ok) {
+        setExportMsg(res.error);
+        return;
+      }
+      downloadBlob(new Blob([res.csv], { type: "text/csv;charset=utf-8" }), res.filename);
+      setExportMsg("Audit matrix CSV downloaded.");
     })();
   };
 
@@ -134,35 +157,51 @@ export default function IrontallyGovernancePanel({ snapshot }: Props) {
 
   return (
     <div className="mt-5 border-t border-slate-800 pt-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[9px] font-black uppercase tracking-widest text-violet-200/90">
-          Irontally — framework mapper
-        </p>
-        <button
-          type="button"
-          disabled={exporting}
-          onClick={onExport}
-          className="rounded border border-violet-600/60 px-2 py-1 text-[8px] font-bold uppercase text-violet-100 disabled:opacity-50"
-        >
-          {exporting ? "Signing…" : "Audit-ready export"}
-        </button>
-      </div>
-      {exportMsg ? <p className="mt-1 text-[8px] text-emerald-300">{exportMsg}</p> : null}
+      <p className="text-[9px] font-black uppercase tracking-widest text-violet-200/90">
+        Irontally — framework mapper
+      </p>
 
       <div className="mt-4 rounded border border-violet-900/50 bg-slate-950/80 p-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-[9px] font-black uppercase tracking-widest text-violet-200/90">
             Auditor-ready evidence ledger
           </p>
-          <button
-            type="button"
-            disabled={readinessLoading}
-            onClick={() => void loadReadiness()}
-            className="rounded border border-slate-700 px-2 py-0.5 text-[7px] font-bold uppercase text-slate-300 disabled:opacity-50"
-          >
-            {readinessLoading ? "Syncing…" : "Refresh ledger"}
-          </button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              disabled={pdfExporting || csvExporting || readinessLoading}
+              onClick={onExportExecutivePdf}
+              className="rounded border border-violet-600/70 bg-violet-950/40 px-2 py-1 text-[7px] font-bold uppercase text-violet-100 disabled:opacity-50"
+            >
+              {pdfExporting ? "Building PDF…" : "Export Executive PDF"}
+            </button>
+            <button
+              type="button"
+              disabled={pdfExporting || csvExporting || readinessLoading}
+              onClick={onExportAuditCsv}
+              className="rounded border border-cyan-700/70 bg-cyan-950/30 px-2 py-1 text-[7px] font-bold uppercase text-cyan-100 disabled:opacity-50"
+            >
+              {csvExporting ? "Compiling CSV…" : "Download Audit Matrix CSV"}
+            </button>
+            <button
+              type="button"
+              disabled={readinessLoading}
+              onClick={() => void loadReadiness()}
+              className="rounded border border-slate-700 px-2 py-0.5 text-[7px] font-bold uppercase text-slate-300 disabled:opacity-50"
+            >
+              {readinessLoading ? "Syncing…" : "Refresh ledger"}
+            </button>
+          </div>
         </div>
+        {exportMsg ? <p className="mt-1.5 text-[8px] text-emerald-300">{exportMsg}</p> : null}
+        {readiness && !readinessLoading ? (
+          <p className="mt-1 text-[7px] text-slate-500">
+            Live snapshot:{" "}
+            {readiness
+              .map((r) => `${r.framework} ${r.passingControlsCount}/${r.totalControlsMonitored}`)
+              .join(" · ")}
+          </p>
+        ) : null}
         <div className="mt-2 flex flex-wrap gap-1">
           {(["ALL", "SOC2", "ISO27001", "CSRD"] as const).map((fw) => (
             <button

@@ -15,7 +15,7 @@ const HEAT_MAP_STATUSES: ThreatState[] = [
   ThreatState.CONFIRMED,
 ];
 
-export type HeatMapThreatPayload = {
+type HeatMapThreatPayload = {
   id: string;
   name: string;
   likelihood: number;
@@ -30,7 +30,7 @@ export type HeatMapThreatPayload = {
 /**
  * Maps event score -> matrix coordinates (legacy compatibility for plotting).
  */
-export function deriveLikelihoodImpactFromScore(score: number): { likelihood: number; impact: number } {
+function deriveLikelihoodImpactFromScore(score: number): { likelihood: number; impact: number } {
   const s = score == null || Number.isNaN(Number(score)) ? 5 : Number(score);
   let impact: number;
   if (s === 0) {

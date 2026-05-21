@@ -1,34 +1,32 @@
 {
   "current": {
-    "score": 6.000000000000001,
-    "scoreBeforeResilienceBonus": 6.000000000000001,
+    "score": 4.6000000000000005,
+    "scoreBeforeResilienceBonus": 4.6000000000000005,
     "apiOutagePenaltyActive": false,
     "selfHealingContinuity": {
       "daysActive": 0,
       "activeSince": null,
       "bonusApplies": false
     },
-    "calculatedAt": "2026-05-21T12:04:59.790Z",
+    "calculatedAt": "2026-05-21T18:29:34.319Z",
     "components": {
-      "attestationQuality": 6,
+      "attestationQuality": 5,
       "chaosResilience": 6,
-      "directivity": 6
+      "directivity": 1
     },
     "weights": {
       "attestation": 0.4,
       "chaos": 0.4,
       "directivity": 0.2
     },
-    "governanceDegradationActive": false,
-    "neutralizeMinChars": 50,
+    "governanceDegradationActive": true,
+    "neutralizeMinChars": 75,
     "sampleSizes": {
-      "resolutionsSampled": 0,
+      "resolutionsSampled": 58,
       "chaosReportAvailable": false
     },
     "notes": [
-      "Attestation quality used baseline — no recent resolutions sampled.",
-      "Chaos resilience baseline — no Constitutional Collapse post-mortem on file.",
-      "Directivity baseline — no resolution narratives for TAS deep-link scan."
+      "Chaos resilience baseline — no Constitutional Collapse post-mortem on file."
     ]
   },
   "trend": [
@@ -79,11 +77,11 @@
     },
     {
       "date": "2026-05-21",
-      "score": 6.000000000000001,
+      "score": 4.6000000000000005,
       "components": {
-        "attestationQuality": 6,
+        "attestationQuality": 5,
         "chaosResilience": 6,
-        "directivity": 6
+        "directivity": 1
       }
     }
   ]

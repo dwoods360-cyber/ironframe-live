@@ -92,10 +92,8 @@ const CASCADE_DRILL_STAGE_1_MS = 2000;
 const CASCADE_DRILL_STAGE_2_MS = 2000;
 const CASCADE_DRILL_STAGE_3_MS = 3000;
 const CASCADE_DRILL_STAGE_4_MS = 3000;
-/** Local-first LKG manifest (build-safe; G: optional fallback). */
+/** Repo-local LKG manifest (build-safe; no G: path literals in bundle graph). */
 const LKG_LOCAL_MANIFEST_REL = ["storage", "manifest", "lkg_signatures.json"] as const;
-/** Legacy G: cold-store path — skipped when EISDIR or not a file. */
-const LKG_ATTESTATION_MANIFEST_PATH = "G:\\ironframe_store\\manifest\\lkg_signatures.json";
 const LKG_VAULT_VERIFY_SIM_MS = 2000;
 
 /** Initial L4 drill (Stages 1–2) — kept short so Attack Velocity → Active handoff stays ~1–2s. */
@@ -1427,29 +1425,17 @@ export async function runIsolatedCascadeDrill(
       }
     };
 
-    let manifestTxt: string | null = tryReadLkgWithReadFileSync(lkgLocalFallback);
-    let lkgSource: "G" | "local" | null = manifestTxt != null ? "local" : null;
-    if (manifestTxt == null) {
-      console.warn(
-        "[S5] LKG: local ./storage/manifest/lkg_signatures.json missing — trying G: cold store fallback",
-      );
-      manifestTxt = tryReadLkgWithReadFileSync(LKG_ATTESTATION_MANIFEST_PATH);
-      lkgSource = manifestTxt != null ? "G" : null;
-    }
+    const manifestTxt: string | null = tryReadLkgWithReadFileSync(lkgLocalFallback);
 
     if (manifestTxt == null) {
       console.error(
-        "[S5] GRC CRITICAL: No LKG manifest (G: and local storage fallback). Rebirth Failed.",
+        "[S5] GRC CRITICAL: No LKG manifest at ./storage/manifest/lkg_signatures.json. Rebirth Failed.",
       );
       return { success: false, error: "Vault Offline" };
     }
 
     try {
-      console.log(
-        lkgSource === "G"
-          ? "[S5] GRC ATTESTATION: LKG from G: cold store."
-          : "[S5] GRC ATTESTATION: LKG from local storage fallback (./storage/manifest/).",
-      );
+      console.log("[S5] GRC ATTESTATION: LKG from local storage (./storage/manifest/).");
       const manifest = JSON.parse(manifestTxt) as {
         agents?: Array<{ name?: string; sha256?: string }>;
       };

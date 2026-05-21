@@ -102,7 +102,10 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
       return;
     }
     setData(r);
-    if (r.threatStatus === "PENDING_REMOTE_INTERVENTION") {
+    if (
+      r.threatStatus === "MITIGATED" &&
+      (r.remoteTechId || r.isRemoteAccessAuthorized)
+    ) {
       setUiPhase("remote_support");
     } else {
       setUiPhase("recovery");
@@ -220,7 +223,9 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
   if (!threatId) return null;
 
   const showRemoteTechCard =
-    uiPhase === "remote_support" || data?.threatStatus === "PENDING_REMOTE_INTERVENTION";
+    uiPhase === "remote_support" ||
+    (data?.threatStatus === "MITIGATED" &&
+      Boolean(data?.remoteTechId || data?.isRemoteAccessAuthorized));
 
   const infrastructureLimit =
     !showRemoteTechCard &&
@@ -311,7 +316,8 @@ export default function ManualRecoveryOverlay({ threatId, onClose, onResolved }:
               Internal fixes exhausted. Requesting remote specialist…
             </p>
             <p className="mt-2 text-[10px] text-slate-500">
-              {data?.threatStatus === "PENDING_REMOTE_INTERVENTION"
+              {data?.threatStatus === "MITIGATED" &&
+              (data?.remoteTechId || data?.isRemoteAccessAuthorized)
                 ? "URGENT DISPATCH email was sent to the tech queue with full AgentOperation history. Remote access may be toggled below by an Admin/Owner only."
                 : "Use “Resend dispatch email” once SMTP is configured. Authorize Remote Access requires Admin/Owner (or IRONFRAME_REMOTE_ACCESS_ADMIN_EMAILS)."}
             </p>

@@ -1,5 +1,6 @@
 import type { PipelineThreat } from "@/app/store/riskStore";
 import type { PipelineThreatFromDb } from "@/app/actions/simulationActions";
+import { parseForensicCustodyFromIngestion } from "@/app/utils/forensicPathCustody";
 
 /** Client-safe: map `fetchActiveThreatsFromDb` rows to `PipelineThreat` (Ironsight / GRC JSON on `ingestionDetails`). */
 export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): PipelineThreat {
@@ -9,6 +10,8 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     loss: r.loss,
     score: r.score,
     industry: r.industry,
+    /** Mirrors DB `targetEntity` for tenant chips / ActiveRisksClient filters that read `target`. */
+    target: r.industry,
     source: r.source,
     description: r.description,
     aiReport: r.aiReport ?? undefined,
@@ -22,5 +25,13 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     threatStatus: r.threatStatus,
     remoteTechId: r.remoteTechId ?? null,
     isRemoteAccessAuthorized: r.isRemoteAccessAuthorized,
+    agentReasonings: r.agentReasonings,
+    resolutionApprovalId: r.resolutionApprovalId ?? undefined,
+    resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
+    postMortemReportPath: r.postMortemReportPath ?? undefined,
+    governanceHash: r.governanceHash ?? undefined,
+    forensicCustody: parseForensicCustodyFromIngestion(r.ingestionDetails ?? undefined),
+    chaosLevel: r.chaosLevel ?? undefined,
+    systemImpact: r.systemImpact ?? undefined,
   };
 }

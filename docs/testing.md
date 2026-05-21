@@ -19,7 +19,7 @@ All database access is assumed hostile until proven secure.
 
 ---
 
-## 2. Mathematical Integrity (Irontrust & Ironbloom)
+## 2. Mathematical Integrity (Irontrust & Kimbot)
 
 Floating point types are forbidden for financial and carbon metrics.
 

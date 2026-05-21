@@ -7,9 +7,44 @@ import {
   revertThreatToPipelineAction,
   addWorkNoteAction,
 } from '@/app/actions/threatActions';
+import { runChaosDrillIrontechLifecycleGatedAction } from '@/app/actions/chaosActions';
+import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
+import { useAgentStore } from "@/app/store/agentStore";
+import { inferAgentKillAttribution } from "@/app/utils/agentKillAttribution";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+import {
+  getTotalCurrentRiskCentsString,
+  millionsNumberToCents,
+  toBigIntCents,
+} from "@/app/utils/riskStoreBigIntMath";
+import { calculateGrcGapCents } from "@/app/utils/grcMath";
+import {
+  endActiveThreatsBoardFetchIfCurrent,
+  supersedeActiveThreatsBoardFetch,
+} from "@/app/utils/activeThreatsBoardFetchCoop";
+import { belongsOnAttackVelocityPipeline } from "@/app/utils/chaosDiscoveryHold";
+import { isChaosForensicClosureLingerActive } from "@/app/utils/chaosForensicClosure";
+
+/** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
+function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
+  const raw = ingestionDetails?.trim();
+  if (!raw) return false;
+  try {
+    const j = JSON.parse(raw) as { entityType?: unknown; chaosDrillEntityType?: unknown };
+    return j.entityType === "CHAOS_DRILL" || j.chaosDrillEntityType === "CHAOS_DRILL";
+  } catch {
+    return false;
+  }
+}
+
+/** TEMP GRC/QA: identify callers that surface threatActionError (active). */
+function logThreatActionErrorActivation(message: string, source: string) {
+  console.log(`[STORE DEBUG] threatActionError active: true [${source}]: ${message}`);
+  console.log(`[STORE DEBUG] threatActionError set by:`, new Error().stack);
+  console.trace("[STORE DEBUG] threatActionError trace");
+}
 
 /**
  * useRiskStore — GRC pipeline, selectedThreatId (drawer), industry/tenant.
@@ -80,6 +115,12 @@ export type PipelineThreat = {
   justification?: string;
   /** ThreatEvent.status from DB (e.g. ESCALATED after Irontech Phone Home). */
   threatStatus?: string;
+  /** GRC disposition label from DB (twin ThreatEvent / SimThreatEvent). */
+  dispositionStatus?: string | null;
+  isFalsePositive?: boolean;
+  receiptHash?: string | null;
+  /** SimThreatEvent tenant binding SHA-256 (shadow ingest seal); complements disposition `receiptHash`. */
+  governanceHash?: string | null;
   /** Assigned remote technician ref (Level-3 dispatch). */
   remoteTechId?: string | null;
   /** Admin/Owner-authorized remote session (GRC). */
@@ -89,6 +130,9 @@ export type PipelineThreat = {
   affectedSystems?: string[];
   blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
   ingestionDetails?: string;
+  /** Irontech Chaos (active board / DB hydration) — optional JSON-derived fields. */
+  chaosLevel?: number | null;
+  systemImpact?: string | null;
   /** ThreatEvent.aiReport — CoreIntel / ingress narrative; also used for card body fallback. */
   aiReport?: string | null;
   /** Optimistic client ingress (e.g. chaos) pending DB confirmation. */
@@ -103,6 +147,21 @@ export type PipelineThreat = {
     impactedAssets?: string[];
     complianceTags?: string[];
   };
+  /** Server-backed agent reasoning rows (read-only in UI). */
+  agentReasonings?: Array<{
+    id: string;
+    agentId: string;
+    reasoning: string;
+    metadata: unknown;
+    createdAt: string;
+  }>;
+  /** Epic 11 lifecycle linkage: approval required before resolve. */
+  resolutionApprovalId?: string | null;
+  resolutionApprovalStatus?: "PENDING" | "APPROVED" | "REJECTED" | null;
+  /** Simulation plane: PDF path after Gate 7 expert lifecycle post-mortem generation. */
+  postMortemReportPath?: string | null;
+  /** GRC Gold — Agent 5 / 6 / 13 forensic chain parsed from `ingestionDetails.forensicPath`. */
+  forensicCustody?: Array<{ agentId: number; phase: string; signedAt: string }>;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -139,6 +198,8 @@ interface RiskState {
   replacePipelineThreats: (threats: PipelineThreat[]) => void;
   /** Incremental bot/client upsert (add/update one threat without dropping others). */
   upsertPipelineThreat: (threat: PipelineThreat) => void;
+  /** Same as `upsertPipelineThreat` for the Active Risks lane (e.g. IRONCHAOS). */
+  upsertActiveThreat: (threat: PipelineThreat) => void;
   /** Authoritative DB sync replacement for active threats. */
   replaceActiveThreats: (threats: PipelineThreat[]) => void;
   addThreatToPipeline: (threat: PipelineThreat) => void;
@@ -163,12 +224,20 @@ interface RiskState {
       threatStatus?: string;
       remoteTechId?: string | null;
       isRemoteAccessAuthorized?: boolean;
+      /** Merged ThreatEvent / SimThreatEvent JSON (e.g. chaos shadow audit log). */
+      ingestionDetails?: string;
+      assigneeId?: string;
     }
   ) => void;
   acceptPipelineThreat: (id: string) => void;
 
   // GRC lifecycle actions (server-backed)
-  acknowledgeThreat: (id: string, operatorId: string, justification: string | undefined, tenantId: string) => Promise<void>;
+  acknowledgeThreat: (
+    id: string,
+    operatorId: string,
+    justification: string | undefined,
+    tenantId: string,
+  ) => Promise<{ success: true } | { success: false; error: string }>;
   confirmThreat: (id: string, operatorId: string) => Promise<void>;
   resolveThreat: (
     id: string,
@@ -205,6 +274,12 @@ interface RiskState {
   // Global industry profile (synced from StrategicIntel)
   selectedIndustry: string;
   setSelectedIndustry: (industry: string) => void;
+  /** Analyst maturation: deep-dive threat IDs completed in Strategic Intel. */
+  completedDeepDives: string[];
+  markDeepDiveCompleted: (threatId: string) => void;
+  /** Last drill start (ISO UTC) used by Strategic Intel stability timer. */
+  lastSimulationStartedAt: string | null;
+  setLastSimulationStartedAt: (iso: string | null) => void;
 
   /** GRC report framework chips (`/reports`) — IDs from `app/config/grcFrameworks`. */
   activeFrameworkIds: string[];
@@ -232,6 +307,10 @@ interface RiskState {
   /** Full reset for purg: pipeline, active, accepted impacts, dashboard liabilities, risk offset. Call after purgeSimulation(). */
   clearAllRiskStateForPurge: () => void;
 
+  /** Until this epoch (ms), active-board refetches stay empty (Master Purge anti-race). */
+  purgeBoardFreezeUntil: number;
+  setPurgeBoardFreezeUntil: (untilMs: number) => void;
+
   /** Sync & Reconcile: remove ghost cards (ids missing from DB) and show toast. */
   removeGhostThreats: (ids: string[]) => void;
 
@@ -247,9 +326,15 @@ interface RiskState {
   threatActionError: { active: boolean; message: string };
   setThreatActionError: (v: { active: boolean; message: string }) => void;
 
+  /** True while acknowledgeThreat server action is in flight — reconcile radar must not run. */
+  isAcknowledgeInFlight: boolean;
+
   /** Threat detail drawer (dashboard): when set, open slide-over for this threat id */
   selectedThreatId: string | null;
   setSelectedThreatId: (id: string | null) => void;
+  /** Audit Intelligence / forensic strip focus — independent of drawer; assign & claim use this without opening the slide-over. */
+  activeRiskId: string | null;
+  setActiveRiskId: (id: string | null) => void;
 
   /** Global currency magnitude selector for risk exposure (AUTO, K, M, B, T). */
   currencyMagnitude: CurrencyMagnitude;
@@ -273,6 +358,29 @@ interface RiskState {
   clearDraftTemplate: () => void;
   /** Open or close manual form without changing draft. */
   setManualFormOpen: (open: boolean) => void;
+
+  /** Sentinel GRC interview completed — Deficiency Discovery Gate uses governance (AUTHORIZE) mode. */
+  sentinelGovernanceModeActive: boolean;
+  setSentinelGovernanceModeActive: (active: boolean) => void;
+
+  /** Forensic reasoning playback modal (global — pipeline + active cards). */
+  forensicPlaybackThreatId: string | null;
+  setForensicPlaybackThreatId: (id: string | null) => void;
+
+  /** Examiner mode: suppress charts; show raw ledger table. */
+  auditorViewEnabled: boolean;
+  setAuditorViewEnabled: (enabled: boolean) => void;
+
+  /** GRC dashboard: technical maturity score vs executive CoNC dollars. */
+  grcDashboardViewMode: "technical" | "executive";
+  setGrcDashboardViewMode: (mode: "technical" | "executive") => void;
+
+  /**
+   * Shadow plane / stress drill: UI treats GRC handshake as satisfied (`setHandshakePhase('verified')` companion).
+   */
+  shadowPlaneHandshakeAuthorized: boolean;
+  setShadowPlaneHandshakeAuthorized: (v: boolean) => void;
+
   /**
    * Register a threat via POST /api/threats and route it to pipeline or active risks.
    * Ensures entries always have a valid DB-backed id (no phantoms).
@@ -287,7 +395,74 @@ interface RiskState {
     destination?: "pipeline" | "active";
     /** Top Sector / Strategic Intel registration — persisted as `ingestionDetails.grcJustification` on create. */
     grcJustification?: string;
+    /** Velocity queue signal id — stored on the threat row and clears duplicate Velocity rows client-side. */
+    sourceSignalId?: string;
+    /** Shadow deficiency `reportId` — closes the open deficiency diagnostic once the threat exists. */
+    deficiencyReportId?: string;
   }) => Promise<PipelineThreat>;
+
+  /** Refetch pipeline-stage threats from DB (no settlement delay). Browser only. */
+  refreshPipelineThreatsFromDb: () => Promise<void>;
+  /** Refetch active threats from `/api/threats/active` and merge optimistic agent-store rows. Browser only. */
+  refreshActiveThreatsFromDb: () => Promise<void>;
+  /** Pipeline + active refetch in parallel — call after bot triggers for sub-second board sync. */
+  pulseThreatBoardsFromDb: () => Promise<void>;
+
+  /** Irontech chaos drill flight recorder (client UX; steps 1–4 lock Acknowledge during 12s telemetry). */
+  chaosFlightRecorderByThreatId: Record<string, { step: 1 | 2 | 3 | 4; statusLine: string }>;
+  setChaosFlightRecorder: (
+    threatId: string,
+    value: { step: 1 | 2 | 3 | 4; statusLine: string } | null,
+  ) => void;
+  /** Shown on Active Risks after auto-ack from chaos flight sequence. */
+  chaosSelfHealedLineByThreatId: Record<string, string>;
+  setChaosSelfHealedLine: (threatId: string, line: string | null) => void;
+
+  /** During RESOLVED victory lap: keep Intelligence Feed forensic strip on this threat until `until` (epoch ms). */
+  auditLingerThreatId: string | null;
+  auditLingerThreatIdUntil: number | null;
+  setAuditLingerForThreat: (threatId: string, durationMs?: number) => void;
+  clearAuditLinger: () => void;
+
+  /** After RESOLVED: 50-char User_00 attestation braid shown on card during victory lap. */
+  neutralizeVictoryAttestationByThreatId: Record<string, string>;
+  /** Short SHA-256 display (e.g. `7f83b1…3a92`) captured at neutralize — victory lap “seal”. */
+  neutralizeConstitutionalSealShortByThreatId: Record<string, string>;
+  setNeutralizeVictoryAttestation: (
+    threatId: string,
+    text: string | null,
+    constitutionalSealShort?: string | null,
+  ) => void;
+
+  /** Ironlock constitutional void — `/docs/TAS.md` missing, empty, or unreadable. */
+  isConstitutionalEmergency: boolean;
+  /** Irontech RE-BASELINE_VERIFICATION — cards stay non-interactable until lift. */
+  constitutionalRebaselinePending: boolean;
+  /** SYSTEM_OWNER override — 100-char forensic bar until TAS.md is valid. */
+  constitutionalDegradedMode: boolean;
+  /** Ironwatch Stale Data — Ironlock raises forensic minimum to 100. */
+  isSustainabilityApiDegraded: boolean;
+  /** Irontech (Agent 12): ≥24h degraded + no tripartite waiver — middleware blocks mutations. */
+  isSustainabilityStaleLockdownBlocking: boolean;
+  requiredForensicAttestationMin: number;
+  isOverrideSpent: boolean;
+  constitutionalSha256: string | null;
+  constitutionalSha256Short: string;
+  constitutionalFailureReason: string | null;
+  constitutionalFailureMessage: string | null;
+  setConstitutionalIntegrityState: (patch: {
+    isConstitutionalEmergency: boolean;
+    constitutionalRebaselinePending: boolean;
+    constitutionalDegradedMode: boolean;
+    requiredForensicAttestationMin: number;
+    isSustainabilityApiDegraded?: boolean;
+    isSustainabilityStaleLockdownBlocking?: boolean;
+    isOverrideSpent: boolean;
+    sha256: string | null;
+    sha256Short: string;
+    failureReason: string | null;
+    failureMessage: string | null;
+  }) => void;
 }
 
 export const useRiskStore = create<RiskState>((set, get) => ({
@@ -309,6 +484,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   pipelineThreats: [],
   activeThreats: [],
+  purgeBoardFreezeUntil: 0,
   threatIndexById: {},
   historicalThreatNames: {},
   acceptedThreatImpacts: {},
@@ -340,6 +516,24 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       return {
         pipelineThreats: nextPipelineThreats,
         threatIndexById: buildThreatIndexById(nextPipelineThreats, state.activeThreats),
+      };
+    }),
+  upsertActiveThreat: (threat) =>
+    set((state) => {
+      const normalized: PipelineThreat = {
+        ...threat,
+        lifecycleState: threat.lifecycleState ?? "active",
+        workNotes: threat.workNotes ?? [],
+        createdAt: threat.createdAt ?? new Date().toISOString(),
+      };
+      const idx = state.activeThreats.findIndex((t) => t.id === normalized.id);
+      const nextActive =
+        idx === -1
+          ? [normalized, ...state.activeThreats]
+          : state.activeThreats.map((t, i) => (i === idx ? { ...t, ...normalized } : t));
+      return {
+        activeThreats: nextActive,
+        threatIndexById: buildThreatIndexById(state.pipelineThreats, nextActive),
       };
     }),
   replaceActiveThreats: (threats) =>
@@ -434,19 +628,40 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   }),
   acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
     set({ threatActionError: { active: false, message: "" } });
+    set({ isAcknowledgeInFlight: true });
     try {
       const result = await acknowledgeThreatAction(id, tenantId, operatorId, justification);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const msg = result.error || "Acknowledge failed due to invalid tenant mapping.";
+        logThreatActionErrorActivation(msg, "acknowledgeThreat:serverFailure");
         set({
           threatActionError: {
             active: true,
-            message: result.error || "Acknowledge failed due to invalid tenant mapping.",
+            message: msg,
           },
         });
-        return;
+        return { success: false, error: msg };
       }
+      if (
+        result &&
+        typeof result === "object" &&
+        "success" in result &&
+        result.success === true &&
+        "warning" in result
+      ) {
+        const w = (result as { warning?: string }).warning;
+        if (w) console.warn("[STORE] acknowledgeThreatAction server warning:", w);
+      }
+
+      // State lock / handoff: load authoritative boards from DB before mutating local lists.
+      // Avoids a frame where the id is absent from both pipeline and active (split-brain / Kimbot paradox).
+      await get().pulseThreatBoardsFromDb().catch(() => undefined);
+
       const stateAtAck = get();
-      const ackedThreat = stateAtAck.threatIndexById[id] ?? stateAtAck.pipelineThreats.find((t) => t.id === id);
+      const ackedThreat =
+        stateAtAck.threatIndexById[id] ??
+        stateAtAck.pipelineThreats.find((t) => t.id === id) ??
+        stateAtAck.activeThreats.find((t) => t.id === id);
       appendAuditLog({
         action_type: "GRC_ACKNOWLEDGE_CLICK",
         log_type: "GRC",
@@ -454,10 +669,51 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         user_id: operatorId,
         metadata_tag: `industry:${ackedThreat?.industry ?? stateAtAck.selectedIndustry}|tenant:${stateAtAck.selectedTenantName ?? "GLOBAL"}|threatId:${id}`,
       });
-      set((state) => {
-        const threat = state.pipelineThreats.find((t) => t.id === id);
-        const j = (justification ?? "").trim();
 
+      const j = (justification ?? "").trim();
+      set((state) => {
+        const inActive = state.activeThreats.some((t) => t.id === id);
+
+        if (inActive) {
+          let activeThreats = state.activeThreats;
+          if (j) {
+            activeThreats = state.activeThreats.map((t) =>
+              t.id === id
+                ? {
+                    ...t,
+                    justification: j || t.justification,
+                    ingestionDetails: mergeIngestionDetailsPatch(t.ingestionDetails ?? null, {
+                      grcJustification: j,
+                    }),
+                  }
+                : t,
+            );
+          }
+          const merged = activeThreats.find((t) => t.id === id);
+          const impactRounded =
+            merged != null
+              ? Number(((merged.loss ?? merged.score ?? 0) as number).toFixed(1))
+              : 0;
+          const newSidebar = state.activeSidebarThreats.includes(id)
+            ? state.activeSidebarThreats
+            : [...state.activeSidebarThreats, id];
+          return {
+            threatActionError: { active: false, message: "" },
+            selectedThreatId: null,
+            activeRiskId: null,
+            activeThreats,
+            acceptedThreatImpacts: merged
+              ? { ...state.acceptedThreatImpacts, [id]: impactRounded }
+              : state.acceptedThreatImpacts,
+            acceptedThreatIndustries: merged
+              ? { ...state.acceptedThreatIndustries, [id]: merged.industry ?? "Healthcare" }
+              : state.acceptedThreatIndustries,
+            activeSidebarThreats: newSidebar,
+            threatIndexById: buildThreatIndexById(state.pipelineThreats, activeThreats),
+          };
+        }
+
+        const threat = state.pipelineThreats.find((t) => t.id === id);
         const toActive =
           threat && !state.activeThreats.some((t) => t.id === id)
             ? {
@@ -475,10 +731,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
               }
             : null;
 
-        // Use loss (liability in millions) for $M impact; score is severity 1–10 and would truncate decimals.
         const impactM = threat ? (threat.loss ?? threat.score) : 0;
-        const impactRounded = typeof impactM === 'number' ? Number(impactM.toFixed(1)) : 0;
-        const newActive = threat && !state.activeSidebarThreats.includes(id)
+        const impactRounded = typeof impactM === "number" ? Number(impactM.toFixed(1)) : 0;
+        const newActiveSidebar = threat && !state.activeSidebarThreats.includes(id)
           ? [...state.activeSidebarThreats, id]
           : state.activeSidebarThreats;
         const newImpacts = threat
@@ -488,32 +743,63 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           ? { ...state.acceptedThreatIndustries, [id]: threat.industry ?? "Healthcare" }
           : state.acceptedThreatIndustries;
         return {
+          threatActionError: { active: false, message: "" },
+          selectedThreatId: null,
+          activeRiskId: null,
           threatIndexById: buildThreatIndexById(
             state.pipelineThreats.filter((t) => t.id !== id),
             toActive ? [...state.activeThreats, toActive] : state.activeThreats,
           ),
-          activeSidebarThreats: newActive,
+          activeSidebarThreats: newActiveSidebar,
           pipelineThreats: state.pipelineThreats.filter((t) => t.id !== id),
           acceptedThreatImpacts: newImpacts,
           acceptedThreatIndustries: newIndustries,
           activeThreats: toActive ? [...state.activeThreats, toActive] : state.activeThreats,
         };
       });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("clear-threat-modals"));
+      }
+      return { success: true };
     } catch (error) {
       console.error("acknowledgeThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "acknowledgeThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
+      return { success: false, error: display };
+    } finally {
+      set({ isAcknowledgeInFlight: false });
     }
   },
   confirmThreat: async (id, operatorId) => {
+    set({ threatActionError: { active: false, message: "" } });
     try {
-      await confirmThreatAction(id, operatorId);
+      const result = await confirmThreatAction(id, operatorId);
+      if (result && typeof result === "object" && "success" in result && result.success === false) {
+        const msg = result.error || "Confirm failed.";
+        logThreatActionErrorActivation(msg, "confirmThreat:serverFailure");
+        set({
+          threatActionError: {
+            active: true,
+            message: msg,
+          },
+        });
+        return;
+      }
+      await get().pulseThreatBoardsFromDb().catch(() => undefined);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+      }
       set((state) => ({
+        /** Forensic lifecycle: focus audit strip via `activeRiskId` only — do not open ThreatDetailDrawer. */
+        activeRiskId: id,
         activeThreats: state.activeThreats.map((t) =>
           t.id === id ? { ...t, lifecycleState: "confirmed" } : t
         ),
@@ -527,29 +813,98 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("confirmThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "confirmThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       throw error;
     }
   },
   resolveThreat: async (id, operatorId, resolutionJustification, actorDisplayName) => {
+    const threatSnapshot = get().threatIndexById[id];
+    const recordAgentKill = () => {
+      const agent = inferAgentKillAttribution(threatSnapshot, actorDisplayName);
+      useAgentStore.getState().incrementAgentKill(agent);
+    };
+    if (ingestionIndicatesChaosDrill(threatSnapshot?.ingestionDetails)) {
+      set({ threatActionError: { active: false, message: '' } });
+      try {
+        const gated = await runChaosDrillIrontechLifecycleGatedAction(id);
+        if (!gated.ok) {
+          logThreatActionErrorActivation(
+            gated.error || 'Chaos drill lifecycle failed.',
+            'resolveThreat:chaosLifecycleFailure',
+          );
+          set({
+            threatActionError: {
+              active: true,
+              message: gated.error || 'Chaos drill lifecycle failed.',
+            },
+          });
+          throw new Error(gated.error || 'Chaos drill lifecycle failed.');
+        }
+        const reductionM = (gated.financialRisk_cents ?? 0) / 100_000_000;
+        set((state) => {
+          const nextPipeline = state.pipelineThreats.filter((t) => t.id !== id);
+          const nextActive = state.activeThreats.filter((t) => t.id !== id);
+          const nextImpacts = { ...state.acceptedThreatImpacts };
+          delete nextImpacts[id];
+          const nextIndustries = { ...state.acceptedThreatIndustries };
+          delete nextIndustries[id];
+          return {
+            threatActionError: { active: false, message: '' },
+            riskOffset: state.riskOffset + reductionM,
+            pipelineThreats: nextPipeline,
+            activeThreats: nextActive,
+            activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
+            acceptedThreatImpacts: nextImpacts,
+            acceptedThreatIndustries: nextIndustries,
+            threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
+          };
+        });
+        recordAgentKill();
+      } catch (error) {
+        console.error('runChaosDrillIrontechLifecycleGatedAction failed', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        const display = msg.includes('AUDIT_LOG_FAILURE')
+          ? 'Threat record not found or already processed.'
+          : msg;
+        logThreatActionErrorActivation(display, 'resolveThreat:chaosCatch');
+        set({
+          threatActionError: {
+            active: true,
+            message: display,
+          },
+        });
+        throw error;
+      }
+      return;
+    }
+
     const trimmed = resolutionJustification.trim();
-    if (trimmed.length < 50) {
+    const minLen = get().requiredForensicAttestationMin;
+    const isVoid = get().isConstitutionalEmergency || get().constitutionalDegradedMode;
+    if (trimmed.length < minLen) {
+      const msg = isVoid
+        ? "FORENSIC VOID: 100+ character justification required to override missing TAS.md authority."
+        : `Resolution justification must be at least ${minLen} characters.`;
+      logThreatActionErrorActivation(msg, "resolveThreat:validation");
       set({
-        threatActionError: {
-          active: true,
-          message: "Resolution justification must be at least 50 characters.",
-        },
+        threatActionError: { active: true, message: msg },
       });
       return;
     }
     try {
       const result = await resolveThreatAction(id, operatorId, trimmed, actorDisplayName);
       if (!result.success) {
+        logThreatActionErrorActivation(
+          "Threat record not found or could not be resolved.",
+          "resolveThreat:serverFailure",
+        );
         set({
           threatActionError: {
             active: true,
@@ -559,30 +914,33 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         throw new Error("Resolve failed");
       }
       const reductionM = (result.financialRisk_cents ?? 0) / 100_000_000;
+      recordAgentKill();
       set((state) => {
+        const nextPipeline = state.pipelineThreats.filter((t) => t.id !== id);
+        const nextActive = state.activeThreats.filter((t) => t.id !== id);
         const nextImpacts = { ...state.acceptedThreatImpacts };
         delete nextImpacts[id];
         const nextIndustries = { ...state.acceptedThreatIndustries };
         delete nextIndustries[id];
         return {
           riskOffset: state.riskOffset + reductionM,
-          activeThreats: state.activeThreats.filter((t) => t.id !== id),
+          pipelineThreats: nextPipeline,
+          activeThreats: nextActive,
           activeSidebarThreats: state.activeSidebarThreats.filter((tid) => tid !== id),
           acceptedThreatImpacts: nextImpacts,
           acceptedThreatIndustries: nextIndustries,
-          threatIndexById: buildThreatIndexById(
-            state.pipelineThreats,
-            state.activeThreats.filter((t) => t.id !== id),
-          ),
+          threatIndexById: buildThreatIndexById(nextPipeline, nextActive),
         };
       });
     } catch (error) {
       console.error("resolveThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "resolveThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       throw error;
@@ -594,6 +952,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       const result = await deAcknowledgeThreatAction(id, tenantId, reason, justification, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
         const errMsg = "error" in result && typeof result.error === "string" ? result.error : "Action failed: Record no longer exists.";
+        logThreatActionErrorActivation(errMsg, "deAcknowledgeThreat:serverFailure");
         set({
           threatActionError: {
             active: true,
@@ -622,10 +981,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("deAcknowledgeThreatAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg;
+      logThreatActionErrorActivation(display, "deAcknowledgeThreat:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("AUDIT_LOG_FAILURE") ? "Threat record not found or already processed." : msg,
+          message: display,
         },
       });
       return { success: false, error: msg };
@@ -635,6 +996,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     try {
       const result = await revertThreatToPipelineAction(id, tenantId, operatorId);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
+        logThreatActionErrorActivation("Revert failed: Record no longer exists.", "revertThreatToPipeline:serverFailure");
         set({
           threatActionError: {
             active: true,
@@ -665,10 +1027,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     } catch (error) {
       console.error("revertThreatToPipelineAction failed", error);
       const msg = error instanceof Error ? error.message : String(error);
+      const display = msg.includes("Irongate") ? msg : "Revert to pipeline failed.";
+      logThreatActionErrorActivation(display, "revertThreatToPipeline:catch");
       set({
         threatActionError: {
           active: true,
-          message: msg.includes("Irongate") ? msg : "Revert to pipeline failed.",
+          message: display,
         },
       });
       throw error;
@@ -715,6 +1079,20 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   selectedIndustry: "Healthcare",
   setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
+  completedDeepDives: [],
+  markDeepDiveCompleted: (threatId) =>
+    set((state) => {
+      const id = (threatId ?? "").trim();
+      if (!id) return state;
+      if (state.completedDeepDives.includes(id)) return state;
+      return { completedDeepDives: [...state.completedDeepDives, id] };
+    }),
+  lastSimulationStartedAt: null,
+  setLastSimulationStartedAt: (iso) =>
+    set({
+      lastSimulationStartedAt:
+        typeof iso === "string" && iso.trim().length > 0 ? iso : null,
+    }),
 
   activeFrameworkIds: [],
   toggleFramework: (frameworkId) =>
@@ -736,6 +1114,84 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   liveMonitoringCount: 0,
   setLiveMonitoringCount: (n) => set({ liveMonitoringCount: n }),
 
+  chaosFlightRecorderByThreatId: {},
+  setChaosFlightRecorder: (threatId, value) =>
+    set((state) => {
+      const next = { ...state.chaosFlightRecorderByThreatId };
+      if (value === null) delete next[threatId];
+      else next[threatId] = value;
+      return { chaosFlightRecorderByThreatId: next };
+    }),
+  chaosSelfHealedLineByThreatId: {},
+  setChaosSelfHealedLine: (threatId, line) =>
+    set((state) => {
+      const next = { ...state.chaosSelfHealedLineByThreatId };
+      if (line === null || line === "") delete next[threatId];
+      else next[threatId] = line;
+      return { chaosSelfHealedLineByThreatId: next };
+    }),
+
+  auditLingerThreatId: null,
+  auditLingerThreatIdUntil: null,
+  setAuditLingerForThreat: (threatId, durationMs = 4500) => {
+    const id = threatId.trim();
+    if (!id) return;
+    set({
+      auditLingerThreatId: id,
+      auditLingerThreatIdUntil: Date.now() + Math.max(1000, durationMs),
+    });
+  },
+  clearAuditLinger: () => set({ auditLingerThreatId: null, auditLingerThreatIdUntil: null }),
+
+  neutralizeVictoryAttestationByThreatId: {},
+  neutralizeConstitutionalSealShortByThreatId: {},
+  setNeutralizeVictoryAttestation: (threatId, text, constitutionalSealShort) =>
+    set((state) => {
+      const id = threatId.trim();
+      const next = { ...state.neutralizeVictoryAttestationByThreatId };
+      const nextSeal = { ...state.neutralizeConstitutionalSealShortByThreatId };
+      if (!id || text == null || text === "") {
+        delete next[id];
+        delete nextSeal[id];
+      } else {
+        next[id] = text;
+        const seal = (constitutionalSealShort ?? "").trim();
+        if (seal) nextSeal[id] = seal;
+        else delete nextSeal[id];
+      }
+      return {
+        neutralizeVictoryAttestationByThreatId: next,
+        neutralizeConstitutionalSealShortByThreatId: nextSeal,
+      };
+    }),
+
+  isConstitutionalEmergency: false,
+  constitutionalRebaselinePending: false,
+  constitutionalDegradedMode: false,
+  isSustainabilityApiDegraded: false,
+  isSustainabilityStaleLockdownBlocking: false,
+  requiredForensicAttestationMin: 50,
+  isOverrideSpent: false,
+  constitutionalSha256: null,
+  constitutionalSha256Short: "",
+  constitutionalFailureReason: null,
+  constitutionalFailureMessage: null,
+  setConstitutionalIntegrityState: (patch) =>
+    set((state) => ({
+      isConstitutionalEmergency: patch.isConstitutionalEmergency,
+      constitutionalRebaselinePending: patch.constitutionalRebaselinePending,
+      constitutionalDegradedMode: patch.constitutionalDegradedMode,
+      requiredForensicAttestationMin: patch.requiredForensicAttestationMin,
+      isSustainabilityApiDegraded: patch.isSustainabilityApiDegraded ?? state.isSustainabilityApiDegraded,
+      isSustainabilityStaleLockdownBlocking:
+        patch.isSustainabilityStaleLockdownBlocking ?? state.isSustainabilityStaleLockdownBlocking,
+      isOverrideSpent: patch.isOverrideSpent,
+      constitutionalSha256: patch.sha256,
+      constitutionalSha256Short: patch.sha256Short,
+      constitutionalFailureReason: patch.failureReason,
+      constitutionalFailureMessage: patch.failureMessage,
+    })),
+
   clearSimulationFromActiveThreats: () =>
     set((state) => ({
       activeThreats: state.activeThreats.filter(
@@ -749,7 +1205,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       ),
     })),
 
-  clearAllRiskStateForPurge: () =>
+  clearAllRiskStateForPurge: () => {
     set({
       pipelineThreats: [],
       activeThreats: [],
@@ -761,7 +1217,32 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       threatIndexById: {},
       activeFrameworkIds: [],
       recoveryBoardSyncPending: false,
-    }),
+      historicalThreatNames: {},
+      threatActionError: { active: false, message: "" },
+      isAcknowledgeInFlight: false,
+      recordExpiredToast: { active: false, count: 0 },
+      liabilityAlert: { active: false },
+      liveMonitoringCount: 0,
+      selectedThreatId: null,
+      riskReductionFlash: false,
+      chaosFlightRecorderByThreatId: {},
+      chaosSelfHealedLineByThreatId: {},
+      auditLingerThreatId: null,
+      auditLingerThreatIdUntil: null,
+      neutralizeVictoryAttestationByThreatId: {},
+      neutralizeConstitutionalSealShortByThreatId: {},
+      completedDeepDives: [],
+      lastSimulationStartedAt: null,
+      sentinelGovernanceModeActive: false,
+      forensicPlaybackThreatId: null,
+      auditorViewEnabled: false,
+      shadowPlaneHandshakeAuthorized: false,
+    });
+    /** Let Active Risks flush local React state + veil stale dashboard props until the shell refetches. */
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("ironframe:grc-purge-detonated"));
+    }
+  },
 
   removeGhostThreats: (ids) =>
     set((state) => {
@@ -775,6 +1256,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         delete newImpacts[id];
         delete newIndustries[id];
       });
+      const newNeutral = { ...state.neutralizeVictoryAttestationByThreatId };
+      const newSeal = { ...state.neutralizeConstitutionalSealShortByThreatId };
+      ids.forEach((id) => {
+        delete newNeutral[id];
+        delete newSeal[id];
+      });
       return {
         pipelineThreats: newPipeline,
         activeThreats: newActive,
@@ -782,6 +1269,8 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         acceptedThreatImpacts: newImpacts,
         acceptedThreatIndustries: newIndustries,
         threatIndexById: buildThreatIndexById(newPipeline, newActive),
+        neutralizeVictoryAttestationByThreatId: newNeutral,
+        neutralizeConstitutionalSealShortByThreatId: newSeal,
       };
     }),
 
@@ -792,10 +1281,23 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   setRecoveryBoardSyncPending: (pending) => set({ recoveryBoardSyncPending: pending }),
 
   threatActionError: { active: false, message: "" },
-  setThreatActionError: (v) => set({ threatActionError: v }),
+  setThreatActionError: (v) => {
+    if (v.active) {
+      logThreatActionErrorActivation(v.message, "setThreatActionError");
+    }
+    set({ threatActionError: v });
+  },
+
+  isAcknowledgeInFlight: false,
 
   selectedThreatId: null,
-  setSelectedThreatId: (id) => set({ selectedThreatId: id }),
+  activeRiskId: null,
+  setSelectedThreatId: (id) =>
+    set({
+      selectedThreatId: id,
+      ...(id != null ? { activeRiskId: id } : {}),
+    }),
+  setActiveRiskId: (id) => set({ activeRiskId: id }),
 
   currencyMagnitude: "AUTO",
   currencyScale: "AUTO",
@@ -804,37 +1306,35 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   getTotalCurrentRiskCents: () => {
     const state = get();
-    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
-    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
-    const offsetM = state.riskOffset;
-    const totalM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
-    const cents = BigInt(Math.round(totalM * 100_000_000));
-    return cents.toString();
+    return getTotalCurrentRiskCentsString(
+      state.acceptedThreatImpacts,
+      state.dashboardLiabilities,
+      state.riskOffset,
+    );
   },
 
   getGrcGapCents: () => {
     const state = get();
     const industry = state.selectedIndustry ?? "Healthcare";
-    const baseImpactByIndustry: Record<string, number> = {
-      Healthcare: 15.2,
-      Finance: 18.0,
-      Energy: 17.0,
-      Technology: 12.0,
-      Defense: 16.0,
+    /** Sector peer-mean ALE baseline (integer cents) — same scale as `getTotalCurrentRiskCents`. */
+    const industryAverageBySector: Record<string, bigint> = {
+      Healthcare: 1_210_000_000n,
+      Finance: 680_000_000n,
+      Technology: 530_000_000n,
+      "Public Sector": 320_000_000n,
+      Energy: 1_700_000_000n,
+      Defense: 1_600_000_000n,
     };
-    const baseImpactM = baseImpactByIndustry[industry] ?? 15.2;
-    const sumAcceptedM = Object.values(state.acceptedThreatImpacts).reduce((a, b) => a + b, 0);
-    const sumDashboardM = Object.values(state.dashboardLiabilities).reduce((a, b) => a + b, 0);
-    const pipelinePendingM = state.pipelineThreats.reduce(
-      (sum, t) => sum + (t.score ?? t.loss ?? 0),
-      0
+    const industryAverageCents = industryAverageBySector[industry] ?? 1_520_000_000n;
+    const currentMitigatedCents = BigInt(
+      getTotalCurrentRiskCentsString(
+        state.acceptedThreatImpacts,
+        state.dashboardLiabilities,
+        state.riskOffset,
+      ),
     );
-    const offsetM = state.riskOffset;
-    const currentM = Math.max(0, sumAcceptedM + sumDashboardM - offsetM);
-    const potentialM = Math.max(0, baseImpactM + sumAcceptedM + pipelinePendingM - offsetM);
-    const gapM = Math.max(0, potentialM - currentM);
-    const cents = BigInt(Math.round(gapM * 100_000_000));
-    return cents.toString();
+    const gapCents = calculateGrcGapCents(industryAverageCents, currentMitigatedCents);
+    return gapCents.toString();
   },
 
   isManualFormOpen: false,
@@ -843,14 +1343,41 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     const title = typeof data.title === 'string' ? data.title.trim() : '';
     const source = typeof data.source === 'string' ? data.source.trim() : '';
     const target = typeof data.target === 'string' ? data.target.trim() : '';
-    const loss = typeof data.loss === 'string' ? data.loss.trim() : '';
-    if (!title || !source || !target || !loss) {
+    const rawLoss = typeof data.loss === 'string' ? data.loss.trim() : '';
+    const lossCents = toBigIntCents(rawLoss);
+    if (!title || !source || !target || lossCents <= 0n) {
       throw new Error('DraftTemplate requires non-empty title, source, target, and loss');
     }
-    set({ draftTemplate: { title, source, target, loss }, isManualFormOpen: true });
+    set({ draftTemplate: { title, source, target, loss: lossCents.toString() }, isManualFormOpen: true });
   },
   clearDraftTemplate: () => set({ draftTemplate: null, isManualFormOpen: false }),
   setManualFormOpen: (open) => set({ isManualFormOpen: open }),
+
+  sentinelGovernanceModeActive: false,
+  setSentinelGovernanceModeActive: (active) => set({ sentinelGovernanceModeActive: active }),
+
+  forensicPlaybackThreatId: null,
+  setForensicPlaybackThreatId: (id) => set({ forensicPlaybackThreatId: id }),
+
+  auditorViewEnabled: false,
+  setAuditorViewEnabled: (enabled) => set({ auditorViewEnabled: enabled }),
+
+  grcDashboardViewMode: "technical",
+  setGrcDashboardViewMode: (mode) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("ironframe-grc-dashboard-view", mode);
+      } catch {
+        /* ignore */
+      }
+    }
+    set({ grcDashboardViewMode: mode });
+  },
+
+  shadowPlaneHandshakeAuthorized: false,
+  setShadowPlaneHandshakeAuthorized: (v) => set({ shadowPlaneHandshakeAuthorized: v }),
+
+  setPurgeBoardFreezeUntil: (untilMs) => set({ purgeBoardFreezeUntil: untilMs }),
 
   registerThreatViaApi: async (payload) => {
     const res = await fetch('/api/threats', {
@@ -868,6 +1395,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         destination: payload.destination ?? 'pipeline',
         ...(payload.grcJustification?.trim()
           ? { grcJustification: payload.grcJustification.trim() }
+          : {}),
+        ...(payload.sourceSignalId?.trim()
+          ? { sourceSignalId: payload.sourceSignalId.trim() }
+          : {}),
+        ...(payload.deficiencyReportId?.trim()
+          ? { deficiencyReportId: payload.deficiencyReportId.trim() }
           : {}),
       }),
     });
@@ -908,6 +1441,99 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       get().upsertPipelineThreat(record);
     }
     return record;
+  },
+
+  refreshPipelineThreatsFromDb: async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const pipeRows = await fetchPipelineThreatsFromDb();
+      const asPipeline: PipelineThreat[] = pipeRows
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          loss: r.loss,
+          score: r.score,
+          industry: r.industry,
+          source: r.source,
+          description: r.description,
+          createdAt: r.createdAt,
+          threatStatus: r.threatStatus,
+          ingestionDetails: r.ingestionDetails ?? undefined,
+          dispositionStatus: r.dispositionStatus,
+          isFalsePositive: r.isFalsePositive,
+          receiptHash: r.receiptHash,
+          governanceHash: r.governanceHash,
+          agentReasonings: r.agentReasonings,
+          resolutionApprovalId: r.resolutionApprovalId ?? undefined,
+          resolutionApprovalStatus: r.resolutionApprovalStatus ?? undefined,
+        }))
+        .filter((row) =>
+          belongsOnAttackVelocityPipeline({
+            threatStatus: row.threatStatus,
+            ingestionDetails: row.ingestionDetails ?? null,
+            industry: row.industry,
+            createdAt: row.createdAt,
+          }),
+        );
+      get().replacePipelineThreats(asPipeline);
+    } catch {
+      // Non-fatal: polling / other sync paths may recover.
+    }
+  },
+
+  refreshActiveThreatsFromDb: async () => {
+    if (typeof window === "undefined") return;
+    const freezeUntil = get().purgeBoardFreezeUntil;
+    if (freezeUntil > 0 && Date.now() < freezeUntil) {
+      get().replaceActiveThreats([]);
+      return;
+    }
+    const ctrl = supersedeActiveThreatsBoardFetch();
+    try {
+      const res = await fetch("/api/threats/active", { cache: "no-store", signal: ctrl.signal });
+      if (!res.ok) return;
+      const activeRows = (await res.json()) as PipelineThreat[];
+      const optimistic = useAgentStore.getState().activeThreats ?? [];
+      const storeActive = get().activeThreats;
+      const terminal = new Set(["RESOLVED", "CLOSED_ARCHIVED"]);
+      const victoryLingerFromStore = storeActive.filter((t) => {
+        if (activeRows.some((db) => db.id === t.id)) return false;
+        return isChaosForensicClosureLingerActive(t.ingestionDetails ?? null);
+      });
+      const optimisticExtra = optimistic.filter((t) => {
+        if (activeRows.some((db) => db.id === t.id)) return false;
+        if (victoryLingerFromStore.some((v) => v.id === t.id)) return false;
+        const st = (t.threatStatus ?? "").trim().toUpperCase();
+        if (terminal.has(st)) return false;
+        return true;
+      });
+      const withOptimistic = [...activeRows, ...victoryLingerFromStore, ...optimisticExtra];
+      const merged = useAgentStore.getState().setInitialThreats(withOptimistic);
+      const activeIdSet = new Set(merged.map((t) => t.id));
+      set((state) => ({
+        activeThreats: merged,
+        pipelineThreats: state.pipelineThreats.filter((t) => !activeIdSet.has(t.id)),
+        threatIndexById: buildThreatIndexById(
+          state.pipelineThreats.filter((t) => !activeIdSet.has(t.id)),
+          merged,
+        ),
+      }));
+    } catch (e) {
+      const aborted =
+        (e instanceof DOMException && e.name === "AbortError") ||
+        (e instanceof Error && e.name === "AbortError");
+      if (aborted) return;
+    } finally {
+      endActiveThreatsBoardFetchIfCurrent(ctrl);
+    }
+  },
+
+  pulseThreatBoardsFromDb: async () => {
+    await Promise.all([get().refreshPipelineThreatsFromDb(), get().refreshActiveThreatsFromDb()]);
+    if (typeof window !== "undefined") {
+      void fetch("/api/opsupport/deficiency-queue", { cache: "no-store" }).catch(() => undefined);
+      window.dispatchEvent(new CustomEvent("ironframe-operational-refresh"));
+    }
   },
 
   resolveHistoricalThreatName: async (id) => {

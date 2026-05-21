@@ -152,6 +152,32 @@ body {
   animation: threat-list-fade-in 0.3s ease-out;
 }
 
+/* Ironwatch (Agent 15) — Command Post outer glow (box-shadow only; no layout size change). */
+@keyframes ironwatch-pulse-breathe-slow {
+  0%,
+  100% {
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.72);
+  }
+}
+@keyframes ironwatch-pulse-breathe-fast {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.42);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(220, 38, 38, 0.88);
+  }
+}
+.animate-ironwatch-pulse-slow {
+  animation: ironwatch-pulse-breathe-slow 2.8s ease-in-out infinite;
+}
+.animate-ironwatch-pulse-fast {
+  animation: ironwatch-pulse-breathe-fast 1.15s ease-in-out infinite;
+}
+
 @keyframes threat-card-failure-shake {
   0%,
   100% {
@@ -374,6 +400,10 @@ body {
 .activity-time { font-size: 10px; color: var(--text-tertiary); }
 
 @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+/* GRC Gold Defense ALE baseline — 2s heartbeat on live dot (ties to $16.0M forensic strip). */
+.grc-gold-ale-live-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
 @keyframes scanlineMove {
   0% { transform: translateY(0); }
   100% { transform: translateY(16px); }
@@ -442,3 +472,56 @@ body {
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.3); border-radius: 2px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(16, 185, 129, 0.5); }
+
+/* Board Report: print-friendly executive view (triggered via [ GENERATE EXECUTIVE PDF ] → window.print) */
+@media print {
+  body.board-report-print-mode .command-center-surface {
+    margin-top: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body.board-report-print-mode .fixed.z-50 {
+    display: none !important;
+  }
+  body.board-report-print-mode #board-report-print-root,
+  body.board-report-print-mode #board-report-print-root * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+  body.board-report-print-mode #board-report-print-root .rounded-xl,
+  body.board-report-print-mode #board-report-print-root .rounded-lg {
+    background: #fff !important;
+  }
+}
+
+/* Insurance ↔ Forensic connector: left-to-right cyan flow during posture sync */
+@keyframes ironframe-connector-flow-x {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(220%);
+    opacity: 0.15;
+  }
+}
+.ironframe-connector-flow-x {
+  animation: ironframe-connector-flow-x 1.15s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    border-color: rgba(113, 113, 122, 0.35);
+    box-shadow: 0 0 0 0 rgba(148, 163, 184, 0);
+  }
+  50% {
+    border-color: rgba(161, 161, 170, 0.75);
+    box-shadow: 0 0 14px 0 rgba(148, 163, 184, 0.25);
+  }
+}

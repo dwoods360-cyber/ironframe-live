@@ -8,11 +8,11 @@ import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import ThreatDetailHashScroll from './ThreatDetailHashScroll';
 
 const STATE_BADGE_CLASS: Record<string, string> = {
-  PIPELINE: 'bg-slate-500/20 text-slate-300',
-  ACTIVE: 'bg-amber-500/20 text-amber-300',
-  CONFIRMED: 'bg-orange-500/20 text-orange-300',
+  IDENTIFIED: 'bg-slate-500/20 text-slate-300',
+  CONFIRMED: 'bg-amber-500/20 text-amber-300',
+  MITIGATED: 'bg-cyan-500/20 text-cyan-200',
   RESOLVED: 'bg-emerald-500/20 text-emerald-300',
-  DE_ACKNOWLEDGED: 'bg-slate-600/30 text-slate-400',
+  CLOSED_ARCHIVED: 'bg-slate-600/30 text-slate-400',
 };
 
 function centsToMillions(value: bigint | number): string {
@@ -84,6 +84,10 @@ export default async function ThreatDetailPage({
 
   const stateLabel = threat.status.replace(/_/g, ' ');
   const badgeClass = STATE_BADGE_CLASS[threat.status] ?? 'bg-slate-500/20 text-slate-300';
+  const showRemoteLane =
+    threat.status === 'MITIGATED' &&
+    Boolean(threat.remoteTechId || threat.isRemoteAccessAuthorized);
+  const showEscalatedRecovery = threat.status === 'MITIGATED' && !showRemoteLane;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -109,7 +113,7 @@ export default async function ThreatDetailPage({
         <Link href="/" className="mb-6 inline-block text-xs font-medium text-slate-400 hover:text-white">
           ← Back to Dashboard
         </Link>
-        {threat.status === 'PENDING_REMOTE_INTERVENTION' && (
+        {showRemoteLane && (
           <section className="mb-6">
             <ThreatRemoteInterventionPanel
               threatId={threat.id}
@@ -119,7 +123,7 @@ export default async function ThreatDetailPage({
           </section>
         )}
 
-        {threat.status === 'ESCALATED' && <ThreatDetailEscalatedRecovery threatId={threat.id} />}
+        {showEscalatedRecovery && <ThreatDetailEscalatedRecovery threatId={threat.id} />}
 
         {/* Risk Information & History */}
         <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-6">

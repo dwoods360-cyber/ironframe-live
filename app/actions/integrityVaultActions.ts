@@ -1,9 +1,9 @@
 "use server";
 
-import { readIntegrityVaultSnapshot } from "@/app/lib/integrityVaultServer";
+import { readIntegrityVaultSnapshotWithRegistry } from "@/app/lib/integrityVaultServer";
 import type { IntegrityVaultSnapshot } from "@/app/types/integrityVault";
 
-/** Re-read G:\ manifest after operator requests vault handshake (same read path as Scenario 5). */
+/** Re-read manifest + workforce registry after operator requests vault handshake. */
 export async function reverifyLkgColdStoreAction(): Promise<IntegrityVaultSnapshot> {
-  return readIntegrityVaultSnapshot();
+  return readIntegrityVaultSnapshotWithRegistry();
 }

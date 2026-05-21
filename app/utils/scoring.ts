@@ -101,7 +101,7 @@ export function calculateEntityScore(entityData: EntityData): EntityScoreResult 
   };
 }
 
-export const ENTITY_SCORING_DATA: Record<"medshield" | "vaultbank" | "gridcore", EntityData> = {
+export const ENTITY_SCORING_DATA: Record<TenantKey, EntityData> = {
   medshield: {
     entityName: "MEDSHIELD",
     assets: [
@@ -132,6 +132,16 @@ export const ENTITY_SCORING_DATA: Record<"medshield" | "vaultbank" | "gridcore",
     activeThreats: 0,
     policyAttestation: 86,
   },
+  defense: {
+    entityName: "DEFENSE",
+    assets: [
+      { id: "dl-classified-edge", name: "Classified Edge Gateway", status: "WARNING" },
+      { id: "dl-cmmc-boundary", name: "CMMC L3 Boundary Controller", status: "SECURE" },
+      { id: "dl-mission-net", name: "Mission Partner Network Bridge", status: "VULNERABLE" },
+    ],
+    activeThreats: 0,
+    policyAttestation: 94,
+  },
 };
 
 export const ENTITY_FINANCIAL_FACTORS: Record<TenantKey, FinancialExposureInput> = {
@@ -150,6 +160,11 @@ export const ENTITY_FINANCIAL_FACTORS: Record<TenantKey, FinancialExposureInput>
     assetValue: 2100000,
     industryMultiplier: 1.45,
   },
+  defense: {
+    threatSeverity: 5,
+    assetValue: 3200000,
+    industryMultiplier: 1.7,
+  },
 };
 
 const FINANCIAL_IMPACT_BASELINES: Record<TenantKey, FinancialImpactProfile> = {
@@ -164,6 +179,10 @@ const FINANCIAL_IMPACT_BASELINES: Record<TenantKey, FinancialImpactProfile> = {
   gridcore: {
     avgBreachLiability: 4700000,
     criticalPerEventImpact: 600000,
+  },
+  defense: {
+    avgBreachLiability: 16000000,
+    criticalPerEventImpact: 2200000,
   },
 };
 

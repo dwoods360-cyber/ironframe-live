@@ -31,7 +31,7 @@ function ActionSourceBadge({ action, hostile }: { action: string; hostile: boole
   }
   if (
     upper === "GRCBOT_SIMULATION" ||
-    /GRCBOT/i.test(action) ||
+    /GRCBOT|GRC_BOT/i.test(action) ||
     upper === "AI_QUOTA_FALLBACK"
   ) {
     return (
@@ -150,12 +150,20 @@ export default async function ClearancePage() {
               ThreatEvent rows in PIPELINE for your tenant — pending verification and promotion.
             </p>
           </div>
-          <Link
-            href="/"
-            className="text-sm font-medium text-blue-400 hover:text-blue-300"
-          >
-            ← Dashboard
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              href="/admin/clearance/vault"
+              className="text-sm font-medium text-rose-400 hover:text-rose-300"
+            >
+              Bank Vault gateway →
+            </Link>
+            <Link
+              href="/"
+              className="text-sm font-medium text-blue-400 hover:text-blue-300"
+            >
+              ← Dashboard
+            </Link>
+          </div>
         </div>
 
         {queue.length === 0 ? (

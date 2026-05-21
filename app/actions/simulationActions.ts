@@ -1,69 +1,60 @@
 "use server";
 
-import { revalidatePath, unstable_noStore as noStore } from "next/cache";
+import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { prismaAdmin } from "@/lib/prismaAdmin";
-import { ThreatState } from "@prisma/client";
-import { SIMULATION_SIGNATURES } from "@/app/config/constants";
+import { ThreatState, type Prisma } from "@prisma/client";
+import { ingressGateway, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
 import {
   getActiveTenantUuidFromCookies,
-  isValidTenantUuid,
+  getRedTeamSimulationTenantUuid,
 } from "@/app/utils/serverTenantContext";
+import { assertSimulationInjectAllowedForTenant } from "@/app/lib/simulationStandDown";
 import {
+  ATTACK_SOURCE,
+  ATTACK_THREAT_TITLE_PREFIX,
+  GRC_SOURCE,
+  GRC_THREAT_TITLE_PREFIX,
+  KIMBOT_SOURCE,
+  KIMBOT_THREAT_TITLE_PREFIX,
+} from "@/app/config/agents";
+import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
+import {
+  pipelineShadowChaosVelocityDedupeRiskEvent,
+  pipelineShadowChaosVelocityDedupeThreatEvent,
   queryActiveThreatsForBoard,
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
 } from "@/app/utils/activeThreatsBoardQuery";
+import {
+  normalizeIngestionDetailsToString,
+  parseIngestionDetailsForMerge,
+} from "@/app/utils/ingestionDetailsMerge";
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 
-async function resolveCompanyForSimulation(tenantUuid: string): Promise<{ id: bigint } | null> {
-  // 1. Attempt strict lookup by provided tenant UUID
-  let company = await prismaAdmin.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true, isTestRecord: true },
-  });
-
-  // 2. Fallback to authorized Sandbox
-  if (!company) {
-    company = await prismaAdmin.company.findFirst({
-      where: { isTestRecord: true },
-      select: { id: true, isTestRecord: true },
-    });
+function parseShadowCisoHandshakeFromIngestion(
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
+): {
+  resolutionApprovalId: string | null;
+  resolutionApprovalStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+} {
+  try {
+    const j = parseIngestionDetailsForMerge(ingestionDetails ?? null) as {
+      shadowCisoHandshake?: {
+        resolutionApprovalId?: string;
+        resolutionApprovalStatus?: string;
+      };
+    };
+    const h = j?.shadowCisoHandshake;
+    const id = typeof h?.resolutionApprovalId === "string" ? h.resolutionApprovalId.trim() : null;
+    const st = h?.resolutionApprovalStatus;
+    if (id && st === "APPROVED") {
+      return { resolutionApprovalId: id, resolutionApprovalStatus: "APPROVED" };
+    }
+  } catch {
+    /* ignore */
   }
-
-  // 3. Absolute fallback: Grab first available record
-  if (!company) {
-    company = await prismaAdmin.company.findFirst({
-      select: { id: true, isTestRecord: true },
-    });
-  }
-
-  // 4. GRC-safe bootstrap: if DB has no company rows, create a minimal test tenant+company.
-  if (!company) {
-    const tenant = await prismaAdmin.tenant.upsert({
-      where: { id: tenantUuid },
-      update: {},
-      create: {
-        id: tenantUuid,
-        name: `Simulation Tenant ${tenantUuid.slice(0, 8).toUpperCase()}`,
-        slug: `sim-${tenantUuid.toLowerCase()}`,
-        industry: "Secure Enclave",
-      },
-      select: { id: true },
-    });
-
-    company = await prismaAdmin.company.create({
-      data: {
-        name: "Simulation Company (Auto-Bootstrap)",
-        sector: "General",
-        isTestRecord: true,
-        tenantId: tenant.id,
-      },
-      select: { id: true, isTestRecord: true },
-    });
-  }
-
-  return company ? { id: company.id } : null;
+  return { resolutionApprovalId: null, resolutionApprovalStatus: null };
 }
 
 export type CreateGrcBotThreatInput = {
@@ -99,59 +90,44 @@ export type CreateKimbotThreatInput = {
 export async function createKimbotThreatServer(
   input: CreateKimbotThreatInput
 ): Promise<GrcBotThreatCreated> {
+  const tenantUuid = await getRedTeamSimulationTenantUuid();
+  if (!tenantUuid?.trim()) {
+    throw new Error(
+      "KIMBOT: No tenant scope — select a Command Center tenant or enable Shadow Plane / simulation mode.",
+    );
+  }
+  await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
   const score = Math.min(10, Math.max(1, Math.round(input.severity)));
-  const sourceAgent = "KIMBOT";
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!isValidTenantUuid(tenantUuid)) {
-    throw new Error("Invalid active tenant context.");
-  }
-  const company = await resolveCompanyForSimulation(tenantUuid);
-  if (!company) {
-    throw new Error("Database Empty: Please run npx prisma db seed");
-  }
-  const created = await prismaAdmin.threatEvent.create({
-    data: {
-      title: input.title,
-      sourceAgent,
-      score,
-      targetEntity: input.sector,
-      financialRisk_cents: millionsToCents(input.liability),
-      status: ThreatState.PIPELINE,
-      ttlSeconds: DEFAULT_TTL_SECONDS,
-      tenantCompanyId: company.id,
-    },
-    select: {
-      id: true,
-      title: true,
-      sourceAgent: true,
-      score: true,
-      targetEntity: true,
-      financialRisk_cents: true,
-      status: true,
-    },
+  const companyRow = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid.trim(), isTestRecord: false },
+    orderBy: { id: "asc" },
+    select: { id: true },
   });
-  try {
-    const simulatedDelegate = (prismaAdmin as unknown as {
-      simulatedThreatEvent?: { create: (arg: unknown) => Promise<unknown> };
-    }).simulatedThreatEvent;
-    if (simulatedDelegate?.create) {
-      await simulatedDelegate.create({
-        data: {
-          title: input.title,
-          sourceAgent,
-          score,
-          targetEntity: input.sector,
-          financialRisk_cents: millionsToCents(input.liability),
-          status: ThreatState.PIPELINE,
-          ttlSeconds: DEFAULT_TTL_SECONDS,
-          drillId: `kimbot-${Date.now()}`,
-          tenantCompanyId: company.id,
-        },
-      });
-    }
-  } catch (error) {
-    console.error("KIMBOT simulated shadow write failed (non-blocking):", error);
+  const companyId =
+    companyRow?.id ??
+    (
+      await prisma.company.findFirst({
+        where: { tenantId: tenantUuid.trim() },
+        orderBy: { id: "asc" },
+        select: { id: true },
+      })
+    )?.id ??
+    null;
+  if (companyId == null) {
+    throw new Error(
+      "GRC: No Company for the active tenant session; cannot create Kimbot threat without tenantCompanyId.",
+    );
   }
+  const created = await ingressGateway.writeThreatEvent({
+    title: input.title,
+    sourceAgent: input.source,
+    score,
+    targetEntity: input.sector,
+    financialRisk_cents: millionsToCents(input.liability),
+    status: ThreatState.IDENTIFIED,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+    tenantCompanyId: companyId,
+  });
   return {
     ...created,
     state: created.status,
@@ -160,15 +136,9 @@ export async function createKimbotThreatServer(
 }
 
 const CENTS_PER_MILLION = 100_000_000;
-/** Floor for zero-liability sim inputs to preserve forensic financial baselines. */
-const MIN_SIMULATION_FLOOR_CENTS = 150_000_00n;
 
 function millionsToCents(valueM: number): bigint {
-  if (!Number.isFinite(valueM) || valueM <= 0) {
-    return MIN_SIMULATION_FLOOR_CENTS;
-  }
-  const computed = BigInt(Math.round(valueM * CENTS_PER_MILLION));
-  return computed > 0n ? computed : MIN_SIMULATION_FLOOR_CENTS;
+  return BigInt(Math.round(valueM * CENTS_PER_MILLION));
 }
 
 function centsToMillions(value: bigint | number): number {
@@ -176,70 +146,67 @@ function centsToMillions(value: bigint | number): number {
 }
 
 /**
- * Persist a GRCBOT-simulated threat to the database before the UI shows the card.
- * The bot (grcBotEngine) awaits this server action and only then calls addThreatToPipeline,
- * so every card the user sees is backed by a ThreatEvent row and triage/audit succeed.
+ * GRC bot placeholder row (pipeline). Resolve tenant company first, then a single `create`
+ * — matches the last known-good ingestion shape (no split create/update for company link).
  */
-export async function createGrcBotThreatServer(
-  input: CreateGrcBotThreatInput
-): Promise<GrcBotThreatCreated> {
-  const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+export async function createGrcBotThreatPlaceholderServer(): Promise<GrcBotThreatCreated> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!isValidTenantUuid(tenantUuid)) {
-    throw new Error("Invalid active tenant context.");
+  if (tenantUuid?.trim()) {
+    await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
   }
-  const company = await resolveCompanyForSimulation(tenantUuid);
-  if (!company) {
-    throw new Error("Database Empty: Please run npx prisma db seed");
+  const companyId = await getCompanyIdForActiveTenant();
+  if (companyId == null) {
+    throw new Error(
+      "GRC: No Company for the active tenant session; cannot create bot placeholder without tenantCompanyId.",
+    );
   }
-  const created = await prismaAdmin.threatEvent.create({
-    data: {
-      title: input.title,
-      sourceAgent: input.source,
-      score,
-      targetEntity: input.sector,
-      financialRisk_cents: millionsToCents(input.liability),
-      status: ThreatState.PIPELINE,
-      ttlSeconds: DEFAULT_TTL_SECONDS,
-      tenantCompanyId: company.id,
-    },
-    select: {
-      id: true,
-      title: true,
-      sourceAgent: true,
-      score: true,
-      targetEntity: true,
-      financialRisk_cents: true,
-      status: true,
-    },
+  const created = await ingressGateway.writeThreatEvent({
+    title: `${GRC_THREAT_TITLE_PREFIX} Initializing…`,
+    sourceAgent: GRC_SOURCE,
+    score: 1,
+    targetEntity: "—",
+    financialRisk_cents: 0n,
+    status: ThreatState.IDENTIFIED,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+    tenantCompanyId: companyId,
   });
-  try {
-    const simulatedDelegate = (prismaAdmin as unknown as {
-      simulatedThreatEvent?: { create: (arg: unknown) => Promise<unknown> };
-    }).simulatedThreatEvent;
-    if (simulatedDelegate?.create) {
-      await simulatedDelegate.create({
-        data: {
-          title: input.title,
-          sourceAgent: input.source,
-          score,
-          targetEntity: input.sector,
-          financialRisk_cents: millionsToCents(input.liability),
-          status: ThreatState.PIPELINE,
-          ttlSeconds: DEFAULT_TTL_SECONDS,
-          drillId: `grcbot-${Date.now()}`,
-          tenantCompanyId: company.id,
-        },
-      });
-    }
-  } catch (error) {
-    console.error("GRCBOT simulated shadow write failed (non-blocking):", error);
-  }
   return {
     ...created,
     state: created.status,
     financialRisk_cents: Number(created.financialRisk_cents),
   } as GrcBotThreatCreated;
+}
+
+/** Finalize placeholder row created by `createGrcBotThreatPlaceholderServer` with real simulation fields. */
+export async function updateGrcBotThreatServer(
+  id: string,
+  input: CreateGrcBotThreatInput,
+): Promise<GrcBotThreatCreated> {
+  const score = Math.min(10, Math.max(1, Math.round(input.severity)));
+  const updated = await ingressGateway.updateThreatEvent(id, {
+    title: input.title,
+    sourceAgent: input.source,
+    score,
+    targetEntity: input.sector,
+    financialRisk_cents: millionsToCents(input.liability),
+    status: ThreatState.IDENTIFIED,
+    ttlSeconds: DEFAULT_TTL_SECONDS,
+  });
+  return {
+    ...updated,
+    state: updated.status,
+    financialRisk_cents: Number(updated.financialRisk_cents),
+  } as GrcBotThreatCreated;
+}
+
+/**
+ * Single-shot GRC create (placeholder + finalize in one flow for legacy callers).
+ */
+export async function createGrcBotThreatServer(
+  input: CreateGrcBotThreatInput,
+): Promise<GrcBotThreatCreated> {
+  const placeholder = await createGrcBotThreatPlaceholderServer();
+  return updateGrcBotThreatServer(placeholder.id, input);
 }
 
 export type PipelineThreatFromDb = PipelineThreatFromDbImported;
@@ -257,31 +224,138 @@ function threatMetadataToRecord(raw: unknown): Record<string, unknown> | undefin
  * so the UI shows only real, actionable cards.
  */
 export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb[]> {
-  const rows = await prisma.threatEvent.findMany({
-    where: { status: ThreatState.PIPELINE },
-    select: {
-      id: true,
-      title: true,
-      financialRisk_cents: true,
-      score: true,
-      targetEntity: true,
-      sourceAgent: true,
-      createdAt: true,
-      assigneeId: true,
+  noStore();
+  const sim = await readSimulationPlaneEnabled();
+  /** Cookie-aligned tenant UUID — SimThreatEvent rows MUST match this or assignee actions fail scope checks. */
+  const tenantUuid = await getActiveTenantUuidFromCookies();
+  /** Align with Active Risks shadow scope: Chaos `IDENTIFIED` rows must not duplicate in Attack Velocity / Risk Ingestion. */
+  const shadowChaosVelocityDedupe = isShadowPlaneActiveFromEnv() || sim;
+
+  const statusClause = {
+    AND: [
+      {
+        status: {
+          notIn: [ThreatState.RESOLVED, ThreatState.CLOSED_ARCHIVED],
+        },
+      },
+      { status: { in: [ThreatState.IDENTIFIED, ThreatState.MITIGATED] } },
+    ],
+  };
+  const pipelineScalarsProd = {
+    id: true,
+    title: true,
+    financialRisk_cents: true,
+    score: true,
+    targetEntity: true,
+    sourceAgent: true,
+    createdAt: true,
+    assigneeId: true,
+    status: true,
+    ingestionDetails: true,
+    dispositionStatus: true,
+    isFalsePositive: true,
+    receiptHash: true,
+  } satisfies Prisma.ThreatEventSelect;
+  /** Shadow plane: tenant binding SHA-256 (`computeSimThreatTenantBindingHash`) for Audit Intelligence / forensic strip. */
+  const pipelineScalarsSim = {
+    ...pipelineScalarsProd,
+    governanceHash: true,
+  } satisfies Prisma.RiskEventSelect;
+  const pipelineProdSelect = {
+    ...pipelineScalarsProd,
+    resolutionApprovalId: true,
+    resolutionApproval: {
+      select: { id: true, status: true },
     },
-    orderBy: { createdAt: "desc" },
+    agentReasonings: {
+      orderBy: { createdAt: "desc" as const },
+      select: {
+        id: true,
+        agentId: true,
+        reasoning: true,
+        metadata: true,
+        createdAt: true,
+      },
+    },
+  } satisfies Prisma.ThreatEventSelect;
+
+  const rows = sim
+    ? await prisma.riskEvent.findMany({
+        where: {
+          AND: [
+            { tenantId: tenantUuid },
+            statusClause,
+            ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        select: pipelineScalarsSim,
+      })
+    : await (async () => {
+        const companies = await prisma.company.findMany({
+          where: { tenantId: tenantUuid },
+          select: { id: true },
+        });
+        const companyIds = companies.map((c) => c.id);
+        if (companyIds.length === 0) return [];
+        return prisma.threatEvent.findMany({
+          where: {
+            AND: [
+              { tenantCompanyId: { in: companyIds } },
+              statusClause,
+              ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
+            ],
+          },
+          orderBy: { createdAt: "desc" },
+          select: pipelineProdSelect,
+        });
+      })();
+
+  return rows.map((r) => {
+    const agentReasonings =
+      "agentReasonings" in r && Array.isArray(r.agentReasonings)
+        ? r.agentReasonings.map((a) => ({
+            id: a.id,
+            agentId: a.agentId,
+            reasoning: a.reasoning,
+            metadata: a.metadata,
+            createdAt: a.createdAt.toISOString(),
+          }))
+        : undefined;
+    const shadow = sim ? parseShadowCisoHandshakeFromIngestion(r.ingestionDetails) : null;
+    const resolutionApprovalId = sim
+      ? shadow?.resolutionApprovalId ?? null
+      : (r as { resolutionApprovalId?: string | null; resolutionApproval?: { id: string; status: string } | null })
+          .resolutionApprovalId ??
+        (r as { resolutionApproval?: { id: string; status: string } | null }).resolutionApproval?.id ??
+        null;
+    const resolutionApprovalStatus = sim
+      ? shadow?.resolutionApprovalStatus ?? null
+      : (((r as { resolutionApproval?: { status: string } | null }).resolutionApproval?.status ??
+          null) as "PENDING" | "APPROVED" | "REJECTED" | null);
+    return {
+      id: r.id,
+      name: r.title,
+      loss: centsToMillions(r.financialRisk_cents),
+      score: r.score,
+      industry: r.targetEntity,
+      source: r.sourceAgent,
+      description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
+      createdAt: r.createdAt.toISOString(),
+      assignedTo: r.assigneeId?.trim() || undefined,
+      threatStatus: String(r.status),
+      ingestionDetails: normalizeIngestionDetailsToString(r.ingestionDetails) ?? undefined,
+      dispositionStatus: r.dispositionStatus ?? undefined,
+      isFalsePositive: r.isFalsePositive,
+      receiptHash: r.receiptHash ?? undefined,
+      governanceHash: sim
+        ? ((r as { governanceHash?: string | null }).governanceHash ?? undefined)
+        : undefined,
+      agentReasonings,
+      resolutionApprovalId,
+      resolutionApprovalStatus,
+    };
   });
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.title,
-    loss: centsToMillions(r.financialRisk_cents),
-    score: r.score,
-    industry: r.targetEntity,
-    source: r.sourceAgent,
-    description: `Liability: $${centsToMillions(r.financialRisk_cents).toFixed(1)}M · ${r.sourceAgent}`,
-    createdAt: r.createdAt.toISOString(),
-    assignedTo: r.assigneeId?.trim() || undefined,
-  }));
 }
 
 /**
@@ -292,106 +366,70 @@ export async function fetchActiveThreatsFromDb(
 ): Promise<PipelineThreatFromDb[]> {
   void _cacheBuster;
   noStore();
-  revalidatePath("/dashboard");
-  revalidatePath("/");
   return queryActiveThreatsForBoard();
 }
 
 /**
- * Scoped control-room purge: clears ThreatEvent cards and BotAuditLog stream only.
- * Company/Tenant entities are intentionally untouched.
+ * Shadow-plane / simulation lab: inject 15–20 randomized KIM / GRC / Attbot pipeline threats.
  */
-export async function purgeControlRoomState(): Promise<{ ok: true }> {
+export async function fireAdversarialSalvoServerAction(): Promise<
+  { ok: true; injected: number } | { ok: false; error: string }
+> {
+  noStore();
+  const planeEnv = isShadowPlaneActiveFromEnv();
+  const simPlane = await readSimulationPlaneEnabled();
+  if (!planeEnv && !simPlane) {
+    return {
+      ok: false,
+      error: "Enable SHADOW_PLANE_ACTIVE or simulation mode (ironframe-simulation-mode cookie).",
+    };
+  }
   const tenantUuid = await getActiveTenantUuidFromCookies();
-  const isTenantScoped = isValidTenantUuid(tenantUuid);
-  const tenantCompanyIds = isTenantScoped
-    ? (
-        await prismaAdmin.company.findMany({
-          where: { tenantId: tenantUuid },
-          select: { id: true },
-        })
-      ).map((c) => c.id)
-    : [];
-  const simulationSourceFilters = SIMULATION_SIGNATURES.flatMap((sig) => [
-    { sourceAgent: { contains: sig, mode: "insensitive" as const } },
-    { title: { contains: sig, mode: "insensitive" as const } },
-  ]);
-
-  const simulationThreats = await prismaAdmin.threatEvent.findMany({
-    where: {
-      ...(tenantCompanyIds.length > 0 ? { tenantCompanyId: { in: tenantCompanyIds } } : {}),
-      OR: simulationSourceFilters,
-    },
-    select: { id: true },
-  });
-  const simulationThreatIds = simulationThreats.map((t) => t.id);
-
-  if (simulationThreatIds.length > 0) {
-    await prismaAdmin.workNote.deleteMany({
-      where: { threatId: { in: simulationThreatIds } },
-    });
+  if (!tenantUuid?.trim()) {
+    return { ok: false, error: "No active tenant (ironframe-tenant cookie)." };
   }
+  await assertSimulationInjectAllowedForTenant(tenantUuid.trim());
 
-  await prismaAdmin.auditLog.deleteMany({
-    where: {
-      OR: [
-        { isSimulation: true },
-        ...(simulationThreatIds.length > 0 ? [{ threatId: { in: simulationThreatIds } }] : []),
-      ],
-    },
-  });
-
-  await prismaAdmin.botAuditLog.deleteMany({
-    where: {
-      OR: [
-        { botType: { in: ["ATTBOT", "KIMBOT", "GRCBOT", "IRONTECH", "IRONWATCH"] } },
-        ...(simulationThreatIds.length > 0 ? [{ threatId: { in: simulationThreatIds } }] : []),
-      ],
-    },
-  });
-
-  await prismaAdmin.activeRisk.deleteMany({
-    where: {
-      ...(tenantCompanyIds.length > 0 ? { company_id: { in: tenantCompanyIds } } : {}),
-      OR: [
-        { isSimulation: true },
-        ...SIMULATION_SIGNATURES.map((sig) => ({
-          source: { contains: sig, mode: "insensitive" as const },
-        })),
-      ],
-    },
-  });
-
-  if (simulationThreatIds.length > 0) {
-    await prismaAdmin.threatEvent.deleteMany({
-      where: { id: { in: simulationThreatIds } },
-    });
+  const sectors = ["Healthcare", "Finance", "Technology", "Defense", "Energy"] as const;
+  const total = 15 + Math.floor(Math.random() * 6);
+  let injected = 0;
+  for (let i = 0; i < total; i++) {
+    const roll = Math.floor(Math.random() * 3);
+    const sector = sectors[Math.floor(Math.random() * sectors.length)]!;
+    const liability = 1.2 + Math.random() * 8;
+    const sev = 3 + Math.floor(Math.random() * 7);
+    const stamp = Date.now();
+    try {
+      if (roll === 0) {
+        await createKimbotThreatServer({
+          title: `${KIMBOT_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: KIMBOT_SOURCE,
+          severity: sev,
+        });
+      } else if (roll === 1) {
+        await createGrcBotThreatServer({
+          title: `${GRC_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: GRC_SOURCE,
+          severity: sev,
+        });
+      } else {
+        await createKimbotThreatServer({
+          title: `${ATTACK_THREAT_TITLE_PREFIX} Salvo ${i + 1} — ${stamp}`,
+          sector,
+          liability,
+          source: ATTACK_SOURCE,
+          severity: sev,
+        });
+      }
+      injected++;
+    } catch (e) {
+      console.error("[fireAdversarialSalvoServerAction]", e);
+    }
   }
-
-  if (isTenantScoped) {
-    // Reset simulation-only LangGraph checkpoints so unified_risks cannot rehydrate ghost simulation cards.
-    await prisma.agentGraphState.deleteMany({
-      where: {
-        tenantId: tenantUuid,
-        OR: [
-          {
-            state: {
-              path: ["checkpoint", "channel_values", "data_path"],
-              equals: "SIMULATION",
-            },
-          },
-          {
-            state: {
-              path: ["checkpoint", "channel_values", "ledger_blocked"],
-              equals: true,
-            },
-          },
-        ],
-      },
-    });
-  }
-
   revalidatePath("/");
-  revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, injected };
 }

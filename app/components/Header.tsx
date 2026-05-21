@@ -1,104 +1,110 @@
 "use client";
 
 /**
- * Dashboard header: production title strip with tenant label and controls.
+ * Dashboard header: left-aligned title only — no logo (TAS UI anchor).
+ * Tenant label mirrors Command Center (`selectedTenantName`); initial store state is null → `[ PENDING SELECTION ]`
+ * until the user selects a tenant (no default seeding).
  */
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { purgeControlRoomState } from "@/app/actions/simulationActions";
-import { clearAllAuditLogs } from "@/app/utils/auditLogger";
-import { useKimbotStore } from "@/app/store/kimbotStore";
-import { useGrcBotStore } from "@/app/store/grcBotStore";
+import { useEffect } from "react";
 import { useRiskStore } from "@/app/store/riskStore";
-import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
-import { sleepBlueTeam } from "@/app/utils/blueTeamSync";
-import { IronframeHexMark } from "@/app/components/IronframeHexMark";
-import { useSimulationStore } from "@/app/store/simulationStore";
+import { PurgeBoardButton } from "@/app/components/PurgeBoardButton";
 
-const CONSULTANT_TENANT_OPTIONS = [
-  "MedShield Clinic",
-  "St. Jude Hospital",
-  "Medshield Health",
-  "Vaultbank Global",
-  "Gridcore Energy",
-];
-
-type HeaderProps = {
-  tenantNames?: string[];
-};
-
-export default function Header({ tenantNames = [] }: HeaderProps) {
-  const router = useRouter();
-  const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+export default function Header() {
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
-  const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
+  const auditorViewEnabled = useRiskStore((s) => s.auditorViewEnabled);
+  const setAuditorViewEnabled = useRiskStore((s) => s.setAuditorViewEnabled);
+  const grcDashboardViewMode = useRiskStore((s) => s.grcDashboardViewMode);
+  const setGrcDashboardViewMode = useRiskStore((s) => s.setGrcDashboardViewMode);
   const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
-  const endSimulation = useSimulationStore((s) => s.endSimulation);
-  const [purging, setPurging] = useState(false);
-  const [showPurgeConfirm, setShowPurgeConfirm] = useState(false);
 
-  const options = [
-    "",
-    ...new Set([...CONSULTANT_TENANT_OPTIONS, ...tenantNames].filter(Boolean)),
-  ];
-
-  const handlePurge = async () => {
-    if (purging) return;
-    setPurging(true);
+  useEffect(() => {
     try {
-      await purgeControlRoomState();
-      clearAllAuditLogs();
-      // Bot kill-switches: terminate simulation generators before refreshing to prevent ghost re-hydration.
-      useKimbotStore.getState().setEnabled(false);
-      useKimbotStore.getState().resetSimulationCounters();
-      useGrcBotStore.getState().setEnabled(false);
-      useGrcBotStore.getState().stop();
-      useRiskStore.getState().clearAllRiskStateForPurge();
-      useRiskStore.getState().setSelectedThreatId(null);
-      useAgentStore
-        .getState()
-        .addStreamMessage("> [SYSTEM] Control Room records purged (ThreatEvent + BotAuditLog).");
-      sleepBlueTeam();
-      endSimulation();
-      setShowPurgeConfirm(false);
-      router.refresh();
-    } catch (error) {
-      console.error("Purge failed:", error);
-    } finally {
-      setPurging(false);
+      const stored = localStorage.getItem("ironframe-grc-dashboard-view");
+      if (stored === "executive" || stored === "technical") {
+        setGrcDashboardViewMode(stored);
+      }
+    } catch {
+      /* ignore */
     }
-  };
+  }, [setGrcDashboardViewMode]);
+
+  const executiveView = grcDashboardViewMode === "executive";
+  const tenantTitle = selectedTenantName?.trim() || "[ PENDING SELECTION ]";
 
   return (
     <div
-      className="flex flex-wrap items-center gap-4 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
+      className="flex w-full flex-wrap items-center gap-3 border-b border-slate-800 bg-slate-900/30 px-6 py-3"
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
-      <div className="flex shrink-0 items-center gap-2">
-        <IronframeHexMark className="h-9 w-9 shrink-0" aria-hidden />
-        <h1 className="text-sm font-bold uppercase tracking-wider text-white">
-          IRONFRAME v1.0 — ENTERPRISE RISK POSTURE
+      <div className="min-w-0 flex-1 basis-0 text-left">
+        <h1 className="text-left text-sm font-bold tracking-wide text-white">
+          <span className="uppercase tracking-wider">IRONFRAME V1.0 — </span>
+          <span
+            className={
+              selectedTenantName?.trim()
+                ? "font-semibold normal-case tracking-normal text-white"
+                : "uppercase tracking-wider text-slate-300"
+            }
+          >
+            {tenantTitle}
+          </span>
         </h1>
       </div>
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-        PROTECTED TENANTS (HEALTHCARE)
-      </span>
-      <select
-        value={selectedTenantName ?? ""}
-        onChange={(e) => setSelectedTenantName(e.target.value || null)}
-        className="rounded border border-slate-700 bg-slate-950/60 px-3 py-1.5 text-[8.5px] font-medium text-slate-200 outline-none focus:border-blue-500"
-        aria-label="Tenant selection"
-      >
-        <option value="">My Organization</option>
-        {options.filter((v) => v !== "").map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
 
-      <div className="ml-auto flex max-w-full flex-nowrap items-center gap-2 overflow-x-auto">
+      <div className="flex shrink-0 max-w-full flex-nowrap items-center gap-2 overflow-x-auto sm:ml-auto">
+        <div className="flex shrink-0 items-center gap-2">
+          <label
+            htmlFor="auditor-view-toggle"
+            className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
+          >
+            Auditor view
+          </label>
+          <button
+            id="auditor-view-toggle"
+            type="button"
+            role="switch"
+            aria-checked={auditorViewEnabled}
+            onClick={() => setAuditorViewEnabled(!auditorViewEnabled)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+              auditorViewEnabled ? "bg-amber-600" : "bg-slate-700"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                auditorViewEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-slate-500">{auditorViewEnabled ? "ON" : "OFF"}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <label
+            htmlFor="cfo-view-toggle"
+            className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
+          >
+            CFO view
+          </label>
+          <button
+            id="cfo-view-toggle"
+            type="button"
+            role="switch"
+            aria-checked={executiveView}
+            onClick={() =>
+              setGrcDashboardViewMode(executiveView ? "technical" : "executive")
+            }
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+              executiveView ? "bg-emerald-600" : "bg-slate-700"
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${
+                executiveView ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-[10px] text-slate-500">{executiveView ? "Exec" : "Tech"}</span>
+        </div>
         <div className="flex shrink-0 items-center gap-2">
           <label
             htmlFor="expert-mode-toggle"
@@ -126,41 +132,7 @@ export default function Header({ tenantNames = [] }: HeaderProps) {
             {expertModeEnabled ? "ON" : "OFF"}
           </span>
         </div>
-        <div className="shrink-0 text-right text-[10px] leading-tight text-[#ff4b4b] font-mono whitespace-nowrap">
-          Master State Reset. ⚠️ DEV ONLY:
-          <br />
-          Do not deploy to Prod!
-        </div>
-        {showPurgeConfirm ? (
-          <div className="flex items-center gap-2 rounded border border-slate-600 bg-slate-900/90 px-2 py-1">
-            <span className="text-[10px] text-slate-300">Purge simulation?</span>
-            <button
-              type="button"
-              onClick={handlePurge}
-              disabled={purging}
-              className="rounded border border-rose-500/60 bg-rose-500/20 px-2 py-1 text-[10px] font-bold uppercase text-rose-300 hover:bg-rose-500/30 disabled:opacity-50"
-            >
-              {purging ? "…" : "Yes"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPurgeConfirm(false)}
-              disabled={purging}
-              className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-700"
-            >
-              No
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowPurgeConfirm(true)}
-            disabled={purging}
-            className="rounded border border-rose-500/60 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wide text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
-          >
-            Purge
-          </button>
-        )}
+        <PurgeBoardButton />
       </div>
     </div>
   );

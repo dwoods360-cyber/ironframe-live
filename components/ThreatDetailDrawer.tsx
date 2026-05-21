@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useTenantContext } from '@/app/context/TenantProvider';
+import { resolveDashboardTenantUuid } from '@/app/utils/clientTenantCookie';
 import ThreatDetailClient from '@/app/threats/[id]/ThreatDetailClient';
 import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import { appendAuditLog } from '@/app/utils/auditLogger';
@@ -26,17 +28,18 @@ function getRiskBadgeClass(state: string, financialRisk_cents: number, score: nu
   if (isHigh) return 'bg-orange-500/20 text-orange-300 border border-orange-500/40';
   if (state === 'RESOLVED') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
   if (state === 'CONFIRMED') return 'bg-orange-500/20 text-orange-300 border border-orange-500/40';
-  if (state === 'ACTIVE') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
-  if (state === 'DE_ACKNOWLEDGED') return 'bg-slate-600/30 text-slate-400 border border-slate-500/40';
+  if (state === 'MITIGATED') return 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40';
+  if (state === 'IDENTIFIED') return 'bg-amber-500/20 text-amber-300 border border-amber-500/40';
+  if (state === 'CLOSED_ARCHIVED') return 'bg-slate-600/30 text-slate-400 border border-slate-500/40';
   return 'bg-slate-500/20 text-slate-300 border border-slate-500/40';
 }
 
 const STATE_BADGE_CLASS: Record<string, string> = {
-  PIPELINE: 'bg-slate-500/20 text-slate-300 border border-slate-500/40',
-  ACTIVE: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
-  CONFIRMED: 'bg-orange-500/20 text-orange-300 border border-orange-500/40',
+  IDENTIFIED: 'bg-slate-500/20 text-slate-300 border border-slate-500/40',
+  CONFIRMED: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+  MITIGATED: 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/40',
   RESOLVED: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
-  DE_ACKNOWLEDGED: 'bg-slate-600/30 text-slate-400 border border-slate-500/40',
+  CLOSED_ARCHIVED: 'bg-slate-600/30 text-slate-400 border border-slate-500/40',
 };
 
 function formatAction(action: string | undefined): string {
@@ -152,6 +155,8 @@ function toDrawerThreatData(
 }
 
 export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash, onFocusHandled, linkInterrupted = false }: ThreatDetailDrawerProps) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const [threat, setThreat] = useState<ThreatData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,13 +173,25 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   const [ingestError, setIngestError] = useState<string | null>(null);
   const globalLogs = useAuditLoggerStore();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
-  console.log('[GRC DEBUG] Active Threat Data:', JSON.stringify(threat, null, 2));
+  const { activeTenantUuid } = useTenantContext();
+
+  /** Align POST /api/threats/ingest tenant_id with GET /api/dashboard (cookie + route scope). */
+  const tenantIdForIngest = useMemo(() => {
+    const fromScope = resolveDashboardTenantUuid(activeTenantUuid);
+    if (fromScope) return fromScope;
+    const n = (selectedTenantName ?? '').trim().toLowerCase();
+    if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
+    if (n === 'gridcore') return TENANT_UUIDS.gridcore;
+    if (n === 'defense' || n.includes('defense')) return TENANT_UUIDS.defense;
+    return TENANT_UUIDS.medshield;
+  }, [activeTenantUuid, selectedTenantName]);
 
   useEffect(() => {
+    const ac = new AbortController();
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/threats/${threatId}`)
+    fetch(`/api/threats/${threatId}`, { signal: ac.signal })
       .then((res) => {
         if (!res.ok) {
           const fallbackThreat = useRiskStore.getState().threatIndexById[threatId];
@@ -185,14 +202,29 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
             }
             return null;
           }
-          throw new Error(res.status === 404 ? 'Threat not found' : 'Failed to load');
+          if (res.status === 404) {
+            console.warn("[UI] Focused threat no longer exists. Clearing selection.");
+            if (!cancelled) {
+              useRiskStore.getState().setSelectedThreatId(null);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("clear-threat-modals"));
+              }
+              onCloseRef.current();
+              setError(null);
+            }
+            return null;
+          }
+          throw new Error('Failed to load');
         }
         return res.json();
       })
       .then((data) => {
         if (!cancelled && data) setThreat(data);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
+        const isAbort =
+          err instanceof Error && (err.name === "AbortError" || err.message === "The user aborted a request.");
+        if (isAbort) return;
         if (!cancelled) {
           const fallbackThreat = useRiskStore.getState().threatIndexById[threatId];
           if (fallbackThreat) {
@@ -206,7 +238,10 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
   }, [threatId]);
 
   useEffect(() => {
@@ -290,12 +325,6 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
   }, [allNotes, threatActions]);
 
   const effectiveLinkStatus = linkInterrupted ? 'interrupted' : linkStatus;
-  const tenantIdForIngest = (() => {
-    const n = (selectedTenantName ?? '').trim().toLowerCase();
-    if (n === 'vaultbank') return TENANT_UUIDS.vaultbank;
-    if (n === 'gridcore') return TENANT_UUIDS.gridcore;
-    return TENANT_UUIDS.medshield;
-  })();
 
   const glassBg = isDarkMode ? 'bg-slate-900/20' : 'bg-white/20';
   const glassBorder = isDarkMode ? 'border-slate-600/40' : 'border-white/20';
@@ -352,6 +381,10 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
         return;
       }
       setJustification('');
+      void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ironframe:dashboard-refetch'));
+      }
       onClose();
     } finally {
       setIngestLoading(false);

@@ -1,4 +1,5 @@
-import { PrismaClient, ThreatState } from '@prisma/client';
+import { PrismaClient, ThreatState, UserRole } from '@prisma/client';
+import { seedSyntheticEmployees, SYNTHETIC_SEED_ROW_COUNT } from './seed-synthetic';
 
 const prisma = new PrismaClient();
 
@@ -8,12 +9,32 @@ const TENANT_UUIDS = {
   vaultbank: 'c6932d16-a716-4a07-9bc4-6ec987f641e2',
   gridcore: '4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7',
 } as const;
-const CONTROL_ROOM_TENANT_ID = TENANT_UUIDS.medshield;
-const CONTROL_ROOM_TEST_COMPANY_ID = 9_999_001n;
+
+/**
+ * Seeds `GLOBAL_ADMIN` on all canonical tenants for the Supabase user id in `IRONFRAME_DEV_SUPABASE_USER_ID`
+ * so Meta-Audit / Integrity Hub RBAC (`ensureAuditorOrAdminRole`) passes in local dev.
+ */
+async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void> {
+  const userId = process.env.IRONFRAME_DEV_SUPABASE_USER_ID?.trim();
+  if (!userId) {
+    console.log(
+      'ℹ️  Skipping UserRoleAssignment GLOBAL_ADMIN seed — set IRONFRAME_DEV_SUPABASE_USER_ID to your Supabase `auth.users.id`.',
+    );
+    return;
+  }
+  await prisma.userRoleAssignment.deleteMany({ where: { userId } });
+  for (const tenantId of Object.values(TENANT_UUIDS)) {
+    await prisma.userRoleAssignment.create({
+      data: { userId, tenantId, role: UserRole.GLOBAL_ADMIN },
+    });
+  }
+  console.log(`✅ UserRoleAssignment GLOBAL_ADMIN for dev user across tenants (${userId.slice(0, 8)}…).`);
+}
 
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
+  await prisma.marketBenchmarkSnapshot.deleteMany();
   await prisma.threatEvent.deleteMany();
   await prisma.agentLog.deleteMany();
   await prisma.vendor.deleteMany();
@@ -30,10 +51,10 @@ async function main() {
     data: { id: TENANT_UUIDS.medshield, name: 'Medshield Health', slug: 'medshield', industry: 'Healthcare', ale_baseline: 1110000000n }
   });
   const tenantVaultbank = await prisma.tenant.create({
-    data: { id: TENANT_UUIDS.vaultbank, name: 'Vaultbank Global', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
+    data: { id: TENANT_UUIDS.vaultbank, name: 'Vaultbank NA', slug: 'vaultbank', industry: 'Finance', ale_baseline: 590000000n }
   });
   const tenantGridcore = await prisma.tenant.create({
-    data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Energy', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
+    data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Infrastructure', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
   });
 
   // 2. Establish Companies (The 1st Party / Tenant Boundary) — each company scoped to one tenant
@@ -42,12 +63,34 @@ async function main() {
   });
 
   const vaultbank = await prisma.company.create({
-    data: { name: 'Vaultbank Global', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n, tenantId: tenantVaultbank.id }
+    data: { name: 'Vaultbank NA', sector: 'Finance', industry_avg_loss_cents: 590000000n, infrastructure_val_cents: 4250000000n, tenantId: tenantVaultbank.id }
   });
 
   const gridcore = await prisma.company.create({
-    data: { name: 'Gridcore Energy', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
+    data: { name: 'Gridcore Infrastructure', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
   });
+
+  // 2b. Weekly industry mean ALE snapshots (benchmark trend chart; Healthcare last point +25% WoW for volatility demo)
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+  const anchorMs = Date.now();
+  const pctVolatileDemo = [88, 90, 92, 94, 96, 98, 100, 125] as const;
+  const pctStable = [88, 90, 92, 94, 96, 98, 100, 101] as const;
+  const benchmarkRows: Array<{ industry: string; averageAleCents: bigint; timestamp: Date }> = [];
+  const pushEightWeeks = (industry: string, baseCents: bigint, pcts: readonly number[]) => {
+    for (let i = 0; i < 8; i++) {
+      const p = pcts[i]!;
+      benchmarkRows.push({
+        industry,
+        averageAleCents: (baseCents * BigInt(p)) / 100n,
+        timestamp: new Date(anchorMs - (7 - i) * MS_WEEK),
+      });
+    }
+  };
+  pushEightWeeks('Healthcare', 1_110_000_000n, pctVolatileDemo);
+  pushEightWeeks('Finance', 590_000_000n, pctStable);
+  pushEightWeeks('Energy', 470_000_000n, pctStable);
+  await prisma.marketBenchmarkSnapshot.createMany({ data: benchmarkRows });
+  console.log('✅ Market benchmark snapshots (8 weeks × 3 industries).');
 
   // 3. Inject initial ThreatEvent records (Epic 7 + board baseline)
   // Note: `financialRisk_cents` is BIGINT cents (no floats). Example: 5,000,000 cents = $50,000.
@@ -61,7 +104,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(5_000_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.QUARANTINED,
+        status: ThreatState.MITIGATED,
         ingestionDetails: JSON.stringify({
           summary: 'Outbound traffic matched restricted egress patterns; quarantine engaged.',
           epic: 7,
@@ -74,7 +117,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(2_500_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
         ingestionDetails: JSON.stringify({
           summary: 'Stale privileged MFA token detected; active remediation required.',
           epic: 7,
@@ -96,7 +139,7 @@ async function main() {
         targetEntity: 'Medshield Health',
         financialRisk_cents: BigInt(900_000),
         tenantCompanyId: medshield.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
 
       // --- Vaultbank (Finance) ---
@@ -104,16 +147,16 @@ async function main() {
         title: 'SWIFT Connector Token Reuse',
         sourceAgent: 'IRONGATE',
         score: 8,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(4_000_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
       {
         title: 'Privileged Session Anomaly',
         sourceAgent: 'IRONSIGHT',
         score: 7,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(3_100_000),
         tenantCompanyId: vaultbank.id,
         status: ThreatState.CONFIRMED,
@@ -122,19 +165,19 @@ async function main() {
         title: 'Legacy TLS Downgrade Attempt',
         sourceAgent: 'COREINTEL',
         score: 6,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(1_800_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
       {
         title: 'Outbound DNS Tunneling Signal',
         sourceAgent: 'IRONGATE',
         score: 9,
-        targetEntity: 'Vaultbank Global',
+        targetEntity: 'Vaultbank NA',
         financialRisk_cents: BigInt(6_500_000),
         tenantCompanyId: vaultbank.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
 
       // --- Gridcore (Energy) ---
@@ -142,16 +185,16 @@ async function main() {
         title: 'Vendor Supply Chain Breach',
         sourceAgent: 'IRONMAP',
         score: 9,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(5_750_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
       {
         title: 'ICS Remote Access Misconfiguration',
         sourceAgent: 'IRONSIGHT',
         score: 8,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(4_400_000),
         tenantCompanyId: gridcore.id,
         status: ThreatState.CONFIRMED,
@@ -160,19 +203,19 @@ async function main() {
         title: 'Unapproved Firmware Image Detected',
         sourceAgent: 'COREINTEL',
         score: 7,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(2_200_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.PIPELINE,
+        status: ThreatState.IDENTIFIED,
       },
       {
         title: 'East-West Lateral Movement Signature',
         sourceAgent: 'IRONLOCK',
         score: 8,
-        targetEntity: 'Gridcore Energy',
+        targetEntity: 'Gridcore Infrastructure',
         financialRisk_cents: BigInt(3_600_000),
         tenantCompanyId: gridcore.id,
-        status: ThreatState.ACTIVE,
+        status: ThreatState.CONFIRMED,
       },
     ],
   });
@@ -189,9 +232,18 @@ async function main() {
     ]
   });
 
-  // 3. Inject Initial High-Risk Findings (Agent 4 Targets) — baseline empty after full purge; add risks via ingestion/triage.
+  // 3. Professional GRC baseline row (non-fictional program anchor)
   await prisma.activeRisk.createMany({
-    data: [],
+    data: [
+      {
+        company_id: vaultbank.id,
+        title: 'Compliance Audit 2026 — documented control sampling baseline',
+        status: 'OPEN',
+        score_cents: 0n,
+        source: 'GRC_BASELINE',
+        isSimulation: false,
+      },
+    ],
   });
 
   // 4. Inject N-Tier Supply Chain (Agent 10 / Ironmap Targets) - Tenant-scoped
@@ -210,7 +262,7 @@ async function main() {
     data: { tenantId: tenantVaultbank.id, name: 'Palo Alto Networks', riskTier: 'CRITICAL' }
   });
 
-  console.log('✅ Ironframe Baseline Seed Complete.');
+  console.log('✅ Ironframe Baseline Seed Complete (Vaultbank NA · Gridcore Infrastructure · Compliance Audit 2026).');
 
   // --- Sandbox boundary (default dev tenant UUID) — ensures Attbot / simulations always have a Company row ---
   const SANDBOX_TENANT_ID = '00000000-0000-0000-0000-000000000000';
@@ -242,38 +294,28 @@ async function main() {
   }
   console.log('✅ Sandbox Company Seeded.');
 
-  // --- Epic 8 Control Room target company (deterministic upsert) ---
-  await prisma.tenant.upsert({
-    where: { id: CONTROL_ROOM_TENANT_ID },
+  await seedSyntheticEmployees(prisma);
+  console.log(`✅ Synthetic Shadow Directory Seeded (${SYNTHETIC_SEED_ROW_COUNT} personas).`);
+
+  await prisma.simulationConfig.upsert({
+    where: { id: 'global' },
     update: {},
     create: {
-      id: CONTROL_ROOM_TENANT_ID,
-      name: 'Medshield Health',
-      slug: 'medshield',
-      industry: 'Healthcare',
-      ale_baseline: 0n,
-    },
+      id: 'global',
+      automatedUpdatesEnabled: false,
+      targetReadinessScore: 90,
+      isCertified: false,
+      certifiedAt: null,
+      certificateStatus: "IN_PROGRESS",
+      certificateIssuedAt: null,
+      historicalLowestScore: 100,
+      historicalLowestRecordedAt: null,
+      simulationStandDownExpiresAtByTenant: {},
+    } as any,
   });
+  console.log('✅ Simulation config (automated updates secure-by-default).');
 
-  await prisma.company.upsert({
-    where: { id: CONTROL_ROOM_TEST_COMPANY_ID },
-    update: {
-      name: 'Test Target Corp',
-      sector: 'Healthcare',
-      tenantId: CONTROL_ROOM_TENANT_ID,
-      isTestRecord: true,
-    },
-    create: {
-      id: CONTROL_ROOM_TEST_COMPANY_ID,
-      name: 'Test Target Corp',
-      sector: 'Healthcare',
-      tenantId: CONTROL_ROOM_TENANT_ID,
-      isTestRecord: true,
-      industry_avg_loss_cents: 0n,
-      infrastructure_val_cents: 0n,
-    },
-  });
-  console.log('✅ Seeded Test Target Corp for Control Room bots.');
+  await seedDevGlobalAdminAssignments(prisma);
 }
 
 main()

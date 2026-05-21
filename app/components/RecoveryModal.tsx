@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Archive, PlayCircle, RefreshCw } from "lucide-react";
-import { AgentOperationStatus } from "@prisma/client";
+import {
+  AgentOperationStatus,
+  type AgentOperationStatusValue,
+} from "@/app/types/clientSafePrismaEnums";
 import { useAgentStore } from "@/app/store/agentStore";
 import {
   recoveryArchiveResolveAction,
@@ -16,7 +19,7 @@ type Props = {
   onClose: () => void;
   threatId: string;
   /** When `EXTERNALLY_RESOLVED`, show GRC-approved recovery actions. */
-  operationStatus: AgentOperationStatus | null;
+  operationStatus: AgentOperationStatusValue | null;
   /** Defaults to Ironsight for resume heartbeat. */
   agentName?: string;
   onCompleted?: () => void;

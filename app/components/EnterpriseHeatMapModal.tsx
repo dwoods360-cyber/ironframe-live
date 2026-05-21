@@ -23,7 +23,7 @@ export default function EnterpriseHeatMapModal({ isOpen, onClose }: Props) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Enterprise Heat Map"
+      aria-label="Residual Risk Density Map"
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
@@ -33,7 +33,7 @@ export default function EnterpriseHeatMapModal({ isOpen, onClose }: Props) {
       >
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <h2 className="text-sm font-bold uppercase tracking-wide text-white">
-            Enterprise Heat Map
+            Residual Risk Density Map
           </h2>
           <button
             type="button"

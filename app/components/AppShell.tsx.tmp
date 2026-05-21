@@ -1,0 +1,67 @@
+"use client";
+
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import TopNav from "@/app/components/TopNav";
+import AirlockBanner from "@/app/components/ui/AirlockBanner";
+import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
+import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
+import { useIronwatchTelemetryFeed } from "@/app/hooks/useIronwatchTelemetryFeed";
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isThreatDetailPage = pathname.startsWith("/threats/");
+  const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+
+  useKimbotPersistLoop();
+  useResilienceIntelPoll();
+  useIronwatchTelemetryFeed(true);
+
+  useEffect(() => {
+    hydrateSystemConfig();
+  }, []);
+
+  if (isThreatDetailPage) {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <AirlockBanner />
+        <motion
+          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
+        >
+          {children}
+        
+      
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className={isBoardReport ? "print:hidden" : undefined}>
+        <AirlockBanner />
+      
+      <div
+        className={`fixed inset-x-0 z-50 ${isSimulationMode ? "top-9" : "top-0"} ${
+          isBoardReport ? "print:hidden" : ""
+        }`}
+      >
+        <TopNav />
+      
+      <div
+        className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-x-hidden ${
+          isSimulationMode ? "mt-[144px]" : "mt-[108px]"
+        } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
+      >
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+            isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""
+          }`}
+        >
+          {children}
+        
+      
+    
+  );
+}
+

@@ -1,28 +1,66 @@
-'use client';
+"use client";
 
-import { usePathname } from 'next/navigation';
-import TopNav from '@/app/components/TopNav';
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import TopNav from "@/app/components/TopNav";
+import AirlockBanner from "@/app/components/ui/AirlockBanner";
+import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
+import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
+import { useIronwatchTelemetryFeed } from "@/app/hooks/useIronwatchTelemetryFeed";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isThreatDetailPage = pathname.startsWith('/threats/');
+  const isThreatDetailPage = pathname.startsWith("/threats/");
+  const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+
+  useKimbotPersistLoop();
+  useResilienceIntelPoll();
+  useIronwatchTelemetryFeed(true);
+
+  useEffect(() => {
+    hydrateSystemConfig();
+  }, []);
 
   if (isThreatDetailPage) {
     return (
-      <main className="command-center-surface mt-0 h-screen overflow-y-auto">
-        {children}
-      </main>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <AirlockBanner />
+        <div
+          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
+        >
+          {children}
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className="fixed inset-x-0 top-0 z-50">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className={isBoardReport ? "print:hidden" : undefined}>
+        <AirlockBanner />
+      </div>
+      <div
+        className={`fixed inset-x-0 z-50 ${isSimulationMode ? "top-9" : "top-0"} ${
+          isBoardReport ? "print:hidden" : ""
+        }`}
+      >
         <TopNav />
       </div>
-      <main className="command-center-surface mt-[108px] h-[calc(100vh-108px)] overflow-y-auto">
-        {children}
-      </main>
-    </>
+      <div
+        className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-x-hidden ${
+          isSimulationMode ? "mt-[144px]" : "mt-[108px]"
+        } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
+      >
+        <div
+          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
+            isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""
+          }`}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
   );
 }

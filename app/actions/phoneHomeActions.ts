@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 import { sendEscalationEmail } from "@/app/actions/email";
+import { transitionThreatStatus } from "@/src/services/threatStateService";
 
 export type PhoneHomeDiagnosticPacket = {
   threatId: string;
@@ -228,13 +229,17 @@ export async function dispatchRemoteSupportAction(
       score: true,
       targetEntity: true,
       isRemoteAccessAuthorized: true,
+      remoteTechId: true,
     },
   });
   if (!threat) {
     return { success: false, error: "Threat not found." };
   }
 
-  if (threat.status === ThreatState.PENDING_REMOTE_INTERVENTION) {
+  if (
+    threat.status === ThreatState.MITIGATED &&
+    (threat.remoteTechId || threat.isRemoteAccessAuthorized)
+  ) {
     return { success: true, to: "(already queued)", skipped: true };
   }
 
@@ -305,10 +310,12 @@ export async function dispatchRemoteSupportAction(
     return { success: false, error: sent.error ?? "Email send failed" };
   }
 
-  await prisma.threatEvent.update({
-    where: { id: tid },
-    data: {
-      status: ThreatState.PENDING_REMOTE_INTERVENTION,
+  await transitionThreatStatus({
+    threatId: tid,
+    newStatus: ThreatState.MITIGATED,
+    actorUserId: "system-phone-home",
+    eventType: "REMOTE_INTERVENTION_DISPATCHED",
+    extraChanges: {
       remoteTechId: techId,
     },
   });

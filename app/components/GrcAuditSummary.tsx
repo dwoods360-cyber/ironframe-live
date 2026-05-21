@@ -4,7 +4,12 @@ import { useEffect } from "react";
 import { useReportStore } from "@/app/store/reportStore";
 import { useRiskStore } from "@/app/store/riskStore";
 
-export default function GrcAuditSummary() {
+type Props = {
+  /** When true, stack under Meta Audit without full-viewport chrome (e.g. `/audit` dashboard route). */
+  embedded?: boolean;
+};
+
+export default function GrcAuditSummary({ embedded = false }: Props) {
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const { recentEvents, refresh } = useReportStore();
 
@@ -13,7 +18,13 @@ export default function GrcAuditSummary() {
   }, [refresh, selectedIndustry]);
 
   return (
-    <section className="min-h-screen bg-slate-950 px-4 py-6">
+    <section
+      className={
+        embedded
+          ? "min-h-0 bg-transparent px-0 py-0"
+          : "min-h-screen bg-slate-950 px-4 py-6"
+      }
+    >
       <div className="mx-auto max-w-6xl rounded-xl border border-slate-800 bg-[#0f172a]/50 backdrop-blur-md p-5 shadow-lg">
         <div className="mb-4 flex items-center justify-between">
           <div>

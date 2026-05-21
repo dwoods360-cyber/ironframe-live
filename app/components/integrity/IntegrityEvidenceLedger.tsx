@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ServerIntegrityLedgerRow } from "@/app/types/integrityLedger";
 
 function formatControlType(badges: string[]): string {
@@ -47,7 +47,6 @@ type UnifiedRow = {
   id: string;
   sortTime: number;
   timestampIso: string;
-  timestampLocal: string;
   authorizedUserId: string;
   authorizedDisplayName: string;
   auditScenarioTitle: string;
@@ -71,7 +70,6 @@ function serverToUnified(s: ServerIntegrityLedgerRow): UnifiedRow {
     id: s.id,
     sortTime: new Date(s.timestampIso).getTime(),
     timestampIso: s.timestampIso,
-    timestampLocal: formatLocalTimestamp(s.timestampIso),
     authorizedUserId: s.authorizedUserId,
     authorizedDisplayName: ledgerAuthorizedDisplayLabel(s.authorizedUserId, s.authorizedDisplayName),
     auditScenarioTitle: s.auditScenarioTitle,
@@ -96,6 +94,11 @@ export default function IntegrityEvidenceLedger({
   embeddedInForensicSection?: boolean;
 }) {
   const recordCount = serverRows.length;
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const rows = useMemo((): UnifiedRow[] => {
     const list = serverRows.map(serverToUnified);
@@ -191,7 +194,16 @@ export default function IntegrityEvidenceLedger({
                     className="border-b border-slate-800/70 hover:bg-white/5"
                   >
                     <td className={`${cellTd} font-mono text-slate-300`} title={row.timestampIso}>
-                      {row.timestampLocal}
+                      {isMounted ? (
+                        formatLocalTimestamp(row.timestampIso)
+                      ) : (
+                        <span
+                          className="inline-block animate-pulse text-slate-500"
+                          aria-label="Syncing timestamp"
+                        >
+                          -------- --:--:--
+                        </span>
+                      )}
                     </td>
                     <td className={`${cellTd} font-medium text-slate-100`} title={authLine}>
                       <span className="block min-w-0 truncate">{authLine}</span>

@@ -8,12 +8,28 @@ import { AgentOperationStatus, ThreatState } from "@prisma/client";
 import { recordSustainabilityImpact } from "@/app/actions/sustainabilityActions";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import { poisonAgentOperationWithChaos, threatIsChaosTest } from "@/app/utils/ironchaos";
-import { mergeIngestionDetailsPatch } from "@/app/utils/ingestionDetailsMerge";
+import {
+  mergeIngestionDetailsPatch,
+  mergeIngestionDetailsPatchJson,
+  normalizeIngestionDetailsToString,
+} from "@/app/utils/ingestionDetailsMerge";
+import { executeAgentAction } from "@/app/actions/threatActions";
+import {
+  appendAssigneeHistory,
+  handoffWorkforceAgent,
+} from "@/app/services/riskRegistryActions";
+import {
+  CHAOS_ASSIGNEE_SYSTEM,
+  CHAOS_DIRECTIVE,
+} from "@/app/config/chaosShadowAudit";
+import { CHAOS_WORKFORCE_ASSIGNEE_LABELS } from "@/app/utils/assignmentChainOfCustody";
 import {
   parseIrontechLiveFromIngestion,
   type IrontechLiveAttemptEntry,
 } from "@/app/utils/irontechLiveStream";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
+import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import { logThreatActivity } from "@/app/actions/auditActions";
 
 /** Passed from server actions (inject / JIT grant) for Integrity Hub forensic fields. */
 export type IntegrityForensicAttribution = { userId: string; displayName: string };
@@ -41,11 +57,27 @@ export function attributionFromTriggeringUser(
 
 const INTERNAL_DRILL_AGENT = "Irontech";
 const INTERNAL_DRILL_GAP_MS = 4000;
-const INTERNAL_DRILL_OPERATOR_ID = "user_00";
-const INTERNAL_DRILL_ATTRIBUTION: IntegrityForensicAttribution = {
-  userId: INTERNAL_DRILL_OPERATOR_ID,
-  displayName: INTERNAL_DRILL_OPERATOR_ID,
-};
+/** Canonical constitutional operator id — aligned with `ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID` in threatActions. */
+const INTERNAL_DRILL_OPERATOR_ID = "User_00";
+
+/** AuditLog operator + JSON: agent executes; User_00 is recorded as finalizing supervisory authority. */
+async function logAutonomousDrillResolutionAudit(
+  threatId: string,
+  integrityEventType: string,
+  executingAgent?: string,
+): Promise<void> {
+  await logThreatActivity(
+    threatId,
+    "STATUS_UPDATED",
+    JSON.stringify({
+      supervisoryAuthority: INTERNAL_DRILL_OPERATOR_ID,
+      executingAgent: executingAgent?.trim() || INTERNAL_DRILL_AGENT,
+      integrityEventType,
+      source: "IRONTECH_AUTONOMOUS_RESOLUTION",
+    }),
+    { operatorId: INTERNAL_DRILL_OPERATOR_ID },
+  );
+}
 
 const HOME_SERVER_GAP_MS_ATTEMPT_1 = 2000;
 const HOME_SERVER_GAP_MS_ATTEMPT_2 = 2000;
@@ -62,10 +94,14 @@ const CASCADE_DRILL_STAGE_3_MS = 3000;
 const CASCADE_DRILL_STAGE_4_MS = 3000;
 /** GRC cold-store attestation (SSD mock); Scenario 5 rebirth requires this manifest. */
 const LKG_ATTESTATION_MANIFEST_PATH = "G:\\ironframe_store\\manifest\\lkg_signatures.json";
+/** When G: is EISDIR/unmapped or webpack resolution fails, use this repo-local file (readFileSync only). */
+const LKG_LOCAL_MANIFEST_REL = ["storage", "manifest", "lkg_signatures.json"] as const;
 const LKG_VAULT_VERIFY_SIM_MS = 2000;
 
-const REMOTE_SUPPORT_STAGE_1_MS = 2000;
-const REMOTE_SUPPORT_STAGE_2_MS = 2000;
+/** Initial L4 drill (Stages 1–2) — kept short so Attack Velocity → Active handoff stays ~1–2s. */
+const REMOTE_SUPPORT_STAGE_1_MS = 300;
+const REMOTE_SUPPORT_STAGE_2_MS = 300;
+/** Post-JIT grant resume (Stage 4 hotfix window) — unchanged UX for grant flow. */
 const REMOTE_SUPPORT_STAGE_4_MS = 4000;
 
 function revalidateDashboardAndIntegrityPath(): void {
@@ -149,13 +185,15 @@ async function persistIrontechLivePatch(
     agentName: INTERNAL_DRILL_AGENT,
     streamedAt: new Date().toISOString(),
   } satisfies Record<string, unknown>;
-  await prisma.threatEvent.update({
-    where: { id: threatId },
-    data: {
+  await updateThreatWithIntegrity({
+    threatId,
+    changes: {
       ingestionDetails: mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
         irontechLive: irontechLive as unknown as Prisma.InputJsonValue,
       }),
     },
+    actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+    eventType: "IRONTECH_LIVE_PATCH_UPDATED",
   });
 }
 
@@ -239,10 +277,7 @@ export async function runIsolatedInternalDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(
-      recoveredAt,
-      INTERNAL_DRILL_ATTRIBUTION,
-    );
+    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("INTERNAL", row?.createdAt ?? new Date(), recoveredAt),
@@ -253,31 +288,17 @@ export async function runIsolatedInternalDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.$transaction(async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: tid },
-        data: {
-          status: ThreatState.RESOLVED,
-          ingestionDetails: merged,
-          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: "ASSIGNMENT_CHANGED",
-          isSimulation: true,
-          justification: JSON.stringify({
-            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-            actor: "IRONTECH",
-            actorId: INTERNAL_DRILL_OPERATOR_ID,
-            timestamp: new Date().toISOString(),
-            reason: "Automated drill assignment",
-          }),
-          operatorId: INTERNAL_DRILL_OPERATOR_ID,
-          threatId: tid,
-        },
-      });
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_INTERNAL_RESOLVED",
+      extraChanges: {
+        ingestionDetails: merged,
+        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+      },
     });
+    await logAutonomousDrillResolutionAudit(tid, "IRONTECH_SCENARIO_INTERNAL_RESOLVED");
     revalidateDashboardAndIntegrityPath();
 
     console.log(`[DRILL SUCCESS] Threat ${tid} is Green.`);
@@ -431,10 +452,7 @@ export async function runIsolatedHomeServerDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(
-      recoveredAt,
-      INTERNAL_DRILL_ATTRIBUTION,
-    );
+    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("HOME_SERVER", row?.createdAt ?? new Date(), recoveredAt),
@@ -445,31 +463,17 @@ export async function runIsolatedHomeServerDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.$transaction(async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: tid },
-        data: {
-          status: ThreatState.RESOLVED,
-          ingestionDetails: merged,
-          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: "ASSIGNMENT_CHANGED",
-          isSimulation: true,
-          justification: JSON.stringify({
-            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-            actor: "IRONTECH",
-            actorId: INTERNAL_DRILL_OPERATOR_ID,
-            timestamp: new Date().toISOString(),
-            reason: "Automated drill assignment",
-          }),
-          operatorId: INTERNAL_DRILL_OPERATOR_ID,
-          threatId: tid,
-        },
-      });
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_HOME_SERVER_RESOLVED",
+      extraChanges: {
+        ingestionDetails: merged,
+        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+      },
     });
+    await logAutonomousDrillResolutionAudit(tid, "IRONTECH_SCENARIO_HOME_SERVER_RESOLVED");
     revalidateDashboardAndIntegrityPath();
 
     console.log(`[SCENARIO 2 SUCCESS] Threat ${tid} is Green.`);
@@ -622,10 +626,7 @@ export async function runIsolatedEscalationDrill(
       select: { ingestionDetails: true, createdAt: true },
     });
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(
-      recoveredAt,
-      INTERNAL_DRILL_ATTRIBUTION,
-    );
+    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
     const merged = mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, {
       ...forensic,
       ...chaosIntegrityLedgerPatch("CLOUD_EXFIL", row?.createdAt ?? new Date(), recoveredAt),
@@ -636,31 +637,17 @@ export async function runIsolatedEscalationDrill(
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
     });
-    await prisma.$transaction(async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: tid },
-        data: {
-          status: ThreatState.RESOLVED,
-          ingestionDetails: merged,
-          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: "ASSIGNMENT_CHANGED",
-          isSimulation: true,
-          justification: JSON.stringify({
-            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-            actor: "IRONTECH",
-            actorId: INTERNAL_DRILL_OPERATOR_ID,
-            timestamp: new Date().toISOString(),
-            reason: "Automated drill assignment",
-          }),
-          operatorId: INTERNAL_DRILL_OPERATOR_ID,
-          threatId: tid,
-        },
-      });
+    await transitionThreatStatus({
+      threatId: tid,
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_SCENARIO_CLOUD_EXFIL_RESOLVED",
+      extraChanges: {
+        ingestionDetails: merged,
+        assigneeId: INTERNAL_DRILL_OPERATOR_ID,
+      },
     });
+    await logAutonomousDrillResolutionAudit(tid, "IRONTECH_SCENARIO_CLOUD_EXFIL_RESOLVED");
     revalidateDashboardAndIntegrityPath();
 
     console.log(`[SCENARIO 3 SUCCESS] Threat ${tid} is Green.`);
@@ -676,6 +663,257 @@ export async function runIsolatedEscalationDrill(
 
 const CASCADE_ATTEMPT_MAX = 4;
 const REMOTE_SUPPORT_ATTEMPT_MAX = 4;
+
+/** Scenario 4 only — chaos inject may land on `RiskEvent` (sim) or `ThreatEvent` (prod). */
+type RemoteSupportDrillCtx = {
+  plane: "prod" | "shadow";
+  tenantCompanyId: bigint;
+};
+
+async function resolveRemoteSupportDrillCtx(
+  threatId: string,
+): Promise<RemoteSupportDrillCtx | null> {
+  const sim = await prisma.riskEvent.findFirst({
+    where: { id: threatId },
+    select: { tenantCompanyId: true },
+  });
+  if (sim?.tenantCompanyId != null) {
+    return { plane: "shadow", tenantCompanyId: sim.tenantCompanyId };
+  }
+  const prod = await prisma.threatEvent.findUnique({
+    where: { id: threatId },
+    select: { tenantCompanyId: true },
+  });
+  if (prod?.tenantCompanyId != null) {
+    return { plane: "prod", tenantCompanyId: prod.tenantCompanyId };
+  }
+  return null;
+}
+
+async function upsertRemoteSupportDrillAgentOp(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  data: {
+    status: AgentOperationStatus;
+    attemptCount: number;
+    lastError?: string | null;
+    snapshot: Prisma.InputJsonValue;
+  },
+): Promise<void> {
+  if (ctx.plane === "shadow") return;
+  await prisma.agentOperation.upsert({
+    where: { threatId_agentName: { threatId, agentName: INTERNAL_DRILL_AGENT } },
+    create: {
+      threatId,
+      agentName: INTERNAL_DRILL_AGENT,
+      status: data.status,
+      attemptCount: data.attemptCount,
+      lastError: data.lastError ?? null,
+      snapshot: data.snapshot,
+    },
+    update: {
+      status: data.status,
+      attemptCount: data.attemptCount,
+      lastError: data.lastError ?? null,
+      snapshot: data.snapshot,
+    },
+  });
+}
+
+async function updateRemoteSupportDrillAgentOp(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  data: Prisma.AgentOperationUpdateInput,
+): Promise<void> {
+  if (ctx.plane === "shadow") return;
+  await prisma.agentOperation.update({
+    where: { threatId_agentName: { threatId, agentName: INTERNAL_DRILL_AGENT } },
+    data,
+  });
+}
+
+async function persistRemoteSupportLivePatch(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  streamSeq: number,
+  lastTerminalLine: string,
+  attempts: IrontechLiveAttemptEntry[],
+): Promise<void> {
+  const irontechLive = {
+    streamSeq,
+    lastTerminalLine,
+    attempts,
+    agentName: INTERNAL_DRILL_AGENT,
+    streamedAt: new Date().toISOString(),
+  } satisfies Record<string, unknown>;
+  const patch = { irontechLive: irontechLive as unknown as Prisma.InputJsonValue };
+
+  if (ctx.plane === "prod") {
+    const row = await prisma.threatEvent.findUnique({
+      where: { id: threatId },
+      select: { ingestionDetails: true },
+    });
+    await updateThreatWithIntegrity({
+      threatId,
+      changes: {
+        ingestionDetails: mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, patch),
+      },
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType: "IRONTECH_LIVE_PATCH_UPDATED",
+    });
+    return;
+  }
+
+  const row = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
+    select: { ingestionDetails: true },
+  });
+  const merged = mergeIngestionDetailsPatchJson(row?.ingestionDetails ?? null, patch);
+  const result = await executeAgentAction({
+    plane: "shadow",
+    threatId,
+    tenantCompanyId: ctx.tenantCompanyId,
+    operatorId: INTERNAL_DRILL_OPERATOR_ID,
+    justification: lastTerminalLine,
+    integrityEventType: "IRONTECH_LIVE_PATCH_UPDATED",
+    auditAction: "STATE_TRANSITION",
+    shadowChanges: { ingestionDetails: merged },
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+async function applyRemoteSupportDrillStatus(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  newStatus: ThreatState,
+  eventType: string,
+  ingestionPatch: Record<string, Prisma.InputJsonValue>,
+  rowExtras?: {
+    prod?: Omit<Prisma.ThreatEventUpdateInput, "status" | "ingestionDetails">;
+    shadow?: Omit<Prisma.RiskEventUpdateInput, "status" | "ingestionDetails">;
+  },
+): Promise<void> {
+  if (ctx.plane === "prod") {
+    const row = await prisma.threatEvent.findUnique({
+      where: { id: threatId },
+      select: { ingestionDetails: true },
+    });
+    await transitionThreatStatus({
+      threatId,
+      newStatus,
+      actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+      eventType,
+      extraChanges: {
+        ingestionDetails: mergeIngestionDetailsPatch(row?.ingestionDetails ?? null, ingestionPatch),
+        ...rowExtras?.prod,
+      },
+    });
+    return;
+  }
+
+  const row = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
+    select: { ingestionDetails: true },
+  });
+  const merged = mergeIngestionDetailsPatchJson(row?.ingestionDetails ?? null, ingestionPatch);
+  const result = await executeAgentAction({
+    plane: "shadow",
+    threatId,
+    tenantCompanyId: ctx.tenantCompanyId,
+    operatorId: INTERNAL_DRILL_OPERATOR_ID,
+    justification: eventType,
+    integrityEventType: eventType,
+    auditAction: "STATE_TRANSITION",
+    shadowChanges: {
+      status: newStatus,
+      ingestionDetails: merged,
+      ...rowExtras?.shadow,
+    },
+  });
+  if (!result.ok) {
+    throw new Error(result.error);
+  }
+}
+
+async function fetchRemoteSupportDrillIngestion(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+): Promise<string | null> {
+  if (ctx.plane === "prod") {
+    const row = await prisma.threatEvent.findUnique({
+      where: { id: threatId },
+      select: { ingestionDetails: true },
+    });
+    return row?.ingestionDetails ?? null;
+  }
+  const row = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
+    select: { ingestionDetails: true },
+  });
+  return normalizeIngestionDetailsToString(row?.ingestionDetails) ?? null;
+}
+
+const REMOTE_SUPPORT_CHAOS_OPERATOR_ID = "Irontech";
+
+async function recordRemoteSupportWorkforceHandoff(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  agent: "IRONGATE" | "IRONSCRIBE" | "IRONTECH",
+  narrative: string,
+): Promise<void> {
+  const result = await handoffWorkforceAgent(agent, {
+    plane: ctx.plane,
+    threatId,
+    tenantCompanyId: ctx.tenantCompanyId,
+    operatorId: REMOTE_SUPPORT_CHAOS_OPERATOR_ID,
+    narrative,
+  });
+  if (!result.ok) {
+    console.warn(`[S4] workforce handoff ${agent} failed:`, result.error);
+  }
+}
+
+async function recordRemoteSupportSystemHandoff(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+  narrative: string,
+): Promise<void> {
+  const result = await appendAssigneeHistory({
+    plane: ctx.plane,
+    threatId,
+    tenantCompanyId: ctx.tenantCompanyId,
+    assigneeId: CHAOS_ASSIGNEE_SYSTEM,
+    assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.SYSTEM,
+    actorLabel: "System/Observer",
+    operatorId: REMOTE_SUPPORT_CHAOS_OPERATOR_ID,
+    phase: "T12_RESOLUTION_SYSTEM",
+    narrative,
+    integrityEventType: "CHAOS_REMOTE_SUPPORT_SYSTEM_CONCURRENCE",
+  });
+  if (!result.ok) {
+    console.warn("[S4] System/Observer handoff failed:", result.error);
+  }
+}
+
+async function fetchRemoteSupportDrillCreatedAt(
+  ctx: RemoteSupportDrillCtx,
+  threatId: string,
+): Promise<Date> {
+  if (ctx.plane === "prod") {
+    const row = await prisma.threatEvent.findUnique({
+      where: { id: threatId },
+      select: { createdAt: true },
+    });
+    return row?.createdAt ?? new Date();
+  }
+  const row = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: ctx.tenantCompanyId },
+    select: { createdAt: true },
+  });
+  return row?.createdAt ?? new Date();
+}
 
 /**
  * Remote Support drill (Scenario 4) — Stages 1–2 failures, Stage 3 Transient Sidecar + tunnel,
@@ -694,6 +932,11 @@ export async function runIsolatedRemoteSupportDrill(
 
     console.log(`[SCENARIO 4 START] Threat ${tid} - Remote Support Handoff`);
 
+    const ctx = await resolveRemoteSupportDrillCtx(tid);
+    if (!ctx) {
+      return { success: false, error: "Threat not found." };
+    }
+
     const operatorSnapshot = {
       operatorId: INTERNAL_DRILL_OPERATOR_ID,
       phase: "REMOTE_SUPPORT_DRILL",
@@ -703,25 +946,21 @@ export async function runIsolatedRemoteSupportDrill(
     const attempts: IrontechLiveAttemptEntry[] = [];
     const nowIso = () => new Date().toISOString();
 
-    await prisma.agentOperation.upsert({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      create: {
-        threatId: tid,
-        agentName: INTERNAL_DRILL_AGENT,
-        status: AgentOperationStatus.PENDING,
-        attemptCount: 1,
-        snapshot: operatorSnapshot as Prisma.InputJsonValue,
-      },
-      update: {
-        status: AgentOperationStatus.PENDING,
-        attemptCount: 1,
-        lastError: null,
-        snapshot: operatorSnapshot as Prisma.InputJsonValue,
-      },
+    await upsertRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.PENDING,
+      attemptCount: 1,
+      snapshot: operatorSnapshot as Prisma.InputJsonValue,
     });
+    await recordRemoteSupportWorkforceHandoff(
+      ctx,
+      tid,
+      "IRONGATE",
+      "[T0_DMZ_IRONGATE] Irongate (14) — sensing & sanitization",
+    );
 
     seq += 1;
-    await persistIrontechLivePatch(
+    await persistRemoteSupportLivePatch(
+      ctx,
       tid,
       seq,
       "> [IRONTECH] Stage 1/4 — autonomous repair attempt",
@@ -740,20 +979,24 @@ export async function runIsolatedRemoteSupportDrill(
       at: nowIso(),
     });
     seq += 1;
-    await persistIrontechLivePatch(
+    await persistRemoteSupportLivePatch(
+      ctx,
       tid,
       seq,
       "> [IRONTECH] Stage 1/4 — FAILED (complex internal fault)",
       attempts,
     );
-    await prisma.agentOperation.update({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      data: {
-        status: AgentOperationStatus.RETRYING,
-        attemptCount: 1,
-        lastError: attempts[0]?.error ?? "Stage 1 failed",
-      },
+    await updateRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.RETRYING,
+      attemptCount: 1,
+      lastError: attempts[0]?.error ?? "Stage 1 failed",
     });
+    await recordRemoteSupportWorkforceHandoff(
+      ctx,
+      tid,
+      "IRONSCRIBE",
+      "[T2_REGISTRATION_IRONSCRIBE] Ironscribe (5) — registration & policy mapping",
+    );
     await recordResilienceIntelStreamLine("> [IRONLOCK] Quarantine assessment starting", tid);
 
     console.log(
@@ -769,19 +1012,17 @@ export async function runIsolatedRemoteSupportDrill(
       at: nowIso(),
     });
     seq += 1;
-    await persistIrontechLivePatch(
+    await persistRemoteSupportLivePatch(
+      ctx,
       tid,
       seq,
       "> [IRONLOCK] Stage 2/4 — FAILED (quarantine unsafe)",
       attempts,
     );
-    await prisma.agentOperation.update({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      data: {
-        status: AgentOperationStatus.RETRYING,
-        attemptCount: 2,
-        lastError: attempts[1]?.error ?? "Stage 2 failed",
-      },
+    await updateRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.RETRYING,
+      attemptCount: 2,
+      lastError: attempts[1]?.error ?? "Stage 2 failed",
     });
 
     console.log(
@@ -795,7 +1036,8 @@ export async function runIsolatedRemoteSupportDrill(
       at: nowIso(),
     });
     seq += 1;
-    await persistIrontechLivePatch(
+    await persistRemoteSupportLivePatch(
+      ctx,
       tid,
       seq,
       "> [IRONFRAME] Stage 3/4 — Opening Secure Diagnostic Tunnel. Irontech/Ironlock deploying Transient Sidecar Agent for human diagnostics.",
@@ -805,47 +1047,26 @@ export async function runIsolatedRemoteSupportDrill(
       "> [IRONLOCK] Transient Sidecar pod scheduling — read-only forensic lane (drill)",
       tid,
     );
-    await prisma.agentOperation.update({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      data: {
-        status: AgentOperationStatus.PENDING,
-        attemptCount: 3,
-        lastError: null,
-        snapshot: {
-          ...operatorSnapshot,
-          transientSidecarDeployed: true,
-          awaitingJitAccessGrant: true,
-        } as Prisma.InputJsonValue,
-      },
+    await updateRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.PENDING,
+      attemptCount: 3,
+      lastError: null,
+      snapshot: {
+        ...operatorSnapshot,
+        transientSidecarDeployed: true,
+        awaitingJitAccessGrant: true,
+      } as Prisma.InputJsonValue,
     });
+    await recordRemoteSupportWorkforceHandoff(
+      ctx,
+      tid,
+      "IRONTECH",
+      "[T4_REMEDIATION_IRONTECH] Irontech (11) — Sidecar tunnel; awaiting Tier-3 JIT grant",
+    );
 
     console.log("[S4] Halting for Human Authorization...");
-    const haltRow = await prisma.threatEvent.findUnique({
-      where: { id: tid },
-      select: { ingestionDetails: true },
-    });
-    const existingRemoteSupportStream = (() => {
-      try {
-        const parsed = JSON.parse(haltRow?.ingestionDetails ?? "{}") as {
-          remoteSupportStream?: unknown;
-        };
-        return Array.isArray(parsed.remoteSupportStream)
-          ? parsed.remoteSupportStream.filter((line): line is string => typeof line === "string")
-          : [];
-      } catch {
-        return [];
-      }
-    })();
-    const remoteSupportPromptLines = [
-      "[ACTION REQUIRED] Ironframe Tier 3 requests diagnostic access.",
-      "GRANT 2-HOUR ACCESS",
-    ];
-    const mergedHalt = mergeIngestionDetailsPatch(haltRow?.ingestionDetails ?? null, {
+    const haltPatch: Record<string, Prisma.InputJsonValue> = {
       remoteSupportJitAwaitingGrant: true,
-      remoteSupportStream: [
-        ...existingRemoteSupportStream,
-        ...remoteSupportPromptLines,
-      ] as unknown as Prisma.InputJsonValue,
       ...(injectAttribution
         ? {
             chaosInjectAttribution: {
@@ -854,33 +1075,14 @@ export async function runIsolatedRemoteSupportDrill(
             } as unknown as Prisma.InputJsonValue,
           }
         : {}),
-    });
-    await prisma.$transaction(async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: tid },
-        data: {
-          title: "[!] IRONTECH RECOVERY IN PROGRESS: AUTONOMOUS DRILL ACTIVE",
-          status: ThreatState.PENDING_REMOTE_INTERVENTION,
-          assigneeId: INTERNAL_DRILL_OPERATOR_ID,
-          ingestionDetails: mergedHalt,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          action: "ASSIGNMENT_CHANGED",
-          isSimulation: true,
-          justification: JSON.stringify({
-            newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-            actor: "IRONTECH",
-            actorId: INTERNAL_DRILL_OPERATOR_ID,
-            timestamp: new Date().toISOString(),
-            reason: "Automated drill assignment",
-          }),
-          operatorId: INTERNAL_DRILL_OPERATOR_ID,
-          threatId: tid,
-        },
-      });
-    });
+    };
+    await applyRemoteSupportDrillStatus(
+      ctx,
+      tid,
+      ThreatState.MITIGATED,
+      "IRONTECH_REMOTE_SUPPORT_PENDING_GRANT",
+      haltPatch,
+    );
     revalidateDashboardAndIntegrityPath();
 
     console.log(`[S4 HALT] Threat ${tid} — awaiting JIT grant (no auto-resolve).`);
@@ -895,7 +1097,7 @@ export async function runIsolatedRemoteSupportDrill(
 }
 
 /**
- * Scenario 4 resume — Stage 4 via JIT grant: Sidecar engineer session + hotfix, then handoff to human review.
+ * Scenario 4 resume — Stage 4 via JIT grant: Sidecar engineer session, 4s hotfix window, probe teardown, RESOLVED.
  */
 export async function resumeIsolatedRemoteSupportDrill(
   threatId: string,
@@ -912,11 +1114,13 @@ export async function resumeIsolatedRemoteSupportDrill(
       `[S4 RESUME] Threat ${tid} — Stage 4 Sidecar session; hotfix window ${REMOTE_SUPPORT_STAGE_4_MS}ms`,
     );
 
-    const row = await prisma.threatEvent.findUnique({
-      where: { id: tid },
-      select: { ingestionDetails: true },
-    });
-    const live = parseIrontechLiveFromIngestion(row?.ingestionDetails ?? null);
+    const ctx = await resolveRemoteSupportDrillCtx(tid);
+    if (!ctx) {
+      return { success: false, error: "Threat not found." };
+    }
+
+    const ingestionRaw = await fetchRemoteSupportDrillIngestion(ctx, tid);
+    const live = parseIrontechLiveFromIngestion(ingestionRaw);
     if (!live || live.attempts.length < 3) {
       console.error("[S4 RESUME] Missing irontechLive history after Sidecar halt; aborting.");
       throw new Error("Cannot resume remote support drill: missing live stream state.");
@@ -932,20 +1136,17 @@ export async function resumeIsolatedRemoteSupportDrill(
     const stage4Line =
       "> [IRONFRAME] Stage 4/4 — Human engineer connected via Sidecar. Pushing hotfix… Deleting Sidecar forensic probe.";
     seq += 1;
-    await persistIrontechLivePatch(tid, seq, stage4Line, attempts);
+    await persistRemoteSupportLivePatch(ctx, tid, seq, stage4Line, attempts);
     await recordResilienceIntelStreamLine(stage4Line, tid);
-    await prisma.agentOperation.update({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      data: {
-        status: AgentOperationStatus.PENDING,
-        attemptCount: 3,
-        lastError: null,
-        snapshot: {
-          ...operatorSnapshot,
-          jitGrantReceivedAt: new Date().toISOString(),
-          sidecarEngineerSession: true,
-        } as Prisma.InputJsonValue,
-      },
+    await updateRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.PENDING,
+      attemptCount: 3,
+      lastError: null,
+      snapshot: {
+        ...operatorSnapshot,
+        jitGrantReceivedAt: new Date().toISOString(),
+        sidecarEngineerSession: true,
+      } as Prisma.InputJsonValue,
     });
 
     await new Promise((r) => setTimeout(r, REMOTE_SUPPORT_STAGE_4_MS));
@@ -958,96 +1159,77 @@ export async function resumeIsolatedRemoteSupportDrill(
       at: nowIso(),
     });
     seq += 1;
-    await persistIrontechLivePatch(
+    await persistRemoteSupportLivePatch(
+      ctx,
       tid,
       seq,
       "> [IRONFRAME] Stage 4/4 — HOTFIX APPLIED — SIDECAR PROBE DELETED — TUNNEL CLOSED",
       attempts,
     );
-    await prisma.agentOperation.update({
-      where: { threatId_agentName: { threatId: tid, agentName: INTERNAL_DRILL_AGENT } },
-      data: {
-        status: AgentOperationStatus.COMPLETED,
-        attemptCount: 4,
-        lastError: null,
-        snapshot: {
-          ...operatorSnapshot,
-          sidecarTornDownAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-        } as Prisma.InputJsonValue,
-      },
+    await updateRemoteSupportDrillAgentOp(ctx, tid, {
+      status: AgentOperationStatus.COMPLETED,
+      attemptCount: 4,
+      lastError: null,
+      snapshot: {
+        ...operatorSnapshot,
+        sidecarTornDownAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      } as Prisma.InputJsonValue,
     });
     await recordResilienceIntelStreamLine(
       "> [IRONFRAME] Stage 4/4 — Sidecar teardown ACK — drill complete",
       tid,
     );
 
-    console.log("[S4] Applying hotfix state + yielding to human review...");
-    const row2 = await prisma.threatEvent.findUnique({
-      where: { id: tid },
-      select: { ingestionDetails: true, createdAt: true },
-    });
+    console.log("[S4] Resolving DB...");
+    const createdAt = await fetchRemoteSupportDrillCreatedAt(ctx, tid);
     const recoveredAt = new Date().toISOString();
-    const forensic = await integrityForensicIngestionFields(
-      recoveredAt,
-      INTERNAL_DRILL_ATTRIBUTION,
-    );
-    const merged = mergeIngestionDetailsPatch(row2?.ingestionDetails ?? null, {
+    const forensic = await integrityForensicIngestionFields(recoveredAt, attribution);
+    const resolvePatch: Record<string, Prisma.InputJsonValue> = {
       ...forensic,
-      ...chaosIntegrityLedgerPatch("REMOTE_SUPPORT", row2?.createdAt ?? new Date(), recoveredAt),
+      ...chaosIntegrityLedgerPatch("REMOTE_SUPPORT", createdAt, recoveredAt),
       remoteSupportJitAwaitingGrant: false,
-      remoteSupportAwaitingHumanReview: true,
-      remoteSupportFinalHandoffAt: recoveredAt,
-      remoteSupportStream: [
-        ...(() => {
-          try {
-            const parsed = JSON.parse(row2?.ingestionDetails ?? "{}") as {
-              remoteSupportStream?: unknown;
-            };
-            return Array.isArray(parsed.remoteSupportStream)
-              ? parsed.remoteSupportStream.filter((line): line is string => typeof line === "string")
-              : [];
-          } catch {
-            return [];
-          }
-        })(),
-        "[\u2713] System patched. Awaiting human analyst review and final resolution.",
-      ],
+      chaosRemoteAccessGrantedAt: recoveredAt,
       resolutionJustification:
-        "[SIDECAR DRILL COMPLETE] Hotfix applied and Sidecar tunnel closed. Threat remains active for mandatory human analyst review and final resolution.",
-      lifecycleState: "confirmed",
-      autonomousRecovery: false,
+        "[SIDECAR DRILL COMPLETE] Transient forensic Sidecar removed after hotfix; diagnostic tunnel closed; integrity verified (simulated).",
+      lifecycleState: "archived",
+      autonomousRecovery: true,
       autonomousRecoveredAt: recoveredAt,
       ironsightBypassed: true,
-    });
-    await prisma.$transaction(async (tx) => {
-      await tx.threatEvent.update({
-        where: { id: tid },
-        data: {
-          status: ThreatState.ESCALATED,
-          ingestionDetails: merged,
-          assigneeId: null,
-        },
+    };
+    await applyRemoteSupportDrillStatus(
+      ctx,
+      tid,
+      ThreatState.RESOLVED,
+      "IRONTECH_SCENARIO_REMOTE_SUPPORT_RESOLVED",
+      resolvePatch,
+      {
+        prod: { assigneeId: null },
+        shadow: { assigneeId: null },
+      },
+    );
+    await recordRemoteSupportSystemHandoff(
+      ctx,
+      tid,
+      `[${CHAOS_DIRECTIVE.T12_SYSTEM_CONCLUSION}] Sidecar hotfix complete — System/Observer concurrence & purge`,
+    );
+    if (ctx.plane === "shadow") {
+      await logThreatActivity(null, "STATUS_UPDATED", JSON.stringify({
+        supervisoryAuthority: INTERNAL_DRILL_OPERATOR_ID,
+        executingAgent: INTERNAL_DRILL_AGENT,
+        integrityEventType: "IRONTECH_SCENARIO_REMOTE_SUPPORT_RESOLVED",
+        source: "IRONTECH_AUTONOMOUS_RESOLUTION",
+      }), {
+        operatorId: INTERNAL_DRILL_OPERATOR_ID,
+        simThreatId: tid,
+        isSimulation: true,
       });
-      await tx.auditLog.create({
-        data: {
-          action: "ASSIGNMENT_CHANGED",
-          isSimulation: true,
-          justification: JSON.stringify({
-            newAssignee: null,
-            actor: "SYSTEM",
-            actorId: INTERNAL_DRILL_OPERATOR_ID,
-            timestamp: new Date().toISOString(),
-            reason: "Bot handoff complete. Threat unassigned pending manual HITL review.",
-          }),
-          operatorId: INTERNAL_DRILL_OPERATOR_ID,
-          threatId: tid,
-        },
-      });
-    });
+    } else {
+      await logAutonomousDrillResolutionAudit(tid, "IRONTECH_SCENARIO_REMOTE_SUPPORT_RESOLVED");
+    }
     revalidateDashboardAndIntegrityPath();
 
-    console.log(`[SCENARIO 4 HANDOFF] Threat ${tid} patched and awaiting human final resolution.`);
+    console.log(`[SCENARIO 4 SUCCESS] Threat ${tid} is Green.`);
     return { success: true };
   } catch (error) {
     console.error(`[S4 RESUME CRASHED] Threat ${threatId}:`, error);
@@ -1214,36 +1396,77 @@ export async function runIsolatedCascadeDrill(
       tid,
     );
 
-    // Dynamic import keeps `node:fs` off the graph for isomorphic imports of this module (e.g. agent services).
+    // Dynamic import keeps `node:fs` / `node:path` off the graph for isomorphic imports of this module.
     const fsMod = await import("node:fs");
+    const pathMod = await import("node:path");
+    const lkgLocalFallback = pathMod.join(process.cwd(), ...LKG_LOCAL_MANIFEST_REL);
     let lkgAttestationIroncoreSha256: string | undefined;
-    if (fsMod.existsSync(LKG_ATTESTATION_MANIFEST_PATH)) {
-      console.log(
-        "[S5] GRC ATTESTATION: Verified LKG Signatures from SSD Vault (G:).",
-      );
+
+    const tryReadLkgWithReadFileSync = (p: string): string | null => {
       try {
-        const txt = fsMod.readFileSync(LKG_ATTESTATION_MANIFEST_PATH, "utf8");
-        const manifest = JSON.parse(txt) as {
-          agents?: Array<{ name?: string; sha256?: string }>;
-        };
-        const ironcoreEntry = manifest.agents?.find(
-          (a) => (a.name ?? "").toLowerCase() === "ironcore",
-        );
-        if (typeof ironcoreEntry?.sha256 === "string" && ironcoreEntry.sha256.trim()) {
-          lkgAttestationIroncoreSha256 = ironcoreEntry.sha256.trim();
+        if (!fsMod.existsSync(p)) {
+          return null;
         }
-      } catch {
-        // Manifest unreadable — rebirth continues; UI omits checksum
+        const st = fsMod.statSync(p);
+        if (!st.isFile()) {
+          return null;
+        }
+        return fsMod.readFileSync(p, "utf8");
+      } catch (e) {
+        const err = e as NodeJS.ErrnoException;
+        if (
+          err?.code === "EISDIR" ||
+          err?.code === "EACCES" ||
+          err?.code === "ENOENT" ||
+          err?.code === "EPERM" ||
+          err?.code === "UNKNOWN"
+        ) {
+          return null;
+        }
+        return null;
       }
-      await recordResilienceIntelStreamLine(
-        "> [GRC] LKG attestation manifest present — SSD cold store (G:) — 19-agent verify window",
-        tid,
+    };
+
+    let manifestTxt: string | null = tryReadLkgWithReadFileSync(LKG_ATTESTATION_MANIFEST_PATH);
+    let lkgSource: "G" | "local" | null = manifestTxt != null ? "G" : null;
+    if (manifestTxt == null) {
+      console.warn(
+        "[S5] LKG: G: volume missing, EISDIR, or unreadable — trying local fallback ./storage/manifest/lkg_signatures.json",
       );
-      await new Promise((r) => setTimeout(r, LKG_VAULT_VERIFY_SIM_MS));
-    } else {
-      console.error("[S5] GRC CRITICAL: Cold Store (G:) unreachable. Rebirth Failed.");
+      manifestTxt = tryReadLkgWithReadFileSync(lkgLocalFallback);
+      lkgSource = manifestTxt != null ? "local" : null;
+    }
+
+    if (manifestTxt == null) {
+      console.error(
+        "[S5] GRC CRITICAL: No LKG manifest (G: and local storage fallback). Rebirth Failed.",
+      );
       return { success: false, error: "Vault Offline" };
     }
+
+    try {
+      console.log(
+        lkgSource === "G"
+          ? "[S5] GRC ATTESTATION: LKG from G: cold store."
+          : "[S5] GRC ATTESTATION: LKG from local storage fallback (./storage/manifest/).",
+      );
+      const manifest = JSON.parse(manifestTxt) as {
+        agents?: Array<{ name?: string; sha256?: string }>;
+      };
+      const ironcoreEntry = manifest.agents?.find(
+        (a) => (a.name ?? "").toLowerCase() === "ironcore",
+      );
+      if (typeof ironcoreEntry?.sha256 === "string" && ironcoreEntry.sha256.trim()) {
+        lkgAttestationIroncoreSha256 = ironcoreEntry.sha256.trim();
+      }
+    } catch {
+      // JSON parse error — rebirth continues; UI omits checksum
+    }
+    await recordResilienceIntelStreamLine(
+      "> [GRC] LKG attestation manifest present — verify window (G: or local notary path)",
+      tid,
+    );
+    await new Promise((r) => setTimeout(r, LKG_VAULT_VERIFY_SIM_MS));
 
     console.log(
       "[S5] Stage 4: Lockdown confirmed. Irontech executing total Workforce Rebirth from LKG Gold Images. Restoring all 19 agents to verified state.",
@@ -1341,7 +1564,7 @@ export async function runIsolatedCascadeDrill(
     let newLedgerRow: { id: string };
     try {
       const created = await prisma.$transaction(async (tx) => {
-        const createdLedgerRow = await tx.threatEvent.create({
+        const createdRow = await tx.threatEvent.create({
           data: {
             title: ledgerTitle,
             sourceAgent: row.sourceAgent?.trim() || "IRONCHAOS_LEDGER",
@@ -1357,45 +1580,18 @@ export async function runIsolatedCascadeDrill(
             ingestionDetails: JSON.stringify(ledgerIngestionPayload),
           },
         });
-        await tx.threatEvent.update({
-          where: { id: tid },
-          data: {
-            status: ThreatState.RESOLVED,
+        await transitionThreatStatus({
+          threatId: tid,
+          newStatus: ThreatState.RESOLVED,
+          actorUserId: INTERNAL_DRILL_OPERATOR_ID,
+          eventType: "IRONTECH_SCENARIO_CASCADE_RESOLVED",
+          extraChanges: {
             ingestionDetails: merged,
             assigneeId: INTERNAL_DRILL_OPERATOR_ID,
           },
+          tx,
         });
-        await tx.auditLog.create({
-          data: {
-            action: "ASSIGNMENT_CHANGED",
-            isSimulation: true,
-            justification: JSON.stringify({
-              newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-              actor: "IRONTECH",
-              actorId: INTERNAL_DRILL_OPERATOR_ID,
-              timestamp: new Date().toISOString(),
-              reason: "Automated drill assignment",
-            }),
-            operatorId: INTERNAL_DRILL_OPERATOR_ID,
-            threatId: createdLedgerRow.id,
-          },
-        });
-        await tx.auditLog.create({
-          data: {
-            action: "ASSIGNMENT_CHANGED",
-            isSimulation: true,
-            justification: JSON.stringify({
-              newAssignee: INTERNAL_DRILL_OPERATOR_ID,
-              actor: "IRONTECH",
-              actorId: INTERNAL_DRILL_OPERATOR_ID,
-              timestamp: new Date().toISOString(),
-              reason: "Automated drill assignment",
-            }),
-            operatorId: INTERNAL_DRILL_OPERATOR_ID,
-            threatId: tid,
-          },
-        });
-        return createdLedgerRow;
+        return createdRow;
       });
       newLedgerRow = created;
     } catch (error) {
@@ -1410,6 +1606,7 @@ export async function runIsolatedCascadeDrill(
       return { success: false, error: "Ledger append did not return a row id." };
     }
 
+    await logAutonomousDrillResolutionAudit(tid, "IRONTECH_SCENARIO_CASCADE_RESOLVED");
     revalidateDashboardAndIntegrityPath();
 
     console.log(`[SCENARIO 5 SUCCESS] Threat ${tid} — workforce reborn from LKG.`);
@@ -1531,14 +1728,18 @@ export async function executeWithRetry(
         autonomousRecovery: true,
         autonomousRecoveredAt: recoveredAt,
       });
-      await prisma.threatEvent.update({
-        where: { id: tid },
-        data: { status: ThreatState.RESOLVED, ingestionDetails: merged },
+      await transitionThreatStatus({
+        threatId: tid,
+        newStatus: ThreatState.RESOLVED,
+        actorUserId: agent,
+        eventType: "IRONTECH_RETRY_EXECUTION_RESOLVED",
+        extraChanges: { ingestionDetails: merged },
       });
+      await logAutonomousDrillResolutionAudit(tid, "IRONTECH_RETRY_EXECUTION_RESOLVED", agent);
       revalidateDashboardAndIntegrityPath();
       try {
-        const ironbloom = await recordSustainabilityImpact(tid);
-        if (!ironbloom.ok) console.warn("[Irontech] Sustainability hook skipped:", ironbloom);
+        const ironbloomSustainability = await recordSustainabilityImpact(tid);
+        if (!ironbloomSustainability.ok) console.warn("[Irontech] Ironbloom sustainability hook skipped:", ironbloomSustainability);
       } catch {
         /* non-fatal */
       }
@@ -1565,7 +1766,7 @@ export async function executeWithRetry(
         },
       });
       await prisma.threatEvent
-        .update({ where: { id: tid }, data: { status: ThreatState.ESCALATED } })
+        .update({ where: { id: tid }, data: { status: ThreatState.MITIGATED } })
         .catch(() => {});
       return { ok: false, escalated: true, error: lastError };
     }

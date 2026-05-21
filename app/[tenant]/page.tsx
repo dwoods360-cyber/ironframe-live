@@ -2,7 +2,13 @@ import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import type { AgentLog, Vendor } from "@prisma/client";
 
-const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"];
+const VALID_TENANTS = ["medshield", "vaultbank", "gridcore", "defense", "defense-logistics"];
+
+/** Route slug `defense` maps to seeded industrial tenant `defense-logistics`. */
+function resolveTenantSlugForDb(routeTenant: string): string {
+  if (routeTenant === "defense") return "defense-logistics";
+  return routeTenant;
+}
 
 export default async function TenantCommandCenter({
   params,
@@ -17,9 +23,11 @@ export default async function TenantCommandCenter({
     notFound(); 
   }
 
+  const dbSlug = resolveTenantSlugForDb(currentTenant);
+
   // The Orchestrator's DB Query: Fetch the isolated tenant vault
   const tenantData = await prisma.tenant.findUnique({
-    where: { slug: currentTenant },
+    where: { slug: dbSlug },
     include: {
       // Bring in the N-Tier Vendors
       vendors: {

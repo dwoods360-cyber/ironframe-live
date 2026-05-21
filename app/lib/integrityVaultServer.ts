@@ -5,8 +5,11 @@ import {
   LKG_COLD_STORE_ROOT,
   LKG_LOCAL_MANIFEST_PATH,
   LKG_MANIFEST_PATH,
-  resolveLkgManifestCandidates,
 } from "@/app/utils/integrityVaultConstants";
+
+function resolveLkgManifestCandidates(cwd: string = process.cwd()): string[] {
+  return [path.join(cwd, ...LKG_LOCAL_MANIFEST_PATH.split("/"))];
+}
 import type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus } from "@/app/types/integrityVault";
 import prisma from "@/lib/prisma";
 import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";

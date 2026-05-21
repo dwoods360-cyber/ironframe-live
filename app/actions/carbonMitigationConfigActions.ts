@@ -14,7 +14,7 @@ const MIN_JUSTIFICATION = 50;
 
 
 
-export const STREAK_INTERRUPTED_AUDIT_MESSAGE =
+const STREAK_INTERRUPTED_AUDIT_MESSAGE =
 
   "[STREAK_INTERRUPTED] — Self-Healing disabled by User. Maturity Score reduced. Governance Dividend at risk.";
 

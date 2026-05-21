@@ -85,5 +85,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "@next/swc-win32-x64-msvc": "^15.1.6"
   }
 }

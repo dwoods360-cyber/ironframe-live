@@ -1,163 +1,101 @@
-# Ironframe Build Gap Report (Epic 9–16)
+# Hardened Production Build Gap Report // May 2026
 
-**Audit date:** 2026-05-15  
-**Auditor role:** Principal GRC Systems Auditor (Gap-to-Epic)  
-**Record of truth:** Master manifest Epics 9–16 vs. current `/app`, `/services`, `/prisma`, `docs/TAS.md`
-
----
-
-## Executive summary
-
-| Epic | Manifest % | Verified % | Verdict |
-|------|------------|------------|---------|
-| **9 — Ironbloom** | In Progress | **~75%** | Physical-unit gates **live**; Gridcore polling **live**; Sustainability ALE **added this sprint** |
-| **10 — Orchestration** | 20% | **~35%** | LangGraph + Ironcore routing **upgraded**; specialist stubs remain |
-| **11 — Bank Vault** | 85% | **~85%** | Confirmed — RBAC, attestation, hashes, 3-key override |
-| **12 — Evidence Locker** | Not started | **~70%** | **Refute “not started”** — SHA-256 artifacts in Prisma + upload path exist |
-| **13 — Self-Healing** | 40% | **~45%** | DMS + Chaos UI confirmed; Agent 12 freeze **split across Ironlock/Ironguard/Irontech** |
-| **14 — DEI / Ironethic** | Not started | **~25%** | Simulation salted hashing only; no full DEI ingest pipeline |
-| **15 — Checkpoint freeze** | Not started | **~40%** | Postgres LangGraph saver + in-memory Epic 6 paths (not unified) |
-| **16 — Ironquery exports** | Not started | **~35%** | Platform PDF/CSV exist; **Agent 15 product surface incomplete** |
+**Supersedes:** prior Gap-to-Epic audit (2026-05-15 skeleton).  
+**Aligned with:** `EPIC_STATUS.md` @ commit `24911f0`.  
+**Code delivery baseline:** `6425e1e` (ingest bus bridge); **doc baseline:** `24911f0`.
 
 ---
 
-## ✅ Completed (Forensic foundation)
+## Current operational context
 
-| Feature | Evidence |
-|---------|----------|
-| Constitutional hashing (TAS.md SHA-256) | `app/utils/tasFingerprint.ts`, `GET /api/grc/tas-fingerprint` |
-| Attestation gate (50+ char justification) | `app/utils/forensicAttestation.ts`, `app/utils/validateJustification.ts` |
-| Nuclear / tripartite 3-key override | `app/utils/constitutionalOverrideVerify.ts`, `SecurityPosture.TRIPARTITE_LOCK` |
-| Chaos “Constitutional Collapse” UI | `app/config/chaosRegistry.ts`, `app/lib/constitutionalCollapseChaos.ts`, `ChaosMenu.tsx` |
-| Dead Man’s Switch (24h) | `app/lib/deadMansSwitch.ts`, `SystemConfig.deadManSwitch` |
-| Witness logging (IP + fingerprint) | `app/lib/entryWitness.ts`, `EntryWitness` model |
-| BIGINT financial discipline | `prisma/schema.prisma`, `src/services/agents/warden.ts` |
-| Integrity hash chain (Bank Vault) | `src/services/integrityService.ts`, `IntegrityEvent` |
-
----
-
-## ⚠️ In progress (active build)
-
-### Epic 9 — Ironbloom (Agent 18) — **~75%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| TAS sustainability amendment | ✅ | `docs/TAS.md` Kimbot/Ironbloom physical-unit mandate |
-| Physical-unit hard block | ✅ | `lib/sustainability/constants.ts` — `validateIronbloomEsgEntry`, `CRITICAL_INGESTION_FAILURE` |
-| Gridcore utility polling (NREL / GlobalPetrol) | ✅ | `app/services/ironbloom/rateEngine.ts`, `POST /api/internal/cron/gridcore-rate-poll` |
-| Sealed `mitigatedValueCents` (BigInt) | ✅ | `app/services/ironbloom/sealedRateNode.ts`, `SustainabilityMetric.mitigated_value_cents` |
-| **Sustainability ALE formula** | ✅ **New** | `app/services/ironbloom/scoring.ts` — `(kWh × CI) × P_offset × R_tax` |
-| Electricity Maps live CI | ⚠️ | Wired; requires `ELECTRICITY_MAPS_API_KEY` (dev fallback 385 g/kWh) |
-| Kimbot vs Ironbloom UI separation | ⚠️ | Production CSRD vs simulation injector still shared in some pipeline paths |
-
-**Refutation of manifest claim:** Physical-unit rejection and utility polling are **not** “not live” — they are enforced at API (`/api/sustainability/ironbloom`), server actions, and LangGraph node.
-
-### Epic 10 — Orchestration — **~35%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| LangGraph installed | ✅ | `@langchain/langgraph`, `src/services/orchestration/graph.ts` |
-| Ironcore router (Agent 1) | ⚠️ **Upgraded** | Routes `SUSTAINABILITY_ESG` → `IRONBLOOM` → `IRONTRUST` |
-| Ironbloom graph node | ✅ **New** | `src/services/agents/ironbloom.ts` |
-| State BIGINT fields | ✅ **New** | `financial_ale_cents`, `sustainability_ale_cents`, `mitigated_value_cents` on `SovereignGraphState` |
-| Ironsight / Ironquery / Irontally nodes | ❌ Stubs | Pass-through placeholders in `graph.ts` |
-| End-to-end agent payload bus | ❌ | No production ingest → graph → persist loop for all 19 agents |
-
-**Refutation:** LangGraph **is** initialized; Agent 1 **does** route (including sustainability). BigInt state migration on graph **started**; full Epic 10 completion blocked on specialist implementations.
-
-### Epic 11 — Bank Vault — **~85%** (confirmed)
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| RBAC | ✅ | `UserRoleAssignment`, `ensureAuditorOrAdminRole` |
-| Attestation gate | ✅ | Forensic attestation + void elevated bar |
-| Hash chain | ✅ | `integrityService.ts` |
-| 3-key override | ✅ | Tripartite downgrade + constitutional override |
-
-### Epic 12 — Evidence Locker — **~70%** (manifest understated)
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| SHA-256 artifact storage | ✅ | `EvidenceArtifact.sha256`, `app/actions/evidenceActions.ts` |
-| Immutable locker UX | ⚠️ | `EvidenceVaultClient.tsx`; local gap ledger coexists |
-| Cross-tenant partition guarantees | ✅ | HASH partitions on `AuditLog` / `SimThreatEvent` (GRC Gold migration) |
-
-### Epic 13 — Self-Healing — **~45%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| DMS | ✅ | `deadMansSwitch.ts`, scorch + LWT |
-| Chaos UI | ✅ | `chaosActions.ts`, `IrontechChaosDeploy.tsx` |
-| Agent 12 state-freeze nodes | ❌ **Not a single module** | Freeze spread: Ironlock (`tasFingerprint`), Irontech checkpoint (`agents/irontech.ts`), Ironguard API guard |
-
-### Epic 14 — DEI / Ironethic — **~25%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| Salted simulation hashing | ⚠️ | `app/utils/simulationSignature.ts` |
-| Anonymized benchmarks | ⚠️ | `MarketBenchmarkSnapshot`, `benchmarkActions.ts` |
-| No-PII ingest enforcement | ❌ | Policy in TAS only |
-
-### Epic 15 — LangGraph checkpoint freeze — **~40%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| Postgres checkpointer | ⚠️ | `src/services/orchestration/checkpointer.ts` |
-| Irontech in-memory checkpoints | ⚠️ | `infrastructure/db.ts`, `agents/irontech.ts` |
-| Unified Irontech ↔ Postgres saver | ❌ | Dual stores |
-
-### Epic 16 — Ironquery analyst exports — **~35%**
-
-| Item | Status | Evidence |
-|------|--------|----------|
-| Platform PDF exports | ✅ | Budget, Irontally readiness, post-mortem PDFs |
-| Generic CSV | ⚠️ | `ExportCSVButton.tsx`, audit logs |
-| Ironquery-branded analyst pack | ❌ | `app/lib/agents/ironquery.ts` insights only; graph stub |
-| RAG + checkpoint reporting | ❌ | TAS-described; not implemented |
-
----
-
-## ❌ Not started / remaining milestones
-
-1. **Epic 10 completion:** Wire real Ironsight, Ironquery, Irontally nodes; production orchestration ingress.
-2. **Epic 14:** Full Ironethic DEI salted pipeline with aggregation-before-persist.
-3. **Epic 15:** Single checkpoint authority (Postgres saver) for Irontech freeze/resume.
-4. **Epic 16:** Ironquery-dedicated PDF/CSV export templates + RAG.
-5. **Agent 12 clarity:** Document and implement one “state-freeze” contract (TAS Agent 12 vs Ironguard vs Ironlock).
-
----
-
-## Sustainability ALE (Agent 18) — implementation reference
-
-**Formula:**
-
-```
-ALE_carbon = (Units_kWh × CI_gCO2) × P_offset × R_tax
-```
-
-| Term | Source |
+| Item | State |
 |------|--------|
-| `Units_kWh` | Mandatory ingest field / threat-derived kWh |
-| `CI_gCO2` | Electricity Maps API (`ELECTRICITY_MAPS_API_KEY`) |
-| `P_offset` | `CARBON_OFFSET_PRICE_USD_PER_TON` (default $90/t) |
-| `R_tax` | `app/config/tenantCarbonZones.ts` per tenant |
-
-**Persistence:** `mitigatedValueCents` BigInt on `SustainabilityMetric`; graph state `mitigated_value_cents` string for orchestration.
-
-**Tenant ALE mapping:** Carbon cents vs `TENANT_INDUSTRY_BASELINE_ALE_CENTS` (e.g. Medshield **$11.1M** = `1110000000` cents) as `carbonShareOfTenantAleBps`.
+| **Definitive baseline commit** | `24911f0` (`feat/epic-11-clean-rebuild` synced with `origin`) |
+| **Ingest / orchestration code marker** | `6425e1e` — `ingestBusBridge.ts` + `app/api/threats/ingest/route.ts` |
+| **Working tree** | Exclude uncommitted `storage/constitutional/*.json` runtime drift from PRs unless intentional |
+| **Static verification** | `npx tsc --noEmit` → **exit code 0** |
 
 ---
 
-## Recommended next sprints
+## Reconciled epic posture matrix
 
-| Sprint | Focus |
-|--------|--------|
-| **9.2** | Live Electricity Maps key in staging; CFO dashboard carbon ALE line |
-| **10.2** | ✅ Ironcore → Ironbloom → Irontrust chain (started); complete Irongate loop |
-| **10.3** | Replace pass-through nodes with real agent handlers |
-| **12.1** | Evidence locker immutability audit + external object-lock |
-| **16.1** | Ironquery export templates |
+Verified functional engineering milestones as of `24911f0`. Percentages are **feature-complete**, not full production GA.
+
+| Epic target | Current % | Verified code delivery block | Operational gaps to full GA |
+|:---|:---|:---|:---|
+| **Epic 10 — 19-Agent Bus** | **~90%** | Non-blocking `src/services/orchestration/ingestBusBridge.ts` + post-ack graph hook in `app/api/threats/ingest/route.ts`; `compileSovereignOrchestrationBus()` (`b3692c5`). | Expand LangGraph sequence from ~6–8 core nodes to full 19-agent roster or documented sidecars; CI with `GOOGLE_API_KEY` on non-skipped ingest. |
+| **Epic 11 — Bank Vault** | **~95%** | RSA-SHA256 `verifyAndCommitVaultResolution` + `BankVaultSupervisorGate.tsx` @ `/admin/clearance/vault` (`0601c4b`, `eb0c67e`). | Staging/production supervisor PEM (`PUBLIC_KEY_*`); vault integration tests in CI on every PR. |
+| **Epic 13 — Self-Healing** | **~75%** | `healthPostureMonitor.ts` + `evaluateSystemTriage` + `tests/integration/epic13-telemetry-triage.test.ts` (`0601c4b`). | Hosted cron for `health-posture-triage` and ops smoke on live telemetry drops. |
+| **Epic 9 / 5 — Sustainability** | **100% (Eng)** | `SustainabilityAnalyticsPlane.tsx` — Kimbot dialog vs Ironbloom BigInt CFO ALE; `gridcoreCarbonLedgerSync` + cron route (`b0fbaf6`, `6425e1e` chain). | Production `ELECTRICITY_MAPS_API_KEY`; schedule `POST /api/internal/cron/gridcore-rate-poll`. |
+
+### Secondary pipeline (unchanged scope; not blocking this PR)
+
+| Epic | ~% | GA gap |
+|------|-----|--------|
+| **12 — Evidence Locker** | ~70% | WORM / object-lock; immutability vs digital shredder |
+| **15 — Checkpoint freeze** | ~70% | Postgres saver live; pool docs + CI `DATABASE_URL` gate |
+| **16 — Ironquery exports** | ~45% | RAG live (`cc890b6`); branded PDF/CSV analyst packs |
+| **14 — DEI / Ironethic** | ~25% | No-PII ingest interceptor + salted aggregation |
 
 ---
 
-*Generated by Gap-to-Epic audit. Re-run after each epic merge; do not treat manifest percentages as authoritative without file evidence.*
+## Key file evidence (quick index)
+
+| Epic | Paths |
+|------|--------|
+| 10.5 | `src/services/orchestration/ingestBusBridge.ts`, `app/api/threats/ingest/route.ts`, `src/services/orchestration/graph.ts` |
+| 10.4 | `tests/unit/sovereignOrchestrationBus.test.ts`, `tests/unit/ingestBusBridge.test.ts` |
+| 11 | `src/services/bankVault/vaultResolution.ts`, `lib/security/vaultCrypto.ts`, `app/components/BankVaultSupervisorGate.tsx` |
+| 13 | `src/services/irontech/healthPostureMonitor.ts`, `src/services/irontech/triageRouter.ts`, `app/api/internal/cron/health-posture-triage/route.ts` |
+| 9/5 | `app/components/SustainabilityAnalyticsPlane.tsx`, `app/services/ironbloom/gridcoreCarbonLedgerSync.ts` |
+
+---
+
+## Recommended PR verification review check
+
+Run against an active `DATABASE_URL` (and `GOOGLE_API_KEY` if exercising the sovereign bus on ingest without `skipOrchestrationBus`).
+
+```bash
+# Static compliance
+npx tsc --noEmit
+
+# Unit + graph compile assertions
+npx vitest run tests/unit/bankVaultDualGate.test.ts tests/unit/ingestBusBridge.test.ts tests/unit/sovereignOrchestrationBus.test.ts
+
+# Relational / API integration gates (Postgres-backed tests skip without DATABASE_URL)
+npx vitest run tests/integration/bank-vault-success.test.ts tests/integration/epic13-telemetry-triage.test.ts tests/integration/ingestApi.test.ts
+```
+
+**Optional extended matrix:**
+
+```bash
+npx vitest run tests/unit/healthPostureMonitor.test.ts tests/unit/triageRouter.test.ts
+npx vitest run tests/forensicPipelineGraph.test.ts
+npx vitest run tests/unit/ironbloomCarbonTelemetry.test.ts
+```
+
+---
+
+## PR body checklist (copy-ready)
+
+- [ ] Baseline cited: `24911f0` / code `6425e1e`
+- [ ] Epic 10: ingest → bridge → bus documented; 19-agent GA gap stated
+- [ ] Epic 11: vault UI path + PKI ops follow-up
+- [ ] Epic 13: triage test + cron scheduling follow-up
+- [ ] Epic 9/5: analytics plane; Electricity Maps ops follow-up
+- [ ] No accidental `storage/constitutional/*.json` in diff
+- [ ] `EPIC_STATUS.md` + this report agree on percentages
+
+---
+
+## Post-merge priorities
+
+1. **Ops:** Vault PKI + health/gridcore crons in production.
+2. **Epic 10:** Roster expansion or sidecar documentation; bus on additional ingress paths.
+3. **Epic 12:** WORM hardening.
+4. **Epic 16:** Ironquery PDF/CSV exports.
+5. **Epic 14:** DEI No-PII pipeline.
+
+---
+
+*Generated for PR gate review. Do not treat older commit messages (“100% production completion”) as audit evidence — use this matrix and `EPIC_STATUS.md`.*

@@ -720,454 +720,6 @@
     ],
     "a0000008-0008-4008-8008-000000000008": [
       {
-        "at": "2026-05-20T23:06:47.988Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:07:17.838Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 380.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:07:42.717Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:07:47.894Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 382.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:08:45.130Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 373.9,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:08:47.800Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 372.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:08:53.811Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 372.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:09:47.798Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 388.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:10:17.627Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:10:47.851Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 383.4,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:10:49.683Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 384.9,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:11:47.933Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:11:51.896Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:11:54.286Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:12:47.915Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 388.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:12:54.103Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 387.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:13:17.865Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.4,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:13:48.364Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:13:56.293Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.4,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:14:48.256Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 388.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:14:54.669Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 380.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:14:58.546Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 388.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:15:47.980Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 372.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:16:00.788Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 383,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:16:17.435Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:16:48.000Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:17:03.124Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 376.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:17:47.882Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 376.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:17:54.152Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.4,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:18:05.289Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:18:47.946Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:19:07.639Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 379.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:19:17.946Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 380.4,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:19:47.740Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 373.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:20:09.798Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 373.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:20:47.764Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 384.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:20:53.819Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 374.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:21:12.189Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:21:47.608Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 373.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:22:14.483Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:22:17.792Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:22:47.980Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 376.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:23:16.833Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 374.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:23:47.535Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:23:53.782Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:24:19.153Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:24:48.726Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:25:17.836Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 387.5,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:25:21.720Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 378.7,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:25:47.878Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:26:24.086Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 373.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:26:47.972Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 379.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:26:54.396Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:27:26.365Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 387.9,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:27:48.034Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 380.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:28:17.858Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 372.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:28:28.726Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 379,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:28:48.046Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 382.1,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:29:31.357Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.2,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:29:47.795Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 386.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:29:53.928Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 375.3,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:30:33.704Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 381.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:30:47.767Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 377.6,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
-        "at": "2026-05-20T23:31:17.781Z",
-        "zone": "US-NEIS",
-        "gco2PerKwh": 385.8,
-        "mitigatedValueCents": "1615",
-        "dirty": false
-      },
-      {
         "at": "2026-05-20T23:31:36.147Z",
         "zone": "US-NEIS",
         "gco2PerKwh": 371.7,
@@ -1388,6 +940,454 @@
         "at": "2026-05-20T23:43:17.870Z",
         "zone": "US-NEIS",
         "gco2PerKwh": 377.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:34:47.347Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:35:46.750Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 377.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:35:52.531Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 387.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:36:46.748Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:37:16.470Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 375.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:37:46.736Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 389.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:38:46.837Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 381.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:38:53.057Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 380.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:39:46.695Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 379,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:40:16.773Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 372.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:40:46.655Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 379.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:41:42.790Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 371.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:41:46.787Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:41:52.927Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 385.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:42:01.485Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:42:46.765Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 374.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:43:03.763Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 373.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:43:16.655Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 388.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:43:46.671Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 372.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:44:06.003Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 385.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:44:47.146Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 373.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:44:53.023Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 385,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:45:08.355Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:45:46.732Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 377.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:46:10.663Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 381.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:46:16.583Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 382.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:46:46.514Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 380.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:47:12.873Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 386.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:47:46.745Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 383.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:47:52.807Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 383.6,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:48:15.112Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 387.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:48:46.758Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 371.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:49:16.692Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:49:17.312Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 382.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:49:46.973Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 379.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:50:19.622Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 375.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:50:46.505Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 381.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:50:52.479Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 389.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:51:21.849Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 370.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:51:46.756Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 374.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:52:16.730Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:52:24.061Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 381.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:52:46.568Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 380.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:53:19.040Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 383.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:53:47.311Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 388.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:53:53.567Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 380.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:54:53.857Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:55:53.678Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 377.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:55:59.526Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 378.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:56:53.939Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 373.1,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:56:59.971Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:57:53.402Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 379.3,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:58:53.544Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 376.4,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:58:59.529Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 383.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:59:53.535Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 370.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T11:59:59.625Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 385.8,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:00:53.646Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 387.9,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:01:53.529Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 380.9,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:01:59.386Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 379.5,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:02:53.321Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 389,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:02:59.167Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 377.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:03:53.823Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 384.2,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:04:54.103Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 370.7,
+        "mitigatedValueCents": "1615",
+        "dirty": false
+      },
+      {
+        "at": "2026-05-21T12:05:00.275Z",
+        "zone": "US-NEIS",
+        "gco2PerKwh": 373.5,
         "mitigatedValueCents": "1615",
         "dirty": false
       }
@@ -2195,8 +2195,8 @@
     },
     "a0000008-0008-4008-8008-000000000008": {
       "active": false,
-      "updatedAt": "2026-05-20T23:43:18.588Z",
-      "intensityGco2PerKwh": 377.8,
+      "updatedAt": "2026-05-21T12:05:00.989Z",
+      "intensityGco2PerKwh": 373.5,
       "thresholdGco2PerKwh": 400,
       "autonomousMitigationEnabled": false
     },

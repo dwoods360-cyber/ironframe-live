@@ -20,12 +20,16 @@ describe('Sovereign Live Fire Protocol', () => {
       trace_id: testTraceId,
       raw_payload: {
         type: 'DOCUMENT_ANALYSIS',
-        text: 'CONFIDENTIAL: This audit for Medshield (Tenant Type: MEDSHIELD) confirms a total liability of $11,100,000.00. Vendor ID is 550e8400-e29b-41d4-a716-446655440000.'
+        text: 'CONFIDENTIAL: This audit for Medshield (Tenant Type: MEDSHIELD) confirms a total liability of $11,100,000.00. Vendor ID is 550e8400-e29b-41d4-a716-446655440000.',
+        tenantId: testTraceId,
+        mitigatedValueCents: "1110000000",
       },
       status: 'PENDING' as const
     };
 
-    const config = { configurable: { thread_id: testTraceId } };
+    const config = {
+      configurable: { thread_id: testTraceId, tenant_id: initialState.tenant_id },
+    } as unknown as Parameters<typeof graph.invoke>[1];
 
     // 2. Execute the physical LLM chain
     // NOTE: This requires a valid GOOGLE_API_KEY in your .env
@@ -33,7 +37,7 @@ describe('Sovereign Live Fire Protocol', () => {
 
     // 3. Validation: The Warden's Stamp
     const logs = result.agent_logs;
-    expect(logs.some(l => l.includes('WARDEN: Mathematical integrity verified'))).toBe(true);
+    expect(logs.some((l: string) => l.includes('WARDEN: Mathematical integrity verified'))).toBe(true);
 
     // 4. Validation: Logical Accuracy
     // Ensure Gemini correctly converted $11.1M to 1.11B cents
@@ -41,6 +45,6 @@ describe('Sovereign Live Fire Protocol', () => {
     expect(result.status).toBe('COMPLETED');
 
     // 5. Validation: Mathematical Result
-    expect(logs.some(l => l.includes('Variance 0'))).toBe(true);
+    expect(logs.some((l: string) => l.includes('Variance 0'))).toBe(true);
   }, 30000); // Extended timeout for physical LLM latency
 });

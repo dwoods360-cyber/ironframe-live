@@ -5,7 +5,7 @@ import {
   auditLogSatisfiesDirective,
   compileFrameworkFromLogs,
   inferDirectivesFromAuditLog,
-} from "@/src/services/compliance/irontallyEngine";
+} from "@/src/services/compliance/irontallyReadinessCore";
 
 describe("irontallyEngine", () => {
   it("infers orchestration bus directives including Ironquery fingerprint", () => {

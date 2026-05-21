@@ -92,10 +92,10 @@ const CASCADE_DRILL_STAGE_1_MS = 2000;
 const CASCADE_DRILL_STAGE_2_MS = 2000;
 const CASCADE_DRILL_STAGE_3_MS = 3000;
 const CASCADE_DRILL_STAGE_4_MS = 3000;
-/** GRC cold-store attestation (SSD mock); Scenario 5 rebirth requires this manifest. */
-const LKG_ATTESTATION_MANIFEST_PATH = "G:\\ironframe_store\\manifest\\lkg_signatures.json";
-/** When G: is EISDIR/unmapped or webpack resolution fails, use this repo-local file (readFileSync only). */
+/** Local-first LKG manifest (build-safe; G: optional fallback). */
 const LKG_LOCAL_MANIFEST_REL = ["storage", "manifest", "lkg_signatures.json"] as const;
+/** Legacy G: cold-store path — skipped when EISDIR or not a file. */
+const LKG_ATTESTATION_MANIFEST_PATH = "G:\\ironframe_store\\manifest\\lkg_signatures.json";
 const LKG_VAULT_VERIFY_SIM_MS = 2000;
 
 /** Initial L4 drill (Stages 1–2) — kept short so Attack Velocity → Active handoff stays ~1–2s. */
@@ -1427,14 +1427,14 @@ export async function runIsolatedCascadeDrill(
       }
     };
 
-    let manifestTxt: string | null = tryReadLkgWithReadFileSync(LKG_ATTESTATION_MANIFEST_PATH);
-    let lkgSource: "G" | "local" | null = manifestTxt != null ? "G" : null;
+    let manifestTxt: string | null = tryReadLkgWithReadFileSync(lkgLocalFallback);
+    let lkgSource: "G" | "local" | null = manifestTxt != null ? "local" : null;
     if (manifestTxt == null) {
       console.warn(
-        "[S5] LKG: G: volume missing, EISDIR, or unreadable — trying local fallback ./storage/manifest/lkg_signatures.json",
+        "[S5] LKG: local ./storage/manifest/lkg_signatures.json missing — trying G: cold store fallback",
       );
-      manifestTxt = tryReadLkgWithReadFileSync(lkgLocalFallback);
-      lkgSource = manifestTxt != null ? "local" : null;
+      manifestTxt = tryReadLkgWithReadFileSync(LKG_ATTESTATION_MANIFEST_PATH);
+      lkgSource = manifestTxt != null ? "G" : null;
     }
 
     if (manifestTxt == null) {

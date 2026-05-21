@@ -9,6 +9,13 @@ import { IRONTECH_STALE_LOCKDOWN_MESSAGE } from "@/app/config/sustainabilityStal
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+function shadowPlaneRequestActive(request: NextRequest): boolean {
+  if (isShadowPlaneActiveFromEnv()) return true;
+  if (request.cookies.get("ironframe-simulation-mode")?.value === "1") return true;
+  const hdr = request.headers.get("x-shadow-plane-active")?.trim().toLowerCase();
+  return hdr === "1" || hdr === "true" || hdr === "yes";
+}
+
 function middlewareSimulationBypass(request: NextRequest): boolean {
   const simSecret = process.env.SIMULATION_SECRET?.trim();
   const host = request.headers.get("host") ?? "";
@@ -19,11 +26,9 @@ function middlewareSimulationBypass(request: NextRequest): boolean {
   const headerSecret = request.headers.get("x-simulation-secret")?.trim();
   const auth = request.headers.get("authorization");
   const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : null;
-  const shadowPlaneActive =
-    isShadowPlaneActiveFromEnv() || request.cookies.get("ironframe-simulation-mode")?.value === "1";
   return (
     Boolean(simSecret && isLocalHost && (headerSecret === simSecret || bearer === simSecret)) ||
-    shadowPlaneActive
+    shadowPlaneRequestActive(request)
   );
 }
 
@@ -189,12 +194,9 @@ export async function middleware(request: NextRequest) {
     const headerSecret = request.headers.get("x-simulation-secret")?.trim();
     const auth = request.headers.get("authorization");
     const bearer = auth?.startsWith("Bearer ") ? auth.slice(7).trim() : null;
-    const shadowPlaneActive =
-      isShadowPlaneActiveFromEnv() ||
-      request.cookies.get("ironframe-simulation-mode")?.value === "1";
     const simulationBypass =
       Boolean(simSecret && isLocalHost && (headerSecret === simSecret || bearer === simSecret)) ||
-      shadowPlaneActive;
+      shadowPlaneRequestActive(request);
 
     if (
       !simulationBypass &&
@@ -260,6 +262,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && !isLoginRoute) {
+    /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
+    if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
+      return supabaseResponse;
+    }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";

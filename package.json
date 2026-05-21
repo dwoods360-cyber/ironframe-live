@@ -20,6 +20,7 @@
     "db:seed": "prisma db seed",
     "db:seed:benchmarks": "npx tsx prisma/seedBenchmarks.ts",
     "db:seed:auditor-readiness": "npx tsx scripts/seed-auditor-readiness-telemetry.ts",
+    "live-fire:telemetry-ingest": "npx tsx scripts/live-fire-telemetry-ingest.ts",
     "db:seed:omni": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:stress:market-spike": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:seed:synthetic": "npx ts-node --project prisma/tsconfig.seed.json prisma/seed-synthetic.ts"

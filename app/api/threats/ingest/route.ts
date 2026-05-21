@@ -24,7 +24,9 @@ const SHADOW_PLANE_DEFAULT_TENANT_UUID = TENANT_UUIDS.medshield;
 
 function shadowPlaneActive(request: NextRequest): boolean {
   if (isShadowPlaneActiveFromEnv()) return true;
-  return request.cookies.get('ironframe-simulation-mode')?.value === '1';
+  if (request.cookies.get('ironframe-simulation-mode')?.value === '1') return true;
+  const hdr = request.headers.get('x-shadow-plane-active')?.trim().toLowerCase();
+  return hdr === '1' || hdr === 'true' || hdr === 'yes';
 }
 
 /** Same-origin bots / CLI — prefer header over body so writes align with `GET /api/dashboard` Ironguard scope. */
@@ -248,7 +250,9 @@ export async function POST(request: NextRequest) {
       await new Promise<void>((r) => setTimeout(r, 4000));
     }
 
-    const result = await acknowledgeThreatAction(threatId, tenantId, operatorId, justification);
+    const result = await acknowledgeThreatAction(threatId, tenantId, operatorId, justification, {
+      shadowPlaneIngestBot: shadow && botIngest,
+    });
 
     if (result && typeof result === 'object' && 'success' in result && result.success === false) {
       const r = result as {

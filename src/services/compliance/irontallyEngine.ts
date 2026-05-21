@@ -14,22 +14,23 @@ import {
 } from "@/app/config/irontallyFrameworkControls";
 import prisma from "@/lib/prisma";
 
-export type FrameworkReadinessLabel = "SOC2" | "ISO27001" | "CSRD";
-
-export type VerifiedEvidenceLog = {
+/** Layout matrix row — one attested control tied to ledger telemetry. */
+export interface VerifiedEvidenceLog {
   controlId: string;
   agentSignature: string;
   timestamp: string;
   physicalContext: string;
-};
+}
 
-export type FrameworkReadinessSummary = {
-  framework: FrameworkReadinessLabel;
-  frameworkId: IrontallyFrameworkId;
+/** Per-framework readiness rollup consumed by `/api/grc/irontally?readiness=1`. */
+export interface FrameworkReadinessSummary {
+  framework: "SOC2" | "ISO27001" | "CSRD";
   totalControlsMonitored: number;
   passingControlsCount: number;
   verifiedEvidenceLogs: VerifiedEvidenceLog[];
-};
+}
+
+export type FrameworkReadinessLabel = FrameworkReadinessSummary["framework"];
 
 const READINESS_FRAMEWORKS: Array<{
   frameworkId: IrontallyFrameworkId;
@@ -156,7 +157,6 @@ export function compileFrameworkFromLogs(
 
   return {
     framework: label,
-    frameworkId,
     totalControlsMonitored: controls.length,
     passingControlsCount: verifiedEvidenceLogs.length,
     verifiedEvidenceLogs,

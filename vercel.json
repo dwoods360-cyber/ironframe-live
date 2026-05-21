@@ -3,6 +3,14 @@
     {
       "path": "/api/internal/cron/carbon-budget-reallocation",
       "schedule": "0 9 1 * *"
+    },
+    {
+      "path": "/api/internal/cron/gridcore-rate-poll",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/internal/cron/health-posture-triage",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

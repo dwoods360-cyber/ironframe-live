@@ -4,6 +4,7 @@ import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
 import { getFrameworkControlMappings } from "@/app/config/irontallyFrameworkControls";
 import type { IrontallyFrameworkId } from "@/app/config/irontallyFrameworkControls";
 import { buildIrontallyFrameworkSnapshot } from "@/app/services/irontallyMapper";
+import { compileFrameworkReadiness } from "@/src/services/compliance/irontallyEngine";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,17 @@ export async function GET(request: Request) {
       : state.current.score;
 
   const snapshot = buildIrontallyFrameworkSnapshot(score, state.current.calculatedAt);
+
+  if (url.searchParams.get("readiness") === "1") {
+    if (!tenantId) {
+      return NextResponse.json({ ok: false, error: "No active tenant." }, { status: 401 });
+    }
+    const readiness = await compileFrameworkReadiness(tenantId);
+    return NextResponse.json(
+      { ok: true, tenantId, readiness, snapshot },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   if (framework) {
     return NextResponse.json(

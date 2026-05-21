@@ -50,7 +50,9 @@ describe("irontallyEngine", () => {
       getFrameworkControlMappings("soc2_type2").length,
     );
     expect(summary.passingControlsCount).toBeGreaterThan(0);
-    expect(summary.verifiedEvidenceLogs.some((e) => e.controlId.startsWith("CC6.1"))).toBe(true);
+    expect(summary.verifiedEvidenceLogs.some((e: { controlId: string }) => e.controlId.startsWith("CC6.1"))).toBe(
+      true,
+    );
     expect(summary.verifiedEvidenceLogs[0]?.agentSignature).toBe("iq-abc123");
   });
 });

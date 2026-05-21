@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { generateSimulatedCompanies, runGrcBotCycle, type GrcBotCycleOptions } from "@/app/utils/grcBotEngine";
 import type { SerializedCompany } from "@/app/components/GlobalHealthSummaryCardClient";
+import { useRiskStore } from "@/app/store/riskStore";
 
 const GRCBOT_INTERVAL_MS = 12_000;
 const DEFAULT_COMPANY_COUNT = 50;
@@ -25,9 +26,29 @@ export const useGrcBotStore = create<GrcBotState>((set, get) => ({
   simulatedCompanies: [],
 
   setEnabled: (enabled) => {
-    if (enabled) get().start();
-    else get().stop();
-    set({ enabled });
+    if (!enabled) {
+      get().stop();
+      set({ enabled: false });
+      return;
+    }
+    void (async () => {
+      try {
+        const { clearStandDownForManualSimulationInjectAction } = await import(
+          "@/app/actions/simulationStandDownActions"
+        );
+        const r = await clearStandDownForManualSimulationInjectAction();
+        if (r.ok) {
+          const { applyManualSimulationStandDownResumeFeed } = await import(
+            "@/app/utils/manualSimulationStandDownFeed"
+          );
+          applyManualSimulationStandDownResumeFeed();
+        }
+      } catch {
+        /* non-fatal */
+      }
+      set({ enabled: true });
+      get().start();
+    })();
   },
 
   setCompanyCount: (count) => {
@@ -48,16 +69,21 @@ export const useGrcBotStore = create<GrcBotState>((set, get) => ({
     set({
       simulatedCompanies: generateSimulatedCompanies(companyCount),
     });
-    intervalId = setInterval(() => {
+    const kick = () => {
       const state = get();
-      void runGrcBotCycle({
-        companyCount: state.companyCount,
-        failSlaProbability: FAIL_SLA_PROBABILITY,
-      } as GrcBotCycleOptions);
+      void (async () => {
+        await runGrcBotCycle({
+          companyCount: state.companyCount,
+          failSlaProbability: FAIL_SLA_PROBABILITY,
+        } as GrcBotCycleOptions);
+        await useRiskStore.getState().pulseThreatBoardsFromDb();
+      })();
       set({
         simulatedCompanies: generateSimulatedCompanies(state.companyCount),
       });
-    }, GRCBOT_INTERVAL_MS);
+    };
+    kick();
+    intervalId = setInterval(kick, GRCBOT_INTERVAL_MS);
   },
 
   stop: () => {

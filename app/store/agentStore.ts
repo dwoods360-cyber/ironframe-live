@@ -1,5 +1,49 @@
 import { create } from "zustand";
 import type { PipelineThreat } from "@/app/store/riskStore";
+import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import type { WorkforceAgentCanonicalName } from "@/app/utils/agentKillAttribution";
+
+const AGENT_KILL_STORAGE_PREFIX = "ironframe-agent-kills-v1:";
+
+function emptyKillLedger(): Record<WorkforceAgentCanonicalName, number> {
+  const o = {} as Record<WorkforceAgentCanonicalName, number>;
+  for (const a of CORE_WORKFORCE_AGENTS) {
+    o[a.name as WorkforceAgentCanonicalName] = 0;
+  }
+  return o;
+}
+
+function tenantKeyForKills(): string {
+  if (typeof document === "undefined") return "global";
+  return resolveDashboardTenantUuid(null) ?? "global";
+}
+
+function loadKillLedger(): Record<WorkforceAgentCanonicalName, number> {
+  const base = emptyKillLedger();
+  if (typeof localStorage === "undefined") return base;
+  try {
+    const raw = localStorage.getItem(`${AGENT_KILL_STORAGE_PREFIX}${tenantKeyForKills()}`);
+    if (!raw) return base;
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    for (const a of CORE_WORKFORCE_AGENTS) {
+      const v = parsed[a.name];
+      if (typeof v === "number" && v >= 0) base[a.name as WorkforceAgentCanonicalName] = v;
+    }
+    return base;
+  } catch {
+    return base;
+  }
+}
+
+function persistKillLedger(kills: Record<WorkforceAgentCanonicalName, number>): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(`${AGENT_KILL_STORAGE_PREFIX}${tenantKeyForKills()}`, JSON.stringify(kills));
+  } catch {
+    /* ignore quota */
+  }
+}
 
 /** Ironwave (DMZ) visual telemetry — v1.0 state machine (tenant-scoped). */
 export type IronwaveTelemetryPhase = "ASSIGNED" | "SCANNING" | "VERIFIED";
@@ -27,8 +71,17 @@ export type ThreatTelemetryEntry = {
   irontechMitigating?: boolean;
 };
 
+/** HUD flash when expert lifecycle emits AGENT_PIVOT (2s amber pulse on Active Risks card). */
+export type AgentPivotFlashState = { threatId: string; until: number } | null;
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
+  /** Constitutional 19-agent fleet — increments when a threat card is resolved (tenant-scoped persistence). */
+  agentKills: Record<WorkforceAgentCanonicalName, number>;
+  hydrateAgentKillsFromStorage: () => void;
+  incrementAgentKill: (agentName: WorkforceAgentCanonicalName) => void;
+  /** Sum of per-agent kill counts (resolved threats attributed to the 19-agent roster). */
+  getTotalKillCount: () => number;
   intelligenceStream: string[];
   /** Local optimistic active cards (simple list). */
   activeThreats: PipelineThreat[];
@@ -41,6 +94,10 @@ type AgentStore = {
   threatTelemetry: Record<string, ThreatTelemetryEntry | undefined>;
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
+  /** Expert strategic pivot — drives amber border + overlay on matching ThreatCard until `until` epoch. */
+  agentPivotFlash: AgentPivotFlashState;
+  flashAgentPivot: (threatId: string, durationMs?: number) => void;
+  clearAgentPivotFlash: () => void;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
@@ -55,6 +112,8 @@ type AgentStore = {
   setThreatTelemetry: (threatId: string, telemetry: ThreatTelemetryEntry | null) => void;
   setSystemLatencyMs: (ms: number | null) => void;
   runSentinelSweep: (instruction: string) => void;
+  /** Master purge: intelligence stream, ingestion lines, DMZ telemetry scratch — back to cold-boot baseline. */
+  resetAgentStreamsForPurge: () => void;
 };
 
 const INITIAL_MESSAGES: string[] = [
@@ -68,6 +127,22 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     coreintel: { status: "HEALTHY" },
     agentManager: { status: "HEALTHY" },
   },
+  agentKills: emptyKillLedger(),
+  hydrateAgentKillsFromStorage: () => {
+    set({ agentKills: loadKillLedger() });
+  },
+  incrementAgentKill: (agentName) => {
+    const roster = new Set(CORE_WORKFORCE_AGENTS.map((a) => a.name));
+    const key = roster.has(agentName) ? agentName : ("Irontech" as WorkforceAgentCanonicalName);
+    set((state) => {
+      const prev = state.agentKills[key] ?? 0;
+      const next = { ...state.agentKills, [key]: prev + 1 };
+      persistKillLedger(next);
+      return { agentKills: next };
+    });
+  },
+  getTotalKillCount: () =>
+    Object.values(get().agentKills).reduce((sum, n) => sum + (typeof n === "number" ? n : 0), 0),
   intelligenceStream: INITIAL_MESSAGES,
   activeThreats: [],
   riskIngestionTerminalLines: [],
@@ -79,6 +154,21 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
   threatTelemetry: {},
   systemLatencyMs: null,
+  agentPivotFlash: null,
+  flashAgentPivot: (threatId, durationMs = 2000) => {
+    if (typeof window === "undefined") return;
+    const tid = threatId.trim();
+    if (!tid) return;
+    const until = Date.now() + durationMs;
+    set({ agentPivotFlash: { threatId: tid, until } });
+    window.setTimeout(() => {
+      const cur = get().agentPivotFlash;
+      if (cur?.threatId === tid && cur.until === until) {
+        set({ agentPivotFlash: null });
+      }
+    }, durationMs);
+  },
+  clearAgentPivotFlash: () => set({ agentPivotFlash: null }),
   setAgentStatus: (agent, status) =>
     set((state) => ({
       agents: {
@@ -205,5 +295,24 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       }));
     }, 3000);
   },
+  resetAgentStreamsForPurge: () =>
+    set({
+      intelligenceStream: [...INITIAL_MESSAGES],
+      riskIngestionTerminalLines: [],
+      activeThreats: [],
+      threatTelemetry: {},
+      agentPivotFlash: null,
+      ironwaveTelemetry: {
+        phase: "ASSIGNED",
+        tenantUuid: null,
+        lockedUntil: 0,
+      },
+      systemLatencyMs: null,
+      agents: {
+        ironsight: { status: "HEALTHY" },
+        coreintel: { status: "HEALTHY" },
+        agentManager: { status: "HEALTHY" },
+      },
+    }),
 }));
 

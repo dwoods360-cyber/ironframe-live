@@ -4,18 +4,6 @@ import { Annotation } from "@langchain/langgraph";
  * SOVEREIGN LANGGRAPH STATE
  * Mandate: UUID (tenant_id) and BIGINT (financials) must be preserved in state.
  */
-export type UnifiedRiskStateItem = {
-  id: string;
-  correlationId: string | null;
-  title: string;
-  source: string;
-  status: string;
-  isSimulation: boolean;
-  financialRisk_cents: string | null;
-  metadata: Record<string, unknown> | null;
-  updatedAt: string;
-};
-
 export const SovereignGraphState = Annotation.Root({
   // Multi-Tenant Isolation (Mandatory UUID)
   tenant_id: Annotation<string>({
@@ -38,13 +26,6 @@ export const SovereignGraphState = Annotation.Root({
     reducer: (x: string[], y: string[]) => x.concat(y),
     default: () => [],
   }),
-  processed_agents: Annotation<string[]>({
-    reducer: (x: string[], y: string[]) => {
-      const merged = new Set<string>([...x, ...y]);
-      return Array.from(merged);
-    },
-    default: () => [],
-  }),
 
   // Workflow Status
   status: Annotation<'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'QUARANTINED'>({
@@ -52,25 +33,60 @@ export const SovereignGraphState = Annotation.Root({
     default: () => "PENDING",
   }),
 
-  // Explicit path segregation for simulation vs production write controls.
-  data_path: Annotation<"SIMULATION" | "PRODUCTION">({
-    reducer: (x: "SIMULATION" | "PRODUCTION", y: "SIMULATION" | "PRODUCTION") => y ?? x,
-    default: () => "PRODUCTION",
-  }),
-  ledger_blocked: Annotation<boolean>({
-    reducer: (x: boolean, y: boolean) => y ?? x,
-    default: () => false,
+  /** BIGINT cents (decimal string) — financial ALE baseline / exposure. */
+  financial_ale_cents: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "0",
   }),
 
-  // Unified risk ledger consumed by Noon-era unified UI loop.
-  unified_risks: Annotation<UnifiedRiskStateItem[]>({
-    reducer: (x: UnifiedRiskStateItem[], y: UnifiedRiskStateItem[]) => y ?? x,
+  /** BIGINT cents (decimal string) — Sustainability ALE_carbon (Agent 18). */
+  sustainability_ale_cents: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "0",
+  }),
+
+  /** BIGINT cents (decimal string) — canonical mitigated value column target. */
+  mitigated_value_cents: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "0",
+  }),
+
+  carbon_intensity_gco2: Annotation<number>({
+    reducer: (_x: number, y: number) => y ?? _x,
+    default: () => 0,
+  }),
+
+  /** Irontech (Agent 12): LangGraph nodes whose primary dependency path is BLOCK_AND_BYPASS (Tier 1). */
+  irontech_blocked_paths: Annotation<string[]>({
+    reducer: (x, y) => {
+      const a = x ?? [];
+      const b = y ?? [];
+      return [...new Set([...a, ...b])];
+    },
     default: () => [],
   }),
 
-  // Sanitized metadata only; never store raw PII in graph state.
-  sanitized_metadata: Annotation<Record<string, unknown>>({
-    reducer: (x: Record<string, unknown>, y: Record<string, unknown>) => ({ ...x, ...(y ?? {}) }),
-    default: () => ({}),
+  /** Epic 10 bus — next node key (`ironlock` | `ironcast` | `ironscribe` | `END`). */
+  routing_target: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
+  }),
+
+  /** TAS §4.3 — workspace health bar (0–100); below 50% triggers Ironlock → Irontech triage path. */
+  health_bar_percent: Annotation<number>({
+    reducer: (_x: number, y: number) => (typeof y === "number" && Number.isFinite(y) ? y : _x),
+    default: () => 100,
+  }),
+
+  /** Optional threat correlation for audit + Ironcast egress. */
+  threat_id: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
+  }),
+
+  /** Ironquery (Agent 15) evidence-chain fingerprint from RAG cycle. */
+  ironquery_summary_signature: Annotation<string>({
+    reducer: (_x: string, y: string) => y ?? _x,
+    default: () => "",
   }),
 });

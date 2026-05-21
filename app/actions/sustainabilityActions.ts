@@ -1,169 +1,12 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { computeSustainabilityAleForTenantUuid } from "@/app/services/ironbloom/scoring";
+import { computeTotalSocietalValueCents } from "@/app/services/ironbloom/tsvCalculator";
+import { lockCarbonScore } from "@/src/services/ironbloom/artifactLock";
+import { runDirtyGridMonitorForTenant } from "@/src/services/agents/ironlock/dirtyGridMonitor";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { ThreatState } from "@prisma/client";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
-
-async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
-  return company?.id ?? null;
-}
-
-/** Serialized totals + human-readable strings for dashboard (JSON-safe numbers only — no BigInt). */
-export type GlobalSustainabilityImpact = {
-  totalKwh: number;
-  totalWaterLiters: number;
-  totalCarbonGrams: number;
-  /** totalCarbonGrams / 1000 */
-  totalCarbonKg: number;
-  recordCount: number;
-  energyDisplay: string;
-  waterDisplay: string;
-  carbonDisplay: string;
-  /** Compact lines for header / CSRD-style chip */
-  chipLineCarbon: string;
-  chipLineEnergy: string;
-  /** Executive / CSRD: "CO2 Offset: [X] kg" */
-  co2OffsetKgChip: string;
-  /** Exact copy per Sprint 5.2 spec */
-  energySavedLine: string;
-  waterAvertedLine: string;
-  totalOffsetKgCo2eLine: string;
-};
-
-/** BigInt → number for RSC/client props (JSON cannot serialize BigInt). */
-function bigintToNumber(value: bigint | null | undefined): number {
-  if (value == null) return 0;
-  return Number(value);
-}
-
-function formatEnergyKwh(totalKwh: number): string {
-  if (!Number.isFinite(totalKwh) || totalKwh <= 0) return "0 kWh";
-  if (totalKwh >= 1000) {
-    const mwh = totalKwh / 1000;
-    return `${mwh >= 10 ? mwh.toFixed(1) : mwh.toFixed(2)} MWh`;
-  }
-  return `${Math.round(totalKwh).toLocaleString()} kWh`;
-}
-
-function formatWaterLiters(L: number): string {
-  if (!Number.isFinite(L) || L <= 0) return "0 L";
-  if (L >= 1_000_000) return `${(L / 1_000_000).toFixed(2)} ML`;
-  if (L >= 1000) return `${(L / 1000).toFixed(2)} kL`;
-  return `${L.toLocaleString(undefined, { maximumFractionDigits: 1 })} L`;
-}
-
-/** Grams → kg display; metric tons when large (≥ 1 000 000 g). */
-function formatCarbonGrams(grams: number): { short: string; chip: string } {
-  if (!Number.isFinite(grams) || grams <= 0) {
-    return { short: "0 kg CO₂e", chip: "Total Carbon Offset: 0 kg CO₂e" };
-  }
-  if (grams >= 1_000_000) {
-    const t = grams / 1_000_000;
-    const s = t >= 10 ? t.toFixed(1) : t.toFixed(2);
-    return {
-      short: `${s} t CO₂e`,
-      chip: `Total Carbon Offset: ${s} t CO₂e`,
-    };
-  }
-  const kg = grams / 1000;
-  const s = kg >= 100 ? kg.toFixed(0) : kg.toFixed(1);
-  return {
-    short: `${s} kg CO₂e`,
-    chip: `Total Carbon Offset: ${s} kg CO₂e`,
-  };
-}
-
-/**
- * Tenant-scoped aggregates from `SustainabilityMetric` (threats tied to active tenant company).
- */
-export async function getGlobalSustainabilityImpact(): Promise<GlobalSustainabilityImpact> {
-  const companyId = await getCompanyIdForActiveTenant();
-  if (companyId == null) {
-    return emptyGlobalSustainabilityImpact();
-  }
-
-  const whereTenant = { threat: { tenantCompanyId: companyId } };
-  /** Sum in application code so Prisma `_sum` BigInt + aggregate edge cases never leak into JSON. */
-  const rows = await prisma.sustainabilityMetric.findMany({
-    where: whereTenant,
-    select: {
-      kwhAverted: true,
-      coolingWaterLiters: true,
-      carbonOffsetGrams: true,
-    },
-  });
-
-  let sumKwh = 0n;
-  let sumCarbon = 0n;
-  let totalWaterLiters = 0;
-  for (const r of rows) {
-    sumKwh += r.kwhAverted;
-    sumCarbon += r.carbonOffsetGrams;
-    totalWaterLiters += r.coolingWaterLiters;
-  }
-
-  const totalKwh = bigintToNumber(sumKwh);
-  const totalCarbonGrams = bigintToNumber(sumCarbon);
-  const recordCount = rows.length;
-
-  const energyDisplay = formatEnergyKwh(totalKwh);
-  const waterDisplay = formatWaterLiters(totalWaterLiters);
-  const carbonFmt = formatCarbonGrams(totalCarbonGrams);
-  const totalCarbonKg = totalCarbonGrams / 1000;
-  const kgDisplay = formatKgPlain(totalCarbonKg);
-
-  return {
-    totalKwh,
-    totalWaterLiters,
-    totalCarbonGrams,
-    totalCarbonKg,
-    recordCount,
-    energyDisplay,
-    waterDisplay,
-    carbonDisplay: carbonFmt.short,
-    chipLineCarbon: carbonFmt.chip,
-    chipLineEnergy: `Energy Saved: ${energyDisplay}`,
-    co2OffsetKgChip: `CO2 Offset: ${kgDisplay} kg`,
-    energySavedLine: `Energy Saved: ${Math.round(totalKwh).toLocaleString()} kWh`,
-    waterAvertedLine: `Water Averted: ${formatLitersPlain(totalWaterLiters)} L`,
-    totalOffsetKgCo2eLine: `Total Offset: ${kgDisplay} kg CO2e`,
-  };
-}
-
-function formatKgPlain(kg: number): string {
-  if (!Number.isFinite(kg) || kg <= 0) return "0";
-  if (kg >= 100) return kg.toLocaleString(undefined, { maximumFractionDigits: 1 });
-  return kg.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function formatLitersPlain(L: number): string {
-  if (!Number.isFinite(L) || L <= 0) return "0";
-  return L.toLocaleString(undefined, { maximumFractionDigits: 1 });
-}
-
-function emptyGlobalSustainabilityImpact(): GlobalSustainabilityImpact {
-  return {
-    totalKwh: 0,
-    totalWaterLiters: 0,
-    totalCarbonGrams: 0,
-    totalCarbonKg: 0,
-    recordCount: 0,
-    energyDisplay: "0 kWh",
-    waterDisplay: "0 L",
-    carbonDisplay: "0 kg CO₂e",
-    chipLineCarbon: "Total Carbon Offset: 0 kg CO₂e",
-    chipLineEnergy: "Energy Saved: 0 kWh",
-    co2OffsetKgChip: "CO2 Offset: 0 kg",
-    energySavedLine: "Energy Saved: 0 kWh",
-    waterAvertedLine: "Water Averted: 0 L",
-    totalOffsetKgCo2eLine: "Total Offset: 0 kg CO2e",
-  };
-}
 
 /** High tier: 1–10 severity 8–10, or 0–100 scale ≥80. */
 function isHighSeverity(score: number): boolean {
@@ -173,20 +16,30 @@ function isHighSeverity(score: number): boolean {
 }
 
 /**
- * Records Ironbloom sustainability impact when a threat is mitigated (RESOLVED).
+ * Records **Ironbloom** (production CSRD) sustainability impact when a threat is mitigated (RESOLVED).
+ *
+ * **Sustainability ALE:** `ALE_carbon = (kWh × CI_gCO₂) × P_offset × R_tax` → `mitigatedValueCents` (BigInt).
+ * Monetary-only payloads raise `CRITICAL_INGESTION_FAILURE` via Agent 18 scoring gate.
+ *
  * Idempotent per threat via upsert on `threatId`.
  */
 export async function recordSustainabilityImpact(
   threatId: string,
 ): Promise<
-  | { ok: true; recorded: true }
+  | { ok: true; recorded: true; mitigatedValueCents: string; carbonShareOfTenantAleBps: string }
   | { ok: true; recorded: false; reason: "not_found" | "not_resolved" }
-  | { ok: false; error: string }
+  | { ok: false; error: string; code?: string }
 > {
   try {
     const threat = await prisma.threatEvent.findUnique({
       where: { id: threatId },
-      select: { id: true, score: true, status: true },
+      select: {
+        id: true,
+        score: true,
+        status: true,
+        targetEntity: true,
+        tenantCompanyId: true,
+      },
     });
     if (!threat) {
       return { ok: true, recorded: false, reason: "not_found" };
@@ -196,31 +49,117 @@ export async function recordSustainabilityImpact(
     }
 
     const high = isHighSeverity(threat.score);
-    const kwhAverted = high ? 2500n : 500n;
-    const carbonOffsetGrams = high ? 1500n : 300n; // 1.5 kg vs 0.3 kg CO2e
-    const coolingWaterLiters = Number(kwhAverted) * 1.8;
+    const kwhAverted = high ? 2500 : 500;
+    const carbonOffsetGrams = high ? 1500n : 300n;
+    const coolingWaterLiters = kwhAverted * 1.8;
+    const assetId = threat.targetEntity?.trim() || threat.id;
 
-    await prisma.sustainabilityMetric.upsert({
-      where: { threatId },
-      create: {
-        threatId,
-        kwhAverted,
-        coolingWaterLiters,
-        carbonOffsetGrams,
-      },
-      update: {
-        kwhAverted,
-        coolingWaterLiters,
-        carbonOffsetGrams,
-      },
+    const company = threat.tenantCompanyId
+      ? await prisma.company.findUnique({
+          where: { id: threat.tenantCompanyId },
+          select: { tenantId: true },
+        })
+      : null;
+    const tenantUuid = company?.tenantId;
+    if (!tenantUuid) {
+      return { ok: false, error: "Threat has no tenant scope for sustainability scoring." };
+    }
+
+    const ale = await computeSustainabilityAleForTenantUuid({
+      tenantUuid,
+      unitsKwh: kwhAverted,
+      assetId,
     });
 
-    return { ok: true, recorded: true };
+    const metricTonsCo2e = Number(carbonOffsetGrams) / 1_000_000;
+    const tsv = computeTotalSocietalValueCents(metricTonsCo2e, ale.mitigatedValueCents);
+
+    const recordedAt = new Date().toISOString();
+    await lockCarbonScore(
+      {
+        threatId,
+        kwhAverted: BigInt(kwhAverted),
+        coolingWaterLiters,
+        carbonOffsetGrams,
+        mitigatedValueCents: ale.mitigatedValueCents,
+        totalSocietalValueCents: tsv.societalValueCents,
+        createdAt: new Date(recordedAt),
+        carbonIntensityGco2PerKwh: ale.carbonIntensityGco2PerKwh,
+        zone: ale.zone,
+      },
+      tenantUuid,
+    );
+
+    await runDirtyGridMonitorForTenant(tenantUuid, {
+      mitigatedValueCents: ale.mitigatedValueCents,
+    });
+
+    await prisma.$transaction([
+      prisma.sustainabilityMetric.upsert({
+        where: { threatId },
+        create: {
+          threatId,
+          kwhAverted: BigInt(kwhAverted),
+          coolingWaterLiters,
+          carbonOffsetGrams,
+          mitigatedValueCents: ale.mitigatedValueCents,
+          totalSocietalValueCents: tsv.societalValueCents,
+        },
+        update: {
+          kwhAverted: BigInt(kwhAverted),
+          coolingWaterLiters,
+          carbonOffsetGrams,
+          mitigatedValueCents: ale.mitigatedValueCents,
+          totalSocietalValueCents: tsv.societalValueCents,
+        },
+      }),
+      prisma.threatEvent.update({
+        where: { id: threatId },
+        data: { mitigatedValueCents: ale.mitigatedValueCents },
+      }),
+    ]);
+
+    try {
+      await auditLogCreateLoose({
+        data: {
+          action: "TOTAL_SOCIETAL_VALUE_SEALED",
+          justification: JSON.stringify({
+            event: "SOCIETAL_VALUE_FORENSIC_WITNESS",
+            ironlockAgent: "IRONLOCK_AGENT_6",
+            ironethicAgent: "IRONETHIC_AGENT_17",
+            threatId,
+            metricTonsCo2e,
+            sccComponentCents: tsv.sccComponentCents.toString(),
+            internalRoiCents: ale.mitigatedValueCents.toString(),
+            totalSocietalValueCents: tsv.societalValueCents.toString(),
+            epaSccBenchmark: "US-EPA-2026-SCC-interim-190-USD-per-tCO2e",
+          }),
+          operatorId: "IRONLOCK_AGENT_6",
+          threatId,
+          tenantId: tenantUuid,
+          isSimulation: false,
+        },
+      });
+    } catch {
+      /* best-effort witness */
+    }
+
+    return {
+      ok: true,
+      recorded: true,
+      mitigatedValueCents: ale.mitigatedValueCents.toString(),
+      carbonShareOfTenantAleBps: ale.carbonShareOfTenantAleBps.toString(),
+    };
   } catch (e) {
     console.error("[sustainabilityActions] recordSustainabilityImpact:", e);
+    const code =
+      e != null && typeof e === "object" && "code" in e
+        ? String((e as { code: string }).code)
+        : undefined;
     return {
       ok: false,
       error: e instanceof Error ? e.message : String(e),
+      code,
     };
   }
 }

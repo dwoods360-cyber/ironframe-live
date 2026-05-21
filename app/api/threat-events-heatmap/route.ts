@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
+import { resolveTenantIndustryForBenchmarks } from "@/app/utils/tenantIndustryBenchmark";
+import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { ThreatState } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +10,8 @@ export const revalidate = 0;
 
 /** Plotted on the enterprise heat map (non-terminal states). */
 const HEAT_MAP_STATUSES: ThreatState[] = [
-  ThreatState.PIPELINE,
-  ThreatState.ACTIVE,
+  ThreatState.IDENTIFIED,
+  ThreatState.CONFIRMED,
   ThreatState.CONFIRMED,
 ];
 
@@ -26,8 +28,7 @@ export type HeatMapThreatPayload = {
 };
 
 /**
- * Maps ThreatEvent.score → impact (1–10); likelihood fixed at 8 per product spec (MVP spread on X).
- * `derivedRisk = impact * likelihood` is 1–100 for color bands.
+ * Maps event score -> matrix coordinates (legacy compatibility for plotting).
  */
 export function deriveLikelihoodImpactFromScore(score: number): { likelihood: number; impact: number } {
   const s = score == null || Number.isNaN(Number(score)) ? 5 : Number(score);
@@ -43,6 +44,14 @@ export function deriveLikelihoodImpactFromScore(score: number): { likelihood: nu
   return { likelihood, impact };
 }
 
+/** ALE-driven glow intensity (1-100). High ALE => high glow. */
+function deriveAleIntensity(financialRiskCents: bigint): number {
+  const usd = Number(financialRiskCents) / 100;
+  if (!Number.isFinite(usd) || usd <= 0) return 1;
+  const normalized = Math.log10(usd + 1) / Math.log10(25_000_000 + 1);
+  return Math.max(1, Math.min(100, Math.round(normalized * 100)));
+}
+
 /** GET /api/threat-events-heatmap — tenant-scoped ThreatEvent rows for the risk matrix. */
 export async function GET(request: NextRequest) {
   noStore();
@@ -54,16 +63,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const company = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
+  const [tenantRow, company] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantUuid },
+      select: { industry: true },
+    }),
+    prisma.company.findFirst({
+      where: { tenantId: tenantUuid },
+      select: { id: true },
+    }),
+  ]);
+
+  const tenantIndustry = resolveTenantIndustryForBenchmarks(tenantRow?.industry);
 
   if (!company) {
-    return NextResponse.json({ threats: [] as HeatMapThreatPayload[] });
+    return NextResponse.json({
+      threats: [] as HeatMapThreatPayload[],
+      tenantIndustry,
+    });
   }
 
-  const rows = await prisma.threatEvent.findMany({
+  const simPlane = await readSimulationPlaneEnabled();
+  const heatQuery = {
     where: {
       tenantCompanyId: company.id,
       status: { in: HEAT_MAP_STATUSES },
@@ -76,26 +97,29 @@ export async function GET(request: NextRequest) {
       sourceAgent: true,
       targetEntity: true,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: { updatedAt: "desc" as const },
     take: 200,
-  });
+  };
+  const rows = simPlane
+    ? await prisma.riskEvent.findMany(heatQuery)
+    : await prisma.threatEvent.findMany(heatQuery);
 
   const threats: HeatMapThreatPayload[] = rows.map((t) => {
     const { likelihood, impact } = deriveLikelihoodImpactFromScore(t.score);
-    const derivedRisk = impact * likelihood;
     const cents = t.financialRisk_cents ?? 0n;
     const financialRiskUsd = Number(cents) / 100;
+    const aleIntensity = deriveAleIntensity(cents);
     return {
       id: t.id,
       name: t.title,
       likelihood,
       impact,
-      score: derivedRisk,
+      score: aleIntensity,
       financialRiskUsd,
       industry: t.targetEntity,
       source: t.sourceAgent,
     };
   });
 
-  return NextResponse.json({ threats });
+  return NextResponse.json({ threats, tenantIndustry });
 }

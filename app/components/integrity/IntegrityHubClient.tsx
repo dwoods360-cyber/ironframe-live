@@ -5,23 +5,72 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, HardDrive } from "lucide-react";
+import { listIntegritySyntheticTargetsAction } from "@/app/actions/integritySyntheticTargetsActions";
 import { reverifyLkgColdStoreAction } from "@/app/actions/integrityVaultActions";
-import type { IntegrityVaultSnapshot, LkgWorkforceRow } from "@/app/types/integrityVault";
+import type {
+  IntegrityHubShadowArmState,
+  IntegrityHubSyntheticTarget,
+  IntegrityVaultSnapshot,
+  LkgWorkforceRow,
+} from "@/app/types/integrityVault";
+import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore";
+import { SIMULATION_AGENTS, SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
 import { LKG_COLD_STORE_ROOT } from "@/app/utils/integrityVaultConstants";
 import IntegrityEvidenceLedger from "@/app/components/integrity/IntegrityEvidenceLedger";
+import ShadowPlaneRegistry from "@/app/components/ShadowPlaneRegistry";
 import type { ServerIntegrityLedgerRow } from "@/app/types/integrityLedger";
+import IrontechChaosDeploy from "@/app/(dashboard)/opsupport/IrontechChaosDeploy";
+import ControlRoom from "@/app/components/ControlRoom";
+import ClockDriftBanner from "@/app/components/ClockDriftBanner";
+import ClockDriftMonitor from "@/app/components/ClockDriftMonitor";
+import { useRiskStore } from "@/app/store/riskStore";
+import {
+  WORKFORCE_SIMULATION_PROCESSING_EVENT,
+  combineThreatPlanesForWorkforce,
+  type WorkforceSimulationProcessingDetail,
+} from "@/app/utils/workforceInventoryActive";
+import { mergeInventoryAgentWithPulse, type AgentPulseState } from "@/app/utils/workforceAgentState";
+
+/** Matches card shell `animate-pulse` so cursor blink stays phase-aligned at 3s linear. */
+const WORKFORCE_PULSE_MOTION =
+  "motion-safe:animate-pulse [animation-duration:3s] [animation-timing-function:linear]";
+
+/** SSR-safe placeholder until client mount (aligns with UTC verified line shape). */
+const VERIFIED_UTC_SYNC_PLACEHOLDER = "Verified: -------- --:-- UTC";
+
+/** Ledger / vault clock placeholders — avoids hydration mismatch vs locale-formatting. */
+const LAST_READ_SYNC_PLACEHOLDER = "-------- --:--:--";
+
+/** Registry `lastHealthCheck` ISO → “Verified: YYYY-MM-DD HH:mm UTC”. */
+function formatVerifiedUtcLine(iso: string | null | undefined): string | null {
+  if (!iso?.trim()) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `Verified: ${y}-${mo}-${day} ${h}:${mi} UTC`;
+}
 
 function statusPill(status: LkgWorkforceRow["status"]) {
   if (status === "LKG_VERIFIED")
     return (
-      <span className="rounded border border-emerald-600/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-300">
+      <span className="rounded border border-emerald-500/70 bg-emerald-950/35 px-1.5 py-0.5 text-[8px] font-black uppercase text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.65)] ring-1 ring-emerald-400/35 [box-shadow:0_0_22px_rgba(16,185,129,0.45)]">
         LKG_VERIFIED
       </span>
     );
-  if (status === "NO_MANIFEST_ENTRY")
+  if (status === "NO_ENTRY")
     return (
-      <span className="rounded border border-amber-700/50 bg-amber-950/40 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-200/90">
+      <span className="rounded border border-amber-500/75 bg-amber-950/45 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.35)]">
         NO_ENTRY
+      </span>
+    );
+  if (status === "RE_VERIFICATION_REQUIRED")
+    return (
+      <span className="rounded border border-amber-500/80 bg-amber-950/50 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-200 shadow-[0_0_14px_rgba(245,158,11,0.45)] ring-1 ring-amber-500/30">
+        RE-VERIFICATION_REQUIRED
       </span>
     );
   return (
@@ -31,17 +80,244 @@ function statusPill(status: LkgWorkforceRow["status"]) {
   );
 }
 
+function inventoryCard(opts: {
+  title: string;
+  statusNode: ReactNode;
+  sha256: string | null;
+  remediating?: boolean;
+  statusKey: LkgWorkforceRow["status"];
+  pulseState: AgentPulseState;
+  /** Shown under status when `LKG_VERIFIED` (Ironscout / Ironwatch TTL anchor). */
+  verifiedUtcLine?: string | null;
+  /** GRC: render dynamic UTC only after mount (Option 2 client guard). */
+  timeDisplayReady: boolean;
+}) {
+  const ps = opts.pulseState;
+  const shell = opts.remediating
+    ? "remediating"
+    : ps === "ALERT"
+      ? "alert"
+      : ps === "ACTIVE"
+        ? "active"
+        : "idle";
+
+  const borderClasses =
+    opts.remediating
+      ? "motion-safe:animate-pulse border-emerald-500/50 shadow-[0_0_26px_rgba(52,211,153,0.2)] ring-1 ring-emerald-400/25 [animation-duration:2.8s]"
+      : opts.statusKey === "RE_VERIFICATION_REQUIRED"
+        ? "border-amber-500/55 shadow-[0_0_20px_rgba(245,158,11,0.38)] ring-1 ring-amber-500/35 motion-safe:animate-pulse [animation-duration:3s]"
+      : shell === "alert"
+        ? "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.5)] motion-safe:animate-pulse [animation-duration:3s]"
+        : shell === "active"
+          ? "border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.4)] motion-safe:animate-pulse [animation-duration:3s]"
+          : opts.statusKey === "LKG_VERIFIED"
+            ? "border-emerald-500/50 shadow-[0_0_26px_rgba(16,185,129,0.48)] ring-1 ring-emerald-400/35 [box-shadow:0_0_28px_rgba(16,185,129,0.38)]"
+            : "border-slate-800/90";
+
+  const showLkgPulse =
+    opts.statusKey === "LKG_VERIFIED" && !opts.remediating && (ps === "ACTIVE" || ps === "ALERT");
+
+  return (
+    <div
+      className={`flex flex-col gap-1.5 rounded border bg-slate-900/50 px-2.5 py-2 transition-all duration-700 ${borderClasses}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-bold leading-tight text-white">{opts.title}</span>
+          {opts.remediating ? (
+            <div className="flex flex-col gap-1">
+              <span className="w-fit rounded border border-emerald-500/50 bg-emerald-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-500 shadow-[0_0_12px_rgba(52,211,153,0.28)] motion-safe:animate-pulse [animation-duration:2.8s]">
+                REMEDIATING
+              </span>
+              {opts.statusNode}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {opts.statusNode}
+                {showLkgPulse && ps === "ACTIVE" ? (
+                  <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-sky-500">
+                    {">> ENFORCING"}
+                    <span
+                      className={`inline-block h-2.5 w-px bg-sky-500 ${WORKFORCE_PULSE_MOTION}`}
+                      aria-hidden
+                    />
+                  </span>
+                ) : null}
+                {showLkgPulse && ps === "ALERT" ? (
+                  <span className="inline-flex items-center gap-0.5 font-mono text-[8px] font-black uppercase text-orange-500">
+                    {">> COUNTER-MEASURE ACTIVE"}
+                    <span
+                      className={`inline-block h-2.5 w-px bg-orange-500 ${WORKFORCE_PULSE_MOTION}`}
+                      aria-hidden
+                    />
+                  </span>
+                ) : null}
+              </div>
+              {opts.statusKey === "LKG_VERIFIED" ? (
+                <p className="font-mono text-[7px] font-semibold leading-tight text-emerald-400/95">
+                  {opts.timeDisplayReady ? (
+                    opts.verifiedUtcLine ?? "—"
+                  ) : (
+                    <span
+                      className="inline-block animate-pulse text-emerald-400/75"
+                      aria-label="Syncing verification time"
+                    >
+                      {VERIFIED_UTC_SYNC_PLACEHOLDER}
+                    </span>
+                  )}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </div>
+      <p className="text-[7px] uppercase tracking-wide text-slate-600">SHA256 (manifest)</p>
+      {opts.sha256 ? (
+        <p className="break-all font-mono text-[8px] leading-snug text-slate-400">{opts.sha256}</p>
+      ) : (
+        <p className="font-mono text-[8px] text-slate-600">—</p>
+      )}
+    </div>
+  );
+}
+
+function redTeamSimStatusPill(active: boolean) {
+  if (active) {
+    return (
+      <span className="rounded border border-rose-500/70 bg-rose-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-100">
+        SIM_ACTIVE
+      </span>
+    );
+  }
+  return (
+    <span className="rounded border border-slate-700/70 bg-slate-900/70 px-1.5 py-0.5 text-[8px] font-black uppercase text-slate-400">
+      SIM_IDLE
+    </span>
+  );
+}
+
+/** Same card rhythm as Blue Team `inventoryCard` — tactical red shell for shadow simulators. */
+function redTeamAgentCard(opts: { title: string; statusNode: ReactNode; role: string; sourceAgent: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded border border-rose-900/50 bg-gradient-to-b from-rose-950/25 to-slate-950/60 px-2.5 py-2 ring-1 ring-rose-950/35">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[10px] font-bold leading-tight text-rose-50">{opts.title}</span>
+          {opts.statusNode}
+        </div>
+      </div>
+      <p className="text-[7px] uppercase tracking-wide text-rose-900/70">Shadow vector</p>
+      <p className="text-[8px] leading-snug text-rose-100/85">{opts.role}</p>
+      <p className="text-[7px] uppercase tracking-wide text-rose-900/70">source_agent</p>
+      <p className="break-all font-mono text-[8px] leading-snug text-rose-300/90">{opts.sourceAgent}</p>
+    </div>
+  );
+}
+
 type Props = {
+  /** Server RSC epoch for GRC clock drift comparison (HUD + audit metadata). */
+  serverTimeEpochMs: number;
   initialVault: IntegrityVaultSnapshot;
   ledgerRows: ServerIntegrityLedgerRow[];
+  /** Shadow-directory targets (Tier 3); isolated from production `User` records. */
+  syntheticTargets: IntegrityHubSyntheticTarget[];
+  /** DB-backed armed state for InfilBot / PhishBot (synced with Control Room toggles). */
+  shadowArmState: IntegrityHubShadowArmState;
   /** ALE hero — composed in `integrity/page.tsx` with server-derived `totalMitigated`. */
   aleHero: ReactNode;
 };
 
-export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }: Props) {
+export default function IntegrityHubClient({
+  serverTimeEpochMs,
+  initialVault,
+  ledgerRows,
+  syntheticTargets,
+  shadowArmState,
+  aleHero,
+}: Props) {
   const router = useRouter();
   const [vault, setVault] = useState<IntegrityVaultSnapshot>(initialVault);
   const [isPending, startTransition] = useTransition();
+  const [syntheticRows, setSyntheticRows] =
+    useState<IntegrityHubSyntheticTarget[]>(syntheticTargets);
+  const [syntheticLoadError, setSyntheticLoadError] = useState<string | null>(null);
+  const [blueRemediationPulse, setBlueRemediationPulse] = useState(false);
+  const [interactionPulseUntil, setInteractionPulseUntil] = useState<Record<string, number>>({});
+  const [isMounted, setIsMounted] = useState(false);
+
+  const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
+  const activeThreats = useRiskStore((s) => s.activeThreats);
+
+  const combinedThreats = useMemo(
+    () => combineThreatPlanesForWorkforce(activeThreats, pipelineThreats),
+    [activeThreats, pipelineThreats],
+  );
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const onPulse = (e: Event) => {
+      const d = (e as CustomEvent<WorkforceSimulationProcessingDetail>).detail;
+      if (!d?.agents?.length) return;
+      const ttlMs = d.ttlMs ?? 2600;
+      const until = Date.now() + ttlMs;
+      setInteractionPulseUntil((prev) => {
+        const next = { ...prev };
+        for (const a of d.agents) {
+          next[a] = Math.max(next[a] ?? 0, until);
+        }
+        return next;
+      });
+    };
+    window.addEventListener(WORKFORCE_SIMULATION_PROCESSING_EVENT, onPulse);
+    return () => window.removeEventListener(WORKFORCE_SIMULATION_PROCESSING_EVENT, onPulse);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setInteractionPulseUntil((prev) => {
+        const next = { ...prev };
+        let dirty = false;
+        for (const k of Object.keys(next)) {
+          if ((next[k] ?? 0) <= now) {
+            delete next[k];
+            dirty = true;
+          }
+        }
+        return dirty ? next : prev;
+      });
+    }, 400);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const infiltrActive = useAdversarySimulatorStore((s) => s.infiltrActive);
+  const phishActive = useAdversarySimulatorStore((s) => s.phishActive);
+  const setInfiltrActive = useAdversarySimulatorStore((s) => s.setInfiltrActive);
+  const setPhishActive = useAdversarySimulatorStore((s) => s.setPhishActive);
+
+  useEffect(() => {
+    setInfiltrActive(shadowArmState.infiltrBotSimActive);
+    setPhishActive(shadowArmState.phishBotSimActive);
+  }, [shadowArmState.infiltrBotSimActive, shadowArmState.phishBotSimActive, setInfiltrActive, setPhishActive]);
+
+  useEffect(() => {
+    setSyntheticRows(syntheticTargets);
+  }, [syntheticTargets]);
+
+  useEffect(() => {
+    void listIntegritySyntheticTargetsAction().then((r) => {
+      if (r.ok) {
+        setSyntheticRows(r.targets);
+        setSyntheticLoadError(null);
+      } else {
+        setSyntheticLoadError(r.error);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -76,7 +352,9 @@ export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }
   }, [vault.verifiedAt]);
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="relative flex w-full flex-col gap-6">
+      <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
+      <ClockDriftBanner serverTimeEpochMs={serverTimeEpochMs} />
       <div className="flex flex-col">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="min-w-0 max-w-3xl flex-1">
@@ -98,6 +376,21 @@ export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }
           <span className="font-mono text-slate-300">{LKG_COLD_STORE_ROOT}</span>, and workforce verification state.
         </p>
       </div>
+
+      <section
+        className="rounded-lg border border-zinc-800/90 bg-[#050509] p-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]"
+        aria-labelledby="shadow-control-deck-heading"
+      >
+        <h2 id="shadow-control-deck-heading" className="sr-only">
+          Shadow simulation control deck
+        </h2>
+        <p className="mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-500">
+          Simulation — adversary · chaos drills
+        </p>
+        <ControlRoom>
+          <IrontechChaosDeploy embedded />
+        </ControlRoom>
+      </section>
 
       <IntegrityEvidenceLedger serverRows={ledgerRows} liveSyncActive />
 
@@ -193,25 +486,71 @@ export default function IntegrityHubClient({ initialVault, ledgerRows, aleHero }
 
             <div className="mt-3 w-full min-w-0">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {vault.agents.map((agent) => (
-                  <div
-                    key={agent.name}
-                    className="flex flex-col gap-1.5 rounded border border-slate-800/90 bg-slate-900/50 px-2.5 py-2"
-                  >
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold leading-tight text-white">{agent.name}</span>
-                      {statusPill(agent.status)}
+                {vault.agents.map((agent, idx) => {
+                  const blueRemediating =
+                    blueRemediationPulse &&
+                    (agent.name === "Ironcore" || agent.name === "Irontally");
+                  const pulseState = mergeInventoryAgentWithPulse(
+                    agent.name,
+                    combinedThreats,
+                    interactionPulseUntil,
+                  );
+                  return (
+                    <div key={agent.name}>
+                      {inventoryCard({
+                        title: `${String(idx + 1).padStart(2, "0")} — ${agent.name}`,
+                        statusNode: statusPill(agent.status),
+                        sha256: agent.sha256,
+                        remediating: blueRemediating,
+                        statusKey: agent.status,
+                        pulseState: blueRemediating ? "IDLE" : pulseState,
+                        verifiedUtcLine:
+                          agent.status === "LKG_VERIFIED"
+                            ? formatVerifiedUtcLine(agent.lastVerifiedAtUtc ?? undefined)
+                            : null,
+                        timeDisplayReady: isMounted,
+                      })}
                     </div>
-                    <p className="text-[7px] uppercase tracking-wide text-slate-600">SHA256 (manifest)</p>
-                    {agent.sha256 ? (
-                      <p className="break-all font-mono text-[8px] leading-snug text-slate-400">{agent.sha256}</p>
-                    ) : (
-                      <p className="font-mono text-[8px] text-slate-600">—</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
+
+            <div className="mt-6 border-t border-slate-800/90 pt-5">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-rose-200/95">
+                Shadow plane / security simulator
+              </h3>
+              <p className="mt-1 text-[10px] text-rose-200/60">
+                Red Team roster (01—10) · <span className="font-mono text-rose-300/80">SIMULATION_SOURCE_AGENTS</span>
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {SIMULATION_AGENTS.filter((a) => SIMULATION_SOURCE_AGENTS.has(a.sourceAgent)).map((agent) => {
+                  const simActive =
+                    agent.sourceAgent === "INFILBOT_SIMULATION"
+                      ? infiltrActive
+                      : agent.sourceAgent === "PHISHBOT_SIMULATION"
+                        ? phishActive
+                        : false;
+                  return (
+                    <div key={agent.key}>
+                      {redTeamAgentCard({
+                        title: agent.label,
+                        statusNode: redTeamSimStatusPill(simActive),
+                        role: agent.role,
+                        sourceAgent: agent.sourceAgent,
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <ShadowPlaneRegistry
+              syntheticRows={syntheticRows}
+              syntheticLoadError={syntheticLoadError}
+              onSyntheticRowsChange={setSyntheticRows}
+              onRemediationVisualChange={setBlueRemediationPulse}
+            />
           </div>
       </section>
     </div>

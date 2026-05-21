@@ -3,10 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { useRiskStore } from "@/app/store/riskStore";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 
-/** Dot size bounds (px) — financial weight within GRC bands. */
+/** Dot size bounds (px) — ALE weight within GRC bands. */
 const DOT_MIN_PX = 12;
 const DOT_MAX_PX = 32;
 
@@ -107,14 +106,22 @@ export default function EnterpriseHeatMap() {
 
   useEffect(() => {
     let cancelled = false;
-    const tenantUuid = activeTenantUuid ?? TENANT_UUIDS.medshield;
+
+    if (!activeTenantUuid) {
+      setLoading(false);
+      setError(null);
+      setPoints([]);
+      return () => {
+        cancelled = true;
+      };
+    }
 
     setLoading(true);
     setError(null);
 
     tenantFetch("/api/threat-events-heatmap", {
       cache: "no-store",
-      headers: { "x-tenant-id": tenantUuid } as HeadersInit,
+      headers: { "x-tenant-id": activeTenantUuid } as HeadersInit,
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -151,11 +158,11 @@ export default function EnterpriseHeatMap() {
   return (
     <div className="flex flex-col gap-3">
       <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-        Likelihood (1–10) × Impact (1–10) — live ThreatEvent (pipeline, active, confirmed)
+        Residual Risk Density Map (ALE intensity) — live Risk/Threat Events
       </div>
       {loading ? (
         <p className="text-[11px] text-slate-500" role="status">
-          Loading threat positions…
+          Loading residual risk density…
         </p>
       ) : null}
       {error ? (

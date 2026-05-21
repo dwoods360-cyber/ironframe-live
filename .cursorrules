@@ -30,6 +30,7 @@ Before writing or modifying any code:
 - Confirm: Irongate (Agent 14) is NOT bypassed for ingestion.
 - Confirm: Irontrust (Agent 3) math reflects Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M.
 - Confirm: LangGraph state immutability respected.
+- Confirm: Shadow-plane diagnostics (TAS.md Section 4.3) — no `SimulationDiagnosticLog` writes from production-only flows; `readSimulationPlaneEnabled()` respected on server; client self-test UI gated on `isSimulationMode`.
 
 ### 3. If 🟡 Backend:
 - Ensure logging is present for Ironwatch (Agent 13).
@@ -53,7 +54,21 @@ aleBaselineCents  BigInt
 ```ts
 const dollars = aleBaselineCents / 100;
 ```
-This guarantees exact precision. Carbon metrics require physical units (kWh, Liters, km) — monetary-only data is rejected by Ironbloom (Agent 17).
+This guarantees exact precision. Carbon metrics require physical units (kWh, Liters, km) — monetary-only data is rejected by Kimbot (Agent 17).
+
+---
+
+## 🔦 Shadow Plane & Diagnostics (TAS.md Section 4.3)
+
+**Diagnostic isolation:** System Pass / Fail / Receipt (operational self-test) MUST only render when **`isSimulationMode === true`**. Do not expose these tools in production UI paths.
+
+**Server boundary:** Use **`readSimulationPlaneEnabled()`** from `app/lib/security/ingressGateway.ts` (cookie `ironframe-simulation-mode === "1"`) for Server Actions and APIs that accept diagnostic submissions or return shadow-only queues. Keep client store and cookie in sync; treating simulation mode as optional styling is forbidden.
+
+**No-Bleed storage:** `OPERATIONAL_DEFICIENCY_REPORT`, `OPERATIONAL_SELF_TEST_PASS`, and `OPERATIONAL_DEFICIENCY_RESOLVED` belong in **`SimulationDiagnosticLog` only** — not production `AuditLog` for these semantics, and not on `ThreatEvent` as self-test noise.
+
+**Weighted health:** When touching reliability code, preserve **`calculateComponentHealth`** weights: Critical **−10**, High **−5**, Low/Med **−2**, Pass **+1**; preserve **`healthBarPercent`** semantics unless TAS is amended.
+
+**Irontech priority:** Prioritize repairs for components with **`healthBarPercent` < 50%** when acting on shadow diagnostic feeds.
 
 ---
 
@@ -111,6 +126,8 @@ Failure to include all three blocks invalidates the output.
 - Re-architecting completed modules in /docs/completed-modules.md without a TAS Amendment.
 - Silent structural changes of any kind.
 - Executing Prisma update, upsert, or create on any tenant-bound model without explicitly passing the authenticated tenantId. Never auto-generate missing parent records (like Company/Tenant) to satisfy foreign key constraints during data ingestion.
+- Logging operational self-test / deficiency diagnostics to production **`AuditLog`** or **`ThreatEvent`** instead of **`SimulationDiagnosticLog`**.
+- Rendering operational self-test controls (Pass/Fail/Receipt bar) when **`isSimulationMode`** is false, or accepting deficiency submissions without **`readSimulationPlaneEnabled()`** on the server.
 
 ---
 

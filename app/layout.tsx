@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppShell from "./components/AppShell";
-import DebugPanel from "./components/dev/DebugPanel";
+import IronguardBootstrap from "./components/IronguardBootstrap";
 import { TenantProvider } from "./context/TenantProvider";
+import { ConstitutionalIntegrityProvider } from "./context/ConstitutionalIntegrityProvider";
 import GlobalDropZone from "./components/GlobalDropZone";
+import EmergencyOverlay from "./components/EmergencyOverlay";
+import ConstitutionalDegradedBanner from "./components/ConstitutionalDegradedBanner";
+import StaleDataLockdownBanner from "./components/StaleDataLockdownBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,15 +31,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="font-sans">
+    <html lang="en" className="h-full font-sans" suppressHydrationWarning>
+      {/* suppressHydrationWarning: Prevents crashes from browser extensions (Grammarly, etc.) injecting attributes into the DOM. */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} h-screen overflow-hidden antialiased font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} h-full overflow-hidden antialiased font-sans`}
+        suppressHydrationWarning
       >
         <TenantProvider>
-          <GlobalDropZone />
-          <AppShell>{children}</AppShell>
-          <DebugPanel />
-          {/* SpeedInsights disabled: can trigger async Client Component error in Next 16/Turbopack */}
+          <ConstitutionalIntegrityProvider>
+            <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950">
+              <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                <EmergencyOverlay />
+                <ConstitutionalDegradedBanner />
+                <StaleDataLockdownBanner />
+                <IronguardBootstrap />
+                <GlobalDropZone />
+                <AppShell>{children}</AppShell>
+                {/* SpeedInsights disabled: can trigger async Client Component error in Next 16/Turbopack */}
+              </main>
+            </div>
+          </ConstitutionalIntegrityProvider>
         </TenantProvider>
       </body>
     </html>

@@ -1,0 +1,90 @@
+{
+  "current": {
+    "score": 6.000000000000001,
+    "scoreBeforeResilienceBonus": 6.000000000000001,
+    "apiOutagePenaltyActive": false,
+    "selfHealingContinuity": {
+      "daysActive": 0,
+      "activeSince": null,
+      "bonusApplies": false
+    },
+    "calculatedAt": "2026-05-21T12:04:59.790Z",
+    "components": {
+      "attestationQuality": 6,
+      "chaosResilience": 6,
+      "directivity": 6
+    },
+    "weights": {
+      "attestation": 0.4,
+      "chaos": 0.4,
+      "directivity": 0.2
+    },
+    "governanceDegradationActive": false,
+    "neutralizeMinChars": 50,
+    "sampleSizes": {
+      "resolutionsSampled": 0,
+      "chaosReportAvailable": false
+    },
+    "notes": [
+      "Attestation quality used baseline — no recent resolutions sampled.",
+      "Chaos resilience baseline — no Constitutional Collapse post-mortem on file.",
+      "Directivity baseline — no resolution narratives for TAS deep-link scan."
+    ]
+  },
+  "trend": [
+    {
+      "date": "2026-05-16",
+      "score": 5.000000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-17",
+      "score": 5.000000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-18",
+      "score": 4.600000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 5
+      }
+    },
+    {
+      "date": "2026-05-19",
+      "score": 4.600000000000001,
+      "components": {
+        "directivity": 1,
+        "chaosResilience": 6,
+        "attestationQuality": 5
+      }
+    },
+    {
+      "date": "2026-05-20",
+      "score": 6.000000000000001,
+      "components": {
+        "directivity": 6,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-21",
+      "score": 6.000000000000001,
+      "components": {
+        "attestationQuality": 6,
+        "chaosResilience": 6,
+        "directivity": 6
+      }
+    }
+  ]
+}

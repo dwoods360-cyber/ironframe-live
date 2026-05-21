@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { Folder, UserRound } from "lucide-react";
 import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
 // ---> NEW: Import your Enclave components
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
+import { getMetaAuditConsoleAccess } from "@/app/actions/auditActions";
 
 type HeaderTwoProps = {
   isVendorOverviewRoute: boolean;
@@ -25,6 +27,7 @@ export default function HeaderTwo({
 }: HeaderTwoProps) {
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
+  const [canViewAudit, setCanViewAudit] = useState(false);
   
   // ---> NEW: Portal State
   const [isPortalOpen, setIsPortalOpen] = useState(false);
@@ -55,6 +58,17 @@ export default function HeaderTwo({
       observer?.disconnect();
     };
   }, [isVendorOverviewRoute, isVendorsRoute, isConfigRoute, showPrimaryActionChips]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getMetaAuditConsoleAccess().then((res) => {
+      if (cancelled) return;
+      setCanViewAudit(res.canAccess);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const scrollChipBar = (direction: "left" | "right") => {
     if (!chipBarRef.current) {
@@ -166,10 +180,57 @@ export default function HeaderTwo({
                   SYSTEM CONFIG
                 </Link>
                 <Link
-                  href="/integrity"
+                  href="/profile"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-600/50 bg-emerald-950/35 px-3 py-2 text-[10px] font-bold text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/45"
+                  data-testid="header-security-profile-link"
+                  title="Security profile"
+                >
+                  <UserRound className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                  SECURITY PROFILE
+                </Link>
+                <Link
+                  href="/vault"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-teal-600/60 bg-teal-950/40 px-3 py-2 text-[10px] font-bold text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/45"
+                  title="Evidence Vault"
+                >
+                  <Folder className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                  EVIDENCE VAULT
+                </Link>
+                <Link
+                  href="/reports/audit-trail"
+                  data-testid="header-audit-trail-chip"
                   className="flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-[10px] font-bold text-white transition-all hover:bg-blue-500"
                 >
                   AUDIT TRAIL
+                </Link>
+                <Link
+                  href="/integrity"
+                  data-testid="header-integrity-hub-chip"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-slate-500/60 bg-slate-900/80 px-4 py-2 text-[10px] font-bold text-slate-100 transition-all hover:border-blue-500 hover:bg-slate-800/80"
+                >
+                  INTEGRITY HUB
+                </Link>
+                {canViewAudit ? (
+                  <Link
+                    href="/audit"
+                    className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-600/70 bg-emerald-950/45 px-4 py-2 text-[10px] font-black text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/50"
+                  >
+                    <span aria-hidden>🛡️</span>
+                    INTEGRITY & AUDIT
+                  </Link>
+                ) : null}
+                <Link
+                  href="/board-report"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-violet-600/50 bg-violet-950/40 px-4 py-2 text-[10px] font-bold text-violet-100 transition-all hover:border-violet-400 hover:bg-violet-900/50"
+                >
+                  BOARD REPORT
+                </Link>
+                <Link
+                  href="/opsupport"
+                  className="flex shrink-0 items-center gap-1.5 rounded-md border border-cyan-700/60 bg-cyan-950/50 px-4 py-2 text-[10px] font-bold text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50"
+                  data-testid="header-opsupport-chip"
+                >
+                  OP SUPPORT
                 </Link>
                 <Link
                   href="/admin/clearance"

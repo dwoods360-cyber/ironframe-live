@@ -47,4 +47,28 @@ describe('Sovereign Orchestration Protocol', () => {
     expect(stateFromMemory.values.tenant_id).toBe(testTenantId);
     expect(stateFromMemory.values.status).toBe('PROCESSING');
   });
+
+  it.skipIf(!hasDatabase)('🔒 FREEZE: executeAutonomousStateFreeze resolves Postgres checkpoint', async () => {
+    const { createSovereignGraph, executeAutonomousStateFreeze } = await import(
+      '../src/services/orchestration/graph'
+    );
+    const graph = await createSovereignGraph();
+    const testTenantId = uuidv4();
+    const testTraceId = uuidv4();
+
+    await graph.invoke(
+      {
+        tenant_id: testTenantId,
+        raw_payload: { type: 'FINANCIAL_AUDIT', amount_cents: 1110000000 },
+        status: 'PENDING' as const,
+      },
+      { configurable: { thread_id: testTraceId } },
+    );
+
+    const freeze = await executeAutonomousStateFreeze(testTraceId, testTenantId);
+    expect(freeze.status).toBe('OPERATIONAL_FREEZE_LOCKED');
+    expect(freeze.checkpointId).toBeTruthy();
+    expect(freeze.threadId).toBe(testTraceId);
+    expect(freeze.tenantId).toBe(testTenantId);
+  });
 });

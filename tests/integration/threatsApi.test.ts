@@ -78,7 +78,7 @@ describe('POST /api/threats — Threat Ingress API', () => {
       score: 8,
       targetEntity: 'Healthcare',
       financialRisk_cents: BigInt(500_000_000),
-      status: 'PIPELINE',
+      status: 'IDENTIFIED',
     } as any);
 
     const req = buildRequest(
@@ -123,7 +123,7 @@ describe('POST /api/threats — Threat Ingress API', () => {
       score: 8,
       targetEntity: 'Finance',
       financialRisk_cents: BigInt(100_000_000),
-      status: 'PIPELINE',
+      status: 'IDENTIFIED',
     } as any);
 
     const req = buildRequest(
@@ -148,7 +148,7 @@ describe('POST /api/threats — Threat Ingress API', () => {
       score: 8,
       targetEntity: 'Healthcare',
       financialRisk_cents: BigInt(490_000_000),
-      status: 'ACTIVE',
+      status: 'CONFIRMED',
     } as any);
 
     const req = buildRequest(

@@ -2,90 +2,136 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { readdirSync, unlinkSync, rmSync, existsSync } from "fs";
-import path from "path";
+import { EventSource, ThreatState } from "@prisma/client";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
+import { integrityService } from "@/src/services/integrityService";
+import { MANUAL_BOARD_PURGE_FOR_TEST_BASELINE_REASON } from "@/src/constants/grcManualPurge";
 
-const UPLOADS_DIR = process.env.UPLOADS_DIR ?? "uploads";
+const PURGE_STAND_DOWN_MS = 10 * 60 * 1000;
+const PURGE_LEDGER_REASON = MANUAL_BOARD_PURGE_FOR_TEST_BASELINE_REASON;
 
-const ORPHANED_EXTENSIONS = [".pdf", ".docx", ".xlsx", ".csv"];
+type StandDownMap = Record<string, string>;
 
-/** Delete orphaned test/vendor_artifact files in /uploads using sync fs. Prevents storage bloat after deep purge. */
-function deleteOrphanedUploadsSync(): { deleted: number; errors: string[] } {
-  const errors: string[] = [];
-  let deleted = 0;
-  const root = path.isAbsolute(UPLOADS_DIR) ? UPLOADS_DIR : path.join(process.cwd(), UPLOADS_DIR);
-  if (!existsSync(root)) return { deleted: 0, errors: [] };
-  try {
-    const entries = readdirSync(root, { withFileTypes: true });
-    for (const ent of entries) {
-      const full = path.join(root, ent.name);
-      try {
-        if (ent.isDirectory()) {
-          rmSync(full, { recursive: true });
-          deleted++;
-        } else {
-          const lower = ent.name.toLowerCase();
-          if (ORPHANED_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
-            unlinkSync(full);
-            deleted++;
-          }
-        }
-      } catch (e) {
-        errors.push(`${ent.name}: ${String(e)}`);
-      }
-    }
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== "ENOENT") errors.push(String(e));
-  }
-  return { deleted, errors };
+function parseStandDownMap(raw: unknown): StandDownMap {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as StandDownMap;
 }
 
 /**
- * Full system purge: wipes from root (Tenant) so cascade removes companies, departments, policies, active_risks, vendors, agent_logs.
- * Then explicitly wipes threat_events, work_notes, audit_logs (not under Tenant FK). No ghost data.
- * Quarantine file metadata lives on the primary DB (`quarantine_records`).
+ * Operational clear (PO 3.4): bulk-resolve open threats on **both** prod and shadow planes,
+ * set per-tenant SimulationStandDown, and append a single IntegrityEvent (Bank Vault).
+ * Does not delete rows or touch `auditLog`, `workNote`, `threatAssignment`, `quarantine`.
  */
-export async function purgeSimulation(): Promise<{ ok: boolean; message: string }> {
+export async function purgeSimulation(
+  tenantUuidOverride?: string | null,
+): Promise<{ ok: boolean; message: string }> {
   try {
-    // Master purge: root of hierarchy first (triggers ON DELETE CASCADE for companies, departments, policies, active_risks, vendors, agent_logs)
-    const tenantResult = await prisma.tenant.deleteMany({});
-    // Tables not under Tenant FK
-    const auditLogResult = await prisma.auditLog.deleteMany({});
-    const workNoteResult = await prisma.workNote.deleteMany({});
-    const threatEventResult = await prisma.threatEvent.deleteMany({});
-    const quarantineResult = await prisma.quarantineRecord.deleteMany({});
+    const tenantId = tenantUuidOverride?.trim() || (await getActiveTenantUuidFromCookies());
+    if (!tenantId?.trim()) {
+      return { ok: false, message: "No active tenant context for purge." };
+    }
+    const tid = tenantId.trim();
+    const standDownUntilIso = new Date(Date.now() + PURGE_STAND_DOWN_MS).toISOString();
 
-    console.log("[PURGE] Main DB wiped (tenant-first cascade):", {
-      tenants: tenantResult.count,
-      audit_logs: auditLogResult.count,
-      threat_events: threatEventResult.count,
-      work_notes: workNoteResult.count,
-      quarantine_records: quarantineResult.count,
+    const companies = await prisma.company.findMany({
+      where: { tenantId: tid },
+      select: { id: true },
+    });
+    const companyIds = companies.map((c) => c.id);
+
+    const { prodCount, simCount } = await prisma.$transaction(async (tx) => {
+      const prod =
+        companyIds.length > 0
+          ? await tx.threatEvent.updateMany({
+              where: {
+                tenantCompanyId: { in: companyIds },
+                status: { not: ThreatState.RESOLVED },
+              },
+              data: { status: ThreatState.RESOLVED },
+            })
+          : { count: 0 };
+      const sim = await tx.riskEvent.updateMany({
+        where: {
+          tenantId: tid,
+          status: { not: ThreatState.RESOLVED },
+        },
+        data: { status: ThreatState.RESOLVED },
+      });
+
+      const cfg = await tx.simulationConfig.findUnique({
+        where: { id: SIMULATION_CONFIG_ID },
+        select: { simulationStandDownExpiresAtByTenant: true },
+      });
+      const prev = parseStandDownMap(cfg?.simulationStandDownExpiresAtByTenant);
+      const nextMap: StandDownMap = { ...prev, [tid]: standDownUntilIso };
+
+      await tx.simulationConfig.upsert({
+        where: { id: SIMULATION_CONFIG_ID },
+        create: ({
+          id: SIMULATION_CONFIG_ID,
+          automatedUpdatesEnabled: false,
+          targetReadinessScore: 90,
+          isCertified: false,
+          certifiedAt: null,
+          certificateStatus: "IN_PROGRESS",
+          certificateIssuedAt: null,
+          historicalLowestScore: 100,
+          historicalLowestRecordedAt: null,
+          simulationStandDownExpiresAtByTenant: nextMap as object,
+        } as any),
+        update: { simulationStandDownExpiresAtByTenant: nextMap as object },
+      });
+
+      await integrityService.logEvent(tx, {
+        tenantId: tid,
+        eventType: "MANUAL_BOARD_PURGE",
+        entityType: "SIMULATION_CONFIG",
+        entityId: SIMULATION_CONFIG_ID,
+        actorUserId: "system-purge",
+        source: EventSource.SYSTEM,
+        payload: {
+          reason: PURGE_LEDGER_REASON,
+          threatEventsResolved: prod.count,
+          simThreatEventsResolved: sim.count,
+          simulationStandDownUntil: standDownUntilIso,
+        },
+      });
+
+      return { prodCount: prod.count, simCount: sim.count };
     });
 
-    const uploadsResult = deleteOrphanedUploadsSync();
-    if (uploadsResult.errors.length > 0) console.warn("purgeSimulation: uploads cleanup errors", uploadsResult.errors);
+    console.log("[PURGE] Operational clear:", {
+      threat_events_resolved: prodCount,
+      sim_threat_events_resolved: simCount,
+      simulation_stand_down_until: standDownUntilIso,
+      tenant_id: tid,
+    });
 
-    // Force full layout + page revalidation so dashboard and all sections refetch (no ghost data)
     revalidatePath("/", "layout");
     revalidatePath("/");
     revalidatePath("/reports");
 
-    const parts = [
-      `${tenantResult.count} tenant(s) (cascade: companies, departments, policies, active_risks, vendors, agent_logs)`,
-      `${auditLogResult.count} audit log(s)`,
-      `${workNoteResult.count} work note(s)`,
-      `${threatEventResult.count} threat event(s)`,
-      `${quarantineResult.count} quarantine record(s)`,
-    ];
-    if (uploadsResult.deleted > 0) parts.push(`${uploadsResult.deleted} upload file(s)`);
-
     return {
       ok: true,
-      message: `Purge complete. ${parts.join(", ")} removed.`,
+      message: `Operational clear complete. ${prodCount} prod + ${simCount} shadow threat row(s) marked RESOLVED. Stand-down until ${standDownUntilIso}.`,
     };
   } catch (e) {
     console.error("purgeSimulation", e);
     return { ok: false, message: String(e) };
   }
+}
+
+/**
+ * Dashboard Purge chip: bulk-resolves non-RESOLVED `ThreatEvent` rows, then revalidates shell + home.
+ */
+export async function purgeAllDataAction(
+  tenantUuidOverride?: string | null,
+): Promise<{ ok: boolean; message: string }> {
+  const result = await purgeSimulation(tenantUuidOverride);
+  if (result.ok) {
+    revalidatePath("/", "layout");
+    revalidatePath("/");
+  }
+  return result;
 }

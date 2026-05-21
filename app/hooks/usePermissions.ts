@@ -2,11 +2,19 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  type GrcWorkspaceRole,
+  parseWorkspaceRoleFromCookie,
+  isBroadTenantAccess,
+  isScopedAnalystRole,
+  isAuditorFamilyRole,
+} from "@/app/lib/grcRoles";
 
-export type RoleType = "Global Admin" | "Company Analyst" | "Auditor";
-
-const VALID_TENANTS = ["medshield", "vaultbank", "gridcore"] as const;
+const VALID_TENANTS = ["medshield", "vaultbank", "gridcore", "defense"] as const;
 export type TenantSlug = (typeof VALID_TENANTS)[number];
+
+/** @deprecated Prefer `GrcWorkspaceRole`; kept for imports that still alias `RoleType`. */
+export type RoleType = GrcWorkspaceRole;
 
 const ROLE_COOKIE = "ironframe-role";
 const TENANT_COOKIE = "ironframe-tenant";
@@ -18,25 +26,23 @@ function getCookie(name: string): string | null {
 }
 
 export type PermissionsState = {
-  role: RoleType;
+  role: GrcWorkspaceRole;
   tenantId: TenantSlug | null;
-  /** All tenant slugs this user can access (Global Admin = all 3; Analyst = 1; Auditor = authorized list) */
+  /** All tenant slugs this user can access (broad roles = all 3; analysts = 1 when tenant cookie set). */
   allowedTenantIds: TenantSlug[];
+  /** Broad program authority (admin, CISO, director, GRC manager). */
   isGlobalAdmin: boolean;
+  /** Junior / senior analyst — single-tenant scope when tenant cookie is set. */
   isCompanyAnalyst: boolean;
+  /** Internal or external auditor. */
   isAuditor: boolean;
-  /** True if current path is under a tenant the user is not allowed to access */
   isUnauthorizedPath: boolean;
-  /** Redirect to home dashboard if user is Company Analyst and path is another tenant's route */
   redirectIfUnauthorized: () => void;
-  /** Check if user can access a path (read-only for Auditor on audit/reports) */
   canAccess: (path: string) => boolean;
 };
 
-function getDefaultRole(): RoleType {
-  const r = getCookie(ROLE_COOKIE);
-  if (r === "Company Analyst" || r === "Auditor") return r;
-  return "Global Admin";
+function getDefaultRole(): GrcWorkspaceRole {
+  return parseWorkspaceRoleFromCookie(getCookie(ROLE_COOKIE));
 }
 
 function getDefaultTenant(): TenantSlug | null {
@@ -53,16 +59,16 @@ export function usePermissions(): PermissionsState {
   const tenantId = getDefaultTenant();
 
   const allowedTenantIds = useMemo((): TenantSlug[] => {
-    if (role === "Global Admin") return [...VALID_TENANTS];
-    if (role === "Company Analyst" && tenantId) return [tenantId];
-    if (role === "Auditor" && tenantId) return [tenantId];
-    if (role === "Auditor") return [...VALID_TENANTS]; // default: all for read-only
+    if (isBroadTenantAccess(role)) return [...VALID_TENANTS];
+    if (isScopedAnalystRole(role) && tenantId) return [tenantId];
+    if (isAuditorFamilyRole(role) && tenantId) return [tenantId];
+    if (isAuditorFamilyRole(role)) return [...VALID_TENANTS];
     return [];
   }, [role, tenantId]);
 
-  const isGlobalAdmin = role === "Global Admin";
-  const isCompanyAnalyst = role === "Company Analyst";
-  const isAuditor = role === "Auditor";
+  const isGlobalAdmin = isBroadTenantAccess(role);
+  const isCompanyAnalyst = isScopedAnalystRole(role);
+  const isAuditor = isAuditorFamilyRole(role);
 
   const pathTenant = useMemo(() => {
     const seg = pathname.split("/").filter(Boolean)[0];
@@ -86,7 +92,7 @@ export function usePermissions(): PermissionsState {
       const pathSeg = path.split("/").filter(Boolean)[0];
       const pathTenantSlug = pathSeg && VALID_TENANTS.includes(pathSeg as TenantSlug) ? (pathSeg as TenantSlug) : null;
       if (!pathTenantSlug) {
-        const allowedReadOnly = ["/reports", "/reports/audit-trail", "/audit-trail"];
+        const allowedReadOnly = ["/reports", "/reports/audit-trail", "/audit-trail", "/audit"];
         const normalized = path.startsWith("/") ? path : "/" + path;
         if (isAuditor && allowedReadOnly.some((p) => normalized === p || normalized.startsWith(p + "/"))) return true;
         if (isCompanyAnalyst) return true;
@@ -94,7 +100,7 @@ export function usePermissions(): PermissionsState {
       }
       return allowedTenantIds.includes(pathTenantSlug);
     },
-    [isGlobalAdmin, isAuditor, isCompanyAnalyst, allowedTenantIds]
+    [isGlobalAdmin, isAuditor, isCompanyAnalyst, allowedTenantIds],
   );
 
   return {
@@ -110,12 +116,15 @@ export function usePermissions(): PermissionsState {
   };
 }
 
-/** For middleware or server: parse role/tenant from cookies (same cookie names) */
-export function getPermissionsFromRequest(cookieHeader: string | null): { role: RoleType; tenantId: TenantSlug | null } {
-  const role = (cookieHeader?.match(new RegExp("(^| )" + ROLE_COOKIE + "=([^;]+)"))?.[2] ?? "") as RoleType | "";
-  const tenant = cookieHeader?.match(new RegExp("(^| )" + TENANT_COOKIE + "=([^;]+)"))?.[2] ?? null;
+export function getPermissionsFromRequest(cookieHeader: string | null): {
+  role: GrcWorkspaceRole;
+  tenantId: TenantSlug | null;
+} {
+  const raw = cookieHeader?.match(new RegExp("(?:^|; )" + ROLE_COOKIE + "=([^;]*)"))?.[1] ?? "";
+  const role = parseWorkspaceRoleFromCookie(raw);
+  const tenant = cookieHeader?.match(new RegExp("(?:^|; )" + TENANT_COOKIE + "=([^;]*)"))?.[1] ?? null;
   return {
-    role: role === "Company Analyst" || role === "Auditor" ? role : "Global Admin",
+    role,
     tenantId: tenant && VALID_TENANTS.includes(tenant as TenantSlug) ? (tenant as TenantSlug) : null,
   };
 }

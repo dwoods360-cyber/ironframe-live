@@ -1,33 +1,40 @@
 import "server-only";
 
+import path from "node:path";
 import { LKG_COLD_STORE_ROOT, LKG_MANIFEST_PATH } from "@/app/utils/integrityVaultConstants";
 import type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus } from "@/app/types/integrityVault";
+import prisma from "@/lib/prisma";
+import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
+import { SIMULATION_SOURCE_AGENTS } from "@/app/config/simulationAgents";
+import {
+  mergeAgentRegistryIntoSnapshot,
+  performWorkforceAudit,
+} from "@/app/lib/workforceAgentRegistryServer";
+
+export { performWorkforceAudit, mergeAgentRegistryIntoSnapshot } from "@/app/lib/workforceAgentRegistryServer";
 
 export { LKG_COLD_STORE_ROOT, LKG_MANIFEST_PATH };
 export type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus };
 
 /** Canonical 19-agent Iron roster (Ironframe Constitution — LKG manifest + Workforce Inventory). */
-export const LKG_WORKFORCE_ROSTER = [
-  "Ironcore",
-  "Ironwave",
-  "Irontrust",
-  "Ironsight",
-  "Ironscribe",
-  "Ironlock",
-  "Ironcast",
-  "Ironintel",
-  "Ironlogic",
-  "Ironmap",
-  "Irontech",
-  "Ironguard",
-  "Ironwatch",
-  "Irongate",
-  "Ironquery",
-  "Ironscout",
-  "Ironbloom",
-  "Ironethic",
-  "Irontally",
-] as const;
+export const LKG_WORKFORCE_ROSTER = CORE_WORKFORCE_AGENTS.map((a) => a.name) as readonly string[];
+
+async function readSustainabilityLedgerReady(): Promise<boolean> {
+  try {
+    const count = await prisma.sustainabilityMetric.count({
+      where: {
+        threat: {
+          sourceAgent: {
+            notIn: Array.from(SIMULATION_SOURCE_AGENTS),
+          },
+        },
+      },
+    });
+    return count > 0;
+  } catch {
+    return false;
+  }
+}
 
 function normalizeManifestAgents(
   raw: unknown,
@@ -52,19 +59,43 @@ function normalizeManifestAgents(
 export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapshot> {
   const fsMod = await import("node:fs");
   const checkpointRoot = LKG_COLD_STORE_ROOT;
-  const manifestPath = LKG_MANIFEST_PATH;
+  const localFallback = path.join(process.cwd(), "storage", "manifest", "lkg_signatures.json");
+  const candidates = [LKG_MANIFEST_PATH, localFallback] as const;
+  const sustainabilityLedgerReady = await readSustainabilityLedgerReady();
 
-  if (!fsMod.existsSync(manifestPath)) {
+  let manifestPathUsed: string | null = null;
+  for (const candidate of candidates) {
+    try {
+      if (!fsMod.existsSync(candidate)) {
+        continue;
+      }
+      const st = fsMod.statSync(candidate);
+      if (!st.isFile()) {
+        continue;
+      }
+      manifestPathUsed = candidate;
+      break;
+    } catch {
+      continue;
+    }
+  }
+
+  if (manifestPathUsed == null) {
     const agents: LkgWorkforceRow[] = LKG_WORKFORCE_ROSTER.map((name) => ({
       name,
       sha256: null,
-      status: "VAULT_UNREACHABLE" as const,
+      status:
+        name === "Ironbloom"
+          ? sustainabilityLedgerReady
+            ? ("LKG_VERIFIED" as const)
+            : ("NO_ENTRY" as const)
+          : ("VAULT_UNREACHABLE" as const),
     }));
     return {
       ok: false,
-      manifestPath,
+      manifestPath: LKG_MANIFEST_PATH,
       checkpointRoot,
-      error: "Cold store manifest not found (G: drive / path unavailable).",
+      error: "Cold store manifest not found (G: or ./storage/manifest/lkg_signatures.json).",
       verifiedAt: null,
       agents,
     };
@@ -72,7 +103,7 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
 
   let byName: Map<string, string>;
   try {
-    const txt = fsMod.readFileSync(manifestPath, "utf8");
+    const txt = fsMod.readFileSync(manifestPathUsed, "utf8");
     const json = JSON.parse(txt) as unknown;
     byName = normalizeManifestAgents(json);
   } catch (e) {
@@ -80,11 +111,16 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
     const agents: LkgWorkforceRow[] = LKG_WORKFORCE_ROSTER.map((name) => ({
       name,
       sha256: null,
-      status: "VAULT_UNREACHABLE" as const,
+      status:
+        name === "Ironbloom"
+          ? sustainabilityLedgerReady
+            ? ("LKG_VERIFIED" as const)
+            : ("NO_ENTRY" as const)
+          : ("VAULT_UNREACHABLE" as const),
     }));
     return {
       ok: false,
-      manifestPath,
+      manifestPath: manifestPathUsed,
       checkpointRoot,
       error: `Manifest unreadable: ${msg}`,
       verifiedAt: null,
@@ -94,19 +130,36 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
 
   const verifiedAt = new Date().toISOString();
   const agents: LkgWorkforceRow[] = LKG_WORKFORCE_ROSTER.map((name) => {
+    if (name === "Ironbloom") {
+      return {
+        name,
+        sha256: byName.get(name.toLowerCase()) ?? null,
+        status: sustainabilityLedgerReady ? ("LKG_VERIFIED" as const) : ("NO_ENTRY" as const),
+      };
+    }
     const sha = byName.get(name.toLowerCase()) ?? null;
     return {
       name,
       sha256: sha,
-      status: sha ? ("LKG_VERIFIED" as const) : ("NO_MANIFEST_ENTRY" as const),
+      status: sha ? ("LKG_VERIFIED" as const) : ("NO_ENTRY" as const),
     };
   });
 
   return {
     ok: true,
-    manifestPath,
+    manifestPath: manifestPathUsed,
     checkpointRoot,
     verifiedAt,
     agents,
   };
+}
+
+/**
+ * Integrity Hub entrypoint: runs `performWorkforceAudit()` (AgentRegistry TTL + Ironwatch pulses),
+ * reads cold-store manifest snapshot, then overlays DB workforce status on each roster row.
+ */
+export async function readIntegrityVaultSnapshotWithRegistry(): Promise<IntegrityVaultSnapshot> {
+  await performWorkforceAudit();
+  const snap = await readIntegrityVaultSnapshot();
+  return mergeAgentRegistryIntoSnapshot(snap);
 }

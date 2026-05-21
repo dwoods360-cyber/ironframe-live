@@ -4,7 +4,7 @@ import GlobalHealthSummaryCardClient, {
   type SerializedCompany,
 } from "./GlobalHealthSummaryCardClient";
 import { getGlobalTelemetry } from "@/app/actions/dashboardActions";
-import { getGlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import { getGlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
 import prisma from "@/lib/prisma";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { redirect } from "next/navigation";

@@ -56,7 +56,7 @@ describe("Ironcast: autonomous quarantine escalation", () => {
     void mockRisk.impact_cents;
 
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue({
-      status: ThreatState.PIPELINE,
+      status: ThreatState.IDENTIFIED,
       tenantCompanyId: 1n,
     } as Awaited<ReturnType<typeof prisma.threatEvent.findUnique>>);
 
@@ -68,13 +68,13 @@ describe("Ironcast: autonomous quarantine escalation", () => {
       ReturnType<typeof prisma.threatEvent.update>
     >);
 
-    const result = await updateRiskStatus(mockRisk.id, "QUARANTINED");
+    const result = await updateRiskStatus(mockRisk.id, "MITIGATED");
 
-    expect(result.status).toBe("QUARANTINED");
+    expect(result.status).toBe("MITIGATED");
     expect(prisma.threatEvent.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: mockRisk.id },
-        data: { status: ThreatState.QUARANTINED },
+        data: { status: ThreatState.MITIGATED },
       }),
     );
 

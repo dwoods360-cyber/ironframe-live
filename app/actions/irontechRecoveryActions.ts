@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { AgentOperationStatus, Prisma } from "@prisma/client";
 import { triggerDeepTrace } from "@/app/actions/ironsightActions";
 
@@ -19,7 +20,7 @@ export async function recoveryArchiveResolveAction(
   }
   try {
     await prisma.$transaction([
-      prisma.auditLog.create({
+      auditLogCreateLoose({
         data: {
           action: "IRONTECH_RECOVERY_ARCHIVE",
           justification: `GRC-approved archive & resolve (external resolution). Agent: ${agent}.`,

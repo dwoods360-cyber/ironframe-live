@@ -1,0 +1,63 @@
+{
+  "runId": "e3ce4928-c303-4c5a-ba26-676126db54a4",
+  "tenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+  "scenario": "CONSTITUTIONAL_COLLAPSE",
+  "isSimulation": true,
+  "startedAt": "2026-05-18T21:07:53.705Z",
+  "events": [
+    {
+      "kind": "RUN_STARTED",
+      "at": "2026-05-18T21:07:53.705Z",
+      "payload": {
+        "scenario": "CONSTITUTIONAL_COLLAPSE"
+      }
+    },
+    {
+      "kind": "TAS_VOID",
+      "at": "2026-05-18T21:07:53.708Z",
+      "payload": {
+        "simulatedVoidHash": "68d49e8285b9f070691f5786c91313f92582337fbbccdd5e91ba46745c34eac0"
+      }
+    },
+    {
+      "kind": "IRONLOCK_FREEZE",
+      "at": "2026-05-18T21:07:55.582Z",
+      "payload": {
+        "threatsFrozen": 0,
+        "shadowFrozen": 0
+      }
+    },
+    {
+      "kind": "DMS_ARMED",
+      "at": "2026-05-18T21:07:56.855Z",
+      "payload": {
+        "expiresAt": "2026-05-18T21:11:56.254Z",
+        "isSimulation": true
+      }
+    },
+    {
+      "kind": "IRONLOCK_FREEZE",
+      "at": "2026-05-18T21:08:00.216Z",
+      "payload": {
+        "threatsFrozen": 0,
+        "shadowFrozen": 0
+      }
+    },
+    {
+      "kind": "IRONLOCK_FREEZE",
+      "at": "2026-05-18T21:08:01.039Z",
+      "payload": {
+        "threatsFrozen": 0,
+        "shadowFrozen": 0
+      }
+    },
+    {
+      "kind": "IRONLOCK_FREEZE",
+      "at": "2026-05-18T21:08:03.721Z",
+      "payload": {
+        "threatsFrozen": 0,
+        "shadowFrozen": 0
+      }
+    }
+  ]
+}

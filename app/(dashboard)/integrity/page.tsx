@@ -2,7 +2,11 @@ import { unstable_noStore as noStore } from "next/cache";
 import IntegrityAleHeroCard from "@/app/components/integrity/IntegrityAleHeroCard";
 import IntegrityHubClient from "@/app/components/integrity/IntegrityHubClient";
 import { fetchResolvedChaosLedgerRows } from "@/app/lib/integrityLedgerServer";
-import { readIntegrityVaultSnapshot } from "@/app/lib/integrityVaultServer";
+import { readIntegrityVaultSnapshotWithRegistry } from "@/app/lib/integrityVaultServer";
+import { readShadowSimulatorArmSnapshot } from "@/app/lib/shadowSimulatorArmServer";
+import type { IntegrityHubShadowArmState, IntegrityHubSyntheticTarget } from "@/app/types/integrityVault";
+import { toIntegrityHubSyntheticTarget } from "@/app/lib/integritySyntheticTargetsSerialize";
+import prisma from "@/lib/prisma";
 import {
   ALE_MITIGATED_PLACEHOLDER_CENTS,
   formatAleUsdFromCents,
@@ -23,23 +27,53 @@ export const metadata = {
  * Ledger rows: `fetchResolvedChaosLedgerRows()` loads `ThreatEvent` with `status` in `RESOLVED` or `DE_ACKNOWLEDGED`, then JSON-filters chaos / agentic-heal rows (`isChaosTest`, `chaosScenario`, `integrityHubLedgerEntry`, etc.).
  * Autonomous attribution displays as "Irontech (autonomous)" while preserving `SYSTEM_IRONTECH_AUTO` as the stored id.
  * `IntegrityHubClient` polls with `router.refresh()` every 5s.
+ * Synthetic shadow targets (Tier 3): `SyntheticEmployee` only — never production auth directory.
  */
 
 export default async function IntegrityPage() {
   noStore();
-  const [initialVault, ledgerRows] = await Promise.all([
-    readIntegrityVaultSnapshot(),
+  const [initialVault, ledgerRows, syntheticTargets, shadowArmState] = await Promise.all([
+    readIntegrityVaultSnapshotWithRegistry(),
     fetchResolvedChaosLedgerRows(),
+    (async (): Promise<IntegrityHubSyntheticTarget[]> => {
+      try {
+        const rows = await prisma.syntheticEmployee.findMany({
+          orderBy: [{ monetaryValue: "desc" }, { clearanceLevel: "desc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            clearanceLevel: true,
+            vulnerabilityScore: true,
+            monetaryValue: true,
+            totalLossIncurred: true,
+            lastAttackedAt: true,
+            isHardened: true,
+            status: true,
+          },
+        });
+        return rows.map(toIntegrityHubSyntheticTarget);
+      } catch (e) {
+        console.error("[integrity/page] syntheticEmployee.findMany failed", e);
+        return [];
+      }
+    })(),
+    readShadowSimulatorArmSnapshot(),
   ]);
 
   const totalMitigated = formatAleUsdFromCents(ALE_MITIGATED_PLACEHOLDER_CENTS);
+  const serverTimeEpochMs = Date.now();
 
   return (
     <div className="min-h-0 bg-slate-950 px-4 pt-2 pb-3 text-slate-100 md:px-8 md:pt-2">
       <div className="mx-auto w-full max-w-[min(100%,96rem)]">
         <IntegrityHubClient
+          serverTimeEpochMs={serverTimeEpochMs}
           initialVault={initialVault}
           ledgerRows={ledgerRows}
+          syntheticTargets={syntheticTargets}
+          shadowArmState={shadowArmState as IntegrityHubShadowArmState}
           aleHero={<IntegrityAleHeroCard key="ale-hero-card" totalMitigated={totalMitigated} />}
         />
       </div>

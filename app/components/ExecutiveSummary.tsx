@@ -7,10 +7,10 @@ import { useScenarioStore } from "@/app/store/scenarioStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
 import { computeAverageFleetEfficiencyPct } from "@/app/utils/agentFleetEfficiency";
-import type { RecentAuditLogRow } from "@/app/actions/auditActions";
-import type { BotAuditLogRow } from "@/app/actions/auditActions";
+import type { BotAuditLogRow, RecentAuditLogRow } from "@/app/actions/auditActions";
 import type { GlobalTelemetry } from "@/app/actions/dashboardActions";
-import type { GlobalSustainabilityImpact } from "@/app/actions/sustainabilityActions";
+import type { GlobalSustainabilityImpact } from "@/lib/sustainability/globalSustainabilityImpact";
+import { IRONBLOOM_PRODUCTION_LABEL } from "@/app/config/agents";
 import { Leaf } from "lucide-react";
 import { Grid, Card, Text, Metric } from "@tremor/react";
 
@@ -21,6 +21,21 @@ export function ExecutiveSummaryAudit({ logs }: { logs: BotAuditLogRow[] }) {
     const passRate = totalTests > 0 ? (passes / totalTests) * 100 : 0;
     const totalMitigated = logs.reduce((sum, log) => {
       const metadata = (log.metadata ?? {}) as Record<string, unknown>;
+      const delta = metadata.aleDeltaCents;
+      if (delta !== undefined && delta !== null) {
+        try {
+          const cents =
+            typeof delta === "bigint"
+              ? delta
+              : typeof delta === "number"
+                ? BigInt(Math.trunc(delta))
+                : BigInt(String(delta).trim());
+          const m = Number(cents) / 100_000_000;
+          if (Number.isFinite(m)) return sum + m;
+        } catch {
+          /* fall through */
+        }
+      }
       const direct = metadata.aleMitigated;
       if (typeof direct === "number" && Number.isFinite(direct)) return sum + direct;
       if (typeof direct === "string" && direct.trim() !== "" && Number.isFinite(Number(direct))) {
@@ -35,22 +50,22 @@ export function ExecutiveSummaryAudit({ logs }: { logs: BotAuditLogRow[] }) {
   }, [logs]);
 
   return (
-    <div className="rounded border border-slate-700 bg-slate-950/40 p-3">
-      <Text className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-300">
+    <div className="rounded-md border border-zinc-800/90 bg-[#050509]/95 p-3 ring-1 ring-white/[0.04]">
+      <Text className="mb-2 text-[10px] font-bold uppercase tracking-wide text-zinc-400">
         Executive Briefing
       </Text>
       <Grid numItems={1} numItemsMd={3} className="gap-3">
-        <Card className="bg-blue-950/30 ring-1 ring-blue-900/60">
-          <Text className="text-[10px] font-bold uppercase tracking-wide text-blue-300">Compliance Readiness</Text>
-          <Metric className="text-blue-200">{passRate.toFixed(1)}%</Metric>
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Compliance Readiness</Text>
+          <Metric className="text-zinc-100">{passRate.toFixed(1)}%</Metric>
         </Card>
-        <Card className="bg-emerald-950/30 ring-1 ring-emerald-900/60">
-          <Text className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">Total Mitigated Risk (ALE)</Text>
-          <Metric className="text-emerald-200">${totalMitigated.toFixed(2)}M</Metric>
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Total Mitigated Risk (ALE)</Text>
+          <Metric className="text-zinc-100">${totalMitigated.toFixed(2)}M</Metric>
         </Card>
-        <Card className="bg-slate-900/60 ring-1 ring-slate-700">
-          <Text className="text-[10px] font-bold uppercase tracking-wide text-slate-300">Verified Controls</Text>
-          <Metric className="text-slate-100">{totalTests}</Metric>
+        <Card className="border border-zinc-800/80 bg-[#08080c]/90 shadow-none ring-0">
+          <Text className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">Verified Controls</Text>
+          <Metric className="text-zinc-100">{totalTests}</Metric>
         </Card>
       </Grid>
     </div>
@@ -74,8 +89,18 @@ type ExecutiveSummaryProps = {
   telemetryData: GlobalTelemetry;
   /** Tenant-scoped AuditLog rows from the primary DB. */
   auditLogs: RecentAuditLogRow[];
-  /** Ironbloom ledger (tenant-scoped); JSON-serializable numbers only. */
+  /** Ironbloom (production) sustainability ledger (tenant-scoped); physical units only — kWh, L, CO₂e; monetary-only rejected (TAS). */
   sustainabilityImpact: GlobalSustainabilityImpact;
+  /** Optional: maturity / self-healing gavel copy for CFO audit summary (regulatory automation narrative). */
+  cfoResilienceGavel?: {
+    maturityScore: number;
+    maturityDisplayLabel?: string;
+    streakSummary: string;
+    gavelNarrative?: string;
+    /** Ironwatch Stale Data mode — LKG vs probabilistic liability (CFO gavel). */
+    staleDataLiabilityNarrative?: string;
+    dividendAtRiskDisplay?: string;
+  };
 };
 
 export default function ExecutiveSummary({
@@ -84,6 +109,7 @@ export default function ExecutiveSummary({
   telemetryData,
   auditLogs,
   sustainabilityImpact,
+  cfoResilienceGavel,
 }: ExecutiveSummaryProps) {
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
@@ -247,16 +273,18 @@ export default function ExecutiveSummary({
             </p>
           </div>
 
-          {/* CSRD / Ironbloom — live sustainability ledger */}
+          {/* CSRD / Ironbloom — production sustainability ledger */}
           <div className="rounded-lg border border-emerald-900/50 bg-slate-950/40 p-3">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-emerald-400/90">
               <Leaf className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              CSRD · Ironbloom
+              CSRD · {IRONBLOOM_PRODUCTION_LABEL}
             </div>
             <div className="mt-3 font-mono text-lg font-semibold leading-tight text-emerald-300">
               {sustainabilityImpact.co2OffsetKgChip}
             </div>
             <p className="mt-2 text-[11px] leading-snug text-slate-400">
+              {IRONBLOOM_PRODUCTION_LABEL} (production) records physical sustainability only (kWh, L, km-class CO₂e);
+              monetary-only inputs are rejected per TAS.
               Outcome reporting: verified CO₂e offset from resolved threats (SustainabilityMetric ledger). Use System
               Pulse above for fleet health.
             </p>
@@ -269,6 +297,37 @@ export default function ExecutiveSummary({
             <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">GRC Audit Summary</span>
             <span className="text-[10px] text-slate-500">Last 10 events</span>
           </div>
+          {cfoResilienceGavel ? (
+            <div className="mb-3 rounded-md border border-amber-700/45 bg-amber-950/15 px-2.5 py-2">
+              <p className="text-[9px] font-black uppercase tracking-wide text-amber-200/90">
+                CFO · Self-healing &amp; maturity gavel
+              </p>
+              <p className="mt-1 text-[10px] text-slate-300">
+                System maturity {cfoResilienceGavel.maturityScore.toFixed(1)}/10
+                {cfoResilienceGavel.maturityDisplayLabel ? (
+                  <span className="ml-1.5 inline-flex items-center rounded border border-amber-600/50 bg-amber-950/40 px-1 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-200">
+                    {cfoResilienceGavel.maturityDisplayLabel}
+                  </span>
+                ) : null}
+                {" · "}
+                {cfoResilienceGavel.streakSummary}
+              </p>
+              {cfoResilienceGavel.staleDataLiabilityNarrative ? (
+                <p className="mt-1.5 text-[10px] leading-snug text-amber-100/90">
+                  {cfoResilienceGavel.staleDataLiabilityNarrative}
+                </p>
+              ) : null}
+              {cfoResilienceGavel.gavelNarrative ? (
+                <p className="mt-1.5 text-[10px] leading-snug text-slate-400">{cfoResilienceGavel.gavelNarrative}</p>
+              ) : null}
+              {cfoResilienceGavel.dividendAtRiskDisplay ? (
+                <p className="mt-1 font-mono text-[10px] text-rose-300/95">
+                  Estimated core governance dividend at risk if continuity bonus is lost:{" "}
+                  {cfoResilienceGavel.dividendAtRiskDisplay}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="overflow-hidden rounded-md border border-slate-800">
             <table className="min-w-full border-collapse text-[10px]">
               <thead className="bg-slate-900/80">

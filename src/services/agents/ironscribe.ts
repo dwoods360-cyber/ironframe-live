@@ -13,15 +13,60 @@ const ExtractionSchema = z.object({
  * AGENT 5 (IRONSCRIBE) - LIVE GEMINI EXTRACTION
  * Mandate: Absolute schema enforcement using Gemini 1.5 Pro.
  */
+const IRONSCRIBE_MODEL =
+  process.env.GEMINI_IRONSCRIBE_MODEL?.trim() ||
+  process.env.GEMINI_IRONSIGHT_MODEL?.trim() ||
+  "gemini-2.5-flash";
+
 export class IronScribe {
   private static model = new ChatGoogleGenerativeAI({
-    model: "gemini-1.5-pro",
+    model: IRONSCRIBE_MODEL,
     maxOutputTokens: 2048,
-    apiKey: process.env.GOOGLE_API_KEY,
+    apiKey: process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY,
   }).withStructuredOutput(ExtractionSchema);
 
+  /** Irongate structured telemetry (no document text) — skip Gemini when schema fields are already present. */
+  private static extractFromStructuredTelemetry(
+    raw: Record<string, unknown>,
+  ): z.infer<typeof ExtractionSchema> | null {
+    if (String(raw.telemetryType ?? "").toUpperCase() !== "VULNERABILITY") return null;
+    const nested =
+      raw.payload != null && typeof raw.payload === "object" && !Array.isArray(raw.payload)
+        ? (raw.payload as Record<string, unknown>)
+        : null;
+    const centsRaw = nested?.assetValueCents ?? raw.assetValueCents;
+    const cents =
+      typeof centsRaw === "number" && Number.isFinite(centsRaw)
+        ? Math.round(centsRaw)
+        : typeof centsRaw === "string" && /^\d+$/.test(centsRaw.trim())
+          ? Number.parseInt(centsRaw.trim(), 10)
+          : NaN;
+    if (!Number.isFinite(cents) || cents <= 0) return null;
+    return {
+      vendor_id: "550e8400-e29b-41d4-a716-446655440000",
+      amount_cents: cents,
+      tenant_type: "MEDSHIELD",
+    };
+  }
+
   static async extract(state: typeof SovereignGraphState.State): Promise<Partial<typeof SovereignGraphState.State>> {
-    const rawText = state.raw_payload?.text || "";
+    const raw =
+      state.raw_payload != null && typeof state.raw_payload === "object" && !Array.isArray(state.raw_payload)
+        ? (state.raw_payload as Record<string, unknown>)
+        : {};
+    const structured = this.extractFromStructuredTelemetry(raw);
+    if (structured) {
+      return {
+        current_agent: "IRONTRUST",
+        raw_payload: structured,
+        agent_logs: [
+          `Ironscribe (structured telemetry) sealed VULNERABILITY ingress for ${String(raw.alertId ?? "signal")} — ${structured.amount_cents} cents.`,
+        ],
+        status: "PROCESSING",
+      };
+    }
+
+    const rawText = typeof raw.text === "string" ? raw.text : "";
 
     try {
       // LIVE AI CALL: Gemini analyzes the raw text and returns the validated Zod object

@@ -1,9 +1,18 @@
-import type {
-  FrameworkReadinessSummary,
-  VerifiedEvidenceLog,
-} from "@/src/services/compliance/irontallyEngine";
+/** Layout matrix row — one attested control tied to ledger telemetry. */
+export interface VerifiedEvidenceLog {
+  controlId: string;
+  agentSignature: string;
+  timestamp: string;
+  physicalContext: string;
+}
 
-export type { FrameworkReadinessSummary, VerifiedEvidenceLog };
+/** Per-framework readiness rollup consumed by `/api/grc/irontally?readiness=1`. */
+export interface FrameworkReadinessSummary {
+  framework: "SOC2" | "ISO27001" | "CSRD";
+  totalControlsMonitored: number;
+  passingControlsCount: number;
+  verifiedEvidenceLogs: VerifiedEvidenceLog[];
+}
 
 export type FrameworkReadinessLabel = FrameworkReadinessSummary["framework"];
 

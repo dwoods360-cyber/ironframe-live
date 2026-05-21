@@ -40,6 +40,7 @@ import {
 } from '@/app/utils/assignmentChainOfCustody';
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
 import { resolveTenantUuidForThreatScope } from '@/app/utils/serverTenantContext';
+import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
 import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
 import { CHAOS_ASSIGNEE_IRONTECH_11 } from "@/app/config/chaosShadowAudit";
@@ -723,11 +724,17 @@ function acknowledgeTargetStatusAfterChaosForensicClose(
   return ThreatState.CONFIRMED;
 }
 
+export type AcknowledgeThreatIngestOptions = {
+  /** Shadow-plane API ingest (GRC bot / live-fire): tenant-scoped ack without browser Supabase session. */
+  shadowPlaneIngestBot?: boolean;
+};
+
 export async function acknowledgeThreatAction(
   id: string,
   tenantId: string,
   _operatorId: string,
   justification?: string,
+  ingestOptions?: AcknowledgeThreatIngestOptions,
 ): Promise<AcknowledgeThreatActionResult> {
   assertTasMdIntegrityOrThrow();
 
@@ -735,27 +742,56 @@ export async function acknowledgeThreatAction(
     throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
   }
 
-  const sessionUser = await getSupabaseSessionUser();
-  if (sessionUser == null) {
-    return {
-      success: false,
-      error: "Authentication required. Sign in to acknowledge threats.",
-    };
-  }
-  const operatorId =
-    (typeof sessionUser.id === "string" && sessionUser.id.trim() ? sessionUser.id.trim() : "") ||
-    sessionUser.email?.trim() ||
-    "";
-  if (operatorId.length < 1) {
-    return {
-      success: false,
-      error: "Invalid session: no operator id or email for attribution.",
-    };
-  }
+  const shadowPlaneIngestBot =
+    ingestOptions?.shadowPlaneIngestBot === true && isShadowPlaneActiveFromEnv();
 
-  const sessionCompanyId = await getCompanyIdForActiveTenant();
-  if (sessionCompanyId == null) {
-    throw new Error('Irongate Rejection: Missing company context for tenant isolation.');
+  let operatorId = "";
+  let sessionCompanyId: bigint | null = null;
+
+  if (shadowPlaneIngestBot) {
+    const botOp = (_operatorId ?? "").trim();
+    operatorId = botOp.length > 0 ? botOp : "SHADOW_PLANE_INGEST_BOT";
+    const companyRow = await prisma.company.findFirst({
+      where: { tenantId: tenantId.trim(), isTestRecord: false },
+      orderBy: { id: "asc" },
+      select: { id: true },
+    });
+    sessionCompanyId =
+      companyRow?.id ??
+      (
+        await prisma.company.findFirst({
+          where: { tenantId: tenantId.trim() },
+          orderBy: { id: "asc" },
+          select: { id: true },
+        })
+      )?.id ??
+      null;
+    if (sessionCompanyId == null) {
+      throw new Error('Irongate Rejection: Missing company context for shadow-plane ingest bot.');
+    }
+  } else {
+    const sessionUser = await getSupabaseSessionUser();
+    if (sessionUser == null) {
+      return {
+        success: false,
+        error: "Authentication required. Sign in to acknowledge threats.",
+      };
+    }
+    operatorId =
+      (typeof sessionUser.id === "string" && sessionUser.id.trim() ? sessionUser.id.trim() : "") ||
+      sessionUser.email?.trim() ||
+      "";
+    if (operatorId.length < 1) {
+      return {
+        success: false,
+        error: "Invalid session: no operator id or email for attribution.",
+      };
+    }
+
+    sessionCompanyId = await getCompanyIdForActiveTenant();
+    if (sessionCompanyId == null) {
+      throw new Error('Irongate Rejection: Missing company context for tenant isolation.');
+    }
   }
 
   const TOP_SECTOR_SOURCE = 'Top Sector Threats';

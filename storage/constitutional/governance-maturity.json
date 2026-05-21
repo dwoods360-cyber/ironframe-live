@@ -8,7 +8,7 @@
       "activeSince": null,
       "bonusApplies": false
     },
-    "calculatedAt": "2026-05-20T23:43:17.367Z",
+    "calculatedAt": "2026-05-21T12:04:59.790Z",
     "components": {
       "attestationQuality": 6,
       "chaosResilience": 6,
@@ -70,6 +70,15 @@
     },
     {
       "date": "2026-05-20",
+      "score": 6.000000000000001,
+      "components": {
+        "directivity": 6,
+        "chaosResilience": 6,
+        "attestationQuality": 6
+      }
+    },
+    {
+      "date": "2026-05-21",
       "score": 6.000000000000001,
       "components": {
         "attestationQuality": 6,

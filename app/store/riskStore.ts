@@ -906,7 +906,10 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           "resolveThreat:serverFailure",
         );
         set({
-          threatActionError: { active: true, message: "Threat record not found or could not be resolved." },
+          threatActionError: {
+            active: true,
+            message: `Resolution rejected: ${result.reason || 'Unknown error'}`,
+          },
         });
         throw new Error("Resolve failed");
       }

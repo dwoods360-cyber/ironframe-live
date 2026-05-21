@@ -18,13 +18,20 @@ describe('Sovereign Orchestration Protocol', () => {
     const initialState = {
       tenant_id: testTenantId,
       trace_id: testTraceId,
-      raw_payload: { type: 'FINANCIAL_AUDIT', amount_cents: 1110000000 }, // Medshield Baseline
+      raw_payload: {
+        type: 'FINANCIAL_AUDIT',
+        amount_cents: 1110000000,
+        tenantId: testTenantId,
+        mitigatedValueCents: "1110000000",
+      }, // Medshield Baseline
       status: 'PENDING' as const
     };
 
     // 2. Execute the Graph with Checkpointing enabled
     // The "thread_id" tells Agent 11 where to save the memory
-    const config = { configurable: { thread_id: testTraceId } };
+    const config = {
+      configurable: { thread_id: testTraceId, tenant_id: testTenantId },
+    } as unknown as Parameters<typeof graph.invoke>[1];
     const result = await graph.invoke(initialState, config);
 
     // 3. Validation: Routing
@@ -34,7 +41,9 @@ describe('Sovereign Orchestration Protocol', () => {
 
     // 4. Validation: Persistence
     // Retrieve the state back FROM the checkpointer to prove it saved to PostgreSQL
-    const stateFromMemory = await graph.getState(config);
+    const stateFromMemory = await graph.getState(
+      config as unknown as Parameters<typeof graph.getState>[0],
+    );
     expect(stateFromMemory.values.tenant_id).toBe(testTenantId);
     expect(stateFromMemory.values.status).toBe('PROCESSING');
   });

@@ -1,7 +1,12 @@
 import "server-only";
 
 import path from "node:path";
-import { LKG_COLD_STORE_ROOT, LKG_MANIFEST_PATH } from "@/app/utils/integrityVaultConstants";
+import {
+  LKG_COLD_STORE_ROOT,
+  LKG_LOCAL_MANIFEST_PATH,
+  LKG_MANIFEST_PATH,
+  resolveLkgManifestCandidates,
+} from "@/app/utils/integrityVaultConstants";
 import type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus } from "@/app/types/integrityVault";
 import prisma from "@/lib/prisma";
 import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
@@ -13,7 +18,7 @@ import {
 
 export { performWorkforceAudit, mergeAgentRegistryIntoSnapshot } from "@/app/lib/workforceAgentRegistryServer";
 
-export { LKG_COLD_STORE_ROOT, LKG_MANIFEST_PATH };
+export { LKG_COLD_STORE_ROOT, LKG_LOCAL_MANIFEST_PATH, LKG_MANIFEST_PATH };
 export type { IntegrityVaultSnapshot, LkgWorkforceRow, WorkforceLkgStatus };
 
 /** Canonical 19-agent Iron roster (Ironframe Constitution — LKG manifest + Workforce Inventory). */
@@ -59,8 +64,7 @@ function normalizeManifestAgents(
 export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapshot> {
   const fsMod = await import("node:fs");
   const checkpointRoot = LKG_COLD_STORE_ROOT;
-  const localFallback = path.join(process.cwd(), "storage", "manifest", "lkg_signatures.json");
-  const candidates = [LKG_MANIFEST_PATH, localFallback] as const;
+  const candidates = resolveLkgManifestCandidates(process.cwd());
   const sustainabilityLedgerReady = await readSustainabilityLedgerReady();
 
   let manifestPathUsed: string | null = null;
@@ -95,7 +99,7 @@ export async function readIntegrityVaultSnapshot(): Promise<IntegrityVaultSnapsh
       ok: false,
       manifestPath: LKG_MANIFEST_PATH,
       checkpointRoot,
-      error: "Cold store manifest not found (G: or ./storage/manifest/lkg_signatures.json).",
+      error: `Cold store manifest not found (./${LKG_LOCAL_MANIFEST_PATH} or G: fallback).`,
       verifiedAt: null,
       agents,
     };

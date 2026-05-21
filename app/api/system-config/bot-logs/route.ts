@@ -24,21 +24,27 @@ export async function GET() {
       operator: true,
       botType: true,
       disposition: true,
-      mitigatedValueCents: true,
       metadata: true,
     },
   });
 
-  const logs = rows.map((row) => ({
-    id: row.id,
-    createdAt: row.createdAt.toISOString(),
-    operator: row.operator,
-    botType: row.botType,
-    disposition: row.disposition,
-    mitigatedValueCents:
-      row.mitigatedValueCents == null ? null : row.mitigatedValueCents.toString(),
-    metadata: toJsonSafe(row.metadata),
-  }));
+  const logs = rows.map((row) => {
+    const meta =
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : null;
+    const cents = meta?.mitigatedValueCents ?? meta?.mitigated_value_cents;
+    return {
+      id: row.id,
+      createdAt: row.createdAt.toISOString(),
+      operator: row.operator,
+      botType: row.botType,
+      disposition: row.disposition,
+      mitigatedValueCents:
+        cents == null ? null : typeof cents === "bigint" ? cents.toString() : String(cents),
+      metadata: toJsonSafe(row.metadata),
+    };
+  });
 
   return NextResponse.json({ logs });
 }

@@ -2,6 +2,7 @@
 
 **Supersedes:** prior Gap-to-Epic audit (2026-05-15 skeleton).  
 **Aligned with:** `EPIC_STATUS.md` @ commit `24911f0`.  
+**GA checklist (open items):** [`docs/GA_OPEN_ROADMAP.md`](docs/GA_OPEN_ROADMAP.md).  
 **Code delivery baseline:** `6425e1e` (ingest bus bridge); **doc baseline:** `24911f0`.
 
 ---

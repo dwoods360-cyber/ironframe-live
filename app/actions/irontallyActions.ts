@@ -4,6 +4,14 @@ import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext"
 import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
 import { buildIrontallyFrameworkSnapshot } from "@/app/services/irontallyMapper";
 import { buildIrontallyComplianceReadinessPdfBytes } from "@/app/utils/irontallyComplianceReadinessPdf";
+import { compileFrameworkReadiness } from "@/src/services/compliance/irontallyEngine";
+
+export async function getFrameworkReadinessAction() {
+  const tenantId = await getActiveTenantUuidFromCookies();
+  if (!tenantId) return { ok: false as const, error: "No active tenant." };
+  const readiness = await compileFrameworkReadiness(tenantId);
+  return { ok: true as const, readiness };
+}
 
 export async function getIrontallyFrameworkSnapshotAction() {
   const state = await readGovernanceMaturityState();

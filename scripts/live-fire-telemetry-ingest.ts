@@ -222,7 +222,14 @@ async function main() {
       },
       orderBy: { createdAt: "desc" },
       take: 40,
-      select: { id: true, action: true, threatId: true, operatorId: true, createdAt: true },
+      select: {
+        id: true,
+        action: true,
+        threatId: true,
+        operatorId: true,
+        createdAt: true,
+        justification: true,
+      },
     });
     const readiness = compileReadinessFromLogRows(evidenceLogs);
     console.log("\n=== Irontally evidence compiler (readiness snapshot) ===");

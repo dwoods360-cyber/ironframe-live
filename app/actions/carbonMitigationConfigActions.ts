@@ -226,8 +226,8 @@ export async function setAutonomousCarbonMitigation(
 
 }
 
-/** Server-action safe accessor — constants cannot be exported from `"use server"` modules. */
-export async function getStreakInterruptedMessage(): Promise<string> {
+/** Server-action safe accessor — string constants cannot be exported from `"use server"` modules. */
+export async function getStreakInterruptedMessage() {
   return STREAK_INTERRUPTED_AUDIT_MESSAGE;
 }
 

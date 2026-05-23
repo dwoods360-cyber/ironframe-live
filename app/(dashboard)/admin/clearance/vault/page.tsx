@@ -41,12 +41,14 @@ export default async function AdminClearanceVaultPage() {
       })
     : [];
 
-  const initialThreats: ClearanceThreatRow[] = queue.map((t) => ({
+  const initialThreats: ClearanceThreatRow[] = queue.map(
+    (t: { id: string; title: string; status: string }) => ({
     id: t.id,
     tenantId: tenantUuid,
     title: t.title,
     status: t.status,
-  }));
+  }),
+  );
 
   return (
     <AdminClearanceClient

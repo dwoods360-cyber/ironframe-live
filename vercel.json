@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/internal/cron/health-posture-triage",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }

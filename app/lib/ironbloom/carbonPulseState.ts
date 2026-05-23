@@ -55,8 +55,24 @@ const DEFAULT_STATE: CarbonPulseState = {
   ironlockThrottleByTenant: {},
 };
 
+/** Ephemeral in-process cache for Vercel / production (read-only filesystem). */
+let serverlessMemoryState: CarbonPulseState | null = null;
+
+function isServerlessCloud(): boolean {
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+}
+
+function emptyState(): CarbonPulseState {
+  return {
+    samplesByTenant: {},
+    dirtyGridAlerts: [],
+    lastDirtyAlertAtByTenant: {},
+    ironlockThrottleByTenant: {},
+  };
+}
+
 function parseState(raw: unknown): CarbonPulseState {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ...DEFAULT_STATE };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return emptyState();
   const o = raw as CarbonPulseState & { ironlockThrottleByTenant?: unknown };
   const throttle =
     o.ironlockThrottleByTenant && typeof o.ironlockThrottleByTenant === "object" && !Array.isArray(o.ironlockThrottleByTenant)
@@ -71,11 +87,15 @@ function parseState(raw: unknown): CarbonPulseState {
 }
 
 export function readCarbonPulseStateSync(): CarbonPulseState {
+  if (isServerlessCloud()) {
+    return serverlessMemoryState ? parseState(serverlessMemoryState) : emptyState();
+  }
+
   try {
-    if (!existsSync(STATE_FILE)) return { ...DEFAULT_STATE };
+    if (!existsSync(STATE_FILE)) return emptyState();
     return parseState(JSON.parse(readFileSync(STATE_FILE, "utf8")));
   } catch {
-    return { ...DEFAULT_STATE };
+    return emptyState();
   }
 }
 
@@ -84,8 +104,22 @@ export async function readCarbonPulseState(): Promise<CarbonPulseState> {
 }
 
 export async function writeCarbonPulseState(next: CarbonPulseState): Promise<void> {
+  const parsed = parseState(next);
+
+  if (isServerlessCloud()) {
+    serverlessMemoryState = parsed;
+    const tenantSampleCounts = Object.fromEntries(
+      Object.entries(parsed.samplesByTenant).map(([tenantId, samples]) => [tenantId, samples.length]),
+    );
+    console.info("[ironbloom/carbonPulseState] serverless memory persist (no disk write)", {
+      tenantSampleCounts,
+      dirtyGridAlertCount: parsed.dirtyGridAlerts.length,
+    });
+    return;
+  }
+
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(next, null, 2), "utf8");
+  writeFileSync(STATE_FILE, JSON.stringify(parsed, null, 2), "utf8");
 }
 
 export function appendCarbonSample(

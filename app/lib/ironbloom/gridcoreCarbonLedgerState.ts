@@ -27,8 +27,19 @@ const DEFAULT_STATE: GridcoreCarbonLedgerState = {
   coefficients: [],
 };
 
+/** Ephemeral in-process cache for Vercel / production (read-only filesystem). */
+let serverlessMemoryState: GridcoreCarbonLedgerState | null = null;
+
+function isServerlessCloud(): boolean {
+  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+}
+
+function emptyState(): GridcoreCarbonLedgerState {
+  return { ...DEFAULT_STATE, coefficients: [] };
+}
+
 function parseState(raw: unknown): GridcoreCarbonLedgerState {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ...DEFAULT_STATE };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return emptyState();
   const o = raw as GridcoreCarbonLedgerState;
   return {
     lastSynchronizedAt: typeof o.lastSynchronizedAt === "string" ? o.lastSynchronizedAt : null,
@@ -37,11 +48,15 @@ function parseState(raw: unknown): GridcoreCarbonLedgerState {
 }
 
 export function readGridcoreCarbonLedgerStateSync(): GridcoreCarbonLedgerState {
+  if (isServerlessCloud()) {
+    return serverlessMemoryState ? parseState(serverlessMemoryState) : emptyState();
+  }
+
   try {
-    if (!existsSync(STATE_FILE)) return { ...DEFAULT_STATE };
+    if (!existsSync(STATE_FILE)) return emptyState();
     return parseState(JSON.parse(readFileSync(STATE_FILE, "utf8")));
   } catch {
-    return { ...DEFAULT_STATE };
+    return emptyState();
   }
 }
 
@@ -50,6 +65,18 @@ export async function readGridcoreCarbonLedgerState(): Promise<GridcoreCarbonLed
 }
 
 export async function writeGridcoreCarbonLedgerState(next: GridcoreCarbonLedgerState): Promise<void> {
+  const parsed = parseState(next);
+
+  if (isServerlessCloud()) {
+    serverlessMemoryState = parsed;
+    console.info("[ironbloom/gridcoreCarbonLedgerState] serverless memory persist (no disk write)", {
+      lastSynchronizedAt: parsed.lastSynchronizedAt,
+      coefficientCount: parsed.coefficients.length,
+      zones: parsed.coefficients.map((c) => c.zone),
+    });
+    return;
+  }
+
   if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(next, null, 2), "utf8");
+  writeFileSync(STATE_FILE, JSON.stringify(parsed, null, 2), "utf8");
 }

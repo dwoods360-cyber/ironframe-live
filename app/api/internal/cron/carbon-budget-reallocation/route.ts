@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/carbonBudgetReallocationAlert";
 
 /**
@@ -21,6 +22,7 @@ async function handleCron(req: Request) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  await parseCronRequestBody(req);
   const url = new URL(req.url);
   const force = url.searchParams.get("force") === "1";
 

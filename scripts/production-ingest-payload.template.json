@@ -1,0 +1,24 @@
+{
+  "endpoint": "https://ironframe-live.vercel.app/api/threats/ingest",
+  "headers": {
+    "Content-Type": "application/json",
+    "x-tenant-id": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+    "x-shadow-plane-active": "1"
+  },
+  "body": {
+    "threatId": "cmouerday000357xc47kbd6p7",
+    "tenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+    "skipOrchestrationBus": false,
+    "operatorId": "CLOUD_PIPELINE_SYNC",
+    "sourceAgent": "GRC_BOT",
+    "healthBarPercent": 85,
+    "justification": "Maturity validation override via authorized cloud pipeline sync to establish absolute infrastructure resilience metrics.",
+    "rawData": {
+      "source": "aws-vulnerability-scanner",
+      "telemetryType": "VULNERABILITY",
+      "severity": "CRITICAL",
+      "findings": 1,
+      "tenantContext": "Medshield"
+    }
+  }
+}

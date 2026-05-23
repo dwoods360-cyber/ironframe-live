@@ -16,6 +16,11 @@ function shadowPlaneRequestActive(request: NextRequest): boolean {
   return hdr === "1" || hdr === "true" || hdr === "yes";
 }
 
+/** Next.js App Router server actions — must not 302 to /login or the client throws `TypeError: Failed to fetch`. */
+function isNextServerActionPost(request: NextRequest): boolean {
+  return request.method.toUpperCase() === "POST" && request.headers.has("next-action");
+}
+
 function middlewareSimulationBypass(request: NextRequest): boolean {
   const simSecret = process.env.SIMULATION_SECRET?.trim();
   const host = request.headers.get("host") ?? "";
@@ -264,6 +269,10 @@ export async function middleware(request: NextRequest) {
   if (!user && !isLoginRoute) {
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
+      return supabaseResponse;
+    }
+    /** Server Actions: let RSC handle auth — redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
+    if (isNextServerActionPost(request)) {
       return supabaseResponse;
     }
     const loginUrl = request.nextUrl.clone();

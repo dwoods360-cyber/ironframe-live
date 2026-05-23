@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
 import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await parseCronRequestBody(req);
     const url = new URL(req.url);
     const force = url.searchParams.get("force") === "1";
     const runUtility = url.searchParams.get("utility") === "1";

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMonitor";
 
 /**
@@ -26,23 +28,26 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = (await req.json()) as Record<string, unknown>;
-    const tenantId = typeof body.tenantId === "string" ? body.tenantId.trim() : "";
-    const threadId = typeof body.threadId === "string" ? body.threadId.trim() : "";
-    const healthRaw = body.currentHealthBarPercent ?? body.healthBarPercent;
+    const body = await parseCronRequestBody(req);
+    const defaultTenant =
+      process.env.CRON_HEALTH_DEFAULT_TENANT_ID?.trim() ||
+      process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
+      TENANT_UUIDS.medshield;
+    const tenantId =
+      typeof body.tenantId === "string" && body.tenantId.trim()
+        ? body.tenantId.trim()
+        : defaultTenant;
+    const threadId =
+      typeof body.threadId === "string" && body.threadId.trim()
+        ? body.threadId.trim()
+        : `tas-4.3-health-${tenantId}`;
+    const healthRaw = body.currentHealthBarPercent ?? body.healthBarPercent ?? 85;
     const targetZone =
       typeof body.targetZone === "string"
         ? body.targetZone
         : typeof body.incidentZone === "string"
           ? body.incidentZone
           : undefined;
-
-    if (!tenantId || !threadId) {
-      return NextResponse.json(
-        { ok: false, error: "MISSING_HEALTH_METRIC_BOUNDS" },
-        { status: 400 },
-      );
-    }
 
     const result = await runHealthPostureTriage({
       tenantId,

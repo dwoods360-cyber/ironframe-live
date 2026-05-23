@@ -289,6 +289,14 @@ export function installIronguardFetchInterceptor(): void {
   w.__IRONGUARD_FETCH_PATCHED__ = true;
   w.__IRONGUARD_NATIVE_FETCH__ = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const isServerAction =
+      typeof Request !== "undefined" &&
+      input instanceof Request &&
+      input.method.toUpperCase() === "POST" &&
+      input.headers.has("next-action");
+    if (isServerAction) {
+      return w.__IRONGUARD_NATIVE_FETCH__!(input, init);
+    }
     const [ni, niInit] = applyIronguardToFetch(input, init);
     assertIronguardBeforeFetch(ni, niInit);
     const res = await w.__IRONGUARD_NATIVE_FETCH__!(ni, niInit);

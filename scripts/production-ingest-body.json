@@ -1,1 +1,22 @@
-{"threatId":"cmouerday000357xc47kbd6p7","tenantId":"5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01","skipOrchestrationBus":false,"operatorId":"CLOUD_PIPELINE_SYNC","sourceAgent":"GRC_BOT","healthBarPercent":85,"justification":"Maturity validation override via authorized cloud pipeline sync to establish absolute infrastructure resilience metrics.","rawData":{"source":"aws-vulnerability-scanner","telemetryType":"VULNERABILITY","severity":"CRITICAL","findings":1,"tenantContext":"Medshield"}}
+{
+  "threatId": "cmouerday000357xc47kbd6p7",
+  "tenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+  "skipOrchestrationBus": false,
+  "operatorId": "CLOUD_PIPELINE_SYNC",
+  "sourceAgent": "GRC_BOT",
+  "healthBarPercent": 85,
+  "justification": "Medshield Production Ingress Gate — CVE-2026-0001 network edge gateway isolation mandate (50+ char GRC attestation for high-value exposure).",
+  "rawData": {
+    "source": "Medshield Production Ingress Gate",
+    "severity": "HIGH",
+    "telemetryType": "VULNERABILITY",
+    "alertId": "cmouerday000357xc47kbd6p7",
+    "payload": {
+      "vulnerabilityId": "CVE-2026-0001",
+      "component": "Network Edge Gateway Cluster",
+      "assetValueCents": 1110000000
+    },
+    "text": "CRITICAL INCIDENT REPORT: Medshield network boundary scan detected unauthenticated traffic patterns routing through secondary telemetry pipelines. High risk of context serialization bypass on internal state arrays. Immediate isolation required.",
+    "systemTimestamp": "2026-05-23T20:15:00Z"
+  }
+}

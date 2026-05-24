@@ -31,6 +31,13 @@ model Tenant {
   governance_settings          governance_settings?
   riskRegistry                 RiskRegistry[]
   vendors                      Vendor[]
+  gridcoreCarbonCoefficients   GridcoreCarbonCoefficient[]
+  carbonPulseSamples           CarbonPulseSample[]
+  dirtyGridAlerts              DirtyGridAlert[]
+  ironlockCarbonThrottles      IronlockCarbonThrottle[]
+  utilityRateCaches            IronbloomUtilityRateCache[]
+  rateDriftAlerts              IronbloomRateDriftAlert[]
+  ironbloomSyncMeta            IronbloomTenantSyncMeta?
 
   @@map("tenants")
 }
@@ -1174,4 +1181,102 @@ enum ComplianceFramework {
   SOC2
   ISO27001
   NIST
+}
+
+model GridcoreCarbonCoefficient {
+  tenantId                  String   @map("tenant_id") @db.Uuid
+  zone                      String
+  carbonIntensityGrams      BigInt   @map("carbon_intensity_grams")
+  carbonIntensityGco2PerKwh Float    @map("carbon_intensity_gco2_per_kwh")
+  renewablePercentage       Float?   @map("renewable_percentage")
+  source                    String
+  polledAt                  DateTime @map("polled_at")
+  telemetryFingerprint      String   @map("telemetry_fingerprint")
+  tenant                    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, zone])
+  @@map("gridcore_carbon_coefficients")
+}
+
+model CarbonPulseSample {
+  tenantId            String   @map("tenant_id") @db.Uuid
+  id                  String   @default(cuid())
+  sampledAt           DateTime @map("sampled_at")
+  zone                String
+  gco2PerKwh          Float    @map("gco2_per_kwh")
+  mitigatedValueCents BigInt   @map("mitigated_value_cents")
+  dirty               Boolean  @default(false)
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@index([tenantId, sampledAt])
+  @@map("carbon_pulse_samples")
+}
+
+model DirtyGridAlert {
+  tenantId            String   @map("tenant_id") @db.Uuid
+  id                  String
+  sentAt              DateTime @map("sent_at")
+  intensityGco2PerKwh Float    @map("intensity_gco2_per_kwh")
+  thresholdGco2PerKwh Float    @map("threshold_gco2_per_kwh")
+  tenantUsageKwh      Float    @map("tenant_usage_kwh")
+  usageBaselineKwh    Float    @map("usage_baseline_kwh")
+  message             String
+  acknowledged        Boolean  @default(false)
+  evidenceArtifactSha String?  @map("evidence_artifact_sha256")
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@map("dirty_grid_alerts")
+}
+
+model IronlockCarbonThrottle {
+  tenantId                    String    @id @map("tenant_id") @db.Uuid
+  active                      Boolean   @default(false)
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+  intensityGco2PerKwh         Float     @map("intensity_gco2_per_kwh")
+  thresholdGco2PerKwh         Float     @map("threshold_gco2_per_kwh")
+  autonomousMitigationEnabled Boolean   @default(false) @map("autonomous_mitigation_enabled")
+  lastAutoThrottleAuditAt     DateTime? @map("last_auto_throttle_audit_at")
+  tenant                      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ironlock_carbon_throttles")
+}
+
+model IronbloomUtilityRateCache {
+  tenantId       String   @id @map("tenant_id") @db.Uuid
+  rateUsdPerUnit Float    @map("rate_usd_per_unit")
+  unitType       String   @map("unit_type")
+  source         String
+  jurisdiction   String
+  polledAt       DateTime @map("polled_at")
+  lastPolledAt   DateTime @map("last_polled_at")
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ironbloom_utility_rate_caches")
+}
+
+model IronbloomRateDriftAlert {
+  tenantId        String   @map("tenant_id") @db.Uuid
+  id              String
+  sentAt          DateTime @map("sent_at")
+  previousRateUsd Float    @map("previous_rate_usd")
+  newRateUsd      Float    @map("new_rate_usd")
+  driftRatio      Float    @map("drift_ratio")
+  unitType        String   @map("unit_type")
+  pulseMessage    String   @map("pulse_message")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, id])
+  @@map("ironbloom_rate_drift_alerts")
+}
+
+model IronbloomTenantSyncMeta {
+  tenantId                 String    @id @map("tenant_id") @db.Uuid
+  lastSynchronizedAt       DateTime? @map("last_synchronized_at")
+  lastGlobalPollAt         DateTime? @map("last_global_poll_at")
+  lastDirtyAlertAtByTenant DateTime? @map("last_dirty_alert_at")
+  tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("ironbloom_tenant_sync_metas")
 }

@@ -15,3 +15,7 @@ tmp-phase*.js
 
 # stryker temp files
 .stryker-tmp
+
+# Ironframe Local Runtime Noise
+storage/constitutional/**/*.json
+tsconfig.tsbuildinfo

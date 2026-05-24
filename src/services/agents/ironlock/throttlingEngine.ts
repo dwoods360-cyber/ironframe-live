@@ -4,7 +4,6 @@ import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import prisma from "@/lib/prisma";
 import {
   readCarbonPulseState,
-  readCarbonPulseStateSync,
   writeCarbonPulseState,
   type IronlockThrottleTenantRecord,
 } from "@/app/lib/ironbloom/carbonPulseState";
@@ -133,8 +132,13 @@ export type IronlockThrottlePayload = {
 };
 
 export function getIronlockThrottlePayloadSync(tenantId: string): IronlockThrottlePayload {
-  const state = readCarbonPulseStateSync();
-  const rec = state.ironlockThrottleByTenant?.[tenantId];
+  throw new Error(
+    "getIronlockThrottlePayloadSync() requires Postgres; use getIronlockThrottlePayload() instead.",
+  );
+}
+
+export async function getIronlockThrottlePayload(tenantId: string): Promise<IronlockThrottlePayload> {
+  const rec = await prisma.ironlockCarbonThrottle.findUnique({ where: { tenantId } });
   const dirtyWindowForThrottle = rec
     ? rec.intensityGco2PerKwh > rec.thresholdGco2PerKwh
     : false;
@@ -144,15 +148,25 @@ export function getIronlockThrottlePayloadSync(tenantId: string): IronlockThrott
     autonomousMitigationEnabled: rec?.autonomousMitigationEnabled === true,
     intensityGco2PerKwh: rec?.intensityGco2PerKwh ?? 0,
     thresholdGco2PerKwh: rec?.thresholdGco2PerKwh ?? 0,
-    lastUpdatedAt: rec?.updatedAt ?? null,
+    lastUpdatedAt: rec?.updatedAt.toISOString() ?? null,
     notificationMessage: rec?.active ? IRONLOCK_AUTO_THROTTLE_NOTIFICATION : null,
   };
 }
 
-/** LangGraph governance_delay for non-critical background agents (ms). Sync read. */
-export function getIronlockGovernanceDelayMsForTenantSync(tenantId: string): number {
+/** LangGraph governance_delay for non-critical background agents (ms). */
+export async function getIronlockGovernanceDelayMsForTenant(tenantId: string): Promise<number> {
   if (!tenantId?.trim() || tenantId === "00000000-0000-0000-0000-000000000000") return 0;
-  const rec = readCarbonPulseStateSync().ironlockThrottleByTenant?.[tenantId];
+  const rec = await prisma.ironlockCarbonThrottle.findUnique({
+    where: { tenantId },
+    select: { active: true },
+  });
   if (!rec?.active) return 0;
   return randomGovernanceDelayMs();
+}
+
+/** @deprecated Use {@link getIronlockGovernanceDelayMsForTenant}. */
+export function getIronlockGovernanceDelayMsForTenantSync(tenantId: string): number {
+  throw new Error(
+    "getIronlockGovernanceDelayMsForTenantSync() requires Postgres; use getIronlockGovernanceDelayMsForTenant() instead.",
+  );
 }

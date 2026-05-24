@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import prisma from "@/lib/prisma";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
-import { readCarbonPulseStateSync, pruneSamplesOlderThan24h } from "@/app/lib/ironbloom/carbonPulseState";
+import { readCarbonPulseState, pruneSamplesOlderThan24h } from "@/app/lib/ironbloom/carbonPulseState";
 import {
   readSustainabilityAchievementSchedulerState,
   writeSustainabilityAchievementSchedulerState,
@@ -41,8 +41,8 @@ function hashSha256Hex(data: Buffer | string): string {
   return createHash("sha256").update(data).digest("hex");
 }
 
-function flattenRecentPulseGridSamples(): number[] {
-  const state = readCarbonPulseStateSync();
+async function flattenRecentPulseGridSamples(): Promise<number[]> {
+  const state = await readCarbonPulseState();
   const intensities: number[] = [];
   for (const samples of Object.values(state.samplesByTenant ?? {})) {
     const recent = pruneSamplesOlderThan24h(samples);
@@ -179,7 +179,7 @@ export async function runSustainabilityAchievementReportIfDue(
         }
       }
     } else {
-      const intensities = flattenRecentPulseGridSamples();
+      const intensities = await flattenRecentPulseGridSamples();
       const stats = gridStats(intensities);
       average = stats.average;
       delta = stats.delta;

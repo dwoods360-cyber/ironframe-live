@@ -5,7 +5,7 @@ import {
   MN_BPS_COVERED_BUILDING_MIN_SQFT,
   TENANT_MINNESOTA_BPS_ELIGIBLE_SQFT,
 } from "@/app/config/minnesotaBpsCoverage";
-import { readCarbonPulseStateSync } from "@/app/lib/ironbloom/carbonPulseState";
+import { readCarbonPulseState, pruneSamplesOlderThan24h } from "@/app/lib/ironbloom/carbonPulseState";
 import { getLatestUtilityRateForTenant } from "@/app/services/ironbloom/rateEngine";
 import {
   computeTotalSocietalValueCents,
@@ -51,8 +51,8 @@ function aggregateMinnesotaPenaltyAvoidanceCents(reportingWindowDays: number): b
   return total;
 }
 
-function latestThrottleEvidenceFromPulse(): string | null {
-  const state = readCarbonPulseStateSync();
+async function latestThrottleEvidenceFromPulse(): Promise<string | null> {
+  const state = await readCarbonPulseState();
   for (let i = state.dirtyGridAlerts.length - 1; i >= 0; i--) {
     const sha = state.dirtyGridAlerts[i]?.evidenceArtifactSha256;
     if (sha) return sha;
@@ -100,7 +100,7 @@ export async function calculateCarbonRoiVmats(input: {
       ? BigInt(Math.max(0, Math.round(Number(totalMitigatedCents) / avoidedCarbonMetricTons)))
       : null;
 
-  const throttleEvidenceSha256 = latestThrottleEvidenceFromPulse();
+  const throttleEvidenceSha256 = await latestThrottleEvidenceFromPulse();
   const tsv = computeTotalSocietalValueCents(avoidedCarbonMetricTons, totalMitigatedCents);
   const roiCanon = JSON.stringify({
     v: 1,

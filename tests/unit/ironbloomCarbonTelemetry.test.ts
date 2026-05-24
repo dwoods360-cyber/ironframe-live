@@ -17,7 +17,7 @@ import {
 } from "@/app/services/ironbloom/scoring";
 import { executeGridcoreCarbonLedgerSync } from "@/app/services/ironbloom/gridcoreCarbonLedgerSync";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
-import { readGridcoreCarbonLedgerStateSync } from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
+import { readGridcoreCarbonLedgerState } from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
 import { computeLedgerCarbonAleCents } from "@/app/utils/sustainabilityLedgerAle";
 
 describe("ironbloom carbon telemetry", () => {
@@ -99,7 +99,7 @@ describe("ironbloom carbon telemetry", () => {
       expect(result.status).toBe("GRIDCORE_LEDGER_SYNCHRONIZED");
       expect(result.recordsIngested).toBe(4);
       expect(result.stagingFallback).toBe(true);
-      const state = readGridcoreCarbonLedgerStateSync();
+      const state = await readGridcoreCarbonLedgerState();
       expect(state.coefficients).toHaveLength(4);
       expect(state.coefficients.some((c) => c.zone === "US-CO")).toBe(true);
       expect(state.coefficients[0]?.telemetryFingerprint).toHaveLength(64);

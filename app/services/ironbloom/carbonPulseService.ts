@@ -4,7 +4,6 @@ import prisma from "@/lib/prisma";
 import {
   pruneSamplesOlderThan24h,
   readCarbonPulseState,
-  readCarbonPulseStateSync,
 } from "@/app/lib/ironbloom/carbonPulseState";
 import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRoster";
 import { getTenantCarbonIntensityThresholdGco2 } from "@/app/config/tenantCarbonZones";
@@ -14,7 +13,7 @@ import {
 } from "@/app/services/ironbloom/scoring";
 import { runDirtyGridMonitorForTenant } from "@/src/services/agents/ironlock/dirtyGridMonitor";
 import {
-  getIronlockThrottlePayloadSync,
+  getIronlockThrottlePayload,
   IRONLOCK_AUTO_THROTTLE_NOTIFICATION,
   reconcileIronlockThrottleFromMonitor,
 } from "@/src/services/agents/ironlock/throttlingEngine";
@@ -300,7 +299,7 @@ export async function buildCarbonPulseFinancialBundle(tenantId: string): Promise
  * Last-known-good pulse when live Electricity Maps / stats route is unavailable.
  * ALE dollars come from the newest `SustainabilityMetric.mitigatedValueCents` (ledger).
  * Ironlock (Agent 6) throttle + 24h samples replay from `carbon-pulse-history.json` via
- * `getIronlockThrottlePayloadSync` — no external grid API.
+ * `getIronlockThrottlePayload` — no external grid API.
  */
 export async function buildCarbonPulseLkgPayload(tenantId: string): Promise<{
   pulse: CarbonPulsePayload;
@@ -312,7 +311,7 @@ export async function buildCarbonPulseLkgPayload(tenantId: string): Promise<{
   const tenantKey = tenantKeyFromUuid(tenantId);
   const key = tenantKey ?? "medshield";
 
-  const state = readCarbonPulseStateSync();
+  const state = await readCarbonPulseState();
   const sparkline24h = pruneSamplesOlderThan24h(state.samplesByTenant[tenantId] ?? []).map((s) => ({
     at: s.at,
     gco2PerKwh: s.gco2PerKwh,
@@ -324,7 +323,7 @@ export async function buildCarbonPulseLkgPayload(tenantId: string): Promise<{
   const carbonShareOfTenantAleBps =
     tenantTotalAleCents > 0n ? (mitigatedCents * 10000n) / tenantTotalAleCents : 0n;
 
-  const throttle = getIronlockThrottlePayloadSync(tenantId);
+  const throttle = await getIronlockThrottlePayload(tenantId);
   const lastSample = sparkline24h.length ? sparkline24h[sparkline24h.length - 1] : null;
   const carbonIntensityGco2PerKwh =
     lastSample?.gco2PerKwh ??

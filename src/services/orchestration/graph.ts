@@ -21,7 +21,7 @@ import { ironsightCvePoll } from "../agents/ironsight";
 import { irontallyFrameworkMap } from "../agents/irontally";
 import { generateIronqueryAnalystInsight } from "../agents/ironquery";
 import {
-  getIronlockGovernanceDelayMsForTenantSync,
+  getIronlockGovernanceDelayMsForTenant,
   IRONLOCK_AUTO_THROTTLE_NOTIFICATION,
 } from "../agents/ironlock/throttlingEngine";
 import { healthBarRequiresTriage } from "@/app/config/tasHealthTriage";
@@ -70,7 +70,7 @@ async function ironlockGovernanceDelayIfThrottled(
   tenantId: string,
   agentKey: string,
 ): Promise<{ delayMs: number; logs: string[] }> {
-  const delayMs = getIronlockGovernanceDelayMsForTenantSync(tenantId);
+  const delayMs = await getIronlockGovernanceDelayMsForTenant(tenantId);
   if (delayMs <= 0) return { delayMs: 0, logs: [] };
   await new Promise<void>((resolve) => {
     setTimeout(resolve, delayMs);

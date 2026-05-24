@@ -1,10 +1,7 @@
 import "server-only";
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-
-const STATE_DIR = join(process.cwd(), "storage", "constitutional");
-const STATE_FILE = join(STATE_DIR, "carbon-pulse-history.json");
+import { randomUUID } from "crypto";
+import prisma from "@/lib/prisma";
 
 export type CarbonIntensitySample = {
   at: string;
@@ -46,82 +43,264 @@ export type CarbonPulseState = {
   ironlockThrottleByTenant?: Record<string, IronlockThrottleTenantRecord>;
 };
 
-const MAX_SAMPLES_PER_TENANT = 96;
+export const MAX_SAMPLES_PER_TENANT = 96;
 
-const DEFAULT_STATE: CarbonPulseState = {
-  samplesByTenant: {},
-  dirtyGridAlerts: [],
-  lastDirtyAlertAtByTenant: {},
-  ironlockThrottleByTenant: {},
-};
+const SAMPLE_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-/** Ephemeral in-process cache for Vercel / production (read-only filesystem). */
-let serverlessMemoryState: CarbonPulseState | null = null;
-
-function isServerlessCloud(): boolean {
-  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
-}
-
-function emptyState(): CarbonPulseState {
+function mapSampleRow(row: {
+  sampledAt: Date;
+  zone: string;
+  gco2PerKwh: number;
+  mitigatedValueCents: bigint;
+  dirty: boolean;
+}): CarbonIntensitySample {
   return {
-    samplesByTenant: {},
-    dirtyGridAlerts: [],
-    lastDirtyAlertAtByTenant: {},
-    ironlockThrottleByTenant: {},
+    at: row.sampledAt.toISOString(),
+    zone: row.zone,
+    gco2PerKwh: row.gco2PerKwh,
+    mitigatedValueCents: row.mitigatedValueCents.toString(),
+    dirty: row.dirty,
   };
 }
 
-function parseState(raw: unknown): CarbonPulseState {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return emptyState();
-  const o = raw as CarbonPulseState & { ironlockThrottleByTenant?: unknown };
-  const throttle =
-    o.ironlockThrottleByTenant && typeof o.ironlockThrottleByTenant === "object" && !Array.isArray(o.ironlockThrottleByTenant)
-      ? (o.ironlockThrottleByTenant as Record<string, IronlockThrottleTenantRecord>)
-      : undefined;
+function mapAlertRow(row: {
+  tenantId: string;
+  id: string;
+  sentAt: Date;
+  intensityGco2PerKwh: number;
+  thresholdGco2PerKwh: number;
+  tenantUsageKwh: number;
+  usageBaselineKwh: number;
+  message: string;
+  acknowledged: boolean;
+  evidenceArtifactSha: string | null;
+}): DirtyGridAlertRecord {
   return {
-    samplesByTenant: o.samplesByTenant ?? {},
-    dirtyGridAlerts: Array.isArray(o.dirtyGridAlerts) ? o.dirtyGridAlerts : [],
-    lastDirtyAlertAtByTenant: o.lastDirtyAlertAtByTenant ?? {},
-    ironlockThrottleByTenant: throttle ?? {},
+    id: row.id,
+    tenantId: row.tenantId,
+    sentAt: row.sentAt.toISOString(),
+    intensityGco2PerKwh: row.intensityGco2PerKwh,
+    thresholdGco2PerKwh: row.thresholdGco2PerKwh,
+    tenantUsageKwh: row.tenantUsageKwh,
+    usageBaselineKwh: row.usageBaselineKwh,
+    message: row.message,
+    acknowledged: row.acknowledged,
+    evidenceArtifactSha256: row.evidenceArtifactSha ?? undefined,
   };
 }
 
-export function readCarbonPulseStateSync(): CarbonPulseState {
-  if (isServerlessCloud()) {
-    return serverlessMemoryState ? parseState(serverlessMemoryState) : emptyState();
-  }
+function mapThrottleRow(row: {
+  tenantId: string;
+  active: boolean;
+  updatedAt: Date;
+  intensityGco2PerKwh: number;
+  thresholdGco2PerKwh: number;
+  autonomousMitigationEnabled: boolean;
+  lastAutoThrottleAuditAt: Date | null;
+}): IronlockThrottleTenantRecord {
+  return {
+    active: row.active,
+    updatedAt: row.updatedAt.toISOString(),
+    intensityGco2PerKwh: row.intensityGco2PerKwh,
+    thresholdGco2PerKwh: row.thresholdGco2PerKwh,
+    autonomousMitigationEnabled: row.autonomousMitigationEnabled,
+    lastAutoThrottleAuditAt: row.lastAutoThrottleAuditAt?.toISOString(),
+  };
+}
 
-  try {
-    if (!existsSync(STATE_FILE)) return emptyState();
-    return parseState(JSON.parse(readFileSync(STATE_FILE, "utf8")));
-  } catch {
-    return emptyState();
-  }
+export async function pruneCarbonSamplesForTenant(tenantId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - SAMPLE_RETENTION_MS);
+  await prisma.carbonPulseSample.deleteMany({
+    where: { tenantId, sampledAt: { lt: cutoff } },
+  });
+
+  const ordered = await prisma.carbonPulseSample.findMany({
+    where: { tenantId },
+    orderBy: { sampledAt: "desc" },
+    select: { tenantId: true, id: true },
+  });
+
+  if (ordered.length <= MAX_SAMPLES_PER_TENANT) return;
+
+  const excess = ordered.slice(MAX_SAMPLES_PER_TENANT);
+  await Promise.all(
+    excess.map((row) =>
+      prisma.carbonPulseSample.delete({
+        where: { tenantId_id: { tenantId: row.tenantId, id: row.id } },
+      }),
+    ),
+  );
+}
+
+export async function appendCarbonSampleToStore(
+  tenantId: string,
+  sample: CarbonIntensitySample,
+): Promise<void> {
+  await prisma.carbonPulseSample.create({
+    data: {
+      tenantId,
+      id: randomUUID(),
+      sampledAt: new Date(sample.at),
+      zone: sample.zone,
+      gco2PerKwh: sample.gco2PerKwh,
+      mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
+      dirty: sample.dirty,
+    },
+  });
+  await pruneCarbonSamplesForTenant(tenantId);
+}
+
+export async function readCarbonPulseStateForTenant(tenantId: string): Promise<CarbonIntensitySample[]> {
+  const rows = await prisma.carbonPulseSample.findMany({
+    where: { tenantId },
+    orderBy: { sampledAt: "asc" },
+  });
+  return rows.map(mapSampleRow);
 }
 
 export async function readCarbonPulseState(): Promise<CarbonPulseState> {
-  return readCarbonPulseStateSync();
+  const [sampleRows, alertRows, throttleRows, syncMetaRows] = await Promise.all([
+    prisma.carbonPulseSample.findMany({ orderBy: [{ tenantId: "asc" }, { sampledAt: "asc" }] }),
+    prisma.dirtyGridAlert.findMany({ orderBy: { sentAt: "desc" }, take: 100 }),
+    prisma.ironlockCarbonThrottle.findMany(),
+    prisma.ironbloomTenantSyncMeta.findMany({
+      where: { lastDirtyAlertAtByTenant: { not: null } },
+    }),
+  ]);
+
+  const samplesByTenant: Record<string, CarbonIntensitySample[]> = {};
+  for (const row of sampleRows) {
+    const sample = mapSampleRow(row);
+    if (!samplesByTenant[row.tenantId]) samplesByTenant[row.tenantId] = [];
+    samplesByTenant[row.tenantId]!.push(sample);
+  }
+
+  const lastDirtyAlertAtByTenant: Record<string, string> = {};
+  for (const meta of syncMetaRows) {
+    if (meta.lastDirtyAlertAtByTenant) {
+      lastDirtyAlertAtByTenant[meta.tenantId] = meta.lastDirtyAlertAtByTenant.toISOString();
+    }
+  }
+
+  const ironlockThrottleByTenant: Record<string, IronlockThrottleTenantRecord> = {};
+  for (const row of throttleRows) {
+    ironlockThrottleByTenant[row.tenantId] = mapThrottleRow(row);
+  }
+
+  return {
+    samplesByTenant,
+    dirtyGridAlerts: alertRows.map(mapAlertRow),
+    lastDirtyAlertAtByTenant,
+    ironlockThrottleByTenant,
+  };
+}
+
+/**
+ * @deprecated Postgres-backed — use {@link readCarbonPulseState} instead.
+ */
+export function readCarbonPulseStateSync(): CarbonPulseState {
+  throw new Error(
+    "readCarbonPulseStateSync() is unavailable: Carbon pulse telemetry persists in Postgres. Use readCarbonPulseState().",
+  );
+}
+
+async function replaceTenantSamples(tenantId: string, samples: CarbonIntensitySample[]): Promise<void> {
+  const pruned = pruneSamplesOlderThan24h(samples).slice(-MAX_SAMPLES_PER_TENANT);
+  await prisma.carbonPulseSample.deleteMany({ where: { tenantId } });
+  if (pruned.length === 0) return;
+
+  await prisma.carbonPulseSample.createMany({
+    data: pruned.map((sample) => ({
+      tenantId,
+      id: randomUUID(),
+      sampledAt: new Date(sample.at),
+      zone: sample.zone,
+      gco2PerKwh: sample.gco2PerKwh,
+      mitigatedValueCents: BigInt(sample.mitigatedValueCents || "0"),
+      dirty: sample.dirty,
+    })),
+  });
 }
 
 export async function writeCarbonPulseState(next: CarbonPulseState): Promise<void> {
-  const parsed = parseState(next);
+  const tenantIds = new Set<string>([
+    ...Object.keys(next.samplesByTenant),
+    ...next.dirtyGridAlerts.map((a) => a.tenantId),
+    ...Object.keys(next.ironlockThrottleByTenant ?? {}),
+    ...Object.keys(next.lastDirtyAlertAtByTenant),
+  ]);
 
-  if (isServerlessCloud()) {
-    serverlessMemoryState = parsed;
-    const tenantSampleCounts = Object.fromEntries(
-      Object.entries(parsed.samplesByTenant).map(([tenantId, samples]) => [tenantId, samples.length]),
-    );
-    console.info("[ironbloom/carbonPulseState] serverless memory persist (no disk write)", {
-      tenantSampleCounts,
-      dirtyGridAlertCount: parsed.dirtyGridAlerts.length,
+  await Promise.all(
+    [...tenantIds].map((tenantId) => replaceTenantSamples(tenantId, next.samplesByTenant[tenantId] ?? [])),
+  );
+
+  for (const alert of next.dirtyGridAlerts) {
+    await prisma.dirtyGridAlert.upsert({
+      where: { tenantId_id: { tenantId: alert.tenantId, id: alert.id } },
+      update: {
+        sentAt: new Date(alert.sentAt),
+        intensityGco2PerKwh: alert.intensityGco2PerKwh,
+        thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
+        tenantUsageKwh: alert.tenantUsageKwh,
+        usageBaselineKwh: alert.usageBaselineKwh,
+        message: alert.message,
+        acknowledged: alert.acknowledged ?? false,
+        evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
+      },
+      create: {
+        tenantId: alert.tenantId,
+        id: alert.id,
+        sentAt: new Date(alert.sentAt),
+        intensityGco2PerKwh: alert.intensityGco2PerKwh,
+        thresholdGco2PerKwh: alert.thresholdGco2PerKwh,
+        tenantUsageKwh: alert.tenantUsageKwh,
+        usageBaselineKwh: alert.usageBaselineKwh,
+        message: alert.message,
+        acknowledged: alert.acknowledged ?? false,
+        evidenceArtifactSha: alert.evidenceArtifactSha256 ?? null,
+      },
     });
-    return;
   }
 
-  if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(parsed, null, 2), "utf8");
+  for (const [tenantId, record] of Object.entries(next.ironlockThrottleByTenant ?? {})) {
+    await prisma.ironlockCarbonThrottle.upsert({
+      where: { tenantId },
+      update: {
+        active: record.active,
+        updatedAt: new Date(record.updatedAt),
+        intensityGco2PerKwh: record.intensityGco2PerKwh,
+        thresholdGco2PerKwh: record.thresholdGco2PerKwh,
+        autonomousMitigationEnabled: record.autonomousMitigationEnabled,
+        lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
+          ? new Date(record.lastAutoThrottleAuditAt)
+          : null,
+      },
+      create: {
+        tenantId,
+        active: record.active,
+        updatedAt: new Date(record.updatedAt),
+        intensityGco2PerKwh: record.intensityGco2PerKwh,
+        thresholdGco2PerKwh: record.thresholdGco2PerKwh,
+        autonomousMitigationEnabled: record.autonomousMitigationEnabled,
+        lastAutoThrottleAuditAt: record.lastAutoThrottleAuditAt
+          ? new Date(record.lastAutoThrottleAuditAt)
+          : null,
+      },
+    });
+  }
+
+  await Promise.all(
+    Object.entries(next.lastDirtyAlertAtByTenant).map(([tenantId, sentAt]) =>
+      prisma.ironbloomTenantSyncMeta.upsert({
+        where: { tenantId },
+        update: { lastDirtyAlertAtByTenant: new Date(sentAt) },
+        create: { tenantId, lastDirtyAlertAtByTenant: new Date(sentAt) },
+      }),
+    ),
+  );
 }
 
+/** In-memory merge helper for read-modify-write flows within a single request. */
 export function appendCarbonSample(
   state: CarbonPulseState,
   tenantId: string,
@@ -136,6 +315,6 @@ export function appendCarbonSample(
 }
 
 export function pruneSamplesOlderThan24h(samples: CarbonIntensitySample[]): CarbonIntensitySample[] {
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - SAMPLE_RETENTION_MS;
   return samples.filter((s) => Date.parse(s.at) >= cutoff);
 }

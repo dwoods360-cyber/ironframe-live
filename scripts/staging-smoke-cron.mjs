@@ -4,13 +4,23 @@ dotenv.config({ path: ".env.staging.local" });
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
-const base = (process.env.STAGING_SMOKE_BASE_URL || process.env.STAGING_BASE_URL || "https://ironframe-live.vercel.app").replace(/\/+$/, "");
+const base = "https://ironframe-live-4066w2sia-dwoods360-6345s-projects.vercel.app";
 const primarySecret = process.env.IRONFRAME_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
 const fallbackSecret = process.env.STAGING_SMOKE_SECRET?.trim();
 const secret = primarySecret || fallbackSecret;
+const tokenSource = process.env.IRONFRAME_CRON_SECRET?.trim()
+  ? "IRONFRAME_CRON_SECRET"
+  : process.env.CRON_SECRET?.trim()
+    ? "CRON_SECRET"
+    : process.env.STAGING_SMOKE_SECRET?.trim()
+      ? "STAGING_SMOKE_SECRET"
+      : "NONE";
 
 if (!primarySecret && fallbackSecret) {
   console.log("[info] Using local STAGING_SMOKE_SECRET token context");
+}
+if (tokenSource !== "NONE") {
+  console.log(`[info] Token source: ${tokenSource}`);
 }
 
 if (!secret) {
@@ -19,12 +29,13 @@ if (!secret) {
 }
 
 const tests = [
-  { id: "health_get_valid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", headers: { Authorization: `Bearer ${secret}` }, expect: 200 },
-  { id: "health_get_invalid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", headers: { Authorization: "Bearer bad-token" }, expect: 401 },
+  { id: "health_get_valid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", token: secret, headers: {}, expect: 200 },
+  { id: "health_get_invalid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", token: "bad-token", headers: {}, expect: 401 },
   {
     id: "health_post_valid_x_cron",
     method: "POST",
     path: "/api/internal/cron/health-posture-triage",
+    token: secret,
     headers: { "x-cron-secret": secret, "Content-Type": "application/json" },
     body: JSON.stringify({
       tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
@@ -33,10 +44,10 @@ const tests = [
     }),
     expect: 200,
   },
-  { id: "gridcore_get_valid", method: "GET", path: "/api/internal/cron/gridcore-rate-poll?force=1&utility=1", headers: { Authorization: `Bearer ${secret}` }, expect: 200 },
-  { id: "gridcore_get_invalid", method: "GET", path: "/api/internal/cron/gridcore-rate-poll?force=1&utility=1", headers: { Authorization: "Bearer bad-token" }, expect: 401 },
-  { id: "carbon_get_valid", method: "GET", path: "/api/internal/cron/carbon-budget-reallocation?force=1", headers: { Authorization: `Bearer ${secret}` }, expect: 200 },
-  { id: "carbon_get_invalid", method: "GET", path: "/api/internal/cron/carbon-budget-reallocation?force=1", headers: { Authorization: "Bearer bad-token" }, expect: 401 },
+  { id: "gridcore_get_valid", method: "GET", path: "/api/internal/cron/gridcore-rate-poll?force=1&utility=1", token: secret, headers: {}, expect: 200 },
+  { id: "gridcore_get_invalid", method: "GET", path: "/api/internal/cron/gridcore-rate-poll?force=1&utility=1", token: "bad-token", headers: {}, expect: 401 },
+  { id: "carbon_get_valid", method: "GET", path: "/api/internal/cron/carbon-budget-reallocation?force=1", token: secret, headers: {}, expect: 200 },
+  { id: "carbon_get_invalid", method: "GET", path: "/api/internal/cron/carbon-budget-reallocation?force=1", token: "bad-token", headers: {}, expect: 401 },
 ];
 
 for (const p of [
@@ -48,17 +59,24 @@ for (const p of [
   "/api/internal/cron/sustainability-achievement-report",
   "/api/internal/cron/agent17-sentinel",
 ]) {
-  tests.push({ id: `${p}_get_valid`, method: "GET", path: p, headers: { Authorization: `Bearer ${secret}` }, expect: 200 });
-  tests.push({ id: `${p}_get_invalid`, method: "GET", path: p, headers: { Authorization: "Bearer bad-token" }, expect: 401 });
+  tests.push({ id: `${p}_get_valid`, method: "GET", path: p, token: secret, headers: {}, expect: 200 });
+  tests.push({ id: `${p}_get_invalid`, method: "GET", path: p, token: "bad-token", headers: {}, expect: 401 });
 }
 
 const results = [];
 for (const t of tests) {
   const url = `${base}${t.path}`;
   try {
+    const method = t.method;
+    const token = t.token;
+    const existingHeaders = t.headers ?? {};
     const res = await fetch(url, {
-      method: t.method,
-      headers: t.headers,
+      method: method,
+      headers: {
+        ...existingHeaders,
+        "Authorization": `Bearer ${token}`,
+        "x-vercel-protection-bypass": process.env.VERCEL_BYPASS_TOKEN
+      },
       body: t.body,
     });
     const text = await res.text();
@@ -89,6 +107,7 @@ const has5xx = results.some((r) => typeof r.status === "number" && r.status >= 5
 
 console.log(JSON.stringify({
   base,
+  tokenSource,
   total: results.length,
   passed,
   failed,

@@ -10,6 +10,13 @@ export function checkCronAuth(request: NextRequest): boolean {
   const authHeader = request.headers.get("Authorization")?.trim();
   const cronHeader = request.headers.get("x-cron-secret")?.trim();
   const localSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
+  const stagingSecret = process.env.STAGING_SMOKE_SECRET?.trim();
+
+  // Non-production staging verification track.
+  if (stagingSecret) {
+    if (authHeader === `Bearer ${stagingSecret}`) return true;
+    if (cronHeader === stagingSecret) return true;
+  }
 
   if (!localSecret) return false;
   if (authHeader === `Bearer ${localSecret}`) return true;

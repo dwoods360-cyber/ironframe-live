@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
 import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine";
@@ -13,7 +13,7 @@ function resolveCronSecret(): string | undefined {
   );
 }
 
-function isCronAuthorized(req: NextRequest, secret: string | undefined): boolean {
+function isCronAuthorized(req: Request, secret: string | undefined): boolean {
   if (process.env.NODE_ENV !== "production") return true;
   if (!secret) return false;
   const auth = req.headers.get("authorization")?.trim();
@@ -27,7 +27,7 @@ function isCronAuthorized(req: NextRequest, secret: string | undefined): boolean
  * utility rate poll (`?utility=1`, 30-day cadence; `?force=1` bypasses interval).
  * Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `CRON_SECRET`; `x-cron-secret` also accepted.
  */
-export async function POST(req: NextRequest) {
+async function handleCronExecution(req: Request) {
   const secret = resolveCronSecret();
   if (process.env.NODE_ENV === "production" && !secret) {
     return NextResponse.json(
@@ -75,4 +75,12 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+export async function GET(request: Request) {
+  return handleCronExecution(request);
+}
+
+export async function POST(request: Request) {
+  return handleCronExecution(request);
 }

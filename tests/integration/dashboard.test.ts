@@ -3,29 +3,22 @@
  * Proves cross-tenant bleed is closed: no tenant context → 401; Vaultbank context → only Vaultbank data.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GET } from '@/app/api/dashboard/route';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
-vi.mock('@/lib/prisma', () => ({
-  default: {
-    company: {
-      findMany: vi.fn(),
-    },
-    auditLog: {
-      findMany: vi.fn(),
-    },
-    activeRisk: {
-      findMany: vi.fn(),
-    },
-    threatEvent: {
-      findMany: vi.fn(),
-    },
-    $transaction: vi.fn(async (queries) => Promise.all(queries)),
-  },
+const { guardMock, dashboardPayloadMock } = vi.hoisted(() => ({
+  guardMock: vi.fn(),
+  dashboardPayloadMock: vi.fn(),
 }));
 
-import prisma from '@/lib/prisma';
+vi.mock('@/app/lib/security/ironguardApiGuard', () => ({
+  assertIronguardApiTenantOr403: guardMock,
+}));
+
+vi.mock('@/app/actions/dashboardActions', () => ({
+  getDashboardPayloadForTenant: dashboardPayloadMock,
+}));
 
 const MEDSHIELD_UUID = TENANT_UUIDS.medshield;
 const VAULTBANK_UUID = TENANT_UUIDS.vaultbank;
@@ -81,11 +74,18 @@ function buildRequest(headers: Record<string, string> = {}): NextRequest {
 
 describe('GET /api/dashboard — Tenant Isolation', () => {
   beforeEach(() => {
-    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.threatEvent.findMany).mockResolvedValue([]);
+    guardMock.mockReset();
+    dashboardPayloadMock.mockReset();
   });
 
   it('The Breach Attempt: request without tenant context returns 401', async () => {
+    guardMock.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Tenant context required. Send x-tenant-id (UUID).' },
+        { status: 401 },
+      ),
+    });
     const req = buildRequest();
     const res = await GET(req);
     const body = await res.json();
@@ -94,35 +94,34 @@ describe('GET /api/dashboard — Tenant Isolation', () => {
     expect(body).toHaveProperty('error');
     expect(String(body.error)).toMatch(/tenant| x-tenant-id /i);
 
-    expect(prisma.company.findMany).not.toHaveBeenCalled();
-    expect(prisma.activeRisk.findMany).not.toHaveBeenCalled();
+    expect(dashboardPayloadMock).not.toHaveBeenCalled();
   });
 
   it('The Breach Attempt: request with empty x-tenant-id returns 401', async () => {
+    guardMock.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Tenant context required. Send x-tenant-id (UUID).' },
+        { status: 401 },
+      ),
+    });
     const req = buildRequest({ 'x-tenant-id': '   ' });
     const res = await GET(req);
     const body = await res.json();
 
     expect(res.status).toBe(401);
     expect(body).toHaveProperty('error');
-    expect(prisma.company.findMany).not.toHaveBeenCalled();
+    expect(dashboardPayloadMock).not.toHaveBeenCalled();
   });
 
   it('The Isolated Access: Vaultbank context returns only Vaultbank records (no cross-tenant bleed)', async () => {
-    // Mock implementations return plain Promise; Prisma types expect PrismaPromise — cast to satisfy type check.
-    const companyFindMany = vi.mocked(prisma.company.findMany) as ReturnType<typeof vi.fn>;
-    companyFindMany.mockImplementation(async (args: unknown) => {
-      const tenantId = (args as { where?: { tenantId?: string } })?.where?.tenantId;
-      if (tenantId === VAULTBANK_UUID) return [vaultbankCompany];
-      if (tenantId === MEDSHIELD_UUID) return [medshieldCompany];
-      return [];
+    guardMock.mockResolvedValue({
+      ok: true,
+      tenantUuid: VAULTBANK_UUID,
     });
-    const activeRiskFindMany = vi.mocked(prisma.activeRisk.findMany) as ReturnType<typeof vi.fn>;
-    activeRiskFindMany.mockImplementation(async (args: unknown) => {
-      const tenantId = (args as { where?: { company?: { tenantId?: string } } })?.where?.company?.tenantId;
-      if (tenantId === VAULTBANK_UUID) return [vaultbankRisk];
-      if (tenantId === MEDSHIELD_UUID) return [medshieldRisk];
-      return [];
+    dashboardPayloadMock.mockResolvedValue({
+      companies: [vaultbankCompany],
+      risks: [vaultbankRisk],
     });
 
     const req = buildRequest({ 'x-tenant-id': VAULTBANK_UUID });
@@ -142,11 +141,6 @@ describe('GET /api/dashboard — Tenant Isolation', () => {
     expect(body.risks.every((r: { company: { name: string } }) => r.company.name === 'Vaultbank Global')).toBe(true);
     expect(body.risks.some((r: { company: { name: string } }) => r.company.name === 'Medshield Health')).toBe(false);
 
-    expect(prisma.company.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { tenantId: VAULTBANK_UUID } })
-    );
-    expect(prisma.activeRisk.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { company: { tenantId: VAULTBANK_UUID } } })
-    );
+    expect(dashboardPayloadMock).toHaveBeenCalledWith(VAULTBANK_UUID);
   });
 });

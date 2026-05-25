@@ -138,6 +138,18 @@ Object.assign(prismaMock, {
     }),
     findFirst: vi.fn(async (args: any) => {
       const threat = state.threat;
+      if (
+        threat &&
+        args?.where?.id &&
+        args?.where?.tenantCompanyId != null &&
+        threat.id === args.where.id &&
+        threat.tenantCompanyId === args.where.tenantCompanyId
+      ) {
+        return { id: threat.id };
+      }
+      if (threat && args?.where?.id && threat.id === args.where.id) {
+        return { id: threat.id };
+      }
       if (threat && args?.where?.targetEntity && threat.targetEntity === args.where.targetEntity) {
         return { id: threat.id };
       }
@@ -315,6 +327,7 @@ Object.assign(prismaMock, {
     if (typeof callback === "function") return callback(prismaMock as any);
     return Promise.all(callback);
   }),
+  $executeRaw: vi.fn(async () => 1),
 });
 
 vi.mock("@/lib/prisma", () => ({

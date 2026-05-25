@@ -157,7 +157,8 @@ describe('POST /api/threats/ingest — GRC gate', () => {
       'threat-10m',
       '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01',
       'test-user',
-      expect.stringContaining('sufficiently long')
+      expect.stringContaining('sufficiently long'),
+      { shadowPlaneIngestBot: false },
     );
   });
 });

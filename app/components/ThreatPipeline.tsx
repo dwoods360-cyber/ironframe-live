@@ -132,6 +132,60 @@ function isTopSectorPipelineThreat(threat: PipelineThreat): boolean {
 
 /** Manual Risk Entry source field — matches Strategic Intel sidebar profiles. */
 const STRATEGIC_INTEL_PROFILE_SOURCE = "Strategic Intel Profile";
+const MARKET_VOLATILITY_RISK_ID = "0x8F22";
+
+function buildMarketVolatilityRiskEvent(params: {
+  selectedIndustry: string;
+  selectedTenantName: string | null;
+}): PipelineThreat {
+  const tenantName = params.selectedTenantName?.trim() || "Medshield Health";
+  const industry = params.selectedIndustry?.trim() || "Finance";
+  const discoveredAt = "2026-05-24T20:34:39Z";
+  const meta = {
+    deltaVN: 0.22,
+    canonicalRiskEvent: {
+      id: MARKET_VOLATILITY_RISK_ID,
+      type: "OPERATIONAL_THREAT",
+      title: "Insurance Market Hardening — Volatility Spike Detected",
+      status: "ACTIVE",
+      severity: "CRITICAL",
+      blastRadius: "MEDIUM",
+      discoveredAt,
+      assignedAgents: ["Ironsight", "Ironlock"],
+      remediationPath: "/api/grc/irontally",
+    },
+  };
+
+  return {
+    id: MARKET_VOLATILITY_RISK_ID,
+    name: "Insurance Market Hardening — Volatility Spike Detected",
+    loss: 11.1,
+    score: 11.1,
+    industry,
+    target: tenantName,
+    source: "SYSTEM_VOLATILITY_TRIGGER",
+    sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
+    type: "OPERATIONAL_THREAT",
+    category: "FINANCIAL_RISK",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    threatStatus: "ACTIVE",
+    lifecycleState: "pipeline",
+    assignedAgents: ["Ironsight", "Ironlock"],
+    assignedTo: "Ironlock",
+    blastRadius: { level: "MEDIUM", impactedAssets: ["Insurance renewal controls", "GRC evidence ledger"] },
+    ttlHours: 4.0,
+    ttlSeconds: 4 * 60 * 60,
+    likelihood: 9,
+    impact: 10,
+    calculatedRiskScore: 90,
+    createdAt: discoveredAt,
+    description:
+      "Industry Spike Detected: Insurance Market Hardening. Auto-validating high-value controls.",
+    ingestionDetails: JSON.stringify(meta),
+    meta,
+  };
+}
 
 function isManualTopSectorIntelSource(source: string): boolean {
   const s = source.trim();
@@ -263,6 +317,7 @@ function PipelineThreatCard({
       (threat.name ?? "").startsWith(LEGACY_KIMBOT_THREAT_TITLE_PREFIX));
   const existingNotes = threat.notes ?? [];
   const scopeTag = `industry:${threat.industry ?? activeIndustry}|tenant:${activeTenant ?? "GLOBAL"}|threatId:${threat.id}`;
+  const isMarketVolatilityThreat = threat.id === MARKET_VOLATILITY_RISK_ID;
 
   const INHERENT_LIKELIHOOD = 8;
   const INHERENT_IMPACT = 9;
@@ -496,6 +551,63 @@ function PipelineThreatCard({
       /** Dual sync: active threats + deficiency queue / OpSupport poll consumers via `ironframe-operational-refresh`. */
       await useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
       onActionSuccess?.();
+    } finally {
+      setResolvePending(false);
+    }
+  };
+
+  const handleMarketVolatilityRemediationClick = async () => {
+    if (!tenantUuidForActions || resolvePending) {
+      if (!tenantUuidForActions) {
+        setThreatActionError({ active: true, message: "Select a tenant scope before resolving market volatility." });
+      }
+      return;
+    }
+
+    setResolvePending(true);
+    setThreatActionError({ active: false, message: "" });
+    try {
+      const response = await fetch("/api/grc/irontally", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "HITL_VOLATILITY_SIGN_OFF",
+          tenantId: tenantUuidForActions,
+          meta: {
+            alertId: MARKET_VOLATILITY_RISK_ID,
+            status: "RESOLVED",
+            remediationPath: "/api/grc/irontally",
+            verifiedActions: {
+              vaultPkiSignatureCheck: true,
+              ironbloomLedgerSync: true,
+              humanInTheLoopAttestation: true,
+            },
+            source: "UNIFIED_CENTER_PANE_THREAT_CARD",
+          },
+        }),
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string; message?: string } | null;
+        throw new Error(payload?.error ?? payload?.message ?? `Irontally remediation failed (${response.status})`);
+      }
+
+      updatePipelineThreat(threat.id, {
+        status: "RESOLVED",
+        threatStatus: "RESOLVED",
+        lifecycleState: "resolved",
+        lastTriageAction: "ACKNOWLEDGE",
+      } as Parameters<typeof updatePipelineThreat>[1] & { status?: string });
+      appendAuditLog({
+        action_type: "GRC_PROCESS_THREAT",
+        log_type: "GRC",
+        description: "Market volatility operational threat remediated via unified center-pane card.",
+        metadata_tag: `${scopeTag}|status:RESOLVED|deltaVN:0.22`,
+        user_id: userId.trim() || currentUser || "HITL_VOLATILITY_OPERATOR",
+      });
+      onActionSuccess?.();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Market volatility remediation failed.";
+      setThreatActionError({ active: true, message });
     } finally {
       setResolvePending(false);
     }
@@ -913,7 +1025,20 @@ function PipelineThreatCard({
 
         {/* Primary ACK — Kimbot + CISO jumper: prime approval id; ADMIN acknowledges then resolves. */}
         <div className="flex flex-wrap items-center gap-2">
-          {showKimbotCisoGenerate ? (
+          {isMarketVolatilityThreat ? (
+            <button
+              type="button"
+              disabled={resolvePending}
+              onClick={() => void handleMarketVolatilityRemediationClick()}
+              className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
+                !resolvePending
+                  ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 cursor-pointer"
+                  : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
+              }`}
+            >
+              {resolvePending ? "Resolving…" : "Commit Remediation"}
+            </button>
+          ) : showKimbotCisoGenerate ? (
             <button
               type="button"
               disabled={genApprovalPending || Boolean(resolutionReady)}
@@ -1057,6 +1182,26 @@ export default function ThreatPipeline({
     isShadowPlaneLiveRange ||
     pipelineThreats.length > 0 ||
     activeThreats.length > 0;
+  const marketVolatilityRisk = useMemo(
+    () => buildMarketVolatilityRiskEvent({ selectedIndustry, selectedTenantName }),
+    [selectedIndustry, selectedTenantName],
+  );
+  useEffect(() => {
+    const existingPipeline = boardsRef.current.pipeline.find((t) => t.id === MARKET_VOLATILITY_RISK_ID);
+    const existingActive = boardsRef.current.active.find((t) => t.id === MARKET_VOLATILITY_RISK_ID);
+    if (existingActive) return;
+    if (
+      existingPipeline &&
+      existingPipeline.target === marketVolatilityRisk.target &&
+      existingPipeline.industry === marketVolatilityRisk.industry
+    ) {
+      return;
+    }
+    upsertPipelineThreat({
+      ...marketVolatilityRisk,
+      createdAt: existingPipeline?.createdAt ?? marketVolatilityRisk.createdAt,
+    });
+  }, [marketVolatilityRisk, upsertPipelineThreat]);
   const enginesOn = kimbotEnabled || grcBotEnabled;
   const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
   const [manualTitle, setManualTitle] = useState("");
@@ -1178,6 +1323,10 @@ export default function ThreatPipeline({
 
   /** Newest-first for Attack Velocity stack (DB `createdAt` when present). */
   const visiblePipelineThreats = [...visiblePipelineThreatsBase].sort((a, b) => {
+    const aMarketVolatility = a.id === MARKET_VOLATILITY_RISK_ID && (a.threatStatus ?? a.status) !== "RESOLVED";
+    const bMarketVolatility = b.id === MARKET_VOLATILITY_RISK_ID && (b.threatStatus ?? b.status) !== "RESOLVED";
+    if (aMarketVolatility && !bMarketVolatility) return -1;
+    if (!aMarketVolatility && bMarketVolatility) return 1;
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     if (tb !== ta) return tb - ta;

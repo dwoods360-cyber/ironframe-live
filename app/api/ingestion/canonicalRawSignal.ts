@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { IronGate } from '@/src/services/agents/irongate';
 import { IronCore } from '@/src/services/agents/ironcore';
+import { sanitizeIngressPayload } from '@/app/actions/ironethicActions';
 
 const TRACE_PAYLOAD_KEY = '__ironframe_trace_id';
 
 /**
  * Single implementation: Irongate (14) → Ironcore (1). Non-CLEAN ingress returns 403 Forbidden.
  */
-export async function handleCanonicalRawSignalPost(request: Request): Promise<Response> {
+export async function handleCanonicalRawSignalPayload(rawBody: unknown): Promise<Response> {
   try {
-    const rawBody = await request.json();
+    // Epic 14: sanitize sensitive identity fields before any Irongate schema validation.
+    const sanitizedBody = sanitizeIngressPayload(rawBody);
 
-    const ingressResult = await IronGate.processIngress(rawBody);
+    const ingressResult = await IronGate.processIngress(sanitizedBody);
 
     if (ingressResult.status !== 'CLEAN') {
       return NextResponse.json(
@@ -24,7 +26,7 @@ export async function handleCanonicalRawSignalPost(request: Request): Promise<Re
       );
     }
 
-    const ingested = await IronGate.ingest(rawBody);
+    const ingested = await IronGate.ingest(sanitizedBody);
     const routed = await IronCore.routeToAgents({
       tenantId: ingested.tenant_id,
       sanitizedPayload: ingested.data as Record<string, unknown>,
@@ -56,9 +58,24 @@ export async function handleCanonicalRawSignalPost(request: Request): Promise<Re
       { status: 200 },
     );
   } catch (err) {
+    if (err instanceof Error && err.message.includes('INGEST_SALT_PEPPER')) {
+      return NextResponse.json({ error: err.message }, { status: 500 });
+    }
     if (err instanceof Error && err.message.includes('IRONGATE_BLOCK')) {
       return NextResponse.json({ error: err.message }, { status: 403 });
     }
+    return NextResponse.json(
+      { error: 'Internal Ingress Error: Malformed Payload' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function handleCanonicalRawSignalPost(request: Request): Promise<Response> {
+  try {
+    const rawBody = await request.json();
+    return handleCanonicalRawSignalPayload(rawBody);
+  } catch {
     return NextResponse.json(
       { error: 'Internal Ingress Error: Malformed Payload' },
       { status: 500 },

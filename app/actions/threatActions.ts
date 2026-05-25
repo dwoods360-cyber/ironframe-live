@@ -618,8 +618,10 @@ function warnMissingDelegate(delegateName: string) {
 }
 
 type TransactionClient = {
+  $executeRaw: (query: TemplateStringsArray, ...values: unknown[]) => Promise<unknown>;
   threatEvent: {
     findUnique: (args: unknown) => Promise<any>;
+    findFirst: (args: unknown) => Promise<any>;
     update: (args: unknown) => Promise<any>;
   };
   company: {
@@ -685,16 +687,33 @@ const ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID = "User_00";
 /** Validate production ThreatEvent exists, then run update + audit create in one transaction. (Always uses threatEvent — never SimThreatEvent.) */
 async function runThreatTransaction<T>(
   id: string,
+  tenantCompanyId: bigint | null,
   run: (tx: TransactionClient) => Promise<T>,
   options?: { missingRecordError?: string },
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   return prisma.$transaction(async (tx) => {
     const client = tx as unknown as TransactionClient;
-    const exists = await client.threatEvent.findUnique({
-      where: { id },
-      select: { id: true },
-    });
+    // Bridge Next.js transaction context to Postgres RLS.
+    // Must be the first operation in the transaction block.
+    if (tenantCompanyId != null) {
+      try {
+        await client.$executeRaw`SELECT ironguard_set_session_tenant(${tenantCompanyId}::uuid);`;
+      } catch {
+        // Backward-compatible fallback until helper function is deployed in every environment.
+        await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
+      }
+    }
+    const exists =
+      tenantCompanyId != null
+        ? await client.threatEvent.findFirst({
+            where: { id, tenantCompanyId },
+            select: { id: true },
+          })
+        : await client.threatEvent.findFirst({
+            where: { id },
+            select: { id: true },
+          });
     if (exists == null) {
       console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id} (${missingErr})`);
       return { success: false, error: missingErr } as unknown as T;
@@ -939,6 +958,7 @@ export async function acknowledgeThreatAction(
     } else {
       const result = await runThreatTransaction(
         id,
+        sessionCompanyId,
         async (tx) => {
           const detailsRow = await tx.threatEvent.findUnique({
             where: { id },
@@ -1125,6 +1145,7 @@ export async function confirmThreatAction(
 
     const result = await runThreatTransaction(
       id,
+      sessionCompanyId,
       async (tx) => {
         await transitionThreatStatus({
           threatId: id,
@@ -1468,7 +1489,7 @@ export async function resolveThreatAction(
     throw new Error(GRC_PROTOCOL_VIOLATION);
   }
 
-  const updated = await runThreatTransaction(id, async (tx) => {
+  const updated = await runThreatTransaction(id, threatForGate.tenantCompanyId, async (tx) => {
     const prismaTx = tx as unknown as Prisma.TransactionClient;
     const updatedRow = await transitionThreatStatus<{ financialRisk_cents?: bigint }>({
       threatId: id,
@@ -1646,8 +1667,15 @@ export async function deAcknowledgeThreatAction(
     };
   }
   const savedDeAckWorkNoteText = parsedDeAckNote.data.text;
+  const tenantCompanyIdForDeAck =
+    (
+      await prisma.company.findFirst({
+        where: { tenantId: tenantId.trim() },
+        select: { id: true },
+      })
+    )?.id ?? null;
 
-  const result = await runThreatTransaction(id, async (tx) => {
+  const result = await runThreatTransaction(id, tenantCompanyIdForDeAck, async (tx) => {
     await tx.workNote.create({
       data: {
         text: savedDeAckWorkNoteText,
@@ -1710,7 +1738,15 @@ export async function revertThreatToPipelineAction(
     return;
   }
 
-  const result = await runThreatTransaction(id, async (tx) => {
+  const tenantCompanyIdForRevert =
+    (
+      await prisma.company.findFirst({
+        where: { tenantId: tenantId.trim() },
+        select: { id: true },
+      })
+    )?.id ?? null;
+
+  const result = await runThreatTransaction(id, tenantCompanyIdForRevert, async (tx) => {
     await transitionThreatStatus({
       threatId: id,
       newStatus: ThreatState.IDENTIFIED,
@@ -2288,7 +2324,7 @@ export async function saveAIReportToThreat(threatId: string, aiReport: string): 
     return { success: false, error: 'Database update failed' };
   }
   try {
-    await runThreatTransaction(threatId, async (tx) => {
+    await runThreatTransaction(threatId, null, async (tx) => {
       await updateThreatWithIntegrity({
         threatId,
         changes: { aiReport },

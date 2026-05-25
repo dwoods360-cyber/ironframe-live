@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/carbonBudgetReallocationAlert";
+import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
 
 /**
  * Ironbloom — monthly cron (UTC day 1, ~09:00 via host scheduler):
@@ -9,16 +10,8 @@ import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/
  * Schedule: `0 9 1 * *` (monthly, day 1, 09:00 UTC).
  * Secure with `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `x-cron-secret`.
  */
-async function handleCron(req: Request) {
-  const secret = process.env.IRONFRAME_CRON_SECRET?.trim();
-  if (!secret) {
-    return NextResponse.json({ ok: false, error: "IRONFRAME_CRON_SECRET is not configured." }, { status: 503 });
-  }
-
-  const auth = req.headers.get("authorization")?.trim();
-  const headerSecret = req.headers.get("x-cron-secret")?.trim();
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
-  if (bearer !== secret && headerSecret !== secret) {
+async function handleCron(req: NextRequest) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
@@ -35,10 +28,10 @@ async function handleCron(req: Request) {
 }
 
 /** Vercel Cron invokes GET; manual ops may POST with the same secret. */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   return handleCron(req);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   return handleCron(req);
 }

@@ -19,3 +19,4 @@ tmp-phase*.js
 # Ironframe Local Runtime Noise
 storage/constitutional/**/*.json
 tsconfig.tsbuildinfo
+.env*

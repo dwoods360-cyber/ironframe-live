@@ -128,7 +128,7 @@ export type PipelineThreat = {
   /** Optional blast-radius / asset inventory (ingestion or client enrichment). */
   impactedAssets?: string[];
   affectedSystems?: string[];
-  blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[] };
+  blastRadius?: { impactedAssets?: string[]; assets?: string[]; services?: string[]; level?: string };
   ingestionDetails?: string;
   /** Irontech Chaos (active board / DB hydration) — optional JSON-derived fields. */
   chaosLevel?: number | null;
@@ -147,6 +147,15 @@ export type PipelineThreat = {
     impactedAssets?: string[];
     complianceTags?: string[];
   };
+  /** Canonical synthetic / system risk metadata used by unified card renderers. */
+  type?: string;
+  category?: string;
+  severity?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  status?: string;
+  sourceAgent?: string;
+  assignedAgents?: string[];
+  ttlHours?: number;
+  meta?: Record<string, unknown>;
   /** Server-backed agent reasoning rows (read-only in UI). */
   agentReasonings?: Array<{
     id: string;

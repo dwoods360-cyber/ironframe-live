@@ -4,14 +4,31 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: (name: string) => {
+      if (name === "ironframe-tenant") {
+        return { value: "tenant-medshield-uuid" };
+      }
+      return undefined;
+    },
+  })),
+}));
+
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     threatEvent: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     company: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(async () => ({ id: 100n })),
+    },
+    tenant: {
+      findUnique: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
+      findFirst: vi.fn(async () => ({ id: "tenant-medshield-uuid" })),
     },
     threatApproval: {
       findUnique: vi.fn(),
@@ -22,6 +39,7 @@ const { prismaMock } = vi.hoisted(() => ({
     auditLog: {
       create: vi.fn(),
     },
+    $executeRaw: vi.fn(async () => 1),
   },
 }));
 
@@ -35,6 +53,7 @@ describe("Epic 11 bank vault rejection gate", () => {
   beforeEach(() => {
     prismaMock.threatEvent.findUnique.mockReset();
     prismaMock.company.findUnique.mockReset();
+    prismaMock.tenant.findUnique.mockReset();
     prismaMock.threatApproval.findUnique.mockReset();
     prismaMock.evidenceAttachment.findFirst.mockReset();
   });
@@ -47,6 +66,9 @@ describe("Epic 11 bank vault rejection gate", () => {
     });
     prismaMock.company.findUnique.mockResolvedValue({
       tenantId: "tenant-medshield-uuid",
+    });
+    prismaMock.tenant.findUnique.mockResolvedValue({
+      id: "tenant-medshield-uuid",
     });
     prismaMock.threatApproval.findUnique.mockResolvedValue(null);
 

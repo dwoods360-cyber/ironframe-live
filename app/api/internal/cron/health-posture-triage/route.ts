@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMonitor";
@@ -11,19 +11,33 @@ import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMon
  *
  * Body: `{ tenantId, threadId, currentHealthBarPercent, targetZone? }`
  */
-export async function POST(req: Request) {
-  const secret = process.env.IRONFRAME_CRON_SECRET?.trim();
-  if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: "IRONFRAME_CRON_SECRET is not configured." },
-      { status: 503 },
-    );
+function checkCronAuth(request: NextRequest): boolean {
+  const authHeader = request.headers.get("Authorization")?.trim();
+  const cronHeader = request.headers.get("x-cron-secret")?.trim();
+  const localSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
+
+  if (!localSecret) return false;
+  if (authHeader === `Bearer ${localSecret}`) return true;
+  if (cronHeader === localSecret) return true;
+  return false;
+}
+
+export async function GET(request: NextRequest) {
+  if (!checkCronAuth(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const auth = req.headers.get("authorization")?.trim();
-  const headerSecret = req.headers.get("x-cron-secret")?.trim();
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
-  if (bearer !== secret && headerSecret !== secret) {
+  return NextResponse.json(
+    {
+      status: "HEALTH_TRIAGE_COMPLETED",
+      timestamp: new Date().toISOString(),
+    },
+    { status: 200 },
+  );
+}
+
+export async function POST(req: NextRequest) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 

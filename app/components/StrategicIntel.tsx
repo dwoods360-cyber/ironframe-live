@@ -33,7 +33,6 @@ import { getTenantGovernanceMultiplierBps } from "@/app/actions/complianceAction
 import { triggerMarketVolatilityAutoHardening } from "@/app/actions/agentActions";
 import RiskExposureTrend from "@/components/RiskExposureTrend";
 import PublicSectorProgress from "@/components/PublicSectorProgress";
-import MarketVolatilityAlert from "@/components/MarketVolatilityAlert";
 import { ExposureDefinitionHint } from "@/components/ExposureDefinitions";
 import SentinelSweepModal from "@/components/SentinelSweepModal";
 import {
@@ -88,6 +87,7 @@ export default function StrategicIntel() {
   const removeThreatFromPipeline = useRiskStore((state) => state.removeThreatFromPipeline);
   const upsertPipelineThreat = useRiskStore((state) => state.upsertPipelineThreat);
   const selectedIndustry = useRiskStore((state) => state.selectedIndustry);
+  const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
   const setSelectedTenantName = useRiskStore((state) => state.setSelectedTenantName);
   const completedDeepDives = useRiskStore((state) => state.completedDeepDives);
@@ -796,11 +796,10 @@ export default function StrategicIntel() {
         )}
       </section>
 
-      {/* 2. RISK EXPOSURE — benchmark trend (local ALE vs industry mean) + volatility alert */}
+      {/* 2. RISK EXPOSURE — benchmark trend (local ALE vs industry mean). Volatility now renders as a standard center-pane threat card. */}
       <section className="p-4 space-y-3 border-b border-zinc-900 bg-[#050509] relative">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <div className="mb-1 flex w-full flex-wrap items-center justify-between gap-2 px-1 py-1">
           <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
-          <span className="text-[10px] font-bold text-zinc-600 font-mono tracking-widest">ID: 0x8F22</span>
         </div>
 
         <div className="space-y-1">
@@ -808,7 +807,6 @@ export default function StrategicIntel() {
             <p className="py-8 text-center text-[10px] text-zinc-500 animate-pulse">Loading benchmark trend…</p>
           ) : (
             <>
-              <MarketVolatilityAlert isMarketVolatile={trendPayload?.isMarketVolatile ?? false} />
               <PublicSectorProgress activeIndustry={selectedIndustry} />
               <div className="mb-2 rounded border border-amber-500/20 bg-zinc-950/90 px-2.5 py-2 ring-1 ring-violet-500/10">
                 <p className="mb-1.5 text-[8px] font-black uppercase tracking-widest text-amber-500/70">

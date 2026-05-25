@@ -7,6 +7,10 @@ import { NextRequest } from 'next/server';
 import { POST } from '@/app/api/threats/route';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock('@/lib/prisma', () => ({
   default: {
     threatEvent: {
@@ -14,6 +18,9 @@ vi.mock('@/lib/prisma', () => ({
     },
     company: {
       findFirst: vi.fn().mockResolvedValue(null),
+    },
+    simulationConfig: {
+      findUnique: vi.fn().mockResolvedValue(null),
     },
   },
 }));
@@ -40,6 +47,8 @@ function buildRequest(
 describe('POST /api/threats — Threat Ingress API', () => {
   beforeEach(() => {
     vi.mocked(prisma.threatEvent.create).mockReset();
+    vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.simulationConfig.findUnique).mockResolvedValue(null);
   });
 
   it('The Breach Attempt: POST without valid x-tenant-id header returns 401 Unauthorized', async () => {

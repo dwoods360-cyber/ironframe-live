@@ -1,75 +1,87 @@
-# Ironframe General Availability (GA) Open Roadmap
+# 🗺️ General Availability (GA) Open Roadmap
 
-**Status:** Active — May 2026  
-**Authoritative epic percentages:** [`EPIC_STATUS.md`](../EPIC_STATUS.md) · [`BUILD_GAP_REPORT.md`](../BUILD_GAP_REPORT.md)  
-**Do not treat commit messages claiming “100% production completion” as audit truth.**
+## 🚨 P0: Security, Core Operations, & Boundary Hardening (Release-Blocking)
+
+### 🔑 Epic 11 — Production PKI + Vault CI Gates
+* **Owner:** Principal Security & AppSec Engineer
+* **ETA:** 2026-05-27
+* **Actions:**
+  - Provision `PUBLIC_KEY_*` / PEM in staging and production environment settings.
+  - Mandate vault integration runs inside the GitHub Actions pipeline on every PR.
+* **Acceptance Criteria:** - [ ] Environment keys present in Vercel secrets.
+  - [ ] Vault tests (`bank-vault-success.test.ts`, `bank-vault-rejection.test.ts`) are green and designated as "Required" to merge.
+
+### ⚙️ Epic 13 — Operational Cron Activation
+* **Owner:** DevOps & Infrastructure Architect
+* **ETA:** 2026-05-28
+* **Actions:**
+  - Add missing `GET` handlers to scheduled cron endpoints to avoid Vercel 405 routing dropouts.
+  - Formally register and schedule target operations inside `vercel.json`.
+* **Acceptance Criteria:**
+  - [ ] Background crons complete execution without 401/405 authentication or routing failures.
+  - [ ] `epic13-telemetry-triage` tracking behavior is durably verified inside the production logs.
+
+### 🍃 Epic 9/5 — Production Sustainability Inputs
+* **Owner:** Data Integration Engineer (Ironbloom Core)
+* **ETA:** 2026-05-29
+* **Actions:**
+  - Inject the live production `ELECTRICITY_MAPS_API_KEY` into staging and prod containers.
+  - Verify carbon intensity computation pathways bypass mock fallbacks.
+* **Acceptance Criteria:**
+  - [ ] Live carbon payload data streams directly into pure, unmutated BigInt physical unit output metrics.
 
 ---
 
-## Tier A: Production Operationalization (highest priority)
+## ⚡ P1: Orchestration, Immutability, & Checkpoint Reliability (Next Sprint)
 
-| Task | Status | Implementation notes |
-|------|--------|----------------------|
-| **Vault Supervisor PKI** | Open | Set `PUBLIC_KEY_ID` + `PUBLIC_KEY_<NORMALIZED_ID>` (PEM SPKI) or `VAULT_SUPERVISOR_PUBLIC_KEY` / `PUBLIC_KEY` fallback. See `lib/security/vaultCrypto.ts`, `src/services/bankVault/vaultResolution.ts`, `tests/integration/pki-verification.test.ts`. UI: `/admin/clearance/vault`. |
-| **Hosted scheduler hooks** | Partial | `vercel.json` registers `carbon-budget-reallocation` only. Add: `POST /api/internal/cron/health-posture-triage`, `POST /api/internal/cron/gridcore-rate-poll` (Bearer `IRONFRAME_CRON_SECRET` / `CRON_SECRET`). Alternative: Supabase `pg_cron` calling same routes. |
-| **Production credentials** | Open | Inject per environment (never commit): `ELECTRICITY_MAPS_API_KEY`, `GOOGLE_API_KEY` (Ironquery / sovereign bus), `RESEND_API_KEY` + `THREAT_CONFIRMATION_RECIPIENTS`. Template: [`.env.example`](../.env.example). |
+### 🤖 Epic 10 — 19-Agent Orchestration Completion
+* **Owner:** AI Systems Lead / Core Orchestrator Architect
+* **ETA:** 2026-06-03
+* **Actions:**
+  - Expand active specialized slots toward the complete 19-agent roster.
+  - Refactor secondary threat ingress paths to interact directly with the main message bus.
+* **Acceptance Criteria:**
+  - [ ] Running `npx vitest run tests/unit/sovereignOrchestrationBus.test.ts` yields a 100% passing matrix.
 
-### Tier A verification
+### 🔒 Epic 12 — Evidence Immutability Hardening (WORM)
+* **Owner:** Database Architect / Compliance Specialist
+* **ETA:** 2026-06-05
+* **Actions:**
+  - Configure strict object-lock / Write-Once-Read-Many (WORM) storage bucket policies.
+  - Implement a hard code block to drop manual shredding actions once a signed attestation is applied.
+* **Acceptance Criteria:**
+  - [ ] Integration test suite proves absolute data persistence and drops database deletions under active attestation.
 
+### 💾 Epic 15 — Checkpoint Reliability Hardening
+* **Owner:** Principal Software Engineer
+* **ETA:** 2026-06-08
+* **Actions:**
+  - Finalize and publish complete lifecycle checkpoint pool runtime playbooks.
+  - Enforce explicit CI database environment URL connection locks.
+* **Acceptance Criteria:**
+  - [ ] Forensic rollback tests (`tests/integration/epic15-forensic-rollback.test.ts`) run and pass automatically on every PR check.
+
+---
+
+## 📋 P2: Enterprise Features & Reporting Analytics (Product Polish)
+
+### 📊 Epic 16 — Ironquery Analyst Pack Exports
+* **Owner:** UX/UI Developer / Analyst Interface Owner
+* **ETA:** 2026-06-12
+* **Acceptance Criteria:**
+  - [ ] Branded PDF/CSV compliance document export paths render clean, asset-mapped tables tracking unmutated BigInt values.
+
+### ⚖️ Epic 14 — DEI / Ironethic Salted Pipeline
+* **Owner:** GRC/Compliance Lead
+* **ETA:** 2026-06-16
+* **Acceptance Criteria:**
+  - [ ] Cryptographic SHA-256 salting gates scrub all incoming PII before rows reach persistent storage layers.
+
+---
+
+## 🏁 Gatekeeper Verification Suite (Required Before Merging)
 ```bash
 npx tsc --noEmit
-npx vitest run tests/integration/pki-verification.test.ts tests/integration/epic13-telemetry-triage.test.ts
-# After crons registered: hit gridcore-rate-poll and health-posture-triage with CRON_SECRET
+npx vitest run tests/integration
+npx playwright test tests/e2e/dashboard.spec.ts
 ```
-
----
-
-## Tier B: Auditor-ready UI assets (market parity)
-
-| Task | Status | Implementation notes |
-|------|--------|----------------------|
-| **Evidence table view** | Done (UI) | `IrontallyGovernancePanel` → `GET /api/grc/irontally?readiness=1`. Compiler: `src/services/compliance/irontallyEngine.ts`. Smoke: ingest → bus → refresh ledger. |
-| **Epic 16 export packs** | Open | RAG live (`src/services/agents/ironquery.ts`); need branded PDF + CSV download UI (parity with `downloadComplianceReadinessPdfAction`). |
-| **Epic 12 WORM hardening** | Open | `EvidenceVaultClient.tsx`; DB-level immutability + block shredder on signed rows. |
-
----
-
-## Tier C: Architectural scale and hardening
-
-| Task | Status | Implementation notes |
-|------|--------|----------------------|
-| **Epic 10 expansion** | Open | Live bus ~6–8 nodes (`compileSovereignOrchestrationBus` in `src/services/orchestration/graph.ts`); ingest bridge `ingestBusBridge.ts`. Document or implement remaining specialist sidecars. |
-| **Epic 14 DEI salt matrix** | Open | No-PII pre-persist salting before diversity metrics touch disk (`simulationSignature.ts`, TAS policy). |
-| **Stryker mutation gates** | Open | Target ≥85% mutation on BigInt accounting (`src/services/irontrust/mathEngine.ts`, `core/irontrust/`). |
-
----
-
-## Suggested execution order
-
-1. Tier A credentials + PKI on staging.  
-2. Tier A crons in `vercel.json` (or pg_cron).  
-3. Tier B evidence table + readiness smoke (ingest → bus → `?readiness=1`).  
-4. Merge `feat/epic-11-clean-rebuild` with gap-report test matrix.  
-5. Tier B Epic 16 exports, then Tier C.
-
----
-
-## Checkbox tracker (copy for PRs)
-
-### Tier A
-
-- [ ] Vault Supervisor PKI: staging/production `PUBLIC_KEY_*` (no dev fallback strings)
-- [x] Hosted crons registered in `vercel.json` (verify secrets + route auth in staging)
-- [ ] Production: `ELECTRICITY_MAPS_API_KEY`, `GOOGLE_API_KEY`, `RESEND_API_KEY`
-
-### Tier B
-
-- [x] Evidence table in `IrontallyGovernancePanel` (`?readiness=1`)
-- [ ] Epic 16 Ironquery PDF + CSV export packs
-- [ ] Epic 12 WORM / object-lock on forensic attestations
-
-### Tier C
-
-- [ ] Epic 10: 19-agent roster doc or bus expansion
-- [ ] Epic 14: DEI salted ingest (no raw PII on disk)
-- [ ] Stryker ≥85% on BigInt accounting modules

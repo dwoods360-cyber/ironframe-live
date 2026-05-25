@@ -26,6 +26,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const CROWN_JEWEL_SLUGS = new Set(["medshield", "vaultbank"]);
 
 const PRIORITY_MAPPED_CONTROLS_SOC2 = ["SOC2 CC6.1", "SOC2 CC6.7"] as const;
+const MARKET_VOLATILITY_RISK_ID = "0x8F22";
+const MARKET_VOLATILITY_RISK_CENTS = 1_110_000_000n;
+const MARKET_VOLATILITY_TTL_SECONDS = 4 * 60 * 60;
+const MARKET_VOLATILITY_ASSIGNED_AGENTS = ["Ironsight", "Ironlock"] as const;
 
 type MarketVolatilityHardeningResult =
   | { ok: true; created: number; threatIds: string[]; skipped: boolean; reason?: string }
@@ -75,7 +79,6 @@ export async function triggerMarketVolatilityAutoHardening(
 
   const monitoringExpiry = new Date(Date.now() + 4 * 60 * 60 * 1000);
   const startedAt = new Date().toISOString();
-  const financialSeed = tenant.ale_baseline > 0n ? tenant.ale_baseline : 50_000_000n;
   const deltaStr =
     marketVolatilityDeltaV != null && Number.isFinite(marketVolatilityDeltaV)
       ? `${(marketVolatilityDeltaV * 100).toFixed(2)}%`
@@ -83,123 +86,153 @@ export async function triggerMarketVolatilityAutoHardening(
 
   const createdIds: string[] = [];
 
-  for (const co of companies) {
-    const recent = await prisma.riskEvent.findMany({
-      where: {
-        tenantCompanyId: co.id,
-        sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
-        createdAt: { gte: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) },
-      },
-      select: { ingestionDetails: true },
-      take: 5,
-    });
-    if (recent.some((r) => readEpisodeKeyFromIngestion(r.ingestionDetails) === ep)) {
-      continue;
-    }
+  const co = companies[0]!;
+  const existing = await prisma.riskEvent.findUnique({
+    where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
+    select: { id: true, status: true },
+  });
+  const ingestionDetails = {
+    marketVolatilityHardening: {
+      episodeKey: ep,
+      deltaVN: marketVolatilityDeltaV ?? 0.22,
+      deltaV: marketVolatilityDeltaV,
+      deltaVDisplay: deltaStr,
+      priorityControlValidation: true,
+      crownJewelAsset: co.name,
+      assignedAgents: [...MARKET_VOLATILITY_ASSIGNED_AGENTS],
+      remediationPath: "/api/grc/irontally",
+      verificationDeadlineUtc: monitoringExpiry.toISOString(),
+      acceleratedValidationHours: 4,
+      standardValidationHoursBypassed: 24,
+      criticalControls: ["Access Control (CC6.1)", "Encryption-at-rest / in-transit (CC6.7)"],
+    },
+    canonicalRiskEvent: {
+      id: MARKET_VOLATILITY_RISK_ID,
+      type: "OPERATIONAL_THREAT",
+      title: "Insurance Market Hardening — Volatility Spike Detected",
+      status: "ACTIVE",
+      severity: "CRITICAL",
+      blastRadius: "MEDIUM",
+      discoveredAt: startedAt,
+      assignedAgents: [...MARKET_VOLATILITY_ASSIGNED_AGENTS],
+      remediationPath: "/api/grc/irontally",
+    },
+    isDeepMonitoring: true,
+    isContinuousControlValidation: true,
+    continuousControlValidation: {
+      assignedAgents: [...MARKET_VOLATILITY_ASSIGNED_AGENTS],
+      pollingProfile: "MARKET_VOLATILITY_ACCELERATED_4H",
+      ttlBound: true,
+      startedAt,
+      monitoringExpiry: monitoringExpiry.toISOString(),
+      asset: co.name,
+      bypassStandard24hWindow: true,
+    },
+  } satisfies Prisma.InputJsonValue;
 
-    const threat = await prisma.riskEvent.create({
-      data: {
-        title: `Priority Control Validation — Market Volatility (${co.name})`,
-        sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
-        source: SimThreatSource.SYSTEM,
-        status: ThreatState.IDENTIFIED,
-        severity: "CRITICAL",
-        score: 95,
-        priority_score: 100,
-        targetEntity: co.name,
-        tenantCompanyId: co.id,
-        tenantId: tid,
-        financialRisk_cents: financialSeed,
-        baseImpactCents: financialSeed,
-        governanceImpactMultiplier: 100n,
-        complianceFramework: ComplianceFramework.SOC2,
-        mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
-        monitoringExpiry,
-        ttlSeconds: 4 * 60 * 60,
-        ingestionDetails: {
-          marketVolatilityHardening: {
-            episodeKey: ep,
-            deltaV: marketVolatilityDeltaV,
-            deltaVDisplay: deltaStr,
-            priorityControlValidation: true,
-            crownJewelAsset: co.name,
-            assignedAgents: ["Ironsight", "Ironlock"],
-            verificationDeadlineUtc: monitoringExpiry.toISOString(),
-            acceleratedValidationHours: 4,
-            standardValidationHoursBypassed: 24,
-            criticalControls: ["Access Control (CC6.1)", "Encryption-at-rest / in-transit (CC6.7)"],
-          },
-          isDeepMonitoring: true,
-          isContinuousControlValidation: true,
-          continuousControlValidation: {
-            assignedAgents: ["Ironsight", "Ironlock"],
-            pollingProfile: "MARKET_VOLATILITY_ACCELERATED_4H",
-            ttlBound: true,
-            startedAt,
-            monitoringExpiry: monitoringExpiry.toISOString(),
-            asset: co.name,
-            bypassStandard24hWindow: true,
-          },
-        } satisfies Prisma.InputJsonValue,
-      },
-      select: { id: true },
-    });
-
-    createdIds.push(threat.id);
-
-    const planBase: Prisma.JsonObject = {
-      mode: "MARKET_VOLATILITY_PRIORITY_CONTROL_VALIDATION",
-      acceleratedDeadline: monitoringExpiry.toISOString(),
-      bypass24hStandardWindow: true,
+  const threat = await prisma.riskEvent.upsert({
+    where: { tenantId_id: { tenantId: tid, id: MARKET_VOLATILITY_RISK_ID } },
+    create: {
+      id: MARKET_VOLATILITY_RISK_ID,
+      title: "Insurance Market Hardening — Volatility Spike Detected",
+      sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
+      source: SimThreatSource.SYSTEM,
+      status: ThreatState.IDENTIFIED,
+      severity: "CRITICAL",
+      category: "FINANCIAL_RISK",
+      score: 95,
+      priority_score: 100,
+      targetEntity: co.name,
+      tenantCompanyId: co.id,
+      tenantId: tid,
+      financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
+      baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
+      governanceImpactMultiplier: 100n,
+      complianceFramework: ComplianceFramework.SOC2,
       mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
-    };
+      remediation_status: "PENDING",
+      monitoringExpiry,
+      ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
+      ingestionDetails,
+    },
+    update: {
+      title: "Insurance Market Hardening — Volatility Spike Detected",
+      sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
+      source: SimThreatSource.SYSTEM,
+      status: ThreatState.IDENTIFIED,
+      severity: "CRITICAL",
+      category: "FINANCIAL_RISK",
+      score: 95,
+      priority_score: 100,
+      targetEntity: co.name,
+      tenantCompanyId: co.id,
+      financialRisk_cents: MARKET_VOLATILITY_RISK_CENTS,
+      baseImpactCents: MARKET_VOLATILITY_RISK_CENTS,
+      governanceImpactMultiplier: 100n,
+      complianceFramework: ComplianceFramework.SOC2,
+      mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
+      remediation_status: "PENDING",
+      monitoringExpiry,
+      ttlSeconds: MARKET_VOLATILITY_TTL_SECONDS,
+      ingestionDetails,
+    },
+    select: { id: true },
+  });
 
-    await prisma.reasoningLog.create({
-      data: {
-        threatId: threat.id,
-        agentName: "Ironsight",
-        targetAsset: co.name,
-        escalationLogic: "MARKET_VOLATILITY_IRONSIGHT_REVERIFY_4H",
-        plan: planBase,
-        reasoning:
-          `Industry benchmark ALE spike (ΔV > 20%). Ironsight must re-verify Access Control and encryption posture for crown-jewel asset "${co.name}" within 4 hours (accelerated window; standard 24h validation cycle bypassed for this episode).`,
-        confidence: 0.95,
-        isCorrection: false,
-        operationalMode: "AUTONOMOUS",
-      },
-    });
+  createdIds.push(threat.id);
 
-    await prisma.reasoningLog.create({
-      data: {
-        threatId: threat.id,
-        agentName: "Ironlock",
-        targetAsset: co.name,
-        escalationLogic: "MARKET_VOLATILITY_IRONLOCK_REVERIFY_4H",
-        plan: planBase,
-        reasoning:
-          `Parallel Ironlock quarantine / control attestation pass on "${co.name}" under market hardening; complete within 4 hours alongside Ironsight.`,
-        confidence: 0.92,
-        isCorrection: false,
-        operationalMode: "AUTONOMOUS",
-      },
-    });
+  const planBase: Prisma.JsonObject = {
+    mode: "MARKET_VOLATILITY_PRIORITY_CONTROL_VALIDATION",
+    acceleratedDeadline: monitoringExpiry.toISOString(),
+    bypass24hStandardWindow: true,
+    mappedControls: [...PRIORITY_MAPPED_CONTROLS_SOC2],
+  };
 
-    await logThreatActivity(
-      null,
-      "SYSTEM_VOLATILITY_AUTO_HARDENING",
-      `Crown jewel priority validation queued (${co.name}); Ironsight + Ironlock 4h deadline ${monitoringExpiry.toISOString()}.`,
-      {
-        operatorId: "SYSTEM_VOLATILITY_TRIGGER",
-        simThreatId: threat.id,
-        isSimulation: true,
-      },
-    );
+  await prisma.reasoningLog.create({
+    data: {
+      threatId: threat.id,
+      agentName: "Ironsight",
+      targetAsset: co.name,
+      escalationLogic: "MARKET_VOLATILITY_IRONSIGHT_REVERIFY_4H",
+      plan: planBase,
+      reasoning:
+        `Industry benchmark ALE spike (ΔV > 20%). Ironsight must re-verify Access Control and encryption posture for crown-jewel asset "${co.name}" within 4 hours (accelerated window; standard 24h validation cycle bypassed for this episode).`,
+      confidence: 0.95,
+      isCorrection: false,
+      operationalMode: "AUTONOMOUS",
+    },
+  });
 
-    await recordResilienceIntelStreamLine(
-      `🤖 [MARKET_VOLATILITY_AUTO_HARDEN] Priority control validation for ${co.name}; ΔV ${deltaStr}; episode ${ep}.`,
-      threat.id,
-    );
-  }
+  await prisma.reasoningLog.create({
+    data: {
+      threatId: threat.id,
+      agentName: "Ironlock",
+      targetAsset: co.name,
+      escalationLogic: "MARKET_VOLATILITY_IRONLOCK_REVERIFY_4H",
+      plan: planBase,
+      reasoning:
+        `Parallel Ironlock quarantine / control attestation pass on "${co.name}" under market hardening; complete within 4 hours alongside Ironsight.`,
+      confidence: 0.92,
+      isCorrection: false,
+      operationalMode: "AUTONOMOUS",
+    },
+  });
+
+  await logThreatActivity(
+    null,
+    "SYSTEM_VOLATILITY_AUTO_HARDENING",
+    `Crown jewel priority validation ${existing ? "reopened" : "queued"} (${co.name}); Ironsight + Ironlock 4h deadline ${monitoringExpiry.toISOString()}.`,
+    {
+      operatorId: "SYSTEM_VOLATILITY_TRIGGER",
+      simThreatId: threat.id,
+      isSimulation: true,
+    },
+  );
+
+  await recordResilienceIntelStreamLine(
+    `🤖 [MARKET_VOLATILITY_AUTO_HARDEN] Priority control validation ${existing ? "reopened" : "queued"} for ${co.name}; ΔV ${deltaStr}; episode ${ep}.`,
+    threat.id,
+  );
 
   if (createdIds.length > 0) {
     revalidatePath("/");

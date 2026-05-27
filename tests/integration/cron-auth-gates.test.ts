@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 import * as HealthPostureCron from "@/app/api/internal/cron/health-posture-triage/route";
 import * as CarbonBudgetCron from "@/app/api/internal/cron/carbon-budget-reallocation/route";
 import * as IndustryScoutCron from "@/app/api/internal/cron/industry-scout/route";

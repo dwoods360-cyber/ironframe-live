@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIronsightRegulatoryPoll } from "@/app/services/ironsightMonitor";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironsight regulatory horizon poll — pairs with Vercel Cron / external scheduler.

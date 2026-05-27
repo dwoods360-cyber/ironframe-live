@@ -1,41 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
 import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-
-function resolveCronSecret(): string | undefined {
-  return (
-    process.env.IRONFRAME_CRON_SECRET?.trim() ||
-    process.env.CRON_SECRET?.trim() ||
-    undefined
-  );
-}
-
-function isCronAuthorized(req: Request, secret: string | undefined): boolean {
-  if (process.env.NODE_ENV !== "production") return true;
-  if (!secret) return false;
-  const auth = req.headers.get("authorization")?.trim();
-  const headerSecret = req.headers.get("x-cron-secret")?.trim();
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : null;
-  return bearer === secret || headerSecret === secret;
-}
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Host-level trigger for Ironbloom regional telemetry (Epic 9.3 carbon ledger) and optional
  * utility rate poll (`?utility=1`, 30-day cadence; `?force=1` bypasses interval).
  * Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `CRON_SECRET`; `x-cron-secret` also accepted.
  */
-async function handleCronExecution(req: Request) {
-  const secret = resolveCronSecret();
-  if (process.env.NODE_ENV === "production" && !secret) {
-    return NextResponse.json(
-      { success: false, error: "IRONFRAME_CRON_SECRET or CRON_SECRET is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!isCronAuthorized(req, secret)) {
+async function handleCronExecution(req: NextRequest) {
+  if (!checkCronAuth(req)) {
     return NextResponse.json({ success: false, error: "UNAUTHORIZED_CRON_CONTEXT" }, { status: 401 });
   }
 
@@ -77,10 +54,10 @@ async function handleCronExecution(req: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   return handleCronExecution(request);
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   return handleCronExecution(request);
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIronwatchSecurityMonitor } from "@/src/services/ironwatch/securityMonitor";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironwatch — Ironguard violation circuit breaker (cron / manual).

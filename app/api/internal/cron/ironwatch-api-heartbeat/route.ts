@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIronwatchElectricityMapsHeartbeat } from "@/src/services/ironwatch/apiHeartbeat";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironwatch (Agent 15) — Electricity Maps live heartbeat every 15 minutes.

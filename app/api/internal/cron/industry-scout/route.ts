@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIndustryScoutWorker } from "@/app/services/ironsight/crawler";
 import { runIronscribeDriveSync } from "@/app/services/ironscribe/driveSync";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Industry Scout + Ironscribe Drive sync — SEC / NIST CSRC / Colorado + Governance/Regulations folder.

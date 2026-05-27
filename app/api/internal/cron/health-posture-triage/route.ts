@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMonitor";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * TAS §4.3 — Live heartbeat & self-healing router (Epic 13).
@@ -11,17 +12,6 @@ import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMon
  *
  * Body: `{ tenantId, threadId, currentHealthBarPercent, targetZone? }`
  */
-function checkCronAuth(request: NextRequest): boolean {
-  const authHeader = request.headers.get("Authorization")?.trim();
-  const cronHeader = request.headers.get("x-cron-secret")?.trim();
-  const localSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
-
-  if (!localSecret) return false;
-  if (authHeader === `Bearer ${localSecret}`) return true;
-  if (cronHeader === localSecret) return true;
-  return false;
-}
-
 export async function GET(request: NextRequest) {
   if (!checkCronAuth(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

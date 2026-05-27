@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAgent17OutboxBatch } from "@/app/actions/agent17SentinelActions";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Drain Agent 17 Sentinel automation outbox (pairs with `pg_cron` inserts on `sentinel_automation_outbox`).

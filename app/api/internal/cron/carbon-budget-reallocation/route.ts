@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/carbonBudgetReallocationAlert";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironbloom — monthly cron (UTC day 1, ~09:00 via host scheduler):

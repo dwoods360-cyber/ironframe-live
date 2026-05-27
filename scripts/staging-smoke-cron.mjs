@@ -4,7 +4,9 @@ dotenv.config({ path: ".env.staging.local" });
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
-const base = "https://ironframe-live-4066w2sia-dwoods360-6345s-projects.vercel.app";
+const base =
+  process.env.STAGING_SMOKE_BASE_URL?.trim() ||
+  "https://ironframe-live-jva8xzoti-dwoods360-6345s-projects.vercel.app";
 const primarySecret = process.env.IRONFRAME_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
 const fallbackSecret = process.env.STAGING_SMOKE_SECRET?.trim();
 const secret = primarySecret || fallbackSecret;
@@ -26,6 +28,10 @@ if (tokenSource !== "NONE") {
 if (!secret) {
   console.error("[SMOKE] Missing IRONFRAME_CRON_SECRET / CRON_SECRET in environment.");
   process.exit(2);
+}
+
+if (!process.env.STAGING_SMOKE_BASE_URL?.trim()) {
+  console.warn("[SMOKE] STAGING_SMOKE_BASE_URL not set; using script fallback URL.");
 }
 
 const tests = [
@@ -79,12 +85,22 @@ for (const t of tests) {
       },
       body: t.body,
     });
+    const contentType = res.headers.get("content-type") ?? "";
     const text = await res.text();
+    const looksLikeHtml =
+      contentType.includes("text/html") ||
+      text.startsWith("<!DOCTYPE html>") ||
+      text.startsWith("<html");
+    const statusMatches = res.status === t.expect;
+    const ok = statusMatches && !looksLikeHtml;
+
     results.push({
       id: t.id,
       status: res.status,
       expected: t.expect,
-      ok: res.status === t.expect,
+      ok,
+      contentType,
+      htmlFallback: looksLikeHtml,
       snippet: text.slice(0, 200),
       url: t.path,
     });

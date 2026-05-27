@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runIronscribeDailyAuditSynthesis } from "@/src/services/ironscribe/auditSynthesizer";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironscribe — daily 24h audit synthesis to \`storage/forensics/audits/DAILY_AUDIT_REPORT_<timestamp>.md\`.

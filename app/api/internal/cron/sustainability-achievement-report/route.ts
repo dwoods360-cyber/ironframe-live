@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runSustainabilityAchievementReportIfDue } from "@/app/services/ironscribe/sustainabilityAchievementReport";
-import { checkCronAuth } from "@/app/api/internal/cron/_cronAuth";
+import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironscribe — 24h cron: at each 30-day self-healing milestone, generate Sustainability_Achievement_Report_V1.

@@ -267,6 +267,12 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && !isLoginRoute) {
+    // Cron endpoints are token-gated in their own route handlers.
+    // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
+    if (pathname.startsWith("/api/internal/cron/")) {
+      return supabaseResponse;
+    }
+
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
       return supabaseResponse;

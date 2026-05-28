@@ -10,6 +10,7 @@ async function handleCron(req: NextRequest) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  console.info("[CRON_ACTIVATION_TRACE] Ironwatch security monitor execution initiated successfully.");
 
   const result = await runIronwatchSecurityMonitor();
   return NextResponse.json(result);

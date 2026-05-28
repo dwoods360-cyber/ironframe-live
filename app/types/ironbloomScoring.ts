@@ -4,7 +4,7 @@ export type CarbonIntensityQuote = {
   source:
     | "electricity-maps"
     | "tenant-location-default"
-    | "dev-fallback"
+    | "forensic-estimate"
     | "FORENSIC_FALLBACK";
   /** CSRD transparency tag when intensity is estimated (e.g. `[ESTIMATED: REGIONAL_AVG]`). */
   transparencyLabel?: string;

@@ -22,7 +22,7 @@ vi.mock("@/src/services/agents/ironcore", () => ({
   },
 }));
 
-import { POST } from "@/app/api/ingest/route";
+import { POST as ingestPost } from "@/app/api/ingest/route";
 import { IronGate } from "@/src/services/agents/irongate";
 
 describe("Epic 14 — DEI Anonymization Interceptor Regression Suite", () => {
@@ -52,7 +52,7 @@ describe("Epic 14 — DEI Anonymization Interceptor Regression Suite", () => {
       body: JSON.stringify(rawData),
     });
 
-    const response = await POST(request);
+    const response = await ingestPost(request);
     expect(response.status).toBe(200);
 
     const mockedProcessIngress = vi.mocked(IronGate.processIngress);
@@ -94,10 +94,11 @@ describe("Epic 14 — DEI Anonymization Interceptor Regression Suite", () => {
       body: JSON.stringify(rawData),
     });
 
-    const response = await POST(request);
+    const response = await ingestPost(request);
     const body = await response.json();
 
     expect(response.status).toBe(500);
     expect(String(body.error ?? "")).toMatch(/INGEST_SALT_PEPPER/i);
   });
+
 });

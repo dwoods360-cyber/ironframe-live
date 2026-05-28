@@ -1,12 +1,21 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  ingressSanitizerFailureResponse,
+  sanitizeIngressPayload,
+} from '@/app/lib/ironethic/ingressSanitizer';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { threatId, threatTitle, financialRisk_cents, parameters } = body;
+    const body = sanitizeIngressPayload(await req.json());
+    const { threatId, threatTitle, financialRisk_cents, parameters } = body as {
+      threatId?: unknown;
+      threatTitle?: unknown;
+      financialRisk_cents?: unknown;
+      parameters?: unknown;
+    };
     const paramList = Array.isArray(parameters) ? parameters : [];
     const liabilityMillions = Number(financialRisk_cents ?? 0) / 100_000_000;
 
@@ -60,6 +69,10 @@ Generate the full GRC briefing using the required structure above. Start with "#
 
     return NextResponse.json({ report });
   } catch (error) {
+    const pepperFailure = ingressSanitizerFailureResponse(error);
+    if (pepperFailure) {
+      return NextResponse.json(pepperFailure.body, { status: pepperFailure.status });
+    }
     console.error('[GEMINI_AGENT_ERROR]', error);
     return NextResponse.json(
       { error: 'Failed to complete investigation.' },

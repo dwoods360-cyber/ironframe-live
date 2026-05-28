@@ -9,6 +9,11 @@ import { ZodError } from 'zod';
 import { assertSimulationInjectAllowedForTenant } from '@/app/lib/simulationStandDown';
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
 import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
+import {
+  ingressSanitizerFailureResponse,
+  sanitizeIngressPayload,
+} from '@/app/lib/ironethic/ingressSanitizer';
+import { sanitizeThreatIngressPayload } from '@/app/lib/ironethic/sanitizeThreatIngressPayload';
 
 /** Align bot/header UUID with Command Center cookie under shadow plane (RLS + dashboard scope). */
 function shadowPlaneActive(request: NextRequest): boolean {
@@ -73,7 +78,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as CreateThreatBody;
+    let body: CreateThreatBody;
+    try {
+      body = sanitizeIngressPayload(
+        (await request.json().catch(() => ({}))) as CreateThreatBody,
+      );
+    } catch (err) {
+      const pepperFailure = ingressSanitizerFailureResponse(err);
+      if (pepperFailure) {
+        return NextResponse.json(pepperFailure.body, { status: pepperFailure.status });
+      }
+      throw err;
+    }
 
     let validated: { title: string; source: string; target: string; loss: string; notes?: string };
     try {
@@ -170,7 +186,7 @@ export async function POST(request: NextRequest) {
       : `Source: ${source}`;
 
     const created = await prisma.threatEvent.create({
-      data: {
+      data: sanitizeThreatIngressPayload({
         title,
         sourceAgent: source || 'Manual Analyst Entry',
         score,
@@ -182,7 +198,7 @@ export async function POST(request: NextRequest) {
         assigneeId: 'User_00',
         aiReport: descriptionText,
         ...(ingestionDetailsForCreate != null ? { ingestionDetails: ingestionDetailsForCreate } : {}),
-      },
+      }),
       select: {
         id: true,
         title: true,

@@ -18,6 +18,10 @@ import {
   ingestOrchestrationBusDisabled,
   invokeIngestOrchestrationBus,
 } from '@/src/services/orchestration/ingestBusBridge';
+import {
+  ingressSanitizerFailureResponse,
+  sanitizeIngressPayload,
+} from '@/app/lib/ironethic/ingressSanitizer';
 
 /** Canonical Medshield tenant UUID — aligns bot writes with default dev session / terminal logs when env shadow has no cookie. */
 const SHADOW_PLANE_DEFAULT_TENANT_UUID = TENANT_UUIDS.medshield;
@@ -87,7 +91,18 @@ function isAdversarialBotIngestPayload(body: Record<string, unknown>): boolean {
 export async function POST(request: NextRequest) {
   noStore();
   try {
-    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    let body: Record<string, unknown>;
+    try {
+      body = sanitizeIngressPayload(
+        (await request.json().catch(() => ({}))) as Record<string, unknown>,
+      );
+    } catch (sanitizeErr) {
+      const pepperFailure = ingressSanitizerFailureResponse(sanitizeErr);
+      if (pepperFailure) {
+        return NextResponse.json(pepperFailure.body, { status: pepperFailure.status });
+      }
+      throw sanitizeErr;
+    }
     const threatId = typeof body.threatId === 'string' ? body.threatId.trim() : null;
     const bodyTenantRaw = typeof body.tenantId === 'string' ? body.tenantId.trim() : null;
     const bodyTenant = bodyTenantRaw && isValidTenantUuid(bodyTenantRaw) ? bodyTenantRaw : null;

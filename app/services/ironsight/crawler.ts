@@ -1,16 +1,10 @@
 import "server-only";
 
 import { createHash } from "crypto";
-import { writeFileSync } from "fs";
-import { join } from "path";
 import { INDUSTRY_SCOUT_FEEDS, type IndustryScoutFeed } from "@/app/config/industryScoutFeeds";
-import {
-  ensureRegulatoryInboxDir,
-  readIndustryScoutSeenIds,
-  writeIndustryScoutSeenIds,
-} from "@/app/lib/regulatoryIngestionState";
 import { ironscribeForensicIngest } from "@/app/services/ironscribe/forensicIngestor";
 import { processIngestedRegulation } from "@/app/services/regulatoryPipeline";
+import prisma from "@/lib/prisma";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const USER_AGENT = "Ironframe-Ironsight-IndustryScout/1.0 (GRC; +https://ironframe.local)";
@@ -102,10 +96,6 @@ async function fetchFeed(feed: IndustryScoutFeed): Promise<CrawlDiscoveredItem[]
 }
 
 async function downloadArtifact(item: CrawlDiscoveredItem): Promise<CrawlArtifact> {
-  const inbox = ensureRegulatoryInboxDir();
-  const ext = item.isPdf ? "pdf" : "html";
-  const localPath = join(inbox, `${item.id}.${ext}`);
-
   try {
     const res = await fetch(item.link, {
       headers: { "User-Agent": USER_AGENT },
@@ -115,17 +105,15 @@ async function downloadArtifact(item: CrawlDiscoveredItem): Promise<CrawlArtifac
       return { item, localPath: null, buffer: null, mimeType: "text/plain" };
     }
     const buf = Buffer.from(await res.arrayBuffer());
-    writeFileSync(localPath, buf);
     const mimeType =
       res.headers.get("content-type")?.split(";")[0]?.trim() ??
       (item.isPdf ? "application/pdf" : "text/html");
-    return { item, localPath, buffer: buf, mimeType };
+    return { item, localPath: null, buffer: buf, mimeType };
   } catch {
     const fallback = Buffer.from(`${item.title}\n\n${item.description}`, "utf8");
-    writeFileSync(localPath.replace(/\.[^.]+$/, ".txt"), fallback);
     return {
       item,
-      localPath: localPath.replace(/\.[^.]+$/, ".txt"),
+      localPath: null,
       buffer: fallback,
       mimeType: "text/plain",
     };
@@ -137,16 +125,55 @@ export type IndustryScoutRunResult = {
   feedsPolled: number;
   discovered: number;
   newlyIngested: number;
+  ingestedItemIds: string[];
   errors: string[];
 };
+
+const INDUSTRY_SCOUT_ARTIFACT_LOOKBACK_ROWS = 2000;
+
+async function readIndustryScoutSeenIdsFromDb(tenantId: string): Promise<Set<string>> {
+  const seen = new Set<string>();
+  const prismaAny = prisma as any;
+  const rows = await prismaAny.cronJobArtifact.findMany({
+    where: {
+      tenantId,
+      agentName: "industry-scout",
+    },
+    select: {
+      payloadJson: true,
+    },
+    orderBy: {
+      runTimestamp: "desc",
+    },
+    take: INDUSTRY_SCOUT_ARTIFACT_LOOKBACK_ROWS,
+  });
+
+  for (const row of rows as Array<{ payloadJson?: unknown }>) {
+    const payload = row.payloadJson;
+    if (!payload || typeof payload !== "object") continue;
+    const maybeItemIds = (payload as { ingestedItemIds?: unknown }).ingestedItemIds;
+    if (!Array.isArray(maybeItemIds)) continue;
+    for (const value of maybeItemIds) {
+      if (typeof value === "string" && value.trim()) {
+        seen.add(value.trim());
+      }
+    }
+  }
+
+  return seen;
+}
 
 /**
  * Ironsight Industry Scout — poll SEC / NIST CSRC / Colorado feeds, download rulings, hand to Ironscribe.
  */
-export async function runIndustryScoutWorker(): Promise<IndustryScoutRunResult> {
-  const seen = readIndustryScoutSeenIds();
+export async function runIndustryScoutWorker(options?: {
+  tenantId?: string;
+}): Promise<IndustryScoutRunResult> {
+  const tenantId = options?.tenantId?.trim();
+  const seen = tenantId ? await readIndustryScoutSeenIdsFromDb(tenantId) : new Set<string>();
   const discovered: CrawlDiscoveredItem[] = [];
   const errors: string[] = [];
+  const ingestedItemIds: string[] = [];
   let newlyIngested = 0;
 
   for (const feed of INDUSTRY_SCOUT_FEEDS) {
@@ -185,18 +212,18 @@ export async function runIndustryScoutWorker(): Promise<IndustryScoutRunResult> 
         blocks,
       });
       newlyIngested += 1;
+      ingestedItemIds.push(item.id);
     } catch (e) {
       errors.push(`${item.id}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-
-  writeIndustryScoutSeenIds(seen);
 
   return {
     ok: true,
     feedsPolled: INDUSTRY_SCOUT_FEEDS.length,
     discovered: discovered.length,
     newlyIngested,
+    ingestedItemIds,
     errors,
   };
 }

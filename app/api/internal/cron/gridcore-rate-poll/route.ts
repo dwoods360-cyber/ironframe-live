@@ -5,6 +5,13 @@ import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine"
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import prisma from "@/lib/prisma";
+
+function toJsonPayload(value: unknown): unknown {
+  return JSON.parse(
+    JSON.stringify(value, (_key, raw) => (typeof raw === "bigint" ? raw.toString() : raw)),
+  );
+}
 
 /**
  * Host-level trigger for Ironbloom regional telemetry (Epic 9.3 carbon ledger) and optional
@@ -21,6 +28,10 @@ async function handleCronExecution(req: NextRequest) {
     const url = new URL(req.url);
     const force = url.searchParams.get("force") === "1";
     const runUtility = url.searchParams.get("utility") === "1";
+    const tenantId =
+      req.headers.get("x-tenant-id")?.trim() ||
+      url.searchParams.get("tenantId")?.trim() ||
+      TENANT_UUIDS.gridcore;
 
     const outcome = await executeGridcoreRatePoll();
 
@@ -36,20 +47,62 @@ async function handleCronExecution(req: NextRequest) {
     });
 
     const utility = runUtility ? await runGridcoreUtilityRatePoll({ force }) : undefined;
+    const prismaAny = prisma as any;
+    const artifact = await prismaAny.cronJobArtifact.create({
+      data: {
+        tenantId,
+        agentName: "gridcore-rate-poll",
+        payloadJson: toJsonPayload({
+          success: true,
+          outcome,
+          ...(utility ? { utility } : {}),
+          degraded: false,
+          source: "cron-gridcore-rate-poll",
+        }),
+        metricValue: BigInt(outcome.recordsIngested ?? 0),
+        metricUnit: "count",
+      },
+      select: { id: true },
+    });
 
     return NextResponse.json(
-      { success: true, outcome, ...(utility ? { utility } : {}) },
+      { success: true, degraded: false, outcome, ...(utility ? { utility } : {}), artifactId: artifact.id },
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
+    try {
+      const url = new URL(req.url);
+      const tenantId =
+        req.headers.get("x-tenant-id")?.trim() ||
+        url.searchParams.get("tenantId")?.trim() ||
+        TENANT_UUIDS.gridcore;
+      const prismaAny = prisma as any;
+      await prismaAny.cronJobArtifact.create({
+        data: {
+          tenantId,
+          agentName: "gridcore-rate-poll",
+          payloadJson: {
+            success: true,
+            degraded: true,
+            error: "SUSTAINABILITY_LEDGER_CRASH",
+            details: message,
+            source: "cron-gridcore-rate-poll",
+          },
+        },
+      });
+    } catch {
+      // Best-effort only.
+    }
+
     return NextResponse.json(
       {
-        success: false,
+        success: true,
+        degraded: true,
         error: "SUSTAINABILITY_LEDGER_CRASH",
         details: message,
       },
-      { status: 500 },
+      { status: 200, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

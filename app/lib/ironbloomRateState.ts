@@ -36,6 +36,15 @@ const DEFAULT_STATE: IronbloomRateState = {
   alerts: [],
 };
 
+async function fetchExistingTenantIds(candidateTenantIds: string[]): Promise<Set<string>> {
+  if (candidateTenantIds.length === 0) return new Set<string>();
+  const rows = await prisma.tenant.findMany({
+    where: { id: { in: candidateTenantIds } },
+    select: { id: true },
+  });
+  return new Set(rows.map((row) => row.id));
+}
+
 function resolveTenantId(tenantKey: string): string {
   const tenantId = TENANT_UUIDS[tenantKey as TenantKey];
   if (!tenantId) {
@@ -110,6 +119,8 @@ export async function upsertUtilityRateCache(
   },
 ) {
   const tenantId = resolveTenantId(tenantKey);
+  const existing = await fetchExistingTenantIds([tenantId]);
+  if (!existing.has(tenantId)) return null;
   return prisma.ironbloomUtilityRateCache.upsert({
     where: { tenantId },
     update: data,
@@ -122,6 +133,8 @@ export async function appendRateDriftAlert(
   alert: Omit<IronbloomRateDriftAlertRecord, "tenantKey">,
 ) {
   const tenantId = resolveTenantId(tenantKey);
+  const existing = await fetchExistingTenantIds([tenantId]);
+  if (!existing.has(tenantId)) return null;
   return prisma.ironbloomRateDriftAlert.create({
     data: {
       tenantId,
@@ -175,9 +188,12 @@ export function readIronbloomRateStateSync(): IronbloomRateState {
 
 export async function writeIronbloomRateState(next: IronbloomRateState): Promise<void> {
   const lastGlobalPollAt = next.lastGlobalPollAt ? new Date(next.lastGlobalPollAt) : null;
+  const targetTenantIds = Object.values(TENANT_UUIDS);
+  const existingTenantIds = await fetchExistingTenantIds(targetTenantIds);
 
   for (const cached of next.rates) {
     const tenantId = resolveTenantId(cached.tenantKey);
+    if (!existingTenantIds.has(tenantId)) continue;
     const polledAt = new Date(cached.quote.polledAt);
     const lastPolledAt = new Date(cached.lastPolledAt);
     await prisma.ironbloomUtilityRateCache.upsert({
@@ -204,6 +220,7 @@ export async function writeIronbloomRateState(next: IronbloomRateState): Promise
 
   for (const alert of next.alerts) {
     const tenantId = resolveTenantId(alert.tenantKey);
+    if (!existingTenantIds.has(tenantId)) continue;
     await prisma.ironbloomRateDriftAlert.upsert({
       where: { tenantId_id: { tenantId, id: alert.id } },
       update: {
@@ -228,7 +245,7 @@ export async function writeIronbloomRateState(next: IronbloomRateState): Promise
   }
 
   if (lastGlobalPollAt) {
-    const tenantIds = Object.values(TENANT_UUIDS);
+    const tenantIds = [...existingTenantIds];
     await Promise.all(
       tenantIds.map((tenantId) =>
         prisma.ironbloomTenantSyncMeta.upsert({

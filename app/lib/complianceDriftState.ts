@@ -1,16 +1,15 @@
 import "server-only";
 
 import { createHash } from "crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import prisma from "@/lib/prisma";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import type {
   ComplianceDriftState,
   RegulatoryDriftAlert,
   RegulatoryHorizonItem,
 } from "@/app/types/complianceDrift";
 
-const STATE_DIR = join(process.cwd(), "storage", "constitutional");
-const STATE_FILE = join(STATE_DIR, "compliance-drift.json");
+const DRIFT_STATE_AGENT = "ironsight-regulatory-poll-state";
 
 const DEFAULT_HORIZONS: RegulatoryHorizonItem[] = [
   {
@@ -68,25 +67,51 @@ function parseState(raw: unknown): ComplianceDriftState | null {
 }
 
 export function readComplianceDriftStateSync(): ComplianceDriftState {
-  try {
-    if (!existsSync(STATE_FILE)) return DEFAULT_STATE;
-    return parseState(JSON.parse(readFileSync(STATE_FILE, "utf8"))) ?? DEFAULT_STATE;
-  } catch {
-    return DEFAULT_STATE;
-  }
+  return DEFAULT_STATE;
 }
 
 export async function readComplianceDriftState(): Promise<ComplianceDriftState> {
-  return readComplianceDriftStateSync();
+  try {
+    const prismaAny = prisma as any;
+    const row = await prismaAny.cronJobArtifact.findFirst({
+      where: {
+        tenantId: TENANT_UUIDS.medshield,
+        agentName: DRIFT_STATE_AGENT,
+      },
+      orderBy: {
+        runTimestamp: "desc",
+      },
+      select: {
+        payloadJson: true,
+      },
+    });
+    const payload = row?.payloadJson;
+    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const state = (payload as { state?: unknown }).state;
+      const parsed = parseState(state);
+      if (parsed) return parsed;
+    }
+  } catch {
+    // Fail-open to default state.
+  }
+  return DEFAULT_STATE;
 }
 
 export async function writeComplianceDriftState(state: ComplianceDriftState): Promise<void> {
-  if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
   const next: ComplianceDriftState = {
     ...state,
     horizons: refreshHorizonDays(state.horizons.length ? state.horizons : DEFAULT_HORIZONS),
   };
-  writeFileSync(STATE_FILE, JSON.stringify(next, null, 2), "utf8");
+  const prismaAny = prisma as any;
+  await prismaAny.cronJobArtifact.create({
+    data: {
+      tenantId: TENANT_UUIDS.medshield,
+      agentName: DRIFT_STATE_AGENT,
+      payloadJson: {
+        state: next,
+      },
+    },
+  });
 }
 
 export function stableRegulatoryItemId(source: string, title: string, link: string): string {

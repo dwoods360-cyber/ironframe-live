@@ -229,12 +229,23 @@ export async function writeCarbonPulseState(next: CarbonPulseState): Promise<voi
     ...Object.keys(next.ironlockThrottleByTenant ?? {}),
     ...Object.keys(next.lastDirtyAlertAtByTenant),
   ]);
+  const existingTenantRows =
+    tenantIds.size > 0
+      ? await prisma.tenant.findMany({
+          where: { id: { in: [...tenantIds] } },
+          select: { id: true },
+        })
+      : [];
+  const existingTenantIds = new Set(existingTenantRows.map((row) => row.id));
 
   await Promise.all(
-    [...tenantIds].map((tenantId) => replaceTenantSamples(tenantId, next.samplesByTenant[tenantId] ?? [])),
+    [...existingTenantIds].map((tenantId) =>
+      replaceTenantSamples(tenantId, next.samplesByTenant[tenantId] ?? []),
+    ),
   );
 
   for (const alert of next.dirtyGridAlerts) {
+    if (!existingTenantIds.has(alert.tenantId)) continue;
     await prisma.dirtyGridAlert.upsert({
       where: { tenantId_id: { tenantId: alert.tenantId, id: alert.id } },
       update: {
@@ -263,6 +274,7 @@ export async function writeCarbonPulseState(next: CarbonPulseState): Promise<voi
   }
 
   for (const [tenantId, record] of Object.entries(next.ironlockThrottleByTenant ?? {})) {
+    if (!existingTenantIds.has(tenantId)) continue;
     await prisma.ironlockCarbonThrottle.upsert({
       where: { tenantId },
       update: {
@@ -291,11 +303,13 @@ export async function writeCarbonPulseState(next: CarbonPulseState): Promise<voi
 
   await Promise.all(
     Object.entries(next.lastDirtyAlertAtByTenant).map(([tenantId, sentAt]) =>
-      prisma.ironbloomTenantSyncMeta.upsert({
-        where: { tenantId },
-        update: { lastDirtyAlertAtByTenant: new Date(sentAt) },
-        create: { tenantId, lastDirtyAlertAtByTenant: new Date(sentAt) },
-      }),
+      existingTenantIds.has(tenantId)
+        ? prisma.ironbloomTenantSyncMeta.upsert({
+            where: { tenantId },
+            update: { lastDirtyAlertAtByTenant: new Date(sentAt) },
+            create: { tenantId, lastDirtyAlertAtByTenant: new Date(sentAt) },
+          })
+        : Promise.resolve(),
     ),
   );
 }

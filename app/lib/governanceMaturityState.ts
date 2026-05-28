@@ -1,7 +1,5 @@
 import "server-only";
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 
@@ -37,9 +35,6 @@ import type {
   MaturityTrendPoint,
 } from "@/app/types/governanceMaturity";
 
-const STATE_DIR = join(process.cwd(), "storage", "constitutional");
-const STATE_FILE = join(STATE_DIR, "governance-maturity.json");
-
 const DEFAULT_STATE: GovernanceMaturityState = {
   current: {
     score: 7,
@@ -66,23 +61,9 @@ function parseState(raw: unknown): GovernanceMaturityState | null {
   };
 }
 
-function readFileState(): GovernanceMaturityState {
-  try {
-    if (!existsSync(STATE_FILE)) return DEFAULT_STATE;
-    return parseState(JSON.parse(readFileSync(STATE_FILE, "utf8"))) ?? DEFAULT_STATE;
-  } catch {
-    return DEFAULT_STATE;
-  }
-}
-
-function writeFileState(state: GovernanceMaturityState): void {
-  if (!existsSync(STATE_DIR)) mkdirSync(STATE_DIR, { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), "utf8");
-}
-
-/** Sync read (file) for hot paths — API poll refreshes DB + file together. */
+/** Sync read for hot paths. File fallback is removed for serverless safety. */
 export function readGovernanceMaturityStateSync(): GovernanceMaturityState {
-  return readFileState();
+  return DEFAULT_STATE;
 }
 
 export async function readGovernanceMaturityState(): Promise<GovernanceMaturityState> {
@@ -96,11 +77,10 @@ export async function readGovernanceMaturityState(): Promise<GovernanceMaturityS
   } catch {
     /* column pending */
   }
-  return readFileState();
+  return DEFAULT_STATE;
 }
 
 export async function writeGovernanceMaturityState(state: GovernanceMaturityState): Promise<void> {
-  writeFileState(state);
   try {
     await prisma.systemConfig.upsert({
       where: { id: "global" },
@@ -113,7 +93,7 @@ export async function writeGovernanceMaturityState(state: GovernanceMaturityStat
       },
     });
   } catch {
-    /* file is authoritative fallback */
+    /* best-effort only */
   }
 }
 

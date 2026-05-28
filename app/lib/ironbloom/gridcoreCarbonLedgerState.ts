@@ -75,40 +75,64 @@ export function readGridcoreCarbonLedgerStateSync(): GridcoreCarbonLedgerState {
 export async function writeGridcoreCarbonLedgerState(next: GridcoreCarbonLedgerState): Promise<void> {
   const lastSynchronizedAt = next.lastSynchronizedAt ? new Date(next.lastSynchronizedAt) : null;
   const touchedTenantIds = new Set<string>();
+  const zoneTenantIds = new Set<string>();
+
+  for (const coefficient of next.coefficients) {
+    const tenantId = resolveTenantIdForZone(coefficient.zone);
+    if (tenantId) zoneTenantIds.add(tenantId);
+  }
+  const existingTenantRows =
+    zoneTenantIds.size > 0
+      ? await prisma.tenant.findMany({
+          where: { id: { in: [...zoneTenantIds] } },
+          select: { id: true },
+        })
+      : [];
+  const existingTenantIds = new Set(existingTenantRows.map((row) => row.id));
 
   for (const coefficient of next.coefficients) {
     const tenantId = resolveTenantIdForZone(coefficient.zone);
     if (!tenantId) continue;
+    if (!existingTenantIds.has(tenantId)) continue;
 
     touchedTenantIds.add(tenantId);
     const polledAt = new Date(coefficient.polledAt);
 
-    await prisma.gridcoreCarbonCoefficient.upsert({
-      where: { tenantId_zone: { tenantId, zone: coefficient.zone } },
-      update: {
-        carbonIntensityGrams: BigInt(coefficient.carbonIntensityGrams),
-        carbonIntensityGco2PerKwh: coefficient.carbonIntensityGco2PerKwh,
-        renewablePercentage: coefficient.renewablePercentage,
-        source: coefficient.source,
-        polledAt,
-        telemetryFingerprint: coefficient.telemetryFingerprint,
-      },
-      create: {
-        tenantId,
-        zone: coefficient.zone,
-        carbonIntensityGrams: BigInt(coefficient.carbonIntensityGrams),
-        carbonIntensityGco2PerKwh: coefficient.carbonIntensityGco2PerKwh,
-        renewablePercentage: coefficient.renewablePercentage,
-        source: coefficient.source,
-        polledAt,
-        telemetryFingerprint: coefficient.telemetryFingerprint,
-      },
-    });
+    try {
+      await prisma.gridcoreCarbonCoefficient.upsert({
+        where: { tenantId_zone: { tenantId, zone: coefficient.zone } },
+        update: {
+          carbonIntensityGrams: BigInt(coefficient.carbonIntensityGrams),
+          carbonIntensityGco2PerKwh: coefficient.carbonIntensityGco2PerKwh,
+          renewablePercentage: coefficient.renewablePercentage,
+          source: coefficient.source,
+          polledAt,
+          telemetryFingerprint: coefficient.telemetryFingerprint,
+        },
+        create: {
+          tenantId,
+          zone: coefficient.zone,
+          carbonIntensityGrams: BigInt(coefficient.carbonIntensityGrams),
+          carbonIntensityGco2PerKwh: coefficient.carbonIntensityGco2PerKwh,
+          renewablePercentage: coefficient.renewablePercentage,
+          source: coefficient.source,
+          polledAt,
+          telemetryFingerprint: coefficient.telemetryFingerprint,
+        },
+      });
+    } catch {
+      // FK-safe fallback: skip unseeded tenant mappings without crashing cron poll.
+      continue;
+    }
   }
 
   if (lastSynchronizedAt) {
+    const fallbackTenantRows = await prisma.tenant.findMany({
+      where: { id: { in: Object.values(TENANT_UUIDS) } },
+      select: { id: true },
+    });
     const tenantIds =
-      touchedTenantIds.size > 0 ? [...touchedTenantIds] : Object.values(TENANT_UUIDS);
+      touchedTenantIds.size > 0 ? [...touchedTenantIds] : fallbackTenantRows.map((row) => row.id);
     await Promise.all(
       tenantIds.map((tenantId) =>
         prisma.ironbloomTenantSyncMeta.upsert({

@@ -11,6 +11,10 @@ import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { tenantIndustryCodeToProfileLabel } from "@/app/utils/tenantIndustryProfile";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
+import {
+  sanitizeThreatIngressPayload,
+  sanitizeThreatIngressUpdate,
+} from "@/app/lib/ironethic/sanitizeThreatIngressPayload";
 
 /** Must match client `SIMULATION_MODE_COOKIE` / `syncSimulationModeCookie` values (`1` / `0`). */
 export const INGRESS_SIMULATION_COOKIE = "ironframe-simulation-mode";
@@ -144,11 +148,14 @@ async function resolveCanonicalCompanyIdForSessionTenant(): Promise<bigint | nul
 
 async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThreatCreated> {
   const useRiskEventTable = await ingressUsesRiskEventTable();
+  const sanitizedPayload = sanitizeThreatIngressPayload(payload);
   const payloadWithCategory: IngressPayload = {
-    ...payload,
+    ...sanitizedPayload,
     ingestionDetails: attachSimulationCategoryToIngestionDetails(
-      typeof payload.ingestionDetails === "string" ? payload.ingestionDetails : undefined,
-      typeof payload.sourceAgent === "string" ? payload.sourceAgent : undefined,
+      typeof sanitizedPayload.ingestionDetails === "string"
+        ? sanitizedPayload.ingestionDetails
+        : undefined,
+      typeof sanitizedPayload.sourceAgent === "string" ? sanitizedPayload.sourceAgent : undefined,
       useRiskEventTable,
     ),
   };
@@ -249,11 +256,12 @@ async function updateThreatEvent(
   data: Prisma.ThreatEventUncheckedUpdateInput,
 ): Promise<IngressBotThreatCreated> {
   const useRiskEventTable = await ingressUsesRiskEventTable();
+  const sanitizedData = sanitizeThreatIngressUpdate(data);
   const updateWithCategory: Prisma.ThreatEventUncheckedUpdateInput = {
-    ...data,
+    ...sanitizedData,
     ingestionDetails: attachSimulationCategoryToIngestionDetails(
-      typeof data.ingestionDetails === "string" ? data.ingestionDetails : undefined,
-      typeof data.sourceAgent === "string" ? data.sourceAgent : undefined,
+      typeof sanitizedData.ingestionDetails === "string" ? sanitizedData.ingestionDetails : undefined,
+      typeof sanitizedData.sourceAgent === "string" ? sanitizedData.sourceAgent : undefined,
       useRiskEventTable,
     ),
   };

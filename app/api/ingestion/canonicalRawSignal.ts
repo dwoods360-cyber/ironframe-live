@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { IronGate } from '@/src/services/agents/irongate';
 import { IronCore } from '@/src/services/agents/ironcore';
-import { sanitizeIngressPayload } from '@/app/actions/ironethicActions';
+import {
+  ingressSanitizerFailureResponse,
+  sanitizeIngressPayload,
+} from '@/app/lib/ironethic/ingressSanitizer';
 
 const TRACE_PAYLOAD_KEY = '__ironframe_trace_id';
 
@@ -58,8 +61,9 @@ export async function handleCanonicalRawSignalPayload(rawBody: unknown): Promise
       { status: 200 },
     );
   } catch (err) {
-    if (err instanceof Error && err.message.includes('INGEST_SALT_PEPPER')) {
-      return NextResponse.json({ error: err.message }, { status: 500 });
+    const pepperFailure = ingressSanitizerFailureResponse(err);
+    if (pepperFailure) {
+      return NextResponse.json(pepperFailure.body, { status: pepperFailure.status });
     }
     if (err instanceof Error && err.message.includes('IRONGATE_BLOCK')) {
       return NextResponse.json({ error: err.message }, { status: 403 });

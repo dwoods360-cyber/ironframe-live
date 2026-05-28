@@ -3,6 +3,28 @@ import { ThreatState } from "@prisma/client";
 import { scanPayload } from "@/app/lib/agents/ironlock";
 import { generateIronqueryInsight } from "@/app/lib/agents/ironquery";
 import { dispatchIronlockQuarantineAutoEscalation } from "@/app/utils/ironlockQuarantineAutoEscalation";
+import {
+  INGEST_SALT_PEPPER_MISSING,
+  sanitizeIngressJsonString,
+} from "@/app/lib/ironethic/ingressSanitizer";
+
+export class IronethicIngressConfigurationError extends Error {
+  constructor(message: string = INGEST_SALT_PEPPER_MISSING) {
+    super(message);
+    this.name = "IronethicIngressConfigurationError";
+  }
+}
+
+function sanitizeDmzDetailsOrThrow(detailsBody: string): string {
+  try {
+    return sanitizeIngressJsonString(detailsBody) ?? detailsBody;
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("INGEST_SALT_PEPPER")) {
+      throw new IronethicIngressConfigurationError(err.message);
+    }
+    throw err;
+  }
+}
 
 export type BuildDmzIngressResult = {
   action: string;
@@ -66,7 +88,8 @@ export async function writeDmzThreatActivityWithIronlock(params: {
     throw new Error("Irongate: no company row for tenant; cannot create pipeline threat.");
   }
 
-  const built = buildIronlockDmzWrite(params);
+  const detailsBody = sanitizeDmzDetailsOrThrow(params.detailsBody);
+  const built = buildIronlockDmzWrite({ ...params, detailsBody });
   const payloadString = JSON.stringify({
     tenantId: params.tenantId,
     threatId: params.threatId,
@@ -86,7 +109,7 @@ export async function writeDmzThreatActivityWithIronlock(params: {
       financialRisk_cents: 0n,
       tenantCompanyId: company.id,
       status: built.quarantined ? ThreatState.MITIGATED : ThreatState.IDENTIFIED,
-      ingestionDetails: built.details,
+      ingestionDetails: sanitizeDmzDetailsOrThrow(built.details),
       aiReport: ironqueryInsight,
     },
     select: { id: true },

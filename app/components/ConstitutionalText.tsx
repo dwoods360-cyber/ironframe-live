@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 
 import { ConstitutionalTooltipPanel, type ConstitutionalTooltipTheme } from "@/app/components/ConstitutionalTooltip";
 import { directiveLabelForId, segmentConstitutionalText } from "@/app/config/constitutionalDirectives";
+import { getTasFingerprintThrottled } from "@/app/utils/tasFingerprintClient";
 
 export type { ConstitutionalTooltipTheme };
 
@@ -40,10 +41,9 @@ export function ConstitutionalText({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/grc/tas-fingerprint")
-      .then((r) => r.json())
-      .then((j: { sha256Short?: string }) => {
-        const s = typeof j.sha256Short === "string" ? j.sha256Short.trim() : "";
+    void getTasFingerprintThrottled()
+      .then((j) => {
+        const s = typeof j?.sha256Short === "string" ? j.sha256Short.trim() : "";
         if (!cancelled && s.length > 0) setTasFingerprintShort(s);
       })
       .catch(() => undefined);

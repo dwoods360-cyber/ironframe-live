@@ -772,14 +772,14 @@ export function ThreatCard({
       {chaosScenario === "REMOTE" && statusNorm === "MITIGATED" && handoffState !== "CONNECTED" ? (
         <div className="mb-3 rounded-md border border-rose-400/80 bg-rose-950/45 px-3 py-2 shadow-[0_0_18px_rgba(244,63,94,0.32)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-rose-100">
-            MITIGATION FAILED: An automated diagnostic packet has been emailed to Ironframe Support. Please click 'Authorize Remote Access' below to allow our human tech team to intervene.
+            MITIGATION FAILED: An automated diagnostic packet has been emailed to Ironframe Support. Please click &apos;Authorize Remote Access&apos; below to allow our human tech team to intervene.
           </p>
         </div>
       ) : null}
       {chaosScenario === "CASCADING" && statusNorm === "MITIGATED" && handoffState !== "CONNECTED" ? (
         <div className="mb-3 rounded-md border border-zinc-700/80 bg-zinc-950/90 px-3 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
           <p className="text-[10px] font-black uppercase tracking-wide text-zinc-200">
-            CASCADING FAILURE DETECTED: Irontech attempted Local and Global mitigation paths, but both failed. The threat is a zero-day variant. Human intervention is strictly required. Please click 'Authorize Remote Access' below.
+            CASCADING FAILURE DETECTED: Irontech attempted Local and Global mitigation paths, but both failed. The threat is a zero-day variant. Human intervention is strictly required. Please click &apos;Authorize Remote Access&apos; below.
           </p>
         </div>
       ) : null}

@@ -111,6 +111,7 @@ export function useDashboardThreatRealtime({
   onNewRef.current = onNewThreatDetected;
   onInsertRef.current = onThreatInserted;
   onAfterSyncRef.current = onAfterSync;
+  const tenantCompanyIdsKey = tenantCompanyIds.join("|");
 
   useEffect(() => {
     if (!enabled) return;
@@ -254,5 +255,5 @@ export function useDashboardThreatRealtime({
       if (updateTimer) clearTimeout(updateTimer);
       void supabase.removeChannel(channel);
     };
-  }, [enabled, isSimulationMode, tenantCompanyIds.join("|")]);
+  }, [enabled, isSimulationMode, tenantCompanyIds, tenantCompanyIdsKey]);
 }

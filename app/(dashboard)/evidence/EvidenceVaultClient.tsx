@@ -138,6 +138,7 @@ export default function EvidenceVaultClient() {
       getBulkEvidenceBundle(dashboardTenantUuid, range),
       getFrameworkCoverage(dashboardTenantUuid, coverageFramework),
     ]);
+    let hasReadinessFromCoverage = false;
     if (!res.ok) {
       setLoadError(res.error);
       setBundle(null);
@@ -149,6 +150,7 @@ export default function EvidenceVaultClient() {
       setReadinessInfo(null);
       setLoadError((prev) => prev ?? coverageRes.error);
     } else {
+      hasReadinessFromCoverage = true;
       setReadinessPct(coverageRes.coverage.readinessPercent);
       setReadinessInfo({
         validated: coverageRes.coverage.totals.validatedControls,
@@ -164,7 +166,7 @@ export default function EvidenceVaultClient() {
       setPeerAvgPct(peerRes.payload.industryAvgPct);
       setPeerBucket(peerRes.payload.percentileBucket);
       setPeerInsight(peerRes.payload.insight);
-      if (readinessPct == null) setReadinessPct(peerRes.payload.yourScorePct);
+      if (!hasReadinessFromCoverage) setReadinessPct(peerRes.payload.yourScorePct);
     }
     setLoading(false);
   }, [dashboardTenantUuid, range, coverageFramework]);

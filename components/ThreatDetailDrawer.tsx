@@ -266,11 +266,14 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
     : 'bg-slate-500/20 text-slate-300 border border-slate-500/40';
   const executiveSummary = threat?.aiReport ? extractExecutiveSummary(threat.aiReport) : null;
   // Fallback to check common Prisma relation names for notes
-  const historicalNotes = [
-    ...(threat?.notes ?? []),
-    ...(threat?.workNotes ?? []),
-    ...(threat?.comments ?? []),
-  ];
+  const historicalNotes = useMemo(
+    () => [
+      ...(threat?.notes ?? []),
+      ...(threat?.workNotes ?? []),
+      ...(threat?.comments ?? []),
+    ],
+    [threat?.comments, threat?.notes, threat?.workNotes],
+  );
   const allNotes = useMemo(() => {
     return [...localNotes, ...historicalNotes].sort((a, b) => {
       const dateA = new Date(a.createdAt || a.created_at || 0).getTime();

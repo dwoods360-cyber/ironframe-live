@@ -41,7 +41,7 @@ export default function EntityVendorsPage({
             }}
           />
           <p className="mt-2 text-[9px] text-slate-500 uppercase italic">
-            Files dropped here are isolated in the 'ironframe-quarantine' enclave for Agent 5 analysis.
+            Files dropped here are isolated in the &apos;ironframe-quarantine&apos; enclave for Agent 5 analysis.
           </p>
         </section>
 

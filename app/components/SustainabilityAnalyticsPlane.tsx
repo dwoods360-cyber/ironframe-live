@@ -24,6 +24,8 @@ type SustainabilityAnalyticsPlaneProps = {
   initialData?: SustainabilityAnalyticsPlaneData | null;
 };
 
+const EMPTY_LEDGER_ROWS: CarbonLedgerRowDto[] = [];
+
 /**
  * Epic 9 / 5 — Unified sustainability & risk conversion interface.
  * Separates Ironbloom physical ledger from Kimbot conversational / simulation signals.
@@ -66,7 +68,10 @@ export default function SustainabilityAnalyticsPlane({
     [kimbotSignals],
   );
 
-  const ledgerRows: CarbonLedgerRowDto[] = planeData?.ledgerRows ?? [];
+  const ledgerRows = useMemo<CarbonLedgerRowDto[]>(
+    () => planeData?.ledgerRows ?? EMPTY_LEDGER_ROWS,
+    [planeData?.ledgerRows],
+  );
 
   const cfoAleCentsResult = useMemo(
     () =>

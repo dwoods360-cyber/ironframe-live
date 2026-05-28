@@ -62,6 +62,7 @@ import {
   REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS,
 } from "@/app/utils/chaosDiscoveryHold";
 import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
+import { toThreatSourceLabel } from "@/app/utils/threatSourceLabels";
 
 type SupplyChainThreat = {
   vendorName: string;
@@ -118,6 +119,10 @@ function formatBigIntCentsLabel(value: bigint): string {
 }
 
 const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+const LIABILITY_ALERT_POLL_MS = 30_000;
+const SYNC_RECONCILE_INTERVAL_MS = 60 * 1000;
+const SYNC_RECONCILE_DEBOUNCE_MS = 400;
 
 /** Strategic Intel "Top Sector Threats" — pipeline `source` / DB `sourceAgent`; GRC box pre-filled with this text. */
 const TOP_SECTOR_SOURCE_LABEL = "Top Sector Threats";
@@ -364,17 +369,18 @@ function PipelineThreatCard({
     ? REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS
     : CHAOS_DISCOVERY_HOLD_MS;
   const createdMsForDiscovery = Date.parse(threat.createdAt ?? "");
+  const discoveryNowMs = Date.now();
   const discoveryProgressPct = useMemo(() => {
     if (!chaosDiscoveryHold || !Number.isFinite(createdMsForDiscovery)) return 0;
-    return Math.min(100, ((Date.now() - createdMsForDiscovery) / discoveryHoldMs) * 100);
-  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryUiTick]);
+    return Math.min(100, ((discoveryNowMs - createdMsForDiscovery) / discoveryHoldMs) * 100);
+  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryNowMs]);
   const discoverySecondsRemaining = useMemo(() => {
     if (!chaosDiscoveryHold || !Number.isFinite(createdMsForDiscovery)) return 0;
     return Math.max(
       0,
-      Math.ceil((discoveryHoldMs - (Date.now() - createdMsForDiscovery)) / 1000),
+      Math.ceil((discoveryHoldMs - (discoveryNowMs - createdMsForDiscovery)) / 1000),
     );
-  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryUiTick]);
+  }, [chaosDiscoveryHold, createdMsForDiscovery, discoveryHoldMs, discoveryNowMs]);
 
   useEffect(() => {
     if (!chaosDiscoveryHold) return;
@@ -739,14 +745,14 @@ function PipelineThreatCard({
           </div>
           <p className="font-mono text-[10px] text-slate-500 break-all">{threat.id}</p>
           <p className="text-[10px] text-slate-400">
-            Source: {threat.source ?? "—"} · Sector: {threat.industry ?? "—"} · Target:{" "}
+            Source: {toThreatSourceLabel(threat.source)} · Sector: {threat.industry ?? "—"} · Target:{" "}
             {threat.target ?? threat.industry ?? "—"}
           </p>
           {threat.systemImpact?.trim() ? (
             <p className="text-[10px] text-amber-200/85">System impact: {threat.systemImpact.trim()}</p>
           ) : null}
           <p className="text-[10px] text-slate-500">
-            Liability: ${scoreM.toFixed(1)}M · {threat.source ?? "—"}
+            Liability: ${scoreM.toFixed(1)}M · {toThreatSourceLabel(threat.source)}
           </p>
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
             <span className="font-mono" title="Time since detection">
@@ -1582,9 +1588,6 @@ export default function ThreatPipeline({
     .sort()
     .join('|');
 
-  const FIFTEEN_MIN_MS = 15 * 60 * 1000;
-  const LIABILITY_ALERT_POLL_MS = 30_000;
-
   useEffect(() => {
     const map = highLiabilityFirstSeenRef.current;
 
@@ -1632,10 +1635,6 @@ export default function ThreatPipeline({
     }
     prevGrcBotEnabled.current = grcBotEnabled;
   }, [grcBotEnabled, syncThreatEventsFromDb]);
-
-  // Sync & Reconcile: debounced POST on board churn + stable interval (no double-fire on store updates)
-  const SYNC_RECONCILE_INTERVAL_MS = 60 * 1000;
-  const SYNC_RECONCILE_DEBOUNCE_MS = 400;
 
   const runSyncImpl = useCallback(async () => {
     if (useRiskStore.getState().isAcknowledgeInFlight) return;
@@ -1779,20 +1778,20 @@ export default function ThreatPipeline({
             suppressIngestionStreamWaiting ? (
               isShadowPlaneLiveRange ? (
               <div className="rounded border border-dashed border-cyan-600/40 bg-cyan-950/25 p-4 text-center font-sans text-sm text-cyan-100/90 animate-pulse">
-                [ LIVE RANGE · INGESTION CHANNEL OPEN — NO RAW SIGNALS QUEUED ]
+                Live monitoring is active. No raw risk events are currently queued.
               </div>
             ) : (
               <div className="rounded border border-dashed border-emerald-600/35 bg-emerald-950/20 p-4 text-center font-sans text-sm text-emerald-100/85">
-                [ PIPELINE ACTIVE · RAW SIGNAL STREAM IDLE — DB CARDS BELOW ]
+                Pipeline is active. No new raw risk events in the ingestion stream.
               </div>
             )
             ) : isShadowPlaneLiveRange ? (
               <div className="rounded border border-dashed border-cyan-600/40 bg-cyan-950/25 p-4 text-center font-sans text-sm text-cyan-100/90 animate-pulse">
-                [ SHADOW PLANE · INGESTION IDLE — PIPELINE BELOW ]
+                Shadow-plane ingestion is idle. Existing pipeline cards remain available below.
               </div>
             ) : (
               <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-                [ WAITING FOR INGESTION STREAM... ]
+                No active risk events detected in the current queue.
               </div>
             )
           ) : (
@@ -1808,20 +1807,20 @@ export default function ThreatPipeline({
                   suppressIngestionStreamWaiting ? (
                     isShadowPlaneLiveRange ? (
                     <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
-                      [ LIVE RANGE · AGENT STREAM IDLE ]
+                      Live monitoring is enabled. Agent stream is currently idle.
                     </div>
                   ) : (
                     <div className="rounded border border-dashed border-emerald-600/30 bg-slate-950/50 p-4 text-center font-sans text-sm text-emerald-200/75">
-                      [ PIPELINE ACTIVE · AGENT STREAM IDLE ]
+                      Pipeline is active. No agent-originated risk events are pending.
                     </div>
                   )
                   ) : isShadowPlaneLiveRange ? (
                     <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
-                      [ SHADOW PLANE · AGENT STREAM IDLE ]
+                      Shadow-plane monitoring is active. Agent stream is idle.
                     </div>
                   ) : (
                     <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-                      [ WAITING FOR INGESTION STREAM... ]
+                      No active risk events detected in the current queue.
                     </div>
                   )
                 ) : (
@@ -1895,20 +1894,20 @@ export default function ThreatPipeline({
                   suppressIngestionStreamWaiting ? (
                     isShadowPlaneLiveRange ? (
                     <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
-                      [ LIVE RANGE · SOC EMAIL IDLE ]
+                      Live monitoring is enabled. SOC intake is currently idle.
                     </div>
                   ) : (
                     <div className="rounded border border-dashed border-emerald-600/30 bg-slate-950/50 p-4 text-center font-sans text-sm text-emerald-200/75">
-                      [ PIPELINE ACTIVE · SOC EMAIL IDLE ]
+                      Pipeline is active. No SOC email alerts are pending ingestion.
                     </div>
                   )
                   ) : isShadowPlaneLiveRange ? (
                     <div className="rounded border border-dashed border-cyan-600/35 bg-slate-950/50 p-4 text-center font-sans text-sm text-cyan-200/80 animate-pulse">
-                      [ SHADOW PLANE · SOC EMAIL IDLE ]
+                      Shadow-plane monitoring is active. SOC intake is idle.
                     </div>
                   ) : (
                     <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">
-                      [ WAITING FOR INGESTION STREAM... ]
+                      No active risk events detected in the current queue.
                     </div>
                   )
                 ) : (

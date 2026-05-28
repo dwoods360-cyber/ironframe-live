@@ -71,7 +71,7 @@ export default async function TenantCommandCenter({
               {tenantData.name}
             </h1>
             <p className="text-emerald-500 font-mono text-xs tracking-wider uppercase">
-              {tenantData.industry} // SECURE ENCLAVE
+              {tenantData.industry} {"// SECURE ENCLAVE"}
             </p>
           </div>
           <div className="text-right">

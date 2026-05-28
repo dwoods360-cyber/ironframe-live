@@ -84,6 +84,7 @@ import { InlineAuditAccordion } from '@/app/components/InlineAuditAccordion';
 import { ForensicAuditModal } from '@/app/components/ForensicAuditModal';
 import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
 import { extractRawAuditMarkdown } from '@/app/utils/riskCardEnrichment';
+import { toThreatSourceLabel } from '@/app/utils/threatSourceLabels';
 
 const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
 
@@ -1256,6 +1257,8 @@ export default function ActiveRisksClient({
       rep(at.filter((t) => t.id !== id));
       optimisticProcessingUntilRef.current.delete(id);
     };
+    const settleTimers = optimisticSettleTimersRef.current;
+    const processingUntil = optimisticProcessingUntilRef.current;
     window.addEventListener('ironframe:chaos-drill-optimistic-start', onOptimisticStart);
     window.addEventListener('ironframe:chaos-drill-optimistic-success', onOptimisticSuccess);
     window.addEventListener('ironframe:chaos-drill-optimistic-failed', onOptimisticFailed);
@@ -1263,11 +1266,11 @@ export default function ActiveRisksClient({
       window.removeEventListener('ironframe:chaos-drill-optimistic-start', onOptimisticStart);
       window.removeEventListener('ironframe:chaos-drill-optimistic-success', onOptimisticSuccess);
       window.removeEventListener('ironframe:chaos-drill-optimistic-failed', onOptimisticFailed);
-      for (const t of optimisticSettleTimersRef.current.values()) {
+      for (const t of settleTimers.values()) {
         window.clearTimeout(t);
       }
-      optimisticSettleTimersRef.current.clear();
-      optimisticProcessingUntilRef.current.clear();
+      settleTimers.clear();
+      processingUntil.clear();
     };
   }, []);
 
@@ -2909,7 +2912,7 @@ export default function ActiveRisksClient({
                     Score: {threat.calculatedRiskScore ?? threat.score ?? threat.loss}
                   </span>
                   <span className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
-                    SRC: {threat.source ?? 'STRATEGIC_INTEL'}
+                    SRC: {toThreatSourceLabel(threat.source ?? 'STRATEGIC_INTEL')}
                   </span>
                   {supplyChainImpact != null && (
                     <span
@@ -3571,7 +3574,7 @@ export default function ActiveRisksClient({
                     Score: {risk.score_cents}
                   </span>
                   <span className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">
-                    SRC: {risk.source}
+                    SRC: {toThreatSourceLabel(risk.source)}
                   </span>
                   {supplyChainImpact != null && (
                     <span

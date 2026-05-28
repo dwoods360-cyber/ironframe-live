@@ -36,7 +36,6 @@ export default function RolePage() {
   }, [supabase]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchMetrics();
   }, [fetchMetrics]);
 

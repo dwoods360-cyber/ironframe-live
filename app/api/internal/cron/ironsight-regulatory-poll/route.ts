@@ -1,23 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { runIronsightRegulatoryPoll } from "@/app/services/ironsightMonitor";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import prisma from "@/lib/prisma";
 
 /**
- * Ironsight regulatory horizon poll — pairs with Vercel Cron / external scheduler.
- * Secure with `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `x-cron-secret`.
+ * Ironsight regulatory horizon poll — pairs with Vercel Cron.
+ * Schedule: `0 8 * * *`. Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
-async function handleCron(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Ironsight regulatory poll execution initiated successfully.");
 
-  const url = new URL(req.url);
+  const url = new URL(request.url);
   const tenantId =
-    req.headers.get("x-tenant-id")?.trim() ||
+    request.headers.get("x-tenant-id")?.trim() ||
     url.searchParams.get("tenantId")?.trim() ||
     process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
     TENANT_UUIDS.medshield;
@@ -79,10 +82,10 @@ async function handleCron(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  return handleCron(req);
+export async function GET(request: Request) {
+  return handleCron(request);
 }
 
-export async function POST(req: NextRequest) {
-  return handleCron(req);
+export async function POST(request: Request) {
+  return handleCron(request);
 }

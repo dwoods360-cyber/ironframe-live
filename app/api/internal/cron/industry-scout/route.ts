@@ -1,23 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { runIndustryScoutWorker } from "@/app/services/ironsight/crawler";
 import { runIronscribeDriveSync } from "@/app/services/ironscribe/driveSync";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import prisma from "@/lib/prisma";
 
 /**
  * Industry Scout + Ironscribe Drive sync — SEC / NIST CSRC / Colorado + Governance/Regulations folder.
- * Secure with IRONFRAME_CRON_SECRET.
+ * Schedule: `0 10 * * *`. Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
-async function handleCron(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Industry scout execution initiated successfully.");
 
-  const url = new URL(req.url);
+  const url = new URL(request.url);
   const tenantId =
-    req.headers.get("x-tenant-id")?.trim() ||
+    request.headers.get("x-tenant-id")?.trim() ||
     url.searchParams.get("tenantId")?.trim() ||
     process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
     TENANT_UUIDS.medshield;
@@ -84,10 +87,10 @@ async function handleCron(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  return handleCron(req);
+export async function GET(request: Request) {
+  return handleCron(request);
 }
 
-export async function POST(req: NextRequest) {
-  return handleCron(req);
+export async function POST(request: Request) {
+  return handleCron(request);
 }

@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { runIronwatchSecurityMonitor } from "@/src/services/ironwatch/securityMonitor";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironwatch — Ironguard violation circuit breaker (cron / manual).
- * Auth: \`Authorization: Bearer ${IRONFRAME_CRON_SECRET}\` or \`x-cron-secret\`.
+ * Schedule: `0 12 * * *`. Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
-async function handleCron(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Ironwatch security monitor execution initiated successfully.");
 
@@ -16,10 +19,10 @@ async function handleCron(req: NextRequest) {
   return NextResponse.json(result);
 }
 
-export async function GET(req: NextRequest) {
-  return handleCron(req);
+export async function GET(request: Request) {
+  return handleCron(request);
 }
 
-export async function POST(req: NextRequest) {
-  return handleCron(req);
+export async function POST(request: Request) {
+  return handleCron(request);
 }

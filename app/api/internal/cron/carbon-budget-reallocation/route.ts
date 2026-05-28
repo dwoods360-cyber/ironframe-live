@@ -1,55 +1,51 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { runCarbonBudgetReallocationAlertIfDue } from "@/app/services/ironbloom/carbonBudgetReallocationAlert";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
+import {
+  coerceBigIntCents,
+  serializeCronJsonPayload,
+} from "@/app/api/internal/cron/cronRouteShell";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import prisma from "@/lib/prisma";
 
-function toJsonPayload(value: unknown): unknown {
-  return JSON.parse(
-    JSON.stringify(value, (_key, raw) => (typeof raw === "bigint" ? raw.toString() : raw)),
-  );
-}
-
 /**
- * Ironbloom — monthly cron (UTC day 1, ~09:00 via host scheduler):
- * Budget Reallocation alert when `mitigatedValueCents` exceeds `IRONBLOOM_MONTHLY_CARBON_BUDGET_THRESHOLD_CENTS`.
- *
- * Schedule: `0 9 1 * *` (monthly, day 1, 09:00 UTC).
- * Secure with `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `x-cron-secret`.
+ * Ironbloom — monthly cron (UTC day 1, 09:00):
+ * Budget Reallocation alert when `mitigatedValueCents` exceeds threshold.
+ * Schedule: `0 9 1 * *`. Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
-async function handleCron(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Carbon budget reallocation execution initiated successfully.");
 
-  const url = new URL(req.url);
+  const url = new URL(request.url);
   const tenantId =
-    req.headers.get("x-tenant-id")?.trim() ||
+    request.headers.get("x-tenant-id")?.trim() ||
     url.searchParams.get("tenantId")?.trim() ||
     process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
     TENANT_UUIDS.medshield;
 
   try {
-    await parseCronRequestBody(req);
+    await parseCronRequestBody(request);
     const force = url.searchParams.get("force") === "1";
 
     const result = await runCarbonBudgetReallocationAlertIfDue({ force });
-    const safeResult = toJsonPayload(result) as Record<string, unknown>;
-    const prismaAny = prisma as any;
+    const safeResult = serializeCronJsonPayload(result) as Record<string, unknown>;
     const metricValue =
-      typeof (result as any)?.mitigatedValueCents === "bigint"
-        ? (result as any).mitigatedValueCents
-        : typeof (result as any)?.mitigatedValueCents === "number"
-          ? BigInt((result as any).mitigatedValueCents)
-          : null;
+      coerceBigIntCents((result as { mitigatedValueCents?: unknown }).mitigatedValueCents) ??
+      coerceBigIntCents(safeResult.mitigatedValueCents);
 
+    const prismaAny = prisma as any;
     const artifact = await prismaAny.cronJobArtifact.create({
       data: {
         tenantId,
         agentName: "carbon-budget-reallocation",
-        payloadJson: toJsonPayload({
+        payloadJson: serializeCronJsonPayload({
           result: safeResult,
           degraded: !result.ok,
           source: "cron-carbon-budget-reallocation",
@@ -95,11 +91,10 @@ async function handleCron(req: NextRequest) {
   }
 }
 
-/** Vercel Cron invokes GET; manual ops may POST with the same secret. */
-export async function GET(req: NextRequest) {
-  return handleCron(req);
+export async function GET(request: Request) {
+  return handleCron(request);
 }
 
-export async function POST(req: NextRequest) {
-  return handleCron(req);
+export async function POST(request: Request) {
+  return handleCron(request);
 }

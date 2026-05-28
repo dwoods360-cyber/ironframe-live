@@ -1,14 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { runIronwatchElectricityMapsHeartbeat } from "@/src/services/ironwatch/apiHeartbeat";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
 
 /**
  * Ironwatch (Agent 15) — Electricity Maps live heartbeat every 15 minutes.
- * Secure with `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `x-cron-secret`.
+ * Schedule: every 15 minutes (Vercel Cron).
  */
-async function handleCron(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Ironwatch API heartbeat execution initiated successfully.");
 
@@ -16,10 +19,10 @@ async function handleCron(req: NextRequest) {
   return NextResponse.json({ ok: true, ...result }, { headers: { "Cache-Control": "no-store" } });
 }
 
-export async function GET(req: NextRequest) {
-  return handleCron(req);
+export async function GET(request: Request) {
+  return handleCron(request);
 }
 
-export async function POST(req: NextRequest) {
-  return handleCron(req);
+export async function POST(request: Request) {
+  return handleCron(request);
 }

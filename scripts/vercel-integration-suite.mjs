@@ -9,17 +9,24 @@
 import { spawnSync } from "node:child_process";
 import dotenv from "dotenv";
 
+/** Shell/CI URL wins over `.env.staging.local` (dotenv would otherwise overwrite it). */
+const cliStagingBaseUrl = process.env.STAGING_SMOKE_BASE_URL?.trim();
+
 dotenv.config({ path: ".env.staging.local", override: true });
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config({ path: ".env", override: true });
 
-const base = process.env.STAGING_SMOKE_BASE_URL?.trim();
+const base = cliStagingBaseUrl || process.env.STAGING_SMOKE_BASE_URL?.trim();
 const epic12Only = process.argv.includes("--epic12-only");
 const skipLive = process.argv.includes("--skip-live");
 
-function run(cmd, args, label) {
+function run(cmd, args, label, extraEnv = {}) {
   console.log(`\n[vercel-integration] ▶ ${label}`);
-  const r = spawnSync(cmd, args, { stdio: "inherit", shell: process.platform === "win32" });
+  const r = spawnSync(cmd, args, {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+    env: { ...process.env, ...extraEnv },
+  });
   if (r.status !== 0) {
     console.error(`[vercel-integration] ✗ ${label} failed (exit ${r.status ?? 1})`);
     process.exit(r.status ?? 1);
@@ -47,6 +54,11 @@ if (!base) {
 }
 
 console.log(`[vercel-integration] Live target: ${base}`);
-run("node", ["scripts/staging-smoke-cron.mjs"], "Vercel cron integration smoke (21 probes)");
+run(
+  "node",
+  ["scripts/staging-smoke-cron.mjs"],
+  "Vercel cron integration smoke (21 probes)",
+  { STAGING_SMOKE_BASE_URL: base },
+);
 
 console.log("\n[vercel-integration] All gates green.");

@@ -1,8 +1,5 @@
 import "server-only";
 
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import prisma from "@/lib/prisma";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { HUMAN_ACK_ANOMALY_AUDIT_ACTION } from "@/app/lib/ironwatch/humanAckAnomalyAuditAction";
@@ -539,22 +536,20 @@ ${gavelSection}
     complianceBlindSpots,
   });
 
-  const auditsDir = path.join(process.cwd(), "storage", "forensics", "audits");
-  await mkdir(auditsDir, { recursive: true });
-  const reportPath = path.join(auditsDir, `DAILY_AUDIT_REPORT_${auditReportTimestampFragment(now)}.md`);
+  const reportFilename = `DAILY_AUDIT_REPORT_${auditReportTimestampFragment(now)}.md`;
+  const reportPath = `memory://forensics/audits/${reportFilename}`;
   const reportBody = `${promptTemplate}\n\n${irontallyFrameworkAppendix}`;
-  await writeFile(reportPath, reportBody, "utf8");
 
   if (complianceBlindSpots.length > 0) {
     void sendComplianceBlindSpotIroncast(complianceBlindSpots, {
-      reportFilename: path.basename(reportPath),
+      reportFilename,
       generatedAtIso: now.toISOString(),
       ironguardRowsInWindow: ironguardRows.length,
     });
     logStructuredEvent(
       "Irontally",
       "COMPLIANCE_BLIND_SPOT_ALERT",
-      { count: complianceBlindSpots.length, reportPath: path.relative(process.cwd(), reportPath).replace(/\\/g, "/") },
+      { count: complianceBlindSpots.length, reportPath },
       "warn",
     );
   }
@@ -563,7 +558,7 @@ ${gavelSection}
     const hardBanCount = highRiskLedger.filter((r) => r.isHardBan).length;
     void sendRecidivistSummaryIroncast({
       generatedAtIso: now.toISOString(),
-      reportFilename: path.basename(reportPath),
+      reportFilename,
       recidivistCount: highRiskLedger.length,
       hardBanCount,
       crossTenantProbeCount: crossTenantProbeNotes.length,
@@ -574,7 +569,7 @@ ${gavelSection}
       {
         recidivistCount: highRiskLedger.length,
         hardBanCount,
-        reportPath: path.relative(process.cwd(), reportPath).replace(/\\/g, "/"),
+        reportPath,
       },
       "warn",
     );

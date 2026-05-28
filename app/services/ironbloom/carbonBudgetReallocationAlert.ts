@@ -4,14 +4,11 @@ import { createHash, randomUUID } from "crypto";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { resolveMonthlyCarbonBudgetThresholdCents } from "@/app/config/ironbloomCarbonBudget";
 import { CFO_SUSTAINABILITY_ROI_METADATA } from "@/app/config/cfoSustainabilityMetadata";
-import {
-  readCarbonBudgetAlertSchedulerState,
-  writeCarbonBudgetAlertSchedulerState,
-} from "@/app/lib/ironbloom/carbonBudgetAlertSchedulerState";
 import { aggregateMonthlyProductionMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { IroncastService } from "@/services/ironcast.service";
+import prisma from "@/lib/prisma";
 
 export const CARBON_BUDGET_REALLOCATION_ALERT_NAME = "Monthly Carbon Budget Reallocation Alert";
 
@@ -42,6 +39,7 @@ export type RunCarbonBudgetReallocationAlertOutcome =
       mitigatedValueCents: string;
       thresholdCents: string;
       alertId: string;
+      sustainabilityUnit: "kWh";
     }
   | { ok: false; error: string };
 
@@ -78,8 +76,29 @@ export async function runCarbonBudgetReallocationAlertIfDue(
     const mitigatedValueCents = await aggregateMonthlyProductionMitigatedValueCents({ since });
     const thresholdCents = resolveMonthlyCarbonBudgetThresholdCents();
 
-    const sched = readCarbonBudgetAlertSchedulerState();
-    if (sched.lastAlertedMonthKey === monthKey && !options.force) {
+    const prismaAny = prisma as any;
+    const recentDispatches = await prismaAny.cronJobArtifact.findMany({
+      where: {
+        tenantId: TENANT_UUIDS.medshield,
+        agentName: "carbon-budget-reallocation-dispatch",
+      },
+      orderBy: {
+        runTimestamp: "desc",
+      },
+      take: 24,
+      select: {
+        payloadJson: true,
+      },
+    });
+    const wasAlreadyDispatched =
+      !options.force &&
+      recentDispatches.some((row: { payloadJson?: unknown }) => {
+        const payload = row.payloadJson;
+        if (!payload || typeof payload !== "object" || Array.isArray(payload)) return false;
+        return (payload as { monthKey?: unknown }).monthKey === monthKey;
+      });
+
+    if (wasAlreadyDispatched) {
       return {
         ok: true,
         skipped: true,
@@ -91,12 +110,6 @@ export async function runCarbonBudgetReallocationAlertIfDue(
     }
 
     if (mitigatedValueCents <= thresholdCents) {
-      writeCarbonBudgetAlertSchedulerState({
-        lastAlertedMonthKey: sched.lastAlertedMonthKey,
-        lastRunAt: now.toISOString(),
-        lastMitigatedValueCents: mitigatedValueCents.toString(),
-        lastThresholdCents: thresholdCents.toString(),
-      });
       return {
         ok: true,
         skipped: true,
@@ -168,11 +181,20 @@ export async function runCarbonBudgetReallocationAlertIfDue(
       }
     }
 
-    writeCarbonBudgetAlertSchedulerState({
-      lastAlertedMonthKey: monthKey,
-      lastRunAt: now.toISOString(),
-      lastMitigatedValueCents: mitigatedValueCents.toString(),
-      lastThresholdCents: thresholdCents.toString(),
+    await prismaAny.cronJobArtifact.create({
+      data: {
+        tenantId: TENANT_UUIDS.medshield,
+        agentName: "carbon-budget-reallocation-dispatch",
+        payloadJson: {
+          monthKey,
+          alertId,
+          mitigatedValueCents: mitigatedValueCents.toString(),
+          thresholdCents: thresholdCents.toString(),
+          sustainabilityUnit: "kWh",
+        },
+        metricValue: mitigatedValueCents,
+        metricUnit: "kWh",
+      },
     });
 
     return {
@@ -183,6 +205,7 @@ export async function runCarbonBudgetReallocationAlertIfDue(
       mitigatedValueCents: mitigatedValueCents.toString(),
       thresholdCents: thresholdCents.toString(),
       alertId,
+      sustainabilityUnit: "kWh",
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

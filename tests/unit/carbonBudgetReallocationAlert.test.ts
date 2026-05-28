@@ -6,18 +6,17 @@ vi.mock("@/app/lib/ironbloom/productionCarbonLedger", () => ({
   aggregateMonthlyProductionMitigatedValueCents: vi.fn(),
 }));
 
-vi.mock("@/app/lib/ironbloom/carbonBudgetAlertSchedulerState", () => ({
-  readCarbonBudgetAlertSchedulerState: vi.fn(() => ({
-    lastAlertedMonthKey: null,
-    lastRunAt: new Date(0).toISOString(),
-    lastMitigatedValueCents: "0",
-    lastThresholdCents: "0",
-  })),
-  writeCarbonBudgetAlertSchedulerState: vi.fn(),
-}));
-
 vi.mock("@/lib/auditLogLoose", () => ({
   auditLogCreateLoose: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    cronJobArtifact: {
+      findMany: vi.fn(async () => []),
+      create: vi.fn(async () => ({ id: "artifact-1" })),
+    },
+  },
 }));
 
 import { aggregateMonthlyProductionMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";

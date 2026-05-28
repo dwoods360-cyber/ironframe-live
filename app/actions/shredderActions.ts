@@ -9,6 +9,10 @@ import prisma from "@/lib/prisma";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { ironwatchEmitForensicShredIntel, ironwatchSignShredReceiptPayload } from "@/app/actions/agentActions";
+import {
+  EPIC_12_SHRED_BLOCK_MESSAGE,
+  riskEventHasSignedAttestationBlockingShred,
+} from "@/app/lib/evidence/signedAttestationGuard";
 import { createClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -115,6 +119,15 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
   });
   if (existingReceipt) {
     return { ok: false, error: "This case was already shredded (receipt on file)." };
+  }
+
+  const attestationBlocksShred = await riskEventHasSignedAttestationBlockingShred({
+    tenantUuid,
+    riskEventId: risk.id,
+    companyIds,
+  });
+  if (attestationBlocksShred) {
+    return { ok: false, error: EPIC_12_SHRED_BLOCK_MESSAGE };
   }
 
   const company = await prisma.company.findUnique({

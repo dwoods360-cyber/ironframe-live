@@ -8,7 +8,7 @@ import { tenantKeyFromUuid, type TenantKey } from "@/app/utils/tenantIsolation";
 export const TENANT_UTILITY_LOCATIONS: Record<TenantKey, TenantLocation> = {
   medshield: { country: "USA", zipCode: "02115", countryCode: "US" },
   vaultbank: { country: "USA", zipCode: "10004", countryCode: "US" },
-  gridcore: { country: "USA", zipCode: "80202", countryCode: "US" },
+  gridcore: { country: "USA", zipCode: "75201", countryCode: "US" },
   defense: { country: "USA", zipCode: "20001", countryCode: "US" },
 };
 
@@ -16,6 +16,7 @@ export const TENANT_UTILITY_LOCATIONS: Record<TenantKey, TenantLocation> = {
 export const US_ZIP_GEO_ANCHORS: Record<string, { lat: number; lon: number }> = {
   "02115": { lat: 42.34, lon: -71.09 },
   "10004": { lat: 40.7, lon: -74.01 },
+  "75201": { lat: 32.79, lon: -96.8 },
   "80202": { lat: 39.75, lon: -104.99 },
   "20001": { lat: 38.91, lon: -77.01 },
 };

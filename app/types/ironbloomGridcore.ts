@@ -7,7 +7,11 @@ export type TenantLocation = {
   countryCode?: string;
 };
 
-export type UtilityRateSource = "openei-urdb" | "nrel-utility-rates-v3" | "globalpetrol-industrial" | "dev-fallback";
+export type UtilityRateSource =
+  | "openei-urdb"
+  | "nrel-utility-rates-v3"
+  | "globalpetrol-industrial"
+  | "forensic-estimate";
 
 export type UtilityRateQuote = {
   rateUsdPerUnit: number;

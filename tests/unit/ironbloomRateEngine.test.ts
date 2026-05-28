@@ -25,7 +25,7 @@ describe("ironbloomRateEngine", () => {
     const quote = {
       rateUsdPerUnit: 0.11,
       unitType: "kWh" as const,
-      source: "dev-fallback" as const,
+      source: "forensic-estimate" as const,
       jurisdiction: "USA:80202",
       polledAt: "2026-05-15T00:00:00.000Z",
     };
@@ -40,7 +40,7 @@ describe("ironbloomRateEngine", () => {
     const quote = {
       rateUsdPerUnit: 0.1,
       unitType: "kWh" as const,
-      source: "dev-fallback" as const,
+      source: "forensic-estimate" as const,
       jurisdiction: "USA:80202",
       polledAt: "2026-05-15T00:00:00.000Z",
     };

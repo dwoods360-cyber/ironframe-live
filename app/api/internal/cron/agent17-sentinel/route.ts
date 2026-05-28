@@ -10,6 +10,7 @@ async function handleCron(req: NextRequest) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  console.info("[CRON_ACTIVATION_TRACE] Agent 17 sentinel execution initiated successfully.");
 
   const url = new URL(req.url);
   const limitRaw = url.searchParams.get("limit");

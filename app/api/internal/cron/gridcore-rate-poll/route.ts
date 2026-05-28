@@ -3,7 +3,7 @@ import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
 import { runGridcoreUtilityRatePoll } from "@/app/services/ironbloom/rateEngine";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { TENANT_UUIDS, tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 import prisma from "@/lib/prisma";
 
@@ -22,16 +22,20 @@ async function handleCronExecution(req: NextRequest) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ success: false, error: "UNAUTHORIZED_CRON_CONTEXT" }, { status: 401 });
   }
+  console.info("[CRON_ACTIVATION_TRACE] Gridcore rate poll execution initiated successfully.");
 
   try {
     await parseCronRequestBody(req);
     const url = new URL(req.url);
     const force = url.searchParams.get("force") === "1";
     const runUtility = url.searchParams.get("utility") === "1";
-    const tenantId =
-      req.headers.get("x-tenant-id")?.trim() ||
-      url.searchParams.get("tenantId")?.trim() ||
-      TENANT_UUIDS.gridcore;
+    const explicitTenantId = req.headers.get("x-tenant-id")?.trim() || url.searchParams.get("tenantId")?.trim();
+    const tenantId = explicitTenantId || TENANT_UUIDS.gridcore;
+    const zipOverride = url.searchParams.get("zip")?.trim() || undefined;
+    const tenantKeyScope = explicitTenantId ? tenantKeyFromUuid(explicitTenantId) : null;
+    if (explicitTenantId && !tenantKeyScope) {
+      throw new Error(`[GRIDCORE_INVALID_TENANT_SCOPE] Unknown tenantId "${explicitTenantId}".`);
+    }
 
     const outcome = await executeGridcoreRatePoll();
 
@@ -46,7 +50,13 @@ async function handleCronExecution(req: NextRequest) {
       },
     });
 
-    const utility = runUtility ? await runGridcoreUtilityRatePoll({ force }) : undefined;
+    const utility = runUtility
+      ? await runGridcoreUtilityRatePoll({
+          force,
+          tenantKey: tenantKeyScope ?? undefined,
+          zipOverride,
+        })
+      : undefined;
     const prismaAny = prisma as any;
     const artifact = await prismaAny.cronJobArtifact.create({
       data: {

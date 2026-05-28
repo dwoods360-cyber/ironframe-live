@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
   if (!checkCronAuth(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  console.info("[CRON_ACTIVATION_TRACE] Health posture triage execution initiated successfully.");
 
   return NextResponse.json(
     {
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
   if (!checkCronAuth(req)) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+  console.info("[CRON_ACTIVATION_TRACE] Health posture triage execution initiated successfully.");
 
   try {
     const body = await parseCronRequestBody(req);

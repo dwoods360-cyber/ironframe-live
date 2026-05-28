@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@prisma/client"],
+  eslint: {
+    // Re-enable strict verification loops during remote Vercel compilation.
+    ignoreDuringBuilds: false,
+  },
   experimental: {
     // Keep other experimental settings here if needed
   },

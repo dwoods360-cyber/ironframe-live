@@ -43,7 +43,7 @@ export default function CommandPostGrid({ variant = "embedded" }: Props) {
       });
     }
     prevDominance.current = risk.dominanceActive;
-  }, [isUiLocked, risk.dominanceActive, enqueueAgentLayoutRequest]);
+  }, [isUiLocked, risk.dominanceActive, enqueueAgentLayoutRequest, activeThreatCount]);
 
   useEffect(() => {
     if (!isUiLocked) {

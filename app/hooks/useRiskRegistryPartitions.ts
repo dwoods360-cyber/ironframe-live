@@ -110,7 +110,10 @@ export function useRiskRegistryPartitions() {
 
 
 
-  return useMemo(() => partitionRecords(records, Date.now()), [records, lingerTick]);
+  return useMemo(() => {
+    void lingerTick;
+    return partitionRecords(records, Date.now());
+  }, [records, lingerTick]);
 
 }
 

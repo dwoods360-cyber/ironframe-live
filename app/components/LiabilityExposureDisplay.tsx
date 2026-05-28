@@ -3,6 +3,7 @@
 import { useRiskStore } from "@/app/store/riskStore";
 import { useScenarioStore } from "@/app/store/scenarioStore";
 import { formatRiskExposure } from "@/app/utils/riskFormatting";
+import { millionsNumberToCents } from "@/app/utils/riskStoreBigIntMath";
 
 type Props = { baseUsd: number };
 
@@ -22,10 +23,18 @@ export default function LiabilityExposureDisplay({ baseUsd }: Props) {
       sum + (acceptedThreatIndustries[id] === selectedIndustry ? impact : 0),
     0,
   );
-  let totalUsd = baseUsd + acceptedM * 1e6 + pipelinePendingM * 1e6;
-  if (activeScenario && multiplier !== 1) totalUsd = totalUsd * multiplier;
+  const baseUsdNormalized = Number.isFinite(baseUsd) ? baseUsd : 0;
+  const baseCents = BigInt(Math.round(baseUsdNormalized * 100));
+  const acceptedCents = millionsNumberToCents(acceptedM);
+  const pipelinePendingCents = millionsNumberToCents(pipelinePendingM);
 
-  const formatted = formatRiskExposure(totalUsd, currencyMagnitude);
+  let totalCents = baseCents + acceptedCents + pipelinePendingCents;
+  if (activeScenario && multiplier !== 1 && Number.isFinite(multiplier)) {
+    const multiplierScaled = BigInt(Math.round(multiplier * 10_000));
+    totalCents = (totalCents * multiplierScaled) / 10_000n;
+  }
+
+  const formatted = formatRiskExposure(totalCents.toString(), currencyMagnitude);
 
   return (
     <span className="text-3xl font-light text-red-400">

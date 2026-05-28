@@ -192,6 +192,24 @@ const EMPTY_DASHBOARD_DATA: DashboardData = {
   insuranceTotalDiscountBps: 0,
 };
 
+const DASHBOARD_FETCH_TIMEOUT_MS = 5_000;
+const DASHBOARD_FETCH_MAX_ATTEMPTS = 2;
+
+function isRecoverableDashboardNetworkError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toUpperCase();
+  return (
+    normalized.includes("ECONNRESET") ||
+    normalized.includes("NETWORK") ||
+    normalized.includes("ABORT") ||
+    normalized.includes("TIMEOUT")
+  );
+}
+
+const EMPTY_HEATMAP: Record<string, { total: number; agents: Record<string, number> }> = {};
+const EMPTY_PREDICTIVE_HEAT: Record<string, number> = {};
+const EMPTY_ALE_EXPOSURE: Record<string, string> = {};
+
 function InsuranceForensicHandshakeConnector({ flowActive }: { flowActive: boolean }) {
   const bridge = (
     <div className="relative w-full overflow-visible">
@@ -286,6 +304,7 @@ export default function DashboardHomeClient({
   const [realtimeCompanyAllowlistExtras, setRealtimeCompanyAllowlistExtras] = useState<string[]>([]);
   /** Premium/carrier/discount fingerprint from `BudgetJustification` — ties Forensic Audit to insurance edits. */
   const [insuranceClientPostureSig, setInsuranceClientPostureSig] = useState("");
+  const lastGoodDashboardSnapshotRef = useRef<DashboardData | null>(null);
   /** Skip first `insurancePostureSignal` baseline; subsequent changes drive central handshake + GRC audit ledger. */
   const insuranceSigPrevForAuditRef = useRef<string | null>(null);
   /** War Room handshake strip — aligned with Forensic recalc + sign-off gate. */
@@ -348,6 +367,18 @@ export default function DashboardHomeClient({
     const merged = [...new Set([...base, ...realtimeCompanyAllowlistExtras])];
     return merged;
   }, [data?.companies, realtimeCompanyAllowlistExtras]);
+
+  const dashboardValidationHeaders = useMemo<HeadersInit>(() => {
+    if (!dashboardTenantUuid) return {};
+    const headers: Record<string, string> = {
+      "x-tenant-id": dashboardTenantUuid,
+      "x-target-tenant-id": dashboardTenantUuid,
+    };
+    if (activeTenantKey) {
+      headers["x-tenant-key"] = activeTenantKey;
+    }
+    return headers;
+  }, [activeTenantKey, dashboardTenantUuid]);
 
   useEffect(() => {
     setRealtimeCompanyAllowlistExtras([]);
@@ -470,19 +501,53 @@ export default function DashboardHomeClient({
     }, 5200);
   }, []);
 
+  const fetchDashboardWithRetry = useCallback(
+    async (attempt = 1): Promise<DashboardData> => {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), DASHBOARD_FETCH_TIMEOUT_MS);
+      try {
+        const res = await tenantFetch(
+          "/api/dashboard",
+          {
+            cache: "no-store",
+            headers: dashboardValidationHeaders,
+            signal: controller.signal,
+          },
+          dashboardTenantUuid ?? undefined,
+        );
+        if (!res.ok) {
+          throw new Error(res.status === 401 ? "Tenant context required" : `Dashboard fetch failed: ${res.status}`);
+        }
+        return (await res.json()) as DashboardData;
+      } catch (error) {
+        if (attempt < DASHBOARD_FETCH_MAX_ATTEMPTS && isRecoverableDashboardNetworkError(error)) {
+          return fetchDashboardWithRetry(attempt + 1);
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    },
+    [tenantFetch, dashboardValidationHeaders, dashboardTenantUuid],
+  );
+
   const refetchDashboard = useCallback(() => {
     if (!dashboardTenantUuid) return;
-    void tenantFetch('/api/dashboard', {
-      cache: 'no-store',
-      headers: { 'x-tenant-id': dashboardTenantUuid } as HeadersInit,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        return res.json();
+    void fetchDashboardWithRetry()
+      .then((json: DashboardData) => {
+        lastGoodDashboardSnapshotRef.current = json;
+        setData(json);
+        setError(null);
       })
-      .then((json: DashboardData) => setData(json))
-      .catch(() => undefined);
-  }, [tenantFetch, dashboardTenantUuid]);
+      .catch((err) => {
+        if (isRecoverableDashboardNetworkError(err) && lastGoodDashboardSnapshotRef.current) {
+          setData(lastGoodDashboardSnapshotRef.current);
+          setError(null);
+          return;
+        }
+        setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
+      });
+  }, [dashboardTenantUuid, fetchDashboardWithRetry]);
 
   useEffect(() => {
     const onRefetch = () => {
@@ -523,6 +588,7 @@ export default function DashboardHomeClient({
     let cancelled = false;
     if (!dashboardTenantUuid) {
       setData(null);
+      lastGoodDashboardSnapshotRef.current = null;
       setError(null);
       setLoading(false);
       return () => {
@@ -531,19 +597,21 @@ export default function DashboardHomeClient({
     }
     setLoading(true);
     setError(null);
-    tenantFetch('/api/dashboard', {
-      cache: 'no-store',
-      headers: { 'x-tenant-id': dashboardTenantUuid } as HeadersInit,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(res.status === 401 ? 'Tenant context required' : 'Failed to load dashboard');
-        return res.json();
-      })
+    fetchDashboardWithRetry()
       .then((json) => {
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          lastGoodDashboardSnapshotRef.current = json;
+          setData(json);
+        }
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load');
+        if (cancelled) return;
+        if (isRecoverableDashboardNetworkError(err) && lastGoodDashboardSnapshotRef.current) {
+          setData(lastGoodDashboardSnapshotRef.current);
+          setError(null);
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Failed to load');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -551,7 +619,7 @@ export default function DashboardHomeClient({
     return () => {
       cancelled = true;
     };
-  }, [tenantFetch, dashboardTenantUuid]);
+  }, [dashboardTenantUuid, fetchDashboardWithRetry]);
 
   const liveAlerts: StreamAlert[] = useMemo(() => {
     if (!data?.companies) return [];
@@ -583,8 +651,14 @@ export default function DashboardHomeClient({
     }));
   }, [data?.serverAuditLogs]);
 
-  const scrutinyHeatmap = data?.currentHeat ?? data?.scrutinyHeatmap ?? {};
-  const predictiveHeatRaw = data?.predictiveHeat ?? {};
+  const scrutinyHeatmap = useMemo(
+    () => data?.currentHeat ?? data?.scrutinyHeatmap ?? EMPTY_HEATMAP,
+    [data?.currentHeat, data?.scrutinyHeatmap],
+  );
+  const predictiveHeatRaw = useMemo(
+    () => data?.predictiveHeat ?? EMPTY_PREDICTIVE_HEAT,
+    [data?.predictiveHeat],
+  );
   /** Guard rail: never render predictive overlays if active tenant context diverges from dashboard scope. */
   const predictiveHeat = useMemo(() => {
     if (activeTenantUuid?.trim() && activeTenantUuid.trim() !== dashboardTenantUuid) {
@@ -592,7 +666,10 @@ export default function DashboardHomeClient({
     }
     return predictiveHeatRaw;
   }, [activeTenantUuid, dashboardTenantUuid, predictiveHeatRaw]);
-  const aleExposureByAssetCents = data?.aleExposureByAssetCents ?? {};
+  const aleExposureByAssetCents = useMemo(
+    () => data?.aleExposureByAssetCents ?? EMPTY_ALE_EXPOSURE,
+    [data?.aleExposureByAssetCents],
+  );
   const complianceDriftOpenCount = data?.complianceDriftOpenCount ?? 0;
   const ironwatchAlerts = data?.ironwatchAlerts ?? [];
   const isConflictDetected = data?.isConflictDetected === true;
@@ -909,7 +986,7 @@ export default function DashboardHomeClient({
       </div>
     );
   }
-  if (error && dashboardTenantUuid) {
+  if (error && dashboardTenantUuid && !data && !lastGoodDashboardSnapshotRef.current) {
     return (
       <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-slate-950">
         <p className="text-red-400">{error ?? "Failed to load dashboard"}</p>

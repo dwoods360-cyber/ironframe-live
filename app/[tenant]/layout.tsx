@@ -97,7 +97,7 @@ export default function TenantLayout({ children }: TenantLayoutProps) {
               DROP FILE FOR SECURE INGESTION
             </p>
             <p className="mt-3 text-[10px] font-mono text-emerald-400 uppercase">
-              // SENTINEL SWEEP STANDBY
+              {"// SENTINEL SWEEP STANDBY"}
             </p>
           </div>
         </div>

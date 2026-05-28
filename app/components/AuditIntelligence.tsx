@@ -36,6 +36,7 @@ import {
 import { DEFENSE_REGULATORY_SHIELD_BADGE_LABEL } from "@/lib/constants/grcGovernance";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { getTotalCurrentRiskCentsString } from "@/app/utils/riskStoreBigIntMath";
+import { getTasFingerprintThrottled } from "@/app/utils/tasFingerprintClient";
 import { formatAleEngineManifestLine, formatBaselineDriftManifestParts } from "@/app/utils/baselineDriftManifest";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
 import { isShadowPlaneActiveClient } from "@/app/utils/shadowPlaneActive";
@@ -1013,6 +1014,7 @@ export default function AuditIntelligence({
   const auditLingerThreatIdUntil = useRiskStore((s) => s.auditLingerThreatIdUntil);
   const clearAuditLinger = useRiskStore((s) => s.clearAuditLinger);
   const focusId = useMemo(() => {
+    void auditLingerTick;
     const base = (activeRiskIdForAudit ?? selectedThreatIdForAudit)?.trim() ?? "";
     if (base) return base;
     const until = auditLingerThreatIdUntil;
@@ -1158,10 +1160,9 @@ export default function AuditIntelligence({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/grc/tas-fingerprint")
-      .then((r) => r.json())
-      .then((j: { sha256?: string }) => {
-        const h = typeof j.sha256 === "string" ? j.sha256.trim().toLowerCase() : "";
+    void getTasFingerprintThrottled()
+      .then((j) => {
+        const h = typeof j?.sha256 === "string" ? j.sha256.trim().toLowerCase() : "";
         if (!cancelled && /^[a-f0-9]{64}$/.test(h)) setTasConstitutionalHashLive(h);
       })
       .catch(() => undefined);

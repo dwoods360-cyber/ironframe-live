@@ -6,11 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 type Metrics = Record<string, unknown>;
 
 export default function AuditRolePage() {
-  // --- BUILD BYPASS ---
-  if (process.env.NEXT_BUILD_PHASE === 'true') {
-    return <div>Build phase bypass</div>;
-  }
-  // --------------------
+  const isBuildPhase = process.env.NEXT_BUILD_PHASE === 'true';
 
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://build-bypass.supabase.co';
@@ -59,6 +55,10 @@ export default function AuditRolePage() {
     setStatus('Saved.');
     setLoading(false);
   }, [supabase, metrics]);
+
+  if (isBuildPhase) {
+    return <div>Build phase bypass</div>;
+  }
 
   return (
     <div style={{ padding: 20 }}>

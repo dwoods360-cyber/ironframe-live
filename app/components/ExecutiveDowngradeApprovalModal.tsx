@@ -43,7 +43,7 @@ export default function ExecutiveDowngradeApprovalModal({ open, onClose, onWorkf
     setStatus(s);
     onWorkflowChange?.();
     return s;
-  }, [onClose, onWorkflowChange]);
+  }, [onWorkflowChange]);
 
   useEffect(() => {
     if (!open) return;

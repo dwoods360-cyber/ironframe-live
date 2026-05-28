@@ -4,8 +4,8 @@ import { useRiskStore } from "@/app/store/riskStore";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 
 /**
- * Test Run Ingestion: always visible for developers/QA. No conditional hide.
- * Provides a one-click test signal to validate the ingestion pipeline.
+ * Test Run Ingestion: always visible as an operator validation control.
+ * Provides a one-click signal to validate ingestion continuity.
  */
 export default function TestRunIngestion() {
   const upsertPipelineThreat = useRiskStore((s) => s.upsertPipelineThreat);
@@ -20,7 +20,7 @@ export default function TestRunIngestion() {
       score: 2.5,
       industry: selectedIndustry,
       source: "Test Run Ingestion",
-      description: `Test signal injected for QA/developer validation. Industry: ${selectedIndustry}.`,
+      description: `Validation signal injected for ingestion continuity. Industry: ${selectedIndustry}.`,
     });
     appendAuditLog({
       action_type: "GRC_PROCESS_THREAT",
@@ -41,7 +41,7 @@ export default function TestRunIngestion() {
             Test Run Ingestion
           </h2>
           <span className="rounded border border-slate-700 bg-slate-800/80 px-1.5 py-0.5 text-[9px] text-slate-400">
-            Always visible for QA
+            Operator validation control
           </span>
         </div>
         <button
@@ -53,7 +53,7 @@ export default function TestRunIngestion() {
         </button>
       </div>
       <p className="mt-1.5 text-[10px] text-slate-500">
-        Injects a test threat into the pipeline for validation. Check RISK REGISTRATION below for the card.
+        Injects a validation event into the pipeline. Review Risk Registration below to confirm intake flow.
       </p>
     </div>
   );

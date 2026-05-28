@@ -14,8 +14,8 @@ export default function AuditSearch({ companyId }: AuditSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<"ALL" | "HIGH" | "MED" | "LOW">("ALL");
 
-  const snapshot = useSyncExternalStore(subscribeAuditLogger, getAuditLogSnapshot, getAuditLogSnapshot);
-  const logsForCompany = useMemo(() => getAuditLogsForCompany(companyId ?? null), [snapshot, companyId]);
+  useSyncExternalStore(subscribeAuditLogger, getAuditLogSnapshot, getAuditLogSnapshot);
+  const logsForCompany = useMemo(() => getAuditLogsForCompany(companyId ?? null), [companyId]);
 
   const filtered = useMemo(() => {
     let list: AuditLogRecord[] = logsForCompany;

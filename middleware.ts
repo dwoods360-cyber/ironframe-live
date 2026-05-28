@@ -37,12 +37,18 @@ function middlewareSimulationBypass(request: NextRequest): boolean {
   );
 }
 
+function internalTokenGatedApiPath(pathname: string): boolean {
+  if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (pathname.startsWith("/api/internal/ironquery/export")) return true;
+  return false;
+}
+
 function staleLockdownMutationBypassPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/stale-lockdown-status")) return true;
   if (pathname.startsWith("/api/internal/operational-freeze-status")) return true;
   if (pathname.startsWith("/api/internal/quarantine-evaluate")) return true;
   if (pathname.startsWith("/api/internal/ironguard-violation")) return true;
-  if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (internalTokenGatedApiPath(pathname)) return true;
   /** Stale-data prolonged outage: Tripartite Vault + CISO + Staff waiver (resume grid-truth mutations). */
   if (pathname.startsWith("/api/grc/sustainability-stale-lockdown-waiver")) return true;
   /** Constitutional void: SYSTEM_REBIRTH + gold restoration (separate from sustainability 3-key waiver). */
@@ -104,7 +110,7 @@ function quarantineMiddlewareBypassPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/operational-freeze-status")) return true;
   if (pathname.startsWith("/api/internal/stale-lockdown-status")) return true;
   if (pathname.startsWith("/api/internal/ironguard-violation")) return true;
-  if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (internalTokenGatedApiPath(pathname)) return true;
   return false;
 }
 
@@ -269,7 +275,7 @@ export async function middleware(request: NextRequest) {
   if (!user && !isLoginRoute) {
     // Cron endpoints are token-gated in their own route handlers.
     // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
-    if (pathname.startsWith("/api/internal/cron/")) {
+    if (internalTokenGatedApiPath(pathname)) {
       return supabaseResponse;
     }
 

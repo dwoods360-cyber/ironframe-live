@@ -1,4 +1,5 @@
-import { createHash, createVerify } from "node:crypto";
+import { createHash } from "node:crypto";
+import { verifyTenantBoundAsymmetricSignature } from "@/app/lib/crypto/pkiSignatureVerifier";
 
 export type VaultSignatureVerifyInput = {
   /** PEM (SPKI) or configured key id (`PUBLIC_KEY_<ID>` env). */
@@ -32,14 +33,30 @@ export function cryptoVerifySignature(input: VaultSignatureVerifyInput): boolean
   const pem = resolvePublicKeyPem(input.publicKey);
   if (!pem) return false;
 
-  try {
-    const verifier = createVerify("RSA-SHA256");
-    verifier.update(input.message, "utf8");
-    verifier.end();
-    return verifier.verify(pem, input.signature.trim(), "base64");
-  } catch {
-    return false;
+  const tenantUuid = extractTenantFromVaultMessage(input.message);
+  const entityId = extractEntityFromVaultMessage(input.message);
+  if (tenantUuid && entityId) {
+    return verifyTenantBoundAsymmetricSignature({
+      role: "VAULT_RELEASE",
+      tenantUuid,
+      entityId,
+      message: input.message,
+      signature: input.signature,
+      publicKeyPemOverride: pem,
+    });
   }
+
+  return false;
+}
+
+function extractTenantFromVaultMessage(message: string): string {
+  const parts = message.split(":");
+  return parts.length >= 2 ? parts[1].trim() : "";
+}
+
+function extractEntityFromVaultMessage(message: string): string {
+  const parts = message.split(":");
+  return parts.length >= 1 ? parts[0].trim() : "";
 }
 
 /** Challenge block for dual-gate attestation (replay-resistant binding). */

@@ -66,13 +66,13 @@ export function tenantBoundsPayloadMessage(
   if (!tenant || !entity || !msg) {
     return false;
   }
-  if (!msg.includes(tenant)) {
-    return false;
-  }
   if (!msg.includes(entity)) {
     return false;
   }
-  return true;
+  if (msg.includes(tenant)) {
+    return true;
+  }
+  return msg.startsWith(`${entity}:`);
 }
 
 function assertBigIntCentsOnly(value: bigint | undefined): boolean {

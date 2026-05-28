@@ -50,7 +50,7 @@ const { prismaMock } = vi.hoisted(() => ({
       findFirst: vi.fn(async () => null),
     },
     threatEvent: {
-      findFirst: vi.fn(async () => null),
+      findFirst: vi.fn(),
     },
     threatApproval: {
       findUnique: vi.fn(),

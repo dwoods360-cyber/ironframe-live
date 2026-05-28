@@ -54,6 +54,8 @@ function resolveVerificationPem(input: TenantBoundAsymmetricVerifyInput): string
   return resolvePkiPublicKeyPem(input.role);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Tenant UUID must bound the payload before expensive signature verification. */
 export function tenantBoundsPayloadMessage(
   tenantUuid: string,
@@ -66,13 +68,13 @@ export function tenantBoundsPayloadMessage(
   if (!tenant || !entity || !msg) {
     return false;
   }
-  if (!msg.includes(entity)) {
-    return false;
+
+  const parts = msg.split(":");
+  if (parts.length >= 3 && UUID_RE.test(parts[1].trim())) {
+    return parts[0].trim() === entity && parts[1].trim() === tenant;
   }
-  if (msg.includes(tenant)) {
-    return true;
-  }
-  return msg.startsWith(`${entity}:`);
+
+  return parts[0]?.trim() === entity;
 }
 
 function assertBigIntCentsOnly(value: bigint | undefined): boolean {

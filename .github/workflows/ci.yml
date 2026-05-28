@@ -24,6 +24,10 @@ jobs:
         run: npm run lint
       - name: Run Unit Tests
         run: npm run test
+      - name: Epic 11 vault PKI gates (required)
+        run: |
+          npx vitest run tests/unit/pkiSignatureVerifier.test.ts tests/unit/bankVaultDualGate.test.ts
+          npx vitest run tests/integration/bank-vault-success.test.ts tests/integration/bank-vault-rejection.test.ts
       - name: Run Build
         run: npm run build
         env:

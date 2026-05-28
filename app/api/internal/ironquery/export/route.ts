@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 import { getLatestUtilityRateForTenant } from "@/app/services/ironbloom/rateEngine";
 import { tenantKeyFromUuid, type TenantKey } from "@/app/utils/tenantIsolation";
-import { encodeIronqueryAnalystCsv } from "@/app/utils/ironquery/csvEncoder";
+import { encodeIronqueryAnalystCsv, type IronqueryAnalystCsvRow } from "@/app/utils/ironquery/csvEncoder";
+import { buildIronqueryAnalystPdf } from "@/app/utils/ironquery/pdfReportEncoder";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -85,26 +86,38 @@ async function handleExport(request: NextRequest) {
     }
 
     const generatedAt = new Date().toISOString();
+    const analystRow: IronqueryAnalystCsvRow = {
+      tenantId,
+      tenantKey,
+      aleBaselineCents,
+      rateUsdPerUnit: quote.rateUsdPerUnit,
+      unitType: "kWh",
+      source: quote.source,
+      jurisdiction: quote.jurisdiction,
+      polledAt: quote.polledAt,
+      generatedAt,
+    };
+
     if (format === "csv") {
-      const csv = encodeIronqueryAnalystCsv([
-        {
-          tenantId,
-          tenantKey,
-          aleBaselineCents,
-          rateUsdPerUnit: quote.rateUsdPerUnit,
-          unitType: quote.unitType,
-          source: quote.source,
-          jurisdiction: quote.jurisdiction,
-          polledAt: quote.polledAt,
-          generatedAt,
-        },
-      ]);
+      const csv = encodeIronqueryAnalystCsv([analystRow]);
       return new NextResponse(csv, {
         status: 200,
         headers: {
           "Cache-Control": "no-store",
           "content-type": "text/csv; charset=utf-8",
           "content-disposition": `attachment; filename=\"ironquery-analyst-export-${tenantKey}.csv\"`,
+        },
+      });
+    }
+
+    if (format === "pdf") {
+      const pdfBytes = await buildIronqueryAnalystPdf([analystRow]);
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "content-type": "application/pdf",
+          "content-disposition": `attachment; filename=\"ironquery-analyst-export-${tenantKey}.pdf\"`,
         },
       });
     }

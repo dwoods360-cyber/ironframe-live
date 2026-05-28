@@ -38,6 +38,12 @@ run("npx", ["tsc", "--noEmit"], "TypeScript constitutional check");
 
 run(
   "npx",
+  ["vitest", "run", "tests/unit/pkiSignatureVerifier.test.ts", "tests/unit/bankVaultDualGate.test.ts", "tests/integration/bank-vault-success.test.ts", "tests/integration/bank-vault-rejection.test.ts"],
+  "Epic 11 vault PKI matrix",
+);
+
+run(
+  "npx",
   ["vitest", "run", "tests/unit/signedAttestationGuard.test.ts", "tests/integration/epic12-shredder-attestation-guard.test.ts"],
   "Epic 12 vitest matrix (5 tests)",
 );

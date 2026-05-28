@@ -13,8 +13,8 @@ This PR fully implements **Epic 12 (Evidence Immutability)** by introducing a st
 
 ## Test plan
 - [x] `npm run test:integration:epic12` — 5/5 passing
-- [ ] Preview deploy: `npx vercel` on `feat/epic12-evidence-immutability`
-- [ ] `STAGING_SMOKE_BASE_URL=<preview> node scripts/vercel-integration-suite.mjs`
+- [x] Preview deploy: `feat/epic12-evidence-immutability` → `https://ironframe-live-9a01zf8or-dwoods360-6345s-projects.vercel.app`
+- [x] `STAGING_SMOKE_BASE_URL=<preview> npm run test:vercel-integration` — Epic 12 vitest + 21/21 cron smoke (`freezeGateGreen=true`)
 - [ ] Merge to `main` and confirm production deploy includes guard
 
 **Result score:** 5/5 passing tests (local vitest). Total repository static coverage maintained with zero `as any` type escapes in Epic 12 modules.

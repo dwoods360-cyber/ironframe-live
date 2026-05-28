@@ -1,10 +1,62 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { evaluateSystemTriage } from "@/src/services/irontech/triageRouter";
 import { ensureTriageThreadCheckpoint } from "@/src/services/irontech/healthPostureMonitor";
+import * as Agent17SentinelCron from "@/app/api/internal/cron/agent17-sentinel/route";
+import * as CarbonBudgetCron from "@/app/api/internal/cron/carbon-budget-reallocation/route";
+import * as GridcoreRatePollCron from "@/app/api/internal/cron/gridcore-rate-poll/route";
+import * as HealthPostureCron from "@/app/api/internal/cron/health-posture-triage/route";
+import * as IndustryScoutCron from "@/app/api/internal/cron/industry-scout/route";
+import * as IronscribeDailyAuditCron from "@/app/api/internal/cron/ironscribe-daily-audit/route";
+import * as IronsightRegulatoryCron from "@/app/api/internal/cron/ironsight-regulatory-poll/route";
+import * as IronwatchApiHeartbeatCron from "@/app/api/internal/cron/ironwatch-api-heartbeat/route";
+import * as IronwatchSecurityCron from "@/app/api/internal/cron/ironwatch-security-monitor/route";
+import * as SustainabilityAchievementCron from "@/app/api/internal/cron/sustainability-achievement-report/route";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL?.trim());
+
+type CronRouteModule = {
+  GET?: (request: Request) => Promise<Response>;
+  POST?: (request: Request) => Promise<Response>;
+};
+
+const CRON_PERIMETER_ROUTES: Array<{ slug: string; mod: CronRouteModule }> = [
+  { slug: "agent17-sentinel", mod: Agent17SentinelCron },
+  { slug: "carbon-budget-reallocation", mod: CarbonBudgetCron },
+  { slug: "gridcore-rate-poll", mod: GridcoreRatePollCron },
+  { slug: "health-posture-triage", mod: HealthPostureCron },
+  { slug: "industry-scout", mod: IndustryScoutCron },
+  { slug: "ironscribe-daily-audit", mod: IronscribeDailyAuditCron },
+  { slug: "ironsight-regulatory-poll", mod: IronsightRegulatoryCron },
+  { slug: "ironwatch-api-heartbeat", mod: IronwatchApiHeartbeatCron },
+  { slug: "ironwatch-security-monitor", mod: IronwatchSecurityCron },
+  { slug: "sustainability-achievement-report", mod: SustainabilityAchievementCron },
+];
+
+function buildUnauthenticatedCronGet(slug: string): NextRequest {
+  return new NextRequest(`http://localhost:3000/api/internal/cron/${slug}`, {
+    method: "GET",
+  });
+}
+
+describe("Epic 13 - Telemetry Cron Perimeter Guard Rails", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    process.env.IRONFRAME_CRON_SECRET = "test-cron-secret";
+  });
+
+  for (const route of CRON_PERIMETER_ROUTES) {
+    it(`should enforce strict HTTP 401 fail-closed posture on /api/internal/cron/${route.slug} without Bearer token`, async () => {
+      expect(route.mod.GET).toBeDefined();
+      const res = await route.mod.GET!(buildUnauthenticatedCronGet(route.slug));
+      expect(res.status).toBe(401);
+      const body = (await res.json()) as { ok?: boolean; error?: string };
+      expect(body.error).toBe("Unauthorized");
+    });
+  }
+});
 
 describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
   let testTenantId = "";

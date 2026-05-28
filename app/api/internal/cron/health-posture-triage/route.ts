@@ -1,40 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { parseCronRequestBody } from "@/app/utils/parseCronRequestBody";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { runHealthPostureTriage } from "@/src/services/irontech/healthPostureMonitor";
-import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
+import {
+  checkCronBearerAuth,
+  cronBearerUnauthorizedResponse,
+} from "@/app/api/internal/cron/cronAuth";
 
 /**
  * TAS §4.3 — Live heartbeat & self-healing router (Epic 13).
- * Invoked by infrastructure timers, Ironwatch monitors, or internal agent POST hooks.
- *
- * Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}` or `x-cron-secret`.
- *
- * Body: `{ tenantId, threadId, currentHealthBarPercent, targetZone? }`
+ * Schedule: every 30 minutes (Vercel Cron).
+ * Auth: `Authorization: Bearer ${IRONFRAME_CRON_SECRET}`.
  */
-export async function GET(request: NextRequest) {
-  if (!checkCronAuth(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  console.info("[CRON_ACTIVATION_TRACE] Health posture triage execution initiated successfully.");
-
-  return NextResponse.json(
-    {
-      status: "HEALTH_TRIAGE_COMPLETED",
-      timestamp: new Date().toISOString(),
-    },
-    { status: 200 },
-  );
-}
-
-export async function POST(req: NextRequest) {
-  if (!checkCronAuth(req)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+async function handleCron(request: Request) {
+  if (!checkCronBearerAuth(request)) {
+    return cronBearerUnauthorizedResponse();
   }
   console.info("[CRON_ACTIVATION_TRACE] Health posture triage execution initiated successfully.");
 
   try {
-    const body = await parseCronRequestBody(req);
+    const body = await parseCronRequestBody(request);
     const defaultTenant =
       process.env.CRON_HEALTH_DEFAULT_TENANT_ID?.trim() ||
       process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
@@ -83,4 +68,12 @@ export async function POST(req: NextRequest) {
       { status: isBounds ? 400 : 500 },
     );
   }
+}
+
+export async function GET(request: Request) {
+  return handleCron(request);
+}
+
+export async function POST(request: Request) {
+  return handleCron(request);
 }

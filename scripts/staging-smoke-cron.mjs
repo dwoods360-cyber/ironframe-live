@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 
-dotenv.config({ path: ".env.staging.local" });
-dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env" });
+dotenv.config({ path: ".env.staging.local", override: true });
+dotenv.config({ path: ".env.local", override: true });
+dotenv.config({ path: ".env", override: true });
 
 const base =
   process.env.STAGING_SMOKE_BASE_URL?.trim() ||

@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
+    "test:vercel-integration": "node scripts/vercel-integration-suite.mjs --skip-live",
+    "test:vercel-integration:live": "node scripts/vercel-integration-suite.mjs",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",

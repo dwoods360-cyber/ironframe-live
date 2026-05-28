@@ -1,23 +1,43 @@
 import dotenv from "dotenv";
 
-dotenv.config({ path: ".env.staging.local", override: true });
+/** Shell/CI values captured before dotenv (override:true would clobber them). */
+const cliStagingBaseUrl = process.env.STAGING_SMOKE_BASE_URL?.trim();
+const cliVercelBypass = process.env.VERCEL_BYPASS_TOKEN?.trim();
+const cliIronframeCronSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
+const cliCronSecret = process.env.CRON_SECRET?.trim();
+const cliStagingSmokeSecret = process.env.STAGING_SMOKE_SECRET?.trim();
+
+const dotenvStaging = dotenv.config({ path: ".env.staging.local", override: true });
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config({ path: ".env", override: true });
 
-const base =
+const dotenvParsed = dotenvStaging.parsed ?? {};
+
+// Ensure CLI/Shell parameters explicitly override values specified inside .env files
+const targetBaseUrl = (
+  cliStagingBaseUrl ||
+  dotenvParsed.STAGING_SMOKE_BASE_URL?.trim() ||
   process.env.STAGING_SMOKE_BASE_URL?.trim() ||
-  "https://ironframe-live-jva8xzoti-dwoods360-6345s-projects.vercel.app";
-const primarySecret = process.env.IRONFRAME_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
-const fallbackSecret = process.env.STAGING_SMOKE_SECRET?.trim();
+  "https://ironframe-live-jva8xzoti-dwoods360-6345s-projects.vercel.app"
+).replace(/\/$/, "");
+
+const base = targetBaseUrl;
+const vercelBypassToken = cliVercelBypass || process.env.VERCEL_BYPASS_TOKEN?.trim();
+const primarySecret =
+  cliIronframeCronSecret ||
+  cliCronSecret ||
+  cliStagingSmokeSecret ||
+  process.env.IRONFRAME_CRON_SECRET?.trim() ||
+  process.env.CRON_SECRET?.trim();
+const fallbackSecret = cliStagingSmokeSecret || process.env.STAGING_SMOKE_SECRET?.trim();
 const secret = primarySecret || fallbackSecret;
-const tokenSource = process.env.IRONFRAME_CRON_SECRET?.trim()
+const tokenSource = (cliIronframeCronSecret || process.env.IRONFRAME_CRON_SECRET?.trim())
   ? "IRONFRAME_CRON_SECRET"
-  : process.env.CRON_SECRET?.trim()
+  : (cliCronSecret || process.env.CRON_SECRET?.trim())
     ? "CRON_SECRET"
-    : process.env.STAGING_SMOKE_SECRET?.trim()
+    : (cliStagingSmokeSecret || process.env.STAGING_SMOKE_SECRET?.trim())
       ? "STAGING_SMOKE_SECRET"
       : "NONE";
-
 if (!primarySecret && fallbackSecret) {
   console.log("[info] Using local STAGING_SMOKE_SECRET token context");
 }
@@ -30,10 +50,9 @@ if (!secret) {
   process.exit(2);
 }
 
-if (!process.env.STAGING_SMOKE_BASE_URL?.trim()) {
+if (!cliStagingBaseUrl && !dotenvParsed.STAGING_SMOKE_BASE_URL?.trim()) {
   console.warn("[SMOKE] STAGING_SMOKE_BASE_URL not set; using script fallback URL.");
 }
-
 const tests = [
   { id: "health_get_valid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", token: secret, headers: {}, expect: 200 },
   { id: "health_get_invalid_bearer", method: "GET", path: "/api/internal/cron/health-posture-triage", token: "bad-token", headers: {}, expect: 401 },
@@ -81,7 +100,7 @@ for (const t of tests) {
       headers: {
         ...existingHeaders,
         "Authorization": `Bearer ${token}`,
-        "x-vercel-protection-bypass": process.env.VERCEL_BYPASS_TOKEN
+        "x-vercel-protection-bypass": vercelBypassToken,
       },
       body: t.body,
     });

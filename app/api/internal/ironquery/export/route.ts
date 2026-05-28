@@ -18,11 +18,34 @@ function toJsonPayload(value: unknown): unknown {
   );
 }
 
-function resolveScopedTenant(request: NextRequest): { tenantId: string; tenantKey: TenantKey } {
-  const tenantId = request.nextUrl.searchParams.get("tenantId")?.trim();
+type ExportRequestBody = {
+  tenantId?: string;
+  format?: string;
+};
+
+async function readExportParams(request: NextRequest): Promise<{ tenantId: string; format: string }> {
+  let bodyTenantId: string | undefined;
+  let bodyFormat: string | undefined;
+  if (request.method === "POST") {
+    let body: ExportRequestBody;
+    try {
+      body = (await request.json()) as ExportRequestBody;
+    } catch {
+      throw new Error("IRONQUERY_EXPORT_BODY_INVALID");
+    }
+    bodyTenantId = body.tenantId?.trim();
+    bodyFormat = body.format?.trim().toLowerCase();
+  }
+  const tenantId = request.nextUrl.searchParams.get("tenantId")?.trim() || bodyTenantId;
+  const format =
+    request.nextUrl.searchParams.get("format")?.trim().toLowerCase() || bodyFormat || "csv";
   if (!tenantId) {
     throw new Error("IRONQUERY_EXPORT_TENANT_ID_REQUIRED");
   }
+  return { tenantId, format };
+}
+
+function resolveScopedTenant(tenantId: string, request: NextRequest): { tenantId: string; tenantKey: TenantKey } {
   if (!UUID_RE.test(tenantId)) {
     throw new Error("IRONQUERY_EXPORT_TENANT_ID_INVALID");
   }
@@ -53,7 +76,8 @@ async function handleExport(request: NextRequest) {
   }
 
   try {
-    const { tenantId, tenantKey } = resolveScopedTenant(request);
+    const { tenantId, format } = await readExportParams(request);
+    const { tenantKey } = resolveScopedTenant(tenantId, request);
     const aleBaselineCents = resolveAleBaseline(tenantKey);
     const quote = await getLatestUtilityRateForTenant(tenantKey);
     if (quote.unitType !== "kWh") {
@@ -61,7 +85,6 @@ async function handleExport(request: NextRequest) {
     }
 
     const generatedAt = new Date().toISOString();
-    const format = request.nextUrl.searchParams.get("format")?.trim().toLowerCase() ?? "csv";
     if (format === "csv") {
       const csv = encodeIronqueryAnalystCsv([
         {
@@ -104,5 +127,9 @@ async function handleExport(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  return handleExport(request);
+}
+
+export async function POST(request: NextRequest) {
   return handleExport(request);
 }

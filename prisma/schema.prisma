@@ -980,6 +980,22 @@ model IronwatchLog {
   @@map("ironwatch_log")
 }
 
+model CronJobArtifact {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid
+  agentName    String
+  runTimestamp DateTime @default(now())
+  payloadJson  Json?
+  blobUrl      String?
+  metricValue  BigInt?
+  metricUnit   String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, agentName])
+  @@index([runTimestamp])
+  @@map("cron_job_artifact")
+}
+
 model QuarantineRecord {
   id          String   @id @default(cuid())
   tenantId    String   @db.Uuid

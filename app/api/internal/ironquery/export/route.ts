@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkCronAuth } from "@/app/api/internal/cron/cronAuth";
 import { getLatestUtilityRateForTenant } from "@/app/services/ironbloom/rateEngine";
 import { tenantKeyFromUuid, type TenantKey } from "@/app/utils/tenantIsolation";
+import { encodeIronqueryAnalystCsv } from "@/app/utils/ironquery/csvEncoder";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,6 +60,32 @@ async function handleExport(request: NextRequest) {
       throw new Error("IRONQUERY_EXPORT_NON_PHYSICAL_UNIT");
     }
 
+    const generatedAt = new Date().toISOString();
+    const format = request.nextUrl.searchParams.get("format")?.trim().toLowerCase() ?? "csv";
+    if (format === "csv") {
+      const csv = encodeIronqueryAnalystCsv([
+        {
+          tenantId,
+          tenantKey,
+          aleBaselineCents,
+          rateUsdPerUnit: quote.rateUsdPerUnit,
+          unitType: quote.unitType,
+          source: quote.source,
+          jurisdiction: quote.jurisdiction,
+          polledAt: quote.polledAt,
+          generatedAt,
+        },
+      ]);
+      return new NextResponse(csv, {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "content-type": "text/csv; charset=utf-8",
+          "content-disposition": `attachment; filename=\"ironquery-analyst-export-${tenantKey}.csv\"`,
+        },
+      });
+    }
+
     return NextResponse.json(
       toJsonPayload({
         ok: true,
@@ -66,7 +93,7 @@ async function handleExport(request: NextRequest) {
         tenantKey,
         aleBaselineCents,
         utilityQuote: quote,
-        generatedAt: new Date().toISOString(),
+        generatedAt,
       }),
       { status: 200, headers: { "Cache-Control": "no-store" } },
     );

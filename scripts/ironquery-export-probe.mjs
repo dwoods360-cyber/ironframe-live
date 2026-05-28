@@ -1,12 +1,17 @@
 import dotenv from "dotenv";
 
+const cliProbeUrl = process.env.IRONQUERY_EXPORT_PROBE_URL?.trim();
+const cliStagingBaseUrl = process.env.STAGING_SMOKE_BASE_URL?.trim();
+
 dotenv.config({ path: ".env.staging.local", override: true });
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config({ path: ".env", override: true });
 
 const base = (
-  process.env.IRONQUERY_EXPORT_PROBE_URL?.trim() ||
+  cliStagingBaseUrl ||
+  cliProbeUrl ||
   process.env.STAGING_SMOKE_BASE_URL?.trim() ||
+  process.env.IRONQUERY_EXPORT_PROBE_URL?.trim() ||
   "https://ironframe-live-jj1iesgws-dwoods360-6345s-projects.vercel.app"
 ).replace(/\/$/, "");
 

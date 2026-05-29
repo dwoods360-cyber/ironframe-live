@@ -17,6 +17,8 @@ tmp-phase*.js
 .stryker-tmp
 
 # Ironframe Local Runtime Noise
+.pki-provision/
+.env.production.local
 storage/constitutional/**/*.json
 tsconfig.tsbuildinfo
 .env*

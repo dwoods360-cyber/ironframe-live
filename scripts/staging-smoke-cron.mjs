@@ -10,6 +10,7 @@ const cliStagingSmokeSecret = process.env.STAGING_SMOKE_SECRET?.trim();
 const dotenvStaging = dotenv.config({ path: ".env.staging.local", override: true });
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config({ path: ".env", override: true });
+dotenv.config({ path: ".env.production.local", override: true });
 
 const dotenvParsed = dotenvStaging.parsed ?? {};
 
@@ -23,23 +24,33 @@ const targetBaseUrl = (
 
 const base = targetBaseUrl;
 const vercelBypassToken = cliVercelBypass || process.env.VERCEL_BYPASS_TOKEN?.trim();
-const primarySecret =
+
+// Enforce explicit precedence: Shell/CLI -> IRONFRAME (incl. production pull) -> legacy staging/CRON
+const cronVerificationToken =
   cliIronframeCronSecret ||
-  cliCronSecret ||
-  cliStagingSmokeSecret ||
   process.env.IRONFRAME_CRON_SECRET?.trim() ||
+  dotenvParsed.IRONFRAME_CRON_SECRET?.trim() ||
+  cliStagingSmokeSecret ||
+  process.env.STAGING_SMOKE_SECRET?.trim() ||
+  dotenvParsed.STAGING_SMOKE_SECRET?.trim() ||
+  cliCronSecret ||
   process.env.CRON_SECRET?.trim();
-const fallbackSecret = cliStagingSmokeSecret || process.env.STAGING_SMOKE_SECRET?.trim();
-const secret = primarySecret || fallbackSecret;
-const tokenSource = (cliIronframeCronSecret || process.env.IRONFRAME_CRON_SECRET?.trim())
+
+const secret = cronVerificationToken;
+const tokenSource = cliIronframeCronSecret || process.env.IRONFRAME_CRON_SECRET?.trim()
   ? "IRONFRAME_CRON_SECRET"
-  : (cliCronSecret || process.env.CRON_SECRET?.trim())
-    ? "CRON_SECRET"
-    : (cliStagingSmokeSecret || process.env.STAGING_SMOKE_SECRET?.trim())
-      ? "STAGING_SMOKE_SECRET"
-      : "NONE";
-if (!primarySecret && fallbackSecret) {
-  console.log("[info] Using local STAGING_SMOKE_SECRET token context");
+  : dotenvParsed.IRONFRAME_CRON_SECRET?.trim()
+    ? "IRONFRAME_CRON_SECRET (.env.staging.local)"
+    : cliCronSecret || process.env.CRON_SECRET?.trim()
+      ? "CRON_SECRET"
+      : cliStagingSmokeSecret ||
+          process.env.STAGING_SMOKE_SECRET?.trim() ||
+          dotenvParsed.STAGING_SMOKE_SECRET?.trim()
+        ? "STAGING_SMOKE_SECRET"
+        : "NONE";
+
+if (tokenSource === "STAGING_SMOKE_SECRET") {
+  console.log("[info] Using STAGING_SMOKE_SECRET fallback (IRONFRAME_CRON_SECRET not set)");
 }
 if (tokenSource !== "NONE") {
   console.log(`[info] Token source: ${tokenSource}`);

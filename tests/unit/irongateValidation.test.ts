@@ -39,19 +39,19 @@ describe('threatIngressSchema — Irongate Validation', () => {
     }
   });
 
-  it('The Bloat Attack: notes string exceeding 500 characters throws validation error', () => {
+  it('The Bloat Attack: notes string exceeding 2000 characters throws validation error', () => {
     const payload = {
       title: 'Valid Title',
       source: 'Manual',
       target: 'Healthcare',
       loss: '500000000',
-      notes: 'x'.repeat(501),
+      notes: 'x'.repeat(2001),
     };
     const result = threatIngressSchema.safeParse(payload);
     expect(result.success).toBe(false);
     if (!result.success) {
       const issues = result.error.issues;
-      expect(issues.some((i) => i.path.includes('notes') || i.message.toLowerCase().includes('500'))).toBe(true);
+      expect(issues.some((i) => i.path.includes('notes') || i.message.toLowerCase().includes('2000'))).toBe(true);
     }
   });
 

@@ -23,7 +23,9 @@ jobs:
       - name: Run Lint
         run: npm run lint
       - name: Run Unit Tests
-        run: npm run test
+        run: npx vitest run --exclude "**/__tests__/**" --exclude "tests/perf/**"
+      - name: Epic 12 WORM matrix
+        run: npm run test:integration:epic12
       - name: Epic 11 vault PKI gates (required)
         run: |
           npx vitest run tests/unit/pkiSignatureVerifier.test.ts tests/unit/bankVaultDualGate.test.ts

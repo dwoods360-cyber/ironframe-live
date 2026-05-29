@@ -35,10 +35,27 @@ If evidence is mirrored to S3 (`AWS_EVIDENCE_PREFIX`):
 2. Apply a **Object Lock** retention policy (Compliance mode) on `ironframe/evidence/` and `ironframe/incident-reports/` prefixes.
 3. Deny `s3:DeleteObject` and `s3:PutObject` with overwrite semantics for locked prefixes via bucket policy.
 
+## Repo migration (drift sync)
+
+Remote migration on **Ironframe-GRC**: `epic12_worm_evidence_locker_rls` (`20260529154334`).
+
+Local mirror:
+
+```text
+supabase/migrations/20260529154334_epic12_worm_evidence_locker_rls.sql
+```
+
+Re-apply on another project:
+
+```bash
+supabase db push
+# or paste the SQL in Dashboard → SQL Editor
+```
+
 ## Verification
 
 ```bash
 npm run test:integration:epic12
 ```
 
-Expect attestation guard tests plus WORM path delete blocks (6 tests total with `wormStoragePolicy` unit suite).
+Expect attestation guard tests plus WORM path delete blocks (10 tests in the Epic 12 matrix).

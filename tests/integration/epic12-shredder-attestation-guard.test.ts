@@ -68,10 +68,12 @@ vi.mock("@/lib/prisma", () => ({
 
 import { executeDigitalShred } from "@/app/actions/shredderActions";
 import { EPIC_12_SHRED_BLOCK_MESSAGE } from "@/app/lib/evidence/signedAttestationGuard";
+import { EPIC_12_WORM_DELETE_BLOCK_MESSAGE } from "@/app/lib/evidence/wormStoragePolicy";
 
 describe("Epic 12 — shredder attestation immutability guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.EVIDENCE_WORM_OBJECT_LOCK = "true";
     prismaMock.riskEvent.findFirst.mockReset();
     prismaMock.threatEvent.findFirst.mockReset();
     prismaMock.integrityEvent.findFirst.mockReset();
@@ -120,5 +122,21 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
 
     expect(result.ok).toBe(true);
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks shred when post-mortem artifact is on a WORM storage path", async () => {
+    prismaMock.riskEvent.findFirst.mockResolvedValue({
+      id: "risk-worm-sealed-001",
+      title: "WORM sealed report",
+      financialRisk_cents: 25_000n,
+      postMortemReportPath: "supabase://evidence-locker/incident-reports/tenant/pm.pdf",
+      tenantCompanyId: 100n,
+    });
+    prismaMock.threatEvent.findFirst.mockResolvedValue(null);
+
+    const result = await executeDigitalShred("risk-worm-sealed-001", "operator-001");
+
+    expect(result).toEqual({ ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 });

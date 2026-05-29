@@ -1,13 +1,17 @@
 "use server";
 
 import { createHash, randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { EventSource } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import {
+  buildImmutableUploadOptions,
+  resolveEvidenceStorageBucket,
+  writeLocalWormBytes,
+} from "@/app/lib/evidence/wormStoragePolicy";
 
 type EvidenceUploadInput = {
   fileData: Blob | ArrayBuffer | Uint8Array | string;
@@ -92,16 +96,17 @@ async function writeArtifactToStorage(params: {
   mimeType: string;
   bytes: Uint8Array;
 }): Promise<{ storagePath: string }> {
-  const bucket = (process.env.EVIDENCE_STORAGE_BUCKET ?? "evidence-locker").trim();
+  const bucket = resolveEvidenceStorageBucket();
   const safeName = sanitizeFileName(params.fileName);
-  const objectPath = `${params.tenantId}/${Date.now()}-${randomUUID()}-${safeName}`;
+  const objectPath = `worm/${params.tenantId}/${Date.now()}-${randomUUID()}-${safeName}`;
 
   try {
     const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.storage.from(bucket).upload(objectPath, params.bytes, {
-      upsert: false,
-      contentType: params.mimeType || "application/octet-stream",
-    });
+    const { error } = await supabase.storage.from(bucket).upload(
+      objectPath,
+      params.bytes,
+      buildImmutableUploadOptions(params.mimeType),
+    );
     if (!error) {
       return { storagePath: `supabase://${bucket}/${objectPath}` };
     }
@@ -109,11 +114,12 @@ async function writeArtifactToStorage(params: {
     // Fall through to local evidence directory.
   }
 
-  const localRelative = path.join("uploads", "evidence", params.tenantId, `${Date.now()}-${safeName}`);
-  const localAbsolute = path.join(process.cwd(), localRelative);
-  await mkdir(path.dirname(localAbsolute), { recursive: true });
-  await writeFile(localAbsolute, Buffer.from(params.bytes));
-  return { storagePath: localRelative.replace(/\\/g, "/") };
+  const localRelative = await writeLocalWormBytes({
+    relativeDir: path.join("uploads", "evidence", params.tenantId),
+    fileName: `${Date.now()}-${safeName}`,
+    bytes: params.bytes,
+  });
+  return { storagePath: localRelative };
 }
 
 export async function finalizeArtifactUpload(

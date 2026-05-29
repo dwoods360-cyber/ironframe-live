@@ -10,8 +10,10 @@ const validTemplate = {
   title: 'RANSOMWARE / PHI EXTORTION',
   source: 'Strategic Intel Profile',
   target: 'Healthcare',
-  loss: '490000000', // cents = $4.9M
+  loss: '4900000', // $4.9M → stored as cents string
 };
+
+const expectedLossCents = '490000000';
 
 describe('riskStore — template staging (manual form open + draft)', () => {
   beforeEach(() => {
@@ -29,11 +31,11 @@ describe('riskStore — template staging (manual form open + draft)', () => {
 
     const state = useRiskStore.getState();
     expect(state.draftTemplate).not.toBeNull();
-    expect(state.draftTemplate).toEqual(validTemplate);
+    expect(state.draftTemplate).toEqual({ ...validTemplate, loss: expectedLossCents });
     expect(state.draftTemplate?.title).toBe(validTemplate.title);
     expect(state.draftTemplate?.source).toBe(validTemplate.source);
     expect(state.draftTemplate?.target).toBe(validTemplate.target);
-    expect(state.draftTemplate?.loss).toBe(validTemplate.loss);
+    expect(state.draftTemplate?.loss).toBe(expectedLossCents);
     expect(state.isManualFormOpen).toBe(true);
   });
 
@@ -54,8 +56,8 @@ describe('riskStore — template staging (manual form open + draft)', () => {
     expect(() => setDraft({ ...validTemplate, source: '' })).toThrow();
     expect(() => setDraft({ ...validTemplate, target: '' })).toThrow();
     expect(() => setDraft({ ...validTemplate, loss: '' })).toThrow();
-    setDraft({ title: 'x', source: 'y', target: 'z', loss: '0' });
-    expect(useRiskStore.getState().draftTemplate?.loss).toBe('0');
+    setDraft({ title: 'x', source: 'y', target: 'z', loss: '1' });
+    expect(useRiskStore.getState().draftTemplate?.loss).toBe('100');
   });
 
   it('setManualFormOpen(true) opens form without changing draft; setManualFormOpen(false) closes form', () => {
@@ -67,6 +69,6 @@ describe('riskStore — template staging (manual form open + draft)', () => {
     expect(useRiskStore.getState().isManualFormOpen).toBe(true);
     useRiskStore.getState().setManualFormOpen(false);
     expect(useRiskStore.getState().isManualFormOpen).toBe(false);
-    expect(useRiskStore.getState().draftTemplate).toEqual(validTemplate);
+    expect(useRiskStore.getState().draftTemplate).toEqual({ ...validTemplate, loss: expectedLossCents });
   });
 });

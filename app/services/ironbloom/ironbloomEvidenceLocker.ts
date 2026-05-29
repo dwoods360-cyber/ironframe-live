@@ -1,9 +1,9 @@
 import "server-only";
 
 import { createHash, randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import prisma from "@/lib/prisma";
+import { writeLocalWormBytes } from "@/app/lib/evidence/wormStoragePolicy";
 
 export type IronbloomEvidenceCanonical = {
   sealVersion: 1;
@@ -47,11 +47,11 @@ export function hashIronbloomEvidence(canonical: string): string {
 
 async function writeCanonicalBytes(tenantId: string, bytes: Uint8Array): Promise<string> {
   const safeName = `ironbloom-${Date.now()}-${randomUUID()}.json`;
-  const localRelative = path.join("uploads", "evidence", tenantId, safeName);
-  const localAbsolute = path.join(process.cwd(), localRelative);
-  await mkdir(path.dirname(localAbsolute), { recursive: true });
-  await writeFile(localAbsolute, Buffer.from(bytes));
-  return localRelative.replace(/\\/g, "/");
+  return writeLocalWormBytes({
+    relativeDir: path.join("uploads", "evidence", tenantId),
+    fileName: safeName,
+    bytes,
+  });
 }
 
 /**

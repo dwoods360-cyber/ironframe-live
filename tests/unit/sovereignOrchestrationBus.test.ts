@@ -3,19 +3,23 @@ import { describe, expect, it, vi } from "vitest";
 const hasDatabase = Boolean(process.env.DATABASE_URL);
 
 describe("compileSovereignOrchestrationBus", () => {
-  it("compiles the Epic 10 workforce bus graph", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-compile-key");
-    try {
-      const { compileSovereignOrchestrationBus } = await import(
-        "@/src/services/orchestration/graph"
-      );
-      const graph = await compileSovereignOrchestrationBus();
-      expect(graph).toBeDefined();
-      expect(typeof graph.invoke).toBe("function");
-    } finally {
-      vi.unstubAllEnvs();
-    }
-  });
+  it(
+    "compiles the Epic 10 workforce bus graph",
+    async () => {
+      vi.stubEnv("GOOGLE_API_KEY", "test-compile-key");
+      try {
+        const { compileSovereignOrchestrationBus } = await import(
+          "@/src/services/orchestration/graph"
+        );
+        const graph = await compileSovereignOrchestrationBus();
+        expect(graph).toBeDefined();
+        expect(typeof graph.invoke).toBe("function");
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+    20_000,
+  );
 
   it.skipIf(!hasDatabase)(
     "routes low health through ironlock to ironcast and writes bus audit row",

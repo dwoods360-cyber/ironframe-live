@@ -1,6 +1,10 @@
-import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  buildImmutableUploadOptions,
+  resolveEvidenceStorageBucket,
+  writeLocalWormBytes,
+} from "@/app/lib/evidence/wormStoragePolicy";
 
 /**
  * Persist PDF bytes to Supabase Storage when configured, else `uploads/reports/<tenant>/`.
@@ -17,15 +21,12 @@ export async function persistPostMortemReportPdf(params: {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const bucket = (
-      process.env.INCIDENT_REPORTS_BUCKET ??
-      process.env.EVIDENCE_STORAGE_BUCKET ??
-      "evidence-locker"
-    ).trim();
-    const { error } = await supabase.storage.from(bucket).upload(objectPath, params.bytes, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
+    const bucket = (process.env.INCIDENT_REPORTS_BUCKET ?? resolveEvidenceStorageBucket()).trim();
+    const { error } = await supabase.storage.from(bucket).upload(
+      objectPath,
+      params.bytes,
+      buildImmutableUploadOptions("application/pdf"),
+    );
     if (!error) {
       return `supabase://${bucket}/${objectPath}`;
     }
@@ -33,9 +34,10 @@ export async function persistPostMortemReportPdf(params: {
     /* fall through to local */
   }
 
-  const localRelative = path.join("uploads", "reports", safeTenant, fileName);
-  const localAbsolute = path.join(process.cwd(), localRelative);
-  await mkdir(path.dirname(localAbsolute), { recursive: true });
-  await writeFile(localAbsolute, Buffer.from(params.bytes));
-  return localRelative.replace(/\\/g, "/");
+  const localRelative = await writeLocalWormBytes({
+    relativeDir: path.join("storage", "worm", "incident-reports", safeTenant),
+    fileName,
+    bytes: params.bytes,
+  });
+  return localRelative;
 }

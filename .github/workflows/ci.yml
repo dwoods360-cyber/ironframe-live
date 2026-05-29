@@ -23,7 +23,7 @@ jobs:
       - name: Run Lint
         run: npm run lint
       - name: Run Unit Tests
-        run: npx vitest run --exclude "**/__tests__/**" --exclude "tests/perf/**"
+        run: npx vitest run --pool forks --maxWorkers 2 --exclude '**/__tests__/**' --exclude 'tests/perf/**'
       - name: Epic 12 WORM matrix
         run: npm run test:integration:epic12
       - name: Epic 11 vault PKI gates (required)

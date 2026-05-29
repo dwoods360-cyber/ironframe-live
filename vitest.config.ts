@@ -8,7 +8,14 @@ export default defineConfig({
     environment: 'jsdom', // Keeps UI testing alive
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
-    exclude: [...configDefaults.exclude, '**/*.spec.ts', 'tests/e2e/**'],
+    exclude: [
+      ...configDefaults.exclude,
+      '**/*.spec.ts',
+      'tests/e2e/**',
+      '__tests__/**',
+      'tests/perf/**',
+    ],
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

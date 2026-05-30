@@ -26,10 +26,8 @@ jobs:
         run: npx vitest run --pool forks --maxWorkers 2
       - name: Epic 12 WORM matrix
         run: npm run test:integration:epic12
-      - name: Epic 11 vault PKI gates (required)
-        run: |
-          npx vitest run tests/unit/pkiSignatureVerifier.test.ts tests/unit/bankVaultDualGate.test.ts
-          npx vitest run tests/integration/bank-vault-success.test.ts tests/integration/bank-vault-rejection.test.ts
+      - name: Secret Scan & Epic 11 Vault PKI Gates (Required)
+        run: npm run test:integration:epic11
       - name: Run Build
         run: npm run build
         env:

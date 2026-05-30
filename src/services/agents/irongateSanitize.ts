@@ -1,6 +1,16 @@
 import { IronGate } from "./irongate-sanitizer";
+import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 
 type IngressSource = "API" | "WEBHOOK" | "DOC_PARSER";
+
+function resolveTenantStamp(raw: string): string {
+  const trimmed = raw.trim();
+  const slug = trimmed.toLowerCase();
+  if (slug in TENANT_UUIDS) {
+    return TENANT_UUIDS[slug as TenantKey];
+  }
+  return trimmed;
+}
 
 function normalizeIngressEnvelope(raw: unknown): {
   tenant_id: string;
@@ -9,12 +19,13 @@ function normalizeIngressEnvelope(raw: unknown): {
 } {
   const o =
     raw != null && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  const tenant_id =
+  const tenantRaw =
     typeof o.tenant_id === "string"
       ? o.tenant_id
       : typeof o.tenantId === "string"
         ? o.tenantId
         : "";
+  const tenant_id = tenantRaw ? resolveTenantStamp(tenantRaw) : "";
   const source_type: IngressSource =
     o.source_type === "WEBHOOK" || o.source_type === "DOC_PARSER"
       ? o.source_type

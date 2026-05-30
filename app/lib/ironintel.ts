@@ -1,5 +1,5 @@
 /**
- * Agent 10: Ironintel — external OSINT / remediation (invoked only after local diagnostics are exhausted).
+ * Agent 11 (Ironintel) — external OSINT / remediation (invoked only after local diagnostics are exhausted).
  */
 export const Ironintel = {
   /**

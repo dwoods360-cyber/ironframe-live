@@ -1,11 +1,12 @@
 /**
  * TAS Section 3 — 19-Agent Workforce (Epic 10.2 / 10.3)
- * Irongate → Ironcore router → specialists → Irontrust → persist → END
+ * (__start__ → Ironintel | Irongate) → Irongate DMZ → Ironcore → specialists → Irontrust → persist → END
  */
 import { StateGraph, END } from "@langchain/langgraph";
 import { irongateSanitize } from "@/src/services/agents/irongateSanitize";
 import { ironsightCvePoll } from "@/src/services/agents/ironsight";
 import { irontallyFrameworkMap } from "@/src/services/agents/irontally";
+import { buildRlsPoliciesFromFramework } from "@/src/services/agents/ironlogic";
 import { generateIronqueryAnalystInsight } from "@/src/services/agents/ironquery";
 import { ironbloomTelemetry } from "@/src/services/agents/ironbloom";
 import { irontrustMathEngine } from "@/src/services/irontrust/mathEngine";
@@ -21,15 +22,32 @@ import type { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 
 type GraphState = typeof ForensicGraphState.State;
 
+/** Epic 10 — OSINT streams must enter via Ironintel before the Irongate DMZ. */
+export function routeIngressStream(state: GraphState): "ironintel" | "irongate" {
+  const source = state.payload?.source;
+  if (typeof source === "string" && source === "OSINT") {
+    return "ironintel";
+  }
+  return "irongate";
+}
+
 function buildInitialRawPayload(state: GraphState): unknown {
-  if (state.tenantId && Object.keys(state.rawPayload).length > 0) {
+  const ingress =
+    state.payload && Object.keys(state.payload).length > 0
+      ? state.payload
+      : state.rawPayload;
+  const tenantId = state.tenantId?.trim();
+  if (tenantId && Object.keys(ingress).length > 0) {
     return {
-      tenant_id: state.tenantId,
-      tenantId: state.tenantId,
+      tenant_id: tenantId,
+      tenantId,
       source_type: "API",
-      raw_data: state.rawPayload,
-      ...state.rawPayload,
+      raw_data: ingress,
+      ...ingress,
     };
+  }
+  if (Object.keys(ingress).length > 0) {
+    return ingress;
   }
   return state.rawPayload;
 }
@@ -57,8 +75,61 @@ export type {
   TriageIncidentZone,
 } from "@/src/services/irontech/triageRouter";
 
+async function ironlogicNode(state: GraphState): Promise<Partial<GraphState>> {
+  console.log("[Agent 09 — Ironlogic] Compiling deterministic row-level security policy parameters.");
+
+  const tenantId = state.tenantId?.trim() ?? "";
+  const frameworkId = state.complianceFrameworkId?.trim() ?? "";
+  const mappedControls = state.complianceBadges ?? [];
+
+  const rlsPolicyStatements = buildRlsPoliciesFromFramework({
+    tenantId,
+    frameworkId,
+    mappedControls,
+  });
+
+  return {
+    currentAssignee: "Agent_09_Ironlogic",
+    routingTarget: "irontrust",
+    rlsPolicyStatements,
+    historyLogs: [
+      {
+        agentId: "Ironlogic (Agent 09)",
+        timestamp: new Date().toISOString(),
+        message: `Compiled ${rlsPolicyStatements.length} deterministic RLS policy statement(s) for ${frameworkId || "framework"}.`,
+      },
+    ],
+  };
+}
+
 export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOptions) {
   const workflow = new StateGraph(ForensicGraphState)
+    .addNode("ironintel", async (state) => {
+      const ingress = state.payload ?? {};
+      console.info("[Agent 11 — Ironintel] Processing incoming external OSINT threat feed.");
+
+      return {
+        osintEnveloped: true,
+        payload: {
+          ...ingress,
+          osintEnveloped: true,
+          preSanitized: true,
+        },
+        history: [
+          {
+            agent: "Ironintel",
+            status: "INTAKE",
+          },
+        ],
+        historyLogs: [
+          {
+            agentId: "Agent 11 — Ironintel",
+            timestamp: new Date().toISOString(),
+            message: "Index 11 OSINT intake sealed; routing to Irongate DMZ.",
+          },
+        ],
+      };
+    })
     .addNode("irongate", async (state) => {
       const sanitized = await irongateSanitize(buildInitialRawPayload(state));
       if (!sanitized.tenantId) {
@@ -70,11 +141,18 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
         tenantId: sanitized.tenantId,
         currentAssignee: "Agent_14_Irongate",
         routingTarget: "ironcore",
+        sanitizationStamp: true,
+        payload: {
+          ...(state.payload ?? {}),
+          preSanitized: false,
+          osintEnveloped: state.osintEnveloped ?? false,
+        },
+        history: [{ agent: "Irongate", status: "SANITIZED" }],
         historyLogs: [
           {
-            agentId: "Irontech (Agent 14)",
+            agentId: "Irongate (Agent 14)",
             timestamp: new Date().toISOString(),
-            message: "Sensing & Sanitization complete. Tenant ID strictly stamped.",
+            message: "DMZ sanitization complete. Tenant ID strictly stamped.",
           },
         ],
       };
@@ -96,6 +174,7 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
       ) {
         target = "ironsight";
       } else if (
+        payloadStr.includes("csrd-2026-compliance") ||
         payloadStr.includes("csrd") ||
         payloadStr.includes("soc2") ||
         payloadStr.includes("compliance")
@@ -164,7 +243,8 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
       const mapping = await irontallyFrameworkMap(state.sanitizedPayload);
       return {
         currentAssignee: "Agent_19_Irontally",
-        routingTarget: "irontrust",
+        routingTarget: "ironlogic",
+        complianceFrameworkId: mapping.frameworkId,
         complianceBadges: mapping.controls,
         historyLogs: [
           {
@@ -175,6 +255,7 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
         ],
       };
     })
+    .addNode("ironlogic", ironlogicNode)
     .addNode("irontrust", async (state) => {
       if (sanitizedPayloadRequestsFaultInjection(state.sanitizedPayload)) {
         throwForensicTransactionAborted("Irontrust");
@@ -220,7 +301,11 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
       return { currentAssignee: null };
     });
 
-  workflow.addEdge("__start__", "irongate");
+  workflow.addConditionalEdges("__start__", routeIngressStream, {
+    ironintel: "ironintel",
+    irongate: "irongate",
+  });
+  workflow.addEdge("ironintel", "irongate");
   workflow.addEdge("irongate", "ironcore");
 
   workflow.addConditionalEdges("ironcore", (state) => state.routingTarget, {
@@ -233,7 +318,8 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
   workflow.addEdge("ironbloom", "irontrust");
   workflow.addEdge("ironsight", "ironquery");
   workflow.addEdge("ironquery", "irontrust");
-  workflow.addEdge("irontally", "irontrust");
+  workflow.addEdge("irontally", "ironlogic");
+  workflow.addEdge("ironlogic", "irontrust");
   workflow.addEdge("irontrust", "persist");
   workflow.addEdge("persist", END);
 

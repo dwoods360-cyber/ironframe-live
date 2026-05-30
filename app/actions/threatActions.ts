@@ -689,20 +689,22 @@ async function runThreatTransaction<T>(
   id: string,
   tenantCompanyId: bigint | null,
   run: (tx: TransactionClient) => Promise<T>,
-  options?: { missingRecordError?: string },
+  options?: { missingRecordError?: string; sessionTenantUuid?: string | null },
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
+  const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
   return prisma.$transaction(async (tx) => {
     const client = tx as unknown as TransactionClient;
     // Bridge Next.js transaction context to Postgres RLS.
     // Must be the first operation in the transaction block.
-    if (tenantCompanyId != null) {
+    if (sessionTenantUuid) {
       try {
-        await client.$executeRaw`SELECT ironguard_set_session_tenant(${tenantCompanyId}::uuid);`;
+        await client.$executeRaw`SELECT ironguard_set_session_tenant(${sessionTenantUuid}::uuid);`;
       } catch {
-        // Backward-compatible fallback until helper function is deployed in every environment.
-        await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
+        await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${sessionTenantUuid}, true);`;
       }
+    } else if (tenantCompanyId != null) {
+      await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
     }
     const exists =
       tenantCompanyId != null
@@ -1010,6 +1012,7 @@ export async function acknowledgeThreatAction(
         {
           missingRecordError:
             '[Acknowledge Phase 3 – Prod TX / runThreatTransaction] threatEvent missing inside transaction guard (shadow row never uses this path).',
+          sessionTenantUuid: tenantId.trim(),
         },
       );
       const maybeMissing = result as unknown as MissingRecordResponse | undefined;

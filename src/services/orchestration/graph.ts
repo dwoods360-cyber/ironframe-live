@@ -233,12 +233,12 @@ export async function compileSovereignOrchestrationBus() {
           });
           if (triage.status === "TRIAGED_AND_HEALED") {
             logs.push(
-              `[Agent 12 — Irontech] Freeze sealed checkpoint ${triage.checkpointId.slice(0, 12)}…`,
+              `[Agent 04 — Irontech] Freeze sealed checkpoint ${triage.checkpointId.slice(0, 12)}…`,
             );
           }
         } catch (e) {
           logs.push(
-            `[Agent 12 — Irontech] Triage skipped: ${e instanceof Error ? e.message : String(e)}`,
+            `[Agent 04 — Irontech] Triage skipped: ${e instanceof Error ? e.message : String(e)}`,
           );
         }
       }
@@ -275,6 +275,10 @@ export async function compileSovereignOrchestrationBus() {
         process.env.THREAT_CONFIRMATION_RECIPIENTS?.split(",")[0]?.trim() ||
         process.env.IRONCAST_SMOKE_RECIPIENT?.trim();
 
+      const ironcastLogs = [
+        "[Agent 7 — Ironcast] Batch notifications compiled. Secure endpoints notified when configured.",
+      ];
+
       if (recipient && process.env.RESEND_API_KEY?.trim()) {
         try {
           await IroncastService.dispatch({
@@ -291,16 +295,22 @@ export async function compileSovereignOrchestrationBus() {
           });
         } catch (e) {
           console.warn("[sovereign-bus] Ironcast dispatch skipped:", e);
+          ironcastLogs.push(
+            "[Agent 7 — Ironcast] Dispatch skipped after transport error (graceful fallback).",
+          );
         }
+      } else if (!process.env.RESEND_API_KEY?.trim()) {
+        console.warn("[sovereign-bus] RESEND_API_KEY absent; Ironcast batch dispatch deferred.");
+        ironcastLogs.push(
+          "[Agent 7 — Ironcast] RESEND_API_KEY absent; terminal batch notification dispatch deferred (graceful fallback).",
+        );
       }
 
       return {
         current_agent: "END",
         routing_target: "END",
         status: "COMPLETED" as const,
-        agent_logs: [
-          "[Agent 7 — Ironcast] Batch notifications compiled. Secure endpoints notified when configured.",
-        ],
+        agent_logs: ironcastLogs,
       };
     })
     .addEdge("__start__", "ironcore_router")

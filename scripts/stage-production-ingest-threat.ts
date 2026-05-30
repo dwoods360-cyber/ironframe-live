@@ -13,7 +13,7 @@ import { PrismaClient, ThreatState } from "@prisma/client";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 config({ path: resolve(process.cwd(), ".env.production.local") });
-config({ path: resolve(process.cwd(), ".env") });
+config({ path: resolve(process.cwd(), ".env"), override: true });
 
 const MEDSHIELD_TENANT = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";
 const PRODUCTION_INGEST_THREAT_ID = "cmouerday000357xc47kbd6p7";

@@ -12,7 +12,8 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env.production.local" });
-dotenv.config({ path: ".env" });
+// Vercel pull leaves DATABASE_URL empty; .env holds the local DB bridge for staging.
+dotenv.config({ path: ".env", override: true });
 
 const base = (
   process.env.STAGING_SMOKE_BASE_URL?.trim() || "https://ironframe-live.vercel.app"

@@ -26,7 +26,8 @@ import {
 export { buildRateSealDigest, computeRateDriftRatio, convertToCents };
 
 const OPENEI_BASE = "https://api.openei.org/utility_rates";
-const NREL_UTILITY_RATES_V3 = "https://developer.nrel.gov/api/utility_rates/v3.json";
+/** NLR developer network (replaces retired developer.nrel.gov as of 2026-05-29). */
+const NREL_UTILITY_RATES_V3 = "https://developer.nlr.gov/api/utility_rates/v3.json";
 const GLOBAL_PETROL_BASE = "https://api.globalpetrolprices.com/v1/electricity/industrial";
 
 /** Dev / offline fallback — industrial US grid ($/kWh). */

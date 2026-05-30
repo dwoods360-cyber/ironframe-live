@@ -723,7 +723,7 @@ async function runThreatTransaction<T>(
     }
     return run(client);
     },
-    { maxWait: 10_000, timeout: 30_000 },
+    { maxWait: 10_000, timeout: 15_000 },
   );
 }
 

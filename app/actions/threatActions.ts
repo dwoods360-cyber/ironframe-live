@@ -1009,6 +1009,7 @@ export async function acknowledgeThreatAction(
               justification: savedWorkNoteText,
               operatorId,
               threatId: id,
+              tenantId: tenantId.trim(),
             },
           });
         },

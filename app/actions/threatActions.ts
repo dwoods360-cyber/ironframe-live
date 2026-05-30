@@ -693,7 +693,8 @@ async function runThreatTransaction<T>(
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(
+    async (tx) => {
     const client = tx as unknown as TransactionClient;
     // Bridge Next.js transaction context to Postgres RLS.
     // Must be the first operation in the transaction block.
@@ -721,7 +722,9 @@ async function runThreatTransaction<T>(
       return { success: false, error: missingErr } as unknown as T;
     }
     return run(client);
-  });
+    },
+    { maxWait: 10_000, timeout: 30_000 },
+  );
 }
 
 export type AcknowledgeThreatActionResult =

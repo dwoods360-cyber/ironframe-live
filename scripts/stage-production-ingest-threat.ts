@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { PrismaClient, ThreatState } from "@prisma/client";
 
 config({ path: resolve(process.cwd(), ".env.local") });
+config({ path: resolve(process.cwd(), ".env.production.local") });
 config({ path: resolve(process.cwd(), ".env") });
 
 const MEDSHIELD_TENANT = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";

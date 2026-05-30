@@ -84,9 +84,11 @@ function isAdversarialBotIngestPayload(body: Record<string, unknown>): boolean {
  * tenant resolution prefers `x-tenant-id`, then session cookie, then `SHADOW_PLANE_INGEST_TENANT_UUID`, then Medshield.
  * Persistence: `acknowledgeThreatAction` writes ACK state + AuditLog server-side.
  *
- * Epic 10.5: After acknowledgement, eligible requests invoke `compileSovereignOrchestrationBus`
- * (Ironcore → Ironscribe → Ironsight → Ironquery → Ironlock/Ironcast). Set `skipOrchestrationBus: true`
- * or `IRONFRAME_INGEST_BUS_DISABLED=1` to bypass.
+ * Epic 10.5: After acknowledgement, eligible requests invoke the ingest orchestration bridge.
+ * Default lane: forensic graph (OSINT → Ironintel → Irongate DMZ → compliance path). Opt into the
+ * sovereign document bus via `orchestrationLane: "sovereign"`, `useSovereignBus`, or
+ * `IRONFRAME_INGEST_SOVEREIGN_BUS=1`. Set `skipOrchestrationBus: true` or `IRONFRAME_INGEST_BUS_DISABLED=1`
+ * to bypass.
  */
 export async function POST(request: NextRequest) {
   noStore();
@@ -411,10 +413,13 @@ export async function POST(request: NextRequest) {
             ...(rawData ?? {}),
             operatorId,
             justification,
+            source: body.source ?? parsedIngest.source,
+            contentTag: body.contentTag ?? parsedIngest.contentTag,
+            payloadContent: body.payloadContent ?? parsedIngest.payloadContent,
           },
           threadId: threatId,
         },
-        { body },
+        { body, parsedIngest },
       );
 
       if (orchestrationBus.ok) {
@@ -422,10 +427,19 @@ export async function POST(request: NextRequest) {
           const busPatch = {
             orchestrationBusCycle: {
               completedAt: new Date().toISOString(),
+              lane: orchestrationBus.lane,
               currentAgent: orchestrationBus.currentAgent,
-              ironquerySignature: orchestrationBus.ironquerySignature,
               logLineCount: orchestrationBus.agentLogs.length,
               status: orchestrationBus.status,
+              routingTarget: orchestrationBus.routingTarget,
+              ...(orchestrationBus.lane === "sovereign"
+                ? { ironquerySignature: orchestrationBus.ironquerySignature }
+                : {
+                    sanitizationStamp: orchestrationBus.sanitizationStamp,
+                    osintEnveloped: orchestrationBus.osintEnveloped,
+                    rlsPolicyCount: orchestrationBus.rlsPolicyStatements.length,
+                    complianceFrameworkId: orchestrationBus.complianceFrameworkId,
+                  }),
             },
           };
           const useRiskTable = await ingressUsesRiskEventTable();
@@ -485,10 +499,19 @@ export async function POST(request: NextRequest) {
         ...(orchestrationBus?.ok
           ? {
               orchestrationBus: {
+                lane: orchestrationBus.lane,
                 executionAuditTrail: orchestrationBus.agentLogs,
                 assignedQuarantiner: orchestrationBus.currentAgent,
-                ironquerySignature: orchestrationBus.ironquerySignature,
                 status: orchestrationBus.status,
+                routingTarget: orchestrationBus.routingTarget,
+                ...(orchestrationBus.lane === "sovereign"
+                  ? { ironquerySignature: orchestrationBus.ironquerySignature }
+                  : {
+                      sanitizationStamp: orchestrationBus.sanitizationStamp,
+                      osintEnveloped: orchestrationBus.osintEnveloped,
+                      rlsPolicyCount: orchestrationBus.rlsPolicyStatements.length,
+                      complianceFrameworkId: orchestrationBus.complianceFrameworkId,
+                    }),
               },
             }
           : orchestrationBus && !orchestrationBus.ok

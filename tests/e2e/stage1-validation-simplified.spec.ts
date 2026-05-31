@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
 
 /**
  * Stage 1 Validation Tests (Simplified)
@@ -191,6 +192,7 @@ test.describe('Stage 1 Validation - Simplified', () => {
     console.log('\n=== TEST 3: AUDIT INTELLIGENCE NAME RESOLUTION ===\n');
     
     await page.goto('http://localhost:3000');
+    skipUnlessDashboard(await waitForDashboardReady(page));
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
     

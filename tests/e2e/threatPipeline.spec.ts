@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
 
 /**
  * E2E: Threat Pipeline & GRC Gates (GATEKEEPER PROTOCOL).
@@ -7,48 +8,6 @@ import { test, expect } from '@playwright/test';
  * Resilient to: slow dev server, empty pipeline (no Attack Velocity until threats exist),
  * and tenant state — we wait for dashboard shell first, then pipeline section (Manual Risk REGISTRATION or Attack Velocity).
  */
-
-type PageMode = 'dashboard' | 'signin' | 'constitutional_void';
-
-/** Wait for dashboard shell (or known alternate gates). Matches dashboard.spec.ts resilience. */
-async function waitForDashboardReady(page: import('@playwright/test').Page): Promise<PageMode> {
-  await page.waitForLoadState('domcontentloaded');
-  const dashboardMarker = page
-    .getByText('Enterprise Risk Posture')
-    .or(page.getByText('Protected Tenants'))
-    .first();
-  const signInMarker = page.getByRole('heading', { name: /Sign in/i }).first();
-  const constitutionalVoidMarker = page
-    .getByText(/critical system failure: constitutional void detected/i)
-    .first();
-
-  try {
-    await Promise.race([
-      dashboardMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-      signInMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-      constitutionalVoidMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-    ]);
-  } catch {
-    // Fall through to explicit mode detection.
-  }
-
-  if (await dashboardMarker.isVisible().catch(() => false)) {
-    await expect(page.getByText('Loading dashboard…')).not.toBeVisible({ timeout: 20_000 }).catch(() => undefined);
-    return 'dashboard';
-  }
-  if (await signInMarker.isVisible().catch(() => false)) return 'signin';
-  if (await constitutionalVoidMarker.isVisible().catch(() => false)) return 'constitutional_void';
-
-  await expect(dashboardMarker).toBeVisible({ timeout: 10_000 });
-  return 'dashboard';
-}
-
-function skipUnlessDashboard(mode: PageMode, test: typeof import('@playwright/test').test) {
-  if (mode === 'signin') test.skip(true, 'Requires authenticated session');
-  if (mode === 'constitutional_void') {
-    test.skip(true, 'Constitutional void — ensure DATABASE_URL and /docs/TAS.md for full pipeline E2E');
-  }
-}
 
 /** Resilient locator for Attack Velocity section only (do not couple with badge). */
 function attackVelocityLocator(page: import('@playwright/test').Page) {
@@ -74,7 +33,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
   }) => {
     await page.goto('/');
     const mode = await waitForDashboardReady(page);
-    skipUnlessDashboard(mode, test);
+    skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
 
     // Pipeline section is present (either empty state or Attack Velocity when threats exist)
@@ -95,7 +54,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
   }) => {
     await page.goto('/');
     const mode = await waitForDashboardReady(page);
-    skipUnlessDashboard(mode, test);
+    skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
     await page.waitForTimeout(2000); // allow pipeline DB sync so manual threats persist
 
@@ -136,7 +95,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
   }) => {
     await page.goto('/');
     const mode = await waitForDashboardReady(page);
-    skipUnlessDashboard(mode, test);
+    skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
     await page.waitForTimeout(2000); // allow pipeline DB sync to complete so our manual threat is not overwritten
 

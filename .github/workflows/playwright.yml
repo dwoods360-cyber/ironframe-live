@@ -63,23 +63,33 @@ jobs:
           echo "Postgres did not become ready in time."
           exit 1
 
+      - name: Verify Postgres connectivity
+        env:
+          PGPASSWORD: postgres_password
+        run: psql -h 127.0.0.1 -U postgres -d ironframe_test -c 'SELECT 1 AS ok'
+
       - name: Prisma generate
         run: npx prisma generate
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
           DIRECT_URL: ${{ env.DIRECT_URL }}
 
-      # Fresh CI DB: db push applies schema.prisma (migrate deploy fails — quarantine_ledger
-      # ALTERs run before CREATE in migration timestamps 15195000/16120000 vs 16233000).
-      - name: Push database schema
-        run: |
-          set -euo pipefail
-          npx prisma db push --accept-data-loss 2>&1 | tee prisma-push.log
-          echo "prisma db push succeeded"
+      # Fresh CI DB: migrate deploy fails (quarantine_ledger ALTER before CREATE). db push
+      # also exits 1 in ~2s on GHA; apply schema SQL from migrate diff + Ironguard GUC.
+      - name: Apply database schema
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
           DIRECT_URL: ${{ env.DIRECT_URL }}
-          PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1"
+          PGPASSWORD: postgres_password
+        run: |
+          set -euo pipefail
+          npx prisma migrate diff \
+            --from-empty \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script > prisma-schema.sql
+          psql -h 127.0.0.1 -U postgres -d ironframe_test -v ON_ERROR_STOP=1 -f prisma-schema.sql
+          psql -h 127.0.0.1 -U postgres -d ironframe_test -v ON_ERROR_STOP=1 \
+            -f prisma/migrations/20260507200000_ironguard_session_tenant_guc/migration.sql
 
       - name: Seed database
         run: npx prisma db seed
@@ -111,6 +121,6 @@ jobs:
           path: |
             playwright-report/
             test-results/
-            prisma-push.log
+            prisma-schema.sql
           retention-days: 30
           if-no-files-found: ignore

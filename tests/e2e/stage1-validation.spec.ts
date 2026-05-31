@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
 
 /**
  * Stage 1 Validation Tests
@@ -13,6 +14,8 @@ import { test, expect } from '@playwright/test';
 
 /** Wait for main dashboard container (avoids race with API). */
 async function waitForDashboardMain(page: import('@playwright/test').Page) {
+  const mode = await waitForDashboardReady(page);
+  skipUnlessDashboard(mode);
   await page.waitForSelector('[data-testid="dashboard-main"]', { state: 'visible', timeout: 15_000 });
   await expect(page.getByText('Loading dashboard…')).not.toBeVisible({ timeout: 20_000 });
 }

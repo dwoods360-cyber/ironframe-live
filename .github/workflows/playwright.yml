@@ -56,8 +56,10 @@ jobs:
       - name: Prisma generate
         run: npx prisma generate
 
-      - name: Apply database migrations
-        run: npx prisma migrate deploy
+      # Fresh CI DB: db push applies schema.prisma (migrate deploy fails — quarantine_ledger
+      # ALTERs run before CREATE in migration timestamps 15195000/16120000 vs 16233000).
+      - name: Push database schema
+        run: npx prisma db push --accept-data-loss
 
       - name: Seed database
         run: npx prisma db seed

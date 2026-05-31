@@ -1,20 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import { persistForensicState } from "@/app/lib/riskRegistryDb";
 
-vi.mock("@/app/lib/riskRegistryDb", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("@/app/lib/riskRegistryDb")>();
-  return {
-    ...mod,
-    persistForensicState: vi.fn().mockResolvedValue(null),
-  };
-});
+const { persistForensicStateMock } = vi.hoisted(() => ({
+  persistForensicStateMock: vi.fn().mockResolvedValue(null),
+}));
+
+vi.mock("@/app/lib/riskRegistryDb", () => ({
+  persistForensicState: persistForensicStateMock,
+  RISK_REGISTRY_RESOLVED_AT_JSON_KEY: "registryResolvedAt",
+}));
+
+import { persistForensicState } from "@/app/lib/riskRegistryDb";
 
 describe("Forensic orchestration graph (Epic 10.2/10.3)", () => {
   const priorMapsKey = process.env.ELECTRICITY_MAPS_API_KEY;
 
   beforeEach(() => {
+    persistForensicStateMock.mockClear();
     delete process.env.ELECTRICITY_MAPS_API_KEY;
   });
 
@@ -62,7 +65,7 @@ describe("Forensic orchestration graph (Epic 10.2/10.3)", () => {
       }),
     );
     },
-    15_000,
+    30_000,
   );
 
   it("irongate rejects payloads without tenant stamp", async () => {

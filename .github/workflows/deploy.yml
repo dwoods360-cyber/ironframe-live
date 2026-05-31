@@ -25,6 +25,7 @@ jobs:
       - name: 🧪 Run Sovereign Test Suite
         run: |
           npm ci
+          npm run generate:clients
           npm test
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}

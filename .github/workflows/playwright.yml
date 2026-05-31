@@ -7,8 +7,9 @@ on:
     branches: [main, master]
 
 env:
-  DATABASE_URL: postgresql://postgres:postgres_password@localhost:5432/ironframe_test
-  DIRECT_URL: postgresql://postgres:postgres_password@localhost:5432/ironframe_test
+  # Use 127.0.0.1 (not localhost) — GHA service port maps can fail on ::1.
+  DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
+  DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
 
 jobs:
   test:
@@ -52,7 +53,7 @@ jobs:
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do
-            if pg_isready -h localhost -p 5432 -U postgres; then
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
               echo "Postgres is ready."
               exit 0
             fi
@@ -71,10 +72,14 @@ jobs:
       # Fresh CI DB: db push applies schema.prisma (migrate deploy fails — quarantine_ledger
       # ALTERs run before CREATE in migration timestamps 15195000/16120000 vs 16233000).
       - name: Push database schema
-        run: npx prisma db push --accept-data-loss
+        run: |
+          set -euo pipefail
+          npx prisma db push --accept-data-loss 2>&1 | tee prisma-push.log
+          echo "prisma db push succeeded"
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
           DIRECT_URL: ${{ env.DIRECT_URL }}
+          PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1"
 
       - name: Seed database
         run: npx prisma db seed
@@ -102,8 +107,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-debug
           path: |
             playwright-report/
             test-results/
+            prisma-push.log
           retention-days: 30
+          if-no-files-found: ignore

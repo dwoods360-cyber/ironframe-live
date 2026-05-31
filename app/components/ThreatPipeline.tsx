@@ -999,6 +999,7 @@ function PipelineThreatCard({
               isTopSectorThreat ? "cursor-default opacity-95" : ""
             }`}
             aria-label="GRC justification"
+            data-testid="grc-justification"
           />
           <div className="flex justify-between text-[10px] font-semibold text-amber-200/90">
             <span>
@@ -1066,6 +1067,7 @@ function PipelineThreatCard({
               type="button"
               disabled={!ackEnabled || !ackRequirementsMet || ackPending || chaosFlightLocksAck}
               onClick={handleAcknowledgeClick}
+              data-testid="pipeline-acknowledge-btn"
               className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
                 ackEnabled && ackRequirementsMet && !ackPending && !chaosFlightLocksAck
                   ? "border-slate-500 bg-slate-700 text-white hover:bg-slate-600 cursor-pointer"

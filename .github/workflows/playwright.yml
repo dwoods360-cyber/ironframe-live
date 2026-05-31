@@ -2,38 +2,72 @@ name: Playwright Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres_password@localhost:5432/ironframe_test
+  DIRECT_URL: postgresql://postgres:postgres_password@localhost:5432/ironframe_test
 
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ironframe_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: npm ci
+      - uses: actions/checkout@v4
 
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-    - name: Generate Local Environment File
-      run: |
-        echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}" >> .env.local
-        echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder' }}" >> .env.local
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run Playwright tests
-      run: npx playwright test
+      - name: Prisma generate, push schema, and seed
+        run: |
+          npx prisma generate
+          npx prisma db push --accept-data-loss
+          npx prisma db seed
 
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Generate Local Environment File
+        run: |
+          {
+            echo "DATABASE_URL=${{ env.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ env.DIRECT_URL }}"
+            echo "SHADOW_PLANE_ACTIVE=1"
+            echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=1"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder' }}"
+          } >> .env.local
+
+      - name: Run Playwright tests
+        run: npx playwright test
+        env:
+          CI: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30

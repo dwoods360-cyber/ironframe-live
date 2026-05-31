@@ -40,6 +40,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # prisma.config.ts loads .env then .env.local (override). The repo .env points at
+      # Supabase; write CI URLs before any Prisma CLI so push/seed hit ephemeral Postgres.
+      - name: Configure CI database env
+        run: |
+          {
+            echo "DATABASE_URL=${{ env.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ env.DIRECT_URL }}"
+          } > .env.local
+
       - name: Wait for Postgres
         run: |
           for i in $(seq 1 30); do
@@ -55,23 +64,30 @@ jobs:
 
       - name: Prisma generate
         run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DIRECT_URL: ${{ env.DIRECT_URL }}
 
       # Fresh CI DB: db push applies schema.prisma (migrate deploy fails — quarantine_ledger
       # ALTERs run before CREATE in migration timestamps 15195000/16120000 vs 16233000).
       - name: Push database schema
         run: npx prisma db push --accept-data-loss
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DIRECT_URL: ${{ env.DIRECT_URL }}
 
       - name: Seed database
         run: npx prisma db seed
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DIRECT_URL: ${{ env.DIRECT_URL }}
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Generate Local Environment File
+      - name: Append Playwright runtime env
         run: |
           {
-            echo "DATABASE_URL=${{ env.DATABASE_URL }}"
-            echo "DIRECT_URL=${{ env.DIRECT_URL }}"
             echo "SHADOW_PLANE_ACTIVE=1"
             echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=1"
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}"

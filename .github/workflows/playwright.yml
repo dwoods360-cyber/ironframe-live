@@ -86,7 +86,10 @@ jobs:
           npx prisma migrate diff \
             --from-empty \
             --to-schema-datamodel prisma/schema.prisma \
-            --script > prisma-schema.sql
+            --script 2>prisma-diff.err > prisma-schema.sql
+          # Prisma maps governed_impact to cross-column DEFAULT; Postgres requires GENERATED STORED.
+          sed -i 's/"governed_impact" BIGINT NOT NULL DEFAULT ((base_impact_cents \* governance_impact_multiplier) \/ 100),/"governed_impact" BIGINT NOT NULL GENERATED ALWAYS AS (((base_impact_cents * governance_impact_multiplier) \/ 100)) STORED,/' prisma-schema.sql
+          head -n 3 prisma-schema.sql
           psql -h 127.0.0.1 -U postgres -d ironframe_test -v ON_ERROR_STOP=1 -f prisma-schema.sql
           psql -h 127.0.0.1 -U postgres -d ironframe_test -v ON_ERROR_STOP=1 \
             -f prisma/migrations/20260507200000_ironguard_session_tenant_guc/migration.sql

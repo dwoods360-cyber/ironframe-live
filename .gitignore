@@ -16,6 +16,10 @@ tmp-phase*.js
 # stryker temp files
 .stryker-tmp
 
+# Playwright local reports (never commit)
+playwright-report/
+test-results/
+
 # Ironframe Local Runtime Noise
 .pki-provision/
 .env.production.local

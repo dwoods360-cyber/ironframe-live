@@ -7,8 +7,11 @@ import { defineConfig, env } from "prisma/config";
  * Prisma CLI reads this file before resolving `env("…")` below.
  */
 const root = process.cwd();
-loadEnv({ path: resolve(root, ".env") });
-loadEnv({ path: resolve(root, ".env.local"), override: true });
+// GITHUB_ACTIONS: use workflow/job env only (committed .env points at Supabase).
+if (!process.env.GITHUB_ACTIONS) {
+  loadEnv({ path: resolve(root, ".env") });
+  loadEnv({ path: resolve(root, ".env.local"), override: true });
+}
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

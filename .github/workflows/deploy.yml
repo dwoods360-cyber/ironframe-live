@@ -8,10 +8,27 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: sovereign-sentinel
   REGION: us-central1
+  DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
+  DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
 
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ironframe_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,17 +37,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: 🧪 Run Sovereign Test Suite
         run: |
           npm ci
-          npm run generate:clients
+          node scripts/ci-bootstrap-postgres.mjs
+          npm run generate:all
           npm test
         env:
+          PGPASSWORD: postgres_password
+          PGUSER: postgres
+          PGDATABASE: ironframe_test
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'REDACTED_SUPABASE_JWT' }}
 
       - name: 🔐 Authenticate to GCP
         uses: google-github-actions/auth@v2

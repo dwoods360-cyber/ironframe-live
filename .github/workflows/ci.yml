@@ -4,30 +4,65 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-    branches: [main, develop] # This ensures mutation testing only happens on "official" me
+    branches: [main, develop]
+
+env:
+  DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
+  DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ironframe_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
       - name: Install Dependencies
-        run: npm install # Use install to patch SWC locally
+        run: npm ci
+
+      - name: Bootstrap ephemeral Postgres schema
+        env:
+          PGPASSWORD: postgres_password
+          PGUSER: postgres
+          PGDATABASE: ironframe_test
+        run: node scripts/ci-bootstrap-postgres.mjs
+
       - name: Constitutional Generation
-        run: npm run generate:all # Ensures dual generation + tsc check
+        run: npm run generate:all
+
       - name: Run Lint
         run: npm run lint
+
       - name: Run Unit Tests
         run: npx vitest run --pool forks --maxWorkers 2
+
       - name: Epic 12 WORM matrix
         run: npm run test:integration:epic12
+
       - name: Secret Scan & Epic 11 Vault PKI Gates (Required)
         run: npm run test:integration:epic11
+
       - name: Run Build
         run: npm run build
         env:

@@ -39,13 +39,32 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: 🧪 Run Sovereign Test Suite
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure CI database env
         run: |
-          npm ci
-          node scripts/ci-bootstrap-postgres.mjs
-          npm run generate:all
-          npm test
+          {
+            echo "DATABASE_URL=${{ env.DATABASE_URL }}"
+            echo "DIRECT_URL=${{ env.DIRECT_URL }}"
+            echo "SHADOW_PLANE_ACTIVE=0"
+            echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=0"
+          } > .env.local
+
+      - name: Bootstrap ephemeral Postgres schema
         env:
+          PGPASSWORD: postgres_password
+          PGUSER: postgres
+          PGDATABASE: ironframe_test
+        run: node scripts/ci-bootstrap-postgres.mjs
+
+      - name: Constitutional client generation
+        run: npm run generate:all
+
+      - name: Execute Sovereign Test Suite
+        run: npm test
+        env:
+          CI: true
           PGPASSWORD: postgres_password
           PGUSER: postgres
           PGDATABASE: ironframe_test

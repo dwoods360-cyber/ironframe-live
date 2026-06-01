@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
+/** Live LangGraph invoke tests need a real LLM key; skip on GHA unless explicitly enabled. */
+const runLiveGraphE2E =
+  !process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_GRAPH_TESTS === "1";
 
 vi.mock("@/lib/auditLogLoose", () => ({
   auditLogCreateLoose: vi.fn().mockResolvedValue({}),
@@ -37,7 +40,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it(
+  it.skipIf(!runLiveGraphE2E)(
     "routes high health cleanly through ironquery to ironcast and skips ironlock quarantine",
     async () => {
       const { compileSovereignOrchestrationBus } = await import(
@@ -71,7 +74,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it(
+  it.skipIf(!runLiveGraphE2E)(
     "intercepts an ironscribe failure state and executes a fail-closed early termination to END",
     async () => {
       vi.doMock("@/src/services/agents/ironscribe", () => ({
@@ -117,7 +120,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it(
+  it.skipIf(!runLiveGraphE2E)(
     "logs a graceful communication warning when RESEND_API_KEY is empty during terminal batch audit",
     async () => {
       vi.stubEnv("RESEND_API_KEY", "");
@@ -159,7 +162,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it.skipIf(!hasDatabase)(
+  it.skipIf(!hasDatabase || !runLiveGraphE2E)(
     "routes low health through ironlock to ironcast and writes bus audit row",
     async () => {
       vi.stubEnv("RESEND_API_KEY", "");

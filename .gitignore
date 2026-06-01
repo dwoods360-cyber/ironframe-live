@@ -28,3 +28,9 @@ tsconfig.tsbuildinfo
 .env
 .env.*
 !.env.example
+
+# Loose development files and IDE noise
+.cursor/
+.vscode/
+debug.zip
+scripts/vercel-env-preview-pki.mjs

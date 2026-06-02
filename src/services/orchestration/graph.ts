@@ -34,6 +34,7 @@ import {
   sovereignBusRosterDigest,
   SOVEREIGN_BUS_ROSTER_SIZE,
 } from "@/src/services/orchestration/workforceBusManifest";
+import { emitTelemetryPatchForTenant } from "@/src/services/orchestration/telemetryPatchStream";
 
 type GraphState = typeof SovereignGraphState.State;
 
@@ -279,6 +280,16 @@ export async function compileSovereignOrchestrationBus() {
       const threatId = resolveThreatId(state);
       const traceId = randomUUID();
       const logCount = (state.agent_logs ?? []).length;
+      const telemetryState = {
+        current_agent: state.current_agent,
+        status: state.status,
+        routing_target: state.routing_target,
+        health_bar_percent: state.health_bar_percent,
+        threat_id: threatId,
+        ironquery_summary_signature: state.ironquery_summary_signature,
+        agent_log_count: logCount,
+      };
+      const telemetryEmission = emitTelemetryPatchForTenant(state.tenant_id, telemetryState);
 
       try {
         await auditLogCreateLoose({
@@ -303,6 +314,30 @@ export async function compileSovereignOrchestrationBus() {
       const ironcastLogs = [
         "[Agent 7 — Ironcast] Batch notifications compiled. Secure endpoints notified when configured.",
       ];
+      if (telemetryEmission.ok) {
+        console.info(
+          "[epic17-telemetry-stream]",
+          JSON.stringify({
+            tenantId: state.tenant_id,
+            initialized: telemetryEmission.initialized,
+            added: Object.keys(telemetryEmission.patch.added),
+            updated: Object.keys(telemetryEmission.patch.updated),
+            removed: telemetryEmission.patch.removed,
+            unchangedCount: telemetryEmission.patch.unchangedCount,
+          }),
+        );
+      } else {
+        console.warn(
+          "[epic17-telemetry-stream]",
+          JSON.stringify({
+            tenantId: state.tenant_id,
+            error: telemetryEmission.error,
+          }),
+        );
+        ironcastLogs.push(
+          `[Agent 7 — Ironcast] Telemetry stream patch deferred: ${telemetryEmission.error}`,
+        );
+      }
 
       if (recipient && process.env.RESEND_API_KEY?.trim()) {
         try {

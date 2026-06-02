@@ -80,9 +80,10 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
     }
 
     if (priorStateFreezeActive !== null) {
-      await prisma.systemConfig.update({
+      await prisma.systemConfig.upsert({
         where: { id: "global" },
-        data: { stateFreezeActive: priorStateFreezeActive },
+        update: { stateFreezeActive: priorStateFreezeActive },
+        create: { id: "global", stateFreezeActive: priorStateFreezeActive },
       });
     }
 
@@ -110,6 +111,12 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
         throw new Error("Epic 13 triage test requires at least one Tenant row.");
       }
       testTenantId = tenantRow.id;
+
+      await prisma.systemConfig.upsert({
+        where: { id: "global" },
+        update: {},
+        create: { id: "global", stateFreezeActive: false },
+      });
 
       const globalCfg = await prisma.systemConfig.findUnique({
         where: { id: "global" },

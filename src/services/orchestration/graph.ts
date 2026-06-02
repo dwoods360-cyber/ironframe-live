@@ -349,7 +349,7 @@ export async function createSovereignGraph() {
   const workflow = new StateGraph(SovereignGraphState)
     .addNode("ironcore", IronCore.route)
     .addNode("ironbloom", Ironbloom.scoreCarbonRisk)
-    .addNode("ironscribe", IronScribe.extract)
+    .addNode("ironscribe", (state: GraphState) => IronScribe.extract(state))
     .addNode("warden", TheWarden.validate)
     .addNode("irontrust", IronTrust.analyzeRisk)
     .addNode("ironsight", passThroughIronsight)

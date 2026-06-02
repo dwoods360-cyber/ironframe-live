@@ -297,6 +297,16 @@ async function main() {
   await seedSyntheticEmployees(prisma);
   console.log(`✅ Synthetic Shadow Directory Seeded (${SYNTHETIC_SEED_ROW_COUNT} personas).`);
 
+  await prisma.systemConfig.upsert({
+    where: { id: 'global' },
+    update: {},
+    create: {
+      id: 'global',
+      stateFreezeActive: false,
+    },
+  });
+  console.log('✅ System config (global) seeded.');
+
   await prisma.simulationConfig.upsert({
     where: { id: 'global' },
     update: {},

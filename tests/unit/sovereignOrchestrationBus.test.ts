@@ -33,9 +33,15 @@ describe("compileSovereignOrchestrationBus", () => {
       const { compileSovereignOrchestrationBus } = await import(
         "@/src/services/orchestration/graph"
       );
+      const {
+        getSovereignBusWorkforceCoverage,
+        SOVEREIGN_BUS_ROSTER_SIZE,
+      } = await import("@/src/services/orchestration/workforceBusManifest");
       const graph = await compileSovereignOrchestrationBus();
       expect(graph).toBeDefined();
       expect(typeof graph.invoke).toBe("function");
+      expect(SOVEREIGN_BUS_ROSTER_SIZE).toBe(19);
+      expect(getSovereignBusWorkforceCoverage()).toHaveLength(19);
     },
     20_000,
   );

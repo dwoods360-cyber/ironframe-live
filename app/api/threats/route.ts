@@ -14,6 +14,10 @@ import {
   sanitizeIngressPayload,
 } from '@/app/lib/ironethic/ingressSanitizer';
 import { sanitizeThreatIngressPayload } from '@/app/lib/ironethic/sanitizeThreatIngressPayload';
+import {
+  ingestOrchestrationBusDisabled,
+  invokeIngestOrchestrationBus,
+} from '@/src/services/orchestration/ingestBusBridge';
 
 /** Align bot/header UUID with Command Center cookie under shadow plane (RLS + dashboard scope). */
 function shadowPlaneActive(request: NextRequest): boolean {
@@ -218,6 +222,31 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    /** Epic 10 — secondary threat ingress: workforce bus after manual create (non-blocking on failure). */
+    let orchestrationBus:
+      | Awaited<ReturnType<typeof invokeIngestOrchestrationBus>>
+      | undefined;
+    const busBody = body as Record<string, unknown>;
+    if (tenantId && !ingestOrchestrationBusDisabled(busBody)) {
+      orchestrationBus = await invokeIngestOrchestrationBus(
+        {
+          tenantId,
+          threatId: created.id,
+          rawPayload: {
+            type: 'DOCUMENT_ANALYSIS',
+            text: descriptionText,
+            source,
+            title,
+            target,
+            telemetryType: 'MANUAL_ANALYST_ENTRY',
+            healthBarPercent: 100,
+          },
+          threadId: created.id,
+        },
+        { body: busBody },
+      );
+    }
+
     const lossM = centsToMillions(created.financialRisk_cents);
 
     revalidatePath('/');
@@ -243,6 +272,17 @@ export async function POST(request: NextRequest) {
       assignedTo: 'unassigned',
       lifecycleState: created.status === ThreatState.CONFIRMED ? 'active' : 'pipeline',
       createdAt: new Date().toISOString(),
+      ...(orchestrationBus?.ok
+        ? {
+            orchestrationBus: {
+              lane: orchestrationBus.lane,
+              status: orchestrationBus.status,
+              routingTarget: orchestrationBus.routingTarget,
+            },
+          }
+        : orchestrationBus && !orchestrationBus.ok
+          ? { orchestrationBusError: orchestrationBus.error }
+          : {}),
     }, { headers });
   } catch (e) {
     console.error('[api/threats POST]', e);

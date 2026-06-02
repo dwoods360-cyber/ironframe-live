@@ -28,6 +28,12 @@ import { healthBarRequiresTriage } from "@/app/config/tasHealthTriage";
 import { evaluateSystemTriage } from "@/src/services/irontech/triageRouter";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { IroncastService } from "@/services/ironcast.service";
+import {
+  buildWorkforceSidecarLogs,
+  getSovereignBusWorkforceCoverage,
+  sovereignBusRosterDigest,
+  SOVEREIGN_BUS_ROSTER_SIZE,
+} from "@/src/services/orchestration/workforceBusManifest";
 
 type GraphState = typeof SovereignGraphState.State;
 
@@ -215,6 +221,25 @@ export async function compileSovereignOrchestrationBus() {
         ],
       };
     })
+    .addNode("irontally", passThroughIrontally)
+    .addNode("workforce_sidecar", async (state: GraphState) => {
+      const sidecarLogs = buildWorkforceSidecarLogs();
+      console.info(
+        "[epic10-orchestration-bus]",
+        JSON.stringify({
+          tenantId: state.tenant_id,
+          rosterSize: SOVEREIGN_BUS_ROSTER_SIZE,
+          activeAgents: getSovereignBusWorkforceCoverage()
+            .filter((a) => a.participation === "active")
+            .map((a) => a.index),
+          rosterDigest: sovereignBusRosterDigest(),
+        }),
+      );
+      return {
+        current_agent: "IRONTALLY",
+        agent_logs: sidecarLogs,
+      };
+    })
     .addNode("ironlock", async (state: GraphState) => {
       const health = resolveHealthBarPercent(state);
       const threatId = resolveThreatId(state);
@@ -325,8 +350,10 @@ export async function compileSovereignOrchestrationBus() {
       },
     )
     .addEdge("ironsight", "ironquery")
+    .addEdge("ironquery", "irontally")
+    .addEdge("irontally", "workforce_sidecar")
     .addConditionalEdges(
-      "ironquery",
+      "workforce_sidecar",
       (state: GraphState) => {
         if (state.routing_target === "ironlock") return "ironlock";
         if (state.status === "FAILED" || state.routing_target === "END") return "__end__";

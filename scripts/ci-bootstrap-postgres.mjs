@@ -65,3 +65,6 @@ run(
 );
 
 console.log("ci-bootstrap-postgres: schema applied.");
+
+run("npx prisma db seed");
+console.log("ci-bootstrap-postgres: seed complete.");

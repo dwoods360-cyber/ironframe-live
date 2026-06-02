@@ -34,3 +34,4 @@ tsconfig.tsbuildinfo
 .vscode/
 debug.zip
 scripts/vercel-env-preview-pki.mjs
+secrets-replacements.txt

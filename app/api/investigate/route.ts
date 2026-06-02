@@ -5,7 +5,11 @@ import {
   sanitizeIngressPayload,
 } from '@/app/lib/ironethic/ingressSanitizer';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+function resolveGeminiApiKey(): string {
+  return process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || '';
+}
+
+const genAI = new GoogleGenerativeAI(resolveGeminiApiKey());
 
 export async function POST(req: Request) {
   try {
@@ -19,9 +23,9 @@ export async function POST(req: Request) {
     const paramList = Array.isArray(parameters) ? parameters : [];
     const liabilityMillions = Number(financialRisk_cents ?? 0) / 100_000_000;
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!resolveGeminiApiKey()) {
       return NextResponse.json(
-        { error: 'Gemini API key is not configured.' },
+        { error: 'GOOGLE_API_KEY or GEMINI_API_KEY is not configured.' },
         { status: 500 }
       );
     }

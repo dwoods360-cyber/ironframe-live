@@ -2,13 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
+const runLiveOrchestration =
+  hasDatabase &&
+  (!process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_GRAPH_TESTS === "1");
 
 /**
  * SOVEREIGN TEST SUITE: Specialist Chain of Command
  * Mandate: Verify the 1-to-5-to-3 agent handover.
  */
 describe('Sovereign Specialist Protocol', () => {
-  it.skipIf(!hasDatabase)('📑 CHAIN REACTION: Ironscribe extracts and Irontrust audits', async () => {
+  it.skipIf(!runLiveOrchestration)('📑 CHAIN REACTION: Ironscribe extracts and Irontrust audits', async () => {
     const { createSovereignGraph } = await import('../src/services/orchestration/graph');
     const graph = await createSovereignGraph();
     const testTraceId = uuidv4();

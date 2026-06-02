@@ -47,6 +47,18 @@ async function handleCron(request: Request) {
       incidentZone: targetZone,
     });
 
+    console.info(
+      "[epic13-telemetry-triage]",
+      JSON.stringify({
+        tenantId,
+        threadId,
+        healthBarPercent: Number(healthRaw),
+        triageEngaged: result.triageEngaged,
+        outcomeStatus: result.outcome.status,
+        auditIntelligenceLogged: result.auditIntelligenceLogged,
+      }),
+    );
+
     return NextResponse.json(
       {
         success: true,

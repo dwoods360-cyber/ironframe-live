@@ -4,7 +4,8 @@
  * Usage:
  *   npm run test:vercel-integration              # tsc + Epic 12 vitest (--skip-live)
  *   npm run test:vercel-integration:live         # full live cron + Ironquery CSV/PDF probes
- *   STAGING_SMOKE_BASE_URL=https://preview.vercel.app node scripts/vercel-integration-suite.mjs
+ *   npm run test:vercel-integration:live:epic17  # live suite + sovereign telemetry shadow smoke
+ *   STAGING_SMOKE_BASE_URL=https://preview.vercel.app node scripts/vercel-integration-suite.mjs --include-epic17
  */
 import { spawnSync } from "node:child_process";
 import dotenv from "dotenv";
@@ -19,6 +20,7 @@ dotenv.config({ path: ".env", override: true });
 const base = cliStagingBaseUrl || process.env.STAGING_SMOKE_BASE_URL?.trim();
 const epic12Only = process.argv.includes("--epic12-only");
 const skipLive = process.argv.includes("--skip-live");
+const includeEpic17 = process.argv.includes("--include-epic17");
 
 function run(cmd, args, label, extraEnv = {}) {
   console.log(`\n[vercel-integration] ▶ ${label}`);
@@ -78,5 +80,14 @@ run("node", ["scripts/ironquery-export-probe.mjs"], "Ironquery PDF export probe"
   STAGING_SMOKE_BASE_URL: base,
   IRONQUERY_EXPORT_FORMAT: "pdf",
 });
+
+if (includeEpic17) {
+  run(
+    "node",
+    ["scripts/epic17-orchestration-shadow-smoke.mjs"],
+    "Epic 17 sovereign orchestration shadow smoke ([epic17-telemetry-stream])",
+    { STAGING_SMOKE_BASE_URL: base },
+  );
+}
 
 console.log("\n[vercel-integration] All gates green.");

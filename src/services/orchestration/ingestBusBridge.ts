@@ -2,6 +2,7 @@ import "server-only";
 
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { SovereignGraphState } from "@/src/services/orchestration/state";
+import type { Epic17TelemetryStreamObservability } from "@/src/services/orchestration/telemetryPatchStream";
 
 type SovereignGraphStateType = typeof SovereignGraphState.State;
 
@@ -29,6 +30,7 @@ export type IngestOrchestrationBusResult =
       lane: "sovereign";
       ironquerySignature: string;
       status: SovereignGraphStateType["status"];
+      epic17TelemetryStream?: Epic17TelemetryStreamObservability;
     })
   | (IngestBusSuccessBase & {
       lane: "forensic";
@@ -217,6 +219,11 @@ async function invokeIngestSovereignBus(
     { tenantId, threadId },
   );
 
+  const { takeEpic17TelemetryStreamObservability } = await import(
+    "@/src/services/orchestration/telemetryPatchStream"
+  );
+  const epic17TelemetryStream = takeEpic17TelemetryStreamObservability(tenantId) ?? undefined;
+
   return {
     ok: true,
     lane: "sovereign",
@@ -225,6 +232,7 @@ async function invokeIngestSovereignBus(
     ironquerySignature: finalizedState.ironquery_summary_signature ?? "",
     status: finalizedState.status ?? "COMPLETED",
     routingTarget: finalizedState.routing_target ?? "END",
+    ...(epic17TelemetryStream ? { epic17TelemetryStream } : {}),
   };
 }
 

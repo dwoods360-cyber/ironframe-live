@@ -34,7 +34,11 @@ import {
   sovereignBusRosterDigest,
   SOVEREIGN_BUS_ROSTER_SIZE,
 } from "@/src/services/orchestration/workforceBusManifest";
-import { emitTelemetryPatchForTenant } from "@/src/services/orchestration/telemetryPatchStream";
+import {
+  emitTelemetryPatchForTenant,
+  EPIC17_TELEMETRY_STREAM_SIGNATURE,
+  recordEpic17TelemetryStreamObservability,
+} from "@/src/services/orchestration/telemetryPatchStream";
 
 type GraphState = typeof SovereignGraphState.State;
 
@@ -290,6 +294,7 @@ export async function compileSovereignOrchestrationBus() {
         agent_log_count: logCount,
       };
       const telemetryEmission = emitTelemetryPatchForTenant(state.tenant_id, telemetryState);
+      recordEpic17TelemetryStreamObservability(state.tenant_id, telemetryEmission);
 
       try {
         await auditLogCreateLoose({
@@ -316,7 +321,7 @@ export async function compileSovereignOrchestrationBus() {
       ];
       if (telemetryEmission.ok) {
         console.info(
-          "[epic17-telemetry-stream]",
+          EPIC17_TELEMETRY_STREAM_SIGNATURE,
           JSON.stringify({
             tenantId: state.tenant_id,
             initialized: telemetryEmission.initialized,
@@ -328,7 +333,7 @@ export async function compileSovereignOrchestrationBus() {
         );
       } else {
         console.warn(
-          "[epic17-telemetry-stream]",
+          EPIC17_TELEMETRY_STREAM_SIGNATURE,
           JSON.stringify({
             tenantId: state.tenant_id,
             error: telemetryEmission.error,

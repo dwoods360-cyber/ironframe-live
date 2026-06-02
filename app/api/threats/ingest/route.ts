@@ -505,7 +505,12 @@ export async function POST(request: NextRequest) {
                 status: orchestrationBus.status,
                 routingTarget: orchestrationBus.routingTarget,
                 ...(orchestrationBus.lane === "sovereign"
-                  ? { ironquerySignature: orchestrationBus.ironquerySignature }
+                  ? {
+                      ironquerySignature: orchestrationBus.ironquerySignature,
+                      ...(orchestrationBus.epic17TelemetryStream
+                        ? { epic17TelemetryStream: orchestrationBus.epic17TelemetryStream }
+                        : {}),
+                    }
                   : {
                       sanitizationStamp: orchestrationBus.sanitizationStamp,
                       osintEnveloped: orchestrationBus.osintEnveloped,

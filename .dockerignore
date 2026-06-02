@@ -1,2 +1,16 @@
-# Ensure .env.production is always included in the build context (e.g. when created by CI)
+# Keep .env.production when CI writes it for docker build
+!.env.production
+
+node_modules
+.next
+.git
+.github
+playwright-report
+test-results
+.cursor
+.vscode
+debug.zip
+*.md
+.env
+.env.*
 !.env.production

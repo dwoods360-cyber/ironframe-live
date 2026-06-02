@@ -21,6 +21,14 @@ import {
   buildForensicFallbackQuote,
   FALLBACK_CARBON_INTENSITY,
 } from "@/app/services/ironbloom/rateEngine";
+import {
+  ELECTRICITY_MAPS_CARBON_LATEST,
+  fetchElectricityMapsJson,
+  getElectricityMapsApiKey,
+  isProductionElectricityMapsKey,
+  logCarbonIngressFallback,
+  parseCarbonIntensityGco2PerKwh,
+} from "@/app/services/ironbloom/electricityMapsClient";
 import { computeCarbonAleUsd } from "@/app/utils/ironbloomCarbonAleMath";
 
 export { computeCarbonAleUsd, FALLBACK_CARBON_INTENSITY };
@@ -58,60 +66,46 @@ function carbonIntensityGco2ToBigInt(gco2PerKwh: number): bigint {
   return BigInt(gco2PerKwh | 0);
 }
 
-const ELECTRICITY_MAPS_LATEST = "https://api.electricitymaps.com/v3/carbon-intensity/latest";
-
-function parseElectricityMapsIntensity(data: Record<string, unknown>): number | null {
-  const intensity =
-    typeof data.carbonIntensity === "number"
-      ? data.carbonIntensity
-      : typeof data.carbon_intensity === "number"
-        ? data.carbon_intensity
-        : typeof data.gco2PerKwh === "number"
-          ? data.gco2PerKwh
-          : null;
-  if (intensity != null && intensity > 0 && Number.isFinite(intensity)) return intensity;
-  return null;
-}
-
 /**
  * Live carbon intensity via Electricity Maps (`ELECTRICITY_MAPS_API_KEY`).
- * When the key is absent or live payload is null: US-MN forensic anchor ({@link FALLBACK_CARBON_INTENSITY} g/kWh ±2.5%).
+ * When the key is absent, staging, rate-limited, or upstream errors: US-MN forensic anchor.
  */
 export async function fetchLiveCarbonIntensity(
   zone: string,
   tenantKey?: TenantKey | null,
 ): Promise<CarbonIntensityQuote> {
+  void tenantKey;
   const polledAt = new Date().toISOString();
-  const token = process.env.ELECTRICITY_MAPS_API_KEY?.trim();
+  const token = getElectricityMapsApiKey();
 
   if (!token) {
+    logCarbonIngressFallback({ zone, reason: "missing_api_key" });
     return buildForensicFallbackQuote(zone);
   }
 
-  try {
-    const url = new URL(ELECTRICITY_MAPS_LATEST);
-    url.searchParams.set("zone", zone);
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-      next: { revalidate: 0 },
-    });
-    if (res.ok) {
-      const data = (await res.json()) as Record<string, unknown>;
-      const intensity = parseElectricityMapsIntensity(data);
-      if (intensity != null) {
-        return {
-          zone,
-          carbonIntensityGco2PerKwh: intensity,
-          source: "electricity-maps",
-          polledAt,
-        };
-      }
-    }
-  } catch {
-    /* fall through to forensic fallback */
+  if (!isProductionElectricityMapsKey(token)) {
+    logCarbonIngressFallback({ zone, reason: "staging_key" });
+    return buildForensicFallbackQuote(zone);
   }
 
-  return buildForensicFallbackQuote(zone);
+  const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, zone, token);
+  if (!result.ok) {
+    logCarbonIngressFallback({ zone, reason: result.reason, detail: result.detail });
+    return buildForensicFallbackQuote(zone);
+  }
+
+  const intensity = parseCarbonIntensityGco2PerKwh(result.data);
+  if (intensity == null) {
+    logCarbonIngressFallback({ zone, reason: "invalid_payload", detail: "missing carbon intensity" });
+    return buildForensicFallbackQuote(zone);
+  }
+
+  return {
+    zone,
+    carbonIntensityGco2PerKwh: intensity,
+    source: "electricity-maps",
+    polledAt,
+  };
 }
 
 /** Resolve intensity for sealed `mitigatedValueCents` — never returns null g/kWh. */

@@ -17,12 +17,17 @@ import {
   type GridcoreCarbonCoefficientRecord,
 } from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
 import { fetchLiveCarbonIntensity } from "@/app/services/ironbloom/scoring";
+import {
+  ELECTRICITY_MAPS_POWER_BREAKDOWN,
+  fetchElectricityMapsJson,
+  getElectricityMapsApiKey,
+  isStagingElectricityMapsKey,
+} from "@/app/services/ironbloom/electricityMapsClient";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 
-const ELECTRICITY_MAPS_POWER_BREAKDOWN =
-  "https://api.electricitymaps.com/v3/power-breakdown/latest";
-
-const STAGING_KEY_MARKERS = new Set(["", "mock_staging_key", "mock", "staging"]);
+export {
+  isStagingElectricityMapsKey,
+} from "@/app/services/ironbloom/electricityMapsClient";
 
 export type GridcoreCarbonLedgerSyncResult = {
   status: string;
@@ -34,11 +39,6 @@ export type GridcoreCarbonLedgerSyncResult = {
 
 function uniqueRosterZones(): string[] {
   return [...new Set(Object.values(TENANT_ELECTRICITY_MAP_ZONES))];
-}
-
-function isStagingElectricityMapsKey(apiKey: string | undefined): boolean {
-  const k = apiKey?.trim() ?? "";
-  return STAGING_KEY_MARKERS.has(k.toLowerCase());
 }
 
 function gramsFromGco2PerKwh(gco2: number): bigint {
@@ -82,19 +82,9 @@ export async function fetchRenewableSharePercent(
   zone: string,
   apiKey: string,
 ): Promise<number | null> {
-  try {
-    const url = new URL(ELECTRICITY_MAPS_POWER_BREAKDOWN);
-    url.searchParams.set("zone", zone);
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      next: { revalidate: 0 },
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Record<string, unknown>;
-    return parseRenewableShare(data);
-  } catch {
-    return null;
-  }
+  const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_POWER_BREAKDOWN, zone, apiKey);
+  if (!result.ok) return null;
+  return parseRenewableShare(result.data);
 }
 
 async function resolveZoneIntensityGrams(
@@ -130,7 +120,7 @@ async function resolveZoneIntensityGrams(
  * Distinct from {@link runGridcoreUtilityRatePoll} (USD/kWh utility rates).
  */
 export async function executeGridcoreCarbonLedgerSync(): Promise<GridcoreCarbonLedgerSyncResult> {
-  const apiKey = process.env.ELECTRICITY_MAPS_API_KEY?.trim();
+  const apiKey = getElectricityMapsApiKey();
   const stagingFallback = isStagingElectricityMapsKey(apiKey);
   const pollTime = new Date();
 

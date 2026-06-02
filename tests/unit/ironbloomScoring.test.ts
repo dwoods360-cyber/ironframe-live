@@ -53,6 +53,11 @@ describe("ironbloomScoring", () => {
     }
   });
 
+  it("accepts km-only physical ingress without monetary proxy fields", () => {
+    expect(() => assertEsgPhysicalIngestion({ km: 120 })).not.toThrow();
+    expect(() => validateIronbloomEsgEntry({ assetId: "fleet-route", km: 45 })).not.toThrow();
+  });
+
   it("raises CRITICAL_INGESTION_FAILURE class for monetary-only rows", () => {
     expect(() => validateIronbloomEsgEntry({ assetId: "gc-scada", mitigatedValueCents: 1n })).toThrow();
     try {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   getDefaultCarbonIntensityGco2ForTenant,
   tenantKeyFromElectricityMapZone,
@@ -17,10 +17,43 @@ import {
 } from "@/app/services/ironbloom/scoring";
 import { executeGridcoreCarbonLedgerSync } from "@/app/services/ironbloom/gridcoreCarbonLedgerSync";
 import { executeGridcoreRatePoll } from "@/src/services/ironbloom/gridcoreRatePoll";
-import { readGridcoreCarbonLedgerState } from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
+import {
+  readGridcoreCarbonLedgerState,
+  type GridcoreCarbonLedgerState,
+} from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
 import { computeLedgerCarbonAleCents } from "@/app/utils/sustainabilityLedgerAle";
+import * as carbonPulseState from "@/app/lib/ironbloom/carbonPulseState";
+import * as gridcoreLedgerState from "@/app/lib/ironbloom/gridcoreCarbonLedgerState";
 
 describe("ironbloom carbon telemetry", () => {
+  let ledgerSnapshot: GridcoreCarbonLedgerState = {
+    lastSynchronizedAt: null,
+    coefficients: [],
+  };
+
+  beforeEach(() => {
+    ledgerSnapshot = { lastSynchronizedAt: null, coefficients: [] };
+    vi.spyOn(carbonPulseState, "readCarbonPulseState").mockResolvedValue({
+      samplesByTenant: {},
+      dirtyGridAlerts: [],
+      lastDirtyAlertAtByTenant: {},
+    });
+    vi.spyOn(carbonPulseState, "writeCarbonPulseState").mockImplementation(async (next) => {
+      void next;
+    });
+    vi.spyOn(gridcoreLedgerState, "writeGridcoreCarbonLedgerState").mockImplementation(
+      async (next) => {
+        ledgerSnapshot = next;
+      },
+    );
+    vi.spyOn(gridcoreLedgerState, "readGridcoreCarbonLedgerState").mockImplementation(
+      async () => ledgerSnapshot,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it("maps electricity maps zone back to tenant for location defaults", () => {
     expect(tenantKeyFromElectricityMapZone("US-CO")).toBe("gridcore");
     expect(getDefaultCarbonIntensityGco2ForTenant("gridcore")).toBe(445);
@@ -77,6 +110,71 @@ describe("ironbloom carbon telemetry", () => {
       } else {
         vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
       }
+    }
+  });
+
+  it("fetchLiveCarbonIntensity returns live electricity-maps source on successful API response", async () => {
+    const prior = process.env.ELECTRICITY_MAPS_API_KEY;
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "live-production-token");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ carbonIntensity: 412 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const q = await fetchLiveCarbonIntensity("US-CO", "gridcore");
+      expect(q.source).toBe("electricity-maps");
+      expect(q.carbonIntensityGco2PerKwh).toBe(412);
+      expect(q.zone).toBe("US-CO");
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+      if (prior === undefined) vi.unstubAllEnvs();
+      else vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
+    }
+  });
+
+  it("fetchLiveCarbonIntensity falls back cleanly on Electricity Maps 429 rate limit", async () => {
+    const prior = process.env.ELECTRICITY_MAPS_API_KEY;
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "live-production-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({}),
+      }),
+    );
+    try {
+      const q = await fetchLiveCarbonIntensity("US-NEIS", "medshield");
+      expect(q.source).toBe("FORENSIC_FALLBACK");
+      expect(q.carbonIntensityGco2PerKwh).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllGlobals();
+      if (prior === undefined) vi.unstubAllEnvs();
+      else vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
+    }
+  });
+
+  it("fetchLiveCarbonIntensity falls back cleanly on Electricity Maps 503 server error", async () => {
+    const prior = process.env.ELECTRICITY_MAPS_API_KEY;
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "live-production-token");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({}),
+      }),
+    );
+    try {
+      const q = await fetchLiveCarbonIntensity("US-MIDW-MISO", "medshield");
+      expect(q.source).toBe("FORENSIC_FALLBACK");
+    } finally {
+      vi.unstubAllGlobals();
+      if (prior === undefined) vi.unstubAllEnvs();
+      else vi.stubEnv("ELECTRICITY_MAPS_API_KEY", prior);
     }
   });
 

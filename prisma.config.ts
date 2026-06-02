@@ -10,8 +10,11 @@ const root = process.cwd();
 const CI_PLACEHOLDER_DATABASE_URL =
   "postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test";
 
-// GITHUB_ACTIONS: use workflow/job env only (committed .env points at Supabase).
-if (process.env.GITHUB_ACTIONS) {
+// CI / Docker image build: no committed .env — use placeholder for `prisma generate` only.
+const useBuildPlaceholder =
+  process.env.GITHUB_ACTIONS === "true" || process.env.NEXT_BUILD_PHASE === "true";
+
+if (useBuildPlaceholder) {
   if (!process.env.DATABASE_URL?.trim()) {
     process.env.DATABASE_URL = CI_PLACEHOLDER_DATABASE_URL;
   }

@@ -25,6 +25,7 @@
     "test:vercel-integration": "node scripts/vercel-integration-suite.mjs --skip-live",
     "test:vercel-integration:live": "node scripts/vercel-integration-suite.mjs",
     "test:vercel-integration:live:epic17": "node scripts/vercel-integration-suite.mjs --include-epic17",
+    "test:vercel-integration:cloud:epic17": "node scripts/vercel-integration-suite.mjs --include-epic17 --cloud-only",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
     "test:mutants": "stryker run",

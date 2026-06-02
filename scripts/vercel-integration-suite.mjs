@@ -5,7 +5,8 @@
  *   npm run test:vercel-integration              # tsc + Epic 12 vitest (--skip-live)
  *   npm run test:vercel-integration:live         # full live cron + Ironquery CSV/PDF probes
  *   npm run test:vercel-integration:live:epic17  # live suite + sovereign telemetry shadow smoke
- *   STAGING_SMOKE_BASE_URL=https://preview.vercel.app node scripts/vercel-integration-suite.mjs --include-epic17
+ *   npm run test:vercel-integration:cloud:epic17  # cloud probes + Epic 17 only (skip local tsc/vitest)
+ *   STAGING_SMOKE_BASE_URL=https://preview.vercel.app node scripts/vercel-integration-suite.mjs --include-epic17 --cloud-only
  */
 import { spawnSync } from "node:child_process";
 import dotenv from "dotenv";
@@ -21,6 +22,7 @@ const base = cliStagingBaseUrl || process.env.STAGING_SMOKE_BASE_URL?.trim();
 const epic12Only = process.argv.includes("--epic12-only");
 const skipLive = process.argv.includes("--skip-live");
 const includeEpic17 = process.argv.includes("--include-epic17");
+const cloudOnly = process.argv.includes("--cloud-only");
 
 function run(cmd, args, label, extraEnv = {}) {
   console.log(`\n[vercel-integration] ▶ ${label}`);
@@ -36,19 +38,30 @@ function run(cmd, args, label, extraEnv = {}) {
   console.log(`[vercel-integration] ✓ ${label}`);
 }
 
-run("npx", ["tsc", "--noEmit"], "TypeScript constitutional check");
+if (!cloudOnly) {
+  run("npx", ["tsc", "--noEmit"], "TypeScript constitutional check");
 
-run(
-  "npx",
-  ["vitest", "run", "tests/unit/pkiSignatureVerifier.test.ts", "tests/unit/bankVaultDualGate.test.ts", "tests/integration/bank-vault-success.test.ts", "tests/integration/bank-vault-rejection.test.ts"],
-  "Epic 11 vault PKI matrix",
-);
+  run(
+    "npx",
+    [
+      "vitest",
+      "run",
+      "tests/unit/pkiSignatureVerifier.test.ts",
+      "tests/unit/bankVaultDualGate.test.ts",
+      "tests/integration/bank-vault-success.test.ts",
+      "tests/integration/bank-vault-rejection.test.ts",
+    ],
+    "Epic 11 vault PKI matrix",
+  );
 
-run(
-  "npx",
-  ["vitest", "run", "tests/unit/signedAttestationGuard.test.ts", "tests/integration/epic12-shredder-attestation-guard.test.ts"],
-  "Epic 12 vitest matrix (5 tests)",
-);
+  run(
+    "npx",
+    ["vitest", "run", "tests/unit/signedAttestationGuard.test.ts", "tests/integration/epic12-shredder-attestation-guard.test.ts"],
+    "Epic 12 vitest matrix (5 tests)",
+  );
+} else {
+  console.log("\n[vercel-integration] --cloud-only: skipping local tsc/vitest; running edge HTTP probes only.");
+}
 
 if (epic12Only) {
   console.log("\n[vercel-integration] Done (--epic12-only).");

@@ -73,6 +73,51 @@ describe("Epic 14 — DEI Anonymization Interceptor Regression Suite", () => {
     expect(serialized).not.toContain("+1-555-123-9900");
   });
 
+  it("sanitizes nested PII arrays inside workforce logs", async () => {
+    const rawData = {
+      tenant_id: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+      source_type: "API",
+      raw_data: {
+        threatId: "threat-array-test",
+        workforceLogs: [
+          {
+            operatorInitials: "AA",
+            email: "alpha@ironframe.live",
+            fullName: "Alpha Operator",
+            phoneNumber: "+1-555-000-1111",
+          },
+          {
+            operatorInitials: "BB",
+            email: "beta@ironframe.live",
+            fullName: "Beta Operator",
+            phoneNumber: "+1-555-000-2222",
+          },
+        ],
+      },
+    };
+
+    const request = new NextRequest("https://ironframe-live.vercel.app/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rawData),
+    });
+
+    const response = await ingestPost(request);
+    expect(response.status).toBe(200);
+
+    const interceptedPayload = vi.mocked(IronGate.processIngress).mock.calls[0]?.[0] as any;
+    const logs = interceptedPayload?.raw_data?.workforceLogs;
+    expect(Array.isArray(logs)).toBe(true);
+    for (const row of logs) {
+      expect(row.email).toMatch(/^[a-f0-9]{64}$/);
+      expect(row.fullName).toMatch(/^[a-f0-9]{64}$/);
+      expect(row.phoneNumber).toMatch(/^[a-f0-9]{64}$/);
+      expect(row.operatorInitials).toMatch(/^[a-f0-9]{64}$/);
+    }
+    expect(JSON.stringify(interceptedPayload)).not.toContain("alpha@ironframe.live");
+    expect(JSON.stringify(interceptedPayload)).not.toContain("Beta Operator");
+  });
+
   it("fails closed with 500 when INGEST_SALT_PEPPER is missing", async () => {
     delete process.env.INGEST_SALT_PEPPER;
 
@@ -99,6 +144,32 @@ describe("Epic 14 — DEI Anonymization Interceptor Regression Suite", () => {
 
     expect(response.status).toBe(500);
     expect(String(body.error ?? "")).toMatch(/INGEST_SALT_PEPPER/i);
+  });
+
+  it("derives tenant-unique hashes for identical user strings", async () => {
+    const mkReq = (tenantId: string) =>
+      new NextRequest("https://ironframe-live.vercel.app/api/ingest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          source_type: "API",
+          raw_data: {
+            threatId: "tenant-hash-test",
+            email: "shared@ironframe.live",
+            operatorInitials: "XYZ",
+          },
+        }),
+      });
+
+    await ingestPost(mkReq("5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01"));
+    const payloadA = vi.mocked(IronGate.processIngress).mock.calls[0]?.[0] as any;
+    vi.clearAllMocks();
+    await ingestPost(mkReq("4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7"));
+    const payloadB = vi.mocked(IronGate.processIngress).mock.calls[0]?.[0] as any;
+
+    expect(payloadA.raw_data.email).not.toBe(payloadB.raw_data.email);
+    expect(payloadA.raw_data.operatorInitials).not.toBe(payloadB.raw_data.operatorInitials);
   });
 
 });

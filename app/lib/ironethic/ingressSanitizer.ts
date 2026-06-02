@@ -1,7 +1,8 @@
 import { createHmac } from "crypto";
 
 /** Epic 14 / Ironethic (Agent 18) — keys hashed before Irongate or persistence (case-insensitive). */
-const PII_KEYS = new Set(["email", "fullname", "phonenumber", "operatorinitials"]);
+const PII_KEYS = new Set(["email", "fullname", "phonenumber", "operatorinitials", "nationalid"]);
+const GLOBAL_TENANT_SCOPE = "__global__";
 
 export const INGEST_SALT_PEPPER_MISSING =
   "CRITICAL: INGEST_SALT_PEPPER environment variable is missing.";
@@ -10,40 +11,50 @@ export const INGEST_SALT_PEPPER_MISSING =
  * Deterministic SHA-256 HMAC anonymization for inbound PII fields.
  * Output is always 64 hex chars, safe for typical varchar/text column limits.
  */
-export function anonymizePIIField(rawData: string): string {
+export function anonymizePIIField(rawData: string, tenantScope?: string): string {
   const pepper = process.env.INGEST_SALT_PEPPER?.trim();
   if (!pepper) {
     throw new Error(INGEST_SALT_PEPPER_MISSING);
   }
-  return createHmac("sha256", pepper).update(rawData.trim().toLowerCase()).digest("hex");
+  const scope = (tenantScope ?? GLOBAL_TENANT_SCOPE).trim().toLowerCase() || GLOBAL_TENANT_SCOPE;
+  return createHmac("sha256", pepper)
+    .update(`${scope}|${rawData.trim().toLowerCase()}`)
+    .digest("hex");
 }
 
-function sanitizeNode(node: unknown): unknown {
+function resolveTenantScope(node: Record<string, unknown>, fallback: string): string {
+  const tenantRaw = node.tenant_id ?? node.tenantId ?? node.governance_tenant_uuid;
+  if (typeof tenantRaw === "string" && tenantRaw.trim()) return tenantRaw.trim();
+  return fallback;
+}
+
+function sanitizeNode(node: unknown, tenantScope: string): unknown {
   if (typeof node === "bigint") {
     return node;
   }
   if (Array.isArray(node)) {
-    return node.map((item) => sanitizeNode(item));
+    return node.map((item) => sanitizeNode(item, tenantScope));
   }
   if (node == null || typeof node !== "object") {
     return node;
   }
 
   const input = node as Record<string, unknown>;
+  const scopedTenant = resolveTenantScope(input, tenantScope);
   const out: Record<string, unknown> = {};
 
   for (const [k, v] of Object.entries(input)) {
     if (PII_KEYS.has(k.toLowerCase())) {
       if (typeof v === "string") {
-        out[k] = anonymizePIIField(v);
+        out[k] = anonymizePIIField(v, scopedTenant);
       } else if (v != null) {
-        out[k] = anonymizePIIField(String(v));
+        out[k] = anonymizePIIField(String(v), scopedTenant);
       } else {
         out[k] = v;
       }
       continue;
     }
-    out[k] = sanitizeNode(v);
+    out[k] = sanitizeNode(v, scopedTenant);
   }
 
   return out;
@@ -51,7 +62,7 @@ function sanitizeNode(node: unknown): unknown {
 
 /** Deeply sanitizes inbound ingress payloads before Irongate validation / routing / persistence. */
 export function sanitizeIngressPayload<T>(payload: T): T {
-  return sanitizeNode(payload) as T;
+  return sanitizeNode(payload, GLOBAL_TENANT_SCOPE) as T;
 }
 
 /** Sanitize JSON stored in string columns (`ingestionDetails`, DMZ detail blobs). */

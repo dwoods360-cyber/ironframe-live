@@ -52,6 +52,23 @@ describe("Epic 14 — ingress sanitizer", () => {
     expect(() => anonymizePIIField("x@y.z")).toThrow(/INGEST_SALT_PEPPER/i);
   });
 
+  it("salts by tenant scope so identical identifiers diverge across tenants", () => {
+    const outA = sanitizeIngressPayload({
+      tenant_id: "tenant-a",
+      email: "shared@ironframe.live",
+      operatorInitials: "AB",
+    }) as { email: string; operatorInitials: string };
+
+    const outB = sanitizeIngressPayload({
+      tenant_id: "tenant-b",
+      email: "shared@ironframe.live",
+      operatorInitials: "AB",
+    }) as { email: string; operatorInitials: string };
+
+    expect(outA.email).not.toBe(outB.email);
+    expect(outA.operatorInitials).not.toBe(outB.operatorInitials);
+  });
+
   it("sanitizes ThreatEvent create payloads (ingestionDetails JSON)", () => {
     const out = sanitizeThreatIngressPayload({
       title: "Epic 14",

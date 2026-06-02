@@ -7,6 +7,10 @@ import {
   validateIronbloomEsgEntry,
   validateIronbloomSustainabilityPayload,
 } from "@/lib/sustainability/constants";
+import {
+  ingressSanitizerFailureResponse,
+  sanitizeIngressPayload,
+} from "@/app/lib/ironethic/ingressSanitizer";
 
 /**
  * Ironbloom (CSRD) intake — physical units mandatory; monetary-only → 400 PHYSICAL_UNIT_REQUIRED.
@@ -14,8 +18,12 @@ import {
 export async function POST(req: Request) {
   let body: unknown;
   try {
-    body = await req.json();
-  } catch {
+    body = sanitizeIngressPayload(await req.json());
+  } catch (error) {
+    const pepperFailure = ingressSanitizerFailureResponse(error);
+    if (pepperFailure) {
+      return NextResponse.json(pepperFailure.body, { status: pepperFailure.status });
+    }
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 

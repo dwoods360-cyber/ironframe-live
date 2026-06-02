@@ -54,7 +54,7 @@ export class IronScribe {
       state.raw_payload != null && typeof state.raw_payload === "object" && !Array.isArray(state.raw_payload)
         ? (state.raw_payload as Record<string, unknown>)
         : {};
-    const structured = this.extractFromStructuredTelemetry(raw);
+    const structured = IronScribe.extractFromStructuredTelemetry(raw);
     if (structured) {
       return {
         current_agent: "IRONTRUST",

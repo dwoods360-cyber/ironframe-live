@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 
-const hasLiveEnv = Boolean(process.env.GOOGLE_API_KEY && process.env.DATABASE_URL);
+const hasLiveEnv =
+  Boolean(process.env.GOOGLE_API_KEY?.trim() && process.env.DATABASE_URL?.trim()) &&
+  process.env.GOOGLE_API_KEY !== "ci-vitest-compile-placeholder" &&
+  (!process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_GRAPH_TESTS === "1");
 
 /**
  * SOVEREIGN TEST SUITE: Live Fire (Gemini + Warden + Irontrust)

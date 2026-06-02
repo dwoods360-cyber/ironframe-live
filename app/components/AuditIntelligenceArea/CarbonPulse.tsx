@@ -167,11 +167,17 @@ export default function CarbonPulse() {
   } | null>(null);
   const [lkgRecordedAt, setLkgRecordedAt] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useSWR(STATS_PATH, sustainabilityStatsFetcher, {
-    refreshInterval: POLL_MS,
-    revalidateOnFocus: true,
-    dedupingInterval: 5000,
-  });
+  const swrKey = activeTenantUuid ? ([STATS_PATH, activeTenantUuid] as const) : null;
+
+  const { data, isLoading, error } = useSWR(
+    swrKey,
+    ([url]) => sustainabilityStatsFetcher(url),
+    {
+      refreshInterval: POLL_MS,
+      revalidateOnFocus: true,
+      dedupingInterval: 5000,
+    },
+  );
 
   const pulse = data?.pulse;
   const fin = data?.financialImpact;

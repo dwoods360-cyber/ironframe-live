@@ -478,7 +478,7 @@ export default function DashboardHomeClient({
     return () => window.removeEventListener("ironframe:tenant-company-allowlist", onAllowlist);
   }, []);
 
-  /** Cold-boot invalidation (Dev Tenant Switcher / Command Center): drop insurance fingerprint + dashboard payload cache before refetch. */
+  /** Cold-boot invalidation (Dev Tenant Switcher / Command Center): reset insurance fingerprint; keep dashboard LKG until refetch completes. */
   useEffect(() => {
     const onTenantApiCacheInvalidate = () => {
       setInsuranceClientPostureSig("");
@@ -486,7 +486,6 @@ export default function DashboardHomeClient({
       clearHandshakeTimers();
       setHandshakePhase("idle");
       setShadowPlaneHandshakeAuthorized(false);
-      setData(null);
     };
     window.addEventListener(TENANT_API_CACHE_INVALIDATE_EVENT, onTenantApiCacheInvalidate);
     return () => window.removeEventListener(TENANT_API_CACHE_INVALIDATE_EVENT, onTenantApiCacheInvalidate);
@@ -659,13 +658,18 @@ export default function DashboardHomeClient({
     () => data?.predictiveHeat ?? EMPTY_PREDICTIVE_HEAT,
     [data?.predictiveHeat],
   );
-  /** Guard rail: never render predictive overlays if active tenant context diverges from dashboard scope. */
+  /** Guard rail: suppress predictive overlays only when tenant contexts diverge after load (not during refetch). */
   const predictiveHeat = useMemo(() => {
-    if (activeTenantUuid?.trim() && activeTenantUuid.trim() !== dashboardTenantUuid) {
+    if (
+      !loading &&
+      activeTenantUuid?.trim() &&
+      dashboardTenantUuid?.trim() &&
+      activeTenantUuid.trim() !== dashboardTenantUuid.trim()
+    ) {
       return {} as Record<string, number>;
     }
     return predictiveHeatRaw;
-  }, [activeTenantUuid, dashboardTenantUuid, predictiveHeatRaw]);
+  }, [activeTenantUuid, dashboardTenantUuid, predictiveHeatRaw, loading]);
   const aleExposureByAssetCents = useMemo(
     () => data?.aleExposureByAssetCents ?? EMPTY_ALE_EXPOSURE,
     [data?.aleExposureByAssetCents],

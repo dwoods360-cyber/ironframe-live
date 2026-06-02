@@ -4,6 +4,7 @@ import { createHash } from "crypto";
 import {
   TENANT_ELECTRICITY_MAP_ZONES,
   TENANT_REGULATORY_CARBON_MULTIPLIER_BPS,
+  normalizeElectricityMapsZone,
 } from "@/app/config/tenantCarbonZones";
 import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRoster";
 import type {
@@ -74,34 +75,34 @@ export async function fetchLiveCarbonIntensity(
   zone: string,
   tenantKey?: TenantKey | null,
 ): Promise<CarbonIntensityQuote> {
-  void tenantKey;
+  const resolvedZone = normalizeElectricityMapsZone(zone, tenantKey ?? null);
   const polledAt = new Date().toISOString();
   const token = getElectricityMapsApiKey();
 
   if (!token) {
-    logCarbonIngressFallback({ zone, reason: "missing_api_key" });
-    return buildForensicFallbackQuote(zone);
+    logCarbonIngressFallback({ zone: resolvedZone, reason: "missing_api_key" });
+    return buildForensicFallbackQuote(resolvedZone);
   }
 
   if (!isProductionElectricityMapsKey(token)) {
-    logCarbonIngressFallback({ zone, reason: "staging_key" });
-    return buildForensicFallbackQuote(zone);
+    logCarbonIngressFallback({ zone: resolvedZone, reason: "staging_key" });
+    return buildForensicFallbackQuote(resolvedZone);
   }
 
-  const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, zone, token);
+  const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, resolvedZone, token);
   if (!result.ok) {
-    logCarbonIngressFallback({ zone, reason: result.reason, detail: result.detail });
-    return buildForensicFallbackQuote(zone);
+    logCarbonIngressFallback({ zone: resolvedZone, reason: result.reason, detail: result.detail });
+    return buildForensicFallbackQuote(resolvedZone);
   }
 
   const intensity = parseCarbonIntensityGco2PerKwh(result.data);
   if (intensity == null) {
-    logCarbonIngressFallback({ zone, reason: "invalid_payload", detail: "missing carbon intensity" });
-    return buildForensicFallbackQuote(zone);
+    logCarbonIngressFallback({ zone: resolvedZone, reason: "invalid_payload", detail: "missing carbon intensity" });
+    return buildForensicFallbackQuote(resolvedZone);
   }
 
   return {
-    zone,
+    zone: resolvedZone,
     carbonIntensityGco2PerKwh: intensity,
     source: "electricity-maps",
     polledAt,

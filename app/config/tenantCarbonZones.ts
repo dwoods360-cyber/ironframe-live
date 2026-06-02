@@ -25,6 +25,14 @@ export const TENANT_ELECTRICITY_MAP_ZONES: Record<TenantKey, string> = {
 };
 
 /**
+ * Rogue client hints during fast tenant context switches (e.g. stale Gridcore geo codes).
+ * Maps to canonical roster zones when tenant key is not yet bound on the server.
+ */
+export const ELECTRICITY_MAP_ZONE_ALIASES: Record<string, string> = {
+  "US-GD": "US-CO",
+};
+
+/**
  * Tenant-anchored grid intensity (gCO₂/kWh) when Electricity Maps is unreachable.
  * Derived from utility geography (`tenantUtilityLocation`) + regional grid profiles — not a global constant.
  */
@@ -45,6 +53,44 @@ export function tenantKeyFromElectricityMapZone(zone: string): TenantKey | null 
     if (mapped === z) return key;
   }
   return null;
+}
+
+/**
+ * During tenant context switches, client hints (e.g. US-GD) may not match roster zones.
+ * Prefer the tenant's canonical Electricity Maps zone when the hint is unknown.
+ */
+export function resolveElectricityMapsZoneForTenant(
+  tenantKey: TenantKey,
+  zoneHint?: string | null,
+): string {
+  const rosterZone = TENANT_ELECTRICITY_MAP_ZONES[tenantKey];
+  const hint = zoneHint?.trim();
+  if (!hint) return rosterZone;
+  if (Object.values(TENANT_ELECTRICITY_MAP_ZONES).includes(hint)) return hint;
+  if (tenantKeyFromElectricityMapZone(hint)) return hint;
+  const alias = ELECTRICITY_MAP_ZONE_ALIASES[hint];
+  if (alias) return alias;
+  return rosterZone;
+}
+
+/**
+ * Normalize any zone hint to a canonical Electricity Maps roster zone.
+ * Prefer tenant roster when `tenantKey` is known; otherwise apply global aliases.
+ */
+export function normalizeElectricityMapsZone(
+  zoneHint?: string | null,
+  tenantKey?: TenantKey | null,
+): string {
+  if (tenantKey) {
+    return resolveElectricityMapsZoneForTenant(tenantKey, zoneHint);
+  }
+  const hint = zoneHint?.trim();
+  if (!hint) return TENANT_ELECTRICITY_MAP_ZONES.medshield;
+  if (Object.values(TENANT_ELECTRICITY_MAP_ZONES).includes(hint)) return hint;
+  if (tenantKeyFromElectricityMapZone(hint)) return hint;
+  const alias = ELECTRICITY_MAP_ZONE_ALIASES[hint];
+  if (alias) return alias;
+  return hint;
 }
 
 /** Localized carbon penalty likelihood × impact (R_tax) as basis points (11500 = 1.15×). */

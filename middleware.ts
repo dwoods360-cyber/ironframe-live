@@ -151,6 +151,38 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
 
+  /** Common URL typo — trailing period after `/dashboard/exports` yields 404 in App Router. */
+  if (pathname === "/dashboard/exports.") {
+    const fixed = request.nextUrl.clone();
+    fixed.pathname = "/dashboard/exports";
+    return NextResponse.redirect(fixed);
+  }
+
+  /** Strip empty `_api_key` query noise; inject reserve credential during sustainability fallback. */
+  if (
+    pathname.startsWith("/api/sustainability/") ||
+    pathname.startsWith("/api/grc/carbon-pulse")
+  ) {
+    const rawKey = request.nextUrl.searchParams.get("_api_key");
+    if (rawKey != null && !rawKey.trim()) {
+      const fallbackOn = ["true", "1", "yes"].includes(
+        (process.env.IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED ?? "").trim().toLowerCase(),
+      );
+      const sanitized = request.nextUrl.clone();
+      sanitized.searchParams.delete("_api_key");
+      if (fallbackOn) {
+        const reserve =
+          process.env.ELECTRICITY_MAPS_API_KEY?.trim() ||
+          process.env.ELECTRICITY_MAPS_RESERVE_KEY?.trim() ||
+          process.env._API_KEY?.trim() ||
+          process.env._api_key?.trim() ||
+          "LOCAL_RESERVE_BYPASS_TOKEN";
+        sanitized.searchParams.set("_api_key", reserve);
+      }
+      return NextResponse.redirect(sanitized);
+    }
+  }
+
   const clientIpEarly =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||

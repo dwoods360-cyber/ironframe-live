@@ -8,7 +8,68 @@ export const ELECTRICITY_MAPS_POWER_BREAKDOWN =
 
 const DEFAULT_TIMEOUT_MS = 12_000;
 
-const STAGING_KEY_MARKERS = new Set(["mock_staging_key", "mock", "staging"]);
+const STAGING_KEY_MARKERS = new Set([
+  "mock_staging_key",
+  "mock",
+  "staging",
+  "local_reserve_bypass_token",
+]);
+
+/** Dev/sustainability-fallback sentinel — never sent to vendor when staging path is active. */
+export const LOCAL_RESERVE_BYPASS_TOKEN = "LOCAL_RESERVE_BYPASS_TOKEN";
+
+/** Env keys checked in order — supports legacy / alternate container naming during tenant switches. */
+const ELECTRICITY_MAPS_API_KEY_ENV_NAMES = [
+  "ELECTRICITY_MAPS_API_KEY",
+  "ELECTRICITY_MAPS__API_KEY",
+  "_API_KEY",
+  "_api_key",
+  "ELECTRICITY_MAPS_RESERVE_KEY",
+] as const;
+
+function readEnvCredential(name: string): string | undefined {
+  const raw = process.env[name]?.trim();
+  return raw || undefined;
+}
+
+export function isIronwatchSustainabilityFallbackEnabled(): boolean {
+  const flag = process.env.IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED?.trim().toLowerCase();
+  return flag === "true" || flag === "1" || flag === "yes";
+}
+
+/**
+ * Resolves the active Electricity Maps token from canonical and fallback env aliases.
+ * When `IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED` is on, returns a local bypass sentinel
+ * so ingress never hard-fails with `missing _api_key` during tenant context switches.
+ */
+export function resolveActiveElectricityMapsApiKey(): string | undefined {
+  for (const name of ELECTRICITY_MAPS_API_KEY_ENV_NAMES) {
+    const key = readEnvCredential(name);
+    if (key) return key;
+  }
+  if (isIronwatchSustainabilityFallbackEnabled()) {
+    return LOCAL_RESERVE_BYPASS_TOKEN;
+  }
+  return undefined;
+}
+
+export type ElectricityMapsRequestAuth = {
+  headers: Record<string, string>;
+  /** Query params merged into zone-scoped GET (vendor + internal telemetry validators). */
+  searchParams: Record<string, string>;
+};
+
+/**
+ * Dual-signature auth footprint: Electricity Maps `auth-token` header plus `_api_key` query
+ * for ingress layers that validate either shape during multi-tenant context switches.
+ */
+export function buildElectricityMapsRequestAuth(apiKey: string): ElectricityMapsRequestAuth {
+  const activeApiKey = apiKey.trim() || resolveActiveElectricityMapsApiKey() || "";
+  return {
+    headers: activeApiKey ? { "auth-token": activeApiKey } : {},
+    searchParams: activeApiKey ? { _api_key: activeApiKey } : {},
+  };
+}
 
 export type ElectricityMapsFallbackReason =
   | "missing_api_key"
@@ -30,8 +91,7 @@ export type ElectricityMapsJsonResult =
     };
 
 export function getElectricityMapsApiKey(): string | undefined {
-  const key = process.env.ELECTRICITY_MAPS_API_KEY?.trim();
-  return key || undefined;
+  return resolveActiveElectricityMapsApiKey();
 }
 
 /** True when key is a real production token (not mock/staging placeholders). */
@@ -75,11 +135,42 @@ export async function fetchElectricityMapsJson(
   zone: string,
   apiKey: string,
 ): Promise<ElectricityMapsJsonResult> {
+  const activeApiKey = apiKey.trim() || resolveActiveElectricityMapsApiKey();
+  if (!activeApiKey) {
+    return {
+      ok: false,
+      reason: "missing_api_key",
+      detail: "missing _api_key — no Electricity Maps credential in environment",
+    };
+  }
+
+  if (
+    activeApiKey === LOCAL_RESERVE_BYPASS_TOKEN ||
+    !isProductionElectricityMapsKey(activeApiKey)
+  ) {
+    return {
+      ok: false,
+      reason: "staging_key",
+      detail: "local sustainability bypass — skipping live Electricity Maps fetch",
+    };
+  }
+
   try {
+    const auth = buildElectricityMapsRequestAuth(activeApiKey);
+    if (!auth.searchParams._api_key) {
+      return {
+        ok: false,
+        reason: "missing_api_key",
+        detail: "missing _api_key — credential normalizer produced empty auth footprint",
+      };
+    }
     const url = new URL(endpoint);
     url.searchParams.set("zone", zone);
+    for (const [key, value] of Object.entries(auth.searchParams)) {
+      url.searchParams.set(key, value);
+    }
     const res = await fetch(url.toString(), {
-      headers: { "auth-token": apiKey },
+      headers: auth.headers,
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       cache: "no-store",
     });
@@ -124,12 +215,23 @@ export async function fetchElectricityMapsJson(
   }
 }
 
-/** Audited console line for production log filters (Epic 9/5). */
+const FALLBACK_LOG_COOLDOWN_MS = 60_000;
+const recentFallbackLogAt = new Map<string, number>();
+
+/** Audited console line for production log filters (Epic 9/5). Deduped — silent when sustainability fallback is on. */
 export function logCarbonIngressFallback(input: {
   zone: string;
   reason: ElectricityMapsFallbackReason;
   detail?: string;
 }): void {
+  if (isIronwatchSustainabilityFallbackEnabled()) return;
+
+  const dedupeKey = `${input.zone}:${input.reason}`;
+  const now = Date.now();
+  const lastAt = recentFallbackLogAt.get(dedupeKey) ?? 0;
+  if (now - lastAt < FALLBACK_LOG_COOLDOWN_MS) return;
+  recentFallbackLogAt.set(dedupeKey, now);
+
   console.info(
     "[ironbloom-carbon-ingress]",
     JSON.stringify({

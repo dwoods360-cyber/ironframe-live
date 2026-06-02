@@ -22,6 +22,7 @@ describe("Ironwatch apiHeartbeat", () => {
   it("pingElectricityMapsLive uses auth-token header and returns ok on valid payload", async () => {
     vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "test-token");
     delete process.env.IRONWATCH_ELECTRICITY_MAPS_ZONE;
+    delete process.env.IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED;
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -37,8 +38,28 @@ describe("Ironwatch apiHeartbeat", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.headers).toMatchObject({ "auth-token": "test-token" });
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
+    const fetchUrl = String(fetchMock.mock.calls[0][0]);
+    expect(fetchUrl).toContain("_api_key=test-token");
+    expect(fetchUrl).toContain(
       `zone=${encodeURIComponent(IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE)}`,
     );
+  });
+
+  it("pingElectricityMapsLive returns ok when sustainability fallback is enabled and live ping fails", async () => {
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "test-token");
+    vi.stubEnv("IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED", "true");
+    vi.stubEnv("IRONWATCH_FALLBACK_DURATION_LIMIT", "86400");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "bad request" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pingElectricityMapsLive();
+    expect(result.ok).toBe(true);
+    expect(result.skipped).toBe(true);
+    expect(result.error).toContain("IRONWATCH_SUSTAINABILITY_FALLBACK");
   });
 });

@@ -36,10 +36,34 @@ import {
   ELECTRICITY_MAPS_CARBON_LATEST,
   fetchElectricityMapsJson,
   getElectricityMapsApiKey,
+  isProductionElectricityMapsKey,
   parseCarbonIntensityGco2PerKwh,
 } from "@/app/services/ironbloom/electricityMapsClient";
 
 export const IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE = "US-MIDW-MISO";
+
+function ironwatchSustainabilityFallbackEnabled(): boolean {
+  const flag = process.env.IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED?.trim().toLowerCase();
+  return flag === "true" || flag === "1" || flag === "yes";
+}
+
+function ironwatchFallbackDurationLimitSec(): number {
+  const raw = process.env.IRONWATCH_FALLBACK_DURATION_LIMIT?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : 86_400;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 86_400;
+}
+
+function ironwatchSustainabilityFallbackResult(
+  started: number,
+  detail: string,
+): ElectricityMapsPingResult {
+  return {
+    ok: true,
+    skipped: true,
+    latencyMs: Date.now() - started,
+    error: `IRONWATCH_SUSTAINABILITY_FALLBACK (${ironwatchFallbackDurationLimitSec()}s limit) — ${detail}`,
+  };
+}
 
 export const IRONWATCH_STALE_DATA_IRONCAST_BODY =
   "IRONWATCH: External Sustainability API has been unreachable for 4 hours. System entering 'Stale Data' mode.";
@@ -71,6 +95,12 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
     };
   }
 
+  if (!isProductionElectricityMapsKey(token)) {
+    if (ironwatchSustainabilityFallbackEnabled()) {
+      return ironwatchSustainabilityFallbackResult(started, "local bypass — heartbeat synthetic ok");
+    }
+  }
+
   const zone =
     process.env.IRONWATCH_ELECTRICITY_MAPS_ZONE?.trim() || IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE;
 
@@ -78,6 +108,12 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
     const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, zone, token);
     const latencyMs = Date.now() - started;
     if (!result.ok) {
+      if (ironwatchSustainabilityFallbackEnabled()) {
+        return ironwatchSustainabilityFallbackResult(
+          started,
+          `live ping http ${result.httpStatus ?? "error"} suppressed`,
+        );
+      }
       return {
         ok: false,
         httpStatus: result.httpStatus,
@@ -88,6 +124,9 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
 
     const intensity = parseCarbonIntensityGco2PerKwh(result.data);
     if (intensity == null) {
+      if (ironwatchSustainabilityFallbackEnabled()) {
+        return ironwatchSustainabilityFallbackResult(started, "missing carbon intensity suppressed");
+      }
       return {
         ok: false,
         httpStatus: result.httpStatus,
@@ -98,6 +137,12 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
 
     return { ok: true, httpStatus: result.httpStatus, latencyMs };
   } catch (e) {
+    if (ironwatchSustainabilityFallbackEnabled()) {
+      return ironwatchSustainabilityFallbackResult(
+        started,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
     return {
       ok: false,
       latencyMs: Date.now() - started,

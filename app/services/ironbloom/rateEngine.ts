@@ -16,6 +16,7 @@ import type {
   UtilityRateQuote,
 } from "@/app/types/ironbloomGridcore";
 import { TENANT_UUIDS, type TenantKey as TenantSlug } from "@/app/utils/tenantIsolation";
+import { getElectricityMapsApiKey } from "@/app/services/ironbloom/electricityMapsClient";
 import { notifyCfoEsgRebaseline } from "@/app/services/ironbloom/cfoRebaselineNotify";
 import {
   buildRateSealDigest,
@@ -332,7 +333,7 @@ export const CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG = "[ESTIMATED: REGIONAL_AV
 const FORENSIC_JITTER_RATIO = 0.025;
 
 export function isElectricityMapsApiConfigured(): boolean {
-  return Boolean(process.env.ELECTRICITY_MAPS_API_KEY?.trim());
+  return Boolean(getElectricityMapsApiKey()?.trim());
 }
 
 /**

@@ -11,7 +11,7 @@ env:
   DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: REDACTED_SUPABASE_JWT
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder
   GOOGLE_API_KEY: ci-vitest-compile-placeholder
 
 jobs:
@@ -54,7 +54,7 @@ jobs:
             echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=0"
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
-            echo "GOOGLE_API_KEY="REDACTED_GOOGLE""
+            echo "GOOGLE_API_KEY=${{ env.GOOGLE_API_KEY }}"
           } > .env.local
 
       - name: Bootstrap ephemeral Postgres schema

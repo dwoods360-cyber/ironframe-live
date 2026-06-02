@@ -12,9 +12,17 @@ const forensicInvoke = vi.fn();
 const sovereignInvoke = vi.fn();
 
 vi.mock("@/src/services/orchestration/forensicPipelineGraph", () => ({
-  compileOrchestrationGraph: () => ({
+  compileOrchestrationGraphWithCheckpoint: async () => ({
     invoke: forensicInvoke,
   }),
+}));
+
+vi.mock("@/src/services/orchestration/forensicRollback", () => ({
+  invokeGraphWithForensicRollback: async (
+    graph: { invoke: typeof forensicInvoke },
+    input: unknown,
+    config: unknown,
+  ) => graph.invoke(input, config),
 }));
 
 vi.mock("@/src/services/orchestration/graph", () => ({

@@ -109,7 +109,7 @@ jobs:
             echo "SHADOW_PLANE_ACTIVE=1"
             echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=1"
             echo "NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'REDACTED_SUPABASE_JWT' }}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder' }}"
           } >> .env.local
 
       - name: Run Playwright tests

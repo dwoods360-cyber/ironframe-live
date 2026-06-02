@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   assertEpic12WormStorageConfig,
   assertStorageDeletePermitted,
@@ -82,12 +82,9 @@ describe("Epic 12 — WORM storage policy", () => {
   });
 
   it("assertEpic12WormStorageConfig throws in strict mode when lock disabled", () => {
-    const priorNode = process.env.NODE_ENV;
-    const priorLock = process.env.EVIDENCE_WORM_OBJECT_LOCK;
-    process.env.NODE_ENV = "production";
-    process.env.EVIDENCE_WORM_OBJECT_LOCK = "false";
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("EVIDENCE_WORM_OBJECT_LOCK", "false");
     expect(() => assertEpic12WormStorageConfig()).toThrow(WormStorageConfigError);
-    process.env.NODE_ENV = priorNode;
-    process.env.EVIDENCE_WORM_OBJECT_LOCK = priorLock ?? "true";
+    vi.unstubAllEnvs();
   });
 });

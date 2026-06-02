@@ -80,7 +80,7 @@ export async function archiveComplianceReport(
   const generatedAt = new Date().toISOString();
   const payloadBytes = buildCanonicalExportPayloadBytes(input.payload, input.format);
   const seal = generateTamperEvidentSeal({
-    payload: payloadBytes.toString("base64"),
+    payload: Buffer.from(payloadBytes).toString("base64"),
     tenantId,
     generatedByUserId,
     timestamp: generatedAt,

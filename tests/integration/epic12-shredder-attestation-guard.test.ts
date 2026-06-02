@@ -156,7 +156,7 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
           storagePath: "supabase://evidence-locker/worm/tenant/artifact.pdf",
         },
       },
-    ]);
+    ] as never);
 
     const result = await executeDigitalShred("risk-evidence-worm-001", "operator-001");
 

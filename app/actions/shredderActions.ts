@@ -1,8 +1,6 @@
 "use server";
 
 import { createHash } from "crypto";
-import { unlink } from "fs/promises";
-import path from "path";
 import { revalidatePath } from "next/cache";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
@@ -12,42 +10,20 @@ import { ironwatchEmitForensicShredIntel, ironwatchSignShredReceiptPayload } fro
 import {
   EPIC_12_SHRED_BLOCK_MESSAGE,
   riskEventHasSignedAttestationBlockingShred,
+  riskEventHasWormProtectedEvidence,
 } from "@/app/lib/evidence/signedAttestationGuard";
 import {
   assertStorageDeletePermitted,
   EPIC_12_WORM_DELETE_BLOCK_MESSAGE,
-  parseStorageRef,
 } from "@/app/lib/evidence/wormStoragePolicy";
-import { createClient } from "@/lib/supabase/server";
+import { removeStorageObjectIfPermitted } from "@/app/lib/evidence/supabaseWormStorage";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function deleteVaultArtifact(postMortemReportPath: string | null): Promise<void> {
   const raw = postMortemReportPath?.trim();
   if (!raw) return;
-
-  const deletePermitted = assertStorageDeletePermitted(raw);
-  if (!deletePermitted.ok) {
-    console.warn("[shredder] WORM delete blocked:", deletePermitted.error);
-    return;
-  }
-
-  try {
-    const parsed = parseStorageRef(raw);
-    if (!parsed) return;
-    if (parsed.kind === "local") {
-      const abs = path.join(process.cwd(), parsed.relative);
-      await unlink(abs);
-      return;
-    }
-    const supabase = await createClient();
-    const { error } = await supabase.storage.from(parsed.bucket).remove([parsed.objectPath]);
-    if (error) {
-      console.warn("[shredder] supabase remove:", error.message);
-    }
-  } catch (e) {
-    console.warn("[shredder] artifact delete (best-effort):", e);
-  }
+  await removeStorageObjectIfPermitted(raw);
 }
 
 function buildReceiptNumber(): string {
@@ -129,6 +105,14 @@ export async function executeDigitalShred(chapterId: string, userUuid: string): 
   });
   if (attestationBlocksShred) {
     return { ok: false, error: EPIC_12_SHRED_BLOCK_MESSAGE };
+  }
+
+  const wormEvidenceBlocksShred = await riskEventHasWormProtectedEvidence({
+    tenantUuid,
+    riskEventId: risk.id,
+  });
+  if (wormEvidenceBlocksShred) {
+    return { ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE };
   }
 
   const artifactPath = risk.postMortemReportPath;

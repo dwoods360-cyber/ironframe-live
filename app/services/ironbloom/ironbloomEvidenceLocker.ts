@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "crypto";
 import path from "path";
 import prisma from "@/lib/prisma";
 import { writeLocalWormBytes } from "@/app/lib/evidence/wormStoragePolicy";
+import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
 
 export type IronbloomEvidenceCanonical = {
   sealVersion: 1;
@@ -47,6 +48,18 @@ export function hashIronbloomEvidence(canonical: string): string {
 
 async function writeCanonicalBytes(tenantId: string, bytes: Uint8Array): Promise<string> {
   const safeName = `ironbloom-${Date.now()}-${randomUUID()}.json`;
+  const objectPath = `worm/${tenantId}/ironbloom/${safeName}`;
+
+  const uploaded = await uploadImmutableWormObject({
+    objectPath,
+    bytes,
+    mimeType: "application/json",
+    tenantId,
+  });
+  if (uploaded.ok) {
+    return uploaded.storagePath;
+  }
+
   return writeLocalWormBytes({
     relativeDir: path.join("uploads", "evidence", tenantId),
     fileName: safeName,

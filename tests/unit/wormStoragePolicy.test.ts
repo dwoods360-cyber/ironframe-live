@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
+  assertEpic12WormStorageConfig,
   assertStorageDeletePermitted,
+  assertStorageOverwritePermitted,
   buildImmutableUploadOptions,
   EPIC_12_WORM_DELETE_BLOCK_MESSAGE,
+  isAllowedWormUploadObjectPath,
   isWormProtectedStoragePath,
   parseStorageRef,
+  resolveEpic12StorageConfig,
+  WormStorageConfigError,
 } from "@/app/lib/evidence/wormStoragePolicy";
 
 describe("Epic 12 — WORM storage policy", () => {
@@ -52,5 +57,37 @@ describe("Epic 12 — WORM storage policy", () => {
     expect(opts.upsert).toBe(false);
     expect(opts.cacheControl).toContain("immutable");
     expect(opts.contentType).toBe("application/pdf");
+  });
+
+  it("validates WORM upload root prefixes", () => {
+    expect(isAllowedWormUploadObjectPath("worm/tenant/file.pdf")).toBe(true);
+    expect(isAllowedWormUploadObjectPath("financial/ledger/tx-001.json")).toBe(true);
+    expect(isAllowedWormUploadObjectPath("forensic/dump/host-01.bin")).toBe(true);
+    expect(isAllowedWormUploadObjectPath("uploads/tmp/draft.txt")).toBe(false);
+  });
+
+  it("blocks overwrite on WORM paths symmetrically with delete", () => {
+    const path = "supabase://evidence-locker/financial/tenant/ledger.json";
+    expect(assertStorageOverwritePermitted(path)).toEqual({
+      ok: false,
+      error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE,
+    });
+  });
+
+  it("resolveEpic12StorageConfig reflects env defaults", () => {
+    const cfg = resolveEpic12StorageConfig();
+    expect(cfg.evidenceBucket).toBe("evidence-locker");
+    expect(cfg.wormBucket).toBe("evidence-locker-worm");
+    expect(cfg.objectLockEnabled).toBe(true);
+  });
+
+  it("assertEpic12WormStorageConfig throws in strict mode when lock disabled", () => {
+    const priorNode = process.env.NODE_ENV;
+    const priorLock = process.env.EVIDENCE_WORM_OBJECT_LOCK;
+    process.env.NODE_ENV = "production";
+    process.env.EVIDENCE_WORM_OBJECT_LOCK = "false";
+    expect(() => assertEpic12WormStorageConfig()).toThrow(WormStorageConfigError);
+    process.env.NODE_ENV = priorNode;
+    process.env.EVIDENCE_WORM_OBJECT_LOCK = priorLock ?? "true";
   });
 });

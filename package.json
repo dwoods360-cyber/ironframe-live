@@ -10,7 +10,7 @@
     "lint": "next lint",
     "pretest": "npm run generate:clients",
     "test": "vitest run",
-    "test:integration:epic12": "vitest run tests/unit/signedAttestationGuard.test.ts tests/unit/wormStoragePolicy.test.ts tests/integration/epic12-shredder-attestation-guard.test.ts",
+    "test:integration:epic12": "npm run scan:secrets && vitest run tests/unit/signedAttestationGuard.test.ts tests/unit/wormStoragePolicy.test.ts tests/unit/supabaseWormStorage.test.ts tests/integration/epic12-shredder-attestation-guard.test.ts",
     "scan:secrets": "node scripts/scan-workspace-secrets.mjs",
     "test:integration:epic11": "npm run scan:secrets && vitest run tests/unit/pkiSignatureVerifier.test.ts tests/unit/bankVaultDualGate.test.ts tests/integration/bank-vault-success.test.ts tests/integration/bank-vault-rejection.test.ts tests/integration/pki-verification.test.ts",
     "test:integration:epic13": "npm run scan:secrets && vitest run tests/integration/epic13-telemetry-triage.test.ts tests/integration/cron-auth-gates.test.ts",

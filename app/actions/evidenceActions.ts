@@ -5,13 +5,11 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { EventSource } from "@prisma/client";
 import prisma from "@/lib/prisma";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import {
-  buildImmutableUploadOptions,
-  resolveEvidenceStorageBucket,
   writeLocalWormBytes,
 } from "@/app/lib/evidence/wormStoragePolicy";
+import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
 
 type EvidenceUploadInput = {
   fileData: Blob | ArrayBuffer | Uint8Array | string;
@@ -96,22 +94,17 @@ async function writeArtifactToStorage(params: {
   mimeType: string;
   bytes: Uint8Array;
 }): Promise<{ storagePath: string }> {
-  const bucket = resolveEvidenceStorageBucket();
   const safeName = sanitizeFileName(params.fileName);
   const objectPath = `worm/${params.tenantId}/${Date.now()}-${randomUUID()}-${safeName}`;
 
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { error } = await supabase.storage.from(bucket).upload(
-      objectPath,
-      params.bytes,
-      buildImmutableUploadOptions(params.mimeType),
-    );
-    if (!error) {
-      return { storagePath: `supabase://${bucket}/${objectPath}` };
-    }
-  } catch {
-    // Fall through to local evidence directory.
+  const uploaded = await uploadImmutableWormObject({
+    objectPath,
+    bytes: params.bytes,
+    mimeType: params.mimeType,
+    tenantId: params.tenantId,
+  });
+  if (uploaded.ok) {
+    return { storagePath: uploaded.storagePath };
   }
 
   const localRelative = await writeLocalWormBytes({

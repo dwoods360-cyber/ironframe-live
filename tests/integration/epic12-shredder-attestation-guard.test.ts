@@ -57,6 +57,7 @@ const { prismaMock } = vi.hoisted(() => ({
     },
     evidenceAttachment: {
       findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
     },
     $transaction: vi.fn(),
   },
@@ -135,6 +136,29 @@ describe("Epic 12 — shredder attestation immutability guard", () => {
     prismaMock.threatEvent.findFirst.mockResolvedValue(null);
 
     const result = await executeDigitalShred("risk-worm-sealed-001", "operator-001");
+
+    expect(result).toEqual({ ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("blocks shred when attached evidence artifacts are on WORM storage paths", async () => {
+    prismaMock.riskEvent.findFirst.mockResolvedValue({
+      id: "risk-evidence-worm-001",
+      title: "WORM evidence attached",
+      financialRisk_cents: 15_000n,
+      postMortemReportPath: null,
+      tenantCompanyId: 100n,
+    });
+    prismaMock.threatEvent.findFirst.mockResolvedValue(null);
+    prismaMock.evidenceAttachment.findMany.mockResolvedValue([
+      {
+        artifact: {
+          storagePath: "supabase://evidence-locker/worm/tenant/artifact.pdf",
+        },
+      },
+    ]);
+
+    const result = await executeDigitalShred("risk-evidence-worm-001", "operator-001");
 
     expect(result).toEqual({ ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();

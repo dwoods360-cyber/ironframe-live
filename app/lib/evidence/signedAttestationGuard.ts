@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { verifyTenantBoundAsymmetricSignature } from "@/app/lib/crypto/pkiSignatureVerifier";
 import { parseIngestionDetailsForMerge } from "@/app/utils/ingestionDetailsMerge";
+import { isWormProtectedStoragePath } from "@/app/lib/evidence/wormStoragePolicy";
 
 export const EPIC_12_SHRED_BLOCK_MESSAGE =
   "EPIC_12_ATTESTATION_IMMUTABILITY_BLOCK: Signed GRC attestation or vault release seal prohibits digital shred.";
@@ -215,4 +216,24 @@ export async function riskEventHasSignedAttestationBlockingShred(args: {
   }
 
   return false;
+}
+
+/** Epic 12 — block shred when tenant-scoped evidence artifacts are sealed on WORM paths. */
+export async function riskEventHasWormProtectedEvidence(args: {
+  tenantUuid: string;
+  riskEventId: string;
+}): Promise<boolean> {
+  const rows = await prisma.evidenceAttachment.findMany({
+    where: {
+      tenantId: args.tenantUuid,
+      entityType: "THREAT_EVENT",
+      entityId: args.riskEventId,
+    },
+    select: {
+      artifact: { select: { storagePath: true } },
+    },
+    take: 50,
+  });
+
+  return rows.some((row) => isWormProtectedStoragePath(row.artifact.storagePath));
 }

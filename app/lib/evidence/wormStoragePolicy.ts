@@ -6,13 +6,37 @@ import path from "path";
 export const EPIC_12_WORM_DELETE_BLOCK_MESSAGE =
   "EPIC_12_WORM_IMMUTABILITY_BLOCK: Object is sealed in a WORM evidence locker path; delete and overwrite are prohibited.";
 
+/** First-segment prefixes permitted for append-only Supabase uploads (Epic 12). */
+export const WORM_UPLOAD_ROOT_PREFIXES = [
+  "worm",
+  "incident-reports",
+  "financial",
+  "forensic",
+] as const;
+
 /** Supabase / local path prefixes that are write-once under Epic 12. */
 const WORM_OBJECT_PREFIXES = [
   "worm/",
   "incident-reports/",
   "uploads/evidence/",
   "storage/worm/",
+  "financial/",
+  "forensic/",
 ] as const;
+
+export type Epic12StorageConfig = {
+  evidenceBucket: string;
+  wormBucket: string;
+  objectLockEnabled: boolean;
+  strictMode: boolean;
+};
+
+export class WormStorageConfigError extends Error {
+  constructor(detail: string) {
+    super(`EPIC_12_WORM_CONFIG: ${detail}`);
+    this.name = "WormStorageConfigError";
+  }
+}
 
 export type ParsedStorageRef =
   | { kind: "supabase"; bucket: string; objectPath: string }
@@ -30,6 +54,44 @@ export function wormEnforcementEnabled(): boolean {
   const raw = process.env.EVIDENCE_WORM_OBJECT_LOCK?.trim().toLowerCase();
   if (raw === "0" || raw === "false" || raw === "off") return false;
   return true;
+}
+
+export function strictWormStorageConfig(): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.VERCEL === "1" ||
+    process.env.EVIDENCE_WORM_STRICT === "1"
+  );
+}
+
+export function resolveEpic12StorageConfig(): Epic12StorageConfig {
+  return {
+    evidenceBucket: resolveEvidenceStorageBucket(),
+    wormBucket: resolveWormStorageBucket(),
+    objectLockEnabled: wormEnforcementEnabled(),
+    strictMode: strictWormStorageConfig(),
+  };
+}
+
+/** Fail-closed in production/Vercel when WORM object lock is explicitly disabled. */
+export function assertEpic12WormStorageConfig(): void {
+  if (!strictWormStorageConfig()) return;
+  if (!wormEnforcementEnabled()) {
+    throw new WormStorageConfigError(
+      "EVIDENCE_WORM_OBJECT_LOCK must remain enabled in production — set to true or omit.",
+    );
+  }
+  const bucket = resolveEvidenceStorageBucket();
+  if (!bucket) {
+    throw new WormStorageConfigError("EVIDENCE_STORAGE_BUCKET must be configured in production.");
+  }
+}
+
+/** Supabase object keys must live under approved WORM root folders. */
+export function isAllowedWormUploadObjectPath(objectPath: string): boolean {
+  const normalized = objectPath.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+  const root = normalized.split("/")[0] ?? "";
+  return (WORM_UPLOAD_ROOT_PREFIXES as readonly string[]).includes(root);
 }
 
 export function parseStorageRef(stored: string): ParsedStorageRef | null {
@@ -74,6 +136,13 @@ export function assertStorageDeletePermitted(
     return { ok: false, error: EPIC_12_WORM_DELETE_BLOCK_MESSAGE };
   }
   return { ok: true };
+}
+
+/** Alias — overwrite attempts on WORM paths are prohibited under the same contract. */
+export function assertStorageOverwritePermitted(
+  stored: string | null | undefined,
+): { ok: true } | { ok: false; error: string } {
+  return assertStorageDeletePermitted(stored);
 }
 
 /** Immutable upload contract for Supabase Storage (no overwrite). */

@@ -1,10 +1,9 @@
 import path from "path";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  buildImmutableUploadOptions,
   resolveEvidenceStorageBucket,
   writeLocalWormBytes,
 } from "@/app/lib/evidence/wormStoragePolicy";
+import { uploadImmutableWormObject } from "@/app/lib/evidence/supabaseWormStorage";
 
 /**
  * Persist PDF bytes to Supabase Storage when configured, else `uploads/reports/<tenant>/`.
@@ -19,19 +18,15 @@ export async function persistPostMortemReportPdf(params: {
   const safeTenant = params.tenantUuid.replace(/[^a-f0-9-]/gi, "");
   const objectPath = `incident-reports/${safeTenant}/${fileName}`;
 
-  try {
-    const supabase = await createSupabaseServerClient();
-    const bucket = (process.env.INCIDENT_REPORTS_BUCKET ?? resolveEvidenceStorageBucket()).trim();
-    const { error } = await supabase.storage.from(bucket).upload(
-      objectPath,
-      params.bytes,
-      buildImmutableUploadOptions("application/pdf"),
-    );
-    if (!error) {
-      return `supabase://${bucket}/${objectPath}`;
-    }
-  } catch {
-    /* fall through to local */
+  const uploaded = await uploadImmutableWormObject({
+    objectPath,
+    bytes: params.bytes,
+    mimeType: "application/pdf",
+    tenantId: params.tenantUuid,
+    bucketName: (process.env.INCIDENT_REPORTS_BUCKET ?? resolveEvidenceStorageBucket()).trim(),
+  });
+  if (uploaded.ok) {
+    return uploaded.storagePath;
   }
 
   const localRelative = await writeLocalWormBytes({

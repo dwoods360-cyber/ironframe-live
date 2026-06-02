@@ -1,14 +1,44 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   IRONWATCH_CHECK_INTERVAL_MS,
+  IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE,
   IRONWATCH_MIN_CONSECUTIVE_FAILURES,
   IRONWATCH_STALE_DATA_THRESHOLD_MS,
+  pingElectricityMapsLive,
 } from "@/src/services/ironwatch/apiHeartbeat";
 
 describe("Ironwatch apiHeartbeat", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it("requires 16 consecutive 15m failures to reach 4h stale threshold", () => {
     expect(IRONWATCH_CHECK_INTERVAL_MS).toBe(15 * 60 * 1000);
     expect(IRONWATCH_STALE_DATA_THRESHOLD_MS).toBe(4 * 60 * 60 * 1000);
     expect(IRONWATCH_MIN_CONSECUTIVE_FAILURES).toBe(16);
+  });
+
+  it("pingElectricityMapsLive uses auth-token header and returns ok on valid payload", async () => {
+    vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "test-token");
+    delete process.env.IRONWATCH_ELECTRICITY_MAPS_ZONE;
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ carbonIntensity: 412 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pingElectricityMapsLive();
+    expect(result.ok).toBe(true);
+    expect(result.httpStatus).toBe(200);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.headers).toMatchObject({ "auth-token": "test-token" });
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      `zone=${encodeURIComponent(IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE)}`,
+    );
   });
 });

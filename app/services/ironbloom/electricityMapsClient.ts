@@ -46,16 +46,23 @@ export function isStagingElectricityMapsKey(apiKey: string | undefined): boolean
   return !isProductionElectricityMapsKey(apiKey);
 }
 
+function readPositiveNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
 export function parseCarbonIntensityGco2PerKwh(data: Record<string, unknown>): number | null {
-  const intensity =
-    typeof data.carbonIntensity === "number"
-      ? data.carbonIntensity
-      : typeof data.carbon_intensity === "number"
-        ? data.carbon_intensity
-        : typeof data.gco2PerKwh === "number"
-          ? data.gco2PerKwh
-          : null;
-  if (intensity != null && intensity > 0 && Number.isFinite(intensity)) return intensity;
+  const direct =
+    readPositiveNumber(data.carbonIntensity) ??
+    readPositiveNumber(data.carbon_intensity) ??
+    readPositiveNumber(data.gco2PerKwh);
+  if (direct != null) return direct;
+
+  const nested = data.data;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return parseCarbonIntensityGco2PerKwh(nested as Record<string, unknown>);
+  }
+
   return null;
 }
 
@@ -72,7 +79,7 @@ export async function fetchElectricityMapsJson(
     const url = new URL(endpoint);
     url.searchParams.set("zone", zone);
     const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { "auth-token": apiKey },
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       cache: "no-store",
     });

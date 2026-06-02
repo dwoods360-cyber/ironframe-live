@@ -32,7 +32,14 @@ export const IRONWATCH_MIN_CONSECUTIVE_FAILURES = Math.ceil(
   IRONWATCH_STALE_DATA_THRESHOLD_MS / IRONWATCH_CHECK_INTERVAL_MS,
 );
 
-const ELECTRICITY_MAPS_LATEST = "https://api.electricitymaps.com/v3/carbon-intensity/latest";
+import {
+  ELECTRICITY_MAPS_CARBON_LATEST,
+  fetchElectricityMapsJson,
+  getElectricityMapsApiKey,
+  parseCarbonIntensityGco2PerKwh,
+} from "@/app/services/ironbloom/electricityMapsClient";
+
+export const IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE = "US-MIDW-MISO";
 
 export const IRONWATCH_STALE_DATA_IRONCAST_BODY =
   "IRONWATCH: External Sustainability API has been unreachable for 4 hours. System entering 'Stale Data' mode.";
@@ -54,7 +61,7 @@ export type ElectricityMapsPingResult = {
  */
 export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResult> {
   const started = Date.now();
-  const token = process.env.ELECTRICITY_MAPS_API_KEY?.trim();
+  const token = getElectricityMapsApiKey();
   if (!token) {
     return {
       ok: true,
@@ -64,36 +71,32 @@ export async function pingElectricityMapsLive(): Promise<ElectricityMapsPingResu
     };
   }
 
-  const zone = process.env.IRONWATCH_ELECTRICITY_MAPS_ZONE?.trim() || "US-CA";
-  const url = new URL(ELECTRICITY_MAPS_LATEST);
-  url.searchParams.set("zone", zone);
+  const zone =
+    process.env.IRONWATCH_ELECTRICITY_MAPS_ZONE?.trim() || IRONWATCH_DEFAULT_ELECTRICITY_MAPS_ZONE;
 
   try {
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: AbortSignal.timeout(12_000),
-      cache: "no-store",
-    });
+    const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, zone, token);
     const latencyMs = Date.now() - started;
-    if (!res.ok) {
-      return { ok: false, httpStatus: res.status, latencyMs, error: `HTTP ${res.status}` };
-    }
-    const data = (await res.json()) as Record<string, unknown>;
-    const intensity =
-      typeof data.carbonIntensity === "number"
-        ? data.carbonIntensity
-        : typeof data.carbon_intensity === "number"
-          ? data.carbon_intensity
-          : null;
-    if (intensity == null || intensity <= 0) {
+    if (!result.ok) {
       return {
         ok: false,
-        httpStatus: res.status,
+        httpStatus: result.httpStatus,
         latencyMs,
-        error: "missing carbon intensity in response",
+        error: result.detail ?? result.reason,
       };
     }
-    return { ok: true, httpStatus: res.status, latencyMs };
+
+    const intensity = parseCarbonIntensityGco2PerKwh(result.data);
+    if (intensity == null) {
+      return {
+        ok: false,
+        httpStatus: result.httpStatus,
+        latencyMs,
+        error: "missing carbon intensity in Electricity Maps response",
+      };
+    }
+
+    return { ok: true, httpStatus: result.httpStatus, latencyMs };
   } catch (e) {
     return {
       ok: false,

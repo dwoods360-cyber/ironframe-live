@@ -9,6 +9,29 @@ import { Pool } from "pg";
  * Tenant isolation: every read validates `channel_values.tenant_id` against the caller stamp.
  */
 
+export class Epic15DatabaseConfigError extends Error {
+  constructor(detail: string) {
+    super(`EPIC_15_DATABASE_CONFIG: ${detail}`);
+    this.name = "Epic15DatabaseConfigError";
+  }
+}
+
+/** CI must use ephemeral Postgres — block accidental remote Supabase URLs in GITHUB_ACTIONS. */
+export function assertEpic15DatabaseUrlLock(): void {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) {
+    throw new Epic15DatabaseConfigError(
+      "DATABASE_URL is required for LangGraph checkpoint pool and forensic rollback tests.",
+    );
+  }
+  const inCi = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+  if (inCi && /supabase\.co/i.test(url)) {
+    throw new Epic15DatabaseConfigError(
+      "CI DATABASE_URL must target ephemeral Postgres (127.0.0.1), not remote Supabase.",
+    );
+  }
+}
+
 let checkpointPool: Pool | null = null;
 let postgresCheckpointer: PostgresSaver | null = null;
 let setupPromise: Promise<void> | null = null;
@@ -34,6 +57,7 @@ function buildCheckpointPool(): Pool {
 
 /** Sole authority checkpointer — call `setup()` once per process via `getPostgresCheckpointer()`. */
 export async function getPostgresCheckpointer(): Promise<PostgresSaver> {
+  assertEpic15DatabaseUrlLock();
   if (!postgresCheckpointer) {
     checkpointPool = buildCheckpointPool();
     postgresCheckpointer = new PostgresSaver(checkpointPool);

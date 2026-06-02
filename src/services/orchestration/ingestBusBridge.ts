@@ -192,12 +192,17 @@ async function invokeIngestSovereignBus(
   const threadId = input.threadId?.trim() || threatId;
 
   const { compileSovereignOrchestrationBus } = await import("@/src/services/orchestration/graph");
+  const { invokeGraphWithForensicRollback } = await import(
+    "@/src/services/orchestration/forensicRollback",
+  );
   const bus = await compileSovereignOrchestrationBus();
   console.info(
     `[SOVEREIGN BUS ACTIVATED] Routing threat ${threatId} for tenant ${tenantId} through the workforce circuit.`,
   );
 
-  const finalizedState = await bus.invoke(
+  const config = { configurable: { thread_id: threadId } };
+  const finalizedState = await invokeGraphWithForensicRollback(
+    bus,
     {
       tenant_id: tenantId,
       threat_id: threatId,
@@ -208,7 +213,8 @@ async function invokeIngestSovereignBus(
       status: "PENDING",
       agent_logs: [],
     },
-    { configurable: { thread_id: threadId } },
+    config,
+    { tenantId, threadId },
   );
 
   return {
@@ -232,15 +238,20 @@ async function invokeIngestForensicBus(
   const payload = buildForensicIngressPayload(input, options);
   const source = String(payload.source ?? "EXTERNAL_INGRESS");
 
-  const { compileOrchestrationGraph } = await import(
+  const { compileOrchestrationGraphWithCheckpoint } = await import(
     "@/src/services/orchestration/forensicPipelineGraph"
   );
-  const graph = compileOrchestrationGraph();
+  const { invokeGraphWithForensicRollback } = await import(
+    "@/src/services/orchestration/forensicRollback"
+  );
+  const graph = await compileOrchestrationGraphWithCheckpoint();
   console.info(
     `[FORENSIC BUS ACTIVATED] Routing threat ${threatId} for tenant ${tenantId} (source=${source}) through Epic 10 perimeter pipeline.`,
   );
 
-  const finalizedState = await graph.invoke(
+  const config = { configurable: { thread_id: threadId } };
+  const finalizedState = await invokeGraphWithForensicRollback(
+    graph,
     {
       threatId,
       tenantId,
@@ -248,7 +259,8 @@ async function invokeIngestForensicBus(
       history: [],
       historyLogs: [],
     },
-    { configurable: { thread_id: threadId } },
+    config,
+    { tenantId, threadId },
   );
 
   const history = finalizedState.history ?? [];

@@ -1,16 +1,27 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, beforeAll } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
 import { TRANSACTION_ABORTED } from "@/src/services/orchestration/forensicFaultInjection";
 
-const hasDatabase = Boolean(process.env.DATABASE_URL);
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+let databaseReachable = false;
 
 describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
   const testThreatId = `test-fault-injection-${uuidv4()}`;
   let testTenantId = uuidv4();
 
+  beforeAll(async () => {
+    if (!hasDatabaseUrl) return;
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      databaseReachable = true;
+    } catch {
+      databaseReachable = false;
+    }
+  });
+
   afterEach(async () => {
-    if (!hasDatabase) return;
+    if (!databaseReachable) return;
     await prisma.riskRegistry.deleteMany({
       where: { tenantId: testTenantId, riskEventId: testThreatId },
     });
@@ -25,9 +36,14 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
     }
   });
 
-  it.skipIf(!hasDatabase)(
+  it.skipIf(!hasDatabaseUrl)(
     "executes atomic rollback when a downstream agent fails (zero registry bleed)",
-    async () => {
+    async (ctx) => {
+      if (!databaseReachable) {
+        ctx.skip();
+        return;
+      }
+
       const tenantRow = await prisma.tenant.findFirst({ select: { id: true } });
       if (!tenantRow?.id) {
         throw new Error("Epic 15 rollback test requires at least one Tenant row.");
@@ -70,6 +86,17 @@ describe("Epic 15 — Postgres Saver transactional rollback validation", () => {
 
       expect(caught).not.toBeNull();
       expect(caught!.message).toMatch(new RegExp(TRANSACTION_ABORTED, "i"));
+
+      const { executeForensicCheckpointRollback } = await import(
+        "@/src/services/orchestration/forensicRollback"
+      );
+      const rollback = await executeForensicCheckpointRollback({
+        graph,
+        threadId: testThreatId,
+        tenantId: testTenantId,
+        reason: caught!.message,
+      });
+      expect(rollback.status).toMatch(/ROLLED_BACK|ANCHOR_NOT_FOUND/);
 
       const validationRecord = await prisma.riskRegistry.findFirst({
         where: { tenantId: testTenantId, riskEventId: testThreatId },

@@ -14,8 +14,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# INJECT THE BUILD BYPASS FLAG
+# Prisma generate during prebuild does not need a live DB (see prisma.config.ts).
 ENV NEXT_BUILD_PHASE=true
+ENV DATABASE_URL=postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_build
+ENV DIRECT_URL=postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_build
 
 RUN npm run build
 

@@ -32,6 +32,7 @@ import { isGrcInfrastructureLimitMessage } from '@/app/utils/grcInfrastructureLi
 import { logThreatActivity } from '@/app/actions/auditActions';
 import { recordSustainabilityImpact } from '@/app/actions/sustainabilityActions';
 import { grcGatePass, getGrcThresholdCents } from '@/app/utils/grcGate';
+import { getPrimaryThreatNotificationRecipient } from '@/app/utils/threatNotificationRecipients';
 import { shadowReceiptAuditStub } from '@/app/lib/grc/threatReceipt';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
 import {
@@ -515,8 +516,9 @@ function simShadowPassesResolutionProtocol(
   return false;
 }
 
-/** Explicit GRC notification recipient; use verified Gmail to avoid Zoho 550. */
-const targetEmail = 'dwoods360@gmail.com'.trim();
+function resolveGrcNotificationRecipient(): string | null {
+  return getPrimaryThreatNotificationRecipient();
+}
 
 type SecurityBriefThreat = {
   title: string;
@@ -1118,11 +1120,14 @@ export async function confirmThreatAction(
           id,
           financialRisk_cents,
         };
-        await sendRiskNotification(
-          targetEmail,
-          `[GRC ALERT] Threat Confirmed: ${threatTitle}`,
-          generateSecurityBrief(briefThreat, 'CONFIRMED'),
-        );
+        const grcRecipient = resolveGrcNotificationRecipient();
+        if (grcRecipient) {
+          await sendRiskNotification(
+            grcRecipient,
+            `[GRC ALERT] Threat Confirmed: ${threatTitle}`,
+            generateSecurityBrief(briefThreat, 'CONFIRMED'),
+          );
+        }
 
         const emailResult = await sendThreatConfirmationEmail({
           threatId: id,
@@ -1208,11 +1213,14 @@ export async function confirmThreatAction(
         id,
         financialRisk_cents,
       };
-      await sendRiskNotification(
-        targetEmail,
-        `[GRC ALERT] Threat Confirmed: ${threatTitle}`,
-        generateSecurityBrief(briefThreat, 'CONFIRMED'),
-      );
+      const grcRecipient = resolveGrcNotificationRecipient();
+      if (grcRecipient) {
+        await sendRiskNotification(
+          grcRecipient,
+          `[GRC ALERT] Threat Confirmed: ${threatTitle}`,
+          generateSecurityBrief(briefThreat, 'CONFIRMED'),
+        );
+      }
 
       const emailResult = await sendThreatConfirmationEmail({
         threatId: id,
@@ -1571,11 +1579,14 @@ export async function resolveThreatAction(
       id,
       financialRisk_cents: BigInt(financialRisk_cents),
     };
-    await sendRiskNotification(
-      targetEmail,
-      `[GRC UPDATE] Threat Resolved: ${threatTitle}`,
-      generateSecurityBrief(briefThreat, 'RESOLVED'),
-    );
+    const grcRecipient = resolveGrcNotificationRecipient();
+    if (grcRecipient) {
+      await sendRiskNotification(
+        grcRecipient,
+        `[GRC UPDATE] Threat Resolved: ${threatTitle}`,
+        generateSecurityBrief(briefThreat, 'RESOLVED'),
+      );
+    }
     await routeRiskNotification({
       id,
       title: threat?.title ?? id,

@@ -1,9 +1,11 @@
 'use server';
 
 import nodemailer from 'nodemailer';
-
-/** Testing override: route all outbound email to this inbox. */
-const TEST_EMAIL_RECIPIENT = 'dwoods360@gmail.com';
+import {
+  getInvestigationEmailCcList,
+  getPrimaryThreatNotificationRecipient,
+  getThreatConfirmationRecipients,
+} from '@/app/utils/threatNotificationRecipients';
 
 /** Gmail SMTP transporter. From address must match auth user (GMAIL_EMAIL_USER). */
 const transporter = nodemailer.createTransport({
@@ -51,7 +53,12 @@ export async function sendRiskNotification(
   }
 
   try {
-    const to = TEST_EMAIL_RECIPIENT;
+    const configured = getThreatConfirmationRecipients();
+    const to = configured[0] ?? recipientEmail.trim();
+    if (!to) {
+      console.warn('[EMAIL SKIPPED] No recipients. Set THREAT_CONFIRMATION_RECIPIENTS in .env.local.');
+      return { success: false, error: 'No recipients configured' };
+    }
     const mailOptions: Parameters<typeof transporter.sendMail>[0] = {
       from: ('"Ironframe" <' + (process.env.GMAIL_EMAIL_USER ?? '').trim() + '>').trim(),
       to,
@@ -59,8 +66,13 @@ export async function sendRiskNotification(
       html: sanitizeEmailHtmlColors(htmlBody),
     };
     if (options?.cc) {
-      // During testing, keep CC routed to the same controlled inbox.
-      mailOptions.cc = [TEST_EMAIL_RECIPIENT];
+      const ccList =
+        typeof options.cc === 'string'
+          ? [options.cc]
+          : options.cc.filter((entry) => entry.trim().length > 0);
+      if (ccList.length > 0) {
+        mailOptions.cc = ccList;
+      }
     }
     const info = await transporter.sendMail(mailOptions);
     console.log('[EMAIL SUCCESS] Sent:', info.messageId);
@@ -106,15 +118,15 @@ export async function sendEscalationEmail(
   }
 }
 
-/** Comma-separated list of emails to receive threat confirmation notifications. */
-const THREAT_CONFIRMATION_RECIPIENTS_KEY = 'THREAT_CONFIRMATION_RECIPIENTS';
-
-/** Enterprise GRC distribution matrix (env overrides). Set in .env.local for your org. */
-const GRC_DISTRIBUTION = {
-  EXECUTIVE: process.env.GRC_EMAIL_EXECUTIVE?.trim() || TEST_EMAIL_RECIPIENT,
-  OPERATIONAL: process.env.GRC_EMAIL_OPERATIONAL?.trim() || TEST_EMAIL_RECIPIENT,
-  COMPLIANCE: process.env.GRC_EMAIL_COMPLIANCE?.trim() || TEST_EMAIL_RECIPIENT,
-};
+function resolveGrcDistributionEmail(role: 'EXECUTIVE' | 'OPERATIONAL' | 'COMPLIANCE'): string | null {
+  const roleEnv =
+    role === 'EXECUTIVE'
+      ? process.env.GRC_EMAIL_EXECUTIVE?.trim()
+      : role === 'COMPLIANCE'
+        ? process.env.GRC_EMAIL_COMPLIANCE?.trim()
+        : process.env.GRC_EMAIL_OPERATIONAL?.trim();
+  return roleEnv || getPrimaryThreatNotificationRecipient();
+}
 
 export type RouteRiskThreat = {
   id: string;
@@ -135,9 +147,19 @@ export async function routeRiskNotification(
     return { success: true, mocked: true };
   }
 
-  let recipient = GRC_DISTRIBUTION.OPERATIONAL;
-  if (threat.financialRisk_cents >= 500_000_000) recipient = GRC_DISTRIBUTION.EXECUTIVE;
-  if (threat.state === 'RESOLVED') recipient = GRC_DISTRIBUTION.COMPLIANCE;
+  let recipient =
+    resolveGrcDistributionEmail('OPERATIONAL') ??
+    resolveGrcDistributionEmail('EXECUTIVE') ??
+    resolveGrcDistributionEmail('COMPLIANCE');
+  if (threat.financialRisk_cents >= 500_000_000) {
+    recipient = resolveGrcDistributionEmail('EXECUTIVE') ?? recipient;
+  }
+  if (threat.state === 'RESOLVED') {
+    recipient = resolveGrcDistributionEmail('COMPLIANCE') ?? recipient;
+  }
+  if (!recipient) {
+    return { success: false, error: 'No GRC recipients configured (THREAT_CONFIRMATION_RECIPIENTS)' };
+  }
 
   const liabilityMillions = (threat.financialRisk_cents / 100_000_000).toFixed(1);
   const subject = `[GRC ALERT] ${threat.state}: ${threat.title} ($${liabilityMillions}M)`;
@@ -149,13 +171,6 @@ export async function routeRiskNotification(
     return result;
   }
   return { success: false, error: result.error ?? 'Send failed' };
-}
-
-function getThreatConfirmationRecipients(): string[] {
-  const raw = process.env[THREAT_CONFIRMATION_RECIPIENTS_KEY]?.trim();
-  if (raw) return raw.split(',').map((e) => e.trim()).filter(Boolean);
-  // Fallback for testing when env not set
-  return [TEST_EMAIL_RECIPIENT];
 }
 
 export async function sendThreatConfirmationEmail(
@@ -216,13 +231,9 @@ export async function sendVendorEmail(vendorName: string, docName: string, expir
   return result;
 }
 
-/** CC for investigation report emails (drawer "Email Stakeholders"). */
-const INVESTIGATION_EMAIL_CC = 'dwoods360@gmail.com';
-
 /**
  * Send the CoreIntel AI investigation report to stakeholders.
  * Uses Ironframe GRC header and pre-wrapped report body. Optionally appends Analyst Notes after the AI report.
- * CC: dwoods360@gmail.com
  */
 export async function sendInvestigationEmail(
   threatId: string,
@@ -266,7 +277,7 @@ export async function sendInvestigationEmail(
 </div>`;
 
   const result = await sendRiskNotification(recipients[0], subject, html, {
-    cc: INVESTIGATION_EMAIL_CC,
+    cc: getInvestigationEmailCcList(),
   });
   return result.success ? { success: true } : { success: false, error: result.error ?? 'Send failed' };
 }

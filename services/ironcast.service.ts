@@ -8,6 +8,14 @@ import { VendorAlertEmail } from "@/emails/VendorAlertEmail";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import type { IroncastDispatchPayload } from "@/types/ironcast";
 
+const DEFAULT_RESEND_FROM_ADDRESS = "onboarding@resend.dev";
+
+export function resolveIroncastFromAddress(): string {
+  const name = process.env.IRONCAST_FROM_NAME?.trim() || "Ironframe Security Agents";
+  const email = process.env.IRONCAST_FROM_EMAIL?.trim() || DEFAULT_RESEND_FROM_ADDRESS;
+  return `${name} <${email}>`;
+}
+
 type IroncastEmailTemplateProps = {
   tenantName: string;
   riskId: string;
@@ -68,7 +76,7 @@ export class IroncastService {
 
     try {
       const { data, error } = await resend.emails.send({
-        from: `${process.env.IRONCAST_FROM_NAME || "Ironframe Agents"} <onboarding@resend.dev>`,
+        from: resolveIroncastFromAddress(),
         to: [payload.recipient.email],
         subject: `[${payload.notification.priority}] ${payload.notification.subject}`,
         html: emailHtml, // Dispatching professional HTML

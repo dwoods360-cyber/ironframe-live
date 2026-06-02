@@ -92,7 +92,7 @@ jobs:
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env.production
           echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.production
           
-          gcloud auth configure-docker us-central1-docker.pkg.dev
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
           docker build -t us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/$SERVICE_NAME:$GITHUB_SHA .
           docker push us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/$SERVICE_NAME:$GITHUB_SHA
 

@@ -13,6 +13,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isThreatDetailPage = pathname.startsWith("/threats/");
   const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
+  const isDocsPage = pathname === "/docs" || pathname.startsWith("/docs/");
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
 
   useKimbotPersistLoop();
@@ -54,9 +55,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
       >
         <div
-          className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${
-            isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""
-          }`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col ${
+            isDocsPage || isBoardReport ? "overflow-y-auto" : "overflow-hidden"
+          } ${isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""}`}
         >
           {children}
         </div>

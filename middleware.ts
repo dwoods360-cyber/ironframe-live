@@ -150,6 +150,11 @@ export async function middleware(request: NextRequest) {
   const supabaseResponse = await updateSession(request);
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
+  /** Static documentation hub — public read + protocol download (no tenant scope). */
+  const isPublicDocsRoute =
+    pathname === "/docs" ||
+    pathname.startsWith("/docs/") ||
+    pathname === "/api/docs/download-protocol";
 
   /** Common URL typo — trailing period after `/dashboard/exports` yields 404 in App Router. */
   if (pathname === "/dashboard/exports.") {
@@ -305,6 +310,9 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && !isLoginRoute) {
+    if (isPublicDocsRoute) {
+      return supabaseResponse;
+    }
     // Cron endpoints are token-gated in their own route handlers.
     // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
     if (internalTokenGatedApiPath(pathname)) {

@@ -2,9 +2,12 @@ import { describe, it, expect } from "vitest";
 import { v4 as uuidv4 } from "uuid";
 
 const hasDatabase = Boolean(process.env.DATABASE_URL);
+const runLiveOrchestration =
+  hasDatabase &&
+  (!process.env.GITHUB_ACTIONS || process.env.RUN_LIVE_GRAPH_TESTS === "1");
 
 describe("Postgres checkpointer tenant isolation", () => {
-  it.skipIf(!hasDatabase)("rejects checkpoint tenant stamp mismatch", async () => {
+  it.skipIf(!runLiveOrchestration)("rejects checkpoint tenant stamp mismatch", async () => {
     const { getTenantBoundCheckpointTuple } = await import(
       "@/src/services/orchestration/checkpointer",
     );

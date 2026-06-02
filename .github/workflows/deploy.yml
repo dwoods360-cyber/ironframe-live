@@ -10,6 +10,9 @@ env:
   REGION: us-central1
   DATABASE_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
   DIRECT_URL: postgresql://postgres:postgres_password@127.0.0.1:5432/ironframe_test
+  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder
+  GOOGLE_API_KEY: ci-vitest-compile-placeholder
 
 jobs:
   test-and-build:
@@ -49,6 +52,9 @@ jobs:
             echo "DIRECT_URL=${{ env.DIRECT_URL }}"
             echo "SHADOW_PLANE_ACTIVE=0"
             echo "NEXT_PUBLIC_SHADOW_PLANE_ACTIVE=0"
+            echo "NEXT_PUBLIC_SUPABASE_URL=${{ env.NEXT_PUBLIC_SUPABASE_URL }}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
+            echo "GOOGLE_API_KEY=${{ env.GOOGLE_API_KEY }}"
           } > .env.local
 
       - name: Bootstrap ephemeral Postgres schema
@@ -68,11 +74,11 @@ jobs:
           PGPASSWORD: postgres_password
           PGUSER: postgres
           PGDATABASE: ironframe_test
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'ci-vitest-compile-placeholder' }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: 🔐 Authenticate to GCP
         uses: google-github-actions/auth@v2

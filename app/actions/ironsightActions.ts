@@ -258,9 +258,10 @@ export async function triggerDeepTrace(threatId: string): Promise<TriggerDeepTra
     row = resolved.row;
     plane = resolved.plane;
 
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    const apiKey =
+      process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
-      return { success: false, error: 'GEMINI_API_KEY is not configured.' };
+      return { success: false, error: 'GOOGLE_API_KEY or GEMINI_API_KEY is not configured.' };
     }
 
     const liabilityMillions = (Number(row.financialRisk_cents) / 100_000_000).toFixed(2);

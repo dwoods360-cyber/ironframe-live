@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Documentation
+
+Product, user, support, sales, and technical documentation lives in **[docs/README.md](./docs/README.md)**.
+
+Engineering authority: [docs/TAS.md](./docs/TAS.md) · Operations: [DOCS_OPERATIONS.md](./DOCS_OPERATIONS.md)
+
 ## Getting Started
 
 First, run the development server:

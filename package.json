@@ -16,6 +16,7 @@
     "test:integration:epic11": "npm run scan:secrets && vitest run tests/unit/pkiSignatureVerifier.test.ts tests/unit/bankVaultDualGate.test.ts tests/integration/bank-vault-success.test.ts tests/integration/bank-vault-rejection.test.ts tests/integration/pki-verification.test.ts",
     "test:integration:epic13": "npm run scan:secrets && vitest run tests/integration/epic13-telemetry-triage.test.ts tests/integration/cron-auth-gates.test.ts",
     "test:integration:epic14": "vitest run tests/integration/epic14-anonymization-interceptor.test.ts",
+    "test:integration:epic16": "vitest run tests/integration/epic16-exports.test.ts",
     "test:integration:epic10": "npm run scan:secrets && vitest run tests/unit/sovereignOrchestrationBus.test.ts tests/unit/ingestBusBridge.test.ts tests/unit/workforceBusManifest.test.ts",
     "test:integration:sustainability": "npm run scan:secrets && vitest run tests/unit/ironbloomCarbonTelemetry.test.ts tests/unit/ironbloomScoring.test.ts tests/unit/ironbloomRateEngine.test.ts tests/unit/sustainabilityStaleLockdown.test.ts",
     "test:vercel-smoke": "node scripts/staging-smoke-cron.mjs",

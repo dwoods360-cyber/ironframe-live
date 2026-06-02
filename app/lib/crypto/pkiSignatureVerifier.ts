@@ -1,13 +1,14 @@
 import { createVerify } from "node:crypto";
+import {
+  isValidSpkiPublicKeyPem,
+  normalizeVaultPublicKeyPem,
+  resolveVaultRolePublicKeyPem,
+  type PkiSignatureRole,
+} from "@/lib/security/vaultPublicKeyEnv";
 
-export type PkiSignatureRole = "VAULT_RELEASE" | "CISO_HANDSHAKE";
+export type { PkiSignatureRole };
 
 export const PKI_VERIFICATION_GUARD_ERROR = "PKI_VERIFICATION_GUARD: Asymmetric attestation failed closed.";
-
-const ROLE_ENV_KEYS: Record<PkiSignatureRole, string> = {
-  VAULT_RELEASE: "PUBLIC_KEY_VAULT_RELEASE",
-  CISO_HANDSHAKE: "PUBLIC_KEY_CISO_HANDSHAKE",
-};
 
 export type TenantBoundAsymmetricVerifyInput = {
   role: PkiSignatureRole;
@@ -32,24 +33,15 @@ function hasNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isValidPemPublicKey(pem: string): boolean {
-  return pem.includes("BEGIN PUBLIC KEY");
-}
-
-/** Resolve configured PEM for Epic 11 role keys (fail-closed when missing or malformed). */
+/** Resolve configured PEM for Epic 11 role keys (production Vercel env first; fail-closed when missing). */
 export function resolvePkiPublicKeyPem(role: PkiSignatureRole): string | null {
-  const envKey = ROLE_ENV_KEYS[role];
-  const raw = process.env[envKey]?.trim();
-  if (!raw || !isValidPemPublicKey(raw)) {
-    return null;
-  }
-  return raw;
+  return resolveVaultRolePublicKeyPem(role);
 }
 
 function resolveVerificationPem(input: TenantBoundAsymmetricVerifyInput): string | null {
   const override = input.publicKeyPemOverride?.trim();
-  if (override && isValidPemPublicKey(override)) {
-    return override;
+  if (override && isValidSpkiPublicKeyPem(override)) {
+    return normalizeVaultPublicKeyPem(override);
   }
   return resolvePkiPublicKeyPem(input.role);
 }

@@ -1,5 +1,5 @@
 -- Epic 12: WORM evidence locker bucket + deny-delete/update via RLS (no DELETE/UPDATE policies)
--- Applied on Ironframe-GRC (kcuciqpxxrqjmqcpulmq) via Supabase MCP / dashboard migration epic12_worm_evidence_locker_rls
+-- Applied on Ironframe-GRC (REDACTED_SUPABASE_PROJECT_REF) via Supabase MCP / dashboard migration epic12_worm_evidence_locker_rls
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('evidence-locker', 'evidence-locker', false, NULL, NULL)

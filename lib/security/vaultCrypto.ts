@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { verifyTenantBoundAsymmetricSignature } from "@/app/lib/crypto/pkiSignatureVerifier";
+import { resolveVaultPublicKeyPem } from "@/lib/security/vaultPublicKeyEnv";
 
 export type VaultSignatureVerifyInput = {
   /** PEM (SPKI) or configured key id (`PUBLIC_KEY_<ID>` env). */
@@ -10,20 +11,7 @@ export type VaultSignatureVerifyInput = {
 };
 
 function resolvePublicKeyPem(publicKeyOrId: string): string | null {
-  const trimmed = publicKeyOrId.trim();
-  if (!trimmed) return null;
-  if (trimmed.includes("BEGIN PUBLIC KEY")) return trimmed;
-
-  const normalizedId = trimmed.replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
-  const fromId = process.env[`PUBLIC_KEY_${normalizedId}`]?.trim();
-  if (fromId?.includes("BEGIN PUBLIC KEY")) return fromId;
-
-  const fallback = process.env.PUBLIC_KEY?.trim() ?? process.env.VAULT_SUPERVISOR_PUBLIC_KEY?.trim();
-  if (fallback?.includes("BEGIN PUBLIC KEY") && (trimmed === process.env.PUBLIC_KEY_ID?.trim() || !fromId)) {
-    return fallback;
-  }
-
-  return fromId && fromId.includes("BEGIN PUBLIC KEY") ? fromId : null;
+  return resolveVaultPublicKeyPem(publicKeyOrId);
 }
 
 /**

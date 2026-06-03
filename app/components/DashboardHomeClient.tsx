@@ -266,6 +266,8 @@ export default function DashboardHomeClient({
   useRiskRegistrySync(true, initialRiskRegistry);
   const { tenantFetch, activeTenantUuid, activeTenantKey } = useTenantContext();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const isContextSwitching = useRiskStore((s) => s.isContextSwitching);
+  const setContextSwitching = useRiskStore((s) => s.setContextSwitching);
   const normalizedMaturityTenantKey = useMemo(
     () => normalizeTenantMaturityKey(activeTenantKey, activeTenantUuid, selectedTenantName),
     [activeTenantKey, activeTenantUuid, selectedTenantName],
@@ -274,8 +276,20 @@ export default function DashboardHomeClient({
     tenantBaselineToSnapshot(normalizedMaturityTenantKey),
   );
   useEffect(() => {
-    setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
-  }, [normalizedMaturityTenantKey]);
+    let cancelled = false;
+    const delayMs = isContextSwitching ? 800 : 0;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
+      if (isContextSwitching) {
+        setContextSwitching(false);
+      }
+    }, delayMs);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalizedMaturityTenantKey, isContextSwitching, setContextSwitching]);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
@@ -1159,7 +1173,7 @@ export default function DashboardHomeClient({
               <div className={`w-full py-5 pb-8 ${DASHBOARD_CENTER_PAD_X}`} data-testid="scrutiny-block">
                 <section
                   key={`maturity-tracker-root-${normalizedMaturityTenantKey}-${JSON.stringify(localMaturitySnapshot.components)}-${localMaturitySnapshot.score}`}
-                  className="transition-all duration-300 animate-in fade-in"
+                  className="transition-opacity duration-100 ease-out"
                   data-testid="operational-maturity-tracker-section"
                   aria-label="Operational maturity tracker"
                 >

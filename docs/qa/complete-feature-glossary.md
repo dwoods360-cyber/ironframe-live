@@ -57,13 +57,13 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🔄 Feature 1: Multi-Tenant Context Switcher
 * **GRC Function ID:** `TENANT-001`
-* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel.
+* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel boundary.
 * **Operational Purpose:** Swaps your complete display dashboard between separate corporate profiles (**Medshield**, **Vaultbank NA**, and **Gridcore Infrastructure**) to audit multi-tenant dataset boundaries.
-* **Technical Mechanics:** Invokes database-level **Row-Level Security ($RLS$)** via the `Ironguard` agent. Swapping profiles updates your access badge token and temporarily triggers empty gray **Skeleton Loading Frames** while the app completely purges active cache memory to prevent cross-tenant data leaks.
+* **Technical Mechanics:** Invokes database-level **Row-Level Security ($RLS$)** via the `Ironguard` agent. When activated, the interface kicks off an active sync state, illuminating a pulsing **ECG Cryptographic Heartbeat Line** and a `[ RUNNING CRYPTO HANDSHAKE... ]` notification right next to the menu box. This indicates the application is actively purging short-term memory caches and rotating tokens before painting the fresh data rows onto your monitor panel canvas.
 * **Step-by-Step Lab Validation:**
-  1. Click the active dropdown element displaying the current company name.
-  2. Select **Vaultbank NA** (noting its standard **$5.9M** baseline).
-  3. Observe the center workspace grids. Verify that data rows swap immediately without lagging, freezing, or carrying text fragments over from the previous profile.
+  1. Click the active tenant dropdown switcher and select an alternative company profile (e.g., **Gridcore Infrastructure**).
+  2. **Observe the Processing Wave:** Look directly to the right of the selector box. Verify that the dropdown indicator text updates to an amber color and the **ECG Line wave loops dynamically** across the bar.
+  3. This behavior proves that the software's sanitization layers are actively isolating the application memory and verifying your user access badge before pulling fresh records. The indicator will clear automatically when the new metrics draw.
 
 ---
 

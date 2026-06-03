@@ -18,6 +18,8 @@ import {
   syncIronguardForRedTeamLane,
 } from "@/app/utils/commandCenterScopeSync";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
+import ContextSwitchEcgPulse from "@/app/components/ui/ContextSwitchEcgPulse";
+import { Loader2 } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -57,6 +59,8 @@ export default function TenantSwitcher() {
   const router = useRouter();
   const setSelectedIndustry = useRiskStore((s) => s.setSelectedIndustry);
   const setSelectedTenantName = useRiskStore((s) => s.setSelectedTenantName);
+  const isContextSwitching = useRiskStore((s) => s.isContextSwitching);
+  const setContextSwitching = useRiskStore((s) => s.setContextSwitching);
   const [rows, setRows] = useState<CommandCenterTenantRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** Bumps after cookie writes so `selectedValue` recomputes before refresh completes. */
@@ -109,6 +113,7 @@ export default function TenantSwitcher() {
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const v = e.target.value;
+    setContextSwitching(true);
     const prevToken = normalizeScopeToken(readIronframeTenantCookie());
     const prevUuid = prevToken ?? "global";
 
@@ -155,14 +160,30 @@ export default function TenantSwitcher() {
     selectedValue === "global" ? "global" : rows.some((r) => r.id === selectedValue) ? selectedValue : "global";
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-900 px-3 py-1.5 transition-colors hover:border-slate-700">
-      <Building2 className="h-4 w-4 shrink-0 text-cyan-500" />
-      <select
-        value={selectValue}
-        onChange={(ev) => void handleChange(ev)}
-        className="max-w-[min(22rem,72vw)] cursor-pointer appearance-none bg-transparent pr-4 text-sm font-medium text-slate-200 outline-none focus:ring-0"
-        aria-label="Global Command Center tenant scope"
+    <div className="flex items-center gap-3">
+      <div
+        className={`flex items-center gap-2 rounded-md border bg-slate-900 px-3 py-1.5 transition-colors ${
+          isContextSwitching
+            ? "border-amber-700/70 bg-amber-950/20"
+            : "border-slate-800 hover:border-slate-700"
+        }`}
+        data-testid="tenant-context-switcher"
       >
+        {isContextSwitching ? (
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-amber-400" aria-hidden />
+        ) : (
+          <Building2 className="h-4 w-4 shrink-0 text-cyan-500" />
+        )}
+        <select
+          value={selectValue}
+          onChange={(ev) => void handleChange(ev)}
+          disabled={isContextSwitching}
+          className={`max-w-[min(22rem,72vw)] cursor-pointer appearance-none bg-transparent pr-4 text-sm font-medium outline-none focus:ring-0 disabled:cursor-wait ${
+            isContextSwitching ? "text-amber-300" : "text-slate-200"
+          }`}
+          aria-label="Global Command Center tenant scope"
+          aria-busy={isContextSwitching}
+        >
         <option value="global" className="bg-slate-900 text-slate-200">
           Global Command Center — Aggregate Dashboard
         </option>
@@ -179,15 +200,27 @@ export default function TenantSwitcher() {
       </select>
       <ContextualHelpTrigger
         featureId="tenant-001"
-        title="Command Center Dropdown Menu"
-        location="Located at the top-left corner of the primary dashboard view canvas, right beneath the master header."
-        purpose="Swaps the underlying client database context to verify zero data cross-bleed between enterprise tenants."
+        title="Multi-Tenant Context Switcher"
+        location="Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel boundary."
+        purpose="Swaps your complete display dashboard between separate corporate profiles to audit multi-tenant dataset boundaries."
         steps={[
-          "Click the active dropdown box showing the current company name.",
-          "Select a different corporation from the options list.",
-          "Verify that all central data grids briefly flash a loading skeleton and redraw with the new company's numbers.",
+          "Click the active tenant dropdown switcher and select an alternative company profile.",
+          "Observe the amber dropdown indicator and the ECG heartbeat line labeled [ RUNNING CRYPTO HANDSHAKE... ].",
+          "Verify the indicator clears automatically when fresh tenant metrics draw onto the center panel.",
         ]}
       />
+      </div>
+      {isContextSwitching ? (
+        <div
+          className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-400"
+          data-testid="tenant-crypto-handshake-indicator"
+          role="status"
+          aria-live="polite"
+        >
+          <ContextSwitchEcgPulse />
+          <span className="animate-pulse text-emerald-400">[ RUNNING CRYPTO HANDSHAKE... ]</span>
+        </div>
+      ) : null}
     </div>
   );
 }

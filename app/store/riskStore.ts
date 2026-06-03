@@ -299,6 +299,10 @@ interface RiskState {
   selectedTenantName: string | null;
   setSelectedTenantName: (tenantName: string | null) => void;
 
+  /** True while TENANT-001 dropdown is purging cache and rotating scope tokens. */
+  isContextSwitching: boolean;
+  setContextSwitching: (active: boolean) => void;
+
   // Accepted threat industry (id -> sector) for industry-filtered liability
   acceptedThreatIndustries: Record<string, string>;
 
@@ -1114,6 +1118,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   selectedTenantName: null,
   setSelectedTenantName: (tenantName) => set({ selectedTenantName: tenantName }),
+
+  isContextSwitching: false,
+  setContextSwitching: (active) => set({ isContextSwitching: active }),
 
   acceptedThreatIndustries: {},
   // Set industry when acknowledging/accepting so liability can be filtered by industry

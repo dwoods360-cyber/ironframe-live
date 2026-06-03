@@ -92,9 +92,9 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Step-by-Step Lab Validation:**
   1. Look at the **Operational Maturity Tracker** block located at the crown of your center console canvas.
   2. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
-  3. **Verify the Trend Metric:** Locate and note the small green trend indicator text tracking your Month-Over-Month performance curve (**`+1.2 MoM`**). This proves that the underlying analytics systems are calculating change differentials over time.
+  3. **Verify the Trend Metric:** Locate and verify the small green trend indicator text tracking your Month-Over-Month performance curve (**`+1.2 MoM`**). This confirms underlying math engines calculate structural delta variables over time.
   4. Move your mouse to the top left and change your corporate profile using the dropdown switcher toolline.
-  5. Observe that the full-width edge-to-edge EKG wave sweeps continuously across the screen frame until the gray skeleton spaces clear and the brand new tenant scores successfully paint the screen.
+  5. Observe that the full-width edge-to-edge EKG wave sweeps continuously across the screen frame for the entire 8-second context switch until the gray skeleton spaces clear and the brand new tenant scores successfully paint the screen.
 
 ---
 

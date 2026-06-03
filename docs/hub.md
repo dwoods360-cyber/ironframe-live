@@ -75,13 +75,48 @@ Central index for product, technical, and operational documentation. Documents a
 | [Security & Compliance](./technical/security-and-compliance.md) | Controls, certifications, data handling |
 | [Changelog](./technical/changelog.md) | Version history |
 
-## Existing deep references
+## Engineering & operations
 
-- [TAS.md](./TAS.md) — Technical Architecture Specification (authoritative)
-- [competitive-landscape.md](./competitive-landscape.md) — Market gaps and build mandate
-- [GA_OPEN_ROADMAP.md](./GA_OPEN_ROADMAP.md) — GA release priorities
-- [testing.md](./testing.md) — Test matrices and CI gates
-- [RELEASE_EVIDENCE_2026-06-02.md](./RELEASE_EVIDENCE_2026-06-02.md) — GA evidence pack
+| Document | Purpose |
+|----------|---------|
+| [TAS.md](./TAS.md) | Technical Architecture Specification (authoritative) |
+| [GA Open Roadmap](./GA_OPEN_ROADMAP.md) | GA release priorities |
+| [Battle Lab Roadmap](./BATTLE_LAB_ROADMAP.md) | Battle lab feature trajectory |
+| [Testing](./testing.md) | Test matrices and CI gates |
+| [Completed Modules](./completed-modules.md) | Shipped module inventory |
+| [Competitive Landscape](./competitive-landscape.md) | Market gaps and build mandate |
+| [Tier A Vercel Staging Checklist](./TIER_A_VERCEL_STAGING_CHECKLIST.md) | Staging verification checklist |
+| [Forensic Integrity Report](./FORENSIC_INTEGRITY_REPORT.md) | Integrity audit findings |
+| [Deep Review 30-Day Diff](./DEEP_REVIEW_30_DAY_DIFF.md) | 30-day change analysis |
+
+## Release evidence
+
+| Document | Purpose |
+|----------|---------|
+| [Release Evidence 2026-06-02](./RELEASE_EVIDENCE_2026-06-02.md) | GA evidence pack (June 2026) |
+| [Release Evidence 2026-05-28](./RELEASE_EVIDENCE_2026-05-28.md) | Pre-GA evidence pack |
+
+## UI schematics
+
+| Document | Purpose |
+|----------|---------|
+| [UI Schematic v1](./ui-schematic-v1.md) | Early UI wireframe reference |
+| [UI Schematic Final](./ui-schematic-final.md) | Final UI schematic |
+
+## Audit & blast radius
+
+| Document | Purpose |
+|----------|---------|
+| [Audit: Threat Templates Blast Radius](./audit-threat-templates-blast-radius.md) | Threat template change impact |
+| [Audit: Irontrust Financials Blast Radius](./audit-irontrust-financials-blast-radius.md) | Financial module change impact |
+
+## PR & epic notes
+
+| Document | Purpose |
+|----------|---------|
+| [Epic 12 WORM Ops](./pr/EPIC12_WORM_OPS.md) | WORM storage operations notes |
+| [Epic 12 PR Body](./pr/EPIC12_PR_BODY.md) | Epic 12 pull request template |
+| [Epic 16 PR Body](./pr/EPIC16_PR_BODY.md) | Epic 16 pull request template |
 
 ## 🧪 Quality Assurance & Platform Testing
 
@@ -89,6 +124,10 @@ Central index for product, technical, and operational documentation. Documents a
   * [Core System Protocol](./qa/manual-testing-protocol.md) — Technical, step-by-step security and context resilience verification for engineers.
 * **High School Classroom Track:**
   * [Student Sandbox Lab](./qa/student-testing-protocol.md) — Simplified, plain-English manual testing walkthrough optimized for 11th & 12th-grade technical labs.
+
+## Downloads
+
+- **UI/UX & Feature Test Protocol** — MS Word playbook: `/api/docs/download-protocol` (also linked from any doc page in the web viewer)
 
 ---
 

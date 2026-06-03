@@ -45,7 +45,7 @@ Spreadsheet GRC and legacy heatmaps cannot survive modern audit scrutiny or boar
 Schedule a **Command Center walkthrough**: threat ingest → Active Risk → carbon pulse → analyst export.
 
 **Contact:** Product owner / `[your sales contact]`  
-**Docs:** [docs/README.md](../README.md)
+**Docs:** [docs/hub.md](../hub.md)
 
 ---
 

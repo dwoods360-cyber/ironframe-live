@@ -1,43 +1,10 @@
 import fs from "fs";
-import path from "path";
 import { notFound } from "next/navigation";
-import Link from "next/link";
+import DocsSidebar from "./DocsSidebar";
+import { resolveDocPath, walkMarkdownSlugs, DOCS_ROOT } from "@/lib/docsNavigation";
 
 interface DocsPageProps {
   params: Promise<{ slug?: string[] }>;
-}
-
-const DOCS_ROOT = path.join(process.cwd(), "docs");
-
-function resolveDocPath(slugSegments: string[]): string | null {
-  const relativeDocPath = `${slugSegments.join("/")}.md`;
-  const candidate = path.resolve(DOCS_ROOT, relativeDocPath);
-  const normalizedRoot = path.resolve(DOCS_ROOT);
-  if (candidate !== normalizedRoot && !candidate.startsWith(`${normalizedRoot}${path.sep}`)) {
-    return null;
-  }
-  if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) {
-    return null;
-  }
-  return candidate;
-}
-
-function walkMarkdownSlugs(dir: string, root: string): string[][] {
-  let results: string[][] = [];
-  if (!fs.existsSync(dir)) return results;
-
-  for (const file of fs.readdirSync(dir)) {
-    const fullPath = path.join(dir, file);
-    const stat = fs.statSync(fullPath);
-    if (stat.isDirectory()) {
-      results = results.concat(walkMarkdownSlugs(fullPath, root));
-    } else if (file.endsWith(".md")) {
-      const relativePath = path.relative(root, fullPath);
-      const slug = relativePath.replace(/\.md$/i, "").split(path.sep);
-      results.push(slug);
-    }
-  }
-  return results;
 }
 
 export async function generateStaticParams() {
@@ -54,7 +21,7 @@ export const metadata = {
 
 export default async function DocsPage({ params }: DocsPageProps) {
   const resolvedParams = await params;
-  const slugArray = resolvedParams.slug?.length ? resolvedParams.slug : ["README"];
+  const slugArray = resolvedParams.slug?.length ? resolvedParams.slug : ["hub"];
   const fullDocPath = resolveDocPath(slugArray);
 
   if (!fullDocPath) {
@@ -62,53 +29,11 @@ export default async function DocsPage({ params }: DocsPageProps) {
   }
 
   const fileContent = fs.readFileSync(fullDocPath, "utf8");
-  const docTitle = slugArray[slugArray.length - 1] ?? "README";
+  const docTitle = slugArray[slugArray.length - 1] ?? "hub";
 
   return (
     <div className="flex min-h-full bg-slate-950 text-slate-100 font-sans selection:bg-teal-500 selection:text-slate-950">
-      <aside className="hidden w-64 shrink-0 border-r border-slate-800 bg-slate-900/50 p-6 backdrop-blur-md md:block">
-        <div className="mb-6">
-          <Link
-            href="/dashboard"
-            className="text-xs font-mono tracking-widest text-teal-400 transition-colors hover:text-teal-300"
-          >
-            ➔ RETURN TO DASHBOARD
-          </Link>
-          <h2 className="mt-2 text-lg font-bold text-white">Ironframe Docs</h2>
-        </div>
-        <nav className="space-y-2">
-          <Link
-            href="/docs/README"
-            className="block text-sm text-slate-400 transition-colors hover:text-white"
-          >
-            📄 Documentation Hub
-          </Link>
-          <Link
-            href="/docs/end-users/user-guide"
-            className="block text-sm text-slate-400 transition-colors hover:text-white"
-          >
-            📖 User Guide
-          </Link>
-          <Link
-            href="/docs/sales/pricing-and-packaging"
-            className="block text-sm text-slate-400 transition-colors hover:text-white"
-          >
-            💰 Pricing Matrix
-          </Link>
-          <Link
-            href="/docs/technical/api-documentation"
-            className="block text-sm text-slate-400 transition-colors hover:text-white"
-          >
-            🔌 API Specifications
-          </Link>
-          <Link
-            href="/docs/technical/security-and-compliance"
-            className="block text-sm text-slate-400 transition-colors hover:text-white"
-          >
-            🛡 Security & Compliance
-          </Link>
-        </nav>
-      </aside>
+      <DocsSidebar currentSlug={slugArray} />
 
       <main className="mx-auto min-h-full max-w-4xl flex-1 overflow-y-auto px-8 py-12 lg:py-16">
         <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">

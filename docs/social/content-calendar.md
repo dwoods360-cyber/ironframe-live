@@ -29,7 +29,7 @@ Complements [Marketing Content Calendar](../marketing/content-calendar.md) with 
 
 ## Engagement protocol
 
-- Reply to technical questions with link to [docs/README.md](../README.md) or [FAQ](../end-users/faq.md)
+- Reply to technical questions with link to [docs/hub.md](../hub.md) or [FAQ](../end-users/faq.md)
 - Escalate security questions to private channel—do not debate vulns publicly
 - Thank design partners without naming unless approved
 

@@ -170,13 +170,13 @@ The database then places an invisible shield around all records, serving *only* 
 
 <a id="ux-005"></a>
 
-### 📊 Module 2: The System Maturity Scoring Track
+### 📊 Module 2: The GRC Maturity Scoring Track
 
 #### 1. Technical Function Name
 * Compliance Velocity Metric Monitor (`UX-005`).
 
 #### 2. Exact Location on the Screen
-* Located at the top boundary section inside the **Left Panel (22% Screen Width)**. It renders as a bold fraction readout showing **`4.5 / 10`**.
+* Positioned inside the upper section of the **Center Panel (48% Screen Width)**, tucked neatly right next to your active operational workflow headers and above the horizontal asset cards.
 
 #### 3. What It Is Used For
 * This readout calculates a real-time technical grade of a company's cybersecurity and policy health. A higher number means the business is fully optimized and safe; a lower number means there are unmitigated risks or security loopholes that need attention.
@@ -251,7 +251,7 @@ Every 60 seconds, our system tracking agent **`Ironwatch`** takes a snapshot of 
 * Automated Compute Workforce Grid Array (`GRC-002`).
 
 #### 2. Exact Location on the Screen
-* Spanned horizontally across the wide middle tier of your **Center Panel (48% Screen Width)** workspace canvas view.
+* Spanned horizontally across the middle tier of your **Center Panel (48% Screen Width)** workspace canvas view, sitting directly beneath your horizontal metric cards row.
 
 #### 3. What It Is Used For
 * This module acts as your main team tracking grid. It allows you to supervise your group of 19 automated background micro-agents as they operate simultaneously to lock down data entryways, run risk math models, and intercept system threats.

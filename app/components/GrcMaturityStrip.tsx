@@ -29,13 +29,13 @@ export default function GrcMaturityStrip({ maturity = null, className = "" }: Gr
         </p>
         <ContextualHelpTrigger
           featureId="ux-005"
-          title="System Maturity Scoring Track"
-          location="Placed at the top section of the left-hand column panel."
-          purpose="Provides a real-time high-level technical grading score of the selected company's defense posture."
+          title="Operational Maturity Tracker"
+          location="Positioned inside the upper section of the Center Panel (48% Screen Width), sitting right next to the active operational tabs."
+          purpose="Provides an absolute, real-time numeric grade of the selected corporate entity's cybersecurity health and regulatory posture."
           steps={[
-            "Read the large white numeric grading status value (e.g., 4.5 / 10).",
-            "Observe the small green Month-Over-Month (+1.2 MoM) trend line beneath it.",
-            "Switch companies and verify that this number updates deterministically to reflect that specific entity.",
+            "Look at the Operational Maturity Tracker block at the crown of your center console canvas.",
+            "Read the white numeric fraction value (e.g., 4.5 / 10) and the green +1.2 MoM trend indicator.",
+            "Change your corporate profile via the top-left dropdown and verify the tracker swaps values after the skeleton frame clears.",
           ]}
         />
       </div>

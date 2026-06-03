@@ -1143,7 +1143,14 @@ export default function DashboardHomeClient({
                 </div>
               ) : null}
               <div className={`w-full py-5 pb-8 ${DASHBOARD_CENTER_PAD_X}`} data-testid="scrutiny-block">
-                <GrcMaturityStrip maturity={governanceMaturity} className="mt-0" />
+                <section
+                  key={`maturity-tracker-${activeTenantKey ?? activeTenantUuid ?? "default"}`}
+                  className="transition-all duration-300 animate-in fade-in"
+                  data-testid="operational-maturity-tracker-section"
+                  aria-label="Operational maturity tracker"
+                >
+                  <GrcMaturityStrip maturity={governanceMaturity} className="mt-0" />
+                </section>
                 <div className="mt-4">
                   <HandshakeStatusBar phase={handshakePhase} />
                 </div>

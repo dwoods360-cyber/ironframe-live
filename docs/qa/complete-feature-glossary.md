@@ -75,9 +75,11 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Operational Purpose:** Provides an absolute, real-time numeric grade of the selected corporate entity's cybersecurity health and regulatory posture.
 * **Technical Mechanics:** Calculated dynamically by the `Irontrust` math engine based on passed vulnerability scans, unpatched dependencies, and active compliance metrics.
 * **Step-by-Step Lab Validation:**
-  1. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
-  2. Note the small green trend indicator tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
-  3. Swap your corporate profile to a different tenant and verify that the score updates deterministically to reflect that specific entity's compliance posture.
+  1. Look at the **Operational Maturity Tracker** block located at the crown of your center console canvas.
+  2. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
+  3. Note the small green trend indicator tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
+  4. Move your mouse to the top left and change your corporate profile via the dropdown menu.
+  5. **What to look for:** The moment the menu drops and changes, the Center Panel will briefly flash a gray loading animation frame (Skeleton Frame). Once the validation completes, the `Operational Maturity Tracker` will instantly swap values (e.g., updating to show Medshield's specific profile metrics), proving that the frontend is pulling clean, deterministic risk calculations straight from the isolated data layer without state lag!
 
 ---
 

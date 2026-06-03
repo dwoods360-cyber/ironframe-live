@@ -18,7 +18,6 @@ import {
   syncIronguardForRedTeamLane,
 } from "@/app/utils/commandCenterScopeSync";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
-import ContextSwitchEcgPulse from "@/app/components/ui/ContextSwitchEcgPulse";
 import { Loader2 } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -205,22 +204,11 @@ export default function TenantSwitcher() {
         purpose="Swaps your complete display dashboard between separate corporate profiles to audit multi-tenant dataset boundaries."
         steps={[
           "Click the active tenant dropdown switcher and select an alternative company profile.",
-          "Observe the amber dropdown indicator and the ECG heartbeat line labeled [ RUNNING CRYPTO HANDSHAKE... ].",
-          "Verify the indicator clears automatically when fresh tenant metrics draw onto the center panel.",
+          "Observe the amber dropdown indicator and the full-width ECG sweep across the top of your screen.",
+          "Verify the sweep clears automatically once all left, center, and right panel data rows finish painting.",
         ]}
       />
       </div>
-      {isContextSwitching ? (
-        <div
-          className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-400"
-          data-testid="tenant-crypto-handshake-indicator"
-          role="status"
-          aria-live="polite"
-        >
-          <ContextSwitchEcgPulse />
-          <span className="animate-pulse text-emerald-400">[ RUNNING CRYPTO HANDSHAKE... ]</span>
-        </div>
-      ) : null}
     </div>
   );
 }

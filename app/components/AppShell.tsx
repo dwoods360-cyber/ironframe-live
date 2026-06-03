@@ -8,6 +8,7 @@ import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemCon
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
 import { useIronwatchTelemetryFeed } from "@/app/hooks/useIronwatchTelemetryFeed";
+import ContextSwitchEcgProgressBar from "@/app/components/ui/ContextSwitchEcgPulse";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -49,6 +50,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       >
         <TopNav />
       </div>
+      <ContextSwitchEcgProgressBar />
       <div
         className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
           isBoardReport

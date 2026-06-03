@@ -34,6 +34,7 @@ import {
   normalizeTenantMaturityKey,
   tenantBaselineToSnapshot,
 } from "@/app/lib/grcMaturityTenantBaselines";
+import { useContextSwitchPaintGate } from "@/app/hooks/useContextSwitchPaintGate";
 import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
@@ -267,7 +268,6 @@ export default function DashboardHomeClient({
   const { tenantFetch, activeTenantUuid, activeTenantKey } = useTenantContext();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const isContextSwitching = useRiskStore((s) => s.isContextSwitching);
-  const setContextSwitching = useRiskStore((s) => s.setContextSwitching);
   const normalizedMaturityTenantKey = useMemo(
     () => normalizeTenantMaturityKey(activeTenantKey, activeTenantUuid, selectedTenantName),
     [activeTenantKey, activeTenantUuid, selectedTenantName],
@@ -275,21 +275,6 @@ export default function DashboardHomeClient({
   const [localMaturitySnapshot, setLocalMaturitySnapshot] = useState<GovernanceMaturitySnapshot>(() =>
     tenantBaselineToSnapshot(normalizedMaturityTenantKey),
   );
-  useEffect(() => {
-    let cancelled = false;
-    const delayMs = isContextSwitching ? 800 : 0;
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
-      if (isContextSwitching) {
-        setContextSwitching(false);
-      }
-    }, delayMs);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [normalizedMaturityTenantKey, isContextSwitching, setContextSwitching]);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
@@ -649,6 +634,21 @@ export default function DashboardHomeClient({
     };
   }, [dashboardTenantUuid, fetchDashboardWithRetry]);
 
+  const handleContextSwitchPanelsPainted = useCallback(() => {
+    setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
+  }, [normalizedMaturityTenantKey]);
+  useEffect(() => {
+    if (isContextSwitching) {
+      return;
+    }
+    setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
+  }, [normalizedMaturityTenantKey, isContextSwitching]);
+  useContextSwitchPaintGate({
+    loading,
+    hasData: Boolean(data),
+    onPanelsPainted: handleContextSwitchPanelsPainted,
+  });
+
   const liveAlerts: StreamAlert[] = useMemo(() => {
     if (!data?.companies) return [];
     return data.companies.flatMap((company) =>
@@ -948,7 +948,7 @@ export default function DashboardHomeClient({
     return (
       <div className={DASHBOARD_HOME_SHELL}>
       <div className={DASHBOARD_TRIPANE_SHELL}>
-        <aside className={DASHBOARD_LEFT_PANE} aria-hidden>
+        <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel" aria-hidden>
           <div className={DASHBOARD_LEFT_SCROLL}>
             <div className="space-y-6 pb-12">
               <div className="space-y-3">
@@ -1094,7 +1094,7 @@ export default function DashboardHomeClient({
           </div>
         ) : null}
       <div className={DASHBOARD_TRIPANE_SHELL}>
-        <aside className={DASHBOARD_LEFT_PANE}>
+        <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel">
           <div className={DASHBOARD_LEFT_SCROLL}>
             <div className="space-y-6 pb-12">
               <Sidebar />

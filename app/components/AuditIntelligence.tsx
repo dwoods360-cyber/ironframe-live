@@ -1536,6 +1536,7 @@ export default function AuditIntelligence({
         ref={logScrollRef}
         onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
         className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
+        data-testid="audit-ledger-stream"
       >
       <div className="shrink-0 px-4 pt-4">
       <CarbonPulse />

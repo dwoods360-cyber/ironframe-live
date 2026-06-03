@@ -1,6 +1,7 @@
 # 📖 GRC Master Operations Manual & Technical Feature Glossary
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
+### System Architecture: Control-First Modular Agent Coordination Framework
 
 ---
 
@@ -8,7 +9,7 @@
 
 Welcome to the Operational Command Deck. When managing enterprise software systems, a single technical oversight can lead to catastrophic legal liabilities, massive regulatory fines, or system breaches. This application relies on a standardized **Governance, Risk, and Compliance (GRC)** architecture model to protect organizational and multi-tenant client assets.
 
-As an independent online learner, you must understand the three core GRC pillars that govern this dashboard:
+As an independent online learner operating without a live instructor, you must understand the three core GRC pillars that govern this dashboard:
 
 ### 🏛️ 1. Governance
 * **Standard Definition:** The formal framework of unchangeable laws, corporate policies, and system boundaries established by executive leadership or international regulatory bodies to direct and control operations.
@@ -26,16 +27,16 @@ As an independent online learner, you must understand the three core GRC pillars
 
 ## 🛑 Chapter 2: Core Regulatory Guardrails & Forbidden Actions
 
-To eliminate operational risk and shield your training program from liability, you must strictly adhere to the following **Four Corporate Compliance Mandates**. Any violation will automatically cause the security tracking systems to flag your active session context and quarantine your workspace:
+To completely eliminate operational risk, protect multi-tenant cloud client assets, and shield your training program from liability, you must strictly adhere to the following **Four Corporate Compliance Mandates**. Any violation will automatically cause the security tracking systems to flag your active session context and quarantine your workspace:
 
-* **Mandate 1: Strict Whole-Integer Financial Integrity:** All monetary paths must use a variable type called **`BigInt` (Big Integer)** representing raw cents exclusively. Decimals and floating-point values are completely forbidden in financial modules to eliminate computational rounding drift during audits.
+* **Mandate 1: Strict Whole-Integer Financial Integrity:** All monetary paths must use a variable type called **`BigInt` (Big Integer)** representing raw cents exclusively. Decimals and floating-point values are completely forbidden in financial modules to eliminate computational rounding drift during audits. This demonstrates how enterprise-grade applications maintain 100% mathematical accuracy by avoiding decimal floating-point roundings.
 * **Mandate 2: Controlled Structural Amendments:** You are strictly forbidden from modifying layout parameters, data ingestion targets, or background agent structures silently. Any alteration requires a formal **TAS Amendment Proposal** routed to the Product Owner.
 * **Mandate 3: Verifiable Sustainability Unit Ingress:** Environmental footprint data must be logged using raw, physical units exclusively (such as $kWh$, Liters, or Kilometers). The platform automatically rejects any sustainability telemetry packets containing purely monetary approximations to protect audit validity.
-* **Mandate 4: Absolute Tenant Isolation Enforcment:** Cross-tenant memory bleed is a critical security failure. Row-Level Security ($RLS$) constraints strictly isolate customer boundaries. You are completely forbidden from attempting to extract database rows from a separate company profile while logged into another.
+* **Mandate 4: Absolute Tenant Isolation Enforcement:** Cross-tenant memory bleed is a critical security failure. Row-Level Security ($RLS$) constraints strictly isolate customer boundaries. You are completely forbidden from attempting to extract database rows from a separate company profile while logged into another.
 
 ---
 
-## 🎨 Chapter 3: Screen Grid Coordinates & Panel Layout Proportions
+## 🎨 Chapter 3: True Screen Grid Coordinates & Panel Layout Proportions
 
 The platform interface scales fluidly in sync with your window size using a fixed fractional grid. It divides your display monitor into **three permanent vertical panel columns**, each operating with independent vertical scrolling:
 
@@ -57,13 +58,13 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🔄 Feature 1: Multi-Tenant Context Switcher
 * **GRC Function ID:** `TENANT-001`
-* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel boundary.
+* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel.
 * **Operational Purpose:** Swaps your complete display dashboard between separate corporate profiles (**Medshield**, **Vaultbank NA**, and **Gridcore Infrastructure**) to audit multi-tenant dataset boundaries.
-* **Technical Mechanics:** Invokes database-level **Row-Level Security ($RLS$)** via the `Ironguard` agent. When activated, the interface kicks off an active sync state, illuminating a pulsing **ECG Cryptographic Heartbeat Line** and a `[ RUNNING CRYPTO HANDSHAKE... ]` notification right next to the menu box. This indicates the application is actively purging short-term memory caches and rotating tokens before painting the fresh data rows onto your monitor panel canvas.
+* **Technical Mechanics:** Invokes database-level **Row-Level Security ($RLS$)** via the `Ironguard` agent. When activated, the interface kicks off an active sync state, illuminating an amber border context and an **ECG Cryptographic Heartbeat Line** that sweeps from the absolute left border of the monitor screen to the absolute right border. This wave will not stop until all company data has completely populated on the screen.
 * **Step-by-Step Lab Validation:**
-  1. Click the active tenant dropdown switcher and select an alternative company profile (e.g., **Gridcore Infrastructure**).
-  2. **Observe the Processing Wave:** Look directly to the right of the selector box. Verify that the dropdown indicator text updates to an amber color and the **ECG Line wave loops dynamically** across the bar.
-  3. This behavior proves that the software's sanitization layers are actively isolating the application memory and verifying your user access badge before pulling fresh records. The indicator will clear automatically when the new metrics draw.
+  1. Click the active dropdown element displaying the current company name.
+  2. Select **Vaultbank NA** (noting its standard **$5.9M** baseline).
+  3. Observe the full-width ECG progress sweep running across the top of your screen. Verify that the loading wave remains active until all financial and configuration cells paint completely.
 
 ---
 
@@ -75,11 +76,9 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Operational Purpose:** Provides an absolute, real-time numeric grade of the selected corporate entity's cybersecurity health and regulatory posture.
 * **Technical Mechanics:** Calculated dynamically by the `Irontrust` math engine based on passed vulnerability scans, unpatched dependencies, and active compliance metrics.
 * **Step-by-Step Lab Validation:**
-  1. Look at the **Operational Maturity Tracker** block located at the crown of your center console canvas.
-  2. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
-  3. Note the small green trend indicator tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
-  4. Move your mouse to the top left and change your corporate profile via the dropdown menu.
-  5. **What to look for:** The moment the menu drops and changes, the Center Panel will briefly flash a gray loading animation frame (Skeleton Frame). Once the validation completes, the `Operational Maturity Tracker` will instantly swap values (e.g., updating to show Medshield's specific profile metrics), proving that the frontend is pulling clean, deterministic risk calculations straight from the isolated data layer without state lag!
+  1. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
+  2. Note the small green trend indicator tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
+  3. Swap your corporate profile to a different tenant and verify that the score updates deterministically to reflect that specific entity's compliance posture.
 
 ---
 
@@ -87,7 +86,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🕹️ Feature 3: Chaos Engineering Simulation Injector
 * **GRC Function ID:** `SIM-001`
-* **Exact Screen Coordinates:** Positioned directly within the middle section section of the **Left Panel (22% Screen Width)**.
+* **Exact Screen Coordinates:** Positioned directly within the middle section of the **Left Panel (22% Screen Width)**.
 * **Operational Purpose:** Injects simulated infrastructure disasters (such as mock ransomware strikes or network token timeouts) to validate background agent detection and self-healing response behaviors without risking production servers.
 * **Technical Mechanics:** Simulates real-world threats by triggering temporary state disruptions, forcing monitoring agents like `Ironlock` or `Ironwatch` to execute automated containment and quarantine playbooks.
 * **Step-by-Step Lab Validation:**
@@ -145,9 +144,9 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `CARBON-001`
 * **Exact Screen Coordinates:** Positioned inside the upper half section of the **Right Panel (30% Screen Width)** column track, marked by a green leaf icon.
 * **Operational Purpose:** Tracks real-time emissions intensity and hardware consumption data to fulfill global climate reporting requirements (such as Europe's **CSRD** or US **SEC Climate Disclosures**).
-* **Technical Mechanics:** Powered by the `Ironbloom` agent, which mandates the ingestion of physical hardware metrics ($kWh$, Liters, Kilometers) and rejects flat monetary data. If connection to external global carbon registries drops offline, an integrated circuit breaker activates an internal **Forensic Baseline Simulation Engine** and lights up an orange **`FALLBACK ACTIVE`** indicator badge.
+* **Technical Mechanics:** Powered by the `Ironbloom` agent, which mandates the ingestion of physical hardware metrics ($kWh$ electricity, Liters water, Kilometers logistics transport) and completely rejects flat monetary data. If you run your server locally without a live internet connection or API keys, the software catches the missing link and immediately switches to an integrated Forensic Baseline backup simulation graph instead of breaking.
 * **Step-by-Step Lab Validation:**
-  1. Read the active footprint calculation line (e.g., **`382 gCO₂eq/kWh`**) and confirm the presence of the orange **`FALLBACK ACTIVE`** safety indicator.
+  1. Read the active footprint calculation line (e.g., **`382 gCO₂eq/kWh`**) and confirm the presence of the orange **`FALLBACK ACTIVE`** safety indicator when running offline.
   2. Swap your active tenant context from Vaultbank to Gridcore Infrastructure using your top-left switcher.
   3. Verify that the graph instantly flushes its cache and redraws to compute that specific company's physical infrastructure footprint.
 
@@ -159,7 +158,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `EXPORT-001`
 * **Exact Screen Coordinates:** Placed inside the upper section of the **Center Panel (48% Screen Width)**, positioned side-by-side as three distinct horizontal card components directly beneath your primary workspace tabs.
 * **Operational Purpose:** Displays critical financial metrics (`Compliance Velocity`, `Value Mitigated (YTD) — $0`, and `Projected Insurance Savings — $5.0K`) and houses the tabular data extraction tools required to lock in corporate insurance premium discounts.
-* **Technical Mechanics:** Integrates with the `Irontrust` math engine, pulling whole numbers stored as raw cents from the data tier to completely mitigate floating-point computational variances.
+* **Technical Mechanics:** Integrates with the `Irontrust` math engine, pulling whole numbers stored as raw cents from the data tier to completely mitigate floating-point computational variances ($\text{Database Value} = \text{Dollar Amount} \times 100$). This demonstrates how enterprise-grade applications maintain 100% mathematical accuracy by avoiding decimal floating-point roundings.
 * **Step-by-Step Lab Validation:**
   1. Verify that all three metric containers share uniform alignment and identical border heights across the top of the center canvas column.
   2. Locate and click the primary action button labeled **`Export Tabular Ledger Data (CSV)`**.
@@ -172,7 +171,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 Because you are completing your GRC auditing labs independently online without an instructor, you must know how to clear security alerts yourself using our automated self-healing loops:
 
 ### 🚨 Alert 1: Display Elements Freeze and Read "GOVERNANCE DRIFT DETECTED"
-* **The Root Cause:** You accidentally violated **Mandate 2** by trying to manually modify an configuration baseline or alter a data row directly on screen without an approved amendment proposal. The `Ironwatch` agent detected a structural hash discrepancy and locked the display to secure the system.
+* **The Root Cause:** You accidentally violated **Mandate 2** by trying to manually modify a configuration baseline or alter a data row directly on screen without an approved amendment proposal. The `Ironwatch` agent detected a structural hash discrepancy and locked the display to secure the system.
 * **How to Resolve It Yourself:**
   1. Locate the bold, amber control button labeled **`FREEZE COMMAND POST`** sitting in the top sub-header toolline and click it once.
   2. This triggers the `Irontech` self-healing agent to immediately freeze system states and run a deep structural integrity check against your local files.

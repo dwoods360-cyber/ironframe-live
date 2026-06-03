@@ -1,6 +1,7 @@
 import fs from "fs";
 import { notFound } from "next/navigation";
 import DocsSidebar from "./DocsSidebar";
+import DocsMarkdown from "./DocsMarkdown";
 import { resolveDocPath, walkMarkdownSlugs, DOCS_ROOT } from "@/lib/docsNavigation";
 
 interface DocsPageProps {
@@ -29,22 +30,19 @@ export default async function DocsPage({ params }: DocsPageProps) {
   }
 
   const fileContent = fs.readFileSync(fullDocPath, "utf8");
-  const docTitle = slugArray[slugArray.length - 1] ?? "hub";
 
   return (
-    <div className="flex min-h-full bg-slate-950 text-slate-100 font-sans selection:bg-teal-500 selection:text-slate-950">
+    <div className="flex min-h-full bg-slate-950 font-sans text-slate-100 selection:bg-teal-500/30 selection:text-slate-950">
       <DocsSidebar currentSlug={slugArray} />
 
       <main className="mx-auto min-h-full max-w-4xl flex-1 overflow-y-auto px-8 py-12 lg:py-16">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+        <p className="mb-6 font-mono text-[10px] uppercase tracking-widest text-slate-500">
           docs / {slugArray.join("/")}.md
         </p>
-        <h1 className="mb-8 text-xl font-bold text-white">{docTitle}</h1>
-        <div className="prose prose-invert prose-teal max-w-none">
-          <pre className="whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-900 p-6 font-mono text-xs leading-relaxed text-slate-300 shadow-xl">
-            {fileContent}
-          </pre>
-        </div>
+
+        <article className="prose prose-invert max-w-none font-sans">
+          <DocsMarkdown content={fileContent} />
+        </article>
 
         <div className="mt-12 flex items-center justify-between border-t border-slate-800 pt-8">
           <div>

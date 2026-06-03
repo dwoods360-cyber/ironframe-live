@@ -10,6 +10,7 @@ import TenantSwitcher from "./TenantSwitcher";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { createClient } from "@/lib/supabase/client";
 import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
 import { isLegacyAuditTrailRedirectPath, isReportsAuditTrailPath } from "@/app/utils/grcRouteMatch";
@@ -193,6 +194,16 @@ export default function TopNav() {
               <path d="M12 14V18" stroke="#a16207" strokeWidth="2" strokeLinecap="round"/>
             </svg>
             <span className="text-[9px] font-bold uppercase text-emerald-500">SECURE SESSION</span>
+            <ContextualHelpTrigger
+              featureId="auth-001"
+              title="Dynamic Access Badge & Header Router"
+              location="Pinned permanently to the slate bar running across the very top margin of your screen."
+              purpose="Authenticates user keys, provides single-click dashboard routing, and ensures security tokens remain isolated."
+              steps={[
+                "Look at the top left header to confirm the green pulsing indicator is active.",
+                "Click '➔ BACK TO DASHBOARD' from any documentation page to instantly return to your active workspace layout.",
+              ]}
+            />
           </div>
           <button
             type="button"

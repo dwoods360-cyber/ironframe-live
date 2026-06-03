@@ -1,6 +1,7 @@
 "use client";
 
 import ForensicMetricChip from "@/app/components/ui/ForensicMetricChip";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { governanceMaturityToStripMetrics } from "@/app/lib/grcMaturityStripData";
 import type { GovernanceMaturitySnapshot } from "@/app/types/governanceMaturity";
 
@@ -22,9 +23,22 @@ export default function GrcMaturityStrip({ maturity = null, className = "" }: Gr
       data-testid="grc-maturity-strip"
       aria-label="GRC maturity forensic strip"
     >
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
-        GRC maturity
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+          GRC maturity
+        </p>
+        <ContextualHelpTrigger
+          featureId="ux-005"
+          title="System Maturity Scoring Track"
+          location="Placed at the top section of the left-hand column panel."
+          purpose="Provides a real-time high-level technical grading score of the selected company's defense posture."
+          steps={[
+            "Read the large white numeric grading status value (e.g., 4.5 / 10).",
+            "Observe the small green Month-Over-Month (+1.2 MoM) trend line beneath it.",
+            "Switch companies and verify that this number updates deterministically to reflect that specific entity.",
+          ]}
+        />
+      </div>
       <div className="flex min-w-0 flex-wrap items-stretch gap-2">
         {metrics.map((metric) => (
           <ForensicMetricChip

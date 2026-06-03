@@ -43,6 +43,7 @@ import {
   getAgentState,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 export type { AgentPulseState };
 export { getAgentState };
@@ -577,7 +578,19 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Agent Status Pulse</h3>
-          <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
+          <div className="flex items-center gap-2">
+            <ContextualHelpTrigger
+              featureId="grc-002"
+              title="19-Agent Workforce Monitor"
+              location="Stretched across the middle tier of your center canvas layout grid."
+              purpose="Monitors specialized background automation agents as they actively police the platform for compliance threats."
+              steps={[
+                "Scan the roster list to verify individual agent statuses (e.g., Green 'ACTIVE' flags).",
+                "Click directly on any individual agent row (like Ironlock or Ironguard).",
+                "Watch the custom GRC Meta Drawer slide open from the right side of the screen to read their background directives.",
+              ]}
+            />
+            <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
             <span
               className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]"
               aria-hidden

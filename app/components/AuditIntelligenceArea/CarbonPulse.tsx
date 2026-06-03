@@ -275,14 +275,14 @@ export default function CarbonPulse() {
             <h3 className="flex items-center text-[9px] font-black uppercase tracking-widest text-emerald-200/95">
               Sustainability Pulse
               <ContextualHelpTrigger
-                featureId="sustainability-telemetry"
-                title="Sustainability Telemetry Dashboard"
-                location="Top-right quadrant of the primary operations layout console"
-                purpose="Monitors the real-time energy draw, efficiency footprints, and carbon intensity vectors across hardware arrays."
+                featureId="carbon-001"
+                title="Sustainability Telemetry Panel"
+                location="Fixed into the upper section of your Right Column Panel."
+                purpose="Monitors live or simulated environmental footprints, energy grids, and hardware intensity configurations managed by the Ironbloom agent."
                 steps={[
-                  "Observe the current graph trends inside the Sustainability Pulse box.",
-                  "Check if the orange 'FALLBACK ACTIVE' warning badge is lit up.",
-                  "Use the Command Center switcher to swap companies and observe how the data recalculates.",
+                  "Read the live footprint metric readout (e.g., 382 gCO₂eq/kWh).",
+                  "Look for the orange 'FALLBACK ACTIVE' status badge on the top right to verify that local sandbox failovers are working.",
+                  "Swap corporate profiles using the tenant switcher to confirm that the telemetry graph dynamically updates.",
                 ]}
               />
             </h3>

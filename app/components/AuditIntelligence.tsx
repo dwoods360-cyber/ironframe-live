@@ -48,6 +48,7 @@ import {
 } from "@/app/actions/postMortemActions";
 import { ConstitutionalText } from "@/app/components/ConstitutionalText";
 import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyticsPlane";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
@@ -1371,38 +1372,46 @@ export default function AuditIntelligence({
   }, [filteredLogs, focusId]);
 
   const logScrollRef = useRef<HTMLDivElement>(null);
+  const logsSectionRef = useRef<HTMLDivElement>(null);
   const [logScrollTop, setLogScrollTop] = useState(0);
   const [logViewportH, setLogViewportH] = useState(640);
+  const [logsSectionOffset, setLogsSectionOffset] = useState(0);
 
   useLayoutEffect(() => {
     const el = logScrollRef.current;
     if (!el) return;
-    const sync = () => setLogViewportH(Math.max(120, el.clientHeight));
+    const sync = () => {
+      setLogViewportH(Math.max(120, el.clientHeight));
+      const logsEl = logsSectionRef.current;
+      setLogsSectionOffset(logsEl ? logsEl.offsetTop : 0);
+    };
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
+    if (logsSectionRef.current) ro.observe(logsSectionRef.current);
     return () => ro.disconnect();
-  }, []);
+  }, [logsToDisplay.length, focusId, showRetentionBadge, expertModeEnabled]);
 
   const auditLogVirtual = useMemo(() => {
     const n = logsToDisplay.length;
     if (n === 0) {
       return { slice: [] as LogEntryItem[], startIndex: 0, totalHeight: 0 };
     }
+    const effectiveScrollTop = Math.max(0, logScrollTop - logsSectionOffset);
     const start = Math.max(
       0,
-      Math.floor(logScrollTop / AUDIT_LOG_ROW_EST_PX) - AUDIT_LOG_VIRTUAL_OVERSCAN,
+      Math.floor(effectiveScrollTop / AUDIT_LOG_ROW_EST_PX) - AUDIT_LOG_VIRTUAL_OVERSCAN,
     );
     const end = Math.min(
       n,
-      Math.ceil((logScrollTop + logViewportH) / AUDIT_LOG_ROW_EST_PX) + AUDIT_LOG_VIRTUAL_OVERSCAN,
+      Math.ceil((effectiveScrollTop + logViewportH) / AUDIT_LOG_ROW_EST_PX) + AUDIT_LOG_VIRTUAL_OVERSCAN,
     );
     return {
       slice: logsToDisplay.slice(start, end),
       startIndex: start,
       totalHeight: n * AUDIT_LOG_ROW_EST_PX,
     };
-  }, [logsToDisplay, logScrollTop, logViewportH]);
+  }, [logsToDisplay, logScrollTop, logViewportH, logsSectionOffset]);
 
   const auditFocusId = focusId;
   const focusedThreat = auditFocusId ? threatIndexById[auditFocusId] : undefined;
@@ -1523,6 +1532,11 @@ export default function AuditIntelligence({
 
   return (
     <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
+      <div
+        ref={logScrollRef}
+        onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
+        className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
+      >
       <div className="shrink-0 px-4 pt-4">
       <CarbonPulse />
       <div className="mt-3">
@@ -1555,9 +1569,22 @@ export default function AuditIntelligence({
       ) : null}
       </div>
       <div className="sticky top-0 z-20 shrink-0 border-b border-slate-800/50 bg-slate-950 px-4 pt-3 pb-2 shadow-[0_10px_24px_rgba(15,23,42,0.88)]">
-        <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-300">
-          Audit Intelligence
-        </h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-300">
+            Audit Intelligence
+          </h2>
+          <ContextualHelpTrigger
+            featureId="search-001"
+            title="Global Log Explorer & Audit Tool"
+            location="Situated right beneath the Sustainability Pulse box in the right column layout track."
+            purpose="Enables auditors and independent students to search the live database log pool for error strings or tenant names."
+            steps={[
+              "Click into the text entry bar labeled 'Search logs...'.",
+              "Type a validation word keyword (like 'MEDSHIELD') and strike Enter.",
+              "Confirm that the logs beneath filter instantly to isolate matching ledger entries.",
+            ]}
+          />
+        </div>
         {isSimulationMode ? (
           <div className="mb-2 animate-pulse rounded border border-amber-500/45 bg-gradient-to-r from-amber-950/90 via-cyan-950/35 to-amber-950/85 px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-wide text-amber-50 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
             [ ⚠️ SHADOW PLANE ACTIVE — SIMULATION MODE ]
@@ -1578,8 +1605,7 @@ export default function AuditIntelligence({
         ) : null}
       </div>
 
-      <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="shrink-0 px-4">
+      <div className="shrink-0 px-4">
         {auditFocusId ? (
           <div className="mb-3 rounded border border-emerald-700/40 bg-emerald-950/25 px-2.5 py-2 text-[9px] leading-snug text-emerald-100/95">
             <p className="font-black uppercase tracking-wide text-emerald-400/90">
@@ -1683,20 +1709,30 @@ export default function AuditIntelligence({
             </span>
           </div>
         ) : null}
-        </div>
+      </div>
 
-      {/* # Update 9: Immutable Log Feed — dedicated scroll track (h-0 flex-1 enables overflow). */}
-      <div className="relative z-0 flex h-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pb-2">
+      <div ref={logsSectionRef} className="relative z-0 px-4 pb-2">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Audit Ledger Feed
+          </h3>
+          <ContextualHelpTrigger
+            featureId="log-001"
+            title="Operational Audit & Integrity Log"
+            location="Positioned at the base of your center column canvas."
+            purpose="Provides an immutable, live terminal history of every system check, encryption event, and tenant audit."
+            steps={[
+              "Scroll through the terminal ledger independently down the center column space.",
+              "Verify that each logged line contains a distinct cryptographic verification hash tag string.",
+            ]}
+          />
+        </div>
         {logsToDisplay.length > 0 && !expertModeEnabled ? (
           <div className="mb-2 shrink-0 rounded border border-slate-700 bg-slate-800/50 px-2 py-1.5 text-center font-sans text-[11px] text-slate-400">
             Expert Mode OFF — enable in header for full telemetry
           </div>
         ) : null}
-        <div
-          ref={logScrollRef}
-          onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
-          className="custom-scrollbar h-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
-        >
+        <div>
           {logsToDisplay.length === 0 ? (
             <div className="mt-4 rounded-md border border-dashed border-slate-800 p-4 text-center text-sm font-mono italic text-slate-500">
               {auditFocusId
@@ -1866,10 +1902,9 @@ export default function AuditIntelligence({
           )}
         </div>
       </div>
-      </div>
 
       <footer
-        className="relative z-30 min-h-0 shrink-0 space-y-0.5 border-t border-slate-800 bg-slate-900 px-1 py-2 pb-3 font-mono text-[8px] leading-tight text-slate-500/80 shadow-[0_-8px_24px_rgba(15,23,42,0.85)]"
+        className="relative z-30 mt-2 min-h-0 shrink-0 space-y-0.5 border-t border-slate-800 bg-slate-900 px-1 py-2 pb-3 font-mono text-[8px] leading-tight text-slate-500/80"
         role="contentinfo"
         aria-label="GRC version manifest"
       >
@@ -1937,6 +1972,7 @@ export default function AuditIntelligence({
           </p>
         ) : null}
       </footer>
+      </div>
 
       {postMortemOpen && postMortemSummary ? (
         <div

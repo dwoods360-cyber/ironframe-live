@@ -1244,7 +1244,6 @@ export default function DashboardHomeClient({
 
         <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
           <div className={DASHBOARD_RIGHT_SCROLL}>
-            <div className="flex h-full min-h-0 w-full flex-1 flex-col">
             <AuditIntelligence
               serverAuditLogs={serverAuditLogsForAudit}
               tenantGovernanceBps={tenantGovernanceBps}
@@ -1253,7 +1252,6 @@ export default function DashboardHomeClient({
                 setDrawerFocus(focus ?? null);
               }}
             />
-            </div>
           </div>
         </aside>
 

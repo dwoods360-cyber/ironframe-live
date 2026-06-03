@@ -1,9 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-
-import { useEffect, useRef, useState } from "react";
-
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 
@@ -60,6 +59,39 @@ function ShadowPlaneBanner({ visible }: { visible: boolean }) {
       aria-live="polite"
     >
       [ ⚠️ SHADOW PLANE ACTIVE — SIMULATION MODE ]
+    </div>
+  );
+}
+
+function SyncHelpTrigger() {
+  return (
+    <ContextualHelpTrigger
+      featureId="sync-001"
+      title="Platform Integrity Synchronizer"
+      location="Pinned inside the top grid box of your center canvas column layout."
+      purpose="Gives immediate visual confirmation that all security grids and multi-tenant perimeters are operating perfectly with zero architectural drift."
+      steps={[
+        "Look at the sync bar at the top of the center panel.",
+        "Confirm that the status indicator stays bright teal, showing that all underlying engines are fully aligned.",
+      ]}
+    />
+  );
+}
+
+function SyncBarShell({
+  isSimulationMode,
+  statusBar,
+}: {
+  isSimulationMode: boolean;
+  statusBar: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-0">
+      <ShadowPlaneBanner visible={isSimulationMode} />
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{statusBar}</div>
+        <SyncHelpTrigger />
+      </div>
     </div>
   );
 }
@@ -154,59 +186,36 @@ export default function HandshakeStatusBar({ phase }: Props) {
   /** Pre-mount: no copy — avoids SSR/client string drift during hydration. */
 
   if (!isMounted) {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${IDLE_APPEARANCE_CLASS} min-h-[2.25rem]`}
-
-          role="presentation"
-
-          aria-hidden
-
-          suppressHydrationWarning
-
-        />
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${IDLE_APPEARANCE_CLASS} min-h-[2.25rem]`}
+            role="presentation"
+            aria-hidden
+            suppressHydrationWarning
+          />
+        }
+      />
     );
-
   }
 
-
-
   if (phase === "drift") {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${COMMON_BASE} animate-pulse border-red-600/60 bg-red-950/45 text-red-200 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35)]`}
-
-          role="alert"
-
-          aria-live="assertive"
-
-        >
-
-          [ ⚠️ DRIFT DETECTED: AUDIT INTEGRITY AT RISK - RE-AUTHORIZE NOW ]
-
-        </div>
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} animate-pulse border-red-600/60 bg-red-950/45 text-red-200 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35)]`}
+            role="alert"
+            aria-live="assertive"
+          >
+            [ ⚠️ DRIFT DETECTED: AUDIT INTEGRITY AT RISK - RE-AUTHORIZE NOW ]
+          </div>
+        }
+      />
     );
-
   }
 
 
@@ -218,134 +227,80 @@ export default function HandshakeStatusBar({ phase }: Props) {
 
 
   if (tenantPulseActive) {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${COMMON_BASE} animate-pulse border-amber-600/55 bg-amber-950/45 text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.28)]`}
-
-          role="status"
-
-          aria-live="polite"
-
-        >
-
-          [ 🛡️ SYNC IN PROGRESS: REALIGNING FORENSIC PRIORITY... ]
-
-        </div>
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} animate-pulse border-amber-600/55 bg-amber-950/45 text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.28)]`}
+            role="status"
+            aria-live="polite"
+          >
+            [ 🛡️ SYNC IN PROGRESS: REALIGNING FORENSIC PRIORITY... ]
+          </div>
+        }
+      />
     );
-
   }
-
-
 
   if (tenantVerifiedActive) {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${COMMON_BASE} border-emerald-500/60 bg-emerald-950/40 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.42)]`}
-
-          role="status"
-
-        >
-
-          {TENANT_SYNC_COMPLETE_LINE}
-
-        </div>
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} border-emerald-500/60 bg-emerald-950/40 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.42)]`}
+            role="status"
+          >
+            {TENANT_SYNC_COMPLETE_LINE}
+          </div>
+        }
+      />
     );
-
   }
 
-
-
   if (phase === "syncing") {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${COMMON_BASE} animate-pulse border-amber-600/55 bg-amber-950/45 text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.28)]`}
-
-          role="status"
-
-          aria-live="polite"
-
-        >
-
-          [ 🛡️ SYNC IN PROGRESS: REALIGNING FORENSIC PRIORITY... ]
-
-        </div>
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} animate-pulse border-amber-600/55 bg-amber-950/45 text-amber-200 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.28)]`}
+            role="status"
+            aria-live="polite"
+          >
+            [ 🛡️ SYNC IN PROGRESS: REALIGNING FORENSIC PRIORITY... ]
+          </div>
+        }
+      />
     );
-
   }
 
   if (phase === "verified") {
-
     return (
-
-      <div className="flex flex-col gap-0">
-
-        <ShadowPlaneBanner visible={isSimulationMode} />
-
-        <div
-
-          className={`${COMMON_BASE} border-emerald-500/60 bg-emerald-950/40 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.42)]`}
-
-          role="status"
-
-        >
-
-          [ ✅ SYNC COMPLETE: FINANCIALS & FORENSICS ALIGNED ]
-
-        </div>
-
-      </div>
-
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} border-emerald-500/60 bg-emerald-950/40 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.42)]`}
+            role="status"
+          >
+            [ ✅ SYNC COMPLETE: FINANCIALS & FORENSICS ALIGNED ]
+          </div>
+        }
+      />
     );
-
   }
 
-
-
   return (
-
-    <div className="flex flex-col gap-0">
-
-      <ShadowPlaneBanner visible={isSimulationMode} />
-
-      <div className={IDLE_APPEARANCE_CLASS} role="status">
-
-        {HANDSHAKE_SYSTEM_READY_LINE}
-
-      </div>
-
-    </div>
-
+    <SyncBarShell
+      isSimulationMode={isSimulationMode}
+      statusBar={
+        <div className={IDLE_APPEARANCE_CLASS} role="status">
+          {HANDSHAKE_SYSTEM_READY_LINE}
+        </div>
+      }
+    />
   );
-
 }
 

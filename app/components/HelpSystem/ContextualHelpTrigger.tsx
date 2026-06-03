@@ -90,7 +90,7 @@ export default function ContextualHelpTrigger({
 
             <div className="mt-6 border-t border-slate-800 pt-4">
               <Link
-                href={`/docs/qa/feature-glossary#${featureId}`}
+                href={`/docs/qa/complete-feature-glossary#${featureId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block rounded border border-teal-500/30 bg-teal-950/40 px-4 py-2 text-center font-mono text-xs tracking-tight text-teal-400 transition-colors hover:bg-teal-900/50"

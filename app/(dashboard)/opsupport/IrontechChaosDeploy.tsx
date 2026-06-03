@@ -36,6 +36,7 @@ import {
   isIrontechChaosLevelScenario,
 } from "@/app/config/irontechChaosDrillOptions";
 import { isConstitutionalChaosDrill } from "@/app/config/chaosRegistry";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE";
 
@@ -448,9 +449,22 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const controls = (
     <>
       <div className="mt-1 flex w-full flex-col gap-2">
-        <label className="text-[8px] font-bold uppercase tracking-widest text-cyan-500/90">
-          Chaos drill scenario
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-[8px] font-bold uppercase tracking-widest text-cyan-500/90">
+            Chaos drill scenario
+          </label>
+          <ContextualHelpTrigger
+            featureId="sim-001"
+            title="Live Simulation Scenarios (Chaos Drills)"
+            location="Positioned in the middle section of the left-hand column panel."
+            purpose="Injects mock infrastructure threats like ransomware outbreaks to test background automation recovery."
+            steps={[
+              "Click the dropdown menu containing available simulation threats.",
+              "Select an item like 'Ransomware Outbreak Mock Sync'.",
+              "Click 'Generate Chaos Threat' and watch the logs track the automatic background interception.",
+            ]}
+          />
+        </div>
         <select
           value={selectedScenario}
           disabled={isInjecting}

@@ -17,6 +17,7 @@ import {
   readIronframeTenantCookie,
   syncIronguardForRedTeamLane,
 } from "@/app/utils/commandCenterScopeSync";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -176,6 +177,17 @@ export default function TenantSwitcher() {
           </option>
         ))}
       </select>
+      <ContextualHelpTrigger
+        featureId="tenant-001"
+        title="Command Center Dropdown Menu"
+        location="Located at the top-left corner of the primary dashboard view canvas, right beneath the master header."
+        purpose="Swaps the underlying client database context to verify zero data cross-bleed between enterprise tenants."
+        steps={[
+          "Click the active dropdown box showing the current company name.",
+          "Select a different corporation from the options list.",
+          "Verify that all central data grids briefly flash a loading skeleton and redraw with the new company's numbers.",
+        ]}
+      />
     </div>
   );
 }

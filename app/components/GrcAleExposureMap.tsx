@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { CFO_SUSTAINABILITY_ROI_METADATA } from "@/app/config/cfoSustainabilityMetadata";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 
 export type GrcAleExposureMapProps = {
@@ -66,16 +67,31 @@ export default function GrcAleExposureMap({
       aria-labelledby="grc-ale-exposure-map-heading"
     >
       <div className="w-full min-w-0 border-b border-slate-800/70 pb-5">
-        <h2
-          id="grc-ale-exposure-map-heading"
-          className="text-xs font-black uppercase tracking-wider text-cyan-300"
-        >
-          GRC ALE exposure map
-        </h2>
-        <p className="mt-1 max-w-md text-[9px] leading-relaxed text-slate-500">
-          High-level financial integrity — compliance velocity and mitigated value. Raw signal
-          ingestion (Stage 1) is reflected in audit logs and assignee history, not a separate deck.
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h2
+              id="grc-ale-exposure-map-heading"
+              className="text-xs font-black uppercase tracking-wider text-cyan-300"
+            >
+              GRC ALE exposure map
+            </h2>
+            <p className="mt-1 max-w-md text-[9px] leading-relaxed text-slate-500">
+              High-level financial integrity — compliance velocity and mitigated value. Raw signal
+              ingestion (Stage 1) is reflected in audit logs and assignee history, not a separate deck.
+            </p>
+          </div>
+          <ContextualHelpTrigger
+            featureId="export-001"
+            title="Horizontal Financial Integrity Cards"
+            location="Grouped tightly into a horizontal left-to-right row at the lower section of your right tracking column."
+            purpose="Displays monetary metrics side-by-side and handles the secure tabular audit export functionality."
+            steps={[
+              "Confirm that the compliance, mitigation, and savings cards are perfectly aligned in a horizontal row.",
+              "Click the button labeled 'Export Tabular Ledger Data (CSV)'.",
+              "Open the downloaded file and confirm that all balances format as raw whole integers representing cents with no float decimals.",
+            ]}
+          />
+        </div>
 
         {/* Financial & compliance metrics row */}
         <div className="mt-4 grid w-full grid-cols-3 gap-4">

@@ -8,6 +8,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
 ## 🗂️ 1. Global Navigation & Session Context
 
 ### 🔑 Function Name: Dynamic Access Badge & Header Router (`AUTH-001`)
+
+<a id="auth-001"></a>
 * **Screen Location:** Pinned permanently to the slate bar running across the very top margin of your screen.
 * **What It Is Used For:** Authenticating user keys, providing single-click routing back to the live command dashboard, and ensuring your digital access token is securely isolated.
 * **How to Use It:**
@@ -16,6 +18,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   3. Click that button from any documentation webpage to instantly route your browser layout straight back into the active multi-tenant control deck.
 
 ### 🔄 Function Name: Command Center Dropdown Menu (`TENANT-001`)
+
+<a id="tenant-001"></a>
 * **Screen Location:** Located at the top-left corner of the primary dashboard view canvas, right beneath the master header.
 * **What It Is Used For:** Swapping the underlying client context between **Medshield** ($11.1M baseline), **Vaultbank NA** ($5.9M baseline), and **Gridcore Infrastructure** ($4.7M baseline) to verify zero data cross-bleed.
 * **How to Use It:**
@@ -37,6 +41,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   3. Swap your tenant context to a different company profile and verify that this number updates deterministically to reflect that specific entity's infrastructure maturity rating.
 
 ### 🧪 Function Name: Live Simulation Scenarios (Chaos Drills) (`SIM-001`)
+
+<a id="sim-001"></a>
 * **Screen Location:** Positioned in the middle section of the left-hand column panel. Look for the bold title **`SIMULATION SCENARIOS`** or **`CHAOS DRILLS`**.
 * **What It Is Used For:** Injecting mock technical threats—such as simulated ransomware strikes, system data anomalies, or external cloud outfalls—to test background automation recovery.
 * **How to Use It:**
@@ -56,6 +62,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   2. Verify that the tracking marker is glowing bright teal or green, showing that all 19 micro-agents are checking in successfully without error states.
 
 ### 🕵️ Function Name: 19-Agent Workforce Monitor (`GRC-002`)
+
+<a id="grc-002"></a>
 * **Screen Location:** Stretched across the middle tier of your center canvas layout grid. Look for the structured list tracking background AI automation models.
 * **What It Is Used For:** Monitoring the live automated background processing units (like `Ironlock` for emergency quarantines and `Ironguard` for access token shielding) as they secure the network.
 * **How to Use It:**
@@ -64,6 +72,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   3. Watch the **GRC Specification Drawer** slide open smoothly from the right margin of your display monitor to read their background operational directives.
 
 ### 📋 Function Name: Operational Audit & Integrity Log (`LOG-001`)
+
+<a id="log-001"></a>
 * **Screen Location:** Positioned at the base of your center column canvas. Look for a vertical, live-scrolling terminal layout containing cryptographic code hashes.
 * **What It Is Used For:** Providing a clean, immutable history ledger tracking every background event, authentication scan, and system check inside the app.
 * **How to Use It:**
@@ -76,6 +86,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
 ## 🔋 4. The Right Panel: Sustainability & Audit Column [30% Screen Width]
 
 ### 🍃 Function Name: Sustainability Telemetry Panel (`CARBON-001`)
+
+<a id="carbon-001"></a>
 * **Screen Location:** Fixed into the upper section of your Right Column Panel. Look for the green leaf graphic indicator and the title **`SUSTAINABILITY PULSE`**.
 * **What It Is Used For:** Gathering physical environment footprints, hardware consumption streams, and regional power grid statistics processed by the `Ironbloom` agent.
 * **How to Use It:**
@@ -84,6 +96,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   3. Change corporate contexts using your top-left tenant dropdown and verify that the graph updates to calculate the specific environmental footprint for that business.
 
 ### 🔎 Function Name: Global Log Explorer & Audit Tool (`SEARCH-001`)
+
+<a id="search-001"></a>
 * **Screen Location:** Situated right beneath the Sustainability Pulse box in the right column layout track. Look for a search input field labeled **`Search logs...`** or **`Filter ledger...`**.
 * **What It Is Used For:** Allowing compliance inspectors or students to search the live database log stream for specific error words, timestamp markers, or tenant codes.
 * **How to Use It:**
@@ -92,6 +106,8 @@ Welcome to the Master Feature Glossary. This guide documents every visible visua
   3. Observe that the log rows displayed beneath it filter down instantly to show *only* data lines that match your search text.
 
 ### 💰 Function Name: Horizontal Financial Integrity Cards (`EXPORT-001`)
+
+<a id="export-001"></a>
 * **Screen Location:** Grouped tightly into a horizontal left-to-right row at the lower section of your right tracking column. Look for three side-by-side metric box frames labeled **`Compliance Velocity`**, **`Value Mitigated (YTD) — $0`**, and **`Projected Insurance Savings — $5.0K (10% off premium)`**.
 * **What It Is Used For:** Displaying monetary savings and regulatory velocities in a beautifully aligned row that scales evenly as the window resizes.
 * **How to Use It:**

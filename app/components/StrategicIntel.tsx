@@ -665,7 +665,7 @@ export default function StrategicIntel() {
   // Single sidebar layout: master block (Industry Profile, Risk Exposure trend chart, Top Sector Threats, Agent grid).
   // Previously a "Dark Start" branch ran when !hasActiveIntelligenceStream and showed different/older UI, so edits were not visible.
   return (
-    <div className="flex min-h-0 flex-1 w-full flex-col overflow-hidden bg-[#050509] font-sans text-white">
+    <div className="flex w-full flex-col bg-[#050509] font-sans text-white">
 
       {/* STRATEGIC STATUS — live simulation load from risk store */}
       <section
@@ -757,7 +757,7 @@ export default function StrategicIntel() {
       </div>
 
       {/* Subsequent sections (Risk Exposure, Agents, Terminal) */}
-      <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overscroll-y-contain px-2 [scrollbar-gutter:stable]">
+      <div className="flex flex-col gap-0 px-2">
       {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
       <section className="p-4 border-b border-zinc-900">
         <div className="flex justify-between items-center mb-2">

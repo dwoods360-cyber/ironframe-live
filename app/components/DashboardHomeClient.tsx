@@ -71,6 +71,7 @@ import {
   DASHBOARD_CENTER_SCROLL,
   DASHBOARD_HOME_SHELL,
   DASHBOARD_LEFT_PANE,
+  DASHBOARD_LEFT_SCROLL,
   DASHBOARD_RIGHT_PANE,
   DASHBOARD_RIGHT_SCROLL,
   DASHBOARD_TRIPANE_SHELL,
@@ -920,28 +921,32 @@ export default function DashboardHomeClient({
       <div className={DASHBOARD_HOME_SHELL}>
       <div className={DASHBOARD_TRIPANE_SHELL}>
         <aside className={DASHBOARD_LEFT_PANE} aria-hidden>
-          <div className="space-y-3 p-4">
-            <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
-            <div className="flex justify-between gap-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
-              ))}
-            </div>
-            <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
-              <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
-              <div className="grid grid-cols-2 gap-2">
-                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+          <div className={DASHBOARD_LEFT_SCROLL}>
+            <div className="space-y-6 pb-12">
+              <div className="space-y-3">
+                <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
+                <div className="flex justify-between gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
+                  ))}
+                </div>
+                <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
+                  <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div className="min-h-[120px] flex-1 border-t border-slate-800/60 p-4">
-            <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
-            <div className="mt-3 space-y-2">
-              <div className="h-16 animate-pulse rounded bg-slate-800/70" />
-              <div className="h-16 animate-pulse rounded bg-slate-800/50" />
+              <div className="border-t border-slate-800/60 pt-4">
+                <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
+                <div className="mt-3 space-y-2">
+                  <div className="h-16 animate-pulse rounded bg-slate-800/70" />
+                  <div className="h-16 animate-pulse rounded bg-slate-800/50" />
+                </div>
+              </div>
             </div>
           </div>
         </aside>
@@ -1062,22 +1067,26 @@ export default function DashboardHomeClient({
         ) : null}
       <div className={DASHBOARD_TRIPANE_SHELL}>
         <aside className={DASHBOARD_LEFT_PANE}>
-          <Sidebar />
-          {auditorViewEnabled ? (
-            <div className="p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">{GRC_GOLD_AUDITOR_VIEW_TITLE}</p>
-              <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{GRC_GOLD_AUDITOR_VIEW_INTRO}</p>
+          <div className={DASHBOARD_LEFT_SCROLL}>
+            <div className="space-y-6 pb-12">
+              <Sidebar />
+              {auditorViewEnabled ? (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">
+                    {GRC_GOLD_AUDITOR_VIEW_TITLE}
+                  </p>
+                  <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{GRC_GOLD_AUDITOR_VIEW_INTRO}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="border-b border-zinc-900 pb-6">
+                    <IrontechLeftPaneControls />
+                  </div>
+                  <StrategicIntel />
+                </>
+              )}
             </div>
-          ) : (
-            <>
-              <div className="max-h-[42vh] min-h-0 shrink-0 overflow-y-auto overscroll-y-contain border-b border-zinc-900 [scrollbar-gutter:stable]">
-                <IrontechLeftPaneControls />
-              </div>
-              <div className="flex min-h-[10rem] flex-1 flex-col overflow-hidden">
-                <StrategicIntel />
-              </div>
-            </>
-          )}
+          </div>
         </aside>
 
         <section className={DASHBOARD_CENTER_PANE} data-testid="dashboard-main">
@@ -1235,14 +1244,16 @@ export default function DashboardHomeClient({
 
         <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
           <div className={DASHBOARD_RIGHT_SCROLL}>
-            <AuditIntelligence
-              serverAuditLogs={serverAuditLogsForAudit}
-              tenantGovernanceBps={tenantGovernanceBps}
-              onOpenThreat={(threatId, focus) => {
-                setSelectedThreatId(threatId);
-                setDrawerFocus(focus ?? null);
-              }}
-            />
+            <div className="space-y-6 pb-12">
+              <AuditIntelligence
+                serverAuditLogs={serverAuditLogsForAudit}
+                tenantGovernanceBps={tenantGovernanceBps}
+                onOpenThreat={(threatId, focus) => {
+                  setSelectedThreatId(threatId);
+                  setDrawerFocus(focus ?? null);
+                }}
+              />
+            </div>
           </div>
         </aside>
 

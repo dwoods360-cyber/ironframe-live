@@ -591,12 +591,13 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
               ]}
             />
             <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]"
-              aria-hidden
-            />
-            LIVE
-          </span>
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]"
+                aria-hidden
+              />
+              LIVE
+            </span>
+          </div>
         </div>
         <p className="mt-1 text-[9px] text-zinc-500">
           19-agent workforce heartbeat — drill-driven alert paths.

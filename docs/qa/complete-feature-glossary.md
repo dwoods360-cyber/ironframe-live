@@ -90,9 +90,11 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Operational Purpose:** Provides an absolute, real-time numeric grade of the selected corporate entity's cybersecurity health and regulatory posture.
 * **Technical Mechanics:** Calculated dynamically by the `Irontrust` math engine based on passed vulnerability scans, unpatched dependencies, and active compliance metrics.
 * **Step-by-Step Lab Validation:**
-  1. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
-  2. Note the small green trend indicator tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
-  3. Swap your corporate profile to a different tenant and verify that the score updates deterministically to reflect that specific entity's compliance posture.
+  1. Look at the **Operational Maturity Tracker** block located at the crown of your center console canvas.
+  2. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
+  3. **Verify the Trend Metric:** Locate and note the small green trend indicator text tracking your Month-Over-Month performance curve (**`+1.2 MoM`**). This proves that the underlying analytics systems are calculating change differentials over time.
+  4. Move your mouse to the top left and change your corporate profile using the dropdown switcher toolline.
+  5. Observe that the full-width edge-to-edge EKG wave sweeps continuously across the screen frame until the gray skeleton spaces clear and the brand new tenant scores successfully paint the screen.
 
 ---
 

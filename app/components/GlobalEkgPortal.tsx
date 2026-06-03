@@ -1,25 +1,40 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRiskStore } from "@/app/store/riskStore";
 
 /** Root-level TENANT-001 sync overlay — infinite heartline sweep until context switch resolves. */
 export default function GlobalEkgPortal() {
-  const isContextSwitching = useRiskStore((s) => s.isContextSwitching);
+  const isContextSwitching = useRiskStore((state) => state.isContextSwitching);
+  const [shouldRender, setShouldRender] = useState(false);
 
-  if (!isContextSwitching) {
+  useEffect(() => {
+    if (isContextSwitching) {
+      setShouldRender(true);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShouldRender(false), 300);
+    return () => window.clearTimeout(timer);
+  }, [isContextSwitching]);
+
+  if (!shouldRender) {
     return null;
   }
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-16 h-1 overflow-hidden bg-slate-950/30"
+      className="pointer-events-none fixed inset-x-0 top-16 h-1 overflow-hidden"
       style={{ zIndex: 99999 }}
       data-testid="global-ekg-progress-viewport"
       role="progressbar"
       aria-label="Tenant cryptographic handshake in progress"
-      aria-busy="true"
+      aria-busy={isContextSwitching}
     >
-      <div className="animate-ekgOmniSweep absolute top-0 h-full w-[300px] text-emerald-400">
+      <div
+        className="absolute top-0 h-full w-[300px] text-emerald-400"
+        style={{ animation: "ekgOmniSweep 1.5s linear infinite" }}
+      >
         <svg className="h-full w-full overflow-visible" aria-hidden>
           <path
             d="M 0 2 L 100 2 L 110 2 L 115 -6 L 120 10 L 125 -2 L 130 6 L 135 2 L 145 2 L 300 2"
@@ -32,7 +47,10 @@ export default function GlobalEkgPortal() {
         </svg>
       </div>
 
-      <div className="animate-ekgOmniSweep absolute top-0 h-full w-[300px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
+      <div
+        className="absolute top-0 h-full w-[300px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
+        style={{ animation: "ekgOmniSweep 1.5s linear infinite" }}
+      />
     </div>
   );
 }

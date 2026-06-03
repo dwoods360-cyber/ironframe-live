@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   DASHBOARD_GROUP_SHELL,
+  DASHBOARD_GRID_PROPORTIONS,
   DASHBOARD_LAYOUT_LEFT_RAIL,
   DASHBOARD_LAYOUT_RIGHT_RAIL,
 } from "@/app/lib/dashboardTripaneLayout";
@@ -15,7 +16,7 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
       className={`${DASHBOARD_GROUP_SHELL} flex min-h-0 w-full flex-1 flex-col overflow-hidden border-none p-0 shadow-none`}
       data-dashboard-left-rail={DASHBOARD_LAYOUT_LEFT_RAIL}
       data-dashboard-right-rail={DASHBOARD_LAYOUT_RIGHT_RAIL}
-      data-dashboard-rail-floor-lock="grid-cols-3-proportional"
+      data-dashboard-rail-floor-lock={DASHBOARD_GRID_PROPORTIONS}
     >
       {children}
     </div>

@@ -1,5 +1,5 @@
 /**
- * Three-pane dashboard shell — even 1:1:1 grid columns (33.3% each).
+ * Three-pane dashboard shell — locked 22% / 48% / 30% column proportions.
  * Used by `DashboardHomeClient` (home tripane). Window scroll locked via root `h-screen overflow-hidden`.
  */
 
@@ -7,11 +7,14 @@
 export const DASHBOARD_COLUMN_SCROLL =
   "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable] custom-scrollbar";
 
-/** Tripane grid: three equal tracks; `divide-x` draws panel separators. */
-export const DASHBOARD_TRIPANE_SHELL =
-  "grid h-full min-h-0 w-full grid-cols-3 divide-x divide-slate-900 items-stretch overflow-hidden bg-slate-950";
+/** Locked tripane proportions — left 22% · center 48% · right 30%. */
+export const DASHBOARD_GRID_PROPORTIONS = "22%_48%_30%";
 
-/** Proportional column — no fixed rail width; each track is 1fr via `grid-cols-3`. */
+/** Tripane grid; `divide-x` draws panel separators. */
+export const DASHBOARD_TRIPANE_SHELL =
+  "grid h-full min-h-0 w-full grid-cols-[22%_48%_30%] divide-x divide-slate-900 items-stretch overflow-hidden bg-slate-950";
+
+/** Column track fills its grid percentage (`min-w-0` prevents overflow blowout). */
 export const DASHBOARD_LAYOUT_LEFT_RAIL = "min-w-0 w-full";
 
 export const DASHBOARD_LAYOUT_RIGHT_RAIL = "min-w-0 w-full";
@@ -22,7 +25,7 @@ export const DASHBOARD_LAYOUT_SIDE_RAIL = DASHBOARD_LAYOUT_RIGHT_RAIL;
 export const DASHBOARD_LEFT_PANE =
   `col-start-1 row-start-1 relative z-0 flex h-full min-h-0 ${DASHBOARD_LAYOUT_LEFT_RAIL} flex-col overflow-hidden bg-slate-950`;
 
-export const DASHBOARD_LEFT_SCROLL = `${DASHBOARD_COLUMN_SCROLL} px-6 py-6`;
+export const DASHBOARD_LEFT_SCROLL = `${DASHBOARD_COLUMN_SCROLL} px-4 py-6`;
 
 /** Center column: grid track 2; `min-w-0` clips wide tables/cards inside the third track. */
 export const DASHBOARD_CENTER_PANE =
@@ -50,7 +53,7 @@ export const DASHBOARD_RIGHT_PANE =
 
 /** Right-pane body: fixed height under tripane; Audit Intelligence log lane scrolls inside. */
 export const DASHBOARD_RIGHT_SCROLL =
-  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-6 py-6";
+  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-4 py-6";
 
 /** Fills dashboard route-group height under `AppShell` (below TopNav). */
 export const DASHBOARD_HOME_SHELL =

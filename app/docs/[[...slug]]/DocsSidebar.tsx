@@ -74,9 +74,15 @@ export default function DocsSidebar({ currentSlug }: DocsSidebarProps) {
           </Link>
           <Link
             href="/docs/qa/student-testing-protocol"
-            className={linkClass(isActive(currentSlug, ["qa", "student-testing-protocol"]), true)}
+            className={`${linkClass(isActive(currentSlug, ["qa", "student-testing-protocol"]))} mb-1`}
           >
             🧪 Student Sandbox Lab
+          </Link>
+          <Link
+            href="/docs/qa/feature-glossary"
+            className={linkClass(isActive(currentSlug, ["qa", "feature-glossary"]), true)}
+          >
+            📖 Feature Glossary
           </Link>
         </div>
       </nav>

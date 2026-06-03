@@ -6,6 +6,7 @@ import { Leaf, Shield, ShieldCheck, AlertTriangle, Gauge, Award } from "lucide-r
 import { ironguardFetch } from "@/app/utils/apiClient";
 import type { CostOfNonComplianceResult } from "@/app/utils/financialRisk";
 import { useTenantContext } from "@/app/context/TenantProvider";
+import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 type SparkPoint = { at: string; gco2PerKwh: number; dirty: boolean };
 
@@ -271,8 +272,19 @@ export default function CarbonPulse() {
             <Leaf className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden />
           )}
           <div>
-            <h3 className="text-[9px] font-black uppercase tracking-widest text-emerald-200/95">
+            <h3 className="flex items-center text-[9px] font-black uppercase tracking-widest text-emerald-200/95">
               Sustainability Pulse
+              <ContextualHelpTrigger
+                featureId="sustainability-telemetry"
+                title="Sustainability Telemetry Dashboard"
+                location="Top-right quadrant of the primary operations layout console"
+                purpose="Monitors the real-time energy draw, efficiency footprints, and carbon intensity vectors across hardware arrays."
+                steps={[
+                  "Observe the current graph trends inside the Sustainability Pulse box.",
+                  "Check if the orange 'FALLBACK ACTIVE' warning badge is lit up.",
+                  "Use the Command Center switcher to swap companies and observe how the data recalculates.",
+                ]}
+              />
             </h3>
             <p className="text-[7px] text-slate-500">Ironbloom · Ironlock · Poll {POLL_MS / 1000}s</p>
           </div>

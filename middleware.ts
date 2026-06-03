@@ -154,7 +154,8 @@ export async function middleware(request: NextRequest) {
   const isPublicDocsRoute =
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
-    pathname === "/api/docs/download-protocol";
+    pathname === "/api/docs/download-protocol" ||
+    pathname === "/api/docs/download-matrix";
 
   /** Common URL typo — trailing period after `/dashboard/exports` yields 404 in App Router. */
   if (pathname === "/dashboard/exports.") {

@@ -3,7 +3,7 @@
  * route layout type generation only sees the default export.
  */
 
-/** Left control rail — w-80 (320px); right audit rail — w-96 (384px). */
-export const DASHBOARD_GROUP_LEFT_RAIL = "flex-none shrink-0 w-80";
+/** Tripane columns — equal thirds via parent `grid-cols-3`. */
+export const DASHBOARD_GROUP_LEFT_RAIL = "min-w-0 w-full";
 
-export const DASHBOARD_GROUP_RIGHT_RAIL = "flex-none shrink-0 w-96";
+export const DASHBOARD_GROUP_RIGHT_RAIL = "min-w-0 w-full";

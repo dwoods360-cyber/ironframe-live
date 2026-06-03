@@ -985,9 +985,9 @@ export default function DashboardHomeClient({
         </section>
         <aside className={DASHBOARD_RIGHT_PANE}>
           <div className={DASHBOARD_RIGHT_SCROLL}>
-            <div className="space-y-3 p-4">
-              <div className="h-3 w-32 animate-pulse rounded bg-slate-800" />
-              <div className="h-40 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+            <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
+              <div className="h-3 w-32 shrink-0 animate-pulse rounded bg-slate-800" />
+              <div className="min-h-0 flex-1 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
             </div>
           </div>
         </aside>
@@ -1244,15 +1244,15 @@ export default function DashboardHomeClient({
 
         <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
           <div className={DASHBOARD_RIGHT_SCROLL}>
-            <div className="space-y-6 pb-12">
-              <AuditIntelligence
-                serverAuditLogs={serverAuditLogsForAudit}
-                tenantGovernanceBps={tenantGovernanceBps}
-                onOpenThreat={(threatId, focus) => {
-                  setSelectedThreatId(threatId);
-                  setDrawerFocus(focus ?? null);
-                }}
-              />
+            <div className="flex h-full min-h-0 w-full flex-1 flex-col">
+            <AuditIntelligence
+              serverAuditLogs={serverAuditLogsForAudit}
+              tenantGovernanceBps={tenantGovernanceBps}
+              onOpenThreat={(threatId, focus) => {
+                setSelectedThreatId(threatId);
+                setDrawerFocus(focus ?? null);
+              }}
+            />
             </div>
           </div>
         </aside>

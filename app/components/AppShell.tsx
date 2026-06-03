@@ -50,9 +50,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <TopNav />
       </div>
       <div
-        className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-x-hidden ${
-          isSimulationMode ? "mt-[144px]" : "mt-[108px]"
-        } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
+        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
+          isBoardReport
+            ? "mt-0 min-h-screen flex-1 print:mt-0 print:h-auto print:min-h-screen print:overflow-visible"
+            : isSimulationMode
+              ? "mt-[9rem] h-[calc(100dvh-9rem)]"
+              : "mt-[6.75rem] h-[calc(100dvh-6.75rem)]"
+        }`}
       >
         <div
           className={`flex min-h-0 min-w-0 flex-1 flex-col ${

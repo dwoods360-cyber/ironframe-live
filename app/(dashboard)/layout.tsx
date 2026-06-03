@@ -15,7 +15,7 @@ export default function DashboardGroupLayout({ children }: { children: ReactNode
       className={`${DASHBOARD_GROUP_SHELL} flex min-h-0 w-full flex-1 flex-col overflow-hidden border-none p-0 shadow-none`}
       data-dashboard-left-rail={DASHBOARD_LAYOUT_LEFT_RAIL}
       data-dashboard-right-rail={DASHBOARD_LAYOUT_RIGHT_RAIL}
-      data-dashboard-rail-floor-lock="left-w-80-right-w-96"
+      data-dashboard-rail-floor-lock="grid-cols-3-proportional"
     >
       {children}
     </div>

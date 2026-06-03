@@ -1522,8 +1522,8 @@ export default function AuditIntelligence({
     (adversarialMaturityUi.underSiege || adversarialMaturityUi.penalty > 0);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
-      <div className="min-h-0 max-h-[min(24vh,220px)] shrink-0 overflow-y-auto overscroll-y-contain px-4 pt-4 [scrollbar-gutter:stable]">
+    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
+      <div className="shrink-0 px-4 pt-4">
       <CarbonPulse />
       <div className="mt-3">
         <SustainabilityAnalyticsPlane />
@@ -1578,7 +1578,8 @@ export default function AuditIntelligence({
         ) : null}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+      <div className="flex h-0 min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="shrink-0 px-4">
         {auditFocusId ? (
           <div className="mb-3 rounded border border-emerald-700/40 bg-emerald-950/25 px-2.5 py-2 text-[9px] leading-snug text-emerald-100/95">
             <p className="font-black uppercase tracking-wide text-emerald-400/90">
@@ -1682,9 +1683,10 @@ export default function AuditIntelligence({
             </span>
           </div>
         ) : null}
+        </div>
 
-      {/* # Update 9: Immutable Log Feed — scroll-only region; dev strip + manifest are siblings below (no overlap). */}
-      <div className="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* # Update 9: Immutable Log Feed — dedicated scroll track (h-0 flex-1 enables overflow). */}
+      <div className="relative z-0 flex h-0 min-h-0 flex-1 flex-col overflow-hidden px-4 pb-2">
         {logsToDisplay.length > 0 && !expertModeEnabled ? (
           <div className="mb-2 shrink-0 rounded border border-slate-700 bg-slate-800/50 px-2 py-1.5 text-center font-sans text-[11px] text-slate-400">
             Expert Mode OFF — enable in header for full telemetry
@@ -1693,7 +1695,7 @@ export default function AuditIntelligence({
         <div
           ref={logScrollRef}
           onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
-          className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
+          className="custom-scrollbar h-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
         >
           {logsToDisplay.length === 0 ? (
             <div className="mt-4 rounded-md border border-dashed border-slate-800 p-4 text-center text-sm font-mono italic text-slate-500">

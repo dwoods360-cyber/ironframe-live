@@ -166,53 +166,13 @@ body {
   animation: context-switch-ecg-scroll 1.1s linear infinite;
 }
 
-@keyframes progressSweep {
+@keyframes ekgOmniLoop {
   0% {
-    transform: translateX(0%) scaleX(0.1);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
+    transform: translateX(0%);
   }
   100% {
-    transform: translateX(100vw);
-    opacity: 0;
+    transform: translateX(-400px);
   }
-}
-
-.animate-ekgProgress {
-  transform-origin: left center;
-  animation: progressSweep 1s linear infinite;
-}
-
-@keyframes ekgOmniSweep {
-  0% {
-    left: -300px;
-  }
-  100% {
-    left: 100vw;
-  }
-}
-
-.animate-ekgOmniSweep {
-  animation: ekgOmniSweep 1.5s linear infinite;
-}
-
-@keyframes ekgSweep {
-  0% {
-    transform: translateX(-150px);
-  }
-  100% {
-    transform: translateX(100vw);
-  }
-}
-
-.animate-ekgSweep {
-  transform-origin: left center;
-  animation: ekgSweep 1.2s linear infinite;
 }
 
 /* Ironwatch (Agent 15) — Command Post outer glow (box-shadow only; no layout size change). */

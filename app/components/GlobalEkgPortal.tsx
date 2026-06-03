@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRiskStore } from "@/app/store/riskStore";
 
-/** Root-level TENANT-001 sync overlay — infinite heartline sweep until context switch resolves. */
+/** Root-level TENANT-001 sync overlay — seamless repeating heartbeat pattern sweep. */
 export default function GlobalEkgPortal() {
   const isContextSwitching = useRiskStore((state) => state.isContextSwitching);
   const [shouldRender, setShouldRender] = useState(false);
@@ -14,7 +14,7 @@ export default function GlobalEkgPortal() {
       return;
     }
 
-    const timer = window.setTimeout(() => setShouldRender(false), 300);
+    const timer = window.setTimeout(() => setShouldRender(false), 400);
     return () => window.clearTimeout(timer);
   }, [isContextSwitching]);
 
@@ -24,7 +24,7 @@ export default function GlobalEkgPortal() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-16 h-1 overflow-hidden"
+      className="pointer-events-none fixed inset-x-0 top-16 flex h-4 items-center overflow-hidden border-b border-emerald-500/10 bg-slate-950/60 backdrop-blur-[1px]"
       style={{ zIndex: 99999 }}
       data-testid="global-ekg-progress-viewport"
       role="progressbar"
@@ -32,25 +32,33 @@ export default function GlobalEkgPortal() {
       aria-busy={isContextSwitching}
     >
       <div
-        className="absolute top-0 h-full w-[300px] text-emerald-400"
-        style={{ animation: "ekgOmniSweep 1.5s linear infinite" }}
+        className="absolute inset-0 flex h-full w-full items-center"
+        style={{
+          animation: "ekgOmniLoop 1.4s linear infinite",
+          width: "200vw",
+        }}
       >
-        <svg className="h-full w-full overflow-visible" aria-hidden>
-          <path
-            d="M 0 2 L 100 2 L 110 2 L 115 -6 L 120 10 L 125 -2 L 130 6 L 135 2 L 145 2 L 300 2"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+        <svg className="h-4 w-full overflow-visible text-emerald-400 opacity-90" aria-hidden>
+          <defs>
+            <pattern id="ekg-heartbeat-global" width="400" height="16" patternUnits="userSpaceOnUse">
+              <path
+                d="M 0 8 L 150 8 L 160 8 L 165 0 L 170 16 L 175 8 L 180 8 L 190 8 L 400 8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#ekg-heartbeat-global)" />
         </svg>
       </div>
 
-      <div
-        className="absolute top-0 h-full w-[300px] bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"
-        style={{ animation: "ekgOmniSweep 1.5s linear infinite" }}
-      />
+      <div className="absolute left-6 flex select-none items-center gap-2 font-mono text-[9px] font-black uppercase tracking-widest text-emerald-400">
+        <span className="h-1.5 w-1.5 animate-ping rounded-full bg-emerald-400" aria-hidden />
+        [ RUNNING SECURE CRYPTO HANDSHAKE CLIENT SYNC... ]
+      </div>
     </div>
   );
 }

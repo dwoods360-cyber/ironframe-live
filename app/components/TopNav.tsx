@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
-import { LogOut, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import { Lock, CheckCircle2 } from "lucide-react";
 import HeaderTwo from "@/app/components/HeaderTwo";
 import TenantSwitcher from "./TenantSwitcher";
 import { useRiskStore } from "@/app/store/riskStore";
@@ -140,81 +140,92 @@ export default function TopNav() {
 
   return (
     <header className="w-full">
-      <div className="relative h-10 bg-slate-950 flex items-center justify-between px-6 border-b border-slate-800/60">
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-bold tracking-wider text-white uppercase">IRONFRAME CORE</span>
-          <span className="h-3 w-px bg-slate-800" />
-          <span
-            className={`text-[11px] font-bold tracking-wider uppercase ${
-              isEvidenceRoute || isPlaybookRoute || isFrameworksRoute ? "text-white" : "text-emerald-500"
-            }`}
-          >
-            {headerContextTitle}
-          </span>
+      <div className="z-50 flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6">
+        <div className="flex items-center gap-8">
+          <div className="flex select-none items-center gap-3">
+            <span className="font-mono text-sm font-black tracking-widest text-white">IRONFRAME CORE</span>
+            <span className="text-sm text-slate-800">|</span>
+            <span
+              className={`rounded border px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-widest shadow-sm ${
+                isEvidenceRoute || isPlaybookRoute || isFrameworksRoute
+                  ? "border-slate-700 bg-slate-900/40 text-slate-200"
+                  : "border-teal-900/50 bg-teal-950/40 text-teal-400"
+              }`}
+            >
+              {headerContextTitle}
+            </span>
+          </div>
+
+          <nav className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest">
+            <Link
+              href="/"
+              className="rounded border border-teal-900/40 bg-teal-950/30 px-3 py-1.5 text-teal-400 shadow-sm shadow-teal-950/10 transition-all duration-150 hover:bg-teal-500 hover:text-slate-950"
+            >
+              COMMAND POST
+            </Link>
+            <Link
+              href="/profile"
+              className="rounded border border-slate-900 bg-slate-900/20 px-3 py-1.5 text-slate-400 transition-all duration-150 hover:border-slate-800 hover:bg-slate-900 hover:text-white"
+              data-testid="topnav-security-profile-link"
+            >
+              SECURITY PROFILE
+            </Link>
+          </nav>
         </div>
 
-        <div className="pointer-events-none absolute left-1/2 z-[60] -translate-x-1/2">
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold uppercase tracking-tighter text-white">LIVE MONITORING</span>
-            <span className="text-[10px] font-bold text-slate-700">|</span>
-            <span className="text-[10px] font-bold text-emerald-500">SIGNALS: {liveMonitoringCount}</span>
+        <div className="flex items-center gap-6">
+          <div className="flex select-none items-center gap-2">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
+            <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-slate-500">
+              LIVE MONITORING
+            </span>
+            <span className="font-mono text-[9px] font-bold text-slate-700">|</span>
+            <span className="font-mono text-[9px] font-bold uppercase text-emerald-500">
+              SIGNALS: {liveMonitoringCount}
+            </span>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 bg-slate-800 rounded flex items-center justify-center overflow-hidden">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-400">
-              <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z" fill="currentColor"/>
-              <path d="M6 21V19C6 16.7909 7.79086 15 10 15H14C16.2091 15 18 16.7909 18 19V21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+          <div className="flex items-center gap-2 rounded border border-slate-900/60 bg-slate-900/40 px-3 py-1">
+            <span className="font-mono text-[10px] text-slate-500" aria-hidden>
+              👤
+            </span>
+            <span className="font-mono text-[10px] font-medium tracking-wide text-slate-300">
+              {userLoading ? (
+                "Loading operator..."
+              ) : (
+                <>
+                  {identityName}{" "}
+                  <span className="font-normal text-slate-600">({identityRole})</span>
+                </>
+              )}
+            </span>
           </div>
-          <span className="text-[10px] font-bold text-white">
-            {userLoading ? "Loading operator..." : `${identityName} (${identityRole})`}
-          </span>
-          <Link
-            href="/cockpit"
-            className="text-[9px] font-bold uppercase tracking-wide text-cyan-400/90 underline-offset-2 hover:text-cyan-300 hover:underline"
-          >
-            Command post
-          </Link>
-          <span className="h-3 w-px bg-slate-700" />
-          <Link
-            href="/profile"
-            className="text-[9px] font-bold uppercase tracking-wide text-emerald-400/90 underline-offset-2 hover:text-emerald-300 hover:underline"
-            data-testid="topnav-security-profile-link"
-          >
-            Security profile
-          </Link>
-          <span className="h-3 w-px bg-slate-700" />
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-emerald-500/20 bg-emerald-500/5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-1">
-              <path d="M7 10V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V10" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round"/>
-              <rect x="5" y="10" width="14" height="12" rx="2" fill="#eab308" stroke="#ca8a04" strokeWidth="2"/>
-              <path d="M12 14V18" stroke="#a16207" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <span className="text-[9px] font-bold uppercase text-emerald-500">SECURE SESSION</span>
-            <ContextualHelpTrigger
-              featureId="auth-001"
-              title="Dynamic Access Badge & Header Router"
-              location="Pinned permanently to the slate bar running across the very top margin of your screen."
-              purpose="Authenticates user keys, provides single-click dashboard routing, and ensures security tokens remain isolated."
-              steps={[
-                "Look at the top left header to confirm the green pulsing indicator is active.",
-                "Click '➔ BACK TO DASHBOARD' from any documentation page to instantly return to your active workspace layout.",
-              ]}
-            />
+
+          <div className="flex select-none items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 rounded border border-emerald-900/50 bg-emerald-950/50 px-2 py-1 text-emerald-400">
+              <span aria-hidden>🔒</span>
+              <span>SECURE SESSION</span>
+              <ContextualHelpTrigger
+                featureId="auth-001"
+                title="Dynamic Access Badge & Header Router"
+                location="Pinned permanently to the slate bar running across the very top margin of your screen."
+                purpose="Authenticates user keys, provides single-click dashboard routing, and ensures security tokens remain isolated."
+                steps={[
+                  "Look at the top left header to confirm the green pulsing indicator is active.",
+                  "Click '➔ BACK TO DASHBOARD' from any documentation page to instantly return to your active workspace layout.",
+                ]}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              disabled={userLoading}
+              className="px-1 py-1 text-slate-500 transition-colors hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Logout"
+            >
+              LOGOUT ➔
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={userLoading}
-            className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-slate-200 transition hover:border-rose-400/60 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Logout"
-          >
-            <LogOut size={12} />
-            Logout
-          </button>
         </div>
       </div>
 

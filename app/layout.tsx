@@ -9,6 +9,7 @@ import GlobalDropZone from "./components/GlobalDropZone";
 import EmergencyOverlay from "./components/EmergencyOverlay";
 import ConstitutionalDegradedBanner from "./components/ConstitutionalDegradedBanner";
 import StaleDataLockdownBanner from "./components/StaleDataLockdownBanner";
+import GlobalEkgPortal from "./components/GlobalEkgPortal";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <TenantProvider>
+          <GlobalEkgPortal />
           <ConstitutionalIntegrityProvider>
             <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950">
               <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

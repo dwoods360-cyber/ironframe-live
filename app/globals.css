@@ -188,6 +188,20 @@ body {
   animation: progressSweep 1s linear infinite;
 }
 
+@keyframes ekgSweep {
+  0% {
+    transform: translateX(-150px);
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+
+.animate-ekgSweep {
+  transform-origin: left center;
+  animation: ekgSweep 1.2s linear infinite;
+}
+
 /* Ironwatch (Agent 15) — Command Post outer glow (box-shadow only; no layout size change). */
 @keyframes ironwatch-pulse-breathe-slow {
   0%,

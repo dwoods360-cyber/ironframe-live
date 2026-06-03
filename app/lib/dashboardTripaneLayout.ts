@@ -1,5 +1,5 @@
 /**
- * Three-pane dashboard shell — locked 22% / 48% / 30% column proportions.
+ * Three-pane dashboard shell — fractional columns 22% · 48% · 30%.
  * Used by `DashboardHomeClient` (home tripane). Window scroll locked via root `h-screen overflow-hidden`.
  */
 
@@ -7,12 +7,15 @@
 export const DASHBOARD_COLUMN_SCROLL =
   "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable] custom-scrollbar";
 
-/** Locked tripane proportions — left 22% · center 48% · right 30%. */
+/** Left rail — 22% of viewport width (fluid; no fixed rem/pixel floor). */
+export const DASHBOARD_LAYOUT_LEFT_MIN_WIDTH = "22%";
+
+/** Tripane grid token (left 22% · center 48% · right 30%). */
 export const DASHBOARD_GRID_PROPORTIONS = "22%_48%_30%";
 
 /** Tripane grid; `divide-x` draws panel separators. */
 export const DASHBOARD_TRIPANE_SHELL =
-  "grid h-full min-h-0 w-full grid-cols-[22%_48%_30%] divide-x divide-slate-900 items-stretch overflow-hidden bg-slate-950";
+  "grid flex-1 h-full min-h-0 w-full grid-cols-[22%_48%_30%] divide-x divide-slate-900 items-stretch overflow-hidden bg-slate-950";
 
 /** Column track fills its grid percentage (`min-w-0` prevents overflow blowout). */
 export const DASHBOARD_LAYOUT_LEFT_RAIL = "min-w-0 w-full";
@@ -51,7 +54,7 @@ export const DASHBOARD_CENTER_RISK_STACK =
 export const DASHBOARD_RIGHT_PANE =
   `col-start-3 row-start-1 relative z-10 flex h-full min-h-0 ${DASHBOARD_LAYOUT_RIGHT_RAIL} flex-col overflow-hidden bg-slate-950`;
 
-/** Right-pane body: fixed height under tripane; Audit Intelligence log lane scrolls inside. */
+/** Right-pane body: bounded height; Audit Intelligence owns the column scroll track. */
 export const DASHBOARD_RIGHT_SCROLL =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-4 py-6";
 

@@ -30,6 +30,10 @@ import { useRiskRegistrySync } from '@/app/hooks/useRiskRegistrySync';
 import type { RiskRegistryRecord } from '@/app/types/riskLifecycle';
 import type { GovernanceMaturitySnapshot } from '@/app/types/governanceMaturity';
 import GrcMaturityStrip from '@/app/components/GrcMaturityStrip';
+import {
+  normalizeTenantMaturityKey,
+  tenantBaselineToSnapshot,
+} from "@/app/lib/grcMaturityTenantBaselines";
 import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
@@ -262,6 +266,16 @@ export default function DashboardHomeClient({
   useRiskRegistrySync(true, initialRiskRegistry);
   const { tenantFetch, activeTenantUuid, activeTenantKey } = useTenantContext();
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
+  const normalizedMaturityTenantKey = useMemo(
+    () => normalizeTenantMaturityKey(activeTenantKey, activeTenantUuid, selectedTenantName),
+    [activeTenantKey, activeTenantUuid, selectedTenantName],
+  );
+  const [localMaturitySnapshot, setLocalMaturitySnapshot] = useState<GovernanceMaturitySnapshot>(() =>
+    tenantBaselineToSnapshot(normalizedMaturityTenantKey),
+  );
+  useEffect(() => {
+    setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));
+  }, [normalizedMaturityTenantKey]);
   const replacePipelineThreats = useRiskStore((s) => s.replacePipelineThreats);
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const pulseThreatBoardsFromDb = useRiskStore((s) => s.pulseThreatBoardsFromDb);
@@ -1144,12 +1158,12 @@ export default function DashboardHomeClient({
               ) : null}
               <div className={`w-full py-5 pb-8 ${DASHBOARD_CENTER_PAD_X}`} data-testid="scrutiny-block">
                 <section
-                  key={`maturity-tracker-${activeTenantKey ?? activeTenantUuid ?? "default"}`}
+                  key={`maturity-tracker-root-${normalizedMaturityTenantKey}-${JSON.stringify(localMaturitySnapshot.components)}-${localMaturitySnapshot.score}`}
                   className="transition-all duration-300 animate-in fade-in"
                   data-testid="operational-maturity-tracker-section"
                   aria-label="Operational maturity tracker"
                 >
-                  <GrcMaturityStrip maturity={governanceMaturity} className="mt-0" />
+                  <GrcMaturityStrip maturity={localMaturitySnapshot} className="mt-0" />
                 </section>
                 <div className="mt-4">
                   <HandshakeStatusBar phase={handshakePhase} />

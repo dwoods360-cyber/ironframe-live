@@ -124,7 +124,7 @@ Central index for product, technical, and operational documentation. Documents a
   * [Core System Protocol](./qa/manual-testing-protocol.md) — Technical, step-by-step security and context resilience verification for engineers.
 * **High School Classroom Track:**
   * [Student Sandbox Lab](./qa/student-testing-protocol.md) — Simplified, plain-English manual testing walkthrough optimized for 11th & 12th-grade technical labs.
-  * [Feature Glossary & Screen Guide](./qa/feature-glossary.md) — Interactive reference for dashboard controls, locations, and lab operations.
+  * [GRC Operations Glossary & Screen Guide](./qa/complete-feature-glossary.md) — Interactive reference for dashboard controls, locations, and lab operations.
 
 ## Downloads
 

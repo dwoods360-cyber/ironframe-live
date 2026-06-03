@@ -79,10 +79,10 @@ export default function DocsSidebar({ currentSlug }: DocsSidebarProps) {
             🧪 Student Sandbox Lab
           </Link>
           <Link
-            href="/docs/qa/feature-glossary"
-            className={linkClass(isActive(currentSlug, ["qa", "feature-glossary"]), true)}
+            href="/docs/qa/complete-feature-glossary"
+            className={linkClass(isActive(currentSlug, ["qa", "complete-feature-glossary"]), true)}
           >
-            📖 Feature Glossary
+            📖 GRC Operations Glossary
           </Link>
         </div>
       </nav>

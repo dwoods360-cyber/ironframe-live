@@ -78,4 +78,4 @@ If you ever get stuck or confused while working through your laboratory modules 
 
 * **The Help Triggers:** Next to major module titles, look for a button labeled **`❓ HELP`**.
 * **What happens when clicked:** Clicking this button opens an overlay window sliding out from the right margin of your display screen. It will tell you the exact **Function Name**, **On-Screen Location**, **What it is used for**, and **How to use it** instantly without closing your active work.
-* **Deep Links:** Inside that help window, click the text button labeled **`OPEN DEEP-DIVE WEB DOCUMENT`** to automatically open a fresh tab routing you directly to the public web-facing documentation hub pages at `/docs/qa/feature-glossary`.
+* **Deep Links:** Inside that help window, click the text button labeled **`OPEN DEEP-DIVE WEB DOCUMENT`** to automatically open a fresh tab routing you directly to the public web-facing documentation hub pages at `/docs/qa/complete-feature-glossary`.

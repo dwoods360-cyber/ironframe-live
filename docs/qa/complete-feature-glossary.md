@@ -62,50 +62,61 @@ Violation of these rules will cause the automated background infrastructure trac
 
 ---
 
-## 🎨 Chapter 3: Screen Workspace Coordinates & Independent Scrolling
+## 🎨 Chapter 3: True Screen Workspace Coordinates & Layout Behavior
 
-The platform is engineered as a unified **Single-Window Command Center Layout**. Instead of opening cluttered browser tab strings that can freeze school computers, the dashboard divides your monitor screen into **three permanent vertical panel columns** that scale gracefully in sync with your window size while locking in their width percentages:
+The platform is engineered as a unified **Single-Window Command Center Layout**. The dashboard divides your monitor screen into **three permanent vertical panel columns** that scale gracefully in sync with your window size while locking in their width percentages:
 
 +---------------------------------------------------------------------------------------------------------+
 |                                  GLOBAL COMMAND HEADER PANEL                                            |
 +------------------------------+---------------------------------------+----------------------------------+
-|                              |                                       |                                  |
-|         LEFT PANEL           |             CENTER PANEL              |           RIGHT PANEL            |
-|       (CONTROL DECK)         |          (WORKSPACE CANVAS)           |         (AUDIT COLUMN)           |
-|                              |                                       |                                  |
-|       Width Ratio: 22%       |           Width Ratio: 48%            |         Width Ratio: 30%         |
-|   Independent Scrolling     |       Independent Scrolling           |     Independent Scrolling        |
-|                              |                                       |                                  |
+|                              | [CENTER CORES]                        |                                  |
+|         LEFT PANEL           |   - Primary Workspace Tabs            |           RIGHT PANEL            |
+|       (DATA DECK)            |   - Horizontal Metric Row             |         (AUDIT COLUMN)           |
+|                              |   - Workflow Control Blocks           |                                  |
+|                              |                                       |   - SUSTAINABILITY PULSE         |
+|       Width Ratio: 22%       |           Width Ratio: 48%            |   - Live Audit Ledger Stream     |
+|   Independent Scrolling     |       Independent Scrolling           |                                  |
+|                              |                                       |         Width Ratio: 30%         |
+|                              |                                       |     Independent Scrolling        |
 +------------------------------+---------------------------------------+----------------------------------+
 
 
 <a id="auth-001"></a>
 
-### 📁 1. The Global Command Header Panel (Top Line - Fixed in Space)
-* **Screen Coordinates:** Pinned permanently along the very top border edge of the web browser screen window.
-* **What It Contains:** The platform branding header, your encrypted session token ID card, and the multi-company workspace toggle dropdown.
-* **Resizing Behavior:** It stays locked in place. It never scrolls out of view when you move down through your charts, ensuring you always have a quick route to swap companies or check your login status.
+### 📁 1. The Global Command Header Panel (Top Lines - Fixed in Space)
+* **Screen Coordinates:** Pinned permanently along the top border edge of the window.
+* **What It Contains:** The platform branding header (`IRONFRAME CORE`), user access badge context (`dwoods360@gmail.com (Junior GRC Analyst)`), and sub-header toolline containing the Tenant Context Dropdown Menu, `AUTO` scale selectors, and the orange-bordered **`FREEZE COMMAND POST`** action button.
 
-### aside 2. The Left Panel: Control & Chaos Deck (22% Screen Width)
+### 📁 2. The Left Panel: Core Data Deck (22% Screen Width)
 * **Screen Coordinates:** The vertical column running down the leftmost border margin of your display monitor.
-* **What It Contains:** System configuration selectors, maturity scoring trackers, and Chaos Drill scenario triggers.
-* **Resizing Behavior:** Takes up exactly 22% of your screen space. It features **independent vertical scrolling**, meaning you can scroll down through a list of a hundred different options without causing the middle or right side of your page to shift an inch.
+* **What It Contains:** Live system security metric graph lines, infrastructure maturity tracking nodes, target asset profiles, and framework selection matrices.
+* **Resizing Behavior:** Takes up exactly 22% of your screen space with independent vertical scrolling.
 
-### main 3. The Center Panel: Core Workspace Canvas (48% Screen Width)
-* **Screen Coordinates:** The wide main display column in the center of your screen viewport.
-* **What It Contains:** Active security synchronization message banners, the 19-Agent workforce monitor dashboard grid, and the live system event stream log windows.
-* **Resizing Behavior:** Given almost half the screen space (48%) to make sure large analytical tables and text elements are perfectly visible. It scrolls up and down independently.
+### 📁 3. The Center Panel: Core Workspace Canvas (48% Screen Width)
+* **Screen Coordinates:** The expansive main display column in the center of your monitor.
+* **What It Contains:** The primary management route tabs (`VENDOR LIST` through `QUICK REPORTS`), your horizontal financial metric row cards (`Compliance Velocity`, `Value Mitigated`, `Projected Insurance Savings`), and the large workflow configuration blocks.
+* **Resizing Behavior:** Takes up 48% of the workspace area with independent scrolling down through your test cases.
 
-### aside 4. The Right Panel: Sustainability & Audit Column (30% Screen Width)
+### 📁 4. The Right Panel: Sustainability & Audit Column (30% Screen Width)
 * **Screen Coordinates:** The vertical column running along the rightmost margin border of your browser display.
-* **What It Contains:** The **`SUSTAINABILITY PULSE`** tracking instrument, the global ledger search box, and the horizontal financial value rows.
-* **Resizing Behavior:** Locks onto exactly 30% of the screen width. It scrolls independently so you can keep your eyes locked on live carbon and financial readings while manipulating buttons on the far left.
+* **What It Contains:** The **`SUSTAINABILITY PULSE`** tracking instrument component box positioned inside the top half, with the massive **Live Audit Ledger Stream** terminal layout box extending directly beneath it down to the bottom of the screen.
+* **Resizing Behavior:** Locks onto exactly 30% of the screen width with independent vertical scrolling.
 
 ---
 
-## ⚙️ Chapter 4: Detailed Component-by-Component In-Depth Guide
+## ⚙️ Chapter 4: True Component-by-Component Mapping
 
-Every single visible block, element, button, and reading on your monitor screen is documented below. Each module contains an integrated **`❓ HELP`** button link that opens its corresponding deep explanation overlay drawer instantly:
+Every single visible block, element, button, and reading on your monitor screen is documented below. Each module contains an integrated **`❓ HELP`** button link that opens its corresponding deep explanation overlay drawer instantly.
+
+**Quick coordinate reference (matches live dashboard):**
+
+| Module | ID | Column |
+|--------|-----|--------|
+| Tenant switcher | `TENANT-001` | Sub-header toolline (above left panel) |
+| Financial metric row | `EXPORT-001` | Center panel, beneath navigation tabs |
+| Sustainability Pulse | `CARBON-001` | Right panel, upper half |
+| Live audit ledger | `LOG-001` | Right panel, beneath Sustainability Pulse |
+| Log search filter | `SEARCH-001` | Right panel, Audit Intelligence header |
 
 ---
 
@@ -117,7 +128,7 @@ Every single visible block, element, button, and reading on your monitor screen 
 * Command Center Dropdown Menu Router (`TENANT-001`).
 
 #### 2. Exact Location on the Screen
-* Top-left corner of the workspace display area, sitting directly under the main header banner line.
+* Positioned at the far left edge of the sub-header toolline, sitting right above the Left Panel boundary line (e.g., **`Vaultbank NA — $5.9M`**), adjacent to the `AUTO` scale badge and orange-bordered **`FREEZE COMMAND POST`** button.
 
 #### 3. What It Is Used For
 * This element lets you instantly swap your entire dashboard view between three completely separate corporate entities: **Medshield** (healthcare database operations), **Vaultbank NA** (banking systems), and **Gridcore Infrastructure** (energy utility networks). 
@@ -205,7 +216,7 @@ The application background monitoring agents (like **`Ironlock`** or **`Ironwatc
 1. Click the simulation scenario selection dropdown box inside the left panel.
 2. Select the scenario row item titled **`Ransomware Outbreak Mock Sync`**.
 3. Left-click the bold primary trigger button labeled **`Generate Chaos Threat`**.
-4. **What to look for:** Look down at the bottom of your center panel view. The live audit terminal feed will instantly flash high-speed warning lines as the system detects the injected threat, traces its target path, and completes an automated background isolation sweep to defeat it within microseconds.
+4. **What to look for:** Look at the **Right Panel (30% Width)** audit column. The live ledger stream beneath **Sustainability Pulse** will instantly flash high-speed warning lines as the system detects the injected threat, traces its target path, and completes an automated background isolation sweep to defeat it within microseconds.
 
 ---
 
@@ -278,7 +289,7 @@ For example, **`Irontrust`** manages pure banking math calculations, **`Ironbloo
 * Immutable Ledger Execution Stream Terminal (`LOG-001`).
 
 #### 2. Exact Location on the Screen
-* Positioned at the very base section of your **Center Panel (48% Screen Width)** workspace canvas column.
+* Positioned inside the **Right Panel (30% Screen Width)** column track, extending directly beneath the base of the **Sustainability Pulse** box down to the bottom monitor frame. This is the **Live Audit Ledger Stream** terminal window.
 
 #### 3. What It Is Used For
 * This window is a live, high-speed terminal readout that records every behind-the-scenes movement, data entry, and security scan executed across the platform. It provides the final proof of compliance to government auditors.
@@ -287,8 +298,8 @@ For example, **`Irontrust`** manages pure banking math calculations, **`Ironbloo
 Every log row emitted by this terminal is paired with a cryptographic stamp. The ledger operates using a structural design pattern called an **Append-Only Array**. This means the application code physically lacks any function to "edit," "modify," or "delete" a log line once it is written. It can only append new lines to the bottom. If an attacker breaches the system and attempts to erase their steps, the cryptographic chain breaks instantly, alerting security teams.
 
 #### 5. Step-by-Step Usage Instructions
-1. Place your mouse pointer over the lower terminal window box in the center column canvas.
-2. Use your mouse scroll wheel to track down through the ledger history completely independent of your other screen panels.
+1. Place your mouse pointer over the **Live Audit Ledger Stream** terminal box in the right column canvas, directly beneath **Sustainability Pulse**.
+2. Use your mouse scroll wheel to track down through the ledger history completely independent of your left and center panels.
 3. **What to look for:** Examine an individual entry line closely. Verify that each action string includes a distinct cryptographic tag block (such as `[AGENT-14] SANITIZATION PURGE RESOLVED`), proving the system's absolute tracking fidelity.
 
 ---
@@ -301,7 +312,7 @@ Every log row emitted by this terminal is paired with a cryptographic stamp. The
 * Emissions Intensity Telemetry Instrument (`CARBON-001`).
 
 #### 2. Exact Location on the Screen
-* Fixed permanently into the upper section container of your **Right Panel (30% Screen Width)**. Look for the green leaf icon and the panel header explicitly labeled **`SUSTAINABILITY PULSE`**.
+* Positioned inside the upper half section of the **Right Panel (30% Screen Width)** column track. Look for the green leaf icon and the panel header explicitly labeled **`SUSTAINABILITY PULSE`**, displaying live energy trend lines.
 
 #### 3. What It Is Used For
 * This interactive widget monitors the physical energy efficiency, power grid strain, and carbon footprint intensity generated by the hardware arrays hosting your company's cloud networks.
@@ -350,7 +361,7 @@ If you or your school laboratory network run this application locally without an
 * Tabular Metadata Filter Engine (`SEARCH-001`).
 
 #### 2. Exact Location on the Screen
-* Positioned right beneath the Sustainability Pulse panel inside your **Right Panel (30% Screen Width)** tracking track column.
+* Positioned inside the **Right Panel (30% Screen Width)** tracking column, in the sticky **Audit Intelligence** header block directly beneath **Sustainability Pulse** and above the live ledger stream.
 
 #### 3. What It Is Used For
 * This search engine lets compliance inspectors or independent students query the platform's massive database pool to isolate specific error strings, timestamp markers, or company data lines within seconds.
@@ -373,7 +384,7 @@ When you type a keyword string into this entry field, the application invokes a 
 * Whole Integer Asset Export Matrix (`EXPORT-001`).
 
 #### 2. Exact Location on the Screen
-* Grouped tightly into an even, side-by-side horizontal row situated at the very base section of your **Right Panel (30% Screen Width)** column.
+* Positioned inside the upper section of the **Center Panel (48% Screen Width)**, sitting directly beneath the blue management navigation tabs (`VENDOR LIST`, `SYSTEM CONFIG`, `INTEGRITY HUB`, etc.).
 
 #### 3. What It Is Used For
 * This block displays three vital financial metrics across a single row: **Compliance Velocity (`—`)**, **Value Mitigated YTD (`$0`)**, and **Projected Insurance Savings (`$5.0K / 10% off premium`)**, alongside the master data export trigger button.
@@ -384,7 +395,7 @@ To completely eliminate the risk of fractional currency rounding drift during an
 When a company lowers its security risk and tracks its data cleanly through the **Sustainability Pulse**, insurance providers reward them with a **10% premium discount**. Clicking the integrated export button pulls these raw values directly from the database and packages them into an immutable spreadsheet string format for underwriting validation.
 
 #### 5. Step-by-Step Usage Instructions
-1. Verify that the three metric box containers sit perfectly aligned in a horizontal row from left to right across your right column panel.
+1. Verify that the three metric box containers sit perfectly aligned in a horizontal row from left to right across the **center panel**, beneath the primary workspace tabs.
 2. Locate and left-click the bold utility action button labeled **`Export Tabular Ledger Data (CSV)`**.
 3. The browser will instantly download a spreadsheet report file named `integrity-ledger-export.csv` straight to your computer's local downloads directory folder.
 4. Open this file on your machine using a basic text editor or spreadsheet processor.

@@ -1719,7 +1719,7 @@ export default function AuditIntelligence({
           <ContextualHelpTrigger
             featureId="log-001"
             title="Operational Audit & Integrity Log"
-            location="Positioned at the base of your center column canvas."
+            location="Positioned inside the Right Panel (30% Screen Width) column track, extending beneath Sustainability Pulse down to the bottom monitor frame."
             purpose="Provides an immutable, live terminal history of every system check, encryption event, and tenant audit."
             steps={[
               "Scroll through the terminal ledger independently down the center column space.",

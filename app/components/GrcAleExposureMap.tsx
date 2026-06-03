@@ -83,7 +83,7 @@ export default function GrcAleExposureMap({
           <ContextualHelpTrigger
             featureId="export-001"
             title="Horizontal Financial Integrity Cards"
-            location="Grouped tightly into a horizontal left-to-right row at the lower section of your right tracking column."
+            location="Positioned inside the upper section of the Center Panel (48% Screen Width), sitting directly beneath the blue management navigation tabs."
             purpose="Displays monetary metrics side-by-side and handles the secure tabular audit export functionality."
             steps={[
               "Confirm that the compliance, mitigation, and savings cards are perfectly aligned in a horizontal row.",

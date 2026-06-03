@@ -43,14 +43,13 @@ Follow these simple steps on your computer screen to test the app and learn how 
 
 ---
 
-## 🔋 Step 4: Testing the Internet Outage Backup
+## 🔋 Step 4: Testing Sustainability Telemetry (The Backup Check)
 
-### Test Case: CARBON-001 — The Safety Net Display
-* **What you are testing:** What happens when the app loses its connection to live external environmental data sources? We need to make sure the screen stays active instead of crashing.
-* **What to do on screen:**
-  1. Click on the **Carbon Pulse** tab or box on your main dashboard layout.
-  2. Look at the graphs and maps trying to load data.
-* **What you should expect to see:** Even if your school network blocks live external internet trackers, the app is smart. Instead of showing an error message or breaking, a built-in safety net kicks in. The graph stays safely on screen using a saved, backup simulation chart so you can still finish your classroom lab work without a hitch.
+### Test Case: CARBON-001 — The Sustainability Pulse Board
+* **What you are testing:** Checking how the application's environment monitoring engine handles a live network connection failure.
+* **What to look for on screen:** Look at the top right quadrant of your dashboard interface for the component panel block titled **`SUSTAINABILITY PULSE`**. This is where the app displays its real-time Sustainability Telemetry.
+* **What to do on screen:** View the real-time chart loading trends inside this panel box.
+* **What you should expect to see:** Look for the orange **`FALLBACK ACTIVE`** indicator badge glowing on the panel header. Even if the local laboratory network doesn't have live third-party validation tokens, the system smoothly switches to an integrated forensic simulation chart baseline instead of crashing the view canvas.
 
 ---
 

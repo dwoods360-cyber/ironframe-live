@@ -35,6 +35,7 @@ import {
   tenantBaselineToSnapshot,
 } from "@/app/lib/grcMaturityTenantBaselines";
 import { useContextSwitchPaintGate } from "@/app/hooks/useContextSwitchPaintGate";
+import ContextSwitchEcgProgressBar from "@/app/components/ui/ContextSwitchEcgPulse";
 import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
@@ -947,6 +948,7 @@ export default function DashboardHomeClient({
   if (loading && dashboardTenantUuid) {
     return (
       <div className={DASHBOARD_HOME_SHELL}>
+      <ContextSwitchEcgProgressBar />
       <div className={DASHBOARD_TRIPANE_SHELL}>
         <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel" aria-hidden>
           <div className={DASHBOARD_LEFT_SCROLL}>
@@ -1045,6 +1047,7 @@ export default function DashboardHomeClient({
       clearDrawerFocus={() => setDrawerFocus(null)}
     >
       <div className={DASHBOARD_HOME_SHELL}>
+        <ContextSwitchEcgProgressBar />
         {typeof serverTimeEpochMs === "number" ? (
           <ClockDriftMonitor serverTimeEpochMs={serverTimeEpochMs} />
         ) : null}

@@ -1,79 +1,78 @@
-# 📋 Manual Testing Procedure & QA Playbook
-## Full Functional & UI/UX Step-by-Step Verification Protocol
+# 📋 Student Web Sandbox: How to Manually Test the App
+## Step-by-Step Screen Check for 11th & 12th Grade Technical Labs
 
-Use this webpage to manually execute and audit the core feature behaviors of the Ironframe SaaS application. Follow the preconditions, tester actions, and expected visual results to verify system integrity.
+Welcome to the QA (Quality Assurance) Testing Guide! In the software world, a QA tester's job is to click through an app like a regular user to make sure nothing breaks and that the screen behaves exactly how it is supposed to.
 
----
-
-## 🔐 1. Authentication & Context Initialization
-
-### 🧪 Test Case: AUTH-001 — Tenant Cookie Extraction
-* **Preconditions:** Local development server running (`npm run dev`) or live production edge active. Clear browser cookies before starting.
-* **Tester Manual Actions:**
-  1. Navigate to the application root home directory (`/`).
-  2. Observe the initial redirection behavior or landing layout.
-  3. Log into the system using your designated testing credentials.
-  4. Open your browser's Developer Tools (F12) and inspect the **Application ➔ Cookies** tab.
-* **Expected Visual Behavior:** The system logs you in seamlessly. A session cookie containing the encrypted tenant parameter is initialized, and the UI header dynamically establishes your active control room workspace.
+Follow these simple steps on your computer screen to test the app and learn how secure cloud software works.
 
 ---
 
-## 🔄 2. Multi-Tenant Isolation & Cache Resilience
+## 🔐 Step 1: Logging In and Testing Identity
 
-### 🧪 Test Case: TENANT-001 — Vaultbank ➔ Medshield Hot-Swap
-* **Preconditions:** User is authenticated and viewing the primary dashboard deck.
-* **Tester Manual Actions:**
-  1. Locate the **Command Center Dropdown Menu** at the top left of the screen.
-  2. Click the dropdown and select **Vaultbank NV**. Observe and note the displayed baseline valuation score.
-  3. Click the dropdown a second time and select **Medshield**.
-* **Expected Visual Behavior:** The application must instantly shift its view context. Center grid panels must display a temporary loading skeleton animation (no raw panel collapsing). The valuation metrics must change deterministically to reflect Medshield's baseline validation records without leaking any stale financial entries from Vaultbank.
-
-### 🧪 Test Case: TENANT-002 — Rogue Zone Boundary Mapping
-* **Preconditions:** Active tenant context is unassigned or mid-transit during a rapid switch configuration.
-* **Tester Manual Actions:**
-  1. Trigger an action path that targets the Gridcore Infrastructure tenant baseline view layout.
-  2. Monitor the developer console log outputs for any background telemetry ingest crashes.
-* **Expected Visual Behavior:** The system's automatic zone normalization layer catches raw tracking coordinates. It maps any rogue zone tokens (such as `US-GD`) straight to canonical coordinates (`US-CO`) gracefully behind the scenes, ensuring the frontend dashboard never encounters an unhandled layout crash or unmounts the center panels.
-
-### 🧪 Test Case: TENANT-003 — Rapid Switch Stress & Cache Isolation
-* **Preconditions:** SWR caching boundaries are active.
-* **Tester Manual Actions:**
-  1. Click the **Command Center Dropdown**.
-  2. Manually toggle back and forth between **Vaultbank** and **Gridcore** five times in rapid succession.
-  3. Stop clicking and observe the final rendered state of the center panels.
-* **Expected Visual Behavior:** The UI must remain stable and mounted. Thanks to tenant-scoped caching structures, stale rendering data from the alternate tenant never bleeds into the current view frame. The app recovers gracefully without displaying a permanent blank screen or an incorrect data cross-bleed mix.
+### Test Case: AUTH-001 — Checking Your Access Badge
+* **What you are testing:** Making sure the app securely remembers who you are without mixing you up with another user.
+* **What to do on screen:**
+  1. Open the app's main page in your browser (`http://localhost:3000`).
+  2. Type in your assigned username and password to log in.
+  3. Once you are in, right-click anywhere on the screen, click **Inspect**, and look for a tab named **Application** (or **Storage**). Click on **Cookies** on the left menu.
+* **What you should expect to see:** The app logs you in smoothly. In your browser inspection panel, you should see a small piece of saved code (a cookie) that proves your account is securely linked to your screen session.
 
 ---
 
-## 📈 3. Data Integrity & Ingress Fallbacks
+## 🔄 Step 2: Testing Company Isolation (The Wall Check)
 
-### 🧪 Test Case: CARBON-001 — Forensic Baseline Layout Fallback
-* **Preconditions:** Local simulation configuration flag is set to true (`IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED="true"`). Third-party vendor credentials are empty.
-* **Tester Manual Actions:**
-  1. Navigate directly to the **Carbon Pulse Telemetry Component** module window on the dashboard.
-  2. Observe the interface behavior during data hydration.
-* **Expected Visual Behavior:** The system detects the missing live vendor API credentials. Instead of breaking or rendering a broken panel layout, it utilizes the secure local reserve bypass token to inject an integrated Forensic Baseline. The panel stays mounted, rendering an accurate static simulation chart for analytical evaluation.
-
----
-
-## 🗂️ 4. Analyst Portal & Tabular Data Exports
-
-### 🧪 Test Case: EXPORT-001 — Tabular Financial Ledger Verification
-* **Preconditions:** Active tenant is configured to **Vaultbank NV**.
-* **Tester Manual Actions:**
-  1. Navigate to the **Analyst Portal / Ironquery Data Interface**.
-  2. Locate the table action block and click the **Export Tabular Ledger Data (CSV)** button.
-  3. Open the resulting spreadsheet download file using a raw text viewer or spreadsheet application.
-* **Expected Visual Behavior:** The file must generate and process instantaneously. Inspect the numeric columns: all monetary structures must be rendered strictly as whole integers representing exact cents (e.g., `$59,000.00` appears as `5900000`). There must be 0% rounding drift or floating-point decimal approximations.
+### Test Case: TENANT-001 — Switching Companies Safely
+* **What you are testing:** The app holds data for three separate mock companies: **Medshield** (healthcare), **Vaultbank** (banking), and **Gridcore** (power grid). We need to prove that switching between companies completely changes the screen *without* leaking or mixing up secrets.
+* **What to do on screen:**
+  1. Look at the top-left corner of your dashboard screen. Find the dropdown box showing the company name (like `Vaultbank NV`).
+  2. Click that box and select **Medshield**.
+  3. Click it again and select **Gridcore Infrastructure**.
+* **What you should expect to see:** Every time you click a new company, the screen should quickly flash a gray "loading silhouette" block. Then, the numbers, charts, and text must completely change to show only that company's statistics. Banking numbers must never show up on the power grid screens, and health records must never stay stuck in the cache.
 
 ---
 
-## 🎨 5. User Interface Fluidity & Animation Borders
+## 🛑 Step 3: Fast-Clicking Stress Test
 
-### 🧪 Test Case: UX-002 — GRC Side Drawer Overlay Transitions
-* **Preconditions:** User is viewing the active micro-agent tracking grid layout.
-* **Tester Manual Actions:**
-  1. Click on an operational agent row (e.g., `Ironlock` or `Ironguard`).
-  2. Observe the animation behavior as the technical specification panel shifts into focus.
-  3. Click the close button or anywhere on the dimmed background space.
-* **Expected Visual Behavior:** An interactive GRC metadata drawer must slide smoothly into view from the right margin overlaying the screen canvas. The background page must dim cleanly without any jarring screen flashes or layout shifting. Dismissing the panel must reverse the slide animation cleanly with zero frame lag.
+### Test Case: TENANT-003 — The Turbo Click Challenge
+* **What you are testing:** Testing if clicking too fast can trick the software into displaying old or mixed-up data on screen.
+* **What to do on screen:**
+  1. Open that same top-left company menu box again.
+  2. As fast as you can, click back and forth between **Vaultbank** and **Gridcore** five times in a row.
+  3. Stop clicking and watch the screen closely.
+* **What you should expect to see:** The app should not freeze, glitch, or turn into a blank white screen. The final screen should load completely clean, displaying the correct charts for the last company you clicked, proving the app's memory handles fast user actions perfectly.
+
+---
+
+## 🔋 Step 4: Testing the Internet Outage Backup
+
+### Test Case: CARBON-001 — The Safety Net Display
+* **What you are testing:** What happens when the app loses its connection to live external environmental data sources? We need to make sure the screen stays active instead of crashing.
+* **What to do on screen:**
+  1. Click on the **Carbon Pulse** tab or box on your main dashboard layout.
+  2. Look at the graphs and maps trying to load data.
+* **What you should expect to see:** Even if your school network blocks live external internet trackers, the app is smart. Instead of showing an error message or breaking, a built-in safety net kicks in. The graph stays safely on screen using a saved, backup simulation chart so you can still finish your classroom lab work without a hitch.
+
+---
+
+## 📂 Step 5: Testing Report Downloads & Money Accuracy
+
+### Test Case: EXPORT-001 — Downloading the Audit Spreadsheet
+* **What you are testing:** Proving that the app processes financial data correctly using exact math without decimal rounding errors.
+* **What to do on screen:**
+  1. Go to the **Analyst Portal** (or data screen) inside the app.
+  2. Click the company switcher and pick **Vaultbank NV**.
+  3. Find and click the button that says **Export Tabular Ledger Data (CSV)**.
+  4. Open the downloaded spreadsheet file on your computer.
+* **What you should expect to see:** The spreadsheet file downloads immediately to your computer. When you look at the columns tracking money, you will notice there are no decimal points or floating dot numbers. Instead, everything is listed as total whole cents (for example, a balance of $10.00 will look like `1000` cents). This is how professional banking software keeps numbers perfect!
+
+---
+
+## 🎨 Step 6: Visual Layout & Side Drawer Animations
+
+### Test Case: UX-002 — Pop-Up Slider Fluidity
+* **What you are testing:** Making sure the user interface feels smooth, responsive, and easy to read.
+* **What to do on screen:**
+  1. Find the **Agent Monitor** table that lists background AI workers (like `Ironlock` or `Ironguard`).
+  2. Click directly on any of the rows in that list.
+  3. Click the "X" close button or click out in the dark space to close it.
+* **What you should expect to see:** A beautiful information drawer should slide out smoothly from the right side of your screen over your main dashboard. The rest of the screen behind it should dim slightly so it's easy to read. When you close it, it should glide away smoothly without any jarring visual glitches, blinking, or screen delays.

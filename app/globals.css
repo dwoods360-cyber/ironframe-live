@@ -188,6 +188,19 @@ body {
   animation: progressSweep 1s linear infinite;
 }
 
+@keyframes ekgOmniSweep {
+  0% {
+    left: -300px;
+  }
+  100% {
+    left: 100vw;
+  }
+}
+
+.animate-ekgOmniSweep {
+  animation: ekgOmniSweep 1.5s linear infinite;
+}
+
 @keyframes ekgSweep {
   0% {
     transform: translateX(-150px);

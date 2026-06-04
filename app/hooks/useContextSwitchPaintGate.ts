@@ -9,7 +9,12 @@ type ContextSwitchPaintGateOptions = {
   onPanelsPainted?: () => void;
 };
 
-export function areTripanePanelsPainted(): boolean {
+export function getTripanePanelReadiness(): {
+  isLeftPanelReady: boolean;
+  isCenterCanvasReady: boolean;
+  isAuditLedgerReady: boolean;
+  isMaturityReady: boolean;
+} {
   const leftPanel = document.querySelector(
     '[data-testid="dashboard-left-panel"]:not([aria-hidden="true"])',
   );
@@ -19,7 +24,35 @@ export function areTripanePanelsPainted(): boolean {
     maturityChip instanceof HTMLElement && !/pending integrity/i.test(maturityChip.textContent ?? "");
   const auditStream = document.querySelector('[data-testid="audit-ledger-stream"]');
 
-  return Boolean(leftPanel && centerPanel && maturityReady && auditStream);
+  return {
+    isLeftPanelReady: Boolean(leftPanel),
+    isCenterCanvasReady: Boolean(centerPanel),
+    isAuditLedgerReady: Boolean(auditStream),
+    isMaturityReady: maturityReady,
+  };
+}
+
+export function areTripanePanelsPainted(): boolean {
+  const readiness = getTripanePanelReadiness();
+  return (
+    readiness.isLeftPanelReady &&
+    readiness.isCenterCanvasReady &&
+    readiness.isAuditLedgerReady &&
+    readiness.isMaturityReady
+  );
+}
+
+/** Resolved maturity chip text once ingress recalc has painted (null while pending). */
+export function readGovernanceMaturityFingerprint(): string | null {
+  const maturityChip = document.querySelector('[data-testid="grc-maturity-system"]');
+  if (!(maturityChip instanceof HTMLElement)) {
+    return null;
+  }
+  const text = maturityChip.textContent?.trim() ?? "";
+  if (!text || /pending integrity/i.test(text)) {
+    return null;
+  }
+  return text;
 }
 
 /** Clears TENANT-001 switching state once tripane panels finish painting (no fixed timeout). */

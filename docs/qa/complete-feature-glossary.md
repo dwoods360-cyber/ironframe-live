@@ -106,9 +106,11 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Operational Purpose:** Injects simulated infrastructure disasters (such as mock ransomware strikes or network token timeouts) to validate background agent detection and self-healing response behaviors without risking production servers.
 * **Technical Mechanics:** Simulates real-world threats by triggering temporary state disruptions, forcing monitoring agents like `Ironlock` or `Ironwatch` to execute automated containment and quarantine playbooks.
 * **Step-by-Step Lab Validation:**
-  1. Click the simulation scenario selector dropdown inside the left panel.
-  2. Select **`Ransomware Outbreak Mock Sync`** and click the bold primary trigger button labeled **`Generate Chaos Threat`**.
-  3. Observe the central audit logs. Verify that the platform's automated background workforce catches, flags, and neutralizes the hazard within microseconds.
+  1. Locate the Chaos Engineering Simulation Injector block inside the middle tier of the Left Panel (22% screen width).
+  2. Click the simulation scenario selector dropdown menu (which defaults to reading *SELECT CHAOS THREAT SCENARIO...*).
+  3. **Select the Scenario Token:** From the list of options, click on **`MOCK_RNSM_v2`**. *(Note: This token represents the structural code label for the Ransomware Outbreak Mock Sync scenario).*
+  4. Click the bold primary trigger button positioned directly underneath the dropdown selector, labeled **`GENERATE CHAOS THREAT`**.
+  5. Observe the central audit logs. Verify that the platform's automated background workforce catches, flags, and neutralizes the hazard within microseconds.
 
 ---
 

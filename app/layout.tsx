@@ -10,6 +10,7 @@ import EmergencyOverlay from "./components/EmergencyOverlay";
 import ConstitutionalDegradedBanner from "./components/ConstitutionalDegradedBanner";
 import StaleDataLockdownBanner from "./components/StaleDataLockdownBanner";
 import GlobalEkgPortal from "./components/GlobalEkgPortal";
+import AuditTrackingProvider from "./providers/AuditTrackingProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,6 +42,7 @@ export default function RootLayout({
         <TenantProvider>
           <GlobalEkgPortal />
           <ConstitutionalIntegrityProvider>
+            <AuditTrackingProvider>
             <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950">
               <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <EmergencyOverlay />
@@ -52,6 +54,7 @@ export default function RootLayout({
                 {/* SpeedInsights disabled: can trigger async Client Component error in Next 16/Turbopack */}
               </main>
             </div>
+            </AuditTrackingProvider>
           </ConstitutionalIntegrityProvider>
         </TenantProvider>
       </body>

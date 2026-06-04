@@ -105,6 +105,7 @@ const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
   OPERATIONAL_DEFICIENCY_REPORT: "Operational deficiency",
   OPERATIONAL_DEFICIENCY_RESOLVED: "Deficiency resolved",
   OPERATIONAL_SELF_TEST_PASS: "Self-test pass",
+  USER_INTERACTION_CLICK: "User interaction",
 };
 
 const SERVER_ACTION_LABELS: Record<string, string> = {

@@ -2,41 +2,96 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTenantContext } from "@/app/context/TenantProvider";
-import {
-  areTripanePanelsPainted,
-  getTripanePanelReadiness,
-  readGovernanceMaturityFingerprint,
-} from "@/app/hooks/useContextSwitchPaintGate";
+import { getTripanePanelReadiness } from "@/app/hooks/useContextSwitchPaintGate";
 import { useRiskStore } from "@/app/store/riskStore";
 
 const EXIT_FADE_MS = 1500;
+/** Consecutive rAF ticks required before fade — avoids one-frame stale DOM false positives. */
+const HYDRATION_STABLE_FRAMES = 4;
 
-function isHydrationResolved(
-  switchStartMaturity: string | null,
-  isContextSwitching: boolean,
-): boolean {
-  const readiness = getTripanePanelReadiness();
-  const panelsReady =
-    readiness.isLeftPanelReady &&
-    readiness.isCenterCanvasReady &&
-    readiness.isAuditLedgerReady;
+const MATURITY_CHIP_TEST_IDS = [
+  "grc-maturity-system",
+  "grc-maturity-attestation",
+  "grc-maturity-chaos",
+  "grc-maturity-directivity",
+] as const;
 
-  if (!panelsReady || !readiness.isMaturityReady) {
-    return false;
+type HydrationBaseline = {
+  tenantAtSwitch: string;
+  maturityStrip: string | null;
+};
+
+function readMaturityStripFingerprint(): string | null {
+  const parts: string[] = [];
+
+  for (const testId of MATURITY_CHIP_TEST_IDS) {
+    const chip = document.querySelector(`[data-testid="${testId}"]`);
+    if (!(chip instanceof HTMLElement)) {
+      return null;
+    }
+    const text = chip.textContent?.trim() ?? "";
+    if (!text || /pending integrity/i.test(text)) {
+      return null;
+    }
+    parts.push(text);
   }
 
-  const maturityFingerprint = readGovernanceMaturityFingerprint();
-  if (!maturityFingerprint) {
-    return false;
-  }
-
-  const maturityChanged =
-    switchStartMaturity !== null && maturityFingerprint !== switchStartMaturity;
-
-  return maturityChanged || (!isContextSwitching && areTripanePanelsPainted());
+  return parts.join("|");
 }
 
-/** Root-level TENANT-001 sync overlay — GPU pulse bound to tripane hydration, not wall-clock timers. */
+function isCenterCanvasPopulated(): boolean {
+  const centerMain = document.querySelector('[data-testid="dashboard-main"]');
+  if (!(centerMain instanceof HTMLElement)) {
+    return false;
+  }
+  if (centerMain.getAttribute("aria-busy") === "true") {
+    return false;
+  }
+
+  const tracker = document.querySelector('[data-testid="operational-maturity-tracker-section"]');
+  return tracker instanceof HTMLElement;
+}
+
+/**
+ * Layout hydration is complete only when the store switch flag has cleared AND tripane
+ * modules have painted with metrics that differ from the pre-switch baseline.
+ */
+function isLayoutHydrationComplete(
+  baseline: HydrationBaseline,
+  currentTenant: string,
+  isContextSwitching: boolean,
+): boolean {
+  if (isContextSwitching) {
+    return false;
+  }
+
+  const readiness = getTripanePanelReadiness();
+  if (
+    !readiness.isLeftPanelReady ||
+    !readiness.isCenterCanvasReady ||
+    !readiness.isAuditLedgerReady ||
+    !readiness.isMaturityReady
+  ) {
+    return false;
+  }
+
+  if (!isCenterCanvasPopulated()) {
+    return false;
+  }
+
+  const stripFingerprint = readMaturityStripFingerprint();
+  if (!stripFingerprint) {
+    return false;
+  }
+
+  const metricsRepainted =
+    stripFingerprint !== baseline.maturityStrip ||
+    currentTenant !== baseline.tenantAtSwitch;
+
+  return metricsRepainted;
+}
+
+/** Root-level TENANT-001 overlay — GPU pulse runs until tripane layout hydration is verified. */
 export default function GlobalEkgPortal() {
   const isContextSwitching = useRiskStore((state) => state.isContextSwitching);
   const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
@@ -46,11 +101,16 @@ export default function GlobalEkgPortal() {
 
   const [shouldRender, setShouldRender] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
-  const switchStartMaturityRef = useRef<string | null>(null);
+  const baselineRef = useRef<HydrationBaseline | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const stableFramesRef = useRef(0);
+  const prevSwitchingRef = useRef(false);
 
   useEffect(() => {
-    if (!isContextSwitching) {
+    const switchJustStarted = isContextSwitching && !prevSwitchingRef.current;
+    prevSwitchingRef.current = isContextSwitching;
+
+    if (!switchJustStarted) {
       return;
     }
 
@@ -59,13 +119,17 @@ export default function GlobalEkgPortal() {
       fadeTimerRef.current = undefined;
     }
 
-    switchStartMaturityRef.current = readGovernanceMaturityFingerprint();
+    baselineRef.current = {
+      tenantAtSwitch: currentTenantString,
+      maturityStrip: readMaturityStripFingerprint(),
+    };
+    stableFramesRef.current = 0;
     setIsFadingOut(false);
     setShouldRender(true);
   }, [isContextSwitching, currentTenantString]);
 
   useEffect(() => {
-    if (!shouldRender || isFadingOut) {
+    if (!shouldRender || isFadingOut || !baselineRef.current) {
       return;
     }
 
@@ -73,16 +137,29 @@ export default function GlobalEkgPortal() {
     let rafId = 0;
 
     const tick = () => {
-      if (cancelled) {
+      if (cancelled || !baselineRef.current) {
         return;
       }
 
-      if (isHydrationResolved(switchStartMaturityRef.current, isContextSwitching)) {
+      if (
+        isLayoutHydrationComplete(
+          baselineRef.current,
+          currentTenantString,
+          isContextSwitching,
+        )
+      ) {
+        stableFramesRef.current += 1;
+      } else {
+        stableFramesRef.current = 0;
+      }
+
+      if (stableFramesRef.current >= HYDRATION_STABLE_FRAMES) {
+        stableFramesRef.current = 0;
         setIsFadingOut(true);
         fadeTimerRef.current = window.setTimeout(() => {
           setShouldRender(false);
           setIsFadingOut(false);
-          switchStartMaturityRef.current = null;
+          baselineRef.current = null;
           fadeTimerRef.current = undefined;
         }, EXIT_FADE_MS);
         return;
@@ -97,7 +174,7 @@ export default function GlobalEkgPortal() {
       cancelled = true;
       window.cancelAnimationFrame(rafId);
     };
-  }, [shouldRender, isFadingOut, isContextSwitching]);
+  }, [shouldRender, isFadingOut, isContextSwitching, currentTenantString]);
 
   useEffect(
     () => () => {
@@ -114,7 +191,6 @@ export default function GlobalEkgPortal() {
 
   return (
     <div
-      key={`global-ekg-portal-${currentTenantString}`}
       className={`pointer-events-none fixed inset-x-0 top-16 flex h-4 items-center overflow-hidden border-b border-emerald-500/10 bg-slate-950/60 backdrop-blur-[1px] transition-opacity duration-[1500ms] ${
         isFadingOut ? "opacity-0" : "opacity-100"
       }`}

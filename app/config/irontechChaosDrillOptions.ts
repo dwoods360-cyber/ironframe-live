@@ -33,6 +33,27 @@ export const IRONTECH_CHAOS_LEVEL_DRILLS: readonly {
   },
 ] as const;
 
+/** TAS-AMEND-2026-004 — L6 cryptographic ransomware mock (client simulation token). */
+export const IRONTECH_CHAOS_L6_ACTION_TOKEN = "IRONTECH_CHAOS_L6" as const;
+
+export const IRONTECH_CHAOS_LEVEL_6_DRILL = {
+  level: 6,
+  actionToken: IRONTECH_CHAOS_L6_ACTION_TOKEN,
+  label: "6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)",
+} as const;
+
+export const IRONTECH_CHAOS_L6_AGENT_LINES = [
+  "[Irongate] [AGENT-14] Boundary scan anomaly detected: High-frequency cryptographic lock signature caught.",
+  "[Ironwatch] CPU/Disk IO delta spikes out of baseline parameters. Initiating blast-radius threat mapping.",
+  "[Ironlock] Priority Interrupt Authority deployed: Execution thread frozen. Containment sandbox active.",
+  "[Ironguard] Token rotation enforced. PostgreSQL RLS partitions hardened. Multi-tenant memory isolated.",
+  "[Irontrust] Financial whole-integer cents integrity audit complete: 0.00 USD variance detected.",
+  "[Ironcast] SYSTEM SECURITY WARNING: RANSOMWARE THREAT CONTAINED // AVAILABILITY PRESERVED.",
+] as const;
+
+/** Full L6 lifecycle — matches nominal 8s layout paint window (~5–6 EKG sweeps at 1.4s). */
+export const IRONTECH_CHAOS_L6_LIFECYCLE_MS = 8000;
+
 export const IRONTECH_CHAOS_LEVEL_SCENARIO_IDS = new Set(
   IRONTECH_CHAOS_LEVEL_DRILLS.map((d) => d.scenario),
 );

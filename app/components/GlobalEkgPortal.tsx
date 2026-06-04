@@ -102,7 +102,7 @@ export default function GlobalEkgPortal() {
   const [shouldRender, setShouldRender] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const baselineRef = useRef<HydrationBaseline | null>(null);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const fadeTimerRef = useRef<number | undefined>(undefined);
   const stableFramesRef = useRef(0);
   const prevSwitchingRef = useRef(false);
 
@@ -184,6 +184,25 @@ export default function GlobalEkgPortal() {
     },
     [],
   );
+
+  useEffect(() => {
+    const onForceComplete = () => {
+      if (!shouldRender || isFadingOut) {
+        return;
+      }
+      stableFramesRef.current = HYDRATION_STABLE_FRAMES;
+      setIsFadingOut(true);
+      fadeTimerRef.current = window.setTimeout(() => {
+        setShouldRender(false);
+        setIsFadingOut(false);
+        baselineRef.current = null;
+        fadeTimerRef.current = undefined;
+      }, EXIT_FADE_MS);
+    };
+
+    window.addEventListener("ironframe:ekg-force-complete", onForceComplete);
+    return () => window.removeEventListener("ironframe:ekg-force-complete", onForceComplete);
+  }, [shouldRender, isFadingOut]);
 
   if (!shouldRender) {
     return null;

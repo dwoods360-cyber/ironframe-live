@@ -114,6 +114,24 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ---
 
+<a id="sim-002"></a>
+
+### 🕹️ Feature 3b: Chaos Engineering Simulation — Ransomware Protocol Addendum
+* **GRC Function ID:** `SIM-002`
+* **Exact Screen Coordinates:** Triggered via the **Chaos Drill Selector Dropdown** inside the middle tier of the **Left Panel (22% Screen Width)**.
+* **Operational Purpose:** Simulates a localized cryptographic extortion attack to explicitly validate the multi-agent detection, mitigation, and recovery speed of the 19-agent workforce without introducing technical risk or financial calculation errors to the environment.
+* **Technical Mechanics:** Mimics a high-volume encryption hazard. The system proves operational resilience by forcing a hardware state freeze, isolating the tenant perimeter, and testing the `Irontrust` whole-integer asset verification engine.
+* **Step-by-Step Lab Validation:**
+  1. Access the dropdown panel titled **`SELECT IRONTECH CHAOS DRILL...`** in the Left Panel component tray.
+  2. Scroll down and click the specific operational drill labeled: **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**.
+  3. Click the primary trigger element labeled **`GENERATE CHAOS THREAT`**.
+  4. **Verify System Feedback Lifecycle:**
+     - Confirm that the hardware-accelerated emerald EKG line sweeps the screen repeatedly for the full 8-second processing block.
+     - Verify that the Center Panel flashes its layout configuration status straight into **`ALL MODULES SECURE · STATE FROZEN`**.
+     - Review the Live Audit Ledger Feed on the far right. Confirm that all six tracking steps (from `Irongate` signature interception to `Irontrust` zero-variance math verification) print cleanly without any execution failures.
+
+---
+
 <a id="sync-001"></a>
 
 ### ⚡ Feature 4: Core Architecture Alignment Synchronizer

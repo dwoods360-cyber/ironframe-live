@@ -10,7 +10,7 @@ import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 
 /** Central handshake strip — aligned with GRC Gold living audit / War Room status. */
 
-export type SyncHandshakePhase = "idle" | "syncing" | "verified" | "drift";
+export type SyncHandshakePhase = "idle" | "syncing" | "verified" | "drift" | "frozen";
 
 
 
@@ -196,6 +196,23 @@ export default function HandshakeStatusBar({ phase }: Props) {
             aria-hidden
             suppressHydrationWarning
           />
+        }
+      />
+    );
+  }
+
+  if (phase === "frozen") {
+    return (
+      <SyncBarShell
+        isSimulationMode={isSimulationMode}
+        statusBar={
+          <div
+            className={`${COMMON_BASE} border-emerald-500/60 bg-emerald-950/40 text-emerald-100 shadow-[0_0_22px_rgba(16,185,129,0.42)]`}
+            role="status"
+            aria-live="polite"
+          >
+            ALL MODULES SECURE · STATE FROZEN
+          </div>
         }
       />
     );

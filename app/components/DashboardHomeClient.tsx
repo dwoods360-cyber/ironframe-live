@@ -343,6 +343,15 @@ export default function DashboardHomeClient({
     setHandshakePhase("idle");
   }, [clearHandshakeTimers]);
 
+  useEffect(() => {
+    const onChaosL6Freeze = (event: Event) => {
+      const active = (event as CustomEvent<{ active?: boolean }>).detail?.active === true;
+      setHandshakePhase(active ? "frozen" : "idle");
+    };
+    window.addEventListener("ironframe:chaos-l6-freeze", onChaosL6Freeze);
+    return () => window.removeEventListener("ironframe:chaos-l6-freeze", onChaosL6Freeze);
+  }, []);
+
   /** Align with ThreatPipeline / server actions: shadow+sim use Medshield when Global has no cookie. */
   const dashboardTenantUuid = useMemo(
     () => resolveEffectiveTenantUuidForActions(activeTenantUuid, selectedTenantName),

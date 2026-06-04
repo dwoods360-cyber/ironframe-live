@@ -33,12 +33,15 @@ import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import ChaosConstitutionalCollapsePanel from "@/app/components/ChaosConstitutionalCollapsePanel";
 import {
   IRONTECH_CHAOS_LEVEL_DRILLS,
+  IRONTECH_CHAOS_L6_ACTION_TOKEN,
+  IRONTECH_CHAOS_LEVEL_6_DRILL,
   isIrontechChaosLevelScenario,
 } from "@/app/config/irontechChaosDrillOptions";
+import { runIrontechChaosL6MockDrill } from "@/app/lib/irontechChaosL6Drill";
 import { isConstitutionalChaosDrill } from "@/app/config/chaosRegistry";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
-type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE";
+type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE" | typeof IRONTECH_CHAOS_L6_ACTION_TOKEN;
 
 /**
  * Dropdown copy uses **Infil:** / **Phish:** prefixes; each `<option value>` is the `ChaosScenario` enum passed to
@@ -154,6 +157,11 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
       };
 
       try {
+        if (scenario === IRONTECH_CHAOS_L6_ACTION_TOKEN) {
+          await runIrontechChaosL6MockDrill();
+          return;
+        }
+
         const clientAttr = await fetchChaosLedgerClientAttribution();
         const tenantForChaos =
           activeTenantUuid?.trim() ||
@@ -479,12 +487,13 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           <option value="" disabled>
             Select Irontech Chaos drill…
           </option>
-          <optgroup label="Irontech Chaos Levels 1–5">
+          <optgroup label="Irontech Chaos Levels 1–6">
             {IRONTECH_CHAOS_LEVEL_DRILLS.map((d) => (
               <option key={d.scenario} value={d.scenario}>
                 {d.label}
               </option>
             ))}
+            <option value={IRONTECH_CHAOS_L6_ACTION_TOKEN}>{IRONTECH_CHAOS_LEVEL_6_DRILL.label}</option>
           </optgroup>
           <optgroup label="Adversary simulations">
             <option value="INFIL_CRED_STUFFING">Infil: Shadow Credential Stuffing</option>

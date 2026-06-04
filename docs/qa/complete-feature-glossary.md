@@ -103,14 +103,20 @@ Every visible component on your monitor screen is mapped below using industry-st
 ### 🕹️ Feature 3: Chaos Engineering Simulation Injector
 * **GRC Function ID:** `SIM-001`
 * **Exact Screen Coordinates:** Positioned directly within the middle section of the **Left Panel (22% Screen Width)**.
-* **Operational Purpose:** Injects simulated infrastructure disasters (such as mock ransomware strikes or network token timeouts) to validate background agent detection and self-healing response behaviors without risking production servers.
-* **Technical Mechanics:** Simulates real-world threats by triggering temporary state disruptions, forcing monitoring agents like `Ironlock` or `Ironwatch` to execute automated containment and quarantine playbooks.
+* **Operational Purpose:** Injects simulated infrastructure disasters and security threats to validate background agent detection, boundary isolation, and self-healing response playbooks without risking production infrastructure.
+* **Technical Mechanics:** Simulates distinct cyber-threat profiles by triggering temporary network or state disruptions, forcing monitoring agents like `Ironlock` or `Ironwatch` to execute automated containment and quarantine playbooks.
+
+> ⚠️ **CRITICAL CYBERSECURITY TAXONOMY NOTE FOR AUDITORS:**
+> **Cloud Exfiltration** and **Ransomware** are two entirely distinct cybersecurity threats that require completely different mitigation strategies.
+> - **Ransomware** is a malicious payload that encrypts local or network files to break resource *availability* in exchange for an extortion payment.
+> - **Cloud Exfiltration** is the unauthorized, often silent transfer of sensitive datasets outside of an organization's cloud perimeter, targeting a breach of data *confidentiality*.
+
 * **Step-by-Step Lab Validation:**
-  1. Locate the Chaos Engineering Simulation Injector block inside the middle tier of the Left Panel (22% screen width).
-  2. Click the simulation scenario selector dropdown menu (which defaults to reading *SELECT CHAOS THREAT SCENARIO...*).
-  3. **Select the Scenario Token:** From the list of options, click on **`MOCK_RNSM_v2`**. *(Note: This token represents the structural code label for the Ransomware Outbreak Mock Sync scenario).*
+  1. Locate the Chaos Engineering Simulation Injector block inside the middle tier of the **Left Panel (22% screen width)**.
+  2. Click the simulation scenario selector dropdown menu, which reads **`SELECT IRONTECH CHAOS DRILL...`**.
+  3. **Select the Ransomware Drill Scenario:** Scroll down to the bottom of the open dropdown options and click directly on **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**. *(Note: This scenario explicitly simulates a localized cryptographic extortion attack to test the automated state-freeze, token rotation, and data integrity verification protocols of the 19-agent workforce).*
   4. Click the bold primary trigger button positioned directly underneath the dropdown selector, labeled **`GENERATE CHAOS THREAT`**.
-  5. Observe the central audit logs. Verify that the platform's automated background workforce catches, flags, and neutralizes the hazard within microseconds.
+  5. Observe the central audit logs inside the Right Panel. Verify that the platform's automated background workforce catches, flags, and blocks the unauthorized execution path within microseconds without introducing data drift or financial ledger calculation errors.
 
 ---
 

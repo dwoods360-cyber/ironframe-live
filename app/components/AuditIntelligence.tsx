@@ -106,6 +106,9 @@ const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
   OPERATIONAL_DEFICIENCY_RESOLVED: "Deficiency resolved",
   OPERATIONAL_SELF_TEST_PASS: "Self-test pass",
   USER_INTERACTION_CLICK: "User interaction",
+  SECURITY_THREAT_INTERCEPTED: "Security threat intercepted",
+  INTERRUPT_CONTAINMENT_DEPLOYED: "Interrupt containment deployed",
+  CHAOS_AGENT_TELEMETRY: "Chaos agent telemetry",
 };
 
 const SERVER_ACTION_LABELS: Record<string, string> = {
@@ -1237,7 +1240,13 @@ export default function AuditIntelligence({
   const clientFiltered = useMemo(
     () =>
       (auditLogs ?? []).filter((entry) => {
-        if (entry.log_type === "SIMULATION") return false;
+        const isIrontechL6Telemetry =
+          (entry.metadata_tag?.includes("IRONTECH_CHAOS_L6") ?? false) ||
+          entry.action_type === "SECURITY_THREAT_INTERCEPTED" ||
+          entry.action_type === "INTERRUPT_CONTAINMENT_DEPLOYED" ||
+          (entry.action_type === "CHAOS_AGENT_TELEMETRY" &&
+            (entry.metadata_tag?.includes("IRONTECH_CHAOS_L6") ?? false));
+        if (entry.log_type === "SIMULATION" && !isIrontechL6Telemetry) return false;
         const isGrcBotSimulation =
           entry.user_id === "GRCBOT" || (entry.metadata_tag?.includes("SIMULATION|GRCBOT") ?? false);
         if (isGrcBotSimulation) return false;

@@ -104,6 +104,8 @@ type AgentStore = {
   setInitialThreats: (newThreats: PipelineThreat[]) => PipelineThreat[];
   clearActiveThreatById: (id: string) => void;
   appendRiskIngestionTerminalLine: (line: string) => void;
+  /** Clear DMZ terminal scratch without resetting intelligence stream (e.g. L6 mock drill). */
+  clearRiskIngestionTerminalLines: () => void;
   setTelemetryTenantScope: (uuid: string | null) => void;
   /** Advance phase when not locked (heartbeat). Returns false if Irongate lock is holding. */
   setIronwaveFromHeartbeat: (phase: IronwaveTelemetryPhase) => boolean;
@@ -194,6 +196,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     set((state) => ({
       activeThreats: state.activeThreats.filter((t) => t.id !== id),
     })),
+  clearRiskIngestionTerminalLines: () => set({ riskIngestionTerminalLines: [] }),
   appendRiskIngestionTerminalLine: (line) =>
     set((state) => {
       const prev = state.riskIngestionTerminalLines;

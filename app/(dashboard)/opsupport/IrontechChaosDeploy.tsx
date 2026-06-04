@@ -140,7 +140,9 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
     flushSync(() => {
       setIsInjecting(true);
       setError(null);
-      useAgentStore.getState().appendRiskIngestionTerminalLine(IRONCHAOS_INGRESS_INITIATED_LINE);
+      if (scenario !== IRONTECH_CHAOS_L6_ACTION_TOKEN) {
+        useAgentStore.getState().appendRiskIngestionTerminalLine(IRONCHAOS_INGRESS_INITIATED_LINE);
+      }
     });
 
     void (async () => {
@@ -513,6 +515,8 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           type="button"
           disabled={isInjecting || selectedScenario === ""}
           onClick={runInject}
+          data-audit-target="Chaos Simulation Triggered"
+          data-audit-section="Chaos Engineering Simulation Injector"
           className="flex w-full items-center justify-center gap-2 rounded-sm border border-fuchsia-500/85 bg-gradient-to-r from-fuchsia-950/95 via-fuchsia-950/80 to-zinc-950/95 px-2 py-2 text-[9px] font-black uppercase tracking-widest text-fuchsia-50 shadow-[0_0_14px_rgba(217,70,239,0.35)] transition-colors hover:from-fuchsia-900/95 hover:to-zinc-900/95 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5 shrink-0 text-fuchsia-200" aria-hidden />

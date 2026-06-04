@@ -3,7 +3,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { useRiskStore } from "@/app/store/riskStore";
-import { useAgentStore } from "@/app/store/agentStore";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import {
   resolveClickTargetDescriptor,
@@ -64,13 +63,9 @@ export default function AuditTrackingProvider({ children }: Props) {
           }
           const json = (await res.json()) as {
             ledgerEntry?: Parameters<typeof appendAuditLog>[0];
-            ironcastLine?: string;
           };
           if (json.ledgerEntry) {
             appendAuditLog(json.ledgerEntry);
-          }
-          if (json.ironcastLine) {
-            useAgentStore.getState().addStreamMessage(json.ironcastLine);
           }
         })
         .catch(() => undefined);

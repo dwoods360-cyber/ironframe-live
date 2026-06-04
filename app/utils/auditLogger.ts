@@ -30,7 +30,10 @@ export type AuditActionType =
   | "OPERATIONAL_DEFICIENCY_RESOLVED"
   | "OPERATIONAL_SELF_TEST_PASS"
   | "CHAOS_CONSTITUTIONAL_COLLAPSE"
-  | "USER_INTERACTION_CLICK";
+  | "USER_INTERACTION_CLICK"
+  | "SECURITY_THREAT_INTERCEPTED"
+  | "INTERRUPT_CONTAINMENT_DEPLOYED"
+  | "CHAOS_AGENT_TELEMETRY";
 export type AuditLogType = "GRC" | "APP_SYSTEM" | "SERVER" | "TELEMETRY" | "SIMULATION";
 
 /** Battlefield protocol — drives Audit Intelligence chroma + adversarial tagging. */

@@ -177,6 +177,8 @@ export default function TenantSwitcher() {
           value={selectValue}
           onChange={(ev) => void handleChange(ev)}
           disabled={isContextSwitching}
+          data-audit-target="Command Post Dropdown Activated"
+          data-audit-section="Global Nav Header"
           className={`max-w-[min(22rem,72vw)] cursor-pointer appearance-none bg-transparent pr-4 text-sm font-medium outline-none focus:ring-0 disabled:cursor-wait ${
             isContextSwitching ? "text-amber-300" : "text-slate-200"
           }`}

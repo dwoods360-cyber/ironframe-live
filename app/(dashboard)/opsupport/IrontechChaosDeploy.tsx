@@ -476,6 +476,8 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
         <select
           value={selectedScenario}
           disabled={isInjecting}
+          data-audit-target="Chaos Drill Dropdown Expanded"
+          data-audit-section="Chaos Engineering Simulation Injector"
           onChange={(e) => {
             const v = e.target.value;
             const opt = e.target.selectedOptions[0];

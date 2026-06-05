@@ -212,12 +212,23 @@ function threatEventSourcePlaneEquals(plane: "CHAOS" | "MANUAL" | "AGENT_DISCOVE
 }
 
 function threatEventThreadIdPresentWhere(): Prisma.ThreatEventWhereInput {
+  const emptyThreadMarkers: Prisma.ThreatEventWhereInput[] = [
+    { ingestionDetails: { contains: '"threadId": ""', mode: "insensitive" } },
+    { ingestionDetails: { contains: '"threadId":""', mode: "insensitive" } },
+    { ingestionDetails: { contains: '"orchestrationThreadId": ""', mode: "insensitive" } },
+    { ingestionDetails: { contains: '"orchestrationThreadId":""', mode: "insensitive" } },
+  ];
   return {
-    OR: [
-      { ingestionDetails: { contains: '"threadId": "', mode: "insensitive" } },
-      { ingestionDetails: { contains: '"threadId":"', mode: "insensitive" } },
-      { ingestionDetails: { contains: '"orchestrationThreadId": "', mode: "insensitive" } },
-      { ingestionDetails: { contains: '"orchestrationThreadId":"', mode: "insensitive" } },
+    AND: [
+      {
+        OR: [
+          { ingestionDetails: { contains: '"threadId": "', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"threadId":"', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"orchestrationThreadId": "', mode: "insensitive" } },
+          { ingestionDetails: { contains: '"orchestrationThreadId":"', mode: "insensitive" } },
+        ],
+      },
+      { NOT: { OR: emptyThreadMarkers } },
     ],
   };
 }

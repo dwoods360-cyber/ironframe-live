@@ -1868,8 +1868,10 @@ export default function ActiveRisksClient({
 
   const risksForBoard = purgePropRisksHidden ? [] : risks;
 
-  // Only show DB risks that are non-simulation when engines are OFF + optional tenant filter
+  // Active canvas: legacy `active_risks` rows must be simulation-flagged; GRC baselines stay off-board.
   const filteredRisks = risksForBoard.filter((r) => {
+    if ((r.source ?? "").trim().toUpperCase() === "GRC_BASELINE") return false;
+    if (r.isSimulation !== true) return false;
     if (!enginesOn && r.isSimulation === true) return false;
     if (selectedTenantName && r.company.name !== selectedTenantName) return false;
     if (r.threatId) {

@@ -17,7 +17,7 @@ export function parseActiveCanvasProvenance(
     const threadRaw =
       (typeof j.threadId === "string" ? j.threadId.trim() : "") ||
       (typeof j.orchestrationThreadId === "string" ? j.orchestrationThreadId.trim() : "");
-    return { sourcePlane, threadId: threadRaw || null };
+    return { sourcePlane, threadId: threadRaw.length > 0 ? threadRaw : null };
   } catch {
     return { sourcePlane: null, threadId: null };
   }

@@ -214,6 +214,7 @@ const DASHBOARD_EXCLUDED_BASELINE_RISK_TITLES = new Set([
   "Schneider Electric SCADA Vulnerability",
   "Azure Health API Exposure",
   "Palo Alto Firewall Misconfiguration",
+  "Compliance Audit 2026 — documented control sampling baseline",
 ]);
 
 /** JSON-safe serializer for mixed BigInt/Date payloads returned by server actions. */
@@ -437,7 +438,12 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
       },
     }),
     prisma.activeRisk.findMany({
-      where: { company: { tenantId: activeTenantUuid } },
+      where: {
+        company: { tenantId: activeTenantUuid },
+        /** Active canvas: simulation-flagged ingress only — excludes GRC program baselines. */
+        isSimulation: true,
+        NOT: { source: "GRC_BASELINE" },
+      },
       select: {
         id: true,
         company_id: true,

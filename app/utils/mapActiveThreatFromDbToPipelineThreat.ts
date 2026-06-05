@@ -33,5 +33,8 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     forensicCustody: parseForensicCustodyFromIngestion(r.ingestionDetails ?? undefined),
     chaosLevel: r.chaosLevel ?? undefined,
     systemImpact: r.systemImpact ?? undefined,
+    ingressJustification: r.ingressJustification ?? undefined,
+    suggestedRemediationOptions: r.suggestedRemediationOptions ?? undefined,
+    selectedPlaybookId: r.selectedPlaybookId ?? undefined,
   };
 }

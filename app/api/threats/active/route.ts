@@ -12,8 +12,7 @@ import {
   mapThreatEventRowsToPipelineThreatFromDb,
 } from "@/app/utils/activeThreatsBoardQuery";
 import { isClientDisconnectError } from "@/app/utils/isClientDisconnectError";
-import { getActiveTenantUuidFromCookies, isValidTenantUuid } from "@/app/utils/serverTenantContext";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
 import {
   getTasFingerprintSnapshot,
   resolveThreatStatusUnderConstitutionalLock,
@@ -21,10 +20,8 @@ import {
 } from "@/app/utils/tasFingerprint";
 
 /**
- * Active Risks API: no Next.js data cache; tenant = valid **`x-tenant-id`** header if present, else
- * **`ironframe-tenant`** cookie (see `getActiveTenantUuidFromCookies`), else **Medshield** UUID so the board
- * never “blacks out”. Prisma scope excludes **`RESOLVED` / `CLOSED_ARCHIVED`** via
- * {@link findActiveThreatEventRowsForBoard}.
+ * Active Risks API: no Next.js data cache; tenant = validated **`x-tenant-id`** (same Ironguard rules as `/api/dashboard`).
+ * Prisma scope excludes **`RESOLVED` / `CLOSED_ARCHIVED`** via {@link findActiveThreatEventRowsForBoard}.
  */
 export async function GET(request: NextRequest) {
   noStore();
@@ -34,13 +31,12 @@ export async function GET(request: NextRequest) {
   try {
     const integritySnap = await syncConstitutionalIntegrityEnforcement();
 
-    const headerTenant = request.headers.get("x-tenant-id")?.trim() ?? "";
-    const cookieTenant = await getActiveTenantUuidFromCookies();
-    const effectiveTenantUuid =
-      headerTenant && isValidTenantUuid(headerTenant)
-        ? headerTenant
-        : cookieTenant || TENANT_UUIDS.medshield;
-    const rows = await findActiveThreatEventRowsForBoard(effectiveTenantUuid);
+    const guard = await assertIronguardApiTenantOr403(request);
+    if (!guard.ok) {
+      return guard.response;
+    }
+
+    const rows = await findActiveThreatEventRowsForBoard(guard.tenantUuid);
     /** Defense-in-depth: Prisma already excludes terminal states; never surface RESOLVED on Active. */
     const visibleRows = rows.filter((r) => {
       const s = r.status as ThreatState;
@@ -58,7 +54,6 @@ export async function GET(request: NextRequest) {
         ),
       };
     });
-    console.log("FETCHED THREATS COUNT:", threats.length);
     const snap = getTasFingerprintSnapshot();
     return NextResponse.json(threats, {
       headers: {

@@ -9,6 +9,7 @@ import {
 } from '@/app/actions/threatActions';
 import { runChaosDrillIrontechLifecycleGatedAction } from '@/app/actions/chaosActions';
 import { fetchPipelineThreatsFromDb } from "@/app/actions/simulationActions";
+import { ironguardFetch } from "@/app/utils/apiClient";
 import { useAgentStore } from "@/app/store/agentStore";
 import { inferAgentKillAttribution } from "@/app/utils/agentKillAttribution";
 import type { CurrencyMagnitude } from "@/app/utils/riskFormatting";
@@ -26,6 +27,9 @@ import {
 } from "@/app/utils/activeThreatsBoardFetchCoop";
 import { belongsOnAttackVelocityPipeline } from "@/app/utils/chaosDiscoveryHold";
 import { isChaosForensicClosureLingerActive } from "@/app/utils/chaosForensicClosure";
+import { threatBelongsToTenantScope } from "@/app/utils/chaosTenantScope";
+import { hasVerifiedActiveCanvasProvenance } from "@/app/utils/activeCanvasProvenance";
+import { getIronguardEffectiveTenant } from "@/app/utils/apiClient";
 
 /** `ingestionDetails` JSON: Irontech drills stamped with `entityType: CHAOS_DRILL`. */
 function ingestionIndicatesChaosDrill(ingestionDetails: string | null | undefined): boolean {
@@ -171,6 +175,15 @@ export type PipelineThreat = {
   postMortemReportPath?: string | null;
   /** GRC Gold — Agent 5 / 6 / 13 forensic chain parsed from `ingestionDetails.forensicPath`. */
   forensicCustody?: Array<{ agentId: number; phase: string; signedAt: string }>;
+  /** Agent-provided ingress narrative (Irongate / Irontech chaos drills). */
+  ingressJustification?: string | null;
+  /** Click-to-bind remediation playbooks — satisfies resolve gate when selected. */
+  suggestedRemediationOptions?: Array<{
+    id: string;
+    label: string;
+    resolutionText: string;
+  }>;
+  selectedPlaybookId?: string | null;
 };
 
 type ThreatIndexById = Record<string, PipelineThreat>;
@@ -339,8 +352,8 @@ interface RiskState {
   threatActionError: { active: boolean; message: string };
   setThreatActionError: (v: { active: boolean; message: string }) => void;
 
-  /** True while acknowledgeThreat server action is in flight — reconcile radar must not run. */
-  isAcknowledgeInFlight: boolean;
+  /** Threat ids with acknowledge server action in flight — per-thread, not global. */
+  ackInFlightThreatIds: Record<string, true>;
 
   /** Threat detail drawer (dashboard): when set, open slide-over for this threat id */
   selectedThreatId: string | null;
@@ -641,7 +654,12 @@ export const useRiskStore = create<RiskState>((set, get) => ({
   }),
   acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
     set({ threatActionError: { active: false, message: "" } });
-    set({ isAcknowledgeInFlight: true });
+    if (get().ackInFlightThreatIds[id]) {
+      return { success: false, error: "Acknowledge already in flight for this threat." };
+    }
+    set((state) => ({
+      ackInFlightThreatIds: { ...state.ackInFlightThreatIds, [id]: true },
+    }));
     try {
       const result = await acknowledgeThreatAction(id, tenantId, operatorId, justification);
       if (result && typeof result === "object" && "success" in result && result.success === false) {
@@ -788,7 +806,11 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       });
       return { success: false, error: display };
     } finally {
-      set({ isAcknowledgeInFlight: false });
+      set((state) => {
+        const next = { ...state.ackInFlightThreatIds };
+        delete next[id];
+        return { ackInFlightThreatIds: next };
+      });
     }
   },
   confirmThreat: async (id, operatorId) => {
@@ -1235,7 +1257,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       recoveryBoardSyncPending: false,
       historicalThreatNames: {},
       threatActionError: { active: false, message: "" },
-      isAcknowledgeInFlight: false,
+      ackInFlightThreatIds: {},
       recordExpiredToast: { active: false, count: 0 },
       liabilityAlert: { active: false },
       liveMonitoringCount: 0,
@@ -1304,7 +1326,7 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     set({ threatActionError: v });
   },
 
-  isAcknowledgeInFlight: false,
+  ackInFlightThreatIds: {},
 
   selectedThreatId: null,
   activeRiskId: null,
@@ -1506,25 +1528,19 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     }
     const ctrl = supersedeActiveThreatsBoardFetch();
     try {
-      const res = await fetch("/api/threats/active", { cache: "no-store", signal: ctrl.signal });
+      const res = await ironguardFetch("/api/threats/active", { cache: "no-store", signal: ctrl.signal });
       if (!res.ok) return;
       const activeRows = (await res.json()) as PipelineThreat[];
-      const optimistic = useAgentStore.getState().activeThreats ?? [];
       const storeActive = get().activeThreats;
-      const terminal = new Set(["RESOLVED", "CLOSED_ARCHIVED"]);
+      const scopedTenant = getIronguardEffectiveTenant();
       const victoryLingerFromStore = storeActive.filter((t) => {
         if (activeRows.some((db) => db.id === t.id)) return false;
-        return isChaosForensicClosureLingerActive(t.ingestionDetails ?? null);
+        if (!isChaosForensicClosureLingerActive(t.ingestionDetails ?? null)) return false;
+        if (!hasVerifiedActiveCanvasProvenance(t.ingestionDetails ?? null)) return false;
+        return threatBelongsToTenantScope(t.ingestionDetails ?? null, scopedTenant);
       });
-      const optimisticExtra = optimistic.filter((t) => {
-        if (activeRows.some((db) => db.id === t.id)) return false;
-        if (victoryLingerFromStore.some((v) => v.id === t.id)) return false;
-        const st = (t.threatStatus ?? "").trim().toUpperCase();
-        if (terminal.has(st)) return false;
-        return true;
-      });
-      const withOptimistic = [...activeRows, ...victoryLingerFromStore, ...optimisticExtra];
-      const merged = useAgentStore.getState().setInitialThreats(withOptimistic);
+      const merged = [...activeRows, ...victoryLingerFromStore];
+      useAgentStore.getState().clearActiveThreatScratch();
       const activeIdSet = new Set(merged.map((t) => t.id));
       set((state) => ({
         activeThreats: merged,

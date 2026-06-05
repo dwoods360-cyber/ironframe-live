@@ -24,6 +24,7 @@ import ControlRoom from "@/app/components/ControlRoom";
 import ClockDriftBanner from "@/app/components/ClockDriftBanner";
 import ClockDriftMonitor from "@/app/components/ClockDriftMonitor";
 import { useRiskStore } from "@/app/store/riskStore";
+import { useAgentStore } from "@/app/store/agentStore";
 import {
   WORKFORCE_SIMULATION_PROCESSING_EVENT,
   combineThreatPlanesForWorkforce,
@@ -97,6 +98,8 @@ function inventoryCard(opts: {
     ? "remediating"
     : ps === "ALERT"
       ? "alert"
+      : ps === "TELEMETRY"
+        ? "telemetry"
       : ps === "ACTIVE"
         ? "active"
         : "idle";
@@ -108,6 +111,8 @@ function inventoryCard(opts: {
         ? "border-amber-500/55 shadow-[0_0_20px_rgba(245,158,11,0.38)] ring-1 ring-amber-500/35 motion-safe:animate-pulse [animation-duration:3s]"
       : shell === "alert"
         ? "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.5)] motion-safe:animate-pulse [animation-duration:3s]"
+        : shell === "telemetry"
+          ? "border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.6)] motion-safe:animate-pulse [animation-duration:2.5s]"
         : shell === "active"
           ? "border-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.4)] motion-safe:animate-pulse [animation-duration:3s]"
           : opts.statusKey === "LKG_VERIFIED"
@@ -248,11 +253,20 @@ export default function IntegrityHubClient({
 
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
+  const agentTelemetryPulseUntil = useAgentStore((s) => s.agentTelemetryPulseUntil);
 
   const combinedThreats = useMemo(
     () => combineThreatPlanesForWorkforce(activeThreats, pipelineThreats),
     [activeThreats, pipelineThreats],
   );
+
+  const combinedPulseUntil = useMemo(() => {
+    const out = { ...agentTelemetryPulseUntil };
+    for (const [name, until] of Object.entries(interactionPulseUntil)) {
+      out[name] = Math.max(out[name] ?? 0, until);
+    }
+    return out;
+  }, [agentTelemetryPulseUntil, interactionPulseUntil]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -493,7 +507,7 @@ export default function IntegrityHubClient({
                   const pulseState = mergeInventoryAgentWithPulse(
                     agent.name,
                     combinedThreats,
-                    interactionPulseUntil,
+                    combinedPulseUntil,
                   );
                   return (
                     <div key={agent.name}>

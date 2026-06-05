@@ -98,8 +98,10 @@ export function isRemoteSupportAwaitingJitGrant(
   if (!raw) return false;
   try {
     const j = JSON.parse(raw) as { remoteSupportJitAwaitingGrant?: unknown };
+    if (j.remoteSupportJitAwaitingGrant === false) return false;
     return j.remoteSupportJitAwaitingGrant === true;
   } catch {
+    if (/remoteSupportJitAwaitingGrant"\s*:\s*false/i.test(raw)) return false;
     return /"remoteSupportJitAwaitingGrant"\s*:\s*true/i.test(raw);
   }
 }
@@ -115,12 +117,14 @@ export function chaosRemoteSupportHandshakeSatisfied(
       sidecarTornDownAt?: unknown;
       remoteSupportJitAwaitingGrant?: unknown;
       chaosRemoteAccessGrantedAt?: unknown;
+      lifecycleStep?: unknown;
     };
     if (j.sidecarTornDownAt != null && String(j.sidecarTornDownAt).trim()) return true;
     if (j.chaosRemoteAccessGrantedAt != null && String(j.chaosRemoteAccessGrantedAt).trim()) {
       return true;
     }
     if (j.remoteSupportJitAwaitingGrant === false) return true;
+    if (j.lifecycleStep === "CLOSED_ARCHIVED" || j.lifecycleStep === "JIT_GRANTED") return true;
   } catch {
     if (/sidecarTornDownAt|chaosRemoteAccessGrantedAt|remoteSupportJitAwaitingGrant":\s*false/i.test(raw)) {
       return true;

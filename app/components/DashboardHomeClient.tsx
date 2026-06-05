@@ -12,6 +12,7 @@ import Header from './Header';
 import LiabilityAlertToast from './LiabilityAlertToast';
 import RecordExpiredToast from './RecordExpiredToast';
 import ThreatActionErrorToast from './ThreatActionErrorToast';
+import SimulationDispatchToast from './SimulationDispatchToast';
 import { useTenantContext } from '../context/TenantProvider';
 import { resolveEffectiveTenantUuidForActions } from '@/app/utils/resolveEffectiveTenantUuidForActions';
 import type { StreamAlert } from '../hooks/useAlerts';
@@ -1061,6 +1062,7 @@ export default function DashboardHomeClient({
         <LiabilityAlertToast />
         <RecordExpiredToast />
         <ThreatActionErrorToast />
+        <SimulationDispatchToast />
         {newThreatToast ? (
           <div
             role="status"
@@ -1253,6 +1255,14 @@ export default function DashboardHomeClient({
           ) : null}
 
           {!auditorViewEnabled ? (
+            <ThreatPipeline
+              supplyChainThreat={null}
+              showSocStream={true}
+              incomingAgentAlerts={liveAlerts}
+              setSelectedThreatId={setSelectedThreatId}
+            />
+          ) : null}
+          {!auditorViewEnabled ? (
             <section
               className={DASHBOARD_CENTER_RISK_STACK}
               aria-label="Active risks — four-stage lifecycle"
@@ -1264,14 +1274,6 @@ export default function DashboardHomeClient({
                 setSelectedThreatId={setSelectedThreatId}
               />
             </section>
-          ) : null}
-          {!auditorViewEnabled ? (
-            <ThreatPipeline
-              supplyChainThreat={null}
-              showSocStream={true}
-              incomingAgentAlerts={liveAlerts}
-              setSelectedThreatId={setSelectedThreatId}
-            />
           ) : null}
           {!auditorViewEnabled ? (
             <div className={`${DASHBOARD_CENTER_PAD_X} pb-2`}>

@@ -94,9 +94,7 @@ function useIngestionBootstrapVisual(
 }
 
 type Props = {
-  /** ESCALATED: inline Double-Check / Save block (Main Ops). Rendered above card body. */
-  manualRecoveryInline?: ReactNode;
-  /** ThreatEvent.status === ESCALATED (Phone Home) or PENDING_REMOTE_INTERVENTION (opens overlay). */
+  /** ThreatEvent.status === ESCALATED (Phone Home) or PENDING_REMOTE_INTERVENTION. */
   isEscalated: boolean;
   /** Level-3: muted gold remote support lane on the card. */
   isRemoteIntervention?: boolean;
@@ -109,8 +107,6 @@ type Props = {
   remoteAccessBusy?: boolean;
   className: string;
   children: ReactNode;
-  /** Opens manual recovery / remote overlay when card is activated. */
-  onEscalatedActivate?: () => void;
   /** When this value changes (e.g. per Irontech stream seq), card briefly shakes/pulses. */
   failureAnimToken?: string | null;
   /** Sprint 6.18: Irontech attempts 1–3 (ACTIVE, under three failures) or manual Attempt 4 in flight. */
@@ -139,6 +135,9 @@ type Props = {
   suppressAutoSurfaceOverride?: boolean;
   /** When set, AGENT_PIVOT HUD flash targets this threat id (amber pulse + overlay). */
   cardThreatId?: string | null;
+  /** Border-only alert pulse (does not animate card interior / text). */
+  /** Border-only pulse for chaos/sim processing — no whole-card opacity flicker. */
+  borderAlertPulse?: "critical" | "unassigned" | "processing" | null;
   /** Forensic neutralize lane: work-note attestation (≥50 chars) before Neutralize unlocks. */
   showNeutralizeAttestation?: boolean;
   /** Registry / bulk sync: current neutralize draft length for this card. */
@@ -159,7 +158,6 @@ type Props = {
  * Active Ops threat shell: escalated lock chrome, or Level-3 remote support strip + authorize toggle.
  */
 export function ThreatCard({
-  manualRecoveryInline,
   isEscalated,
   isRemoteIntervention = false,
   remoteTechId,
@@ -169,7 +167,6 @@ export function ThreatCard({
   remoteAccessBusy = false,
   className,
   children,
-  onEscalatedActivate,
   failureAnimToken,
   ironTechAgentPhase = null,
   ingestionBootstrapFromIso = null,
@@ -186,13 +183,13 @@ export function ThreatCard({
   showCompliance = false,
   suppressAutoSurfaceOverride = false,
   cardThreatId = null,
+  borderAlertPulse = null,
   showNeutralizeAttestation = false,
   onNeutralizeAttestationDraftChange,
   registryNeutralizeAttestationOk = true,
   actorDisplayNameForNeutralize,
   neutralizeAttestationContext = null,
 }: Props) {
-  const activateOverlay = isEscalated && onEscalatedActivate;
   const [failureAnimOn, setFailureAnimOn] = useState(false);
   const [handoffState, setHandoffState] = useState<"IDLE" | "AUTHORIZING" | "CONNECTED">("IDLE");
   const [machineAttestationCore, setMachineAttestationCore] = useState<string | null>(null);
@@ -590,12 +587,33 @@ export function ThreatCard({
 
   const ironwaveIrontechShell =
     isHeartbeatVisualStatus && cardTelemetryPhase === "SCANNING"
-      ? "!border-amber-500 !shadow-[0_0_22px_rgba(245,158,11,0.38)] !bg-gradient-to-br !from-slate-950/90 !to-amber-950/25 animate-pulse-amber"
+      ? "!border-amber-500/70 !bg-gradient-to-br !from-slate-950/90 !to-amber-950/25"
       : isHeartbeatVisualStatus && cardTelemetryPhase === "VERIFIED"
-        ? "!border-emerald-500 !shadow-[0_0_20px_rgba(16,185,129,0.28)] !bg-gradient-to-br !from-slate-950/90 !to-emerald-950/20 animate-flash-green"
+        ? "!border-emerald-500/70 !bg-gradient-to-br !from-slate-950/90 !to-emerald-950/20"
         : isHeartbeatVisualStatus && (cardTelemetryPhase === "ASSIGNED" || !hasLiveCardTelemetry)
-          ? "!border-cyan-400 !shadow-[0_0_18px_rgba(34,211,238,0.22)] !bg-gradient-to-br !from-slate-950/90 !to-cyan-950/25"
+          ? "!border-cyan-400/70 !bg-gradient-to-br !from-slate-950/90 !to-cyan-950/25"
           : "";
+
+  const borderRingPulseClass = (() => {
+    if (borderAlertPulse === "critical" || borderAlertPulse === "unassigned") {
+      return "threat-card-border-pulse-red";
+    }
+    if (borderAlertPulse === "processing") {
+      return "threat-card-border-pulse-amber";
+    }
+    if (pivotHudActive) return "threat-card-border-pulse-amber";
+    if (isVictoryLap) return "threat-card-border-pulse-emerald";
+    if (isHeartbeatVisualStatus && cardTelemetryPhase === "SCANNING") {
+      return "threat-card-border-pulse-amber";
+    }
+    if (isHeartbeatVisualStatus && cardTelemetryPhase === "VERIFIED") {
+      return "threat-card-border-pulse-emerald";
+    }
+    if (isStrictEscalated && !isRemoteIntervention && !infrastructureLimit) {
+      return "critical-lock-border";
+    }
+    return null;
+  })();
 
   const surfaceOverride = suppressAutoSurfaceOverride
     ? ""
@@ -605,12 +623,7 @@ export function ThreatCard({
       : isIngestionDiscoveryHold && statusNorm === "IDENTIFIED"
         ? "!border-amber-600/45 !bg-gradient-to-br !from-slate-950/90 !to-amber-950/20 !shadow-[0_0_14px_rgba(245,158,11,0.18)]"
       : statusNorm === "RESOLVED"
-        ? [
-            "!border-emerald-500/50 !bg-emerald-900/25 !shadow-[0_0_15px_rgba(16,185,129,0.2)]",
-            isVictoryLap ? "ring-2 ring-emerald-400/80 shadow-[0_0_28px_rgba(16,185,129,0.45)] animate-pulse" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")
+        ? "!border-emerald-500/50 !bg-emerald-900/25 !shadow-[0_0_15px_rgba(16,185,129,0.2)]"
         : forceIngressGray && !infrastructureLimit
           ? "!border-zinc-700 !bg-zinc-900"
           : isIrontechOperation || chaosScenario
@@ -621,35 +634,21 @@ export function ThreatCard({
 
   return (
     <div
-      role={activateOverlay ? "button" : undefined}
-      tabIndex={activateOverlay ? 0 : undefined}
-      onClick={
-        activateOverlay
-          ? () => {
-              onEscalatedActivate?.();
-            }
-          : undefined
-      }
-      onKeyDown={
-        activateOverlay
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onEscalatedActivate?.();
-              }
-            }
-          : undefined
-      }
-      className={`relative ${className} ${surfaceOverride} ${
-        failureAnimOn ? "threat-card-failure-shake threat-card-failure-pulse " : ""
+      className={`relative isolate ${className} ${surfaceOverride} ${
+        failureAnimOn ? "threat-card-failure-shake " : ""
       }${
         isStrictEscalated && isRemoteIntervention
           ? "threat-card-remote-support"
-          : isStrictEscalated
-            ? `${infrastructureLimit ? "" : "critical-lock-border"}${activateOverlay ? " cursor-pointer" : ""}`
-            : ""
+          : ""
       }`}
     >
+      {borderRingPulseClass ? (
+        <div
+          className={`threat-card-border-ring-layer ${borderRingPulseClass}`}
+          aria-hidden
+        />
+      ) : null}
+      <div className="relative z-[2] min-h-0">
       {pivotHudActive ? (
         <div
           className="pointer-events-none absolute inset-x-0 top-0 z-[40] flex justify-center px-2 pt-1"
@@ -783,8 +782,6 @@ export function ThreatCard({
           </p>
         </div>
       ) : null}
-
-      {manualRecoveryInline}
 
       {canShowRemoteHandoff && !suppressRemoteTechnicianHeader && (
         <div
@@ -1251,6 +1248,7 @@ export function ThreatCard({
           </p>
         </div>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { getChaosShadowDrillStages } from "@/app/config/chaosScenarioTelemetry";
 import { useRiskStore, type PipelineThreat } from "@/app/store/riskStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { IRONCHAOS_INGRESS_INITIATED_LINE } from "@/app/utils/dmzIngressRealtime";
+import { routeTerminalLineToForensicAudit } from "@/app/utils/forensicTerminalRouting";
 import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { useAdversarySimulatorStore } from "@/app/store/adversarySimulatorStore";
 import { appendAuditLog } from "@/app/utils/auditLogger";
@@ -35,10 +36,15 @@ import {
   IRONTECH_CHAOS_LEVEL_DRILLS,
   IRONTECH_CHAOS_L6_ACTION_TOKEN,
   IRONTECH_CHAOS_LEVEL_6_DRILL,
+  IRONTECH_CHAOS_L6_AGENT_LINES,
   isIrontechChaosLevelScenario,
 } from "@/app/config/irontechChaosDrillOptions";
 import { runIrontechChaosL6MockDrill } from "@/app/lib/irontechChaosL6Drill";
 import { isConstitutionalChaosDrill } from "@/app/config/chaosRegistry";
+import {
+  buildSimulationDispatchMessage,
+  dispatchSimulationDispatchNotice,
+} from "@/app/utils/simulationDispatchOutcome";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE" | typeof IRONTECH_CHAOS_L6_ACTION_TOKEN;
@@ -93,6 +99,39 @@ function parseIngestionEntityType(raw: string | null | undefined): string | null
   }
 }
 
+/** Shadow telemetry only — no Active Risks / pipeline card materialization. */
+async function runPerimeterOnlyShadowDrill(
+  threatId: string,
+  chaosScenario: ChaosScenario,
+  onError: (message: string) => void,
+): Promise<boolean> {
+  const stages = getChaosShadowDrillStages(chaosScenario);
+  for (let i = 0; i < stages.length; i++) {
+    if (i > 0) {
+      await waitChaosTick();
+    }
+    const st = stages[i];
+    const stepRes = await applyChaosShadowDrillTelemetryStepAction(threatId, {
+      terminalLine: st.terminalLine,
+      terminalTone: st.terminalTone,
+      phase: st.phase,
+      assigneeId: st.assigneeId,
+      assigneeLabel: st.assigneeLabel,
+      directiveId: st.directiveId,
+      recordObserverConcurrenceVerified: st.recordObserverConcurrenceVerified,
+    });
+    if (!stepRes.ok) {
+      onError(stepRes.error ?? `Telemetry step ${i + 1} failed.`);
+      return false;
+    }
+    if (stepRes.gavelStruck) {
+      markRegistryResolvedForThreatEvent(threatId, stepRes.resolvedAt);
+    }
+    window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+  }
+  return true;
+}
+
 export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const router = useRouter();
   const { activeTenantUuid, tenantFetch } = useTenantContext();
@@ -100,7 +139,7 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
   const { isSimulationMode } = useSystemConfigStore();
   const [logDive, setLogDive] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isInjecting, setIsInjecting] = useState(false);
+  const [injectingScenarios, setInjectingScenarios] = useState<Set<string>>(() => new Set());
   const [selectedScenario, setSelectedScenario] = useState<"" | ChaosDeployScenario>("");
   const [selectedScenarioLabel, setSelectedScenarioLabel] = useState("");
   const selectedThreatId = useRiskStore((s) => s.selectedThreatId);
@@ -138,10 +177,10 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
     const scenario = selectedScenario;
     const scenarioLabelForServer = selectedScenarioLabel.trim();
     flushSync(() => {
-      setIsInjecting(true);
+      setInjectingScenarios((prev) => new Set(prev).add(scenario));
       setError(null);
       if (scenario !== IRONTECH_CHAOS_L6_ACTION_TOKEN) {
-        useAgentStore.getState().appendRiskIngestionTerminalLine(IRONCHAOS_INGRESS_INITIATED_LINE);
+        routeTerminalLineToForensicAudit(IRONCHAOS_INGRESS_INITIATED_LINE);
       }
     });
 
@@ -161,6 +200,17 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
       try {
         if (scenario === IRONTECH_CHAOS_L6_ACTION_TOKEN) {
           await runIrontechChaosL6MockDrill();
+          const forensicLine =
+            IRONTECH_CHAOS_L6_AGENT_LINES[IRONTECH_CHAOS_L6_AGENT_LINES.length - 1] ?? "";
+          dispatchSimulationDispatchNotice({
+            scenarioName: IRONTECH_CHAOS_LEVEL_6_DRILL.label,
+            message: buildSimulationDispatchMessage(
+              IRONTECH_CHAOS_LEVEL_6_DRILL.label,
+              forensicLine,
+            ),
+            forensicLine,
+          });
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
           return;
         }
 
@@ -208,6 +258,15 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             description: `[SIMULATION_DATA] Constitutional collapse armed for tenant ${tenantForChaos.slice(0, 8)}…`,
             metadata_tag: "SIMULATION|CONSTITUTIONAL_COLLAPSE",
           });
+          dispatchSimulationDispatchNotice({
+            scenarioName: "Constitutional Collapse",
+            message: buildSimulationDispatchMessage(
+              "Constitutional Collapse",
+              "[SIMULATION_DATA] Constitutional integrity hash invalidated — rebaseline workflow armed. No Active Risks card required.",
+            ),
+            forensicLine:
+              "[SIMULATION_DATA] Constitutional integrity hash invalidated — rebaseline workflow armed.",
+          });
           window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
           return;
         }
@@ -240,6 +299,32 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
 
         const chaosScenario =
           scenario === "CONSTITUTIONAL_COLLAPSE" ? null : (scenario as ChaosScenario);
+
+        if (!res.cardProduced) {
+          dispatchSimulationDispatchNotice({
+            scenarioName: res.scenarioDisplayName,
+            message: res.message,
+            forensicLine: res.forensicLine,
+          });
+          if (chaosScenario) {
+            const perimeterOk = await runPerimeterOnlyShadowDrill(
+              res.threatId,
+              chaosScenario,
+              (msg) => setError(msg),
+            );
+            if (!perimeterOk) return;
+          }
+          appendAuditLog({
+            action_type: "RED_TEAM_SIMULATION_START",
+            log_type: "SIMULATION",
+            description: res.message,
+            metadata_tag: `SIMULATION|PERIMETER_NEUTRALIZED|${chaosScenario ?? scenario}`,
+          });
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+          void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+          router.refresh();
+          return;
+        }
 
         if (chaosScenario && isChaosInfilScenario(chaosScenario)) {
           setInfiltrActive(true);
@@ -450,7 +535,13 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        flushSync(() => setIsInjecting(false));
+        flushSync(() => {
+          setInjectingScenarios((prev) => {
+            const next = new Set(prev);
+            next.delete(scenario);
+            return next;
+          });
+        });
         await syncArm();
       }
     })();
@@ -477,7 +568,6 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
         </div>
         <select
           value={selectedScenario}
-          disabled={isInjecting}
           data-audit-target="Chaos Drill Dropdown Expanded"
           data-audit-section="Chaos Engineering Simulation Injector"
           onChange={(e) => {
@@ -513,14 +603,14 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
         </select>
         <button
           type="button"
-          disabled={isInjecting || selectedScenario === ""}
+          disabled={selectedScenario === "" || injectingScenarios.has(selectedScenario)}
           onClick={runInject}
           data-audit-target="Chaos Simulation Triggered"
           data-audit-section="Chaos Engineering Simulation Injector"
           className="flex w-full items-center justify-center gap-2 rounded-sm border border-fuchsia-500/85 bg-gradient-to-r from-fuchsia-950/95 via-fuchsia-950/80 to-zinc-950/95 px-2 py-2 text-[9px] font-black uppercase tracking-widest text-fuchsia-50 shadow-[0_0_14px_rgba(217,70,239,0.35)] transition-colors hover:from-fuchsia-900/95 hover:to-zinc-900/95 disabled:opacity-50"
         >
           <Skull className="h-3.5 w-3.5 shrink-0 text-fuchsia-200" aria-hidden />
-          {isInjecting
+          {selectedScenario !== "" && injectingScenarios.has(selectedScenario)
             ? "Telemetry…"
             : isConstitutionalChaosDrill(selectedScenario)
               ? "ARM CONSTITUTIONAL COLLAPSE"

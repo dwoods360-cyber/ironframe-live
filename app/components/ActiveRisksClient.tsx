@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { flushSync } from 'react-dom';
 import type { ChangeEvent, MouseEvent } from 'react';
 import Link from 'next/link';
@@ -20,10 +19,13 @@ import {
   getRemoteAccessAdminEligibility,
   toggleRemoteAccessAuthorization,
   generateSimulationApproval,
+  primeAgentPlaybookSelectionAction,
+  primeManualJustificationAction,
   deprioritizeAllAgentsPanicAction,
   triggerInfiltrationDrill,
   type AssignmentChangedLogEntry,
 } from '@/app/actions/threatActions';
+import { parseAgentIngressFromIngestion } from '@/app/utils/agentIngressJustification';
 import { triggerDeepTrace, executeTraceAction } from '@/app/actions/ironsightActions';
 import type { PipelineThreat } from '@/app/store/riskStore';
 import { useKimbotStore } from '@/app/store/kimbotStore';
@@ -42,10 +44,10 @@ import { useAgentStore } from '@/app/store/agentStore';
 import { ThreatCard } from '@/app/components/ThreatCard';
 import PostMortemReportSection from '@/app/components/PostMortemReportSection';
 import { PipelineSelfTestBar } from '@/app/components/ui/PipelineSelfTestBar';
-import ManualRecoveryOverlay from '@/app/components/ManualRecoveryOverlay';
-import InlineManualRecoveryBlock from '@/app/components/InlineManualRecoveryBlock';
 import GovernanceHeartbeat from '@/components/GovernanceHeartbeat';
 import { grantRemoteAccessAction } from '@/app/actions/chaosActions';
+import { Tier3HandoffCard } from '@/app/components/Tier3HandoffCard';
+import { isChaosL4HandoffActive } from '@/app/utils/chaosL4Lifecycle';
 import ChaosShadowAuditFeed from '@/app/components/chaos/ChaosShadowAuditFeed';
 import { fetchChaosLedgerClientAttribution } from '@/app/utils/chaosClientAttribution';
 import {
@@ -66,6 +68,8 @@ import {
   requestVictoryLapFromNeutralize,
 } from '@/app/utils/activeThreatLifecycleBridge';
 import { isChaosThreatIdentifiedPipelineRow } from '@/app/utils/chaosDiscoveryHold';
+import { threatBelongsToTenantScope } from '@/app/utils/chaosTenantScope';
+import { hasVerifiedActiveCanvasProvenance } from '@/app/utils/activeCanvasProvenance';
 import {
   FORENSIC_ATTESTATION_MIN,
   chaosDrillOperatorConcurrenceSatisfied,
@@ -271,6 +275,33 @@ function displayPrimaryCtaLabel(simulationMode: boolean, raw: string): string {
     default:
       return raw;
   }
+}
+
+const MANUAL_PLAYBOOK_INPUT_VALUE = "MANUAL_INPUT";
+
+function computeAgentPlaybookResolutionReady(params: {
+  cardKey: string;
+  resolutionText: string;
+  suggestedOptions: Array<{ id: string }>;
+  ingressJustification: string | null | undefined;
+  selectedPlaybookId: string | null | undefined;
+  playbookSelectionByCardKey: Record<string, string>;
+  manualJustificationPrimedByCardKey: Record<string, boolean>;
+  skipAgentPlaybookGate?: boolean;
+}): boolean {
+  const lenOk = params.resolutionText.trim().length >= 50;
+  if (params.skipAgentPlaybookGate) return lenOk;
+  const hasOptions = params.suggestedOptions.length > 0;
+  const ingress = params.ingressJustification?.trim() || null;
+  const hasAgentIngressUi = hasOptions || Boolean(ingress);
+  if (!hasAgentIngressUi) return lenOk;
+  const selectedOption =
+    params.playbookSelectionByCardKey[params.cardKey] ?? params.selectedPlaybookId ?? "";
+  if (!selectedOption) return false;
+  if (selectedOption === MANUAL_PLAYBOOK_INPUT_VALUE) {
+    return lenOk && params.manualJustificationPrimedByCardKey[params.cardKey] === true;
+  }
+  return lenOk;
 }
 
 function chaosBoardStatusPillText(
@@ -1076,6 +1107,7 @@ export default function ActiveRisksClient({
   }, []);
   const activeThreats = useRiskStore((state) => state.activeThreats);
   const replaceActiveThreats = useRiskStore((state) => state.replaceActiveThreats);
+  const replacePipelineThreats = useRiskStore((state) => state.replacePipelineThreats);
   const confirmThreat = useRiskStore((state) => state.confirmThreat);
   const resolveThreat = useRiskStore((state) => state.resolveThreat);
   const revertThreatToPipeline = useRiskStore((state) => state.revertThreatToPipeline);
@@ -1108,12 +1140,19 @@ export default function ActiveRisksClient({
   }, [handshakeRole]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
-    console.log("DEBUG: Engines State:", { enginesOn, kimbotEnabled, grcBotEnabled });
-  }, [enginesOn, kimbotEnabled, grcBotEnabled]);
+    if (!effectiveTenantUuid?.trim()) return;
+    void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+  }, [effectiveTenantUuid]);
 
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
+  const [playbookPrimingThreatId, setPlaybookPrimingThreatId] = useState<string | null>(null);
+  const [playbookSelectionByCardKey, setPlaybookSelectionByCardKey] = useState<Record<string, string>>({});
+  const [manualJustificationPrimedByCardKey, setManualJustificationPrimedByCardKey] = useState<
+    Record<string, boolean>
+  >({});
+  const MANUAL_PLAYBOOK_INPUT = MANUAL_PLAYBOOK_INPUT_VALUE;
+  const manualPrimeDebounceRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [workNotes, setWorkNotes] = useState<Record<string, WorkNote[]>>({});
   const workNotesRef = useRef(workNotes);
   workNotesRef.current = workNotes;
@@ -1128,9 +1167,8 @@ export default function ActiveRisksClient({
     text: string;
     variant: 'info' | 'error';
   } | null>(null);
-  const [traceRunningThreatId, setTraceRunningThreatId] = useState<string | null>(null);
+  const [traceRunningThreatIds, setTraceRunningThreatIds] = useState<Set<string>>(() => new Set());
   const [executingActionKey, setExecutingActionKey] = useState<string | null>(null);
-  const [recoveryThreatId, setRecoveryThreatId] = useState<string | null>(null);
   const [resolvingThreatIds, setResolvingThreatIds] = useState<Record<string, boolean>>({});
   const [remoteAccessAdminEligible, setRemoteAccessAdminEligible] = useState(false);
   const [remoteAccessBusyThreatId, setRemoteAccessBusyThreatId] = useState<string | null>(null);
@@ -1140,32 +1178,10 @@ export default function ActiveRisksClient({
     threatId: string;
     markdownAuditBlock: string;
   } | null>(null);
-  const [manualRecoveryBusyThreatId, setManualRecoveryBusyThreatId] = useState<string | null>(null);
-  const [recoveryFailureProbeById, setRecoveryFailureProbeById] = useState<Record<string, string>>({});
   const optimisticProcessingUntilRef = useRef<Map<string, number>>(new Map());
   const optimisticSettleTimersRef = useRef<Map<string, number>>(new Map());
   /** After dual-key claim, `focus()` moves the cursor into the remediation log (one textarea per card id). */
   const resolutionTextareaByCardIdRef = useRef<Record<string, HTMLTextAreaElement | null>>({});
-  const handleManualRecoveryBusy = useCallback((threatId: string, busy: boolean) => {
-    setManualRecoveryBusyThreatId((prev) => {
-      if (busy) return threatId;
-      return prev === threatId ? null : prev;
-    });
-  }, []);
-  const handleRecoveryErrorProbeChange = useCallback((threatId: string, text: string | null) => {
-    setRecoveryFailureProbeById((prev) => {
-      const next = { ...prev };
-      if (text != null && text.trim() !== "") {
-        const v = text.trim();
-        if (next[threatId] === v) return prev;
-        next[threatId] = v;
-      } else {
-        if (!(threatId in next)) return prev;
-        delete next[threatId];
-      }
-      return next;
-    });
-  }, []);
   /** Registry / bulk gates: neutralize attestation drafts (≥50 chars per id). */
   const validateBulkNeutralizeAttestation = useCallback(
     (threatIds: string[]) =>
@@ -1182,6 +1198,23 @@ export default function ActiveRisksClient({
   const exitingThreatIdsRef = useRef(exitingThreatIds);
   exitingThreatIdsRef.current = exitingThreatIds;
   const [lifecycleSweep, setLifecycleSweep] = useState(0);
+
+  const prevTenantUuidRef = useRef<string | null>(null);
+  useEffect(() => {
+    const tid = effectiveTenantUuid?.trim() ?? '';
+    const prev = prevTenantUuidRef.current;
+    if (prev && tid && prev !== tid) {
+      replaceActiveThreats([]);
+      useAgentStore.getState().clearActiveThreatScratch();
+      useRiskStore.getState().replacePipelineThreats([]);
+      setStates({});
+      setLifecycleRegistry({});
+      setExitingThreatIds(new Set());
+      void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
+    }
+    prevTenantUuidRef.current = tid || null;
+  }, [effectiveTenantUuid, replaceActiveThreats, replacePipelineThreats]);
+
   const threatStatusPrevRef = useRef<Record<string, string>>({});
   const victoryPurgeScheduledRef = useRef(new Set<string>());
   const terminalResolvedSeenAtRef = useRef(new Map<string, number>());
@@ -1425,6 +1458,78 @@ export default function ActiveRisksClient({
   }, [activeThreats]);
 
   useEffect(() => {
+    setPlaybookSelectionByCardKey((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const t of activeThreats) {
+        if (!t.selectedPlaybookId) continue;
+        if (next[t.id]) continue;
+        next[t.id] = t.selectedPlaybookId;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+    setResolutionDrafts((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const t of activeThreats) {
+        if (!t.selectedPlaybookId) continue;
+        if (t.selectedPlaybookId === MANUAL_PLAYBOOK_INPUT_VALUE) {
+          if (!prev[t.id] && t.ingestionDetails) {
+            try {
+              const ing = JSON.parse(String(t.ingestionDetails)) as {
+                manualJustificationText?: string;
+                selectedPlaybookResolutionText?: string;
+              };
+              const manualText =
+                ing.manualJustificationText?.trim() ||
+                ing.selectedPlaybookResolutionText?.trim() ||
+                "";
+              if (manualText.length >= FORENSIC_ATTESTATION_MIN) {
+                next[t.id] = manualText;
+                changed = true;
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+          continue;
+        }
+        if (!t.suggestedRemediationOptions?.length) continue;
+        const opt = t.suggestedRemediationOptions.find((o) => o.id === t.selectedPlaybookId);
+        if (!opt || prev[t.id]) continue;
+        next[t.id] = opt.resolutionText;
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+    setManualJustificationPrimedByCardKey((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const t of activeThreats) {
+        if (t.selectedPlaybookId !== MANUAL_PLAYBOOK_INPUT_VALUE) continue;
+        if (next[t.id]) continue;
+        try {
+          const raw = t.ingestionDetails;
+          const ing =
+            raw == null
+              ? null
+              : typeof raw === "string"
+                ? (JSON.parse(raw) as Record<string, unknown>)
+                : (raw as Record<string, unknown>);
+          if (ing?.agentPlaybookGatePrimed === true) {
+            next[t.id] = true;
+            changed = true;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activeThreats]);
+
+  useEffect(() => {
     const iv = window.setInterval(() => {
       const now = Date.now();
 
@@ -1569,7 +1674,7 @@ export default function ActiveRisksClient({
     if (activeRow && isChaosDrillThreat(activeRow)) {
       return;
     }
-    setTraceRunningThreatId(tid);
+    setTraceRunningThreatIds((prev) => new Set(prev).add(tid));
     startTraceTransition(() => {
       void triggerDeepTrace(tid)
         .then(async (res) => {
@@ -1579,7 +1684,13 @@ export default function ActiveRisksClient({
             setThreatActionError({ active: true, message: res.error });
           }
         })
-        .finally(() => setTraceRunningThreatId(null));
+        .finally(() => {
+          setTraceRunningThreatIds((prev) => {
+            const next = new Set(prev);
+            next.delete(tid);
+            return next;
+          });
+        });
     });
   };
 
@@ -1629,14 +1740,11 @@ export default function ActiveRisksClient({
         setSuccessFlash({});
         setRiskSearchQuery('');
         setResolvingThreatIds({});
-        setRecoveryThreatId(null);
-        setTraceRunningThreatId(null);
+        setTraceRunningThreatIds(new Set());
         setExecutingActionKey(null);
         setExecutionToast(null);
         setRemoteAccessBusyThreatId(null);
         setGrantRemoteJitBusyThreatId(null);
-        setManualRecoveryBusyThreatId(null);
-        setRecoveryFailureProbeById({});
         setAuditHistoryModalOpen(false);
         setActiveAction(null);
         setActiveActionCardId(null);
@@ -1764,6 +1872,15 @@ export default function ActiveRisksClient({
   const filteredRisks = risksForBoard.filter((r) => {
     if (!enginesOn && r.isSimulation === true) return false;
     if (selectedTenantName && r.company.name !== selectedTenantName) return false;
+    if (r.threatId) {
+      const linked = activeThreats.find((t) => t.id === r.threatId);
+      if (
+        linked &&
+        !threatBelongsToTenantScope(linked.ingestionDetails ?? null, effectiveTenantUuid)
+      ) {
+        return false;
+      }
+    }
     return true;
   });
   // Only hide legacy optimistic ids when engines are OFF. DB-backed ids always pass that gate.
@@ -1771,10 +1888,12 @@ export default function ActiveRisksClient({
    *  (company handshake label like "Medshield Health") against `industry`/`target` (`ChaosLab`, sector entity, …) or all cards vanish. */
   const filteredActiveThreats = useMemo(() => {
     return activeThreats.filter((t) => {
+      if (!hasVerifiedActiveCanvasProvenance(t.ingestionDetails ?? null)) return false;
       if (!enginesOn && (t.id.startsWith("grcbot-") || t.id.startsWith("kimbot-"))) return false;
+      if (!threatBelongsToTenantScope(t.ingestionDetails ?? null, effectiveTenantUuid)) return false;
       return true;
     });
-  }, [activeThreats, enginesOn]);
+  }, [activeThreats, enginesOn, effectiveTenantUuid]);
 
   const visibleRisks = filteredRisks.filter((r) => states[r.id] !== 'resolved');
   const visibleActiveThreats = filteredActiveThreats.filter((t) => {
@@ -1940,11 +2059,11 @@ export default function ActiveRisksClient({
   runDeepTraceRef.current = runDeepTrace;
 
   useEffect(() => {
-    if (traceRunningThreatId != null) return;
     const st = statesRef.current;
     const tryIgnite = (threatLike: unknown, tid: string): boolean => {
       const id = tid.trim();
       if (!id || ironsightAutoIgnitedRef.current.has(id)) return false;
+      if (traceRunningThreatIds.has(id)) return false;
       if (isChaosDrillThreat(threatLike)) return false;
       if (!threatNeedsIronsightAutoTrace(threatLike)) return false;
       ironsightAutoIgnitedRef.current.add(id);
@@ -1965,7 +2084,7 @@ export default function ActiveRisksClient({
       if (!tid) continue;
       if (tryIgnite(r, tid)) return;
     }
-  }, [ironsightAutoIgniteFingerprint, traceRunningThreatId]);
+  }, [ironsightAutoIgniteFingerprint, traceRunningThreatIds]);
 
   const threatEventAssigneeById = useMemo(() => {
     const m = new Map<string, string>();
@@ -2073,11 +2192,36 @@ export default function ActiveRisksClient({
       });
       return;
     }
-    if (text.length < 50) return;
+    const riskThreatRow = useRiskStore.getState().activeThreats.find((t) => t.id === tid);
+    const parsed = parseAgentIngressFromIngestion(
+      riskThreatRow?.ingestionDetails ?? null,
+    );
+    const resolutionReady = computeAgentPlaybookResolutionReady({
+      cardKey: risk.id,
+      resolutionText: text,
+      suggestedOptions:
+        riskThreatRow?.suggestedRemediationOptions ?? parsed?.suggestedRemediationOptions ?? [],
+      ingressJustification:
+        riskThreatRow?.ingressJustification ?? parsed?.ingressJustification ?? null,
+      selectedPlaybookId: riskThreatRow?.selectedPlaybookId ?? null,
+      playbookSelectionByCardKey,
+      manualJustificationPrimedByCardKey,
+    });
+    if (!resolutionReady) return;
     try {
       await resolveThreat(tid, 'admin-user-01', text, actorDisplayLabel);
       setStates((prev) => ({ ...prev, [risk.id]: 'resolved' }));
       setResolutionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[risk.id];
+        return next;
+      });
+      setPlaybookSelectionByCardKey((prev) => {
+        const next = { ...prev };
+        delete next[risk.id];
+        return next;
+      });
+      setManualJustificationPrimedByCardKey((prev) => {
         const next = { ...prev };
         delete next[risk.id];
         return next;
@@ -2095,6 +2239,107 @@ export default function ActiveRisksClient({
     setCustomJustification('');
   };
 
+  const handlePlaybookDropdownChange = (
+    cardKey: string,
+    threatId: string,
+    value: string,
+    options: Array<{ id: string; label: string; resolutionText: string }>,
+  ) => {
+    setPlaybookSelectionByCardKey((prev) => ({ ...prev, [cardKey]: value }));
+    setThreatActionError({ active: false, message: "" });
+
+    if (value === MANUAL_PLAYBOOK_INPUT) {
+      setManualJustificationPrimedByCardKey((prev) => {
+        const next = { ...prev };
+        delete next[cardKey];
+        return next;
+      });
+      setResolutionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[cardKey];
+        return next;
+      });
+      return;
+    }
+
+    setManualJustificationPrimedByCardKey((prev) => {
+      const next = { ...prev };
+      delete next[cardKey];
+      return next;
+    });
+
+    if (!value) {
+      setResolutionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[cardKey];
+        return next;
+      });
+      return;
+    }
+
+    void handleAgentPlaybookSelect(threatId, cardKey, value);
+  };
+
+  const handleManualJustificationPrime = async (
+    threatId: string,
+    cardKey: string,
+    justificationText: string,
+  ) => {
+    const trimmed = justificationText.trim();
+    if (trimmed.length < FORENSIC_ATTESTATION_MIN) return;
+    if (manualJustificationPrimedByCardKey[cardKey]) return;
+
+    setPlaybookPrimingThreatId(threatId);
+    setThreatActionError({ active: false, message: '' });
+    try {
+      const res = await primeManualJustificationAction(threatId, trimmed);
+      if (!res.success) {
+        setThreatActionError({ active: true, message: res.error });
+        return;
+      }
+      setResolutionDrafts((prev) => ({ ...prev, [cardKey]: res.resolutionText }));
+      setManualJustificationPrimedByCardKey((prev) => ({ ...prev, [cardKey]: true }));
+      await refreshActiveThreatsFromDb();
+      router.refresh();
+    } finally {
+      setPlaybookPrimingThreatId(null);
+    }
+  };
+
+  const scheduleManualJustificationPrime = (
+    threatId: string,
+    cardKey: string,
+    justificationText: string,
+  ) => {
+    const existing = manualPrimeDebounceRef.current[cardKey];
+    if (existing) clearTimeout(existing);
+    manualPrimeDebounceRef.current[cardKey] = setTimeout(() => {
+      delete manualPrimeDebounceRef.current[cardKey];
+      void handleManualJustificationPrime(threatId, cardKey, justificationText);
+    }, 600);
+  };
+
+  const handleAgentPlaybookSelect = async (
+    threatId: string,
+    cardKey: string,
+    playbookId: string,
+  ) => {
+    setPlaybookPrimingThreatId(threatId);
+    setThreatActionError({ active: false, message: '' });
+    try {
+      const res = await primeAgentPlaybookSelectionAction(threatId, playbookId);
+      if (!res.success) {
+        setThreatActionError({ active: true, message: res.error });
+        return;
+      }
+      setResolutionDrafts((prev) => ({ ...prev, [cardKey]: res.resolutionText }));
+      await refreshActiveThreatsFromDb();
+      router.refresh();
+    } finally {
+      setPlaybookPrimingThreatId(null);
+    }
+  };
+
   const resolutionJustificationBlock = (
     cardKey: string,
     options?: {
@@ -2105,6 +2350,12 @@ export default function ActiveRisksClient({
       threatAssigneeId?: string | null;
       /** After claim, which placeholder copy to use. */
       unlockedSop?: "att" | "governance" | "generic";
+      agentPlaybook?: {
+        threatId: string;
+        ingressJustification?: string | null;
+        options: Array<{ id: string; label: string; resolutionText: string }>;
+        selectedPlaybookId?: string | null;
+      };
     },
   ) => {
     const resolutionText = resolutionDrafts[cardKey] ?? '';
@@ -2113,11 +2364,39 @@ export default function ActiveRisksClient({
     const claimLocked = options?.claimLocked === true;
     const attbotBreach = options?.attbotBreach === true;
     const unlockedSop = options?.unlockedSop ?? "generic";
+    const agentPlaybook = options?.agentPlaybook;
+    const hasPlaybookOptions = (agentPlaybook?.options.length ?? 0) > 0;
+    const hasAgentIngressUi =
+      agentPlaybook != null &&
+      (hasPlaybookOptions || Boolean(agentPlaybook.ingressJustification?.trim()));
+    const selectedPlaybookId = agentPlaybook?.selectedPlaybookId ?? null;
+    const playbookPriming =
+      agentPlaybook != null && playbookPrimingThreatId === agentPlaybook.threatId;
+    const selectedOption =
+      playbookSelectionByCardKey[cardKey] ?? selectedPlaybookId ?? "";
+    const manualInputMode = selectedOption === MANUAL_PLAYBOOK_INPUT;
+    const manualJustificationBound = manualInputMode && lenOk && manualJustificationPrimedByCardKey[cardKey];
+    const playbookBound =
+      hasPlaybookOptions &&
+      selectedOption.length > 0 &&
+      selectedOption !== MANUAL_PLAYBOOK_INPUT &&
+      lenOk;
     const labelText = options?.sopLabel?.trim()
       ? options.sopLabel
-      : "RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS)";
+      : hasAgentIngressUi
+        ? "PRE-VERIFIED PLAYBOOK OPTIONS"
+        : "RESOLUTION JUSTIFICATION (MIN 50 CHARACTERS)";
     const placeholder = (() => {
       if (claimLocked) return "Ownership required to initiate log...";
+      if (manualInputMode) {
+        return "Enter custom compliance justification (minimum 50 characters required)...";
+      }
+      if (hasPlaybookOptions && !lenOk) {
+        return "Select a pre-verified playbook option or choose custom manual input…";
+      }
+      if (hasAgentIngressUi && !hasPlaybookOptions && !lenOk) {
+        return "Choose custom manual input and enter 50+ characters…";
+      }
       if (unlockedSop === "att")
         return "Document countermeasures and recovery steps here...";
       if (unlockedSop === "governance") return "Input justification for governance manifest...";
@@ -2138,6 +2417,16 @@ export default function ActiveRisksClient({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
+        {agentPlaybook?.ingressJustification?.trim() ? (
+          <div className="mb-3 rounded border border-cyan-500/30 bg-cyan-950/25 p-3">
+            <p className="text-[9px] font-bold uppercase tracking-wide text-cyan-300/90">
+              Agent ingress justification
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-cyan-50/95">
+              {agentPlaybook.ingressJustification.trim()}
+            </p>
+          </div>
+        ) : null}
         {attbotBreach && !claimLocked ? (
           <AttbotRecoveryLogSopLabel
             assigneeId={options?.threatAssigneeId}
@@ -2154,6 +2443,52 @@ export default function ActiveRisksClient({
             {labelText}
           </p>
         )}
+        {hasAgentIngressUi && !claimLocked ? (
+          <div className="mb-3 space-y-2">
+            <select
+              value={selectedOption}
+              disabled={playbookPriming}
+              onChange={(e) =>
+                handlePlaybookDropdownChange(
+                  cardKey,
+                  agentPlaybook!.threatId,
+                  e.target.value,
+                  agentPlaybook!.options,
+                )
+              }
+              className="w-full rounded border border-slate-700 bg-slate-900 p-2 text-[11px] text-slate-200 outline-none focus:border-amber-400 disabled:cursor-wait disabled:opacity-60"
+              aria-label="Select pre-verified playbook option"
+            >
+              <option value="">-- Select a Pre-Verified Playbook Option --</option>
+              {agentPlaybook!.options.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+              <option value={MANUAL_PLAYBOOK_INPUT}>✏️ Custom Justification (Manual Text Input)</option>
+            </select>
+            {playbookPriming ? (
+              <p className="text-[9px] font-semibold text-amber-300/90">
+                {manualInputMode ? "Binding manual justification to GRC evidence…" : "Binding playbook to GRC evidence…"}
+              </p>
+            ) : manualJustificationBound ? (
+              <p className="text-[9px] leading-snug text-emerald-400/95">
+                Manual justification bound — resolution evidence and CISO handshake primed for resolve.
+              </p>
+            ) : playbookBound ? (
+              <p className="text-[9px] leading-snug text-emerald-400/95">
+                Playbook bound — resolution evidence and CISO handshake primed for resolve.
+              </p>
+            ) : (
+              <p className="text-[9px] leading-snug text-slate-400">
+                {hasPlaybookOptions
+                  ? "Pre-verified options bind closure evidence automatically. Choose manual input to type your own justification (50+ characters)."
+                  : "No pre-verified playbook options on this threat. Choose custom manual input and enter 50+ characters."}
+              </p>
+            )}
+          </div>
+        ) : null}
+        {(manualInputMode || (!hasAgentIngressUi && !playbookBound)) && !playbookBound ? (
         <textarea
           ref={(el) => {
             resolutionTextareaByCardIdRef.current[cardKey] = el;
@@ -2161,18 +2496,40 @@ export default function ActiveRisksClient({
           rows={4}
           value={resolutionText}
           disabled={claimLocked}
-          onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-            setResolutionDrafts((prev) => ({ ...prev, [cardKey]: e.target.value }))
-          }
+          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+            const nextText = e.target.value;
+            setResolutionDrafts((prev) => ({ ...prev, [cardKey]: nextText }));
+            if (manualInputMode && agentPlaybook?.threatId) {
+              setManualJustificationPrimedByCardKey((prev) => {
+                if (!prev[cardKey]) return prev;
+                const next = { ...prev };
+                delete next[cardKey];
+                return next;
+              });
+              if (nextText.trim().length >= FORENSIC_ATTESTATION_MIN) {
+                scheduleManualJustificationPrime(agentPlaybook.threatId, cardKey, nextText);
+              }
+            }
+          }}
           onClick={(e) => e.stopPropagation()}
           placeholder={placeholder}
           className={`mb-4 w-full min-h-[96px] min-w-0 max-w-full resize-y rounded border bg-slate-950 px-3 py-2 text-[11px] text-slate-100 outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-            attbotBreach
+            manualInputMode
+              ? "mt-1 border-orange-500/30 font-mono placeholder:text-slate-500 focus:border-orange-400/60"
+              : attbotBreach
               ? "border-slate-200/20 placeholder:text-slate-500 focus:border-slate-200/35"
               : "border-amber-500/60 placeholder:text-amber-200/40 focus:border-amber-400"
           }`}
           aria-label="Resolution justification"
         />
+        ) : playbookBound ? (
+          <div className="mb-4 rounded border border-emerald-500/35 bg-emerald-950/20 px-3 py-2">
+            <p className="text-[9px] font-bold uppercase tracking-wide text-emerald-300/90">Bound resolution text</p>
+            <p className="mt-1 whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-emerald-50/95">
+              {resolutionText}
+            </p>
+          </div>
+        ) : null}
         <div
           className={`flex flex-col gap-1 border-t pt-3 text-[10px] font-semibold sm:flex-row sm:items-center sm:justify-between ${
             attbotBreach ? "border-slate-100/10" : "border-amber-500/25"
@@ -2182,7 +2539,17 @@ export default function ActiveRisksClient({
           <span
             className={`leading-snug ${lenOk ? (attbotBreach ? "text-white" : "text-slate-200") : "text-slate-500"}`}
           >
-            50+ characters required to resolve.
+            {hasAgentIngressUi
+              ? manualInputMode
+                ? manualJustificationBound
+                  ? "Manual justification ready to resolve."
+                  : lenOk
+                    ? "Binding manual justification to GRC evidence…"
+                    : "Enter 50+ characters in the custom justification field."
+                : playbookBound
+                  ? "Playbook bound — ready to resolve."
+                  : "Select a playbook option or choose custom manual input."
+              : "50+ characters required to resolve."}
           </span>
           <span
             className={`font-mono tabular-nums ${lenOk ? (attbotBreach ? "text-white" : "text-slate-200") : "text-slate-500"}`}
@@ -2279,17 +2646,20 @@ export default function ActiveRisksClient({
           <>
         {recoveryBoardSyncPending ? (
           <div
-            className="rounded-lg border border-slate-600/50 bg-slate-800/35 p-4 shadow-inner animate-pulse"
+            className="relative isolate overflow-hidden rounded-lg border border-slate-600/50 bg-slate-800/35 p-4 shadow-inner"
             role="status"
             aria-live="polite"
             aria-busy="true"
           >
-            <p className="text-center font-sans text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            <div
+              className="threat-card-border-ring-layer threat-card-border-pulse-amber rounded-lg"
+              aria-hidden
+            />
+            <p className="relative z-[1] text-center font-sans text-[11px] font-bold uppercase tracking-wide text-slate-400">
               [IRONTECH] Initializing Recovery Path...
             </p>
           </div>
         ) : null}
-        <AnimatePresence mode="popLayout">
         {sortedActiveThreats.map((threat) => {
           void lifecycleSweep;
           const threatForensicMarkdown = extractRawAuditMarkdown(threat.ingestionDetails);
@@ -2380,19 +2750,37 @@ export default function ActiveRisksClient({
           });
 
           const resolutionText = resolutionDrafts[threat.id] ?? '';
-          const resolutionLenOk = resolutionText.trim().length >= 50;
+          const resolutionLenOk = computeAgentPlaybookResolutionReady({
+            cardKey: threat.id,
+            resolutionText,
+            suggestedOptions: threat.suggestedRemediationOptions ?? [],
+            ingressJustification: threat.ingressJustification,
+            selectedPlaybookId: threat.selectedPlaybookId,
+            playbookSelectionByCardKey,
+            manualJustificationPrimedByCardKey,
+            skipAgentPlaybookGate: isDualKeyHandshakeDrillCard(threat),
+          });
 
           const chaosClosureMeta = readChaosClosureMeta(threat.ingestionDetails ?? null);
-          const isRemoteSupportJitGate = isRemoteSupportAwaitingJitGrant(
-            statusRaw,
-            threat.ingestionDetails ?? null,
-          );
+          const showTier3Handoff =
+            chaosClosureMeta.scenario === 'REMOTE_SUPPORT' &&
+            isChaosL4HandoffActive(threat.ingestionDetails ?? null) &&
+            !isActuallyResolved;
+          const isRemoteSupportJitGate =
+            !showTier3Handoff &&
+            isRemoteSupportAwaitingJitGrant(
+              statusRaw,
+              threat.ingestionDetails ?? null,
+            );
           const isRemoteIntervention =
             !isRemoteSupportJitGate &&
             statusRaw === 'MITIGATED' &&
             Boolean(threat.remoteTechId || threat.isRemoteAccessAuthorized);
           const isEscalatedThreat =
-            statusRaw === 'MITIGATED' && !isRemoteIntervention && !isRemoteSupportJitGate;
+            statusRaw === 'MITIGATED' &&
+            !isRemoteIntervention &&
+            !isRemoteSupportJitGate &&
+            !showTier3Handoff;
           const optimisticProcessing =
             (optimisticProcessingUntilRef.current.get(threat.id) ?? 0) > Date.now();
           const isResolveInFlight = resolvingThreatIds[threat.id] === true;
@@ -2407,7 +2795,6 @@ export default function ActiveRisksClient({
           const infrastructureErrorProbeText = joinErrorProbeParts([
             ...(irontechLive?.attempts.map((a) => a.error) ?? []),
             threat.ingestionDetails ?? undefined,
-            recoveryFailureProbeById[threat.id],
           ]);
           const irontechAttemptCount = irontechLive?.attempts?.length ?? 0;
           const sourceUpper = (threat.source ?? '').trim().toUpperCase();
@@ -2434,8 +2821,6 @@ export default function ActiveRisksClient({
                   irontechAttemptCount < 3 &&
                   isIrontechFamilySource
                 ? 'mitigating'
-                : manualRecoveryBusyThreatId === threat.id
-                  ? 'mitigating'
                   : null;
           const chaosVisualState: 'active' | 'processing' | 'resolved' | null =
             isChaosBoardThreat
@@ -2457,13 +2842,13 @@ export default function ActiveRisksClient({
             lowerSeverityVisualState === 'corrected'
               ? '!border-l-2 !border-emerald-500/80 !bg-emerald-950/40'
               : lowerSeverityVisualState === 'processing'
-                ? '!border-l-2 !border-amber-500/80 !bg-amber-950/40 animate-pulse'
+                ? '!border-l-2 !border-amber-500/80 !bg-amber-950/40'
                 : lowerSeverityVisualState === 'assigned'
                   ? '!border-l-2 !border-blue-500/80 !bg-blue-950/40'
                   : chaosVisualState === 'resolved'
                     ? 'border-l-2 border-emerald-500/90 bg-emerald-950/30 shadow-[0_0_15px_rgba(52,211,153,0.15)] transition-all duration-500'
                     : chaosVisualState === 'processing'
-                      ? 'border-l-2 border-teal-500/80 animate-pulse bg-teal-950/20'
+                      ? 'border-l-2 border-teal-500/80 bg-teal-950/20'
                       : chaosVisualState === 'active'
                         ? 'border-l-2 border-rose-600/80'
                         : '';
@@ -2528,6 +2913,16 @@ export default function ActiveRisksClient({
                         ),
                       });
                       setResolutionDrafts((prev) => {
+                        const next = { ...prev };
+                        delete next[threat.id];
+                        return next;
+                      });
+                      setPlaybookSelectionByCardKey((prev) => {
+                        const next = { ...prev };
+                        delete next[threat.id];
+                        return next;
+                      });
+                      setManualJustificationPrimedByCardKey((prev) => {
                         const next = { ...prev };
                         delete next[threat.id];
                         return next;
@@ -2638,18 +3033,24 @@ export default function ActiveRisksClient({
             !isArchived &&
             !isDualKeyDrill;
 
+          const threatRowKey = threat.id?.trim() || `threat-row-${threat.name ?? 'unknown'}`;
+
           return (
-            <motion.div
-              key={threat.id}
-              layout
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: THREAT_EXIT_FADE_MS / 1000, ease: 'easeOut' }}
-              className="min-h-0"
-            >
+            <div key={threatRowKey} className="min-h-0">
             <ThreatCard
               cardThreatId={threat.id}
+              borderAlertPulse={
+                infiltrationCriticalFlash
+                  ? 'critical'
+                  : shouldFlash
+                    ? 'unassigned'
+                    : chaosVisualState === 'processing' ||
+                        lowerSeverityVisualState === 'processing' ||
+                        optimisticProcessing ||
+                        isResolveInFlight
+                      ? 'processing'
+                      : null
+              }
               showCompliance={showCompliance}
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}
@@ -2690,19 +3091,6 @@ export default function ActiveRisksClient({
                 industry: threat.industry,
                 selectedTenantName,
               }}
-              manualRecoveryInline={
-                statusRaw === 'MITIGATED' && !isRemoteIntervention ? (
-                  <InlineManualRecoveryBlock
-                    threatId={threat.id}
-                    onBusyChange={handleManualRecoveryBusy}
-                    onRecoveryErrorProbeChange={handleRecoveryErrorProbeChange}
-                    onSynced={() => {
-                      void refreshActiveThreatsFromDb();
-                      router.refresh();
-                    }}
-                  />
-                ) : null
-              }
               isEscalated={isEscalatedThreat}
               isRemoteIntervention={isRemoteIntervention}
               remoteTechId={threat.remoteTechId}
@@ -2710,11 +3098,8 @@ export default function ActiveRisksClient({
               canAuthorizeRemoteAccess={remoteAccessAdminEligible}
               onRemoteAccessToggle={() => handleRemoteAccessToggleForThreat(threat.id)}
               remoteAccessBusy={remoteAccessBusyThreatId === threat.id}
-              onEscalatedActivate={
-                isRemoteIntervention ? () => setRecoveryThreatId(threat.id) : undefined
-              }
               suppressAutoSurfaceOverride={isChaosBoardThreat}
-              className={`group flex flex-col justify-between rounded-lg overflow-hidden border border-slate-800 bg-slate-950/80 shadow-inner transition-all duration-500 ${
+              className={`group flex flex-col justify-between rounded-lg overflow-hidden border border-slate-800 bg-slate-950/80 shadow-inner ${
                 isChaosBoardThreat
                   ? chaosCardShellClass
                   : isActuallyResolved || isArchived
@@ -2724,9 +3109,9 @@ export default function ActiveRisksClient({
                       : isEscalatedThreat
                         ? 'border-rose-600/55 bg-rose-950/15 hover:border-rose-500/70 z-10'
                         : infiltrationCriticalFlash
-                          ? 'animate-pulse border-red-600 bg-red-950/25 shadow-[0_0_24px_rgba(239,68,68,0.55)] z-10'
+                          ? 'border-red-600/80 bg-red-950/25 z-10'
                         : shouldFlash
-                          ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)]'
+                          ? 'border-red-500/70 bg-red-950/20 z-10'
                           : ''
               } ${
                 attbotPreAuthorizationGlow
@@ -2935,8 +3320,10 @@ export default function ActiveRisksClient({
                           : '✅ AUDITED'
                         : isRemoteIntervention
                           ? 'Remote specialist queue'
+                          : showTier3Handoff
+                            ? 'Tier-3 handoff — Ironframe Tech Support'
                           : statusRaw === 'MITIGATED'
-                            ? 'Escalated — manual recovery'
+                            ? 'Escalated — awaiting operator'
                             : lifecycle === 'active'
                               ? isSimulationMode
                                 ? 'Just Acknowledged'
@@ -3024,6 +3411,33 @@ export default function ActiveRisksClient({
                         ) : null}
                       </div>
                     ) : null}
+                    {showTier3Handoff ? (
+                      <Tier3HandoffCard
+                        threat={{
+                          id: threat.id,
+                          title: threat.name ?? threat.id,
+                          status: statusRaw,
+                          ingestionDetails: threat.ingestionDetails ?? null,
+                        }}
+                        onRefresh={async () => {
+                          await refreshActiveThreatsFromDb();
+                          router.refresh();
+                        }}
+                        onArchived={async (tid, workSummary, closedAt) => {
+                          appendAuditLog({
+                            action_type: "GRC_PROCESS_THREAT",
+                            log_type: "GRC",
+                            user_id: "IRONFRAME_TECH_SUPPORT",
+                            metadata_tag: `threatId:${tid}|COMPLIANCE_TIMELINE_TRANSACTION|immutable:true`,
+                            description: `[COMPLIANCE TIMELINE] Ironframe Tech Support sealed work log (${closedAt}): ${workSummary.slice(0, 240)}`,
+                          });
+                          purgeResolvedThreatFromBoard(tid);
+                          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+                          await refreshActiveThreatsFromDb();
+                          router.refresh();
+                        }}
+                      />
+                    ) : null}
                     {isRemoteSupportJitGate ? (
                       <div className="mt-4 rounded-md border border-amber-500/50 bg-amber-950/20 p-3">
                         <p className="mb-2 text-sm font-semibold text-amber-400">
@@ -3061,6 +3475,20 @@ export default function ActiveRisksClient({
                         </button>
                       </div>
                     ) : null}
+                    {threat.ingressJustification?.trim() ? (
+                      <div className="rounded border border-cyan-500/35 bg-cyan-950/20 p-2">
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-cyan-300/90">
+                          Agent ingress justification
+                        </p>
+                        <p
+                          className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-cyan-50/95"
+                          role="note"
+                          aria-label="Agent ingress justification"
+                        >
+                          {threat.ingressJustification.trim()}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="rounded border border-slate-700 bg-slate-900/70 p-2">
                       <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
                         GRC JUSTIFICATION (FROM PIPELINE TRIAGE)
@@ -3090,7 +3518,7 @@ export default function ActiveRisksClient({
                         <ImpactedBlastRadiusSection
                           threatLike={threat}
                           threatEventId={threat.id}
-                          deepTraceRunning={traceRunningThreatId === threat.id}
+                          deepTraceRunning={traceRunningThreatIds.has(threat.id)}
                         />
 
                         {!(isActuallyResolved || isChaosDrillThreat(threat)) ? (
@@ -3098,7 +3526,7 @@ export default function ActiveRisksClient({
                             threatLike={threat}
                             contextId={threat.id}
                             threatEventId={threat.id}
-                            deepTraceRunning={traceRunningThreatId === threat.id}
+                            deepTraceRunning={traceRunningThreatIds.has(threat.id)}
                             executingChipKey={executingActionKey}
                             onExecuteAction={(label, actionId) =>
                               handleExecuteTraceAction(threat.id, label, actionId)
@@ -3176,6 +3604,17 @@ export default function ActiveRisksClient({
                               : isDualKeyDrill
                                 ? "governance"
                                 : "generic",
+                          agentPlaybook: (() => {
+                            const options = threat.suggestedRemediationOptions ?? [];
+                            const ingress = threat.ingressJustification?.trim() || null;
+                            if (options.length === 0 && !ingress) return undefined;
+                            return {
+                              threatId: threat.id,
+                              ingressJustification: ingress,
+                              options,
+                              selectedPlaybookId: threat.selectedPlaybookId ?? null,
+                            };
+                          })(),
                         })}
                         {dualKeyAssignmentBlocked ? (
                           <p
@@ -3463,10 +3902,9 @@ export default function ActiveRisksClient({
                 </div>
               )}
             </ThreatCard>
-            </motion.div>
+            </div>
           );
         })}
-        </AnimatePresence>
 
         {sortedRisks.map((risk) => {
           const lifecycle: LifecycleState = states[risk.id] ?? 'active';
@@ -3498,7 +3936,25 @@ export default function ActiveRisksClient({
           });
 
           const resolutionText = resolutionDrafts[risk.id] ?? '';
-          const resolutionLenOk = resolutionText.trim().length >= 50;
+          const resolutionLenOk = computeAgentPlaybookResolutionReady({
+            cardKey: risk.id,
+            resolutionText,
+            suggestedOptions:
+              riskThreatRow?.suggestedRemediationOptions ??
+              parseAgentIngressFromIngestion(
+                riskThreatRow?.ingestionDetails ?? risk.ingestionDetails ?? null,
+              )?.suggestedRemediationOptions ??
+              [],
+            ingressJustification:
+              riskThreatRow?.ingressJustification ??
+              parseAgentIngressFromIngestion(
+                riskThreatRow?.ingestionDetails ?? risk.ingestionDetails ?? null,
+              )?.ingressJustification ??
+              null,
+            selectedPlaybookId: riskThreatRow?.selectedPlaybookId ?? null,
+            playbookSelectionByCardKey,
+            manualJustificationPrimedByCardKey,
+          });
 
           const buttonLabelRaw =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
@@ -3511,15 +3967,25 @@ export default function ActiveRisksClient({
               ? () => void handleResolveThreat(risk)
               : undefined;
 
+          const riskRowKey =
+            risk.threatId?.trim() || risk.id?.trim() || `risk-row-${risk.title}`;
+
           return (
             <div
-              key={risk.id}
-              className={`group flex flex-col justify-between rounded-lg border transition-all duration-500 ${
+              key={riskRowKey}
+              className={`group relative isolate flex flex-col justify-between overflow-hidden rounded-lg border p-4 ${
                 shouldFlash
-                  ? 'animate-pulse border-red-500 bg-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10 scale-[1.01]'
+                  ? 'border-red-500/70 bg-red-950/20 z-10'
                   : 'border-slate-800 bg-slate-900/60 hover:border-slate-700/80'
-              } p-4`}
+              }`}
             >
+              {shouldFlash ? (
+                <div
+                  className="threat-card-border-ring-layer threat-card-border-pulse-red"
+                  aria-hidden
+                />
+              ) : null}
+              <div className="relative z-[2] min-h-0">
               <div className="flex w-full items-start justify-between text-left">
                 <div>
                   <button
@@ -3626,7 +4092,7 @@ export default function ActiveRisksClient({
                     threatLike={risk}
                     threatEventId={risk.threatId ?? null}
                     deepTraceRunning={
-                      risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
+                      risk.threatId != null && risk.threatId !== '' && traceRunningThreatIds.has(risk.threatId)
                     }
                   />
                   {!(lifecycle === 'resolved' || isChaosDrillThreat(risk)) ? (
@@ -3635,7 +4101,7 @@ export default function ActiveRisksClient({
                       contextId={risk.threatId ?? risk.id}
                       threatEventId={risk.threatId ?? null}
                       deepTraceRunning={
-                        risk.threatId != null && risk.threatId !== '' && traceRunningThreatId === risk.threatId
+                        risk.threatId != null && risk.threatId !== '' && traceRunningThreatIds.has(risk.threatId)
                       }
                       executingChipKey={executingActionKey}
                       onExecuteAction={(label, actionId) => {
@@ -3682,7 +4148,33 @@ export default function ActiveRisksClient({
                     </button>
                   </div>
 
-                  {lifecycle === 'confirmed' && resolutionJustificationBlock(risk.id)}
+                  {lifecycle === 'confirmed' &&
+                    resolutionJustificationBlock(risk.id, {
+                      agentPlaybook: (() => {
+                        const tid = risk.threatId?.trim();
+                        if (!tid) return undefined;
+                        const parsed = parseAgentIngressFromIngestion(
+                          riskThreatRow?.ingestionDetails ??
+                            risk.ingestionDetails ??
+                            null,
+                        );
+                        const options =
+                          riskThreatRow?.suggestedRemediationOptions ??
+                          parsed?.suggestedRemediationOptions ??
+                          [];
+                        const ingress =
+                          riskThreatRow?.ingressJustification?.trim() ??
+                          parsed?.ingressJustification?.trim() ??
+                          null;
+                        if (options.length === 0 && !ingress) return undefined;
+                        return {
+                          threatId: tid,
+                          ingressJustification: ingress,
+                          options,
+                          selectedPlaybookId: riskThreatRow?.selectedPlaybookId ?? null,
+                        };
+                      })(),
+                    })}
 
                   <div className="flex items-center justify-between pt-1">
                     {successFlash[risk.id] && (
@@ -3816,6 +4308,7 @@ export default function ActiveRisksClient({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           );
         })}
@@ -3911,15 +4404,6 @@ export default function ActiveRisksClient({
           </div>
         </div>
       ) : null}
-
-      <ManualRecoveryOverlay
-        threatId={recoveryThreatId}
-        onClose={() => setRecoveryThreatId(null)}
-        onResolved={() => {
-          void refreshActiveThreatsFromDb();
-          router.refresh();
-        }}
-      />
 
       {executionToast != null && (
         <div

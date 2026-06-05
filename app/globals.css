@@ -513,6 +513,66 @@ body {
 .critical-lock-border {
   animation: critical-lock-pulse 2s ease-in-out infinite;
 }
+
+/* Threat cards: border/ring pulse only — interior layout stays solid (no opacity pulse). */
+@keyframes threat-card-border-pulse-red {
+  0%,
+  100% {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2), 0 0 14px rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.95);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.55), 0 0 22px rgba(239, 68, 68, 0.5);
+  }
+}
+
+.threat-card-border-pulse-red {
+  animation: threat-card-border-pulse-red 2s ease-in-out infinite;
+}
+
+@keyframes threat-card-border-pulse-amber {
+  0%,
+  100% {
+    border-color: rgba(245, 158, 11, 0.35);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.12);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 0.9);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.42);
+  }
+}
+
+.threat-card-border-pulse-amber {
+  animation: threat-card-border-pulse-amber 2s ease-in-out infinite;
+}
+
+@keyframes threat-card-border-pulse-emerald {
+  0%,
+  100% {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
+  }
+  50% {
+    border-color: rgba(52, 211, 153, 0.95);
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.42);
+  }
+}
+
+.threat-card-border-pulse-emerald {
+  animation: threat-card-border-pulse-emerald 2.2s ease-in-out infinite;
+}
+
+.threat-card-border-ring-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  border-width: 2px;
+  border-style: solid;
+  border-color: transparent;
+}
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }

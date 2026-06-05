@@ -2,7 +2,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Documentation
 
-Product, user, support, sales, and technical documentation lives in **[docs/README.md](./docs/README.md)**.
+Product, user, support, sales, and technical documentation lives in **[docs/hub.md](./docs/hub.md)**.
 
 Engineering authority: [docs/TAS.md](./docs/TAS.md) · Operations: [DOCS_OPERATIONS.md](./DOCS_OPERATIONS.md)
 

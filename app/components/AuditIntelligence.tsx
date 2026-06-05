@@ -221,6 +221,7 @@ type LogEntryItem = {
     threatId?: string | null;
     /** Client audit rows: searchable lineage / correlation (e.g. threat id in tag). */
     metadata_tag?: string | null;
+    log_type?: string | null;
     /** DB `AuditLog.justification` or synthesized client forensic JSON. */
     justification?: string | null;
     /** Client ledger sequence (#001…) — server rows omit until mirrored. */
@@ -337,6 +338,7 @@ function mergeUnifiedAuditLogs(
           extractThreatId((entry as { metadata_tag?: string | null }).metadata_tag) ??
           extractThreatId(desc),
         metadata_tag,
+        log_type: log_type ?? undefined,
         justification: clientJustification,
         ...(typeof ledgerSeq === "number" && Number.isFinite(ledgerSeq)
           ? { ledger_sequence: Math.floor(ledgerSeq) }
@@ -384,6 +386,32 @@ function sortCombinedLogsNewestFirst(combinedLogs: LogEntryItem[]): LogEntryItem
     if (aSrv !== bSrv) return aSrv ? 1 : -1;
     return String(b.id).localeCompare(String(a.id));
   });
+}
+
+type AuditEntryDisplayStatus = "VERIFIED" | "SIMULATED" | "SHADOW" | "FLAGGED";
+
+/** Client-only forensic rows (chaos drill, clicks, DMZ) — not pending DB commit. */
+function isClientShadowForensicEntry(entry: LogEntryItem["entry"]): boolean {
+  if ((entry as { _fromServer?: true })._fromServer) return false;
+  const logType = ((entry as { log_type?: string }).log_type ?? "").toUpperCase();
+  const tag = (entry.metadata_tag ?? "").toUpperCase();
+  const action = (entry.action_type ?? "").toUpperCase();
+  if (logType === "GRC" || logType === "SIMULATION" || logType === "TELEMETRY") return true;
+  if (
+    tag.includes("IRONTECH_CHAOS") ||
+    tag.includes("DMZ_INGRESS") ||
+    tag.includes("USER_INTERACTION") ||
+    tag.includes("SIMULATION")
+  ) {
+    return true;
+  }
+  return (
+    action === "USER_INTERACTION_CLICK" ||
+    action === "SECURITY_THREAT_INTERCEPTED" ||
+    action === "INTERRUPT_CONTAINMENT_DEPLOYED" ||
+    action === "CHAOS_AGENT_TELEMETRY" ||
+    action === "RED_TEAM_SIMULATION_START"
+  );
 }
 
 function displayLabelForAuditEntry(actionType: string, metadataTag?: string | null): string {
@@ -1244,8 +1272,12 @@ export default function AuditIntelligence({
           (entry.metadata_tag?.includes("IRONTECH_CHAOS_L6") ?? false) ||
           entry.action_type === "SECURITY_THREAT_INTERCEPTED" ||
           entry.action_type === "INTERRUPT_CONTAINMENT_DEPLOYED" ||
-          (entry.action_type === "CHAOS_AGENT_TELEMETRY" &&
-            (entry.metadata_tag?.includes("IRONTECH_CHAOS_L6") ?? false));
+          entry.action_type === "CHAOS_AGENT_TELEMETRY";
+        const isForensicLedgerEvent =
+          entry.action_type === "USER_INTERACTION_CLICK" ||
+          isIrontechL6Telemetry ||
+          (entry.metadata_tag?.includes("USER_INTERACTION") ?? false) ||
+          (entry.metadata_tag?.includes("DMZ_INGRESS") ?? false);
         if (entry.log_type === "SIMULATION" && !isIrontechL6Telemetry) return false;
         const isGrcBotSimulation =
           entry.user_id === "GRCBOT" || (entry.metadata_tag?.includes("SIMULATION|GRCBOT") ?? false);
@@ -1254,7 +1286,9 @@ export default function AuditIntelligence({
         const matchesDescription =
           descriptionKeywords.length === 0 ||
           descriptionKeywords.some((keyword) => entry.description.toLowerCase().includes(keyword));
-        // Industry/tenant scoping is best-effort based on description/metadata tags; entries without tags remain visible.
+        if (!matchesLogType || !matchesDescription) return false;
+        if (isForensicLedgerEvent) return true;
+        // Industry/tenant scoping is best-effort for legacy rows; forensic stream bypasses narrow filters.
         const descLower = entry.description.toLowerCase();
         const tagLower = entry.metadata_tag?.toLowerCase() ?? "";
         const hasIndustryTag = !!industryLower && (descLower.includes(industryLower) || tagLower.includes(industryLower));
@@ -1264,7 +1298,7 @@ export default function AuditIntelligence({
           tagLower.includes(companyKey) ||
           descLower.includes(companyKey);
 
-        return matchesLogType && matchesDescription && matchesIndustry && matchesCompany;
+        return matchesIndustry && matchesCompany;
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [auditLogs, logTypeFilter, industryLower, companyKey, descriptionKeywords.join("|")],
@@ -1532,9 +1566,13 @@ export default function AuditIntelligence({
     }
   }, []);
 
-  /** Derive immutable log status for display (VERIFIED = server/synced, PENDING = client-only). */
-  const entryStatus = (entry: LogEntryItem["entry"]): "VERIFIED" | "PENDING" | "FLAGGED" =>
-    (entry as { _fromServer?: true })._fromServer ? "VERIFIED" : "PENDING";
+  /** VERIFIED = server ledger; SIMULATED/SHADOW = shadow-plane client forensic (not pending commit). */
+  const entryStatus = (entry: LogEntryItem["entry"]): AuditEntryDisplayStatus => {
+    if ((entry as { _fromServer?: true })._fromServer) return "VERIFIED";
+    if (isShadowPlaneActiveClient()) return "SHADOW";
+    if (isSimulationMode || isClientShadowForensicEntry(entry)) return "SIMULATED";
+    return "SIMULATED";
+  };
 
   const showAdversarialTargetWarning =
     adversarialMaturityUi != null &&
@@ -1816,19 +1854,29 @@ export default function AuditIntelligence({
                             {timestampMeta.display}
                           </span>
                           <div className="flex shrink-0 items-center gap-1.5">
-                            <span
-                              className={`text-[8px] font-black uppercase tracking-tighter ${
-                                status === "VERIFIED"
-                                  ? rowKind === "agent"
-                                    ? "animate-pulse text-emerald-400"
-                                    : "text-emerald-500"
-                                  : status === "FLAGGED"
-                                    ? "text-amber-500"
-                                    : "text-amber-500"
-                              }`}
-                            >
-                              {status}
-                            </span>
+                            {status === "VERIFIED" ? (
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter ${
+                                  rowKind === "agent"
+                                    ? "animate-pulse bg-emerald-500/20 text-emerald-400"
+                                    : "bg-emerald-500/20 text-emerald-400"
+                                }`}
+                              >
+                                VERIFIED
+                              </span>
+                            ) : status === "SHADOW" ? (
+                              <span className="rounded border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-cyan-300">
+                                SHADOW
+                              </span>
+                            ) : status === "FLAGGED" ? (
+                              <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter text-amber-400">
+                                FLAGGED
+                              </span>
+                            ) : (
+                              <span className="rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-amber-400">
+                                SIMULATED
+                              </span>
+                            )}
                             {rowKind === "human" ? (
                               <span className="rounded border border-sky-500/55 bg-sky-950/60 px-1 py-0.5 text-[7px] font-black uppercase text-sky-100">
                                 {(item.entry.user_id ?? "").trim().toLowerCase() === "user_00"

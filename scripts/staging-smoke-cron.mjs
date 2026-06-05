@@ -13,6 +13,7 @@ dotenv.config({ path: ".env", override: true });
 dotenv.config({ path: ".env.production.local", override: true });
 
 const dotenvParsed = dotenvStaging.parsed ?? {};
+const stagingBypassToken = dotenvParsed.VERCEL_BYPASS_TOKEN?.trim();
 
 // Ensure CLI/Shell parameters explicitly override values specified inside .env files
 const targetBaseUrl = (
@@ -23,7 +24,8 @@ const targetBaseUrl = (
 ).replace(/\/$/, "");
 
 const base = targetBaseUrl;
-const vercelBypassToken = cliVercelBypass || process.env.VERCEL_BYPASS_TOKEN?.trim();
+const vercelBypassToken =
+  cliVercelBypass || stagingBypassToken || process.env.VERCEL_BYPASS_TOKEN?.trim();
 
 // Enforce explicit precedence: Shell/CLI -> IRONFRAME (incl. production pull) -> legacy staging/CRON
 const cronVerificationToken =
@@ -99,38 +101,81 @@ for (const p of [
   tests.push({ id: `${p}_get_invalid`, method: "GET", path: p, token: "bad-token", headers: {}, expect: 401 });
 }
 
+const publicDocsProbes = [
+  {
+    id: "public_docs_hub_root",
+    name: "Static Docs Hub Root Check",
+    method: "GET",
+    path: "/docs/hub",
+    expect: 200,
+    public: true,
+    allowHtml: true,
+    validateBody: (body) =>
+      !body.includes("Authentication Required") &&
+      /ironframe/i.test(body) &&
+      (body.includes("hub") || /documentation/i.test(body) || body.includes("__next")),
+  },
+  {
+    id: "public_docs_playbook_download",
+    name: "Binary Test Playbook Download Broker",
+    method: "GET",
+    path: "/api/docs/download-protocol",
+    expect: 200,
+    public: true,
+    expectedHeaders: {
+      "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+  },
+];
+
+for (const probe of publicDocsProbes) {
+  tests.push(probe);
+}
+
 const results = [];
 for (const t of tests) {
   const url = `${base}${t.path}`;
   try {
-    const method = t.method;
-    const token = t.token;
+    const method = t.method ?? "GET";
     const existingHeaders = t.headers ?? {};
+    const fetchHeaders = { ...existingHeaders };
+    if (!t.public && t.token) {
+      fetchHeaders.Authorization = `Bearer ${t.token}`;
+    }
+    if (vercelBypassToken) {
+      fetchHeaders["x-vercel-protection-bypass"] = vercelBypassToken;
+    }
     const res = await fetch(url, {
-      method: method,
-      headers: {
-        ...existingHeaders,
-        "Authorization": `Bearer ${token}`,
-        "x-vercel-protection-bypass": vercelBypassToken,
-      },
+      method,
+      headers: fetchHeaders,
       body: t.body,
     });
     const contentType = res.headers.get("content-type") ?? "";
     const text = await res.text();
     const looksLikeHtml =
-      contentType.includes("text/html") ||
-      text.startsWith("<!DOCTYPE html>") ||
-      text.startsWith("<html");
+      !t.allowHtml &&
+      (contentType.includes("text/html") ||
+        text.startsWith("<!DOCTYPE html>") ||
+        text.startsWith("<html"));
     const statusMatches = res.status === t.expect;
-    const ok = statusMatches && !looksLikeHtml;
+    const bodyOk = t.validateBody ? t.validateBody(text) : true;
+    const headersOk = t.expectedHeaders
+      ? Object.entries(t.expectedHeaders).every(([key, value]) =>
+          (res.headers.get(key) ?? "").toLowerCase().includes(String(value).toLowerCase()),
+        )
+      : true;
+    const ok = statusMatches && !looksLikeHtml && bodyOk && headersOk;
 
     results.push({
       id: t.id,
+      name: t.name,
       status: res.status,
       expected: t.expect,
       ok,
       contentType,
       htmlFallback: looksLikeHtml,
+      bodyValidationFailed: t.validateBody ? !bodyOk : false,
+      headerValidationFailed: t.expectedHeaders ? !headersOk : false,
       snippet: text.slice(0, 200),
       url: t.path,
     });

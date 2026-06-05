@@ -9,14 +9,13 @@ import {
 } from "@/app/lib/security/ingressGateway";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
-import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { chaosDiscoveryEligibleBefore } from "@/app/utils/chaosDiscoveryHold";
 import {
   normalizeIngestionDetailsToString,
   parseIngestionDetailsForMerge,
 } from "@/app/utils/ingestionDetailsMerge";
-import type { Prisma } from "@prisma/client";
-import { ThreatState } from "@prisma/client";
+import { parseAgentIngressFromIngestion } from "@/app/utils/agentIngressJustification";
+import { Prisma, ThreatState } from "@prisma/client";
 
 const CENTS_PER_MILLION = 100_000_000;
 
@@ -198,6 +197,46 @@ function threatEventChaosIngestionMarkersOr(): Prisma.ThreatEventWhereInput {
       { ingestionDetails: { contains: "Infrastructure Drift", mode: "insensitive" } },
       { ingestionDetails: { contains: "CHAOS_DRILL", mode: "insensitive" } },
       { ingestionDetails: { contains: "IRONCHAOS", mode: "insensitive" } },
+      { ingestionDetails: { contains: '"chaosScenario"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"threadId"', mode: "insensitive" } },
+    ],
+  };
+}
+
+/** Strict Active canvas provenance — exact `sourcePlane` enum + bound `threadId`. */
+function threatEventSourcePlaneEquals(plane: "CHAOS" | "MANUAL" | "AGENT_DISCOVERY"): Prisma.ThreatEventWhereInput[] {
+  return [
+    { ingestionDetails: { contains: `"sourcePlane": "${plane}"`, mode: "insensitive" } },
+    { ingestionDetails: { contains: `"sourcePlane":"${plane}"`, mode: "insensitive" } },
+  ];
+}
+
+function threatEventThreadIdPresentWhere(): Prisma.ThreatEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { contains: '"threadId": "', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"threadId":"', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"orchestrationThreadId": "', mode: "insensitive" } },
+      { ingestionDetails: { contains: '"orchestrationThreadId":"', mode: "insensitive" } },
+    ],
+  };
+}
+
+/**
+ * Active canvas gate — verified simulation (`CHAOS`), manual analyst (`MANUAL`), or agent bus (`AGENT_DISCOVERY`)
+ * with a non-empty thread id. Orphan / seed / mock rows are excluded.
+ */
+export function threatEventVerifiedIngestionProvenanceWhere(): Prisma.ThreatEventWhereInput {
+  return {
+    AND: [
+      {
+        OR: [
+          ...threatEventSourcePlaneEquals("CHAOS"),
+          ...threatEventSourcePlaneEquals("MANUAL"),
+          ...threatEventSourcePlaneEquals("AGENT_DISCOVERY"),
+        ],
+      },
+      threatEventThreadIdPresentWhere(),
     ],
   };
 }
@@ -283,6 +322,33 @@ function riskEventChaosIngestionMarkersOr(): Prisma.RiskEventWhereInput {
       { ingestionDetails: { path: ["entityType"], equals: "CHAOS_DRILL" } },
       { ingestionDetails: { path: ["incident_type"], equals: "CHAOS" } },
       { ingestionDetails: { path: ["category"], equals: "INFRASTRUCTURE" } },
+      { ingestionDetails: { path: ["chaosScenario"], not: Prisma.DbNull } },
+      { ingestionDetails: { path: ["threadId"], not: Prisma.DbNull } },
+    ],
+  };
+}
+
+function riskEventThreadIdPresentWhere(): Prisma.RiskEventWhereInput {
+  return {
+    OR: [
+      { ingestionDetails: { path: ["threadId"], not: Prisma.DbNull } },
+      { ingestionDetails: { path: ["orchestrationThreadId"], not: Prisma.DbNull } },
+    ],
+  };
+}
+
+/** Shadow-plane counterpart to {@link threatEventVerifiedIngestionProvenanceWhere}. */
+export function riskEventVerifiedIngestionProvenanceWhere(): Prisma.RiskEventWhereInput {
+  return {
+    AND: [
+      {
+        OR: [
+          { ingestionDetails: { path: ["sourcePlane"], equals: "CHAOS" } },
+          { ingestionDetails: { path: ["sourcePlane"], equals: "MANUAL" } },
+          { ingestionDetails: { path: ["sourcePlane"], equals: "AGENT_DISCOVERY" } },
+        ],
+      },
+      riskEventThreadIdPresentWhere(),
     ],
   };
 }
@@ -377,7 +443,7 @@ function getRiskEventWhereForActiveBoard(shadowReadScope: boolean): Prisma.RiskE
 }
 
 export async function findActiveThreatEventRowsForBoard(
-  /** Prefer API `x-tenant-id` / tests; falls back to cookies then Medshield (avoids Active “blackout”). */
+  /** Prefer API `x-tenant-id` / tests; falls back to cookies. Returns empty when no tenant scope. */
   tenantUuidOverride?: string | null,
 ): Promise<ActiveBoardUnionRow[]> {
   /** Must match `ingressGateway.writeThreatEvent` — shadow env + sim cookie still reads `ThreatEvent` for active board. */
@@ -386,7 +452,8 @@ export async function findActiveThreatEventRowsForBoard(
     isShadowPlaneActiveFromEnv() || (await readSimulationPlaneEnabled());
   const tenantUuidRaw =
     (tenantUuidOverride?.trim() || (await getActiveTenantUuidFromCookies())) ?? "";
-  const tenantUuid = tenantUuidRaw.trim() || TENANT_UUIDS.medshield;
+  const tenantUuid = tenantUuidRaw.trim();
+  if (!tenantUuid) return [];
   if (useRiskEventTable) {
     return prisma.riskEvent.findMany({
       where: {
@@ -394,6 +461,7 @@ export async function findActiveThreatEventRowsForBoard(
           { tenantId: tenantUuid },
           excludeTerminalRiskEvent,
           getRiskEventWhereForActiveBoard(shadowReadScope),
+          riskEventVerifiedIngestionProvenanceWhere(),
         ],
       },
       select: simActiveThreatBoardSelect,
@@ -412,6 +480,7 @@ export async function findActiveThreatEventRowsForBoard(
         { tenantCompanyId: { in: companyIds } },
         excludeTerminalThreatEvent,
         getThreatEventWhereForActiveBoard(shadowReadScope),
+        threatEventVerifiedIngestionProvenanceWhere(),
       ],
     },
     select: activeThreatBoardSelect,
@@ -445,6 +514,21 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
         : undefined;
     const shadow = parseShadowCisoHandshakeFromIngestionLocal(r.ingestionDetails);
     const chaosMeta = parseChaosMetadataFromIngestion(r.ingestionDetails);
+    const agentIngress = parseAgentIngressFromIngestion(
+      normalizeIngestionDetailsToString(r.ingestionDetails) ?? undefined,
+    );
+    let selectedPlaybookId: string | null = null;
+    try {
+      const raw = normalizeIngestionDetailsToString(r.ingestionDetails);
+      if (raw) {
+        const j = JSON.parse(raw) as { selectedPlaybookId?: unknown };
+        if (typeof j.selectedPlaybookId === "string" && j.selectedPlaybookId.trim()) {
+          selectedPlaybookId = j.selectedPlaybookId.trim();
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     let prodResolutionId: string | null = null;
     let prodResolutionStatus: "PENDING" | "APPROVED" | "REJECTED" | null = null;
     if ("resolutionApprovalId" in r) {
@@ -496,6 +580,9 @@ export function mapThreatEventRowsToPipelineThreatFromDb(
           : null,
       chaosLevel: chaosMeta.chaosLevel,
       systemImpact: chaosMeta.systemImpact,
+      ingressJustification: agentIngress?.ingressJustification ?? null,
+      suggestedRemediationOptions: agentIngress?.suggestedRemediationOptions ?? [],
+      selectedPlaybookId,
     };
   });
 }
@@ -544,6 +631,13 @@ export type PipelineThreatFromDb = {
   chaosLevel?: number | null;
   /** Optional infrastructure / resilience impact line from chaos JSON. */
   systemImpact?: string | null;
+  ingressJustification?: string | null;
+  suggestedRemediationOptions?: Array<{
+    id: string;
+    label: string;
+    resolutionText: string;
+  }>;
+  selectedPlaybookId?: string | null;
 };
 
 /** Includes only active workflow states (no pipeline/history flooding). */

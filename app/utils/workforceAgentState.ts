@@ -1,6 +1,6 @@
 import type { PipelineThreat } from "@/app/store/riskStore";
 
-export type AgentPulseState = "IDLE" | "ALERT" | "ACTIVE";
+export type AgentPulseState = "IDLE" | "ALERT" | "ACTIVE" | "TELEMETRY";
 
 export function combineThreatPlanes(
   activeThreats: PipelineThreat[],
@@ -120,6 +120,9 @@ export function mergeInventoryAgentWithPulse(
 ): AgentPulseState {
   const base = getAgentState(agentName, threats);
   if (base === "ALERT") return "ALERT";
-  if ((pulseUntil[agentName] ?? 0) > Date.now()) return "ACTIVE";
+  const telemetryLive = (pulseUntil[agentName] ?? 0) > Date.now();
+  if (telemetryLive) {
+    return base === "IDLE" ? "TELEMETRY" : base;
+  }
   return base;
 }

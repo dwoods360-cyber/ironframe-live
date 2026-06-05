@@ -26,6 +26,8 @@ export type ChaosRunTelemetryEvent = {
 export type ChaosRunTelemetryRecord = {
   runId: string;
   tenantId: string;
+  /** When set, this run is keyed per concurrent simulation thread (ThreatEvent.id). */
+  threadId?: string;
   scenario: ChaosRunScenario;
   isSimulation: boolean;
   startedAt: string;
@@ -59,6 +61,13 @@ function writeActiveMap(map: Record<string, string>): void {
   writeFileSync(ACTIVE_FILE, JSON.stringify(map, null, 2), "utf8");
 }
 
+/** Tenant-wide L6 runs use tenant id only; per-thread drills use `tenantId:threadId`. */
+function activeMapKey(tenantId: string, threadId?: string): string {
+  const tid = tenantId.trim().toLowerCase();
+  const th = threadId?.trim();
+  return th ? `${tid}:${th}` : tid;
+}
+
 function readRun(runId: string): ChaosRunTelemetryRecord | null {
   try {
     const path = runPath(runId);
@@ -78,12 +87,16 @@ export function beginChaosRunTelemetry(params: {
   tenantId: string;
   scenario: ChaosRunScenario;
   isSimulation?: boolean;
+  /** Unique simulation thread id — enables concurrent active runs per tenant. */
+  threadId?: string;
 }): ChaosRunTelemetryRecord {
   const tenantId = params.tenantId.trim();
+  const threadId = params.threadId?.trim() || undefined;
   const runId = randomUUID();
   const record: ChaosRunTelemetryRecord = {
     runId,
     tenantId,
+    ...(threadId ? { threadId } : {}),
     scenario: params.scenario,
     isSimulation: params.isSimulation !== false,
     startedAt: new Date().toISOString(),
@@ -91,7 +104,7 @@ export function beginChaosRunTelemetry(params: {
   };
   writeRun(record);
   const active = readActiveMap();
-  active[tenantId.toLowerCase()] = runId;
+  active[activeMapKey(tenantId, threadId)] = runId;
   writeActiveMap(active);
   return record;
 }
@@ -100,9 +113,9 @@ export function appendChaosRunEvent(
   tenantId: string,
   kind: ChaosRunEventKind,
   payload?: Record<string, unknown>,
+  threadId?: string,
 ): ChaosRunTelemetryRecord | null {
-  const tid = tenantId.trim().toLowerCase();
-  const runId = readActiveMap()[tid];
+  const runId = readActiveMap()[activeMapKey(tenantId, threadId)];
   if (!runId) return null;
   const record = readRun(runId);
   if (!record) return null;
@@ -111,24 +124,49 @@ export function appendChaosRunEvent(
   return record;
 }
 
-export function closeChaosRunTelemetry(tenantId: string): ChaosRunTelemetryRecord | null {
-  const tid = tenantId.trim().toLowerCase();
+export function closeChaosRunTelemetry(
+  tenantId: string,
+  threadId?: string,
+): ChaosRunTelemetryRecord | null {
+  const key = activeMapKey(tenantId, threadId);
   const active = readActiveMap();
-  const runId = active[tid];
+  const runId = active[key];
   if (!runId) return null;
   const record = readRun(runId);
   if (!record) return null;
   record.closedAt = new Date().toISOString();
   record.events.push({ kind: "RUN_CLOSED", at: record.closedAt });
   writeRun(record);
-  delete active[tid];
+  delete active[key];
   writeActiveMap(active);
   return record;
 }
 
-export function getActiveChaosRunForTenant(tenantId: string): ChaosRunTelemetryRecord | null {
-  const runId = readActiveMap()[tenantId.trim().toLowerCase()];
+export function getActiveChaosRunForTenant(
+  tenantId: string,
+  threadId?: string,
+): ChaosRunTelemetryRecord | null {
+  const runId = readActiveMap()[activeMapKey(tenantId, threadId)];
   return runId ? readRun(runId) : null;
+}
+
+/** All concurrently active runs for a tenant (tenant-wide + per-thread keys). */
+export function getActiveChaosRunsForTenant(tenantId: string): ChaosRunTelemetryRecord[] {
+  const tid = tenantId.trim().toLowerCase();
+  const active = readActiveMap();
+  const prefix = `${tid}:`;
+  const runIds = new Set<string>();
+  for (const [key, runId] of Object.entries(active)) {
+    if (key === tid || key.startsWith(prefix)) {
+      runIds.add(runId);
+    }
+  }
+  const records: ChaosRunTelemetryRecord[] = [];
+  for (const runId of runIds) {
+    const rec = readRun(runId);
+    if (rec && !rec.closedAt) records.push(rec);
+  }
+  return records;
 }
 
 export function getLatestClosedChaosRunForTenant(tenantId: string): ChaosRunTelemetryRecord | null {

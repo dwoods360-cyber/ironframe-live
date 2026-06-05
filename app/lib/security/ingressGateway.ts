@@ -15,6 +15,11 @@ import {
   sanitizeThreatIngressPayload,
   sanitizeThreatIngressUpdate,
 } from "@/app/lib/ironethic/sanitizeThreatIngressPayload";
+import {
+  buildWorkforceAgentIngressPayload,
+  mergeAgentIngressIntoIngestionJson,
+  parseAgentIngressFromIngestion,
+} from "@/app/utils/agentIngressJustification";
 
 /** Must match client `SIMULATION_MODE_COOKIE` / `syncSimulationModeCookie` values (`1` / `0`). */
 export const INGRESS_SIMULATION_COOKIE = "ironframe-simulation-mode";
@@ -115,7 +120,7 @@ function attachSimulationCategoryToIngestionDetails(
           typeof p.shadowSimulationStatus === "string" && p.shadowSimulationStatus.trim()
             ? p.shadowSimulationStatus.trim()
             : "simulated";
-        merged.sourcePlane = "SHADOW";
+        merged.sourcePlane = "CHAOS";
       }
       return JSON.stringify(merged);
     }
@@ -127,6 +132,57 @@ function attachSimulationCategoryToIngestionDetails(
     raw: details,
     ...simulationTag,
   });
+}
+
+/** Default agent ingress + playbook options when callers omit them (workforce / DMZ paths). */
+function stampWorkforceAgentIngressIfMissing(
+  ingestionDetails: string,
+  sourceAgent: string | null | undefined,
+  title: string | null | undefined,
+): string {
+  const existing = parseAgentIngressFromIngestion(ingestionDetails);
+  if (
+    existing &&
+    (existing.ingressJustification.trim().length > 0 ||
+      existing.suggestedRemediationOptions.length > 0)
+  ) {
+    return stampAgentDiscoveryProvenance(ingestionDetails);
+  }
+  return stampAgentDiscoveryProvenance(
+    mergeAgentIngressIntoIngestionJson(
+      ingestionDetails,
+      buildWorkforceAgentIngressPayload(
+        typeof sourceAgent === "string" ? sourceAgent : "IRONWAVE",
+        typeof title === "string" && title.trim() ? title.trim() : "Threat ingress",
+      ),
+    ),
+  );
+}
+
+/** Stamp agent-discovery provenance when workforce ingress playbooks are applied at the gateway. */
+function stampAgentDiscoveryProvenance(ingestionDetails: string, threadId?: string): string {
+  try {
+    const parsed = JSON.parse(ingestionDetails) as Record<string, unknown>;
+    if (
+      parsed.sourcePlane === "MANUAL" ||
+      parsed.sourcePlane === "CHAOS" ||
+      parsed.isChaosTest === true
+    ) {
+      return ingestionDetails;
+    }
+    const tid =
+      (typeof threadId === "string" && threadId.trim()) ||
+      (typeof parsed.threadId === "string" && parsed.threadId.trim()) ||
+      "";
+    return JSON.stringify({
+      ...parsed,
+      sourcePlane: "AGENT_DISCOVERY",
+      ingestionProvenance: "WORKFORCE_AGENT_INGRESS",
+      ...(tid ? { threadId: tid, orchestrationThreadId: tid } : {}),
+    });
+  } catch {
+    return ingestionDetails;
+  }
 }
 
 /** Same boundary as `getCompanyIdForActiveTenant` — inlined to avoid circular import with `clearanceThreatResolve` → this module. */
@@ -151,23 +207,67 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
   const sanitizedPayload = sanitizeThreatIngressPayload(payload);
   const payloadWithCategory: IngressPayload = {
     ...sanitizedPayload,
-    ingestionDetails: attachSimulationCategoryToIngestionDetails(
-      typeof sanitizedPayload.ingestionDetails === "string"
-        ? sanitizedPayload.ingestionDetails
-        : undefined,
+    ingestionDetails: stampWorkforceAgentIngressIfMissing(
+      attachSimulationCategoryToIngestionDetails(
+        typeof sanitizedPayload.ingestionDetails === "string"
+          ? sanitizedPayload.ingestionDetails
+          : undefined,
+        typeof sanitizedPayload.sourceAgent === "string" ? sanitizedPayload.sourceAgent : undefined,
+        useRiskEventTable,
+      ),
       typeof sanitizedPayload.sourceAgent === "string" ? sanitizedPayload.sourceAgent : undefined,
-      useRiskEventTable,
+      typeof sanitizedPayload.title === "string" ? sanitizedPayload.title : undefined,
     ),
   };
   if (useRiskEventTable) {
-    /** Irongate (Agent 14): stamp shadow writes from the active dashboard session — cookie + canonical company for that tenant (Dev Switcher / ironframe-tenant). */
+    /** Irongate (Agent 14): bind shadow writes to the company row on the payload when present (Chaos L4 inject passes session tenant company id); else cookie + canonical company. */
     const cookieTenantUuid = (await getActiveTenantUuidFromCookies()).trim();
-    if (!cookieTenantUuid || !TENANT_UUID_REGEX.test(cookieTenantUuid)) {
+    const payloadCompanyRaw = (payloadWithCategory as { tenantCompanyId?: unknown }).tenantCompanyId;
+    const payloadCompanyId =
+      payloadCompanyRaw == null
+        ? null
+        : typeof payloadCompanyRaw === "bigint"
+          ? payloadCompanyRaw
+          : BigInt(String(payloadCompanyRaw));
+
+    let tenantId = cookieTenantUuid;
+    let canonicalCompanyId: bigint | null = null;
+
+    if (payloadCompanyId != null) {
+      const companyRow = await prisma.company.findUnique({
+        where: { id: payloadCompanyId },
+        select: { tenantId: true },
+      });
+      if (!companyRow?.tenantId?.trim()) {
+        throw new Error("Ingress: tenantCompanyId on payload is not bound to a tenant.");
+      }
+      tenantId = companyRow.tenantId.trim();
+      canonicalCompanyId = payloadCompanyId;
+      if (
+        cookieTenantUuid &&
+        cookieTenantUuid !== tenantId &&
+        !isShadowPlaneActiveFromEnv() &&
+        !(await readSimulationPlaneEnabled())
+      ) {
+        throw new Error(
+          "Ingress: tenantCompanyId tenant does not match active session tenant (Irongate stamp rejected).",
+        );
+      }
+    } else {
+      if (!cookieTenantUuid || !TENANT_UUID_REGEX.test(cookieTenantUuid)) {
+        throw new Error(
+          "Ingress: SimThreatEvent requires a valid active tenant session (set ironframe-tenant cookie / Dev Tenant Switcher).",
+        );
+      }
+      canonicalCompanyId = await resolveCanonicalCompanyIdForSessionTenant();
+      tenantId = cookieTenantUuid;
+    }
+
+    if (!tenantId || !TENANT_UUID_REGEX.test(tenantId)) {
       throw new Error(
         "Ingress: SimThreatEvent requires a valid active tenant session (set ironframe-tenant cookie / Dev Tenant Switcher).",
       );
     }
-    const canonicalCompanyId = await resolveCanonicalCompanyIdForSessionTenant();
     if (canonicalCompanyId == null) {
       throw new Error(
         "Ingress: SimThreatEvent requires tenantCompanyId for the active tenant (no Company row for session tenant).",
@@ -177,7 +277,6 @@ async function writeThreatEvent(payload: IngressPayload): Promise<IngressBotThre
       where: { id: canonicalCompanyId },
       select: { tenantId: true },
     });
-    const tenantId = cookieTenantUuid;
     if (!companyRow?.tenantId || companyRow.tenantId.trim() !== tenantId) {
       throw new Error(
         "Ingress: active company ↔ session tenant alignment failed (Irongate stamp rejected).",

@@ -1,8 +1,14 @@
 import { create } from "zustand";
 import type { PipelineThreat } from "@/app/store/riskStore";
+import { routeTerminalLineToForensicAudit } from "@/app/utils/forensicTerminalRouting";
 import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import type { WorkforceAgentCanonicalName } from "@/app/utils/agentKillAttribution";
+import {
+  AGENT_TELEMETRY_PULSE_MS,
+  parseWorkforceAgentsFromTelemetryText,
+} from "@/app/utils/workforceTelemetryPulse";
+import { dispatchIroncastNotificationFromStreamMessage } from "@/app/utils/ironcastNotificationBridge";
 
 const AGENT_KILL_STORAGE_PREFIX = "ironframe-agent-kills-v1:";
 
@@ -96,12 +102,16 @@ type AgentStore = {
   systemLatencyMs: number | null;
   /** Expert strategic pivot — drives amber border + overlay on matching ThreatCard until `until` epoch. */
   agentPivotFlash: AgentPivotFlashState;
+  /** Real-time telemetry pulse — agent name → epoch ms when emerald indicator expires. */
+  agentTelemetryPulseUntil: Record<string, number>;
   flashAgentPivot: (threatId: string, durationMs?: number) => void;
   clearAgentPivotFlash: () => void;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
   setInitialThreats: (newThreats: PipelineThreat[]) => PipelineThreat[];
+  /** Drop optimistic active-card scratch (tenant switch / strict board refetch). */
+  clearActiveThreatScratch: () => void;
   clearActiveThreatById: (id: string) => void;
   appendRiskIngestionTerminalLine: (line: string) => void;
   /** Clear DMZ terminal scratch without resetting intelligence stream (e.g. L6 mock drill). */
@@ -113,6 +123,9 @@ type AgentStore = {
   setIronwaveLocked: (phase: IronwaveTelemetryPhase, lockMs: number) => void;
   setThreatTelemetry: (threatId: string, telemetry: ThreatTelemetryEntry | null) => void;
   setSystemLatencyMs: (ms: number | null) => void;
+  /** Flash roster indicators from Audit Intelligence / DMZ terminal actor tags. */
+  pulseAgentsFromTelemetry: (agentNames: readonly string[], threadId?: string) => void;
+  pulseAgentsFromTelemetryText: (text: string, threadId?: string) => void;
   runSentinelSweep: (instruction: string) => void;
   /** Master purge: intelligence stream, ingestion lines, DMZ telemetry scratch — back to cold-boot baseline. */
   resetAgentStreamsForPurge: () => void;
@@ -157,6 +170,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   threatTelemetry: {},
   systemLatencyMs: null,
   agentPivotFlash: null,
+  agentTelemetryPulseUntil: {},
   flashAgentPivot: (threatId, durationMs = 2000) => {
     if (typeof window === "undefined") return;
     const tid = threatId.trim();
@@ -178,10 +192,16 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         [agent]: { status },
       },
     })),
-  addStreamMessage: (msg) =>
+  addStreamMessage: (msg) => {
+    const trimmed = msg.trim();
+    if (trimmed) {
+      get().pulseAgentsFromTelemetryText(trimmed);
+      dispatchIroncastNotificationFromStreamMessage(trimmed);
+    }
     set((state) => ({
       intelligenceStream: [msg, ...state.intelligenceStream].slice(0, 50),
-    })),
+    }));
+  },
   addActiveThreat: (threat) =>
     set((state) => {
       const tid = threat.id?.trim();
@@ -192,15 +212,16 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       };
     }),
   setInitialThreats: (newThreats) => newThreats,
+  /** Clear optimistic active-card scratch (tenant switch / board refetch). */
+  clearActiveThreatScratch: () => set({ activeThreats: [] }),
   clearActiveThreatById: (id) =>
     set((state) => ({
       activeThreats: state.activeThreats.filter((t) => t.id !== id),
     })),
   clearRiskIngestionTerminalLines: () => set({ riskIngestionTerminalLines: [] }),
-  appendRiskIngestionTerminalLine: (line) =>
+  appendRiskIngestionTerminalLine: (line) => {
+    routeTerminalLineToForensicAudit(line);
     set((state) => {
-      const prev = state.riskIngestionTerminalLines;
-      if (prev.length > 0 && prev[prev.length - 1] === line) return state;
       const tenant = state.telemetryTenantScope;
       let ironwaveTelemetry = state.ironwaveTelemetry;
       if (tenant) {
@@ -219,11 +240,10 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
           };
         }
       }
-      return {
-        riskIngestionTerminalLines: [...prev, line].slice(-100),
-        ironwaveTelemetry,
-      };
-    }),
+      if (ironwaveTelemetry === state.ironwaveTelemetry) return state;
+      return { ironwaveTelemetry };
+    });
+  },
   setTelemetryTenantScope: (uuid) => set({ telemetryTenantScope: uuid }),
   setIronwaveFromHeartbeat: (phase) => {
     const state = get();
@@ -272,6 +292,48 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       };
     }),
   setSystemLatencyMs: (ms) => set({ systemLatencyMs: ms }),
+  pulseAgentsFromTelemetry: (agentNames, threadId) => {
+    if (typeof window === "undefined") return;
+    const roster = new Set(CORE_WORKFORCE_AGENTS.map((a) => a.name));
+    const until = Date.now() + AGENT_TELEMETRY_PULSE_MS;
+    const matched = agentNames.filter((n) => roster.has(n.trim()));
+    if (matched.length === 0) return;
+
+    set((state) => {
+      const next = { ...state.agentTelemetryPulseUntil };
+      for (const name of matched) {
+        next[name] = until;
+      }
+      return { agentTelemetryPulseUntil: next };
+    });
+
+    const tid = threadId?.trim();
+    if (tid) {
+      get().setThreatTelemetry(tid, { status: "PROCESSING" });
+    }
+
+    window.setTimeout(() => {
+      set((state) => {
+        let changed = false;
+        const next = { ...state.agentTelemetryPulseUntil };
+        for (const name of matched) {
+          if (next[name] === until) {
+            delete next[name];
+            changed = true;
+          }
+        }
+        return changed ? { agentTelemetryPulseUntil: next } : state;
+      });
+      if (tid) {
+        get().setThreatTelemetry(tid, { status: "VERIFIED" });
+      }
+    }, AGENT_TELEMETRY_PULSE_MS);
+  },
+  pulseAgentsFromTelemetryText: (text, threadId) => {
+    const agents = parseWorkforceAgentsFromTelemetryText(text);
+    if (agents.length === 0) return;
+    get().pulseAgentsFromTelemetry(agents, threadId);
+  },
   runSentinelSweep: (instruction: string) => {
     const now = new Date().toLocaleTimeString();
     const systemMsg = `> [SYSTEM] (${now}) Initializing Sentinel Sweep...`;
@@ -305,6 +367,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       activeThreats: [],
       threatTelemetry: {},
       agentPivotFlash: null,
+      agentTelemetryPulseUntil: {},
       ironwaveTelemetry: {
         phase: "ASSIGNED",
         tenantUuid: null,

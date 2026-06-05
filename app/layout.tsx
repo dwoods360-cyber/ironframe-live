@@ -10,6 +10,7 @@ import EmergencyOverlay from "./components/EmergencyOverlay";
 import ConstitutionalDegradedBanner from "./components/ConstitutionalDegradedBanner";
 import StaleDataLockdownBanner from "./components/StaleDataLockdownBanner";
 import GlobalEkgPortal from "./components/GlobalEkgPortal";
+import NotificationOverlay from "./components/NotificationOverlay";
 import AuditTrackingProvider from "./providers/AuditTrackingProvider";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
       >
         <TenantProvider>
           <GlobalEkgPortal />
+          <NotificationOverlay />
           <ConstitutionalIntegrityProvider>
             <AuditTrackingProvider>
             <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-950">

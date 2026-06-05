@@ -26,6 +26,17 @@ describe("chaosVictoryLapPurgeBlocked", () => {
     expect(isRemoteSupportAwaitingJitGrant("CONFIRMED", ingestion)).toBe(false);
   });
 
+  it("clears L4 JIT gate when attempt-4 completion toggles remoteSupportJitAwaitingGrant false", () => {
+    const ingestion = JSON.stringify({
+      chaosScenario: "REMOTE_SUPPORT",
+      isChaosTest: true,
+      remoteSupportJitAwaitingGrant: false,
+      sidecarTornDownAt: "2026-06-02T12:00:00.000Z",
+    });
+    expect(isRemoteSupportAwaitingJitGrant("MITIGATED", ingestion)).toBe(false);
+    expect(chaosVictoryLapPurgeBlocked(ingestion)).toBe(false);
+  });
+
   it("blocks Chaos 4 until remote handshake", () => {
     const ingestion = JSON.stringify({
       chaosScenario: "REMOTE_SUPPORT",

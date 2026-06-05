@@ -95,14 +95,9 @@ export default function OpSupportClient({
   const setLedgerSurface = onLedgerSurfaceChange ?? setLedgerSurfaceInternal;
 
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
-  const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
   const narrativeScrollRef = useRef<HTMLDivElement | null>(null);
 
-  const narrativeLines = useMemo(() => {
-    const intel = [...intelligenceStream].reverse();
-    const risk = riskIngestionTerminalLines;
-    return [...intel, ...risk.map((line) => `> [INGEST] ${line}`)];
-  }, [intelligenceStream, riskIngestionTerminalLines]);
+  const narrativeLines = useMemo(() => [...intelligenceStream].reverse(), [intelligenceStream]);
 
   useEffect(() => {
     if (ledgerSurface !== "narrative") return;

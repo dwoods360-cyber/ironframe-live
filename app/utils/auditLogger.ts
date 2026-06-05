@@ -79,6 +79,8 @@ export type CreateAuditLogInput = {
 
 import { appendClockDriftToMetadataTag } from "@/app/utils/sessionClockDrift";
 import { isShadowPlaneActiveClient } from "@/app/utils/shadowPlaneActive";
+import { signalAgentTelemetryFromText } from "@/app/utils/agentTelemetryPulseClient";
+import { dispatchIroncastNotificationFromAudit } from "@/app/utils/ironcastNotificationBridge";
 
 const AUDIT_LOG_STORAGE_KEY = "ironframe-audit-intelligence-log-v1";
 const DEFAULT_USER_ID = "Dereck";
@@ -304,6 +306,10 @@ export function appendAuditLog(input: CreateAuditLogInput) {
   auditLogState = Object.freeze([nextRecord, ...auditLogState].slice(0, 2000));
   persistAuditLogState();
   emitChange();
+  signalAgentTelemetryFromText(
+    [description, forensicSourceOut, input.metadata_tag ?? "", input.forensic?.message ?? ""].join(" "),
+  );
+  dispatchIroncastNotificationFromAudit(input);
   return nextRecord;
 }
 

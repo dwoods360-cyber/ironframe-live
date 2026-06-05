@@ -425,6 +425,10 @@ export async function POST(request: NextRequest) {
       if (orchestrationBus.ok) {
         try {
           const busPatch = {
+            sourcePlane: "AGENT_DISCOVERY",
+            ingestionProvenance: "WORKFORCE_ORCHESTRATION_BUS",
+            threadId: threatId,
+            orchestrationThreadId: threatId,
             orchestrationBusCycle: {
               completedAt: new Date().toISOString(),
               lane: orchestrationBus.lane,

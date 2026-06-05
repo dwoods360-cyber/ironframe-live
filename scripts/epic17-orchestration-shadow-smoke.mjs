@@ -21,16 +21,19 @@ const cliStagingBaseUrl = process.env.STAGING_SMOKE_BASE_URL?.trim();
 const cliVercelBypass = process.env.VERCEL_BYPASS_TOKEN?.trim();
 const skipStage = process.argv.includes("--skip-stage");
 
-dotenv.config({ path: ".env.staging.local", override: true });
+const dotenvStaging = dotenv.config({ path: ".env.staging.local", override: true });
 dotenv.config({ path: ".env.local", override: true });
 dotenv.config({ path: ".env", override: true });
+
+const stagingBypassToken = dotenvStaging.parsed?.VERCEL_BYPASS_TOKEN?.trim();
 
 const base = (
   cliStagingBaseUrl ||
   process.env.STAGING_SMOKE_BASE_URL?.trim() ||
   "https://ironframe-live.vercel.app"
 ).replace(/\/$/, "");
-const vercelBypass = cliVercelBypass || process.env.VERCEL_BYPASS_TOKEN?.trim();
+const vercelBypass =
+  cliVercelBypass || stagingBypassToken || process.env.VERCEL_BYPASS_TOKEN?.trim();
 
 const MEDSHIELD_TENANT = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";
 const THREAT_ID = "cmouerday000357xc47kbd6p7";

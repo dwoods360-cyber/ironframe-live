@@ -82,7 +82,7 @@ if (!base) {
 }
 
 console.log(`[vercel-integration] Live target: ${base}`);
-run("node", ["scripts/staging-smoke-cron.mjs"], "Vercel cron integration smoke (21 probes)", {
+run("node", ["scripts/staging-smoke-cron.mjs"], "Vercel cron integration smoke (23 probes)", {
   STAGING_SMOKE_BASE_URL: base,
 });
 run("node", ["scripts/ironquery-export-probe.mjs"], "Ironquery CSV export probe", {

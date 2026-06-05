@@ -137,60 +137,8 @@ function isTopSectorPipelineThreat(threat: PipelineThreat): boolean {
 
 /** Manual Risk Entry source field — matches Strategic Intel sidebar profiles. */
 const STRATEGIC_INTEL_PROFILE_SOURCE = "Strategic Intel Profile";
+/** DB-backed crown-jewel volatility row id (no client-side mock inject). */
 const MARKET_VOLATILITY_RISK_ID = "0x8F22";
-
-function buildMarketVolatilityRiskEvent(params: {
-  selectedIndustry: string;
-  selectedTenantName: string | null;
-}): PipelineThreat {
-  const tenantName = params.selectedTenantName?.trim() || "Medshield Health";
-  const industry = params.selectedIndustry?.trim() || "Finance";
-  const discoveredAt = "2026-05-24T20:34:39Z";
-  const meta = {
-    deltaVN: 0.22,
-    canonicalRiskEvent: {
-      id: MARKET_VOLATILITY_RISK_ID,
-      type: "OPERATIONAL_THREAT",
-      title: "Insurance Market Hardening — Volatility Spike Detected",
-      status: "ACTIVE",
-      severity: "CRITICAL",
-      blastRadius: "MEDIUM",
-      discoveredAt,
-      assignedAgents: ["Ironsight", "Ironlock"],
-      remediationPath: "/api/grc/irontally",
-    },
-  };
-
-  return {
-    id: MARKET_VOLATILITY_RISK_ID,
-    name: "Insurance Market Hardening — Volatility Spike Detected",
-    loss: 11.1,
-    score: 11.1,
-    industry,
-    target: tenantName,
-    source: "SYSTEM_VOLATILITY_TRIGGER",
-    sourceAgent: "SYSTEM_VOLATILITY_TRIGGER",
-    type: "OPERATIONAL_THREAT",
-    category: "FINANCIAL_RISK",
-    severity: "CRITICAL",
-    status: "ACTIVE",
-    threatStatus: "ACTIVE",
-    lifecycleState: "pipeline",
-    assignedAgents: ["Ironsight", "Ironlock"],
-    assignedTo: "Ironlock",
-    blastRadius: { level: "MEDIUM", impactedAssets: ["Insurance renewal controls", "GRC evidence ledger"] },
-    ttlHours: 4.0,
-    ttlSeconds: 4 * 60 * 60,
-    likelihood: 9,
-    impact: 10,
-    calculatedRiskScore: 90,
-    createdAt: discoveredAt,
-    description:
-      "Industry Spike Detected: Insurance Market Hardening. Auto-validating high-value controls.",
-    ingestionDetails: JSON.stringify(meta),
-    meta,
-  };
-}
 
 function isManualTopSectorIntelSource(source: string): boolean {
   const s = source.trim();
@@ -1190,28 +1138,7 @@ export default function ThreatPipeline({
     isShadowPlaneLiveRange ||
     pipelineThreats.length > 0 ||
     activeThreats.length > 0;
-  const marketVolatilityRisk = useMemo(
-    () => buildMarketVolatilityRiskEvent({ selectedIndustry, selectedTenantName }),
-    [selectedIndustry, selectedTenantName],
-  );
-  useEffect(() => {
-    const existingPipeline = boardsRef.current.pipeline.find((t) => t.id === MARKET_VOLATILITY_RISK_ID);
-    const existingActive = boardsRef.current.active.find((t) => t.id === MARKET_VOLATILITY_RISK_ID);
-    if (existingActive) return;
-    if (
-      existingPipeline &&
-      existingPipeline.target === marketVolatilityRisk.target &&
-      existingPipeline.industry === marketVolatilityRisk.industry
-    ) {
-      return;
-    }
-    upsertPipelineThreat({
-      ...marketVolatilityRisk,
-      createdAt: existingPipeline?.createdAt ?? marketVolatilityRisk.createdAt,
-    });
-  }, [marketVolatilityRisk, upsertPipelineThreat]);
   const enginesOn = kimbotEnabled || grcBotEnabled;
-  const riskIngestionTerminalLines = useAgentStore((s) => s.riskIngestionTerminalLines);
   const [manualTitle, setManualTitle] = useState("");
   const [manualSource, setManualSource] = useState("");
   const [manualTarget, setManualTarget] = useState("Healthcare");
@@ -1331,10 +1258,6 @@ export default function ThreatPipeline({
 
   /** Newest-first for Attack Velocity stack (DB `createdAt` when present). */
   const visiblePipelineThreats = [...visiblePipelineThreatsBase].sort((a, b) => {
-    const aMarketVolatility = a.id === MARKET_VOLATILITY_RISK_ID && (a.threatStatus ?? a.status) !== "RESOLVED";
-    const bMarketVolatility = b.id === MARKET_VOLATILITY_RISK_ID && (b.threatStatus ?? b.status) !== "RESOLVED";
-    if (aMarketVolatility && !bMarketVolatility) return -1;
-    if (!aMarketVolatility && bMarketVolatility) return 1;
     const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     if (tb !== ta) return tb - ta;
@@ -1639,7 +1562,7 @@ export default function ThreatPipeline({
   }, [grcBotEnabled, syncThreatEventsFromDb]);
 
   const runSyncImpl = useCallback(async () => {
-    if (useRiskStore.getState().isAcknowledgeInFlight) return;
+    const ackInFlight = useRiskStore.getState().ackInFlightThreatIds;
 
     const { pipeline: pt, active: at } = boardsRef.current;
 
@@ -1652,6 +1575,7 @@ export default function ThreatPipeline({
     const allIds = [...pt.map((t) => t.id), ...at.map((t) => t.id)];
     const toValidate = [...new Set(allIds)].filter(isDbBackedId);
     if (toValidate.length === 0) return;
+    if (toValidate.some((id) => ackInFlight[id])) return;
 
     try {
       const res = await fetch("/api/threats/validate", {
@@ -1721,29 +1645,6 @@ export default function ThreatPipeline({
       <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">RISK INGESTION</h2>
       </div>
-      {riskIngestionTerminalLines.length > 0 ? (
-        <div
-          className="mb-3 max-h-28 overflow-y-auto rounded border border-slate-800 bg-black/50 p-2 font-mono text-[9px] leading-relaxed text-slate-200"
-          role="log"
-          aria-label="DMZ telemetry terminal"
-        >
-          <p className="mb-1 text-[8px] font-bold uppercase tracking-wider text-slate-500">
-            IRONWAVE / DMZ terminal
-          </p>
-          {riskIngestionTerminalLines.map((line, idx) => (
-            <div
-              key={`${idx}-${line.slice(0, 48)}`}
-              className={
-                line.includes("IRONLOCK INTERRUPT")
-                  ? "text-rose-300"
-                  : "text-emerald-200/90"
-              }
-            >
-              {line}
-            </div>
-          ))}
-        </div>
-      ) : null}
       {threatActionError.active && threatActionError.message && (
         <div
           role="alert"
@@ -2098,8 +1999,8 @@ export default function ThreatPipeline({
             </div>
           ) : pipelineThreats.length === 0 ? (
             isShadowPlaneLiveRange ? (
-              <div className="rounded border border-dashed border-amber-500/45 bg-amber-950/20 p-4 text-center font-sans text-sm text-amber-100/90 animate-pulse">
-                [ EMPTY PIPELINE · LIVE RANGE — CARDS APPEAR WHEN DB ROWS MATCH ACTIVE TENANT UUID ]
+              <div className="rounded border border-dashed border-amber-500/45 bg-amber-950/20 p-4 text-center font-sans text-sm text-amber-100/90">
+                [ NO ACTIVE THREAT ENVELOPE DETECTED ]
               </div>
             ) : (
               <div className="rounded border border-slate-800 bg-slate-950/40 p-4 text-center font-sans text-sm text-slate-500">

@@ -50,24 +50,51 @@ export type ResolvedClearanceThreat = {
 };
 
 /**
+ * Canonical company for a tenant UUID. Stable across server actions:
+ * prefer a non–test-record company, then lowest `id` (avoids non-deterministic `findFirst`
+ * when multiple `Company` rows share the same `tenantId` — birth vs ack must match).
+ */
+export async function getCompanyIdForTenantUuid(
+  tenantUuid: string | null | undefined,
+): Promise<bigint | null> {
+  const tid = tenantUuid?.trim();
+  if (!tid) return null;
+  const primary = await prisma.company.findFirst({
+    where: { tenantId: tid, isTestRecord: false },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  if (primary) return primary.id;
+  const fallback = await prisma.company.findFirst({
+    where: { tenantId: tid },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  return fallback?.id ?? null;
+}
+
+/** All company ids bound to a tenant (Active board reads may span bootstrap + prod rows). */
+export async function getCompanyIdsForTenantUuid(
+  tenantUuid: string | null | undefined,
+): Promise<bigint[]> {
+  const tid = tenantUuid?.trim();
+  if (!tid) return [];
+  const companies = await prisma.company.findMany({
+    where: { tenantId: tid },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  return companies.map((c) => c.id);
+}
+
+/**
  * Canonical company for the active dashboard tenant. Stable across server actions:
  * prefer a non–test-record company, then lowest `id` (avoids non-deterministic `findFirst`
  * when multiple `Company` rows share the same `tenantId` — birth vs ack must match).
  */
 export async function getCompanyIdForActiveTenant(): Promise<bigint | null> {
   const tenantUuid = await getActiveTenantUuidFromCookies();
-  const primary = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid, isTestRecord: false },
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
-  if (primary) return primary.id;
-  const fallback = await prisma.company.findFirst({
-    where: { tenantId: tenantUuid },
-    orderBy: { id: "asc" },
-    select: { id: true },
-  });
-  return fallback?.id ?? null;
+  return getCompanyIdForTenantUuid(tenantUuid);
 }
 
 export async function resolveClearanceThreatForActiveTenant(

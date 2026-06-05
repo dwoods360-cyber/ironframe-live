@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Dashboard RSC: wires forensic center lane into `DashboardHomeClient`.
- * Center pane: GRC maturity strip (four chips) → handshake / ALE map → Enterprise Risk Posture → Active Risks.
+ * Center pane: GRC maturity strip (four chips) → handshake / ALE map → Enterprise Risk Posture → Risk Ingestion / Registration → Active Risks.
  * No RiskDeckGovernanceIngress or RiskEventsRegulatoryOverlay — stage-1 ingress is logs / assignee history only.
  */
 export default async function DashboardPage() {

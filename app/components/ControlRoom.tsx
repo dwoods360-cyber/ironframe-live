@@ -31,6 +31,7 @@ import ConfigChangeWidget from "@/app/components/ConfigChangeWidget";
 import type { NotificationAuditSummary } from "@/app/utils/notificationAuditSummary";
 import { fetchChaosLedgerClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
+import { dispatchSimulationDispatchNotice } from "@/app/utils/simulationDispatchOutcome";
 import { GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL } from "@/src/constants/grcManualPurge";
 import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimulationStandDownFeed";
 import { useShadowHandshakeRoleStore } from "@/app/store/shadowHandshakeRoleStore";
@@ -41,6 +42,7 @@ import type { PipelineThreat } from "@/app/store/riskStore";
 import {
   combineThreatPlanes,
   getAgentState,
+  mergeInventoryAgentWithPulse,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
@@ -115,6 +117,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
+  const agentTelemetryPulseUntil = useAgentStore((s) => s.agentTelemetryPulseUntil);
+  const [telemetryPulseTick, setTelemetryPulseTick] = useState(0);
 
   const cisoBreachSignalActive = useMemo(
     () => isCisoBreachAttestationPendingInSets(pipelineThreats, activeThreats),
@@ -279,6 +283,13 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     [activeThreats, pipelineThreats],
   );
 
+  useEffect(() => {
+    const hasLivePulse = Object.values(agentTelemetryPulseUntil).some((until) => until > Date.now());
+    if (!hasLivePulse) return;
+    const id = window.setInterval(() => setTelemetryPulseTick((t) => t + 1), 300);
+    return () => window.clearInterval(id);
+  }, [agentTelemetryPulseUntil, telemetryPulseTick]);
+
   async function syncBoardsAfterIntegrityDrillChange() {
     applyManualSimulationStandDownResumeFeed();
     void useRiskStore.getState().pulseThreatBoardsFromDb().catch(() => undefined);
@@ -343,6 +354,15 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           setSimulationBotsArmed((prev) => ({ ...prev, [drillId]: false }));
         }
       } else {
+        if (!result.cardProduced) {
+          dispatchSimulationDispatchNotice({
+            scenarioName: result.scenarioDisplayName,
+            message: result.message,
+            forensicLine: result.forensicLine,
+          });
+          await syncBoardsAfterIntegrityDrillChange();
+          return;
+        }
         const pipelineRow: PipelineThreat = {
           ...result.pipelineThreat,
           lifecycleState: "pipeline",
@@ -621,7 +641,11 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           aria-label="19-agent status pulse"
         >
           {CORE_WORKFORCE_AGENTS.map((agent, index) => {
-            let pulse = getAgentState(agent.name, combinedThreats);
+            let pulse: AgentPulseState = mergeInventoryAgentWithPulse(
+              agent.name,
+              combinedThreats,
+              agentTelemetryPulseUntil,
+            );
             if (agent.name === "Irongate" && irongateClaimFlash) {
               pulse = "ACTIVE";
             }
@@ -631,14 +655,16 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             const dotPulse =
               pulse === "ALERT"
                 ? `bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)] ${dotPulseMotion}`
-                : pulse === "ACTIVE"
-                  ? `bg-sky-500 shadow-[0_0_6px_rgba(14,165,233,0.45)] ${dotPulseMotion}`
-                  : "bg-slate-600";
+                : pulse === "TELEMETRY"
+                  ? `bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)] ${dotPulseMotion}`
+                  : pulse === "ACTIVE"
+                    ? `bg-sky-500 shadow-[0_0_6px_rgba(14,165,233,0.45)] ${dotPulseMotion}`
+                    : "bg-slate-600";
             return (
               <div key={agent.name} role="listitem" className="min-w-0 w-full">
                 <div className="flex min-w-0 w-full items-center gap-x-1.5">
                   <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotPulse}`}
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-700 ${dotPulse}`}
                     style={
                       pulse !== "IDLE"
                         ? { animationDelay: `${staggerMs}ms` }

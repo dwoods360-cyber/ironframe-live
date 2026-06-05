@@ -6,14 +6,14 @@ import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
 import {
   getActiveTenantUuidFromCookies,
-  getRedTeamSimulationTenantUuid,
+  getScopedTenantUuidFromCookies,
   resolveTenantUuidForThreatScope,
 } from "@/app/utils/serverTenantContext";
 import { resolveIntegrityLedgerAuthorizedLabel } from "@/app/utils/serverAuth";
 import type { ChaosClientAttribution } from "@/app/utils/chaosClientAttribution";
 import { ingressGateway, ingressUsesRiskEventTable } from "@/app/lib/security/ingressGateway";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
-import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { getCompanyIdForActiveTenant, getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
 import {
   mergeIngestionDetailsPatch,
   mergeIngestionDetailsPatchJson,
@@ -21,7 +21,12 @@ import {
   parseIngestionDetailsForMerge,
 } from "@/app/utils/ingestionDetailsMerge";
 import {
-  resumeIsolatedRemoteSupportDrill,
+  buildChaosAgentIngressPayload,
+  mergeAgentIngressIntoIngestionJson,
+} from "@/app/utils/agentIngressJustification";
+import {
+  finalizeRemoteSupportTechResolution,
+  patchRemoteSupportDrillIngestion,
   runIsolatedCascadeDrill,
   runIsolatedEscalationDrill,
   runIsolatedHomeServerDrill,
@@ -47,11 +52,29 @@ import {
 } from "@/app/lib/riskRegistryDb";
 import { ingestRedTeamAttackToRegistry } from "@/app/services/riskLifecycle";
 import { CHAOS_WORKFORCE_ASSIGNEE_LABELS } from "@/app/utils/assignmentChainOfCustody";
+import {
+  buildSimulationCardRequiredMessage,
+  buildSimulationDispatchMessage,
+  resolveSimulationCardProduced,
+  resolveSimulationForensicLine,
+} from "@/app/utils/simulationDispatchOutcome";
 import { purgeSimulation } from "@/app/actions/purgeSimulation";
 import { clearSimulationStandDown } from "@/app/lib/simulationStandDown";
 import { recordResilienceIntelStreamLine } from "@/app/actions/resilienceIntelStreamActions";
 import { logThreatActivity } from "@/app/actions/auditActions";
 import { updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import {
+  buildChaosL4LifecyclePatch,
+  buildChaosScenario4InitialIngestion,
+  canArchiveChaosL4,
+  CHAOS_L4_CARD_TITLE,
+  CHAOS_L4_WORK_PERFORMED_MIN_CHARS,
+  isChaosL4AwaitingJitGrant,
+  isChaosL4ReadyForTechClaim,
+  isChaosL4TechInvestigating,
+  parseChaosL4LifecycleFromIngestion,
+} from "@/app/utils/chaosL4Lifecycle";
+import { validateIngressContext } from "@/app/middleware/irongateShield";
 import {
   commitPhoneHome,
   dispatchRemoteSupportAction,
@@ -279,6 +302,7 @@ function resolveChaosCardTitle(scenario: ChaosScenario, scenarioDisplayLabel: un
 /** Final row fields applied after immediate draft create (same semantics as former `createChaosThreatBase`). */
 function chaosThreatFinalizeData(
   tenantCompanyId: bigint,
+  tenantScopeUuid: string,
   scenario: ChaosScenario,
   cardTitle: string,
   opts?: {
@@ -318,10 +342,17 @@ function chaosThreatFinalizeData(
           : opts.initialAssigneeId;
 
   const constitutionalSealedAt = new Date().toISOString();
-  const ingestionDetails = JSON.stringify({
+  const agentIngress = buildChaosAgentIngressPayload(scenarioNorm, cardTitle);
+  const scopedTenant = tenantScopeUuid.trim();
+  const ingestionDetails = mergeAgentIngressIntoIngestionJson(
+    {
+    sourcePlane: "CHAOS",
     isChaosTest: true,
     incident_type: "CHAOS",
     category: "INFRASTRUCTURE",
+    /** Session tenant UUID — used by Active board client filter (zero-bleed). */
+    tenantScopeUuid: scopedTenant,
+    chaosTenantCompanyId: tenantCompanyId.toString(),
     chaos_level: drillLevel,
     threatCategoryDisplay: "Infrastructure Drift",
     shadowSimulationStatus: "simulated",
@@ -352,7 +383,9 @@ function chaosThreatFinalizeData(
     chaosShadowAuditLog: [],
     /** GRC agent handoff chain (timestamp, assignee, directive) per 4s transition. */
     chaosAssigneeHandoffHistory: [],
-  });
+    },
+    agentIngress,
+  );
 
   return {
     tenantCompanyId,
@@ -458,21 +491,29 @@ export type InjectChaosThreatOptions = {
   deferRemoteSupportDrill?: boolean;
 };
 
+export type InjectChaosThreatSuccess = {
+  ok: true;
+  threatId: string;
+  tenantCompanyId: string;
+  pipelineThreat: ChaosPipelineThreatPayload;
+  cardProduced: boolean;
+  message: string;
+  scenarioDisplayName: string;
+  forensicLine?: string;
+};
+
+export type InjectChaosThreatResult = InjectChaosThreatSuccess | { ok: false; error: string };
+
 export async function injectChaosThreatAction(
   scenario: ChaosScenario = "INTERNAL",
   clientAttribution?: ChaosClientAttribution | null,
   /** Exact `<option>` label from the Control Room dropdown (ThreatEvent / SimThreatEvent title + pipeline header). */
   scenarioDisplayLabel?: unknown,
   options?: InjectChaosThreatOptions,
-): Promise<
-  | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
-  | { ok: false; error: string }
-> {
-  /** Control Room Simulation Bots A–C: e79ea77 server default (cookie or Medshield) — not global-aggregate strict mode. */
+): Promise<InjectChaosThreatResult> {
+  /** Control Room Simulation Bots A–C: session cookie only — never Medshield default. */
   const isControlRoomIntegrityBot = Boolean(options?.systemIntegrityDrillId);
-  const tenantFromCookie = isControlRoomIntegrityBot
-    ? await getActiveTenantUuidFromCookies()
-    : await getRedTeamSimulationTenantUuid();
+  const tenantFromCookie = await getScopedTenantUuidFromCookies();
   const tenantId = options?.tenantUuidOverride?.trim()
     ? await resolveTenantUuidForThreatScope(options.tenantUuidOverride.trim())
     : tenantFromCookie;
@@ -480,8 +521,8 @@ export async function injectChaosThreatAction(
     return {
       ok: false,
       error: isControlRoomIntegrityBot
-        ? "No active tenant."
-        : "No active tenant — select Command Center scope or enable simulation / Shadow Plane.",
+        ? "No active tenant — select tenant in Command Center before chaos inject."
+        : "No active tenant — select Command Center scope or pass tenantUuidOverride from session.",
     };
   }
   if (options?.tenantUuidOverride?.trim() && !isControlRoomIntegrityBot) {
@@ -503,6 +544,13 @@ export async function injectChaosThreatAction(
   await clearSimulationStandDown(tenantId);
 
   const scenarioNorm = normalizeScenario(scenario);
+  if (scenarioNorm === "REMOTE_SUPPORT" && !options?.tenantUuidOverride?.trim()) {
+    return {
+      ok: false,
+      error:
+        "Chaos L4 (Remote Support) requires explicit tenant scope from the active session (tenantUuidOverride).",
+    };
+  }
   const cardTitle = resolveChaosCardTitle(scenarioNorm, scenarioDisplayLabel);
   const deferRemoteSupportDrill =
     scenarioNorm === "REMOTE_SUPPORT" && options?.deferRemoteSupportDrill === true;
@@ -510,9 +558,14 @@ export async function injectChaosThreatAction(
     deferRemoteSupportDrill || options?.skipIsolatedDrill !== false;
 
   try {
-    let company = await prisma.company.findFirst({
-      where: { tenantId },
-    });
+    let companyId = await getCompanyIdForTenantUuid(tenantId);
+    let company =
+      companyId != null
+        ? await prisma.company.findUnique({
+            where: { id: companyId },
+            select: { id: true, tenantId: true, name: true, sector: true },
+          })
+        : null;
 
     if (!company) {
       await prisma.tenant.upsert({
@@ -532,7 +585,13 @@ export async function injectChaosThreatAction(
           tenantId,
           isTestRecord: true,
         },
+        select: { id: true, tenantId: true, name: true, sector: true },
       });
+      companyId = company.id;
+    }
+
+    if (!company?.tenantId?.trim() || company.tenantId.trim() !== tenantId) {
+      return { ok: false, error: "Chaos inject blocked: company tenant binding mismatch." };
     }
 
     const initialAssigneeId = options?.initialAssigneeId;
@@ -543,7 +602,8 @@ export async function injectChaosThreatAction(
       scenarioNorm !== "INFIL_LATERAL_PIVOT" &&
       scenarioNorm !== "PHISH_CEO_FRAUD" &&
       scenarioNorm !== "PHISH_IT_HELPDESK";
-    const finalize = chaosThreatFinalizeData(company.id, scenarioNorm, cardTitle, {
+
+    const finalize = chaosThreatFinalizeData(company.id, tenantId, scenarioNorm, cardTitle, {
       ...(initialAssigneeId === undefined ? {} : { initialAssigneeId }),
       includeChaosDrillEntityType,
       ...(options?.systemIntegrityDrillId
@@ -555,6 +615,16 @@ export async function injectChaosThreatAction(
       finalize as unknown as Prisma.ThreatEventUncheckedCreateInput,
     );
     const threatId = created.id;
+
+    await patchRemoteSupportDrillIngestion(
+      threatId,
+      {
+        sourcePlane: "CHAOS",
+        threadId: threatId,
+        orchestrationThreadId: threatId,
+      },
+      "CHAOS_ORCHESTRATION_THREAD_BOUND",
+    );
 
     if (deferRemoteSupportDrill) {
       const reg = await ingestRedTeamAttackToRegistry({
@@ -623,11 +693,21 @@ export async function injectChaosThreatAction(
       return { ok: false, error: "Threat row missing after chaos inject." };
     }
 
+    const cardProduced = resolveSimulationCardProduced(scenarioNorm, options);
+    const forensicLine = cardProduced ? undefined : resolveSimulationForensicLine(scenarioNorm);
+    const message = cardProduced
+      ? buildSimulationCardRequiredMessage(cardTitle)
+      : buildSimulationDispatchMessage(cardTitle, forensicLine ?? "");
+
     return {
       ok: true,
       threatId,
       tenantCompanyId: company.id.toString(),
       pipelineThreat: mapThreatRowToChaosPipelinePayload(row),
+      cardProduced,
+      message,
+      scenarioDisplayName: cardTitle,
+      forensicLine,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
@@ -808,10 +888,7 @@ export async function standDownSystemIntegrityDrillAction(
 export async function triggerSystemIntegrityDrillAction(
   drillId: SystemIntegrityDrillId,
   clientAttribution?: ChaosClientAttribution | null,
-): Promise<
-  | { ok: true; threatId: string; tenantCompanyId: string; pipelineThreat: ChaosPipelineThreatPayload }
-  | { ok: false; error: string }
-> {
+): Promise<InjectChaosThreatResult> {
   const scenario = SYSTEM_INTEGRITY_DRILL_TO_SCENARIO[drillId] ?? "INTERNAL";
   const dualKeyHandshake = DUAL_KEY_HANDSHAKE_DRILLS.includes(drillId);
   const suppressChaosDrillEntityType =
@@ -1329,10 +1406,10 @@ export async function runRemoteSupportChaosDrillAction(
     return { ok: false, error: "Missing threat id." };
   }
   try {
-    const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
-    const drillResult = await runIsolatedRemoteSupportDrill(id, ledgerAttribution);
-    if (!drillResult.success) {
-      return { ok: false, error: drillResult.error };
+    await resolveChaosInjectAttribution(clientAttribution);
+    const phaseResult = await applyChaosScenario4AutomatedPhaseAction(id);
+    if (!phaseResult.ok) {
+      return phaseResult;
     }
     revalidatePath("/", "layout");
     revalidatePath("/integrity");
@@ -1343,7 +1420,143 @@ export async function runRemoteSupportChaosDrillAction(
   }
 }
 
-/** Scenario 4 JIT gate — user grants diagnostic access; resumes drill and resolves after simulated engineer window. */
+/**
+ * Scenario 4 automated failure phase (Steps 1–3) — pre-computes forensic lines and locks
+ * `AWAITING_JIT_GRANT` on an existing chaos row after Attack Velocity hold.
+ */
+export async function applyChaosScenario4AutomatedPhaseAction(
+  threatId: string,
+  tenantUuidOverride?: string,
+): Promise<{ ok: true; threatId: string } | { ok: false; error: string }> {
+  const id = threatId.trim();
+  if (!id) return { ok: false, error: "Missing threat id." };
+
+  const simRow = await prisma.riskEvent.findFirst({
+    where: { id },
+    select: { ingestionDetails: true, tenantCompanyId: true },
+  });
+  const prodRow = simRow
+    ? null
+    : await prisma.threatEvent.findUnique({
+        where: { id },
+        select: { ingestionDetails: true, tenantCompanyId: true },
+      });
+  const row = simRow ?? prodRow;
+  if (!row?.tenantCompanyId) {
+    return { ok: false, error: "Threat not found." };
+  }
+
+  const existingRaw =
+    simRow != null
+      ? normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}"
+      : (prodRow?.ingestionDetails ?? "{}");
+
+  const base = parseIngestionDetailsForMerge(existingRaw);
+  const tenantFromRow =
+    typeof base.tenantScopeUuid === "string" ? base.tenantScopeUuid.trim() : "";
+  const activeTenantUuid = tenantUuidOverride?.trim()
+    ? await resolveTenantUuidForThreatScope(tenantUuidOverride.trim())
+    : tenantFromRow || (await getScopedTenantUuidFromCookies());
+  if (!activeTenantUuid) {
+    return {
+      ok: false,
+      error: "IRONGATE_SHIELD: Mandatory tenant context execution token missing.",
+    };
+  }
+  validateIngressContext(activeTenantUuid);
+
+  const companyId = row.tenantCompanyId;
+  const s4Patch = buildChaosScenario4InitialIngestion(activeTenantUuid, companyId);
+
+  const patchResult = await patchRemoteSupportDrillIngestion(
+    id,
+    s4Patch,
+    "CHAOS_L4_AUTOMATED_PHASE_COMPLETE",
+    ThreatState.MITIGATED,
+  );
+  if (!patchResult.success) {
+    return { ok: false, error: patchResult.error };
+  }
+
+  return { ok: true, threatId: id };
+}
+
+/**
+ * Scenario 4 bootstrap — creates a pre-computed L4 threat at `AWAITING_JIT_GRANT` (Steps 1–3 complete).
+ */
+export async function injectChaosScenario4Action(
+  tenantUuidOverride?: string,
+): Promise<
+  | { ok: true; threatId: string; tenantCompanyId: string }
+  | { ok: false; error: string }
+> {
+  try {
+    const activeTenantUuid = tenantUuidOverride?.trim()
+      ? await resolveTenantUuidForThreatScope(tenantUuidOverride.trim())
+      : await getScopedTenantUuidFromCookies();
+    if (!activeTenantUuid) {
+      return {
+        ok: false,
+        error: "IRONGATE_SHIELD: Mandatory tenant context execution token missing.",
+      };
+    }
+    validateIngressContext(activeTenantUuid);
+
+    let companyId = await getCompanyIdForTenantUuid(activeTenantUuid);
+    if (companyId == null) {
+      await prisma.tenant.upsert({
+        where: { id: activeTenantUuid },
+        create: {
+          id: activeTenantUuid,
+          name: "Ironchaos Bootstrap Tenant",
+          slug: `chaos-${activeTenantUuid.slice(0, 8)}`,
+          industry: "Secure Enclave",
+        },
+        update: {},
+      });
+      const company = await prisma.company.create({
+        data: {
+          name: "Chaos Lab Co",
+          sector: "Technology",
+          tenantId: activeTenantUuid,
+          isTestRecord: true,
+        },
+        select: { id: true },
+      });
+      companyId = company.id;
+    }
+
+    const agentIngress = buildChaosAgentIngressPayload("REMOTE_SUPPORT", CHAOS_L4_CARD_TITLE);
+    const ingestionDetails = mergeAgentIngressIntoIngestionJson(
+      buildChaosScenario4InitialIngestion(activeTenantUuid, companyId),
+      agentIngress,
+    );
+
+    const created = await ingressGateway.writeThreatEvent({
+      title: CHAOS_L4_CARD_TITLE,
+      sourceAgent: chaosIngressSourceAgent("REMOTE_SUPPORT"),
+      score: 10,
+      targetEntity: "ChaosLab",
+      financialRisk_cents: 0n,
+      status: ThreatState.MITIGATED,
+      tenantCompanyId: companyId,
+      ingestionDetails:
+        typeof ingestionDetails === "string" ? ingestionDetails : JSON.stringify(ingestionDetails),
+      ttlSeconds: 259_200,
+      assigneeId: CHAOS_ASSIGNEE_IRONGATE_14,
+      aiReport: "ATTACK_BOT: Controlled chaos ingress (Irontech L4 remote support drill).",
+    });
+
+    revalidatePath("/", "layout");
+    revalidatePath("/integrity");
+    return { ok: true, threatId: created.id, tenantCompanyId: companyId.toString() };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: message };
+  }
+}
+
+/** Scenario 4 JIT gate — customer analyst grants access; hands off to Ironframe Tech Support (no auto-resolve). */
 export async function grantRemoteAccessAction(
   threatId: string,
   clientAttribution?: ChaosClientAttribution | null,
@@ -1367,48 +1580,59 @@ export async function grantRemoteAccessAction(
   if (!row) {
     return { ok: false, error: "Threat not found." };
   }
-  if (row.status !== ThreatState.MITIGATED) {
-    return { ok: false, error: "Threat is not awaiting remote authorization." };
-  }
 
   const ingestionRaw =
     simRow != null
-      ? (() => {
-          try {
-            const v = simRow.ingestionDetails;
-            if (v == null) return "{}";
-            return typeof v === "string" ? v : JSON.stringify(v);
-          } catch {
-            return "{}";
-          }
-        })()
+      ? normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}"
       : (prodRow?.ingestionDetails ?? "{}");
 
-  let chaosScenario: string | null = null;
-  try {
-    const parsed = JSON.parse(ingestionRaw) as { chaosScenario?: unknown };
-    const v =
-      typeof parsed.chaosScenario === "string" ? parsed.chaosScenario.trim().toUpperCase() : "";
-    chaosScenario = v || null;
-  } catch {
-    chaosScenario = null;
-  }
-  if (chaosScenario !== "REMOTE_SUPPORT") {
+  const l4 = parseChaosL4LifecycleFromIngestion(ingestionRaw);
+  if (!l4) {
     return {
       ok: false,
       error: "Only Scenario 4 (Remote Support) chaos drills use this grant action.",
     };
   }
 
-  console.log(
-    "[S4] User granted JIT access — human engineer on Sidecar; hotfix + forensic probe teardown…",
-  );
+  const statusRaw = String(row.status ?? "").trim().toUpperCase();
+  if (
+    statusRaw !== ThreatState.MITIGATED &&
+    !isChaosL4AwaitingJitGrant(statusRaw, ingestionRaw)
+  ) {
+    return { ok: false, error: "Threat is not awaiting remote authorization." };
+  }
+
+  if (l4.lifecycleStep !== "AWAITING_JIT_GRANT" && !l4.remoteSupportJitAwaitingGrant) {
+    return { ok: false, error: "JIT grant already issued for this ticket." };
+  }
+
+  console.log("[S4] Customer analyst granted JIT — handing off to Ironframe Tech Support.");
   try {
+    const grantedAt = new Date().toISOString();
     const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
-    const resumeResult = await resumeIsolatedRemoteSupportDrill(id, ledgerAttribution);
-    if (!resumeResult.success) {
-      return { ok: false, error: resumeResult.error };
+    const handoffPatch = buildChaosL4LifecyclePatch({
+      lifecycleStep: "JIT_GRANTED",
+      assignedRole: "IRONFRAME_TECH_SUPPORT",
+      remoteSupportJitAwaitingGrant: false,
+      jitGrantedAt: grantedAt,
+      chaosRemoteAccessGrantedAt: grantedAt,
+    });
+    if (ledgerAttribution.userId) {
+      handoffPatch.grantIssuedBy = ledgerAttribution.userId as unknown as Prisma.InputJsonValue;
+      handoffPatch.grantIssuedByDisplay =
+        ledgerAttribution.displayName as unknown as Prisma.InputJsonValue;
     }
+
+    const patchResult = await patchRemoteSupportDrillIngestion(
+      id,
+      handoffPatch,
+      "CHAOS_L4_JIT_GRANTED",
+      ThreatState.MITIGATED,
+    );
+    if (!patchResult.success) {
+      return { ok: false, error: patchResult.error };
+    }
+
     revalidatePath("/", "layout");
     revalidatePath("/integrity");
     return { ok: true };
@@ -1417,6 +1641,128 @@ export async function grantRemoteAccessAction(
     console.error("[S4] grantRemoteAccessAction failed:", e);
     return { ok: false, error: message };
   }
+}
+
+/** Step 5 — Ironframe Tech Support claims the L4 ticket for investigation. */
+export async function claimRemoteSupportTechAction(
+  threatId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const id = threatId?.trim();
+  if (!id) return { ok: false, error: "Missing threat id." };
+
+  const simRow = await prisma.riskEvent.findFirst({
+    where: { id },
+    select: { ingestionDetails: true },
+  });
+  const prodRow = simRow
+    ? null
+    : await prisma.threatEvent.findUnique({
+        where: { id },
+        select: { ingestionDetails: true },
+      });
+  const row = simRow ?? prodRow;
+  if (!row) return { ok: false, error: "Threat not found." };
+
+  const ingestionRaw =
+    simRow != null
+      ? normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}"
+      : (prodRow?.ingestionDetails ?? "{}");
+
+  if (!isChaosL4ReadyForTechClaim(ingestionRaw)) {
+    return { ok: false, error: "Ticket is not ready for tech claim (grant access first)." };
+  }
+
+  const claimedAt = new Date().toISOString();
+  const patchResult = await patchRemoteSupportDrillIngestion(
+    id,
+    buildChaosL4LifecyclePatch({
+      lifecycleStep: "TECH_INVESTIGATING",
+      assignedRole: "IRONFRAME_TECH_SUPPORT",
+      techClaimedAt: claimedAt,
+    }),
+    "CHAOS_L4_TECH_CLAIMED",
+    ThreatState.MITIGATED,
+  );
+  if (!patchResult.success) {
+    return { ok: false, error: patchResult.error };
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/integrity");
+  return { ok: true };
+}
+
+/** Step 6–7 — tech work log + resolve; archives only when role + work-performed gate passes. */
+export async function resolveRemoteSupportTechWorkAction(
+  threatId: string,
+  workPerformed: string,
+  clientAttribution?: ChaosClientAttribution | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const id = threatId?.trim();
+  if (!id) return { ok: false, error: "Missing threat id." };
+
+  const trimmed = workPerformed.trim();
+  if (trimmed.length < CHAOS_L4_WORK_PERFORMED_MIN_CHARS) {
+    return {
+      ok: false,
+      error: `Work-performed log must be at least ${CHAOS_L4_WORK_PERFORMED_MIN_CHARS} characters.`,
+    };
+  }
+
+  const simRow = await prisma.riskEvent.findFirst({
+    where: { id },
+    select: { ingestionDetails: true },
+  });
+  const prodRow = simRow
+    ? null
+    : await prisma.threatEvent.findUnique({
+        where: { id },
+        select: { ingestionDetails: true },
+      });
+  const row = simRow ?? prodRow;
+  if (!row) return { ok: false, error: "Threat not found." };
+
+  const ingestionRaw =
+    simRow != null
+      ? normalizeIngestionDetailsToString(simRow.ingestionDetails) ?? "{}"
+      : (prodRow?.ingestionDetails ?? "{}");
+
+  const l4 = parseChaosL4LifecycleFromIngestion(ingestionRaw);
+  if (!l4) {
+    return { ok: false, error: "Only Scenario 4 (Remote Support) chaos drills use this action." };
+  }
+  if (l4.assignedRole !== "IRONFRAME_TECH_SUPPORT") {
+    return { ok: false, error: "Only Ironframe Tech Support may close this ticket." };
+  }
+  if (!isChaosL4TechInvestigating(ingestionRaw)) {
+    return { ok: false, error: "Claim the ticket before submitting work performed." };
+  }
+
+  if (!canArchiveChaosL4(
+    mergeIngestionDetailsPatch(ingestionRaw, { workPerformed: trimmed }),
+  )) {
+    return {
+      ok: false,
+      error: "Archive gate blocked — work-performed narrative incomplete.",
+    };
+  }
+
+  const ledgerAttribution = await resolveChaosInjectAttribution(clientAttribution);
+  await patchRemoteSupportDrillIngestion(
+    id,
+    buildChaosL4LifecyclePatch({ workPerformed: trimmed }),
+    "CHAOS_L4_TECH_WORK_LOGGED",
+    ThreatState.MITIGATED,
+  );
+
+  const finalize = await finalizeRemoteSupportTechResolution(id, trimmed, ledgerAttribution);
+  if (!finalize.success) {
+    return { ok: false, error: finalize.error };
+  }
+
+  revalidatePath("/", "layout");
+  revalidatePath("/integrity");
+  return { ok: true };
 }
 
 /**

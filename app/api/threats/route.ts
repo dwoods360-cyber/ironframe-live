@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
 
     const manualIngestSealedAt = new Date().toISOString();
     ingestionDetailsForCreate = mergeIngestionDetailsPatch(ingestionDetailsForCreate ?? null, {
+      sourcePlane: "MANUAL",
+      ingestionProvenance: "MANUAL_ANALYST_ENTRY",
       assigned_to: 'User_00',
       owner_id: 'User_00',
       constitutionalAuthority: 'User_00',
@@ -211,8 +213,21 @@ export async function POST(request: NextRequest) {
         targetEntity: true,
         financialRisk_cents: true,
         status: true,
+        ingestionDetails: true,
       },
     });
+
+    const ingestionWithThread = mergeIngestionDetailsPatch(created.ingestionDetails ?? ingestionDetailsForCreate ?? null, {
+      threadId: created.id,
+      orchestrationThreadId: created.id,
+    });
+    if (ingestionWithThread !== (created.ingestionDetails ?? ingestionDetailsForCreate ?? "")) {
+      await prisma.threatEvent.update({
+        where: { id: created.id },
+        data: { ingestionDetails: ingestionWithThread },
+      });
+    }
+    ingestionDetailsForCreate = ingestionWithThread;
 
     if (deficiencyReportId) {
       try {

@@ -49,6 +49,7 @@ import {
 import { ConstitutionalText } from "@/app/components/ConstitutionalText";
 import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
+import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
 import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyticsPlane";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
@@ -1915,11 +1916,11 @@ export default function AuditIntelligence({
                           }`}
                         >
                           {forensicLvl === "red_team" ? (
-                            <span className="mr-0.5 inline select-none text-[9px] text-rose-400/80" aria-hidden>
+                            <span className="mr-0.5 inline text-[9px] text-rose-400/80" aria-hidden>
                               &gt;
                             </span>
                           ) : forensicLvl === "blue_team" ? (
-                            <span className="mr-0.5 inline select-none text-[9px] text-emerald-400/85" aria-hidden>
+                            <span className="mr-0.5 inline text-[9px] text-emerald-400/85" aria-hidden>
                               &gt;
                             </span>
                           ) : null}
@@ -2034,13 +2035,13 @@ export default function AuditIntelligence({
       </div>
 
       {postMortemOpen && postMortemSummary ? (
-        <div
-          className="fixed inset-0 z-[275] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="post-mortem-title"
+        <GlobalViewportOverlay
+          open
+          onClose={() => setPostMortemOpen(false)}
+          ariaLabelledBy="post-mortem-title"
+          backdropClassName="bg-black/75 backdrop-blur-sm"
+          panelClassName="flex max-h-[min(90vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30"
         >
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30">
             <div className="shrink-0 border-b border-slate-800 px-4 py-3">
               <h3 id="post-mortem-title" className="text-[11px] font-black uppercase tracking-wide text-cyan-100">
                 Session post-mortem
@@ -2113,8 +2114,7 @@ export default function AuditIntelligence({
                 Close
               </button>
             </div>
-          </div>
-        </div>
+        </GlobalViewportOverlay>
       ) : null}
 
       {hashToast ? (
@@ -2132,17 +2132,12 @@ export default function AuditIntelligence({
       ) : null}
 
       {metadataModal ? (
-        <div
-          className="fixed inset-0 z-[225] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="agent-metadata-title"
-          onClick={() => setMetadataModal(null)}
+        <GlobalViewportOverlay
+          open
+          onClose={() => setMetadataModal(null)}
+          ariaLabelledBy="agent-metadata-title"
+          panelClassName="flex max-h-[min(85vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
         >
-          <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
               <h3 id="agent-metadata-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
                 Reasoning trace — {metadataModal.agentId}
@@ -2160,22 +2155,16 @@ export default function AuditIntelligence({
                 {metadataModal.json}
               </pre>
             </div>
-          </div>
-        </div>
+        </GlobalViewportOverlay>
       ) : null}
 
       {selectedEntry ? (
-        <div
-          className="fixed inset-0 z-[220] flex items-center justify-center bg-black/55 p-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="audit-detail-title"
-          onClick={() => setSelectedEntry(null)}
+        <GlobalViewportOverlay
+          open
+          onClose={() => setSelectedEntry(null)}
+          ariaLabelledBy="audit-detail-title"
+          panelClassName="flex max-h-[min(90vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50"
         >
-          <div
-            className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -2271,8 +2260,7 @@ export default function AuditIntelligence({
                 HASH COPIED TO CLIPBOARD
               </span>
             </div>
-          </div>
-        </div>
+        </GlobalViewportOverlay>
       ) : null}
     </div>
   );

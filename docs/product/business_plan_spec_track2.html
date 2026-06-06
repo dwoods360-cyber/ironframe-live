@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ironframe Business Plan — Enterprise Print Specification (Track 2)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      @page { size: letter; margin: 0.75in; }
+      .no-print { display: none !important; }
+      body { background: #fff !important; color: #111 !important; }
+      .print-section { break-inside: avoid; page-break-inside: avoid; }
+      pre { white-space: pre-wrap; font-size: 9pt; border: 1px solid #ccc; }
+    }
+    pre.java { tab-size: 2; }
+  </style>
+</head>
+<body class="bg-white text-slate-900 antialiased">
+  <header class="border-b-2 border-slate-900 px-8 py-6 print-section">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-500">Ironframe Documentation Hub · Chapter 1 · Track 2</p>
+    <h1 class="mt-2 text-3xl font-bold">Business Plan &amp; Product Core — Practitioner Specification</h1>
+    <p class="mt-2 text-sm text-slate-600">Classification: Internal Stakeholder · Verified against <code>docs/stakeholders/business-plan.md</code>, <code>prisma/schema.prisma</code>, <code>docs/TAS.md</code></p>
+  </header>
+
+  <main class="mx-auto max-w-4xl px-8 py-8 space-y-10">
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">1. Executive Summary</h2>
+      <p class="mt-3 text-sm leading-relaxed">Ironframe targets mid-market and enterprise organizations requiring defensible quantitative risk (ALE in integer cents), multi-tenant Command Center UX with strict row isolation, and an observable 19-agent LangGraph workforce on Vercel + Supabase.</p>
+    </section>
+
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">2. Constitutional Financial Baselines (BIGINT)</h2>
+      <table class="mt-4 w-full border-collapse text-sm">
+        <thead><tr class="border-b border-slate-400"><th class="py-2 text-left">Tenant</th><th class="py-2 text-left">ale_baseline (cents)</th><th class="py-2 text-left">Prisma field</th></tr></thead>
+        <tbody class="font-mono">
+          <tr class="border-b border-slate-200"><td class="py-2">Medshield Health</td><td>1110000000</td><td>Tenant.ale_baseline BigInt</td></tr>
+          <tr class="border-b border-slate-200"><td class="py-2">Vaultbank NA</td><td>590000000</td><td>Tenant.ale_baseline BigInt</td></tr>
+          <tr class="border-b border-slate-200"><td class="py-2">Gridcore Infrastructure</td><td>470000000</td><td>Tenant.ale_baseline BigInt</td></tr>
+        </tbody>
+      </table>
+      <p class="mt-2 text-xs text-slate-600">Reference implementations: <code>src/services/irontrust/mathEngine.ts</code>, <code>app/actions/ironqueryExportActions.ts</code>, <code>core/irontrust/ale-engine.test.ts</code>.</p>
+    </section>
+
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">3. Java Validation Contract — AleBaselineValidator</h2>
+      <p class="mt-2 text-sm text-slate-700">Production-grade cents validation mirroring Irontrust deterministic math. Floating-point division on monetary paths is forbidden.</p>
+      <pre class="java mt-4 overflow-x-auto rounded bg-slate-50 p-4 text-xs leading-relaxed"><code>package com.ironframe.grc.financial;
+
+import java.math.BigInteger;
+import java.util.Map;
+import java.util.Objects;
+
+/**
+ * TAS-aligned ALE baseline registry. All values are whole USD cents.
+ * Mirrors: src/services/irontrust/mathEngine.ts
+ */
+public final class AleBaselineValidator {
+
+  private static final Map&lt;String, BigInteger&gt; CONSTITUTIONAL_BASELINES = Map.of(
+      "medshield", new BigInteger("1110000000"),
+      "vaultbank", new BigInteger("590000000"),
+      "gridcore",  new BigInteger("470000000")
+  );
+
+  private AleBaselineValidator() {}
+
+  public static BigInteger requireBaselineCents(String tenantSlug) {
+    String key = Objects.requireNonNull(tenantSlug, "tenantSlug").trim().toLowerCase();
+    BigInteger baseline = CONSTITUTIONAL_BASELINES.get(key);
+    if (baseline == null) {
+      throw new IllegalArgumentException("UNKNOWN_TENANT_BASELINE: " + tenantSlug);
+    }
+    return baseline;
+  }
+
+  /** Format USD decimal string without double arithmetic (dollars = cents / 100, remainder mod 100). */
+  public static String formatUsdFromCents(BigInteger cents) {
+    Objects.requireNonNull(cents, "cents");
+    boolean neg = cents.signum() &lt; 0;
+    BigInteger abs = cents.abs();
+    BigInteger dollars = abs.divide(BigInteger.valueOf(100));
+    int frac = abs.mod(BigInteger.valueOf(100)).intValue();
+    return String.format("%s%s.%02d", neg ? "-" : "", dollars, frac);
+  }
+
+  public static void assertActiveAleWithinBaseline(BigInteger activeCents, String tenantSlug) {
+    BigInteger baseline = requireBaselineCents(tenantSlug);
+    if (activeCents.compareTo(baseline) &gt; 0) {
+      throw new FinancialIntegrityException(
+          "ACTIVE_ALE_EXCEEDS_BASELINE: active=" + activeCents + " baseline=" + baseline);
+    }
+  }
+
+  public static final class FinancialIntegrityException extends RuntimeException {
+    public FinancialIntegrityException(String message) { super(message); }
+  }
+}</code></pre>
+    </section>
+
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">4. UI Label Registry (verbatim — deployment gate)</h2>
+      <ul class="mt-3 list-disc pl-6 text-sm space-y-1">
+        <li><strong>AGENT STATUS PULSE</strong> — top quadrant, left pane (<code>app/components/ControlRoom.tsx</code>)</li>
+        <li>Navigation: <strong>AUDIT TRAIL</strong>, <strong>INTEGRITY HUB</strong>, <strong>BOARD REPORT</strong>, <strong>OP SUPPORT</strong>, <strong>🚨 DMZ QUARANTINE</strong> (<code>app/components/HeaderTwo.tsx</code>)</li>
+        <li><strong>FREEZE COMMAND POST</strong> — top sub-header toolline (<code>CommandPostFreezeControl.tsx</code>, variant topnav)</li>
+        <li><strong>Export Tabular Ledger Data (CSV)</strong> — CYBER INSURANCE OPTIMIZATION card (<code>components/BudgetJustification.tsx</code>, data-testid export-tabular-ledger-csv)</li>
+      </ul>
+    </section>
+
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">5. Revenue &amp; GTM Framework</h2>
+      <table class="mt-4 w-full border-collapse text-sm">
+        <thead><tr class="border-b"><th class="py-2 text-left">Stream</th><th class="py-2 text-left">Description</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="py-2">Platform subscription</td><td>Per-tenant seat + module bundles</td></tr>
+          <tr class="border-b"><td class="py-2">Usage / telemetry</td><td>Agent orchestration cycles, export volume</td></tr>
+          <tr class="border-b"><td class="py-2">Professional services</td><td>TAS-aligned customization, audit readiness</td></tr>
+          <tr><td class="py-2">WORM evidence storage</td><td>Immutable attestation tiers (Epic 12)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="print-section">
+      <h2 class="text-xl font-bold border-b border-slate-300 pb-2">6. Framework Mapping (SOC 2 / ISO 27001)</h2>
+      <table class="mt-4 w-full border-collapse text-xs">
+        <thead><tr class="border-b"><th class="py-2 text-left">Control domain</th><th class="py-2 text-left">Ironframe mechanism</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="py-2">CC6.1 Logical access</td><td>Supabase RLS + Ironguard tenant headers</td></tr>
+          <tr class="border-b"><td class="py-2">CC7.2 System monitoring</td><td>Ironwatch + AGENT STATUS PULSE</td></tr>
+          <tr class="border-b"><td class="py-2">A.8.2 Privileged access</td><td>DMZ QUARANTINE clearance queue</td></tr>
+          <tr><td class="py-2">Financial reporting integrity</td><td>BigInt cents pipeline, Irontrust frozen ALE</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="no-print border-t border-slate-200 px-8 py-4 text-center text-xs text-slate-500">
+    <button type="button" onclick="window.print()" class="rounded border border-slate-400 px-4 py-2 font-semibold hover:bg-slate-100">Print / Save as PDF</button>
+  </footer>
+</body>
+</html>

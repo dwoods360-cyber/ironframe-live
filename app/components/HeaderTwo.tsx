@@ -5,6 +5,8 @@ import { Folder, UserRound } from "lucide-react";
 import IngestionForm from "@/app/components/vendor-risk/IngestionForm";
 import { useEffect, useRef, useState } from "react";
 // ---> NEW: Import your Enclave components
+import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
+import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
 import { getMetaAuditConsoleAccess } from "@/app/actions/auditActions";
 
@@ -99,7 +101,9 @@ export default function HeaderTwo({
   };
 
   return (
-    <div className={`h-10 bg-[#1f6feb] flex items-center px-4 ${isVendorOverviewRoute ? "justify-start" : "justify-between"}`}>
+    <div
+      className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex h-10 items-center bg-[#1f6feb] px-4 ${isVendorOverviewRoute ? "justify-start" : "justify-between"}`}
+    >
       {!isVendorOverviewRoute ? <div /> : null}
 
       <div className="relative flex-1 min-w-0">
@@ -258,22 +262,22 @@ export default function HeaderTwo({
         </div>
       </div>
 
-      {/* ---> NEW: THE INGESTION PORTAL MODAL INSTALLED AT Z-[9999] <--- */}
-      {isPortalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl border border-slate-800 bg-slate-900 rounded-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
-            <UploadArtifactModal 
-              isOpen={isPortalOpen} 
-              onClose={() => setIsPortalOpen(false)}
-              onUploadComplete={(data) => {
-                console.log("Upload complete:", data);
-                setIsPortalOpen(false);
-              }}
-              tenantId={currentTenant ?? ""}
-            />
-          </div>
-        </div>
-      )}
+      <GlobalViewportOverlay
+        open={isPortalOpen}
+        onClose={() => setIsPortalOpen(false)}
+        backdropClassName="bg-slate-950/80 backdrop-blur-sm"
+        panelClassName="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+      >
+        <UploadArtifactModal
+          isOpen={isPortalOpen}
+          onClose={() => setIsPortalOpen(false)}
+          onUploadComplete={(data) => {
+            console.log("Upload complete:", data);
+            setIsPortalOpen(false);
+          }}
+          tenantId={currentTenant ?? ""}
+        />
+      </GlobalViewportOverlay>
 
     </div>
   );

@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { X } from "lucide-react";
 import {
-  IRONCAST_TOAST_DURATION_MS,
+  FLOATING_NOTIFY_TOP_SIMULATION,
+  FLOATING_NOTIFY_TOP_STANDARD,
+  FLOATING_NOTIFY_Z_CLASS,
+} from "@/app/config/layoutConstants";
+import {
   useIroncastNotificationStore,
   type IroncastNotificationToast,
 } from "@/app/store/ironcastNotificationStore";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 
 function IroncastToastCard({
   toast,
@@ -15,18 +20,6 @@ function IroncastToastCard({
   toast: IroncastNotificationToast;
   onDismiss: (id: string) => void;
 }) {
-  const [fading, setFading] = useState(false);
-
-  useEffect(() => {
-    const fadeAt = IRONCAST_TOAST_DURATION_MS - 500;
-    const fadeTimer = window.setTimeout(() => setFading(true), fadeAt);
-    const removeTimer = window.setTimeout(() => onDismiss(toast.id), IRONCAST_TOAST_DURATION_MS);
-    return () => {
-      window.clearTimeout(fadeTimer);
-      window.clearTimeout(removeTimer);
-    };
-  }, [toast.id, onDismiss]);
-
   const threatTone =
     toast.severity === "critical"
       ? "text-red-400"
@@ -36,9 +29,7 @@ function IroncastToastCard({
     <div
       role="alert"
       aria-live="assertive"
-      className={`pointer-events-auto rounded-lg border border-slate-700/90 bg-slate-950/95 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-slate-800/80 backdrop-blur-sm transition-opacity duration-500 ${
-        fading ? "opacity-0" : "opacity-100"
-      }`}
+      className="pointer-events-auto rounded-lg border border-slate-700/90 bg-slate-950/95 px-4 py-3 opacity-100 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ring-1 ring-slate-800/80 backdrop-blur-sm"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -71,11 +62,13 @@ function IroncastToastCard({
 
 /**
  * Fixed toast stack for Ironcast (Agent 7) block-level security dispatches.
- * Mount once in the root layout — no layout shift (fixed positioning).
+ * Sticky until manual dismiss — mount once in the root layout.
  */
 export default function NotificationOverlay() {
   const toasts = useIroncastNotificationStore((s) => s.toasts);
   const dismissToast = useIroncastNotificationStore((s) => s.dismissToast);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  const notifyTop = isSimulationMode ? FLOATING_NOTIFY_TOP_SIMULATION : FLOATING_NOTIFY_TOP_STANDARD;
 
   const handleDismiss = useCallback(
     (id: string) => {
@@ -88,7 +81,7 @@ export default function NotificationOverlay() {
 
   return (
     <div
-      className="pointer-events-none fixed top-4 right-4 z-[650] flex w-[min(96vw,24rem)] flex-col gap-2"
+      className={`pointer-events-none fixed right-4 flex w-[min(96vw,24rem)] flex-col gap-2 ${FLOATING_NOTIFY_Z_CLASS} ${notifyTop}`}
       aria-label="Ironcast security notifications"
     >
       {toasts.map((toast) => (

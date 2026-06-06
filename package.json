@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node -r ./scripts/preload-local-env.cjs node_modules/next/dist/bin/next dev",
+    "dev:clean": "node -e \"require('node:fs').rmSync('.next',{recursive:true,force:true})\" && npm run dev",
     "build": "next build",
     "prebuild": "npm run generate:clients",
     "start": "next start",

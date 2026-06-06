@@ -1,0 +1,22 @@
+{
+  "name": "ironboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone multi-product agentic corporate board workforce (decoupled from ironframe-live SaaS DB).",
+  "type": "module",
+  "scripts": {
+    "deliberate": "tsx scripts/run-deliberation.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts",
+    "test:validation": "vitest run --config vitest.config.ts tests/agentValidation.test.ts tests/orchestratorPipeline.test.ts"
+  },
+  "dependencies": {
+    "@langchain/langgraph": "^1.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
+  }
+}

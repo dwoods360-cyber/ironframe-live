@@ -73,7 +73,7 @@ export default function GrcAleExposureMap({
               id="grc-ale-exposure-map-heading"
               className="text-xs font-black uppercase tracking-wider text-cyan-300"
             >
-              GRC ALE exposure map
+              GRC ALE exposure map · Financial Integrity Ledger Matrix
             </h2>
             <p className="mt-1 max-w-md text-[9px] leading-relaxed text-slate-500">
               High-level financial integrity — compliance velocity and mitigated value. Raw signal

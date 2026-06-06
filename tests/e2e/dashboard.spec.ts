@@ -12,6 +12,23 @@ import { test, expect } from '@playwright/test';
 const OPEN_DRAWER_LINK_REGEX = /View Details|Assess Risk/i;
 const EMPTY_STATE_REGEX = /\[ WAITING FOR (?:INGESTION STREAM|TRIAGE SELECTIONS|RISK CONFIRMATION)[.\s…]+ \]|\[ NO MATCHING RISKS FOR SEARCH[.\s…]* \]/;
 
+/** Tripane rail fractions — must match `DASHBOARD_GRID_PROPORTIONS` in dashboardTripaneLayout.ts */
+const TRIPANE_LEFT_VW = 0.22;
+const TRIPANE_CENTER_VW = 0.48;
+const TRIPANE_RIGHT_VW = 0.3;
+
+async function waitForTripaneShell(page: import('@playwright/test').Page) {
+  const leftPane = page.locator('[data-testid="dashboard-left-panel"]:not([aria-hidden="true"])');
+  const centerPane = page.locator('[data-testid="dashboard-main"]');
+  const rightPane = page.locator('[data-ironframe-audit-intelligence="true"]');
+
+  await expect(leftPane).toBeVisible({ timeout: 20_000 });
+  await expect(centerPane).toBeVisible({ timeout: 20_000 });
+  await expect(rightPane).toBeVisible({ timeout: 20_000 });
+
+  return { leftPane, centerPane, rightPane };
+}
+
 type PageMode = 'dashboard' | 'signin' | 'constitutional_void';
 
 async function waitForDashboardReady(page: import('@playwright/test').Page): Promise<PageMode> {
@@ -134,5 +151,39 @@ test.describe('Main Dashboard and Risk Assessment Drawer', () => {
       await expect(page.getByText(/0\s*REQUIRES TRIAGE/)).toBeVisible({ timeout: 8000 });
       await expect(assessRiskLink).toHaveCount(0);
     }
+  });
+});
+
+test.describe('Tripane layout geometry', () => {
+  test('Verify Core Tripane Layout Geometry Invariants', async ({ page }) => {
+    await page.goto('/');
+    const mode = await waitForDashboardReady(page);
+    if (mode === 'signin') {
+      await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible();
+      return;
+    }
+    if (mode === 'constitutional_void') {
+      await expect(page.getByText(/critical system failure: constitutional void detected/i)).toBeVisible();
+      return;
+    }
+
+    const { leftPane, centerPane, rightPane } = await waitForTripaneShell(page);
+
+    const viewportWidth = page.viewportSize()?.width ?? 1920;
+
+    const leftBox = await leftPane.boundingBox();
+    const centerBox = await centerPane.boundingBox();
+    const rightBox = await rightPane.boundingBox();
+
+    expect(leftBox).not.toBeNull();
+    expect(centerBox).not.toBeNull();
+    expect(rightBox).not.toBeNull();
+
+    expect(leftBox!.width).toBeCloseTo(viewportWidth * TRIPANE_LEFT_VW, 0);
+    expect(centerBox!.width).toBeCloseTo(viewportWidth * TRIPANE_CENTER_VW, 0);
+    expect(rightBox!.width).toBeCloseTo(viewportWidth * TRIPANE_RIGHT_VW, 0);
+
+    const totalWidth = leftBox!.width + centerBox!.width + rightBox!.width;
+    expect(totalWidth).toBeCloseTo(viewportWidth, 0);
   });
 });

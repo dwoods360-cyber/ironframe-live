@@ -257,7 +257,7 @@ export default function GrcGoldLivingAuditBlock({
           data-testid="grc-gold-forensic-grid-cell"
         >
           <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-emerald-400/90">
-            GRC Gold · Forensic
+            INSURANCE ATTESTATION ENGINE
           </p>
           {body}
         </div>

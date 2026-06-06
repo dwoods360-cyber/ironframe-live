@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Dictionary &amp; API Contracts (Track 2 Practitioner)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>@media print { @page { margin: 0.65in; } pre { font-size: 8.5pt; } }</style>
+</head>
+<body class="bg-white text-slate-900">
+  <header class="border-b-2 border-slate-900 px-8 py-6">
+    <p class="text-xs uppercase tracking-widest text-slate-500">Chapter 3 · Track 2 · Technical</p>
+    <h1 class="text-2xl font-bold">Data Dictionary, API Surface &amp; BigInt Validation</h1>
+    <p class="mt-2 text-sm text-slate-600">Verified: <code>prisma/schema.prisma</code>, <code>docs/technical/api-documentation.md</code>, <code>app/utils/financialIntegrityLedgerCsv.ts</code></p>
+  </header>
+
+  <main class="mx-auto max-w-4xl space-y-8 px-8 py-8 text-sm">
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">1. Five-step Pre-Change Protocol</h2>
+      <ol class="mt-3 list-decimal space-y-1 pl-6">
+        <li><strong>Read TAS</strong> — <code>docs/TAS.md</code> constitutional anchors</li>
+        <li><strong>Validate Invariants</strong> — BigInt cents, physical-unit gates, verbatim UI labels</li>
+        <li><strong>Cite Impact</strong> — blast-radius doc + affected Prisma models</li>
+        <li><strong>Confirm Zero-Bleed</strong> — tenant cookie scope, RLS, integration tests TENANT-*</li>
+        <li><strong>Formulate Proposal</strong> — amendment metadata in Audit Trail before merge</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">2. Monetary data dictionary (BIGINT cents only)</h2>
+      <table class="mt-3 w-full border-collapse text-xs">
+        <thead><tr class="border-b bg-slate-100"><th class="p-2 text-left">Model.field</th><th class="p-2 text-left">SQL column</th><th class="p-2 text-left">Type</th></tr></thead>
+        <tbody class="font-mono">
+          <tr class="border-b"><td class="p-2">Tenant.ale_baseline</td><td>ale_baseline</td><td>BigInt NOT NULL</td></tr>
+          <tr class="border-b"><td class="p-2">ThreatEvent.financialRisk_cents</td><td>financialRisk_cents</td><td>BigInt</td></tr>
+          <tr class="border-b"><td class="p-2">ThreatEvent.mitigatedValueCents</td><td>mitigated_value_cents</td><td>BigInt?</td></tr>
+          <tr class="border-b"><td class="p-2">RiskEvent.governedImpact</td><td>governed_impact</td><td>BigInt (generated)</td></tr>
+          <tr class="border-b"><td class="p-2">SustainabilityMetric.mitigatedValueCents</td><td>mitigated_value_cents</td><td>BigInt NOT NULL</td></tr>
+          <tr class="border-b"><td class="p-2">ActiveRisk.score_cents</td><td>score_cents</td><td>BigInt</td></tr>
+          <tr><td class="p-2">Company.industry_avg_loss_cents</td><td>industry_avg_loss_cents</td><td>BigInt?</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">3. API routes (tenant-scoped excerpt)</h2>
+      <table class="mt-3 w-full border-collapse text-xs">
+        <thead><tr class="border-b"><th class="p-2">Method</th><th class="p-2">Path</th><th class="p-2">Notes</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="p-2">GET</td><td>/api/dashboard</td><td>totalValueMitigatedYtdCents as digit string</td></tr>
+          <tr class="border-b"><td class="p-2">POST</td><td>/api/sustainability/ironbloom</td><td>400 PHYSICAL_UNIT_REQUIRED if monetary-only</td></tr>
+          <tr class="border-b"><td class="p-2">GET</td><td>/api/insurance/actuarial-report</td><td>PDF export; premiumCents query param (string)</td></tr>
+          <tr class="border-b"><td class="p-2">GET</td><td>/api/docs/download-protocol</td><td>Feature test protocol docx + ?manifest=1 JSON</td></tr>
+          <tr><td class="p-2">GET</td><td>/api/docs/download-matrix</td><td>Ironframe-UI-UX-Feature-Test-Matrix.csv</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">4. Java — BigIntContractValidator</h2>
+      <pre class="mt-3 overflow-x-auto rounded border bg-slate-50 p-4 text-xs"><code>package com.ironframe.grc.contract;
+
+import java.math.BigInteger;
+import java.util.regex.Pattern;
+
+/** Mirrors app/utils/financialIntegrityLedgerCsv.parseCentsInput */
+public final class BigIntContractValidator {
+  private static final Pattern DIGIT_CENTS = Pattern.compile("^-?\\d+$");
+
+  public static BigInteger parseCentsString(String raw) {
+    if (raw == null || raw.isBlank()) return BigInteger.ZERO;
+    String trimmed = raw.trim().replace(",", "");
+    if (!DIGIT_CENTS.matcher(trimmed).matches()) {
+      throw new IllegalArgumentException("FIN_LEDGER_CSV_FLOAT_BLOCKED: cents must be whole digits");
+    }
+    return new BigInteger(trimmed);
+  }
+
+  public static String formatUsdFromCents(BigInteger cents) {
+    boolean neg = cents.signum() &lt; 0;
+    BigInteger abs = cents.abs();
+    BigInteger dollars = abs.divide(BigInteger.valueOf(100));
+    int frac = abs.mod(BigInteger.valueOf(100)).intValue();
+    return String.format("%s%s.%02d", neg ? "-" : "", dollars, frac);
+  }
+
+  public static void rejectPhysicalUnitPayload(boolean hasKwh, boolean hasLiters, boolean hasKm, boolean monetaryOnly) {
+    if (monetaryOnly &amp;&amp; !(hasKwh || hasLiters || hasKm)) {
+      throw new PhysicalUnitRequiredException("PHYSICAL_UNIT_REQUIRED");
+    }
+  }
+
+  public static class PhysicalUnitRequiredException extends RuntimeException {
+    public PhysicalUnitRequiredException(String code) { super(code); }
+  }
+}</code></pre>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">5. Security &amp; compliance matrix</h2>
+      <table class="mt-3 w-full border-collapse text-xs">
+        <thead><tr class="border-b"><th class="p-2 text-left">Control</th><th class="p-2 text-left">Implementation</th><th class="p-2 text-left">Evidence</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="p-2">DMZ air-gap</td><td class="p-2">Irongate (Agent 14) mandatory ingress</td><td class="p-2">docs/TAS.md § DMZ</td></tr>
+          <tr class="border-b"><td class="p-2">Row isolation</td><td class="p-2">Supabase RLS + tenantCompanyId filters</td><td class="p-2">tests/integration/dashboard.test.ts</td></tr>
+          <tr class="border-b"><td class="p-2">WORM evidence</td><td class="p-2">Epic 12 sealed bucket policy</td><td class="p-2">docs/pr/EPIC12_WORM_OPS.md</td></tr>
+          <tr><td class="p-2">Export integrity</td><td class="p-2">Export Tabular Ledger Data (CSV) — data-testid export-tabular-ledger-csv</td><td class="p-2">tests/unit/financialIntegrityLedgerCsv.test.ts</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">6. CSV ledger matrix columns</h2>
+      <p class="mt-2 font-mono text-xs">metric_key, unit, amount_cents, amount_usd, bps_value, text_value, carrier_key, framework</p>
+      <p class="mt-2 text-xs text-slate-600">amount_usd derived via integer division: dollars = cents / 100n; frac = cents % 100n (no JavaScript Number division on export path).</p>
+    </section>
+  </main>
+</body>
+</html>

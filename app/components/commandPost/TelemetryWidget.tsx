@@ -6,6 +6,18 @@ import { useUser } from "@/app/hooks/useUser";
 import { MoveDiagonal } from "lucide-react";
 import { useAgentRiskStore, type AgentRiskLevel } from "@/app/store/agentRiskStore";
 import { useLayoutStore } from "@/app/store/useLayoutStore";
+import type { AgentPulseState } from "@/app/utils/workforceAgentState";
+import {
+  navigateToAgentDiagnostics,
+  openAgentMetaSpecification,
+  pushAgentTelemetryIsolationToast,
+} from "@/app/utils/controlRoomAgentInteractions";
+
+function riskLevelToPulse(level: AgentRiskLevel): AgentPulseState {
+  if (level === "high") return "ALERT";
+  if (level === "medium") return "ACTIVE";
+  return "TELEMETRY";
+}
 
 export type TelemetryWidgetProps = {
   agent: CoreWorkforceAgent;
@@ -92,6 +104,25 @@ export default function TelemetryWidget({
     [agent.index, agent.name, acknowledgeAnomaly, assigneeSelectValue, canAcknowledge, showIroncastToast, userId],
   );
 
+  const onTileClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.shiftKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        navigateToAgentDiagnostics(agent);
+        return;
+      }
+      if (canAcknowledge) {
+        void onAckClick(e);
+        return;
+      }
+      e.preventDefault();
+      pushAgentTelemetryIsolationToast(agent, riskLevelToPulse(effectiveLevel));
+      openAgentMetaSpecification(agent);
+    },
+    [agent, canAcknowledge, effectiveLevel, onAckClick],
+  );
+
   const borderClass =
     effectiveLevel === "low"
       ? "border-emerald-500/50"
@@ -166,7 +197,8 @@ export default function TelemetryWidget({
 
   return (
     <div
-      className="group relative isolate min-h-[140px] min-w-0 overflow-visible"
+      id={`agent-${agent.index}`}
+      className="group relative isolate min-h-[140px] min-w-0 scroll-mt-[9.5rem] overflow-visible"
       style={{
         gridColumnEnd: `span ${displayCol}`,
         gridRowEnd: `span ${displayRow}`,
@@ -176,15 +208,15 @@ export default function TelemetryWidget({
       <section
         className={`relative z-10 flex h-full min-h-[140px] min-w-0 flex-col overflow-hidden border bg-slate-950/80 ${borderClass} ${
           boosted && !ironlockGlobalStateFreeze ? "shadow-[0_0_20px_rgba(245,158,11,0.22)]" : "shadow-sm"
-        } ${canAcknowledge ? "cursor-pointer" : ""}`}
+        } ${canAcknowledge || !resizeLocked ? "cursor-pointer" : ""}`}
         aria-label={`${agent.label} telemetry`}
-        onClick={canAcknowledge ? onAckClick : undefined}
+        onClick={onTileClick}
         title={
           gavelBlocksAck
-            ? "Acknowledgment suspended under Gavel (state freeze or hard ban)."
+            ? "Acknowledgment suspended under Gavel (state freeze or hard ban). Click for agent specification."
             : canAcknowledge
               ? "Acknowledge anomaly — restores green tier for this agent."
-              : undefined
+              : "Open agent specification drawer. Shift+click for diagnostics hash."
         }
       >
         {canAcknowledge ? (

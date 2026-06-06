@@ -18,7 +18,8 @@ export type SimulationInjectOptions = {
 };
 
 /** Stable read time for auditors before toast fade (matches L6 lifecycle window). */
-export const SIMULATION_DISPATCH_TOAST_MS = 8000;
+/** Sticky retention — analyst dismiss only (no auto-hide timer). */
+export const SIMULATION_DISPATCH_TOAST_MS = Infinity;
 
 export type SimulationDispatchNoticeDetail = {
   scenarioName: string;

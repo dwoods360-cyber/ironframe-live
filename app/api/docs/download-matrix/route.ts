@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-export const dynamic = "force-static";
+/** FS-backed docs ingress — must stay literal for Next.js static analysis (see docsRouteRuntime.ts). */
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const filePath = path.join(process.cwd(), "docs", "Ironframe-UI-UX-Feature-Test-Matrix.csv");

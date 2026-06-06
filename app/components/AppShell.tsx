@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import TopNav from "@/app/components/TopNav";
 import AirlockBanner from "@/app/components/ui/AirlockBanner";
+import { VIEWPORT_HEADER_CLEARANCE_CLASS, LAYOUT_MASTER_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
@@ -31,11 +32,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div
           className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
         >
+          <div className={VIEWPORT_HEADER_CLEARANCE_CLASS} aria-hidden="true" />
           {children}
         </div>
       </div>
     );
   }
+
+  /** Fixed TopNav offset; 0.25in (`h-6`) structural spacer below nav shifts canvas content down. */
+  const navContentClearance = isSimulationMode
+    ? "mt-[9rem] h-[calc(100dvh-9rem)]"
+    : "mt-[6.75rem] h-[calc(100dvh-6.75rem)]";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -43,7 +50,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <AirlockBanner />
       </div>
       <div
-        className={`fixed inset-x-0 z-50 ${isSimulationMode ? "top-9" : "top-0"} ${
+        className={`fixed inset-x-0 ${LAYOUT_MASTER_HEADER_Z_CLASS} ${isSimulationMode ? "top-9" : "top-0"} ${
           isBoardReport ? "print:hidden" : ""
         }`}
       >
@@ -53,11 +60,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
           isBoardReport
             ? "mt-0 min-h-screen flex-1 print:mt-0 print:h-auto print:min-h-screen print:overflow-visible"
-            : isSimulationMode
-              ? "mt-[9rem] h-[calc(100dvh-9rem)]"
-              : "mt-[6.75rem] h-[calc(100dvh-6.75rem)]"
+            : navContentClearance
         }`}
       >
+        {!isBoardReport ? <div className={VIEWPORT_HEADER_CLEARANCE_CLASS} aria-hidden="true" /> : null}
         <div
           className={`flex min-h-0 min-w-0 flex-1 flex-col ${
             isDocsPage || isBoardReport ? "overflow-y-auto" : "overflow-hidden"

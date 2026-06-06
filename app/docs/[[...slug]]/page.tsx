@@ -1,9 +1,16 @@
 import fs from "fs";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import DocsSidebar from "./DocsSidebar";
 import DocsMarkdown from "./DocsMarkdown";
-import { resolveDocPath, walkMarkdownSlugs, DOCS_ROOT } from "@/lib/docsNavigation";
+import {
+  resolveDocPath,
+  walkMarkdownSlugs,
+  DOCS_ROOT,
+} from "@/lib/docsNavigation";
+import { sanitizeDocSlugSegments } from "@/lib/docsLinkNormalization";
+/** FS-backed markdown pages — literal required by Next.js; policy in docsRouteRuntime.ts. */
+export const dynamic = "force-dynamic";
 
 interface DocsPageProps {
   params: Promise<{ slug?: string[] }>;
@@ -21,9 +28,16 @@ export const metadata = {
   description: "Ironframe product, technical, and QA documentation hub.",
 };
 
+
 export default async function DocsPage({ params }: DocsPageProps) {
   const resolvedParams = await params;
-  const slugArray = resolvedParams.slug?.length ? resolvedParams.slug : ["hub"];
+  const rawSlug = resolvedParams.slug?.length ? resolvedParams.slug : ["hub"];
+  const slugArray = sanitizeDocSlugSegments(rawSlug);
+
+  if (slugArray.length === 1 && slugArray[0]?.toLowerCase() === "readme") {
+    redirect("/docs/hub");
+  }
+
   const slugPath = slugArray.join("/");
   const fullDocPath = resolveDocPath(slugArray);
 
@@ -56,12 +70,12 @@ export default async function DocsPage({ params }: DocsPageProps) {
         <DocsSidebar currentSlug={slugArray} />
 
         <main className="mx-auto min-h-full max-w-5xl flex-1 overflow-y-auto px-6 py-12 lg:px-8 lg:py-16">
-          <p className="mb-2 select-none font-mono text-[10px] uppercase tracking-widest text-slate-600">
+          <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-slate-600">
             SYSTEM FILEPATH: docs/{slugPath}.md
           </p>
 
           <article className="prose prose-invert max-w-none font-sans">
-            <DocsMarkdown content={fileContent} />
+            <DocsMarkdown content={fileContent} currentSlug={slugArray} />
           </article>
 
           <div className="mt-12 flex items-center justify-between border-t border-slate-800 pt-8">

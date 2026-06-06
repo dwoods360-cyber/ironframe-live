@@ -1,8 +1,10 @@
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { normalizeDocMarkdownHref } from "@/lib/docsLinkNormalization";
 
-const markdownComponents: Components = {
+function createMarkdownComponents(currentSlug: string[]): Components {
+  return {
   h1: ({ children, ...props }) => (
     <h1
       className="mb-6 border-b border-slate-800 pb-3 font-mono text-2xl font-bold uppercase tracking-tight text-white"
@@ -84,15 +86,18 @@ const markdownComponents: Components = {
     </blockquote>
   ),
   hr: () => <hr className="my-8 border-slate-900" />,
-  a: ({ children, href, ...props }) => (
-    <a
-      href={href}
-      className="text-teal-400 underline decoration-teal-500/40 underline-offset-2 hover:text-teal-300"
-      {...props}
-    >
-      {children}
-    </a>
-  ),
+  a: ({ children, href, ...props }) => {
+    const normalizedHref = normalizeDocMarkdownHref(href, currentSlug);
+    return (
+      <a
+        href={normalizedHref}
+        className="text-teal-400 underline decoration-teal-500/40 underline-offset-2 hover:text-teal-300"
+        {...props}
+      >
+        {children}
+      </a>
+    );
+  },
   table: ({ children, ...props }) => (
     <div className="my-4 overflow-x-auto">
       <table className="w-full border-collapse text-sm text-slate-300" {...props}>
@@ -113,11 +118,21 @@ const markdownComponents: Components = {
       {children}
     </td>
   ),
-};
+  };
+}
 
-export default function DocsMarkdown({ content }: { content: string }) {
+export default function DocsMarkdown({
+  content,
+  currentSlug,
+}: {
+  content: string;
+  currentSlug: string[];
+}) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={createMarkdownComponents(currentSlug)}
+    >
       {content}
     </ReactMarkdown>
   );

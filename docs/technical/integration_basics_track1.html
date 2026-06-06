@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ironbloom Data Ingress Basics (Track 1 Classroom Sandbox)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <header class="border-b border-emerald-900/50 bg-emerald-950/30 px-4 py-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400">Chapter 3 · Track 1 · Technical Integration</p>
+    <h1 class="text-xl font-bold">Ironbloom Physical-Unit Ingress Lab</h1>
+    <p class="mt-1 text-sm text-slate-400">Ironbloom (Agent 18) rejects monetary-only payloads. You must send kWh, liters (L), or kilometers (km).</p>
+  </header>
+
+  <main class="mx-auto grid max-w-5xl gap-6 p-4 lg:grid-cols-2">
+    <section class="rounded border border-slate-800 bg-slate-900/50 p-4">
+      <h2 class="text-sm font-bold uppercase text-emerald-300">Payload builder</h2>
+      <label class="mt-3 block text-xs text-slate-400">Asset ID
+        <input id="assetId" type="text" value="gridcore-scada-01" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <label class="mt-2 block text-xs text-slate-400">kWh
+        <input id="kwh" type="number" min="0" step="0.1" placeholder="500" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <label class="mt-2 block text-xs text-slate-400">Liters (L)
+        <input id="liters" type="number" min="0" step="0.1" placeholder="120" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <label class="mt-2 block text-xs text-slate-400">Kilometers (km)
+        <input id="km" type="number" min="0" step="0.1" placeholder="45" class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <label class="mt-2 block text-xs text-slate-400">Monetary-only (blocked)
+        <input id="money" type="number" placeholder="50000" class="mt-1 w-full rounded border border-rose-800 bg-rose-950/30 px-2 py-1.5 font-mono text-sm" />
+      </label>
+      <button id="validateBtn" type="button" class="mt-4 w-full rounded border border-emerald-600/60 bg-emerald-900/40 px-3 py-2 text-sm font-bold uppercase text-emerald-100">
+        Validate like Ironbloom
+      </button>
+      <pre id="result" class="mt-3 min-h-[4rem] rounded border border-slate-700 bg-slate-950 p-3 font-mono text-[11px] text-slate-300">Awaiting validation…</pre>
+    </section>
+
+    <section class="space-y-4">
+      <canvas id="flowCanvas" class="h-56 w-full rounded border border-slate-800 bg-slate-950" width="520" height="224"></canvas>
+      <article class="rounded border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-300">
+        <h2 class="font-bold text-white">API route (production)</h2>
+        <p class="mt-2"><code class="text-cyan-400">POST /api/sustainability/ironbloom</code> — monetary-only → HTTP 400 <code>PHYSICAL_UNIT_REQUIRED</code>.</p>
+        <p class="mt-2">Rejection message: <em>IRONBLOOM REJECTION: Monetary-only data is forbidden. Provide kWh, L, or km for [assetId].</em></p>
+        <p class="mt-2 text-xs text-slate-500">Source: <code>lib/sustainability/constants.ts</code>, <code>app/services/ironbloom/rateEngine.ts</code> (PHYSICAL_UNIT_TYPES: kWh, L, km)</p>
+      </article>
+      <article class="rounded border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-300">
+        <h2 class="font-bold text-white">Irongate DMZ (Agent 14)</h2>
+        <p class="mt-2">All external payloads must pass Irongate before database write. Navigate via <strong>OP SUPPORT</strong> for ingress diagnostics.</p>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const result = document.getElementById("result");
+    const canvas = document.getElementById("flowCanvas");
+    const ctx = canvas.getContext("2d");
+    let phase = 0;
+
+    function playTone(freq, type, dur) {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.08, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+      o.connect(g).connect(ac.destination);
+      o.start();
+      o.stop(ac.currentTime + dur);
+    }
+
+    function validateClient() {
+      const kwh = Number(document.getElementById("kwh").value);
+      const liters = Number(document.getElementById("liters").value);
+      const km = Number(document.getElementById("km").value);
+      const money = document.getElementById("money").value.trim();
+      const assetId = document.getElementById("assetId").value.trim() || "UNKNOWN_ASSET";
+      const hasPhysical = (kwh > 0) || (liters > 0) || (km > 0);
+      const hasMoney = money !== "" && Number(money) >= 0;
+
+      if (hasMoney && !hasPhysical) {
+        phase = -1;
+        result.textContent = "HTTP 400 PHYSICAL_UNIT_REQUIRED\n" +
+          `IRONBLOOM REJECTION: Monetary-only data is forbidden. Provide kWh, L, or km for [${assetId}].`;
+        playTone(180, "sawtooth", 0.4);
+        return;
+      }
+      if (!hasPhysical) {
+        phase = -1;
+        result.textContent = "HTTP 422 CRITICAL_INGESTION_FAILURE\nNo physical units detected.";
+        playTone(200, "square", 0.35);
+        return;
+      }
+      phase = 1;
+      result.textContent = "HTTP 200 ACCEPTED\nPhysical units verified. Sealed to SustainabilityMetric.mitigated_value_cents (BigInt) server-side.";
+      playTone(660, "sine", 0.25);
+      setTimeout(() => playTone(880, "sine", 0.2), 150);
+    }
+
+    document.getElementById("validateBtn").addEventListener("click", validateClient);
+
+    function drawFlow() {
+      const w = canvas.width, h = canvas.height;
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+      const nodes = ["External API", "Irongate", "Ironbloom", "Postgres BIGINT"];
+      const colors = phase === 1 ? ["#64748b","#64748b","#34d399","#34d399"] : phase === -1 ? ["#64748b","#f87171","#f87171","#64748b"] : ["#64748b","#64748b","#64748b","#64748b"];
+      nodes.forEach((label, i) => {
+        const x = 30 + i * ((w - 60) / (nodes.length - 1));
+        ctx.fillStyle = colors[i];
+        ctx.beginPath();
+        ctx.arc(x, h / 2, 18, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "9px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(label, x, h / 2 + 36);
+        if (i < nodes.length - 1) {
+          ctx.strokeStyle = colors[i];
+          ctx.beginPath();
+          ctx.moveTo(x + 20, h / 2);
+          ctx.lineTo(x + ((w - 60) / (nodes.length - 1)) - 20, h / 2);
+          ctx.stroke();
+        }
+      });
+      requestAnimationFrame(drawFlow);
+    }
+    drawFlow();
+  </script>
+</body>
+</html>

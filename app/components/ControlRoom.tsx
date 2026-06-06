@@ -45,6 +45,11 @@ import {
   mergeInventoryAgentWithPulse,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
+import {
+  navigateToAgentDiagnostics,
+  openAgentMetaSpecification,
+  pushAgentTelemetryIsolationToast,
+} from "@/app/utils/controlRoomAgentInteractions";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 
 export type { AgentPulseState };
@@ -662,7 +667,20 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
                     : "bg-slate-600";
             return (
               <div key={agent.name} role="listitem" className="min-w-0 w-full">
-                <div className="flex min-w-0 w-full items-center gap-x-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (e.shiftKey) {
+                      navigateToAgentDiagnostics(agent);
+                      return;
+                    }
+                    pushAgentTelemetryIsolationToast(agent, pulse);
+                    openAgentMetaSpecification(agent);
+                  }}
+                  className="flex min-w-0 w-full items-center gap-x-1.5 rounded-sm text-left transition-colors hover:bg-zinc-900/60 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-500/50"
+                  title={`${agent.name} — ${pulse}. Click for specification; Shift+click for diagnostics.`}
+                  aria-label={`${agent.name} ${pulse}. Open agent specification.`}
+                >
                   <span
                     className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-700 ${dotPulse}`}
                     style={
@@ -670,13 +688,12 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
                         ? { animationDelay: `${staggerMs}ms` }
                         : undefined
                     }
-                    title={pulse}
-                    aria-label={`${agent.name} ${pulse}`}
+                    aria-hidden
                   />
                   <span className="min-w-0 flex-1 truncate text-[8px] font-semibold uppercase tracking-wide text-slate-500">
                     {agent.name}
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}

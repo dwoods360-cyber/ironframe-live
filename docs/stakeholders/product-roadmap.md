@@ -1,6 +1,6 @@
 # Product Roadmap — Ironframe GRC
 
-High-level delivery plan aligned with [GA_OPEN_ROADMAP.md](../GA_OPEN_ROADMAP.md) and [EPIC_STATUS.md](../../EPIC_STATUS.md).
+High-level delivery plan aligned with [GA Open Roadmap](/docs/GA_OPEN_ROADMAP) and repository-root `EPIC_STATUS.md` (not served by the docs viewer).
 
 ## Shipped (GA baseline — June 2026)
 
@@ -52,6 +52,6 @@ Percentages in EPIC_STATUS reflect **feature-complete vs GA hardening** (product
 
 ## Related documents
 
-- [Product Vision](./product-vision.md)
-- [Release Notes](../end-users/release-notes.md)
-- [Changelog](../technical/changelog.md)
+- [Product Vision](/docs/stakeholders/product-vision)
+- [Release Notes](/docs/end-users/release-notes)
+- [Changelog](/docs/technical/changelog)

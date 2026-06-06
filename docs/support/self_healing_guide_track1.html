@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ironframe Self-Healing Guide (Track 1 Classroom Sandbox)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <header class="border-b border-slate-800 bg-slate-900 px-4 py-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-amber-400">Chapter 2 · Track 1 · Support Operations</p>
+    <h1 class="text-xl font-bold">Self-Healing Sandbox: GOVERNANCE DRIFT DETECTED</h1>
+    <p class="mt-1 text-sm text-slate-400">Learn how Irontech restores the Last Known Good baseline after an accidental rule change.</p>
+  </header>
+
+  <main class="mx-auto grid max-w-5xl gap-6 p-4 md:grid-cols-2">
+    <section class="rounded border border-slate-800 bg-slate-900/50 p-4">
+      <h2 class="text-sm font-bold uppercase text-slate-300">Simulated Command Center</h2>
+      <div class="mt-3 flex flex-wrap gap-2 text-[9px] font-bold uppercase">
+        <span class="rounded bg-blue-600 px-2 py-1">AUDIT TRAIL</span>
+        <span class="rounded border border-slate-600 px-2 py-1">INTEGRITY HUB</span>
+        <span class="rounded border border-cyan-700/60 px-2 py-1 text-cyan-200">OP SUPPORT</span>
+      </div>
+      <div class="mt-3 flex justify-end">
+        <button id="freezePost" type="button" class="rounded border border-amber-600/50 bg-amber-950/30 px-3 py-1.5 text-[8px] font-black uppercase text-amber-100">
+          FREEZE COMMAND POST
+        </button>
+      </div>
+      <div id="alertBox" class="mt-4 hidden rounded border-2 border-amber-500 bg-amber-950/60 px-4 py-3 text-center text-sm font-black uppercase tracking-wide text-amber-200">
+        GOVERNANCE DRIFT DETECTED
+      </div>
+      <canvas id="healCanvas" class="mt-4 h-48 w-full rounded border border-slate-700 bg-slate-950" width="480" height="192"></canvas>
+      <p id="timerLabel" class="mt-2 text-center font-mono text-xs text-slate-400">Status: idle</p>
+    </section>
+
+    <section class="space-y-4">
+      <article class="rounded border border-slate-800 bg-slate-900/50 p-4 text-sm leading-relaxed text-slate-300">
+        <h2 class="font-bold text-white">What happened?</h2>
+        <p class="mt-2">Ironwatch (Agent 15) compares live configuration hashes against the constitutional baseline in <code class="text-cyan-400">docs/TAS.md</code>. When you change a rule without an approved amendment, the UI freezes and shows <strong>GOVERNANCE DRIFT DETECTED</strong>.</p>
+      </article>
+      <article class="rounded border border-slate-800 bg-slate-900/50 p-4 text-sm leading-relaxed text-slate-300">
+        <h2 class="font-bold text-white">Recovery steps (lab)</h2>
+        <ol class="mt-2 list-decimal pl-5 space-y-2">
+          <li>Click <strong>Simulate drift</strong> below to trigger the freeze.</li>
+          <li>Click the amber <strong>FREEZE COMMAND POST</strong> button (same label as production top sub-header).</li>
+          <li>Wait 3 seconds while Irontech (Agent 4) runs the self-healing loop.</li>
+          <li>Listen for the resolution chime — baseline restored.</li>
+        </ol>
+      </article>
+      <button id="triggerDrift" type="button" class="w-full rounded border border-rose-600/70 bg-rose-950/50 px-4 py-3 text-sm font-bold uppercase text-rose-100">
+        Simulate drift (unauthorized rule change)
+      </button>
+      <p class="text-[10px] text-slate-500">Reference: <code>docs/qa/complete-feature-glossary.md</code> Alert 1 · <code>app/components/commandPost/CommandPostFreezeControl.tsx</code></p>
+    </section>
+  </main>
+
+  <script>
+    const alertBox = document.getElementById("alertBox");
+    const timerLabel = document.getElementById("timerLabel");
+    const canvas = document.getElementById("healCanvas");
+    const ctx = canvas.getContext("2d");
+    let drift = false;
+    let healStart = 0;
+    const HEAL_MS = 3000;
+
+    function synth(type, freq, dur, vol) {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+      o.connect(g).connect(ac.destination);
+      o.start();
+      o.stop(ac.currentTime + dur);
+    }
+
+    document.getElementById("triggerDrift").onclick = () => {
+      if (drift) return;
+      drift = true;
+      alertBox.classList.remove("hidden");
+      timerLabel.textContent = "Status: FROZEN — Ironwatch hash mismatch";
+      synth("sawtooth", 920, 0.45, 0.07);
+    };
+
+    document.getElementById("freezePost").onclick = () => {
+      if (!drift) {
+        timerLabel.textContent = "Status: no drift — FREEZE locks Command Post layout for audit";
+        return;
+      }
+      healStart = performance.now();
+      timerLabel.textContent = "Status: Irontech LKG restore… 3.0s";
+      synth("square", 220, 0.15, 0.05);
+    };
+
+    function draw() {
+      const w = canvas.width, h = canvas.height;
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, 0, w, h);
+      if (drift && healStart > 0) {
+        const elapsed = performance.now() - healStart;
+        const p = Math.min(1, elapsed / HEAL_MS);
+        ctx.fillStyle = p >= 1 ? "#34d399" : "#f59e0b";
+        ctx.fillRect(20, h - 30, (w - 40) * p, 12);
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "11px monospace";
+        ctx.fillText(`Irontech checkpoint restore: ${(p * 100).toFixed(0)}%`, 24, h - 40);
+        if (p >= 1 && drift) {
+          drift = false;
+          healStart = 0;
+          alertBox.classList.add("hidden");
+          timerLabel.textContent = "Status: baseline verified — UI unlocked";
+          [523.25, 659.25, 783.99].forEach((f, i) => setTimeout(() => synth("sine", f, 0.35, 0.1), i * 120));
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

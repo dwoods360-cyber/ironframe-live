@@ -961,36 +961,7 @@ export default function StrategicIntel() {
         </div>
       </section>
 
-      {/* 4. AI AGENT STATUS GRID (Restoring Unicode Fix) */}
-      <section className="p-4 bg-[#050509] border-b border-zinc-900">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Active Agents // 19-Agent Workforce</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { name: 'Ironsight', icon: '\u25ce', color: 'text-red-500' },
-            { name: 'Ironintel', icon: '\uD83E\uDDE0', color: 'text-emerald-500' },
-            { name: 'Ironcore', icon: '\uD83D\uDEE1\uFE0F', color: 'text-blue-500' },
-          ].map((agent) => {
-            return (
-              <div key={agent.name} className="bg-black border border-zinc-900 p-2.5 rounded-sm flex flex-col items-center gap-1 hover:border-zinc-700 transition-colors group">
-                <span className={`${agent.color} text-xl mb-1 group-hover:scale-110 transition-transform`}>
-                  {agent.icon}
-                </span>
-                <span className="text-[8px] font-black uppercase text-zinc-500 text-center tracking-tighter leading-none">
-                  {agent.name}
-                </span>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <div className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_4px_#10b981]" />
-                  <span className="text-[7px] text-emerald-500 font-bold uppercase tracking-widest">
-                    Healthy
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 4. LIVE INTELLIGENCE STREAM TERMINAL */}
+      {/* LIVE INTELLIGENCE STREAM TERMINAL */}
       <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900 overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
           <div className="space-y-1">

@@ -227,7 +227,7 @@ export default function GlobalEkgPortal() {
         }}
         aria-hidden
       />
-      <div className="absolute left-6 flex select-none items-center gap-2 font-mono text-[9px] font-black uppercase tracking-widest text-emerald-400">
+      <div className="absolute left-6 flex items-center gap-2 font-mono text-[9px] font-black uppercase tracking-widest text-emerald-400">
         <span className="h-1.5 w-1.5 animate-ping rounded-full bg-emerald-400" aria-hidden />
         [ RUNNING SECURE CRYPTO HANDSHAKE CLIENT SYNC... ]
       </div>

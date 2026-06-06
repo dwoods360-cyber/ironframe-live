@@ -1,11 +1,92 @@
 # Ironframe Documentation Hub
 
-Central index for product, technical, and operational documentation. Documents are grouped by audience. Authoritative engineering specs remain in [TAS.md](./TAS.md) and [DOCS_OPERATIONS.md](../DOCS_OPERATIONS.md).
+Central file-system registry for the Ironframe GRC documentation architecture. This index maps every Documentation Hub chapter (Track 1 classroom HTML portals, Track 2 practitioner specifications), compliance export endpoints, and legacy markdown manuals.
 
 **Product:** Ironframe GRC — multi-tenant governance, risk, and compliance platform with a 19-agent autonomous workforce, BigInt financial integrity, and zero-trust ingestion.
 
 **Version baseline:** v0.1.0-ga-epic17 (June 2026)  
 **Stack:** Next.js 15 · Supabase · Prisma · Vercel · LangGraph.js
+
+---
+
+## Constitutional invariants (deployment gate)
+
+These labels and values are verified against the live Command Center UI and must not drift in documentation or collateral.
+
+### Verbatim screen labels
+
+| Element | Exact label | Location |
+|---------|-------------|----------|
+| Agent monitor | **AGENT STATUS PULSE** | Top quadrant of the **Left Pane** (not full-height stretch) |
+| Primary nav tab | **AUDIT TRAIL** | Header navigation strip |
+| Primary nav tab | **INTEGRITY HUB** | Header navigation strip |
+| Primary nav tab | **BOARD REPORT** | Header navigation strip |
+| Primary nav tab | **OP SUPPORT** | Header navigation strip |
+| Primary nav tab | **🚨 DMZ QUARANTINE** | Header navigation strip |
+| Emergency control | **FREEZE COMMAND POST** | Top sub-header toolline |
+| Ledger export | **Export Tabular Ledger Data (CSV)** | Inside **CYBER INSURANCE OPTIMIZATION** card (`data-testid="export-tabular-ledger-csv"`) |
+
+### Financial arithmetic integrity (whole-integer cents)
+
+| Tenant | Baseline (cents) | USD reference |
+|--------|------------------|---------------|
+| Medshield Health | `1110000000` | $11.1M |
+| Vaultbank NA | `590000000` | $5.9M |
+| Gridcore Infrastructure | `470000000` | $4.7M |
+
+Source: `prisma/seed.ts`, `docs/TAS.md`, `src/services/irontrust/mathEngine.ts`. No JavaScript float or decimal types on monetary paths.
+
+### Sustainability ingress (Ironbloom / Agent 18)
+
+The **Ironbloom** agent throws runtime exceptions when a payload contains **monetary-only** values. Valid physical indicators are exclusively:
+
+- **kWh** (kilowatt-hours)
+- **L** (liters)
+- **km** (kilometers)
+
+Rejection codes: `PHYSICAL_UNIT_REQUIRED` (HTTP 400), `CRITICAL_INGESTION_FAILURE` (HTTP 422). Source: `lib/sustainability/constants.ts`, `app/api/sustainability/ironbloom/route.ts`.
+
+---
+
+## Documentation Hub — four-chapter architecture
+
+Interactive HTML chapters are served at clean `/docs/.../*.html` URLs (rewritten to `/api/docs/hub-asset/...`). Files live on disk under `docs/`.
+
+### 🎓 Track 1 — Student Training Portals (Classroom Sandbox HTML)
+
+| Chapter | Sidebar label | Served URL | Filesystem path |
+|---------|---------------|------------|-----------------|
+| 1 | Product Core & Monopolies | [/docs/product/vision_and_overview_track1.html](/docs/product/vision_and_overview_track1.html) | `docs/product/vision_and_overview_track1.html` |
+| 2 | Automated Self-Healing Labs | [/docs/support/self_healing_guide_track1.html](/docs/support/self_healing_guide_track1.html) | `docs/support/self_healing_guide_track1.html` |
+| 3 | Visual Data Ingress Systems | [/docs/technical/integration_basics_track1.html](/docs/technical/integration_basics_track1.html) | `docs/technical/integration_basics_track1.html` |
+| Index | High School Index Portal | [/docs/training/high-school/index.html](/docs/training/high-school/index.html) | `docs/training/high-school/index.html` |
+
+### 💼 Track 2 — GRC Practitioner Specifications (Print / Java contracts)
+
+| Chapter | Sidebar label | Served URL | Filesystem path |
+|---------|---------------|------------|-----------------|
+| 1 | Enterprise Business Specifications | [/docs/product/business_plan_spec_track2.html](/docs/product/business_plan_spec_track2.html) | `docs/product/business_plan_spec_track2.html` |
+| 2 | Multi-Agent Triage Runbooks | [/docs/support/operations_triage_spec.html](/docs/support/operations_triage_spec.html) | `docs/support/operations_triage_spec.html` |
+| 3 | BigInt Data Schema Contracts | [/docs/technical/data_dictionary_and_api_track2.html](/docs/technical/data_dictionary_and_api_track2.html) | `docs/technical/data_dictionary_and_api_track2.html` |
+| Index | Professional Index Portal | [/docs/training/professional/index.html](/docs/training/professional/index.html) | `docs/training/professional/index.html` |
+
+### 📥 Compliance exports (API endpoints)
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| UX/Feature Test Protocol (.docx) | [/api/docs/download-protocol](/api/docs/download-protocol) | Streams `docs/Ironframe-UI-UX-Feature-Test-Protocol.docx` |
+| Test manifest JSON | [/api/docs/download-protocol?manifest=1](/api/docs/download-protocol?manifest=1) | EXPORT-001 selectors, baseline cents, chapter paths |
+| Feature test matrix (.csv) | [/api/docs/download-matrix](/api/docs/download-matrix) | Streams `docs/Ironframe-UI-UX-Feature-Test-Matrix.csv` |
+| Hub HTML asset (direct) | `/api/docs/hub-asset/{path}` | Internal route backing `/docs/{product\|support\|technical\|training}/...` rewrites |
+
+### App integration
+
+| Component | Path | Role |
+|-----------|------|------|
+| Docs sidebar | `app/docs/[[...slug]]/DocsSidebar.tsx` | Grouped Track 1 / Track 2 / Compliance Exports navigation |
+| Docs viewer | `app/docs/[[...slug]]/page.tsx` | Markdown hub pages (this file at `/docs/hub`) |
+| Hub asset route | `app/api/docs/hub-asset/[[...path]]/route.ts` | Serves whitelisted HTML from `docs/` |
+| URL rewrites | `next.config.ts` | Maps `/docs/product/*.html` → hub-asset API |
 
 ---
 
@@ -125,10 +206,6 @@ Central index for product, technical, and operational documentation. Documents a
 * **High School Classroom Track:**
   * [Student Sandbox Lab](./qa/student-testing-protocol.md) — Simplified, plain-English manual testing walkthrough optimized for 11th & 12th-grade technical labs.
   * [GRC Operations Glossary & Screen Guide](./qa/complete-feature-glossary.md) — Interactive reference for dashboard controls, locations, and lab operations.
-
-## Downloads
-
-- **UI/UX & Feature Test Protocol** — MS Word playbook: `/api/docs/download-protocol` (also linked from any doc page in the web viewer)
 
 ---
 

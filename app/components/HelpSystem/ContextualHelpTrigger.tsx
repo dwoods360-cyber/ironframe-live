@@ -1,7 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
+import {
+  LAYOUT_DRAWER_BACKDROP_Z_CLASS,
+  LAYOUT_DRAWER_PANEL_Z_CLASS,
+  LAYOUT_VIEWPORT_HEADER_OFFSET_CLASS,
+  LAYOUT_VIEWPORT_HEADER_OFFSET_SIMULATION_CLASS,
+} from "@/app/config/layoutConstants";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 
 interface HelpProps {
   featureId: string;
@@ -19,6 +27,24 @@ export default function ContextualHelpTrigger({
   steps,
 }: HelpProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  const topOffset = isSimulationMode
+    ? LAYOUT_VIEWPORT_HEADER_OFFSET_SIMULATION_CLASS
+    : LAYOUT_VIEWPORT_HEADER_OFFSET_CLASS;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
 
   return (
     <>
@@ -31,76 +57,88 @@ export default function ContextualHelpTrigger({
         ❓ HELP
       </button>
 
-      {isOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm">
-          <div className="flex-1" onClick={() => setIsOpen(false)} aria-hidden />
-          <div className="flex w-96 flex-col justify-between border-l border-slate-800 bg-slate-900 p-6 shadow-2xl">
-            <div>
-              <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 className="text-sm font-mono font-bold uppercase tracking-wide text-teal-400">
-                  💡 Interactive Feature Doc
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="font-mono text-xs text-slate-500 hover:text-white"
-                >
-                  ✕ CLOSE
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                    Function Name
-                  </label>
-                  <p className="mt-0.5 text-sm font-bold text-white">{title}</p>
-                </div>
-
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                    On-Screen Location
-                  </label>
-                  <p className="mt-0.5 font-sans text-xs text-slate-300">{location}</p>
-                </div>
-
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                    What It Is Used For
-                  </label>
-                  <p className="mt-1 rounded border border-slate-800 bg-slate-950 p-2.5 font-sans text-xs leading-relaxed text-slate-300">
-                    {purpose}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                    How to Use It
-                  </label>
-                  <ol className="mt-1 list-inside list-decimal space-y-1.5 pl-1 text-xs text-slate-400">
-                    {steps.map((step, idx) => (
-                      <li key={idx} className="font-sans">
-                        <span className="text-slate-300">{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 border-t border-slate-800 pt-4">
-              <Link
-                href={`/docs/qa/complete-feature-glossary#${featureId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded border border-teal-500/30 bg-teal-950/40 px-4 py-2 text-center font-mono text-xs tracking-tight text-teal-400 transition-colors hover:bg-teal-900/50"
+      {mounted && isOpen
+        ? createPortal(
+            <>
+              <button
+                type="button"
+                aria-label="Close help panel"
+                className={`fixed inset-0 ${LAYOUT_DRAWER_BACKDROP_Z_CLASS} bg-slate-950/60 backdrop-blur-sm`}
+                onClick={() => setIsOpen(false)}
+              />
+              <aside
+                role="dialog"
+                aria-modal="true"
+                className={`fixed right-0 ${topOffset} bottom-0 flex w-96 flex-col justify-between border-l border-slate-800 bg-slate-900 p-6 shadow-2xl ${LAYOUT_DRAWER_PANEL_Z_CLASS}`}
               >
-                📖 OPEN DEEP-DIVE WEB DOCUMENT ➔
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div>
+                  <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 className="font-mono text-sm font-bold uppercase tracking-wide text-teal-400">
+                      💡 Interactive Feature Doc
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsOpen(false)}
+                      className="font-mono text-xs text-slate-500 hover:text-white"
+                    >
+                      ✕ CLOSE
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        Function Name
+                      </label>
+                      <p className="mt-0.5 text-sm font-bold text-white">{title}</p>
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        On-Screen Location
+                      </label>
+                      <p className="mt-0.5 font-sans text-xs text-slate-300">{location}</p>
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        What It Is Used For
+                      </label>
+                      <p className="mt-1 rounded border border-slate-800 bg-slate-950 p-2.5 font-sans text-xs leading-relaxed text-slate-300">
+                        {purpose}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                        How to Use It
+                      </label>
+                      <ol className="mt-1 list-inside list-decimal space-y-1.5 pl-1 text-xs text-slate-400">
+                        {steps.map((step, idx) => (
+                          <li key={idx} className="font-sans">
+                            <span className="text-slate-300">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 border-t border-slate-800 pt-4">
+                  <Link
+                    href={`/docs/qa/complete-feature-glossary#${featureId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded border border-teal-500/30 bg-teal-950/40 px-4 py-2 text-center font-mono text-xs tracking-tight text-teal-400 transition-colors hover:bg-teal-900/50"
+                  >
+                    📖 OPEN DEEP-DIVE WEB DOCUMENT ➔
+                  </Link>
+                </div>
+              </aside>
+            </>,
+            document.body,
+          )
+        : null}
     </>
   );
 }

@@ -19,7 +19,8 @@ type IroncastNotificationState = {
 
 const MAX_STACK = 4;
 
-export const IRONCAST_TOAST_DURATION_MS = 5000;
+/** Sticky retention — analyst dismiss only (no auto-hide timer). */
+export const IRONCAST_TOAST_DURATION_MS = Infinity;
 
 export const useIroncastNotificationStore = create<IroncastNotificationState>((set) => ({
   toasts: [],

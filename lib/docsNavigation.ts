@@ -2,6 +2,7 @@ import "server-only";
 
 import fs from "fs";
 import path from "path";
+import { sanitizeDocSlugSegments } from "@/lib/docsLinkNormalization";
 
 export const DOCS_ROOT = path.join(process.cwd(), "docs");
 
@@ -47,6 +48,7 @@ function humanizeFilename(name: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+
 export function walkMarkdownSlugs(dir: string, root: string): string[][] {
   let results: string[][] = [];
   if (!fs.existsSync(dir)) return results;
@@ -66,7 +68,7 @@ export function walkMarkdownSlugs(dir: string, root: string): string[][] {
 }
 
 function sectionKeyForSlug(slug: string[]): string {
-  if (slug.length === 1 && (slug[0] === "hub" || slug[0] === "README")) return "root-hub";
+  if (slug.length === 1 && slug[0] === "hub") return "root-hub";
   if (slug.length === 1) return "root";
   return slug[0] ?? "root";
 }
@@ -77,7 +79,7 @@ export function buildDocsNavigation(): DocNavItem[] {
     const section = sectionKeyForSlug(slug);
     const filename = slug[slug.length - 1] ?? "README";
     const label =
-      (filename === "hub" || filename === "README") && slug.length === 1
+      filename === "hub" && slug.length === 1
         ? "Documentation Hub"
         : humanizeFilename(filename);
 
@@ -123,7 +125,10 @@ export function groupDocsNavigation(items: DocNavItem[]): DocNavSection[] {
 }
 
 export function resolveDocPath(slugSegments: string[]): string | null {
-  const relativeDocPath = `${slugSegments.join("/")}.md`;
+  const sanitized = sanitizeDocSlugSegments(slugSegments);
+  if (sanitized.length === 0) return null;
+
+  const relativeDocPath = `${sanitized.join("/")}.md`;
   const candidate = path.resolve(DOCS_ROOT, relativeDocPath);
   const normalizedRoot = path.resolve(DOCS_ROOT);
   if (candidate !== normalizedRoot && !candidate.startsWith(`${normalizedRoot}${path.sep}`)) {

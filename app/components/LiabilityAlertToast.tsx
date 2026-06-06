@@ -1,5 +1,6 @@
 "use client";
 
+import { FLOATING_NOTIFY_TOP_STANDARD, FLOATING_NOTIFY_Z_CLASS } from "@/app/config/layoutConstants";
 import { useRiskStore } from "@/app/store/riskStore";
 
 export default function LiabilityAlertToast() {
@@ -11,7 +12,7 @@ export default function LiabilityAlertToast() {
   return (
     <div
       role="alert"
-      className="fixed top-4 left-1/2 z-[100] -translate-x-1/2 animate-pulse rounded border-2 border-red-500/80 bg-red-950/95 px-4 py-3 shadow-[0_0_24px_rgba(239,68,68,0.4)]"
+      className={`fixed left-1/2 -translate-x-1/2 animate-pulse rounded border-2 border-red-500/80 bg-red-950/95 px-4 py-3 shadow-[0_0_24px_rgba(239,68,68,0.4)] ${FLOATING_NOTIFY_TOP_STANDARD} ${FLOATING_NOTIFY_Z_CLASS}`}
     >
       <div className="flex items-center gap-3">
         <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />

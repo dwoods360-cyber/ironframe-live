@@ -186,7 +186,7 @@ export default function SecurityProfile({ initial }: Props) {
         </div>
 
         <details className="mt-5 rounded-lg border border-dashed border-slate-700/80 bg-slate-900/30 px-3 py-2">
-          <summary className="cursor-pointer select-none text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-400">
+          <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-400">
             Dev role switcher
           </summary>
           <div className="mt-3 pb-1">

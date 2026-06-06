@@ -1,12 +1,45 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["@prisma/client"],
+  serverExternalPackages: [
+    "@prisma/client",
+    /** LangChain optional tracing peer — externalize to avoid corrupt vendor-chunks on Windows dev. */
+    "@opentelemetry/api",
+    "@langchain/core",
+    "@langchain/langgraph",
+    "@langchain/langgraph-checkpoint-postgres",
+    "@langchain/google-genai",
+    /** PDF/canvas peers pulled in via shared layout graph — prevent missing vendor-chunks in dev workers. */
+    "html2canvas",
+    "jspdf",
+    "jspdf-autotable",
+  ],
   /** Ensure markdown hub + docx protocol ship inside docs route lambdas on Vercel. */
   outputFileTracingIncludes: {
     "/docs/[[...slug]]": ["./docs/**/*"],
     "/api/docs/download-protocol": ["./docs/**/*"],
     "/api/docs/download-matrix": ["./docs/**/*"],
+    "/api/docs/hub-asset/[[...path]]": ["./docs/**/*.html"],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/docs/product/:file",
+        destination: "/api/docs/hub-asset/product/:file",
+      },
+      {
+        source: "/docs/support/:file",
+        destination: "/api/docs/hub-asset/support/:file",
+      },
+      {
+        source: "/docs/technical/:file",
+        destination: "/api/docs/hub-asset/technical/:file",
+      },
+      {
+        source: "/docs/training/:track/:file",
+        destination: "/api/docs/hub-asset/training/:track/:file",
+      },
+    ];
   },
   eslint: {
     // Re-enable strict verification loops during remote Vercel compilation.
@@ -17,6 +50,7 @@ const nextConfig: NextConfig = {
   },
   webpack(config, { dev }) {
     // Windows dev: avoid PackFileCacheStrategy ENOENT when .next is cleared while `next dev` runs.
+    // Do NOT override server chunkFilename — Next webpack-runtime requires ./vendor-chunks/next.js.
     if (dev && process.platform === "win32") {
       config.cache = false;
     }

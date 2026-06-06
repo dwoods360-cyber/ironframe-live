@@ -54,6 +54,8 @@ import {
 import type { ReasoningWaterfallVM } from '@/app/utils/reasoningWaterfallFromIngestion';
 import ResourceMonitor from '@/app/components/ResourceMonitor';
 import GrcGoldLivingAuditBlock from '@/app/components/GrcGoldLivingAuditBlock';
+import InsuranceForensicGapConnector from '@/app/components/InsuranceForensicGapConnector';
+import DashboardTripaneShell from '@/app/components/DashboardTripaneShell';
 import HandshakeStatusBar, {
   type SyncHandshakePhase,
   HANDSHAKE_SYSTEM_READY_LINE,
@@ -61,7 +63,6 @@ import HandshakeStatusBar, {
 import { TENANT_API_CACHE_INVALIDATE_EVENT } from '@/app/utils/apiCacheCoordinator';
 import { isShadowPlaneActiveClient } from '@/app/utils/shadowPlaneActive';
 import { useShadowPlaneThreatRefetch } from '@/app/hooks/useShadowPlaneThreatRefetch';
-import { ChevronRight } from 'lucide-react';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -72,15 +73,12 @@ const EXCLUDED_BASELINE_RISK_TITLES = new Set([
 import {
   DASHBOARD_CENTER_CONTENT,
   DASHBOARD_CENTER_PAD_X,
-  DASHBOARD_CENTER_PANE,
   DASHBOARD_CENTER_RISK_STACK,
   DASHBOARD_CENTER_SCROLL,
   DASHBOARD_HOME_SHELL,
-  DASHBOARD_LEFT_PANE,
   DASHBOARD_LEFT_SCROLL,
-  DASHBOARD_RIGHT_PANE,
   DASHBOARD_RIGHT_SCROLL,
-  DASHBOARD_TRIPANE_SHELL,
+  INSURANCE_UNDERWRITING_ROW,
 } from "@/app/lib/dashboardTripaneLayout";
 
 /** Strip legacy Medshield ghost rows from secondary asset metadata (forensic anchor is authoritative). */
@@ -216,41 +214,6 @@ function isRecoverableDashboardNetworkError(error: unknown): boolean {
 const EMPTY_HEATMAP: Record<string, { total: number; agents: Record<string, number> }> = {};
 const EMPTY_PREDICTIVE_HEAT: Record<string, number> = {};
 const EMPTY_ALE_EXPOSURE: Record<string, string> = {};
-
-function InsuranceForensicHandshakeConnector({ flowActive }: { flowActive: boolean }) {
-  const bridge = (
-    <div className="relative w-full overflow-visible">
-      <div className="relative h-px w-full">
-        <div className="absolute inset-0 border-t border-dashed border-cyan-600/40" />
-        {flowActive ? (
-          <div className="pointer-events-none absolute left-0 top-1/2 h-4 w-[min(55%,10rem)] -translate-y-1/2 rounded-full bg-gradient-to-r from-cyan-200/95 via-cyan-400/88 to-transparent blur-[3px] ironframe-connector-flow-x" />
-        ) : null}
-      </div>
-      <div className="mt-2 flex justify-center">
-        <ChevronRight
-          className="text-cyan-500/55 drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
-          strokeWidth={2.25}
-          size={18}
-          aria-hidden
-        />
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-      <div
-        className="relative hidden min-h-[8rem] w-12 shrink-0 flex-col justify-center px-0.5 lg:flex"
-        aria-hidden
-      >
-        {bridge}
-      </div>
-      <div className="relative flex w-full shrink-0 py-1 lg:hidden" aria-hidden>
-        {bridge}
-      </div>
-    </>
-  );
-}
 
 /**
  * Main Ops shell — primary “ear” for production `ThreatEvent` and shadow `RiskEvent` (DB table `SimThreatEvent`) realtime, tenant-scoped.
@@ -957,79 +920,83 @@ export default function DashboardHomeClient({
   if (loading && dashboardTenantUuid) {
     return (
       <div className={DASHBOARD_HOME_SHELL}>
-      <div className={DASHBOARD_TRIPANE_SHELL}>
-        <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel" aria-hidden>
-          <div className={DASHBOARD_LEFT_SCROLL}>
-            <div className="space-y-6 pb-12">
-              <div className="space-y-3">
-                <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
-                <div className="flex justify-between gap-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
-                  ))}
+        <DashboardTripaneShell
+          leftPaneTestId="dashboard-left-panel"
+          centerPaneTestId="dashboard-main"
+          leftAsideProps={{ "aria-hidden": true }}
+          centerMainProps={{
+            "aria-busy": true,
+            "aria-label": "Loading pipeline and active risk posture",
+          }}
+          left={
+            <div className={DASHBOARD_LEFT_SCROLL}>
+              <div className="space-y-6 pb-12">
+                <div className="space-y-3">
+                  <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
+                  <div className="flex justify-between gap-2">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
+                    ))}
+                  </div>
+                  <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
+                    <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
-                  <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                <div className="border-t border-slate-800/60 pt-4">
+                  <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
+                  <div className="mt-3 space-y-2">
+                    <div className="h-16 animate-pulse rounded bg-slate-800/70" />
+                    <div className="h-16 animate-pulse rounded bg-slate-800/50" />
                   </div>
                 </div>
               </div>
-              <div className="border-t border-slate-800/60 pt-4">
-                <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
-                <div className="mt-3 space-y-2">
-                  <div className="h-16 animate-pulse rounded bg-slate-800/70" />
-                  <div className="h-16 animate-pulse rounded bg-slate-800/50" />
+            </div>
+          }
+          center={
+            <>
+              <div className={DASHBOARD_CENTER_SCROLL}>
+                <div className="border-b border-slate-800 px-6 pt-4">
+                  <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
+                </div>
+                <div className={DASHBOARD_CENTER_CONTENT}>
+                  <div>
+                    <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {[1, 2, 3].map((i) => (
+                        <div
+                          key={i}
+                          className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-none border border-slate-800/80 bg-slate-900/80"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="h-28 animate-pulse rounded-none border border-slate-800/60 bg-slate-900/60" />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </aside>
-        <section
-          className={DASHBOARD_CENTER_PANE}
-          data-testid="dashboard-main"
-          aria-busy
-          aria-label="Loading pipeline and active risk posture"
-        >
-          <div className={DASHBOARD_CENTER_SCROLL}>
-          <div className="border-b border-slate-800 px-6 pt-4">
-            <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
-          </div>
-          <div className={DASHBOARD_CENTER_CONTENT}>
-            <div>
-              <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-none border border-slate-800/80 bg-slate-900/80"
-                  />
-                ))}
+            </>
+          }
+          right={
+            <div className={DASHBOARD_RIGHT_SCROLL}>
+              <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
+                <div className="h-3 w-32 shrink-0 animate-pulse rounded bg-slate-800" />
+                <div className="min-h-0 flex-1 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
               </div>
             </div>
-            <div>
-              <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="h-28 animate-pulse rounded-none border border-slate-800/60 bg-slate-900/60" />
-                ))}
-              </div>
-            </div>
-          </div>
-          </div>
-        </section>
-        <aside className={DASHBOARD_RIGHT_PANE}>
-          <div className={DASHBOARD_RIGHT_SCROLL}>
-            <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
-              <div className="h-3 w-32 shrink-0 animate-pulse rounded bg-slate-800" />
-              <div className="min-h-0 flex-1 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
-            </div>
-          </div>
-        </aside>
-      </div>
+          }
+        />
       </div>
     );
   }
@@ -1104,8 +1071,11 @@ export default function DashboardHomeClient({
             ))}
           </div>
         ) : null}
-      <div className={DASHBOARD_TRIPANE_SHELL}>
-        <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel">
+      <DashboardTripaneShell
+        leftPaneTestId="dashboard-left-panel"
+        centerPaneTestId="dashboard-main"
+        rightPaneAuditIntelligence
+        left={
           <div className={DASHBOARD_LEFT_SCROLL}>
             <div className="space-y-6 pb-12">
               <Sidebar />
@@ -1126,9 +1096,9 @@ export default function DashboardHomeClient({
               )}
             </div>
           </div>
-        </aside>
-
-        <section className={DASHBOARD_CENTER_PANE} data-testid="dashboard-main">
+        }
+        center={
+          <>
           <div className={DASHBOARD_CENTER_SCROLL}>
           <div className={DASHBOARD_CENTER_CONTENT}>
           {typeof serverTimeEpochMs === "number" ? (
@@ -1204,29 +1174,19 @@ export default function DashboardHomeClient({
                   insuranceDiscountPct={insuranceDiscountPct}
                 >
                 <div className="space-y-4">
-                  <div
-                    className={`flex flex-col gap-4 lg:items-stretch ${isSimulationMode ? "lg:flex-row" : ""}`}
-                  >
-                    {isSimulationMode ? (
-                      <div className="min-w-0 flex-[2]">
-                        <BudgetJustification
-                          framework={insuranceModelFramework}
-                          hasContinuousMonitoring={insuranceHasContinuousMonitoring}
-                          hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
-                          defaultPremiumCents={insuranceDefaultPremiumCents}
-                          tenantFetch={tenantFetch}
-                          onInsurancePostureChange={onInsurancePostureChange}
-                        />
-                      </div>
-                    ) : null}
-                    {isSimulationMode ? (
-                      <InsuranceForensicHandshakeConnector
-                        flowActive={handshakePhase === "syncing"}
+                  <div className={INSURANCE_UNDERWRITING_ROW} data-insurance-underwriting-row>
+                    <div className="min-w-0 flex-[3] shrink self-stretch">
+                      <BudgetJustification
+                        framework={insuranceModelFramework}
+                        hasContinuousMonitoring={insuranceHasContinuousMonitoring}
+                        hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
+                        defaultPremiumCents={insuranceDefaultPremiumCents}
+                        tenantFetch={tenantFetch}
+                        onInsurancePostureChange={onInsurancePostureChange}
                       />
-                    ) : null}
-                    <div
-                      className={`min-w-0 self-start ${isSimulationMode ? "flex-1" : "w-full"}`}
-                    >
+                    </div>
+                    <InsuranceForensicGapConnector />
+                    <div className="min-w-0 flex-[2] shrink self-stretch">
                       <GrcGoldLivingAuditBlock
                         variant="grid"
                         industry={selectedIndustry}
@@ -1286,9 +1246,9 @@ export default function DashboardHomeClient({
           ) : null}
           </div>
           </div>
-        </section>
-
-        <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
+          </>
+        }
+        right={
           <div className={DASHBOARD_RIGHT_SCROLL}>
             <AuditIntelligence
               serverAuditLogs={serverAuditLogsForAudit}
@@ -1299,9 +1259,9 @@ export default function DashboardHomeClient({
               }}
             />
           </div>
-        </aside>
+        }
+      />
 
-      </div>
       </div>
       <ForensicReasoningPlaybackModal
         threatId={forensicPlaybackThreatId}

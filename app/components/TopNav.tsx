@@ -13,7 +13,7 @@ import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFr
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { createClient } from "@/lib/supabase/client";
 import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
-import { isLegacyAuditTrailRedirectPath, isReportsAuditTrailPath } from "@/app/utils/grcRouteMatch";
+import { LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 
 export default function TopNav() {
   const pathname = usePathname();
@@ -140,9 +140,9 @@ export default function TopNav() {
 
   return (
     <header className="w-full">
-      <div className="z-50 flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6">
+      <div className={`${LAYOUT_MASTER_HEADER_Z_CLASS} relative flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6`}>
         <div className="flex items-center gap-8">
-          <div className="flex select-none items-center gap-3">
+          <div className="flex items-center gap-3">
             <span className="font-mono text-sm font-black tracking-widest text-white">IRONFRAME CORE</span>
             <span className="text-sm text-slate-800">|</span>
             <span
@@ -174,7 +174,7 @@ export default function TopNav() {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex select-none items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
             <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-slate-500">
               LIVE MONITORING
@@ -201,7 +201,7 @@ export default function TopNav() {
             </span>
           </div>
 
-          <div className="flex select-none items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider">
             <div className="flex items-center gap-1.5 rounded border border-emerald-900/50 bg-emerald-950/50 px-2 py-1 text-emerald-400">
               <span aria-hidden>🔒</span>
               <span>SECURE SESSION</span>
@@ -229,12 +229,12 @@ export default function TopNav() {
         </div>
       </div>
 
-      <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4">
+      <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex h-10 items-center justify-between border-b border-slate-800 bg-slate-900 px-4`}>
         <div className="flex h-full items-center gap-3">
           <TenantSwitcher />
           {/* # MAGNITUDE_SELECTOR — global currency scale toggle (AUTO, K, M, B, T) */}
           {/* # GLOBAL_CURRENCY_SELECTOR — tenant-scoped currency scaling control */}
-          <div className="relative z-50 flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300">
+          <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300`}>
             <span className="text-slate-400">Scale</span>
             <div className="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-1 py-0.5">
               {(["AUTO", "K", "M", "B", "T"] as const).map((scale) => (

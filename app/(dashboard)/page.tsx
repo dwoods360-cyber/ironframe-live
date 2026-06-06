@@ -1,3 +1,14 @@
+/**
+ * ===================================================================
+ * 🔒 CONSTITUTIONAL LAYOUT LOCK — DO NOT ALTER VERTICAL PANEL WIDTHS
+ * APPROVED GEOMETRY GROUND TRUTH: image_d51e84.png
+ * ===================================================================
+ * This core layout uses an unyielding, fixed fractional layout grid.
+ * Any modification to panel flex, widths, or scaling behaviors
+ * violates structural integrity and is strictly forbidden.
+ * ===================================================================
+ */
+
 import DashboardHomeClient from "@/app/components/DashboardHomeClient";
 import GlobalHealthSummaryCard from "@/app/components/GlobalHealthSummaryCard";
 import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";

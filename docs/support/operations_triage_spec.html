@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operations Triage &amp; Quarantine Playbook (Track 2)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print { @page { margin: 0.7in; } .no-print { display: none; } }
+    pre.java { font-size: 9pt; }
+  </style>
+</head>
+<body class="bg-white text-slate-900">
+  <header class="border-b-2 border-slate-900 px-8 py-6">
+    <p class="text-xs uppercase tracking-widest text-slate-500">Chapter 2 · Track 2 · Operations</p>
+    <h1 class="text-2xl font-bold">Multi-Agent Escalation &amp; DMZ Quarantine Playbook</h1>
+    <p class="mt-2 text-sm text-slate-600">Verified: <code>app/actions/clearanceActions.ts</code>, <code>app/components/HeaderTwo.tsx</code>, agent registry in <code>app/config/constitutionalDirectives.ts</code></p>
+  </header>
+
+  <main class="mx-auto max-w-4xl space-y-8 px-8 py-8 text-sm leading-relaxed">
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">1. Triage severity matrix</h2>
+      <table class="mt-4 w-full border-collapse">
+        <thead><tr class="border-b bg-slate-100"><th class="p-2 text-left">Severity</th><th class="p-2 text-left">Primary agent</th><th class="p-2 text-left">UI surface</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="p-2">P0 — Perimeter breach</td><td class="p-2">Irongate (Agent 14)</td><td class="p-2">🚨 DMZ QUARANTINE</td></tr>
+          <tr class="border-b"><td class="p-2">P0 — Config hash drift</td><td class="p-2">Ironwatch + Irontech</td><td class="p-2">GOVERNANCE DRIFT DETECTED → FREEZE COMMAND POST</td></tr>
+          <tr class="border-b"><td class="p-2">P1 — Threat pipeline SLA</td><td class="p-2">Ironlock (Agent 6)</td><td class="p-2">Active Risks / clearance queue</td></tr>
+          <tr class="border-b"><td class="p-2">P1 — ESG physical gate</td><td class="p-2">Ironbloom (Agent 18)</td><td class="p-2">400 PHYSICAL_UNIT_REQUIRED</td></tr>
+          <tr><td class="p-2">P2 — Export integrity</td><td class="p-2">Irontrust (Agent 3)</td><td class="p-2">Export Tabular Ledger Data (CSV)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">2. DMZ quarantine workflow</h2>
+      <ol class="mt-3 list-decimal space-y-2 pl-6">
+        <li>Operator opens <strong>🚨 DMZ QUARANTINE</strong> (<code>/admin/clearance</code>, data-testid header-dmz-quarantine-chip).</li>
+        <li>Review threat ingress metadata and Irongate sanitization stamp.</li>
+        <li>Decision paths (from clearanceActions): <code>[DMZ QUARANTINE: REJECTED]</code> false positive archive, or <code>[DMZ QUARANTINE: ESCALATED]</code> direct SecOps handoff.</li>
+        <li>Append chain-of-custody via Audit Trail (<strong>AUDIT TRAIL</strong> nav tab → <code>/reports/audit-trail</code>).</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">3. Error catalog (support KB excerpts)</h2>
+      <table class="mt-4 w-full border-collapse text-xs">
+        <thead><tr class="border-b"><th class="p-2 text-left">Code / message</th><th class="p-2 text-left">Cause</th><th class="p-2 text-left">Resolution</th></tr></thead>
+        <tbody>
+          <tr class="border-b"><td class="p-2 font-mono">PHYSICAL_UNIT_REQUIRED</td><td class="p-2">Ironbloom monetary-only payload</td><td class="p-2">Supply kWh, L, or km per <code>lib/sustainability/constants.ts</code></td></tr>
+          <tr class="border-b"><td class="p-2 font-mono">CRITICAL_INGESTION_FAILURE</td><td class="p-2">Missing physical units on asset</td><td class="p-2">Reject at Irongate; re-ingest with physical metrics</td></tr>
+          <tr class="border-b"><td class="p-2">Tenant scope pending</td><td class="p-2">No Command Center tenant selected</td><td class="p-2">Select Medshield/Vaultbank/Gridcore in tenant switcher</td></tr>
+          <tr><td class="p-2">Testing protocol artifact missing</td><td class="p-2">docx not in docs/</td><td class="p-2">Restore <code>Ironframe-UI-UX-Feature-Test-Protocol.docx</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">4. Java — QuarantineDecisionGate</h2>
+      <pre class="java mt-3 overflow-x-auto rounded border bg-slate-50 p-4"><code>package com.ironframe.grc.ops;
+
+public enum QuarantineOutcome { REJECTED_FALSE_POSITIVE, ESCALATED_SECOPS, PENDING_REVIEW }
+
+public final class QuarantineDecisionGate {
+  public static QuarantineOutcome evaluate(boolean irongatePassed, boolean mappedControlsPresent) {
+    if (!irongatePassed) return QuarantineOutcome.PENDING_REVIEW;
+    if (!mappedControlsPresent) return QuarantineOutcome.ESCALATED_SECOPS;
+    return QuarantineOutcome.REJECTED_FALSE_POSITIVE;
+  }
+}</code></pre>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-bold border-b pb-2">5. Multi-tenant isolation (RLS)</h2>
+      <p>All server actions resolve tenant via <code>getActiveTenantUuidFromCookies()</code>. Cross-tenant reads are blocked at Prisma query scope (<code>tenantCompanyId: { in: tenantCompanyIds }</code>). Integration test gate: TENANT-001 through TENANT-004 in <code>docs/Ironframe-UI-UX-Feature-Test-Matrix.csv</code>.</p>
+    </section>
+  </main>
+  <footer class="no-print px-8 py-4 text-center"><button type="button" onclick="window.print()" class="rounded border px-4 py-2 text-sm font-semibold">Print playbook</button></footer>
+</body>
+</html>

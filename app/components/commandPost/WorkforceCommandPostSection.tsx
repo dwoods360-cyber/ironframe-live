@@ -1,13 +1,26 @@
 "use client";
 
+import { useEffect } from "react";
 import CommandPostGrid from "@/app/components/commandPost/CommandPostGrid";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
+
+function scrollToAgentHash() {
+  const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
+  if (!hash.startsWith("agent-")) return;
+  const el = document.getElementById(hash);
+  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
 
 /**
  * 19-agent Command Post (dense 12-column grid). Operational Support bottom section; anchor `#workforce`.
  * Ironwatch pulse: `AppShell` → `useIronwatchTelemetryFeed`. Freeze: persisted `useLayoutStore`.
  */
 export default function WorkforceCommandPostSection() {
+  useEffect(() => {
+    scrollToAgentHash();
+    window.addEventListener("hashchange", scrollToAgentHash);
+    return () => window.removeEventListener("hashchange", scrollToAgentHash);
+  }, []);
   return (
     <section
       id="workforce"

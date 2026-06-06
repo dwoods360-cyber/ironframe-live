@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ironframe User Enablement — Track 1: Re-Underwriting Foundations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .tooltip { position: relative; display: inline-block; border-bottom: 1px dashed #475569; cursor: help; }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 280px;
+            background-color: #0f172a;
+            color: #f8fafc;
+            text-align: left;
+            border: 1px solid #334155;
+            padding: 8px;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            font-size: 0.75rem;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        #integrityBootStatus.pass { color: #34d399; }
+        #integrityBootStatus.fail { color: #fb7185; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans p-8 leading-relaxed">
+    <div class="max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl">
+        <header class="border-b border-slate-800 pb-4 mb-6">
+            <span class="text-xs font-mono text-emerald-400 tracking-widest uppercase">TRACK 1: INDEPENDENT USER COURSE</span>
+            <h1 class="text-2xl font-bold text-slate-100 mt-1">SaaS GRC Re-Underwriting Core Console Manual</h1>
+            <p id="integrityBootStatus" class="text-xs font-mono mt-2 text-slate-500" aria-live="polite">⏳ Boot integrity layer — running baseline checks…</p>
+        </header>
+
+        <section class="space-y-6">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-200">1. Core Layout and Navigation Invariants</h2>
+                <p class="text-sm text-slate-400 mt-1">
+                    The operational interface runs inside a hardcoded, non-collapsible
+                    <span class="tooltip text-slate-200 font-medium">Tripane Rail Grid<span class="tooltiptext">The layout is physically fixed using vw tokens to prevent panel squishing or responsive breaking during active analytical sessions.</span></span>.
+                    Understanding your boundaries prevents layout confusion:
+                </p>
+                <ul class="list-disc list-inside text-sm text-slate-400 mt-2 space-y-1 pl-2">
+                    <li><strong class="text-slate-300">Left Pane (22vw Width):</strong> Houses the <span class="font-mono text-emerald-400">AGENT STATUS PULSE</span>. Clicking an agent node launches the context-aware metadata drawer.</li>
+                    <li><strong class="text-slate-300">Center Pane (48vw Width):</strong> Contains your main active Workspace Canvas, displaying the re-underwriting optimization matrices.</li>
+                    <li><strong class="text-slate-300">Right Pane (30vw Width):</strong> Displays the comprehensive transactional live audit logs.</li>
+                </ul>
+            </div>
+
+            <div class="border-t border-slate-800/60 pt-4">
+                <h2 class="text-lg font-semibold text-slate-200">2. Financial Purity and Sovereign Asset Baselines</h2>
+                <p class="text-sm text-slate-400 mt-1">
+                    To maintain absolute ledger integrity, this application implements a strict non-negotiable protocol: <strong class="text-rose-400">Floating-point arithmetic is outlawed.</strong> Every monetary value is processed, tracked, and stored using whole-integer cents via JavaScript <span class="font-mono text-amber-400">BigInt</span> parameters.
+                </p>
+                <div class="mt-3 bg-slate-950 p-4 rounded border border-slate-800 font-mono text-xs" id="baselineLedgerBlock">
+                    <p class="text-slate-400 font-bold mb-2">IMMUTABLE ENTERPRISE BASELINE LEDGER STATS:</p>
+                    <p class="text-emerald-400" data-baseline="medshield">・Medshield Baseline Asset Core: 1,110,000,000 Cents (<span id="medshieldCents">1110000000</span>¢)</p>
+                    <p class="text-emerald-400" data-baseline="vaultbank">・Vaultbank Baseline Asset Core:   590,000,000 Cents (<span id="vaultbankCents">590000000</span>¢)</p>
+                    <p class="text-emerald-400" data-baseline="gridcore">・Gridcore Baseline Asset Core:    470,000,000 Cents (<span id="gridcoreCents">470000000</span>¢)</p>
+                </div>
+            </div>
+
+            <div class="mt-6 bg-slate-950 p-4 rounded-lg border border-emerald-900/60">
+                <h3 class="text-sm font-semibold text-emerald-400 font-mono mb-2">⚡ Interactive Milestone Verification Block</h3>
+                <p class="text-xs text-slate-400 mb-4">Calculate the exact total integer cent value of combining Medshield and Gridcore baselines to verify manual mastery:</p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" id="verificationInput" placeholder="Enter total value in cents" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded p-2 w-52 focus:outline-none focus:border-emerald-500 font-mono" autocomplete="off">
+                    <button type="button" id="verifyBtn" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-xs font-bold py-2 px-4 rounded transition duration-150">Execute Audit Test</button>
+                </div>
+                <div id="verificationResult" class="text-xs font-mono mt-3 text-slate-500">❌ Lab Milestone Pending — Awaiting user interaction.</div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            "use strict";
+
+            /** Constitutional baseline registry — whole-integer cents only (BigInt). */
+            var MEDSHIELD_BASELINE_CENTS = 1110000000n;
+            var VAULTBANK_BASELINE_CENTS = 590000000n;
+            var GRIDCORE_BASELINE_CENTS = 470000000n;
+            var MEDSHIELD_PLUS_GRIDCORE_CENTS = MEDSHIELD_BASELINE_CENTS + GRIDCORE_BASELINE_CENTS;
+
+            var TRIPANE_FRACTIONS = Object.freeze({ left: 22, center: 48, right: 30 });
+
+            function formatCentsLabel(cents) {
+                return cents.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+
+            function assertBaselineDomSync() {
+                var map = {
+                    medshieldCents: MEDSHIELD_BASELINE_CENTS,
+                    vaultbankCents: VAULTBANK_BASELINE_CENTS,
+                    gridcoreCents: GRIDCORE_BASELINE_CENTS,
+                };
+                for (var id in map) {
+                    if (!Object.prototype.hasOwnProperty.call(map, id)) continue;
+                    var el = document.getElementById(id);
+                    if (!el) return { ok: false, reason: "Missing DOM node: " + id };
+                    if (el.textContent.trim() !== map[id].toString()) {
+                        return { ok: false, reason: "DOM cents drift on #" + id };
+                    }
+                }
+                return { ok: true };
+            }
+
+            function assertTripaneInvariantCopy() {
+                var bodyText = document.body.innerText || "";
+                var required = [
+                    "22vw",
+                    "48vw",
+                    "30vw",
+                    "AGENT STATUS PULSE",
+                ];
+                for (var i = 0; i < required.length; i++) {
+                    if (bodyText.indexOf(required[i]) === -1) {
+                        return { ok: false, reason: "Missing tripane copy: " + required[i] };
+                    }
+                }
+                var sum = TRIPANE_FRACTIONS.left + TRIPANE_FRACTIONS.center + TRIPANE_FRACTIONS.right;
+                if (sum !== 100) {
+                    return { ok: false, reason: "Tripane vw fractions do not sum to 100" };
+                }
+                return { ok: true };
+            }
+
+            function runBootIntegrityLayer() {
+                var status = document.getElementById("integrityBootStatus");
+                var checks = [
+                    assertBaselineDomSync(),
+                    assertTripaneInvariantCopy(),
+                    { ok: MEDSHIELD_PLUS_GRIDCORE_CENTS === 1580000000n, reason: "Medshield+Gridcore BigInt sum mismatch" },
+                    { ok: MEDSHIELD_BASELINE_CENTS + VAULTBANK_BASELINE_CENTS + GRIDCORE_BASELINE_CENTS === 2170000000n, reason: "Total sovereign baseline sum mismatch" },
+                ];
+                var failed = checks.filter(function (c) { return !c.ok; });
+                if (!status) return failed.length === 0;
+                if (failed.length === 0) {
+                    status.className = "text-xs font-mono mt-2 pass";
+                    status.textContent = "✅ Boot integrity layer passed — BigInt baselines (" +
+                        formatCentsLabel(MEDSHIELD_BASELINE_CENTS) + " · " +
+                        formatCentsLabel(VAULTBANK_BASELINE_CENTS) + " · " +
+                        formatCentsLabel(GRIDCORE_BASELINE_CENTS) +
+                        " cents) and tripane invariants verified.";
+                } else {
+                    status.className = "text-xs font-mono mt-2 fail";
+                    status.textContent = "❌ Boot integrity layer failed — " + failed.map(function (f) { return f.reason; }).join("; ");
+                }
+                return failed.length === 0;
+            }
+
+            function verifyMilestone() {
+                var inputEl = document.getElementById("verificationInput");
+                var resultBox = document.getElementById("verificationResult");
+                if (!inputEl || !resultBox) return;
+
+                var raw = String(inputEl.value || "").trim().replace(/,/g, "");
+                if (!/^\d+$/.test(raw)) {
+                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
+                    resultBox.textContent = "❌ Verification Failed — Enter whole-integer cents only. No decimals or floats.";
+                    return;
+                }
+
+                var entered;
+                try {
+                    entered = BigInt(raw);
+                } catch (_err) {
+                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
+                    resultBox.textContent = "❌ Verification Failed — Value is not a valid BigInt cent amount.";
+                    return;
+                }
+
+                if (entered === MEDSHIELD_PLUS_GRIDCORE_CENTS) {
+                    resultBox.className = "text-xs font-mono mt-3 text-emerald-400 font-bold";
+                    resultBox.textContent = "✅ Verification Passed — Baseline calculations match our whole-integer ledger metrics perfectly (" +
+                        MEDSHIELD_PLUS_GRIDCORE_CENTS.toString() + " cents).";
+                } else {
+                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
+                    resultBox.textContent = "❌ Verification Failed — Calculated value drifts from our BigInt baseline. Remember: No floating decimals allowed.";
+                }
+            }
+
+            document.getElementById("verifyBtn").addEventListener("click", verifyMilestone);
+            document.getElementById("verificationInput").addEventListener("keydown", function (evt) {
+                if (evt.key === "Enter") verifyMilestone();
+            });
+
+            runBootIntegrityLayer();
+        })();
+    </script>
+</body>
+</html>

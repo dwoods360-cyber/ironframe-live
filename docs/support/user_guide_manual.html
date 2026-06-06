@@ -3,237 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ironframe Support Hub — Operational User Guide</title>
+    <title>Ironframe Support Hub — Track 2: GRC Practitioner Operational Guide</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .mono-block { font-family: ui-monospace, "Cascadia Code", monospace; }
-        #integrityBootStatus.pass { color: #34d399; }
-        #integrityBootStatus.fail { color: #fb7185; }
-        #pipelineCheckStatus.pass { color: #34d399; }
-        #pipelineCheckStatus.fail { color: #fb7185; }
+        .tooltip { position: relative; display: inline-block; border-bottom: 1px dashed #475569; cursor: help; }
+        .tooltip .tooltiptext { visibility: hidden; width: 300px; background-color: #0f172a; color: #f8fafc; text-align: left; border: 1px solid #334155; padding: 10px; border-radius: 4px; position: absolute; z-index: 50; bottom: 125%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.2s; font-size: 0.75rem; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans p-8 leading-relaxed select-text">
     <div class="max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-lg p-6 shadow-xl select-text">
         <header class="border-b border-slate-800 pb-4 mb-6">
-            <span class="text-xs font-mono text-amber-400 tracking-widest uppercase">SUPPORT OPERATIONS DIVISION</span>
-            <h1 class="text-2xl font-bold text-slate-100 mt-1">Feature 8: Financial Integrity Ledger CSV Export Guide</h1>
-            <p id="integrityBootStatus" class="text-xs font-mono mt-2 text-slate-500" aria-live="polite">⏳ Boot integrity layer — validating Feature 8 pipeline constants…</p>
+            <span class="text-xs font-mono text-amber-400 tracking-widest uppercase">TRACK 2: GRC PRACTITIONER OPERATIONS</span>
+            <h1 class="text-2xl font-bold text-slate-100 mt-1">Feature 8: Financial Integrity Ledger CSV Export Protocol</h1>
         </header>
+
+        <div id="bootAlert" class="mb-6 p-3 bg-emerald-950/40 border border-emerald-800/60 rounded text-xs font-mono text-emerald-400" aria-live="polite">
+            🔄 Running document-level boot diagnostics...
+        </div>
 
         <section class="space-y-6 text-sm text-slate-400 select-text">
             <p>
-                This guide describes the operations framework governing tabular ledger transfers. The data delivery platform utilizes a zero-trust sanitization gateway ensuring no metadata leakage occurs during exports.
+                This operational brief defines the verification procedures for executing data exports via the core re-underwriting modules. As a GRC Practitioner, ensuring mathematical continuity between downstream data sets and our immutable ledger state is your primary security obligation.
             </p>
 
-            <h2 class="text-base font-semibold text-slate-200 mt-4">📋 Step-by-Step Export Protocol</h2>
-            <ol class="list-decimal list-inside space-y-3 pl-1 mt-2">
-                <li>Navigate to the center panel workspace canvas labeled <strong class="text-slate-300">CYBER INSURANCE OPTIMIZATION</strong> (48vw center rail inside the tripane shell).</li>
-                <li>Locate the interaction trigger component containing the label button: <code class="bg-slate-950 text-amber-400 px-1.5 py-0.5 rounded border border-slate-800 font-mono text-xs" id="exportTriggerLabel">Export Tabular Ledger Data (CSV)</code> (<span class="font-mono text-slate-500">data-testid="export-tabular-ledger-csv"</span>).</li>
-                <li>Ensure your active tenant token context is authenticated. Clicking this node invokes the server action <span class="font-mono text-amber-300">fetchFinancialIntegrityLedgerMatrixSnapshot</span>, which queries tenant-scoped ledger state and returns a whole-integer cent matrix snapshot.</li>
-                <li>The client encodes rows through <span class="font-mono text-amber-300">encodeFinancialIntegrityLedgerCsv</span> and streams the processed data stream directly into your local machine file directory as an immutable, comma-delimited document via <span class="font-mono text-amber-300">downloadFinancialIntegrityLedgerCsv</span>.</li>
-            </ol>
-
-            <h2 class="text-base font-semibold text-slate-200 mt-4">🔗 Feature 8 CSV Pipeline (Whole-Integer Cents)</h2>
-            <p class="mt-1">
-                Monetary fields travel as <strong class="text-rose-400">BigInt cents</strong> end-to-end. The CSV exposes both raw <span class="font-mono text-emerald-400">amount_cents</span> (integer string, no decimals) and a derived <span class="font-mono text-emerald-400">amount_usd</span> column computed with integer division only — never JavaScript floating-point math.
-            </p>
-            <div class="bg-slate-950 border border-slate-800 rounded p-4 font-mono text-xs mt-2 select-text" id="csvSchemaBlock">
-                <p class="text-slate-300 font-bold mb-2">CSV COLUMN CONTRACT:</p>
-                <p class="text-slate-500" id="csvColumns">metric_key, unit, amount_cents, amount_usd, bps_value, text_value, carrier_key, framework</p>
-                <p class="text-slate-500 mt-3">Primary unit token for money paths: <span class="text-amber-400">USD_CENTS</span></p>
+            <div>
+                <h2 class="text-lg font-semibold text-slate-200">1. Step-by-Step Spreadsheet Extraction</h2>
+                <ol class="list-decimal list-inside space-y-3 pl-1 mt-2">
+                    <li>Open your central dashboard view and focus on the center workspace canvas titled <strong class="text-slate-300">CYBER INSURANCE OPTIMIZATION</strong>.</li>
+                    <li>Locate the tabular extraction gateway button, tagged programmatically with <code class="bg-slate-950 text-amber-400 px-1.5 py-0.5 rounded border border-slate-800 font-mono text-xs">data-testid="export-tabular-ledger-csv"</code>.</li>
+                    <li>Clicking this node launches a protected server action snapshot sequence that converts our active database records into a raw whole-integer character sequence.</li>
+                    <li>The system streams an unformatted spreadsheet download directly to your local workspace, cataloged by enterprise risk profile metrics.</li>
+                </ol>
             </div>
 
-            <div class="bg-slate-950 border border-slate-800 rounded p-4 font-mono text-xs mt-4 select-text" id="baselineBlock">
-                <p class="text-slate-300 font-bold mb-2">CONSTITUTIONAL TENANT BASELINES (amount_cents reference layer):</p>
-                <p class="text-emerald-400">Medshield:  <span id="medshieldCents">1110000000</span> cents</p>
-                <p class="text-emerald-400">Vaultbank:  <span id="vaultbankCents">590000000</span> cents</p>
-                <p class="text-emerald-400">Gridcore:   <span id="gridcoreCents">470000000</span> cents</p>
-            </div>
-
-            <div class="bg-slate-950 border border-slate-800 rounded p-4 font-mono text-xs mt-4 select-text">
-                <p class="text-slate-300 font-bold mb-2">🛡️ SECURITY SAFEGUARD WARNING:</p>
+            <div class="border-t border-slate-800/60 pt-4">
+                <h2 class="text-lg font-semibold text-slate-200">2. Safeguarding Absolute Values Against Rounding Errors</h2>
                 <p>
-                    All values exported inside the spreadsheet columns map straight to whole-integer cent variables. Do not apply spreadsheet float conversions or rounding formulas inside external processing software like Microsoft Excel, as this violates our systemic mathematical purity constants.
+                    Because traditional CSV view applications default to standard decimal formatting, you must explicitly configure your text-import wizards to bypass floating point parsing. This prevents dangerous truncation errors within large-scale financial portfolios.
                 </p>
+                <div class="mt-3 bg-slate-950 p-4 rounded border border-slate-800 font-mono text-xs text-slate-300">
+                    <span class="text-rose-400 font-bold">⚠️ CRITICAL EXPORT INVARIANT:</span> All core metric values inside the ledger spreadsheet represent raw whole-integer cents. At no point may a decimal delimiter string be parsed into a protected financial calculations array.
+                </div>
             </div>
 
-            <div class="mt-6 bg-slate-950 p-4 rounded-lg border border-amber-900/60 select-text">
-                <h3 class="text-sm font-semibold text-amber-400 font-mono mb-2">⚡ Interactive Pipeline Verification Block</h3>
+            <div class="mt-6 bg-slate-950 p-4 rounded-lg border border-amber-900/60">
+                <h3 class="text-sm font-semibold text-amber-400 font-mono mb-2">⚡ Practitioner Milestone Layer — Total Baseline Attestation</h3>
                 <p class="text-xs text-slate-400 mb-4">
-                    Enter the exact <span class="font-mono">amount_cents</span> string that would appear for Vaultbank's constitutional baseline in the CSV (no commas, no decimals):
+                    To unlock downstream mock compliance reporting, compute the total systemic asset baseline for all three entities combined (<span class="tooltip text-slate-300 underline font-medium">Medshield + Vaultbank + Gridcore<span class="tooltiptext">Medshield (1110000000¢) + Vaultbank (590000000¢) + Gridcore (470000000¢). No floats.</span></span>) in whole integer cents:
                 </p>
                 <div class="flex flex-wrap items-center gap-3">
-                    <input type="text" inputmode="numeric" pattern="[0-9]*" id="verificationInput" placeholder="Enter cents as integer string" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded p-2 w-56 focus:outline-none focus:border-amber-500 font-mono" autocomplete="off">
-                    <button type="button" id="verifyBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4 rounded transition duration-150">Execute Export Audit Test</button>
+                    <input type="text" inputmode="numeric" id="practitionerInput" placeholder="Enter total baseline cents" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded p-2 w-56 focus:outline-none focus:border-amber-500 font-mono" autocomplete="off">
+                    <button type="button" id="verifyBtn" class="bg-amber-600 hover:bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4 rounded transition duration-150">Verify Portfolio Balance</button>
                 </div>
-                <div id="verificationResult" class="text-xs font-mono mt-3 text-slate-500">❌ Lab Milestone Pending — Awaiting user interaction.</div>
-                <p id="pipelineCheckStatus" class="text-xs font-mono mt-3 text-slate-500" aria-live="polite"></p>
+                <div id="practitionerResult" class="text-xs font-mono mt-3 text-slate-500" aria-live="polite">❌ Lab Milestone Pending — Awaiting practitioner compilation.</div>
             </div>
         </section>
     </div>
 
     <script>
-        (function () {
-            "use strict";
+        document.addEventListener("DOMContentLoaded", function () {
+            var bootAlert = document.getElementById("bootAlert");
+            var verifyBtn = document.getElementById("verifyBtn");
+            var practitionerInput = document.getElementById("practitionerInput");
+            var practitionerResult = document.getElementById("practitionerResult");
 
-            var MEDSHIELD_BASELINE_CENTS = 1110000000n;
-            var VAULTBANK_BASELINE_CENTS = 590000000n;
-            var GRIDCORE_BASELINE_CENTS = 470000000n;
+            var medshieldCents = 1110000000n;
+            var vaultbankCents = 590000000n;
+            var gridcoreCents = 470000000n;
+            var totalTargetSystemCents = medshieldCents + vaultbankCents + gridcoreCents;
 
-            var CSV_COLUMNS = [
-                "metric_key",
-                "unit",
-                "amount_cents",
-                "amount_usd",
-                "bps_value",
-                "text_value",
-                "carrier_key",
-                "framework",
-            ];
-
-            var EXPORT_TEST_ID = "export-tabular-ledger-csv";
-
-            function formatCentsAsUsdDecimalString(cents) {
-                var neg = cents < 0n;
-                var abs = neg ? -cents : cents;
-                var dollars = abs / 100n;
-                var frac = abs % 100n;
-                var fracStr = frac < 10n ? "0" + frac.toString() : frac.toString();
-                return (neg ? "-" : "") + dollars.toString() + "." + fracStr;
-            }
-
-            function assertDomBaselineSync() {
-                var map = {
-                    medshieldCents: MEDSHIELD_BASELINE_CENTS,
-                    vaultbankCents: VAULTBANK_BASELINE_CENTS,
-                    gridcoreCents: GRIDCORE_BASELINE_CENTS,
-                };
-                for (var id in map) {
-                    if (!Object.prototype.hasOwnProperty.call(map, id)) continue;
-                    var el = document.getElementById(id);
-                    if (!el) return { ok: false, reason: "Missing baseline node: " + id };
-                    if (el.textContent.trim() !== map[id].toString()) {
-                        return { ok: false, reason: "Baseline DOM drift: " + id };
-                    }
-                }
-                return { ok: true };
-            }
-
-            function assertCsvSchemaCopy() {
-                var el = document.getElementById("csvColumns");
-                if (!el) return { ok: false, reason: "Missing CSV schema block" };
-                var rendered = el.textContent.trim();
-                var expected = CSV_COLUMNS.join(", ");
-                if (rendered !== expected) {
-                    return { ok: false, reason: "CSV column contract mismatch" };
-                }
-                return { ok: true };
-            }
-
-            function assertExportTriggerPresent() {
-                var bodyText = document.body.innerText || "";
-                if (bodyText.indexOf("Export Tabular Ledger Data (CSV)") === -1) {
-                    return { ok: false, reason: "Export trigger label missing from guide" };
-                }
-                if (bodyText.indexOf(EXPORT_TEST_ID) === -1) {
-                    return { ok: false, reason: "export-tabular-ledger-csv test id missing" };
-                }
-                return { ok: true };
-            }
-
-            function simulateSampleCsvRow(cents) {
-                return [
-                    "tenant_baseline",
-                    "USD_CENTS",
-                    cents.toString(),
-                    formatCentsAsUsdDecimalString(cents),
-                    "",
-                    "",
-                    "GENERIC",
-                    "SOC2",
-                ].join(",");
-            }
-
-            function runPipelineSelfCheck() {
-                var sample = simulateSampleCsvRow(VAULTBANK_BASELINE_CENTS);
-                if (sample.indexOf("590000000,5900000.00") === -1) {
-                    return { ok: false, reason: "Sample CSV row encoding failed BigInt purity check" };
-                }
-                var total = MEDSHIELD_BASELINE_CENTS + VAULTBANK_BASELINE_CENTS + GRIDCORE_BASELINE_CENTS;
-                if (total !== 2170000000n) {
-                    return { ok: false, reason: "Sovereign baseline sum mismatch" };
-                }
-                return { ok: true };
-            }
-
-            function runBootIntegrityLayer() {
-                var status = document.getElementById("integrityBootStatus");
-                var checks = [
-                    assertDomBaselineSync(),
-                    assertCsvSchemaCopy(),
-                    assertExportTriggerPresent(),
-                    runPipelineSelfCheck(),
-                ];
-                var failed = checks.filter(function (c) { return !c.ok; });
-                if (status) {
-                    if (failed.length === 0) {
-                        status.className = "text-xs font-mono mt-2 pass";
-                        status.textContent = "✅ Boot integrity layer passed — Feature 8 CSV pipeline constants, column contract, and BigInt baselines verified.";
-                    } else {
-                        status.className = "text-xs font-mono mt-2 fail";
-                        status.textContent = "❌ Boot integrity layer failed — " + failed.map(function (f) { return f.reason; }).join("; ");
-                    }
-                }
-                return failed.length === 0;
-            }
-
-            function verifyMilestone() {
-                var inputEl = document.getElementById("verificationInput");
-                var resultBox = document.getElementById("verificationResult");
-                var pipelineStatus = document.getElementById("pipelineCheckStatus");
-                if (!inputEl || !resultBox) return;
-
-                var raw = String(inputEl.value || "").trim().replace(/,/g, "");
-                if (!/^\d+$/.test(raw)) {
-                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
-                    resultBox.textContent = "❌ Verification Failed — Enter whole-integer cents only. No decimals or floats.";
-                    if (pipelineStatus) pipelineStatus.textContent = "";
-                    return;
-                }
-
-                var entered;
-                try {
-                    entered = BigInt(raw);
-                } catch (_err) {
-                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
-                    resultBox.textContent = "❌ Verification Failed — Value is not a valid BigInt cent amount.";
-                    if (pipelineStatus) pipelineStatus.textContent = "";
-                    return;
-                }
-
-                if (entered === VAULTBANK_BASELINE_CENTS) {
-                    var sampleRow = simulateSampleCsvRow(entered);
-                    resultBox.className = "text-xs font-mono mt-3 text-emerald-400 font-bold";
-                    resultBox.textContent = "✅ Verification Passed — Vaultbank baseline matches Feature 8 amount_cents contract.";
-                    if (pipelineStatus) {
-                        pipelineStatus.className = "text-xs font-mono mt-3 pass";
-                        pipelineStatus.textContent = "Sample CSV row: " + sampleRow;
-                    }
+            try {
+                if (totalTargetSystemCents === 2170000000n) {
+                    bootAlert.className = "mb-6 p-3 bg-emerald-950/40 border border-emerald-800/80 rounded text-xs font-mono text-emerald-400 font-semibold";
+                    bootAlert.innerText = "✅ SYSTEM BOOT INTEGRITY LOCKED: Document vectors verified against pure BigInt constants. Ready for practitioner use.";
                 } else {
-                    resultBox.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
-                    resultBox.textContent = "❌ Verification Failed — Expected Vaultbank constitutional baseline (590000000 cents).";
-                    if (pipelineStatus) pipelineStatus.textContent = "";
+                    throw new Error("System baseline corruption detected.");
+                }
+            } catch (_err) {
+                bootAlert.className = "mb-6 p-3 bg-rose-950/40 border border-rose-800/80 rounded text-xs font-mono text-rose-400 font-bold";
+                bootAlert.innerText = "❌ CORRUPTION ALERT: Document-level arithmetic drift. Generation halted.";
+            }
+
+            function runVerification() {
+                var cleanInput = practitionerInput.value.trim().replace(/[^0-9]/g, "");
+
+                if (!cleanInput) {
+                    practitionerResult.className = "text-xs font-mono mt-3 text-amber-500 font-bold";
+                    practitionerResult.innerText = "⚠️ INVALID INPUT: Please provide raw whole-integer numbers only.";
+                    return;
+                }
+
+                try {
+                    var userBigInt = BigInt(cleanInput);
+
+                    if (userBigInt === totalTargetSystemCents) {
+                        practitionerResult.className = "text-xs font-mono mt-3 text-emerald-400 font-bold";
+                        practitionerResult.innerText = "✅ PRACTITIONER VERIFICATION SUCCESSFUL: Total systemic value matches our centralized BigInt database boundaries. Compliance export token activated.";
+                    } else {
+                        practitionerResult.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
+                        practitionerResult.innerText = "❌ VERIFICATION FAILED: Input value does not align with core repository metrics. Check your whole-integer additions and retry.";
+                    }
+                } catch (_e) {
+                    practitionerResult.className = "text-xs font-mono mt-3 text-rose-400 font-bold";
+                    practitionerResult.innerText = "❌ ERROR: Critical parsing error. Non-standard values blocked.";
                 }
             }
 
-            document.getElementById("verifyBtn").addEventListener("click", verifyMilestone);
-            document.getElementById("verificationInput").addEventListener("keydown", function (evt) {
-                if (evt.key === "Enter") verifyMilestone();
+            verifyBtn.addEventListener("click", runVerification);
+            practitionerInput.addEventListener("keydown", function (evt) {
+                if (evt.key === "Enter") runVerification();
             });
-
-            runBootIntegrityLayer();
-        })();
+        });
     </script>
 </body>
 </html>

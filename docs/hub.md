@@ -63,12 +63,13 @@ Interactive HTML chapters are served at clean `/docs/.../*.html` URLs (rewritten
 
 ### 💼 Track 2 — GRC Practitioner Specifications (Print / Java contracts)
 
-| Chapter | Sidebar label | Served URL | Filesystem path |
-|---------|---------------|------------|-----------------|
-| 1 | Enterprise Business Specifications | [/docs/product/business_plan_spec_track2.html](/docs/product/business_plan_spec_track2.html) | `docs/product/business_plan_spec_track2.html` |
-| 2 | Multi-Agent Triage Runbooks | [/docs/support/operations_triage_spec.html](/docs/support/operations_triage_spec.html) | `docs/support/operations_triage_spec.html` |
-| 3 | BigInt Data Schema Contracts | [/docs/technical/data_dictionary_and_api_track2.html](/docs/technical/data_dictionary_and_api_track2.html) | `docs/technical/data_dictionary_and_api_track2.html` |
-| Index | Professional Index Portal | [/docs/training/professional/index.html](/docs/training/professional/index.html) | `docs/training/professional/index.html` |
+| Chapter | Sidebar label | Served URL | Filesystem path | Type |
+|---------|---------------|------------|-----------------|------|
+| 1 | Enterprise Business Specifications | [/docs/product/business_plan_spec_track2.html](/docs/product/business_plan_spec_track2.html) | `docs/product/business_plan_spec_track2.html` | HTML Module |
+| 2 | Multi-Agent Triage Runbooks | [/docs/support/operations_triage_spec.html](/docs/support/operations_triage_spec.html) | `docs/support/operations_triage_spec.html` | HTML Module |
+| Manual | Track 2: GRC Practitioner Operational Guide (CSV Infrastructure) | [/docs/support/user_guide_manual.html](/docs/support/user_guide_manual.html) | `docs/support/user_guide_manual.html` | HTML Module |
+| 3 | BigInt Data Schema Contracts | [/docs/technical/data_dictionary_and_api_track2.html](/docs/technical/data_dictionary_and_api_track2.html) | `docs/technical/data_dictionary_and_api_track2.html` | HTML Module |
+| Index | Professional Index Portal | [/docs/training/professional/index.html](/docs/training/professional/index.html) | `docs/training/professional/index.html` | HTML Module |
 
 ### 📥 Compliance exports (API endpoints)
 

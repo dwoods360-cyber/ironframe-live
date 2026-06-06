@@ -50,6 +50,10 @@ const HUB_TRACK2 = [
     href: "/docs/support/operations_triage_spec.html",
   },
   {
+    label: "GRC Practitioner Manual",
+    href: "/docs/support/user_guide_manual.html",
+  },
+  {
     label: "Chapter 3: BigInt Data Schema Contracts",
     href: "/docs/technical/data_dictionary_and_api_track2.html",
   },

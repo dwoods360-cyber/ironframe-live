@@ -1,6 +1,9 @@
 {
-  "timestamp": "2026-04-20T00:00:00Z",
+  "timestamp": "2026-06-05T18:21:00Z",
   "vault_status": "LOCAL_NOTARY",
+  "git_lkg_commit": "2967ce1914474fc37846d76850339aed03568408",
+  "git_lkg_tag": "lkg/2026-06-05-morning",
+  "git_lkg_subject": "fix(grc): block GRC baseline active_risks from dashboard Active canvas",
   "agents": [
     { "name": "ironcore", "version": "1.0.0", "sha256": "00abababababababababababababababababababababababababababababab" }
   ]

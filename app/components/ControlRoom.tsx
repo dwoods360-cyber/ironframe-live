@@ -37,12 +37,10 @@ import { applyManualSimulationStandDownResumeFeed } from "@/app/utils/manualSimu
 import { useShadowHandshakeRoleStore } from "@/app/store/shadowHandshakeRoleStore";
 import { syncHandshakeRoleCookie } from "@/app/utils/handshakeRoleCookie";
 import { isCisoBreachAttestationPendingInSets } from "@/app/utils/cisoBreachSignal";
-import { CORE_WORKFORCE_AGENTS } from "@/app/config/agents";
 import type { PipelineThreat } from "@/app/store/riskStore";
 import {
   combineThreatPlanes,
   getAgentState,
-  mergeInventoryAgentWithPulse,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
 import {
@@ -51,6 +49,7 @@ import {
   pushAgentTelemetryIsolationToast,
 } from "@/app/utils/controlRoomAgentInteractions";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
+import AgentStatusPulseList from "@/app/components/grc/AgentStatusPulseList";
 
 export type { AgentPulseState };
 export { getAgentState };
@@ -600,104 +599,26 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       <div className="mt-2 max-w-md">
         <ConfigChangeWidget refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`} />
       </div>
-      <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Agent Status Pulse</h3>
-          <div className="flex items-center gap-2">
-            <ContextualHelpTrigger
-              featureId="grc-002"
-              title="19-Agent Workforce Monitor"
-              location="Stretched across the middle tier of your center canvas layout grid."
-              purpose="Monitors specialized background automation agents as they actively police the platform for compliance threats."
-              steps={[
-                "Scan the roster list to verify individual agent statuses (e.g., Green 'ACTIVE' flags).",
-                "Click directly on any individual agent row (like Ironlock or Ironguard).",
-                "Watch the custom GRC Meta Drawer slide open from the right side of the screen to read their background directives.",
-              ]}
-            />
-            <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-emerald-400 motion-safe:animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.55)]"
-                aria-hidden
-              />
-              LIVE
-            </span>
-          </div>
+      <div className="relative mt-3">
+        <div className="absolute right-2 top-2 z-10">
+          <ContextualHelpTrigger
+            featureId="grc-002"
+            title="19-Agent Workforce Monitor"
+            location="Stretched across the middle tier of your center canvas layout grid."
+            purpose="Monitors specialized background automation agents as they actively police the platform for compliance threats."
+            steps={[
+              "Scan the roster list to verify individual agent statuses (e.g., Green 'ACTIVE' flags).",
+              "Click directly on any individual agent row (like Ironlock or Ironguard).",
+              "Watch the custom GRC Meta Drawer slide open from the right side of the screen to read their background directives.",
+            ]}
+          />
         </div>
-        <p className="mt-1 text-[9px] text-zinc-500">
-          19-agent workforce heartbeat — drill-driven alert paths.
-        </p>
-        <p className="mt-1 text-[8px] text-zinc-600">
-          Last resubscribe:{" "}
-          {formattedResubscribeTime != null ? (
-            formattedResubscribeTime
-          ) : (
-            <span
-              className="font-mono tabular-nums animate-pulse text-zinc-500"
-              aria-label="Syncing telemetry clock"
-            >
-              --:--:--
-            </span>
-          )}
-        </p>
-        <div
-          className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1.5"
-          role="list"
-          aria-label="19-agent status pulse"
-        >
-          {CORE_WORKFORCE_AGENTS.map((agent, index) => {
-            let pulse: AgentPulseState = mergeInventoryAgentWithPulse(
-              agent.name,
-              combinedThreats,
-              agentTelemetryPulseUntil,
-            );
-            if (agent.name === "Irongate" && irongateClaimFlash) {
-              pulse = "ACTIVE";
-            }
-            const staggerMs = (index % 12) * 95;
-            const dotPulseMotion =
-              "motion-safe:animate-pulse [animation-duration:3s] [animation-timing-function:linear]";
-            const dotPulse =
-              pulse === "ALERT"
-                ? `bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.5)] ${dotPulseMotion}`
-                : pulse === "TELEMETRY"
-                  ? `bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)] ${dotPulseMotion}`
-                  : pulse === "ACTIVE"
-                    ? `bg-sky-500 shadow-[0_0_6px_rgba(14,165,233,0.45)] ${dotPulseMotion}`
-                    : "bg-slate-600";
-            return (
-              <div key={agent.name} role="listitem" className="min-w-0 w-full">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    if (e.shiftKey) {
-                      navigateToAgentDiagnostics(agent);
-                      return;
-                    }
-                    pushAgentTelemetryIsolationToast(agent, pulse);
-                    openAgentMetaSpecification(agent);
-                  }}
-                  className="flex min-w-0 w-full items-center gap-x-1.5 rounded-sm text-left transition-colors hover:bg-zinc-900/60 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-500/50"
-                  title={`${agent.name} — ${pulse}. Click for specification; Shift+click for diagnostics.`}
-                  aria-label={`${agent.name} ${pulse}. Open agent specification.`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-700 ${dotPulse}`}
-                    style={
-                      pulse !== "IDLE"
-                        ? { animationDelay: `${staggerMs}ms` }
-                        : undefined
-                    }
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[8px] font-semibold uppercase tracking-wide text-slate-500">
-                    {agent.name}
-                  </span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        <AgentStatusPulseList
+          combinedThreats={combinedThreats}
+          agentTelemetryPulseUntil={agentTelemetryPulseUntil}
+          irongateClaimFlash={irongateClaimFlash}
+          formattedResubscribeTime={formattedResubscribeTime}
+        />
       </div>
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
         <div className="flex items-center justify-between gap-2">

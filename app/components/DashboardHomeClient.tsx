@@ -38,6 +38,7 @@ import {
 import { useContextSwitchPaintGate } from "@/app/hooks/useContextSwitchPaintGate";
 import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
+import { LedgerOptimizationTable } from '@/app/components/grc/LedgerOptimizationTable';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
 import AuditorRiskLedger from '@/components/AuditorRiskLedger';
 import { formatCentsToUSD } from '@/app/utils/formatCentsToUSD';
@@ -1162,6 +1163,9 @@ export default function DashboardHomeClient({
                 </section>
                 <div className="mt-4">
                   <HandshakeStatusBar phase={handshakePhase} />
+                </div>
+                <div className="mt-4">
+                  <LedgerOptimizationTable />
                 </div>
                 <GrcAleExposureMap
                   className="mt-5"

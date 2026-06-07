@@ -28,3 +28,11 @@ export const corporateBoardGraph = new StateGraph(BoardStateAnnotation)
   .addEdge("trainer", "writer")
   .addEdge("writer", END)
   .compile();
+
+export async function runExecutiveDocumentationCommand(): Promise<void> {
+  const { executeSequentialDocumentationLoop } = await import("./automation/chapterLoop.js");
+  console.log(
+    "[EXEC COMMAND] Tripane anchors: left=w-[22vw] center=w-[48vw] right=w-[30vw] highlight=select-text",
+  );
+  await executeSequentialDocumentationLoop();
+}

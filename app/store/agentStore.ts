@@ -107,6 +107,9 @@ type AgentStore = {
   flashAgentPivot: (threatId: string, durationMs?: number) => void;
   clearAgentPivotFlash: () => void;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
+  /** Metadata drawer focus — single-click agent row in left-pane pulse list. */
+  activeAgentId: string | null;
+  setActiveAgentId: (agentId: string | null) => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
   setInitialThreats: (newThreats: PipelineThreat[]) => PipelineThreat[];
@@ -192,6 +195,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         [agent]: { status },
       },
     })),
+  activeAgentId: null,
+  setActiveAgentId: (agentId) => set({ activeAgentId: agentId }),
   addStreamMessage: (msg) => {
     const trimmed = msg.trim();
     if (trimmed) {

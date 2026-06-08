@@ -216,7 +216,7 @@ export default function ConstitutionalEmergencyOverlay() {
 
           <div className="mt-4 space-y-3 border-t border-rose-800/50 pt-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/90">
-              Irontech (Agent 11) — restorationFromGoldImage
+              Irontech (Agent 04) — restorationFromGoldImage
             </p>
             <p className="text-[10px] text-rose-200/80">
               Sole permitted automated job during void: restore TAS.md from LKG gold image.

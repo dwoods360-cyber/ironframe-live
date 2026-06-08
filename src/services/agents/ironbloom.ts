@@ -11,7 +11,7 @@ import {
 } from "@/src/services/irontech/autonomousDecoupling";
 
 /**
- * Agent 18 (Ironbloom) — LangGraph node: Sustainability ALE + BigInt `mitigatedValueCents`.
+ * Agent 17 (Ironbloom) — LangGraph node: Sustainability ALE + BigInt `mitigatedValueCents`.
  */
 export class Ironbloom {
   static async scoreCarbonRisk(

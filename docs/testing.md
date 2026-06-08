@@ -19,7 +19,7 @@ All database access is assumed hostile until proven secure.
 
 ---
 
-## 2. Mathematical Integrity (Irontrust & Kimbot)
+## 2. Mathematical Integrity (Irontrust & Ironbloom)
 
 Floating point types are forbidden for financial and carbon metrics.
 
@@ -40,7 +40,7 @@ No external data enters the core without passing through Irongate (Agent 14).
 
 - **Bypass Prevention:** An E2E test must attempt to upload a file directly to the Ironscribe (Agent 5) processing queue; the system must block the request.
 - **Decontamination Mocking:** Unit tests must verify that macros, XSS strings, and prompt injections are successfully stripped into pure text.
-- **Quarantine DB Verification:** Ensure that failed ingestions are moved to the Quarantine schema and an alert is signaled to Irontech (Agent 11).
+- **Quarantine DB Verification:** Ensure that failed ingestions are moved to the Quarantine schema and an alert is signaled to Irontech (Agent 04).
 
 ---
 
@@ -50,7 +50,7 @@ State memory is persistent and immutable for self-healing observability.
 
 ### 🔄 State Recovery Tests
 
-- **Self-Healing Loop:** Manually crash a mock Ironcore (Agent 1) node and verify that Irontech (Agent 11) restarts the worker from the last persistent checkpoint.
+- **Self-Healing Loop:** Manually crash a mock Ironcore (Agent 1) node and verify that Irontech (Agent 04) restarts the worker from the last persistent checkpoint.
 - **Failed_Jobs Audit:** Verify that crashed tasks are logged in the Failed_Jobs table with a full LangSmith trace for debugging.
 - **Ironscout TTL Enforcement:** Verify that the Ironscout_Tasks auto-terminates and flushes memory the exact millisecond the timer hits zero.
 

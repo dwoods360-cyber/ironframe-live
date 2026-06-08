@@ -37,7 +37,8 @@
 | Irongate | Red | Ingest DMZ |
 | Ironwatch | Cyan | External API health |
 | Ironlock | Amber | Emergency lockdown |
-| Kimbot | Green | Sustainability analyst |
+| Ironbloom | Green | Sustainability analyst (Agent 17) |
+| Kimbot | Rose | Bot B — Red Team Adversary Simulation for drills |
 
 ## Accessibility
 

@@ -489,7 +489,7 @@ export function ThreatCard({
     Date.now() < pivotFlash.until;
 
   const chaosScenario = chaosMeta.scenario;
-  /** TAS §3 — Agent 11 stamps governed baseline (1.6B exposure envelope) before Irontech clearance UX completes. */
+  /** TAS §3 — Ironintel (Agent 11) stamps governed baseline (1.6B exposure envelope) before Irontech (Agent 04) clearance UX completes. */
   const tasSection3BaselineConfirmed = (() => {
     try {
       const raw = (ingestionDetailsRaw ?? "").trim();

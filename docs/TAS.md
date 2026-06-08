@@ -53,9 +53,19 @@ Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 <a id="agent-14"></a>Irongate — Data Sanitizer. The DMZ. ALL external ingestion routes here first.
 <a id="agent-15"></a>Ironquery — Interactive Analyst / Copilot. Conversational RAG and On-Demand Reporting for end-users.
 <a id="agent-16"></a>Ironscout — Ad-Hoc Tracker. Ephemeral worker (TTL: 0.50–71.75 hrs) that self-terminates after completing specific reconnaissance.
-<a id="agent-17"></a><a id="ironbloom-production"></a>Kimbot — Sustainability Analyst. Scope 1-3 and Carbon ALE calculations. Strictly requires physical units (kWh, L, km); monetary-only data rejected.
+<a id="agent-17"></a><a id="ironbloom-production"></a>Ironbloom — Sustainability Analyst. Scope 1-3 and Carbon ALE calculations. Strictly requires physical units (kWh, L, km); monetary-only data rejected.
 <a id="agent-18"></a>Ironethic — Social & DEI Monitor. Operates under a strict No-PII Lock. All data must be aggregated and salted.
 <a id="agent-19"></a>Irontally — Disclosure & Framework Mapper. Cross-walks data against CSRD, GRI, and ISSB frameworks.
+
+<a id="tas-simulation-bots"></a>**Simulation Bots (A–D) — Separate from 19-Agent Workforce**
+Kimbot, Attbot, and GRCbot are **shadow-plane antagonists** for structural drills and red-team testing. They are **not** numbered agents in the 19-agent production roster.
+- **Bot A (Attbot):** External attack / chaos simulation (`ATTACK_BOT`).
+- **Bot B (Kimbot):** Red-team adversary threat injector (`KIMBOT`). Injects simulated ransomware, data leak, and API breach signals into the threat pipeline for dual-key and ACK drill exercises.
+- **Bot C (GRCbot):** Policy drift and GRC gate QA (`GRC_BOT`).
+- **Master Purge:** Clears simulation-scoped pipeline state; production audit ledger remains isolated per §4.3.
+
+**Naming lock:** Agent 17 in the production workforce is **Ironbloom** (CSRD / sustainability ledger, physical units only). **Kimbot is Bot B (red team), not Agent 17.** Do not conflate Kimbot with Ironbloom.
+
 3. Data Security & Ingestion <a id="tas-data-security-ingestion"></a>
 <a id="tas-dmz-air-gap"></a>The Level 2 DMZ Air-Gap:
 Irongate Mandate: Agent 14 (Irongate) is the absolute perimeter. ALL external data ingestion (webhooks, API payloads, document uploads, third-party integrations) MUST route through Irongate for sanitization, schema validation, and threat scanning before entering the internal message bus or database.
@@ -76,8 +86,8 @@ Defense (CMMC L3 anchor): 16,000,000 USD (1600000000 cents)
 
 **METRICS:** The Version Manifest (Audit Intelligence sidebar footer) MUST include **DRIFT_DELTA**: real-time variance between **active ALE** (BIGINT aggregate from `getTotalCurrentRiskCentsString` / Command Center posture) and the **constitutional industry baseline** for the bound tenant (Medshield / Vaultbank / Gridcore / Defense cents above). Display uses a **Δ** prefix; negative Δ (active below baseline) indicates optimization posture; positive Δ indicates elevated exposure vs. baseline. When no tenant route/dev scope is bound, the line shows **Δ ---**.
 
-<a id="tas-sustainability-kimbot"></a>Sustainability Data (Kimbot Mandate):
-Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Kimbot (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies.
+<a id="tas-sustainability-kimbot"></a><a id="tas-sustainability-ironbloom"></a>Sustainability Data (Ironbloom Mandate):
+Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Ironbloom (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies. Kimbot (simulation Bot B) does not own production sustainability metrics.
 ### 4.3 Diagnostics & Isolation (Shadow Plane)
 Constitutional scope (GRC Repair 4.7–4.8): structural diagnostics, operational self-tests, and component reliability analytics are **shadow-plane-only** capabilities. They extend the CONTROL-FIRST posture without polluting the production threat ledger.
 
@@ -139,8 +149,8 @@ Immutable directives **(1)–(5)** apply without exception in **production** ten
 6. Product Roadmap — Epic Status (PO Authority)
 [COMPLETED] Epic 4: Ironwave (Executive Insights & GRC)
 Executive Telemetry phase closed. The following are now baseline platform capabilities (not experimental): High-Fidelity Heat Map (including surgical Top 10-by-USD default filtering for grid density), GRC global framework selection and reporting alignment, and the BIGINT Financial Ledger pattern (integer cents for USD; constitutionally frozen ALE baselines unchanged).
-[ACTIVE] Epic 5: Kimbot (Sustainability Layer)
-Primary modeling shifts from USD financial exposure to physical sustainability units. Kimbot (Agent 17) workstreams target energy (kWh), water/volume (L), and greenhouse-gas equivalents (CO2e) as first-class quantities; monetary-only proxies are out of scope for sustainability ALE. Financial telemetry (Epic 4) remains the stable ledger for fiscal risk; Epic 5 extends the stack without replacing BIGINT rules for USD-bound domains.
+[ACTIVE] Epic 5: Ironbloom (Sustainability Layer)
+Primary modeling shifts from USD financial exposure to physical sustainability units. Ironbloom (Agent 17) workstreams target energy (kWh), water/volume (L), and greenhouse-gas equivalents (CO2e) as first-class quantities; monetary-only proxies are out of scope for sustainability ALE. Financial telemetry (Epic 4) remains the stable ledger for fiscal risk; Epic 5 extends the stack without replacing BIGINT rules for USD-bound domains.
 TEST COVERAGE CHECK:
 Unit Tests Added: YES (Mandated for all Irontrust math and BIGINT conversions)
 Integration Tests Added: YES (Mandated for Irongate DMZ routing)

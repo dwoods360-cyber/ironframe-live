@@ -36,7 +36,8 @@ Guided first session for new operators and tenant admins.
 | **CISO** | Ironwatch layout signal, quarantine, threat realtime |
 | **CFO** | Insurance posture, ALE exposure by asset, governance dividend |
 | **GRC** | Compliance drift, Irontally, analyst exports |
-| **ESG** | Kimbot physical units, dirty grid, resilience streak |
+| **ESG** | Ironbloom physical units, dirty grid, resilience streak |
+| **Simulation / QA** | Kimbot (Bot B — Red Team Adversary Simulation for drills), Attbot, GRCbot in Control Room shadow plane |
 
 ## Administrator checklist
 

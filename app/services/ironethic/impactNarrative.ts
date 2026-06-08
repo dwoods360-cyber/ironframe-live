@@ -1,7 +1,7 @@
 import { anonymizeForPublicExport } from "@/src/services/ironscribe/publicFormatter";
 
 /**
- * Ironethic (Agent 17) — qualitative impact copy from quantified TSV (deterministic templates, privacy-safe).
+ * Ironethic (Agent 18) — qualitative impact copy from quantified TSV (deterministic templates, privacy-safe).
  */
 export function draftIronethicImpactStatement(input: {
   avoidedMetricTons: number;

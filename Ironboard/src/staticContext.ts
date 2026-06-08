@@ -1,0 +1,154 @@
+export const CODESPACE_FOUR_PILLARS_BLUEPRINT = `
+EXECUTIVE DETERMINATION: THE 4 PILLARS OF IRONFRAME OPERATIONS
+
+Pillar 1: Business Operations & Financial Integrity
+- Scalable corporate business model mapping clear revenue streams and cost profiles.
+- Strict requirement for absolute numeric precision; all financials map exclusively to PostgreSQL NUMERIC or BigInt whole-integer cents to protect transactional history from rounding variants.
+
+Pillar 2: Technology & Air-Gapped Infrastructure
+- Fully isolated cloud infrastructure designed to support rapid SaaS expansion without structural drift.
+- Multi-layered data protection including real-time threat mapping, automated quarantine authority (Ironlock), and a secure data layout using Prisma ORM.
+
+Pillar 3: Talent, Culture & Agentic Coordination
+- Continuous engineering focus utilizing a modular 19-agent workforce running on persistent, checkpointed states.
+- Dedicated commitment to talent acquisition, employee development, and DEI modeling using salted, anonymized data arrays (Ironethic).
+
+Pillar 4: Regulatory, GRC & Strategic Partnerships
+- Direct translation of global compliance frameworks (SOC2, ISO27001, CSRD, GRI) straight into executable machine rules via Irontally and Ironlogic.
+- Transparent, human-in-the-loop tracking channels configured to accelerate platform innovation alongside strategic enterprise partners.
+`.trim();
+
+export const STRATEGIC_KNOWLEDGE_VAULT = [
+  { title: "The Discipline of Market Leaders", author: "Treacy & Wiersema", coreConcepts: ["Operational Excellence", "Product Leadership", "Customer Intimacy"], strategicInvariants: "Enforces focus on a single value discipline to achieve market dominance while maintaining industry-standard thresholds in the remaining two." },
+  { title: "Blue Ocean Strategy", author: "Kim & Mauborgne", coreConcepts: ["Value Innovation", "ERRC Grid", "Uncontested Market Space", "Breaking Cost-Value Trade-off"], strategicInvariants: "Aligns the system to eliminate industry-standard bloat while raising core security values, creating uncontested market opportunities." },
+  { title: "Play Bigger", author: "Ramadan, Peterson, Lochhead, Maney", coreConcepts: ["Category Design", "Product-Company-Category Triangle", "Category King Conditioning"], strategicInvariants: "Positions the platform to define, develop, and completely rule an entirely new software category." },
+  { title: "Crossing the Chasm", author: "Geoffrey A. Moore", coreConcepts: ["Technology Adoption Life Cycle", "The Chasm", "Bowling Alley Strategy", "The Beachhead Market"], strategicInvariants: "Targets highly specific enterprise target profiles to cross the adoption gap from early visionary testers to mainstream corporations." },
+  { title: "Good to Great", author: "Jim Collins", coreConcepts: ["First Who... Then What", "The Hedgehog Concept", "Culture of Discipline", "The Flywheel Effect"], strategicInvariants: "Anchors structural execution solely at the intersection of deep passion, world-class technical capabilities, and deterministic economic engines." },
+  { title: "The Lean Startup", author: "Eric Ries", coreConcepts: ["Validated Learning", "Build-Measure-Learn", "Minimum Viable Product", "Pivot or Persevere"], strategicInvariants: "Drives rapid, atomic code deployments coupled with deterministic user telemetry to minimize wasted developmental energy." },
+  { title: "Zero to One", author: "Peter Thiel", coreConcepts: ["Vertical Progress", "Proprietary Technology", "Network Effects", "Monopoly vs. Perfect Competition"], strategicInvariants: "Mandates building software with an order-of-magnitude technical advantage, establishing absolute defensive moats around architecture." },
+  { title: "Measure What Matters", author: "John Doerr", coreConcepts: ["Objectives and Key Results (OKRs)", "Radical Alignment", "Continuous Tracking", "Stretch Goals"], strategicInvariants: "Binds every agent workflow execution to quantifiable metrics to guarantee zero systemic drift across the organization." },
+] as const;
+
+export type BoardPersona = {
+  id: string;
+  role: string;
+  team: string;
+  expertise: string[];
+  background: string;
+  primaryBookAlignment: string;
+};
+
+export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
+  { id: "board-bot", role: "Strategic Chief of Staff (Bot)", team: "Executive Suite", expertise: ["Dynamic coordination", "Workflow synthesis", "Context aggregation"], background: "Advanced strategic alignment orchestrator built for Ironframe.", primaryBookAlignment: "Measure What Matters" },
+  { id: "board-ceo", role: "CEO - Visionary Leader", team: "Executive Suite", expertise: ["Strategic planning", "Leadership"], background: "Experienced entrepreneur in GRC fields.", primaryBookAlignment: "The Discipline of Market Leaders" },
+  { id: "board-cto", role: "CTO - Technical Innovator", team: "Executive Suite", expertise: ["Technology strategy", "Architecture"], background: "Seasoned software technologist.", primaryBookAlignment: "Zero to One" },
+  { id: "board-cfo", role: "CFO - Financial Strategist", team: "Executive Suite", expertise: ["Financial planning", "Budgeting"], background: "Experienced finance professional.", primaryBookAlignment: "Good to Great" },
+  { id: "board-evangelist", role: "GRC Evangelist", team: "GRC Domain Experts", expertise: ["GRC domain knowledge", "Regulatory trends"], background: "Seasoned compliance professional.", primaryBookAlignment: "Play Bigger" },
+  { id: "board-risk-spec", role: "Risk Management Specialist", team: "GRC Domain Experts", expertise: ["Risk assessment", "Mitigation"], background: "Experienced risk management professional.", primaryBookAlignment: "Blue Ocean Strategy" },
+  { id: "board-compliance", role: "Compliance Officer", team: "GRC Domain Experts", expertise: ["Regulatory compliance"], background: "Experienced compliance expert.", primaryBookAlignment: "Measure What Matters" },
+  { id: "board-pm", role: "Product Manager", team: "Product and Engineering", expertise: ["Product development", "Roadmap planning"], background: "Experienced software product visionary.", primaryBookAlignment: "The Lean Startup" },
+  { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding"], background: "Skilled infrastructure developer.", primaryBookAlignment: "Zero to One" },
+  { id: "board-data-sci", role: "Data Scientist", team: "Product and Engineering", expertise: ["Data analysis", "Modeling"], background: "Experienced analytics expert.", primaryBookAlignment: "Measure What Matters" },
+  { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth"], background: "Experienced enterprise sales professional.", primaryBookAlignment: "Crossing the Chasm" },
+  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management"], background: "Experienced campaign strategist.", primaryBookAlignment: "Play Bigger" },
+  { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation"], background: "Expert regulatory copywriter.", primaryBookAlignment: "The Discipline of Market Leaders" },
+  { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design"], background: "Seasoned training designer.", primaryBookAlignment: "The Lean Startup" },
+  { id: "board-legal", role: "Legal - Regulatory Counsel", team: "Other Essential Roles", expertise: ["Corporate law", "Policy auditing"], background: "Corporate compliance attorney.", primaryBookAlignment: "Crossing the Chasm" },
+  { id: "board-hr", role: "HR Manager - Talent Expert", team: "Other Essential Roles", expertise: ["Human resources", "Talent management"], background: "Experienced talent strategist.", primaryBookAlignment: "Good to Great" },
+  { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention"], background: "Experienced customer success professional.", primaryBookAlignment: "The Discipline of Market Leaders" },
+];
+
+export const STATIC_PRODUCTS = [
+  { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
+  { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
+  { name: "Docs Hub Accessibility Engine", key: "docs-hub-accessibility", priority: "MEDIUM", frameworks: ["GRI"] },
+] as const;
+
+export const SOVEREIGN_POOL_BASELINES_CENTS = {
+  medshield: '1110000000',
+  vaultbank: '590000000',
+  gridcore: '470000000',
+  enterpriseReserve: '2170000000',
+} as const;
+
+/** Overrides stale federation text — Kimbot is NOT Agent 17. */
+export const WORKFORCE_VS_SIMULATION_DISAMBIGUATION = `
+NAMING LOCK (AUTHORITATIVE — overrides any conflicting markdown in federation bundle):
+- The **19-agent production workforce** includes **Ironbloom as Agent 17** (CSRD / sustainability ledger; physical units kWh, L, km only).
+- **Kimbot is NOT Agent 17** and is NOT a production workforce agent.
+- **Kimbot is Simulation Bot B (Red Team)** — a shadow-plane antagonist that injects fake adversary threats (ransomware, data leak, API breach) to stress-test the Command Center pipeline, dual-key flows, and ACK/audit loops.
+- Sibling simulation bots: **Bot A = Attbot** (attack/chaos), **Bot C = GRCbot** (GRC QA). **Master Purge** clears simulation state only.
+- Never describe Kimbot as the Sustainability Analyst; that role is **Ironbloom (Agent 17)**.
+`.trim();
+
+export const KIMBOT_CANONICAL_ANSWER = [
+  'Kimbot is Simulation Bot B (Red Team) — a shadow-plane antagonist for drills and app testing.',
+  'It is separate from the 19-agent production workforce and is NOT Agent 17.',
+  'Kimbot injects simulated adversary threats into the pipeline so operators can exercise CISO dual-key approval, ACK/de-ACK, and audit flows.',
+  'Production sustainability / CSRD / Carbon ALE is owned by Ironbloom (Agent 17), which requires physical units and rejects monetary-only proxies.',
+].join(' ');
+
+export function buildStaticContextBundle(): string {
+  const roster = AGENTIC_BOARD_ROSTER.map(
+    a => `- ${a.role} (${a.id}): ${a.expertise.join(', ')} | book=${a.primaryBookAlignment}`,
+  ).join('\n');
+  const vault = STRATEGIC_KNOWLEDGE_VAULT.map(
+    b => `- ${b.title} by ${b.author}: ${b.strategicInvariants}`,
+  ).join('\n');
+  const products = STATIC_PRODUCTS.map(
+    p => `- ${p.name} key=${p.key} priority=${p.priority} frameworks=${p.frameworks.join('/')}`,
+  ).join('\n');
+  return [
+    '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
+    '',
+    WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
+    '',
+    'FOUR PILLARS BLUEPRINT:',
+    CODESPACE_FOUR_PILLARS_BLUEPRINT,
+    '',
+    '16-PERSONA EXECUTIVE ROSTER:',
+    roster,
+    '',
+    '8-BOOK STRATEGY VAULT:',
+    vault,
+    '',
+    'PRODUCT REGISTRY:',
+    products,
+    '',
+    'SOVEREIGN POOL BASELINES (BigInt cents — do not invent other values):',
+    `- Medshield: ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
+    `- Vaultbank: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
+    `- Gridcore: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
+    `- Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
+  ].join('\n');
+}
+
+/** Canonical verbatim answers — bypass Gemini entirely. */
+export function resolveCanonicalDetermination(normalizedQuery: string): string | null {
+  if (
+    normalizedQuery.includes('kimbot') ||
+    normalizedQuery.includes('kibdot') ||
+    (normalizedQuery.includes('agent 17') && normalizedQuery.includes('sustain'))
+  ) {
+    return KIMBOT_CANONICAL_ANSWER;
+  }
+  if (normalizedQuery.includes('pillar') || normalizedQuery.includes('4 pillars')) {
+    return CODESPACE_FOUR_PILLARS_BLUEPRINT;
+  }
+  if (
+    normalizedQuery.includes('baseline') ||
+    normalizedQuery.includes('bigint') ||
+    normalizedQuery.includes('medshield') ||
+    normalizedQuery.includes('vaultbank') ||
+    normalizedQuery.includes('gridcore')
+  ) {
+    return [
+      'SOVEREIGN POOL BASELINES (BigInt cents — constitutionally frozen):',
+      `Medshield Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
+      `Vaultbank Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
+      `Gridcore Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
+      `Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
+    ].join('\n');
+  }
+  return null;
+}

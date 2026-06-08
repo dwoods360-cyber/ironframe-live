@@ -39,7 +39,7 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 | “We already have GRC.” | “We quantify in dollars and sanitize ingest—legacy tools rarely do both with multi-tenant isolation.” |
 | “AI is risky.” | “Agents are scoped by TAS; scoring math is frozen; LLM is narrative/RAG—not ALE.” |
 | “Cloud-only concern.” | “Supabase RLS, WORM evidence path, PKI vault; TAS documents every boundary.” |
-| “ESG is marketing.” | “Kimbot rejects monetary-only proxies; kWh and gCO₂eq required at gate.” |
+| “ESG is marketing.” | “Ironbloom (Agent 17) rejects monetary-only proxies; kWh and gCO₂eq required at gate. Kimbot is Bot B — Red Team Adversary Simulation for drills only.” |
 
 ## Collateral
 

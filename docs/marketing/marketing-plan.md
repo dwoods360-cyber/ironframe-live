@@ -28,7 +28,7 @@
 ## Campaign themes (2026 H1)
 
 1. **GA launch** — Release evidence, integration proof, customer quotes (design partners)
-2. **Sustainability truth** — Kimbot / Ironbloom vs greenwashing
+2. **Sustainability truth** — Ironbloom (Agent 17) vs greenwashing; Kimbot (Bot B) for red-team drill validation only
 3. **Audit-ready** — Ironquery exports + WORM roadmap
 4. **Tenant sovereignty** — Multi-tenant without bleed
 

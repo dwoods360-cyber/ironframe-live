@@ -8,7 +8,8 @@ const JOB_KIND = "AGENT17_SENTINEL_SWEEP";
 export type ClaimedSentinelJob = SentinelAutomationOutbox;
 
 /**
- * Claim pending outbox rows (SKIP LOCKED) for Agent 17 workers — safe under concurrent HTTP cron + pg_cron inserts.
+ * Claim pending outbox rows (SKIP LOCKED) for Agent 17 (Ironbloom) sentinel workers —
+ * safe under concurrent HTTP cron + pg_cron inserts.
  */
 export async function claimSentinelAutomationJobs(limit = 5): Promise<ClaimedSentinelJob[]> {
   const cap = Math.min(Math.max(limit, 1), 25);

@@ -114,7 +114,7 @@ async function resolveZoneIntensityGrams(
 }
 
 /**
- * TAS §3 — Ironbloom (Agent 18): Gridcore carbon coefficient poll & production ledger sync.
+ * TAS §3 — Ironbloom (Agent 17): Gridcore carbon coefficient poll & production ledger sync.
  * Physical gCO₂eq/kWh only — monetary translation stays in threat-bound `SustainabilityMetric` rows.
  *
  * Distinct from {@link runGridcoreUtilityRatePoll} (USD/kWh utility rates).

@@ -2,7 +2,7 @@
 
 **Project:** Ironframe  
 **Version:** 2.0.0 (Sovereign Build State)  
-**Last Updated:** 2026-02-25  
+**Last Updated:** 2026-06-08  
 **Authority:** Product Owner (Layer 3)
 
 ## 1. Market Gaps & Legacy Failures
@@ -17,7 +17,7 @@ Ironframe attacks these market gaps through a CONTROL-FIRST paradigm, powered by
 ### Orchestration & Resilience (The LangGraph Advantage)
 Legacy systems crash and lose context. Ironframe maintains persistent state memory.
 *   **Ironcore (Agent 1):** Orchestrator & Routing. Eliminates monolithic bottlenecks by dynamically routing tasks.
-*   **Irontech (Agent 11):** Self-Healing. Solves brittle pipelines by restarting failed workers from the exact last persistent checkpoint.
+*   **Irontech (Agent 4):** Self-Healing. Solves brittle pipelines by restarting failed workers from the exact last persistent checkpoint.
 *   **Ironlock (Agent 6):** Priority Override. Provides immediate, automated lockdown capabilities during critical anomalies.
 
 ### Zero-Trust Ingestion & Security (The DMZ)
@@ -29,13 +29,13 @@ Legacy systems trust authenticated payloads. Ironframe trusts nothing.
 ### Risk & Financial Quantification (The BIGINT Mandate)
 Legacy systems use heatmaps. Ironframe uses defensible math.
 *   **Irontrust (Agent 3):** Scoring Engine. Solves qualitative guesswork by executing constitutionally frozen ALE Math (Medshield 11.1M, Vaultbank 5.9M, Gridcore 4.7M) using strict BIGINT cents.
-*   **Ironsight (Agent 4):** Tactical Sentinel. Provides high-fidelity active risk scanning.
+*   **Ironsight (Agent 8):** Tactical Sentinel. Provides high-fidelity active risk scanning.
 *   **Ironwave (Agent 2):** Live Telemetry Monitoring. Ingests real-time system health to inform dynamic risk scoring.
 
 ### Data Processing & Threat Intelligence
 Legacy systems require manual data entry. Ironframe automates ingestion and OSINT.
 *   **Ironscribe (Agent 5):** Deep-Doc Worker. Solves manual parsing via advanced OCR and unstructured data extraction.
-*   **Ironintel (Agent 8):** OSINT & Policy Monitor. Solves stale threat feeds by continuously scraping external intelligence.
+*   **Ironintel (Agent 11):** OSINT & Policy Monitor. Solves stale threat feeds by continuously scraping external intelligence.
 *   **Ironscout (Agent 16):** Ad-Hoc Tracker. Solves resource bloat via self-terminating (TTL: 0.50–71.75 hrs) ephemeral reconnaissance.
 
 ### Supply Chain & Policy Optimization
@@ -45,9 +45,13 @@ Legacy systems lack N-th party visibility. Ironframe graphs the entire chain.
 
 ### ESG, Social, & Compliance Mapping
 Legacy systems treat ESG as an afterthought. Ironframe enforces strict data integrity.
-*   **Kimbot (Agent 17):** Sustainability Analyst. Solves greenwashing by strictly requiring physical units (kWh, Liters, km) for Scope 1-3 Carbon ALE, rejecting monetary-only proxies.
+*   **Ironbloom (Agent 17):** Sustainability Analyst. Solves greenwashing by strictly requiring physical units (kWh, Liters, km) for Scope 1-3 Carbon ALE, rejecting monetary-only proxies.
 *   **Ironethic (Agent 18):** Social & DEI Monitor. Solves PII liability via a strict No-PII Lock, ensuring all social data is aggregated and salted.
 *   **Irontally (Agent 19):** Disclosure & Framework Mapper. Solves manual compliance fatigue by automatically cross-walking data against CSRD, GRI, and ISSB frameworks.
+
+### Simulation & Drill Layer (Separate from 19-Agent Workforce)
+Shadow-plane antagonists stress the production workforce without polluting the audit ledger.
+*   **Kimbot (Bot B):** Bot B — Red Team Adversary Simulation for drills. Injects simulated ransomware, data leak, and API breach signals for dual-key and ACK exercises. **Not Agent 17.**
 
 ### User Interaction & Alerting
 Legacy systems cause alert fatigue. Ironframe provides conversational, contextual insights.

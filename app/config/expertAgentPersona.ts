@@ -6,27 +6,28 @@ export const EXPERT_ASSIGNEE_KEY_PREFIX = "exp_" as const;
 /**
  * Expert titles for Audit Intelligence actor strings and assignee display (`Name | Title`).
  * Indexed to `CORE_WORKFORCE_AGENTS` (constitutional 19-agent fleet).
+ * Each entry retains an evolved operational title; constitutional mandate is tagged inline.
  */
 export const EXPERT_AGENT_TITLES: Record<string, string> = {
-  Ironcore: "Core Threat Aggregation & Blast-Radius",
-  Ironwave: "Telemetry Fusion & Signal Orchestration",
-  Irontrust: "Identity Posture & Trust Fabric",
-  Irontech: "Infrastructure & Resilience",
-  Ironscribe: "Immutable Audit Export & Ledger Chain",
-  Ironlock: "Priority Interrupt & Quarantine",
-  Ironcast: "Stream Replication & Broadcast Integrity",
-  Ironsight: "Deep Trace & Behavioral Analytics",
-  Ironlogic: "Policy Translation & Rule Alignment",
-  Ironmap: "Vendor Surface & Supply-Chain Mapping",
-  Ironintel: "Strategic Correlation & Fusion Cell",
-  Ironguard: "RLS & Token Security",
-  Ironwatch: "Continuous Monitoring & Drift Sentinel",
-  Irongate: "DMZ Ingress & Tenant Stamping",
-  Ironquery: "Evidence Query & Federated Retrieval",
-  Ironscout: "Task Orchestration & Field Recon",
-  Ironbloom: "CSRD Ledger & Sustainability Metrics",
-  Ironethic: "Ethics Guardrail & Constitutional Alignment",
-  Irontally: "Export Reconciliation & Tallies",
+  Ironcore: "Core Threat Aggregation & Blast-Radius", // Constitutional Role: Orchestrator & Routing
+  Ironwave: "Telemetry Fusion & Signal Orchestration", // Constitutional Role: Live Telemetry Monitoring
+  Irontrust: "Identity Posture & Trust Fabric", // Constitutional Role: Scoring Engine (ALE Math)
+  Irontech: "Infrastructure & Resilience", // Constitutional Role: Self-Healing
+  Ironscribe: "Immutable Audit Export & Ledger Chain", // Constitutional Role: Deep-Doc Worker
+  Ironlock: "Priority Interrupt & Quarantine", // Constitutional Role: Priority Override / Emergency
+  Ironcast: "Stream Replication & Broadcast Integrity", // Constitutional Role: Switchboard / Notification
+  Ironsight: "Deep Trace & Behavioral Analytics", // Constitutional Role: Tactical Sentinel
+  Ironlogic: "Policy Translation & Rule Alignment", // Constitutional Role: Neural Policy Learner
+  Ironmap: "Vendor Surface & Supply-Chain Mapping", // Constitutional Role: Supply Chain Graphing
+  Ironintel: "Strategic Correlation & Fusion Cell", // Constitutional Role: OSINT & Policy Monitor
+  Ironguard: "RLS & Token Security", // Constitutional Role: The Warden (AppSec)
+  Ironwatch: "Continuous Monitoring & Drift Sentinel", // Constitutional Role: Anomaly Hunter (UBA)
+  Irongate: "DMZ Ingress & Tenant Stamping", // Constitutional Role: Data Sanitizer (DMZ)
+  Ironquery: "Evidence Query & Federated Retrieval", // Constitutional Role: Interactive Analyst / Copilot
+  Ironscout: "Task Orchestration & Field Recon", // Constitutional Role: Ad-Hoc Tracker
+  Ironbloom: "CSRD Ledger & Sustainability Metrics", // Constitutional Role: Sustainability Analyst
+  Ironethic: "Ethics Guardrail & Constitutional Alignment", // Constitutional Role: Social & DEI Monitor
+  Irontally: "Export Reconciliation & Tallies", // Constitutional Role: Disclosure & Framework Mapper
 };
 
 export type ExpertAgentCanonicalName = (typeof CORE_WORKFORCE_AGENTS)[number]["name"];

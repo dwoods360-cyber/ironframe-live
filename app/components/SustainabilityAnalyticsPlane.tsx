@@ -144,7 +144,7 @@ export default function SustainabilityAnalyticsPlane({
               : "border border-transparent bg-slate-900 text-slate-400 hover:text-slate-200"
           }`}
         >
-          Agent 18 — Ironbloom carbon ledger
+          Agent 17 — Ironbloom carbon ledger
         </button>
         <button
           type="button"

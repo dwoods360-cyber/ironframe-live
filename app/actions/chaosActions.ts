@@ -377,7 +377,7 @@ function chaosThreatFinalizeData(
       routedAt: constitutionalSealedAt,
       sanitized: true,
     },
-    /** Irontech (Agent 11) — execution / resilience; primary UI owner remains User_00 (`assigneeId`, assigned_to, owner_id). */
+    /** Irontech (Agent 04) — execution / resilience; primary UI owner remains User_00 (`assigneeId`, assigned_to, owner_id). */
     resilienceExecutorAgentId: CHAOS_ASSIGNEE_IRONTECH_11,
     /** Persisted terminal lines; appended by `applyChaosShadowDrillTelemetryStepAction`. */
     chaosShadowAuditLog: [],
@@ -1089,7 +1089,7 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
     3: {
       assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
       assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_11,
-      actorLabel: "Irontech (Agent 11)",
+      actorLabel: "Irontech (Agent 04)",
       phase: "T4_REMEDIATION_IRONTECH",
       status: ThreatState.MITIGATED,
       integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP3_SUBMITTED",

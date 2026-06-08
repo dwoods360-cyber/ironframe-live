@@ -471,7 +471,7 @@ export async function calculateSystemMaturityScore(tenantId?: string): Promise<G
 
   if (ironethicEthicsBonusApplied > 0) {
     notes.push(
-      `Ironethic (Agent 17) +${ironethicEthicsBonusApplied.toFixed(1)} — SCC-weighted societal value exceeded on-ledger carbon ROI for a recent SustainabilityMetric window.`,
+      `Ironethic (Agent 18) +${ironethicEthicsBonusApplied.toFixed(1)} — SCC-weighted societal value exceeded on-ledger carbon ROI for a recent SustainabilityMetric window.`,
     );
   }
 

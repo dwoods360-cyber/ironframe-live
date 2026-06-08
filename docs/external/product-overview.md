@@ -11,7 +11,7 @@ Ironframe is a **multi-tenant Governance, Risk, and Compliance (GRC) platform** 
 | **CISO / Security lead** | Active risks, threat pipeline, Ironwatch telemetry, quarantine controls |
 | **CFO / Risk officer** | ALE exposure, insurance savings modeling, cost of non-compliance |
 | **GRC / Compliance** | Irontally control mapping, drift detection, analyst exports |
-| **Sustainability / ESG** | Carbon pulse, dirty-grid alerts, Kimbot physical-unit enforcement |
+| **Sustainability / ESG** | Carbon pulse, dirty-grid alerts, Ironbloom (Agent 17) physical-unit enforcement |
 | **Internal audit** | Audit Intelligence ledger, forensic playback, signed evidence |
 | **MSSP / multi-org ops** | Tenant switcher, aggregate vs scoped dashboards |
 
@@ -27,10 +27,13 @@ Ironframe is a **multi-tenant Governance, Risk, and Compliance (GRC) platform** 
 - Governed impact in BigInt cents
 - Realtime sync via Supabase `postgres_changes`
 
-### Sustainability (Ironbloom / Kimbot)
+### Sustainability (Ironbloom — Agent 17)
 - Live carbon intensity (Electricity Maps) with forensic LKG fallback
-- Agent 6 (Ironlock) autonomous throttling on dirty grid windows
+- Ironlock (Agent 6) autonomous throttling on dirty grid windows
 - 24h sparkline and governance dividend modeling
+
+### Simulation drills (shadow plane)
+- **Kimbot (Bot B):** Bot B — Red Team Adversary Simulation for drills — separate from the 19-agent workforce
 
 ### Governance & audit
 - Maturity scoring with Ironwatch stale-data penalties

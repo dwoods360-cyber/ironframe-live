@@ -173,9 +173,9 @@ export const CONSTITUTIONAL_DIRECTIVE_BY_ID: Readonly<Record<string, Constitutio
     id: "kimbot",
     label: "Kimbot",
     summary:
-      "Red-team / simulation sustainability and threat injector — distinct from production Ironbloom; exercises physical-unit gates under drill policy.",
-    anchorId: "tas-sustainability-kimbot",
-    tasLine: 79,
+      "Simulation Bot B (red team) — adversary threat injector for shadow-plane drills. Not a production workforce agent; distinct from Ironbloom (Agent 17).",
+    anchorId: "tas-simulation-bots",
+    tasLine: 59,
   },
   langgraph: {
     id: "langgraph",

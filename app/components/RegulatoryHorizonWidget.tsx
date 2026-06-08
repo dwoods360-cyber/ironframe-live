@@ -112,7 +112,7 @@ export default function RegulatoryHorizonWidget() {
             Regulatory horizon
           </p>
           <p className="mt-0.5 text-[8px] text-slate-400">
-            Ironsight (Agent 4) poll · Irontally (Agent 19) gap analysis
+            Ironsight (Agent 08) poll · Irontally (Agent 19) gap analysis
             {data?.lastPollAt ? ` · Last poll ${new Date(data.lastPollAt).toLocaleString()}` : ""}
           </p>
         </div>

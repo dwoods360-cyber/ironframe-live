@@ -95,9 +95,9 @@ export const TAS_CONSTITUTIONAL_OBLIGATIONS: readonly TasConstitutionalObligatio
     id: "sustainability_building_benchmark",
     tasSection: "6",
     tasSectionTitle: "Sustainability & Grid Evidence",
-    anchorId: "agent-18-ironbloom",
-    tasLine: 130,
-    agentLabel: "Ironbloom (Agent 18)",
+    anchorId: "ironbloom-production",
+    tasLine: 56,
+    agentLabel: "Ironbloom (Agent 17)",
     currentPosture:
       "Ironbloom Gridcore rate seals, Carbon Pulse telemetry, and WORM Sustainability Achievement reports provide automated evidence for jurisdictional building performance and ESG filing pipelines.",
     regulationTriggers: [/benchmark/i, /building performance/i, /\bbps\b/i, /clean buildings/i, /minnesota/i],

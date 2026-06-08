@@ -201,7 +201,7 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
         routingTarget: "irontrust",
         historyLogs: [
           {
-            agentId: "Ironbloom (Agent 18)",
+            agentId: "Ironbloom (Agent 17)",
             timestamp: new Date().toISOString(),
             message: `Physical data captured: ${metric.value} ${metric.unit}. Routing to Irontrust.`,
           },
@@ -215,7 +215,7 @@ export function compileOrchestrationGraph(options?: CompileOrchestrationGraphOpt
         routingTarget: "ironquery",
         historyLogs: [
           {
-            agentId: "Ironsight (Agent 04)",
+            agentId: "Ironsight (Agent 08)",
             timestamp: new Date().toISOString(),
             message: `Vulnerability verified. Blast radius cataloged: ${cveData.cve}.`,
           },

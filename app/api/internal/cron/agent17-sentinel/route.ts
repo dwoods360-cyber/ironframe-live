@@ -6,14 +6,14 @@ import {
 } from "@/app/api/internal/cron/cronAuth";
 
 /**
- * Drain Agent 17 Sentinel automation outbox (pairs with `pg_cron` inserts on `sentinel_automation_outbox`).
+ * Drain Agent 17 (Ironbloom) Sentinel automation outbox (pairs with `pg_cron` inserts on `sentinel_automation_outbox`).
  * Schedule: every 5 minutes (Vercel Cron). Auth: Bearer IRONFRAME_CRON_SECRET.
  */
 async function handleCron(request: Request) {
   if (!checkCronBearerAuth(request)) {
     return cronBearerUnauthorizedResponse();
   }
-  console.info("[CRON_ACTIVATION_TRACE] Agent 17 sentinel execution initiated successfully.");
+  console.info("[CRON_ACTIVATION_TRACE] Agent 17 (Ironbloom) sentinel execution initiated successfully.");
 
   const url = new URL(request.url);
   const limitRaw = url.searchParams.get("limit");

@@ -48,7 +48,7 @@ import {
   type AgentSuggestedRemediationOption,
 } from "@/app/utils/agentIngressJustification";
 import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
-import { CHAOS_ASSIGNEE_IRONTECH_11 } from "@/app/config/chaosShadowAudit";
+import { CHAOS_ASSIGNEE_IRONTECH_04 } from "@/app/config/chaosShadowAudit";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { integrityService } from "@/src/services/integrityService";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
@@ -1393,7 +1393,7 @@ export async function resolveThreatAction(
         string,
         unknown
       >;
-      /** CHAOS_DRILL lifecycle clears via `executeChaosDrillIrontechLifecycleStepAction` (Agent 11 gates), not this shortcut. */
+      /** CHAOS_DRILL lifecycle clears via `executeChaosDrillIrontechLifecycleStepAction` (Irontech Agent 04 gates), not this shortcut. */
       const isChaosDrillLifecycle =
         normalized.entityType === "CHAOS_DRILL" || normalized.chaosDrillEntityType === "CHAOS_DRILL";
       const isChaosInfrastructureShortcut =
@@ -1415,9 +1415,9 @@ export async function resolveThreatAction(
         const justificationPayloadChaos = JSON.stringify({
           resolution: trimmed,
           actor: actorChaos,
-          actorId: CHAOS_ASSIGNEE_IRONTECH_11,
+          actorId: CHAOS_ASSIGNEE_IRONTECH_04,
           agentAuditNote:
-            "TAS §3 — shadow Chaos clearance attributed to Irontech (Agent 11); governance exposure baseline 1.6B acknowledged.",
+            "TAS §3 — shadow Chaos clearance attributed to Irontech (Agent 04); governance exposure baseline 1.6B acknowledged.",
           timestamp: tsChaos,
           constitutionalHash,
           ...getHighScrutinyAuditFields(),
@@ -1425,10 +1425,10 @@ export async function resolveThreatAction(
         const mergedIngestionChaos = mergeIngestionDetailsPatch(chaosThreat.ingestionDetails ?? null, {
           resolutionJustification: trimmed,
           tasSection3AgenticNeutralization: {
-            agentAssigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
+            agentAssigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
             governanceExposureBaselineBillions: 1.6,
             settledAt: tsChaos,
-            auditProtocol: "IRONTECH_AGENT11_SHADOW_CLEARANCE",
+            auditProtocol: "IRONTECH_AGENT04_SHADOW_CLEARANCE",
           },
         });
         await prisma.$transaction(async (tx) => {
@@ -1437,14 +1437,14 @@ export async function resolveThreatAction(
             data: {
               status: ThreatState.RESOLVED,
               ingestionDetails: mergedIngestionChaos,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
+              assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
             },
           });
           await auditLogCreateLooseTx(tx, {
             data: {
               action: "THREAT_RESOLVED",
               justification: justificationPayloadChaos,
-              operatorId: CHAOS_ASSIGNEE_IRONTECH_11,
+              operatorId: CHAOS_ASSIGNEE_IRONTECH_04,
               threatId: id,
               isSimulation: true,
             },

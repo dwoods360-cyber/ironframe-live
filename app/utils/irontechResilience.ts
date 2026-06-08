@@ -1261,7 +1261,7 @@ export async function runIsolatedRemoteSupportDrill(
       ctx,
       tid,
       "IRONTECH",
-      "[T4_REMEDIATION_IRONTECH] Irontech (11) — Sidecar tunnel; awaiting Tier-3 JIT grant",
+      "[T4_REMEDIATION_IRONTECH] Irontech (04) — Sidecar tunnel; awaiting Tier-3 JIT grant",
     );
 
     console.log("[S4] Halting for Human Authorization...");

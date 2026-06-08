@@ -67,7 +67,7 @@ type Props = {
 
 /** 12s supervised loop: four beats (Ingestion → Analysis → Observation → Conclusion) with 4s gaps; then GRC ack. */
 const CHAOS_FLIGHT_AUTO_ACK_JUSTIFICATION =
-  "[IRONTECH CHAOS FLIGHT RECORDER] 12-second supervised telemetry complete: Irongate (14) → Ironscribe (5) → Irontech (11) → System/Observer; GRC acknowledge to Active Risks.";
+  "[IRONTECH CHAOS FLIGHT RECORDER] 12-second supervised telemetry complete: Irongate (14) → Ironscribe (5) → Irontech (04) → System/Observer; GRC acknowledge to Active Risks.";
 
 const WAIT_MS = 4000;
 /** Matches `CHAOS_DRILL_LIFECYCLE_GATE_DELAY_MS` in chaosActions (Irontech gates 2–4). */

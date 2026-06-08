@@ -7,7 +7,7 @@ import type { AssignmentChangedLogEntry } from "@/app/actions/threatActions";
 import {
   CHAOS_ASSIGNEE_IRONGATE_14,
   CHAOS_ASSIGNEE_IRONSCRIBE_5,
-  CHAOS_ASSIGNEE_IRONTECH_11,
+  CHAOS_ASSIGNEE_IRONTECH_04,
   CHAOS_ASSIGNEE_SYSTEM,
   CHAOS_DIRECTIVE,
 } from "@/app/config/chaosShadowAudit";
@@ -164,9 +164,9 @@ const WORKFORCE_AGENT_HANDOFFS: Record<
     phase: "T2_REGISTRATION_IRONSCRIBE",
   },
   IRONTECH: {
-    assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-    assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_11,
-    actorLabel: "Irontech (Agent 11)",
+    assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
+    assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_04,
+    actorLabel: "Irontech (Agent 04)",
     phase: "T4_REMEDIATION_IRONTECH",
   },
 };

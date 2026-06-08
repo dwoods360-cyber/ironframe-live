@@ -31,7 +31,7 @@ describe('Sovereign Orchestration Protocol', () => {
     };
 
     // 2. Execute the Graph with Checkpointing enabled
-    // The "thread_id" tells Agent 11 where to save the memory
+    // The "thread_id" tells Agent 04 (Irontech) where to save the memory
     const config = {
       configurable: { thread_id: testTraceId, tenant_id: testTenantId },
     } as unknown as Parameters<typeof graph.invoke>[1];

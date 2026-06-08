@@ -5,7 +5,7 @@ import type { CheckpointTuple } from "@langchain/langgraph-checkpoint";
 import { Pool } from "pg";
 
 /**
- * Epic 15 — Agent 11 (Irontech) Postgres checkpoint authority.
+ * Epic 15 — Agent 04 (Irontech) Postgres checkpoint authority.
  * Tenant isolation: every read validates `channel_values.tenant_id` against the caller stamp.
  */
 

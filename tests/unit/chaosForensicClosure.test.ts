@@ -56,8 +56,8 @@ describe("mergeAssignmentHistoryEntries", () => {
         {
           at: "2026-05-18T20:30:00.000Z",
           phase: "T4_REMEDIATION_IRONTECH",
-          assigneeId: "IRONTECH_11",
-          assigneeLabel: "Irontech (Agent 11)",
+          assigneeId: "IRONTECH_04",
+          assigneeLabel: "Irontech (Agent 04)",
           directiveId: "T4_ANALYSIS",
         },
       ],

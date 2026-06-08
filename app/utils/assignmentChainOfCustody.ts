@@ -16,7 +16,9 @@ const ASSIGNEE_KEY_LABELS: Record<string, string> = {
   netsec: 'NetSec',
   irongate_14: 'Irongate (Agent 14) · Sensing & Sanitization',
   ironscribe_5: 'Ironscribe (Agent 5) · Registration & Policy Mapping',
-  irontech_11: 'Irontech (Agent 11) · Active Remediation',
+  irontech_04: 'Irontech (Agent 04) · Active Remediation',
+  /** Legacy persisted assignee key — canonical index is Agent 04. */
+  irontech_11: 'Irontech (Agent 04) · Active Remediation',
   system: 'System/Observer · Final Concurrence & Purge',
 };
 
@@ -24,6 +26,8 @@ const ASSIGNEE_KEY_LABELS: Record<string, string> = {
 export const CHAOS_WORKFORCE_ASSIGNEE_LABELS: Record<string, string> = {
   IRONGATE_14: ASSIGNEE_KEY_LABELS.irongate_14,
   IRONSCRIBE_5: ASSIGNEE_KEY_LABELS.ironscribe_5,
+  IRONTECH_04: ASSIGNEE_KEY_LABELS.irontech_04,
+  /** @deprecated legacy persisted id — display resolves to Agent 04. */
   IRONTECH_11: ASSIGNEE_KEY_LABELS.irontech_11,
   SYSTEM: ASSIGNEE_KEY_LABELS.system,
 };

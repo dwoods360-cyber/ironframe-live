@@ -43,7 +43,7 @@ export class IronGate {
     const validation = ExternalPayloadSchema.safeParse(payload);
 
     if (!validation.success) {
-      // B. Failure: Quarantine for Irontech (Agent 11)
+      // B. Failure: Quarantine for Irontech (Agent 04)
       await this.quarantine(payload, 'SCHEMA_VIOLATION');
       throw new Error('IRONGATE_BLOCK: Structural Violation Detected.');
     }
@@ -68,7 +68,7 @@ export class IronGate {
   }
 
   private static async quarantine(payload: unknown, reason: string) {
-    // Log to Failed_Jobs for Agent 11 review
+    // Log to Failed_Jobs for Irontech (Agent 04) review
     console.error(`[IRONGATE_QUARANTINE]: ${reason}`, payload);
   }
 }

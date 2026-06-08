@@ -9,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * Irontech (Agent 11) — sole automated job permitted during constitutional void.
+ * Irontech (Agent 04) — sole automated job permitted during constitutional void.
  */
 export async function POST() {
   try {

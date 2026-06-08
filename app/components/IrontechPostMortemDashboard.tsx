@@ -88,7 +88,7 @@ export default function IrontechPostMortemDashboard({ autoReveal = true }: Props
             Irontech Post-Mortem
           </p>
           <p className="mt-1 text-[9px] text-slate-400">
-            Agent 11 · {report.scenario} · {report.generatedAt.slice(0, 19)} UTC ·{" "}
+            Agent 04 · {report.scenario} · {report.generatedAt.slice(0, 19)} UTC ·{" "}
             <span className="text-amber-200/90">[SIMULATION_DATA]</span>
           </p>
         </div>

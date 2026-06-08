@@ -3,7 +3,7 @@ import { parseIngestionDetailsForMerge } from "@/app/utils/ingestionDetailsMerge
 import {
   CHAOS_ASSIGNEE_IRONGATE_14,
   CHAOS_ASSIGNEE_IRONSCRIBE_5,
-  CHAOS_ASSIGNEE_IRONTECH_11,
+  CHAOS_ASSIGNEE_IRONTECH_04,
   CHAOS_ASSIGNEE_SYSTEM,
   CHAOS_CONSTITUTIONAL_AUTHORITY_ID,
   CHAOS_DIRECTIVE,
@@ -61,10 +61,10 @@ function workforceChainAfterIngestion(remediationLine: string, remediationTone: 
       terminalLine: remediationLine,
       terminalTone: remediationTone,
       phase: "T4_REMEDIATION_IRONTECH",
-      assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-      assigneeLabel: "Irontech (Agent 11) · Active Remediation",
+      assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
+      assigneeLabel: "Irontech (Agent 04) · Active Remediation",
       directiveId: CHAOS_DIRECTIVE.T4_ANALYSIS,
-      flightStatusLine: "> T+8s · Irontech (11) · active remediation…",
+      flightStatusLine: "> T+8s · Irontech (04) · active remediation…",
     },
     {
       terminalLine:

@@ -38,7 +38,7 @@ import { ATTACK_SOURCE, ATTACK_THREAT_TITLE_PREFIX } from "@/app/config/agents";
 import {
   CHAOS_ASSIGNEE_IRONGATE_14,
   CHAOS_ASSIGNEE_IRONSCRIBE_5,
-  CHAOS_ASSIGNEE_IRONTECH_11,
+  CHAOS_ASSIGNEE_IRONTECH_04,
   CHAOS_ASSIGNEE_SYSTEM,
   CHAOS_DIRECTIVE,
 } from "@/app/config/chaosShadowAudit";
@@ -378,7 +378,7 @@ function chaosThreatFinalizeData(
       sanitized: true,
     },
     /** Irontech (Agent 04) — execution / resilience; primary UI owner remains User_00 (`assigneeId`, assigned_to, owner_id). */
-    resilienceExecutorAgentId: CHAOS_ASSIGNEE_IRONTECH_11,
+    resilienceExecutorAgentId: CHAOS_ASSIGNEE_IRONTECH_04,
     /** Persisted terminal lines; appended by `applyChaosShadowDrillTelemetryStepAction`. */
     chaosShadowAuditLog: [],
     /** GRC agent handoff chain (timestamp, assignee, directive) per 4s transition. */
@@ -1087,8 +1087,8 @@ export async function executeChaosDrillIrontechLifecycleStepAction(
       integrityEventType: "CHAOS_DRILL_LIFECYCLE_STEP2_CONFIRMED",
     },
     3: {
-      assigneeId: CHAOS_ASSIGNEE_IRONTECH_11,
-      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_11,
+      assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
+      assigneeDisplay: CHAOS_WORKFORCE_ASSIGNEE_LABELS.IRONTECH_04,
       actorLabel: "Irontech (Agent 04)",
       phase: "T4_REMEDIATION_IRONTECH",
       status: ThreatState.MITIGATED,

@@ -48,7 +48,7 @@ import {
   isChaosConstitutionalVoidActive,
 } from "@/app/lib/chaosConstitutionalVoid";
 
-/** Irontech (Agent 11) — sole permitted job during constitutional void. */
+/** Irontech (Agent 04) — sole permitted job during constitutional void. */
 export const IRONTECH_AGENT_LABEL = "Irontech";
 export const IRONTECH_RESTORATION_FROM_GOLD_IMAGE = "restorationFromGoldImage" as const;
 export type IrontechEmergencyJob = typeof IRONTECH_RESTORATION_FROM_GOLD_IMAGE;
@@ -224,7 +224,7 @@ export function isIrontechEmergencyJobAllowed(
 ): boolean {
   if (job !== IRONTECH_RESTORATION_FROM_GOLD_IMAGE) return false;
   const agent = (agentLabel ?? IRONTECH_AGENT_LABEL).trim().toLowerCase();
-  if (!/irontech|agent\s*11|agent\s*011/.test(agent)) return false;
+  if (!/irontech|agent\s*04|agent\s*004|agent\s*11|agent\s*011/.test(agent)) return false;
   return isConstitutionalEmergency();
 }
 
@@ -242,7 +242,7 @@ export function assertAgentActionAllowedDuringConstitutionalEmergency(
     return;
   }
   throw new Error(
-    `CONSTITUTIONAL EMERGENCY: Agent "${agentLabel}" job "${job}" frozen. Only Irontech (11) ${IRONTECH_RESTORATION_FROM_GOLD_IMAGE} is permitted.`,
+    `CONSTITUTIONAL EMERGENCY: Agent "${agentLabel}" job "${job}" frozen. Only Irontech (Agent 04) ${IRONTECH_RESTORATION_FROM_GOLD_IMAGE} is permitted.`,
   );
 }
 
@@ -272,7 +272,7 @@ export function assertTasMdIntegrityOrThrow(): void {
   }
   if (snap.constitutionalRebaselinePending) {
     throw new Error(
-      "RE-BASELINE_VERIFICATION in progress (Irontech Agent 11). Operations remain frozen until constitutional baseline is verified.",
+      "RE-BASELINE_VERIFICATION in progress (Irontech Agent 04). Operations remain frozen until constitutional baseline is verified.",
     );
   }
 }
@@ -330,7 +330,7 @@ export function forceRefreshTasMdFromGoldImage(): {
 }
 
 /**
- * Irontech (Agent 11) self-healing: restore `docs/TAS.md` from LKG gold image during constitutional void.
+ * Irontech (Agent 04) self-healing: restore `docs/TAS.md` from LKG gold image during constitutional void.
  */
 export async function performIrontechRestorationFromGoldImage(): Promise<{
   ok: boolean;
@@ -689,7 +689,7 @@ function clearEmergencyPatchFromIngestion(
 }
 
 /**
- * Irontech (Agent 11): RE-BASELINE_VERIFICATION after TAS.md restoration.
+ * Irontech (Agent 04): RE-BASELINE_VERIFICATION after TAS.md restoration.
  * Clears Ironlock patches and lifts operational freeze when integrity is valid.
  */
 export async function performIrontechRebaselineVerification(): Promise<{
@@ -755,7 +755,7 @@ export async function performIrontechRebaselineVerification(): Promise<{
         action: "RE_BASELINE_VERIFICATION",
         justification: JSON.stringify({
           agent: "Irontech",
-          agentIndex: 11,
+          agentIndex: 4,
           event: "RE-BASELINE_VERIFICATION",
           constitutionalHash: assessment.sha256,
           priorEmergencySha256: lastKnownGoodSha256,

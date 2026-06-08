@@ -341,7 +341,7 @@ function buildComplianceDelta(params: {
 }
 
 /**
- * Irontech (Agent 11) — generate JSON post-mortem after chaos ends (Phoenix or closed run).
+ * Irontech (Agent 04) — generate JSON post-mortem after chaos ends (Phoenix or closed run).
  */
 export async function generateIrontechPostMortemReport(params: {
   tenantId: string;

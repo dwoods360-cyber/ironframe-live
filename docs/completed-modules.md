@@ -49,7 +49,7 @@ Executive Insights & GRC (Ironwave) telemetry is complete; the BIGINT Financial 
 *   **Status:** COMPLETED
 *   *LangGraph state management* — COMPLETED (`state.ts`, SovereignGraphState, tenant_id UUID mandate)
 *   *Agent 1 (Ironcore) routing* — COMPLETED (`ironcore.ts`, route by payload type: FINANCIAL_AUDIT → IRONTRUST, DOCUMENT_ANALYSIS → IRONSCRIBE)
-*   *Agent 11 (Irontech) checkpointer* — COMPLETED (`checkpointer.ts`, PostgresSaver via DATABASE_URL, setup())
+*   *Agent 04 (Irontech) checkpointer* — COMPLETED (`checkpointer.ts`, PostgresSaver via DATABASE_URL, setup())
 *   *Sovereign graph* — COMPLETED (`graph.ts`, StateGraph + conditional edges + checkpointer compile)
 *   *Integration test* — COMPLETED (`tests/orchestration.test.ts`, round-trip routing + persistence; skips when DATABASE_URL unset)
 *   **Phase 3 COMPLETED**

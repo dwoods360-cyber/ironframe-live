@@ -562,7 +562,7 @@ model ThreatAssignment {
   @@map("ThreatAssignment")
 }
 
-/// Agent 11 (Irontech): persisted checkpoint + retry state for orchestration (not Zustand).
+/// Agent 04 (Irontech): persisted checkpoint + retry state for orchestration (not Zustand).
 model AgentOperation {
   id           String               @id @default(uuid())
   threatId     String

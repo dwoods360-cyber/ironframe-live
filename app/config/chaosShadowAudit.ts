@@ -4,7 +4,9 @@
 export const CHAOS_ASSIGNEE_IRONGATE_14 = "IRONGATE_14";
 /** Ironscribe — Agent 5 — registration & policy mapping. */
 export const CHAOS_ASSIGNEE_IRONSCRIBE_5 = "IRONSCRIBE_5";
-/** Irontech — Agent 11. */
+/** Irontech — Agent 04 (Self-Healing). */
+export const CHAOS_ASSIGNEE_IRONTECH_04 = "IRONTECH_04";
+/** @deprecated Legacy persisted assignee id; new handoffs use {@link CHAOS_ASSIGNEE_IRONTECH_04}. */
 export const CHAOS_ASSIGNEE_IRONTECH_11 = "IRONTECH_11";
 /** Constitutional human operator id — GRC promotion handoff + AuditLog alignment (canonical casing). */
 export const CHAOS_CONSTITUTIONAL_AUTHORITY_ID = "User_00";

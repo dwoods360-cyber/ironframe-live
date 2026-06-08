@@ -1,6 +1,5 @@
 /**
- * Irontech / structural repair (Section 4.3): consume shadow-plane `SimulationDiagnosticLog` rows where
- * `action === "OPERATIONAL_DEFICIENCY_REPORT"`; payload `snapshot.ingestionDetailsFull` is the full ingestion blob.
+ * Irontech — Agent 04 (Self-Healing): LangGraph triage via `evaluateSystemTriage` on the ironlock path (TAS §4.3).
  *
  * Agent 9 (Ironmap) — decoupling: **Ironcore** may emit **partial state transitions** (e.g. IRONTRUST) when
  * live carbon feeds are degraded; see `IronCore.route` + `ironmap/criticalPath.ts`.
@@ -118,7 +117,7 @@ const passThroughIronsight = async (state: GraphState) => {
   return {
     ...idle,
     agent_logs: [
-      `Ironsight (Agent 04): ${cve.cve} blast radius ${cve.blastRadius}.`,
+      `Ironsight (Agent 08): ${cve.cve} blast radius ${cve.blastRadius}.`,
     ],
   };
 };

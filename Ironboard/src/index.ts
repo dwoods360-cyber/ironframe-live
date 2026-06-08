@@ -6,7 +6,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type GroundingMetadata } from '@google/genai';
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
 import {
   AGENTIC_BOARD_ROSTER,
@@ -17,10 +17,36 @@ import {
   WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
   type BoardPersona,
 } from './staticContext.js';
+import {
+  fetchProspectingBatch,
+  generateGroundedPitch,
+  harvestInteractionSignal,
+  listProspects,
+  findProspectByDomain,
+  triggerProspectIngest,
+  buildFlywheelWorkspaceContext,
+} from './services/marketIntelligence.js';
+import {
+  QUERY_LOCAL_WORKSPACE_DECLARATION,
+  queryLocalWorkspace,
+} from './services/queryLocalWorkspace.js';
 
 const PORT = Number(process.env.PORT) || 8082;
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const IRONBOARD_ROOT = path.resolve(MODULE_DIR, '..');
+
+const TOOL_RESULT_PARSE_DIRECTIVE =
+  "CRITICAL: If a tool returns rows or data, you must parse and display them. Do not use your pre-configured 'no prospects loaded' or 'tools not available' strings if the functionResponse array is populated.";
+
+const TOOL_EXECUTION_DIRECTIVE =
+  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool and direct database access via queryLocalWorkspace. Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding.';
+
+const WORKSPACE_TOOL_FORCE_TERMS = ['prospect', 'london', 'singapore', 'news'];
+
+function shouldForceWorkspaceTool(query: string): boolean {
+  const q = query.toLowerCase();
+  return WORKSPACE_TOOL_FORCE_TERMS.some(term => q.includes(term));
+}
 
 const BOARDROOM_DIRECTIVE =
   'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
@@ -114,8 +140,9 @@ function pickLeader(agentId: string, query: string): BoardPersona {
   return best;
 }
 
-function buildSystemInstruction(leader: BoardPersona): string {
-  return [
+function buildSystemInstruction(leader: BoardPersona, flywheelContext?: string | null): string {
+  const blocks = [
+    flywheelContext?.trim() || '',
     BOARDROOM_DIRECTIVE,
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     `You are ${leader.role} (${leader.id}) on the IronBoard executive panel.`,
@@ -124,12 +151,410 @@ function buildSystemInstruction(leader: BoardPersona): string {
     STATIC_CONTEXT,
     DOCS_FEDERATION,
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
-  ].join('\n\n');
+  ].filter(Boolean);
+  return blocks.join('\n\n');
 }
 
 function writeSseToken(res: express.Response, token: string): void {
+  writeSseEvent(res, { token });
+}
+
+type ClientGroundingPayload = {
+  webSearchQueries: string[];
+  sources: Array<{ title: string | null; uri: string | null; domain: string | null }>;
+};
+
+function writeSseEvent(res: express.Response, payload: Record<string, unknown>): void {
   if (res.writableEnded) return;
-  res.write(`data: ${JSON.stringify({ token })}\n\n`);
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function writeSseGrounding(res: express.Response, grounding: ClientGroundingPayload): void {
+  writeSseEvent(res, { grounding });
+}
+
+function writeSseToolCall(res: express.Response, toolCall: Record<string, unknown>): void {
+  writeSseEvent(res, { toolCall });
+}
+
+const MAX_TOOL_ROUNDS = 4;
+
+type GeminiPart = Record<string, unknown>;
+type GeminiContent = { role: string; parts: GeminiPart[] };
+
+function buildBoardroomTools(model: string) {
+  const isGemini3 = /gemini-3/i.test(model);
+  if (isGemini3) {
+    return [
+      {
+        googleSearch: {},
+        functionDeclarations: [QUERY_LOCAL_WORKSPACE_DECLARATION],
+      },
+    ];
+  }
+  // gemini-2.5 and older: built-in search + function calling cannot share one request.
+  return [{ functionDeclarations: [QUERY_LOCAL_WORKSPACE_DECLARATION] }];
+}
+
+function buildBoardroomStreamConfig(
+  model: string,
+  systemInstruction: string,
+  options?: { forceWorkspaceTool?: boolean },
+): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    systemInstruction: [systemInstruction, TOOL_EXECUTION_DIRECTIVE].filter(Boolean).join('\n\n'),
+    temperature: 0,
+    topP: 0,
+    tools: buildBoardroomTools(model),
+  };
+
+  const toolConfig: Record<string, unknown> = {};
+  if (/gemini-3/i.test(model)) {
+    toolConfig.includeServerSideToolInvocations = true;
+  }
+  if (options?.forceWorkspaceTool) {
+    toolConfig.functionCallingConfig = {
+      mode: FunctionCallingConfigMode.ANY,
+      allowedFunctionNames: ['queryLocalWorkspace'],
+    };
+  }
+  if (Object.keys(toolConfig).length) {
+    config.toolConfig = toolConfig;
+  }
+  return config;
+}
+
+function inferRegionFromQuery(query: string, activeHub: string): string | undefined {
+  const q = query.toLowerCase();
+  if (q.includes('singapore')) return 'Singapore';
+  if (q.includes('london')) return 'London';
+  const hubKey = String(activeHub ?? '').trim().toUpperCase();
+  if (hubKey === 'LONDON') return 'London';
+  if (hubKey === 'SINGAPORE') return 'Singapore';
+  return undefined;
+}
+
+function shouldPrefetchWeb(query: string): boolean {
+  const q = query.toLowerCase();
+  return ['news', 'compliance', 'latest', 'regulation', 'fca', 'market intel'].some(term => q.includes(term));
+}
+
+function shouldPrefetchProspects(query: string): boolean {
+  const q = query.toLowerCase();
+  return WORKSPACE_TOOL_FORCE_TERMS.some(term => q.includes(term));
+}
+
+function buildSyntheticToolExchange(
+  toolResult: Record<string, unknown>,
+  args: Record<string, unknown>,
+): GeminiContent[] {
+  const callId = `prefetch-${Date.now()}`;
+  return [
+    {
+      role: 'model',
+      parts: [{ functionCall: { name: 'queryLocalWorkspace', id: callId, args } }],
+    },
+    {
+      role: 'user',
+      parts: [
+        { functionResponse: { name: 'queryLocalWorkspace', id: callId, response: toolResult } },
+        { text: TOOL_RESULT_PARSE_DIRECTIVE },
+      ],
+    },
+  ];
+}
+
+async function prefetchWebNewsGrounding(
+  ai: GoogleGenAI,
+  model: string,
+  query: string,
+): Promise<{ enrichment: string; grounding: GroundingMetadata | null }> {
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Board intelligence request — answer using live web search only:\n${query}\n\nFocus on the most recent fintech compliance and regulatory news for the region mentioned.`,
+            },
+          ],
+        },
+      ],
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0,
+        topP: 0,
+      },
+    });
+    const grounding = response.candidates?.[0]?.groundingMetadata ?? null;
+    const text = response.text?.trim() ?? '';
+    const enrichment = text
+      ? [
+          'LIVE WEB GROUND TRUTH (Google Search prefetch — cite in your answer):',
+          text.slice(0, 4500),
+          grounding?.webSearchQueries?.length
+            ? `Search queries executed: ${grounding.webSearchQueries.join('; ')}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : '';
+    return { enrichment, grounding };
+  } catch (err) {
+    console.warn('[IRONBOARD WEB PREFETCH]', err);
+    return { enrichment: '', grounding: null };
+  }
+}
+
+async function prefetchBoardroomGroundTruth(params: {
+  ai: GoogleGenAI;
+  model: string;
+  query: string;
+  activeHub: string;
+  res: express.Response;
+}): Promise<{ prefetchedExchange: GeminiContent[]; systemEnrichment: string }> {
+  const { ai, model, query, activeHub, res } = params;
+  const prefetchedExchange: GeminiContent[] = [];
+  const enrichmentBlocks: string[] = [];
+
+  if (shouldPrefetchProspects(query)) {
+    const region = inferRegionFromQuery(query, activeHub);
+    const args: Record<string, unknown> = {
+      queryType: 'active_prospects',
+      limit: 20,
+      ...(region ? { region } : {}),
+    };
+    writeSseToolCall(res, {
+      name: 'queryLocalWorkspace',
+      status: 'running',
+      queryType: 'active_prospects',
+      region: region ?? null,
+      prefetch: true,
+    });
+    const toolResult = await queryLocalWorkspace(args);
+    writeSseToolCall(res, {
+      name: 'queryLocalWorkspace',
+      status: 'complete',
+      queryType: 'active_prospects',
+      region: region ?? null,
+      ok: toolResult.ok === true,
+      prefetch: true,
+    });
+    prefetchedExchange.push(...buildSyntheticToolExchange(toolResult, args));
+    enrichmentBlocks.push(
+      `WORKSPACE DATABASE SNAPSHOT (authoritative — do not claim tools are unavailable):\n${JSON.stringify(toolResult)}`,
+    );
+  }
+
+  if (shouldPrefetchWeb(query)) {
+    const web = await prefetchWebNewsGrounding(ai, model, query);
+    if (web.grounding) {
+      const clientGrounding = serializeGroundingForClient(web.grounding);
+      if (clientGrounding) writeSseGrounding(res, clientGrounding);
+    }
+    if (web.enrichment) enrichmentBlocks.push(web.enrichment);
+  }
+
+  return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n') };
+}
+
+function relaxBoardroomToolConfig(config: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...config };
+  const prior = (next.toolConfig ?? {}) as Record<string, unknown>;
+  next.toolConfig = {
+    ...prior,
+    functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
+  };
+  return next;
+}
+
+function serializeGroundingForClient(meta: GroundingMetadata | null): ClientGroundingPayload | null {
+  if (!meta) return null;
+  const sources = (meta.groundingChunks ?? [])
+    .map(chunk => ({
+      title: chunk.web?.title ?? chunk.retrievedContext?.title ?? null,
+      uri: chunk.web?.uri ?? chunk.retrievedContext?.uri ?? null,
+      domain: chunk.web?.domain ?? null,
+    }))
+    .filter(source => source.title || source.uri);
+  return {
+    webSearchQueries: meta.webSearchQueries ?? [],
+    sources,
+  };
+}
+
+function mergeGroundingMetadata(
+  existing: GroundingMetadata | null,
+  incoming: GroundingMetadata,
+): GroundingMetadata {
+  if (!existing) return incoming;
+  const querySet = new Set([...(existing.webSearchQueries ?? []), ...(incoming.webSearchQueries ?? [])]);
+  const chunkKeys = new Set<string>();
+  const groundingChunks = [...(existing.groundingChunks ?? []), ...(incoming.groundingChunks ?? [])].filter(
+    chunk => {
+      const key = chunk.web?.uri ?? chunk.retrievedContext?.uri ?? JSON.stringify(chunk);
+      if (chunkKeys.has(key)) return false;
+      chunkKeys.add(key);
+      return true;
+    },
+  );
+  return {
+    ...existing,
+    ...incoming,
+    webSearchQueries: [...querySet],
+    groundingChunks,
+  };
+}
+
+async function streamBoardroomGeminiRound(params: {
+  ai: GoogleGenAI;
+  res: express.Response;
+  abort: { closed: boolean };
+  model: string;
+  contents: GeminiContent[];
+  config: Record<string, unknown>;
+  emitTokens: boolean;
+}): Promise<{
+  accumulatedText: string;
+  functionCalls: FunctionCall[] | undefined;
+  grounding: GroundingMetadata | null;
+}> {
+  const { ai, res, abort, model, contents, config, emitTokens } = params;
+  let accumulatedText = '';
+  let functionCalls: FunctionCall[] | undefined;
+  let grounding: GroundingMetadata | null = null;
+
+  const stream = await ai.models.generateContentStream({
+    model,
+    contents,
+    config,
+  });
+
+  for await (const chunk of stream) {
+    if (abort.closed || res.writableEnded) break;
+
+    const chunkText = chunk.text ?? '';
+    if (chunkText) {
+      accumulatedText += chunkText;
+      if (emitTokens) writeSseToken(res, chunkText);
+    }
+
+    const chunkGrounding = chunk.candidates?.[0]?.groundingMetadata;
+    if (chunkGrounding) {
+      grounding = mergeGroundingMetadata(grounding, chunkGrounding);
+      const clientGrounding = serializeGroundingForClient(grounding);
+      if (clientGrounding) writeSseGrounding(res, clientGrounding);
+    }
+
+    const chunkCalls = chunk.functionCalls;
+    if (chunkCalls?.length) functionCalls = chunkCalls;
+  }
+
+  return { accumulatedText, functionCalls, grounding };
+}
+
+async function resolveWorkspaceToolCall(
+  res: express.Response,
+  call: FunctionCall,
+): Promise<GeminiPart> {
+  const args = (call.args ?? {}) as Record<string, unknown>;
+  writeSseToolCall(res, {
+    name: call.name,
+    status: 'running',
+    queryType: args.queryType ?? null,
+  });
+
+  let toolResult: Record<string, unknown>;
+  try {
+    toolResult = await queryLocalWorkspace(args);
+  } catch (err) {
+    toolResult = {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Workspace query failed',
+    };
+  }
+
+  writeSseToolCall(res, {
+    name: call.name,
+    status: 'complete',
+    queryType: args.queryType ?? null,
+    ok: toolResult.ok === true,
+  });
+
+  return {
+    functionResponse: {
+      name: call.name,
+      id: call.id,
+      response: toolResult,
+    },
+  };
+}
+
+async function runBoardroomToolStream(params: {
+  ai: GoogleGenAI;
+  res: express.Response;
+  abort: { closed: boolean };
+  model: string;
+  history: HistoryTurn[];
+  config: Record<string, unknown>;
+  forceWorkspaceTool: boolean;
+  prefetchedExchange?: GeminiContent[];
+}): Promise<void> {
+  const { ai, res, abort, model, history, config, forceWorkspaceTool, prefetchedExchange = [] } = params;
+  let contents: GeminiContent[] = [...mapHistoryToGeminiContents(history), ...prefetchedExchange];
+  const skipForcedRound = prefetchedExchange.length > 0;
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const roundConfig =
+      forceWorkspaceTool && round === 0 && !skipForcedRound
+        ? config
+        : relaxBoardroomToolConfig(config);
+
+    const emitTokens = round > 0 || skipForcedRound;
+
+    const { accumulatedText, functionCalls } = await streamBoardroomGeminiRound({
+      ai,
+      res,
+      abort,
+      model,
+      contents,
+      config: roundConfig,
+      emitTokens,
+    });
+
+    if (abort.closed || res.writableEnded) return;
+
+    if (!functionCalls?.length) {
+      const blockedHallucination = forceWorkspaceTool && round === 0 && !skipForcedRound;
+      // Incremental tokens were already painted during this round — do not re-emit the full buffer.
+      if (accumulatedText && !blockedHallucination && !emitTokens) {
+        writeSseToken(res, accumulatedText);
+      }
+      if (blockedHallucination && accumulatedText) {
+        console.warn('[IRONBOARD] Suppressed round-0 text; model skipped forced tool call.');
+      }
+      return;
+    }
+
+    // Tool round: discard streamed preamble; persist model function calls before resolving tools.
+    const modelParts: GeminiPart[] = functionCalls.map(call => ({ functionCall: call }));
+    contents.push({ role: 'model', parts: modelParts });
+
+    const workspaceCalls = functionCalls.filter(call => call.name === 'queryLocalWorkspace');
+    const responseParts: GeminiPart[] = [];
+    for (const call of workspaceCalls) {
+      responseParts.push(await resolveWorkspaceToolCall(res, call));
+    }
+
+    if (!responseParts.length) return;
+
+    responseParts.push({ text: TOOL_RESULT_PARSE_DIRECTIVE });
+    contents.push({ role: 'user', parts: responseParts });
+    // Clear client-side tool-stream scratch before the final synthesis pass streams tokens.
+    writeSseEvent(res, { streamFlush: true });
+  }
 }
 
 type HistoryTurn = { role: 'user' | 'model'; text: string };
@@ -183,8 +608,9 @@ function renderDashboard(): string {
   <title>IronBoard // 17-Agent Boardroom</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: ui-monospace, monospace; background: #020617; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
-    header { padding: 1rem 1.5rem; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    html, body { height: 100%; }
+    body { font-family: ui-monospace, monospace; background: #020617; color: #e2e8f0; height: 100vh; max-height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    header { flex-shrink: 0; padding: 1rem 1.5rem; border-bottom: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
     header h1 { font-size: 0.85rem; letter-spacing: 0.15em; text-transform: uppercase; color: #fbbf24; }
     .voice-controls { display: flex; align-items: center; gap: 1rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; padding: 0.35rem 0.75rem; }
     .voice-controls label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; }
@@ -192,29 +618,68 @@ function renderDashboard(): string {
     .voice-controls input[type=range] { width: 4rem; accent-color: #f59e0b; cursor: pointer; }
     .voice-controls .val { font-size: 0.6rem; font-weight: 700; color: #fbbf24; min-width: 2rem; }
     header span { font-size: 0.65rem; color: #64748b; white-space: nowrap; }
-    main { flex: 1; display: grid; grid-template-columns: 28vw 1fr 26vw; min-height: 0; }
-    section { border-right: 1px solid #1e293b; overflow-y: auto; padding: 1rem; }
+    main { flex: 1 1 auto; display: grid; grid-template-columns: 32vw 1fr 22vw; min-height: 0; overflow: hidden; }
+    section { border-right: 1px solid #1e293b; overflow-y: auto; overflow-x: hidden; padding: 1rem; min-height: 0; overscroll-behavior: contain; }
     section:last-child { border-right: none; border-left: 1px solid #1e293b; }
+    #left-panel { display: flex; flex-direction: column; gap: 1rem; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    #market-flywheel { border-top: 1px solid #1e293b; padding-top: 0.75rem; flex-shrink: 0; }
+    #market-flywheel h2 { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: #34d399; margin-bottom: 0.5rem; line-height: 1.4; }
+    .hub-toggles { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+    .hub-toggle { flex: 1; min-width: 6rem; padding: 0.4rem 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #94a3b8; cursor: pointer; }
+    .hub-toggle.active { border-color: #34d399; color: #34d399; background: #022c22; }
+    #fetch-batch-btn { width: 100%; margin-bottom: 0.5rem; padding: 0.45rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; background: #065f46; color: #ecfdf5; border: 1px solid #34d399; border-radius: 0.35rem; cursor: pointer; }
+    #fetch-batch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #prospect-list { max-height: 11rem; overflow-y: auto; border: 1px solid #334155; border-radius: 0.35rem; background: #0f172a; margin-bottom: 0.5rem; }
+    .prospect-row { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem; padding: 0.45rem 0.5rem; border-bottom: 1px solid #1e293b; cursor: pointer; font-size: 0.62rem; }
+    .prospect-row:last-child { border-bottom: none; }
+    .prospect-row:hover { background: #1e293b; }
+    .prospect-row.selected { background: #451a03; border-left: 2px solid #f59e0b; }
+    .prospect-row .firm-name { font-weight: 700; color: #e2e8f0; }
+    .prospect-row .firm-meta { color: #64748b; font-size: 0.58rem; margin-top: 0.15rem; }
+    .prospect-row .score-pill { align-self: center; font-weight: 800; color: #34d399; background: #022c22; border: 1px solid #34d399; border-radius: 999px; padding: 0.15rem 0.45rem; white-space: nowrap; }
+    .prospect-empty { padding: 0.75rem; font-size: 0.62rem; color: #64748b; text-align: center; }
+    #pitch-preview-pane { width: 100%; min-height: 5.5rem; max-height: 8rem; background: #020617; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.5rem; font-family: inherit; font-size: 0.62rem; line-height: 1.45; resize: vertical; margin-bottom: 0.5rem; }
+    .harvest-actions { display: flex; gap: 0.35rem; }
+    .harvest-btn { flex: 1; padding: 0.4rem; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; border-radius: 0.35rem; cursor: pointer; border: 1px solid #334155; }
+    #harvest-positive { background: #065f46; color: #ecfdf5; border-color: #34d399; }
+    #harvest-negative { background: #450a0a; color: #fecaca; border-color: #f87171; }
+    .harvest-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #market-status { font-size: 0.58rem; color: #64748b; margin-top: 0.35rem; min-height: 0.85rem; }
     .roster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
     .roster-btn { width: 100%; text-align: left; padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; cursor: pointer; }
     .roster-btn.roster-auto { grid-column: 1 / -1; }
     .roster-btn.active { border-color: #f59e0b; background: #451a03; }
     .roster-btn .role { display: block; font-weight: 700; font-size: 0.68rem; line-height: 1.25; }
     .roster-btn .team { display: block; font-size: 0.6rem; color: #64748b; margin-top: 0.15rem; }
-    #chat-panel { display: flex; flex-direction: column; border-right: none; min-height: 0; }
-    #active-label { font-size: 0.65rem; color: #fbbf24; margin-bottom: 0.75rem; flex-shrink: 0; }
-    #chat-window { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; padding: 0.75rem; overflow-y: auto; min-height: 12rem; }
+    section#chat-panel { overflow: hidden; display: flex; flex-direction: column; border-right: none; min-height: 0; max-height: 100%; padding: 1rem; overscroll-behavior: none; }
+    #chat-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; flex-shrink: 0; }
+    #active-label { font-size: 0.65rem; color: #fbbf24; flex-shrink: 0; }
+    #chat-window { flex: 1 1 0; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; padding: 0.75rem; overflow-y: auto; overflow-x: hidden; min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+    #chat-messages { min-height: min-content; }
+    #chat-compose { flex-shrink: 0; margin-top: 0.75rem; }
+    .chat-scroll-anchor { height: 0; width: 100%; overflow: hidden; pointer-events: none; flex-shrink: 0; }
     .msg-user, .msg-model { padding: 0.65rem; margin-bottom: 0.5rem; border-radius: 0.35rem; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.5; }
     .msg-user { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; }
     .msg-user-label { font-size: 0.6rem; color: #fbbf24; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem; }
     .msg-model { background: #020617; border: 1px solid #334155; border-left: 3px solid #f59e0b; color: #e2e8f0; }
     .msg-model-label { font-size: 0.6rem; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem; }
     .msg-streaming { border-left-color: #fbbf24; }
-    form { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
-    textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; font-family: inherit; }
+    .grounding-panel { margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.25rem; font-size: 0.62rem; line-height: 1.4; }
+    .grounding-label { display: block; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; letter-spacing: 0.06em; }
+    .grounding-queries { margin-bottom: 0.35rem; }
+    .grounding-query { display: inline-block; margin: 0.1rem 0.25rem 0.1rem 0; padding: 0.12rem 0.4rem; background: #1e293b; border: 1px solid #334155; border-radius: 999px; color: #94a3b8; }
+    .grounding-sources ul { margin: 0.2rem 0 0 1rem; padding: 0; }
+    .grounding-sources li { margin-bottom: 0.15rem; }
+    .grounding-sources a { color: #38bdf8; text-decoration: none; }
+    .grounding-sources a:hover { text-decoration: underline; }
+    .tool-call-hint { font-size: 0.58rem; color: #34d399; font-style: italic; margin-top: 0.35rem; }
+    form { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; max-height: 5.5rem; font-family: inherit; }
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
-    #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; }
+    #master-purge-btn { font-size: 0.58rem; font-weight: 800; text-transform: uppercase; background: #450a0a; color: #fecaca; border: 1px solid #f87171; border-radius: 0.35rem; padding: 0.35rem 0.5rem; cursor: pointer; white-space: nowrap; }
+    #master-purge-btn:hover { background: #7f1d1d; }
+    #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; }
     .baseline { font-size: 0.68rem; display: flex; justify-content: space-between; padding: 0.2rem 0; color: #94a3b8; }
     .baseline span:last-child { color: #34d399; }
@@ -238,23 +703,45 @@ function renderDashboard(): string {
     <span>Gemini · ${getIronboardGeminiModel()} · port ${PORT}</span>
   </header>
   <main>
-    <section id="roster">
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Board Roster (17)</p>
-      <div class="roster-grid">
-        <button type="button" class="roster-btn roster-auto active" data-id="auto" data-role="Auto-Routing">
-          <span class="role">✨ Auto Panel Router</span><span class="team">Routes across 17 agents</span>
-        </button>
-        ${rosterButtons}
+    <section id="left-panel">
+      <div id="roster">
+        <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Board Roster (17)</p>
+        <div class="roster-grid">
+          <button type="button" class="roster-btn roster-auto active" data-id="auto" data-role="Auto-Routing">
+            <span class="role">✨ Auto Panel Router</span><span class="team">Routes across 17 agents</span>
+          </button>
+          ${rosterButtons}
+        </div>
+      </div>
+      <div id="market-flywheel">
+        <h2>📈 MARKET INTEGRATION &amp; LEAD FLYWHEEL</h2>
+        <div class="hub-toggles">
+          <button type="button" id="hub-london" class="hub-toggle active" data-region="London">London Hub</button>
+          <button type="button" id="hub-singapore" class="hub-toggle" data-region="Singapore">Singapore Hub</button>
+        </div>
+        <button type="button" id="fetch-batch-btn">Load Prospecting Batch</button>
+        <div id="prospect-list"><div class="prospect-empty">Select a hub and load a Fintech SaaS batch (5–50 employees).</div></div>
+        <textarea id="pitch-preview-pane" readonly placeholder="Select a prospect to generate BigInt-grounded outreach copy…"></textarea>
+        <div class="harvest-actions">
+          <button type="button" id="harvest-positive" class="harvest-btn" disabled>Harvest Signal (+)</button>
+          <button type="button" id="harvest-negative" class="harvest-btn" disabled>Harvest Signal (−)</button>
+        </div>
+        <div id="market-status"></div>
       </div>
     </section>
     <section id="chat-panel">
-      <div id="active-label">Active: Auto-Routing</div>
+      <div id="chat-header">
+        <div id="active-label">Active: Auto-Routing</div>
+        <button type="button" id="master-purge-btn" title="Bot D — clears session threads">Master Purge (Bot D)</button>
+      </div>
       <div id="chat-window"></div>
-      <form id="query-form">
-        <textarea id="user-prompt" placeholder="Ask the board…" rows="2"></textarea>
-        <button type="submit" id="submit-btn">Query</button>
-      </form>
-      <div id="status"></div>
+      <div id="chat-compose">
+        <form id="query-form">
+          <textarea id="user-prompt" placeholder="Ask the board…" rows="2"></textarea>
+          <button type="submit" id="submit-btn">Query</button>
+        </form>
+        <div id="status"></div>
+      </div>
     </section>
     <section>
       <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Product Matrix</p>
@@ -270,9 +757,58 @@ function renderDashboard(): string {
     var activeAgentRole = 'Auto-Routing';
     var historiesByAgent = {};
     var streamingText = '';
+    var streamingGrounding = null;
+    var streamingToolHint = '';
+    var isStreamingActive = false;
     var cachedSpeechVoices = [];
     var VOICE_SPEED_KEY = 'ironboard_voice_speed';
     var VOICE_PITCH_KEY = 'ironboard_voice_pitch';
+    var CHAT_HISTORY_KEY = 'ironboard_chat_history';
+
+    function persistChatHistory() {
+      try {
+        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(historiesByAgent));
+      } catch (err) {
+        console.warn('[IRONBOARD] Chat history persist failed:', err);
+      }
+    }
+
+    function hydrateChatHistory() {
+      try {
+        var raw = localStorage.getItem(CHAT_HISTORY_KEY);
+        if (!raw) return;
+        var parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          historiesByAgent = parsed;
+        }
+      } catch (err) {
+        console.warn('[IRONBOARD] Chat history hydrate failed:', err);
+      }
+    }
+
+    function purgeChatSession() {
+      historiesByAgent = {};
+      streamingText = '';
+      streamingGrounding = null;
+      streamingToolHint = '';
+      isStreamingActive = false;
+      try {
+        localStorage.removeItem(CHAT_HISTORY_KEY);
+      } catch (err) {
+        console.warn('[IRONBOARD] Chat history purge failed:', err);
+      }
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      renderChat();
+      scrollChatToBottom();
+      setStatus('Master Purge complete — session threads cleared.');
+    }
+
+    function isMasterPurgeCommand(text) {
+      var normalized = String(text || '').trim().toLowerCase();
+      return normalized === 'master purge' ||
+        normalized === 'bot d purge' ||
+        normalized.indexOf('master purge') === 0;
+    }
 
     function hydrateVoiceSettings() {
       var speedInput = document.getElementById('voice-speed-slider');
@@ -418,6 +954,9 @@ function renderDashboard(): string {
       activeAgentRole = btn.getAttribute('data-role') || 'Auto-Routing';
       document.getElementById('active-label').textContent = 'Active: ' + activeAgentRole;
       streamingText = '';
+      streamingGrounding = null;
+      streamingToolHint = '';
+      isStreamingActive = false;
       renderChat();
     });
 
@@ -442,7 +981,262 @@ function renderDashboard(): string {
 
     function scrollChatToBottom() {
       var chatWindow = document.getElementById('chat-window');
-      if (chatWindow) chatWindow.scrollTop = chatWindow.scrollHeight;
+      if (!chatWindow) return;
+      function pinBottom() {
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+      }
+      pinBottom();
+      requestAnimationFrame(function() {
+        pinBottom();
+        requestAnimationFrame(function() {
+          pinBottom();
+          setTimeout(pinBottom, 0);
+        });
+      });
+    }
+
+    function bindCenterPaneAutoScroll() {
+      var chatWindow = document.getElementById('chat-window');
+      if (!chatWindow || chatWindow.dataset.scrollBound === '1') return;
+      chatWindow.dataset.scrollBound = '1';
+      new MutationObserver(function() {
+        scrollChatToBottom();
+      }).observe(chatWindow, { childList: true, subtree: true, characterData: true });
+    }
+
+    function updateStreamingBubble() {
+      var chatWindow = document.getElementById('chat-window');
+      if (!chatWindow) return;
+      var body = chatWindow.querySelector('.msg-streaming .streaming-body');
+      if (body) {
+        body.textContent = streamingText;
+        scrollChatToBottom();
+        return;
+      }
+      renderChat();
+    }
+
+    bindCenterPaneAutoScroll();
+
+    var activeHubRegion = 'London';
+    var selectedProspectDomain = '';
+    var selectedProspectId = '';
+    var loadedProspects = [];
+
+    function getActiveHubPayload() {
+      return activeHubRegion === 'Singapore' ? 'SINGAPORE' : 'LONDON';
+    }
+
+    function setMarketStatus(msg) {
+      var el = document.getElementById('market-status');
+      if (el) el.textContent = msg || '';
+    }
+
+    function icpScoreFor(prospect) {
+      if (!prospect) return 0;
+      if (prospect.icpScore != null) return prospect.icpScore;
+      if (prospect.aiFitnessScore != null) return prospect.aiFitnessScore;
+      return 0;
+    }
+
+    function renderProspectList(prospects) {
+      loadedProspects = prospects || [];
+      var listEl = document.getElementById('prospect-list');
+      if (!listEl) return;
+      if (!loadedProspects.length) {
+        listEl.innerHTML = '<div class="prospect-empty">No qualified targets (score ≥ 100). Load a prospecting batch.</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < loadedProspects.length; i++) {
+        var p = loadedProspects[i];
+        var selected = p.domain === selectedProspectDomain ? ' selected' : '';
+        var funding = (p.recentFunding || 'NONE').toUpperCase();
+        var hireTag = p.hasComplianceJob ? 'GRC hire' : 'no GRC hire';
+        var score = icpScoreFor(p);
+        html +=
+          '<div class="prospect-row' + selected + '" data-domain="' + escapeHtml(p.domain) + '" data-prospect-id="' + escapeHtml(p.id) + '">' +
+          '<div><div class="firm-name">' + escapeHtml(p.companyName) + '</div>' +
+          '<div class="firm-meta">' + escapeHtml(p.region) + ' · ' + p.employeeCount + ' emp · ' +
+          escapeHtml(p.compliancePressure) + ' · ' + escapeHtml(funding) + ' · ' + hireTag + ' · ' +
+          escapeHtml(p.dealStage) + '</div></div>' +
+          '<span class="score-pill" data-score="' + score + '" title="icpScore">' + score + '</span></div>';
+      }
+      listEl.innerHTML = html;
+    }
+
+    function updateHarvestButtons() {
+      var pos = document.getElementById('harvest-positive');
+      var neg = document.getElementById('harvest-negative');
+      var enabled = !!selectedProspectDomain;
+      if (pos) pos.disabled = !enabled;
+      if (neg) neg.disabled = !enabled;
+    }
+
+    async function loadProspectingBatch() {
+      var btn = document.getElementById('fetch-batch-btn');
+      if (btn) btn.disabled = true;
+      selectedProspectDomain = '';
+      selectedProspectId = '';
+      loadedProspects = [];
+      updateHarvestButtons();
+      setMarketStatus('Fetching ' + activeHubRegion + ' batch…');
+      try {
+        var response = await fetch('/api/prospects/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ region: activeHubRegion })
+        });
+        if (!response.ok) throw new Error('Batch fetch failed: ' + response.status);
+        var data = await response.json();
+        renderProspectList(data.prospects || []);
+        setMarketStatus('Loaded ' + (data.prospects || []).length + ' qualified Fintech targets · ' + activeHubRegion);
+      } catch (err) {
+        console.error(err);
+        setMarketStatus(err && err.message ? err.message : 'Batch load failed.');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function selectProspect(domain, prospectId) {
+      selectedProspectDomain = domain;
+      selectedProspectId = prospectId || '';
+      updateHarvestButtons();
+      var rows = document.querySelectorAll('.prospect-row');
+      rows.forEach(function(row) {
+        row.classList.toggle('selected', row.getAttribute('data-domain') === domain);
+      });
+      var pitchPane = document.getElementById('pitch-preview-pane');
+      if (pitchPane) pitchPane.value = 'Generating grounded outreach…';
+      setMarketStatus('Staging pitch for ' + domain + '…');
+      try {
+        var response = await fetch('/api/market/pitch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ domain: domain })
+        });
+        if (!response.ok) {
+          var errBody = await response.json().catch(function() { return {}; });
+          throw new Error(errBody.error || ('Pitch failed: ' + response.status));
+        }
+        var data = await response.json();
+        if (pitchPane) pitchPane.value = data.pitch || '';
+        setMarketStatus('Pitch staged · BigInt precision + ' + (data.compliancePressure || 'GRC') + ' guard');
+      } catch (err) {
+        console.error(err);
+        if (pitchPane) pitchPane.value = '';
+        setMarketStatus(err && err.message ? err.message : 'Pitch generation failed.');
+      }
+    }
+
+    async function harvestSignal(isPositive) {
+      if (!selectedProspectDomain) return;
+      var pos = document.getElementById('harvest-positive');
+      var neg = document.getElementById('harvest-negative');
+      if (pos) pos.disabled = true;
+      if (neg) neg.disabled = true;
+      setMarketStatus('Harvesting signal for ' + selectedProspectDomain + '…');
+      try {
+        var response = await fetch('/api/prospects/signal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            domain: selectedProspectDomain,
+            responseText: (document.getElementById('pitch-preview-pane') || {}).value || '',
+            isPositive: isPositive
+          })
+        });
+        if (!response.ok) throw new Error('Harvest failed: ' + response.status);
+        var data = await response.json();
+        var nextScore = data.icpScore != null ? data.icpScore : (data.aiFitnessScore != null ? data.aiFitnessScore : 0);
+
+        for (var h = 0; h < loadedProspects.length; h++) {
+          if (loadedProspects[h].domain === selectedProspectDomain) {
+            loadedProspects[h].icpScore = nextScore;
+            loadedProspects[h].aiFitnessScore = nextScore;
+            if (data.newStatus) loadedProspects[h].dealStage = data.newStatus;
+            break;
+          }
+        }
+        renderProspectList(loadedProspects);
+
+        var history = getConversationHistory();
+        history.push({
+          role: 'model',
+          text: '[Flywheel] ' + selectedProspectDomain + ' → ' + data.newStatus +
+            ' · icpScore=' + nextScore + ' (' + (isPositive ? '+25' : '−25') + ')'
+        });
+        persistChatHistory();
+        renderChat();
+        scrollChatToBottom();
+
+        setMarketStatus('Signal harvested · ' + data.newStatus + ' · score ' + nextScore);
+      } catch (err) {
+        console.error(err);
+        setMarketStatus(err && err.message ? err.message : 'Harvest failed.');
+      } finally {
+        updateHarvestButtons();
+      }
+    }
+
+    document.getElementById('hub-london').addEventListener('click', function() {
+      activeHubRegion = 'London';
+      document.querySelectorAll('.hub-toggle').forEach(function(b) { b.classList.remove('active'); });
+      document.getElementById('hub-london').classList.add('active');
+      loadProspectingBatch();
+    });
+
+    document.getElementById('hub-singapore').addEventListener('click', function() {
+      activeHubRegion = 'Singapore';
+      document.querySelectorAll('.hub-toggle').forEach(function(b) { b.classList.remove('active'); });
+      document.getElementById('hub-singapore').classList.add('active');
+      loadProspectingBatch();
+    });
+
+    document.getElementById('fetch-batch-btn').addEventListener('click', loadProspectingBatch);
+
+    document.getElementById('prospect-list').addEventListener('click', function(ev) {
+      var row = ev.target.closest('.prospect-row');
+      if (!row) return;
+      var domain = row.getAttribute('data-domain');
+      var prospectId = row.getAttribute('data-prospect-id');
+      if (domain) selectProspect(domain, prospectId);
+    });
+
+    document.getElementById('harvest-positive').addEventListener('click', function() {
+      harvestSignal(true);
+    });
+
+    document.getElementById('harvest-negative').addEventListener('click', function() {
+      harvestSignal(false);
+    });
+
+    function renderGroundingPanel(grounding) {
+      if (!grounding) return '';
+      var html = '';
+      if (grounding.webSearchQueries && grounding.webSearchQueries.length) {
+        html += '<div class="grounding-queries"><span class="grounding-label">Web search</span>';
+        for (var q = 0; q < grounding.webSearchQueries.length; q++) {
+          html += '<span class="grounding-query">' + escapeHtml(grounding.webSearchQueries[q]) + '</span>';
+        }
+        html += '</div>';
+      }
+      if (grounding.sources && grounding.sources.length) {
+        html += '<div class="grounding-sources"><span class="grounding-label">Sources</span><ul>';
+        for (var s = 0; s < grounding.sources.length; s++) {
+          var source = grounding.sources[s];
+          var label = source.title || source.domain || source.uri || 'Source';
+          if (source.uri) {
+            html += '<li><a href="' + escapeHtml(source.uri) + '" target="_blank" rel="noopener noreferrer">' +
+              escapeHtml(label) + '</a></li>';
+          } else {
+            html += '<li>' + escapeHtml(label) + '</li>';
+          }
+        }
+        html += '</ul></div>';
+      }
+      return html ? '<div class="grounding-panel">' + html + '</div>' : '';
     }
 
     function renderChat() {
@@ -460,17 +1254,23 @@ function renderDashboard(): string {
         } else {
           parts.push(
             '<div class="msg-model"><div class="msg-model-label">' + escapeHtml(activeAgentRole) + '</div>' +
-            escapeHtml(turn.text) + '</div>'
+            escapeHtml(turn.text) +
+            renderGroundingPanel(turn.grounding) +
+            '</div>'
           );
         }
       }
-      if (streamingText) {
+      if (isStreamingActive || streamingText || streamingGrounding || streamingToolHint) {
         parts.push(
           '<div class="msg-model msg-streaming"><div class="msg-model-label">' + escapeHtml(activeAgentRole) + '</div>' +
-          escapeHtml(streamingText) + '</div>'
+          '<div class="streaming-body">' + escapeHtml(streamingText) + '</div>' +
+          (streamingToolHint ? '<div class="tool-call-hint">' + escapeHtml(streamingToolHint) + '</div>' : '') +
+          renderGroundingPanel(streamingGrounding) +
+          '</div>'
         );
       }
-      chatWindow.innerHTML = parts.join('');
+      parts.push('<div class="chat-scroll-anchor" aria-hidden="true"></div>');
+      chatWindow.innerHTML = '<div id="chat-messages">' + parts.join('') + '</div>';
       scrollChatToBottom();
     }
 
@@ -480,6 +1280,23 @@ function renderDashboard(): string {
 
     function pushToken(token) {
       streamingText += token;
+      updateStreamingBubble();
+    }
+
+    function flushStreamingBuffer() {
+      streamingText = '';
+      streamingToolHint = '';
+      if (!isStreamingActive) return;
+      var chatWindow = document.getElementById('chat-window');
+      if (!chatWindow) return;
+      var body = chatWindow.querySelector('.msg-streaming .streaming-body');
+      if (body) {
+        body.textContent = '';
+        var hint = chatWindow.querySelector('.msg-streaming .tool-call-hint');
+        if (hint) hint.remove();
+        scrollChatToBottom();
+        return;
+      }
       renderChat();
     }
 
@@ -493,13 +1310,36 @@ function renderDashboard(): string {
         if (!jsonStr) continue;
         try {
           var payload = JSON.parse(jsonStr);
+          if (payload && payload.streamFlush) {
+            flushStreamingBuffer();
+            continue;
+          }
           if (payload && typeof payload.token === 'string') pushToken(payload.token);
+          if (payload && payload.grounding) {
+            streamingGrounding = payload.grounding;
+            renderChat();
+          }
+          if (payload && payload.toolCall) {
+            var tc = payload.toolCall;
+            if (tc.status === 'running') {
+              streamingToolHint = 'Querying local workspace (' + String(tc.queryType || tc.name || 'tool') + ')…';
+            } else if (tc.status === 'complete') {
+              streamingToolHint = tc.ok === false
+                ? 'Workspace query returned an error — continuing with available context…'
+                : 'Workspace data loaded — synthesizing strategy…';
+            }
+            renderChat();
+          }
         } catch (err) {
           console.error('SSE parse error:', err);
         }
       }
       return remainder;
     }
+
+    document.getElementById('master-purge-btn').addEventListener('click', function() {
+      purgeChatSession();
+    });
 
     document.getElementById('user-prompt').addEventListener('keydown', function(ev) {
       if (ev.key === 'Enter' && !ev.shiftKey) {
@@ -515,11 +1355,21 @@ function renderDashboard(): string {
       var query = input.value.trim();
       if (!query) return;
 
+      if (isMasterPurgeCommand(query)) {
+        input.value = '';
+        purgeChatSession();
+        return;
+      }
+
       if (window.speechSynthesis) window.speechSynthesis.cancel();
       streamingText = '';
+      streamingGrounding = null;
+      streamingToolHint = '';
+      isStreamingActive = true;
 
       var conversationHistory = getConversationHistory();
       conversationHistory.push({ role: 'user', text: query });
+      persistChatHistory();
       renderChat();
 
       submitBtn.disabled = true;
@@ -529,7 +1379,12 @@ function renderDashboard(): string {
         var response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-          body: JSON.stringify({ agentId: activeAgentId, history: conversationHistory })
+          body: JSON.stringify({
+            agentId: activeAgentId,
+            history: conversationHistory,
+            activeHub: getActiveHubPayload(),
+            selectedProspectId: selectedProspectId || null
+          })
         });
 
         if (!response.ok || !response.body) {
@@ -553,10 +1408,17 @@ function renderDashboard(): string {
 
         var assistantReply = streamingText;
         if (assistantReply) {
-          conversationHistory.push({ role: 'model', text: assistantReply });
+          var modelTurn = { role: 'model', text: assistantReply };
+          if (streamingGrounding) modelTurn.grounding = streamingGrounding;
+          conversationHistory.push(modelTurn);
+          persistChatHistory();
         }
         streamingText = '';
+        streamingGrounding = null;
+        streamingToolHint = '';
+        isStreamingActive = false;
         renderChat();
+        scrollChatToBottom();
 
         setStatus('Complete.');
         input.value = '';
@@ -564,12 +1426,20 @@ function renderDashboard(): string {
       } catch (err) {
         console.error(err);
         streamingText = '';
+        streamingGrounding = null;
+        streamingToolHint = '';
+        isStreamingActive = false;
         renderChat();
+        scrollChatToBottom();
         setStatus(err && err.message ? err.message : 'Stream failed.');
       } finally {
         submitBtn.disabled = false;
       }
     });
+
+    hydrateChatHistory();
+    renderChat();
+    scrollChatToBottom();
   </script>
 </body>
 </html>`;
@@ -616,9 +1486,9 @@ app.post('/api/query', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  let clientClosed = false;
+  let abort = { closed: false };
   res.on('close', () => {
-    clientClosed = true;
+    abort.closed = true;
   });
 
   if (canonical) {
@@ -636,24 +1506,51 @@ app.post('/api/query', async (req, res) => {
 
   try {
     const leader = pickLeader(agentId, query);
+    const activeHub = String(req.body?.activeHub ?? '').trim();
+    const selectedProspectId = String(req.body?.selectedProspectId ?? '').trim();
+    let flywheelContext: string | null = null;
+    try {
+      flywheelContext = await buildFlywheelWorkspaceContext(activeHub, selectedProspectId || undefined);
+    } catch (flywheelErr) {
+      console.warn('[IRONBOARD FLYWHEEL CONTEXT]', flywheelErr);
+    }
+
     const ai = new GoogleGenAI({ apiKey: key });
-    const stream = await ai.models.generateContentStream({
-      model: getIronboardGeminiModel(),
-      contents: mapHistoryToGeminiContents(history),
-      config: {
-        systemInstruction: buildSystemInstruction(leader),
-        temperature: 0,
-        topP: 0,
-        tools: [{ googleSearch: {} }],
-      },
+    const model = getIronboardGeminiModel();
+    const forceWorkspaceTool = shouldForceWorkspaceTool(query);
+
+    const { prefetchedExchange, systemEnrichment } = await prefetchBoardroomGroundTruth({
+      ai,
+      model,
+      query,
+      activeHub,
+      res,
     });
 
-    for await (const chunk of stream) {
-      if (clientClosed || res.writableEnded) break;
-      const chunkText = chunk.text ?? '';
-      if (!chunkText) continue;
-      writeSseToken(res, chunkText);
-    }
+    const systemInstruction = [
+      buildSystemInstruction(leader, flywheelContext),
+      systemEnrichment,
+      prefetchedExchange.length
+        ? 'The queryLocalWorkspace tool has ALREADY executed — its functionResponse is in the conversation history above. Synthesize from that data. Never claim tools or live data are unavailable.'
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    const streamConfig = buildBoardroomStreamConfig(model, systemInstruction, {
+      forceWorkspaceTool: forceWorkspaceTool && prefetchedExchange.length === 0,
+    });
+
+    await runBoardroomToolStream({
+      ai,
+      res,
+      abort,
+      model,
+      history,
+      config: streamConfig,
+      forceWorkspaceTool: forceWorkspaceTool && prefetchedExchange.length === 0,
+      prefetchedExchange,
+    });
   } catch (err) {
     console.error('[IRONBOARD STREAM]', err);
     if (!res.writableEnded) {
@@ -661,6 +1558,119 @@ app.post('/api/query', async (req, res) => {
     }
   } finally {
     if (!res.writableEnded) res.end();
+  }
+});
+
+const MARKET_HUBS = new Set(['London', 'Singapore']);
+
+app.get('/api/prospects', async (req, res) => {
+  const region = String(req.query.region ?? '').trim();
+  try {
+    const prospects = region && MARKET_HUBS.has(region)
+      ? await listProspects(region)
+      : await listProspects();
+    res.json({ prospects });
+  } catch (err) {
+    console.error('[IRONBOARD PROSPECTS LIST]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Prospect query failed' });
+  }
+});
+
+app.post('/api/prospects/trigger', async (req, res) => {
+  const region = String(req.body?.region ?? '').trim();
+  const account = req.body?.account;
+  try {
+    const prospects = await triggerProspectIngest({
+      region: region || undefined,
+      account: account && typeof account === 'object' ? account : undefined,
+    });
+    res.json({ region: region || account?.region || null, prospects });
+  } catch (err) {
+    console.error('[IRONBOARD PROSPECTS TRIGGER]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Prospect trigger failed' });
+  }
+});
+
+app.post('/api/prospects/signal', async (req, res) => {
+  const domain = String(req.body?.domain ?? '').trim();
+  const responseText = String(req.body?.responseText ?? '');
+  const isPositive = Boolean(req.body?.isPositive);
+  if (!domain) {
+    res.status(400).json({ error: 'domain is required' });
+    return;
+  }
+  try {
+    const result = await harvestInteractionSignal(domain, responseText, isPositive);
+    res.json(result);
+  } catch (err) {
+    console.error('[IRONBOARD PROSPECTS SIGNAL]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Signal harvest failed' });
+  }
+});
+
+/** Legacy aliases — dashboard pitch pane still uses /api/market/pitch */
+app.get('/api/market/prospects', async (req, res) => {
+  const region = String(req.query.region ?? '').trim();
+  try {
+    const prospects = region && MARKET_HUBS.has(region)
+      ? await listProspects(region)
+      : await listProspects();
+    res.json({ prospects });
+  } catch (err) {
+    console.error('[IRONBOARD MARKET PROSPECTS]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Prospect query failed' });
+  }
+});
+
+app.post('/api/market/batch', async (req, res) => {
+  const region = String(req.body?.region ?? '').trim();
+  if (!MARKET_HUBS.has(region)) {
+    res.status(400).json({ error: 'region must be London or Singapore' });
+    return;
+  }
+  try {
+    const prospects = await fetchProspectingBatch(region as 'London' | 'Singapore');
+    res.json({ region, prospects });
+  } catch (err) {
+    console.error('[IRONBOARD MARKET BATCH]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Batch ingest failed' });
+  }
+});
+
+app.post('/api/market/pitch', async (req, res) => {
+  const domain = String(req.body?.domain ?? '').trim();
+  if (!domain) {
+    res.status(400).json({ error: 'domain is required' });
+    return;
+  }
+  try {
+    const pitch = await generateGroundedPitch(domain);
+    const prospect = await findProspectByDomain(domain);
+    res.json({
+      domain,
+      pitch,
+      compliancePressure: prospect?.compliancePressure ?? '',
+    });
+  } catch (err) {
+    console.error('[IRONBOARD MARKET PITCH]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Pitch generation failed' });
+  }
+});
+
+app.post('/api/market/harvest', async (req, res) => {
+  const domain = String(req.body?.domain ?? '').trim();
+  const responseText = String(req.body?.responseText ?? '');
+  const isPositive = Boolean(req.body?.isPositive);
+  if (!domain) {
+    res.status(400).json({ error: 'domain is required' });
+    return;
+  }
+  try {
+    const result = await harvestInteractionSignal(domain, responseText, isPositive);
+    res.json(result);
+  } catch (err) {
+    console.error('[IRONBOARD MARKET HARVEST]', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Signal harvest failed' });
   }
 });
 

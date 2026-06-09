@@ -8,6 +8,13 @@ import {
   AGENT_TELEMETRY_PULSE_MS,
   parseWorkforceAgentsFromTelemetryText,
 } from "@/app/utils/workforceTelemetryPulse";
+import {
+  AGENT_CHECKPOINT_FREEZE_MS,
+  runLocalizedDiagnosticAudit,
+  type LocalizedAuditResult,
+} from "@/app/utils/workforceAgentPillPipeline";
+import { safeAgentInspectEmission } from "@/app/utils/safeRuntimeEmission";
+import type { AgentPulseState } from "@/app/utils/workforceAgentState";
 import { dispatchIroncastNotificationFromStreamMessage } from "@/app/utils/ironcastNotificationBridge";
 
 const AGENT_KILL_STORAGE_PREFIX = "ironframe-agent-kills-v1:";
@@ -80,6 +87,37 @@ export type ThreatTelemetryEntry = {
 /** HUD flash when expert lifecycle emits AGENT_PIVOT (2s amber pulse on Active Risks card). */
 export type AgentPivotFlashState = { threatId: string; until: number } | null;
 
+export type AgentWorkforceRuntimeSnapshot = {
+  pulse: AgentPulseState;
+  checkpointFrozen: boolean;
+  telemetryActive: boolean;
+};
+
+export type AgentPillAnchorRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+export type AgentPillPopoverMode = "telemetry" | "behavior";
+
+export type AgentPillPopoverState = {
+  mode: AgentPillPopoverMode;
+  agentId: string;
+  anchorRect: AgentPillAnchorRect;
+  runtime: AgentWorkforceRuntimeSnapshot;
+};
+
+/** Double-click audit — opens the portaled right-hand slide-out. */
+export type AgentInspectPayload = {
+  agentId: string;
+  runtime: AgentWorkforceRuntimeSnapshot;
+};
+
+/** @deprecated Use AgentInspectPayload */
+export type AgentThreeWindowInspectPayload = AgentInspectPayload;
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   /** Constitutional 19-agent fleet — increments when a threat card is resolved (tenant-scoped persistence). */
@@ -104,12 +142,24 @@ type AgentStore = {
   agentPivotFlash: AgentPivotFlashState;
   /** Real-time telemetry pulse — agent name → epoch ms when emerald indicator expires. */
   agentTelemetryPulseUntil: Record<string, number>;
+  /** Per-agent LangGraph checkpoint freeze — agent name → epoch ms when freeze lifts. */
+  agentCheckpointFrozenUntil: Record<string, number>;
   flashAgentPivot: (threatId: string, durationMs?: number) => void;
   clearAgentPivotFlash: () => void;
   setAgentStatus: (agent: AgentKey, status: AgentStatus) => void;
   /** Metadata drawer focus — single-click agent row in left-pane pulse list. */
   activeAgentId: string | null;
   setActiveAgentId: (agentId: string | null) => void;
+  /** Double-click audit — behavior slide-out rail (portaled to document.body). */
+  activeAgentInspectId: string | null;
+  agentInspectRuntime: AgentWorkforceRuntimeSnapshot | null;
+  agentInspectAudit: LocalizedAuditResult | null;
+  dispatchAgentInspect: (payload: AgentInspectPayload) => LocalizedAuditResult;
+  closeAgentInspectPanel: () => void;
+  /** Left/right-click sticky popover anchored above the pill. */
+  agentPillPopover: AgentPillPopoverState | null;
+  openAgentPillPopover: (next: AgentPillPopoverState) => void;
+  closeAgentPillPopover: () => void;
   addStreamMessage: (msg: string) => void;
   addActiveThreat: (threat: PipelineThreat) => void;
   setInitialThreats: (newThreats: PipelineThreat[]) => PipelineThreat[];
@@ -129,6 +179,10 @@ type AgentStore = {
   /** Flash roster indicators from Audit Intelligence / DMZ terminal actor tags. */
   pulseAgentsFromTelemetry: (agentNames: readonly string[], threadId?: string) => void;
   pulseAgentsFromTelemetryText: (text: string, threadId?: string) => void;
+  /** Double-click PULSE-002 — clear cached telemetry pulses and DMZ terminal scratch. */
+  flushAgentTelemetryCache: () => void;
+  /** Double-click agent pill — freeze roster node and sync checkpoint band. */
+  freezeAgentCheckpointSync: (agentName: string) => void;
   runSentinelSweep: (instruction: string) => void;
   /** Master purge: intelligence stream, ingestion lines, DMZ telemetry scratch — back to cold-boot baseline. */
   resetAgentStreamsForPurge: () => void;
@@ -174,6 +228,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   systemLatencyMs: null,
   agentPivotFlash: null,
   agentTelemetryPulseUntil: {},
+  agentCheckpointFrozenUntil: {},
   flashAgentPivot: (threatId, durationMs = 2000) => {
     if (typeof window === "undefined") return;
     const tid = threatId.trim();
@@ -197,6 +252,33 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     })),
   activeAgentId: null,
   setActiveAgentId: (agentId) => set({ activeAgentId: agentId }),
+  activeAgentInspectId: null,
+  agentInspectRuntime: null,
+  agentInspectAudit: null,
+  dispatchAgentInspect: (payload) =>
+    safeAgentInspectEmission(() => {
+      const agentId = payload.agentId.trim();
+      const audit = runLocalizedDiagnosticAudit(agentId, get().addStreamMessage);
+      get().pulseAgentsFromTelemetry([agentId]);
+      set({
+        activeAgentInspectId: agentId,
+        activeAgentId: agentId,
+        agentInspectRuntime: payload.runtime,
+        agentInspectAudit: audit,
+        agentPillPopover: null,
+      });
+      return audit;
+    }),
+  closeAgentInspectPanel: () => set({ activeAgentInspectId: null }),
+  agentPillPopover: null,
+  openAgentPillPopover: (next) =>
+    set((state) => {
+      const same =
+        state.agentPillPopover?.agentId === next.agentId &&
+        state.agentPillPopover?.mode === next.mode;
+      return { agentPillPopover: same ? null : next, activeAgentInspectId: null };
+    }),
+  closeAgentPillPopover: () => set({ agentPillPopover: null }),
   addStreamMessage: (msg) => {
     const trimmed = msg.trim();
     if (trimmed) {
@@ -339,6 +421,36 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     if (agents.length === 0) return;
     get().pulseAgentsFromTelemetry(agents, threadId);
   },
+  flushAgentTelemetryCache: () =>
+    set({
+      agentTelemetryPulseUntil: {},
+      threatTelemetry: {},
+      riskIngestionTerminalLines: [],
+      activeAgentInspectId: null,
+      agentInspectRuntime: null,
+      agentInspectAudit: null,
+      agentPillPopover: null,
+    }),
+  freezeAgentCheckpointSync: (agentName) => {
+    const name = agentName.trim();
+    if (!name) return;
+    const until = Date.now() + AGENT_CHECKPOINT_FREEZE_MS;
+    get().pulseAgentsFromTelemetry([name]);
+    set((state) => ({
+      activeAgentId: name,
+      agentCheckpointFrozenUntil: { ...state.agentCheckpointFrozenUntil, [name]: until },
+    }));
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        set((state) => {
+          if (state.agentCheckpointFrozenUntil[name] !== until) return state;
+          const next = { ...state.agentCheckpointFrozenUntil };
+          delete next[name];
+          return { agentCheckpointFrozenUntil: next };
+        });
+      }, AGENT_CHECKPOINT_FREEZE_MS);
+    }
+  },
   runSentinelSweep: (instruction: string) => {
     const now = new Date().toLocaleTimeString();
     const systemMsg = `> [SYSTEM] (${now}) Initializing Sentinel Sweep...`;
@@ -373,6 +485,12 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       threatTelemetry: {},
       agentPivotFlash: null,
       agentTelemetryPulseUntil: {},
+      agentCheckpointFrozenUntil: {},
+      activeAgentInspectId: null,
+      agentInspectRuntime: null,
+      agentInspectAudit: null,
+      agentPillPopover: null,
+      activeAgentId: null,
       ironwaveTelemetry: {
         phase: "ASSIGNED",
         tenantUuid: null,

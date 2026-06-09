@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Megaphone, Radio, ShieldCheck } from "lucide-react";
 import {
@@ -43,13 +43,14 @@ import {
   getAgentState,
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
-import {
-  navigateToAgentDiagnostics,
-  openAgentMetaSpecification,
-  pushAgentTelemetryIsolationToast,
-} from "@/app/utils/controlRoomAgentInteractions";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import AgentStatusPulseList from "@/app/components/grc/AgentStatusPulseList";
+import AgentStatusPulse from "@/app/components/grc/AgentStatusPulse";
+import AgentLogs from "@/app/components/panes/AgentLogs";
+import { isBenignRuntimeEmissionError, safeRuntimeAsyncEmission } from "@/app/utils/safeRuntimeEmission";
+
+/** Delay single-click overlay toggle so double-click flush does not flip panel state. */
+const PULSE_OVERLAY_TOGGLE_GATE_MS = 200;
 
 export type { AgentPulseState };
 export { getAgentState };
@@ -122,7 +123,40 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const activeThreats = useRiskStore((s) => s.activeThreats);
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
   const agentTelemetryPulseUntil = useAgentStore((s) => s.agentTelemetryPulseUntil);
+  const flushAgentTelemetryCache = useAgentStore((s) => s.flushAgentTelemetryCache);
+  const addStreamMessage = useAgentStore((s) => s.addStreamMessage);
   const [telemetryPulseTick, setTelemetryPulseTick] = useState(0);
+  const [workforceOverlayOpen, setWorkforceOverlayOpen] = useState(false);
+  const [agentLogInspectorOpen, setAgentLogInspectorOpen] = useState(false);
+  const clickTimeoutRef = useRef<number | null>(null);
+
+  const handlePulseSingleClick = useCallback(() => {
+    if (clickTimeoutRef.current != null) {
+      window.clearTimeout(clickTimeoutRef.current);
+    }
+    clickTimeoutRef.current = window.setTimeout(() => {
+      clickTimeoutRef.current = null;
+      setWorkforceOverlayOpen((open) => !open);
+    }, PULSE_OVERLAY_TOGGLE_GATE_MS);
+  }, []);
+
+  const handlePulseDoubleClick = useCallback(() => {
+    if (clickTimeoutRef.current != null) {
+      window.clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+    flushAgentTelemetryCache();
+    setTelemetryPulseTick((t) => t + 1);
+    addStreamMessage("> [PULSE-002] Telemetry cache flush — roster pulses and DMZ scratch cleared.");
+  }, [addStreamMessage, flushAgentTelemetryCache]);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current != null) {
+        window.clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const cisoBreachSignalActive = useMemo(
     () => isCisoBreachAttestationPendingInSets(pipelineThreats, activeThreats),
@@ -163,8 +197,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchNotificationAuditSummary().then((s) => {
-      if (!cancelled) setAuditSummary(s);
+    void safeRuntimeAsyncEmission(() => fetchNotificationAuditSummary(), null).then((s) => {
+      if (!cancelled && s) setAuditSummary(s);
     });
     return () => {
       cancelled = true;
@@ -185,7 +219,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       const stale = now - last.at >= 5000;
       if (!threatChanged && !stale) return;
       lastLogDiveFetchRef.current = { at: now, threatId: tid };
-      void getIrontechActiveLogDive().then((on) => {
+      void safeRuntimeAsyncEmission(() => getIrontechActiveLogDive(), false).then((on) => {
         if (cancelled) return;
         setLogDive((prev) => (prev === on ? prev : on));
       });
@@ -202,8 +236,14 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     let cancelled = false;
     const load = async () => {
       const [eligibility, pending] = await Promise.all([
-        getThreatResolutionReviewEligibility(),
-        listPendingThreatResolutions(),
+        safeRuntimeAsyncEmission(
+          () => getThreatResolutionReviewEligibility(),
+          { eligible: false },
+        ),
+        safeRuntimeAsyncEmission(
+          () => listPendingThreatResolutions(),
+          { ok: false as const, error: "", items: [] },
+        ),
       ]);
       if (cancelled) return;
       setReviewEligible(eligibility.eligible);
@@ -212,7 +252,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         setReviewError(null);
       } else {
         setPendingApprovals([]);
-        setReviewError(pending.error);
+        setReviewError(pending.error && !isBenignRuntimeEmissionError(pending.error) ? pending.error : null);
       }
     };
     void load();
@@ -223,7 +263,10 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    void getMetaAuditConsoleAccess().then((res) => {
+    void safeRuntimeAsyncEmission(
+      () => getMetaAuditConsoleAccess(),
+      { canAccess: false, tenantId: null },
+    ).then((res) => {
       if (cancelled) return;
       setMetaAuditAccess(res.canAccess);
       setMetaAuditTenantId(res.tenantId);
@@ -599,27 +642,95 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       <div className="mt-2 max-w-md">
         <ConfigChangeWidget refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`} />
       </div>
-      <div className="relative mt-3">
-        <div className="absolute right-2 top-2 z-10">
-          <ContextualHelpTrigger
-            featureId="grc-002"
-            title="19-Agent Workforce Monitor"
-            location="Stretched across the middle tier of your center canvas layout grid."
-            purpose="Monitors specialized background automation agents as they actively police the platform for compliance threats."
-            steps={[
-              "Scan the roster list to verify individual agent statuses (e.g., Green 'ACTIVE' flags).",
-              "Click directly on any individual agent row (like Ironlock or Ironguard).",
-              "Watch the custom GRC Meta Drawer slide open from the right side of the screen to read their background directives.",
-            ]}
-          />
+      <AgentStatusPulseList
+        combinedThreats={combinedThreats}
+        agentTelemetryPulseUntil={agentTelemetryPulseUntil}
+        irongateClaimFlash={irongateClaimFlash}
+        formattedResubscribeTime={formattedResubscribeTime}
+        headerActions={
+          <>
+            <AgentStatusPulse
+              onSingleClick={handlePulseSingleClick}
+              onDoubleClick={handlePulseDoubleClick}
+              onRightClick={() => setAgentLogInspectorOpen(true)}
+            />
+            <ContextualHelpTrigger
+              featureId="grc-002"
+              title="19-Agent Workforce Monitor"
+              location="Stretched across the middle tier of your center canvas layout grid."
+              purpose="Monitors specialized background automation agents as they actively police the platform for compliance threats."
+              steps={[
+                "Scan the roster list to verify individual agent statuses (e.g., Green 'ACTIVE' flags).",
+                "Click directly on any individual agent row (like Ironlock or Ironguard).",
+                "Watch the custom GRC Meta Drawer slide open from the right side of the screen to read their background directives.",
+              ]}
+            />
+          </>
+        }
+      />
+      {workforceOverlayOpen ? (
+        <div
+          className="fixed inset-0 z-[180] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-label="19-agent workforce status overlay"
+          onClick={() => setWorkforceOverlayOpen(false)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded border border-zinc-700 bg-zinc-950 p-3 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">
+                19-Agent Workforce Overlay
+              </p>
+              <button
+                type="button"
+                onClick={() => setWorkforceOverlayOpen(false)}
+                className="rounded border border-zinc-700 px-2 py-0.5 text-[8px] font-black uppercase text-zinc-400 hover:border-zinc-500"
+              >
+                Close
+              </button>
+            </div>
+            <AgentStatusPulseList
+              combinedThreats={combinedThreats}
+              agentTelemetryPulseUntil={agentTelemetryPulseUntil}
+              irongateClaimFlash={irongateClaimFlash}
+              formattedResubscribeTime={formattedResubscribeTime}
+            />
+          </div>
         </div>
-        <AgentStatusPulseList
-          combinedThreats={combinedThreats}
-          agentTelemetryPulseUntil={agentTelemetryPulseUntil}
-          irongateClaimFlash={irongateClaimFlash}
-          formattedResubscribeTime={formattedResubscribeTime}
-        />
-      </div>
+      ) : null}
+      {agentLogInspectorOpen ? (
+        <div
+          className="fixed inset-y-0 right-0 z-[190] flex w-full max-w-md flex-col border-l border-zinc-700 bg-zinc-950 shadow-2xl"
+          role="dialog"
+          aria-label="Agent Log Inspector"
+        >
+          <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-teal-400">
+              Agent Log Inspector
+            </p>
+            <button
+              type="button"
+              onClick={() => setAgentLogInspectorOpen(false)}
+              className="rounded border border-zinc-700 px-2 py-0.5 text-[8px] font-black uppercase text-zinc-400 hover:border-zinc-500"
+            >
+              Close
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <AgentLogs
+              feed={intelligenceStream.slice(0, 40).map((line, index) => ({
+                id: index,
+                type: /fail|error|alert/i.test(line) ? "error" : /pass|verified|complete/i.test(line) ? "success" : "info",
+                agent: "Workforce",
+                message: line,
+                time: new Date().toLocaleTimeString(),
+              }))}
+            />
+          </div>
+        </div>
+      ) : null}
       <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">

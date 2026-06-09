@@ -11,6 +11,7 @@ import {
   computeLedgerCarbonAleCents,
   formatAleCentsUsd,
 } from "@/app/utils/sustainabilityLedgerAle";
+import { isBenignRuntimeEmissionError } from "@/app/utils/safeRuntimeEmission";
 
 type ChatLogEntry = {
   id: string;
@@ -47,6 +48,7 @@ export default function SustainabilityAnalyticsPlane({
       const data = await getSustainabilityAnalyticsPlaneData();
       setPlaneData(data);
     } catch (e) {
+      if (isBenignRuntimeEmissionError(e)) return;
       setError(e instanceof Error ? e.message : "Failed to load sustainability analytics.");
     } finally {
       setLoading(false);

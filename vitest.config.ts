@@ -15,6 +15,7 @@ export default defineConfig({
       'tests/e2e/**',
       '__tests__/**',
       'tests/perf/**',
+      'Ironboard/**',
     ],
     testTimeout: 20_000,
     coverage: {

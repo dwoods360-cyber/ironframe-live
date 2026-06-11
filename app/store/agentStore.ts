@@ -150,6 +150,8 @@ type AgentStore = {
   threatTelemetry: Record<string, ThreatTelemetryEntry | undefined>;
   /** System latency in ms (e.g. from DB query); used for High Load warning when GRCBOT at 100 companies */
   systemLatencyMs: number | null;
+  /** Epoch ms when instrumented agent entered PROCESSING (showcase stuck-strain detection). */
+  agentProcessingSince: Partial<Record<AgentKey, number>>;
   /** Expert strategic pivot — drives amber border + overlay on matching ThreatCard until `until` epoch. */
   agentPivotFlash: AgentPivotFlashState;
   /** Real-time telemetry pulse — agent name → epoch ms when emerald indicator expires. */
@@ -243,6 +245,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
   threatTelemetry: {},
   systemLatencyMs: null,
+  agentProcessingSince: {},
   agentPivotFlash: null,
   agentTelemetryPulseUntil: {},
   agentCheckpointFrozenUntil: {},
@@ -261,12 +264,21 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   },
   clearAgentPivotFlash: () => set({ agentPivotFlash: null }),
   setAgentStatus: (agent, status) =>
-    set((state) => ({
-      agents: {
-        ...state.agents,
-        [agent]: { status },
-      },
-    })),
+    set((state) => {
+      const agentProcessingSince = { ...state.agentProcessingSince };
+      if (status === "PROCESSING") {
+        agentProcessingSince[agent] = agentProcessingSince[agent] ?? Date.now();
+      } else {
+        delete agentProcessingSince[agent];
+      }
+      return {
+        agents: {
+          ...state.agents,
+          [agent]: { status },
+        },
+        agentProcessingSince,
+      };
+    }),
   activeAgentId: null,
   setActiveAgentId: (agentId) => set({ activeAgentId: agentId }),
   activeAgentInspectId: null,
@@ -474,35 +486,30 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     const trimmed = instruction.trim();
     if (!trimmed) return;
 
-    set((state) => ({
-      agents: {
-        ...state.agents,
-        ironsight: { status: "PROCESSING" },
-      },
+    get().setAgentStatus("ironsight", "PROCESSING");
+    set({
       sentinelSweepSession: {
         instruction: trimmed,
         items: [],
         phase: "running",
         error: null,
       },
-    }));
+    });
 
     void (async () => {
       const { runSentinelSweepReadinessAction } = await import("@/app/actions/sentinelSweepActions");
       const result = await runSentinelSweepReadinessAction(trimmed);
       if (!result.ok) {
-        set((state) => ({
-          agents: {
-            ...state.agents,
-            ironsight: { status: "HEALTHY" },
-          },
+        get().setAgentStatus("ironsight", "HEALTHY");
+        useAgentRiskStore.getState().setShowcaseExecutionStrain(8, true);
+        set({
           sentinelSweepSession: {
             instruction: trimmed,
             items: [],
             phase: "error",
             error: result.error,
           },
-        }));
+        });
         get().addStreamMessage(
           formatAgentIntelLine("AGENT-14", "IRONGATE", `[REJECTED] ${result.error}`),
         );
@@ -510,18 +517,16 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       }
 
       const passCount = result.items.filter((i) => i.status === "PASS").length;
-      set((state) => ({
-        agents: {
-          ...state.agents,
-          ironsight: { status: "HEALTHY" },
-        },
+      get().setAgentStatus("ironsight", "HEALTHY");
+      useAgentRiskStore.getState().setShowcaseExecutionStrain(8, false);
+      set({
         sentinelSweepSession: {
           instruction: trimmed,
           items: result.items,
           phase: "complete",
           error: null,
         },
-      }));
+      });
       get().addStreamMessage(
         formatAgentIntelLine(
           "AGENT-08",
@@ -545,6 +550,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       }
       return {
         systemLatencyMs: null,
+        agentProcessingSince: {},
         agentTelemetryPulseUntil: nextPulse,
         agentCheckpointFrozenUntil: nextFrozen,
         agents: {
@@ -577,6 +583,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         lockedUntil: 0,
       },
       systemLatencyMs: null,
+      agentProcessingSince: {},
       agents: {
         ironsight: { status: "HEALTHY" },
         coreintel: { status: "HEALTHY" },

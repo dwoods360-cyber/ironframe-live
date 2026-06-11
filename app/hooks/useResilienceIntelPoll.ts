@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef } from "react";
 
 import { useAgentStore } from "@/app/store/agentStore";
+import { useAgentRiskStore } from "@/app/store/agentRiskStore";
 
 import { useRiskStore } from "@/app/store/riskStore";
 
@@ -64,7 +65,11 @@ export function useResilienceIntelPoll() {
           showSimulationRef.current,
         );
 
-        if (isSimulationFetchAborted(signal) || rows.length === 0) return;
+        if (isSimulationFetchAborted(signal)) return;
+
+        useAgentRiskStore.getState().setShowcaseExecutionStrain(11, false);
+
+        if (rows.length === 0) return;
 
         const add = useAgentStore.getState().addStreamMessage;
 
@@ -79,9 +84,8 @@ export function useResilienceIntelPoll() {
       } catch (error) {
 
         if (!isSimulationFetchAborted(signal, error)) {
-
+          useAgentRiskStore.getState().setShowcaseExecutionStrain(11, true);
           console.warn("[Ironintel] resilience poll interrupted", error);
-
         }
 
       }

@@ -26,6 +26,7 @@ import { useComplianceOverlayStore } from "@/app/store/complianceOverlayStore";
 import { useSimulationConfigStore } from "@/app/store/simulationConfigStore";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useAgentStore } from "@/app/store/agentStore";
+import { useAgentRiskStore } from "@/app/store/agentRiskStore";
 import NotificationEndpointsModal from "@/app/components/NotificationEndpointsModal";
 import ConfigChangeWidget from "@/app/components/ConfigChangeWidget";
 import type { NotificationAuditSummary } from "@/app/utils/notificationAuditSummary";
@@ -295,10 +296,12 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         if (isSimulationFetchAborted(signal)) return;
         setReviewEligible(eligibility.eligible);
         if (pending.aborted) return;
+        const setShowcaseStrain = useAgentRiskStore.getState().setShowcaseExecutionStrain;
         if (pending.ok) {
           setPendingApprovals(pending.items);
           setReviewQueueTenantId(pending.tenantId);
           setReviewError(null);
+          setShowcaseStrain(8, false);
         } else {
           const benignAbort =
             pending.aborted ||
@@ -308,12 +311,16 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             setPendingApprovals([]);
             setReviewQueueTenantId(null);
             setReviewError(pending.error);
+            setShowcaseStrain(8, true);
+          } else if (!pending.aborted) {
+            setShowcaseStrain(8, false);
           }
         }
       } catch (error) {
         if (isSimulationFetchAborted(signal, error)) return;
         if (!isBenignRuntimeEmissionError(error)) {
           setReviewError(error instanceof Error ? error.message : "Review queue unavailable.");
+          useAgentRiskStore.getState().setShowcaseExecutionStrain(8, true);
         }
       } finally {
         if (!signal.aborted) setReviewQueueLoading(false);

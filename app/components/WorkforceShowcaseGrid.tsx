@@ -144,6 +144,10 @@ export default function WorkforceShowcaseGrid({ tenantUuid }: WorkforceShowcaseG
   const systemLatencyMs = useAgentStore((s) => s.systemLatencyMs);
   const setTelemetryTenantScope = useAgentStore((s) => s.setTelemetryTenantScope);
   const agentRiskByIndex = useAgentRiskStore((s) => s.byIndex);
+  const executionStrainByIndex = useAgentRiskStore((s) => s.executionStrainByIndex);
+  const instrumentedAgents = useAgentStore((s) => s.agents);
+  const agentProcessingSince = useAgentStore((s) => s.agentProcessingSince);
+  const [strainClock, setStrainClock] = useState(0);
   const isKimbotActive = useKimbotStore((s) => s.enabled);
   const isGrcbotActive = useGrcBotStore((s) => s.enabled);
   const grcBotCompanyCount = useGrcBotStore((s) => s.companyCount);
@@ -156,6 +160,11 @@ export default function WorkforceShowcaseGrid({ tenantUuid }: WorkforceShowcaseG
     setTelemetryTenantScope(tenantUuid);
   }, [tenantUuid, setTelemetryTenantScope]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => setStrainClock((t) => t + 1), 3000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const agents = useMemo(
     () =>
       buildShowcaseAgentTelemetry({
@@ -166,10 +175,14 @@ export default function WorkforceShowcaseGrid({ tenantUuid }: WorkforceShowcaseG
         intelligenceStream,
         agentTelemetryPulseUntil,
         agentRiskByIndex,
+        executionStrainByIndex,
+        agentProcessingSince,
+        instrumentedAgentStatus: instrumentedAgents,
         systemLatencyMs,
         isKimbotActive,
         isGrcbotActive,
         grcBotCompanyCount,
+        nowMs: Date.now(),
       }),
     [
       tenantUuid,
@@ -179,10 +192,14 @@ export default function WorkforceShowcaseGrid({ tenantUuid }: WorkforceShowcaseG
       intelligenceStream,
       agentTelemetryPulseUntil,
       agentRiskByIndex,
+      executionStrainByIndex,
+      agentProcessingSince,
+      instrumentedAgents,
       systemLatencyMs,
       isKimbotActive,
       isGrcbotActive,
       grcBotCompanyCount,
+      strainClock,
     ],
   );
 

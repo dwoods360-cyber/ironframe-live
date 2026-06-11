@@ -58,6 +58,9 @@ type AgentRiskState = {
   resetForTenantScopeChange: () => void;
   /** Simulation nav — clear Agent 11 (Ironintel) BURDENED strain without tenant-wide reset. */
   flushBurdenedExecutionBuffers: () => void;
+  /** Presentation-only: poll failures / stuck PROCESSING for showcase Agents 01, 08, 11. */
+  executionStrainByIndex: Record<number, boolean>;
+  setShowcaseExecutionStrain: (agentIndex: number, strained: boolean) => void;
 };
 
 /** Spotlight roster indices that surface BURDENED in the left-rail showcase. */
@@ -69,6 +72,23 @@ export const useAgentRiskStore = create<AgentRiskState>((set) => ({
   ironlockGlobalStateFreeze: false,
   quarantineHardBanActive: false,
   lastUpdatedAt: null,
+  executionStrainByIndex: {},
+  setShowcaseExecutionStrain: (agentIndex, strained) =>
+    set((state) => {
+      const idx = Math.trunc(agentIndex);
+      if (!SHOWCASE_BURDEN_INDICES.includes(idx as (typeof SHOWCASE_BURDEN_INDICES)[number])) {
+        return state;
+      }
+      const cur = state.executionStrainByIndex[idx] === true;
+      if (cur === strained) return state;
+      const executionStrainByIndex = { ...state.executionStrainByIndex };
+      if (strained) {
+        executionStrainByIndex[idx] = true;
+      } else {
+        delete executionStrainByIndex[idx];
+      }
+      return { executionStrainByIndex, lastUpdatedAt: Date.now() };
+    }),
   setIronwatchSnapshot: (payload) =>
     set((state) => {
       const pruned = pruneAckSetForRecoveredAgents(payload.byIndex, new Set(state.anomalyAcknowledgedIndices));
@@ -103,6 +123,7 @@ export const useAgentRiskStore = create<AgentRiskState>((set) => ({
       anomalyAcknowledgedIndices: new Set(),
       ironlockGlobalStateFreeze: false,
       quarantineHardBanActive: false,
+      executionStrainByIndex: {},
       lastUpdatedAt: null,
     }),
   flushBurdenedExecutionBuffers: () =>
@@ -119,6 +140,13 @@ export const useAgentRiskStore = create<AgentRiskState>((set) => ({
         };
         changed = true;
       }
+      const executionStrainByIndex = { ...state.executionStrainByIndex };
+      for (const idx of SHOWCASE_BURDEN_INDICES) {
+        if (executionStrainByIndex[idx]) {
+          delete executionStrainByIndex[idx];
+          changed = true;
+        }
+      }
       if (!changed) return state;
       const nextAck = new Set(state.anomalyAcknowledgedIndices);
       for (const idx of SHOWCASE_BURDEN_INDICES) {
@@ -126,6 +154,7 @@ export const useAgentRiskStore = create<AgentRiskState>((set) => ({
       }
       return {
         byIndex,
+        executionStrainByIndex,
         anomalyAcknowledgedIndices: nextAck,
         lastUpdatedAt: Date.now(),
       };

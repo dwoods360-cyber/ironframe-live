@@ -1,3 +1,4 @@
+import type { AgentKey, AgentStatus } from "@/app/store/agentStore";
 import type { AgentRiskLevel } from "@/app/store/agentRiskStore";
 import type { PipelineThreat } from "@/app/store/riskStore";
 import {
@@ -44,9 +45,31 @@ export const SHOWCASE_WORKFORCE_AGENTS: readonly ShowcaseAgentDef[] = [
   },
 ] as const;
 
-const QUEUE_LAG_MS_BURDENED = 350;
-const EPS_HIGH_THROUGHPUT = 0.45;
+/**
+ * Presentation-layer workforce badges only — no ledger / BigInt baseline mutation.
+ * Ironwatch may still oscillate in `agentRiskStore`; showcase status uses quiet production bands.
+ */
+/** Severe degradation only (Ironwatch score below 30) — ignores legacy medium tier at 40–71. */
+export const SHOWCASE_HEALTH_SCORE_BURDENED_BELOW = 30;
+/** Agent 01 queue lag — tolerates Prisma dev overhead before amber strain. */
+export const IRONCORE_QUEUE_LAG_MS_BURDENED = 800;
+/** Instrumented agent PROCESSING longer than this → showcase execution strain. */
+export const SHOWCASE_STUCK_PROCESSING_MS = 12_000;
+/** Min measured stream hits/sec before HIGH THROUGHPUT (real intelligence-stream traffic only). */
+export const SHOWCASE_EVENTS_PER_SEC_HIGH_THROUGHPUT = 0.45;
+
+const EPS_HIGH_THROUGHPUT = SHOWCASE_EVENTS_PER_SEC_HIGH_THROUGHPUT;
 const EPS_WINDOW_SEC = 6;
+const EPS_STREAM_WINDOW_LINES = 18;
+
+const SHOWCASE_PROCESSING_AGENT_KEY: Record<
+  ShowcaseAgentDef["name"],
+  AgentKey | null
+> = {
+  Ironcore: "agentManager",
+  Ironsight: "ironsight",
+  Ironintel: "coreintel",
+};
 
 export type ShowcaseAgentTelemetry = {
   index: number;
@@ -74,24 +97,30 @@ export function isShowcaseTelemetryTenantBound(
   return scope === active;
 }
 
-/** Estimate events/sec from newest intelligence-stream lines referencing the agent. */
+/** Map Ironwatch oscillator scores to quiet showcase risk labels (tooltip). */
+export function mapHealthScoreToShowcaseRiskLevel(healthScore: number | null): AgentRiskLevel {
+  if (healthScore == null) return "low";
+  if (healthScore < SHOWCASE_HEALTH_SCORE_BURDENED_BELOW) return "high";
+  return "low";
+}
+
+export function isShowcaseIronwatchSevereDegradation(healthScore: number | null): boolean {
+  return healthScore != null && healthScore < SHOWCASE_HEALTH_SCORE_BURDENED_BELOW;
+}
+
+/** Events/sec from intelligence-stream hits only — no pulse floors or demo multipliers. */
 export function estimateAgentEventsPerSec(
   intelligenceStream: readonly string[],
   agentName: string,
-  telemetryPulseActive: boolean,
 ): number {
-  const windowLines = intelligenceStream.slice(0, 18);
+  const windowLines = intelligenceStream.slice(0, EPS_STREAM_WINDOW_LINES);
   let hits = 0;
   for (const line of windowLines) {
     if (parseWorkforceAgentsFromTelemetryText(line).includes(agentName)) {
       hits += 1;
     }
   }
-  const base = hits / EPS_WINDOW_SEC;
-  if (telemetryPulseActive) {
-    return Math.max(base, 0.35);
-  }
-  return base;
+  return hits / EPS_WINDOW_SEC;
 }
 
 function agentSimulationSpike(
@@ -120,28 +149,60 @@ function agentSimulationSpike(
   return false;
 }
 
+export function isShowcaseAgentStuckProcessing(input: {
+  agentName: ShowcaseAgentDef["name"];
+  agentStatus: AgentStatus;
+  agentProcessingSince: Partial<Record<AgentKey, number>>;
+  nowMs: number;
+}): boolean {
+  const key = SHOWCASE_PROCESSING_AGENT_KEY[input.agentName];
+  if (!key || input.agentStatus !== "PROCESSING") return false;
+  const since = input.agentProcessingSince[key];
+  if (typeof since !== "number") return false;
+  return input.nowMs - since >= SHOWCASE_STUCK_PROCESSING_MS;
+}
+
+export function resolveShowcaseExecutionStrain(input: {
+  agentIndex: number;
+  agentName: ShowcaseAgentDef["name"];
+  agentStatus: AgentStatus;
+  executionStrainByIndex: Record<number, boolean>;
+  agentProcessingSince: Partial<Record<AgentKey, number>>;
+  nowMs: number;
+}): boolean {
+  if (input.executionStrainByIndex[input.agentIndex] === true) return true;
+  return isShowcaseAgentStuckProcessing({
+    agentName: input.agentName,
+    agentStatus: input.agentStatus,
+    agentProcessingSince: input.agentProcessingSince,
+    nowMs: input.nowMs,
+  });
+}
+
 export function computeShowcaseAgentStatus(input: {
   agentName: ShowcaseAgentDef["name"];
   pulse: AgentPulseState;
-  riskLevel: AgentRiskLevel;
+  healthScore: number | null;
   systemLatencyMs: number | null;
   eventsPerSec: number;
   simulationSpike: boolean;
   telemetryActive: boolean;
+  executionStrain: boolean;
 }): WorkforceShowcaseStatus {
+  const measuredStreamLoad = input.eventsPerSec >= EPS_HIGH_THROUGHPUT;
   const highThroughput =
-    input.simulationSpike ||
-    input.pulse === "ACTIVE" ||
-    (input.telemetryActive && input.eventsPerSec >= EPS_HIGH_THROUGHPUT) ||
-    (input.pulse === "TELEMETRY" && input.eventsPerSec >= 0.3);
+    input.simulationSpike || input.pulse === "ACTIVE" || measuredStreamLoad;
 
   if (highThroughput) return "HIGH THROUGHPUT";
 
+  const ironwatchHighRisk = isShowcaseIronwatchSevereDegradation(input.healthScore);
+
   const burdened =
-    input.riskLevel === "medium" ||
-    input.riskLevel === "high" ||
+    input.executionStrain ||
     input.pulse === "ALERT" ||
-    (input.agentName === "Ironcore" && (input.systemLatencyMs ?? 0) > QUEUE_LAG_MS_BURDENED);
+    ironwatchHighRisk ||
+    (input.agentName === "Ironcore" &&
+      (input.systemLatencyMs ?? 0) > IRONCORE_QUEUE_LAG_MS_BURDENED);
 
   if (burdened) return "BURDENED";
 
@@ -183,6 +244,15 @@ export function statusSurface(status: WorkforceShowcaseStatus): {
   }
 }
 
+const SHOWCASE_INSTRUMENTED_STATUS: Record<
+  ShowcaseAgentDef["name"],
+  AgentKey
+> = {
+  Ironcore: "agentManager",
+  Ironsight: "ironsight",
+  Ironintel: "coreintel",
+};
+
 export function buildShowcaseAgentTelemetry(input: {
   activeTenantUuid: string | null | undefined;
   telemetryTenantScope: string | null | undefined;
@@ -191,6 +261,9 @@ export function buildShowcaseAgentTelemetry(input: {
   intelligenceStream: readonly string[];
   agentTelemetryPulseUntil: Record<string, number>;
   agentRiskByIndex: Record<number, { healthScore: number; riskLevel: AgentRiskLevel }>;
+  executionStrainByIndex: Record<number, boolean>;
+  agentProcessingSince: Partial<Record<AgentKey, number>>;
+  instrumentedAgentStatus: Record<AgentKey, { status: AgentStatus }>;
   systemLatencyMs: number | null;
   isKimbotActive: boolean;
   isGrcbotActive: boolean;
@@ -213,7 +286,7 @@ export function buildShowcaseAgentTelemetry(input: {
     const risk = input.agentRiskByIndex[agent.index];
     const telemetryActive = (input.agentTelemetryPulseUntil[agent.name] ?? 0) > now;
     const eventsPerSec = tenantBound
-      ? estimateAgentEventsPerSec(input.intelligenceStream, agent.name, telemetryActive)
+      ? estimateAgentEventsPerSec(input.intelligenceStream, agent.name)
       : 0;
     const simulationSpike = tenantBound
       ? agentSimulationSpike(agent.name, combinedThreats, {
@@ -223,15 +296,27 @@ export function buildShowcaseAgentTelemetry(input: {
         })
       : false;
 
+    const instrumentedKey = SHOWCASE_INSTRUMENTED_STATUS[agent.name];
+    const agentStatus = input.instrumentedAgentStatus[instrumentedKey]?.status ?? "HEALTHY";
+    const executionStrain = resolveShowcaseExecutionStrain({
+      agentIndex: agent.index,
+      agentName: agent.name,
+      agentStatus,
+      executionStrainByIndex: input.executionStrainByIndex,
+      agentProcessingSince: input.agentProcessingSince,
+      nowMs: now,
+    });
+
     const status = tenantBound
       ? computeShowcaseAgentStatus({
           agentName: agent.name,
           pulse,
-          riskLevel: risk?.riskLevel ?? "low",
+          healthScore: risk?.healthScore ?? null,
           systemLatencyMs: input.systemLatencyMs,
           eventsPerSec,
           simulationSpike,
           telemetryActive,
+          executionStrain,
         })
       : "HEALTHY";
 
@@ -244,7 +329,7 @@ export function buildShowcaseAgentTelemetry(input: {
       status,
       eventsPerSec,
       healthScore: risk?.healthScore ?? null,
-      riskLevel: risk?.riskLevel ?? "low",
+      riskLevel: mapHealthScoreToShowcaseRiskLevel(risk?.healthScore ?? null),
       pulse,
       telemetryActive,
       tenantBound,

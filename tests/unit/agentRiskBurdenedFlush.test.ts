@@ -8,6 +8,7 @@ describe("agentRiskStore.flushBurdenedExecutionBuffers", () => {
         11: { healthScore: 42, riskLevel: "high" },
         8: { healthScore: 55, riskLevel: "medium" },
       },
+      executionStrainByIndex: { 8: true, 11: true },
       anomalyAcknowledgedIndices: new Set([11]),
       ironlockGlobalStateFreeze: false,
       quarantineHardBanActive: false,
@@ -21,5 +22,7 @@ describe("agentRiskStore.flushBurdenedExecutionBuffers", () => {
     expect(snap.byIndex[11]?.riskLevel).toBe("low");
     expect(snap.byIndex[8]?.riskLevel).toBe("low");
     expect(snap.anomalyAcknowledgedIndices.has(11)).toBe(false);
+    expect(snap.executionStrainByIndex[8]).toBeUndefined();
+    expect(snap.executionStrainByIndex[11]).toBeUndefined();
   });
 });

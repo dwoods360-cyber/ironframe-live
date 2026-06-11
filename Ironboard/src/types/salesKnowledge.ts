@@ -7,6 +7,9 @@ export const SALES_METHODOLOGY_IDS = [
   'gap_selling',
   'sales_acceleration_formula',
   'never_split_the_difference',
+  'influence_persuasion',
+  'sales_machine',
+  'sales_enablement_board',
 ] as const;
 
 export type SalesMethodologyId = (typeof SALES_METHODOLOGY_IDS)[number];
@@ -47,10 +50,43 @@ export type ChallengerProfile = {
 export type SalesAccelerationProfile = {
   readonly hiringProfile: readonly string[];
   readonly trainingCadence: readonly string[];
+  readonly managingCadence: readonly string[];
+  /** Forecast and quota templates — whole-cent integers only, never floats. */
+  readonly forecastingInCents: readonly string[];
   readonly leadingIndicators: readonly string[];
   readonly laggingIndicators: readonly string[];
   readonly inboundOutboundAlignment: readonly string[];
   readonly playbookAdherenceChecks: readonly string[];
+};
+
+/** Influence — Cialdini six principles as outreach validation triggers. */
+export type InfluencePersuasionProfile = {
+  readonly reciprocity: readonly string[];
+  readonly commitmentConsistency: readonly string[];
+  readonly socialProof: readonly string[];
+  readonly authority: readonly string[];
+  readonly liking: readonly string[];
+  readonly scarcity: readonly string[];
+};
+
+/** The Sales Machine — Dream 100 and focused time execution. */
+export type SalesMachineProfile = {
+  readonly dream100Targets: readonly string[];
+  readonly timeBlockPlan: readonly string[];
+  readonly stadiumPitch: readonly string[];
+  readonly buyerPersonas: readonly string[];
+  readonly touchCadence: readonly string[];
+  readonly pipelineHygiene: readonly string[];
+};
+
+/** Sales Enablement: A Board-Level Perspective — governance-aligned ops. */
+export type SalesEnablementBoardProfile = {
+  readonly boardGovernanceHooks: readonly string[];
+  readonly enablementOpsMetrics: readonly string[];
+  readonly revenueCommitteeAlignment: readonly string[];
+  readonly crossFunctionalAlignment: readonly string[];
+  readonly auditTrailRequirements: readonly string[];
+  readonly forecastGovernanceInCents: readonly string[];
 };
 
 /** Never Split the Difference — tactical negotiation behaviors. */
@@ -68,7 +104,10 @@ export type MethodologyMatrix =
   | GapAnalysisProfile
   | ChallengerProfile
   | SalesAccelerationProfile
-  | TacticalNegotiationProfile;
+  | TacticalNegotiationProfile
+  | InfluencePersuasionProfile
+  | SalesMachineProfile
+  | SalesEnablementBoardProfile;
 
 export type PlaybookValidationRule = {
   readonly id: string;
@@ -148,7 +187,23 @@ export function isChallengerProfile(matrix: MethodologyMatrix): matrix is Challe
 export function isSalesAccelerationProfile(
   matrix: MethodologyMatrix,
 ): matrix is SalesAccelerationProfile {
-  return 'leadingIndicators' in matrix && 'laggingIndicators' in matrix;
+  return 'hiringProfile' in matrix && 'forecastingInCents' in matrix;
+}
+
+export function isInfluencePersuasionProfile(
+  matrix: MethodologyMatrix,
+): matrix is InfluencePersuasionProfile {
+  return 'reciprocity' in matrix && 'scarcity' in matrix && 'socialProof' in matrix;
+}
+
+export function isSalesMachineProfile(matrix: MethodologyMatrix): matrix is SalesMachineProfile {
+  return 'dream100Targets' in matrix && 'timeBlockPlan' in matrix;
+}
+
+export function isSalesEnablementBoardProfile(
+  matrix: MethodologyMatrix,
+): matrix is SalesEnablementBoardProfile {
+  return 'boardGovernanceHooks' in matrix && 'forecastGovernanceInCents' in matrix;
 }
 
 export function isTacticalNegotiationProfile(

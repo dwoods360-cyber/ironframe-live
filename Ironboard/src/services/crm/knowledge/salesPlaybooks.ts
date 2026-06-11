@@ -2,7 +2,10 @@ import type { LeadStage } from '../../../types/crm.js';
 import type {
   ChallengerProfile,
   GapAnalysisProfile,
+  InfluencePersuasionProfile,
   SalesAccelerationProfile,
+  SalesEnablementBoardProfile,
+  SalesMachineProfile,
   SalesMethodologyId,
   SalesPlaybookBlueprint,
   SpinMatrix,
@@ -21,6 +24,8 @@ const STAGE_ALL: readonly LeadStage[] = [
   'CLOSED_LOST',
 ];
 
+const STAGE_PROSPECT: readonly LeadStage[] = ['PROSPECT', 'QUALIFIED'];
+const STAGE_EXEC: readonly LeadStage[] = ['QUALIFIED', 'DISCOVERY', 'PROPOSAL', 'NEGOTIATION', 'CLOSED_WON'];
 const STAGE_DISCOVERY: readonly LeadStage[] = ['QUALIFIED', 'DISCOVERY', 'PROPOSAL'];
 const STAGE_NEGOTIATION: readonly LeadStage[] = ['PROPOSAL', 'NEGOTIATION', 'CLOSED_WON'];
 
@@ -122,10 +127,22 @@ const ACCELERATION_MATRIX: SalesAccelerationProfile = {
   hiringProfile: [
     'Coachability score and methodology aptitude over tenure alone.',
     'Demonstrated use of diagnostic questioning in mock discovery.',
+    'Ramp quota expectations tied to validated playbook pass rate.',
   ],
   trainingCadence: [
     'Weekly SPIN matrix reviews on live deals.',
     'Monthly Challenger insight workshop with win/loss forensics.',
+    'Certify reps on CRM tool invocation (tenantId + cents fields).',
+  ],
+  managingCadence: [
+    'Daily pipeline inspection on stage movement with blocker tags.',
+    'Weekly 1:1 on leading indicators, not lagging excuses.',
+    'Escalate deals failing methodology validation before stage advance.',
+  ],
+  forecastingInCents: [
+    'Forecast commit in whole-cent BIGINT — no float dollar fields.',
+    'Stage-weighted pipeline rollup excludes CLOSED_LOST.',
+    'Variance vs prior commit recorded as signed cent delta only.',
   ],
   leadingIndicators: [
     'Qualified meetings booked per rep per week.',
@@ -144,6 +161,7 @@ const ACCELERATION_MATRIX: SalesAccelerationProfile = {
   playbookAdherenceChecks: [
     'Every DISCOVERY call maps to ≥3 SPIN sections filled.',
     'PROPOSAL stage requires Gap metrics documented in cents impact.',
+    'Hiring, training, managing, and forecasting pillars reviewed each commit cycle.',
   ],
 };
 
@@ -172,6 +190,91 @@ const NEGOTIATION_MATRIX: TacticalNegotiationProfile = {
   blackSwanSignals: [
     'Unspoken internal champion risk or re-org shadow.',
     'Hidden constraint on data residency or PKI ownership.',
+  ],
+};
+
+const INFLUENCE_MATRIX: InfluencePersuasionProfile = {
+  reciprocity: [
+    'Offer a tailored audit-readiness checklist before asking for meeting time.',
+    'Share anonymized benchmark data the buyer cannot easily obtain elsewhere.',
+  ],
+  commitmentConsistency: [
+    'Secure micro-commitments (diagnostic call, data share) before proposal.',
+    'Reference buyer-stated goals in follow-up to reinforce consistency.',
+  ],
+  socialProof: [
+    'Cite peer outcomes in same industry / region with tenant-isolated evidence.',
+    'Reference validated CRM wins with methodology scores attached.',
+  ],
+  authority: [
+    'Lead with board-agent credentials and WORM evidence posture.',
+    'Anchor claims to deterministic telemetry, not demo oscillators.',
+  ],
+  liking: [
+    'Mirror buyer vocabulary and role-specific priorities.',
+    'Acknowledge organizational constraints before pitching change.',
+  ],
+  scarcity: [
+    'Time-bound audit window or regulatory deadline (factual, not fabricated).',
+    'Capacity constraint on implementation cohort — verify before claiming.',
+  ],
+};
+
+const SALES_MACHINE_MATRIX: SalesMachineProfile = {
+  dream100Targets: [
+    'Identify top 100 accounts by strategic fit and cent-grade deal potential.',
+    'Rank by ICP score, compliance pressure, and executive access path.',
+    'Refresh Dream 100 quarterly — drop closed-lost stagnants.',
+  ],
+  timeBlockPlan: [
+    'Protect 2–3 hour daily blocks for Dream 100 outreach only.',
+    'Batch admin/CRM logging outside client-facing windows.',
+    'No feature demos during prospecting blocks — insight-first touches only.',
+  ],
+  stadiumPitch: [
+    '30-second hook: problem, gap, proof, ask.',
+    'Stadium pitch must reference tenant-scoped value, not generic GRC.',
+  ],
+  buyerPersonas: [
+    'Map economic buyer, technical buyer, and blocker per Dream 100 account.',
+    'Tailor stadium pitch variant per persona (CISO vs CFO vs GC).',
+  ],
+  touchCadence: [
+    'Minimum 8–12 multi-channel touches before disqualify.',
+    'Log every touch in CRM with channel + methodology validation score.',
+  ],
+  pipelineHygiene: [
+    'Remove deals with no interaction in 14 days from active forecast.',
+    'Dream 100 accounts must have next action dated within 5 business days.',
+  ],
+};
+
+const ENABLEMENT_BOARD_MATRIX: SalesEnablementBoardProfile = {
+  boardGovernanceHooks: [
+    'Align sales motion to board risk appetite and audit calendar.',
+    'Report pipeline health in same cadence as enterprise risk committee.',
+  ],
+  enablementOpsMetrics: [
+    'Playbook adoption rate by methodologyId.',
+    'Average validation score on outreach before send.',
+    'Rep ramp time to first qualified DISCOVERY stage.',
+  ],
+  revenueCommitteeAlignment: [
+    'Forecast commit matches CRM cents rollup per tenantId.',
+    'Escalate methodology violations as operational risk, not coaching trivia.',
+  ],
+  crossFunctionalAlignment: [
+    'Marketing SLAs on MQL → SAL handoff with tenant cookie binding.',
+    'Legal/security review gates mapped to PROPOSAL stage checklist.',
+  ],
+  auditTrailRequirements: [
+    'Every stage change retains interaction log + validation artifact.',
+    'Board agents must cite playbook id on strategic outreach drafts.',
+  ],
+  forecastGovernanceInCents: [
+    'Board forecast pack uses BIGINT cent fields only.',
+    'Explain variance vs prior quarter in cent delta with stage bridge.',
+    'No float conversions in enablement dashboards or agent tools.',
   ],
 };
 
@@ -278,6 +381,12 @@ export const SALES_PLAYBOOK_BLUEPRINTS: Readonly<Record<SalesMethodologyId, Sale
     matrix: ACCELERATION_MATRIX,
     validationRules: [
       {
+        id: 'acceleration-four-pillars',
+        description: 'Scaling review must cover hiring, training, managing, and cents-based forecasting.',
+        requiredFields: ['hiringProfile', 'trainingCadence', 'managingCadence', 'forecastingInCents'],
+        minFilledSections: 4,
+      },
+      {
         id: 'acceleration-metrics',
         description: 'Pipeline review must reference leading and lagging indicators.',
         requiredFields: ['leadingIndicators', 'laggingIndicators'],
@@ -322,6 +431,115 @@ export const SALES_PLAYBOOK_BLUEPRINTS: Readonly<Record<SalesMethodologyId, Sale
     stageGuidance: stageGuidance({
       NEGOTIATION: ['Lead with tactical empathy before counter-proposals.'],
       CLOSED_WON: ['Confirm implementation fears with calibrated follow-ups.'],
+    }),
+  },
+  influence_persuasion: {
+    '@context': CONTEXT,
+    '@type': 'SalesMethodology',
+    id: 'influence_persuasion',
+    title: 'Influence: The Psychology of Persuasion',
+    authors: ['Robert Cialdini'],
+    coreConcept:
+      'Six principles of influence — reciprocity, commitment, social proof, authority, liking, scarcity — as ethical outreach validation triggers.',
+    schemaVersion: '1.0.0',
+    applicableStages: STAGE_EXEC,
+    matrix: INFLUENCE_MATRIX,
+    validationRules: [
+      {
+        id: 'cialdini-six-principles',
+        description: 'Outreach strategy must activate at least four of six influence principles.',
+        requiredFields: [
+          'reciprocity',
+          'commitmentConsistency',
+          'socialProof',
+          'authority',
+          'liking',
+          'scarcity',
+        ],
+        minFilledSections: 4,
+      },
+    ],
+    outreachChecklist: [
+      'Lead with value (reciprocity) before the ask.',
+      'Anchor follow-ups to buyer-stated commitments.',
+      'Use peer proof and authority without exaggeration.',
+      'Scarcity claims must be factual and verifiable.',
+    ],
+    stageGuidance: stageGuidance({
+      PROSPECT: ['Reciprocity + social proof in first touch.'],
+      QUALIFIED: ['Commitment micro-yes before deep discovery.'],
+      PROPOSAL: ['Authority + scarcity tied to buyer timeline only.'],
+    }),
+  },
+  sales_machine: {
+    '@context': CONTEXT,
+    '@type': 'SalesMethodology',
+    id: 'sales_machine',
+    title: 'The Sales Machine',
+    authors: ['Chet Holmes'],
+    coreConcept:
+      'Focused time management and Dream 100 concentration — pursue fewer, higher-value targets with relentless cadence.',
+    schemaVersion: '1.0.0',
+    applicableStages: STAGE_PROSPECT,
+    matrix: SALES_MACHINE_MATRIX,
+    validationRules: [
+      {
+        id: 'dream100-focus',
+        description: 'Strategy must define Dream 100 targets and protected time blocks.',
+        requiredFields: ['dream100Targets', 'timeBlockPlan'],
+        minFilledSections: 2,
+      },
+      {
+        id: 'stadium-pitch-ready',
+        description: 'Outreach includes stadium pitch and persona mapping.',
+        requiredFields: ['stadiumPitch', 'buyerPersonas'],
+        minFilledSections: 2,
+      },
+    ],
+    outreachChecklist: [
+      'Account is on Dream 100 list or justify exception.',
+      'Next touch scheduled within 5 business days.',
+      'Stadium pitch tailored to persona — no generic blast.',
+    ],
+    stageGuidance: stageGuidance({
+      PROSPECT: ['Run Dream 100 prioritization before broad outbound.'],
+      QUALIFIED: ['Confirm account remains in top-100 tier or re-rank.'],
+    }),
+  },
+  sales_enablement_board: {
+    '@context': CONTEXT,
+    '@type': 'SalesMethodology',
+    id: 'sales_enablement_board',
+    title: 'Sales Enablement: A Board-Level Perspective',
+    authors: ['Mark Roberge'],
+    coreConcept:
+      'Align sales enablement operations with board governance — forecast discipline, audit trails, and cross-functional revenue accountability.',
+    schemaVersion: '1.0.0',
+    applicableStages: STAGE_ALL,
+    matrix: ENABLEMENT_BOARD_MATRIX,
+    validationRules: [
+      {
+        id: 'board-governance-alignment',
+        description: 'Enablement plan must tie to board hooks and revenue committee alignment.',
+        requiredFields: ['boardGovernanceHooks', 'revenueCommitteeAlignment'],
+        minFilledSections: 2,
+      },
+      {
+        id: 'forecast-cents-governance',
+        description: 'Forecast governance must reference whole-cent BIGINT templates.',
+        requiredFields: ['forecastGovernanceInCents'],
+        minFilledSections: 1,
+      },
+    ],
+    outreachChecklist: [
+      'Cite enablement ops metrics on strategic deals.',
+      'Ensure audit trail on stage changes and validations.',
+      'Forecast pack ready for board cadence in cents only.',
+    ],
+    stageGuidance: stageGuidance({
+      PROPOSAL: ['Cross-functional alignment checklist complete.'],
+      NEGOTIATION: ['Revenue committee variance explained in cent bridge.'],
+      CLOSED_WON: ['Enablement metrics captured for board retrospective.'],
     }),
   },
 };

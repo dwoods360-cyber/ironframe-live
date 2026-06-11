@@ -7,7 +7,11 @@ import type {
   SalesMethodologyId,
   SalesPlaybookBlueprint,
 } from '../../../types/salesKnowledge.js';
-import { isSalesMethodologyId } from '../../../types/salesKnowledge.js';
+import {
+  isInfluencePersuasionProfile,
+  isSalesMethodologyId,
+  isSalesAccelerationProfile,
+} from '../../../types/salesKnowledge.js';
 import { getSalesPlaybook, listSalesPlaybookSummaries } from './salesPlaybooks.js';
 
 type MatrixSection = {
@@ -61,6 +65,95 @@ function evaluateRules(
   return violations;
 }
 
+const CIALDINI_PRINCIPLES = [
+  'reciprocity',
+  'commitmentConsistency',
+  'socialProof',
+  'authority',
+  'liking',
+  'scarcity',
+] as const;
+
+const ACCELERATION_PILLARS = [
+  'hiringProfile',
+  'trainingCadence',
+  'managingCadence',
+  'forecastingInCents',
+] as const;
+
+/** Score outreach against Cialdini's six influence principles. */
+function validateCialdiniPrinciples(
+  filledSections: readonly string[],
+  responses: Readonly<Record<string, string>>,
+): { violations: string[]; principleScore: number } {
+  const filled = new Set(filledSections);
+  const violations: string[] = [];
+  let principleScore = 0;
+
+  for (const principle of CIALDINI_PRINCIPLES) {
+    if (filled.has(principle)) {
+      principleScore += 1;
+      const text = String(responses[principle] ?? '').toLowerCase();
+      if (principle === 'scarcity' && /guarantee|always available|unlimited/.test(text)) {
+        violations.push('scarcity: avoid fabricated urgency — use verifiable constraints only');
+      }
+    }
+  }
+
+  if (principleScore < 4) {
+    violations.push(
+      `cialdini-coverage: ${principleScore}/6 principles filled — activate at least four triggers`,
+    );
+  }
+
+  return { violations, principleScore };
+}
+
+/** Score strategy against Roberge Sales Acceleration hiring/training/managing/forecasting pillars. */
+function validateAccelerationScaling(
+  filledSections: readonly string[],
+  responses: Readonly<Record<string, string>>,
+): { violations: string[]; pillarScore: number } {
+  const filled = new Set(filledSections);
+  const violations: string[] = [];
+  let pillarScore = 0;
+
+  for (const pillar of ACCELERATION_PILLARS) {
+    if (filled.has(pillar)) pillarScore += 1;
+  }
+
+  if (pillarScore < 4) {
+    violations.push(
+      `acceleration-pillars: ${pillarScore}/4 pillars filled — cover hiring, training, managing, forecastingInCents`,
+    );
+  }
+
+  const forecastText = String(responses.forecastingInCents ?? '');
+  if (forecastText && /\d+\.\d{2}|\bfloat\b|\bdecimal\b/i.test(forecastText)) {
+    violations.push('forecastingInCents: monetary forecasts must use whole-cent BIGINT integers only');
+  }
+
+  return { violations, pillarScore };
+}
+
+function applyMethodologySpecificValidation(
+  methodologyId: SalesMethodologyId,
+  blueprint: SalesPlaybookBlueprint,
+  filledSections: readonly string[],
+  responses: Readonly<Record<string, string>>,
+): string[] {
+  if (methodologyId === 'influence_persuasion' && isInfluencePersuasionProfile(blueprint.matrix)) {
+    return validateCialdiniPrinciples(filledSections, responses).violations;
+  }
+  if (
+    methodologyId === 'sales_acceleration_formula' &&
+    isSalesAccelerationProfile(blueprint.matrix)
+  ) {
+    return validateAccelerationScaling(filledSections, responses).violations;
+  }
+  return [];
+}
+
 export function validateOutreachStrategy(
   draft: OutreachStrategyDraft,
 ): MethodologyValidationResult {
@@ -81,6 +174,14 @@ export function validateOutreachStrategy(
 
   const coverage = scoreMatrixCoverage(blueprint, draft.matrixResponses);
   violations.push(...evaluateRules(blueprint, coverage.filledSections));
+  violations.push(
+    ...applyMethodologySpecificValidation(
+      draft.methodologyId,
+      blueprint,
+      coverage.filledSections,
+      draft.matrixResponses,
+    ),
+  );
 
   const recommendations = [
     ...blueprint.outreachChecklist.filter(

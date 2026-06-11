@@ -1,5 +1,5 @@
 // Ironboard has a nested @prisma/client stub; use the repo-root generated client.
-import { PrismaClient } from '../../../node_modules/@prisma/client/index.js';
+import { PrismaClient } from '@prisma/client';
 import { loadIronboardEnv } from '../loadIronboardEnv.js';
 
 loadIronboardEnv();

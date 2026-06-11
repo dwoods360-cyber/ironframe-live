@@ -3,11 +3,23 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "rootDir": "src",
-    "jsx": "react-jsx"
+    "rootDir": "src"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "src/orchestrator.ts",
+    "src/state.ts",
+    "src/seed.ts",
+    "src/agents",
+    "src/boardRouter.ts",
+    "src/boardSynthesizer.ts",
+    "src/automation"
+  ]
 }

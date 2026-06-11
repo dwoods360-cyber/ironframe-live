@@ -11,7 +11,7 @@ import {
 export default function ThreatActionErrorToast() {
   const threatActionError = useRiskStore((s) => s.threatActionError);
   const setThreatActionError = useRiskStore((s) => s.setThreatActionError);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
 
   if (!threatActionError.active || !threatActionError.message) return null;
 

@@ -11,7 +11,7 @@ import {
 export default function RecordExpiredToast() {
   const recordExpiredToast = useRiskStore((s) => s.recordExpiredToast);
   const setRecordExpiredToast = useRiskStore((s) => s.setRecordExpiredToast);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
 
   if (!recordExpiredToast.active || recordExpiredToast.count <= 0) return null;
 

@@ -290,7 +290,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           runSimulationGuardedAsync(
             signal,
             () => fetchIronsightReviewQueue(signal, tenantScope),
-            { ok: false as const, error: "", items: [] as PendingThreatResolutionItem[], aborted: true },
+            { ok: false as const, error: "", items: [], aborted: true },
           ),
         ]);
         if (isSimulationFetchAborted(signal)) return;

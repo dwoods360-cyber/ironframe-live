@@ -16,9 +16,9 @@ import {
 const baseBuildInput = {
   activeTenantUuid: "tenant-a",
   telemetryTenantScope: "tenant-a",
-  activeThreats: [] as const,
-  pipelineThreats: [] as const,
-  intelligenceStream: [] as const,
+  activeThreats: [] as import("@/app/store/riskStore").PipelineThreat[],
+  pipelineThreats: [] as import("@/app/store/riskStore").PipelineThreat[],
+  intelligenceStream: [] as string[],
   agentTelemetryPulseUntil: {} as Record<string, number>,
   agentRiskByIndex: {} as Record<number, { healthScore: number; riskLevel: "low" | "medium" | "high" }>,
   executionStrainByIndex: {} as Record<number, boolean>,

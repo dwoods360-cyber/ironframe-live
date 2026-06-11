@@ -17,7 +17,7 @@ import {
  */
 export default function SimulationDispatchToast() {
   const [notice, setNotice] = useState<SimulationDispatchNoticeDetail | null>(null);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
 
   const dismiss = useCallback(() => setNotice(null), []);
 

@@ -23,7 +23,7 @@ export default function ClockDriftMonitor({ serverTimeEpochMs, className }: Cloc
   const [isMounted, setIsMounted] = useState(false);
   const [showDriftAlert, setShowDriftAlert] = useState(false);
   const [driftAbsMs, setDriftAbsMs] = useState(0);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const { dismissed, dismiss } = useClockDriftDismiss();
 
   useEffect(() => {

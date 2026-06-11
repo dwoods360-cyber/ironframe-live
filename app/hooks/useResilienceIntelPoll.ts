@@ -29,7 +29,7 @@ const POLL_MS = 2500;
 
 export function useResilienceIntelPoll() {
 
-  const expertModeEnabled = useSystemConfigStore((s) => s.expertModeEnabled);
+  const expertModeEnabled = useSystemConfigStore().expertModeEnabled;
 
   const resilienceStreamCursorRef = useRef<string>(new Date(Date.now() - 1000).toISOString());
 

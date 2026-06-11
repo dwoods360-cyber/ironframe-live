@@ -11,7 +11,7 @@ import {
 export default function LiabilityAlertToast() {
   const liabilityAlert = useRiskStore((s) => s.liabilityAlert);
   const setLiabilityAlert = useRiskStore((s) => s.setLiabilityAlert);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
 
   if (!liabilityAlert.active || !liabilityAlert.message) return null;
 

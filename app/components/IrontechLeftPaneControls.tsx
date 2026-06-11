@@ -97,7 +97,7 @@ export default function IrontechLeftPaneControls() {
   const router = useRouter();
   const pathname = usePathname() ?? "/";
   const { activeTenantKey } = useTenantContext();
-  const isSimulationActive = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationActive = useSystemConfigStore().isSimulationMode;
   const linkClass = navLinkClass(isSimulationActive);
   const statusDotClass = isSimulationActive
     ? "h-2 w-2 animate-pulse rounded-full bg-orange-500 shadow-[0_0_8px_#f97316]"

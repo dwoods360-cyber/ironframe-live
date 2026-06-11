@@ -47,6 +47,16 @@ export const DASHBOARD_CENTER_PANE =
 export const DASHBOARD_STRATEGIC_GRID =
   "grid w-full min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-2";
 
+/** Cyber insurance re-underwriting row — left card · gap connector · right card. */
+export const INSURANCE_UNDERWRITING_ROW =
+  "flex min-w-0 flex-row flex-nowrap items-stretch gap-4";
+
+export const INSURANCE_FORENSIC_GAP_CONNECTOR =
+  "pointer-events-none flex h-full min-h-0 w-8 min-w-8 shrink-0 flex-col items-center justify-center self-stretch font-mono text-slate-600 select-none";
+
+export const INSURANCE_FORENSIC_GAP_CONNECTOR_STACK =
+  "flex flex-col items-center justify-center space-y-0.5";
+
 /** Horizontal padding aligned with TopNav (`px-6`) and dashboard header strip. */
 export const DASHBOARD_CENTER_PAD_X = "px-6";
 

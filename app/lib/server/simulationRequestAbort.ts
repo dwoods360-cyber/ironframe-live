@@ -26,7 +26,7 @@ export function throwIfAborted(signal?: AbortSignal | null): void {
  * Prisma abortSignal is incompatible with Next.js Route Handler request.signal in dev/prod RPC.
  * Simulation read paths use cooperative `throwIfAborted` at await boundaries instead.
  */
-export function prismaAbortOptions(_signal?: AbortSignal | null): { abortSignal?: AbortSignal } {
+export function prismaAbortOptions(_signal?: AbortSignal | null): Record<string, never> {
   void _signal;
   return {};
 }

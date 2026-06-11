@@ -134,33 +134,3 @@ export function buildStaticContextBundle(): string {
     `- Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
   ].join('\n');
 }
-
-/** Canonical verbatim answers — bypass Gemini entirely. */
-export function resolveCanonicalDetermination(normalizedQuery: string): string | null {
-  if (
-    normalizedQuery.includes('kimbot') ||
-    normalizedQuery.includes('kibdot') ||
-    (normalizedQuery.includes('agent 17') && normalizedQuery.includes('sustain'))
-  ) {
-    return KIMBOT_CANONICAL_ANSWER;
-  }
-  if (normalizedQuery.includes('pillar') || normalizedQuery.includes('4 pillars')) {
-    return CODESPACE_FOUR_PILLARS_BLUEPRINT;
-  }
-  if (
-    normalizedQuery.includes('baseline') ||
-    normalizedQuery.includes('bigint') ||
-    normalizedQuery.includes('medshield') ||
-    normalizedQuery.includes('vaultbank') ||
-    normalizedQuery.includes('gridcore')
-  ) {
-    return [
-      'SOVEREIGN POOL BASELINES (BigInt cents — constitutionally frozen):',
-      `Medshield Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
-      `Vaultbank Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
-      `Gridcore Pool: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
-      `Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
-    ].join('\n');
-  }
-  return null;
-}

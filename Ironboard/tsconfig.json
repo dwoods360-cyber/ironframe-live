@@ -17,9 +17,6 @@
     "src/orchestrator.ts",
     "src/state.ts",
     "src/seed.ts",
-    "src/agents",
-    "src/boardRouter.ts",
-    "src/boardSynthesizer.ts",
-    "src/automation"
+    "src/agents"
   ]
 }

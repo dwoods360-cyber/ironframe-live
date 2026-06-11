@@ -13,10 +13,18 @@ import {
   STATIC_PRODUCTS,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
-  resolveCanonicalDetermination,
   WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
   type BoardPersona,
 } from './staticContext.js';
+import { DYNAMIC_DISCOVERY_MANDATE } from './boardRouter.js';
+import {
+  buildCrmDiscoveryEnrichment,
+  formatDiscoveryEvidence,
+  runDynamicDiscovery,
+  summarizeEmptyDiscoveryStates,
+  synthesizeCrmCapabilityFromDiscovery,
+  type DiscoveryReceipt,
+} from './services/dynamicDiscovery.js';
 import {
   fetchProspectingBatch,
   generateGroundedPitch,
@@ -33,6 +41,8 @@ import {
 import { buildBoardroomTools, type BoardroomToolMode } from './services/boardroomTools.js';
 import {
   inferRegionFromQuery,
+  requiresCrmDiscovery,
+  requiresWorkspaceTools,
   shouldPrefetchProspects,
   shouldPrefetchWeb,
 } from './services/boardroomQueryIntent.js';
@@ -46,7 +56,9 @@ const TOOL_RESULT_PARSE_DIRECTIVE =
   "CRITICAL: If a tool returns rows or data, you must parse and display them. Do not use your pre-configured 'no prospects loaded' or 'tools not available' strings if the functionResponse array is populated.";
 
 const TOOL_EXECUTION_DIRECTIVE =
-  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool, direct database access via queryLocalWorkspace, and B2B CRM pipeline control via manageCrmPipeline (tenantId required, values in whole-cent integers). Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding. Answer every distinct question in the user message — do not drop parts of a multi-part query.';
+  `${DYNAMIC_DISCOVERY_MANDATE}\n\n` +
+  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool, direct database access via queryLocalWorkspace, and B2B CRM pipeline control via manageCrmPipeline (tenantId required, values in whole-cent integers). Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding. Answer every distinct question in the user message — do not drop parts of a multi-part query.\n\n' +
+  'PLATFORM BOUNDARY: Ironframe (root) = GRC/infrastructure telemetry. IronBoard (this boardroom) = executive cockpit WITH embedded tenant-isolated CRM via manageCrmPipeline. When CRM discovery receipts are present, affirm IronBoard CRM capabilities — never conflate Ironframe GRC scope with a denial of CRM.';
 
 const BOARDROOM_DIRECTIVE =
   'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
@@ -132,6 +144,13 @@ function pickLeader(agentId: string, query: string): BoardPersona {
     }
     if ((q.includes('cfo') || q.includes('finance')) && agent.id === 'board-cfo') s += 10;
     if ((q.includes('cto') || q.includes('architecture') || q.includes('code')) && agent.id === 'board-cto') s += 10;
+    const crmIntent =
+      q.includes('crm') ||
+      q.includes('deal pipeline') ||
+      q.includes('contact database') ||
+      q.includes('managecrmpipeline') ||
+      (q.includes('sales') && (q.includes('ironboard') || q.includes('methodolog')));
+    if (crmIntent && agent.id === 'board-sales-lead') s += 10;
     if (s > score) {
       score = s;
       best = agent;
@@ -184,7 +203,7 @@ type GeminiContent = { role: string; parts: GeminiPart[] };
 
 function resolveBoardroomToolMode(model: string, query: string): BoardroomToolMode {
   if (/gemini-3/i.test(model)) return 'combined';
-  if (shouldPrefetchWeb(query) && !shouldPrefetchProspects(query)) return 'web';
+  if (shouldPrefetchWeb(query) && !requiresWorkspaceTools(query)) return 'web';
   return 'workspace';
 }
 
@@ -282,11 +301,55 @@ async function prefetchBoardroomGroundTruth(params: {
   model: string;
   query: string;
   activeHub: string;
+  tenantId?: string;
+  prospectId?: string;
   res: express.Response;
-}): Promise<{ prefetchedExchange: GeminiContent[]; systemEnrichment: string }> {
-  const { ai, model, query, activeHub, res } = params;
+}): Promise<{
+  prefetchedExchange: GeminiContent[];
+  systemEnrichment: string;
+  receipts: DiscoveryReceipt[];
+}> {
+  const { ai, model, query, activeHub, tenantId, prospectId, res } = params;
   const prefetchedExchange: GeminiContent[] = [];
   const enrichmentBlocks: string[] = [];
+
+  const { receipts } = await runDynamicDiscovery(query, {
+    tenantId,
+    activeHub,
+    prospectId,
+  });
+
+  for (const receipt of receipts) {
+    const queryType = receipt.args.queryType ?? receipt.args.action ?? null;
+    writeSseToolCall(res, {
+      name: receipt.tool,
+      status: 'running',
+      queryType,
+      prefetch: true,
+    });
+    writeSseToolCall(res, {
+      name: receipt.tool,
+      status: 'complete',
+      queryType,
+      ok: receipt.ok,
+      prefetch: true,
+    });
+    prefetchedExchange.push(...buildSyntheticToolExchange(receipt.payload, receipt.args));
+  }
+
+  enrichmentBlocks.push(
+    `DYNAMIC DISCOVERY VERIFICATION LOG (mandatory ground truth — do not use static capability prose):\n${formatDiscoveryEvidence(receipts)}`,
+  );
+
+  const emptyStates = summarizeEmptyDiscoveryStates(receipts);
+  if (emptyStates.length) {
+    enrichmentBlocks.push(
+      `EMPTY STATE INTERPRETATION (feature exists; data unpopulated):\n${emptyStates.join('\n')}`,
+    );
+  }
+
+  const crmEnrichment = buildCrmDiscoveryEnrichment(receipts);
+  if (crmEnrichment) enrichmentBlocks.push(crmEnrichment);
 
   if (shouldPrefetchProspects(query)) {
     const region = inferRegionFromQuery(query, activeHub);
@@ -326,7 +389,7 @@ async function prefetchBoardroomGroundTruth(params: {
     if (web.enrichment) enrichmentBlocks.push(web.enrichment);
   }
 
-  return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n') };
+  return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n'), receipts };
 }
 
 function serializeGroundingForClient(meta: GroundingMetadata | null): ClientGroundingPayload | null {
@@ -1398,7 +1461,6 @@ app.post('/api/query', async (req, res) => {
   }
 
   const query = lastUserTurnText(history);
-  const canonical = resolveCanonicalDetermination(query.toLowerCase());
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -1409,12 +1471,6 @@ app.post('/api/query', async (req, res) => {
   res.on('close', () => {
     abort.closed = true;
   });
-
-  if (canonical) {
-    writeSseToken(res, canonical);
-    res.end();
-    return;
-  }
 
   const key = getIronboardApiKey();
   if (!key) {
@@ -1427,6 +1483,7 @@ app.post('/api/query', async (req, res) => {
     const leader = pickLeader(agentId, query);
     const activeHub = String(req.body?.activeHub ?? '').trim();
     const selectedProspectId = String(req.body?.selectedProspectId ?? '').trim();
+    const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
     let flywheelContext: string | null = null;
     try {
       flywheelContext = await buildFlywheelWorkspaceContext(activeHub, selectedProspectId || undefined);
@@ -1439,19 +1496,30 @@ app.post('/api/query', async (req, res) => {
 
     const toolMode = resolveBoardroomToolMode(model, query);
 
-    const { prefetchedExchange, systemEnrichment } = await prefetchBoardroomGroundTruth({
+    const { prefetchedExchange, systemEnrichment, receipts } = await prefetchBoardroomGroundTruth({
       ai,
       model,
       query,
       activeHub,
+      tenantId,
+      prospectId: selectedProspectId || undefined,
       res,
     });
+
+    if (requiresCrmDiscovery(query)) {
+      const crmDetermination = synthesizeCrmCapabilityFromDiscovery(query, receipts);
+      if (crmDetermination) {
+        writeSseToken(res, crmDetermination);
+        res.end();
+        return;
+      }
+    }
 
     const systemInstruction = [
       buildSystemInstruction(leader, flywheelContext),
       systemEnrichment,
       prefetchedExchange.length
-        ? 'The queryLocalWorkspace tool has ALREADY executed — its functionResponse is in the conversation history above. Synthesize from that data. Never claim tools or live data are unavailable.'
+        ? 'Discovery and workspace tools have ALREADY executed — functionResponse payloads are in the conversation history above. Synthesize strictly from those receipts. Never claim tools or live data are unavailable.'
         : '',
       systemEnrichment.includes('LIVE WEB GROUND TRUTH')
         ? 'Live web search results are in the system context above — use them for time, news, and global facts. Never claim real-time or external data is unavailable.'

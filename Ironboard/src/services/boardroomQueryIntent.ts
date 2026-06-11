@@ -1,5 +1,10 @@
 /** Terms that indicate the user wants internal flywheel / CRM data. */
 const WORKSPACE_QUERY_TERMS = [
+  'crm',
+  'customer relationship',
+  'contact management',
+  'deal pipeline',
+  'sales pipeline',
   'prospect',
   'prospects',
   'flywheel',
@@ -13,7 +18,36 @@ const WORKSPACE_QUERY_TERMS = [
   'active leads',
   'our clients',
   'querylocalworkspace',
+  'managecrmpipeline',
 ] as const;
+
+/** Board questions about whether CRM / sales tooling exists (requires manageCrmPipeline discovery). */
+export function requiresCrmDiscovery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q.includes('crm') || q.includes('managecrmpipeline')) return true;
+  if (q.includes('contact database') || q.includes('deal pipeline')) return true;
+  if (
+    q.includes('sales') &&
+    (q.includes('ironboard') || q.includes('methodolog') || q.includes('playbook'))
+  ) {
+    return true;
+  }
+  if (
+    (q.includes('do you have') ||
+      q.includes('does ironboard') ||
+      q.includes('does ironframe') ||
+      q.includes('what can you') ||
+      q.includes('capabilit')) &&
+    (q.includes('crm') || q.includes('pipeline') || q.includes('contact'))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function requiresWorkspaceTools(query: string): boolean {
+  return requiresCrmDiscovery(query) || shouldPrefetchProspects(query);
+}
 
 /** Signals that the user needs live or global (non-CRM) information. */
 const EXTERNAL_INFO_TERMS = [

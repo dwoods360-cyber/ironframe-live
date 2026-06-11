@@ -18,7 +18,11 @@ export type ChaosRegistryScenarioId =
   | "INFIL_LATERAL_PIVOT"
   | "PHISH_CEO_FRAUD"
   | "PHISH_IT_HELPDESK"
-  | "CONSTITUTIONAL_COLLAPSE";
+  | "CONSTITUTIONAL_COLLAPSE"
+  | "HITL_ALE_CIRCUIT_BREAKER"
+  | "HITL_BREACH_ATTESTATION"
+  | "HITL_UNQUARANTINE_OVERRIDE"
+  | "HITL_CONFIG_AUDIT_TRAIL";
 
 export type ChaosRegistryEntry = {
   id: ChaosRegistryScenarioId;
@@ -103,6 +107,38 @@ export const CHAOS_REGISTRY: readonly ChaosRegistryEntry[] = [
       "Simulates loss of TAS.md authority for the active tenant, tenant-scoped Ironlock freeze, " +
       "compressed 240s Dead Man's Switch, [SIMULATION_DATA] Last Will, and Phoenix resurrection drill.",
     constitutionalDrill: true,
+  },
+  {
+    id: "HITL_ALE_CIRCUIT_BREAKER",
+    label: "HITL · ALE Circuit Breaker",
+    intensity: "CRITICAL",
+    target: "TENANT_SPECIFIC",
+    description:
+      "Simulated fund reallocation — pending BigInt ledger entry; reject freezes remediation script.",
+  },
+  {
+    id: "HITL_BREACH_ATTESTATION",
+    label: "HITL · CISO Breach Handshake",
+    intensity: "CRITICAL",
+    target: "TENANT_SPECIFIC",
+    description:
+      "Ironintel PII/CUI exfil simulation — forensic manifest requires CISO signature for vaulting.",
+  },
+  {
+    id: "HITL_UNQUARANTINE_OVERRIDE",
+    label: "HITL · Core Un-Quarantine Override",
+    intensity: "HIGH",
+    target: "TENANT_SPECIFIC",
+    description:
+      "Ironlock quarantine on simulated core node — approve to resume traffic after self-heal verification.",
+  },
+  {
+    id: "HITL_CONFIG_AUDIT_TRAIL",
+    label: "HITL · Config Audit Trail",
+    intensity: "MEDIUM",
+    target: "TENANT_SPECIFIC",
+    description:
+      "Notification/webhook endpoint delta — secondary admin approval before silent config commit.",
   },
 ] as const;
 

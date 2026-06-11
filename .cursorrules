@@ -152,3 +152,53 @@ If the AI suggests a change that contradicts /docs/TAS.md or /docs/testing.md, t
 | **VERIFIED** | **Emerald-500** + `animate-flash-green` | **Full 19-node** structure `text-emerald-500` + `animate-flash-green`. |
 
 **Financials:** ALE and all monetary fields use **BigInt integer cents** only (see TAS — no floats on persisted money).
+
+---
+
+## 🌙 Automated Documentation Engine (03:00 Cron — `scripts/cron_narrate.sh`)
+
+Nightly headless runs feed `daily_code_diff.txt` (24h git diff, `docs/` excluded) into the Cursor CLI agent to refresh `docs/qa/complete-feature-glossary.md` from seed to flower. Operators must keep `CURSOR_API_KEY` set for unattended runs.
+
+```json
+{
+  "ironframe_documentation_personas": {
+    "version": "1.0.0",
+    "cron_script": "scripts/cron_narrate.sh",
+    "diff_artifact": "daily_code_diff.txt",
+    "glossary_target": "docs/qa/complete-feature-glossary.md",
+    "financial_baseline_rule": "BigInt integer cents only — never float, never Decimal, never placeholder dollar amounts in documentation",
+    "personas": {
+      "writer_narrative_architect": {
+        "activation_label": "Active: Writer - Narrative Architect",
+        "role": "Narrative Architect",
+        "depth_limit": "COMPLETE_MANUAL",
+        "mandate": "Review daily_code_diff.txt and rewrite docs/qa/complete-feature-glossary.md from seed to flower with full procedural depth for independent learners and compliance auditors.",
+        "output_constraints": {
+          "summarize": false,
+          "truncate": false,
+          "placeholders": false,
+          "placeholder_patterns_banned": ["TBD", "TODO", "...", "[INSERT", "lorem ipsum", "etc."],
+          "financial_metrics": "BigInt integer cents only (e.g. Medshield 1100000000 cents, not $11M floats)"
+        }
+      },
+      "trainer_education_specialist": {
+        "activation_label": "Active: Trainer - Education Specialist",
+        "role": "Education Specialist",
+        "depth_limit": "COMPLETE_MANUAL",
+        "mandate": "Validate glossary lab steps, guardrails, and feature coordinates against the live Control Deck UI; expand training copy where operators would otherwise mis-click or mis-read telemetry.",
+        "output_constraints": {
+          "summarize": false,
+          "truncate": false,
+          "placeholders": false,
+          "financial_metrics": "BigInt integer cents only — align all ALE and USD examples with TAS.md whole-integer baselines"
+        }
+      }
+    },
+    "agent_cli_prompt_template": "Active: Writer - Narrative Architect, execute your complete mandate.\nCurrent Operational Date: {YYYY-MM-DD}\n\nReview daily_code_diff.txt and update docs/qa/complete-feature-glossary.md completely from seed to flower.\n\nCRITICAL INSTRUCTION: Do not pull from historical briefing caches or reuse previous templates. You must build today's briefing exclusively by parsing the fresh deltas inside 'daily_code_diff.txt' and evaluating changes against the active 19-agent architecture models. Focus strictly on any new module refactors, recent threat simulations, and verification of our whole-integer BigInt financial boundaries. If 'daily_code_diff.txt' shows no code changes, pivot today's briefing to analyze system telemetry stability logs and current framework compliance baselines.\n\nDo not summarize, do not truncate, and do not use placeholders. Strictly enforce BigInt integer cents only for any financial metrics.",
+    "intel_osint_prompt_template": "Active: Ironintel & Ironwatch, execute a live external OSINT search for today, {MMMM D, YYYY}. Search for the latest active threat vectors, cybersecurity news, and CMMC/NIST regulatory updates based on our selected Industry Profile. Route all discovered data through Irongate for mandatory DMZ sanitization, and completely refresh the Strategic Intel dashboard view with fresh information.",
+    "board_governance_prompt_template": "Active: Ironlogic & Irontally, generate a Corporate Governance Memo for {MMMM D, YYYY}. Evaluate current ALE Baselines (11.1M, 5.9M, 4.7M) against existing framework compliance (SOC2/ISO). Flag any architectural drift or unauthorized fiscal modifications. This memo is for the Product Owner and Constitutional Authority. Strictly enforce the BigInt financial mandate.",
+    "cron_phases": ["writer_internal_docs", "ironintel_osint_sweep", "board_governance_memo"],
+    "empty_diff_behavior": "Still invoke Writer with telemetry/compliance pivot mandate - do not skip the agent run."
+  }
+}
+```

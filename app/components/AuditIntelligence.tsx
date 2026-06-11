@@ -49,8 +49,9 @@ import {
 import { ConstitutionalText } from "@/app/components/ConstitutionalText";
 import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
-import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
+import { LogStatusBadge } from "@/app/components/grc/LogTerminalLine";
 import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyticsPlane";
+import { floatingNotifyTopClass } from "@/app/config/layoutConstants";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
 
@@ -1856,19 +1857,9 @@ export default function AuditIntelligence({
                           </span>
                           <div className="flex shrink-0 items-center gap-1.5">
                             {status === "VERIFIED" ? (
-                              <span
-                                className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter ${
-                                  rowKind === "agent"
-                                    ? "animate-pulse bg-emerald-500/20 text-emerald-400"
-                                    : "bg-emerald-500/20 text-emerald-400"
-                                }`}
-                              >
-                                VERIFIED
-                              </span>
+                              <LogStatusBadge type="VERIFIED" />
                             ) : status === "SHADOW" ? (
-                              <span className="rounded border border-cyan-500/25 bg-cyan-500/10 px-1.5 py-0.5 font-mono text-[8px] font-black uppercase tracking-wider text-cyan-300">
-                                SHADOW
-                              </span>
+                              <LogStatusBadge type="SHADOW" />
                             ) : status === "FLAGGED" ? (
                               <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-tighter text-amber-400">
                                 FLAGGED
@@ -1916,11 +1907,11 @@ export default function AuditIntelligence({
                           }`}
                         >
                           {forensicLvl === "red_team" ? (
-                            <span className="mr-0.5 inline text-[9px] text-rose-400/80" aria-hidden>
+                            <span className="mr-0.5 inline select-none text-[9px] text-rose-400/80" aria-hidden>
                               &gt;
                             </span>
                           ) : forensicLvl === "blue_team" ? (
-                            <span className="mr-0.5 inline text-[9px] text-emerald-400/85" aria-hidden>
+                            <span className="mr-0.5 inline select-none text-[9px] text-emerald-400/85" aria-hidden>
                               &gt;
                             </span>
                           ) : null}
@@ -2002,11 +1993,11 @@ export default function AuditIntelligence({
           className="cursor-help text-cyan-400/95 transition-colors hover:text-amber-300"
           title={
             agentKillStats.total === 0
-              ? "Resolved-threat attribution (no kills yet)"
+              ? "No threats resolved yet — top attributed agents on hover"
               : agentKillStats.top3.map(([n, c]) => `${n.toUpperCase()}: ${c}`).join(" | ")
           }
         >
-          AGENT_KILLS: {agentKillStats.total}
+          THREATS_RESOLVED: {agentKillStats.total}
         </p>
         <button
           type="button"
@@ -2035,13 +2026,13 @@ export default function AuditIntelligence({
       </div>
 
       {postMortemOpen && postMortemSummary ? (
-        <GlobalViewportOverlay
-          open
-          onClose={() => setPostMortemOpen(false)}
-          ariaLabelledBy="post-mortem-title"
-          backdropClassName="bg-black/75 backdrop-blur-sm"
-          panelClassName="flex max-h-[min(90vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30"
+        <div
+          className="fixed inset-0 z-[275] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="post-mortem-title"
         >
+          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30">
             <div className="shrink-0 border-b border-slate-800 px-4 py-3">
               <h3 id="post-mortem-title" className="text-[11px] font-black uppercase tracking-wide text-cyan-100">
                 Session post-mortem
@@ -2101,7 +2092,7 @@ export default function AuditIntelligence({
                   )}
                 </p>
                 <p className="mt-2 text-[8px] uppercase tracking-wide text-slate-600">
-                  Live AGENT_KILLS (UI roster): {agentKillStats.total}
+                  Live THREATS_RESOLVED (UI roster): {agentKillStats.total}
                 </p>
               </div>
             </div>
@@ -2114,7 +2105,8 @@ export default function AuditIntelligence({
                 Close
               </button>
             </div>
-        </GlobalViewportOverlay>
+          </div>
+        </div>
       ) : null}
 
       {hashToast ? (
@@ -2132,12 +2124,17 @@ export default function AuditIntelligence({
       ) : null}
 
       {metadataModal ? (
-        <GlobalViewportOverlay
-          open
-          onClose={() => setMetadataModal(null)}
-          ariaLabelledBy="agent-metadata-title"
-          panelClassName="flex max-h-[min(85vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
+        <div
+          className="fixed inset-0 z-[225] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="agent-metadata-title"
+          onClick={() => setMetadataModal(null)}
         >
+          <div
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
               <h3 id="agent-metadata-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
                 Reasoning trace — {metadataModal.agentId}
@@ -2155,16 +2152,24 @@ export default function AuditIntelligence({
                 {metadataModal.json}
               </pre>
             </div>
-        </GlobalViewportOverlay>
+          </div>
+        </div>
       ) : null}
 
       {selectedEntry ? (
-        <GlobalViewportOverlay
-          open
-          onClose={() => setSelectedEntry(null)}
-          ariaLabelledBy="audit-detail-title"
-          panelClassName="flex max-h-[min(90vh,calc(100dvh-8rem))] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50"
+        <div
+          className={`fixed inset-x-0 bottom-0 z-[220] flex items-start justify-center overflow-y-auto bg-black/55 px-4 pb-6 pt-3 backdrop-blur-md ${floatingNotifyTopClass(isSimulationMode, 1)}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="audit-detail-title"
+          onClick={() => setSelectedEntry(null)}
         >
+          <div
+            className={`flex w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50 ${
+              isSimulationMode ? "max-h-[calc(100dvh-13.25rem)]" : "max-h-[calc(100dvh-11rem)]"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -2260,7 +2265,8 @@ export default function AuditIntelligence({
                 HASH COPIED TO CLIPBOARD
               </span>
             </div>
-        </GlobalViewportOverlay>
+          </div>
+        </div>
       ) : null}
     </div>
   );

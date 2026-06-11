@@ -1,18 +1,24 @@
 "use client";
 
 import { useRiskStore } from "@/app/store/riskStore";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import {
+  FLOATING_NOTIFY_INTERACTIVE_CLASS,
+  FLOATING_NOTIFY_Z_CLASS,
+  floatingNotifyTopClass,
+} from "@/app/config/layoutConstants";
 
 export default function RecordExpiredToast() {
   const recordExpiredToast = useRiskStore((s) => s.recordExpiredToast);
   const setRecordExpiredToast = useRiskStore((s) => s.setRecordExpiredToast);
+  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
 
   if (!recordExpiredToast.active || recordExpiredToast.count <= 0) return null;
 
   return (
     <div
       role="alert"
-      className="fixed left-1/2 z-[99] -translate-x-1/2 rounded border border-amber-500/70 bg-amber-950/95 px-4 py-3 shadow-lg"
-      style={{ top: "8rem" }}
+      className={`fixed left-1/2 -translate-x-1/2 rounded border border-amber-500/70 bg-amber-950/95 px-4 py-3 shadow-lg ${floatingNotifyTopClass(isSimulationMode, 2)} ${FLOATING_NOTIFY_Z_CLASS} ${FLOATING_NOTIFY_INTERACTIVE_CLASS}`}
     >
       <div className="flex items-center gap-3">
         <span className="h-2 w-2 rounded-full bg-amber-400" />

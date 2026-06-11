@@ -11,10 +11,23 @@ vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }));
 
+vi.mock('@/app/lib/simulationStandDown', () => ({
+  assertSimulationInjectAllowedForTenant: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/src/services/orchestration/ingestBusBridge', () => ({
+  ingestOrchestrationBusDisabled: vi.fn().mockReturnValue(true),
+  invokeIngestOrchestrationBus: vi.fn(),
+}));
+
 vi.mock('@/lib/prisma', () => ({
   default: {
     threatEvent: {
       create: vi.fn(),
+      update: vi.fn().mockImplementation(async ({ data }: { data?: { ingestionDetails?: string } }) => ({
+        id: 'updated',
+        ingestionDetails: data?.ingestionDetails ?? null,
+      })),
     },
     company: {
       findFirst: vi.fn().mockResolvedValue(null),

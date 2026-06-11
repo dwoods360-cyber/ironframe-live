@@ -8,6 +8,9 @@ import prisma from '@/lib/prisma';
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
 import { getSupabaseSessionUser } from '@/app/utils/serverAuth';
+import {
+  resolveDevConstitutionalAuthorityUserId,
+} from '@/app/lib/grc/devConstitutionalElevation';
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
 
 /** Meta-audit / Integrity Hub — professional GRC roles only. */
@@ -649,7 +652,10 @@ function signManifest(manifestHash: string): string {
 
 async function ensureAuditorOrAdminRole(tenantId: string): Promise<{ userId: string } | null> {
   const sessionUser = await getSupabaseSessionUser();
-  const userId = sessionUser?.id?.trim() || sessionUser?.email?.trim() || '';
+  const devUid = await resolveDevConstitutionalAuthorityUserId(sessionUser, tenantId);
+  if (devUid) return { userId: devUid };
+
+  const userId = sessionUser?.id?.trim() || sessionUser?.email?.trim() || "";
   if (!userId) return null;
   const assignment = await prisma.userRoleAssignment.findFirst({
     where: {

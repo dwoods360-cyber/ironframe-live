@@ -7,6 +7,7 @@ import {
   type IntegrityLedgerRow,
   type MetaAuditExportBundle,
 } from "@/app/actions/auditActions";
+import { LeftPanelFeatureTitle } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
 
 type Props = {
   tenantId: string;
@@ -14,6 +15,7 @@ type Props = {
   /** Full `/audit` page passes rows from RSC; omit or set `showIntegrityLedger={false}` in compact embeds. */
   integrityLedger?: IntegrityLedgerRow[];
   showIntegrityLedger?: boolean;
+  featureIndex?: number;
 };
 
 function toDateInputValue(d: Date): string {
@@ -46,6 +48,7 @@ export default function MetaAuditConsole({
   canAccess,
   integrityLedger = [],
   showIntegrityLedger = true,
+  featureIndex,
 }: Props) {
   const [isPending, startTransition] = useTransition();
   const [periodStart, setPeriodStart] = useState(() => toDateInputValue(new Date(Date.now() - 7 * 86400000)));
@@ -104,7 +107,17 @@ export default function MetaAuditConsole({
   return (
     <div className="flex flex-col gap-6">
     <section className="rounded border border-zinc-800/85 bg-zinc-950/60 p-3">
-      <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Meta-Audit Console</h3>
+      {featureIndex != null ? (
+        <LeftPanelFeatureTitle
+          index={featureIndex}
+          as="h3"
+          className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200"
+        >
+          Meta-Audit Console
+        </LeftPanelFeatureTitle>
+      ) : (
+        <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">Meta-Audit Console</h3>
+      )}
       <p className="mt-1 text-[9px] text-zinc-500">
         Generate deterministic signed JSON manifests and verify historical exports.
       </p>

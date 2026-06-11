@@ -15,9 +15,8 @@ import {
   useSustainabilityApiDegraded,
 } from "@/app/context/ConstitutionalIntegrityProvider";
 import {
-  chaosComplianceCoverageLabel,
   formatRecoverySlaParts,
-  frameworkBadgesForChaosScenario,
+  resolveThreatComplianceOverlay,
 } from "@/app/utils/grcComplianceUi";
 import {
   chaosLevelForCardDisplay,
@@ -131,6 +130,12 @@ type Props = {
   suppressRemoteTechnicianHeader?: boolean;
   /** GRC auditor overlay: framework tags, attestation, SLA detail. */
   showCompliance?: boolean;
+  /** Tenant-scoped ThreatEvent framework (live production overlay). */
+  complianceFramework?: string | null;
+  /** Tenant-scoped mapped controls from dashboard / ThreatEvent (presentation only). */
+  mappedControls?: string[];
+  /** Defense CMMC shield — optional overlay chip when compliance toggle is on. */
+  regulatoryShieldBadge?: string | null;
   /** Use parent card surface classes without internal status color overrides. */
   suppressAutoSurfaceOverride?: boolean;
   /** When set, AGENT_PIVOT HUD flash targets this threat id (amber pulse + overlay). */
@@ -181,6 +186,9 @@ export function ThreatCard({
   intelligenceFooter,
   suppressRemoteTechnicianHeader = false,
   showCompliance = false,
+  complianceFramework = null,
+  mappedControls = [],
+  regulatoryShieldBadge = null,
   suppressAutoSurfaceOverride = false,
   cardThreatId = null,
   borderAlertPulse = null,
@@ -516,10 +524,14 @@ export function ThreatCard({
   const ChaosCardIcon = chaosVisualActive?.icon;
   const chaosSurfaceAccent =
     chaosVisualActive != null ? getChaosLevelSurfaceAccent(chaosVisualActive.level) : "";
-  const complianceCoverageLabel = chaosComplianceCoverageLabel(
+  const complianceOverlay = resolveThreatComplianceOverlay({
+    showCompliance,
     chaosScenario,
-    chaosMeta.isChaosTest,
-  );
+    isChaosTest: chaosMeta.isChaosTest,
+    complianceFramework,
+    mappedControls,
+    regulatoryShieldBadge,
+  });
   const showLkgAttestationSha =
     chaosScenario === "CASCADING_FAILURE" &&
     statusNorm === "RESOLVED" &&
@@ -538,9 +550,8 @@ export function ThreatCard({
     isResolvedThreat && autoResolvedByIrontech
       ? formatRecoverySlaParts(ingestionBootstrapFromIso, chaosMeta.autonomousRecoveredAt)
       : null;
-  const frameworkBadges = frameworkBadgesForChaosScenario(chaosScenario, chaosMeta.isChaosTest);
-  const showFrameworkOverlay =
-    showCompliance && frameworkBadges.length > 0 && (chaosMeta.isChaosTest || chaosScenario);
+  const frameworkBadges = complianceOverlay.frameworkBadges;
+  const showFrameworkOverlay = complianceOverlay.showFrameworkOverlay;
   const canShowRemoteHandoff = isStrictEscalated || isRemoteIntervention;
 
   useEffect(() => {
@@ -670,14 +681,24 @@ export function ThreatCard({
           Victory lap
         </div>
       ) : null}
-      {showCompliance && complianceCoverageLabel ? (
+      {complianceOverlay.showCoveragePill && complianceOverlay.complianceCoverageLabel ? (
         <span
           className={`pointer-events-none absolute right-3 z-[24] max-w-[min(240px,50vw)] rounded border border-teal-600/55 bg-slate-950/95 px-2 py-1 text-left text-[7px] font-bold uppercase leading-snug tracking-wide text-teal-100/95 shadow-[0_0_10px_rgba(45,212,191,0.15)] ${
             isStrictEscalated && !isRemoteIntervention ? "top-12" : "top-3"
           }`}
           title="Compliance coverage (framework mapping)"
         >
-          {complianceCoverageLabel}
+          {complianceOverlay.complianceCoverageLabel}
+        </span>
+      ) : null}
+      {complianceOverlay.showRegulatoryShield && complianceOverlay.regulatoryShieldBadge ? (
+        <span
+          className={`pointer-events-none absolute left-3 z-[24] max-w-[min(240px,50vw)] rounded border border-amber-600/55 bg-amber-950/95 px-2 py-1 text-left text-[7px] font-bold uppercase leading-snug tracking-wide text-amber-100/95 shadow-[0_0_10px_rgba(245,158,11,0.15)] ${
+            isStrictEscalated && !isRemoteIntervention ? "top-12" : "top-3"
+          }`}
+          title="Regulatory shield (governed ingest)"
+        >
+          {complianceOverlay.regulatoryShieldBadge}
         </span>
       ) : null}
       {showFrameworkOverlay ? (

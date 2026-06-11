@@ -16,6 +16,9 @@ import {
 import { safeAgentInspectEmission } from "@/app/utils/safeRuntimeEmission";
 import type { AgentPulseState } from "@/app/utils/workforceAgentState";
 import { dispatchIroncastNotificationFromStreamMessage } from "@/app/utils/ironcastNotificationBridge";
+import type { SentinelSweepCheckItem } from "@/app/actions/sentinelSweepActions";
+import { formatAgentIntelLine } from "@/app/utils/intelligenceStreamFormat";
+import { useAgentRiskStore } from "@/app/store/agentRiskStore";
 
 const AGENT_KILL_STORAGE_PREFIX = "ironframe-agent-kills-v1:";
 
@@ -118,6 +121,15 @@ export type AgentInspectPayload = {
 /** @deprecated Use AgentInspectPayload */
 export type AgentThreeWindowInspectPayload = AgentInspectPayload;
 
+export type SentinelSweepSessionPhase = "idle" | "running" | "complete" | "error";
+
+export type SentinelSweepSession = {
+  instruction: string;
+  items: SentinelSweepCheckItem[];
+  phase: SentinelSweepSessionPhase;
+  error: string | null;
+};
+
 type AgentStore = {
   agents: Record<AgentKey, AgentState>;
   /** Constitutional 19-agent fleet — increments when a threat card is resolved (tenant-scoped persistence). */
@@ -183,9 +195,14 @@ type AgentStore = {
   flushAgentTelemetryCache: () => void;
   /** Double-click agent pill — freeze roster node and sync checkpoint band. */
   freezeAgentCheckpointSync: (agentName: string) => void;
+  /** Read-only multi-agent readiness loop (server tenant cookie scope). */
+  sentinelSweepSession: SentinelSweepSession | null;
   runSentinelSweep: (instruction: string) => void;
+  clearSentinelSweepSession: () => void;
   /** Master purge: intelligence stream, ingestion lines, DMZ telemetry scratch — back to cold-boot baseline. */
   resetAgentStreamsForPurge: () => void;
+  /** Simulation nav — release Agents 08 (Ironsight) + 11 (Ironintel) BURDENED buffers without full stream wipe. */
+  flushIronintelNavigationBuffers: () => void;
 };
 
 const INITIAL_MESSAGES: string[] = [
@@ -451,34 +468,97 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       }, AGENT_CHECKPOINT_FREEZE_MS);
     }
   },
+  sentinelSweepSession: null,
+  clearSentinelSweepSession: () => set({ sentinelSweepSession: null }),
   runSentinelSweep: (instruction: string) => {
-    const now = new Date().toLocaleTimeString();
-    const systemMsg = `> [SYSTEM] (${now}) Initializing Sentinel Sweep...`;
-    const instrMsg = `> [INSTRUCTION] ${instruction}`;
+    const trimmed = instruction.trim();
+    if (!trimmed) return;
 
-    // IRONSIGHT begins processing; log messages
     set((state) => ({
       agents: {
         ...state.agents,
         ironsight: { status: "PROCESSING" },
       },
-      intelligenceStream: [instrMsg, systemMsg, ...state.intelligenceStream].slice(0, 50),
+      sentinelSweepSession: {
+        instruction: trimmed,
+        items: [],
+        phase: "running",
+        error: null,
+      },
     }));
 
-    setTimeout(() => {
-      const doneTime = new Date().toLocaleTimeString();
-      const completeMsg = `> [IRONSIGHT] (${doneTime}) Sweep complete. No anomalies detected.`;
+    void (async () => {
+      const { runSentinelSweepReadinessAction } = await import("@/app/actions/sentinelSweepActions");
+      const result = await runSentinelSweepReadinessAction(trimmed);
+      if (!result.ok) {
+        set((state) => ({
+          agents: {
+            ...state.agents,
+            ironsight: { status: "HEALTHY" },
+          },
+          sentinelSweepSession: {
+            instruction: trimmed,
+            items: [],
+            phase: "error",
+            error: result.error,
+          },
+        }));
+        get().addStreamMessage(
+          formatAgentIntelLine("AGENT-14", "IRONGATE", `[REJECTED] ${result.error}`),
+        );
+        return;
+      }
+
+      const passCount = result.items.filter((i) => i.status === "PASS").length;
       set((state) => ({
         agents: {
           ...state.agents,
           ironsight: { status: "HEALTHY" },
         },
-        intelligenceStream: [completeMsg, ...state.intelligenceStream].slice(0, 50),
+        sentinelSweepSession: {
+          instruction: trimmed,
+          items: result.items,
+          phase: "complete",
+          error: null,
+        },
       }));
-    }, 3000);
+      get().addStreamMessage(
+        formatAgentIntelLine(
+          "AGENT-08",
+          "IRONSIGHT",
+          `Sweep readiness complete — ${passCount}/${result.items.length} agents nominal (read-only).`,
+        ),
+      );
+    })();
   },
-  resetAgentStreamsForPurge: () =>
+  flushIronintelNavigationBuffers: () =>
+    set((state) => {
+      const isSpotlightAgentKey = (key: string) =>
+        /ironintel|coreintel|ironsight|^11$|^08$|^8$/i.test(key.trim());
+      const nextPulse = { ...state.agentTelemetryPulseUntil };
+      const nextFrozen = { ...state.agentCheckpointFrozenUntil };
+      for (const key of Object.keys(nextPulse)) {
+        if (isSpotlightAgentKey(key)) delete nextPulse[key];
+      }
+      for (const key of Object.keys(nextFrozen)) {
+        if (isSpotlightAgentKey(key)) delete nextFrozen[key];
+      }
+      return {
+        systemLatencyMs: null,
+        agentTelemetryPulseUntil: nextPulse,
+        agentCheckpointFrozenUntil: nextFrozen,
+        agents: {
+          ...state.agents,
+          ironsight: { status: "HEALTHY" },
+          coreintel: { status: "HEALTHY" },
+        },
+      };
+    }),
+  resetAgentStreamsForPurge: () => {
+    useAgentRiskStore.getState().flushBurdenedExecutionBuffers();
     set({
+      telemetryTenantScope: null,
+      sentinelSweepSession: null,
       intelligenceStream: [...INITIAL_MESSAGES],
       riskIngestionTerminalLines: [],
       activeThreats: [],
@@ -502,6 +582,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         coreintel: { status: "HEALTHY" },
         agentManager: { status: "HEALTHY" },
       },
-    }),
+    });
+  },
 }));
 

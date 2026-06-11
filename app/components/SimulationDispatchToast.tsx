@@ -2,15 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  FLOATING_NOTIFY_TOP_SIMULATION,
-  FLOATING_NOTIFY_TOP_STANDARD,
-  FLOATING_NOTIFY_Z_CLASS,
-} from "@/app/config/layoutConstants";
-import { useSystemConfigStore } from "@/app/store/systemConfigStore";
-import {
   SIMULATION_DISPATCH_NOTICE_EVENT,
   type SimulationDispatchNoticeDetail,
 } from "@/app/utils/simulationDispatchOutcome";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import {
+  FLOATING_NOTIFY_Z_CLASS,
+  floatingNotifyTopRightClass,
+} from "@/app/config/layoutConstants";
 
 /**
  * Upper-right simulation dispatch notice — autonomous / perimeter-neutralized drills
@@ -18,8 +17,7 @@ import {
  */
 export default function SimulationDispatchToast() {
   const [notice, setNotice] = useState<SimulationDispatchNoticeDetail | null>(null);
-  const isSimulationMode = useSystemConfigStore().isSimulationMode;
-  const notifyTop = isSimulationMode ? FLOATING_NOTIFY_TOP_SIMULATION : FLOATING_NOTIFY_TOP_STANDARD;
+  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
 
   const dismiss = useCallback(() => setNotice(null), []);
 
@@ -43,7 +41,7 @@ export default function SimulationDispatchToast() {
     <div
       role="status"
       aria-live="polite"
-      className={`pointer-events-auto fixed right-4 w-[min(92vw,24rem)] animate-in slide-in-from-right-4 fade-in duration-300 ${FLOATING_NOTIFY_Z_CLASS} ${notifyTop}`}
+      className={`pointer-events-auto fixed right-4 w-[min(92vw,24rem)] animate-in slide-in-from-right-4 fade-in duration-300 ${floatingNotifyTopRightClass(isSimulationMode)} ${FLOATING_NOTIFY_Z_CLASS}`}
     >
       <div className="rounded-lg border border-amber-500/70 bg-gradient-to-br from-slate-950/98 via-amber-950/40 to-blue-950/35 px-4 py-3 shadow-[0_0_24px_rgba(245,158,11,0.22)] backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">

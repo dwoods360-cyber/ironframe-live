@@ -13,6 +13,8 @@ import {
 } from "@/app/utils/workforceAgentState";
 import type { AgentWorkforceRuntimeSnapshot } from "@/app/store/agentStore";
 import WorkforceAgentPill from "@/app/components/grc/WorkforceAgentPill";
+import { LeftPanelFeatureTitle } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+import { LP_FEATURE } from "@/app/config/leftPanelFeatureIndex";
 import { safeAgentInspectEmission } from "@/app/utils/safeRuntimeEmission";
 
 type AgentStatusPulseListProps = {
@@ -119,9 +121,13 @@ export default function AgentStatusPulseList({
   return (
     <div className="mt-3 border-b border-slate-800 bg-[#080f1a] p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        <LeftPanelFeatureTitle
+          index={LP_FEATURE.AGENT_STATUS_PULSE}
+          as="h3"
+          className="text-xs font-semibold uppercase tracking-wider text-slate-400"
+        >
           Agent Status Pulse
-        </h3>
+        </LeftPanelFeatureTitle>
         <div className="flex shrink-0 items-center gap-2">
           {headerActions}
           <span className="inline-flex items-center gap-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-400/95">
@@ -133,6 +139,13 @@ export default function AgentStatusPulseList({
           </span>
         </div>
       </div>
+      <p className="mb-1 text-[7px] text-zinc-600">
+        <LeftPanelFeatureTitle index={LP_FEATURE.PULSE_GESTURES} className="text-zinc-600">
+          Pulse gestures
+        </LeftPanelFeatureTitle>
+        {" "}
+        · click overlay · dbl-click flush · right-click log inspector
+      </p>
       <p className="mb-3 text-[8px] text-zinc-600">
         Last resubscribe:{" "}
         {formattedResubscribeTime != null ? (

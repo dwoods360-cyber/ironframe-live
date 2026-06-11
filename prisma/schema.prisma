@@ -1296,3 +1296,46 @@ model IronbloomTenantSyncMeta {
 
   @@map("ironbloom_tenant_sync_metas")
 }
+
+/// IronBoard GTM autonomous prospecting flywheel (platform-level; not tenant-scoped).
+model MarketProspect {
+  id                 String            @id @default(uuid()) @db.Uuid
+  domain             String            @unique
+  companyName        String            @map("company_name")
+  employeeCount      Int               @map("employee_count")
+  region             String
+  compliancePressure String            @map("compliance_pressure")
+  dealStage          String            @map("deal_stage")
+  aiFitnessScore     Int               @default(0) @map("ai_fitness_score")
+  recentFunding      String?           @map("recent_funding")
+  hasComplianceJob   Boolean           @default(false) @map("has_compliance_job")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  outreachLogs       OutreachHistory[]
+
+  @@index([region, aiFitnessScore])
+  @@map("market_prospects")
+}
+
+model OutreachHistory {
+  id               String         @id @default(uuid()) @db.Uuid
+  prospectId       String         @map("prospect_id") @db.Uuid
+  prospect         MarketProspect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  timestamp        DateTime       @default(now())
+  generatedCopy    String         @map("generated_copy") @db.Text
+  valueProposition String         @map("value_proposition")
+
+  @@index([prospectId, timestamp])
+  @@map("outreach_history")
+}
+
+/// IronBoard market flywheel diagnostics (separate from shadow-plane SimulationDiagnosticLog).
+model MarketIntelligenceFlywheelLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  component String   @default("MARKET_INTELLIGENCE_FLYWHEEL")
+  message   String   @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+  @@map("market_intelligence_flywheel_logs")
+}

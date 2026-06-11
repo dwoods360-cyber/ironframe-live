@@ -54,7 +54,14 @@ type AgentRiskState = {
   }) => void;
   /** Human Command Post: clear amber/red anomaly for one agent (`agentId` = `${CoreWorkforceAgent.index}`). */
   acknowledgeAnomaly: (agentId: string) => void;
+  /** Tenant switch / cold-boot — drop stale Ironwatch pulse overlay. */
+  resetForTenantScopeChange: () => void;
+  /** Simulation nav — clear Agent 11 (Ironintel) BURDENED strain without tenant-wide reset. */
+  flushBurdenedExecutionBuffers: () => void;
 };
+
+/** Spotlight roster indices that surface BURDENED in the left-rail showcase. */
+const SHOWCASE_BURDEN_INDICES = [1, 8, 11] as const;
 
 export const useAgentRiskStore = create<AgentRiskState>((set) => ({
   byIndex: {},
@@ -88,6 +95,39 @@ export const useAgentRiskStore = create<AgentRiskState>((set) => ({
       return {
         anomalyAcknowledgedIndices: nextAck,
         byIndex: mergeAcknowledgedOverlay(base, nextAck),
+      };
+    }),
+  resetForTenantScopeChange: () =>
+    set({
+      byIndex: {},
+      anomalyAcknowledgedIndices: new Set(),
+      ironlockGlobalStateFreeze: false,
+      quarantineHardBanActive: false,
+      lastUpdatedAt: null,
+    }),
+  flushBurdenedExecutionBuffers: () =>
+    set((state) => {
+      const byIndex = { ...state.byIndex };
+      let changed = false;
+      for (const idx of SHOWCASE_BURDEN_INDICES) {
+        const cur = byIndex[idx];
+        if (!cur || cur.riskLevel === "low") continue;
+        byIndex[idx] = {
+          ...cur,
+          riskLevel: "low",
+          healthScore: Math.max(72, cur.healthScore),
+        };
+        changed = true;
+      }
+      if (!changed) return state;
+      const nextAck = new Set(state.anomalyAcknowledgedIndices);
+      for (const idx of SHOWCASE_BURDEN_INDICES) {
+        nextAck.delete(idx);
+      }
+      return {
+        byIndex,
+        anomalyAcknowledgedIndices: nextAck,
+        lastUpdatedAt: Date.now(),
       };
     }),
 }));

@@ -77,8 +77,20 @@ NAMING LOCK (AUTHORITATIVE — overrides any conflicting markdown in federation 
 - The **19-agent production workforce** includes **Ironbloom as Agent 17** (CSRD / sustainability ledger; physical units kWh, L, km only).
 - **Kimbot is NOT Agent 17** and is NOT a production workforce agent.
 - **Kimbot is Simulation Bot B (Red Team)** — a shadow-plane antagonist that injects fake adversary threats (ransomware, data leak, API breach) to stress-test the Command Center pipeline, dual-key flows, and ACK/audit loops.
-- Sibling simulation bots: **Bot A = Attbot** (attack/chaos), **Bot C = GRCbot** (GRC QA). **Master Purge** clears simulation state only.
+- Sibling simulation bots: **Bot A = Attbot** (attack/chaos), **Bot C = GRCbot** (GRC QA). IronBoard cockpit (:8082) exposes only validated market flywheel controls — no simulation purge UI.
 - Never describe Kimbot as the Sustainability Analyst; that role is **Ironbloom (Agent 17)**.
+
+PRICING MODEL CONSTITUTIONAL STANDARD:
+- Our platform completely rejects per-user, per-month seat licensing to eliminate fractional float billing calculations.
+- All pricing models are flat annual platform fees denominated strictly in BigInt integer cents.
+- Tier 1: 'Fintech Seed Gate' - For 5-25 employee startups under SOC2/ISO27001 pressure. Price: 3,500,000 cents ($35,000 USD).
+- Tier 2: 'Series A Growth Shield' - For 26-50 employee startups requiring Ironbloom sustainability tracking. Price: 7,500,000 cents ($75,000 USD).
+- Heavily penalize and short-circuit any model generation that attempts to propose seat-based metrics, decimals, or enterprise enterprise pricing tiers over $100k.
+
+OPERATIONAL COST VS. CLIENT BASELINE DISTINCTION:
+- Our internal operational cost is lean, totaling exactly between 7,700 cents ($77 USD) and 11,700 cents ($117 USD) per month for cloud infrastructure hosting (Vercel, Supabase, and Gemini API usage tokens).
+- The multi-million dollar figures for Medshield (1,110,000,000 cents), Vaultbank (590,000,000 cents), and Gridcore (470,000,000 cents) are STRICTLY Sovereign Pool risk baselines simulated for client GRC environments.
+- Under no circumstances shall any agent misrepresent these client benchmarks as the platform's operating costs. Keep company overhead calculations bound tightly to actual local infrastructure whole-cent parameters.
 `.trim();
 
 export const KIMBOT_CANONICAL_ANSWER = [

@@ -2,16 +2,10 @@
 
 import prisma from "@/lib/prisma";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
-
-async function getCompanyIdsForActiveTenant(): Promise<bigint[]> {
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  const rows = await prisma.company.findMany({
-    where: { tenantId: tenantUuid },
-    select: { id: true },
-  });
-  return rows.map((r) => r.id);
-}
+import {
+  pollResilienceIntelStreamLinesCore,
+  type ResiliencePollRow,
+} from "@/app/lib/server/ironintelResiliencePollCore";
 
 const RESILIENCE_ACTION = "RESILIENCE_INTEL_STREAM";
 
@@ -85,34 +79,13 @@ export async function recordResilienceIntelStreamLine(line: string, threatId: st
   }
 }
 
-export type ResiliencePollRow = { createdAt: string; line: string };
+export type { ResiliencePollRow };
 
 /** New resilience intel lines for the active tenant (production + simulation). */
 export async function pollResilienceIntelStreamLines(
   afterTimeIso: string | null,
-  opts?: { showSimulation?: boolean },
+  _opts?: { showSimulation?: boolean },
+  signal?: AbortSignal | null,
 ): Promise<ResiliencePollRow[]> {
-  const userTenantCompanyIds = await getCompanyIdsForActiveTenant();
-  if (userTenantCompanyIds.length === 0) return [];
-  const showSimulation = opts?.showSimulation === true;
-  const tenantScopedOr = [
-    { threat: { tenantCompanyId: { in: userTenantCompanyIds } } },
-    { riskEvent: { tenantCompanyId: { in: userTenantCompanyIds } } },
-  ];
-  // For simulation drills, include global simulation rows even if they are outside tenant-bound joins.
-  const whereOr = showSimulation ? [...tenantScopedOr, { isSimulation: true }] : tenantScopedOr;
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      action: RESILIENCE_ACTION,
-      OR: whereOr,
-      ...(afterTimeIso ? { createdAt: { gt: new Date(afterTimeIso) } } : {}),
-    },
-    orderBy: { createdAt: "asc" },
-    take: 20,
-    select: { createdAt: true, justification: true },
-  });
-  return rows.map((r) => ({
-    createdAt: r.createdAt.toISOString(),
-    line: r.justification ?? "",
-  }));
+  return pollResilienceIntelStreamLinesCore(afterTimeIso, _opts, signal);
 }

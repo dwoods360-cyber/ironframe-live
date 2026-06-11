@@ -1,16 +1,43 @@
 "use client";
 
+
+
 import { useEffect, useMemo, useRef } from "react";
-import { pollResilienceIntelStreamLines } from "@/app/actions/resilienceIntelStreamActions";
+
 import { useAgentStore } from "@/app/store/agentStore";
+
 import { useRiskStore } from "@/app/store/riskStore";
 
-/** Irontech / Ironintel resilience lines → Intelligence Stream (global so it runs off Strategic Intel). */
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+
+import { formatIntelStreamLine } from "@/app/utils/intelligenceStreamFormat";
+
+import { createSimulationFetchScope } from "@/app/hooks/useSimulationFetchAbort";
+
+import { fetchIronintelResilienceLines } from "@/app/lib/client/simulationAgentFetch";
+
+import { isSimulationFetchAborted } from "@/app/utils/simulationNavAbort";
+
+
+
+const POLL_MS = 2500;
+
+
+
+/** Irontech / Ironintel resilience lines → Intelligence Stream (Expert Mode subscription). */
+
 export function useResilienceIntelPoll() {
+
+  const expertModeEnabled = useSystemConfigStore((s) => s.expertModeEnabled);
+
   const resilienceStreamCursorRef = useRef<string>(new Date(Date.now() - 1000).toISOString());
+
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
+
   const activeThreats = useRiskStore((s) => s.activeThreats);
-  const showSimulation = useMemo(
+
+  const showSimulationRef = useRef(false);
+  showSimulationRef.current = useMemo(
     () =>
       [...pipelineThreats, ...activeThreats].some((t) =>
         (t.ingestionDetails ?? "").includes('"isChaosTest":true'),
@@ -19,29 +46,79 @@ export function useResilienceIntelPoll() {
   );
 
   useEffect(() => {
+    if (!expertModeEnabled) return;
+
+    const scope = createSimulationFetchScope();
+    const { signal } = scope;
+
     resilienceStreamCursorRef.current = new Date(Date.now() - 1000).toISOString();
-    const onResubscribe = () => {
-      resilienceStreamCursorRef.current = new Date(Date.now() - 1000).toISOString();
+
+    const pollOnce = async () => {
+      if (signal.aborted) return;
+
+      try {
+        const since = resilienceStreamCursorRef.current;
+        const rows = await fetchIronintelResilienceLines(
+          signal,
+          since,
+          showSimulationRef.current,
+        );
+
+        if (isSimulationFetchAborted(signal) || rows.length === 0) return;
+
+        const add = useAgentStore.getState().addStreamMessage;
+
+        for (const r of rows) {
+
+          add(formatIntelStreamLine(r.line, new Date(r.createdAt)));
+
+        }
+
+        resilienceStreamCursorRef.current = rows[rows.length - 1]!.createdAt;
+
+      } catch (error) {
+
+        if (!isSimulationFetchAborted(signal, error)) {
+
+          console.warn("[Ironintel] resilience poll interrupted", error);
+
+        }
+
+      }
+
     };
+
+
+
+    const onResubscribe = () => {
+
+      if (signal.aborted) return;
+
+      resilienceStreamCursorRef.current = new Date(Date.now() - 1000).toISOString();
+
+      void pollOnce();
+
+    };
+
     window.addEventListener("ironframe:resilience-feed-resubscribe", onResubscribe);
 
-    const id = setInterval(() => {
-      void (async () => {
-        const since = resilienceStreamCursorRef.current;
-        const rows = await pollResilienceIntelStreamLines(since, {
-          showSimulation,
-        });
-        if (rows.length === 0) return;
-        const add = useAgentStore.getState().addStreamMessage;
-        for (const r of rows) {
-          add(r.line);
-        }
-        resilienceStreamCursorRef.current = rows[rows.length - 1]!.createdAt;
-      })();
-    }, 2500);
+
+
+    void pollOnce();
+
+    const id = setInterval(() => void pollOnce(), POLL_MS);
+
     return () => {
+
+      scope.dispose();
+
       clearInterval(id);
+
       window.removeEventListener("ironframe:resilience-feed-resubscribe", onResubscribe);
+
     };
-  }, [showSimulation]);
+
+  }, [expertModeEnabled]);
+
 }
+

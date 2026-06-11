@@ -46,7 +46,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it.skipIf(!runLiveGraphE2E)(
+  it.skipIf(!hasDatabase || !runLiveGraphE2E)(
     "routes high health cleanly through ironquery to ironcast and skips ironlock quarantine",
     async () => {
       const { compileSovereignOrchestrationBus } = await import(
@@ -126,7 +126,7 @@ describe("compileSovereignOrchestrationBus", () => {
     20_000,
   );
 
-  it.skipIf(!runLiveGraphE2E)(
+  it.skipIf(!hasDatabase || !runLiveGraphE2E)(
     "logs a graceful communication warning when RESEND_API_KEY is empty during terminal batch audit",
     async () => {
       vi.stubEnv("RESEND_API_KEY", "");

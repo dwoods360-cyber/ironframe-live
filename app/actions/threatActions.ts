@@ -40,7 +40,20 @@ import {
   operatorIdToDisplayName,
 } from '@/app/utils/assignmentChainOfCustody';
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
-import { resolveTenantUuidForThreatScope } from '@/app/utils/serverTenantContext';
+import {
+  getScopedTenantUuidFromCookies,
+  resolveTenantUuidForThreatScope,
+} from '@/app/utils/serverTenantContext';
+import {
+  hitlCategoryRequiresCisoAdmin,
+  hitlTenantScopeLabel,
+  parseHitlCategoryFromApprovalNote,
+  type HitlReviewCategory,
+} from '@/app/utils/hitlReviewQueue';
+import {
+  resolveDevConstitutionalAuthorityUserId,
+  userHasAnyApproverRoleOrDevElevation,
+} from "@/app/lib/grc/devConstitutionalElevation";
 import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { buildChaosFinalAckIngestionPatch } from '@/app/config/chaosScenarioTelemetry';
 import {
@@ -82,6 +95,10 @@ import {
 import { executeExpertSelfCorrectingObservation } from "@/app/lib/expertSelfCorrection";
 import { generateAndAttachPostMortemReport } from "@/app/utils/postMortemReportService";
 import { getHighScrutinyAuditFields } from "@/src/services/ironlock/validationRules";
+import {
+  listPendingThreatResolutionsCore,
+  type PendingThreatResolutionItem,
+} from "@/app/lib/server/ironsightReviewQueueCore";
 
 /** Threat resolution approve / reject / review — program leadership. */
 const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
@@ -90,6 +107,46 @@ const THREAT_RESOLUTION_APPROVER_ROLES: UserRole[] = [
   "CISO",
   "DIRECTOR_OF_COMPLIANCE",
 ];
+
+/** Financial / breach HITL attestations — CISO or ADMIN (GLOBAL_ADMIN) only. */
+const HITL_CISO_ADMIN_ROLES: UserRole[] = ["CISO", "GLOBAL_ADMIN"];
+
+async function actorMayReviewHitlApproval(
+  sessionUser: Awaited<ReturnType<typeof getSupabaseSessionUser>>,
+  userId: string,
+  tenantUuid: string,
+  category: HitlReviewCategory,
+  handshakeRaw: string | undefined,
+): Promise<boolean> {
+  const devUid = await resolveDevConstitutionalAuthorityUserId(sessionUser, tenantUuid);
+  if (devUid) return true;
+
+  const elevated = hitlCategoryRequiresCisoAdmin(category);
+  const handshake = (handshakeRaw ?? "").trim().toUpperCase();
+  if (elevated) {
+    if (handshake === "CISO" || handshake === "ADMIN") return true;
+    const row = await prisma.userRoleAssignment.findFirst({
+      where: {
+        userId,
+        tenantId: tenantUuid,
+        role: { in: [...HITL_CISO_ADMIN_ROLES] },
+      },
+      select: { id: true },
+    });
+    return row != null;
+  }
+  const row = await prisma.userRoleAssignment.findFirst({
+    where: {
+      userId,
+      tenantId: tenantUuid,
+      role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
+    },
+    select: { id: true },
+  });
+  if (row) return true;
+  if (handshake === "CISO" || handshake === "ADMIN") return true;
+  return false;
+}
 
 type AcknowledgeThreatGateResolved =
   | {
@@ -2885,6 +2942,7 @@ export async function approveThreatResolution(
         status: true,
         tenantId: true,
         threatId: true,
+        approvalNote: true,
         threat: {
           select: {
             id: true,
@@ -2896,18 +2954,23 @@ export async function approveThreatResolution(
     });
     if (!approval) return { success: false, error: "Approval record not found." };
 
-    const roleAssignment = await prisma.userRoleAssignment.findFirst({
-      where: {
-        userId: approverUserId,
-        tenantId: approval.tenantId,
-        role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
-      },
-      select: { id: true },
-    });
-    if (!roleAssignment) {
+    const jar = await cookies();
+    const handshakeRole = jar.get(HANDSHAKE_ROLE_COOKIE)?.value;
+    const hitlCategory = parseHitlCategoryFromApprovalNote(approval.approvalNote);
+
+    const mayReview = await actorMayReviewHitlApproval(
+      user,
+      approverUserId,
+      approval.tenantId,
+      hitlCategory,
+      handshakeRole,
+    );
+    if (!mayReview) {
       return {
         success: false,
-        error: "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can approve.",
+        error: hitlCategoryRequiresCisoAdmin(hitlCategory)
+          ? "CISO or ADMIN role required for financial / breach HITL attestations."
+          : "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can approve.",
       };
     }
 
@@ -2975,13 +3038,31 @@ export async function approveThreatResolution(
 
       await integrityService.createLedgerEntry(tx, {
         tenantId: approval.tenantId as string,
-        eventType: "THREAT_RESOLUTION_APPROVED",
+        eventType:
+          hitlCategory === "ALE_CIRCUIT_BREAKER"
+            ? "HITL_ALE_REMEDIATION_APPROVED"
+            : "THREAT_RESOLUTION_APPROVED",
         entityType: "THREAT_APPROVAL",
         entityId: aid,
         actorUserId: approverUserId,
         payload: {
           threatId: approval.threatId,
           approvedByUserId: approverUserId,
+          hitlCategory,
+          ...(hitlCategory === "ALE_CIRCUIT_BREAKER"
+            ? {
+                pendingLedgerCents: (() => {
+                  try {
+                    const j = parseIngestionDetailsForMerge(
+                      approval.threat?.ingestionDetails ?? null,
+                    ) as { hitlReview?: { pendingLedgerCents?: string } };
+                    return j?.hitlReview?.pendingLedgerCents ?? null;
+                  } catch {
+                    return null;
+                  }
+                })(),
+              }
+            : {}),
         },
         source: EventSource.SYSTEM,
       });
@@ -3012,10 +3093,13 @@ function isKimbotSimulationIngestion(ingestionDetails: string | null | undefined
 }
 
 async function actorMayAttestAsCiso(
+  sessionUser: Awaited<ReturnType<typeof getSupabaseSessionUser>>,
   userId: string,
   tenantUuid: string,
   handshakeRaw: string | undefined,
 ): Promise<boolean> {
+  const devUid = await resolveDevConstitutionalAuthorityUserId(sessionUser, tenantUuid);
+  if (devUid) return true;
   if ((handshakeRaw ?? "").trim().toUpperCase() === "CISO") return true;
   const row = await prisma.userRoleAssignment.findFirst({
     where: {
@@ -3061,7 +3145,7 @@ export async function generateCisoApproval(
         select: { tenantId: true },
       });
       if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for shadow threat." };
-      const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+      const may = await actorMayAttestAsCiso(user, uid, company.tenantId, handshakeRole);
       if (!may) {
         return {
           success: false,
@@ -3114,7 +3198,7 @@ export async function generateCisoApproval(
     });
     if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for threat." };
 
-    const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+    const may = await actorMayAttestAsCiso(user, uid, company.tenantId, handshakeRole);
     if (!may) {
       return {
         success: false,
@@ -3572,7 +3656,7 @@ export async function generateSimulationApproval(
         select: { tenantId: true },
       });
       if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for shadow threat." };
-      const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+      const may = await actorMayAttestAsCiso(user, uid, company.tenantId, handshakeRole);
       if (!may) {
         return {
           success: false,
@@ -3664,7 +3748,7 @@ export async function generateSimulationApproval(
     });
     if (!company?.tenantId) return { success: false, error: "Unable to resolve tenant for threat." };
 
-    const may = await actorMayAttestAsCiso(uid, company.tenantId, handshakeRole);
+    const may = await actorMayAttestAsCiso(user, uid, company.tenantId, handshakeRole);
     if (!may) {
       return {
         success: false,
@@ -3771,16 +3855,7 @@ export async function generateSimulationApproval(
   }
 }
 
-export type PendingThreatResolutionItem = {
-  approvalId: string;
-  threatId: string;
-  threatTitle: string;
-  targetEntity: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  requestedByUserId: string;
-  approvalNote: string;
-  createdAt: string;
-};
+export type { PendingThreatResolutionItem };
 
 async function resolveThreatIdForResolutionRequest(inputId: string): Promise<string | null> {
   const direct = await prisma.threatEvent.findUnique({
@@ -3804,45 +3879,11 @@ async function resolveThreatIdForResolutionRequest(inputId: string): Promise<str
   return linked?.id ?? null;
 }
 
-export async function listPendingThreatResolutions(): Promise<
-  { ok: true; items: PendingThreatResolutionItem[] } | { ok: false; error: string; items: [] }
-> {
-  try {
-    const rows = await prisma.threatApproval.findMany({
-      where: { status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        threatId: true,
-        status: true,
-        requestedByUserId: true,
-        approvalNote: true,
-        createdAt: true,
-        threat: {
-          select: {
-            title: true,
-            targetEntity: true,
-          },
-        },
-      },
-    });
-    return {
-      ok: true,
-      items: rows.map((row) => ({
-        approvalId: row.id,
-        threatId: row.threatId,
-        threatTitle: row.threat?.title ?? row.threatId,
-        targetEntity: row.threat?.targetEntity ?? null,
-        status: row.status,
-        requestedByUserId: row.requestedByUserId,
-        approvalNote: row.approvalNote ?? "",
-        createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : new Date().toISOString(),
-      })),
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load pending resolutions.";
-    return { ok: false, error: message, items: [] };
-  }
+export async function listPendingThreatResolutions(
+  tenantUuidOverride?: string | null,
+  signal?: AbortSignal | null,
+) {
+  return listPendingThreatResolutionsCore(tenantUuidOverride, signal);
 }
 
 export async function getThreatResolutionReviewEligibility(): Promise<{ eligible: boolean }> {
@@ -3850,14 +3891,8 @@ export async function getThreatResolutionReviewEligibility(): Promise<{ eligible
   const uid = user?.id?.trim() ?? "";
   if (!uid) return { eligible: false };
 
-  const assignment = await prisma.userRoleAssignment.findFirst({
-    where: {
-      userId: uid,
-      role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
-    },
-    select: { id: true },
-  });
-  return { eligible: Boolean(assignment?.id) };
+  const eligible = await userHasAnyApproverRoleOrDevElevation(user, THREAT_RESOLUTION_APPROVER_ROLES);
+  return { eligible };
 }
 
 export async function rejectThreatResolution(
@@ -3874,23 +3909,35 @@ export async function rejectThreatResolution(
   try {
     const approval = await prisma.threatApproval.findUnique({
       where: { id: aid },
-      select: { id: true, tenantId: true, status: true, approvalNote: true },
+      select: {
+        id: true,
+        tenantId: true,
+        status: true,
+        approvalNote: true,
+        threatId: true,
+        threat: { select: { ingestionDetails: true } },
+      },
     });
     if (!approval) return { success: false, error: "Approval record not found." };
 
-    const roleAssignment = await prisma.userRoleAssignment.findFirst({
-      where: {
-        userId: approverUserId,
-        tenantId: approval.tenantId,
-        role: { in: [...THREAT_RESOLUTION_APPROVER_ROLES] },
-      },
-      select: { id: true },
-    });
-    if (!roleAssignment) {
-        return {
-          success: false,
-          error: "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can reject.",
-        };
+    const jar = await cookies();
+    const handshakeRole = jar.get(HANDSHAKE_ROLE_COOKIE)?.value;
+    const hitlCategory = parseHitlCategoryFromApprovalNote(approval.approvalNote);
+
+    const mayReview = await actorMayReviewHitlApproval(
+      user,
+      approverUserId,
+      approval.tenantId,
+      hitlCategory,
+      handshakeRole,
+    );
+    if (!mayReview) {
+      return {
+        success: false,
+        error: hitlCategoryRequiresCisoAdmin(hitlCategory)
+          ? "CISO or ADMIN role required for financial / breach HITL attestations."
+          : "Only GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE can reject.",
+      };
     }
 
     const note =
@@ -3908,9 +3955,35 @@ export async function rejectThreatResolution(
           approvalNote: note,
         },
       });
+
+      if (hitlCategory === "ALE_CIRCUIT_BREAKER" && approval.threatId) {
+        const base = parseIngestionDetailsForMerge(approval.threat?.ingestionDetails ?? null);
+        const existingHitl =
+          base.hitlReview != null && typeof base.hitlReview === "object" && !Array.isArray(base.hitlReview)
+            ? (base.hitlReview as Record<string, Prisma.InputJsonValue>)
+            : {};
+        const patchedIngestion = mergeIngestionDetailsPatch(approval.threat?.ingestionDetails ?? null, {
+          hitlReview: {
+            ...existingHitl,
+            remediationFrozen: true,
+            remediationFrozenAt: new Date().toISOString(),
+          },
+        });
+        await updateThreatWithIntegrity({
+          threatId: approval.threatId,
+          changes: { ingestionDetails: patchedIngestion },
+          actorUserId: approverUserId,
+          eventType: "HITL_ALE_REMEDIATION_FROZEN",
+          tx,
+        });
+      }
+
       await integrityService.logEvent(tx, {
         tenantId: approval.tenantId,
-        eventType: "THREAT_RESOLUTION_REJECTED",
+        eventType:
+          hitlCategory === "ALE_CIRCUIT_BREAKER"
+            ? "HITL_ALE_REMEDIATION_REJECTED"
+            : "THREAT_RESOLUTION_REJECTED",
         entityType: "THREAT_APPROVAL",
         entityId: aid,
         actorUserId: approverUserId,
@@ -3918,6 +3991,8 @@ export async function rejectThreatResolution(
           approvalId: aid,
           approvedByUserId: approverUserId,
           note,
+          hitlCategory,
+          remediationFrozen: hitlCategory === "ALE_CIRCUIT_BREAKER",
         },
         source: EventSource.SYSTEM,
       });

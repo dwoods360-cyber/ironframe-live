@@ -13,6 +13,11 @@ import LiabilityAlertToast from './LiabilityAlertToast';
 import RecordExpiredToast from './RecordExpiredToast';
 import ThreatActionErrorToast from './ThreatActionErrorToast';
 import SimulationDispatchToast from './SimulationDispatchToast';
+import {
+  FLOATING_NOTIFY_INTERACTIVE_CLASS,
+  FLOATING_NOTIFY_Z_CLASS,
+  floatingNotifyTopClass,
+} from '@/app/config/layoutConstants';
 import { useTenantContext } from '../context/TenantProvider';
 import { resolveEffectiveTenantUuidForActions } from '@/app/utils/resolveEffectiveTenantUuidForActions';
 import type { StreamAlert } from '../hooks/useAlerts';
@@ -23,7 +28,6 @@ import { useSystemConfigStore } from '../store/systemConfigStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 import IrontechLeftPaneControls from './IrontechLeftPaneControls';
-import Sidebar from './Sidebar';
 import ClockDriftBanner from './ClockDriftBanner';
 import ClockDriftMonitor from './ClockDriftMonitor';
 import SentinelIntakeForm from '@/components/SentinelIntakeForm';
@@ -55,8 +59,8 @@ import {
 import type { ReasoningWaterfallVM } from '@/app/utils/reasoningWaterfallFromIngestion';
 import ResourceMonitor from '@/app/components/ResourceMonitor';
 import GrcGoldLivingAuditBlock from '@/app/components/GrcGoldLivingAuditBlock';
-import InsuranceForensicGapConnector from '@/app/components/InsuranceForensicGapConnector';
-import DashboardTripaneShell from '@/app/components/DashboardTripaneShell';
+import { LeftPanelFeatureTitle } from '@/app/components/leftPanel/LeftPanelFeatureIndex';
+import { LP_FEATURE } from '@/app/config/leftPanelFeatureIndex';
 import HandshakeStatusBar, {
   type SyncHandshakePhase,
   HANDSHAKE_SYSTEM_READY_LINE,
@@ -64,6 +68,13 @@ import HandshakeStatusBar, {
 import { TENANT_API_CACHE_INVALIDATE_EVENT } from '@/app/utils/apiCacheCoordinator';
 import { isShadowPlaneActiveClient } from '@/app/utils/shadowPlaneActive';
 import { useShadowPlaneThreatRefetch } from '@/app/hooks/useShadowPlaneThreatRefetch';
+import { ChevronRight } from 'lucide-react';
+import {
+  SIM_NAV_FOCUS_EVENT,
+  consumeQueuedSimNavFocus,
+  scrollSimNavTargetIntoView,
+  type SimNavFocusTarget,
+} from '@/app/utils/simulationNavFocus';
 
 const EXCLUDED_BASELINE_RISK_TITLES = new Set([
   'Schneider Electric SCADA Vulnerability',
@@ -74,12 +85,16 @@ const EXCLUDED_BASELINE_RISK_TITLES = new Set([
 import {
   DASHBOARD_CENTER_CONTENT,
   DASHBOARD_CENTER_PAD_X,
+  DASHBOARD_CENTER_PANE,
   DASHBOARD_CENTER_RISK_STACK,
   DASHBOARD_CENTER_SCROLL,
   DASHBOARD_HOME_SHELL,
+  DASHBOARD_LEFT_PANE,
   DASHBOARD_LEFT_SCROLL,
+  DASHBOARD_LEFT_STACK,
+  DASHBOARD_RIGHT_PANE,
   DASHBOARD_RIGHT_SCROLL,
-  INSURANCE_UNDERWRITING_ROW,
+  DASHBOARD_TRIPANE_SHELL,
 } from "@/app/lib/dashboardTripaneLayout";
 
 /** Strip legacy Medshield ghost rows from secondary asset metadata (forensic anchor is authoritative). */
@@ -216,6 +231,41 @@ const EMPTY_HEATMAP: Record<string, { total: number; agents: Record<string, numb
 const EMPTY_PREDICTIVE_HEAT: Record<string, number> = {};
 const EMPTY_ALE_EXPOSURE: Record<string, string> = {};
 
+function InsuranceForensicHandshakeConnector({ flowActive }: { flowActive: boolean }) {
+  const bridge = (
+    <div className="relative w-full overflow-visible">
+      <div className="relative h-px w-full">
+        <div className="absolute inset-0 border-t border-dashed border-cyan-600/40" />
+        {flowActive ? (
+          <div className="pointer-events-none absolute left-0 top-1/2 h-4 w-[min(55%,10rem)] -translate-y-1/2 rounded-full bg-gradient-to-r from-cyan-200/95 via-cyan-400/88 to-transparent blur-[3px] ironframe-connector-flow-x" />
+        ) : null}
+      </div>
+      <div className="mt-2 flex justify-center">
+        <ChevronRight
+          className="text-cyan-500/55 drop-shadow-[0_0_8px_rgba(34,211,238,0.3)]"
+          strokeWidth={2.25}
+          size={18}
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <div
+        className="relative hidden min-h-[8rem] w-12 shrink-0 flex-col justify-center px-0.5 lg:flex"
+        aria-hidden
+      >
+        {bridge}
+      </div>
+      <div className="relative flex w-full shrink-0 py-1 lg:hidden" aria-hidden>
+        {bridge}
+      </div>
+    </>
+  );
+}
+
 /**
  * Main Ops shell — primary “ear” for production `ThreatEvent` and shadow `RiskEvent` (DB table `SimThreatEvent`) realtime, tenant-scoped.
  * See `useDashboardThreatRealtime` (postgres_changes on `ThreatEvent` or `SimThreatEvent` when simulation mode is on).
@@ -272,9 +322,10 @@ export default function DashboardHomeClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newThreatToast, setNewThreatToast] = useState<{ title: string } | null>(null);
+  /** Ironwatch banner stays fixed until dismissed; re-shows when alert payload changes. */
+  const [dismissedIronwatchSig, setDismissedIronwatchSig] = useState<string | null>(null);
   const scrutinySignatureRef = useRef<string>("");
   const forecastSignatureRef = useRef<string>("");
-  const newThreatToastDismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const isLaunchingRef = useRef(false);
   const [tenantGovernanceBps, setTenantGovernanceBps] = useState<number | null>(null);
@@ -315,6 +366,23 @@ export default function DashboardHomeClient({
     };
     window.addEventListener("ironframe:chaos-l6-freeze", onChaosL6Freeze);
     return () => window.removeEventListener("ironframe:chaos-l6-freeze", onChaosL6Freeze);
+  }, []);
+
+  useEffect(() => {
+    const applyFocus = (target: SimNavFocusTarget) => {
+      if (target !== "sim-deck") return;
+      window.requestAnimationFrame(() => {
+        scrollSimNavTargetIntoView(target);
+      });
+    };
+    const queued = consumeQueuedSimNavFocus();
+    if (queued) applyFocus(queued);
+    const onSimNavFocus = (event: Event) => {
+      const target = (event as CustomEvent<{ target?: SimNavFocusTarget }>).detail?.target;
+      if (target) applyFocus(target);
+    };
+    window.addEventListener(SIM_NAV_FOCUS_EVENT, onSimNavFocus);
+    return () => window.removeEventListener(SIM_NAV_FOCUS_EVENT, onSimNavFocus);
   }, []);
 
   /** Align with ThreatPipeline / server actions: shadow+sim use Medshield when Global has no cookie. */
@@ -480,12 +548,7 @@ export default function DashboardHomeClient({
   }, [clearHandshakeTimers, setShadowPlaneHandshakeAuthorized]);
 
   const onNewThreatDetected = useCallback((title: string) => {
-    if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
     setNewThreatToast({ title });
-    newThreatToastDismissRef.current = setTimeout(() => {
-      setNewThreatToast(null);
-      newThreatToastDismissRef.current = null;
-    }, 5200);
   }, []);
 
   const fetchDashboardWithRetry = useCallback(
@@ -564,12 +627,6 @@ export default function DashboardHomeClient({
       router.refresh();
     },
   });
-
-  useEffect(() => {
-    return () => {
-      if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -680,6 +737,11 @@ export default function DashboardHomeClient({
   const complianceDriftOpenCount = data?.complianceDriftOpenCount ?? 0;
   const ironwatchAlerts = data?.ironwatchAlerts ?? [];
   const isConflictDetected = data?.isConflictDetected === true;
+  const ironwatchAlertSig = ironwatchAlerts.join("\0");
+  const showIronwatchNotice =
+    isConflictDetected &&
+    ironwatchAlerts.length > 0 &&
+    dismissedIronwatchSig !== ironwatchAlertSig;
   const complianceVelocity = data?.complianceVelocity ?? null;
   const avgHoursToControlMapping = data?.avgHoursToControlMapping ?? null;
   const totalValueMitigatedYtdCents = data?.totalValueMitigatedYtdCents ?? "0";
@@ -921,83 +983,79 @@ export default function DashboardHomeClient({
   if (loading && dashboardTenantUuid) {
     return (
       <div className={DASHBOARD_HOME_SHELL}>
-        <DashboardTripaneShell
-          leftPaneTestId="dashboard-left-panel"
-          centerPaneTestId="dashboard-main"
-          leftAsideProps={{ "aria-hidden": true }}
-          centerMainProps={{
-            "aria-busy": true,
-            "aria-label": "Loading pipeline and active risk posture",
-          }}
-          left={
-            <div className={DASHBOARD_LEFT_SCROLL}>
-              <div className="space-y-6 pb-12">
-                <div className="space-y-3">
-                  <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
-                  <div className="flex justify-between gap-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
-                    ))}
-                  </div>
-                  <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
-                    <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                      <div className="h-8 animate-pulse rounded bg-slate-800/90" />
-                    </div>
+      <div className={DASHBOARD_TRIPANE_SHELL}>
+        <aside className={DASHBOARD_LEFT_PANE} data-testid="dashboard-left-panel" aria-hidden>
+          <div className={DASHBOARD_LEFT_SCROLL}>
+            <div className="space-y-6 pb-12">
+              <div className="space-y-3">
+                <div className="h-3 w-28 animate-pulse rounded bg-slate-800" />
+                <div className="flex justify-between gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="h-2 w-12 animate-pulse rounded bg-slate-800/80" />
+                  ))}
+                </div>
+                <div className="rounded-md border border-zinc-800/80 bg-zinc-950/40 p-3">
+                  <div className="mb-2 h-6 w-full animate-pulse rounded bg-amber-950/30" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
+                    <div className="h-8 animate-pulse rounded bg-slate-800/90" />
                   </div>
                 </div>
-                <div className="border-t border-slate-800/60 pt-4">
-                  <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
-                  <div className="mt-3 space-y-2">
-                    <div className="h-16 animate-pulse rounded bg-slate-800/70" />
-                    <div className="h-16 animate-pulse rounded bg-slate-800/50" />
-                  </div>
+              </div>
+              <div className="border-t border-slate-800/60 pt-4">
+                <div className="h-3 w-36 animate-pulse rounded bg-slate-800" />
+                <div className="mt-3 space-y-2">
+                  <div className="h-16 animate-pulse rounded bg-slate-800/70" />
+                  <div className="h-16 animate-pulse rounded bg-slate-800/50" />
                 </div>
               </div>
             </div>
-          }
-          center={
-            <>
-              <div className={DASHBOARD_CENTER_SCROLL}>
-                <div className="border-b border-slate-800 px-6 pt-4">
-                  <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
-                </div>
-                <div className={DASHBOARD_CENTER_CONTENT}>
-                  <div>
-                    <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
-                    <div className="flex gap-3 overflow-x-auto pb-2">
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-none border border-slate-800/80 bg-slate-900/80"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="h-28 animate-pulse rounded-none border border-slate-800/60 bg-slate-900/60" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          }
-          right={
-            <div className={DASHBOARD_RIGHT_SCROLL}>
-              <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
-                <div className="h-3 w-32 shrink-0 animate-pulse rounded bg-slate-800" />
-                <div className="min-h-0 flex-1 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+          </div>
+        </aside>
+        <section
+          className={DASHBOARD_CENTER_PANE}
+          data-testid="dashboard-main"
+          aria-busy
+          aria-label="Loading pipeline and active risk posture"
+        >
+          <div className={DASHBOARD_CENTER_SCROLL}>
+          <div className="border-b border-slate-800 px-6 pt-4">
+            <div className="h-3 w-48 animate-pulse rounded bg-slate-800" />
+          </div>
+          <div className={DASHBOARD_CENTER_CONTENT}>
+            <div>
+              <div className="mb-3 h-3 w-40 animate-pulse rounded bg-slate-800" />
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-36 w-[min(100%,220px)] shrink-0 animate-pulse rounded-none border border-slate-800/80 bg-slate-900/80"
+                  />
+                ))}
               </div>
             </div>
-          }
-        />
+            <div>
+              <div className="mb-3 h-3 w-36 animate-pulse rounded bg-slate-800" />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-none border border-slate-800/60 bg-slate-900/60" />
+                ))}
+              </div>
+            </div>
+          </div>
+          </div>
+        </section>
+        <aside className={DASHBOARD_RIGHT_PANE}>
+          <div className={DASHBOARD_RIGHT_SCROLL}>
+            <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
+              <div className="h-3 w-32 shrink-0 animate-pulse rounded bg-slate-800" />
+              <div className="min-h-0 flex-1 animate-pulse rounded border border-slate-800/80 bg-slate-900/50" />
+            </div>
+          </div>
+        </aside>
+      </div>
       </div>
     );
   }
@@ -1035,7 +1093,7 @@ export default function DashboardHomeClient({
           <div
             role="status"
             aria-live="polite"
-            className="fixed top-[4.5rem] left-1/2 z-[99] w-[min(92vw,28rem)] -translate-x-1/2 rounded-lg border border-cyan-500/70 bg-slate-900/95 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.25)] threat-list-fade-in"
+            className={`fixed left-1/2 w-[min(92vw,28rem)] -translate-x-1/2 rounded-lg border border-cyan-500/70 bg-slate-900/95 px-4 py-3 shadow-[0_0_20px_rgba(34,211,238,0.25)] threat-list-fade-in ${floatingNotifyTopClass(isSimulationMode, 1)} ${FLOATING_NOTIFY_Z_CLASS} ${FLOATING_NOTIFY_INTERACTIVE_CLASS}`}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1044,11 +1102,7 @@ export default function DashboardHomeClient({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (newThreatToastDismissRef.current) clearTimeout(newThreatToastDismissRef.current);
-                  newThreatToastDismissRef.current = null;
-                  setNewThreatToast(null);
-                }}
+                onClick={() => setNewThreatToast(null)}
                 className="shrink-0 rounded border border-slate-600 bg-slate-800/80 px-2 py-1 text-[10px] font-bold uppercase text-slate-300 hover:bg-slate-700"
               >
                 Dismiss
@@ -1056,50 +1110,68 @@ export default function DashboardHomeClient({
             </div>
           </div>
         ) : null}
-        {isConflictDetected && ironwatchAlerts.length > 0 ? (
+        {showIronwatchNotice ? (
           <div
             role="alert"
             aria-live="assertive"
-            className="fixed top-[8.5rem] left-1/2 z-[99] w-[min(96vw,40rem)] -translate-x-1/2 rounded-lg border border-amber-500/70 bg-amber-950/90 px-4 py-3 shadow-[0_0_20px_rgba(245,158,11,0.25)]"
+            className={`fixed left-1/2 w-[min(96vw,40rem)] -translate-x-1/2 rounded-lg border border-amber-500/70 bg-amber-950/90 px-4 py-3 shadow-[0_0_20px_rgba(245,158,11,0.25)] ${floatingNotifyTopClass(isSimulationMode, 2)} ${FLOATING_NOTIFY_Z_CLASS} ${FLOATING_NOTIFY_INTERACTIVE_CLASS}`}
           >
-            <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
-              Compliance drift signal (Ironwatch)
-            </p>
-            {ironwatchAlerts.slice(0, 2).map((msg, idx) => (
-              <p key={`${idx}-${msg.slice(0, 24)}`} className="mt-1 text-[11px] leading-relaxed text-amber-100">
-                {msg}
-              </p>
-            ))}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                  Compliance drift signal (Ironwatch)
+                </p>
+                {ironwatchAlerts.slice(0, 2).map((msg, idx) => (
+                  <p key={`${idx}-${msg.slice(0, 24)}`} className="mt-1 text-[11px] leading-relaxed text-amber-100">
+                    {msg}
+                  </p>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDismissedIronwatchSig(ironwatchAlertSig)}
+                className="shrink-0 rounded border border-amber-600/70 bg-amber-900/50 px-2 py-1 text-[10px] font-bold uppercase text-amber-200 hover:bg-amber-900/70"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         ) : null}
-      <DashboardTripaneShell
-        leftPaneTestId="dashboard-left-panel"
-        centerPaneTestId="dashboard-main"
-        rightPaneAuditIntelligence
-        left={
+      <div className={DASHBOARD_TRIPANE_SHELL}>
+        <aside
+          className={DASHBOARD_LEFT_PANE}
+          data-testid="dashboard-left-panel"
+          data-left-panel-mode={auditorViewEnabled ? "auditor" : "command"}
+          aria-label={auditorViewEnabled ? "Auditor view left panel" : "Command Center left panel"}
+        >
           <div className={DASHBOARD_LEFT_SCROLL}>
-            <div className="space-y-6 pb-12">
-              <Sidebar />
+            <div className={`${DASHBOARD_LEFT_STACK} space-y-6 pb-12`}>
               {auditorViewEnabled ? (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90">
+                <div className="min-w-0 w-full">
+                  <LeftPanelFeatureTitle
+                    index={LP_FEATURE.AUDITOR_VIEW}
+                    as="p"
+                    className="text-[10px] font-bold uppercase tracking-wide text-amber-300/90"
+                  >
                     {GRC_GOLD_AUDITOR_VIEW_TITLE}
-                  </p>
+                  </LeftPanelFeatureTitle>
                   <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{GRC_GOLD_AUDITOR_VIEW_INTRO}</p>
                 </div>
               ) : (
                 <>
-                  <div className="border-b border-zinc-900 pb-6">
+                  <div className="min-w-0 w-full border-b border-zinc-900 pb-6">
                     <IrontechLeftPaneControls />
                   </div>
-                  <StrategicIntel />
+                  <div className="min-w-0 w-full">
+                    <StrategicIntel />
+                  </div>
                 </>
               )}
             </div>
           </div>
-        }
-        center={
-          <>
+        </aside>
+
+        <section className={DASHBOARD_CENTER_PANE} data-testid="dashboard-main">
           <div className={DASHBOARD_CENTER_SCROLL}>
           <div className={DASHBOARD_CENTER_CONTENT}>
           {typeof serverTimeEpochMs === "number" ? (
@@ -1143,7 +1215,9 @@ export default function DashboardHomeClient({
           ) : (
             <section
               data-testid="forensic-center-section"
-              className="flex w-full min-w-0 flex-1 flex-col border-b border-slate-800 bg-slate-950/70"
+              data-sim-nav-target="sim-deck"
+              tabIndex={-1}
+              className="flex w-full min-w-0 flex-1 flex-col border-b border-slate-800 bg-slate-950/70 outline-none"
               aria-label="Forensic center lane"
             >
               {complianceDriftOpenCount > 0 ? (
@@ -1178,19 +1252,29 @@ export default function DashboardHomeClient({
                   insuranceDiscountPct={insuranceDiscountPct}
                 >
                 <div className="space-y-4">
-                  <div className={INSURANCE_UNDERWRITING_ROW} data-insurance-underwriting-row>
-                    <div className="min-w-0 flex-[3] shrink self-stretch">
-                      <BudgetJustification
-                        framework={insuranceModelFramework}
-                        hasContinuousMonitoring={insuranceHasContinuousMonitoring}
-                        hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
-                        defaultPremiumCents={insuranceDefaultPremiumCents}
-                        tenantFetch={tenantFetch}
-                        onInsurancePostureChange={onInsurancePostureChange}
+                  <div
+                    className={`flex flex-col gap-4 lg:items-stretch ${isSimulationMode ? "lg:flex-row" : ""}`}
+                  >
+                    {isSimulationMode ? (
+                      <div className="min-w-0 flex-[2]">
+                        <BudgetJustification
+                          framework={insuranceModelFramework}
+                          hasContinuousMonitoring={insuranceHasContinuousMonitoring}
+                          hasDueDiligencePdfs={insuranceHasDueDiligencePdfs}
+                          defaultPremiumCents={insuranceDefaultPremiumCents}
+                          tenantFetch={tenantFetch}
+                          onInsurancePostureChange={onInsurancePostureChange}
+                        />
+                      </div>
+                    ) : null}
+                    {isSimulationMode ? (
+                      <InsuranceForensicHandshakeConnector
+                        flowActive={handshakePhase === "syncing"}
                       />
-                    </div>
-                    <InsuranceForensicGapConnector />
-                    <div className="min-w-0 flex-[2] shrink self-stretch">
+                    ) : null}
+                    <div
+                      className={`min-w-0 self-start ${isSimulationMode ? "flex-1" : "w-full"}`}
+                    >
                       <GrcGoldLivingAuditBlock
                         variant="grid"
                         industry={selectedIndustry}
@@ -1250,9 +1334,9 @@ export default function DashboardHomeClient({
           ) : null}
           </div>
           </div>
-          </>
-        }
-        right={
+        </section>
+
+        <aside data-ironframe-audit-intelligence="true" className={DASHBOARD_RIGHT_PANE}>
           <div className={DASHBOARD_RIGHT_SCROLL}>
             <AuditIntelligence
               serverAuditLogs={serverAuditLogsForAudit}
@@ -1263,9 +1347,9 @@ export default function DashboardHomeClient({
               }}
             />
           </div>
-        }
-      />
+        </aside>
 
+      </div>
       </div>
       <ForensicReasoningPlaybackModal
         threatId={forensicPlaybackThreatId}

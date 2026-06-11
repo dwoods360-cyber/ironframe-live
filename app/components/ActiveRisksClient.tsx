@@ -2105,6 +2105,17 @@ export default function ActiveRisksClient({
     return m;
   }, [threatEvents]);
 
+  const threatEventComplianceById = useMemo(() => {
+    const m = new Map<string, { complianceFramework: string; mappedControls: string[] }>();
+    for (const t of threatEvents) {
+      m.set(t.id, {
+        complianceFramework: t.complianceFramework ?? "NIST",
+        mappedControls: Array.isArray(t.mappedControls) ? t.mappedControls : [],
+      });
+    }
+    return m;
+  }, [threatEvents]);
+
   /**
    * Prefer local dropdown; else ActiveRisk / store assignee; else ThreatEvent.assigneeId from dashboard payload.
    * `teLookupId` is the ThreatEvent id (same as card id for active threats, or risk.threatId for ActiveRisk rows).
@@ -3028,6 +3039,7 @@ export default function ActiveRisksClient({
 
           const activeRiskShieldBadge =
             hasMountedClient && selectedIndustry === "Defense" ? DEFENSE_REGULATORY_SHIELD_BADGE_LABEL : null;
+          const threatComplianceMeta = threatEventComplianceById.get(threat.id);
 
           const showNeutralizeAttestation =
             lifecycle === 'confirmed' &&
@@ -3054,6 +3066,8 @@ export default function ActiveRisksClient({
                       : null
               }
               showCompliance={showCompliance}
+              complianceFramework={threatComplianceMeta?.complianceFramework ?? null}
+              mappedControls={threatComplianceMeta?.mappedControls ?? []}
               suppressRemoteTechnicianHeader={isChaosDrillThreat(threat)}
               failureAnimToken={irontechFailureAnimToken}
               ironTechAgentPhase={ironTechAgentPhase}

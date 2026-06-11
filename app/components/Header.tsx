@@ -9,6 +9,8 @@ import { useEffect } from "react";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useSystemConfigStore, setExpertModeEnabled } from "@/app/store/systemConfigStore";
 import { PurgeBoardButton } from "@/app/components/PurgeBoardButton";
+import { LeftPanelFeatureIndex } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+import { LP_FEATURE } from "@/app/config/leftPanelFeatureIndex";
 
 export default function Header() {
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
@@ -108,8 +110,9 @@ export default function Header() {
         <div className="flex shrink-0 items-center gap-2">
           <label
             htmlFor="expert-mode-toggle"
-            className="text-[11px] font-medium text-slate-400 whitespace-nowrap"
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 whitespace-nowrap"
           >
+            <LeftPanelFeatureIndex index={LP_FEATURE.EXPERT_MODE_COUPLING} />
             Expert Mode
           </label>
           <button

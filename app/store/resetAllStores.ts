@@ -10,6 +10,7 @@ import { useAgenticComputeStore } from "@/app/store/agenticComputeStore";
 import { useComplianceOverlayStore } from "@/app/store/complianceOverlayStore";
 import { useScenarioStore } from "@/app/store/scenarioStore";
 import { useRiskRegistryStore } from "@/app/store/riskRegistryStore";
+import { useAgentRiskStore } from "@/app/store/agentRiskStore";
 
 /**
  * Cold-boot: wipe tenant-derived client RAM across Zustand surfaces (Command Center + Dev switcher).
@@ -22,6 +23,7 @@ export function resetAllStores(): void {
   useRiskStore.getState().setSelectedTenantName(null);
 
   useAgentStore.getState().resetAgentStreamsForPurge();
+  useAgentRiskStore.getState().resetForTenantScopeChange();
 
   useKimbotStore.setState({
     enabled: false,

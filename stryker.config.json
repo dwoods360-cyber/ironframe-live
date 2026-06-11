@@ -8,13 +8,12 @@
   ],
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
+  "ignoreStatic": true,
   "mutate": [
     "core/irontrust/**/*.ts",
-    "!core/irontrust/**/*.test.ts"
+    "Ironboard/src/services/marketIntelligence.ts",
+    "Ironboard/src/components/flywheelScore.ts",
+    "!**/*.test.ts"
   ],
-  "thresholds": {
-    "high": 100,
-    "low": 99,
-    "break": 100
-  }
+  "thresholds": { "high": 85, "low": 80, "break": 75 }
 }

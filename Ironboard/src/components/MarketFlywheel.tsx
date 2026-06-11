@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { displayIcpScore } from './flywheelScore.js';
 
 export type HubRegion = 'London' | 'Singapore';
 
@@ -183,8 +184,8 @@ export default function MarketFlywheel({ apiBase = '' }: Props) {
                     {hireTag} · {prospect.dealStage}
                   </div>
                 </div>
-                <span className="score-pill" data-score={prospect.icpScore ?? 0} title="icpScore">
-                  {prospect.icpScore ?? 0}
+                <span className="score-pill" data-score={displayIcpScore(prospect)} title="icpScore">
+                  {displayIcpScore(prospect)}
                 </span>
               </div>
             );

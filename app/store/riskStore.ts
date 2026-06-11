@@ -28,6 +28,14 @@ import {
 import { belongsOnAttackVelocityPipeline } from "@/app/utils/chaosDiscoveryHold";
 import { isChaosForensicClosureLingerActive } from "@/app/utils/chaosForensicClosure";
 import { threatBelongsToTenantScope } from "@/app/utils/chaosTenantScope";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import {
+  loadMaturationEventsFromStorage,
+  maturationDeepDiveEventId,
+  maturationHitlReviewEventId,
+  maturationThreatResolvedEventId,
+  persistMaturationEventsToStorage,
+} from "@/app/utils/analystMaturation";
 import { hasVerifiedActiveCanvasProvenance } from "@/app/utils/activeCanvasProvenance";
 import { getIronguardEffectiveTenant } from "@/app/utils/apiClient";
 
@@ -296,9 +304,14 @@ interface RiskState {
   // Global industry profile (synced from StrategicIntel)
   selectedIndustry: string;
   setSelectedIndustry: (industry: string) => void;
-  /** Analyst maturation: deep-dive threat IDs completed in Strategic Intel. */
+  /** Analyst maturation — tenant-scoped mastery event ids (deep-dive, resolve, HITL). */
+  analystMaturationByTenant: Record<string, string[]>;
+  hydrateAnalystMaturationForTenant: (tenantUuid: string | null) => void;
+  recordAnalystMaturationEvent: (tenantUuid: string | null, eventId: string) => void;
+  getAnalystMaturationEvents: (tenantUuid: string | null) => string[];
+  /** @deprecated Use recordAnalystMaturationEvent + tenant scope. */
   completedDeepDives: string[];
-  markDeepDiveCompleted: (threatId: string) => void;
+  markDeepDiveCompleted: (threatId: string, tenantUuid?: string | null) => void;
   /** Last drill start (ISO UTC) used by Strategic Intel stability timer. */
   lastSimulationStartedAt: string | null;
   setLastSimulationStartedAt: (iso: string | null) => void;
@@ -902,6 +915,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           };
         });
         recordAgentKill();
+        const maturationTenantChaos = resolveDashboardTenantUuid(null);
+        if (maturationTenantChaos) {
+          get().recordAnalystMaturationEvent(
+            maturationTenantChaos,
+            maturationThreatResolvedEventId(id),
+          );
+        }
       } catch (error) {
         console.error('runChaosDrillIrontechLifecycleGatedAction failed', error);
         const msg = error instanceof Error ? error.message : String(error);
@@ -947,6 +967,13 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           },
         });
         throw new Error("Resolve failed");
+      }
+      const maturationTenant = resolveDashboardTenantUuid(null);
+      if (maturationTenant) {
+        get().recordAnalystMaturationEvent(
+          maturationTenant,
+          maturationThreatResolvedEventId(id),
+        );
       }
       const reductionM = (result.financialRisk_cents ?? 0) / 100_000_000;
       recordAgentKill();
@@ -1114,14 +1141,46 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
   selectedIndustry: "Healthcare",
   setSelectedIndustry: (industry) => set({ selectedIndustry: industry }),
-  completedDeepDives: [],
-  markDeepDiveCompleted: (threatId) =>
+  analystMaturationByTenant: {},
+  hydrateAnalystMaturationForTenant: (tenantUuid) => {
+    const tid = tenantUuid?.trim() ?? "";
+    if (!tid) return;
     set((state) => {
-      const id = (threatId ?? "").trim();
-      if (!id) return state;
-      if (state.completedDeepDives.includes(id)) return state;
-      return { completedDeepDives: [...state.completedDeepDives, id] };
-    }),
+      if (state.analystMaturationByTenant[tid]) return state;
+      const loaded = loadMaturationEventsFromStorage(tid);
+      return {
+        analystMaturationByTenant: { ...state.analystMaturationByTenant, [tid]: loaded },
+      };
+    });
+  },
+  recordAnalystMaturationEvent: (tenantUuid, eventId) => {
+    const tid = tenantUuid?.trim() ?? "";
+    const eid = eventId?.trim() ?? "";
+    if (!tid || !eid) return;
+    set((state) => {
+      const prev =
+        state.analystMaturationByTenant[tid] ?? loadMaturationEventsFromStorage(tid);
+      if (prev.includes(eid)) return state;
+      const next = [...prev, eid];
+      persistMaturationEventsToStorage(tid, next);
+      return {
+        analystMaturationByTenant: { ...state.analystMaturationByTenant, [tid]: next },
+      };
+    });
+  },
+  getAnalystMaturationEvents: (tenantUuid) => {
+    const tid = tenantUuid?.trim() ?? "";
+    if (!tid) return [];
+    const cached = get().analystMaturationByTenant[tid];
+    if (cached) return cached;
+    return loadMaturationEventsFromStorage(tid);
+  },
+  completedDeepDives: [],
+  markDeepDiveCompleted: (threatId, tenantUuid) => {
+    const tid = tenantUuid?.trim() || resolveDashboardTenantUuid(null);
+    if (!tid) return;
+    get().recordAnalystMaturationEvent(tid, maturationDeepDiveEventId(threatId));
+  },
   lastSimulationStartedAt: null,
   setLastSimulationStartedAt: (iso) =>
     set({
@@ -1269,7 +1328,6 @@ export const useRiskStore = create<RiskState>((set, get) => ({
       auditLingerThreatIdUntil: null,
       neutralizeVictoryAttestationByThreatId: {},
       neutralizeConstitutionalSealShortByThreatId: {},
-      completedDeepDives: [],
       lastSimulationStartedAt: null,
       sentinelGovernanceModeActive: false,
       forensicPlaybackThreatId: null,

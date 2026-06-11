@@ -13,7 +13,10 @@ import {
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useAgenticComputeStore } from "@/app/store/agenticComputeStore";
-import { useAgentStore } from "@/app/store/agentStore";
+import { useAgentStore, type SentinelSweepSession } from "@/app/store/agentStore";
+import type { SentinelSweepCheckItem } from "@/app/actions/sentinelSweepActions";
+import { LeftPanelFeatureTitle } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+import { LP_FEATURE } from "@/app/config/leftPanelFeatureIndex";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { useUser } from "@/app/hooks/useUser";
 import {
@@ -78,6 +81,8 @@ function SentinelSweepModalSession({
   const replaceActiveThreats = useRiskStore((s) => s.replaceActiveThreats);
   const setSentinelGovernanceModeActive = useRiskStore((s) => s.setSentinelGovernanceModeActive);
   const addStreamMessage = useAgentStore((s) => s.addStreamMessage);
+  const runSentinelSweep = useAgentStore((s) => s.runSentinelSweep);
+  const sentinelSweepSession = useAgentStore((s) => s.sentinelSweepSession);
 
   const [formState, formAction] = useActionState(ingestGovernedRiskFormAction, INITIAL_FORM_STATE);
 
@@ -109,6 +114,12 @@ function SentinelSweepModalSession({
       setImpactJustification(initialAgentInstruction.trim());
     }
   }, [initialAgentInstruction]);
+
+  useEffect(() => {
+    const instr = initialAgentInstruction.trim();
+    if (!instr) return;
+    runSentinelSweep(instr);
+  }, [initialAgentInstruction, runSentinelSweep]);
 
   const successHandledRef = useRef<string | null>(null);
   useEffect(() => {
@@ -211,6 +222,7 @@ function SentinelSweepModalSession({
       role="dialog"
       aria-modal="true"
       aria-labelledby="sentinel-sweep-modal-title"
+      data-testid="sentinel-sweep-modal"
     >
       <div className="relative w-full max-w-md rounded-lg border border-amber-800/50 bg-[#0a0a0f] p-4 shadow-2xl shadow-amber-900/20">
         <button
@@ -221,16 +233,20 @@ function SentinelSweepModalSession({
         >
           <X className="h-4 w-4" />
         </button>
-        <h2
+        <LeftPanelFeatureTitle
+          index={LP_FEATURE.SENTINEL_MODAL}
+          as="h2"
           id="sentinel-sweep-modal-title"
           className="pr-8 text-sm font-black uppercase tracking-widest text-amber-300"
         >
           {GRC_GOLD_SENTINEL_MODAL_TITLE}
-        </h2>
+        </LeftPanelFeatureTitle>
         <p className="mt-1 text-[10px] leading-relaxed text-zinc-500">
           {GRC_GOLD_SENTINEL_MODAL_SUBTITLE}{" "}
           <code className="text-zinc-400">useActionState</code> server action hook.
         </p>
+
+        <SentinelSweepChecklist session={sentinelSweepSession} />
 
         {shadowDissent ? (
           <div
@@ -395,6 +411,68 @@ function SentinelSweepModalSession({
         </form>
       </div>
     </div>
+  );
+}
+
+function SentinelSweepChecklist({ session }: { session: SentinelSweepSession | null }) {
+  if (!session) return null;
+
+  const { phase, items, error } = session;
+
+  return (
+    <div
+      className="mt-3 rounded border border-zinc-700/80 bg-zinc-950/60 px-3 py-2"
+      role="status"
+      aria-live="polite"
+      aria-busy={phase === "running"}
+      data-testid="sentinel-sweep-checklist"
+    >
+      <p className="text-[10px] font-black uppercase tracking-widest text-amber-200/90">
+        Sentinel sweep readiness (read-only)
+      </p>
+      {phase === "running" ? (
+        <p className="mt-1 text-[9px] text-zinc-500">Verifying spotlight agents against tenant session…</p>
+      ) : null}
+      {phase === "error" && error ? (
+        <p className="mt-1 text-[10px] text-red-400">{error}</p>
+      ) : null}
+      {items.length > 0 ? (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((item) => (
+            <SentinelSweepChecklistRow key={item.agentIndex} item={item} />
+          ))}
+        </ul>
+      ) : null}
+      {phase === "complete" ? (
+        <p className="mt-2 text-[9px] text-zinc-500">
+          GRC preview below remains debounced; authorize is the only write path.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SentinelSweepChecklistRow({ item }: { item: SentinelSweepCheckItem }) {
+  const statusStyles =
+    item.status === "PASS"
+      ? "text-emerald-400 border-emerald-800/50"
+      : item.status === "WARN"
+        ? "text-amber-300 border-amber-800/50"
+        : "text-red-400 border-red-800/50";
+
+  return (
+    <li className={`flex gap-2 rounded border px-2 py-1.5 text-[9px] ${statusStyles}`}>
+      <span className="shrink-0 font-mono font-bold">
+        {String(item.agentIndex).padStart(2, "0")}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold uppercase tracking-wide">
+          {item.agentName}{" "}
+          <span className="opacity-80">· {item.status}</span>
+        </p>
+        <p className="mt-0.5 leading-relaxed opacity-90">{item.detail}</p>
+      </div>
+    </li>
   );
 }
 

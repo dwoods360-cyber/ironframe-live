@@ -11,24 +11,30 @@ const TENANT_UUIDS = {
 } as const;
 
 /**
- * Seeds `GLOBAL_ADMIN` on all canonical tenants for the Supabase user id in `IRONFRAME_DEV_SUPABASE_USER_ID`
- * so Meta-Audit / Integrity Hub RBAC (`ensureAuditorOrAdminRole`) passes in local dev.
+ * Seeds the full constitutional role bundle on all canonical tenants for the dev Supabase user
+ * (`IRONFRAME_DEV_SUPABASE_USER_ID`) so Meta-Audit / HITL RBAC passes in local dev.
+ * Also mirrored at runtime by `devConstitutionalElevation.ts` when elevation is enabled.
  */
 async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void> {
   const userId = process.env.IRONFRAME_DEV_SUPABASE_USER_ID?.trim();
   if (!userId) {
     console.log(
-      'ℹ️  Skipping UserRoleAssignment GLOBAL_ADMIN seed — set IRONFRAME_DEV_SUPABASE_USER_ID to your Supabase `auth.users.id`.',
+      'ℹ️  Skipping UserRoleAssignment dev seed — set IRONFRAME_DEV_SUPABASE_USER_ID to your Supabase `auth.users.id`.',
     );
     return;
   }
   await prisma.userRoleAssignment.deleteMany({ where: { userId } });
+  const roles: UserRole[] = ["INTERNAL_AUDITOR", "GLOBAL_ADMIN", "CISO", "GRC_MANAGER"];
   for (const tenantId of Object.values(TENANT_UUIDS)) {
-    await prisma.userRoleAssignment.create({
-      data: { userId, tenantId, role: UserRole.GLOBAL_ADMIN },
-    });
+    for (const role of roles) {
+      await prisma.userRoleAssignment.create({
+        data: { userId, tenantId, role },
+      });
+    }
   }
-  console.log(`✅ UserRoleAssignment GLOBAL_ADMIN for dev user across tenants (${userId.slice(0, 8)}…).`);
+  console.log(
+    `✅ UserRoleAssignment constitutional bundle (${roles.join(", ")}) for dev user across tenants (${userId.slice(0, 8)}…).`,
+  );
 }
 
 async function main() {

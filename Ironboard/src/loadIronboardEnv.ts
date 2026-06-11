@@ -4,11 +4,14 @@ import { fileURLToPath } from 'url';
 
 /** IronBoard package root (Ironboard/), never the monorepo root. */
 const IRONBOARD_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const REPO_ROOT = join(IRONBOARD_ROOT, '..');
 
 const isolated = {
   googleApiKey: '',
   port: '',
   geminiModel: '',
+  databaseUrl: '',
+  directUrl: '',
 };
 
 function parseEnvLine(line: string): { key: string; value: string } | null {
@@ -27,20 +30,37 @@ function parseEnvLine(line: string): { key: string; value: string } | null {
   return { key, value };
 }
 
-function absorbIronboardEnvFile(relativePath: string): void {
-  const absolute = join(IRONBOARD_ROOT, relativePath);
-  if (!existsSync(absolute)) return;
-  const content = readFileSync(absolute, 'utf8');
+function absorbEnvFile(absolutePath: string, keys: string[]): void {
+  if (!existsSync(absolutePath)) return;
+  const content = readFileSync(absolutePath, 'utf8');
   for (const line of content.split('\n')) {
     const parsed = parseEnvLine(line);
     if (!parsed) continue;
     const { key, value } = parsed;
-    if (key === 'GOOGLE_API_KEY' || key === 'GEMINI_API_KEY') {
-      if (value) isolated.googleApiKey = value;
-    }
-    if (key === 'IRONBOARD_PORT' && value) isolated.port = value;
-    if (key === 'IRONBOARD_GEMINI_MODEL' && value) isolated.geminiModel = value;
+    if (!keys.includes(key) || !value) continue;
+    if (key === 'GOOGLE_API_KEY' || key === 'GEMINI_API_KEY') isolated.googleApiKey = value;
+    if (key === 'IRONBOARD_PORT') isolated.port = value;
+    if (key === 'IRONBOARD_GEMINI_MODEL') isolated.geminiModel = value;
+    if (key === 'DATABASE_URL') isolated.databaseUrl = value;
+    if (key === 'DIRECT_URL') isolated.directUrl = value;
   }
+}
+
+function absorbIronboardEnvFile(relativePath: string): void {
+  absorbEnvFile(join(IRONBOARD_ROOT, relativePath), [
+    'GOOGLE_API_KEY',
+    'GEMINI_API_KEY',
+    'IRONBOARD_PORT',
+    'IRONBOARD_GEMINI_MODEL',
+    'DATABASE_URL',
+    'DIRECT_URL',
+  ]);
+}
+
+function hydrateProcessEnv(): void {
+  if (isolated.googleApiKey) process.env.GOOGLE_API_KEY = isolated.googleApiKey;
+  if (isolated.databaseUrl) process.env.DATABASE_URL = isolated.databaseUrl;
+  if (isolated.directUrl) process.env.DIRECT_URL = isolated.directUrl;
 }
 
 /**
@@ -50,6 +70,11 @@ function absorbIronboardEnvFile(relativePath: string): void {
 export function loadIronboardEnv(): void {
   absorbIronboardEnvFile('.env');
   absorbIronboardEnvFile('.env.local');
+  if (!isolated.databaseUrl) {
+    absorbEnvFile(join(REPO_ROOT, '.env.local'), ['DATABASE_URL', 'DIRECT_URL']);
+    absorbEnvFile(join(REPO_ROOT, '.env'), ['DATABASE_URL', 'DIRECT_URL']);
+  }
+  hydrateProcessEnv();
 }
 
 /** API key from Ironboard-local env files, then hydrated process.env. */

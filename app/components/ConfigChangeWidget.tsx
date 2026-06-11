@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { fetchRecentNotificationConfigEdits } from "@/app/actions/notificationAuditActions";
 import type { NotificationConfigAuditRow } from "@/app/utils/notificationAuditSummary";
 
+import { LeftPanelFeatureTitle } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+
 type Props = {
   /** Bump when registry or global toggle changes so the widget refetches. */
   refreshSignal?: string | number;
   className?: string;
+  featureIndex?: number;
 };
 
 function formatShort(iso: string): string {
@@ -26,7 +29,11 @@ function formatShort(iso: string): string {
 /**
  * Phase 2 Board Report placeholder: recent notification / webhook configuration edits.
  */
-export default function ConfigChangeWidget({ refreshSignal = 0, className = "" }: Props) {
+export default function ConfigChangeWidget({
+  refreshSignal = 0,
+  className = "",
+  featureIndex,
+}: Props) {
   const [rows, setRows] = useState<NotificationConfigAuditRow[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
@@ -55,9 +62,18 @@ export default function ConfigChangeWidget({ refreshSignal = 0, className = "" }
       aria-label="Recent notification configuration changes"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[7px] font-black uppercase tracking-[0.18em] text-zinc-500">
-          Board prep · Config churn
-        </span>
+        {featureIndex != null ? (
+          <LeftPanelFeatureTitle
+            index={featureIndex}
+            className="text-[7px] font-black uppercase tracking-[0.18em] text-zinc-500"
+          >
+            Board prep · Config churn
+          </LeftPanelFeatureTitle>
+        ) : (
+          <span className="text-[7px] font-black uppercase tracking-[0.18em] text-zinc-500">
+            Board prep · Config churn
+          </span>
+        )}
         <span className="text-[7px] text-zinc-600">Last 3</span>
       </div>
       <div className="mt-1 flex items-end gap-1" style={{ height: maxH + 4 }}>

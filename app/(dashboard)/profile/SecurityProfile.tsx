@@ -10,10 +10,9 @@ import DevRoleSwitcher from "@/app/components/DevRoleSwitcher";
 import SystemIntegrityBadge from "@/app/components/SystemIntegrityBadge";
 import { formatUserRoleLabel, GRC_ROLE_LABELS, parseWorkspaceRoleFromCookie } from "@/app/lib/grcRoles";
 import { useRiskStore } from "@/app/store/riskStore";
-import {
-  THREAT_MAP,
-  mapUiIndustryToThreatEnum,
-} from "@/lib/simulation/threatLibrary";
+import { useTenantContext } from "@/app/context/TenantProvider";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import { computeMaturationProgress } from "@/app/utils/analystMaturation";
 import type {
   SecurityProfileAssignment,
   SecurityProfileIntegrityRow,
@@ -67,16 +66,32 @@ export default function SecurityProfile({ initial }: Props) {
     return () => window.clearInterval(id);
   }, []);
 
-  const completedDeepDives = useRiskStore((s) => s.completedDeepDives);
+  const analystMaturationByTenant = useRiskStore((s) => s.analystMaturationByTenant);
+  const hydrateAnalystMaturationForTenant = useRiskStore((s) => s.hydrateAnalystMaturationForTenant);
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
+  const { activeTenantUuid } = useTenantContext();
+  const dashboardTenantUuid = useMemo(
+    () => resolveDashboardTenantUuid(activeTenantUuid),
+    [activeTenantUuid],
+  );
 
-  const { maturationPercent, masteredCount, totalThreats } = useMemo(() => {
-    const sectorThreatLibrary = THREAT_MAP[mapUiIndustryToThreatEnum(selectedIndustry)];
-    const total = sectorThreatLibrary.length;
-    const mastered = sectorThreatLibrary.filter((e) => completedDeepDives.includes(e.id)).length;
-    const pct = total <= 0 ? 0 : Math.round((mastered / total) * 100);
-    return { maturationPercent: pct, masteredCount: mastered, totalThreats: total };
-  }, [completedDeepDives, selectedIndustry]);
+  useEffect(() => {
+    hydrateAnalystMaturationForTenant(dashboardTenantUuid);
+  }, [dashboardTenantUuid, hydrateAnalystMaturationForTenant]);
+
+  const maturationEvents = dashboardTenantUuid
+    ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
+    : [];
+
+  const { maturationPercent, masteredCount, totalThreats, isCertified } = useMemo(() => {
+    const progress = computeMaturationProgress(maturationEvents, selectedIndustry);
+    return {
+      maturationPercent: progress.percent,
+      masteredCount: progress.mastered,
+      totalThreats: progress.total,
+      isCertified: progress.isCertified,
+    };
+  }, [maturationEvents, selectedIndustry]);
 
   const primaryName = userLoading ? initial.displayName : displayName;
   const activePrismaRole = initial.assignments[0]?.role;
@@ -245,6 +260,11 @@ export default function SecurityProfile({ initial }: Props) {
           </p>
           <p className="text-lg font-bold tabular-nums text-amber-200">{maturationPercent}%</p>
         </div>
+        {isCertified ? (
+          <p className="mt-3 inline-flex items-center rounded border border-emerald-500/40 bg-emerald-950/40 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+            [ CERTIFIED SECTOR ANALYST ]
+          </p>
+        ) : null}
       </section>
 
       {/* Audit trail — table */}

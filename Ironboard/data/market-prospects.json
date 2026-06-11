@@ -1,0 +1,90 @@
+[
+  {
+    "id": "prospect_1780941438003_8yslfn9",
+    "domain": "finstack.sg",
+    "companyName": "FinStack SG",
+    "employeeCount": 35,
+    "region": "Singapore",
+    "compliancePressure": "SOC2",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:18.002Z"
+  },
+  {
+    "id": "prospect_1780941438004_cuvn6rc",
+    "domain": "meridianpay.asia",
+    "companyName": "Meridian Pay Asia",
+    "employeeCount": 22,
+    "region": "Singapore",
+    "compliancePressure": "ISO27001",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:18.004Z"
+  },
+  {
+    "id": "prospect_1780941438005_6wek607",
+    "domain": "chaincustody.sg",
+    "companyName": "ChainCustody SG",
+    "employeeCount": 48,
+    "region": "Singapore",
+    "compliancePressure": "SOC2",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:18.005Z"
+  },
+  {
+    "id": "prospect_1780941438005_3rrpqvq",
+    "domain": "compliance-lattice.io",
+    "companyName": "Compliance Lattice",
+    "employeeCount": 14,
+    "region": "Singapore",
+    "compliancePressure": "ISO27001",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:18.005Z"
+  },
+  {
+    "id": "prospect_1780941442670_ugsdlhc",
+    "domain": "payflow-london.io",
+    "companyName": "PayFlow London",
+    "employeeCount": 28,
+    "region": "London",
+    "compliancePressure": "SOC2",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:22.670Z"
+  },
+  {
+    "id": "prospect_1780941442672_i0eygj3",
+    "domain": "ledgerbridge.uk",
+    "companyName": "LedgerBridge UK",
+    "employeeCount": 12,
+    "region": "London",
+    "compliancePressure": "ISO27001",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:22.672Z"
+  },
+  {
+    "id": "prospect_1780941442673_wobglgm",
+    "domain": "vaultpulse.finance",
+    "companyName": "VaultPulse Finance",
+    "employeeCount": 41,
+    "region": "London",
+    "compliancePressure": "SOC2",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:22.673Z"
+  },
+  {
+    "id": "prospect_1780941442674_ttjye3w",
+    "domain": "regstack.io",
+    "companyName": "RegStack",
+    "employeeCount": 19,
+    "region": "London",
+    "compliancePressure": "ISO27001",
+    "dealStage": "PROSPECT",
+    "aiFitnessScore": 100,
+    "updatedAt": "2026-06-08T17:57:22.673Z"
+  }
+]

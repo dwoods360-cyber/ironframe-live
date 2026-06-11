@@ -1,18 +1,24 @@
 "use client";
 
-import { FLOATING_NOTIFY_TOP_STANDARD, FLOATING_NOTIFY_Z_CLASS } from "@/app/config/layoutConstants";
 import { useRiskStore } from "@/app/store/riskStore";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import {
+  FLOATING_NOTIFY_INTERACTIVE_CLASS,
+  FLOATING_NOTIFY_Z_CLASS,
+  floatingNotifyTopClass,
+} from "@/app/config/layoutConstants";
 
 export default function LiabilityAlertToast() {
   const liabilityAlert = useRiskStore((s) => s.liabilityAlert);
   const setLiabilityAlert = useRiskStore((s) => s.setLiabilityAlert);
+  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
 
   if (!liabilityAlert.active || !liabilityAlert.message) return null;
 
   return (
     <div
       role="alert"
-      className={`fixed left-1/2 -translate-x-1/2 animate-pulse rounded border-2 border-red-500/80 bg-red-950/95 px-4 py-3 shadow-[0_0_24px_rgba(239,68,68,0.4)] ${FLOATING_NOTIFY_TOP_STANDARD} ${FLOATING_NOTIFY_Z_CLASS}`}
+      className={`fixed left-1/2 -translate-x-1/2 animate-pulse rounded border-2 border-red-500/80 bg-red-950/95 px-4 py-3 shadow-[0_0_24px_rgba(239,68,68,0.4)] ${floatingNotifyTopClass(isSimulationMode, 1)} ${FLOATING_NOTIFY_Z_CLASS} ${FLOATING_NOTIFY_INTERACTIVE_CLASS}`}
     >
       <div className="flex items-center gap-3">
         <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />

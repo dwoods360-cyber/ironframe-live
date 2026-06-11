@@ -11,6 +11,9 @@ import {
   runRemoteSupportChaosDrillAction,
   type ChaosScenario,
 } from "@/app/actions/chaosActions";
+import { injectHitlChaosScenarioAction } from "@/app/actions/hitlChaosActions";
+import type { HitlChaosScenarioId } from "@/app/utils/hitlReviewQueue";
+import { HITL_CHAOS_SCENARIO_CATALOG } from "@/app/utils/hitlReviewQueue";
 import { listRiskRegistryRecordsAction } from "@/app/actions/riskLifecycleActions";
 import { REMOTE_SUPPORT_ATTACK_VELOCITY_MS } from "@/app/utils/chaosDiscoveryHold";
 import { useRiskRegistryStore } from "@/app/store/riskRegistryStore";
@@ -46,8 +49,17 @@ import {
   dispatchSimulationDispatchNotice,
 } from "@/app/utils/simulationDispatchOutcome";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
+import { LeftPanelFeatureTitle } from "@/app/components/leftPanel/LeftPanelFeatureIndex";
 
-type ChaosDeployScenario = ChaosScenario | "CONSTITUTIONAL_COLLAPSE" | typeof IRONTECH_CHAOS_L6_ACTION_TOKEN;
+type ChaosDeployScenario =
+  | ChaosScenario
+  | "CONSTITUTIONAL_COLLAPSE"
+  | typeof IRONTECH_CHAOS_L6_ACTION_TOKEN
+  | HitlChaosScenarioId;
+
+function isHitlChaosScenario(s: string): s is HitlChaosScenarioId {
+  return s.startsWith("HITL_");
+}
 
 /**
  * Dropdown copy uses **Infil:** / **Phish:** prefixes; each `<option value>` is the `ChaosScenario` enum passed to
@@ -63,6 +75,7 @@ function isChaosPhishScenario(s: ChaosScenario): boolean {
 
 type Props = {
   embedded?: boolean;
+  featureIndex?: number;
 };
 
 /** 12s supervised loop: four beats (Ingestion → Analysis → Observation → Conclusion) with 4s gaps; then GRC ack. */
@@ -132,7 +145,7 @@ async function runPerimeterOnlyShadowDrill(
   return true;
 }
 
-export default function IrontechChaosDeploy({ embedded = false }: Props) {
+export default function IrontechChaosDeploy({ embedded = false, featureIndex }: Props) {
   const router = useRouter();
   const { activeTenantUuid, tenantFetch } = useTenantContext();
   const [collapseArmed, setCollapseArmed] = useState(false);
@@ -220,6 +233,31 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           (isSimulationMode ? TENANT_UUIDS.medshield : "");
         if (!tenantForChaos) {
           setError("No active tenant in session. Chaos inject blocked.");
+          return;
+        }
+
+        if (isHitlChaosScenario(scenario)) {
+          const hitlRes = await injectHitlChaosScenarioAction(scenario, tenantForChaos);
+          if (!hitlRes.ok) {
+            setError(hitlRes.error);
+            return;
+          }
+          dispatchSimulationDispatchNotice({
+            scenarioName: scenario,
+            message: hitlRes.message,
+            forensicLine:
+              "[HITL] Review Queue card created — approve or reject in Control Room Review Queue.",
+          });
+          appendAuditLog({
+            action_type: "RED_TEAM_SIMULATION_START",
+            log_type: "SIMULATION",
+            description: hitlRes.message,
+            metadata_tag: `SIMULATION|HITL|${scenario}`,
+          });
+          window.dispatchEvent(new CustomEvent("ironframe:hitl-review-queue-refresh"));
+          window.dispatchEvent(new CustomEvent("ironframe:dashboard-refetch"));
+          void tenantFetch("/api/dashboard", { cache: "no-store" }).catch(() => undefined);
+          router.refresh();
           return;
         }
 
@@ -595,6 +633,13 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             <option value="PHISH_CEO_FRAUD">Phish: CEO Fraud (Urgent Wire)</option>
             <option value="PHISH_IT_HELPDESK">Phish: IT Helpdesk Trap</option>
           </optgroup>
+          <optgroup label="HITL Review Queue drills">
+            {HITL_CHAOS_SCENARIO_CATALOG.map((d) => (
+              <option key={d.id} value={d.id} title={d.description}>
+                {d.label}
+              </option>
+            ))}
+          </optgroup>
           <optgroup label="Constitutional">
             <option value="CONSTITUTIONAL_COLLAPSE">
               Constitutional Collapse (TAS Void + DMS · 240s)
@@ -612,9 +657,11 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
           <Skull className="h-3.5 w-3.5 shrink-0 text-fuchsia-200" aria-hidden />
           {selectedScenario !== "" && injectingScenarios.has(selectedScenario)
             ? "Telemetry…"
-            : isConstitutionalChaosDrill(selectedScenario)
-              ? "ARM CONSTITUTIONAL COLLAPSE"
-              : "GENERATE CHAOS THREAT"}
+            : isHitlChaosScenario(selectedScenario)
+              ? "INJECT HITL REVIEW CARD"
+              : isConstitutionalChaosDrill(selectedScenario)
+                ? "ARM CONSTITUTIONAL COLLAPSE"
+                : "GENERATE CHAOS THREAT"}
         </button>
       </div>
       {error ? (
@@ -640,9 +687,18 @@ export default function IrontechChaosDeploy({ embedded = false }: Props) {
             className={`h-3.5 w-3.5 shrink-0 text-cyan-400 ${logDive ? "irontech-log-dive" : "opacity-80"}`}
             aria-hidden
           />
-          <span className="truncate text-[9px] font-black uppercase tracking-widest text-cyan-200/90">
-            Irontech · Chaos drills & adversary scenarios
-          </span>
+          {featureIndex != null ? (
+            <LeftPanelFeatureTitle
+              index={featureIndex}
+              className="max-w-full text-[9px] font-black uppercase tracking-widest text-cyan-200/90"
+            >
+              Irontech · Chaos drills & adversary scenarios
+            </LeftPanelFeatureTitle>
+          ) : (
+            <span className="truncate text-[9px] font-black uppercase tracking-widest text-cyan-200/90">
+              Irontech · Chaos drills & adversary scenarios
+            </span>
+          )}
         </div>
         {logDive ? (
           <span className="text-[7px] font-semibold uppercase tracking-wide text-cyan-500/90">Log-dive</span>

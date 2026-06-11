@@ -4,6 +4,7 @@
  *
  * Sprint 6.15: recovery “ghost” skeleton + heartbeat UI for the Active column live on Main Ops
  * `ActiveRisksClient` (this route has no Active Risks board).
+ * cron_narrate delta probe: 2026-06-10 — Writer pipeline structural delta verification.
  */
 import RiskEngine from '@/components/dashboard/RiskEngine';
 

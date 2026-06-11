@@ -28,6 +28,28 @@ import {
 } from "@/lib/simulation/threatLibrary";
 import { useTenantContext } from "@/app/context/TenantProvider";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import { formatAgentIntelLine } from "@/app/utils/intelligenceStreamFormat";
+import WorkforceShowcaseGrid from "@/app/components/WorkforceShowcaseGrid";
+import {
+  LeftPanelFeatureIndex,
+  LeftPanelFeatureTitle,
+} from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+import { LP_FEATURE } from "@/app/config/leftPanelFeatureIndex";
+import {
+  formatIrongateTerminalRejection,
+  formatTenantIsolationFault,
+  IRONGATE_MALFORMED_REJECTION,
+  isVerifiedActiveTenantUuid,
+  macroRequiresTenant,
+  parseSecureTerminalMacro,
+  TERMINAL_INPUT_MAX_LENGTH,
+} from "@/app/utils/secureTerminalGate";
+import {
+  formatSentinelSweepInitiatedLine,
+  parseSentinelAgentInstruction,
+  sanitizeSentinelInstructionInput,
+  SENTINEL_INSTRUCTION_MAX_LENGTH,
+} from "@/app/utils/sentinelInstructionGate";
 import { getIndustryTrendData, type IndustryTrendPayload } from "@/app/actions/benchmarkActions";
 import { getTenantGovernanceMultiplierBps } from "@/app/actions/complianceActions";
 import { triggerMarketVolatilityAutoHardening } from "@/app/actions/agentActions";
@@ -47,6 +69,7 @@ import {
 } from "@/app/utils/omniBenchmarkIndustries";
 import { listCommandCenterTenants } from "@/app/actions/tenantActions";
 import { applyCommandCenterScopeFromCookie } from "@/app/utils/commandCenterScopeSync";
+import { computeMaturationProgress } from "@/app/utils/analystMaturation";
 
 export default function StrategicIntel() {
   const [mounted, setMounted] = useState(false);
@@ -54,9 +77,8 @@ export default function StrategicIntel() {
   const [ttlInput, setTtlInput] = useState('72:00:00');
   const [ttlRunning, setTtlRunning] = useState(false);
   const [agentInstruction, setAgentInstruction] = useState('');
-  const [terminalCommand, setTerminalCommand] = useState('');
+  const [sentinelInstructionForModal, setSentinelInstructionForModal] = useState('');
   const [terminalInput, setTerminalInput] = useState('');
-  const [logs, setLogs] = useState<string[]>([]);
   const [isProfileVisible, setIsProfileVisible] = useState(true);
   const [activeDrillThreatId, setActiveDrillThreatId] = useState<string | null>(null);
   const [deepDiveEntry, setDeepDiveEntry] = useState<ThreatIntelEntry | null>(null);
@@ -72,6 +94,24 @@ export default function StrategicIntel() {
     () => resolveDashboardTenantUuid(activeTenantUuid),
     [activeTenantUuid],
   );
+
+  const canRunSentinelSweep = useMemo(() => {
+    if (!isVerifiedActiveTenantUuid(dashboardTenantUuid)) return false;
+    return parseSentinelAgentInstruction(agentInstruction).ok;
+  }, [agentInstruction, dashboardTenantUuid]);
+
+  const handleRunSentinelSweep = () => {
+    if (!isVerifiedActiveTenantUuid(dashboardTenantUuid)) {
+      addStreamMessage(formatTenantIsolationFault());
+      return;
+    }
+    const parsed = parseSentinelAgentInstruction(agentInstruction);
+    if (!parsed.ok) return;
+    addStreamMessage(formatSentinelSweepInitiatedLine());
+    setSentinelInstructionForModal(parsed.sanitized);
+    setAgentInstruction(parsed.sanitized);
+    setSentinelSweepModalOpen(true);
+  };
 
   // Global risk store: sidebar threats + dashboard liabilities + Scenario 3 risk reduction
   const dashboardLiabilities = useRiskStore((state) => state.dashboardLiabilities);
@@ -90,7 +130,8 @@ export default function StrategicIntel() {
   const selectedTenantName = useRiskStore((state) => state.selectedTenantName);
   const setSelectedIndustry = useRiskStore((state) => state.setSelectedIndustry);
   const setSelectedTenantName = useRiskStore((state) => state.setSelectedTenantName);
-  const completedDeepDives = useRiskStore((state) => state.completedDeepDives);
+  const analystMaturationByTenant = useRiskStore((state) => state.analystMaturationByTenant);
+  const hydrateAnalystMaturationForTenant = useRiskStore((state) => state.hydrateAnalystMaturationForTenant);
   const markDeepDiveCompleted = useRiskStore((state) => state.markDeepDiveCompleted);
   const lastSimulationStartedAt = useRiskStore((state) => state.lastSimulationStartedAt);
   const setLastSimulationStartedAt = useRiskStore((state) => state.setLastSimulationStartedAt);
@@ -163,13 +204,13 @@ export default function StrategicIntel() {
     };
   }, [dashboardTenantUuid, selectedIndustry, addStreamMessage]);
 
-  // Agent status: Healthy (green) or Alerting (red) when Kimbot sim is active for Ironsight / Ironintel
-  const getAgentStatus = (agentName: string) => {
-    if (isKimbotActive && (agentName === 'Ironsight' || agentName === 'Ironintel')) {
-      return { label: 'Alerting', color: 'text-red-500', dot: 'bg-red-500 shadow-[0_0_8px_#ef4444]' };
-    }
-    return { label: 'Healthy', color: 'text-emerald-500', dot: 'bg-emerald-500 shadow-[0_0_8px_#10b981]' };
-  };
+  useEffect(() => {
+    hydrateAnalystMaturationForTenant(dashboardTenantUuid);
+  }, [dashboardTenantUuid, hydrateAnalystMaturationForTenant]);
+
+  const maturationEvents = dashboardTenantUuid
+    ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
+    : [];
 
   const { strategicStatusLabel, strategicStatusClass, activeSimulationCount } = useMemo(() => {
     const isSimThreat = (t: PipelineThreat): boolean => {
@@ -263,81 +304,97 @@ export default function StrategicIntel() {
     return hasCriticalAccess ? 9.2 : 8.6;
   };
 
-  // Terminal: kimbot | grcbot | purg — Kimbot is the red-team injector (Ironbloom is production CSRD; not toggled here).
+  const applyTerminalPurgeSuccess = async () => {
+    useKimbotStore.getState().resetSimulationCounters();
+    useGrcBotStore.getState().stop();
+    useRiskStore.getState().clearAllRiskStateForPurge();
+    useRiskStore.getState().setSelectedThreatId(null);
+    useAgentStore.getState().resetAgentStreamsForPurge();
+    sleepBlueTeam();
+    await syncThreatBoardsClient(
+      useRiskStore.getState().replacePipelineThreats,
+      useRiskStore.getState().replaceActiveThreats,
+    ).catch(() => {});
+    addStreamMessage(
+      `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
+    );
+    addStreamMessage(
+      "> [AUDIT] Forensic ledger preserved — use Audit Intelligence → Master Purge to wipe local buffer.",
+    );
+    addStreamMessage("> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.");
+    router.refresh();
+  };
+
+  // Terminal: kimbot | grcbot | purg — gated by Agent 14 (Irongate) macro validation.
   const handleTerminalCommand = async (e: React.FormEvent) => {
     e.preventDefault();
-    const input = terminalInput.trim();
-    if (!input) return;
-    const lower = input.toLowerCase();
-    const [cmd, value] = lower.split(/\s+/);
+    const input = terminalInput;
+    setTerminalInput("");
 
-    setLogs((prev) => [...prev, `> [CMD] ${input.toUpperCase()}`]);
-    setTerminalInput('');
+    const parsed = parseSecureTerminalMacro(input);
+    if (!parsed.ok) {
+      if (parsed.reason !== "empty") {
+        addStreamMessage(IRONGATE_MALFORMED_REJECTION);
+      }
+      return;
+    }
+
+    const { cmd, grcCompanyCount } = parsed;
+
+    if (macroRequiresTenant(cmd) && !isVerifiedActiveTenantUuid(dashboardTenantUuid)) {
+      addStreamMessage(formatTenantIsolationFault());
+      return;
+    }
 
     try {
       switch (cmd) {
-        case 'kimbot':
-          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_START: Red-team adversary injector (SIM)']);
+        case "kimbot":
           useKimbotStore.getState().setEnabled(true);
           wakeBlueTeam();
-          addStreamMessage('> [CMD] KIMBOT_START: Defensive agents deployed.');
+          addStreamMessage("> [CMD] KIMBOT_START: Defensive agents deployed.");
           break;
 
-        case 'kimbotx':
-          setLogs((prev) => [...prev, '[SYSTEM] KIMBOT_STOP: Agents reset']);
+        case "kimbotx":
           useKimbotStore.getState().setEnabled(false);
           sleepBlueTeam();
-          addStreamMessage('> [CMD] KIMBOT_STOP: Agents reset to Healthy.');
+          addStreamMessage("> [CMD] KIMBOT_STOP: Agents reset to Healthy.");
           break;
 
-        case 'grcbot': {
-          const n = Math.min(100, Math.max(1, parseInt(value, 10) || 1));
-          setLogs((prev) => [...prev, `[SYSTEM] GRCBOT_START: Scaling to ${n} ingestions`]);
+        case "grcbot": {
+          const n = grcCompanyCount ?? 1;
           useGrcBotStore.getState().setCompanyCount(n);
           useGrcBotStore.getState().setEnabled(true);
           addStreamMessage(`> [CMD] GRCBOT_START: ${n}-company load simulation active.`);
           break;
         }
 
-        case 'grcbotx':
-          setLogs((prev) => [...prev, '[SYSTEM] GRCBOT_STOP: Simulation halted']);
+        case "grcbotx":
           useGrcBotStore.getState().setEnabled(false);
-          addStreamMessage('> [CMD] GRCBOT_STOP: Simulation halted.');
+          addStreamMessage("> [CMD] GRCBOT_STOP: Simulation halted.");
           break;
 
-        case 'purg':
-          setLogs((prev) => [...prev, '[SYSTEM] DATA_PURGE: Wiping simulation records']);
+        case "purg": {
+          addStreamMessage("> [CMD] PURGE: Initiating operational clear (tenant-scoped)...");
           const result = await purgeSimulation();
           if (result.ok) {
-            useKimbotStore.getState().resetSimulationCounters();
-            useGrcBotStore.getState().stop();
-            useRiskStore.getState().clearAllRiskStateForPurge();
-            useRiskStore.getState().setSelectedThreatId(null);
-            sleepBlueTeam();
-            await syncThreatBoardsClient(
-              useRiskStore.getState().replacePipelineThreats,
-              useRiskStore.getState().replaceActiveThreats,
-            ).catch(() => {});
-            addStreamMessage(
-              `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
-            );
-            setLogs((prev) => [
-              ...prev,
-              '[AUDIT] Forensic ledger preserved — use Audit Intelligence → Master Purge to wipe local buffer.',
-            ]);
-            setLogs((prev) => [...prev, '[SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.']);
-            addStreamMessage('> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.');
-            router.refresh();
+            await applyTerminalPurgeSuccess();
           } else {
-            setLogs((prev) => [...prev, `[CMD] PURGE_ERROR: ${result.message}`]);
+            addStreamMessage(
+              formatIrongateTerminalRejection(`Purge denied — ${result.message}`),
+            );
           }
           break;
+        }
 
         default:
-          setLogs((prev) => [...prev, `[ERROR] Unknown command: ${cmd}`]);
+          addStreamMessage(IRONGATE_MALFORMED_REJECTION);
       }
     } catch (error) {
-      setLogs((prev) => [...prev, `[CRITICAL] Execution failed: ${error instanceof Error ? error.message : 'Unknown'}`]);
+      addStreamMessage(
+        formatIrongateTerminalRejection(
+          `Execution fault — ${error instanceof Error ? error.message : "Unknown"}`,
+        ),
+      );
     }
   };
 
@@ -348,11 +405,8 @@ export default function StrategicIntel() {
   const dispatchStakeholderAlert = async (threatId: string, severity: 'HIGH' | 'CRITICAL') => {
     const stakeholderEmail = 'blackwoodscoffee@gmail.com'; // [cite: 2025-12-18]
 
-    setLogs((prev) => [
-      ...prev,
-      `[NOTIFY] Alert queued for ${stakeholderEmail} [cite: 2025-12-18]`,
-      '[SYSTEM] Routing via Ironcast agent...',
-    ]);
+    addStreamMessage(`> [NOTIFY] Alert queued for ${stakeholderEmail} [cite: 2025-12-18]`);
+    addStreamMessage("> [SYSTEM] Routing via Ironcast agent...");
 
     try {
       const response = await fetch('/api/alerts/dispatch', {
@@ -367,69 +421,13 @@ export default function StrategicIntel() {
       });
 
       if (response.ok) {
-        setLogs((prev) => [...prev, `[SUCCESS] Alert delivered to ${stakeholderEmail} [cite: 2025-12-18]`]);
+        addStreamMessage(`> [SUCCESS] Alert delivered to ${stakeholderEmail} [cite: 2025-12-18]`);
       } else {
-        setLogs((prev) => [...prev, `[ERROR] Dispatch failed: ${response.status}`]);
+        addStreamMessage(`> [ERROR] Dispatch failed: ${response.status}`);
       }
     } catch {
-      setLogs((prev) => [...prev, '[ERROR] Dispatch failed: Stakeholder offline']);
+      addStreamMessage("> [ERROR] Dispatch failed: Stakeholder offline");
     }
-  };
-
-  // Legacy terminal handler (expert panel): still uses terminalCommand + addStreamMessage
-  const handleLegacyTerminalCommand = (raw: string) => {
-    const cmd = raw.trim().toLowerCase();
-    if (!cmd) return;
-
-    if (cmd === 'kimbot') {
-      useKimbotStore.getState().setEnabled(true);
-      wakeBlueTeam();
-      addStreamMessage('> [CMD] KIMBOT_START: Defensive agents deployed.');
-    } else if (cmd === 'kimbotx') {
-      useKimbotStore.getState().setEnabled(false);
-      sleepBlueTeam();
-      addStreamMessage('> [CMD] KIMBOT_STOP: Agents reset to Healthy.');
-    } else if (cmd === 'grcbotx') {
-      useGrcBotStore.getState().setEnabled(false);
-      addStreamMessage('> [CMD] GRCBOT_STOP: Simulation halted.');
-    } else if (cmd.startsWith('grcbot')) {
-      const parts = cmd.split(/\s+/);
-      const countArg = parts[1] != null ? parseInt(parts[1], 10) : NaN;
-      const count = Number.isFinite(countArg) && countArg >= 1
-        ? Math.min(100, Math.max(1, countArg))
-        : 100;
-      useGrcBotStore.getState().setCompanyCount(count);
-      useGrcBotStore.getState().setEnabled(true);
-      addStreamMessage(`> [CMD] GRCBOT_START: ${count}-company load simulation active.`);
-    } else if (cmd === 'purg') {
-      addStreamMessage('> [CMD] PURGE: Initiating deep wipe (DB + uploads + audit)...');
-      purgeSimulation().then((result) => {
-        if (result.ok) {
-          useKimbotStore.getState().resetSimulationCounters();
-          useGrcBotStore.getState().stop();
-          useRiskStore.getState().clearAllRiskStateForPurge();
-          useRiskStore.getState().setSelectedThreatId(null);
-          sleepBlueTeam();
-          void syncThreatBoardsClient(
-            useRiskStore.getState().replacePipelineThreats,
-            useRiskStore.getState().replaceActiveThreats,
-          ).catch(() => {});
-          addStreamMessage(
-            `> [GRC] ${GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL} — Bank Vault MANUAL_BOARD_PURGE recorded.`,
-          );
-          addStreamMessage(
-            '> [AUDIT] Forensic ledger preserved — Master Purge (Audit Intelligence) clears local buffer.',
-          );
-          addStreamMessage('> [SYSTEM] DATABASE PURGE COMPLETE. STANDING BY.');
-          router.refresh();
-        } else {
-          addStreamMessage(`> [CMD] PURGE_ERROR: ${result.message}`);
-        }
-      });
-    } else {
-      addStreamMessage(`> [CMD] UNKNOWN: "${cmd}". Use: kimbot | kimbotx | grcbot [1-100] | grcbotx | purg`);
-    }
-    setTerminalCommand('');
   };
 
   // New States for the Industry Profile UX (isProfileVisible kept at top with isExpertMode)
@@ -488,7 +486,7 @@ export default function StrategicIntel() {
     if (!intelStreamRef.current) return;
     const el = intelStreamRef.current;
     el.scrollTop = el.scrollHeight;
-  }, [intelligenceStream.length, logs.length]);
+  }, [intelligenceStream.length]);
 
   // Wake up instrumented agents: when Kimbot sim is active, set core trio to ACTIVE_DEFENSE (green pulsing).
   useEffect(() => {
@@ -556,15 +554,12 @@ export default function StrategicIntel() {
   }, [ttlRunning, ttlSeconds]);
 
   const sectorThreatLibrary = THREAT_MAP[mapUiIndustryToThreatEnum(selectedIndustry)];
-  const totalThreatCount = sectorThreatLibrary.length;
-  const masteredThreatCount = sectorThreatLibrary.filter((entry) =>
-    completedDeepDives.includes(entry.id),
-  ).length;
-  const maturationPercent = totalThreatCount <= 0
-    ? 0
-    : Math.round((masteredThreatCount / totalThreatCount) * 100);
-  const isSectorCertified =
-    totalThreatCount > 0 && masteredThreatCount === totalThreatCount;
+  const {
+    mastered: masteredThreatCount,
+    total: totalThreatCount,
+    percent: maturationPercent,
+    isCertified: isSectorCertified,
+  } = computeMaturationProgress(maturationEvents, selectedIndustry);
 
   if (!mounted) return <div className="p-4 bg-slate-900/50 animate-pulse rounded border border-slate-800 m-2">Initializing Command Center...</div>;
 
@@ -657,7 +652,14 @@ export default function StrategicIntel() {
 
   function handleCloseDeepDiveModal() {
     if (deepDiveEntry) {
-      markDeepDiveCompleted(deepDiveEntry.id);
+      markDeepDiveCompleted(deepDiveEntry.id, dashboardTenantUuid);
+      addStreamMessage(
+        formatAgentIntelLine(
+          "AGENT-04",
+          "IRONSIGHT",
+          `Deep-dive closed — threat ${deepDiveEntry.id.slice(0, 8)} analysis complete.`,
+        ),
+      );
     }
     setDeepDiveEntry(null);
   }
@@ -673,7 +675,9 @@ export default function StrategicIntel() {
         aria-live="polite"
       >
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 font-mono text-[10px] uppercase tracking-widest text-zinc-500">
-          <span className="text-zinc-400">STRATEGIC STATUS</span>
+          <LeftPanelFeatureTitle index={LP_FEATURE.STRATEGIC_STATUS} className="text-zinc-400">
+            STRATEGIC STATUS
+          </LeftPanelFeatureTitle>
           <span
             className={`font-bold tracking-[0.18em] animate-pulse ${strategicStatusClass}`}
           >
@@ -697,6 +701,7 @@ export default function StrategicIntel() {
       {ironwatchSidebarAlert ? (
         <div
           role="alert"
+          data-left-panel-feature-index={LP_FEATURE.IRONWATCH_ALERT}
           className={`shrink-0 border-b px-4 py-2.5 ${
             ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
             ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_AUDIT_LABEL)
@@ -706,6 +711,13 @@ export default function StrategicIntel() {
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
+              <LeftPanelFeatureTitle
+                index={LP_FEATURE.IRONWATCH_ALERT}
+                as="p"
+                className="mb-1 text-[8px] font-black uppercase tracking-widest text-zinc-500"
+              >
+                Ironwatch alert
+              </LeftPanelFeatureTitle>
               <p
                 className={`text-[10px] leading-snug ${
                   ironwatchSidebarAlert.includes(IRONWATCH_SHADOW_DISSENT_LABEL) ||
@@ -747,7 +759,12 @@ export default function StrategicIntel() {
       {/* STRATEGIC INTEL / AGENT MANAGER header */}
       <div className="flex flex-col gap-3 p-4 border-b border-zinc-900 bg-black/20">
         <div className="flex justify-between items-center">
-          <span className="text-[10.5px] font-bold uppercase tracking-wide text-white">Strategic Intel</span>
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.STRATEGIC_INTEL_HEADER}
+            className="text-[10.5px] font-bold uppercase tracking-wide text-white"
+          >
+            Strategic Intel
+          </LeftPanelFeatureTitle>
           <div className="flex items-center gap-1.5">
             <span className="text-[10.5px] font-bold text-emerald-400 uppercase tracking-wide">Agent Manager: Healthy</span>
             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -761,7 +778,13 @@ export default function StrategicIntel() {
       {/* --- INDUSTRY PROFILE (Toggle + Dropdown) --- */}
       <section className="p-4 border-b border-zinc-900">
         <div className="flex justify-between items-center mb-2">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Industry Profile</h3>
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.INDUSTRY_PROFILE}
+            as="h3"
+            className="text-[10px] font-black uppercase tracking-widest text-zinc-500"
+          >
+            Industry Profile
+          </LeftPanelFeatureTitle>
           <button
             type="button"
             onClick={() => setIsProfileVisible(!isProfileVisible)}
@@ -799,7 +822,13 @@ export default function StrategicIntel() {
       {/* 2. RISK EXPOSURE — benchmark trend (local ALE vs industry mean). Volatility now renders as a standard center-pane threat card. */}
       <section className="p-4 space-y-3 border-b border-zinc-900 bg-[#050509] relative">
         <div className="mb-1 flex w-full flex-wrap items-center justify-between gap-2 px-1 py-1">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Risk Exposure</h3>
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.RISK_EXPOSURE}
+            as="h3"
+            className="text-[10px] font-black uppercase tracking-widest text-zinc-500"
+          >
+            Risk Exposure
+          </LeftPanelFeatureTitle>
         </div>
 
         <div className="space-y-1">
@@ -859,9 +888,13 @@ export default function StrategicIntel() {
 
       <section className="p-4 border-b border-zinc-900 bg-[#050509]">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.ANALYST_MATURATION}
+            as="h3"
+            className="text-[10px] font-black uppercase tracking-widest text-zinc-500"
+          >
             Analyst Maturation
-          </h3>
+          </LeftPanelFeatureTitle>
           <span className="font-mono text-[10px] text-zinc-400 tracking-widest">
             {masteredThreatCount} / {totalThreatCount} Threats Mastered
           </span>
@@ -878,7 +911,7 @@ export default function StrategicIntel() {
           </span>
           {isSectorCertified ? (
             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-300 bg-emerald-900/30 border border-emerald-500/30 px-2 py-1 rounded">
-              Certified Sector Analyst
+              [ CERTIFIED SECTOR ANALYST ]
             </span>
           ) : null}
         </div>
@@ -886,9 +919,13 @@ export default function StrategicIntel() {
 
       {/* 3. TOP SECTOR THREATS (Dynamic Boxed Cards) */}
       <section className="p-4 border-b border-zinc-900 bg-[#050509]">
-        <p className="text-[10px] font-black text-[#3b82f6] uppercase tracking-widest mb-3 border-b border-zinc-800/50 pb-1.5">
+        <LeftPanelFeatureTitle
+          index={LP_FEATURE.THREAT_LIBRARY}
+          as="p"
+          className="mb-3 border-b border-zinc-800/50 pb-1.5 text-[10px] font-black uppercase tracking-widest text-[#3b82f6]"
+        >
           Threat library (click to launch live drill)
-        </p>
+        </LeftPanelFeatureTitle>
         <div className="space-y-2">
           {sectorThreatLibrary.map((entry) => {
             const refVal = `$${threatImpactToLossM(entry.impact).toFixed(1)}M`;
@@ -961,27 +998,65 @@ export default function StrategicIntel() {
         </div>
       </section>
 
-      {/* LIVE INTELLIGENCE STREAM TERMINAL */}
+      <WorkforceShowcaseGrid tenantUuid={dashboardTenantUuid} />
+
+      {/* 4. LIVE INTELLIGENCE STREAM TERMINAL */}
       <div className="flex-1 flex flex-col min-h-0 bg-black border-b border-zinc-900 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/60 custom-scrollbar">
-          <div className="space-y-1">
-            {expertModeEnabled ? (
-              <>
-                <p className="text-zinc-500 opacity-50 italic">Stream idle.</p>
-                <p className="text-emerald-500/40 animate-pulse">_</p>
-              </>
-            ) : (
-              <p className="text-zinc-600 font-black tracking-widest">[ EXPERT MODE OFF ? TELEMETRY STREAM HIDDEN ]</p>
-            )}
+        <div className="px-4 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <LeftPanelFeatureTitle
+              index={LP_FEATURE.LIVE_INTELLIGENCE_STREAM}
+              as="h3"
+              className="text-[10px] font-black uppercase tracking-widest text-zinc-500"
+            >
+              Live Intelligence Stream
+            </LeftPanelFeatureTitle>
+            <span className="inline-flex items-center gap-1 text-[7px] font-mono uppercase tracking-wide text-zinc-600">
+              <LeftPanelFeatureIndex index={LP_FEATURE.EXPERT_MODE_COUPLING} />
+              Expert Mode in header
+            </span>
           </div>
         </div>
+        {!expertModeEnabled ? (
+          <div className="flex-1 p-4 font-mono text-[10px] text-zinc-600 font-black tracking-widest">
+            [ EXPERT MODE OFF — TELEMETRY STREAM HIDDEN ]
+          </div>
+        ) : (
+          <div
+            ref={intelStreamRef}
+            className="flex-1 overflow-y-auto p-4 font-mono text-[10px] leading-relaxed text-emerald-500/80 custom-scrollbar"
+            data-testid="live-intelligence-stream-terminal"
+          >
+            <div className="space-y-1">
+              {[...intelligenceStream].reverse().map((line, index) => (
+                <p
+                  key={`${index}-${line.slice(0, 32)}`}
+                  className="whitespace-pre-wrap break-words"
+                >
+                  {line}
+                </p>
+              ))}
+              {intelligenceStream.length === 0 ? (
+                <p className="text-zinc-500 opacity-50 italic">
+                  Stream idle — awaiting agent telemetry.
+                </p>
+              ) : null}
+              <p className="text-emerald-500/40 animate-pulse">_</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* BOTTOM CONTROLS WRAPPER (Prevents Overlap) */}
       <div className="shrink-0 flex flex-col bg-[#050509] border-t border-zinc-900 z-10 relative">
 
         {/* 'N' AVATAR COMMAND INPUT */}
-        <form onSubmit={handleTerminalCommand} className="p-4 bg-zinc-950/20 border-b border-zinc-900/50" data-testid="test-run-ingestion">
+        <form
+          onSubmit={handleTerminalCommand}
+          className="p-4 bg-zinc-950/20 border-b border-zinc-900/50"
+          data-testid="test-run-ingestion"
+          data-left-panel-feature-index={LP_FEATURE.SECURE_TERMINAL}
+        >
           <div className="flex items-center gap-3 py-1.5 px-3 border border-zinc-800/50 rounded-full bg-black/40 shadow-inner group focus-within:border-emerald-500/50 transition-all">
             <div className="h-6 w-6 rounded-full border border-zinc-800 bg-zinc-900 flex items-center justify-center text-[10px] font-black text-zinc-600 group-focus-within:text-emerald-500 transition-colors">
               N
@@ -989,16 +1064,24 @@ export default function StrategicIntel() {
             <input
               type="text"
               value={terminalInput}
+              maxLength={TERMINAL_INPUT_MAX_LENGTH}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTerminalInput(e.target.value)}
               className="bg-transparent border-none outline-none text-zinc-400 font-mono text-xs w-full placeholder:text-zinc-700 selection:bg-emerald-500/30"
               placeholder="kimbot | kimbotx | grcbot [1-100] | grcbotx | purg"
+              autoComplete="off"
+              spellCheck={false}
             />
             <button type="submit" className="flex items-center gap-2 pr-1 outline-none">
               <span className="text-[10px] font-bold text-white uppercase tracking-tighter bg-zinc-800 px-3 py-1 rounded hover:bg-emerald-600 transition-colors">RUN</span>
             </button>
           </div>
           <div className="mt-2 flex justify-between px-2">
-            <span className="text-[7px] text-zinc-700 uppercase font-black tracking-widest">Secure Terminal Link // 0xCC44</span>
+            <LeftPanelFeatureTitle
+              index={LP_FEATURE.SECURE_TERMINAL}
+              className="text-[7px] font-black uppercase tracking-widest text-zinc-700"
+            >
+              Secure Terminal Link // 0xCC44
+            </LeftPanelFeatureTitle>
             <div className="flex gap-3">
               <div className="h-1 w-1 rounded-full bg-zinc-800" />
               <div className="h-1 w-1 rounded-full bg-zinc-800" />
@@ -1008,8 +1091,17 @@ export default function StrategicIntel() {
         </form>
 
         {/* TTL CONTROLS */}
-        <div className="p-4 border-b border-zinc-900/50">
-          <p className="text-zinc-500 opacity-80 italic text-[10px] mb-2">Set TTL (hours) below and press SET to start the clock.</p>
+        <div
+          className="p-4 border-b border-zinc-900/50"
+          data-left-panel-feature-index={LP_FEATURE.TTL_CONTROLS}
+        >
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.TTL_CONTROLS}
+            as="p"
+            className="mb-2 text-[10px] italic text-zinc-500 opacity-80"
+          >
+            Set TTL (hours) below and press SET to start the clock.
+          </LeftPanelFeatureTitle>
           <div className="flex w-full gap-2">
             <div className="flex h-10 flex-1 items-center gap-1 rounded border border-slate-800 bg-[#0f172a] px-1">
               <button
@@ -1117,20 +1209,35 @@ export default function StrategicIntel() {
         </div>
 
         {/* SENTINEL SWEEP */}
-        <div className="p-4 bg-[#050509]">
+        <div
+          className="p-4 bg-[#050509]"
+          data-left-panel-feature-index={LP_FEATURE.SENTINEL_INSTRUCTION}
+        >
           <div className="flex flex-col gap-2">
-            <label className="text-[16px] text-white">Enter Agent Instruction...</label>
+            <LeftPanelFeatureTitle
+              index={LP_FEATURE.SENTINEL_INSTRUCTION}
+              as="label"
+              className="text-[16px] text-white"
+            >
+              Enter Agent Instruction...
+            </LeftPanelFeatureTitle>
             <input
               type="text"
+              data-testid="sentinel-instruction-input"
               placeholder="Enter Agent Instruction..."
               value={agentInstruction}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setAgentInstruction(e.target.value)}
+              maxLength={SENTINEL_INSTRUCTION_MAX_LENGTH}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setAgentInstruction(sanitizeSentinelInstructionInput(e.target.value))
+              }
               className="bg-[#0f172a] border border-slate-800 p-2.5 rounded text-[16px] text-slate-200 placeholder:text-slate-500 outline-none focus:border-blue-500"
             />
             <button
               type="button"
-              onClick={() => setSentinelSweepModalOpen(true)}
-              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2"
+              data-testid="run-sentinel-sweep"
+              disabled={!canRunSentinelSweep}
+              onClick={handleRunSentinelSweep}
+              className="w-full bg-amber-500 hover:bg-amber-400 text-black font-extrabold py-3 rounded text-[11px] transition-colors flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <div className="bg-black/80 text-white w-5 h-5 flex items-center justify-center rounded-full text-[9px]">N</div>
               <Search size={14} strokeWidth={3} /> RUN SENTINEL SWEEP
@@ -1144,12 +1251,18 @@ export default function StrategicIntel() {
 
       <SentinelSweepModal
         open={sentinelSweepModalOpen}
-        onClose={() => setSentinelSweepModalOpen(false)}
-        initialAgentInstruction={agentInstruction}
+        onClose={() => {
+          setSentinelSweepModalOpen(false);
+          useAgentStore.getState().clearSentinelSweepSession();
+        }}
+        initialAgentInstruction={sentinelInstructionForModal}
         onGovernanceIntelAlert={(msg) => {
           if (msg) setIronwatchSidebarAlert(msg);
         }}
-        onCompleted={() => setAgentInstruction("")}
+        onCompleted={() => {
+          setAgentInstruction("");
+          setSentinelInstructionForModal("");
+        }}
       />
 
       <ThreatDetailModal

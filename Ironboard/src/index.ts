@@ -30,6 +30,12 @@ import {
   QUERY_LOCAL_WORKSPACE_DECLARATION,
   queryLocalWorkspace,
 } from './services/queryLocalWorkspace.js';
+import { buildBoardroomTools, type BoardroomToolMode } from './services/boardroomTools.js';
+import {
+  inferRegionFromQuery,
+  shouldPrefetchProspects,
+  shouldPrefetchWeb,
+} from './services/boardroomQueryIntent.js';
 
 const PORT = Number(process.env.PORT) || 8082;
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -39,14 +45,7 @@ const TOOL_RESULT_PARSE_DIRECTIVE =
   "CRITICAL: If a tool returns rows or data, you must parse and display them. Do not use your pre-configured 'no prospects loaded' or 'tools not available' strings if the functionResponse array is populated.";
 
 const TOOL_EXECUTION_DIRECTIVE =
-  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool and direct database access via queryLocalWorkspace. Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding.';
-
-const WORKSPACE_TOOL_FORCE_TERMS = ['prospect', 'london', 'singapore', 'news'];
-
-function shouldForceWorkspaceTool(query: string): boolean {
-  const q = query.toLowerCase();
-  return WORKSPACE_TOOL_FORCE_TERMS.some(term => q.includes(term));
-}
+  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool and direct database access via queryLocalWorkspace. Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding. Answer every distinct question in the user message — do not drop parts of a multi-part query.';
 
 const BOARDROOM_DIRECTIVE =
   'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
@@ -182,66 +181,35 @@ const MAX_TOOL_ROUNDS = 4;
 type GeminiPart = Record<string, unknown>;
 type GeminiContent = { role: string; parts: GeminiPart[] };
 
-function buildBoardroomTools(model: string) {
-  const isGemini3 = /gemini-3/i.test(model);
-  if (isGemini3) {
-    return [
-      {
-        googleSearch: {},
-        functionDeclarations: [QUERY_LOCAL_WORKSPACE_DECLARATION],
-      },
-    ];
-  }
-  // gemini-2.5 and older: built-in search + function calling cannot share one request.
-  return [{ functionDeclarations: [QUERY_LOCAL_WORKSPACE_DECLARATION] }];
+function resolveBoardroomToolMode(model: string, query: string): BoardroomToolMode {
+  if (/gemini-3/i.test(model)) return 'combined';
+  if (shouldPrefetchWeb(query) && !shouldPrefetchProspects(query)) return 'web';
+  return 'workspace';
 }
 
 function buildBoardroomStreamConfig(
   model: string,
   systemInstruction: string,
-  options?: { forceWorkspaceTool?: boolean },
+  toolMode: BoardroomToolMode,
 ): Record<string, unknown> {
+  const toolConfig: Record<string, unknown> =
+    toolMode === 'workspace' || toolMode === 'combined'
+      ? { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } }
+      : {};
+  if (toolMode === 'combined') {
+    toolConfig.includeServerSideToolInvocations = true;
+  }
+
   const config: Record<string, unknown> = {
     systemInstruction: [systemInstruction, TOOL_EXECUTION_DIRECTIVE].filter(Boolean).join('\n\n'),
     temperature: 0,
     topP: 0,
-    tools: buildBoardroomTools(model),
+    tools: buildBoardroomTools(model, toolMode),
   };
-
-  const toolConfig: Record<string, unknown> = {};
-  if (/gemini-3/i.test(model)) {
-    toolConfig.includeServerSideToolInvocations = true;
-  }
-  if (options?.forceWorkspaceTool) {
-    toolConfig.functionCallingConfig = {
-      mode: FunctionCallingConfigMode.ANY,
-      allowedFunctionNames: ['queryLocalWorkspace'],
-    };
-  }
   if (Object.keys(toolConfig).length) {
     config.toolConfig = toolConfig;
   }
   return config;
-}
-
-function inferRegionFromQuery(query: string, activeHub: string): string | undefined {
-  const q = query.toLowerCase();
-  if (q.includes('singapore')) return 'Singapore';
-  if (q.includes('london')) return 'London';
-  const hubKey = String(activeHub ?? '').trim().toUpperCase();
-  if (hubKey === 'LONDON') return 'London';
-  if (hubKey === 'SINGAPORE') return 'Singapore';
-  return undefined;
-}
-
-function shouldPrefetchWeb(query: string): boolean {
-  const q = query.toLowerCase();
-  return ['news', 'compliance', 'latest', 'regulation', 'fca', 'market intel'].some(term => q.includes(term));
-}
-
-function shouldPrefetchProspects(query: string): boolean {
-  const q = query.toLowerCase();
-  return WORKSPACE_TOOL_FORCE_TERMS.some(term => q.includes(term));
 }
 
 function buildSyntheticToolExchange(
@@ -264,7 +232,7 @@ function buildSyntheticToolExchange(
   ];
 }
 
-async function prefetchWebNewsGrounding(
+async function prefetchWebGrounding(
   ai: GoogleGenAI,
   model: string,
   query: string,
@@ -277,7 +245,7 @@ async function prefetchWebNewsGrounding(
           role: 'user',
           parts: [
             {
-              text: `Board intelligence request — answer using live web search only:\n${query}\n\nFocus on the most recent fintech compliance and regulatory news for the region mentioned.`,
+              text: `Board intelligence request — answer using live web search:\n${query}\n\nRetrieve current factual information worldwide (local time, news, regulations, market data, geography, events). Cite sources when available.`,
             },
           ],
         },
@@ -349,7 +317,7 @@ async function prefetchBoardroomGroundTruth(params: {
   }
 
   if (shouldPrefetchWeb(query)) {
-    const web = await prefetchWebNewsGrounding(ai, model, query);
+    const web = await prefetchWebGrounding(ai, model, query);
     if (web.grounding) {
       const clientGrounding = serializeGroundingForClient(web.grounding);
       if (clientGrounding) writeSseGrounding(res, clientGrounding);
@@ -358,16 +326,6 @@ async function prefetchBoardroomGroundTruth(params: {
   }
 
   return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n') };
-}
-
-function relaxBoardroomToolConfig(config: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...config };
-  const prior = (next.toolConfig ?? {}) as Record<string, unknown>;
-  next.toolConfig = {
-    ...prior,
-    functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO },
-  };
-  return next;
 }
 
 function serializeGroundingForClient(meta: GroundingMetadata | null): ClientGroundingPayload | null {
@@ -499,20 +457,14 @@ async function runBoardroomToolStream(params: {
   model: string;
   history: HistoryTurn[];
   config: Record<string, unknown>;
-  forceWorkspaceTool: boolean;
   prefetchedExchange?: GeminiContent[];
 }): Promise<void> {
-  const { ai, res, abort, model, history, config, forceWorkspaceTool, prefetchedExchange = [] } = params;
+  const { ai, res, abort, model, history, config, prefetchedExchange = [] } = params;
   let contents: GeminiContent[] = [...mapHistoryToGeminiContents(history), ...prefetchedExchange];
-  const skipForcedRound = prefetchedExchange.length > 0;
+  const skipFirstRoundTokens = prefetchedExchange.length > 0;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const roundConfig =
-      forceWorkspaceTool && round === 0 && !skipForcedRound
-        ? config
-        : relaxBoardroomToolConfig(config);
-
-    const emitTokens = round > 0 || skipForcedRound;
+    const emitTokens = round > 0 || skipFirstRoundTokens;
 
     const { accumulatedText, functionCalls } = await streamBoardroomGeminiRound({
       ai,
@@ -520,20 +472,15 @@ async function runBoardroomToolStream(params: {
       abort,
       model,
       contents,
-      config: roundConfig,
+      config,
       emitTokens,
     });
 
     if (abort.closed || res.writableEnded) return;
 
     if (!functionCalls?.length) {
-      const blockedHallucination = forceWorkspaceTool && round === 0 && !skipForcedRound;
-      // Incremental tokens were already painted during this round — do not re-emit the full buffer.
-      if (accumulatedText && !blockedHallucination && !emitTokens) {
+      if (accumulatedText && !emitTokens) {
         writeSseToken(res, accumulatedText);
-      }
-      if (blockedHallucination && accumulatedText) {
-        console.warn('[IRONBOARD] Suppressed round-0 text; model skipped forced tool call.');
       }
       return;
     }
@@ -677,8 +624,6 @@ function renderDashboard(): string {
     textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; max-height: 5.5rem; font-family: inherit; }
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
-    #master-purge-btn { font-size: 0.58rem; font-weight: 800; text-transform: uppercase; background: #450a0a; color: #fecaca; border: 1px solid #f87171; border-radius: 0.35rem; padding: 0.35rem 0.5rem; cursor: pointer; white-space: nowrap; }
-    #master-purge-btn:hover { background: #7f1d1d; }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; }
     .baseline { font-size: 0.68rem; display: flex; justify-content: space-between; padding: 0.2rem 0; color: #94a3b8; }
@@ -732,7 +677,6 @@ function renderDashboard(): string {
     <section id="chat-panel">
       <div id="chat-header">
         <div id="active-label">Active: Auto-Routing</div>
-        <button type="button" id="master-purge-btn" title="Bot D — clears session threads">Master Purge (Bot D)</button>
       </div>
       <div id="chat-window"></div>
       <div id="chat-compose">
@@ -784,30 +728,6 @@ function renderDashboard(): string {
       } catch (err) {
         console.warn('[IRONBOARD] Chat history hydrate failed:', err);
       }
-    }
-
-    function purgeChatSession() {
-      historiesByAgent = {};
-      streamingText = '';
-      streamingGrounding = null;
-      streamingToolHint = '';
-      isStreamingActive = false;
-      try {
-        localStorage.removeItem(CHAT_HISTORY_KEY);
-      } catch (err) {
-        console.warn('[IRONBOARD] Chat history purge failed:', err);
-      }
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      renderChat();
-      scrollChatToBottom();
-      setStatus('Master Purge complete — session threads cleared.');
-    }
-
-    function isMasterPurgeCommand(text) {
-      var normalized = String(text || '').trim().toLowerCase();
-      return normalized === 'master purge' ||
-        normalized === 'bot d purge' ||
-        normalized.indexOf('master purge') === 0;
     }
 
     function hydrateVoiceSettings() {
@@ -1337,10 +1257,6 @@ function renderDashboard(): string {
       return remainder;
     }
 
-    document.getElementById('master-purge-btn').addEventListener('click', function() {
-      purgeChatSession();
-    });
-
     document.getElementById('user-prompt').addEventListener('keydown', function(ev) {
       if (ev.key === 'Enter' && !ev.shiftKey) {
         ev.preventDefault();
@@ -1354,12 +1270,6 @@ function renderDashboard(): string {
       var submitBtn = document.getElementById('submit-btn');
       var query = input.value.trim();
       if (!query) return;
-
-      if (isMasterPurgeCommand(query)) {
-        input.value = '';
-        purgeChatSession();
-        return;
-      }
 
       if (window.speechSynthesis) window.speechSynthesis.cancel();
       streamingText = '';
@@ -1517,7 +1427,8 @@ app.post('/api/query', async (req, res) => {
 
     const ai = new GoogleGenAI({ apiKey: key });
     const model = getIronboardGeminiModel();
-    const forceWorkspaceTool = shouldForceWorkspaceTool(query);
+
+    const toolMode = resolveBoardroomToolMode(model, query);
 
     const { prefetchedExchange, systemEnrichment } = await prefetchBoardroomGroundTruth({
       ai,
@@ -1533,13 +1444,14 @@ app.post('/api/query', async (req, res) => {
       prefetchedExchange.length
         ? 'The queryLocalWorkspace tool has ALREADY executed — its functionResponse is in the conversation history above. Synthesize from that data. Never claim tools or live data are unavailable.'
         : '',
+      systemEnrichment.includes('LIVE WEB GROUND TRUTH')
+        ? 'Live web search results are in the system context above — use them for time, news, and global facts. Never claim real-time or external data is unavailable.'
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
 
-    const streamConfig = buildBoardroomStreamConfig(model, systemInstruction, {
-      forceWorkspaceTool: forceWorkspaceTool && prefetchedExchange.length === 0,
-    });
+    const streamConfig = buildBoardroomStreamConfig(model, systemInstruction, toolMode);
 
     await runBoardroomToolStream({
       ai,
@@ -1548,7 +1460,6 @@ app.post('/api/query', async (req, res) => {
       model,
       history,
       config: streamConfig,
-      forceWorkspaceTool: forceWorkspaceTool && prefetchedExchange.length === 0,
       prefetchedExchange,
     });
   } catch (err) {

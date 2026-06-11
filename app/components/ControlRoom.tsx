@@ -16,11 +16,11 @@ import { getMetaAuditConsoleAccess } from "@/app/actions/auditActions";
 import {
   approveThreatResolution,
   getThreatResolutionReviewEligibility,
-  listPendingThreatResolutions,
   rejectThreatResolution,
   type PendingThreatResolutionItem,
 } from "@/app/actions/threatActions";
 import MetaAuditConsole from "@/app/components/MetaAuditConsole";
+import { formatAgentIntelLine } from "@/app/utils/intelligenceStreamFormat";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useComplianceOverlayStore } from "@/app/store/complianceOverlayStore";
 import { useSimulationConfigStore } from "@/app/store/simulationConfigStore";
@@ -44,10 +44,29 @@ import {
   type AgentPulseState,
 } from "@/app/utils/workforceAgentState";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
+import {
+  LeftPanelFeatureIndex,
+  LeftPanelFeatureTitle,
+} from "@/app/components/leftPanel/LeftPanelFeatureIndex";
+import { LP_FEATURE } from "@/app/config/leftPanelFeatureIndex";
 import AgentStatusPulseList from "@/app/components/grc/AgentStatusPulseList";
-import AgentStatusPulse from "@/app/components/grc/AgentStatusPulse";
+import AgentStatusPulse, { AgentKillsInlineTag } from "@/app/components/grc/AgentStatusPulse";
 import AgentLogs from "@/app/components/panes/AgentLogs";
 import { isBenignRuntimeEmissionError, safeRuntimeAsyncEmission } from "@/app/utils/safeRuntimeEmission";
+import { useTenantContext } from "@/app/context/TenantProvider";
+import { devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
+import { maturationHitlReviewEventId } from "@/app/utils/analystMaturation";
+import {
+  SIM_NAV_FOCUS_EVENT,
+  scrollSimNavTargetIntoView,
+  type SimNavFocusTarget,
+} from "@/app/utils/simulationNavFocus";
+import { createSimulationFetchScope } from "@/app/hooks/useSimulationFetchAbort";
+import { fetchIronsightReviewQueue } from "@/app/lib/client/simulationAgentFetch";
+import {
+  isSimulationFetchAborted,
+  runSimulationGuardedAsync,
+} from "@/app/utils/simulationNavAbort";
 
 /** Delay single-click overlay toggle so double-click flush does not flip panel state. */
 const PULSE_OVERLAY_TOGGLE_GATE_MS = 200;
@@ -103,6 +122,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   const [auditSummary, setAuditSummary] = useState<NotificationAuditSummary | null>(null);
   const [boardPrepRefresh, setBoardPrepRefresh] = useState(0);
   const [pendingApprovals, setPendingApprovals] = useState<PendingThreatResolutionItem[]>([]);
+  const [reviewQueueLoading, setReviewQueueLoading] = useState(true);
+  const [reviewQueueTenantId, setReviewQueueTenantId] = useState<string | null>(null);
   const [reviewEligible, setReviewEligible] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -119,6 +140,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   /** Armed = bot channel ON; each click while armed fires another attack wave (stack on Attack Velocity). */
   const [simulationBotsArmed, setSimulationBotsArmed] = useState(INITIAL_SIMULATION_BOT_ARMED);
   const isSimulationActive = useSystemConfigStore().isSimulationMode;
+  const { activeTenantUuid, activeTenantKey } = useTenantContext();
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);
@@ -196,13 +218,16 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   }, [hydrateSimulationConfig]);
 
   useEffect(() => {
-    let cancelled = false;
-    void safeRuntimeAsyncEmission(() => fetchNotificationAuditSummary(), null).then((s) => {
-      if (!cancelled && s) setAuditSummary(s);
+    const scope = createSimulationFetchScope();
+    const { signal } = scope;
+    void runSimulationGuardedAsync(
+      signal,
+      () => safeRuntimeAsyncEmission(() => fetchNotificationAuditSummary(), null),
+      null,
+    ).then((s) => {
+      if (!isSimulationFetchAborted(signal) && s) setAuditSummary(s);
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => scope.dispose();
   }, [automatedUpdatesEnabled, endpointsModalOpen, boardPrepRefresh]);
 
   const auditVerified =
@@ -210,8 +235,10 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
     new Date(auditSummary.lastModified).getTime() >= sessionStartedAtRef.current;
 
   useEffect(() => {
-    let cancelled = false;
+    const scope = createSimulationFetchScope();
+    const { signal } = scope;
     const tick = () => {
+      if (signal.aborted) return;
       const now = Date.now();
       const tid = selectedThreatId ?? null;
       const last = lastLogDiveFetchRef.current;
@@ -219,61 +246,113 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       const stale = now - last.at >= 5000;
       if (!threatChanged && !stale) return;
       lastLogDiveFetchRef.current = { at: now, threatId: tid };
-      void safeRuntimeAsyncEmission(() => getIrontechActiveLogDive(), false).then((on) => {
-        if (cancelled) return;
+      void runSimulationGuardedAsync(
+        signal,
+        () => safeRuntimeAsyncEmission(() => getIrontechActiveLogDive(), false),
+        false,
+      ).then((on) => {
+        if (isSimulationFetchAborted(signal)) return;
         setLogDive((prev) => (prev === on ? prev : on));
       });
     };
     tick();
     const id = setInterval(tick, 500);
     return () => {
-      cancelled = true;
+      scope.dispose();
       clearInterval(id);
     };
   }, [selectedThreatId]);
 
   useEffect(() => {
-    let cancelled = false;
+    const onHitlRefresh = () => setBoardPrepRefresh((n) => n + 1);
+    window.addEventListener("ironframe:hitl-review-queue-refresh", onHitlRefresh);
+    return () => window.removeEventListener("ironframe:hitl-review-queue-refresh", onHitlRefresh);
+  }, []);
+
+  useEffect(() => {
+    const scope = createSimulationFetchScope();
+    const { signal } = scope;
     const load = async () => {
-      const [eligibility, pending] = await Promise.all([
-        safeRuntimeAsyncEmission(
-          () => getThreatResolutionReviewEligibility(),
-          { eligible: false },
-        ),
-        safeRuntimeAsyncEmission(
-          () => listPendingThreatResolutions(),
-          { ok: false as const, error: "", items: [] },
-        ),
-      ]);
-      if (cancelled) return;
-      setReviewEligible(eligibility.eligible);
-      if (pending.ok) {
-        setPendingApprovals(pending.items);
-        setReviewError(null);
-      } else {
-        setPendingApprovals([]);
-        setReviewError(pending.error && !isBenignRuntimeEmissionError(pending.error) ? pending.error : null);
+      setReviewQueueLoading(true);
+      try {
+        const tenantScope = activeTenantUuid?.trim() || null;
+        const [eligibility, pending] = await Promise.all([
+          runSimulationGuardedAsync(
+            signal,
+            () =>
+              safeRuntimeAsyncEmission(
+                () => getThreatResolutionReviewEligibility(),
+                { eligible: false },
+              ),
+            { eligible: false },
+          ),
+          runSimulationGuardedAsync(
+            signal,
+            () => fetchIronsightReviewQueue(signal, tenantScope),
+            { ok: false as const, error: "", items: [] as PendingThreatResolutionItem[], aborted: true },
+          ),
+        ]);
+        if (isSimulationFetchAborted(signal)) return;
+        setReviewEligible(eligibility.eligible);
+        if (pending.aborted) return;
+        if (pending.ok) {
+          setPendingApprovals(pending.items);
+          setReviewQueueTenantId(pending.tenantId);
+          setReviewError(null);
+        } else {
+          const benignAbort =
+            pending.aborted ||
+            !pending.error ||
+            isBenignRuntimeEmissionError(pending.error);
+          if (!benignAbort) {
+            setPendingApprovals([]);
+            setReviewQueueTenantId(null);
+            setReviewError(pending.error);
+          }
+        }
+      } catch (error) {
+        if (isSimulationFetchAborted(signal, error)) return;
+        if (!isBenignRuntimeEmissionError(error)) {
+          setReviewError(error instanceof Error ? error.message : "Review queue unavailable.");
+        }
+      } finally {
+        if (!signal.aborted) setReviewQueueLoading(false);
       }
     };
     void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [boardPrepRefresh]);
+    return () => scope.dispose();
+  }, [boardPrepRefresh, activeTenantUuid]);
 
   useEffect(() => {
-    let cancelled = false;
-    void safeRuntimeAsyncEmission(
-      () => getMetaAuditConsoleAccess(),
+    const onSimNavFocus = (event: Event) => {
+      const target = (event as CustomEvent<{ target?: SimNavFocusTarget }>).detail?.target;
+      if (target === "drill-metrics" || target === "chaos-validator") {
+        window.requestAnimationFrame(() => {
+          scrollSimNavTargetIntoView(target);
+        });
+      }
+    };
+    window.addEventListener(SIM_NAV_FOCUS_EVENT, onSimNavFocus);
+    return () => window.removeEventListener(SIM_NAV_FOCUS_EVENT, onSimNavFocus);
+  }, []);
+
+  useEffect(() => {
+    const scope = createSimulationFetchScope();
+    const { signal } = scope;
+    void runSimulationGuardedAsync(
+      signal,
+      () =>
+        safeRuntimeAsyncEmission(
+          () => getMetaAuditConsoleAccess(),
+          { canAccess: false, tenantId: null },
+        ),
       { canAccess: false, tenantId: null },
     ).then((res) => {
-      if (cancelled) return;
+      if (isSimulationFetchAborted(signal)) return;
       setMetaAuditAccess(res.canAccess);
       setMetaAuditTenantId(res.tenantId);
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => scope.dispose();
   }, []);
 
   useEffect(() => {
@@ -310,11 +389,31 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         setReviewError(result.error);
         return;
       }
-      const pending = await listPendingThreatResolutions();
-      if (pending.ok) {
-        setPendingApprovals(pending.items);
-      } else {
-        setReviewError(pending.error);
+      addStreamMessage(
+        formatAgentIntelLine(
+          "AGENT-01",
+          "IRONCORE",
+          `HITL review queue — ${decision === "APPROVE" ? "approved" : "rejected"} attestation ${approvalId.slice(0, 8)}.`,
+        ),
+      );
+      const tenantScope = activeTenantUuid?.trim() || null;
+      if (tenantScope) {
+        useRiskStore
+          .getState()
+          .recordAnalystMaturationEvent(tenantScope, maturationHitlReviewEventId(approvalId));
+      }
+      const refreshScope = createSimulationFetchScope();
+      try {
+        const pending = await fetchIronsightReviewQueue(refreshScope.signal, tenantScope);
+        if (pending.aborted) return;
+        if (pending.ok) {
+          setPendingApprovals(pending.items);
+          setReviewQueueTenantId(pending.tenantId);
+        } else if (pending.error) {
+          setReviewError(pending.error);
+        }
+      } finally {
+        refreshScope.dispose();
       }
     } catch (error) {
       setReviewError(error instanceof Error ? error.message : "Review action failed.");
@@ -471,9 +570,18 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
 
   return (
     <div className="col-span-full w-full max-w-full rounded-sm border border-zinc-800/90 bg-[#050509] p-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03)]">
-      <div className="mb-2 rounded border border-cyan-900/60 bg-cyan-950/15 p-2">
+      <div
+        className="mb-2 rounded border border-cyan-900/60 bg-cyan-950/15 p-2"
+        data-sim-nav-target="drill-metrics"
+        tabIndex={-1}
+      >
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[9px] font-black uppercase tracking-widest text-cyan-300/90">Chaos Meter</p>
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.CHAOS_METER}
+            className="text-[9px] font-black uppercase tracking-widest text-cyan-300/90"
+          >
+            Chaos Meter
+          </LeftPanelFeatureTitle>
           <p className="text-[10px] font-black text-cyan-100">{chaosPercent}% Neutralized</p>
         </div>
         <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-zinc-900">
@@ -488,9 +596,13 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
       </div>
 
       <div className="mb-2 rounded border border-violet-900/55 bg-violet-950/20 px-2 py-1.5">
-        <p className="mb-1 text-[8px] font-black uppercase tracking-widest text-violet-300/90">
+        <LeftPanelFeatureTitle
+          index={LP_FEATURE.IDENTITY_TOGGLE}
+          as="p"
+          className="mb-1 text-[8px] font-black uppercase tracking-widest text-violet-300/90"
+        >
           Identity toggle (GRC handshake)
-        </p>
+        </LeftPanelFeatureTitle>
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
@@ -576,7 +688,10 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             }`}
             aria-hidden
           />
-          <span className="whitespace-nowrap">🛡️ COMPLIANCE OVERLAY</span>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <LeftPanelFeatureIndex index={LP_FEATURE.COMPLIANCE_OVERLAY} />
+            🛡️ COMPLIANCE OVERLAY
+          </span>
         </button>
         {logDive ? (
           <span className="self-center text-[7px] font-semibold uppercase tracking-wide text-cyan-500/90">
@@ -606,7 +721,8 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             ) : (
               <Lock className="h-3.5 w-3.5 shrink-0 text-zinc-500" strokeWidth={2.25} aria-hidden />
             )}
-            <span className="whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap">
+              <LeftPanelFeatureIndex index={LP_FEATURE.AUTOMATED_UPDATES} />
               [ AUTOMATED UPDATES ({activeEndpointCount}{" "}
               {activeEndpointCount === 1 ? "Channel" : "Channels"} Active) ]
             </span>
@@ -616,10 +732,12 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
               className="inline-flex h-8 items-center gap-1 rounded-sm border border-emerald-800/50 bg-emerald-950/25 px-2 text-[7px] font-black uppercase tracking-wider text-emerald-400/95"
               title="A notification configuration audit entry was written during this browser session (since this panel loaded)."
             >
+              <LeftPanelFeatureIndex index={LP_FEATURE.AUDIT_VERIFIED} />
               <ShieldCheck className="h-3 w-3 shrink-0" strokeWidth={2.25} aria-hidden />
               Audit Verified
             </span>
           ) : null}
+          <AgentKillsInlineTag featureIndex={LP_FEATURE.THREATS_RESOLVED} />
         </div>
         <button
           type="button"
@@ -628,7 +746,10 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           title="Add or remove stakeholder webhook destinations"
         >
           <Radio className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span className="whitespace-nowrap">MANAGE ENDPOINTS</span>
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <LeftPanelFeatureIndex index={LP_FEATURE.MANAGE_ENDPOINTS} />
+            MANAGE ENDPOINTS
+          </span>
         </button>
       </div>
       <NotificationEndpointsModal
@@ -640,7 +761,10 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
         }}
       />
       <div className="mt-2 max-w-md">
-        <ConfigChangeWidget refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`} />
+        <ConfigChangeWidget
+          refreshSignal={`${automatedUpdatesEnabled}-${boardPrepRefresh}`}
+          featureIndex={LP_FEATURE.CONFIG_CHURN}
+        />
       </div>
       <AgentStatusPulseList
         combinedThreats={combinedThreats}
@@ -680,9 +804,13 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">
+              <LeftPanelFeatureTitle
+                index={LP_FEATURE.WORKFORCE_OVERLAY}
+                as="p"
+                className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200"
+              >
                 19-Agent Workforce Overlay
-              </p>
+              </LeftPanelFeatureTitle>
               <button
                 type="button"
                 onClick={() => setWorkforceOverlayOpen(false)}
@@ -707,9 +835,13 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           aria-label="Agent Log Inspector"
         >
           <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-teal-400">
+            <LeftPanelFeatureTitle
+              index={LP_FEATURE.AGENT_LOG_INSPECTOR}
+              as="p"
+              className="text-[10px] font-black uppercase tracking-[0.14em] text-teal-400"
+            >
               Agent Log Inspector
-            </p>
+            </LeftPanelFeatureTitle>
             <button
               type="button"
               onClick={() => setAgentLogInspectorOpen(false)}
@@ -731,23 +863,57 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
           </div>
         </div>
       ) : null}
-      <div className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5">
+      <div
+        className="mt-3 rounded border border-zinc-800/85 bg-zinc-950/50 p-2.5"
+        data-sim-nav-target="drill-metrics"
+        tabIndex={-1}
+      >
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200">
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.REVIEW_QUEUE}
+            as="h3"
+            className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-200"
+          >
             Review Queue
-          </h3>
+          </LeftPanelFeatureTitle>
           <span className="rounded border border-amber-700/40 bg-amber-950/25 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-200/85">
             {pendingApprovals.length} Pending
           </span>
         </div>
         <p className="mt-1 text-[9px] text-zinc-500">
           HITL threat-resolution attestations awaiting manager sign-off.
+          {reviewQueueTenantId ? (
+            <>
+              {" "}
+              Scope:{" "}
+              <span className="font-mono text-zinc-400">
+                {pendingApprovals[0]?.tenantScopeLabel === "Client"
+                  ? devTenantHandshakeLabel(activeTenantKey)
+                  : "Ironframe"}
+              </span>
+              {activeTenantUuid ? (
+                <span className="text-zinc-600"> · {activeTenantUuid.slice(0, 8)}…</span>
+              ) : null}
+            </>
+          ) : (
+            <> Select a Command Center tenant to load scoped pending items.</>
+          )}
         </p>
         {reviewError ? (
           <p className="mt-1.5 text-[9px] text-rose-300/90">{reviewError}</p>
         ) : null}
         <div className="mt-2 space-y-1.5">
-          {pendingApprovals.length === 0 ? (
+          {reviewQueueLoading ? (
+            <div
+              className="space-y-1.5 animate-pulse"
+              data-testid="review-queue-skeleton"
+              aria-busy="true"
+              aria-label="Loading drill metrics review queue"
+            >
+              <div className="h-10 rounded border border-zinc-800/80 bg-zinc-900/40" />
+              <div className="h-10 rounded border border-zinc-800/80 bg-zinc-900/40" />
+            </div>
+          ) : pendingApprovals.length === 0 ? (
             <p className="text-[9px] text-zinc-600">No pending approvals.</p>
           ) : (
             pendingApprovals.map((item) => (
@@ -758,9 +924,20 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
                 <p className="text-[9px] font-semibold text-zinc-200">{item.threatTitle}</p>
                 <p className="mt-0.5 text-[8px] text-zinc-500">
                   Target: <span className="font-mono">{item.targetEntity ?? "N/A"}</span>
+                  {item.hitlCategory !== "GENERAL" ? (
+                    <>
+                      {" "}
+                      · <span className="text-amber-200/80">{item.hitlCategory.replace(/_/g, " ")}</span>
+                    </>
+                  ) : null}
                 </p>
+                {item.pendingLedgerCents ? (
+                  <p className="mt-0.5 text-[8px] font-mono text-emerald-300/85">
+                    Ledger: {item.pendingLedgerCents} cents (BigInt)
+                  </p>
+                ) : null}
                 <p className="mt-0.5 line-clamp-2 text-[8px] text-zinc-400">{item.approvalNote}</p>
-                {reviewEligible ? (
+                {item.canReview ? (
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <button
                       type="button"
@@ -781,7 +958,9 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
                   </div>
                 ) : (
                   <p className="mt-1 text-[8px] text-zinc-600">
-                    Manager role required (GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE).
+                    {item.requiresCisoAdmin
+                      ? "CISO or ADMIN role required (financial / breach attestation)."
+                      : "Manager role required (GRC_MANAGER, GLOBAL_ADMIN, CISO, or DIRECTOR_OF_COMPLIANCE)."}
                   </p>
                 )}
               </div>
@@ -795,14 +974,19 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
             tenantId={metaAuditTenantId}
             canAccess={metaAuditAccess}
             showIntegrityLedger={false}
+            featureIndex={LP_FEATURE.META_AUDIT_CONSOLE}
           />
         </div>
       ) : null}
       {isSimulationActive ? (
         <div className="mt-3 rounded border border-rose-900/60 bg-rose-950/20 p-2">
-          <p className="text-[8px] font-black uppercase tracking-[0.14em] text-rose-300/95">
+          <LeftPanelFeatureTitle
+            index={LP_FEATURE.SIMULATION_BOTS}
+            as="p"
+            className="text-[8px] font-black uppercase tracking-[0.14em] text-rose-300/95"
+          >
             Simulation Bots (A-D) · Separate from 19-Agent Workforce
-          </p>
+          </LeftPanelFeatureTitle>
           <p className="mt-1 text-[7px] leading-snug text-rose-200/70">
             Click to arm and fire (stack waves on Attack Velocity). Shift+click to disarm. Run A/B/C
             together for varying scenarios — stress the 19-agent workforce.

@@ -1,50 +1,56 @@
 /**
- * Three-pane dashboard shell — fixed viewport fractions 22vw · 48vw · 30vw.
- * Flex row (no wrap). Parent bans horizontal window scroll.
- * LKG snapshot: 2026-06-05 23:55 CDT (pre-board stability pass).
+ * Three-pane dashboard shell — fractional columns 22% · 48% · 30%.
+ * Used by `DashboardHomeClient` (home tripane). Window scroll locked via root `h-screen overflow-hidden`.
  */
 
-/** Tripane layout token (left 22vw · center 48vw · right 30vw). */
-export const DASHBOARD_GRID_PROPORTIONS = "22vw_48vw_30vw";
+/** Shared column scroll track — each pane scrolls independently of the others. */
+export const DASHBOARD_COLUMN_SCROLL =
+  "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable] custom-scrollbar";
 
-/** Parent outer container — zero horizontal window scroll; fills AppShell viewport. */
-export const DASHBOARD_TRIPANE_SHELL =
-  "flex flex-row flex-nowrap w-screen h-full min-h-0 overflow-hidden bg-slate-950 select-text";
+/** Left rail floor — keeps feature index badges + Control Room legible beside center workspace. */
+export const DASHBOARD_LAYOUT_LEFT_MIN_WIDTH = "17.5rem";
 
-/** Cyber insurance re-underwriting row — left card · gap connector · right card (Approved section.png). */
-export const INSURANCE_UNDERWRITING_ROW =
-  "flex min-w-0 flex-row flex-nowrap items-stretch gap-4";
+/** Tripane grid token (left min 17.5rem · center flex · right min 14rem). */
+export const DASHBOARD_GRID_PROPORTIONS = "minmax(17.5rem,22%)_1fr_minmax(14rem,28%)";
 
 /**
- * Stacked gap connector shell — `----` on vertical midline between cards; `>` stacked below.
+ * Tripane grid; `divide-x` draws panel separators.
+ * `minmax` on outer tracks prevents the left rail from collapsing to zero when the viewport narrows.
  */
-export const INSURANCE_FORENSIC_GAP_CONNECTOR =
-  "pointer-events-none flex h-full min-h-0 w-8 min-w-8 shrink-0 flex-col items-center justify-center self-stretch font-mono text-slate-600 select-none";
+export const DASHBOARD_TRIPANE_SHELL =
+  "grid flex-1 h-full min-h-0 w-full grid-cols-[minmax(17.5rem,22%)_minmax(0,1fr)_minmax(14rem,28%)] divide-x divide-slate-900 items-stretch overflow-hidden bg-slate-950";
 
-export const INSURANCE_FORENSIC_GAP_CONNECTOR_STACK =
-  "flex flex-col items-center justify-center space-y-0.5";
+/** Left-rail body scroll — vertical only; avoid clipping index badges on the x-axis. */
+export const DASHBOARD_LEFT_SCROLL =
+  "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-visible overscroll-y-contain [scrollbar-gutter:stable] custom-scrollbar px-4 py-6";
 
-/** Left Panel (Data Deck) — 22vw fixed rail, independent vertical scroll. */
+/** Column track fills its grid percentage (`min-w-0` prevents overflow blowout). */
+export const DASHBOARD_LAYOUT_LEFT_RAIL = "min-w-0 w-full";
+
+export const DASHBOARD_LAYOUT_RIGHT_RAIL = "min-w-0 w-full";
+
+/** @deprecated Use {@link DASHBOARD_LAYOUT_LEFT_RAIL} or {@link DASHBOARD_LAYOUT_RIGHT_RAIL}. */
+export const DASHBOARD_LAYOUT_SIDE_RAIL = DASHBOARD_LAYOUT_RIGHT_RAIL;
+
 export const DASHBOARD_LEFT_PANE =
-  "relative z-0 w-[22vw] min-w-[22vw] max-w-[22vw] h-full min-h-0 overflow-y-auto overflow-x-hidden flex-shrink-0 border-r border-slate-800 bg-slate-950 select-text";
+  `col-start-1 row-start-1 relative z-0 flex h-full min-h-0 ${DASHBOARD_LAYOUT_LEFT_RAIL} min-w-[17.5rem] flex-col overflow-y-hidden overflow-x-visible bg-slate-950`;
 
-/** Center Panel (Workspace Canvas) — 48vw fixed rail, independent vertical scroll. */
+/** Stacked Control Room + Strategic Intel — full rail width for sequential index badges. */
+export const DASHBOARD_LEFT_STACK =
+  "flex w-full min-w-0 flex-col gap-0 [&_[data-left-panel-feature-index]]:shrink-0";
+
+/** Center column: grid track 2; `min-w-0` clips wide tables/cards inside the third track. */
 export const DASHBOARD_CENTER_PANE =
-  "relative z-0 w-[48vw] min-w-[48vw] max-w-[48vw] h-full min-h-0 overflow-y-auto overflow-x-hidden flex-shrink-0 bg-slate-900/10 select-text";
+  "col-start-2 row-start-1 flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-slate-900/10";
 
-/** Right Panel (Audit Column) — 30vw fixed rail, independent vertical scroll. */
-export const DASHBOARD_RIGHT_PANE =
-  "relative z-10 w-[30vw] min-w-[30vw] max-w-[30vw] h-full min-h-0 overflow-y-auto overflow-x-hidden flex-shrink-0 border-l border-slate-800 bg-slate-950 select-text";
-
-/** Inner column body — pane owns scroll; no nested overflow-y here. */
-export const DASHBOARD_COLUMN_INNER = "flex w-full min-w-0 flex-col";
-
-export const DASHBOARD_LEFT_SCROLL = `${DASHBOARD_COLUMN_INNER} px-4 py-4`;
+/** Strategic quad — strict 2×2 (Insurance | Horizon / Exposure | Gold). */
+export const DASHBOARD_STRATEGIC_GRID =
+  "grid w-full min-w-0 grid-cols-1 items-start gap-6 md:grid-cols-2";
 
 /** Horizontal padding aligned with TopNav (`px-6`) and dashboard header strip. */
 export const DASHBOARD_CENTER_PAD_X = "px-6";
 
-export const DASHBOARD_CENTER_SCROLL = `${DASHBOARD_COLUMN_INNER} px-6 py-6`;
+export const DASHBOARD_CENTER_SCROLL = `${DASHBOARD_COLUMN_SCROLL} px-6 py-6`;
 
 /** Center-pane content — full width within the center third. */
 export const DASHBOARD_CENTER_CONTENT = "flex w-full min-w-0 flex-1 flex-col space-y-6 pb-12";
@@ -53,9 +59,13 @@ export const DASHBOARD_CENTER_CONTENT = "flex w-full min-w-0 flex-1 flex-col spa
 export const DASHBOARD_CENTER_RISK_STACK =
   "flex w-full min-w-0 flex-col items-center py-6";
 
-/** Right-pane body — flex fill; Audit Intelligence stream scrolls inside. */
+/** Audit Intelligence rail — grid track 3. */
+export const DASHBOARD_RIGHT_PANE =
+  `col-start-3 row-start-1 relative z-10 flex h-full min-h-0 ${DASHBOARD_LAYOUT_RIGHT_RAIL} flex-col overflow-hidden bg-slate-950`;
+
+/** Right-pane body: bounded height; Audit Intelligence owns the column scroll track. */
 export const DASHBOARD_RIGHT_SCROLL =
-  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-3 py-4 custom-scrollbar";
+  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-4 py-6";
 
 /** Fills dashboard route-group height under `AppShell` (below TopNav). */
 export const DASHBOARD_HOME_SHELL =
@@ -64,9 +74,3 @@ export const DASHBOARD_HOME_SHELL =
 /** Dashboard route-group wrapper under `AppShell` (below TopNav). */
 export const DASHBOARD_GROUP_SHELL =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-950";
-
-/** @deprecated Grid-era token — flex tripane uses fixed vw rails above. */
-export const DASHBOARD_LAYOUT_LEFT_RAIL = "min-w-0 w-full";
-
-/** @deprecated Grid-era token — flex tripane uses fixed vw rails above. */
-export const DASHBOARD_LAYOUT_RIGHT_RAIL = "min-w-0 w-full";

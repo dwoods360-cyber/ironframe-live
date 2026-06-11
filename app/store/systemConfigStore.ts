@@ -469,6 +469,9 @@ export function setExpertModeEnabled(enabled: boolean) {
   });
   persistSystemConfig();
   emitChange();
+  if (enabled && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("ironframe:resilience-feed-resubscribe"));
+  }
 }
 
 export function setSimulationMode(mode: boolean) {

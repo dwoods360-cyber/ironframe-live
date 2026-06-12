@@ -38,6 +38,9 @@ model Tenant {
   utilityRateCaches            IronbloomUtilityRateCache[]
   rateDriftAlerts              IronbloomRateDriftAlert[]
   ironbloomSyncMeta            IronbloomTenantSyncMeta?
+  ironboardCrmContacts         IronboardCrmContact[]
+  ironboardCrmDeals            IronboardCrmDeal[]
+  ironboardCrmInteractions     IronboardCrmInteraction[]
 
   @@map("tenants")
 }
@@ -1338,4 +1341,83 @@ model MarketIntelligenceFlywheelLog {
 
   @@index([timestamp])
   @@map("market_intelligence_flywheel_logs")
+}
+
+/// IronBoard tenant-isolated B2B CRM persistence (boardroom subpackage; whole-cent BigInt values).
+enum IronboardLeadStage {
+  PROSPECT
+  QUALIFIED
+  DISCOVERY
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum IronboardInteractionChannel {
+  EMAIL
+  CALL
+  MEETING
+  LINKEDIN
+  NOTE
+  OTHER
+}
+
+model IronboardCrmContact {
+  id           String                    @id @default(uuid()) @db.Uuid
+  tenantId     String                    @map("tenant_id") @db.Uuid
+  fullName     String                    @map("full_name")
+  email        String
+  company      String
+  title        String                    @default("")
+  phone        String?
+  createdAt    DateTime                  @default(now()) @map("created_at")
+  updatedAt    DateTime                  @updatedAt @map("updated_at")
+  tenant       Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryDeals IronboardCrmDeal[]        @relation("IronboardCrmPrimaryContact")
+  interactions IronboardCrmInteraction[]
+
+  @@index([tenantId])
+  @@index([tenantId, email])
+  @@map("ironboard_crm_contacts")
+}
+
+model IronboardCrmDeal {
+  id               String             @id @default(uuid()) @db.Uuid
+  tenantId         String             @map("tenant_id") @db.Uuid
+  title            String
+  stage            IronboardLeadStage @default(PROSPECT)
+  valueCents       BigInt             @default(0) @map("value_cents")
+  primaryContactId String             @map("primary_contact_id") @db.Uuid
+  accountDomain    String?            @map("account_domain")
+  ownerAgentId     String?            @map("owner_agent_id")
+  notes            String             @default("") @db.Text
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryContact   IronboardCrmContact @relation("IronboardCrmPrimaryContact", fields: [primaryContactId], references: [id])
+  interactions     IronboardCrmInteraction[]
+
+  @@index([tenantId, stage])
+  @@index([primaryContactId])
+  @@map("ironboard_crm_deals")
+}
+
+model IronboardCrmInteraction {
+  id         String                      @id @default(uuid()) @db.Uuid
+  tenantId   String                      @map("tenant_id") @db.Uuid
+  dealId     String?                     @map("deal_id") @db.Uuid
+  contactId  String?                     @map("contact_id") @db.Uuid
+  channel    IronboardInteractionChannel
+  summary    String                      @db.Text
+  occurredAt DateTime                    @map("occurred_at")
+  createdAt  DateTime                    @default(now()) @map("created_at")
+  tenant     Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal       IronboardCrmDeal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  contact    IronboardCrmContact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, occurredAt])
+  @@index([dealId])
+  @@index([contactId])
+  @@map("ironboard_crm_interactions")
 }

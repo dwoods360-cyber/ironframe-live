@@ -51,6 +51,11 @@ import {
   SENTINEL_INSTRUCTION_MAX_LENGTH,
 } from "@/app/utils/sentinelInstructionGate";
 import { getIndustryTrendData, type IndustryTrendPayload } from "@/app/actions/benchmarkActions";
+import { fetchIndustryProfileResearchContext } from "@/app/actions/strategicIntelResearchActions";
+import {
+  formatPeerAleMillionsFromCents,
+  type IndustryProfileResearchContext,
+} from "@/lib/strategicIntel/strategicIntelResearchShared";
 import { getTenantGovernanceMultiplierBps } from "@/app/actions/complianceActions";
 import { triggerMarketVolatilityAutoHardening } from "@/app/actions/agentActions";
 import RiskExposureTrend from "@/components/RiskExposureTrend";
@@ -87,6 +92,7 @@ export default function StrategicIntel() {
   const [isDrillPending, startDrillTransition] = useTransition();
   const [trendPayload, setTrendPayload] = useState<IndustryTrendPayload | null>(null);
   const [trendLoading, setTrendLoading] = useState(false);
+  const [industryResearch, setIndustryResearch] = useState<IndustryProfileResearchContext | null>(null);
   const [tenantGovernanceMultX, setTenantGovernanceMultX] = useState<number | null>(null);
   const intelStreamRef = useRef<HTMLDivElement | null>(null);
   const { activeTenantUuid } = useTenantContext();
@@ -208,9 +214,11 @@ export default function StrategicIntel() {
     hydrateAnalystMaturationForTenant(dashboardTenantUuid);
   }, [dashboardTenantUuid, hydrateAnalystMaturationForTenant]);
 
-  const maturationEvents = dashboardTenantUuid
-    ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
-    : [];
+  const maturationEvents = useMemo(() => {
+    return dashboardTenantUuid
+      ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
+      : [];
+  }, [dashboardTenantUuid, analystMaturationByTenant]);
 
   const { strategicStatusLabel, strategicStatusClass, activeSimulationCount } = useMemo(() => {
     const isSimThreat = (t: PipelineThreat): boolean => {
@@ -474,6 +482,16 @@ export default function StrategicIntel() {
     return () => clearTimeout(t);
   }, [selectedIndustry]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetchIndustryProfileResearchContext(dashboardTenantUuid, selectedIndustry).then(ctx => {
+      if (!cancelled) setIndustryResearch(ctx);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dashboardTenantUuid, selectedIndustry]);
+
   // Scenario 3: clear green flash after brief display
   useEffect(() => {
     if (!riskReductionFlash) return;
@@ -563,7 +581,7 @@ export default function StrategicIntel() {
 
   if (!mounted) return <div className="p-4 bg-slate-900/50 animate-pulse rounded border border-slate-800 m-2">Initializing Command Center...</div>;
 
-  /** Peer ALE baselines (USD millions) — GRC-Gold Strategic Intel strip. */
+  /** Peer ALE baselines (USD millions) — fallback when Infasys Strategic Intel CRM row absent. */
   const industryMetrics: Record<string, number> = {
     Defense: 25,
     "Federal Government": 20,
@@ -574,7 +592,12 @@ export default function StrategicIntel() {
     Finance: 18,
     Technology: 9.5,
   };
-  const industryAverageMillions = industryMetrics[selectedIndustry] ?? 12.1;
+  const industryAverageMillionsLabel = industryResearch?.peerAleBaselineCents
+    ? formatPeerAleMillionsFromCents(industryResearch.peerAleBaselineCents)
+    : `${(industryMetrics[selectedIndustry] ?? 12.1).toFixed(1)}M`;
+  const industryAverageMillions = industryResearch?.peerAleBaselineCents
+    ? Number(BigInt(industryResearch.peerAleBaselineCents)) / 100_000_000
+    : industryMetrics[selectedIndustry] ?? 12.1;
   const totalCurrentRiskCents = getTotalCurrentRiskCents();
   const grcGapCents = getGrcGapCents();
   const currentRiskFormatted = formatRiskExposure(totalCurrentRiskCents, currencyScale);
@@ -815,6 +838,11 @@ export default function StrategicIntel() {
                 {DEFENSE_REGULATORY_SHIELD_BADGE_LABEL}
               </p>
             ) : null}
+            {industryResearch ? (
+              <p className="mb-2 rounded border border-violet-700/35 bg-violet-950/25 px-2 py-1.5 text-[9px] leading-relaxed text-violet-100/90">
+                Infasys KB ({industryResearch.manifestId}): {industryResearch.narrativeSummary}
+              </p>
+            ) : null}
           </div>
         )}
       </section>
@@ -848,7 +876,7 @@ export default function StrategicIntel() {
                       <ExposureDefinitionHint definitionId="industryAverage" industryLabel={selectedIndustry} />
                     </span>
                     <span className="shrink-0 font-mono font-bold text-blue-400">
-                      ${industryAverageMillions.toFixed(1)}M
+                      ${industryAverageMillionsLabel}
                     </span>
                   </div>
                   <div className="flex items-start justify-between gap-2 border-b border-amber-500/10 pb-2">

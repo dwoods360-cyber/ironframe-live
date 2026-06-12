@@ -2,7 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import IntegrityAleHeroCard from "@/app/components/integrity/IntegrityAleHeroCard";
 import IntegrityHubClient from "@/app/components/integrity/IntegrityHubClient";
 import { fetchResolvedChaosLedgerRows } from "@/app/lib/integrityLedgerServer";
-import { readIntegrityVaultSnapshotWithRegistry } from "@/app/lib/integrityVaultServer";
+import { readIntegrityVaultSnapshot, readIntegrityVaultSnapshotWithRegistry } from "@/app/lib/integrityVaultServer";
 import { readShadowSimulatorArmSnapshot } from "@/app/lib/shadowSimulatorArmServer";
 import type { IntegrityHubShadowArmState, IntegrityHubSyntheticTarget } from "@/app/types/integrityVault";
 import { toIntegrityHubSyntheticTarget } from "@/app/lib/integritySyntheticTargetsSerialize";
@@ -33,7 +33,21 @@ export const metadata = {
 export default async function IntegrityPage() {
   noStore();
   const [initialVault, ledgerRows, syntheticTargets, shadowArmState] = await Promise.all([
-    readIntegrityVaultSnapshotWithRegistry(),
+    (async () => {
+      try {
+        return await readIntegrityVaultSnapshotWithRegistry();
+      } catch (e) {
+        console.error("[integrity/page] readIntegrityVaultSnapshotWithRegistry failed", e);
+        return await readIntegrityVaultSnapshot().catch(() => ({
+          ok: false as const,
+          manifestPath: "",
+          checkpointRoot: "",
+          error: "Workforce registry unavailable",
+          verifiedAt: null,
+          agents: [],
+        }));
+      }
+    })(),
     fetchResolvedChaosLedgerRows(),
     (async (): Promise<IntegrityHubSyntheticTarget[]> => {
       try {

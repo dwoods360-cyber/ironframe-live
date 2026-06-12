@@ -32,7 +32,18 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/integrity");
+    const accessRes = await fetch("/api/auth/access-status", { cache: "no-store" });
+    const accessBody = (await accessRes.json().catch(() => ({}))) as {
+      status?: string;
+    };
+    const nextPath =
+      accessBody.status === "allowed"
+        ? "/integrity"
+        : accessBody.status === "pending"
+          ? "/unauthorized"
+          : "/integrity";
+
+    router.replace(nextPath);
     router.refresh();
   }
 

@@ -351,6 +351,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(integrityUrl);
   }
 
+  if (user && isUnauthorizedRoute) {
+    return supabaseResponse;
+  }
+
   return supabaseResponse;
 }
 

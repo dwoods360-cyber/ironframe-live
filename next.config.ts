@@ -20,6 +20,13 @@ const nextConfig: NextConfig = {
     "/api/docs/download-protocol": ["./docs/**/*"],
     "/api/docs/download-matrix": ["./docs/**/*"],
     "/api/docs/hub-asset/[[...path]]": ["./docs/**/*.html"],
+    /** GRC constitutional sentinel — dynamic fs reads are not auto-traced on Vercel. */
+    "/api/grc/tas-fingerprint": ["./docs/TAS.md"],
+    "/api/grc/tas-integrity": ["./docs/TAS.md"],
+    "/api/grc/constitutional-restoration": [
+      "./docs/TAS.md",
+      "./storage/constitutional/TAS.md.gold",
+    ],
   },
   async rewrites() {
     return [

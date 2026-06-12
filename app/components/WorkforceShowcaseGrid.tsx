@@ -199,7 +199,6 @@ export default function WorkforceShowcaseGrid({ tenantUuid }: WorkforceShowcaseG
       isKimbotActive,
       isGrcbotActive,
       grcBotCompanyCount,
-      strainClock,
     ],
   );
 

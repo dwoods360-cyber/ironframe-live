@@ -79,9 +79,11 @@ export default function SecurityProfile({ initial }: Props) {
     hydrateAnalystMaturationForTenant(dashboardTenantUuid);
   }, [dashboardTenantUuid, hydrateAnalystMaturationForTenant]);
 
-  const maturationEvents = dashboardTenantUuid
-    ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
-    : [];
+  const maturationEvents = useMemo(() => {
+    return dashboardTenantUuid
+      ? (analystMaturationByTenant[dashboardTenantUuid] ?? [])
+      : [];
+  }, [dashboardTenantUuid, analystMaturationByTenant]);
 
   const { maturationPercent, masteredCount, totalThreats, isCertified } = useMemo(() => {
     const progress = computeMaturationProgress(maturationEvents, selectedIndustry);

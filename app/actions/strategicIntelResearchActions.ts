@@ -2,6 +2,7 @@
 
 import {
   getIndustryProfileResearchContext,
+  loadStrategicIntelForBoardReport as loadStrategicIntelForBoardReportFromStore,
 } from "@/lib/strategicIntel/strategicIntelResearchStore";
 import type { IndustryProfileResearchContext } from "@/lib/strategicIntel/strategicIntelResearchShared";
 import { resolveBoardOrgTenantId } from "@/lib/strategicIntel/boardOrgTenant";
@@ -15,4 +16,9 @@ export async function fetchIndustryProfileResearchContext(
     ? tenantUuid
     : resolveBoardOrgTenantId();
   return getIndustryProfileResearchContext(tenantId, industryLabel);
+}
+
+/** Server-only board report loader — re-exported for lib callers (not client bundles). */
+export async function loadStrategicIntelForBoardReport() {
+  return loadStrategicIntelForBoardReportFromStore();
 }

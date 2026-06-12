@@ -8,7 +8,7 @@ import {
 } from "@/lib/reporting/riskMetrics";
 import { verifyAndUpdateResilienceCertification } from "@/lib/reporting/certification";
 import { NOTIFICATION_CONFIG_AUDIT_ACTIONS } from "@/app/utils/notificationAuditSummary";
-import { loadStrategicIntelForBoardReport } from "@/lib/strategicIntel/strategicIntelResearchStore";
+import { loadStrategicIntelForBoardReport } from "@/app/actions/strategicIntelResearchActions";
 
 const MS_DAY = 86_400_000;
 

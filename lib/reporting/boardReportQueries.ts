@@ -8,7 +8,7 @@ import {
 } from "@/lib/reporting/riskMetrics";
 import { verifyAndUpdateResilienceCertification } from "@/lib/reporting/certification";
 import { NOTIFICATION_CONFIG_AUDIT_ACTIONS } from "@/app/utils/notificationAuditSummary";
-import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
+import { loadStrategicIntelForBoardReport } from "@/lib/strategicIntel/strategicIntelResearchStore";
 
 const MS_DAY = 86_400_000;
 
@@ -186,6 +186,9 @@ export type BoardReportPayload = {
   approvedAtIso: string | null;
   resilienceStreak: BoardResilienceStreak;
   failureAnalysis: BoardFailureAnalysis;
+  /** Infasys Strategic Intel Update corpus — LP-10/LP-16 agent priority context. */
+  strategicIntelSnippet: string;
+  strategicIntelManifestId: string | null;
 };
 
 async function loadReadinessInputs(now = new Date()) {
@@ -505,29 +508,18 @@ export async function getBoardReportPayload(): Promise<BoardReportPayload> {
   const readiness = await loadReadinessInputs();
   const certification = await verifyAndUpdateResilienceCertification(readiness.score);
   const premiumInput = await loadPremiumInputs(readiness.score);
-  const [financial, synthetics, governance, trendSnapshots, cfgRow, executiveSummary, approval, streakFailureLogs] = await Promise.all([
+  const [financial, synthetics, governance, trendSnapshots, cfgRow, executiveSummary, approval, streakFailureLogs, strategicIntel] = await Promise.all([
     loadFinancialBlock(),
     loadSyntheticHeat(),
     loadGovernance(),
     loadLastSevenDailySnapshots(),
     prisma.simulationConfig.findUnique({
-      where: { id: SIMULATION_CONFIG_ID },
+      where: { id: process.env.NEXT_PUBLIC_SIMULATION_CONFIG_ID || "default-config-id" },
       select: {
         targetReadinessScore: true,
         historicalLowestScore: true,
-        historicalLowestRecordedAt: true,
-        isCertified: true,
-        certifiedAt: true,
-        certificateStatus: true,
-        certificateIssuedAt: true,
-        currentStreak: true,
-        longestStreak: true,
-        graceWindowStartedAt: true,
-        graceWindowExpiresAt: true,
-        successfulGraceRecoveries: true,
-        isEliteOperator: true,
-      },
-    } as any),
+      }
+    }),
     loadExecutiveSummaryForToday(),
     loadApprovalForToday(),
     ((prisma as any).streakFailureLog.findMany({
@@ -549,6 +541,7 @@ export async function getBoardReportPayload(): Promise<BoardReportPayload> {
       isExcludedFromAnalytics: boolean;
       exclusionReason: string | null;
     }>>),
+    loadStrategicIntelForBoardReport(),
   ]);
   const cfg = cfgRow as SimulationConfigLessonRow | null;
   const targetReadinessScore = cfg?.targetReadinessScore ?? 90;
@@ -703,5 +696,7 @@ export async function getBoardReportPayload(): Promise<BoardReportPayload> {
     approvedAtIso: approval.approvedAtIso,
     resilienceStreak,
     failureAnalysis,
+    strategicIntelSnippet: strategicIntel.snippet,
+    strategicIntelManifestId: strategicIntel.manifest?.manifestId ?? null,
   };
 }

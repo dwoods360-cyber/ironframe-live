@@ -151,8 +151,15 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
   const isForgotPasswordRoute = pathname === "/forgot-password";
+  const isUnauthorizedRoute = pathname === "/unauthorized";
+  const isResetPasswordRoute = pathname === "/reset-password";
   const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
-  const isAuthPublicRoute = isLoginRoute || isForgotPasswordRoute || isAuthCallbackRoute;
+  const isAuthPublicRoute =
+    isLoginRoute ||
+    isForgotPasswordRoute ||
+    isUnauthorizedRoute ||
+    isResetPasswordRoute ||
+    isAuthCallbackRoute;
   /** Static documentation hub — public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||

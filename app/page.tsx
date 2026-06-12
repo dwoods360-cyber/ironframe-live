@@ -12,9 +12,11 @@
  * generates the client-reference manifest correctly on Vercel.
  */
 
+import { redirect } from "next/navigation";
 import DashboardGroupShell from "@/app/(dashboard)/DashboardGroupShell";
 import DashboardHomeClient from "@/app/components/DashboardHomeClient";
 import GlobalHealthSummaryCard from "@/app/components/GlobalHealthSummaryCard";
+import { resolveDashboardAccess } from "@/app/lib/auth/dashboardRoleAccess";
 import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { ingestGovernanceMaturityForTenant } from "@/app/lib/riskDeckIngress";
 import { listRiskRegistryForTenant } from "@/app/lib/riskRegistryDb";
@@ -29,6 +31,14 @@ export const dynamic = "force-dynamic";
  * No RiskDeckGovernanceIngress or RiskEventsRegulatoryOverlay — stage-1 ingress is logs / assignee history only.
  */
 export default async function HomePage() {
+  const access = await resolveDashboardAccess();
+  if (access.status === "unauthenticated") {
+    redirect("/login");
+  }
+  if (access.status === "pending") {
+    redirect("/unauthorized");
+  }
+
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const serverTimeEpochMs = Date.now();
 

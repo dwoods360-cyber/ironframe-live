@@ -7,8 +7,12 @@
  * Any modification to panel flex, widths, or scaling behaviors
  * violates structural integrity and is strictly forbidden.
  * ===================================================================
+ *
+ * Home route lives at app/page.tsx (not inside a route group) so Next.js
+ * generates the client-reference manifest correctly on Vercel.
  */
 
+import DashboardGroupShell from "@/app/(dashboard)/DashboardGroupShell";
 import DashboardHomeClient from "@/app/components/DashboardHomeClient";
 import GlobalHealthSummaryCard from "@/app/components/GlobalHealthSummaryCard";
 import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
@@ -24,7 +28,7 @@ export const dynamic = "force-dynamic";
  * Center pane: GRC maturity strip (four chips) → handshake / ALE map → Enterprise Risk Posture → Risk Ingestion / Registration → Active Risks.
  * No RiskDeckGovernanceIngress or RiskEventsRegulatoryOverlay — stage-1 ingress is logs / assignee history only.
  */
-export default async function DashboardPage() {
+export default async function HomePage() {
   const tenantUuid = await getActiveTenantUuidFromCookies();
   const serverTimeEpochMs = Date.now();
 
@@ -34,14 +38,16 @@ export default async function DashboardPage() {
   const carbonMitigatedDisplay = formatCentsToUSD(productionCarbon.mitigatedValueCents);
 
   return (
-    <DashboardHomeClient
-      serverTimeEpochMs={serverTimeEpochMs}
-      governanceMaturity={governanceMaturity}
-      initialRiskRegistry={unifiedRiskQueue}
-      carbonMitigatedValueCents={productionCarbon.mitigatedValueCents}
-      carbonMitigatedDisplay={carbonMitigatedDisplay}
-    >
-      <GlobalHealthSummaryCard coreintelTrendActive={false} />
-    </DashboardHomeClient>
+    <DashboardGroupShell>
+      <DashboardHomeClient
+        serverTimeEpochMs={serverTimeEpochMs}
+        governanceMaturity={governanceMaturity}
+        initialRiskRegistry={unifiedRiskQueue}
+        carbonMitigatedValueCents={productionCarbon.mitigatedValueCents}
+        carbonMitigatedDisplay={carbonMitigatedDisplay}
+      >
+        <GlobalHealthSummaryCard coreintelTrendActive={false} />
+      </DashboardHomeClient>
+    </DashboardGroupShell>
   );
 }

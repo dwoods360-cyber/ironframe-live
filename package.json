@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",
+    "@google/genai": "^1.52.0",
     "@google/generative-ai": "^0.24.1",
     "@langchain/core": "^1.1.39",
     "@langchain/google-genai": "^2.1.20",

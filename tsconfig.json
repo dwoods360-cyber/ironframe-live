@@ -39,6 +39,7 @@
   "exclude": [
     "app_backup",
     "Ironboard",
-    "node_modules"
+    "node_modules",
+    "tests"
   ]
 }

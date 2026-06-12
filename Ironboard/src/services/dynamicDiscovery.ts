@@ -110,6 +110,27 @@ export function summarizeDiscoveryFailures(receipts: DiscoveryReceipt[]): string
     });
 }
 
+export function synthesizePlaybookInventoryFromDiscovery(
+  receipts: DiscoveryReceipt[],
+): string | null {
+  const receipt = playbookReceipt(receipts);
+  if (!receipt?.ok) return null;
+  const playbooks = receipt.payload.playbooks as
+    | Array<{ id: string; title: string; authors: readonly string[]; coreConcept?: string }>
+    | undefined;
+  if (!playbooks?.length) {
+    return 'list_sales_playbooks executed successfully; the methodology corpus module is provisioned but currently contains zero playbooks (awaiting hydration).';
+  }
+  const lines = playbooks.map(
+    playbook =>
+      `- ${playbook.title} [${playbook.id}] — ${playbook.authors.join(' & ')}`,
+  );
+  return [
+    `Discovery verified ${playbooks.length} sales playbooks via manageCrmPipeline → list_sales_playbooks:`,
+    ...lines,
+  ].join('\n');
+}
+
 function playbookReceipt(receipts: DiscoveryReceipt[]): DiscoveryReceipt | undefined {
   return receipts.find(
     receipt =>

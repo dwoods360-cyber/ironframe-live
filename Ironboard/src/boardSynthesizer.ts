@@ -2,28 +2,45 @@ import { GoogleGenAI } from '@google/genai';
 import { getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
 import { buildStaticContextBundle } from './staticContext.js';
 import {
+  BOARD_CONVERSATIONAL_BOUNDARY,
+  BOARD_CRM_TOOL_MANDATE,
+  BOARD_EXECUTION_LAYER_PERSONA,
+  BOARD_VIDEO_INTELLIGENCE_MANDATE,
   DYNAMIC_DISCOVERY_MANDATE,
+  resolveCanonicalBoardResponse,
   type DiscoveryContext,
   type PanelAssembly,
   type RoutedPanel,
 } from './boardRouter.js';
+import { TOOL_RESULT_PARSE_DIRECTIVE } from './services/boardResponseLibrary.js';
 import {
   formatDiscoveryEvidence,
   runDynamicDiscovery,
   summarizeDiscoveryFailures,
   summarizeEmptyDiscoveryStates,
+  synthesizePlaybookInventoryFromDiscovery,
 } from './services/dynamicDiscovery.js';
 
 const SYSTEM_INSTRUCTION = `${DYNAMIC_DISCOVERY_MANDATE}
 
-You are the IronBoard executive synthesis layer. You MUST anchor every capability claim, metric, CRM status, and system profile to the DISCOVERY VERIFICATION LOG provided in the user prompt. Never invent features, counts, or availability without citing a matching tool receipt.
+${BOARD_EXECUTION_LAYER_PERSONA}
+
+${BOARD_CONVERSATIONAL_BOUNDARY}
+
+${BOARD_CRM_TOOL_MANDATE}
+
+${BOARD_VIDEO_INTELLIGENCE_MANDATE}
+
+${TOOL_RESULT_PARSE_DIRECTIVE}
+
+You are the IronBoard executive synthesis layer (17-agent boardroom on port 8082). You MUST anchor every capability claim to the DISCOVERY VERIFICATION LOG. Ironframe (port 3000) handles security, risk, and technical compliance exclusively — it has ZERO sales or CRM scope. Never deny IronBoard CRM or playbook modules when tool receipts prove they exist. Never attribute IronBoard revenue tools to Ironframe endpoints.
 
 Rules:
 1. Treat discovery tool payloads as ground truth. Do not contradict successful tool outputs.
-2. When a tool returns ok=true with empty arrays or zero counts, state explicitly that the subsystem exists and is reachable but is currently unpopulated — never claim the platform lacks that feature.
-3. When discovery tools fail, report the tool error verbatim and do not substitute generic reassurance.
-4. Preserve BigInt cent values exactly as returned — never convert to floats.
-5. Keep responses concise (3–8 sentences) unless the user requests exhaustive detail.`;
+2. When a tool returns ok=true with empty arrays or zero counts, state that the subsystem exists but is unpopulated.
+3. When discovery tools fail, report the tool error verbatim.
+4. Preserve BigInt cent values exactly as returned.
+5. Keep responses concise unless enumerating tool-verified playbook inventories.`;
 
 export type DeliberationResult = {
   isAutoRouted: boolean;
@@ -128,6 +145,30 @@ export async function deliberateExecutiveQuery(
   const discoveryBlock = formatDiscoveryEvidence(receipts);
   const emptyStates = summarizeEmptyDiscoveryStates(receipts);
   const failures = summarizeDiscoveryFailures(receipts);
+
+  const canonicalResponse = resolveCanonicalBoardResponse(query);
+  if (canonicalResponse) {
+    return {
+      isAutoRouted: routed.isAutoRouted,
+      panelAssembly: routed.panel,
+      determination: canonicalResponse,
+      thinkingTraces: { cognitivePath: routed.cognitivePath, discoveryIntents: plan.intents },
+      executionStatus: 'COMPLETE',
+      synthesisMode: 'discovery_only',
+    };
+  }
+
+  const playbookInventory = synthesizePlaybookInventoryFromDiscovery(receipts);
+  if (playbookInventory && /playbook|knowledge base/i.test(query)) {
+    return {
+      isAutoRouted: routed.isAutoRouted,
+      panelAssembly: routed.panel,
+      determination: playbookInventory,
+      thinkingTraces: { cognitivePath: routed.cognitivePath, discoveryIntents: plan.intents },
+      executionStatus: 'COMPLETE',
+      synthesisMode: 'discovery_only',
+    };
+  }
 
   const geminiText = await synthesizeWithGemini(query, routed, discoveryBlock, emptyStates, failures);
   if (geminiText) {

@@ -3,11 +3,40 @@ import {
   STRATEGIC_KNOWLEDGE_VAULT,
   type BoardPersona,
 } from './staticContext.js';
+import { isSalesLeadDiscoveryQuery } from './orchestrator/routing.js';
+export {
+  BOARD_CONVERSATIONAL_BOUNDARY,
+  BOARD_CRM_TOOL_MANDATE,
+  BOARD_VIDEO_INTELLIGENCE_MANDATE,
+  BOARD_EXECUTION_LAYER_PERSONA,
+  CANONICAL_SALES_LEADS_RESPONSE,
+  IRONBOARD_DOMAIN_BOUNDARY,
+  buildBoardroomPersonaPrompt,
+  isSalesLeadDiscoveryQuery,
+  resolveCanonicalBoardResponse,
+} from './orchestrator/routing.js';
 
 export const DYNAMIC_DISCOVERY_MANDATE = `
 MANDATORY DIRECTIVE — DYNAMIC DISCOVERY ENFORCEMENT:
-The Board and its associated routing components are strictly forbidden from hardcoding answers, status reports, summaries, or system profiles. All responses delivered to the user or system interfaces must be dynamically derived via active tool execution, workspace querying, or schema lookups. If a resource, CRM pipeline, metric, or capability is questioned, the engine must actively execute the corresponding discovery tool to verify state before responding. Static prose overrides are treated as structural architectural drift.
+The Board and its associated routing components are strictly forbidden from hardcoding answers, status reports, summaries, or system profiles — EXCEPT for explicitly registered canonical responses in orchestrator/routing.ts (e.g. sales-lead domain boundary). All other responses must be dynamically derived via active tool execution, workspace querying, or schema lookups. If a resource, CRM pipeline, metric, or capability is questioned, the engine must actively execute the corresponding discovery tool to verify state before responding. Unregistered static prose overrides are treated as structural architectural drift.
 `.trim();
+
+export const X_IRONBOARD_CONVERSATION_PLANE = 'x-ironframe-conversation-plane';
+export const IRONBOARD_BOARDROOM_PLANE = 'ironboard-boardroom';
+
+export function isBoardroomConversationPlane(planeHeader: string | undefined | null): boolean {
+  return String(planeHeader ?? '').trim().toLowerCase() === IRONBOARD_BOARDROOM_PLANE;
+}
+
+export function isCrmOrSalesDiscoveryQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return (
+    isCrmIntent(q) ||
+    isMethodologyIntent(q) ||
+    isCapabilityIntent(q) ||
+    q.includes('knowledge base')
+  );
+}
 
 export type PanelAssembly = {
   executiveLead: string;
@@ -16,11 +45,23 @@ export type PanelAssembly = {
   alignedPrimaryFramework: string;
 };
 
+export type BoardroomOrchestrationReceipt = {
+  linkScraperComplete: boolean;
+  linkScraperOk: boolean;
+  linkScraperTraceId: string;
+  videoTimelineInjected: boolean;
+  telemetryVerified: boolean;
+  blocksExtractedUnits: string;
+  crmTelemetryInteractionId: string | null;
+  preRoutingValidation: 'PASSED' | 'SKIPPED' | 'FAILED';
+};
+
 export type RoutedPanel = {
   isAutoRouted: boolean;
   leader: BoardPersona;
   panel: PanelAssembly;
   cognitivePath: string;
+  orchestrationReceipt: BoardroomOrchestrationReceipt;
 };
 
 export type DiscoveryToolCall = {
@@ -47,7 +88,7 @@ function pickAdvisoryCouncil(leader: BoardPersona): string[] {
   );
 }
 
-function isCrmIntent(normalizedQuery: string): boolean {
+export function isCrmIntent(normalizedQuery: string): boolean {
   return (
     normalizedQuery.includes('crm') ||
     normalizedQuery.includes('deal pipeline') ||
@@ -61,7 +102,7 @@ function isCrmIntent(normalizedQuery: string): boolean {
   );
 }
 
-function isMethodologyIntent(normalizedQuery: string): boolean {
+export function isMethodologyIntent(normalizedQuery: string): boolean {
   return (
     normalizedQuery.includes('playbook') ||
     normalizedQuery.includes('methodolog') ||
@@ -83,14 +124,17 @@ function isWorkspaceIntent(normalizedQuery: string): boolean {
   );
 }
 
-function isCapabilityIntent(normalizedQuery: string): boolean {
+export function isCapabilityIntent(normalizedQuery: string): boolean {
   return (
     normalizedQuery.includes('capabilit') ||
     normalizedQuery.includes('what can') ||
     normalizedQuery.includes('do you have') ||
     normalizedQuery.includes('does ironboard') ||
+    normalizedQuery.includes('does ironframe') ||
     normalizedQuery.includes('system profile') ||
-    normalizedQuery.includes('what does ironboard')
+    normalizedQuery.includes('what does ironboard') ||
+    normalizedQuery.includes('playbook') ||
+    normalizedQuery.includes('knowledge base')
   );
 }
 
@@ -184,14 +228,44 @@ function scoreAgent(agent: BoardPersona, normalizedQuery: string): number {
   if (normalizedQuery.includes(agent.primaryBookAlignment.toLowerCase())) score += 4;
   const crmIntent = isCrmIntent(normalizedQuery) || isMethodologyIntent(normalizedQuery);
   if (crmIntent && agent.id === 'board-sales-lead') score += 12;
+  if (isSalesLeadDiscoveryQuery(normalizedQuery) && agent.id === 'board-sales-lead') score += 15;
   return score;
+}
+
+export function isPlaybookInventoryQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return (
+    (q.includes('playbook') || q.includes('knowledge base')) &&
+    (q.includes('list') ||
+      q.includes('available') ||
+      q.includes('what') ||
+      q.includes('all') ||
+      q.includes('currently'))
+  );
 }
 
 /** Deterministic panel routing — never delegated to Gemini. */
 export function routeExecutivePanel(
   query: string,
   explicitAgentId: string,
+  orchestration?: Partial<BoardroomOrchestrationReceipt>,
 ): RoutedPanel {
+  const receipt: BoardroomOrchestrationReceipt = {
+    linkScraperComplete: orchestration?.linkScraperComplete ?? false,
+    linkScraperOk: orchestration?.linkScraperOk ?? false,
+    linkScraperTraceId: orchestration?.linkScraperTraceId ?? '',
+    videoTimelineInjected: orchestration?.videoTimelineInjected ?? false,
+    telemetryVerified: orchestration?.telemetryVerified ?? false,
+    blocksExtractedUnits: orchestration?.blocksExtractedUnits ?? '0',
+    crmTelemetryInteractionId: orchestration?.crmTelemetryInteractionId ?? null,
+    preRoutingValidation: orchestration?.preRoutingValidation ?? 'SKIPPED',
+  };
+
+  if (receipt.linkScraperComplete) {
+    console.info(
+      `[BOARDROOM ORCHESTRATOR] linkScraper complete before routeExecutivePanel traceId=${receipt.linkScraperTraceId} blocksExtractedUnits=${receipt.blocksExtractedUnits} telemetryVerified=${receipt.telemetryVerified}`,
+    );
+  }
   const normalizedQuery = query.trim().toLowerCase();
   let leader = AGENTIC_BOARD_ROSTER.find(a => a.id === 'board-ceo')!;
   let isAutoRouted = explicitAgentId === 'auto';
@@ -224,5 +298,6 @@ export function routeExecutivePanel(
       alignedPrimaryFramework: leader.primaryBookAlignment,
     },
     cognitivePath: `Router selected ${leader.id}; discovery plan required before synthesis (${leader.primaryBookAlignment}).`,
+    orchestrationReceipt: receipt,
   };
 }

@@ -14,7 +14,7 @@ export const metadata = {
 export default function VaultEvidencePage() {
   noStore();
   return (
-    <div className="min-h-0 overflow-y-auto bg-slate-950">
+    <div className="w-full min-w-0 bg-slate-950 pb-10">
       <Suspense
         fallback={
           <div className="flex min-h-[40vh] items-center justify-center px-4 text-[11px] font-mono text-slate-500">

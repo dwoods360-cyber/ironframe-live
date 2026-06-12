@@ -3,7 +3,7 @@ export const BOARD_ORCHESTRATION_CONFIG = {
   temperature: 0.0,
   topP: 0.0,
   isAirGapped: true,
-  isolationPort: 8081,
+  isolationPort: 8082,
   layout: {
     leftPane: 'w-[22vw]',
     centerPane: 'w-[48vw]',

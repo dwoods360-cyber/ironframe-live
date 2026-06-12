@@ -145,7 +145,7 @@ export async function executeManageCrmPipeline(
   try {
     switch (action) {
       case 'list_pipeline': {
-        const pipeline = listPipeline(tenantId);
+        const pipeline = await listPipeline(tenantId);
         const limit = Math.min(Math.max(Number(raw.limit) || 100, 1), 100);
         return {
           ok: true,
@@ -159,16 +159,16 @@ export async function executeManageCrmPipeline(
         };
       }
       case 'get_deal':
-        return { ok: true, action, deal: getDeal(tenantId, raw.dealId) };
+        return { ok: true, action, deal: await getDeal(tenantId, raw.dealId) };
       case 'list_contacts':
-        return { ok: true, action, contacts: listContacts(tenantId) };
+        return { ok: true, action, contacts: await listContacts(tenantId) };
       case 'create_contact':
-        return { ok: true, action, contact: createContact(tenantId, contactInputFromArgs(raw)) };
+        return { ok: true, action, contact: await createContact(tenantId, contactInputFromArgs(raw)) };
       case 'create_deal':
         return {
           ok: true,
           action,
-          deal: createDeal(tenantId, {
+          deal: await createDeal(tenantId, {
             title: String(raw.title ?? ''),
             stage: parseStage(raw.stage),
             valueCents: String(raw.valueCents ?? '0'),
@@ -179,7 +179,7 @@ export async function executeManageCrmPipeline(
           }),
         };
       case 'create_lead': {
-        const bundle = createLeadBundle(tenantId, contactInputFromArgs(raw), {
+        const bundle = await createLeadBundle(tenantId, contactInputFromArgs(raw), {
           title: String(raw.title ?? ''),
           stage: parseStage(raw.stage),
           valueCents: String(raw.valueCents ?? '0'),
@@ -190,7 +190,7 @@ export async function executeManageCrmPipeline(
         return { ok: true, action, ...bundle };
       }
       case 'update_deal_stage': {
-        const deal = updateDealStage(tenantId, raw.dealId, raw.stage);
+        const deal = await updateDealStage(tenantId, raw.dealId, raw.stage);
         const methodologyId = raw.methodologyId;
         const evaluation =
           methodologyId != null && String(methodologyId).trim()
@@ -207,7 +207,7 @@ export async function executeManageCrmPipeline(
         return {
           ok: true,
           action,
-          deal: updateDealValue(tenantId, raw.dealId, raw.valueCents),
+          deal: await updateDealValue(tenantId, raw.dealId, raw.valueCents),
         };
       case 'log_interaction': {
         const input: LogInteractionInput = {
@@ -217,7 +217,7 @@ export async function executeManageCrmPipeline(
           summary: String(raw.summary ?? ''),
           occurredAt: raw.occurredAt ? String(raw.occurredAt) : undefined,
         };
-        const interaction = logInteraction(tenantId, input);
+        const interaction = await logInteraction(tenantId, input);
         if (hasStrategyPayload(raw)) {
           const validation = validateOutreachStrategy(parseOutreachStrategyDraft(raw));
           return {

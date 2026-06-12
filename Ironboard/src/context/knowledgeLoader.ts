@@ -74,101 +74,14 @@ function resolveEngagedPillars(normalizedQuery: string) {
 }
 
 /**
- * 📊 RESTORED UNIFIED CONSENSUS ROUTER ENGINE (UPDATED WITH CORPORATE PILLARS)
- * Automatically evaluates query intent to assemble a balanced leadership panel
- * and execute an end-to-end thinking loop containing real domain knowledge.
+ * Deprecated — static Frame fallbacks violate Dynamic Discovery Mandate.
+ * Use routeExecutivePanel + runDynamicDiscovery + deliberateExecutiveQuery.
  */
-export async function deliberateUnifiedBoardRoom(query: string, explicitOverrideId?: string) {
-  console.log(`[IRONBOARD UNIFIED] Running consensus deliberation engine...`);
-  const normalizedQuery = query.toLowerCase();
-
-  // Step 1: Establish the Executive Lead Persona
-  let leader: AgenticPersona = AGENTIC_BOARD_ROSTER.find(a => a.id === "board-ceo")!;
-
-  if (explicitOverrideId && explicitOverrideId !== 'auto') {
-    const override = AGENTIC_BOARD_ROSTER.find(a => a.id === explicitOverrideId);
-    if (override) leader = override;
-  } else {
-    let highestScore = 0;
-    for (const agent of AGENTIC_BOARD_ROSTER) {
-      let score = 0;
-      if (normalizedQuery.includes(agent.id.replace('board-', ''))) score += 5;
-      if (agent.expertise.some(skill => normalizedQuery.includes(skill.toLowerCase()))) score += 3;
-      if (normalizedQuery.includes(agent.primaryBookAlignment.toLowerCase())) score += 4;
-
-      if (score > highestScore) {
-        highestScore = score;
-        leader = agent;
-      }
-    }
-  }
-
-  // Step 2: Auto-Assemble Two Support Personas Based on Team Balance
-  const supportStaff = AGENTIC_BOARD_ROSTER.filter(a => a.id !== leader.id);
-  const legalSupport = supportStaff.find(a => a.id === "board-legal") || supportStaff[0];
-  const financialSupport = supportStaff.find(a => a.id === "board-cfo") || supportStaff[1];
-  const technicalSupport = supportStaff.find(a => a.id === "board-cto") || supportStaff[2];
-
-  let selectedSupport: AgenticPersona[] = [];
-  if (leader.team === "Executive Suite") {
-    selectedSupport = [legalSupport, AGENTIC_BOARD_ROSTER.find(a => a.id === "board-compliance")!];
-  } else if (leader.team === "Product and Engineering") {
-    selectedSupport = [financialSupport, legalSupport];
-  } else {
-    selectedSupport = [AGENTIC_BOARD_ROSTER.find(a => a.id === "board-ceo")!, technicalSupport];
-  }
-
-  // Step 3: CORE CONTENT INJECTION — Dynamic 4 Pillars Knowledge Base
-  const engagedPillars = resolveEngagedPillars(normalizedQuery);
-  let generatedDetermination =
-    "The board is actively evaluating this operational trajectory against our standard framework invariants.";
-
-  if (
-    normalizedQuery.includes("pillar") ||
-    normalizedQuery.includes("4 pillars") ||
-    normalizedQuery.includes("four pillars")
-  ) {
-    generatedDetermination = FOUR_PILLARS_DETERMINATION;
-  } else if (engagedPillars.length > 0) {
-    generatedDetermination = engagedPillars
-      .map(
-        pillar =>
-          `${pillar.name}\n${pillar.description}\nKey directives: ${pillar.keyDirectives.join("; ")}`
-      )
-      .join("\n\n");
-  }
-
-  const coreBook = STRATEGIC_KNOWLEDGE_VAULT.find(f => f.title === leader.primaryBookAlignment)!;
-  const secondaryFrameworks = STRATEGIC_KNOWLEDGE_VAULT
-    .filter(f => f.title !== leader.primaryBookAlignment &&
-                (normalizedQuery.includes(f.title.toLowerCase()) || f.coreConcepts.some(c => normalizedQuery.includes(c.toLowerCase()))))
-    .map(f => f.title);
-
-  const matchedProducts = CORE_COMPANY_PRODUCTS.filter(p =>
-    normalizedQuery.includes(p.productKey.toLowerCase()) || normalizedQuery.includes(p.name.toLowerCase())
-  ).map(p => p.name);
-
-  return {
-    isAutoRouted: !explicitOverrideId || explicitOverrideId === 'auto',
-    panelAssembly: {
-      executiveLead: leader.role,
-      leadId: leader.id,
-      alignedPrimaryFramework: `"${coreBook.title}" by ${coreBook.author}`,
-      advisoryCouncil: selectedSupport.map(s => `${s.role} [Lens: ${s.primaryBookAlignment}]`)
-    },
-    determination: generatedDetermination,
-    thinkingTraces: {
-      cognitivePath: `Consensus router identified intent. Selected ${leader.role} to drive determination utilizing framework parameters: "${coreBook.strategicInvariants}"`,
-      secondaryCrossCuts: secondaryFrameworks.length > 0 ? secondaryFrameworks : ["Standard Operations Base"],
-      auditedProducts: matchedProducts.length > 0 ? matchedProducts : ["Full Portfolio Matrix Overview"],
-      corporatePillarsEngaged: engagedPillars.map(p => p.name)
-    },
-    executionStatus: "COMPLETE",
-    configEcho: BOARD_ORCHESTRATION_CONFIG.layout,
-    baselinesChecked: {
-      medshield_cents: 1110000000n,
-      vaultbank_cents: 590000000n,
-      gridcore_cents: 470000000n
-    }
-  };
+export async function deliberateUnifiedBoardRoom(
+  _query: string,
+  _explicitOverrideId?: string,
+): Promise<never> {
+  throw new Error(
+    'deliberateUnifiedBoardRoom is deprecated: static Frame fallbacks violate the Dynamic Discovery Mandate. Use routeExecutivePanel + runDynamicDiscovery + deliberateExecutiveQuery on the IronBoard 17-agent plane.',
+  );
 }

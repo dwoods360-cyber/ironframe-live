@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Lock, CheckCircle2 } from "lucide-react";
 import HeaderTwo from "@/app/components/HeaderTwo";
@@ -11,70 +10,28 @@ import { useRiskStore } from "@/app/store/riskStore";
 import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
-import { createClient } from "@/lib/supabase/client";
-import { mapSupabaseMetadataRoleToDisplay } from "@/app/lib/grcRoles";
+import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
+import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 import { LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
+import { createClient } from "@/lib/supabase/client";
 
 export default function TopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [userLoading, setUserLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) {
-        setUser(data.user);
-        setUserLoading(false);
-      }
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setUserLoading(false);
-    });
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
-  
-  // 1. Detect if we are inside a tenant enclave (e.g., /medshield)
-  const segments = pathname.split('/').filter(Boolean);
-  const VALID_TENANTS = ["medshield", "vaultbank", "gridcore", "defense"];
-  const currentTenant = VALID_TENANTS.includes(segments[0]?.toLowerCase()) ? segments[0].toLowerCase() : null;
-  
-  // 2. Create the dynamic prefix (will be empty on the global dashboard)
-  const prefix = currentTenant ? `/${currentTenant}` : "";
-
-  // 3. Make all route checks tenant-aware
-  const isAuditTrailRoute = pathname === `${prefix}/reports/audit-trail` || pathname.startsWith(`${prefix}/reports/audit-trail/`);
-  const isVendorOverviewRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
-  const showPrimaryActionChips = !isAuditTrailRoute;
-  const isConfigRoute = pathname === `${prefix}/config` || pathname.startsWith(`${prefix}/config/`);
-  const isEvidenceRoute =
-    pathname === "/evidence" ||
-    pathname.startsWith("/evidence/") ||
-    pathname === "/vault" ||
-    pathname.startsWith("/vault/") ||
-    pathname === `${prefix}/evidence` ||
-    pathname.startsWith(`${prefix}/evidence/`);
-  const isFrameworksRoute = pathname === `${prefix}/compliance/frameworks` || pathname.startsWith(`${prefix}/compliance/frameworks/`);
-  const isVendorsRoute = pathname === `${prefix}/vendors` || pathname.startsWith(`${prefix}/vendors/`);
-  const isIntegrityHubRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
-  const isBoardReportRoute = pathname === "/board-report" || pathname.startsWith("/board-report/");
-  const isOpSupportRoute =
-    pathname === "/opsupport" ||
-    pathname.startsWith("/opsupport/") ||
-    pathname === "/op-support" ||
-    pathname.startsWith("/op-support/");
-
-  const playbookRouteMatch = pathname.match(/^\/(medshield|vaultbank|gridcore|defense)\/playbooks(\/|$)/);
-  const playbookEntity = playbookRouteMatch?.[1]?.toUpperCase();
-  const isPlaybookRoute = Boolean(playbookEntity);
+  const { displayName, displayRole, isLoading: userLoading, isGuest } = useOperatorIdentity();
+  const routes = useMemo(() => buildHeaderRouteMatrix(pathname), [pathname]);
+  const {
+    isAuditTrailRoute,
+    isEvidenceRoute,
+    isFrameworksRoute,
+    isVendorsRoute,
+    isIntegrityHubRoute,
+    isBoardReportRoute,
+    isOpSupportRoute,
+    isPlaybookRoute,
+    playbookEntity,
+  } = routes;
 
   const liveMonitoringCount = useRiskStore((s) => s.liveMonitoringCount);
   const currencyScale = useRiskStore((s) => s.currencyScale);
@@ -111,14 +68,8 @@ export default function TopNav() {
     window.dispatchEvent(new CustomEvent("vendors:download", { detail: { format: "both" } }));
   };
 
-  const identityName =
-    (typeof user?.user_metadata?.full_name === "string" && user.user_metadata.full_name.trim()) ||
-    user?.email?.trim() ||
-    "UNAUTHENTICATED";
-
-  const identityRole = mapSupabaseMetadataRoleToDisplay(
-    typeof user?.user_metadata?.role === "string" ? user.user_metadata.role : undefined,
-  );
+  const identityName = displayName;
+  const identityRole = displayRole;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -191,11 +142,14 @@ export default function TopNav() {
             </span>
             <span className="font-mono text-[10px] font-medium tracking-wide text-slate-300">
               {userLoading ? (
-                "Loading operator..."
+                "Resolving operator…"
               ) : (
                 <>
                   {identityName}{" "}
-                  <span className="font-normal text-slate-600">({identityRole})</span>
+                  <span className="font-normal text-slate-600">
+                    ({identityRole}
+                    {isGuest ? " · local session" : ""})
+                  </span>
                 </>
               )}
             </span>
@@ -260,14 +214,7 @@ export default function TopNav() {
         </div>
       </div>
 
-      <HeaderTwo
-        isVendorOverviewRoute={isVendorOverviewRoute}
-        isVendorsRoute={isVendorsRoute}
-        isConfigRoute={isConfigRoute}
-        showPrimaryActionChips={showPrimaryActionChips}
-        onVendorDownload={handleVendorDownload}
-        currentTenant={currentTenant} // ---> NEW: Passing the isolated tenant to the sub-nav
-      />
+      <HeaderTwo onVendorDownload={handleVendorDownload} />
 
       {(lockToast || ironcastToast) ? (
         <div className="fixed bottom-5 right-5 z-[500] flex max-w-sm flex-col gap-2">

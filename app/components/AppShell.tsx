@@ -6,6 +6,7 @@ import TopNav from "@/app/components/TopNav";
 import AgentInspectShell from "@/app/components/grc/AgentInspectShell";
 import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { layoutContentShellClass } from "@/app/config/layoutConstants";
+import { isScrollableStandalonePath } from "@/app/utils/grcRouteMatch";
 import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
@@ -15,7 +16,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isThreatDetailPage = pathname.startsWith("/threats/");
   const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
-  const isDocsPage = pathname === "/docs" || pathname.startsWith("/docs/");
+  const isScrollableStandalonePage = isScrollableStandalonePath(pathname);
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const contentShell = layoutContentShellClass(isSimulationMode);
 
@@ -53,15 +54,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <TopNav />
       </div>
       <div
-        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${
-          isBoardReport
-            ? "mt-0 min-h-screen flex-1 print:mt-0 print:h-auto print:min-h-screen print:overflow-visible"
-            : `${contentShell.marginTop} ${contentShell.height}`
+        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${contentShell.marginTop} ${contentShell.height} ${
+          isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""
         }`}
       >
         <div
           className={`flex min-h-0 min-w-0 flex-1 flex-col ${
-            isDocsPage || isBoardReport ? "overflow-y-auto" : "overflow-hidden"
+            isScrollableStandalonePage
+              ? "overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable] custom-scrollbar"
+              : "overflow-hidden"
           } ${isBoardReport ? "print:overflow-visible print:overflow-y-visible" : ""}`}
         >
           {children}

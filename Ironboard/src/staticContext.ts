@@ -1,3 +1,5 @@
+import { buildStrategicIntelResearchBinding } from './context/strategicIntelResearchBinding.js';
+
 export const CODESPACE_FOUR_PILLARS_BLUEPRINT = `
 EXECUTIVE DETERMINATION: THE 4 PILLARS OF IRONFRAME OPERATIONS
 
@@ -132,5 +134,7 @@ export function buildStaticContextBundle(): string {
     `- Vaultbank: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
     `- Gridcore: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
     `- Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
+    '',
+    buildStrategicIntelResearchBinding(),
   ].join('\n');
 }

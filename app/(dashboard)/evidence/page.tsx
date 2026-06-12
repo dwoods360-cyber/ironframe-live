@@ -12,7 +12,7 @@ export const metadata = {
 export default function EvidenceVaultPage() {
   noStore();
   return (
-    <div className="min-h-0 overflow-y-auto bg-slate-950">
+    <div className="w-full min-w-0 bg-slate-950 pb-10">
       <EvidenceVaultClient />
     </div>
   );

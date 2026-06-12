@@ -80,6 +80,12 @@ export default function LoginPage() {
             {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-white/60">
+          <a href="/forgot-password" className="text-cyan-400 hover:text-cyan-300">
+            Forgot password?
+          </a>
+        </p>
       </section>
     </main>
   );

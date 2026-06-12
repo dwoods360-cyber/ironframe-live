@@ -150,6 +150,9 @@ export async function middleware(request: NextRequest) {
   const supabaseResponse = await updateSession(request);
   const pathname = request.nextUrl.pathname;
   const isLoginRoute = pathname === "/login";
+  const isForgotPasswordRoute = pathname === "/forgot-password";
+  const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
+  const isAuthPublicRoute = isLoginRoute || isForgotPasswordRoute || isAuthCallbackRoute;
   /** Static documentation hub — public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||
@@ -310,7 +313,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isAuthPublicRoute) {
     if (isPublicDocsRoute) {
       return supabaseResponse;
     }
@@ -334,7 +337,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isLoginRoute) {
+  if (user && (isLoginRoute || isForgotPasswordRoute)) {
     const integrityUrl = request.nextUrl.clone();
     integrityUrl.pathname = "/integrity";
     integrityUrl.search = "";

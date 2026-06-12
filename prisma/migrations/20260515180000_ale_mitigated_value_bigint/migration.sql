@@ -2,7 +2,7 @@
 -- Backfill from SustainabilityMetric and legacy JSON audit metadata without precision loss.
 
 ALTER TABLE "ThreatEvent" ADD COLUMN IF NOT EXISTS "mitigated_value_cents" BIGINT;
-ALTER TABLE "RiskEvent" ADD COLUMN IF NOT EXISTS "mitigated_value_cents" BIGINT;
+ALTER TABLE "SimThreatEvent" ADD COLUMN IF NOT EXISTS "mitigated_value_cents" BIGINT;
 
 -- Sustainability ledger → threat row
 UPDATE "ThreatEvent" t
@@ -28,6 +28,6 @@ WHERE "mitigated_value_cents" IS NULL
   AND "financialRisk_cents" > 0;
 
 -- Shadow plane: mirror financial ALE when mitigated column empty
-UPDATE "RiskEvent"
+UPDATE "SimThreatEvent"
 SET "mitigated_value_cents" = COALESCE("mitigated_value_cents", "financialRisk_cents", "governed_impact")
 WHERE "mitigated_value_cents" IS NULL;

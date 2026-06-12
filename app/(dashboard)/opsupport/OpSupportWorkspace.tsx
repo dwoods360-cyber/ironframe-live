@@ -169,11 +169,11 @@ export default function OpSupportWorkspace() {
   );
 
   return (
-    <div className="relative flex min-h-[100dvh] flex-col bg-[#000000] text-zinc-200">
+    <div className="relative flex w-full min-w-0 flex-col bg-[#000000] pb-6 text-zinc-200">
       <OpSupportTabStrip value={mainTab} onChange={setMainTab} />
 
-      <div className="min-h-0 w-full flex-1 overflow-y-auto">
-        <div className="w-full min-h-0 flex-1 border-y border-amber-900/35 bg-black shadow-[inset_0_0_120px_rgba(0,0,0,0.85)]">
+      <div className="w-full min-w-0 flex-col">
+        <div className="w-full border-y border-amber-900/35 bg-black shadow-[inset_0_0_120px_rgba(0,0,0,0.85)]">
           <OpSupportClient mainTab={mainTab} />
         </div>
 

@@ -18,11 +18,21 @@ import {
 } from './staticContext.js';
 import { DYNAMIC_DISCOVERY_MANDATE } from './boardRouter.js';
 import {
+  BOARD_CONVERSATIONAL_BOUNDARY,
+  BOARD_CRM_TOOL_MANDATE,
+  BOARD_VIDEO_INTELLIGENCE_MANDATE,
+  isBoardroomConversationPlane,
+  isPlaybookInventoryQuery,
+  resolveCanonicalBoardResponse,
+  routeExecutivePanel,
+} from './boardRouter.js';
+import {
   buildCrmDiscoveryEnrichment,
   formatDiscoveryEvidence,
   runDynamicDiscovery,
   summarizeEmptyDiscoveryStates,
   synthesizeCrmCapabilityFromDiscovery,
+  synthesizePlaybookInventoryFromDiscovery,
   type DiscoveryReceipt,
 } from './services/dynamicDiscovery.js';
 import {
@@ -47,18 +57,34 @@ import {
   shouldPrefetchWeb,
 } from './services/boardroomQueryIntent.js';
 import { manageCrmPipeline } from './tools/crmTools.js';
+import { handleVideoIngress } from './api/ingress/video.js';
+import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
+import { prefetchCorporateDocsForBoardQuery } from './services/ingress/docsBoardPrefetch.js';
+import { prefetchVideoIntelligenceForBoardQuery } from './services/ingress/videoBoardPrefetch.js';
+import { requiresCorporateDocsPrefetch } from './services/ingress/docsQueryIntent.js';
+import { requiresVideoIntelligencePrefetch } from './services/ingress/videoQueryIntent.js';
+import { buildBoardroomSystemInstruction, resolveVideoTimelineActiveFromPayload } from './services/boardroomSystemPrompt.js';
+import {
+  buildToolExecutionDirective,
+  prependVideoIntelligenceSystemOverride,
+  stripCapabilityDenialFallbacks,
+  finalizeSanitizedBoardCompletion,
+  TOOL_RESULT_PARSE_DIRECTIVE,
+} from './services/boardResponseLibrary.js';
 
 const PORT = Number(process.env.PORT) || 8082;
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const IRONBOARD_ROOT = path.resolve(MODULE_DIR, '..');
 
-const TOOL_RESULT_PARSE_DIRECTIVE =
-  "CRITICAL: If a tool returns rows or data, you must parse and display them. Do not use your pre-configured 'no prospects loaded' or 'tools not available' strings if the functionResponse array is populated.";
-
-const TOOL_EXECUTION_DIRECTIVE =
+const TOOL_EXECUTION_DIRECTIVE_BASE =
   `${DYNAMIC_DISCOVERY_MANDATE}\n\n` +
-  'EXECUTION DIRECTIVE: You possess live internet access through the googleSearch tool, direct database access via queryLocalWorkspace, and B2B CRM pipeline control via manageCrmPipeline (tenantId required, values in whole-cent integers). Do not state that you lack external tools or real-time data. Execute the appropriate tool loops to retrieve ground truth before responding. Answer every distinct question in the user message — do not drop parts of a multi-part query.\n\n' +
-  'PLATFORM BOUNDARY: Ironframe (root) = GRC/infrastructure telemetry. IronBoard (this boardroom) = executive cockpit WITH embedded tenant-isolated CRM via manageCrmPipeline. When CRM discovery receipts are present, affirm IronBoard CRM capabilities — never conflate Ironframe GRC scope with a denial of CRM.';
+  `${BOARD_CONVERSATIONAL_BOUNDARY}\n\n` +
+  `${BOARD_CRM_TOOL_MANDATE}\n\n` +
+  `${BOARD_VIDEO_INTELLIGENCE_MANDATE}`;
+
+function composeToolExecutionDirective(videoTimelineActive: boolean): string {
+  return `${TOOL_EXECUTION_DIRECTIVE_BASE}\n\n${buildToolExecutionDirective(videoTimelineActive)}`;
+}
 
 const BOARDROOM_DIRECTIVE =
   'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
@@ -68,6 +94,30 @@ const AUTO_ROUTER_ID = 'auto';
 
 // ─── Environment ───────────────────────────────────────────────────────────────
 loadIronboardEnv();
+
+void import('./services/crm/strategicIntelIngress.js')
+  .then(({ ingestGrcProfessionalResearchCorpus }) => ingestGrcProfessionalResearchCorpus())
+  .then(result => {
+    if (result.skippedDuplicate) {
+      console.log(`[IRONBOARD] Strategic Intel manifest already ingested (${result.manifestId}).`);
+    } else {
+      console.log(`[IRONBOARD] Strategic Intel manifest ingested (${result.manifestId}).`);
+    }
+  })
+  .catch(err => {
+    console.warn('[IRONBOARD] Strategic Intel ingress skipped:', err instanceof Error ? err.message : err);
+  });
+
+void import('./services/crm/docsMatrixIngress.js')
+  .then(({ ingestCorporateDocumentationMatrix }) => ingestCorporateDocumentationMatrix())
+  .then(result => {
+    console.log(
+      `[IRONBOARD] Docs matrix ingested docsIngestedUnits=${result.docsIngestedUnits.toString()} skipped=${result.docsSkippedDuplicateUnits.toString()} traceId=${result.traceId}`,
+    );
+  })
+  .catch(err => {
+    console.warn('[IRONBOARD] Docs matrix ingress skipped:', err instanceof Error ? err.message : err);
+  });
 
 if (!process.env.GOOGLE_API_KEY && !getIronboardApiKey()) {
   console.warn('[IRONBOARD] GOOGLE_API_KEY is not set.');
@@ -126,56 +176,32 @@ function resolveAgentId(agentId: string): string | null {
   return null;
 }
 
-function pickLeader(agentId: string, query: string): BoardPersona {
-  if (agentId !== AUTO_ROUTER_ID) {
-    return AGENTIC_BOARD_ROSTER.find(a => a.id === agentId) ?? AGENTIC_BOARD_ROSTER[0];
-  }
-
-  const q = query.toLowerCase();
-  let best = AGENTIC_BOARD_ROSTER[0];
-  let score = 0;
-
-  for (const agent of AGENTIC_BOARD_ROSTER) {
-    let s = 0;
-    const slug = agent.id.replace('board-', '');
-    if (q.includes(slug)) s += 5;
-    for (let i = 0; i < agent.expertise.length; i++) {
-      if (q.includes(agent.expertise[i].toLowerCase())) s += 3;
-    }
-    if ((q.includes('cfo') || q.includes('finance')) && agent.id === 'board-cfo') s += 10;
-    if ((q.includes('cto') || q.includes('architecture') || q.includes('code')) && agent.id === 'board-cto') s += 10;
-    const crmIntent =
-      q.includes('crm') ||
-      q.includes('deal pipeline') ||
-      q.includes('contact database') ||
-      q.includes('managecrmpipeline') ||
-      (q.includes('sales') && (q.includes('ironboard') || q.includes('methodolog')));
-    if (crmIntent && agent.id === 'board-sales-lead') s += 10;
-    if (s > score) {
-      score = s;
-      best = agent;
-    }
-  }
-  return best;
+function buildSystemInstruction(
+  leader: BoardPersona,
+  flywheelContext: string | null | undefined,
+  history: HistoryTurn[],
+  query: string,
+  linkScraperEnrichment: string,
+  requestBody: unknown,
+): string {
+  return buildBoardroomSystemInstruction({
+    leader,
+    staticContext: STATIC_CONTEXT,
+    docsFederation: DOCS_FEDERATION,
+    boardroomDirective: BOARDROOM_DIRECTIVE,
+    workforceDisambiguation: WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
+    flywheelContext,
+    history,
+    query,
+    linkScraperEnrichment,
+    requestBody,
+  });
 }
 
-function buildSystemInstruction(leader: BoardPersona, flywheelContext?: string | null): string {
-  const blocks = [
-    flywheelContext?.trim() || '',
-    BOARDROOM_DIRECTIVE,
-    WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
-    `You are ${leader.role} (${leader.id}) on the IronBoard executive panel.`,
-    `Primary framework: ${leader.primaryBookAlignment}.`,
-    'Respond in 2–3 dense sentences of fluent prose. No markdown lists, no code fences.',
-    STATIC_CONTEXT,
-    DOCS_FEDERATION,
-    WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
-  ].filter(Boolean);
-  return blocks.join('\n\n');
-}
-
-function writeSseToken(res: express.Response, token: string): void {
-  writeSseEvent(res, { token });
+function writeSseToken(res: express.Response, token: string, sanitizeDenials = false): void {
+  const payload = sanitizeDenials ? stripCapabilityDenialFallbacks(token) : token;
+  if (!payload) return;
+  writeSseEvent(res, { token: payload });
 }
 
 type ClientGroundingPayload = {
@@ -211,6 +237,7 @@ function buildBoardroomStreamConfig(
   model: string,
   systemInstruction: string,
   toolMode: BoardroomToolMode,
+  videoTimelineActive: boolean,
 ): Record<string, unknown> {
   const toolConfig: Record<string, unknown> =
     toolMode === 'workspace' || toolMode === 'combined'
@@ -221,7 +248,12 @@ function buildBoardroomStreamConfig(
   }
 
   const config: Record<string, unknown> = {
-    systemInstruction: [systemInstruction, TOOL_EXECUTION_DIRECTIVE].filter(Boolean).join('\n\n'),
+    systemInstruction: prependVideoIntelligenceSystemOverride(
+      [systemInstruction, composeToolExecutionDirective(videoTimelineActive)]
+        .filter(Boolean)
+        .join('\n\n'),
+      videoTimelineActive,
+    ),
     temperature: 0,
     topP: 0,
     tools: buildBoardroomTools(model, toolMode),
@@ -304,12 +336,13 @@ async function prefetchBoardroomGroundTruth(params: {
   tenantId?: string;
   prospectId?: string;
   res: express.Response;
+  linkScraperEnrichment?: string;
 }): Promise<{
   prefetchedExchange: GeminiContent[];
   systemEnrichment: string;
   receipts: DiscoveryReceipt[];
 }> {
-  const { ai, model, query, activeHub, tenantId, prospectId, res } = params;
+  const { ai, model, query, activeHub, tenantId, prospectId, res, linkScraperEnrichment } = params;
   const prefetchedExchange: GeminiContent[] = [];
   const enrichmentBlocks: string[] = [];
 
@@ -389,6 +422,43 @@ async function prefetchBoardroomGroundTruth(params: {
     if (web.enrichment) enrichmentBlocks.push(web.enrichment);
   }
 
+  if (requiresCorporateDocsPrefetch(query)) {
+    writeSseToolCall(res, {
+      name: 'boardKnowledgeDocs',
+      status: 'running',
+      prefetch: true,
+    });
+    const docs = await prefetchCorporateDocsForBoardQuery(query, tenantId);
+    writeSseToolCall(res, {
+      name: 'boardKnowledgeDocs',
+      status: 'complete',
+      ok: docs.ok,
+      prefetch: true,
+      docsMatchedUnits: docs.docsMatchedUnits.toString(),
+    });
+    if (docs.enrichment) enrichmentBlocks.push(docs.enrichment);
+  }
+
+  if (linkScraperEnrichment) {
+    enrichmentBlocks.push(linkScraperEnrichment);
+  }
+  if (requiresVideoIntelligencePrefetch(query) && !(linkScraperEnrichment ?? '').includes('VIDEO INTELLIGENCE')) {
+    writeSseToolCall(res, {
+      name: 'videoIntelligenceIngress',
+      status: 'running',
+      prefetch: true,
+    });
+    const video = await prefetchVideoIntelligenceForBoardQuery(query, tenantId);
+    writeSseToolCall(res, {
+      name: 'videoIntelligenceIngress',
+      status: 'complete',
+      ok: video.ok,
+      prefetch: true,
+      blockCount: video.parsed?.metadata.blockCount ?? 0,
+    });
+    if (video.enrichment) enrichmentBlocks.push(video.enrichment);
+  }
+
   return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n'), receipts };
 }
 
@@ -438,12 +508,13 @@ async function streamBoardroomGeminiRound(params: {
   contents: GeminiContent[];
   config: Record<string, unknown>;
   emitTokens: boolean;
+  sanitizeDenials: boolean;
 }): Promise<{
   accumulatedText: string;
   functionCalls: FunctionCall[] | undefined;
   grounding: GroundingMetadata | null;
 }> {
-  const { ai, res, abort, model, contents, config, emitTokens } = params;
+  const { ai, res, abort, model, contents, config, emitTokens, sanitizeDenials } = params;
   let accumulatedText = '';
   let functionCalls: FunctionCall[] | undefined;
   let grounding: GroundingMetadata | null = null;
@@ -460,7 +531,7 @@ async function streamBoardroomGeminiRound(params: {
     const chunkText = chunk.text ?? '';
     if (chunkText) {
       accumulatedText += chunkText;
-      if (emitTokens) writeSseToken(res, chunkText);
+      if (emitTokens) writeSseToken(res, chunkText, sanitizeDenials);
     }
 
     const chunkGrounding = chunk.candidates?.[0]?.groundingMetadata;
@@ -528,8 +599,9 @@ async function runBoardroomToolStream(params: {
   history: HistoryTurn[];
   config: Record<string, unknown>;
   prefetchedExchange?: GeminiContent[];
+  sanitizeDenials?: boolean;
 }): Promise<void> {
-  const { ai, res, abort, model, history, config, prefetchedExchange = [] } = params;
+  const { ai, res, abort, model, history, config, prefetchedExchange = [], sanitizeDenials = false } = params;
   let contents: GeminiContent[] = [...mapHistoryToGeminiContents(history), ...prefetchedExchange];
   const skipFirstRoundTokens = prefetchedExchange.length > 0;
 
@@ -544,13 +616,21 @@ async function runBoardroomToolStream(params: {
       contents,
       config,
       emitTokens,
+      sanitizeDenials,
     });
 
     if (abort.closed || res.writableEnded) return;
 
     if (!functionCalls?.length) {
-      if (accumulatedText && !emitTokens) {
-        writeSseToken(res, accumulatedText);
+      const { text: finalText, rewritten } = finalizeSanitizedBoardCompletion(
+        accumulatedText,
+        sanitizeDenials,
+      );
+      if (finalText && !emitTokens) {
+        writeSseToken(res, finalText, false);
+      } else if (finalText && emitTokens && rewritten) {
+        writeSseEvent(res, { streamFlush: true });
+        writeSseToken(res, finalText, false);
       }
       return;
     }
@@ -1439,7 +1519,7 @@ app.get('/', (_req, res) => {
 app.post('/api/query', async (req, res) => {
   const rawAgentId = String(req.body?.agentId ?? AUTO_ROUTER_ID).trim();
   const agentId = resolveAgentId(rawAgentId);
-  const history = normalizeHistory(req.body?.history);
+  let history = normalizeHistory(req.body?.history);
 
   if (!agentId) {
     res.status(400).json({
@@ -1460,8 +1540,6 @@ app.post('/api/query', async (req, res) => {
     return;
   }
 
-  const query = lastUserTurnText(history);
-
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -1472,6 +1550,78 @@ app.post('/api/query', async (req, res) => {
     abort.closed = true;
   });
 
+  const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
+
+  writeSseToolCall(res, {
+    name: 'linkScraper',
+    status: 'running',
+    prefetch: true,
+  });
+
+  let linkScraperEnrichment = '';
+  let linkScraperTraceId = '';
+  let linkScraperOk = false;
+  let linkScraperTelemetryVerified = false;
+  let linkScraperBlocksExtractedUnits = '0';
+  let linkScraperCrmInteractionId: string | null = null;
+  try {
+    const linkScrape = await interceptBoardroomLinkPayload({
+      history,
+      requestBody: req.body,
+      tenantId,
+    });
+    history = linkScrape.history;
+    linkScraperEnrichment = linkScrape.enrichment;
+    linkScraperTraceId = linkScrape.traceId;
+    linkScraperOk = linkScrape.matches.length === 0 || linkScrape.ingests.length > 0;
+    linkScraperTelemetryVerified = linkScrape.telemetryVerified;
+    linkScraperBlocksExtractedUnits = linkScrape.verifiedBlocksExtractedUnits.toString();
+    linkScraperCrmInteractionId = linkScrape.crmTelemetryInteractionId;
+    writeSseToolCall(res, {
+      name: 'linkScraper',
+      status: 'complete',
+      ok: linkScraperOk,
+      prefetch: true,
+      linksMatchedUnits: linkScrape.telemetry.linksMatchedUnits.toString(),
+      blocksExtractedUnits: linkScraperBlocksExtractedUnits,
+      telemetryVerified: linkScraperTelemetryVerified,
+      traceId: linkScraperTraceId,
+      routingHeldMs: linkScrape.routingHeldMs,
+    });
+    writeSseEvent(res, {
+      orchestration: {
+        linkScraper: 'complete',
+        traceId: linkScraperTraceId,
+        telemetryVerified: linkScraperTelemetryVerified,
+        blocksExtractedUnits: linkScraperBlocksExtractedUnits,
+        preRoutingValidation: linkScrape.matches.length > 0 && !linkScraperTelemetryVerified ? 'FAILED' : 'PASSED',
+      },
+    });
+  } catch (linkErr) {
+    console.warn('[IRONBOARD LINK SCRAPER]', linkErr);
+    writeSseToolCall(res, {
+      name: 'linkScraper',
+      status: 'complete',
+      ok: false,
+      prefetch: true,
+      error: linkErr instanceof Error ? linkErr.message : 'link scraper failed',
+    });
+    writeSseEvent(res, {
+      orchestration: {
+        linkScraper: 'complete',
+        preRoutingValidation: 'FAILED',
+      },
+    });
+  }
+
+  const query = lastUserTurnText(history);
+  const videoTimelineActive = resolveVideoTimelineActiveFromPayload({
+    history,
+    query,
+    requestBody: req.body,
+    linkScraperEnrichment,
+  });
+
   const key = getIronboardApiKey();
   if (!key) {
     writeSseToken(res, 'GOOGLE_API_KEY missing. Set it in Ironboard/.env and restart.');
@@ -1480,10 +1630,42 @@ app.post('/api/query', async (req, res) => {
   }
 
   try {
-    const leader = pickLeader(agentId, query);
+    const planeHeader = String(req.headers['x-ironframe-conversation-plane'] ?? '').trim();
+    if (planeHeader && !isBoardroomConversationPlane(planeHeader)) {
+      writeSseToken(
+        res,
+        'Conversation plane mismatch: this endpoint serves the IronBoard 17-agent boardroom only. Use sovereign orchestration APIs for the 19-agent GRC core.',
+      );
+      res.end();
+      return;
+    }
+
+    const routed = routeExecutivePanel(query, agentId, {
+      linkScraperComplete: true,
+      linkScraperOk,
+      linkScraperTraceId,
+      videoTimelineInjected: videoTimelineActive,
+      telemetryVerified: linkScraperTelemetryVerified,
+      blocksExtractedUnits: linkScraperBlocksExtractedUnits,
+      crmTelemetryInteractionId: linkScraperCrmInteractionId,
+      preRoutingValidation:
+        linkScraperTraceId && linkScraperBlocksExtractedUnits !== '0'
+          ? linkScraperTelemetryVerified
+            ? 'PASSED'
+            : 'FAILED'
+          : 'SKIPPED',
+    });
+
+    const canonicalResponse = resolveCanonicalBoardResponse(query);
+    if (canonicalResponse) {
+      writeSseToken(res, canonicalResponse);
+      res.end();
+      return;
+    }
+
+    const leader = routed.leader;
     const activeHub = String(req.body?.activeHub ?? '').trim();
     const selectedProspectId = String(req.body?.selectedProspectId ?? '').trim();
-    const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
     let flywheelContext: string | null = null;
     try {
       flywheelContext = await buildFlywheelWorkspaceContext(activeHub, selectedProspectId || undefined);
@@ -1504,6 +1686,7 @@ app.post('/api/query', async (req, res) => {
       tenantId,
       prospectId: selectedProspectId || undefined,
       res,
+      linkScraperEnrichment,
     });
 
     if (requiresCrmDiscovery(query)) {
@@ -1515,8 +1698,17 @@ app.post('/api/query', async (req, res) => {
       }
     }
 
+    if (isPlaybookInventoryQuery(query)) {
+      const playbookDetermination = synthesizePlaybookInventoryFromDiscovery(receipts);
+      if (playbookDetermination) {
+        writeSseToken(res, playbookDetermination);
+        res.end();
+        return;
+      }
+    }
+
     const systemInstruction = [
-      buildSystemInstruction(leader, flywheelContext),
+      buildSystemInstruction(leader, flywheelContext, history, query, linkScraperEnrichment, req.body),
       systemEnrichment,
       prefetchedExchange.length
         ? 'Discovery and workspace tools have ALREADY executed — functionResponse payloads are in the conversation history above. Synthesize strictly from those receipts. Never claim tools or live data are unavailable.'
@@ -1524,11 +1716,14 @@ app.post('/api/query', async (req, res) => {
       systemEnrichment.includes('LIVE WEB GROUND TRUTH')
         ? 'Live web search results are in the system context above — use them for time, news, and global facts. Never claim real-time or external data is unavailable.'
         : '',
+      routed.orchestrationReceipt.videoTimelineInjected
+        ? `ORCHESTRATION RECEIPT: linkScraper complete (traceId=${routed.orchestrationReceipt.linkScraperTraceId}, blocksExtractedUnits=${routed.orchestrationReceipt.blocksExtractedUnits}, telemetryVerified=${routed.orchestrationReceipt.telemetryVerified}).`
+        : '',
     ]
       .filter(Boolean)
       .join('\n\n');
 
-    const streamConfig = buildBoardroomStreamConfig(model, systemInstruction, toolMode);
+    const streamConfig = buildBoardroomStreamConfig(model, systemInstruction, toolMode, videoTimelineActive);
 
     await runBoardroomToolStream({
       ai,
@@ -1538,6 +1733,7 @@ app.post('/api/query', async (req, res) => {
       history,
       config: streamConfig,
       prefetchedExchange,
+      sanitizeDenials: videoTimelineActive,
     });
   } catch (err) {
     console.error('[IRONBOARD STREAM]', err);
@@ -1661,6 +1857,8 @@ app.post('/api/market/harvest', async (req, res) => {
     res.status(500).json({ error: err instanceof Error ? err.message : 'Signal harvest failed' });
   }
 });
+
+app.post('/api/ingress/video', handleVideoIngress);
 
 app.use((_req, res) => {
   res.status(404).json({ status: 'NOT_FOUND' });

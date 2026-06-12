@@ -32,6 +32,7 @@ export function requiresCrmDiscovery(query: string): boolean {
   ) {
     return true;
   }
+  if (q.includes('playbook') || q.includes('knowledge base')) return true;
   if (
     (q.includes('do you have') ||
       q.includes('does ironboard') ||

@@ -4,6 +4,7 @@ import "./globals.css";
 import ConditionalAppShell from "./components/ConditionalAppShell";
 import IronguardBootstrap from "./components/IronguardBootstrap";
 import { TenantProvider } from "./context/TenantProvider";
+import { OperatorProvider } from "./context/OperatorContext";
 import { ConstitutionalIntegrityProvider } from "./context/ConstitutionalIntegrityProvider";
 import GlobalDropZone from "./components/GlobalDropZone";
 import EmergencyOverlay from "./components/EmergencyOverlay";
@@ -42,6 +43,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <TenantProvider>
+          <OperatorProvider>
           <GlobalEkgPortal />
           <NotificationOverlay />
           <GrcAgentMetaDrawer />
@@ -60,6 +62,7 @@ export default function RootLayout({
             </div>
             </AuditTrackingProvider>
           </ConstitutionalIntegrityProvider>
+          </OperatorProvider>
         </TenantProvider>
       </body>
     </html>

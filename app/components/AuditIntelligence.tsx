@@ -79,6 +79,8 @@ type AuditIntelligenceProps = {
   onOpenThreat?: (threatId: string, focus?: string) => void;
   /** Tenant `governance_multiplier` presentation (bps → ×), from `getTenantGovernanceMultiplierBps`. */
   tenantGovernanceBps?: number | null;
+  /** Tripane right rail uses bounded inner scroll; standalone report pages grow with AppShell scroll. */
+  layout?: "pane" | "standalone";
 };
 
 const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
@@ -1025,7 +1027,9 @@ export default function AuditIntelligence({
   serverAuditLogs = [],
   onOpenThreat,
   tenantGovernanceBps = null,
+  layout = "pane",
 }: AuditIntelligenceProps) {
+  const isStandaloneLayout = layout === "standalone";
   const [searchTerm, setSearchTerm] = useState("");
   const [auditLingerTick, setAuditLingerTick] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<LogEntryItem | null>(null);
@@ -1443,6 +1447,13 @@ export default function AuditIntelligence({
     if (n === 0) {
       return { slice: [] as LogEntryItem[], startIndex: 0, totalHeight: 0 };
     }
+    if (isStandaloneLayout) {
+      return {
+        slice: logsToDisplay,
+        startIndex: 0,
+        totalHeight: n * AUDIT_LOG_ROW_EST_PX,
+      };
+    }
     const effectiveScrollTop = Math.max(0, logScrollTop - logsSectionOffset);
     const start = Math.max(
       0,
@@ -1457,7 +1468,7 @@ export default function AuditIntelligence({
       startIndex: start,
       totalHeight: n * AUDIT_LOG_ROW_EST_PX,
     };
-  }, [logsToDisplay, logScrollTop, logViewportH, logsSectionOffset]);
+  }, [isStandaloneLayout, logsToDisplay, logScrollTop, logViewportH, logsSectionOffset]);
 
   const auditFocusId = focusId;
   const focusedThreat = auditFocusId ? threatIndexById[auditFocusId] : undefined;
@@ -1581,11 +1592,21 @@ export default function AuditIntelligence({
     (adversarialMaturityUi.underSiege || adversarialMaturityUi.penalty > 0);
 
   return (
-    <div className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200">
+    <div
+      className={
+        isStandaloneLayout
+          ? "relative flex w-full min-w-0 flex-col bg-slate-900/50 font-mono text-slate-200"
+          : "relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-slate-900/50 font-mono text-slate-200"
+      }
+    >
       <div
         ref={logScrollRef}
-        onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
-        className="custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
+        onScroll={isStandaloneLayout ? undefined : (e) => setLogScrollTop(e.currentTarget.scrollTop)}
+        className={
+          isStandaloneLayout
+            ? "flex w-full flex-col"
+            : "custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
+        }
         data-testid="audit-ledger-stream"
       >
       <div className="shrink-0 px-4 pt-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -82,9 +83,9 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-sm text-white/60">
-          <a href="/forgot-password" className="text-cyan-400 hover:text-cyan-300">
+          <Link href="/forgot-password" className="text-cyan-400 hover:text-cyan-300">
             Forgot password?
-          </a>
+          </Link>
         </p>
       </section>
     </main>

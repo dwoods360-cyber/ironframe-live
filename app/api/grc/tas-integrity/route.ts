@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { assessTasMdIntegritySync } from "@/app/lib/tasMdIntegrity";
+import { readSystemConfigStaleLockdownSliceSafe } from "@/app/lib/systemConfigSafeAccess";
 import {
   getTasFingerprintSnapshot,
   syncConstitutionalIntegrityEnforcement,
@@ -8,10 +10,53 @@ import { shortenSha256Hex } from "@/app/utils/tasConstitutionalFingerprintFormat
 import { checkAndExecuteDeadMansSwitch, getDeadManSwitchStatus } from "@/app/lib/deadMansSwitch";
 import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
-import prisma from "@/lib/prisma";
 import { computeSustainabilityStaleLockdown } from "@/app/config/sustainabilityStaleLockdown";
 
 export const dynamic = "force-dynamic";
+
+function buildIntegrityPayload(params: {
+  snap: ReturnType<typeof getTasFingerprintSnapshot>;
+  deadManSwitch: Awaited<ReturnType<typeof getDeadManSwitchStatus>>;
+  governance: Awaited<ReturnType<typeof readGovernanceMaturityState>>;
+  requiredForensicAttestationMin: number;
+  isSustainabilityApiDegraded: boolean;
+  isSustainabilityStaleLockdownBlocking: boolean;
+  sustainabilityStaleLockdownHours: number | null;
+  ancillaryWarning?: string | null;
+}) {
+  const {
+    snap,
+    deadManSwitch,
+    governance,
+    requiredForensicAttestationMin,
+    isSustainabilityApiDegraded,
+    isSustainabilityStaleLockdownBlocking,
+    sustainabilityStaleLockdownHours,
+    ancillaryWarning,
+  } = params;
+
+  return {
+    isConstitutionalEmergency: snap.isConstitutionalEmergency,
+    deadManSwitch,
+    systemMaturityScore: governance?.current?.score ?? null,
+    governanceDegradationActive: governance?.current?.governanceDegradationActive ?? false,
+    requiredForensicAttestationMin,
+    isSustainabilityApiDegraded,
+    isSustainabilityStaleLockdownBlocking,
+    sustainabilityStaleLockdownHours,
+    constitutionalRebaselinePending: snap.constitutionalRebaselinePending,
+    constitutionalDegradedMode: snap.constitutionalDegradedMode,
+    sha256: snap.sha256,
+    sha256Short: snap.sha256 ? shortenSha256Hex(snap.sha256) : "",
+    failureReason: snap.failureReason,
+    failureMessage: snap.failureMessage,
+    ironlockFreezeApplied: snap.ironlockFreezeApplied,
+    isOverrideSpent: snap.isOverrideSpent,
+    chaosSimulationActive: snap.chaosSimulationActive,
+    checkedAt: snap.checkedAt,
+    ...(ancillaryWarning ? { ancillaryWarning } : {}),
+  };
+}
 
 /**
  * Constitutional Integrity Sentinel — polled on app start / interval for emergency + rebirth.
@@ -19,58 +64,103 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const tenantId = await getActiveTenantUuidFromCookies();
-    const snap = await syncConstitutionalIntegrityEnforcement(tenantId);
-    if (snap.isConstitutionalEmergency) {
-      await checkAndExecuteDeadMansSwitch(true, tenantId);
+
+    let snap = getTasFingerprintSnapshot({ forceRefresh: true, tenantId });
+    try {
+      snap = await syncConstitutionalIntegrityEnforcement(tenantId);
+    } catch (e) {
+      console.error("[api/grc/tas-integrity] syncConstitutionalIntegrityEnforcement", e);
+      snap = getTasFingerprintSnapshot({ forceRefresh: true, tenantId });
     }
-    const deadManSwitch = await getDeadManSwitchStatus(snap.isConstitutionalEmergency, tenantId);
-    const governance = await readGovernanceMaturityState();
-    const cfg = await prisma.systemConfig.findUnique({
-      where: { id: "global" },
-      select: {
-        sustainabilityLiveApiDegraded: true,
-        sustainabilityApiDegradedSince: true,
-        sustainabilityStaleLockdownWaived: true,
-      },
-    });
+
+    let deadManSwitch: Awaited<ReturnType<typeof getDeadManSwitchStatus>> = {
+      armed: false,
+      expiresAt: null,
+      remainingMs: null,
+      resolved: false,
+      triggered: false,
+      lwtSent: false,
+      lwtArchiveId: null,
+      triggerTenantId: null,
+      isSimulation: false,
+    };
+    let governance = await readGovernanceMaturityState();
+    let cfg = null;
+    let ancillaryWarning: string | null = null;
+
+    try {
+      if (snap.isConstitutionalEmergency) {
+        await checkAndExecuteDeadMansSwitch(true, tenantId);
+      }
+      deadManSwitch = await getDeadManSwitchStatus(snap.isConstitutionalEmergency, tenantId);
+      governance = await readGovernanceMaturityState();
+      cfg = await readSystemConfigStaleLockdownSliceSafe();
+    } catch (e) {
+      ancillaryWarning = e instanceof Error ? e.message : "SystemConfig ancillary read failed";
+      console.error("[api/grc/tas-integrity] ancillary", e);
+    }
+
     const lock = computeSustainabilityStaleLockdown(cfg);
     const requiredForensicAttestationMin = Math.max(
       snap.requiredForensicAttestationMin,
       governance?.current?.neutralizeMinChars ?? 50,
     );
-    return NextResponse.json(
-      {
-        isConstitutionalEmergency: snap.isConstitutionalEmergency,
-        deadManSwitch,
-        systemMaturityScore: governance?.current?.score ?? null,
-        governanceDegradationActive: governance?.current?.governanceDegradationActive ?? false,
-        requiredForensicAttestationMin,
-        isSustainabilityApiDegraded: cfg?.sustainabilityLiveApiDegraded === true,
-        isSustainabilityStaleLockdownBlocking: lock.blockingMutations,
-        sustainabilityStaleLockdownHours: lock.hoursDegraded,
-        constitutionalRebaselinePending: snap.constitutionalRebaselinePending,
-        constitutionalDegradedMode: snap.constitutionalDegradedMode,
-        sha256: snap.sha256,
-        sha256Short: snap.sha256 ? shortenSha256Hex(snap.sha256) : "",
-        failureReason: snap.failureReason,
-        failureMessage: snap.failureMessage,
-        ironlockFreezeApplied: snap.ironlockFreezeApplied,
-        isOverrideSpent: snap.isOverrideSpent,
-        chaosSimulationActive: snap.chaosSimulationActive,
-        checkedAt: snap.checkedAt,
+
+    const body = buildIntegrityPayload({
+      snap,
+      deadManSwitch,
+      governance,
+      requiredForensicAttestationMin,
+      isSustainabilityApiDegraded: cfg?.sustainabilityLiveApiDegraded === true,
+      isSustainabilityStaleLockdownBlocking: lock.blockingMutations,
+      sustainabilityStaleLockdownHours: lock.hoursDegraded,
+      ancillaryWarning,
+    });
+
+    const httpStatus =
+      snap.isConstitutionalEmergency && !snap.constitutionalDegradedMode ? 503 : 200;
+
+    return NextResponse.json(body, {
+      status: httpStatus,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Constitutional-Emergency": snap.isConstitutionalEmergency ? "1" : "0",
+        "X-Constitutional-Rebaseline": snap.constitutionalRebaselinePending ? "1" : "0",
+        "X-Constitutional-Degraded": snap.constitutionalDegradedMode ? "1" : "0",
       },
-      {
-        status: snap.isConstitutionalEmergency && !snap.constitutionalDegradedMode ? 503 : 200,
-        headers: {
-          "Cache-Control": "no-store",
-          "X-Constitutional-Emergency": snap.isConstitutionalEmergency ? "1" : "0",
-          "X-Constitutional-Rebaseline": snap.constitutionalRebaselinePending ? "1" : "0",
-          "X-Constitutional-Degraded": snap.constitutionalDegradedMode ? "1" : "0",
-        },
-      },
-    );
+    });
   } catch (e) {
     console.error("[api/grc/tas-integrity]", e);
+    const assessment = assessTasMdIntegritySync();
+    if (assessment.ok) {
+      const snap = getTasFingerprintSnapshot({ forceRefresh: true });
+      return NextResponse.json(
+        buildIntegrityPayload({
+          snap: { ...snap, isConstitutionalEmergency: false, failureReason: null, failureMessage: null },
+          deadManSwitch: {
+            armed: false,
+            expiresAt: null,
+            remainingMs: null,
+            resolved: false,
+            triggered: false,
+            lwtSent: false,
+            lwtArchiveId: null,
+            triggerTenantId: null,
+            isSimulation: false,
+          },
+          governance: await readGovernanceMaturityState(),
+          requiredForensicAttestationMin: snap.requiredForensicAttestationMin,
+          isSustainabilityApiDegraded: false,
+          isSustainabilityStaleLockdownBlocking: false,
+          sustainabilityStaleLockdownHours: null,
+          ancillaryWarning: e instanceof Error ? e.message : "integrity check failed",
+        }),
+        {
+          status: 200,
+          headers: { "Cache-Control": "no-store", "X-Constitutional-Emergency": "0" },
+        },
+      );
+    }
     return NextResponse.json(
       {
         isConstitutionalEmergency: true,

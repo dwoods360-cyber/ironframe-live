@@ -59,11 +59,18 @@ import {
 import { manageCrmPipeline } from './tools/crmTools.js';
 import { handleVideoIngress } from './api/ingress/video.js';
 import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
+import { createGovernanceFrameRouter } from './governanceFrame/router.js';
+import { scanPublishedBriefings } from './governanceFrame/briefingScanner.js';
+import { resolveDocsRoot } from './governanceFrame/resolveDocsRoot.js';
 import { prefetchCorporateDocsForBoardQuery } from './services/ingress/docsBoardPrefetch.js';
 import { prefetchVideoIntelligenceForBoardQuery } from './services/ingress/videoBoardPrefetch.js';
 import { requiresCorporateDocsPrefetch } from './services/ingress/docsQueryIntent.js';
 import { requiresVideoIntelligencePrefetch } from './services/ingress/videoQueryIntent.js';
 import { buildBoardroomSystemInstruction, resolveVideoTimelineActiveFromPayload } from './services/boardroomSystemPrompt.js';
+import {
+  CORE_TELEMETRY_DISCONNECTED,
+  fetchIronframeSharedContext,
+} from './services/coreTelemetryBridge.js';
 import {
   buildToolExecutionDirective,
   prependVideoIntelligenceSystemOverride,
@@ -153,7 +160,10 @@ function buildDocsFederationMatrix(): string {
   const tas = readDoc(path.join(docsRoot, 'TAS.md'));
   const trd = readDoc(path.join(docsRoot, 'stakeholders', 'technical-requirements.md'));
   const hub = readDoc(path.join(docsRoot, 'hub.md'));
-  const loaded = [tas, trd, hub].filter(Boolean).length;
+  const monetizationBlueprint = readDoc(
+    path.join(docsRoot, 'stakeholder-deck', 'ironframe-monetization-market-blueprint-2026-q2.md'),
+  );
+  const loaded = [tas, trd, hub, monetizationBlueprint].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -161,6 +171,9 @@ function buildDocsFederationMatrix(): string {
     tas ? `\n── TAS.md ──\n${tas}` : '',
     trd ? `\n── technical-requirements.md ──\n${trd}` : '',
     hub ? `\n── hub.md ──\n${hub}` : '',
+    monetizationBlueprint
+      ? `\n── MONETIZATION & MARKET BLUEPRINT (Q2 2026 — BOARD PRIORITY) ──\n${monetizationBlueprint}`
+      : '',
     '═══ END FEDERATION ═══',
   ].join('\n');
 }
@@ -183,6 +196,7 @@ function buildSystemInstruction(
   query: string,
   linkScraperEnrichment: string,
   requestBody: unknown,
+  liveSystemTelemetryJson: string,
 ): string {
   return buildBoardroomSystemInstruction({
     leader,
@@ -195,6 +209,7 @@ function buildSystemInstruction(
     query,
     linkScraperEnrichment,
     requestBody,
+    liveSystemTelemetryJson,
   });
 }
 
@@ -625,6 +640,7 @@ async function runBoardroomToolStream(params: {
       const { text: finalText, rewritten } = finalizeSanitizedBoardCompletion(
         accumulatedText,
         sanitizeDenials,
+        { query: lastUserTurnText(history) },
       );
       if (finalText && !emitTokens) {
         writeSseToken(res, finalText, false);
@@ -1450,6 +1466,15 @@ function renderDashboard(): string {
         });
 
         if (!response.ok || !response.body) {
+          var errBody = null;
+          try {
+            errBody = await response.json();
+          } catch (parseErr) {
+            errBody = null;
+          }
+          if (response.status === 502 && errBody && errBody.error === 'CORE_TELEMETRY_DISCONNECTED') {
+            throw new Error(errBody.error + (errBody.detail ? ': ' + errBody.detail : ''));
+          }
           throw new Error('Request failed: ' + response.status);
         }
 
@@ -1540,6 +1565,26 @@ app.post('/api/query', async (req, res) => {
     return;
   }
 
+  const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
+
+  let liveSystemTelemetryJson: string;
+  try {
+    const telemetry = await fetchIronframeSharedContext({
+      incomingRequest: req,
+      tenantId,
+    });
+    liveSystemTelemetryJson = telemetry.jsonBody;
+  } catch (telemetryErr) {
+    const detail =
+      telemetryErr instanceof Error ? telemetryErr.message : 'Ironframe shared-context fetch failed';
+    res.status(502).json({
+      ok: false,
+      error: CORE_TELEMETRY_DISCONNECTED,
+      detail,
+    });
+    return;
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -1550,7 +1595,13 @@ app.post('/api/query', async (req, res) => {
     abort.closed = true;
   });
 
-  const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
+  writeSseToolCall(res, {
+    name: 'coreTelemetryBridge',
+    status: 'complete',
+    ok: true,
+    prefetch: true,
+    bytes: liveSystemTelemetryJson.length,
+  });
 
   writeSseToolCall(res, {
     name: 'linkScraper',
@@ -1708,7 +1759,15 @@ app.post('/api/query', async (req, res) => {
     }
 
     const systemInstruction = [
-      buildSystemInstruction(leader, flywheelContext, history, query, linkScraperEnrichment, req.body),
+      buildSystemInstruction(
+        leader,
+        flywheelContext,
+        history,
+        query,
+        linkScraperEnrichment,
+        req.body,
+        liveSystemTelemetryJson,
+      ),
       systemEnrichment,
       prefetchedExchange.length
         ? 'Discovery and workspace tools have ALREADY executed — functionResponse payloads are in the conversation history above. Synthesize strictly from those receipts. Never claim tools or live data are unavailable.'
@@ -1860,13 +1919,20 @@ app.post('/api/market/harvest', async (req, res) => {
 
 app.post('/api/ingress/video', handleVideoIngress);
 
+/** The Governance Frame — chronological markdown briefings (published ledger only). */
+app.use('/governance-frame', createGovernanceFrameRouter());
+
 app.use((_req, res) => {
   res.status(404).json({ status: 'NOT_FOUND' });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`[IRONBOARD ENGINE] Live at http://localhost:${PORT}/`);
+const server = app.listen(PORT, "127.0.0.1", () => {
+  console.log(`[IRONBOARD ENGINE] Live at http://127.0.0.1:${PORT}/`);
   console.log(`[IRONBOARD ENGINE] 17-agent boardroom online · Gemini: ${getIronboardApiKey() ? 'ready' : 'offline'}`);
+  const published = scanPublishedBriefings(resolveDocsRoot());
+  console.log(
+    `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:${PORT}/governance-frame · published=${published.length}`,
+  );
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

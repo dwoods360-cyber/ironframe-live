@@ -14,6 +14,7 @@ import {
   stripVideoAccessDenialPromptRules,
   VIDEO_INTELLIGENCE_DATA_OVERRIDE,
 } from './boardResponseLibrary.js';
+import { formatLiveSystemTelemetryBlock } from './coreTelemetryBridge.js';
 
 export type BoardroomSystemPromptInput = {
   leader: BoardPersona;
@@ -26,6 +27,8 @@ export type BoardroomSystemPromptInput = {
   query: string;
   requestBody?: unknown;
   linkScraperEnrichment?: string;
+  /** Raw JSON from GET /api/board/shared-context — injected before LLM synthesis. */
+  liveSystemTelemetryJson?: string;
 };
 
 export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInput): string {
@@ -42,6 +45,12 @@ export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInpu
     Boolean(input.linkScraperEnrichment?.includes(LINK_SCRAPER_VIDEO_TIMELINE_TAG));
 
   const priorityBlocks: string[] = [];
+  if (input.liveSystemTelemetryJson?.trim()) {
+    priorityBlocks.push(formatLiveSystemTelemetryBlock(input.liveSystemTelemetryJson));
+    priorityBlocks.push(
+      'The [LIVE SYSTEM TELEMETRY - ARCHITECTURE ENFORCED] block is authoritative Ironframe core telemetry (ALE cents, threats, compliance, sustainability). Never claim live workforce data is unavailable when this block is present.',
+    );
+  }
   if (videoTimelineActive) {
     priorityBlocks.push(VIDEO_INTELLIGENCE_DATA_OVERRIDE);
     priorityBlocks.push(BOARD_VIDEO_INTELLIGENCE_MANDATE);

@@ -102,6 +102,17 @@ export const KIMBOT_CANONICAL_ANSWER = [
   'Production sustainability / CSRD / Carbon ALE is owned by Ironbloom (Agent 17), which requires physical units and rejects monetary-only proxies.',
 ].join(' ');
 
+/** Phase 1 monetization decision — sales-assisted invite + Stripe (see stakeholder-deck blueprint). */
+export const PHASE1_MONETIZATION_BOARD_MANDATE = `
+PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
+- Model: SALES-ASSISTED INVITE ONLY for first revenue — not self-serve multi-subdomain provisioning.
+- Wire: inviteCorporateTenantUserAction + admin tenant UI + Stripe webhook → TenantBilling.status ACTIVE.
+- P0 blockers before charging: Stripe rails, /terms + /privacy, production quarantine narrowed for public routes, admin invite panel.
+- P1 before broad sales: tier entitlements, Epic 12 WORM honesty, stub page badges, SOC2-aligned (never certified) language.
+- Fastest revenue: Command tier, one price, 2–3 design partners while Phase 2 entitlements harden.
+- Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
+`.trim();
+
 export function buildStaticContextBundle(): string {
   const roster = AGENTIC_BOARD_ROSTER.map(
     a => `- ${a.role} (${a.id}): ${a.expertise.join(', ')} | book=${a.primaryBookAlignment}`,
@@ -116,6 +127,8 @@ export function buildStaticContextBundle(): string {
     '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
     '',
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
+    '',
+    PHASE1_MONETIZATION_BOARD_MANDATE,
     '',
     'FOUR PILLARS BLUEPRINT:',
     CODESPACE_FOUR_PILLARS_BLUEPRINT,

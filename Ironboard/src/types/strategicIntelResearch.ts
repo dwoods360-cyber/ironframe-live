@@ -35,7 +35,7 @@ export const ragChunkSchema = z.object({
   section: z.string().min(1),
   text: z.string().min(1),
   tags: z.array(z.string().min(1)).min(1),
-  priorityAgents: z.array(z.enum(['Ironintel', 'Ironscribe'])).min(1),
+  priorityAgents: z.array(z.enum(['Ironintel', 'Ironscribe', 'Ironwatch'])).min(1),
 });
 
 export const strategicIntelResearchManifestSchema = z.object({

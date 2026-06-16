@@ -1,9 +1,7 @@
 "use server";
 
-import {
-  buildPasswordResetRedirectUrl,
-  resolveAuthRedirectOrigin,
-} from "@/app/lib/auth/publicAppUrl";
+import { buildPasswordResetRedirectUrl } from "@/app/lib/auth/publicAppUrl";
+import { resolveAuthRedirectOrigin } from "@/app/lib/auth/publicAppUrl.server";
 import { createServerSessionClient } from "@/lib/supabase/serverSession";
 
 const GENERIC_SUCCESS =

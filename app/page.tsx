@@ -4,6 +4,7 @@
  */
 
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import DashboardGroupShell from "@/app/(dashboard)/DashboardGroupShell";
 import DashboardHomeClient from "@/app/components/DashboardHomeClient";
@@ -13,6 +14,7 @@ import {
   ensureDashboardTenantSession,
   resolveDashboardAccess,
 } from "@/app/lib/auth/dashboardRoleAccess";
+import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
 import { resolveDashboardActiveTenantUuid } from "@/app/lib/auth/resolveDashboardActiveTenant";
 import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { ingestGovernanceMaturityForTenant } from "@/app/lib/riskDeckIngress";
@@ -33,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "Ironframe | The Immutable Standard for AI-Driven GRC",
     description:
-      "Empowering Fintech SaaS from Seed to Series A with Deterministic Compliance and Operational Resilience.",
+      "Multi-tenant GRC command post for regulated enterprises — finance, healthcare, utilities, and defense. Deterministic threat-to-board telemetry with tenant-scoped vaults.",
   };
 }
 
@@ -41,6 +43,10 @@ export default async function HomePage() {
   const access = await ensureDashboardTenantSession(await resolveDashboardAccess());
 
   if (access.status === "unauthenticated") {
+    const h = await headers();
+    if (tenantSlugFromHost(h.get("host"))) {
+      redirect("/login");
+    }
     return <MarketingHomepage />;
   }
 

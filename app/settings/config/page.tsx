@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import TemplateEditor from "@/app/settings/config/TemplateEditor";
 import { useMailHubStore } from "@/app/utils/mailHubStore";
 import {
@@ -135,7 +136,13 @@ export default function SystemConfigPage() {
   return (
     <div className="min-h-full bg-[#050509] p-6">
       <section className="rounded border border-slate-800 bg-slate-900/40 p-4">
-        <h1 className="mb-4 text-[11px] font-bold uppercase tracking-wide text-white">SYSTEM CONFIGURATION // SOC EMAIL ORCHESTRATION</h1>
+        <h1 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-white">SYSTEM CONFIGURATION // SOC EMAIL ORCHESTRATION</h1>
+        <p className="mb-4 text-[10px] text-slate-500">
+          <Link href="/admin/onboarding" className="text-cyan-400 hover:underline">
+            Corporate client onboarding →
+          </Link>
+          <span className="text-slate-600"> · GLOBAL_ADMIN</span>
+        </p>
         <div className="mb-4 rounded border border-emerald-500/60 bg-emerald-500/10 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-300">Current User: Dereck</p>
         </div>

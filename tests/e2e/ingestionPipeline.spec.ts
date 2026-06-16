@@ -1,0 +1,178 @@
+import { test, expect } from "@playwright/test";
+
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { waitForDashboardReady } from "./helpers/dashboardGate";
+import {
+  LOCAL_APP_ORIGIN,
+  PILOT_CORP_SLUG,
+  assertTenantBillingActive,
+  buildCheckoutSessionCompletedEvent,
+  cleanupPilotCorpFixture,
+  disconnectE2ePrisma,
+  getE2ePrisma,
+  hasDatabaseUrl,
+  hasStripeWebhookSecrets,
+  hasSupabaseAdmin,
+  postSignedStripeWebhook,
+  redeemInviteOnTenantSubdomain,
+  tenantSubdomainOrigin,
+  uniquePilotBuyerEmail,
+} from "./helpers/ingestionPipeline";
+
+/**
+ * End-to-end verification of the invite-only sales funnel and Stripe async provisioning tunnel.
+ *
+ * Prerequisites (local):
+ * - `DATABASE_URL` — Prisma assertions against `prospects`, `Tenant`, `tenant_billing`
+ * - `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` — cryptographically signed webhook POST
+ * - `SUPABASE_SERVICE_ROLE_KEY` — invite redemption via magic link (blocks 3–4)
+ * - Dev server on localhost:3000 (Playwright webServer) and `*.lvh.me` → 127.0.0.1
+ */
+test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdomain isolation", () => {
+  const leadRunId = Date.now();
+  const leadOrgName = `E2E Lead Org ${leadRunId}`;
+  const leadEmail = `lead+e2e.${leadRunId}@ironframe.test`;
+  const leadAleDollars = "11,100,000";
+  const expectedLeadAleCents = 1_110_000_000n;
+
+  let pilotBuyerEmail = "";
+  let pilotTenantUuid = "";
+
+  test.beforeAll(async () => {
+    test.skip(!hasDatabaseUrl(), "DATABASE_URL is required for ingestion pipeline E2E.");
+    await cleanupPilotCorpFixture();
+  });
+
+  test.afterAll(async () => {
+    await disconnectE2ePrisma();
+  });
+
+  test("Block 1 — public lead capture commits BigInt ALE to prospects", async ({ page }) => {
+    await page.goto(`${LOCAL_APP_ORIGIN}/register/contact`);
+
+    await page.getByLabel(/Work email/i).fill(leadEmail);
+    await page.getByLabel(/Organization/i).fill(leadOrgName);
+    await page.getByLabel(/Estimated annual loss exposure/i).fill(leadAleDollars);
+    await page.getByLabel(/Full name/i).fill("E2E Lead Tester");
+
+    const [leadResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.url().includes("/api/register/public-lead") &&
+          res.request().method() === "POST",
+        { timeout: 30_000 },
+      ),
+      page.getByRole("button", { name: /Contact sales/i }).click(),
+    ]);
+
+    expect(leadResponse.ok(), await leadResponse.text()).toBe(true);
+
+    await expect(
+      page.getByText(/request has been recorded in the executive lead ledger/i),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const prospect = await getE2ePrisma().prospect.findFirst({
+      where: { email: leadEmail },
+      orderBy: { createdAt: "desc" },
+    });
+
+    expect(prospect).not.toBeNull();
+    expect(prospect!.orgName).toBe(leadOrgName);
+    expect(prospect!.reportedAle).toBe(expectedLeadAleCents);
+  });
+
+  test("Block 2 — signed Stripe webhook provisions tenant and ACTIVE billing", async ({
+    request,
+  }) => {
+    test.skip(!hasStripeWebhookSecrets(), "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET required.");
+    test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required for invite provisioning.");
+
+    pilotBuyerEmail = uniquePilotBuyerEmail();
+    const stripeCustomerId = `cus_e2e_${leadRunId}`;
+    const checkoutSessionId = `cs_e2e_${leadRunId}`;
+
+    const event = buildCheckoutSessionCompletedEvent({
+      email: pilotBuyerEmail,
+      slug: PILOT_CORP_SLUG,
+      companyName: "Pilot Corporation",
+      amountTotalCents: 4_999_00,
+      stripeCustomerId,
+      checkoutSessionId,
+    });
+
+    const { status, body } = await postSignedStripeWebhook(request, event);
+
+    expect(status, JSON.stringify(body)).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.tenantSlug).toBe(PILOT_CORP_SLUG);
+    expect(body.email).toBe(pilotBuyerEmail);
+
+    const tenant = await getE2ePrisma().tenant.findUnique({
+      where: { slug: PILOT_CORP_SLUG },
+    });
+    expect(tenant).not.toBeNull();
+    expect(tenant!.name).toBe("Pilot Corporation");
+    pilotTenantUuid = tenant!.id;
+
+    await assertTenantBillingActive(PILOT_CORP_SLUG);
+
+    const prospect = await getE2ePrisma().prospect.findUnique({
+      where: { slug: PILOT_CORP_SLUG },
+    });
+    expect(prospect).not.toBeNull();
+    expect(prospect!.reportedAle).toBe(499_900n);
+  });
+
+  test("Block 3 — invite redemption lands on tenant subdomain Command Post", async ({ page }) => {
+    test.skip(!pilotBuyerEmail, "Block 2 must provision pilot-corp first.");
+    test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required.");
+
+    await redeemInviteOnTenantSubdomain(page, pilotBuyerEmail, PILOT_CORP_SLUG);
+
+    await expect(page).toHaveURL(new RegExp(`${PILOT_CORP_SLUG}\\.lvh\\.me:3000`), {
+      timeout: 30_000,
+    });
+
+    const mode = await waitForDashboardReady(page);
+    expect(mode).toBe("dashboard");
+
+    const cookieTenant = await page.evaluate(() => {
+      const match = document.cookie.match(/(?:^|;\s*)ironframe-tenant=([^;]*)/);
+      const raw = match?.[1]?.trim();
+      if (!raw) return null;
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    });
+
+    expect(cookieTenant?.toLowerCase()).toBe(pilotTenantUuid.toLowerCase());
+  });
+
+  test("Block 4 — cross-tenant API fetch is rejected with 403", async ({ page }) => {
+    test.skip(!pilotTenantUuid, "Authenticated pilot-corp session required.");
+
+    await page.goto(tenantSubdomainOrigin(PILOT_CORP_SLUG));
+
+    const foreignTenantUuid = TENANT_UUIDS.vaultbank;
+    expect(foreignTenantUuid.toLowerCase()).not.toBe(pilotTenantUuid.toLowerCase());
+
+    const result = await page.evaluate(async (foreignUuid) => {
+      const res = await fetch(`/api/dmz/pipeline-telemetry?tenantUuid=${foreignUuid}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      let body: Record<string, unknown> = {};
+      try {
+        body = (await res.json()) as Record<string, unknown>;
+      } catch {
+        body = {};
+      }
+      return { status: res.status, error: String(body.error ?? "") };
+    }, foreignTenantUuid);
+
+    expect(result.status).toBe(403);
+    expect(result.error).toMatch(/cross-tenant|Tenant isolation/i);
+  });
+});

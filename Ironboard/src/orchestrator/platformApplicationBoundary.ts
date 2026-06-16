@@ -8,6 +8,7 @@ export const IRONBOARD_PORT = 8082 as const;
 
 /** Ironframe (:3000) — technical compliance deck only. */
 export const IRONFRAME_ENDPOINTS = [
+  '/api/board/shared-context',
   '/vendors',
   '/config',
   '/security-profile',

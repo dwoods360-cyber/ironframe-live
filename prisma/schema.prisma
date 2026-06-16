@@ -45,6 +45,29 @@ model Tenant {
   @@map("tenants")
 }
 
+/// Stripe subscription state keyed by tenant slug (Phase 1 design-partner billing rail).
+model TenantBilling {
+  id               String   @id @default(uuid())
+  tenantSlug       String   @unique @map("tenant_slug")
+  stripeCustomerId String   @unique @map("stripe_customer_id")
+  status           String   @default("PENDING") // PENDING, ACTIVE, PAST_DUE
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("tenant_billing")
+}
+
+/// Cryptographic record of in-app MSA + privacy acceptance (Supabase user id).
+model UserLegalConsent {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  termsVersion    String   @map("terms_version")
+  privacyVersion  String   @map("privacy_version")
+  acceptanceHash  String   @map("acceptance_hash")
+  acceptedAt      DateTime @default(now()) @map("accepted_at")
+
+  @@map("user_legal_consents")
+}
+
 /// Agentic compute telemetry — HASH-partitioned by `tenant_id` for billing and audit (Postgres 18).
 model AgentComputeLog {
   tenantId      String   @map("tenant_id") @db.Uuid
@@ -1298,6 +1321,21 @@ model IronbloomTenantSyncMeta {
   tenant                   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("ironbloom_tenant_sync_metas")
+}
+
+/// Sales-assisted executive lead ledger — vetted prospects from controlled intake (Board aggregation).
+model Prospect {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgName     String   @map("org_name")
+  slug        String   @unique
+  email       String
+  /// Reported ALE in whole USD cents (BigInt) for sales estimation metrics.
+  reportedAle BigInt   @map("reported_ale")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([email])
+  @@map("prospects")
 }
 
 /// IronBoard GTM autonomous prospecting flywheel (platform-level; not tenant-scoped).

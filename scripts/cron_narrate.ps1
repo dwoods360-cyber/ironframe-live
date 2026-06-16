@@ -9,6 +9,77 @@ function Log-Message($Message) {
     Add-Content -Path $LogFile -Value "[$Timestamp] $Message" -Encoding utf8
 }
 
+function Import-ProjectDotEnv {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    Get-Content -LiteralPath $Path -Encoding UTF8 | ForEach-Object {
+        $line = $_.Trim()
+        if (-not $line -or $line.StartsWith("#") -or -not $line.Contains("=")) { return }
+        $eq = $line.IndexOf("=")
+        $key = $line.Substring(0, $eq).Trim()
+        $value = $line.Substring($eq + 1).Trim()
+        if (
+            ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+            ($value.StartsWith("'") -and $value.EndsWith("'"))
+        ) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+        if ($key -and -not [string]::IsNullOrWhiteSpace($value)) {
+            Set-Item -Path "env:$key" -Value $value
+        }
+    }
+}
+
+function Resolve-CursorAgentLauncher {
+    $agentRoot = Join-Path $env:LOCALAPPDATA "cursor-agent"
+    if (Test-Path -LiteralPath $agentRoot) {
+        $env:Path = "$agentRoot;$env:Path"
+    }
+
+    # Prefer direct node+index.js — the root agent.ps1 shim fails on newer version dir names.
+    $versionsRoot = Join-Path $agentRoot "versions"
+    if (Test-Path -LiteralPath $versionsRoot) {
+        $versionDir = Get-ChildItem -Path $versionsRoot -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+        if ($versionDir) {
+            $nodeExe = Join-Path $versionDir.FullName "node.exe"
+            $indexJs = Join-Path $versionDir.FullName "index.js"
+            if ((Test-Path -LiteralPath $nodeExe) -and (Test-Path -LiteralPath $indexJs)) {
+                return @{
+                    Mode = "node"
+                    NodeExe = $nodeExe
+                    IndexJs = $indexJs
+                }
+            }
+        }
+    }
+
+    foreach ($candidate in @("agent", "cursor-agent")) {
+        $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
+        if ($resolved) {
+            return @{
+                Mode = "shim"
+                Command = $resolved.Source
+            }
+        }
+    }
+
+    return $null
+}
+
+function Invoke-CursorAgentCli {
+    param(
+        [hashtable]$Launcher,
+        [string[]]$AgentCliArgs
+    )
+    if ($Launcher.Mode -eq "node") {
+        & $Launcher.NodeExe $Launcher.IndexJs @AgentCliArgs
+    } else {
+        & $Launcher.Command @AgentCliArgs
+    }
+}
+
 function Get-WriterDeltaPrompt {
     param([string]$OperationalDate)
     @"
@@ -39,19 +110,54 @@ Active: Ironlogic & Irontally, generate a Corporate Governance Memo for $Operati
 
 function Invoke-CursorAgentPhase {
     param(
-        [string]$AgentBin,
+        [hashtable]$Launcher,
         [string]$PhaseLabel,
         [string]$Prompt
     )
     Log-Message $PhaseLabel
-    & $AgentBin agent -p --force --workspace $ProjectRoot $Prompt >> $LogFile 2>&1
+    $agentArgs = @(
+        "-p", "--force", "--trust",
+        "--workspace", $ProjectRoot,
+        $Prompt
+    )
+    Invoke-CursorAgentCli -Launcher $Launcher -AgentCliArgs $agentArgs >> $LogFile 2>&1
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
         Log-Message ("ERROR: Cursor agent phase failed with exit code " + $LASTEXITCODE + ".")
         Exit $LASTEXITCODE
     }
 }
 
+Import-ProjectDotEnv "$ProjectRoot\.env.local"
+Import-ProjectDotEnv "$ProjectRoot\.env"
+
 Log-Message "cron_narrate.ps1: starting (project root: $ProjectRoot)"
+
+$Launcher = Resolve-CursorAgentLauncher
+if (-not $Launcher) {
+    Log-Message "ERROR: Cursor CLI not found. Install: irm 'https://cursor.com/install?win32=true' | iex"
+    Exit 1
+}
+
+if ($Launcher.Mode -eq "node") {
+    Log-Message ("Using Cursor CLI via node: " + $Launcher.IndexJs)
+} else {
+    Log-Message ("Using Cursor CLI shim: " + $Launcher.Command)
+}
+
+if (-not $env:CURSOR_API_KEY) {
+    $env:CURSOR_API_KEY = [Environment]::GetEnvironmentVariable("CURSOR_API_KEY", "User")
+}
+if (-not $env:CURSOR_API_KEY) {
+    Log-Message "ERROR: CURSOR_API_KEY is not set. Add it to User env vars or .env.local for unattended 03:00 runs."
+    Exit 1
+}
+
+$authStatus = Invoke-CursorAgentCli -Launcher $Launcher -AgentCliArgs @("status") 2>&1 | Out-String
+if ($authStatus -match "Not logged in" -and -not $env:CURSOR_API_KEY) {
+    Log-Message "ERROR: Cursor agent is not authenticated."
+    Exit 1
+}
+Log-Message "Cursor agent auth: API key configured."
 
 git fetch --quiet origin 2>$null
 
@@ -84,34 +190,20 @@ $WriterPrompt = Get-WriterDeltaPrompt -OperationalDate $OperationalDate
 $IntelPrompt = Get-IntelOsintPrompt -OperationalDateLabel $OperationalDateLabel
 $BoardPrompt = Get-BoardGovernancePrompt -OperationalDateLabel $OperationalDateLabel
 
-$AgentBin = $null
-foreach ($candidate in @("cursor-agent", "agent")) {
-    $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($resolved) {
-        $AgentBin = $candidate
-        break
-    }
-}
-
-if (-not $AgentBin) {
-    Log-Message "ERROR: Cursor CLI not found (tried: cursor-agent, agent). Install: irm 'https://cursor.com/install?win32=true' | iex"
-    Exit 1
-}
-
-Log-Message ("Using Cursor CLI: " + $AgentBin + " (operational date: " + $OperationalDate + ")")
+Log-Message ("Operational date: " + $OperationalDate)
 
 # 1. Internal code documentation (The Writer)
-Invoke-CursorAgentPhase -AgentBin $AgentBin `
+Invoke-CursorAgentPhase -Launcher $Launcher `
     -PhaseLabel "Invoking Narrative Architect for internal code changes..." `
     -Prompt $WriterPrompt
 
 # 2. Live external intel search (The Search Engine)
-Invoke-CursorAgentPhase -AgentBin $AgentBin `
+Invoke-CursorAgentPhase -Launcher $Launcher `
     -PhaseLabel "Invoking Ironintel & Irongate for live morning OSINT sweep..." `
     -Prompt $IntelPrompt
 
 # 3. Corporate governance memo (The Board Secretary)
-Invoke-CursorAgentPhase -AgentBin $AgentBin `
+Invoke-CursorAgentPhase -Launcher $Launcher `
     -PhaseLabel "Invoking Ironlogic & Irontally for Corporate Governance Memo..." `
     -Prompt $BoardPrompt
 

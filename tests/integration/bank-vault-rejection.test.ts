@@ -13,6 +13,9 @@ vi.mock("next/headers", () => ({
       return undefined;
     },
   })),
+  headers: vi.fn(async () => ({
+    get: (_name: string) => null,
+  })),
 }));
 
 const { prismaMock } = vi.hoisted(() => ({

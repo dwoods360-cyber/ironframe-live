@@ -35,3 +35,7 @@ tsconfig.tsbuildinfo
 debug.zip
 scripts/vercel-env-preview-pki.mjs
 secrets-replacements.txt
+.env*
+
+# Google Cloud Platform IAM Keys
+ironframe-prod-907f1402c60c.json

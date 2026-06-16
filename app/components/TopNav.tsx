@@ -11,14 +11,23 @@ import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
+import { useTenantBrand } from "@/app/hooks/useTenantBrand";
+import TenantCoBrandBadge from "@/app/components/brand/TenantCoBrandBadge";
+import TenantBrandAccent from "@/app/components/brand/TenantBrandAccent";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 import { LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import TopNavUserProfileMenu from "@/app/components/TopNavUserProfileMenu";
 
 export default function TopNav() {
   const pathname = usePathname();
+  const hostTenantSlug = useHostTenantSlug();
+  const { brand: tenantBrand, isCoBranded } = useTenantBrand();
   const { isLoading: userLoading, isGuest } = useOperatorIdentity();
-  const routes = useMemo(() => buildHeaderRouteMatrix(pathname), [pathname]);
+  const routes = useMemo(
+    () => buildHeaderRouteMatrix(pathname, hostTenantSlug),
+    [pathname, hostTenantSlug],
+  );
   const {
     isAuditTrailRoute,
     isEvidenceRoute,
@@ -57,7 +66,9 @@ export default function TopNav() {
       ? "EXECUTIVE // BOARD REPORT"
     : isOpSupportRoute
       ? "OP SUPPORT // INGRESS & SANITIZATION"
-      : "ACTIVE GRC";
+      : isCoBranded && tenantBrand
+        ? `${tenantBrand.shortLabel} // ${tenantBrand.aleDisplay} ALE BASELINE`
+        : "ACTIVE GRC";
 
   const handleVendorDownload = () => {
     if (typeof window === "undefined") {
@@ -80,10 +91,23 @@ export default function TopNav() {
 
   return (
     <header className="w-full">
+      <TenantBrandAccent brand={tenantBrand} />
       <div className={`${LAYOUT_MASTER_HEADER_Z_CLASS} ironframe-topnav-master relative flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6`}>
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-black tracking-widest text-white">IRONFRAME CORE</span>
+            <Link
+              href="/"
+              className="transition hover:opacity-90"
+              data-testid="topnav-brand-home-link"
+            >
+              {isCoBranded ? (
+                <TenantCoBrandBadge brand={tenantBrand} size="sm" />
+              ) : (
+                <span className="font-mono text-sm font-black tracking-widest text-white hover:text-teal-300">
+                  IRONFRAME CORE
+                </span>
+              )}
+            </Link>
             <span className="text-sm text-slate-800">|</span>
             <span
               className={`rounded border px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-widest shadow-sm ${

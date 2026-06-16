@@ -6,6 +6,13 @@ import { buildIrontallyFrameworkSnapshot } from "@/app/services/irontallyMapper"
 
 function resolveFrameworkId(payload: Record<string, unknown>): IrontallyFrameworkId {
   const haystack = JSON.stringify(payload).toLowerCase();
+  if (haystack.includes("dora") || haystack.includes("digital operational resilience")) return "dora";
+  if (haystack.includes("eu ai act") || haystack.includes("art. 9") || haystack.includes("art. 15"))
+    return "eu_ai_act";
+  if (haystack.includes("nydfs") || haystack.includes("part 500") || haystack.includes("500.12"))
+    return "nydfs_500";
+  if (haystack.includes("uk cs") || haystack.includes("cs&r") || haystack.includes("cyber security and resilience"))
+    return "uk_csr";
   if (haystack.includes("csrd") || haystack.includes("esrs")) return "csrd_esrs";
   if (haystack.includes("iso") || haystack.includes("27001")) return "iso_27001";
   if (haystack.includes("nist") || haystack.includes("csf")) return "nist_csf";

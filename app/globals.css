@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./styles/executive-light-palette.css";
 
 /* Tailwind v4 theme overrides: hex palette for Turbopack and broad browser compatibility. */
 @theme {
@@ -610,6 +611,25 @@ body {
   body.board-report-print-mode #board-report-print-root .rounded-lg {
     background: #fff !important;
   }
+
+  body.onboarding-test-assets-print-mode .fixed.z-50,
+  body.onboarding-test-assets-print-mode .ironframe-topnav-master,
+  body.onboarding-test-assets-print-mode .ironframe-topnav-subnav {
+    display: none !important;
+  }
+  body.onboarding-test-assets-print-mode .command-center-surface {
+    margin-top: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body.onboarding-test-assets-print-mode .ironframe-ingestion-test-suite,
+  body.onboarding-test-assets-print-mode .ironframe-ingestion-test-suite * {
+    color: #0f172a !important;
+  }
+  body.onboarding-test-assets-print-mode .page-break-after {
+    page-break-after: always;
+  }
 }
 
 /* Insurance ↔ Forensic connector: left-to-right cyan flow during posture sync */
@@ -633,23 +653,29 @@ body {
 /* --- Ironframe UI theme engine (profile menu → document.body data attributes) --- */
 html[data-ironframe-theme="executive-light"],
 body[data-ironframe-theme="executive-light"] {
-  --if-shell-bg: #f8fafc;
-  --if-shell-text: #0f172a;
+  --if-shell-bg: #ffffff;
+  --if-shell-text: #202124;
   --bg-primary: #ffffff;
-  --text-main: #0f172a;
-  --text-primary: #0f172a;
-  --login-border: #cbd5e1;
-  --login-muted: #475569;
-  --login-error: #b91c1c;
-  --login-accent: #15803d;
-  --bg-secondary: #f1f5f9;
-  --login-warning: #b45309;
-  --if-topnav-border: #cbd5e1;
-  --if-subnav-bg: #f1f5f9;
-  --if-subnav-border: #e2e8f0;
-  --if-status-success: #15803d;
-  --if-status-danger: #b91c1c;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f1f3f4;
+  --border-color: #dadce0;
+  --text-main: #202124;
+  --text-primary: #202124;
+  --text-secondary: #5f6368;
+  --text-tertiary: #80868b;
+  --login-border: #dadce0;
+  --login-muted: #5f6368;
+  --login-error: #d93025;
+  --login-accent: #188038;
+  --login-warning: #ea8600;
+  --if-topnav-bg: #ffffff;
+  --if-topnav-border: #dadce0;
+  --if-subnav-bg: #f8f9fa;
+  --if-subnav-border: #dadce0;
+  --if-status-success: #188038;
+  --if-status-danger: #d93025;
   --if-shadow-policy: none;
+  --accent-primary: #1a73e8;
   color-scheme: light;
 }
 
@@ -824,4 +850,24 @@ body[data-ironframe-theme="executive-light"] .ironframe-public-landing [class*="
     border-color: rgba(161, 161, 170, 0.75);
     box-shadow: 0 0 14px 0 rgba(148, 163, 184, 0.25);
   }
+}
+
+/* Public registration — inputs stay visually empty; hints live outside the field */
+.ironframe-public-registration input[data-registration-field] {
+  color: var(--text-main);
+}
+
+.ironframe-public-registration input[data-registration-field]::placeholder {
+  color: var(--login-muted);
+  opacity: 0.55;
+}
+
+.ironframe-public-registration input[data-registration-field]:-webkit-autofill,
+.ironframe-public-registration input[data-registration-field]:-webkit-autofill:hover,
+.ironframe-public-registration input[data-registration-field]:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-primary) inset !important;
+  box-shadow: 0 0 0 1000px var(--bg-primary) inset !important;
+  -webkit-text-fill-color: var(--text-main) !important;
+  caret-color: var(--text-main);
+  transition: background-color 99999s ease-out 0s;
 }

@@ -154,7 +154,29 @@ function readAssessment(tenantId?: string | null): TasMdIntegrityAssessment {
       message: `[CHAOS:CONSTITUTIONAL_COLLAPSE] Simulated TAS.md void for tenant ${tenantId.trim()}`,
     };
   }
-  return assessTasMdIntegritySync();
+  const assessment = assessTasMdIntegritySync();
+  if (process.env.NODE_ENV === "development" && assessment.ok) {
+    releaseDevIronlockLatches();
+  }
+  return assessment;
+}
+
+/** Local dev: drop in-memory Ironlock void latches when TAS.md is present (HMR-safe). */
+function releaseDevIronlockLatches(): void {
+  if (
+    !ironlockFreezeApplied &&
+    !constitutionalRebaselinePending &&
+    !emergencyFatalLogged &&
+    !constitutionalDegradedMode
+  ) {
+    return;
+  }
+  ironlockFreezeApplied = false;
+  constitutionalRebaselinePending = false;
+  emergencyFatalLogged = false;
+  constitutionalDegradedMode = false;
+  invalidateTasFingerprintCache();
+  console.log("[tasFingerprint][dev] Ironlock constitutional latch cleared — TAS.md validated");
 }
 
 export function invalidateTasFingerprintCache(): void {
@@ -799,8 +821,24 @@ export async function syncConstitutionalIntegrityEnforcement(
   tenantId?: string | null,
 ): Promise<TasFingerprintSnapshot> {
   const tenantScope = tenantId?.trim() ?? null;
-  const priorEmergency = cachedSnapshot?.isConstitutionalEmergency ?? false;
   const chaosVoid = Boolean(tenantScope && isChaosConstitutionalVoidActive(tenantScope));
+  const assessment = readAssessment(tenantScope);
+
+  if (process.env.NODE_ENV === "development" && assessment.ok && !chaosVoid) {
+    return getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
+  }
+
+  if (
+    assessment.ok &&
+    !chaosVoid &&
+    !ironlockFreezeApplied &&
+    !emergencyFatalLogged &&
+    !constitutionalRebaselinePending
+  ) {
+    return getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
+  }
+
+  const priorEmergency = cachedSnapshot?.isConstitutionalEmergency ?? false;
   const snap = getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
 
   if (snap.isConstitutionalEmergency) {

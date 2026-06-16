@@ -1,15 +1,16 @@
-import type { TenantKey } from "@/app/utils/tenantIsolation";
+import { normalizeTenantSlugInput, isValidTenantSlugLabel, isReservedTenantSlugLabel } from "@/app/lib/tenantSubdomain";
 
-const TENANT_SLUGS = new Set<TenantKey>(["medshield", "vaultbank", "gridcore", "defense"]);
-
-export function normalizeCorporateTenantSlug(raw: string): TenantKey | null {
-  const slug = raw.trim().toLowerCase();
-  return TENANT_SLUGS.has(slug as TenantKey) ? (slug as TenantKey) : null;
+export function normalizeCorporateTenantSlug(raw: string): string | null {
+  const slug = normalizeTenantSlugInput(raw);
+  if (!slug || !isValidTenantSlugLabel(slug) || isReservedTenantSlugLabel(slug)) {
+    return null;
+  }
+  return slug;
 }
 
 export function readTenantSlugFromUserMetadata(
   metadata: Record<string, unknown> | null | undefined,
-): TenantKey | null {
+): string | null {
   if (!metadata || typeof metadata !== "object") return null;
   const raw = metadata.tenant_slug;
   if (typeof raw !== "string") return null;

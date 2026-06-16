@@ -28,6 +28,10 @@ export const READINESS_FRAMEWORKS: Array<{
   { frameworkId: "soc2_type2", framework: "SOC2" },
   { frameworkId: "iso_27001", framework: "ISO27001" },
   { frameworkId: "csrd_esrs", framework: "CSRD" },
+  { frameworkId: "eu_ai_act", framework: "EU_AI_ACT" },
+  { frameworkId: "dora", framework: "DORA" },
+  { frameworkId: "nydfs_500", framework: "NYDFS_500" },
+  { frameworkId: "uk_csr", framework: "UK_CSR" },
 ];
 
 export const IRONTALLY_EVIDENCE_AUDIT_ACTIONS = [

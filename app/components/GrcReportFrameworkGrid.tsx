@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { FileText } from "lucide-react";
 import { GRC_FRAMEWORK_CATEGORIES } from "@/app/config/grcFrameworks";
+import { getStagedNavSurface } from "@/app/config/stagedNavSurfaces";
+import StagedNavLink from "@/app/components/nav/StagedNavLink";
 import { useRiskStore } from "@/app/store/riskStore";
+import Link from "next/link";
 
 /**
  * Reports hub: compliance framework chips driven by `grcFrameworks` config.
@@ -28,19 +30,39 @@ export default function GrcReportFrameworkGrid() {
           <div className="flex flex-wrap gap-2">
             {group.frameworks.map((report) => {
               const active = activeFrameworkIds.includes(report.id);
+              const staged = getStagedNavSurface(report.href);
+              const chipClass = active
+                ? "flex items-center gap-2 rounded-full border border-blue-500 bg-blue-500/15 px-3 py-1.5 text-[10px] text-white transition-all hover:border-blue-400"
+                : "flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-[10px] text-slate-300 transition-all hover:border-blue-500 hover:text-white";
+
+              const label = (
+                <>
+                  <FileText className="h-3 w-3 shrink-0" />
+                  {report.label}
+                </>
+              );
+
+              if (staged) {
+                return (
+                  <StagedNavLink
+                    key={report.id}
+                    href={report.href}
+                    onClick={() => toggleFramework(report.id)}
+                    className={chipClass}
+                  >
+                    {label}
+                  </StagedNavLink>
+                );
+              }
+
               return (
                 <Link
                   key={report.id}
                   href={report.href}
                   onClick={() => toggleFramework(report.id)}
-                  className={
-                    active
-                      ? "flex items-center gap-2 rounded-full border border-blue-500 bg-blue-500/15 px-3 py-1.5 text-[10px] text-white transition-all hover:border-blue-400"
-                      : "flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-[10px] text-slate-300 transition-all hover:border-blue-500 hover:text-white"
-                  }
+                  className={chipClass}
                 >
-                  <FileText className="h-3 w-3 shrink-0" />
-                  {report.label}
+                  {label}
                 </Link>
               );
             })}

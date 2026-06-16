@@ -22,6 +22,7 @@ vi.mock("@/app/lib/grc/devConstitutionalElevation", () => ({
 }));
 
 vi.mock("@/app/utils/serverTenantContext", () => ({
+  getHostBoundTenantUuid: vi.fn(async () => null),
   getScopedTenantUuidFromCookies: vi.fn(async () => null),
   isValidTenantUuid: (value: string | null | undefined) =>
     typeof value === "string" &&
@@ -87,6 +88,23 @@ describe("resolveDashboardAccess", () => {
       userId: "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b",
       tenantUuid: VAULT,
       tenantFallbackApplied: false,
+    });
+  });
+
+  it("returns pending on host-bound tenant without RBAC assignment", async () => {
+    const { getHostBoundTenantUuid, getScopedTenantUuidFromCookies } = await import(
+      "@/app/utils/serverTenantContext"
+    );
+    vi.mocked(getHostBoundTenantUuid).mockResolvedValue(VAULT);
+    vi.mocked(getScopedTenantUuidFromCookies).mockResolvedValue(VAULT);
+    vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([{ tenantId: MED }]);
+
+    const result = await resolveDashboardAccess();
+    expect(result).toEqual({
+      status: "pending",
+      userId: "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b",
+      tenantUuid: VAULT,
     });
   });
 });

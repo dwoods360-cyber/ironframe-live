@@ -103,6 +103,53 @@ export const TAS_CONSTITUTIONAL_OBLIGATIONS: readonly TasConstitutionalObligatio
     regulationTriggers: [/benchmark/i, /building performance/i, /\bbps\b/i, /clean buildings/i, /minnesota/i],
     impliedRequiredDays: 90,
   },
+  {
+    id: "dora_ict_resilience",
+    tasSection: "4",
+    tasSectionTitle: "Operational Resilience",
+    anchorId: "agent-13",
+    tasLine: 48,
+    agentLabel: "Ironwatch (Agent 13)",
+    currentPosture:
+      "Ironwatch health-posture triage and gridcore-rate-poll crons provide ICT resilience telemetry for DORA-aligned financial entities.",
+    regulationTriggers: [/dora/i, /digital operational resilience/i, /ict incident/i, /financial entity/i],
+    impliedRequiredDays: 24,
+  },
+  {
+    id: "eu_ai_act_high_risk",
+    tasSection: "2 / 19",
+    tasSectionTitle: "High-Risk AI Systems",
+    anchorId: "agent-19",
+    tasLine: 58,
+    agentLabel: "Irontally (Agent 19)",
+    currentPosture:
+      "Irontally maps Art. 9–15 obligations to Irongate ingress, Ironlock oversight, and Irontrust BigInt risk quantification.",
+    regulationTriggers: [/eu ai act/i, /high-risk ai/i, /art\.?\s*9/i, /art\.?\s*15/i],
+    impliedRequiredDays: 90,
+  },
+  {
+    id: "nydfs_mfa",
+    tasSection: "3",
+    tasSectionTitle: "Privileged Access & MFA",
+    anchorId: "agent-14",
+    tasLine: 53,
+    agentLabel: "Irongate / Bank Vault",
+    currentPosture:
+      "Bank Vault Gate A PKI signatures and constitutional emergency MFA overlay satisfy NYDFS Part 500.12 attestation requirements.",
+    regulationTriggers: [/nydfs/i, /part 500/i, /500\.12/i, /multi-factor authentication/i],
+  },
+  {
+    id: "uk_csr_incident",
+    tasSection: "4.2",
+    tasSectionTitle: "UK Material Incident Notification",
+    anchorId: "agent-7",
+    tasLine: 46,
+    agentLabel: "Ironcast (Agent 7)",
+    currentPosture:
+      "Ironcast manages executive notification paths; UK CS&R 24h/72h material incident windows require drill policy alignment.",
+    regulationTriggers: [/uk cs&r/i, /cyber security and resilience/i, /24 hours/i, /72 hours/i, /material incident/i],
+    impliedRequiredDays: 1,
+  },
 ];
 
 export function extractRequiredDaysFromRegulation(text: string): number | null {

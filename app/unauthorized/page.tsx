@@ -1,6 +1,8 @@
 import AccessPending from "@/app/components/AccessPending";
 import { resolveDashboardAccess } from "@/app/lib/auth/dashboardRoleAccess";
+import { resolvePostAuthLandingPath } from "@/app/lib/tenantSubdomain";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,8 @@ export default async function UnauthorizedPage() {
   const access = await resolveDashboardAccess();
 
   if (access.status === "allowed") {
-    redirect("/integrity");
+    const h = await headers();
+    redirect(resolvePostAuthLandingPath(h.get("host")));
   }
 
   if (access.status === "unauthenticated") {

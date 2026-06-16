@@ -15,7 +15,16 @@ import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 
 export const dynamic = "force-dynamic";
 
-const FRAMEWORK_IDS: IrontallyFrameworkId[] = ["nist_csf", "iso_27001", "soc2_type2"];
+const FRAMEWORK_IDS: IrontallyFrameworkId[] = [
+  "nist_csf",
+  "iso_27001",
+  "soc2_type2",
+  "csrd_esrs",
+  "eu_ai_act",
+  "dora",
+  "nydfs_500",
+  "uk_csr",
+];
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 

@@ -1,0 +1,340 @@
+/**
+ * Executive Light — Google-inspired white + gray palette.
+ * Remaps dark Tailwind utilities app-wide when data-ironframe-theme="executive-light".
+ */
+html[data-ironframe-theme="executive-light"] {
+  --if-accent-link: #1a73e8;
+  --if-accent-link-hover: #174ea6;
+  --if-surface-hover: #f1f3f4;
+  --if-surface-muted: #f8f9fa;
+  --if-border-subtle: #dadce0;
+  --if-border-strong: #bdc1c6;
+}
+
+/* --- Base surfaces --- */
+html[data-ironframe-theme="executive-light"],
+html[data-ironframe-theme="executive-light"] body,
+html[data-ironframe-theme="executive-light"] main,
+html[data-ironframe-theme="executive-light"] .ironframe-layout-body,
+html[data-ironframe-theme="executive-light"] .ironframe-app-shell,
+html[data-ironframe-theme="executive-light"] .command-center-surface {
+  background-color: var(--if-shell-bg, #ffffff) !important;
+  color: var(--if-shell-text, #202124);
+}
+
+html[data-ironframe-theme="executive-light"] .command-center-surface::before,
+html[data-ironframe-theme="executive-light"] .command-center-surface::after {
+  opacity: 0.04;
+  background: none;
+}
+
+html[data-ironframe-theme="executive-light"] .command-center-surface::before {
+  background:
+    linear-gradient(to right, rgba(218, 220, 224, 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(218, 220, 224, 0.5) 1px, transparent 1px);
+  background-size: 48px 48px, 48px 48px;
+}
+
+html[data-ironframe-theme="executive-light"] .command-center-surface::after {
+  display: none;
+}
+
+/* --- Dark background → white / light gray --- */
+html[data-ironframe-theme="executive-light"] .bg-slate-950,
+html[data-ironframe-theme="executive-light"] .bg-slate-900,
+html[data-ironframe-theme="executive-light"] .bg-zinc-950,
+html[data-ironframe-theme="executive-light"] .bg-zinc-900,
+html[data-ironframe-theme="executive-light"] .bg-gray-950,
+html[data-ironframe-theme="executive-light"] .bg-gray-900,
+html[data-ironframe-theme="executive-light"] .bg-black {
+  background-color: #ffffff !important;
+}
+
+html[data-ironframe-theme="executive-light"] .bg-slate-800,
+html[data-ironframe-theme="executive-light"] .bg-zinc-800,
+html[data-ironframe-theme="executive-light"] .bg-gray-800 {
+  background-color: #f8f9fa !important;
+}
+
+html[data-ironframe-theme="executive-light"] .bg-slate-700,
+html[data-ironframe-theme="executive-light"] .bg-zinc-700,
+html[data-ironframe-theme="executive-light"] .bg-gray-700 {
+  background-color: #f1f3f4 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .bg-slate-600,
+html[data-ironframe-theme="executive-light"] .bg-zinc-600 {
+  background-color: #e8eaed !important;
+}
+
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/10,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/20,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/30,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/40,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/50,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/60,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/70,
+html[data-ironframe-theme="executive-light"] .bg-slate-900\/80,
+html[data-ironframe-theme="executive-light"] .bg-slate-950\/50,
+html[data-ironframe-theme="executive-light"] .bg-slate-950\/80,
+html[data-ironframe-theme="executive-light"] .bg-black\/20,
+html[data-ironframe-theme="executive-light"] .bg-black\/30,
+html[data-ironframe-theme="executive-light"] .bg-black\/40,
+html[data-ironframe-theme="executive-light"] .bg-black\/50,
+html[data-ironframe-theme="executive-light"] .bg-black\/60,
+html[data-ironframe-theme="executive-light"] .bg-black\/70,
+html[data-ironframe-theme="executive-light"] .bg-black\/80 {
+  background-color: #f8f9fa !important;
+}
+
+html[data-ironframe-theme="executive-light"] .bg-teal-950\/20,
+html[data-ironframe-theme="executive-light"] .bg-teal-950\/30,
+html[data-ironframe-theme="executive-light"] .bg-teal-950\/40,
+html[data-ironframe-theme="executive-light"] .bg-teal-950\/50 {
+  background-color: #e8f0fe !important;
+}
+
+/* --- Light text on dark → dark gray text --- */
+html[data-ironframe-theme="executive-light"] .text-white,
+html[data-ironframe-theme="executive-light"] .text-slate-50,
+html[data-ironframe-theme="executive-light"] .text-slate-100,
+html[data-ironframe-theme="executive-light"] .text-zinc-50,
+html[data-ironframe-theme="executive-light"] .text-zinc-100,
+html[data-ironframe-theme="executive-light"] .text-gray-50,
+html[data-ironframe-theme="executive-light"] .text-gray-100 {
+  color: #202124 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-slate-200,
+html[data-ironframe-theme="executive-light"] .text-zinc-200,
+html[data-ironframe-theme="executive-light"] .text-gray-200 {
+  color: #3c4043 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-slate-300,
+html[data-ironframe-theme="executive-light"] .text-zinc-300,
+html[data-ironframe-theme="executive-light"] .text-gray-300 {
+  color: #5f6368 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-slate-400,
+html[data-ironframe-theme="executive-light"] .text-zinc-400,
+html[data-ironframe-theme="executive-light"] .text-gray-400 {
+  color: #80868b !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-slate-500,
+html[data-ironframe-theme="executive-light"] .text-zinc-500,
+html[data-ironframe-theme="executive-light"] .text-gray-500 {
+  color: #9aa0a6 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-slate-600,
+html[data-ironframe-theme="executive-light"] .text-slate-700,
+html[data-ironframe-theme="executive-light"] .text-slate-800 {
+  color: #5f6368 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-teal-400,
+html[data-ironframe-theme="executive-light"] .text-teal-300 {
+  color: #1a73e8 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-emerald-400,
+html[data-ironframe-theme="executive-light"] .text-emerald-500 {
+  color: #188038 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-rose-400,
+html[data-ironframe-theme="executive-light"] .text-red-400 {
+  color: #d93025 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .text-amber-400,
+html[data-ironframe-theme="executive-light"] .text-yellow-400 {
+  color: #ea8600 !important;
+}
+
+/* --- Borders --- */
+html[data-ironframe-theme="executive-light"] .border-slate-950,
+html[data-ironframe-theme="executive-light"] .border-slate-900,
+html[data-ironframe-theme="executive-light"] .border-slate-800,
+html[data-ironframe-theme="executive-light"] .border-slate-700,
+html[data-ironframe-theme="executive-light"] .border-slate-600,
+html[data-ironframe-theme="executive-light"] .border-zinc-900,
+html[data-ironframe-theme="executive-light"] .border-zinc-800,
+html[data-ironframe-theme="executive-light"] .border-zinc-700,
+html[data-ironframe-theme="executive-light"] .border-gray-800,
+html[data-ironframe-theme="executive-light"] .border-gray-700 {
+  border-color: #dadce0 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .border-teal-900\/40,
+html[data-ironframe-theme="executive-light"] .border-teal-900\/50,
+html[data-ironframe-theme="executive-light"] .border-teal-800 {
+  border-color: #dadce0 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+html[data-ironframe-theme="executive-light"] .divide-slate-700 > :not([hidden]) ~ :not([hidden]),
+html[data-ironframe-theme="executive-light"] .divide-zinc-800 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #dadce0 !important;
+}
+
+/* --- Hover states --- */
+html[data-ironframe-theme="executive-light"] .hover\:bg-slate-900:hover,
+html[data-ironframe-theme="executive-light"] .hover\:bg-slate-800:hover,
+html[data-ironframe-theme="executive-light"] .hover\:bg-slate-700:hover,
+html[data-ironframe-theme="executive-light"] .hover\:bg-zinc-900:hover,
+html[data-ironframe-theme="executive-light"] .hover\:bg-zinc-800:hover {
+  background-color: #f1f3f4 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .hover\:bg-teal-500:hover {
+  background-color: #1a73e8 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .hover\:text-white:hover,
+html[data-ironframe-theme="executive-light"] .hover\:text-slate-200:hover,
+html[data-ironframe-theme="executive-light"] .hover\:text-slate-100:hover {
+  color: #202124 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .hover\:border-slate-800:hover,
+html[data-ironframe-theme="executive-light"] .hover\:border-slate-700:hover {
+  border-color: #bdc1c6 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .hover\:text-teal-400:hover {
+  color: #174ea6 !important;
+}
+
+/* --- Shadows & rings (flat Google-style) --- */
+html[data-ironframe-theme="executive-light"] [class*="shadow"],
+html[data-ironframe-theme="executive-light"] .shadow-sm,
+html[data-ironframe-theme="executive-light"] .shadow,
+html[data-ironframe-theme="executive-light"] .shadow-md,
+html[data-ironframe-theme="executive-light"] .shadow-lg,
+html[data-ironframe-theme="executive-light"] .shadow-xl,
+html[data-ironframe-theme="executive-light"] .shadow-2xl {
+  box-shadow: none !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ring-slate-800,
+html[data-ironframe-theme="executive-light"] .ring-slate-700,
+html[data-ironframe-theme="executive-light"] .ring-zinc-800 {
+  --tw-ring-color: #dadce0 !important;
+}
+
+/* --- Scrollbars --- */
+html[data-ironframe-theme="executive-light"] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(95, 99, 104, 0.35);
+}
+
+html[data-ironframe-theme="executive-light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(95, 99, 104, 0.55);
+}
+
+/* --- Top nav & profile (Google header bar) --- */
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-master,
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav {
+  background-color: #ffffff !important;
+  border-color: #dadce0 !important;
+  box-shadow: none !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav {
+  background-color: #f8f9fa !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-master .font-mono,
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav .font-mono {
+  color: #3c4043;
+  font-weight: 600;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu {
+  background-color: #ffffff !important;
+  border-color: #dadce0 !important;
+  color: #202124;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.12) !important;
+}
+
+/* --- Cards & panels with dark fills --- */
+html[data-ironframe-theme="executive-light"] [class*="rounded"][class*="border"][class*="bg-slate-9"],
+html[data-ironframe-theme="executive-light"] [class*="rounded"][class*="border"][class*="bg-slate-8"],
+html[data-ironframe-theme="executive-light"] [class*="rounded-xl"][class*="bg-slate-9"],
+html[data-ironframe-theme="executive-light"] [class*="rounded-lg"][class*="bg-slate-9"] {
+  background-color: #ffffff !important;
+  border-color: #dadce0 !important;
+}
+
+/* --- Inputs & form controls --- */
+html[data-ironframe-theme="executive-light"] input,
+html[data-ironframe-theme="executive-light"] textarea,
+html[data-ironframe-theme="executive-light"] select {
+  background-color: #ffffff;
+  color: #202124;
+  border-color: #dadce0;
+}
+
+html[data-ironframe-theme="executive-light"] input::placeholder,
+html[data-ironframe-theme="executive-light"] textarea::placeholder {
+  color: #9aa0a6;
+}
+
+/* --- Modals / overlays --- */
+html[data-ironframe-theme="executive-light"] .bg-black\/80,
+html[data-ironframe-theme="executive-light"] .bg-black\/90 {
+  background-color: rgba(60, 64, 67, 0.45) !important;
+}
+
+/* --- Gradients (flatten to white/gray) --- */
+html[data-ironframe-theme="executive-light"] .from-slate-950,
+html[data-ironframe-theme="executive-light"] .from-slate-900,
+html[data-ironframe-theme="executive-light"] .from-zinc-950,
+html[data-ironframe-theme="executive-light"] .from-zinc-900 {
+  --tw-gradient-from: #ffffff !important;
+}
+
+html[data-ironframe-theme="executive-light"] .to-slate-950,
+html[data-ironframe-theme="executive-light"] .to-slate-900,
+html[data-ironframe-theme="executive-light"] .to-zinc-950,
+html[data-ironframe-theme="executive-light"] .to-zinc-900,
+html[data-ironframe-theme="executive-light"] .via-slate-900,
+html[data-ironframe-theme="executive-light"] .via-slate-950 {
+  --tw-gradient-to: #f8f9fa !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #f8f9fa, var(--tw-gradient-to) !important;
+}
+
+/* --- Login & public pages use CSS vars (already wired) --- */
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing {
+  background-color: #ffffff;
+  color: #202124;
+}
+
+/* --- EKG progress strip --- */
+html[data-ironframe-theme="executive-light"] [data-testid="global-ekg-progress-viewport"] {
+  background-color: #f8f9fa !important;
+  border-color: #dadce0 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .global-ekg-pulse-layer {
+  opacity: 0.55;
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent 145px,
+      rgba(26, 115, 232, 0.2) 152px,
+      rgba(26, 115, 232, 0.85) 160px,
+      rgba(26, 115, 232, 0.25) 165px,
+      rgba(26, 115, 232, 0.85) 170px,
+      rgba(26, 115, 232, 0.2) 175px,
+      rgba(26, 115, 232, 0.7) 180px,
+      rgba(26, 115, 232, 0.15) 188px,
+      transparent 195px,
+      transparent 400px
+    ),
+    linear-gradient(to right, transparent, rgba(26, 115, 232, 0.25) 50%, transparent);
+}

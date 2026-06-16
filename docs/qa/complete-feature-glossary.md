@@ -2,6 +2,8 @@
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
 ### System Architecture: Control-First Modular Agent Coordination Framework
+### Operational Date: 2026-06-16
+### Delta Source: `daily_code_diff.txt` (24-hour git window — Writer Narrative Architect mandate)
 
 ---
 
@@ -11,6 +13,7 @@ Welcome to the Ironframe Command Console. When multi-billion-dollar corporations
 
 This platform uses a structured architecture model called **Governance, Risk, and Compliance (GRC)** to prevent those disasters. Because you are training independently online without a live teacher, you must memorize the three core concepts of GRC and obey the safety limits written below to protect our system and client assets from harm:
 
+```
               +----------------------------------------+
               |    GOVERNANCE (The Constitutional Law) |
               +-------------------+--------------------+
@@ -24,18 +27,19 @@ This platform uses a structured architecture model called **Governance, Risk, an
               +----------------------------------------+
               |    COMPLIANCE (The Bulletproof Proof)  |
               +-------------------+--------------------+
+```
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
-* **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law. 
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file. The software code is physically blocked from ever breaking these rules.
+* **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta hardened the **Constitutional Integrity Sentinel** (`/api/grc/tas-integrity`) so that a failed TAS read no longer crashes the route — it returns a degraded payload with `ancillaryWarning` while `Ironwatch` (Agent 13) and `Ironlock` (Agent 6) continue polling.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
-* **The App Reality:** Our system uses automated security monitors to calculate these risks instantly, displaying them as a **System Maturity Score** out of ten.
+* **The App Reality:** Our system uses automated security monitors to calculate these risks instantly, displaying them as a **System Maturity Score** out of ten. The **Irontrust** math engine (Agent 3) stores all ALE baselines as **BigInt integer cents** — never floating-point dollars.
 
 ### 📜 3. Compliance (The Verifiable Proof)
 * **Plain-English Definition:** Providing 100% accurate, un-tamperable data records to an independent government inspector to prove your business has never broken a law.
-* **The App Reality:** Every mouse click, system test, and transaction you perform is logged into a locked, cryptographically signed ledger file that cannot be erased or edited by anyone.
+* **The App Reality:** Every mouse click, system test, and transaction you perform is logged into a locked, cryptographically signed ledger file that cannot be erased or edited by anyone. Shadow-plane diagnostics (`SimulationDiagnosticLog`) remain isolated from production `AuditLog` per TAS Section 4.3.
 
 ---
 
@@ -43,10 +47,19 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 To completely eliminate operational risk, protect multi-tenant cloud client assets, and shield your training program from liability, you must strictly adhere to the following **Four Corporate Compliance Mandates**. Any violation will automatically cause the security tracking systems to flag your active session context and quarantine your workspace:
 
-* **Mandate 1: Strict Whole-Integer Financial Integrity:** All monetary paths must use a variable type called **`BigInt` (Big Integer)** representing raw cents exclusively ($1.00 = 100$). Decimals and floating-point values are completely forbidden in financial modules to eliminate computational rounding drift during audits. This demonstrates how enterprise-grade applications maintain 100% mathematical accuracy by avoiding decimal floating-point roundings.
-* **Mandate 2: Controlled Structural Amendments:** You are strictly forbidden from modifying layout parameters, data ingestion targets, or background agent structures silently. Any alteration requires a formal **TAS Amendment Proposal** routed to the Product Owner.
-* **Mandate 3: Verifiable Sustainability Unit Ingress:** Environmental footprint data must be logged using raw, physical units exclusively (such as $kWh$ electricity, Liters water, or Kilometers logistics transport). The platform automatically rejects any sustainability telemetry packets containing purely monetary approximations to protect audit validity.
-* **Mandate 4: Absolute Tenant Isolation Enforcement:** Cross-tenant memory bleed is a critical security failure. Row-Level Security ($RLS$) constraints strictly isolate customer boundaries. You are completely forbidden from attempting to extract database rows from a separate company profile while logged into another.
+* **Mandate 1: Strict Whole-Integer Financial Integrity:** All monetary paths must use a variable type called **`BigInt` (Big Integer)** representing raw cents exclusively. One United States dollar equals **100** cents. Decimals and floating-point values are completely forbidden in financial modules to eliminate computational rounding drift during audits. Constitutionally frozen ALE baselines per `docs/TAS.md`:
+  * **Medshield:** **1110000000** cents (eleven million one hundred thousand United States dollars)
+  * **Vaultbank NA:** **590000000** cents (five million nine hundred thousand United States dollars)
+  * **Gridcore Infrastructure:** **470000000** cents (four million seven hundred thousand United States dollars)
+  * **Defense (CMMC L3 anchor):** **1600000000** cents (sixteen million United States dollars)
+  * **Display conversion only:** `const dollars = Number(aleBaselineCents) / 100` — never persist floats.
+  * **Today's schema correction:** Shadow-plane mitigated value columns now target **`SimThreatEvent`** (not production `RiskEvent`), preserving production ledger isolation while mirroring `mitigated_value_cents BIGINT` backfill logic. Prisma migrations `20260515195000`, `20260515220000`, and `20260516120000` gained `IF NOT EXISTS` / conditional `DO $$` guards for shadow-database replay order safety.
+
+* **Mandate 2: Controlled Structural Amendments:** You are strictly forbidden from modifying layout parameters, data ingestion targets, or background agent structures silently. Any alteration requires a formal **TAS Amendment Proposal** routed to the Product Owner. The **Dynamic Discovery Mandate** on IronBoard now permits only **registered canonical responses** in `orchestrator/routing.ts` (for example sales-lead domain boundary text). All other boardroom answers must cite tool receipts.
+
+* **Mandate 3: Verifiable Sustainability Unit Ingress:** Environmental footprint data must be logged using raw, physical units exclusively (such as kWh electricity, Liters water, or Kilometers logistics transport). The platform automatically rejects any sustainability telemetry packets containing purely monetary approximations to protect audit validity. `Ironwatch` system health columns (`sustainability_live_api_degraded`, `sustainability_api_heartbeat_failures`) now use `IF NOT EXISTS` guards for shadow-database replay safety.
+
+* **Mandate 4: Absolute Tenant Isolation Enforcement:** Cross-tenant memory bleed is a critical security failure. Row-Level Security (RLS) constraints strictly isolate customer boundaries. You are completely forbidden from attempting to extract database rows from a separate company profile while logged into another. The dashboard gate (`resolveDashboardAccess`) binds workspace UUIDs exclusively from cookie scope or the operator's own `user_role_assignments` row — never from guessed tenant IDs.
 
 ---
 
@@ -58,13 +71,140 @@ The platform interface scales fluidly in sync with your window size using a fixe
 * **The Center Panel (Workspace Canvas) [48% Screen Width]:** Contains the primary navigation path tabs, the horizontal GRC metric rows, and the large workflow control blocks.
 * **The Right Panel (Audit Column) [30% Screen Width]:** Houses the **Sustainability Pulse** panel widget and the long, vertically extending **Live Audit Ledger Stream** terminal layout box.
 
-<a id="auth-001"></a>
+### Layout Refactor Notes (2026-06-16 Delta)
+
+Today's delta adds **billing gate overlay**, **subdomain workspace hosts**, and **platform admin onboarding** inside the dashboard route group while keeping public marketing, legal, pricing, and sales-contact surfaces on apex hosts:
+
+| Surface | Route examples | Chrome mounted | Scroll behavior |
+|---------|----------------|----------------|-----------------|
+| Public marketing landing | `/` (guest), `/marketing` | `MarketingHomepage` or marketing layout — no TopNav | Full-page vertical scroll |
+| Public legal and pricing | `/terms`, `/privacy`, `/pricing`, `/register/contact` | Theme tokens only | Full-page scroll |
+| Governance Frame reader | `/governance-frame`, `/governance-frame/[slug]` | `GovernanceFrameLayout` — no TopNav, no dashboard chrome | Full-page scroll; `robots: index false` |
+| Auth public paths | `/login`, `/forgot-password`, `/reset-password`, `/unauthorized`, `/legal/accept` | Themed forms — no tenant switcher on apex | Full-page scroll |
+| Dashboard command center | `/`, `/integrity` (authenticated), tripane home | `DashboardCommandCenterLayout` → `AppShell` → `TopNav` → `DashboardBillingGate` | Tripane columns scroll independently |
+| Tenant subdomain workspace | `http://{slug}.lvh.me:3000/integrity` | Same chrome — switcher locked to host tenant | Tripane or standalone per route |
+| Platform admin onboarding | `/admin/onboarding` | Dashboard chrome — billing gate exempt | Standalone scroll within gate |
+| Standalone dashboard pages | `/evidence`, `/board-report`, `/reports/audit-trail` | Same TopNav chrome | `standaloneScroll` on AppShell main track |
+
+**Layout separation mandate (2026-06-16):** Root `app/layout.tsx` mounts `IronframeThemeProvider` only — it does **not** mount `AppShell` or TopNav. Authenticated workspace chrome is confined to `app/(dashboard)/layout.tsx`, which calls `ensureDashboardTenantSession`, resolves billing entitlement, wraps children in `DashboardCommandCenterLayout` → `DashboardGroupShell` → `DashboardBillingGate`. Public `/login`, `/pricing`, `/register/contact`, and `/governance-frame` never inherit command-center chrome. Tenant subdomain hosts receive host-bound scope via `applySubdomainTenancy` on every middleware response.
+
+The `DashboardGroupShell` component writes `data-dashboard-left-rail`, `data-dashboard-right-rail`, and `data-dashboard-rail-floor-lock` attributes so CSS enforces the constitutional 22/48/30 geometry on tripane routes only. When `initialTenantUuid` arrives from the server RBAC gate and no client cookie exists, the shell writes `ironframe-tenant` (180-day max-age, SameSite=Lax) and dispatches `ironframe-tenant-changed`.
 
 ---
 
 ## ⚙️ Chapter 4: Component-by-Component GRC Feature Dictionary
 
-Every visible component on your monitor screen is mapped below using industry-standard GRC nomenclature. Use this glossary to cross-reference elements during your self-paced online laboratories:
+Every visible component on your monitor screen is mapped below using industry-standard GRC nomenclature. Use this glossary to cross-reference elements during your self-paced online laboratories. Each entry cites the agent boundary implicated by today's code delta.
+
+---
+
+<a id="ingress-001"></a>
+
+### 🚧 Feature 0: Production Deployment Quarantine Perimeter
+* **GRC Function ID:** `INGRESS-001`
+* **Exact Screen Coordinates:** No visible UI on blocked responses — browser displays monospace **IRONFRAME SYSTEM ARCHITECTURE** 403 page with message **LOCAL DEVELOPMENT ONLY · Public ingress is disabled.**
+* **Operational Purpose:** Blocks **all** non-local HTTP ingress to Ironframe on cloud-hosted domains (Vercel preview, production apex, tenant subdomains) during closed Phase 1 development. Forces operators to bind dev servers to **127.0.0.1** and use **localhost**, **127.0.0.1**, or **\*.lvh.me** tenant workspaces locally. Stripe signed webhooks remain reachable so commerce provisioning can run while the UI stays dark.
+* **Technical Mechanics:** Implemented in `app/lib/security/deploymentQuarantine.ts` and invoked as **middleware step 1** before Supabase session refresh. Middleware executes three ordered phases:
+  1. **Production quarantine perimeter** — `shouldBlockProductionIngress` (local dev hosts always continue)
+  2. **Prospect ingress gate** — `shouldBlockProspectIngress` redirects self-serve registration to `/register/contact` when `IRONFRAME_PUBLIC_REGISTRATION_ENABLED` is false
+  3. **Supabase session + platform gates** — `updateSession`, tenant isolation, stale lockdown
+  4. **Auth entrance codes** — Rule A0 (admin onboarding GLOBAL_ADMIN), Rule A (unauthenticated `/integrity` → `/login`), Rule B (authenticated `/login` → tenant Command Post or Integrity Hub via `resolvePostAuthLandingPath`), public marketing/legal/pricing/demo passthrough for guests
+  5. **Subdomain tenancy finish** — `applySubdomainTenancy` stamps host-bound tenant headers and cookies on every response
+
+`shouldBlockProductionIngress` returns true when:
+  1. Hostname is **not** a local development host (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`, `*.lvh.me`, `*.localtest.me`)
+  2. Path is **not** the Stripe webhook at `/api/webhooks/stripe`
+  3. `IRONFRAME_ALLOW_PUBLIC_INGRESS` is not set to `1`, `true`, or `yes`
+
+Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me** style tenant subdomains — wildcard `*.lvh.me` resolves to **127.0.0.1** without OS hosts file edits. IronBoard engine binds `127.0.0.1` only (not `0.0.0.0`) per today's delta.
+* **Agent Boundary:** **Ironguard** (Agent 12) perimeter enforcement; **Ironlock** (Agent 6) coordinates with constitutional freeze when combined with stale lockdown.
+* **Step-by-Step Lab Validation:**
+  1. Deploy to `ironframegrc.com` or a Vercel preview host without `IRONFRAME_ALLOW_PUBLIC_INGRESS=1`.
+  2. Navigate to `/`, `/login`, `/marketing`, `/integrity`, and `/docs` — verify HTTP **403** on every path.
+  3. POST to `/api/webhooks/stripe` on the same cloud host — verify request is **not** quarantined (middleware passes through for signed Stripe events).
+  4. On `http://127.0.0.1:3000` and `http://vaultbank.lvh.me:3000`, confirm all dashboard routes remain accessible.
+  5. Set `IRONFRAME_ALLOW_PUBLIC_INGRESS=1` in environment — confirm cloud preview allows full public ingress for stakeholder demos.
+  6. Run `tests/unit/deploymentQuarantine.test.ts` — verify localhost whitelist, Stripe webhook bypass, and apex block semantics.
+
+---
+
+<a id="auth-001"></a>
+
+### 🔐 Feature 0b: Zero-Trust Dashboard RBAC Gate
+* **GRC Function ID:** `AUTH-001`
+* **Exact Screen Coordinates:** Invisible server gate — manifests as redirect to `/login` or `/unauthorized` before any dashboard chrome paints.
+* **Operational Purpose:** Ensures authenticated Supabase users without a matching `user_role_assignments` row cannot mount workspace shells, preventing privilege escalation into tenant telemetry grids.
+* **Technical Mechanics:** `app/(dashboard)/layout.tsx` calls `ensureDashboardTenantSession(await resolveDashboardAccess())`:
+  * `unauthenticated` → `redirect("/login")`
+  * `pending` (no valid assignment) → `redirect("/unauthorized")`
+  * `allowed` → passes `tenantUuid` into `DashboardGroupShell`
+* **Constitutional authority bypass:** Dev constitutional authority users may fall back to Medshield UUID `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` when no assignment exists — logged as `tenantFallbackApplied: true`.
+* **Agent Boundary:** **Ironguard** (Agent 12) token and context validation.
+* **Step-by-Step Lab Validation:**
+  1. Sign in with a Supabase user that has **no** `user_role_assignments` row.
+  2. Attempt `/integrity` — verify redirect to `/unauthorized` and `AccessPending` surface.
+  3. Assign a role row for Medshield tenant — reload — verify dashboard chrome mounts with tenant cookie written.
+  4. Trigger digest `1041080224` class server error — verify `app/(dashboard)/error.tsx` renders `AccessPending` instead of blank error page.
+
+---
+
+<a id="auth-002"></a>
+
+### 🔑 Feature 0c: Public Homepage vs Command Center Split
+* **GRC Function ID:** `AUTH-002`
+* **Exact Screen Coordinates:** Root URL `/` — marketing hero for guests; tripane Command Center for authenticated operators with RBAC clearance.
+* **Operational Purpose:** Exposes a **Seed-to-Series-A** marketing narrative to prospects while preserving the full 19-agent workforce grid for credentialed operators on the same route.
+* **Technical Mechanics:** `app/page.tsx` resolves `resolveDashboardAccess()`:
+  * Guest → `MarketingHomepage` with regulatory brief cards (DORA, EU AI Act, NIS2) and **CONSOLE INGRESS ──►** link to `/login`
+  * Allowed → `DashboardHomeClient` inside `DashboardGroupShell` with `carbonMitigatedValueCents` passed as **BigInt** from `resolveDashboardMitigatedValueCents`
+* **Agent Boundary:** **Ironcore** orchestration; **Ironbloom** (Agent 17) supplies mitigated value cents; **Irontrust** (Agent 3) validates financial display via `formatCentsToUSD`.
+* **Step-by-Step Lab Validation:**
+  1. Open `/` in a private browser window — verify marketing hero title **Ironframe: The Immutable Standard for AI-Driven GRC**.
+  2. Click **CONSOLE INGRESS** — verify navigation to `/login`.
+  3. Sign in with RBAC-cleared operator — verify tripane Command Center replaces marketing layout on `/`.
+  4. Inspect network payload for mitigated value — confirm raw cents integer, not float.
+
+---
+
+<a id="theme-001"></a>
+
+### 🎨 Feature 0d: Ironframe UI Theme Palette Selector
+* **GRC Function ID:** `THEME-001`
+* **Exact Screen Coordinates:** TopNav master header — operator profile dropdown (`TopNavUserProfileMenu`) → **Appearance** section.
+* **Operational Purpose:** Allows operators to select a visual palette without altering tenant data context — UI-only scope per TAS.
+* **Technical Mechanics:** Three registered themes in `app/lib/ironframeTheme.ts`:
+  1. **Standard System** — follows OS light/dark via `next-themes` value `system`
+  2. **Executive Light** — high-contrast paper palette (`data-ironframe-palette="executive-light"`)
+  3. **Cyber Command Dark** — midnight command deck (`data-ironframe-palette="cyber-command-dark"`)
+  Persistence key: `ironframe-ui-theme`. Body attributes: `data-ironframe-theme` and `data-ironframe-palette` synced by `IronframeThemeBodySync`.
+* **Agent Boundary:** None — pure presentation layer; does not touch LangGraph state or financial stores.
+* **Step-by-Step Lab Validation:**
+  1. Open profile menu in TopNav — verify email and role label render.
+  2. Select **Executive Light** — verify `document.body` gains `data-ironframe-theme="executive-light"`.
+  3. Navigate to `/login` — verify login page respects `--bg-primary` and `--login-border` CSS variables.
+  4. Select **Cyber Command Dark** — verify TopNav classes `ironframe-topnav-master` and `ironframe-topnav-subnav` pick up dark palette tokens.
+  5. Reload browser — verify theme persists from `localStorage` via `next-themes`.
+
+---
+
+<a id="auth-003"></a>
+
+### 📧 Feature 0e: Corporate B2B Tenant Invite Provisioning
+* **GRC Function ID:** `AUTH-003`
+* **Exact Screen Coordinates:** Admin server action — no default UI chip; invoked from platform administrator tooling.
+* **Operational Purpose:** Provisions corporate users into Medshield, Vaultbank, Gridcore, or Defense tenants via Supabase Admin invite API with tenant-scoped metadata.
+* **Technical Mechanics:** `app/actions/admin/inviteCorporateTenantUser.ts` delegates to `inviteCorporateTenantUserCore` in `corporateTenantProvisionCore.ts` after `requirePlatformAdministrator()`:
+  * Requires GLOBAL_ADMIN role, constitutional authority, or remote-access toggle per `platformAdminAccess.ts`
+  * Uses `SUPABASE_SERVICE_ROLE_KEY` (server-only — documented in `.env.example`)
+  * Redirect URL built from `resolveTenantAuthRedirectOrigin` and `buildAuthCallbackUrl` — may target tenant subdomain after invite
+  * Supports role selection: GRC_MANAGER or CISO on invite form
+  * Writes `auditLogCreateLoose` receipt on success
+* **Agent Boundary:** **Ironguard** (Agent 12) identity; **Ironwatch** (Agent 13) audit trail.
+* **Step-by-Step Lab Validation:**
+  1. As GLOBAL_ADMIN, submit invite form with email and `tenantSlug=medshield`.
+  2. Verify Supabase invite email contains callback to `NEXT_PUBLIC_APP_URL`.
+  3. Confirm `user_role_assignments` row created for target tenant UUID.
+  4. Attempt invite as non-admin — verify error **GLOBAL_ADMIN role required**.
 
 ---
 
@@ -72,13 +212,21 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🔄 Feature 1: Multi-Tenant Context Switcher
 * **GRC Function ID:** `TENANT-001`
-* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline, sitting directly above the Left Panel.
-* **Operational Purpose:** Swaps your complete display dashboard between separate corporate profiles (**Medshield**, **Vaultbank NA**, and **Gridcore Infrastructure**) to audit multi-tenant dataset boundaries.
-* **Technical Mechanics:** Invokes database-level **Row-Level Security ($RLS$)** via the `Ironguard` agent. When activated, the interface kicks off an active sync state, illuminating an amber border context and an **ECG Cryptographic Heartbeat Line** that sweeps from the absolute left border of the monitor screen to the absolute right border. This wave will not stop until all company data has completely populated on the screen.
+* **Exact Screen Coordinates:** Pinned to the far left edge of the global sub-header toolline (TopNav subnav row), sitting directly above the Left Panel.
+* **Operational Purpose:** Swaps your complete display dashboard between separate corporate profiles. On apex hosts, **GLOBAL_ADMIN** operators see every provisioned tenant plus the aggregate Global Command Center lane. Non-admin operators see only tenants bound to their `user_role_assignments` rows. On tenant subdomain hosts (e.g. `vaultbank.lvh.me:3000` or `vaultbank.ironframegrc.com`), the switcher locks to the host-bound workspace — cross-tenant switching is forbidden to prevent subdomain scope bleed.
+* **Technical Mechanics:** `app/lib/auth/commandCenterTenantAccess.ts` exports `resolveCommandCenterTenantScope()` — RBAC-scoped tenant listing replaces the prior unscoped `prisma.tenant.findMany`. `TenantSwitcher` consumes `listCommandCenterTenantScope()` server action. `DashboardGroupShell` seeds `ironframe-tenant` cookie from server-resolved `initialTenantUuid` when client cookie is missing, then calls `setIronguardEffectiveTenant`. `applySubdomainTenancy` in middleware stamps `x-ironframe-host-tenant-slug` and `x-ironframe-host-tenant-uuid` headers and rewrites conflicting path-prefix tenant slugs. Dynamic tenant slugs resolve via internal gate `/api/internal/tenant-slug-resolve` when not in seed `TENANT_UUIDS` map.
+* **Financial Baselines on Switch (BigInt cents only):**
+  * Medshield → **1110000000**
+  * Vaultbank → **590000000**
+  * Gridcore → **470000000**
+  * Defense → **1600000000**
+  * Dynamically provisioned tenants → `tenants.ale_baseline BIGINT` set at provision time (Stripe checkout passes `amountTotalCents` as BigInt)
 * **Step-by-Step Lab Validation:**
-  1. Click the active dropdown element displaying the current company name.
-  2. Select **Vaultbank NA** (noting its standard **$5.9M** baseline).
-  3. Observe the full-width ECG progress sweep running across the top of your screen. Verify that the loading wave remains active until all financial and configuration cells paint completely.
+  1. Sign in as GRC_MANAGER assigned to Vaultbank only — verify switcher lists Vaultbank row exclusively.
+  2. Sign in as GLOBAL_ADMIN on apex host — verify all seed tenants plus any provisioned corporate tenants appear; Global lane permitted.
+  3. Open `http://vaultbank.lvh.me:3000/integrity` — verify switcher shows Vaultbank only and `canAccessGlobal` is false.
+  4. Click tenant dropdown — observe ECG progress sweep until financial cells paint.
+  5. Open browser cookies — verify `ironframe-tenant` matches host-bound UUID on subdomain routes.
 
 ---
 
@@ -88,13 +236,13 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `UX-005`
 * **Exact Screen Coordinates:** Positioned inside the upper section of the **Center Panel (48% Screen Width)**, sitting right next to the active operational tabs.
 * **Operational Purpose:** Provides an absolute, real-time numeric grade of the selected corporate entity's cybersecurity health and regulatory posture.
-* **Technical Mechanics:** Calculated dynamically by the `Irontrust` math engine based on passed vulnerability scans, unpatched dependencies, and active compliance metrics.
+* **Technical Mechanics:** Calculated dynamically by the `Irontrust` math engine (Agent 3) based on passed vulnerability scans, unpatched dependencies, and active compliance metrics. `/api/grc/tas-integrity` now returns `systemMaturityScore` from `readGovernanceMaturityState` inside a consolidated `buildIntegrityPayload` helper that survives partial subsystem failures.
 * **Step-by-Step Lab Validation:**
   1. Look at the **Operational Maturity Tracker** block located at the crown of your center console canvas.
   2. Read the white numeric fraction value outputting the current grade (e.g., **`4.5 / 10`**).
-  3. **Verify the Trend Metric:** Locate and verify the small green trend indicator text tracking your Month-Over-Month performance curve (**`+1.2 MoM`**). This confirms underlying math engines calculate structural delta variables over time.
-  4. Move your mouse to the top left and change your corporate profile using the dropdown switcher toolline.
-  5. Observe that the full-width edge-to-edge EKG wave sweeps continuously across the screen frame for the entire 8-second context switch until the gray skeleton spaces clear and the brand new tenant scores successfully paint the screen.
+  3. **Verify the Trend Metric:** Locate and verify the small green trend indicator text tracking your Month-Over-Month performance curve (**`+1.2 MoM`**).
+  4. Change corporate profile using the tenant switcher — observe the 8-second EKG sweep until new tenant scores paint.
+  5. Call `GET /api/grc/tas-integrity` — verify JSON includes `systemMaturityScore`, `chaosSimulationActive`, and `sha256Short` without 500 error when Prisma slice read fails (degraded mode).
 
 ---
 
@@ -104,7 +252,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `SIM-001`
 * **Exact Screen Coordinates:** Positioned directly within the middle section of the **Left Panel (22% Screen Width)**.
 * **Operational Purpose:** Injects simulated infrastructure disasters and security threats to validate background agent detection, boundary isolation, and self-healing response playbooks without risking production infrastructure.
-* **Technical Mechanics:** Simulates distinct cyber-threat profiles by triggering temporary network or state disruptions, forcing monitoring agents like `Ironlock` or `Ironwatch` to execute automated containment and quarantine playbooks.
+* **Technical Mechanics:** Simulates distinct cyber-threat profiles by triggering temporary network or state disruptions, forcing monitoring agents like `Ironlock` (Agent 6) or `Ironwatch` (Agent 13) to execute automated containment and quarantine playbooks. Shadow-plane rows land in **`SimThreatEvent`** with `mitigated_value_cents BIGINT` — never production `ThreatEvent` for self-test noise.
 
 > ⚠️ **CRITICAL CYBERSECURITY TAXONOMY NOTE FOR AUDITORS:**
 > **Cloud Exfiltration** and **Ransomware** are two entirely distinct cybersecurity threats that require completely different mitigation strategies.
@@ -112,11 +260,12 @@ Every visible component on your monitor screen is mapped below using industry-st
 > - **Cloud Exfiltration** is the unauthorized, often silent transfer of sensitive datasets outside of an organization's cloud perimeter, targeting a breach of data *confidentiality*.
 
 * **Step-by-Step Lab Validation:**
-  1. Locate the Chaos Engineering Simulation Injector block inside the middle tier of the **Left Panel (22% screen width)**.
-  2. Click the simulation scenario selector dropdown menu, which reads **`SELECT IRONTECH CHAOS DRILL...`**.
-  3. **Select the Ransomware Drill Scenario:** Scroll down to the bottom of the open dropdown options and click directly on **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**. *(Note: This scenario explicitly simulates a localized cryptographic extortion attack to test the automated state-freeze, token rotation, and data integrity verification protocols of the 19-agent workforce).*
-  4. Click the bold primary trigger button positioned directly underneath the dropdown selector, labeled **`GENERATE CHAOS THREAT`**.
-  5. Observe the central audit logs inside the Right Panel. Verify that the platform's automated background workforce catches, flags, and blocks the unauthorized execution path within microseconds without introducing data drift or financial ledger calculation errors.
+  1. Enable simulation mode (`ironframe-simulation-mode=1` cookie) — verify self-test bar renders per TAS 4.3.
+  2. Locate the Chaos Engineering Simulation Injector block inside the middle tier of the **Left Panel (22% screen width)**.
+  3. Click the simulation scenario selector dropdown menu, which reads **`SELECT IRONTECH CHAOS DRILL...`**.
+  4. **Select the Ransomware Drill Scenario:** Scroll down and click **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**.
+  5. Click **`GENERATE CHAOS THREAT`**.
+  6. Observe the Right Panel audit logs — verify `Irongate` signature interception through `Irontrust` zero-variance math verification without BigInt drift on mitigated cents columns.
 
 ---
 
@@ -126,15 +275,16 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `SIM-002`
 * **Exact Screen Coordinates:** Triggered via the **Chaos Drill Selector Dropdown** inside the middle tier of the **Left Panel (22% Screen Width)**.
 * **Operational Purpose:** Simulates a localized cryptographic extortion attack to explicitly validate the multi-agent detection, mitigation, and recovery speed of the 19-agent workforce without introducing technical risk or financial calculation errors to the environment.
-* **Technical Mechanics:** Mimics a high-volume encryption hazard. The system proves operational resilience by forcing a hardware state freeze, isolating the tenant perimeter, and testing the `Irontrust` whole-integer asset verification engine.
+* **Technical Mechanics:** Mimics a high-volume encryption hazard. The system proves operational resilience by forcing a hardware state freeze, isolating the tenant perimeter, and testing the `Irontrust` whole-integer asset verification engine. `tenants.is_under_targeted_siege` and `quarantine_ledger.primary_target_tenant_uuid` columns support forensic targeting per migration `20260516120000_tenant_siege_quarantine_target`.
 * **Step-by-Step Lab Validation:**
-  1. Access the dropdown panel titled **`SELECT IRONTECH CHAOS DRILL...`** in the Left Panel component tray.
-  2. Scroll down and click the specific operational drill labeled: **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**.
-  3. Click the primary trigger element labeled **`GENERATE CHAOS THREAT`**.
+  1. Access the dropdown titled **`SELECT IRONTECH CHAOS DRILL...`** in the Left Panel.
+  2. Select **`6 — IRONTECH CHAOS L6 · CRYPTOGRAPHIC RANSOMWARE (EXTORTION)`**.
+  3. Click **`GENERATE CHAOS THREAT`**.
   4. **Verify System Feedback Lifecycle:**
-     - Confirm that the hardware-accelerated emerald EKG line sweeps the screen repeatedly for the full 8-second processing block.
-     - Verify that the Center Panel flashes its layout configuration status straight into **`ALL MODULES SECURE · STATE FROZEN`**.
-     - Review the Live Audit Ledger Feed on the far right. Confirm that all six tracking steps (from `Irongate` signature interception to `Irontrust` zero-variance math verification) print cleanly without any execution failures.
+     - Confirm emerald EKG line sweeps for the full 8-second processing block.
+     - Verify Center Panel status **`ALL MODULES SECURE · STATE FROZEN`**.
+     - Review Live Audit Ledger Feed — confirm six tracking steps print without execution failures.
+     - Query `SimThreatEvent.mitigated_value_cents` — confirm BIGINT type, never float.
 
 ---
 
@@ -144,10 +294,11 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `SYNC-001`
 * **Exact Screen Coordinates:** Pinned inside the top horizontal container of the **Center Panel (48% Screen Width)**, reading **`ALL MODULES SECURE · ZERO DRIFT ENFORCED`**.
 * **Operational Purpose:** Gives compliance inspectors instantaneous visual validation that zero unauthorized file mutations have occurred across the codebase.
-* **Technical Mechanics:** Continuously computed by the `Ironwatch` shadow tracking agent, which validates real-time system file snapshots against a cryptographically secured master repository hash.
+* **Technical Mechanics:** Continuously computed by the `Ironwatch` shadow tracking agent (Agent 13), which validates real-time system file snapshots against a cryptographically secured master repository hash. `system_health_log` table records service heartbeat rows with `service_key` indexing per migration `20260515220000_ironwatch_system_health`.
 * **Step-by-Step Lab Validation:**
   1. Locate the horizontal synchronizer bar resting above your center workspace.
-  2. Confirm that the status indicator circle is glowing bright teal, giving you visual proof that all 19 micro-agents are checking in securely without system drift.
+  2. Confirm that the status indicator circle is glowing bright teal, giving visual proof that all 19 micro-agents are checking in securely without system drift.
+  3. Inspect `system_health_log` for recent `service_key` entries after sustainability API heartbeat.
 
 ---
 
@@ -157,26 +308,28 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `GRC-002`
 * **Exact Screen Coordinates:** Stretched across the middle tier of your **Center Panel (48% Screen Width)**, sitting directly beneath the horizontal metric rows.
 * **Operational Purpose:** Provides a centralized management dashboard to monitor, audit, and trace the live operational states of your 19 specialized background automation agents.
-* **Technical Mechanics:** Displays check-in times and statuses of specialized micro-workers (e.g., `Ironlock` for quarantines, `Ironguard` for token shielding, and `Ironbloom` for physical telemetry checks).
+* **Technical Mechanics:** Displays check-in times and statuses of specialized micro-workers. Today's delta explicitly documents the **platform application boundary** in `lib/platformApplicationBoundary.ts`:
+  * **Ironframe** (default port 3000) — security, risk, and technical compliance engine hosting the 19-agent GRC production workforce (Ironcore, Irongate, Irontally, Ironlogic, etc.)
+  * **IronBoard** (default port **8082**) — executive boardroom conversation plane with CRM discovery tools; zero cross-contamination with Ironframe port **3000** per `ZERO_CROSS_CONTAMINATION_DIRECTIVE`
 * **Step-by-Step Lab Validation:**
   1. Scan the automated workforce table grid rows to verify all agents output green **`ACTIVE`** status lights.
-  2. Left-click directly on any specific agent row (such as the **`Ironlock`** or **`Ironguard`** row).
-  3. Verify that the **GRC Meta Specification Drawer** slides open from the right side of your computer monitor, displaying that agent's core unchangeable technical directives.
+  2. Left-click directly on any specific agent row (such as **`Ironlock`** or **`Ironguard`**).
+  3. Verify that the **GRC Meta Specification Drawer** slides open from the right side, displaying that agent's core unchangeable technical directives.
+  4. Run `tests/unit/platformApplicationBoundary.test.ts` — confirm port constants match environment documentation.
 
 ---
 
 <a id="log-001"></a>
 
-<a id="search-001"></a>
-
 ### 📋 Feature 6: Immutable Audit Ledger Feed
 * **GRC Function ID:** `LOG-001`
-* **Exact Screen Coordinates:** Placed inside the **Right Panel (30% Screen Width)** column track, extending directly beneath the base of the Sustainability Pulse widget down to the bottom monitor frame.
+* **Exact Screen Coordinates:** Placed inside the **Right Panel (30% Screen Width)** column track, extending directly beneath the base of the Sustainability Pulse widget down to the bottom monitor frame. Standalone mode available on `/reports/audit-trail` via `AuditIntelligence layout="standalone"`.
 * **Operational Purpose:** Serves as a transparent, cryptographically signed, and append-only execution log tracking every system call, user access check, and automated policy remediation for external compliance inspectors.
-* **Technical Mechanics:** Implements a strict append-only format within the data tier; the application completely lacks any function to edit or delete logged lines, securing the absolute integrity of your historical timeline.
+* **Technical Mechanics:** Implements a strict append-only format within the data tier. `quarantine_ledger` now includes `forensic_justification TEXT` and `primary_target_tenant_uuid UUID` with idempotent migration guards for shadow DB replay order.
 * **Step-by-Step Lab Validation:**
-  1. Place your mouse over the right-hand logging panel track and use your scroll wheel to scroll down independently through historical entries.
-  2. Verify that every logged event contains an absolute timestamp and a distinct cryptographic validation string (e.g., `[AGENT-14] SANITIZATION PURGE RESOLVED`).
+  1. Scroll the right-hand logging panel independently through historical entries.
+  2. Verify every logged event contains an absolute timestamp and a distinct cryptographic validation string (e.g., `[AGENT-14] SANITIZATION PURGE RESOLVED`).
+  3. Navigate to `/reports/audit-trail` — verify standalone layout scrolls within AppShell main track without tripane overflow clipping.
 
 ---
 
@@ -186,11 +339,11 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `CARBON-001`
 * **Exact Screen Coordinates:** Positioned inside the upper half section of the **Right Panel (30% Screen Width)** column track, marked by a green leaf icon.
 * **Operational Purpose:** Tracks real-time emissions intensity and hardware consumption data to fulfill global climate reporting requirements (such as Europe's **CSRD** or US **SEC Climate Disclosures**).
-* **Technical Mechanics:** Powered by the `Ironbloom` agent, which mandates the ingestion of physical hardware metrics ($kWh$ electricity, Liters water, Kilometers logistics transport) and completely rejects flat monetary data. If connection to external global carbon registries drops offline, an integrated circuit breaker activates an internal **Forensic Baseline Simulation Engine** and lights up an orange **`FALLBACK ACTIVE`** indicator badge instead of crashing.
+* **Technical Mechanics:** Powered by the `Ironbloom` agent (Agent 17), which mandates physical hardware metrics (kWh electricity, Liters water, Kilometers logistics transport) and completely rejects flat monetary data. `resolveDashboardMitigatedValueCents` feeds the Command Center hero with **BigInt** mitigated cents displayed through `formatCentsToUSD` — display layer only.
 * **Step-by-Step Lab Validation:**
-  1. Read the active footprint calculation line (e.g., **`382 gCO₂eq/kWh`**) and confirm the presence of the orange **`FALLBACK ACTIVE`** safety indicator when running offline.
-  2. Swap your active tenant context from Vaultbank to Gridcore Infrastructure using your top-left switcher.
-  3. Verify that the graph instantly flushes its cache and redraws to compute that specific company's physical infrastructure footprint.
+  1. Read the active footprint calculation line (e.g., **`382 gCO₂eq/kWh`**) and confirm the orange **`FALLBACK ACTIVE`** badge when offline.
+  2. Swap tenant context from Vaultbank (**590000000** cent baseline) to Gridcore (**470000000** cent baseline).
+  3. Verify graph cache flush and redraw for the new company's physical infrastructure footprint.
 
 ---
 
@@ -199,16 +352,778 @@ Every visible component on your monitor screen is mapped below using industry-st
 ### 💰 Feature 8: Whole-Integer Financial Integrity Ledger Matrix
 * **GRC Function ID:** `EXPORT-001`
 * **Exact Screen Coordinates:** Placed inside the upper section of the **Center Panel (48% Screen Width)**, positioned side-by-side as three distinct horizontal card components directly beneath your primary workspace tabs.
-* **Operational Purpose:** Displays critical financial metrics (`Compliance Velocity`, `Value Mitigated (YTD) — $0`, and `Projected Insurance Savings — $5.0K`) and houses the tabular data extraction tools required to lock in corporate insurance premium discounts.
-* **Technical Mechanics:** Integrates with the `Irontrust` math engine, pulling whole numbers stored as raw cents from the data tier to completely mitigate floating-point computational variances ($\text{Database Value} = \text{Dollar Amount} \times 100$). This demonstrates how enterprise-grade applications maintain 100% mathematical accuracy by avoiding decimal floating-point roundings.
+* **Operational Purpose:** Displays critical financial metrics and houses tabular data extraction tools required to lock in corporate insurance premium discounts.
+* **Technical Mechanics:** Integrates with the `Irontrust` math engine (Agent 3), pulling whole numbers stored as raw cents from the data tier. Migration `20260515180000_ale_mitigated_value_bigint` adds `mitigated_value_cents BIGINT` to `ThreatEvent` (production) and `SimThreatEvent` (shadow), backfilling from `SustainabilityMetric` and legacy JSON without precision loss.
 * **Step-by-Step Lab Validation:**
-  1. Verify that all three metric containers share uniform alignment and identical border heights across the top of the center canvas column.
-  2. Locate and click the primary action button labeled **`Export Tabular Ledger Data (CSV)`**.
-  3. Open the downloaded CSV spreadsheet on your machine and confirm that all financial numbers display as raw whole integers with **zero decimal places** (e.g., `$5,000.00` savings registers exactly as **`500000`**), proving the math engine protects metrics from truncation rounding errors.
+  1. Verify uniform alignment and identical border heights across the three metric containers.
+  2. Click **`Export Tabular Ledger Data (CSV)`**.
+  3. Open the downloaded CSV — confirm all financial numbers display as raw whole integers with **zero decimal places** (e.g., **500000** cents for five thousand dollars display).
+  4. Run Irontrust unit tests — confirm Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** cent baselines match snapshots.
 
 ---
 
-## 🧯 Chapter 5: Self-Healing Troubleshooting & Error Diagnostic Steps
+<a id="board-001"></a>
+
+### 🏛️ Feature 9: IronBoard Executive Boardroom Plane
+* **GRC Function ID:** `BOARD-001`
+* **Exact Screen Coordinates:** Accessed via `/board-report` route and `POST /api/boardroom/query` API ingress.
+* **Operational Purpose:** Provides C-suite persona routing (CEO, CFO, CISO, Sales Lead) with mandatory dynamic discovery before synthesis — no invented CRM metrics.
+* **Technical Mechanics:** Conversation plane header `x-ironframe-conversation-plane: ironboard-boardroom` gates boardroom-specific orchestration on IronBoard port **8082**. `routeExecutivePanel` attaches a `BoardroomOrchestrationReceipt`:
+  * `linkScraperComplete`, `linkScraperOk`, `linkScraperTraceId`
+  * `videoTimelineInjected`, `telemetryVerified`
+  * `blocksExtractedUnits` (BigInt string)
+  * `crmTelemetryInteractionId`
+  * `preRoutingValidation`: `PASSED` | `SKIPPED` | `FAILED`
+* **Agent Boundary:** **Ironlogic** (Agent 4) synthesis; **Irontally** (Agent 5) governance memo cron phase; board personas are advisory only — no direct DB writes without tool receipts.
+* **Step-by-Step Lab Validation:**
+  1. Submit a CRM intent query ("show deal pipeline") to boardroom API.
+  2. Verify response cites discovery tool receipts — not hardcoded counts.
+  3. Submit sales-lead discovery query — verify canonical boundary response from `resolveCanonicalBoardResponse` when registered.
+  4. Inspect server logs for `[BOARDROOM ORCHESTRATOR] linkScraper complete before routeExecutivePanel` when link scraper phase runs.
+
+---
+
+<a id="board-002"></a>
+
+### 🎬 Feature 10: Irongate Video Intelligence Ingress (Agent 14)
+* **GRC Function ID:** `BOARD-002`
+* **Exact Screen Coordinates:** No direct UI — API endpoint `POST /api/ingress/video` on IronBoard service (port **8082** default).
+* **Operational Purpose:** Sanitizes external video transcripts and asset links through the **Level 2 DMZ air-gap** before persisting markdown intelligence documents into `ironboard_crm_interactions` with `metricTag=video_intelligence`.
+* **Technical Mechanics:** Pipeline stages:
+  1. `processVideoIrongateIngress` — Zod schema validation (`irongateVideoEnvelopeSchema`), injection vector stripping via `stripIrongateInjectionVectors`
+  2. Quarantine path returns HTTP **422** with `agent: 'Irongate-Agent-14'`
+  3. `parseVideoIntelligencePayload` — multimodal parse (`transcript_direct`, `asset_link_gemini`, or `asset_link_skeleton`)
+  4. `persistVideoIntelligenceDocument` — CRM envelope with `sanitizedBy: 'Irongate-Agent-14'`
+  5. `linkScraper.ts` `STREAMING_MEDIA_URL_PATTERN` now matches **YouTube Shorts** (`youtube.com/shorts/`) and uses `[A-Za-z0-9_-]{11}` video ID capture
+  6. `boardResponseLibrary.ts` exports `YOUTUBE_URL_SIGNAL`, `YOUTUBE_VIDEO_DENIAL_REWRITE`, and expanded `BANNED_CAPABILITY_DENIAL_PATTERNS` — when a video-linked query triggers denial stripping and response length < 160 chars, `finalizeSanitizedBoardCompletion(accumulatedText, sanitizeDenials, { query })` appends the canonical rewrite instructing the board to cite VIDEO INTELLIGENCE timeline blocks
+  7. `boardroomQueryIntent.ts` `shouldPrefetchWeb` returns false when `payloadSignalsVideoIntelligence(query)` — video links skip live web grounding to preserve timeline injection path
+* **Environment Variables (`.env.example`):**
+  * `IRONBOARD_BOARD_ORG_TENANT_UUID` — defaults to Medshield seed `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`
+  * `IRONBOARD_GRC_ANALYST_VIDEO_URL` — canonical YouTube URL for GRC Analyst day-in-the-life briefings
+* **Agent Boundary:** **Irongate** (Agent 14) exclusive perimeter — bypass forbidden per TAS DMZ mandate.
+* **Step-by-Step Lab Validation:**
+  1. POST valid payload with `tenant_id` UUID and transcript array — expect HTTP **201** `status: CLEAN` with `blockCount`, `durationMs`, `parserMode`.
+  2. POST payload with script injection in transcript text — verify stripping and CLEAN or QUARANTINED outcome.
+  3. POST without `asset_link` or transcript — expect QUARANTINED **422**.
+  4. Run `tests/unit/videoIngress.test.ts`, `tests/unit/videoBoardPrefetch.test.ts`, and `tests/unit/linkScraper.test.ts` — all pass including Shorts URL extraction.
+  5. Confirm CRM row `metricTag` equals `video_intelligence`.
+
+---
+
+<a id="board-003"></a>
+
+### 📚 Feature 11: Strategic Intel Research Ingress
+* **GRC Function ID:** `BOARD-003`
+* **Exact Screen Coordinates:** IronBoard Strategic Intel dashboard view (populated from `ironboard_crm_interactions` research rows).
+* **Operational Purpose:** Ingests external GRC research artifacts (manifest-driven) into tenant-scoped CRM interactions for board briefings, with mandatory Agent 14 sanitization before persistence.
+* **Technical Mechanics:** Modules added in today's delta:
+  * `strategicIntelIngress.ts` — DMZ persistence path
+  * `strategicIntelSanitizer.ts` — `stripIrongateInjectionVectors` for research JSON
+  * `strategicIntelManifestLoader.ts` — loads `grcProfessionalResearch.manifest.json`
+  * `strategicIntelResearchQuery.ts` — query binding for board prefetch
+  * `docsMatrixIngress.ts` — documentation matrix rows with `docsMatchedUnits` as **BigInt**
+  * `linkScraper.ts` middleware — URL extraction with `linksMatchedUnits` and `pipelineDurationMsUnits` as **BigInt**
+* **Manifest Entry Example:** *"Enterprise buyers require Irongate DMZ sanitization on all external research ingress. Strategic Intel updates must pass Agent 14 schema validation before CRM persistence."*
+* **Agent Boundary:** **Irongate** (Agent 14) sanitization; **Ironintel** (Agent 16) OSINT cron phase consumes refreshed intel.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/strategicIntelIngress.test.ts` — verify sanitization and tenant binding.
+  2. Run `tests/unit/docsMatrixIngress.test.ts` — verify BigInt unit counters in pipeline statistics.
+  3. Trigger link scraper with known Ironframe docs URL — verify `blocksExtractedUnits` increments as BigInt string in orchestration receipt.
+  4. Confirm `ironboard_crm_rls.sql` script enforces tenant isolation on CRM interaction reads.
+
+---
+
+<a id="board-004"></a>
+
+### 📖 Feature 12: GRC Analyst Day-in-the-Life Video Seed
+* **GRC Function ID:** `BOARD-004`
+* **Exact Screen Coordinates:** Board knowledge context — injected into IronBoard static knowledge vault.
+* **Operational Purpose:** Seeds the canonical **"Cybersecurity Reality: A Day in the Life of a GRC Analyst"** video briefing for executive education tracks.
+* **Technical Mechanics:** `Ironboard/src/knowledge/grcAnalystDayVideoSeed.ts` exports structured transcript cues compatible with `TranscriptCueInput` from `videoIngress.ts`. Board prefetch (`videoBoardPrefetch.ts`) can hydrate timeline blocks before panel routing.
+* **Step-by-Step Lab Validation:**
+  1. Set `IRONBOARD_GRC_ANALYST_VIDEO_URL` in environment to a valid YouTube URL.
+  2. Invoke boardroom query referencing GRC analyst video — verify timeline injection flag `videoTimelineInjected: true` on orchestration receipt.
+  3. Verify markdown document output contains timecoded speaker blocks.
+
+---
+
+<a id="integrity-001"></a>
+
+### 🛡️ Feature 13: Integrity Hub Resilience Fallback
+* **GRC Function ID:** `INTEGRITY-001`
+* **Exact Screen Coordinates:** `/integrity` route — Integrity Hub center canvas with ALE hero card and chaos ledger panel.
+* **Operational Purpose:** Provides workforce registry verification and chaos ledger forensics even when the expanded registry read path fails.
+* **Technical Mechanics:** `app/(dashboard)/integrity/page.tsx` wraps `readIntegrityVaultSnapshotWithRegistry()` in try/catch — on failure, falls back to `readIntegrityVaultSnapshot()` with `ok: false` and `error: "Workforce registry unavailable"` rather than throwing a blank 500 page.
+* **Agent Boundary:** **Irontrust** (Agent 3) ALE hero; **Ironwatch** (Agent 13) registry manifest; **Irontech** (Agent 19) repair priority when `healthBarPercent` < 50%.
+* **Step-by-Step Lab Validation:**
+  1. Navigate to `/integrity` as authenticated operator — verify page renders even if registry endpoint degrades.
+  2. Confirm ALE hero displays cents-derived values for active tenant baseline.
+  3. Authenticated user visiting `/login` — verify middleware redirect to `/integrity` (Rule B).
+  4. Unauthenticated user visiting `/integrity` — verify redirect to `/login` (Rule A).
+
+---
+
+<a id="constitution-001"></a>
+
+### 📜 Feature 14: Constitutional Rebaseline Operator Script
+* **GRC Function ID:** `CONSTITUTION-001`
+* **Exact Screen Coordinates:** No UI — DBA/operator script execution against preview or production Postgres.
+* **Operational Purpose:** Clears stuck **Ironlock** latch fields on `SystemConfig` when `TAS.md` is valid but UI still shows **CONSTITUTIONAL VOID**.
+* **Technical Mechanics:** `prisma/scripts/constitutional_rebaseline_reset.sql` — safe to re-run; does not delete `security_posture`. Complements `app/lib/constitutionalRebaseline.ts` API route at `/api/grc/constitutional-restoration` (now traced in `next.config.ts` with `docs/TAS.md` and `storage/constitutional/TAS.md.gold`).
+* **Agent Boundary:** **Ironlock** (Agent 6) freeze latch; **Ironlogic** (Agent 4) constitutional parsing.
+* **Step-by-Step Lab Validation:**
+  1. Induce constitutional void display in staging environment.
+  2. Execute rebaseline SQL script against `SystemConfig`.
+  3. Poll `/api/grc/tas-integrity` — verify `constitutionalRebaselinePending` clears and `ironlockFreezeApplied` reflects true state.
+  4. Confirm `ironlockFreezeApplied` and `chaosSimulationActive` fields present in integrity payload.
+
+---
+
+<a id="nav-001"></a>
+
+### 🧭 Feature 15: Unified Header Route Matrix
+* **GRC Function ID:** `NAV-001`
+* **Exact Screen Coordinates:** TopNav master header and HeaderTwo sub-navigation strip.
+* **Operational Purpose:** Eliminates divergent route-matching logic between HeaderOne and HeaderTwo — single `buildHeaderRouteMatrix(pathname)` pass per navigation event.
+* **Technical Mechanics:** `app/utils/grcRouteMatch.ts` exports:
+  * `HEADER_TENANT_SLUGS`: medshield, vaultbank, gridcore, defense
+  * `HeaderRouteMatrix` flags: `isAuditTrailRoute`, `isEvidenceRoute`, `isFrameworksRoute`, `isIntegrityHubRoute`, `isBoardReportRoute`, `isOpSupportRoute`, `isPlaybookRoute`, `playbookEntity`
+  * `isAuthPublicPath` — classifies routes that must not mount workspace chrome
+  * `isScrollableStandalonePath` — drives `DashboardGroupShell` overflow behavior
+* **Step-by-Step Lab Validation:**
+  1. Navigate to `/medshield/playbooks` — verify `playbookEntity` equals `MEDSHIELD` and playbook tab highlights.
+  2. Navigate to `/reports/audit-trail` — verify audit trail route flag true with standalone scroll.
+  3. Run `tests/unit/grcRouteMatch.test.ts` — all matrix combinations pass.
+  4. Confirm `/login` returns true for `isAuthPublicPath` — no TopNav tenant switcher on login page.
+
+---
+
+<a id="auth-004"></a>
+
+### 🔒 Feature 16: Hardened Login & Password Recovery Surfaces
+* **GRC Function ID:** `AUTH-004`
+* **Exact Screen Coordinates:** `/login`, `/forgot-password`, `/reset-password` — full-page themed forms outside dashboard chrome.
+* **Operational Purpose:** Provides accessible authentication with project-ref-aware error messages and password visibility toggle, routing successful sign-in to Integrity Hub.
+* **Technical Mechanics:**
+  * Login normalizes email to lowercase before `signInWithPassword`
+  * Invalid credentials message includes Supabase project ref from `supabaseProjectRefFromUrl`
+  * `ResetPasswordForm.tsx` calls `updateUserPasswordAction` server action
+  * `requestResetPassword.ts` uses `resolvePublicAppUrl()` for redirect links to `https://ironframegrc.com`
+* **Agent Boundary:** **Ironguard** (Agent 12) session cookies merged on redirect via `redirectWithSupabaseCookies` in middleware.
+* **Step-by-Step Lab Validation:**
+  1. Submit wrong password — verify error cites Supabase project ref and suggests forgot-password path.
+  2. Toggle password visibility icon — verify `Eye` / `EyeOff` state changes input type.
+  3. Successful login — verify `router.replace("/integrity")` not deprecated dashboard-only path.
+  4. Request password reset — verify email link targets `NEXT_PUBLIC_APP_URL/reset-password`.
+
+---
+
+<a id="ops-001"></a>
+
+### 🛠️ Feature 17: Operator Identity Context Provider
+* **GRC Function ID:** `OPS-001`
+* **Exact Screen Coordinates:** React context consumed by TopNav, permissions hooks, and profile menu — no standalone panel.
+* **Operational Purpose:** Centralizes Supabase operator profile resolution so TopNav does not duplicate auth subscription logic.
+* **Technical Mechanics:** `app/context/OperatorContext.tsx` pairs with `useOperatorIdentity` hook. `TopNav` removed inline `supabase.auth.getUser` polling — now reads `isGuest` and loading state from hooks. `OperatorContext` supplies `profile.email`, `profile.displayRole` to `TopNavUserProfileMenu`.
+* **Step-by-Step Lab Validation:**
+  1. Load dashboard — verify TopNav shows "Resolving operator…" then email address.
+  2. Sign out via profile menu — verify redirect to `/login` and guest state on return.
+  3. Confirm no duplicate auth listeners in TopNav (network tab — single session refresh path).
+
+---
+
+<a id="cron-001"></a>
+
+### 🌙 Feature 18: 03:00 Documentation Engine (Cron Narrate)
+* **GRC Function ID:** `CRON-001`
+* **Exact Screen Coordinates:** No UI — scheduled Windows Task Scheduler or headless PowerShell invocation at 03:00 local.
+* **Operational Purpose:** Executes three Cursor CLI agent phases nightly: Writer (this glossary), Ironintel OSINT sweep, and Ironlogic/Irontally governance memo.
+* **Technical Mechanics:** `scripts/cron_narrate.ps1` delta improvements:
+  * `Import-ProjectDotEnv` loads `.env.local` and `.env` for `CURSOR_API_KEY`
+  * `Resolve-CursorAgentLauncher` prefers direct `node.exe` + `index.js` over failing `agent.ps1` shim
+  * `Invoke-CursorAgentCli` passes `--trust` flag for headless execution
+  * Auth preflight via `agent status` before diff extraction
+  * Git delta: `git diff $BaseCommit` → `daily_code_diff.txt` (docs/ excluded)
+* **Agent Boundary:** Writer persona → **Ironcore** documentation; Intel phase → **Ironintel** (Agent 16) + **Irongate** (Agent 14) sanitization; Board phase → **Ironlogic** (Agent 4) + **Irontally** (Agent 5) with BigInt ALE evaluation (**1110000000**, **590000000**, **470000000** cent baselines).
+* **Step-by-Step Lab Validation:**
+  1. Set `CURSOR_API_KEY` in user environment or `.env.local`.
+  2. Run `scripts/cron_narrate.ps1` manually — verify log file records launcher mode (node vs shim).
+  3. Confirm `daily_code_diff.txt` regenerated from last 24-hour commit window.
+  4. Verify Writer phase updates `docs/qa/complete-feature-glossary.md` without placeholder tokens.
+  5. Confirm exit code non-zero when API key missing — script refuses silent no-op.
+
+---
+
+<a id="layout-002"></a>
+
+### 🏗️ Feature 19: Dashboard Command Center Layout Isolation
+* **GRC Function ID:** `LAYOUT-002`
+* **Exact Screen Coordinates:** Wraps every route under `app/(dashboard)/` — invisible structural frame between dashboard layout and page content.
+* **Operational Purpose:** Keeps TopNav, airlock banner, and telemetry polling hooks out of the root layout so public marketing and auth surfaces never mount workspace chrome accidentally.
+* **Technical Mechanics:** `app/(dashboard)/DashboardCommandCenterLayout.tsx` renders a flex column with `AppShell` as the sole child. Root `app/layout.tsx` provides fonts, `IronframeThemeProvider`, and global CSS only. This satisfies TAS UI separation: presentation tokens are global; tenant-scoped navigation is dashboard-group only.
+* **Agent Boundary:** **Ironcore** (Agent 1) orchestration shell; no financial or ingestion side effects.
+* **Step-by-Step Lab Validation:**
+  1. Open `/login` in a private window — verify no TopNav tenant switcher or tripane rails appear.
+  2. Sign in and land on `/integrity` — verify TopNav mounts with subnav toolline.
+  3. Inspect React component tree — confirm `DashboardCommandCenterLayout` wraps dashboard routes only.
+
+---
+
+<a id="auth-005"></a>
+
+### 🍪 Feature 20: Dashboard Tenant Session Cookie Hydration
+* **GRC Function ID:** `AUTH-005`
+* **Exact Screen Coordinates:** Invisible server-side cookie write — no UI chip.
+* **Operational Purpose:** When RBAC resolves a workspace UUID but the browser lacks a scoped `ironframe-tenant` cookie, the server persists the assignment before dashboard chrome paints — preventing orphan sessions from guessing tenant scope.
+* **Technical Mechanics:** `app/lib/auth/dashboardTenantSession.ts`:
+  * `IRONFRAME_TENANT_COOKIE` = `ironframe-tenant`
+  * `tenantCookieValueForUuid` — resolves canonical slug via `tenantKeyFromUuid` or Prisma `tenant.slug` lookup
+  * `applyDashboardTenantSessionCookie` — sets secure cookie in production (`sameSite: lax`, 180-day max-age)
+  * `ensureDashboardTenantSession` in `dashboardRoleAccess.ts` — calls apply only when `tenantFallbackApplied: true`
+  * `resolveDashboardActiveTenantUuid` — React `cache()` wrapper; cookie scope first, then RBAC assignment, Medshield UUID fallback
+* **Agent Boundary:** **Ironguard** (Agent 12) tenant isolation; never accepts guessed tenant IDs from client payloads.
+* **Step-by-Step Lab Validation:**
+  1. Clear `ironframe-tenant` cookie after successful login.
+  2. Navigate to `/integrity` — verify cookie re-written with slug or UUID matching RBAC assignment.
+  3. Confirm `access-status` API returns tenant scope aligned with cookie value.
+
+---
+
+<a id="auth-006"></a>
+
+### ⏳ Feature 21: Access Pending & Dashboard Error Boundary
+* **GRC Function ID:** `AUTH-006`
+* **Exact Screen Coordinates:** Full-page center canvas on `/unauthorized` and on dashboard route errors matching digest `1041080224`.
+* **Operational Purpose:** Replaces blank Next.js error pages with actionable access-pending guidance when RBAC gaps cause server errors during dashboard mount.
+* **Operational Mechanics:** `app/(dashboard)/error.tsx` inspects `error.digest` and message text — when digest equals **`1041080224`** or message matches role-assignment patterns, renders `AccessPending` instead of generic failure UI. Non-RBAC errors show Retry, **Command Post** link to `/`, access-status, and sign-in links.
+* **Agent Boundary:** **Ironguard** (Agent 12) access enforcement UX.
+* **Step-by-Step Lab Validation:**
+  1. Sign in with user lacking `user_role_assignments` — verify `/unauthorized` shows AccessPending copy.
+  2. Simulate digest `1041080224` class error on dashboard route — verify same AccessPending surface.
+  3. Trigger unrelated server error — verify generic dashboard unavailable panel with Retry button.
+
+---
+
+<a id="board-005"></a>
+
+### 📜 Feature 22: Board Conversational Boundary & Canonical Response Registry
+* **GRC Function ID:** `BOARD-005`
+* **Exact Screen Coordinates:** IronBoard orchestration plane — no direct UI; governs `POST /api/boardroom/query` synthesis behavior.
+* **Operational Purpose:** Prevents LLM hallucination on CRM capability, video intelligence, and sales-lead discovery questions by routing matched queries to deterministic canonical text backed by tool receipts.
+* **Technical Mechanics:** `Ironboard/src/orchestrator/routing.ts` exports:
+  * `BOARD_CONVERSATIONAL_BOUNDARY` / `IRONBOARD_DOMAIN_BOUNDARY` — zero cross-contamination with Ironframe port 3000
+  * `BOARD_CRM_TOOL_MANDATE` — requires `manageCrmPipeline` tool execution before CRM claims
+  * `BOARD_VIDEO_INTELLIGENCE_MANDATE` — forbids "cannot watch video" responses when `[LINK SCRAPER]` timeline tag present
+  * `BOARD_EXECUTION_LAYER_PERSONA` — bans first-person AI disclaimer language
+  * `CANONICAL_SALES_LEADS_RESPONSE` — registered answer for passive lead-generation queries via `isSalesLeadDiscoveryQuery`
+  * `buildCanonicalGrcVideoBriefingResponse` — timecoded transcript from `grcAnalystDayVideoSeed.ts`
+  * `resolveCanonicalBoardResponse` — deterministic bypass before LLM synthesis
+* **Agent Boundary:** **Ironlogic** (Agent 4) synthesis guardrails; **Ironquery** (Agent 15) discovery receipts required for non-canonical paths.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/boardroomOrchestrator.test.ts` — verify sales-lead canonical match and video briefing builder.
+  2. Submit boardroom query "Do you actively look for sales leads?" — verify canonical CRM engine response, not external crawl claim.
+  3. Submit GRC analyst video reference — verify timecoded findings without AI limitation disclaimer.
+
+---
+
+<a id="board-006"></a>
+
+### ✍️ Feature 23: Ironscribe Markdown Outline Parser (Agent 05)
+* **GRC Function ID:** `BOARD-006`
+* **Exact Screen Coordinates:** Backend-only — feeds docs matrix ingress and board knowledge vault parsing.
+* **Operational Purpose:** Strips YAML metadata headers and structures markdown outlines into board-safe knowledge blocks with immutable parse attribution.
+* **Technical Mechanics:** `Ironboard/src/services/ironscribe/markdownOutlineParser.ts`:
+  * Parses markdown headings into outline nodes
+  * Stamps `parsedBy: 'Ironscribe-Agent-05'` on output envelope
+  * Consumed by `docsMatrixIngress.ts` alongside Irongate sanitization
+* **Agent Boundary:** **Ironscribe** (Agent 05) export hash and audit citation lineage.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/docsMatrixIngress.test.ts` — verify outline blocks ingest with Ironscribe attribution.
+  2. Ingest markdown document with YAML front matter — verify header stripped from persisted CRM envelope.
+
+---
+
+<a id="board-007"></a>
+
+### 🤝 Feature 24: CRM Deal ownerAgentId Attribution
+* **GRC Function ID:** `BOARD-007`
+* **Exact Screen Coordinates:** IronBoard CRM pipeline — `DealRecord` rows in board tooling (no Ironframe dashboard chip).
+* **Operational Purpose:** Binds each deal stage vector to the responsible boardroom agent ID for workforce accountability in commercial orchestration.
+* **Technical Mechanics:** `Ironboard/src/services/crm/crmService.ts` delta adds optional `ownerAgentId` on deal create/update paths — trimmed string persisted on `DealRecord`. Enables board reports to cite which agent owns pipeline progression without cross-tenant agent memory bleed.
+* **Agent Boundary:** IronBoard commercial plane only — Ironframe 19-agent GRC workforce remains on port 3000.
+* **Step-by-Step Lab Validation:**
+  1. Create deal via `manageCrmPipeline` with `ownerAgentId` set — verify persistence round-trip.
+  2. Confirm tenant isolation — deal query scoped to board org tenant UUID from `crmTenantContext.ts`.
+
+---
+
+<a id="intel-001"></a>
+
+### 🛰️ Feature 25: June 15 Live Strategic Intel OSINT Manifest
+* **GRC Function ID:** `INTEL-001`
+* **Exact Screen Coordinates:** IronBoard Strategic Intel dashboard — rows in `ironboard_crm_interactions` with manifest `ironintel-osint-2026-06-15-live`.
+* **Operational Purpose:** Delivers fresh external OSINT for June 15, 2026 through Irongate-sanitized CRM persistence for board briefings: Check Point CVE-2026-50751 IKEv1 VPN authentication bypass (CVSS 9.3, Qilin ransomware affiliates, CISA KEV June 8 with June 11 remediation deadline), CVE-2026-50752 certificate-validation MITM flaw, Gentlemen RaaS (483 victims across 66 countries, 380 in 2026 alone, operational database of **14700** exploited FortiGate devices and **969** brute-forced VPN credentials, May 2026 internal chat leak exposing affiliate AI tooling), ShinyHunters UNC6240 Oracle PeopleSoft CVE-2026-35273 zero-day (CVSS 9.8 unauthenticated RCE, May 27 through June 9, 2026, Google GTIG notified **100** plus organizations with **68** percent higher-education, MeshCentral RMM masquerading as Azure endpoints), Infinite Campus breach (**137123** unique email addresses via Have I Been Pwned from ShinyHunters Salesforce-linked extortion), Arch Linux AUR supply-chain hijack (**1900** plus community packages deploying rootkit and credential harvester), CSA CISO Daily Briefing self-replicating AI worm PoC (**62** percent network penetration in seven days with locally hosted open-weight LLM), CMMC Phase 2 mandatory Level 2 C3PAO certification effective November 10, 2026 (assessments remain NIST SP 800-171 Revision 2 per DoD class deviation, C3PAO lead times **4** to **10** weeks), and GSA CIO-IT Security-21-112 Rev 1 (effective January 5, 2026) mandating NIST SP 800-171 Rev 3 with nine showstopper controls and one-hour incident reporting for GSA CUI contractors diverging from DoD Rev 2 baseline.
+* **Technical Mechanics:** `Ironboard/src/knowledge/grcProfessionalResearch.manifest.json`:
+  * `manifestId`: `ironintel-osint-2026-06-15-live`
+  * `generatedAt`: `2026-06-15T18:00:00.000Z`
+  * Ingestion script: `npx tsx scripts/ingest-strategic-intel-manifest.ts`
+  * RAG chunks renamed from workday reconciliation tags to live OSINT vectors: `osint-01-checkpoint-qilin`, `osint-02-gentlemen-fortinet`, `osint-03-peoplesoft-shinyhunters`, `osint-04-cmmc-rev2-phase2`, `osint-05-aur-supply-chain`, `osint-06-ai-worm-agentic`, `osint-07-gsa-rev3-divergence`, `saas-01-dmz-ingress`
+  * `priorityAgents` schema includes **Ironwatch** alongside Ironintel and Ironscribe per `strategicIntelResearch.ts` Zod enum
+  * All industry `peerAleBaselineCents` and `riskMetricsCents` values are **string-encoded BigInt integers** — never floats
+  * Technology sector `continuousAuditPriority` elevated from **HIGH** to **CRITICAL**; Finance regulatory pressure index **88** → **91**; Healthcare **91** → **95**; Defense **96** → **99**
+* **Industry Profile Peer ALE Baselines (BigInt cents only):**
+  * Finance: **1800000000** cents
+  * Healthcare: **1210000000** cents
+  * Technology: **950000000** cents
+  * Defense: **2500000000** cents
+  * Public Sector: **1500000000** cents
+* **Manifest Risk Metrics (BigInt cents only):**
+  * `medianAnnualGrcProgramCents`: **4200000000**
+  * `medianAuditRemediationLagCents`: **875000000**
+  * `saasConsolidationSavingsOpportunityCents`: **650000000**
+  * `boardReportingOverheadCents`: **120000000**
+* **Constitutional tenant ALE baselines (Ironframe seed tenants — unchanged):** Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents.
+* **Agent Boundary:** **Ironintel** (Agent 16) OSINT correlation; **Ironwatch** (Agent 13) healthcare Infinite Campus HIBP entry, AUR supply-chain telemetry, and AI worm behavioral anomaly correlation in RAG chunks `osint-05-aur-supply-chain` and `osint-06-ai-worm-agentic`; **Irongate** (Agent 14) DMZ sanitization via `validateStrategicIntelManifest` before `ingestGrcProfessionalResearchCorpus` — manifest chunk `saas-01-dmz-ingress` binds refresh to `ironintel-osint-2026-06-15-live`.
+* **Step-by-Step Lab Validation:**
+  1. Run ingest script — verify manifest schema validation passes BIGINT-cent gate.
+  2. Re-run ingest — verify `skippedDuplicate` when manifest `ironintel-osint-2026-06-15-live` already persisted.
+  3. Query Strategic Intel dashboard — confirm Check Point CVE-2026-50751, Gentlemen FortiOS CVE-2024-55591, PeopleSoft CVE-2026-35273, CMMC Phase 2 November 10 2026 countdown, and GSA Rev 3 divergence findings visible under tenant scope.
+  4. Run `tests/unit/strategicIntelIngress.test.ts` — all pass.
+  5. Verify RAG chunk `osint-04-cmmc-rev2-phase2` cites SSP, SPRS, and POA&M truth with BIGINT-cent exposure — no float placeholders.
+
+---
+
+<a id="ops-002"></a>
+
+### 🔧 Feature 26: Operator CLI Provisioning Scripts
+* **GRC Function ID:** `OPS-002`
+* **Exact Screen Coordinates:** Terminal-only — no UI.
+* **Operational Purpose:** Gives platform administrators safe, auditable CLI paths for password operations and strategic intel ingestion without bypassing Supabase Auth or Irongate DMZ.
+* **Technical Mechanics:**
+  * `scripts/admin-set-password.mjs` — Supabase Admin API password set; requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`; minimum 8 characters
+  * `scripts/send-password-reset.mjs` — triggers reset email via public auth API with `NEXT_PUBLIC_APP_URL` redirect
+  * `scripts/ingest-strategic-intel-manifest.ts` — Irongate pre-flight + CRM persistence for OSINT manifest
+* **Agent Boundary:** **Ironguard** (Agent 12) identity; **Irongate** (Agent 14) on intel ingress only.
+* **Step-by-Step Lab Validation:**
+  1. Run admin-set-password with test user — verify login succeeds with new password.
+  2. Run send-password-reset — verify email link targets `https://ironframegrc.com/reset-password`.
+  3. Never commit `.env.local` service role key to repository.
+
+---
+
+<a id="cron-002"></a>
+
+### ⏰ Feature 27: Windows Task Scheduler Cron Wrapper
+* **GRC Function ID:** `CRON-002`
+* **Exact Screen Coordinates:** No UI — `scripts/cron_narrate_scheduled.ps1` invoked by Task Scheduler at 03:00.
+* **Operational Purpose:** Normalizes PATH, working directory, and Cursor agent root before delegating to `cron_narrate.ps1` for unattended nightly documentation and OSINT phases.
+* **Technical Mechanics:** Sets `$ProjectRoot = C:\Users\Dereck\ironframe-live`, prepends `%LOCALAPPDATA%\cursor-agent` to PATH, invokes `cron_narrate.ps1` with `-NoProfile -ExecutionPolicy Bypass`, propagates exit code.
+* **Step-by-Step Lab Validation:**
+  1. Register scheduled task pointing at `cron_narrate_scheduled.ps1`.
+  2. Run wrapper manually — verify same log output as direct `cron_narrate.ps1` invocation.
+  3. Confirm task exit code non-zero when `CURSOR_API_KEY` missing.
+
+---
+
+<a id="supabase-001"></a>
+
+### 🔗 Feature 28: Shared Supabase Public Env Normalization
+* **GRC Function ID:** `SUPABASE-001`
+* **Exact Screen Coordinates:** Invisible — shared by browser client, middleware, and login error surfaces.
+* **Operational Purpose:** Eliminates duplicated env parsing logic that caused mismatched Supabase project refs between client and middleware session refresh paths.
+* **Technical Mechanics:** `lib/supabase/envPublic.ts` exports:
+  * `envPublicSupabaseUrl()` — trims quotes and trailing slashes from `NEXT_PUBLIC_SUPABASE_URL`
+  * `envSupabaseAnonKey()` — normalizes anon key quoting
+  * `supabaseProjectRefFromUrl()` — extracts project ref for login error diagnostics
+  * Consumed by `lib/supabase/client.ts`, `lib/supabase/middleware.ts`, and `app/login/page.tsx`
+* **Agent Boundary:** **Ironguard** (Agent 12) session infrastructure.
+* **Step-by-Step Lab Validation:**
+  1. Set quoted URL in `.env.local` — verify client and middleware both connect.
+  2. Submit invalid login — verify error message includes correct project ref substring.
+
+---
+
+<a id="integrity-002"></a>
+
+### 🛡️ Feature 29: Constitutional Integrity Sentinel Degraded Payload
+* **GRC Function ID:** `INTEGRITY-002`
+* **Exact Screen Coordinates:** Polled by TopNav airlock banner and Integrity Hub — API route `/api/grc/tas-integrity`.
+* **Operational Purpose:** Returns partial telemetry when ancillary subsystems fail instead of HTTP 500 — preserving Ironwatch and Ironlock polling during Prisma slice outages.
+* **Technical Mechanics:** Refactored `app/api/grc/tas-integrity/route.ts`:
+  * `buildIntegrityPayload` consolidates fingerprint, dead-man switch, governance maturity, sustainability stale lockdown fields
+  * `readSystemConfigStaleLockdownSliceSafe` replaces direct Prisma read for degraded-path safety
+  * `assessTasMdIntegritySync` participates in TAS read validation
+  * On ancillary failure, response includes `ancillaryWarning` string while core `sha256Short`, `ironlockFreezeApplied`, and `chaosSimulationActive` still return
+  * `next.config.ts` adds `outputFileTracingIncludes` for `docs/TAS.md` and `storage/constitutional/TAS.md.gold` on constitutional API routes
+* **Agent Boundary:** **Ironlock** (Agent 6) freeze state; **Ironwatch** (Agent 13) maturity score; **Ironlogic** (Agent 4) TAS fingerprint.
+* **Step-by-Step Lab Validation:**
+  1. Poll `GET /api/grc/tas-integrity` — verify JSON includes `systemMaturityScore`, `chaosSimulationActive`, `sha256Short`.
+  2. Simulate SystemConfig read failure in staging — verify HTTP 200 with `ancillaryWarning` rather than 500.
+  3. Confirm Vercel deployment traces TAS.md for fingerprint routes.
+
+---
+
+<a id="monetization-001"></a>
+
+### 💳 Feature 30: Phase 1 Monetization Mandate (Sales-Assisted + Stripe)
+* **GRC Function ID:** `MONETIZATION-001`
+* **Exact Screen Coordinates:** IronBoard static context bundle; `/pricing` public page; `/admin/onboarding` platform console; Stripe webhook at `/api/webhooks/stripe`.
+* **Operational Purpose:** Establishes Phase 1 revenue architecture: **sales-assisted invite only** for first design-partner revenue, with Stripe instant-checkout as the async self-serve provisioning tunnel. Public self-serve multi-subdomain provisioning is hardcoded **OFF** in `config/registration.ts` — not env-driven.
+* **Technical Mechanics:** `Ironboard/src/staticContext.ts` exports `PHASE1_MONETIZATION_BOARD_MANDATE` federated at board startup alongside TAS.md, technical-requirements.md, hub.md, and `docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md`. IronBoard `buildDocsFederationMatrix` loads the monetization blueprint as **BOARD PRIORITY** context. Revenue wire path:
+  1. `provisionCorporateTenantCore` — creates tenant with `ale_baseline BIGINT` cents, calls `ensureTenantBillingPending`
+  2. `inviteCorporateTenantUserCore` — Supabase Admin `inviteUserByEmail` with tenant-scoped metadata
+  3. Stripe Checkout metadata requires `slug`, `companyName`, plus customer email from Stripe session
+  4. `fulfillStripeInstantCheckout` in `stripeInstantProvisionCore.ts` — provisions tenant, upserts `TenantBilling.status ACTIVE`, invites GRC_MANAGER, records prospect in `prospects` ledger with `reported_ale BIGINT`
+* **Agent Boundary:** **Ironlogic** (Agent 4) board monetization mandate; **Ironguard** (Agent 12) invite identity; **Ironwatch** (Agent 13) audit receipts on provision and invite actions.
+* **Step-by-Step Lab Validation:**
+  1. Read `PHASE1_MONETIZATION_BOARD_MANDATE` in IronBoard startup logs — verify monetization blueprint loaded count is 4 federation files.
+  2. Navigate to `/pricing` on local host — verify static Stripe Payment Link outbound URL from `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL`.
+  3. Forward Stripe webhook locally: `stripe listen --forward-to http://127.0.0.1:3000/api/webhooks/stripe`.
+  4. Complete test checkout — verify `tenant_billing.status` becomes **ACTIVE** and invite email issued.
+  5. Run `tests/unit/phase1Commercial.test.ts` and `tests/unit/stripeCheckoutParse.test.ts` — all pass.
+
+---
+
+<a id="billing-001"></a>
+
+### 🚫 Feature 31: Dashboard Billing Suspension Gate
+* **GRC Function ID:** `BILLING-001`
+* **Exact Screen Coordinates:** Full-page overlay inside dashboard route group when billing status is **PENDING** or **PAST_DUE** — renders `BillingSuspensionNotice` instead of tripane workspace.
+* **Operational Purpose:** Blocks command-center telemetry access for tenants with unpaid or lapsed Stripe subscriptions while preserving platform-admin and billing-hold remediation paths.
+* **Technical Mechanics:** `app/(dashboard)/layout.tsx` resolves `resolveTenantBillingEntitlementByUuid(access.tenantUuid)` and wraps children in `DashboardBillingGate`. Gate is active when `billing.blocked === true` and operator is not `canUsePlatformAdminTools()`. Exempt paths: `/admin/onboarding`, `/account/billing-hold`. Prisma model `TenantBilling` maps `tenant_slug`, `stripe_customer_id`, `status` (**PENDING**, **ACTIVE**, **PAST_DUE**). `isBillingGateActiveStatus` returns true for PENDING and PAST_DUE only.
+* **Agent Boundary:** **Irontrust** (Agent 3) financial entitlement enforcement — no float billing amounts; Stripe `amountTotalCents` stored as BigInt at provision.
+* **Step-by-Step Lab Validation:**
+  1. Set tenant billing status to **PENDING** via `setTenantBillingStatus` admin action.
+  2. Sign in as GRC_MANAGER for that tenant — verify suspension notice renders instead of Integrity Hub.
+  3. Sign in as GLOBAL_ADMIN — verify dashboard content renders (platform admin bypass).
+  4. Navigate to `/admin/onboarding` while billing blocked — verify exempt path renders onboarding console.
+
+---
+
+<a id="subdomain-001"></a>
+
+### 🌐 Feature 32: Multi-Tenant Subdomain Routing Envelope
+* **GRC Function ID:** `SUBDOMAIN-001`
+* **Exact Screen Coordinates:** Invisible middleware envelope — manifests as host-scoped workspace URLs like `https://vaultbank.ironframegrc.com/integrity` or `http://acmecorp.lvh.me:3000/`.
+* **Operational Purpose:** Binds HTTP host to tenant workspace scope so operators land on tenant-branded subdomains after corporate invite or Stripe checkout without manually selecting tenant from switcher.
+* **Technical Mechanics:** `app/lib/tenantSubdomain.ts` and `app/lib/middlewareSubdomainTenancy.ts`:
+  * `IRONFRAME_SUBDOMAIN_TENANCY` enabled by default — set `0` to disable
+  * `IRONFRAME_TENANT_APEX_DOMAIN` defaults from `NEXT_PUBLIC_APP_URL` hostname (`ironframegrc.com`)
+  * `NEXT_PUBLIC_DEVELOPMENT_DOMAIN` defaults to `lvh.me:3000` for local wildcard tenant hosts
+  * Reserved labels blocked: `www`, `api`, `app`, `admin`, `staging`, `preview`, `docs`, `login`
+  * `resolvePostAuthLandingPath(host)` — authenticated `/login` redirect targets tenant Command Post on subdomain hosts, `/integrity` on apex
+  * Auth callback `route.ts` resolves tenant slug from invite metadata, sets `ironframe-tenant` cookie, redirects to tenant subdomain origin
+  * Internal slug resolution for dynamic tenants: `GET /api/internal/tenant-slug-resolve` gated by `IRONFRAME_CRON_SECRET` or `IRONFRAME_INTERNAL_GATES_SECRET`
+* **Agent Boundary:** **Ironguard** (Agent 12) host-bound tenant isolation; cross-tenant path prefix conflicts redirect to host slug canonical path.
+* **Step-by-Step Lab Validation:**
+  1. Provision tenant `acmecorp` via admin onboarding — open `http://acmecorp.lvh.me:3000/login`.
+  2. Complete invite auth callback — verify redirect lands on `acmecorp.lvh.me` workspace, not apex.
+  3. Attempt `http://vaultbank.lvh.me:3000/medshield/integrity` — verify middleware strips conflicting path prefix.
+  4. Add Supabase redirect URL `http://acmecorp.lvh.me:3000/**` per `.env.example` guidance.
+  5. Run `tests/unit/tenantSubdomain.test.ts` and `tests/unit/tenantSlugRegistry.test.ts` — all pass.
+
+---
+
+<a id="registration-001"></a>
+
+### 📝 Feature 33: Invite-Only Registration Gate
+* **GRC Function ID:** `REGISTRATION-001`
+* **Exact Screen Coordinates:** `/register/setup` and `/register/demo` redirect to `/register/contact` when public registration is disabled; sales contact page for prospect intake.
+* **Operational Purpose:** Enforces Phase 1 sales-assisted onboarding — prospects cannot self-provision tenants via public registration API. Sales engineers use bearer-authenticated `POST /api/register/sales-intake` instead.
+* **Technical Mechanics:** `config/registration.ts` single source of truth:
+  * `IRONFRAME_PUBLIC_REGISTRATION_ENABLED = false` (hardcoded — no env override)
+  * `shouldBlockProspectIngress` blocks `/register/setup`, `/register/demo`, `/api/register/public-intake`, and `/demo/*` when `BLOCK_DEMO_SANDBOX_WHEN_REGISTRATION_DISABLED` is true
+  * Public lead capture remains at `POST /api/register/public-lead` (middleware passthrough for guests)
+  * Sales intake requires `INTERNAL_SALES_PROVISION_KEY` bearer token per `salesIntakeAuth.ts`
+* **Agent Boundary:** **Ironguard** (Agent 12) ingress policy; **Ironwatch** (Agent 13) prospect ledger audit on successful intake.
+* **Step-by-Step Lab Validation:**
+  1. Navigate to `/register/setup` on local host — verify redirect to `/register/contact`.
+  2. POST to `/api/register/public-intake` — verify 404 JSON when registration disabled.
+  3. POST to `/api/register/sales-intake` with valid bearer — verify tenant provision receipt.
+  4. Run `tests/unit/registrationGate.test.ts` and `tests/unit/registrationRoutes.test.ts` — all pass.
+
+---
+
+<a id="legal-001"></a>
+
+### 📜 Feature 34: User Legal Consent Registry
+* **GRC Function ID:** `LEGAL-001`
+* **Exact Screen Coordinates:** `/terms` and `/privacy` public document pages; `/legal/accept` authenticated acceptance route.
+* **Operational Purpose:** Records cryptographic proof that each Supabase user accepted the current MSA and privacy policy versions before accessing paid workspace features — SOC2-aligned consent trail.
+* **Technical Mechanics:** `config/legal.ts` immutable versions:
+  * `IRONFRAME_TERMS_VERSION`: `2026-06-15-msa-v1`
+  * `IRONFRAME_PRIVACY_VERSION`: `2026-06-15-privacy-v1`
+  * Prisma `UserLegalConsent` model: `userId`, `termsVersion`, `privacyVersion`, `acceptanceHash`, `acceptedAt`
+  * `recordLegalConsent` upserts row with `buildLegalAcceptanceHash(userId, acceptedAtIso)`
+  * Middleware allows authenticated `/legal/accept`; unauthenticated users redirect to `/login`
+* **Agent Boundary:** **Ironscribe** (Agent 05) immutable acceptance hash lineage; **Ironguard** (Agent 12) session gate on legal accept route.
+* **Step-by-Step Lab Validation:**
+  1. Open `/terms` and `/privacy` as guest on local host — verify legal document renders.
+  2. Sign in without consent row — navigate to `/legal/accept` — submit acceptance.
+  3. Query `user_legal_consents` — verify `terms_version` and `privacy_version` match config constants.
+  4. Bump version in `config/legal.ts` — verify `hasCurrentLegalConsent` returns false for prior acceptances.
+
+---
+
+<a id="admin-001"></a>
+
+### 🏢 Feature 35: Platform Administrator Onboarding Console
+* **GRC Function ID:** `ADMIN-001`
+* **Exact Screen Coordinates:** `/admin/onboarding` — CorporateOnboardingClient panel inside dashboard route group.
+* **Operational Purpose:** Gives GLOBAL_ADMIN operators a UI to provision corporate tenants, set billing status, list provisioned workspaces, and issue B2B invites without direct database access.
+* **Technical Mechanics:** Middleware Rule A0 — `isAdminOnboardingPath` requires authenticated user plus `fetchPlatformAdministratorAllowed` via internal gate `/api/internal/platform-admin-gate`. Page server component calls `canUsePlatformAdminTools()` before render. Actions delegate to `corporateTenantProvisionCore.ts`. Billing gate exempt — onboarding console reachable even when tenant billing is PENDING.
+* **Agent Boundary:** **Ironguard** (Agent 12) GLOBAL_ADMIN RBAC; **Ironwatch** (Agent 13) provision and invite audit receipts.
+* **Step-by-Step Lab Validation:**
+  1. Sign in as non-admin — attempt `/admin/onboarding` — verify redirect to `/unauthorized`.
+  2. Sign in as GLOBAL_ADMIN — verify CorporateOnboardingClient renders provision form.
+  3. Provision tenant with `aleBaselineCents` as whole integer string — verify `tenants.ale_baseline` BIGINT matches.
+  4. Issue invite with `tenantSlug` and role CISO — verify `user_role_assignments` row created on accept.
+
+---
+
+<a id="demo-001"></a>
+
+### 🧪 Feature 36: Demo Sandbox Command Post
+* **GRC Function ID:** `DEMO-001`
+* **Exact Screen Coordinates:** `/demo/dashboard` (rewritten from `/dashboard` when demo cookie active); demo host `acorp-sandbox.lvh.me`; amber **`DemoSandboxBanner`** pinned above AppShell when demo session active.
+* **Operational Purpose:** Provides a client-side sandbox command post with mock threat telemetry and constitutional ALE anchors for prospect education without touching production tenant data or production API telemetry paths.
+* **Technical Mechanics:** `app/lib/demo/demoModeConstants.ts`:
+  * `DEMO_WORKSPACE_SLUG`: `acorp-sandbox`
+  * `DEMO_ACTIVE_COOKIE`: `ironframe-demo-active`
+  * `DEMO_SESSION_COOKIE`: `ironframe-demo-session` — cross-origin cookie on `.lvh.me` and `.localtest.me`
+  * `DEMO_ALE_BASELINE_CENTS`: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** (BigInt literals)
+  * `getDemoCommandCenterScope()` aggregates three seed baselines into demo enclave row (**2170000000** cents total display string)
+  * Middleware rewrites `/dashboard` → `/demo/dashboard` when demo cookie set on sandbox host or localhost apex
+  * **Demo API isolation (2026-06-16 delta):** `applyIronguardToFetch` in `apiClient.ts` throws `DEMO_API_BLOCK_MESSAGE` when `isDemoModeActive()` and path is not a public constitutional sentinel route — logs `DEMO_MODE_ISOLATED` via `isolationSentinelLog.ts`
+  * `useKimbotPersistLoop.ts` and `useResilienceIntelPoll.ts` return early when demo mode active — no Kimbot persist or resilience poll against production APIs
+  * `AppShell.tsx` mounts `DemoSandboxBanner` and adjusts top padding when demo and simulation banners stack
+* **Agent Boundary:** Demo plane uses synthetic UUIDs — zero production RLS bleed; **Ironguard** (Agent 12) blocks cross-tenant fetch; demo isolation is client-side perimeter only — not a substitute for shadow-plane `SimulationDiagnosticLog` semantics.
+* **Step-by-Step Lab Validation:**
+  1. Set `ironframe-demo-active=1` cookie on localhost — navigate to `/dashboard` — verify rewrite to demo command post.
+  2. With demo session active, trigger any `/api/grc/*` fetch — verify console shows `[ DEMO MODE ] | Production telemetry isolated — API call blocked.`
+  3. Verify constitutional sentinel paths (`/api/grc/tas-integrity`, `/api/grc/tas-fingerprint`) still callable from marketing shell during demo.
+  4. Run `tests/unit/demoMode.test.ts` — verify demo path classification and ALE cent constants.
+
+---
+
+<a id="nav-002"></a>
+
+### 🏷️ Feature 37: Staged Navigation Surface Badges
+* **GRC Function ID:** `NAV-002`
+* **Exact Screen Coordinates:** TopNav navigation links for stub routes — badge chips **STAGED DRAFT** or **PREVIEW**.
+* **Operational Purpose:** Signals design-partner pilots which dashboard routes are immature stubs and blocks GRC_MANAGER role from navigating to unfinished surfaces.
+* **Technical Mechanics:** `app/config/stagedNavSurfaces.ts` — `/vendors/supply-chain` (**STAGED DRAFT**), `/reports/dora-eu-resilience` (**PREVIEW**); `isStagedNavBlockedForRole` gates GRC_MANAGER.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/stagedNavSurfaces.test.ts` — all href normalizations pass.
+
+---
+
+<a id="brand-001"></a>
+
+### 🎨 Feature 38: Tenant Brand Accent Resolution
+* **GRC Function ID:** `BRAND-001`
+* **Exact Screen Coordinates:** TopNav tenant label, login branded panel, subdomain workspace chrome.
+* **Operational Purpose:** Applies per-tenant visual identity without altering RLS scope. `ale_baseline` displayed as BigInt cents string through `formatTenantBrand`.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/tenantBrand.test.ts` — verify accent resolution for seed tenants.
+
+---
+
+<a id="prospect-001"></a>
+
+### 📇 Feature 39: Executive Prospect Ledger
+* **GRC Function ID:** `PROSPECT-001`
+* **Exact Screen Coordinates:** Backend `prospects` table — no default UI chip.
+* **Operational Purpose:** Persists vetted sales leads with `reported_ale BIGINT NOT NULL` for executive pipeline aggregation.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/publicLeadParse.test.ts` — verify lead payload parsing.
+
+---
+
+<a id="auth-007"></a>
+
+### 🔐 Feature 40: Scoped Dev Constitutional Elevation
+* **GRC Function ID:** `AUTH-007`
+* **Operational Purpose:** Restricts local constitutional authority to `IRONFRAME_DEV_SUPABASE_USER_ID`, `IRONFRAME_DEV_SUPABASE_EMAIL`, or explicit `IRONFRAME_DEV_CONSTITUTIONAL_ELEVATION=1` — other dev users keep normal RBAC.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/devConstitutionalElevation.test.ts` — scoped match order passes.
+
+---
+
+<a id="auth-008"></a>
+
+### 🔑 Feature 41: Auth Redirect Origin Resolution
+* **GRC Function ID:** `AUTH-008`
+* **Operational Purpose:** Builds Supabase redirect URLs from active request host including tenant subdomains. Password reset errors cite exact callback URL for Supabase whitelist configuration.
+* **Step-by-Step Lab Validation:**
+  1. Request password reset from tenant subdomain — verify redirect URL uses tenant host in email link.
+
+---
+
+<a id="board-008"></a>
+
+### 📊 Feature 42: IronBoard Monetization Blueprint Federation
+* **GRC Function ID:** `BOARD-008`
+* **Operational Purpose:** Injects Q2 2026 market blueprint into boardroom static context at IronBoard startup.
+* **Step-by-Step Lab Validation:**
+  1. Start IronBoard port **8082** — verify federation log shows monetization blueprint loaded.
+
+---
+
+<a id="command-001"></a>
+
+### 🏗️ Feature 43: Command Center Tenant Access Scope
+* **GRC Function ID:** `COMMAND-001`
+* **Operational Purpose:** RBAC-scoped tenant switcher — non-GLOBAL_ADMIN users see only assigned workspaces; subdomain hosts lock to single tenant.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/commandCenterTenantAccess.test.ts` — all pass.
+
+---
+
+<a id="board-009"></a>
+
+### 🎬 Feature 44: Board YouTube Shorts & Denial Rewrite Guard
+* **GRC Function ID:** `BOARD-009`
+* **Operational Purpose:** Strips LLM video capability denials (including Shorts-specific refusal patterns) and appends canonical `YOUTUBE_VIDEO_DENIAL_REWRITE` when `payloadSignalsVideoIntelligence(query)` detects a video-linked board request with stripped denial and response under 160 characters; skips web prefetch for video queries via `shouldPrefetchWeb` guard in `boardroomQueryIntent.ts`.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/boardResponseLibrary.test.ts` and `tests/unit/linkScraper.test.ts` — all pass including Shorts URL `youtube.com/shorts/{id}` extraction.
+
+---
+
+<a id="integrity-003"></a>
+
+### 🛡️ Feature 45: TAS Markdown Integrity Assessment
+* **GRC Function ID:** `INTEGRITY-003`
+* **Operational Purpose:** `assessTasMdIntegritySync` in `tasMdIntegrity.ts` validates TAS.md during `buildIntegrityPayload` without crashing route on partial failures.
+* **Step-by-Step Lab Validation:**
+  1. Poll `/api/grc/tas-integrity` — verify `sha256Short` in JSON.
+
+---
+
+<a id="governance-001"></a>
+
+### 📰 Feature 46: The Governance Frame Published Briefing Ledger
+* **GRC Function ID:** `GOVERNANCE-001`
+* **Exact Screen Coordinates:** Public reader at `/governance-frame` (index card grid) and `/governance-frame/[slug]` (article view). IronBoard mirror feed at `http://127.0.0.1:8082/governance-frame` when IronBoard engine is running locally.
+* **Operational Purpose:** Serves chronological institutional governance briefings compiled exclusively from `docs/published-briefings/*.md`. Draft files in `docs/briefing-queue/` remain quarantined and never enter the published feed — mirroring Irongate DMZ publish-before-persist semantics for executive intelligence artifacts.
+* **Technical Mechanics:**
+  * Next.js App Router: `app/governance-frame/layout.tsx` — standalone slate chrome, `GovernanceFrameBrandLockup`, metadata `robots: { index: false, follow: false }`
+  * `app/governance-frame/page.tsx` — `loadPublishedBriefings()` index with cent-register badge from Section II impact metrics
+  * `app/governance-frame/[slug]/page.tsx` — `BriefingFrameContent` + `BriefingMarkdown` with sanitized react-markdown compilation
+  * `app/lib/governanceFrame/briefingLoader.ts` — `enforceBriefingQuarantine()` warns on non-allowlisted `.md` files in `briefing-queue/` with `[SECURITY AUDIT] Unauthorized compilation attempt blocked for unvetted draft:` prefix
+  * `app/lib/governanceFrame/parseBriefingSections.ts` — splits body into zones I (Exposure Vector), II (Calculated Quantitative Impact), III (Machine-Rule Technical Translation), IV (Verification Protocol)
+  * `app/lib/governanceFrame/parseCentBigInt.ts` — rejects float and scientific notation cent literals; coerces whole integers to stringified BigInt
+  * `app/lib/governanceFrame/sanitizeMarkdown.ts` — strips `<script>`, `javascript:` URIs, and `onerror=` attributes before render
+  * IronBoard parallel router: `Ironboard/src/governanceFrame/router.ts`, `briefingScanner.ts`, `renderBlog.ts` — HTML blog renderer for direct IronBoard access
+  * `next.config.ts` `outputFileTracingIncludes` ships `./docs/published-briefings/**/*` on Vercel for `/governance-frame` lambdas
+  * Published seed briefing: `docs/published-briefings/2026-06-07-staging-boundary-check.md` — provisioning tunnel test exposure **499900** cents, reported ALE delta **0** cents
+  * `ConditionalAppShell.tsx` excludes governance-frame paths from dashboard AppShell mount — no TopNav bleed
+* **Agent Boundary:** **Ironscribe** (Agent 05) briefing structure and export lineage; **Irongate** (Agent 14) markdown sanitization before client render; **Ironlogic** (Agent 4) board federation reads monetization blueprint alongside TAS for strategic context.
+* **Step-by-Step Lab Validation:**
+  1. Open `http://127.0.0.1:3000/governance-frame` — verify index lists published briefings chronologically with cent-register badges where Section II defines `(¢)` metrics.
+  2. Open `/governance-frame/2026-06-07-staging-boundary-check` — verify four-section frame renders without dashboard chrome.
+  3. Place `secret-draft.md` in `docs/briefing-queue/` — reload index — verify draft does not appear; server log emits quarantine audit warning.
+  4. Start IronBoard on port **8082** — verify startup log `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:8082/governance-frame · published=N`.
+  5. Run `tests/unit/governanceFrameBriefingScanner.test.ts`, `tests/unit/governanceFrameSanitize.test.ts`, and `tests/unit/governanceFrameEmail.test.ts` — all pass.
+
+---
+
+<a id="governance-002"></a>
+
+### 💰 Feature 47: Unified Financial Ingress Invariant Bridge
+* **GRC Function ID:** `GOVERNANCE-002`
+* **Exact Screen Coordinates:** No direct UI — validates cent registers at Governance Frame parse boundary, sales intake API, Stripe checkout fulfillment, and prospect ledger persistence.
+* **Operational Purpose:** Guarantees a single whole-integer BigInt cent contract across three ingress surfaces that accept human-readable dollar input at the UI layer but must never persist floats: Governance Frame briefing Section II registers, sales-assisted `/api/register/sales-intake` ALE fields, and Stripe `amountTotalCents` metadata.
+* **Technical Mechanics:** `tests/unit/financialIngressInvariant.test.ts` bridges:
+  * `parseCentBigInt` — briefing ledger rejects `"49.99"` and `"1110000000.5"` with `Governance Frame cent register must be a whole integer`
+  * `parseDollarAleToBigIntCents` — accepts `"$11,100,000.00"` and emits **1110000000** as `bigint`
+  * `parseExplicitCentAle` — explicit cent string `"1110000000"` matches dollar-parse output
+  * `verifyCanonicalEnterpriseBaseline` — Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** cent targets
+  * Round-trip: sales intake BigInt output must pass Governance Frame `parseCentBigInt` without coercion loss
+* **Agent Boundary:** **Irontrust** (Agent 3) canonical baseline enforcement; **Irongate** (Agent 14) rejects malformed cent payloads at ingress.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/financialIngressInvariant.test.ts` — all canonical profile dollar inputs resolve to TAS BigInt cents.
+  2. POST sales intake with `"$5,900,000.00"` reported ALE — verify `prospects.reported_ale BIGINT` equals **590000000**.
+  3. Add briefing metric `"1110000000.5"` — verify `parseCentBigInt` throws before publish.
+
+---
+
+<a id="governance-003"></a>
+
+### 📧 Feature 48: Ironcast Governance Frame Email Newsletter
+* **GRC Function ID:** `GOVERNANCE-003`
+* **Exact Screen Coordinates:** Backend HTML artifact — `out/governance-frame/newsletters/{slug}.html` after compile; outbound email via Ironcast worker.
+* **Operational Purpose:** Converts published Governance Frame briefings into table-based HTML email newsletters with deep links to the public feed origin for executive distribution.
+* **Technical Mechanics:** `lib/agents/ironcast/templates/governanceFrameEmail.ts`:
+  * `GOVERNANCE_FRAME_FEED_ORIGIN` from `GOVERNANCE_FRAME_PUBLIC_FEED_ORIGIN` env or default `https://brief.ironframegrc.com`
+  * Email HTML uses table layout, inline styles, no `<button>` elements — Outlook-compatible patterns per Resend email requirements
+  * `lib/agents/ironcast/workers/compileNewsletter.ts` writes compiled HTML under `out/governance-frame/newsletters/`
+  * Link pattern: `{origin}/governance-frame/{slug}`
+* **Agent Boundary:** **Ironcast** outbound communications; **Ironscribe** (Agent 05) content attribution from published briefing frontmatter.
+* **Step-by-Step Lab Validation:**
+  1. Run newsletter compile worker against published briefing slug — verify HTML output contains feed deep link.
+  2. Run `tests/unit/governanceFrameEmail.test.ts` — verify origin URL and slug encoding.
+
+---
+
+<a id="governance-004"></a>
+
+### 📡 Feature 49: Governance Frame RSS Feed Compiler
+* **GRC Function ID:** `GOVERNANCE-004`
+* **Exact Screen Coordinates:** Generated RSS XML — item links target `{RSS_ITEM_LINK_ORIGIN}/governance-frame/{slug}`.
+* **Operational Purpose:** Publishes machine-readable RSS items for each published briefing so external subscribers and board ingestion pipelines can poll chronological updates without scraping the HTML index.
+* **Technical Mechanics:** `scripts/compile-rss.ts` reads published briefings and emits RSS XML with governance-frame deep links. Default link origin aligns with `GOVERNANCE_FRAME_PUBLIC_FEED_ORIGIN`. `tests/unit/compileRss.test.ts` validates encoded slug URLs in XML output.
+* **Agent Boundary:** **Ironintel** (Agent 16) external feed correlation; content sourced only from published ledger — never `briefing-queue/`.
+* **Step-by-Step Lab Validation:**
+  1. Run `npx tsx scripts/compile-rss.ts` — verify RSS item link contains `/governance-frame/` path segment.
+  2. Run `tests/unit/compileRss.test.ts` — all pass.
+
+---
+
+<a id="demo-002"></a>
+
+### 🔒 Feature 50: Demo Mode Production API Isolation Sentinel
+* **GRC Function ID:** `DEMO-002`
+* **Exact Screen Coordinates:** Invisible client-side fetch interceptor — manifests as thrown error in browser console when demo session calls protected `/api/*` routes.
+* **Operational Purpose:** Prevents demo sandbox operators from accidentally writing Kimbot state, resilience intel polls, or tenant-scoped GRC telemetry to production databases while exploring mock command post UI.
+* **Technical Mechanics:** `app/utils/apiClient.ts` `applyIronguardToFetch`:
+  * When `isDemoModeActive()` returns true and pathname is not `isPublicConstitutionalSentinelPath` or tenant-optional registration path, throws `DEMO_API_BLOCK_MESSAGE`
+  * `logIsolationSentinelBlocked({ reasonCode: "DEMO_MODE_ISOLATED", ... })` writes structured isolation log entry
+  * `isolationSentinelLog.ts` maps `DEMO_MODE_ISOLATED` to audit string `BLOCKED: DEMO_SANDBOX_ISOLATED`
+  * Constitutional sentinel paths remain callable so marketing shell and Governance Frame reader can poll TAS integrity without dashboard session
+* **Agent Boundary:** **Ironguard** (Agent 12) client fetch perimeter; complements server-side RLS — does not replace tenant isolation tests.
+* **Step-by-Step Lab Validation:**
+  1. Initialize demo sandbox via `/register/demo` or `initializeDemoSandbox()`.
+  2. Navigate to demo command post — open browser devtools network tab — trigger GRC API poll — verify fetch rejected before network dispatch.
+  3. Poll `/api/grc/tas-integrity` from same session — verify request succeeds (constitutional sentinel exemption).
+
+---
+
+## 🧬 Chapter 5: Nineteen-Agent Architecture Cross-Reference (Delta Verification)
+
+Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity:
+
+| Agent # | Codename | Today's Delta Touchpoints |
+|---------|----------|-------------------------|
+| 1 | Ironcore | Dashboard orchestration, marketing/command center split, theme provider, `DashboardCommandCenterLayout`, billing gate wrapper, subdomain post-auth landing, Governance Frame public reader route isolation |
+| 3 | Irontrust | BigInt `ale_baseline` on dynamic tenant provision, `TenantBilling` entitlement gate, Stripe `amountTotalCents` as BigInt, demo ALE cent anchors, unified financial ingress invariant (`financialIngressInvariant.test.ts`) |
+| 4 | Irontech | Chaos simulation shadow plane `SimThreatEvent`, integrity repair priority when `healthBarPercent` < 50%, demo sandbox mock threats, demo API fetch isolation |
+| 5 | Ironscribe | Markdown outline parser, legal consent `acceptanceHash`, docs matrix ingress attribution, OSINT manifest LP-10/LP-16 citations, Governance Frame briefing section I–IV structure, Ironcast newsletter HTML |
+| 6 | Ironlock | Full-host production quarantine, stale lockdown middleware, rebaseline script, scoped dev constitutional elevation |
+| 9 | Ironlogic | Board synthesis, `PHASE1_MONETIZATION_BOARD_MANDATE`, monetization blueprint federation, TAS markdown integrity assessment |
+| 11 | Irontally | Board governance memo cron phase, monetization blueprint board priority context |
+| 12 | Ironguard | Dashboard RBAC gate, RBAC-scoped tenant switcher, subdomain host envelope, platform admin gate, invite-only registration perimeter, demo mode `DEMO_MODE_ISOLATED` fetch block |
+| 13 | Ironwatch | `system_health_log`, tas-integrity degraded payload, prospect ledger audit, OSINT RAG `priorityAgents` inclusion, June 15 Infinite Campus HIBP and AUR supply-chain chunks |
+| 14 | Irongate | Video ingress, YouTube Shorts link scraper, strategic intel sanitization, sales-intake DMZ, OSINT cron, Governance Frame markdown sanitization, briefing-queue quarantine audit |
+| 15 | Ironquery | Boardroom query API, video intelligence prefetch skip, YouTube denial rewrite guard with query context, Shorts URL pattern expansion |
+| 16 | Ironintel | June 15 live OSINT manifest `ironintel-osint-2026-06-15-live`, Check Point CVE-2026-50751, Gentlemen FortiOS, PeopleSoft CVE-2026-35273, CMMC Phase 2, GSA Rev 3 divergence RAG chunks, Governance Frame RSS compile |
+| 17 | Ironbloom | `resolveDashboardMitigatedValueCents`, tenant brand ALE display, sustainability degraded flags; Kimbot persist loop disabled in demo mode |
+
+Agents not directly modified in today's delta remain governed by their existing TAS core directives. Absence from the diff is not absence from the workforce — verify their **ACTIVE** status lights in Feature 5 grid before each lab session.
+
+---
+
+## 🧯 Chapter 6: Self-Healing Troubleshooting & Error Diagnostic Steps
 
 Because you are completing your GRC auditing labs independently online without an instructor, you must know how to clear security alerts yourself using our automated self-healing loops:
 
@@ -218,6 +1133,7 @@ Because you are completing your GRC auditing labs independently online without a
   1. Locate the bold, amber control button labeled **`FREEZE COMMAND POST`** sitting in the top sub-header toolline and click it once.
   2. This triggers the `Irontech` self-healing agent to immediately freeze system states and run a deep structural integrity check against your local files.
   3. Wait exactly three seconds. The background automation will auto-wipe your unsanctioned change, reload your company's official database baseline, clear out the red alert text, and restore your interface to a safe green tracking message.
+  4. If void persists, execute `prisma/scripts/constitutional_rebaseline_reset.sql` and poll `/api/grc/tas-integrity`.
 
 ### 🚨 Alert 2: Primary Panels Suddenly Clear and Flash Empty Gray Boxes
 * **The Root Cause:** This is an intentional visual system safety state known as a **Skeleton Loading Frame**. It occurs when you use the top-left dropdown switcher to change corporate profiles. The platform purposefully purges short-term memory to guarantee that confidential database entries never bleed or leak across tenant boundaries.
@@ -225,3 +1141,153 @@ Because you are completing your GRC auditing labs independently online without a
   1. Maintain system isolation; do not click any components and leave your mouse still for 1 to 2 seconds.
   2. The background security warden **`Ironguard`** will automatically complete an access handshake to verify your user badge credentials have the legal permission rights to view the new corporation's records.
   3. Once verified, the gray placeholder frames will instantly slide away, and your fresh rows of clean, verified client records will paint your screen beautifully.
+
+### 🚨 Alert 3: Production Ingress Block (HTTP 403 Monospace Page)
+* **The Root Cause:** You are hitting a cloud-hosted URL (apex or tenant subdomain) while **full-host production quarantine** is active without `IRONFRAME_ALLOW_PUBLIC_INGRESS=1`. Unlike prior builds that blocked only `/` and `/login`, today's perimeter blocks **every path** on non-local hosts including `/marketing`, `/docs`, and `/integrity`.
+* **How to Resolve It Yourself:**
+  1. Develop on `http://127.0.0.1:3000` or tenant workspace `http://{slug}.lvh.me:3000` where quarantine is automatically whitelisted.
+  2. For cloud Stripe webhook testing, POST only to `/api/webhooks/stripe` — that path bypasses quarantine by design.
+  3. Set `IRONFRAME_ALLOW_PUBLIC_INGRESS=1` on the preview deployment for stakeholder demos (document the temporary change in your audit log).
+
+### 🚨 Alert 4: Dashboard Redirects to `/unauthorized` After Login
+* **The Root Cause:** Your Supabase user authenticated successfully but has no valid row in `user_role_assignments` for any tenant UUID.
+* **How to Resolve It Yourself:**
+  1. Platform administrator runs `inviteCorporateTenantUserAction` with correct `tenantSlug`.
+  2. Or insert a valid `user_role_assignments` row bound to Medshield `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`, Vaultbank, Gridcore, or Defense UUID.
+  3. Reload `/integrity` — verify `ensureDashboardTenantSession` writes tenant session cookie.
+
+### 🚨 Alert 5: Financial Display Shows Decimal Drift
+* **The Root Cause:** A module converted BigInt cents to float before persistence or export — **Mandate 1** violation.
+* **How to Resolve It Yourself:**
+  1. Reject the hotfix. Identify the offending cast (`Number()` on aggregated cents without integer guard).
+  2. Verify database column type is `BIGINT` for `mitigated_value_cents`, `ale_baseline_cents`, and `financialRisk_cents`.
+  3. Re-run Irontrust unit snapshots against constitutional baselines: **1110000000**, **590000000**, **470000000**, **1600000000** cents.
+  4. Export CSV again — confirm zero decimal places in raw file cells.
+
+### 🚨 Alert 6: Billing Suspension Overlay After Login
+* **The Root Cause:** Tenant `tenant_billing.status` is **PENDING** or **PAST_DUE** and operator is not GLOBAL_ADMIN.
+* **How to Resolve It Yourself:**
+  1. Platform administrator sets billing status to **ACTIVE** via `setTenantBillingStatusAction` or Stripe webhook fulfillment.
+  2. Or navigate to exempt path `/account/billing-hold` to complete payment remediation.
+  3. GLOBAL_ADMIN operators bypass gate for onboarding and support — use `/admin/onboarding` to verify tenant state.
+
+### 🚨 Alert 7: Self-Serve Registration Redirects to Sales Contact
+* **The Root Cause:** `IRONFRAME_PUBLIC_REGISTRATION_ENABLED` is hardcoded **false** in `config/registration.ts` — `/register/setup` and `/demo/*` are blocked by `shouldBlockProspectIngress`.
+* **How to Resolve It Yourself:**
+  1. Direct prospects to `/register/contact` for sales-assisted intake.
+  2. Sales engineers POST to `/api/register/sales-intake` with `INTERNAL_SALES_PROVISION_KEY` bearer token.
+  3. Do not attempt env-var override — registration gate is constitutionally hardcoded for Phase 1.
+
+### 🚨 Alert 8: Password Reset Email Link Rejected by Supabase
+* **The Root Cause:** Supabase Authentication → URL Configuration lacks the exact callback URL built from tenant subdomain origin.
+* **How to Resolve It Yourself:**
+  1. Read error message from `requestResetPasswordAction` — copy the cited redirect URL verbatim.
+  2. Add URL to Supabase Redirect URLs list (include `http://{slug}.lvh.me:3000/**` for local tenant workspaces).
+  3. Retry reset from the same host you intend users to land on after callback.
+
+### 🚨 Alert 9: Demo Sandbox Blocks Production API Calls
+* **The Root Cause:** Demo mode is active (`ironframe-demo-active=1` cookie or valid demo session in `localStorage`) and the client attempted a tenant-scoped `/api/*` fetch. `applyIronguardToFetch` enforces `DEMO_MODE_ISOLATED` isolation — production telemetry must not bleed from sandbox UI exploration.
+* **How to Resolve It Yourself:**
+  1. Expected behavior during demo command post labs — mock UI uses `seedDemoClientState()` client fixtures, not live API polls.
+  2. To test production API paths, call `clearDemoSession()` or delete `ironframe-demo-active` and `ironframe-demo-session` cookies, then sign in with a real Supabase RBAC session.
+  3. Constitutional sentinel routes (`/api/grc/tas-integrity`, `/api/grc/tas-fingerprint`) remain callable during demo for marketing integrity badges — do not treat those blocks as regressions.
+
+### 🚨 Alert 10: Governance Frame Shows Empty Index
+* **The Root Cause:** No markdown files exist in `docs/published-briefings/` or draft-only files remain in `docs/briefing-queue/` without promotion.
+* **How to Resolve It Yourself:**
+  1. Copy reviewed briefing from `docs/briefing-queue/` to `docs/published-briefings/{slug}.md` with YAML frontmatter including `publishedAt`.
+  2. Ensure Section II impact metrics use whole-cent BigInt string literals in `(¢)` labeled bullets — floats are rejected by `parseCentBigInt`.
+  3. Reload `/governance-frame` — verify index card grid lists briefing with chronological sort key.
+
+---
+
+## 📋 Chapter 7: Unit Test Verification Checklist (Today's Delta)
+
+Independent learners and compliance auditors must confirm the following Vitest suites pass before signing a daily lab receipt:
+
+| Test file | Validates |
+|-----------|-----------|
+| `tests/unit/deploymentQuarantine.test.ts` | Full-host block, localhost and lvh.me whitelist, Stripe webhook bypass, `IRONFRAME_ALLOW_PUBLIC_INGRESS` |
+| `tests/unit/dashboardRoleAccess.test.ts` | RBAC gate states, `ensureDashboardTenantSession` cookie hydration |
+| `tests/unit/commandCenterTenantAccess.test.ts` | GLOBAL_ADMIN vs scoped tenant switcher, subdomain host lock |
+| `tests/unit/grcRouteMatch.test.ts` | Header route matrix, auth public path, constitutional sentinel paths |
+| `tests/unit/registrationGate.test.ts` | Invite-only prospect ingress blocking |
+| `tests/unit/registrationRoutes.test.ts` | Public registration route classification |
+| `tests/unit/phase1Commercial.test.ts` | Phase 1 monetization wire paths |
+| `tests/unit/stripeCheckoutParse.test.ts` | Stripe checkout metadata BigInt cent parsing |
+| `tests/unit/tenantSubdomain.test.ts` | Subdomain slug resolution, post-auth landing paths |
+| `tests/unit/tenantSlugRegistry.test.ts` | Dynamic tenant slug cache and lookup |
+| `tests/unit/demoMode.test.ts` | Demo sandbox paths and ALE cent constants |
+| `tests/unit/stagedNavSurfaces.test.ts` | Staged nav badge and role block matrix |
+| `tests/unit/boardResponseLibrary.test.ts` | YouTube denial strip and rewrite append |
+| `tests/unit/platformApplicationBoundary.test.ts` | Ironframe port 3000 vs IronBoard port 8082 |
+| `tests/unit/boardroomOrchestrator.test.ts` | Panel routing receipts and sales-lead canonical boundary |
+| `tests/unit/videoIngress.test.ts` | Irongate Zod schema quarantine and CLEAN path |
+| `tests/unit/videoBoardPrefetch.test.ts` | Timeline injection into boardroom orchestration |
+| `tests/unit/strategicIntelIngress.test.ts` | Agent 14 sanitization before CRM persistence |
+| `tests/unit/docsMatrixIngress.test.ts` | BigInt `docsMatchedUnits` pipeline counters |
+| `tests/unit/linkScraper.test.ts` | YouTube and YouTube Shorts URL extraction |
+| `tests/unit/ironframeTheme.test.ts` | Theme ID resolution and body attribute mapping |
+| `tests/unit/devConstitutionalElevation.test.ts` | Scoped dev authority match order |
+| `tests/unit/publicLeadParse.test.ts` | Prospect lead payload parsing |
+| `tests/tenantBrand.test.ts` | Tenant brand accent resolution |
+| `tests/unit/governanceFrameBriefingScanner.test.ts` | Published ledger ingest and briefing-queue quarantine warnings |
+| `tests/unit/governanceFrameSanitize.test.ts` | Cent register rejection, section II parse, markdown XSS strip |
+| `tests/unit/governanceFrameEmail.test.ts` | Ironcast newsletter feed origin and slug deep links |
+| `tests/unit/financialIngressInvariant.test.ts` | Unified BigInt cent bridge across Governance Frame, sales intake, canonical baselines |
+| `tests/unit/compileRss.test.ts` | Governance Frame RSS item URL encoding |
+
+Run command: `npm run test` (or project-equivalent Vitest invocation). All suites must pass before GCP deploy readiness per `.cursorrules` Warden gate.
+
+---
+
+## 📎 Chapter 8: Environment Variable Reference (Delta Additions)
+
+The following `.env.example` entries were added or clarified in today's delta. Never commit live secrets — placeholders only:
+
+| Variable | Purpose |
+|----------|---------|
+| `IRONBOARD_BOARD_ORG_TENANT_UUID` | Board-level Strategic Intel tenant UUID (default Medshield seed) |
+| `IRONBOARD_GRC_ANALYST_VIDEO_URL` | Canonical YouTube URL for GRC Analyst briefing video |
+| `IRONFRAME_ALLOW_PUBLIC_INGRESS` | Set `1` to open all cloud ingress paths (default blocked on non-local hosts) |
+| `IRONFRAME_SUBDOMAIN_TENANCY` | Set `0` to disable host → tenant binding (enabled by default) |
+| `IRONFRAME_TENANT_APEX_DOMAIN` | Production apex for `*.ironframegrc.com` tenant hosts |
+| `NEXT_PUBLIC_DEVELOPMENT_DOMAIN` | Local dev tenant suffix (default `lvh.me:3000`) |
+| `INTERNAL_SALES_PROVISION_KEY` | Bearer token for `POST /api/register/sales-intake` |
+| `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` | Hosted Stripe Payment Link on `/pricing` |
+| `STRIPE_SECRET_KEY` | Server-only Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signature verification |
+| `CURSOR_API_KEY` | Headless Cursor CLI auth for `scripts/cron_narrate.ps1` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only corporate invite and admin password provisioning |
+| `NEXT_PUBLIC_APP_URL` | Production `https://ironframegrc.com` — auth redirects and apex routing |
+| `IRONFRAME_DEV_SUPABASE_EMAIL` | Scoped dev constitutional authority email match |
+| `IRONFRAME_DEV_SUPABASE_USER_ID` | Scoped dev constitutional authority user id match |
+| `IRONFRAME_CRON_SECRET` / `IRONFRAME_INTERNAL_GATES_SECRET` | Internal gates for slug resolve and platform admin probe |
+| `GOVERNANCE_FRAME_UPSTREAM` | Optional IronBoard upstream for local proxy (`http://127.0.0.1:8082`) |
+| `GOVERNANCE_FRAME_PUBLIC_FEED_ORIGIN` | Public feed origin for RSS and Ironcast email deep links (default `https://brief.ironframegrc.com`) |
+
+---
+
+## ✅ Chapter 9: Daily Writer Receipt (2026-06-16)
+
+**Delta classification:** Structural (Governance Frame published briefing ledger with `docs/published-briefings/` and quarantined `docs/briefing-queue/`, IronBoard `/governance-frame` mirror router, unified financial ingress invariant test suite, demo mode production API isolation sentinel) + Backend Logic (June 15 live OSINT manifest refresh to `ironintel-osint-2026-06-15-live`, YouTube Shorts link scraper pattern expansion, board denial rewrite with query context in `finalizeSanitizedBoardCompletion`, Ironcast governance frame email template, RSS compile script for briefing feed, Kimbot and resilience poll demo bypass) + UI (Governance Frame App Router pages with brand lockup and Early Enclave CTA, demo sandbox banner stacking in AppShell, governance-frame path exclusion from ConditionalAppShell dashboard chrome).
+
+**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively. Constitutional Ironframe seed tenant baselines: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000**. June 15 live OSINT manifest industry peer baselines (Finance **1800000000**, Healthcare **1210000000**, Technology **950000000**, Defense profile **2500000000**, Public Sector **1500000000**) and manifest risk metrics (`medianAnnualGrcProgramCents` **4200000000**, `medianAuditRemediationLagCents` **875000000**, `saasConsolidationSavingsOpportunityCents` **650000000**, `boardReportingOverheadCents` **120000000**) are manifest-scoped research metrics — not production tenant overrides. Governance Frame staging briefing registers provisioning tunnel test exposure **499900** cents and reported ALE delta **0** cents as whole-integer strings. Demo enclave aggregate display **2170000000** cents (sum of three seed baselines). Stripe checkout `amountTotalCents`, `prospects.reported_ale`, and `parseCentBigInt` briefing registers persist as BIGINT — never float. `financialIngressInvariant.test.ts` rejects `"49.99"` and `"1110000000.5"` at Governance Frame boundary while accepting `"$11,100,000.00"` at sales intake boundary with **1110000000** cent output.
+
+**Threat simulation verification:** June 15 live OSINT documents Check Point CVE-2026-50751 IKEv1 authentication bypass (CVSS 9.3, Qilin affiliates, CISA KEV June 8), Gentlemen RaaS **483** victims with **14700** compromised FortiGate devices, ShinyHunters Oracle PeopleSoft CVE-2026-35273 zero-day (**100** plus orgs notified, **68** percent higher-education), Infinite Campus breach (**137123** accounts), Arch Linux AUR supply-chain hijack (**1900** plus packages), CSA self-replicating AI worm PoC (**62** percent seven-day lab penetration), CMMC Phase 2 C3PAO mandate November 10 2026, and GSA Rev 3 versus DoD Rev 2 regulatory divergence — all ingested through Irongate DMZ before CRM persistence under manifest `ironintel-osint-2026-06-15-live`. Shadow-plane `SimThreatEvent.mitigated_value_cents BIGINT` isolation from production `ThreatEvent` unchanged. Chaos L6 ransomware drill protocol validates 19-agent containment without float ledger drift.
+
+**Irongate DMZ verification:** Video ingress, strategic intel manifest `ironintel-osint-2026-06-15-live`, docs matrix ingress, link scraper (including YouTube Shorts `/shorts/` path), Governance Frame `sanitizeMarkdown.ts`, and sales-intake paths stamp Agent 14 sanitization semantics. Pipeline statistics and briefing Section II cent registers use **BigInt** unit counters — never float. `briefing-queue/` drafts emit quarantine audit warnings and never compile into published feed.
+
+**Platform boundary verification:** Ironframe port **3000** serves Governance Frame at `/governance-frame` via App Router; IronBoard port **8082** mirrors feed at `/governance-frame` with HTML blog renderer. Both engines bind **127.0.0.1** only. Monetization blueprint federated at board startup (four federation files including Q2 2026 stakeholder deck). `ZERO_CROSS_CONTAMINATION_DIRECTIVE` unchanged.
+
+**Demo isolation verification:** `isDemoModeActive()` blocks tenant-scoped `/api/*` fetches with `DEMO_MODE_ISOLATED` reason code except constitutional sentinel and public registration paths. `useKimbotPersistLoop` and `useResilienceIntelPoll` skip polling during demo. Demo ALE anchors remain Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** cents.
+
+**Phase 1 commercial verification:** Unchanged from prior operational date — `IRONFRAME_PUBLIC_REGISTRATION_ENABLED` hardcoded false, sales-assisted intake via `/api/register/sales-intake`, Stripe webhook bypasses full-host quarantine, `DashboardBillingGate` blocks PENDING and PAST_DUE tenants except platform admin and exempt onboarding paths.
+
+**Middleware auth verification:** Unchanged three-phase middleware with governance-frame paths classified as public surfaces in `ConditionalAppShell` and `grcRouteMatch` constitutional sentinel allowlist.
+
+**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantial deltas across Governance Frame module (IronBoard router + Next.js App Router reader), June 15 OSINT manifest replacement, demo API isolation, financial ingress invariant tests, YouTube Shorts board guards, Ironcast email and RSS compile pipelines, and `.gitignore` hardening for `.env*` and GCP IAM key files (96717 lines in diff artifact).
+
+---
+
+*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-06-16.*

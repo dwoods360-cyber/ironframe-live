@@ -16,6 +16,8 @@ const nextConfig: NextConfig = {
   ],
   /** Ensure markdown hub + docx protocol ship inside docs route lambdas on Vercel. */
   outputFileTracingIncludes: {
+    "/governance-frame": ["./docs/published-briefings/**/*"],
+    "/governance-frame/[slug]": ["./docs/published-briefings/**/*"],
     "/docs/[[...slug]]": ["./docs/**/*"],
     "/api/docs/download-protocol": ["./docs/**/*"],
     "/api/docs/download-matrix": ["./docs/**/*"],

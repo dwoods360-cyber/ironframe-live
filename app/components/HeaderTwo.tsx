@@ -7,7 +7,9 @@ import { usePathname } from "next/navigation";
 import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
 import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
+import StagedNavLink from "@/app/components/nav/StagedNavLink";
 import { useAuditConsoleAccess } from "@/app/hooks/useAuditConsoleAccess";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 
 type HeaderTwoProps = {
@@ -18,8 +20,12 @@ const NAV_LINK_PREFETCH = true;
 
 export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const pathname = usePathname();
-  const routes = useMemo(() => buildHeaderRouteMatrix(pathname), [pathname]);
-  const { isVendorsRoute, isConfigRoute, currentTenant, homeLink } = routes;
+  const hostTenantSlug = useHostTenantSlug();
+  const routes = useMemo(
+    () => buildHeaderRouteMatrix(pathname, hostTenantSlug),
+    [pathname, hostTenantSlug],
+  );
+  const { isVendorsRoute, isConfigRoute, currentTenant, prefix } = routes;
   const { canViewAudit } = useAuditConsoleAccess();
 
   const chipBarRef = useRef<HTMLDivElement>(null);
@@ -64,7 +70,8 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
     window.dispatchEvent(new CustomEvent("vendors:open-add-vendor"));
   }, []);
 
-  const vendorsHref = currentTenant ? `/${currentTenant}/vendors` : "/vendors";
+  const vendorsHref = prefix ? `${prefix}/vendors` : "/vendors";
+  const supplyChainHref = prefix ? `${prefix}/vendors/supply-chain` : "/vendors/supply-chain";
 
   return (
     <div
@@ -106,6 +113,14 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
           }`}
         >
           <div className="flex w-full min-w-max flex-nowrap items-center gap-x-2">
+            <Link
+              href="/"
+              prefetch={NAV_LINK_PREFETCH}
+              data-testid="header-command-post-chip"
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-teal-600/60 bg-teal-950/40 px-3 py-2 text-[10px] font-bold text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/50"
+            >
+              COMMAND POST
+            </Link>
             {isVendorsRoute ? (
               <>
                 <button
@@ -142,6 +157,15 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               VENDOR LIST
             </Link>
+            <StagedNavLink
+              href={supplyChainHref}
+              prefetch={NAV_LINK_PREFETCH}
+              data-testid="header-supply-chain-graph-chip"
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-slate-700/80 bg-slate-900/80 px-4 py-2 text-[10px] font-bold text-slate-200 transition-all hover:border-slate-500 hover:bg-slate-800/90"
+              title="Vendor Supply Chain Deep Graph (Ironmap blast-radius preview)"
+            >
+              SUPPLY CHAIN GRAPH
+            </StagedNavLink>
             <Link
               href="/config"
               prefetch={NAV_LINK_PREFETCH}
@@ -226,11 +250,11 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             </Link>
             {isConfigRoute ? (
               <Link
-                href={homeLink}
+                href="/"
                 prefetch={NAV_LINK_PREFETCH}
                 className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/80 px-4 py-2 text-[10px] font-bold text-white transition-all hover:border-blue-500"
               >
-                BACK
+                BACK TO COMMAND POST
               </Link>
             ) : null}
           </div>

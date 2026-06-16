@@ -4,6 +4,7 @@ import {
   resolveDashboardAccess,
 } from "@/app/lib/auth/dashboardRoleAccess";
 import { tenantCookieValueForUuid } from "@/app/lib/auth/dashboardTenantSession";
+import { getHostBoundTenantUuid } from "@/app/utils/serverTenantContext";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,16 @@ export async function GET() {
   );
 
   if (access.status === "allowed") {
-    const token = await tenantCookieValueForUuid(access.tenantUuid);
-    response.cookies.set("ironframe-tenant", token, {
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 180,
-    });
+    const hostBound = await getHostBoundTenantUuid();
+    if (access.tenantFallbackApplied || hostBound) {
+      const token = await tenantCookieValueForUuid(access.tenantUuid);
+      response.cookies.set("ironframe-tenant", token, {
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 60 * 60 * 24 * 180,
+      });
+    }
   }
 
   return response;

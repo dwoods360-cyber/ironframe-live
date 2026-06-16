@@ -17,6 +17,7 @@ import { deltaLabelForLifecycle } from "@/app/utils/riskRegistryCardMap";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { generateKimbotSignal, kimbotIntervalMs } from "@/app/utils/kimbotEngine";
 import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
+import { isDemoModeActive } from "@/app/lib/demo/demoMode";
 import type { RiskRegistryRecord } from "@/app/types/riskLifecycle";
 
 function newLocalRegistryId(): string {
@@ -70,6 +71,7 @@ export function useKimbotPersistLoop() {
   const kimbotIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    if (isDemoModeActive()) return;
     if (!isKimbotActive) {
       if (kimbotIntervalRef.current) {
         clearInterval(kimbotIntervalRef.current);

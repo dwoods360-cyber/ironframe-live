@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>The Governance Frame</title>
+    <link>https://brief.ironframegrc.com</link>
+    <description>Immutable Executive GRC Intelligence from the Ironframe System.</description>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 15 Jun 2026 20:29:20 GMT</lastBuildDate>
+    <generator>Ironframe Governance Frame RSS Compiler</generator>
+    <item>
+      <title>[Issue #1] Staging Boundary Check — Governance Frame Local Sandbox</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-06-07-staging-boundary-check</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-06-07-staging-boundary-check</guid>
+      <pubDate>Sun, 07 Jun 2026 10:00:00 GMT</pubDate>
+      <description>Executive distillation of Governance Frame staging boundaries, published-ledger ingestion, and BigInt cent invariants for local developer sandboxes.</description>
+    </item>
+  </channel>
+</rss>

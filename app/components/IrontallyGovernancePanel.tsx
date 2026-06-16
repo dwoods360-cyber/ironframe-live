@@ -30,6 +30,10 @@ const FRAMEWORK_CHIPS: Array<{ id: IrontallyFrameworkId; label: string }> = [
   { id: "nist_csf", label: "NIST CSF 2.0" },
   { id: "iso_27001", label: "ISO 27001" },
   { id: "soc2_type2", label: "SOC 2 Type II" },
+  { id: "eu_ai_act", label: "EU AI Act" },
+  { id: "dora", label: "DORA" },
+  { id: "nydfs_500", label: "NYDFS 500" },
+  { id: "uk_csr", label: "UK CS&R" },
 ];
 
 type Props = {

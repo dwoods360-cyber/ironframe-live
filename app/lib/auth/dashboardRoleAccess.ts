@@ -1,8 +1,8 @@
 import prisma from "@/lib/prisma";
-import { applyDashboardTenantSessionCookie } from "@/app/lib/auth/dashboardTenantSession";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import {
+  getHostBoundTenantUuid,
   getScopedTenantUuidFromCookies,
   isValidTenantUuid,
 } from "@/app/utils/serverTenantContext";
@@ -50,6 +50,7 @@ function allowedFromAssignment(
 async function lookupRoleAssignment(
   userId: string,
   cookieTenantUuid: string | null,
+  hostBoundTenantUuid: string | null,
 ): Promise<DashboardAccessResult> {
   if (cookieTenantUuid) {
     const scopedAssignment = await prisma.userRoleAssignment.findFirst({
@@ -58,6 +59,10 @@ async function lookupRoleAssignment(
     });
     if (scopedAssignment) {
       return allowedFromAssignment(userId, scopedAssignment.tenantId, false);
+    }
+    /** Subdomain host envelope — never fall back to a different tenant assignment. */
+    if (hostBoundTenantUuid && hostBoundTenantUuid === cookieTenantUuid) {
+      return { status: "pending", userId, tenantUuid: cookieTenantUuid };
     }
   }
 
@@ -89,6 +94,7 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
       return { status: "unauthenticated" };
     }
 
+    const hostBoundTenantUuid = await getHostBoundTenantUuid();
     const scopedRaw = await getScopedTenantUuidFromCookies();
     const cookieTenantUuid =
       scopedRaw && isValidTenantUuid(scopedRaw) ? scopedRaw.trim() : null;
@@ -105,7 +111,7 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
       return allowedFromAssignment(userId, TENANT_UUIDS.medshield, true);
     }
 
-    return await lookupRoleAssignment(userId, cookieTenantUuid);
+    return await lookupRoleAssignment(userId, cookieTenantUuid, hostBoundTenantUuid);
   } catch (error) {
     console.error("[dashboardRoleAccess] resolveDashboardAccess failed", error);
 
@@ -122,13 +128,9 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
   }
 }
 
-/** Apply RBAC-resolved tenant cookie when the session had no scoped workspace. */
+/** RBAC access result — tenant cookie hydration runs in Route Handlers or client shell (not RSC). */
 export async function ensureDashboardTenantSession(
   access: DashboardAccessResult,
 ): Promise<DashboardAccessResult> {
-  if (access.status !== "allowed" || !access.tenantFallbackApplied) {
-    return access;
-  }
-  await applyDashboardTenantSessionCookie(access.tenantUuid);
-  return { ...access, tenantFallbackApplied: false };
+  return access;
 }

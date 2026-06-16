@@ -1,0 +1,6 @@
+# Narrow context for Dockerfile.brief — static public assets + nginx config only.
+**
+!public
+!public/**
+!docker/brief-static/nginx.conf
+!Dockerfile.brief

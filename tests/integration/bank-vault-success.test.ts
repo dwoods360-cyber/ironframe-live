@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock Next.js headers request store to prevent cookies() context errors in Vitest.
+// Mock Next.js headers request store to prevent cookies()/headers() context errors in Vitest.
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: (name: string) => {
@@ -10,6 +10,9 @@ vi.mock("next/headers", () => ({
       }
       return undefined;
     },
+  })),
+  headers: vi.fn(async () => ({
+    get: (_name: string) => null,
   })),
 }));
 

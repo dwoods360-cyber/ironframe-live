@@ -2,6 +2,7 @@
   "crons": [
     { "path": "/api/internal/cron/agent17-sentinel", "schedule": "0 1 * * *" },
     { "path": "/api/internal/cron/ironwatch-api-heartbeat", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/narrate", "schedule": "30 3 * * *" },
     { "path": "/api/internal/cron/health-posture-triage", "schedule": "0 0 * * *" },
     { "path": "/api/internal/cron/gridcore-rate-poll", "schedule": "0 6 * * *" },
     { "path": "/api/internal/cron/ironsight-regulatory-poll", "schedule": "0 8 * * *" },

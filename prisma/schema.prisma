@@ -41,6 +41,7 @@ model Tenant {
   ironboardCrmContacts         IronboardCrmContact[]
   ironboardCrmDeals            IronboardCrmDeal[]
   ironboardCrmInteractions     IronboardCrmInteraction[]
+  governanceFrameTriadSnapshots GovernanceFrameTriadSnapshot[]
 
   @@map("tenants")
 }
@@ -1020,6 +1021,25 @@ model CronJobArtifact {
   @@index([tenantId, agentName])
   @@index([runTimestamp])
   @@map("cron_job_artifact")
+}
+
+/// Nightly Governance Frame Triad narrative cache for IronBoard (:8082) read-only ingestion.
+model GovernanceFrameTriadSnapshot {
+  id                  String   @id @default(cuid())
+  tenantId            String   @map("tenant_id") @db.Uuid
+  operationalDate     DateTime @map("operational_date") @db.Date
+  exposureVector      String   @map("exposure_vector")
+  impactSummary       String   @map("impact_summary")
+  remediation         String   @map("remediation")
+  narrativeMarkdown   String?  @map("narrative_markdown")
+  sourceTelemetryJson Json     @map("source_telemetry_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  tenants             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, operationalDate])
+  @@index([tenantId, operationalDate])
+  @@map("governance_frame_triad_snapshots")
 }
 
 model QuarantineRecord {

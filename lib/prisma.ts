@@ -5,7 +5,19 @@
  * rollout is phased — until then, never omit tenant predicates on tenant-scoped models.
  */
 import { PrismaClient } from "@prisma/client";
+import {
+  assertThreatEventWormMutationPermitted,
+  threatEventWormGuardActive,
+} from "@/app/lib/evidence/threatEventWormGuard";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+
+let threatEventWormDbEnforced = false;
+
+async function ensureThreatEventWormDbEnforced(client: PrismaClient): Promise<void> {
+  if (!threatEventWormGuardActive() || threatEventWormDbEnforced) return;
+  await client.$executeRaw`SELECT set_config('app.worm_threat_event_enforced', '1', false)`;
+  threatEventWormDbEnforced = true;
+}
 
 if (!(BigInt.prototype as any).toJSON) {
   (BigInt.prototype as any).toJSON = function () {
@@ -112,6 +124,15 @@ const prismaClientSingleton = () => {
               }
             }
           }
+          return query(args);
+        },
+      },
+      threatEvent: {
+        async $allOperations({ operation, args, query }) {
+          if (threatEventWormGuardActive()) {
+            await ensureThreatEventWormDbEnforced(base);
+          }
+          assertThreatEventWormMutationPermitted(operation);
           return query(args);
         },
       },

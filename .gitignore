@@ -6,6 +6,8 @@ build
 .vercel
 *.log
 npm-debug.log*
+logs/
+!logs/.gitkeep
 .DS_Store
 .eslintcache
 tmp-phase*.js

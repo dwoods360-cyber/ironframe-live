@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { EventSource, ThreatState } from "@prisma/client";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { SIMULATION_CONFIG_ID } from "@/app/utils/simulationConfigConstants";
@@ -43,12 +44,19 @@ export async function purgeSimulation(
     const { prodCount, simCount } = await prisma.$transaction(async (tx) => {
       const prod =
         companyIds.length > 0
-          ? await tx.threatEvent.updateMany({
-              where: {
-                tenantCompanyId: { in: companyIds },
-                status: { not: ThreatState.RESOLVED },
-              },
-              data: { status: ThreatState.RESOLVED },
+          ? await runAuditedThreatEventWormBypass({
+              threatId: `tenant:${tid}`,
+              eventType: "MANUAL_BOARD_PURGE",
+              actorUserId: "system-purge",
+              existingTx: tx,
+              execute: (innerTx) =>
+                innerTx.threatEvent.updateMany({
+                  where: {
+                    tenantCompanyId: { in: companyIds },
+                    status: { not: ThreatState.RESOLVED },
+                  },
+                  data: { status: ThreatState.RESOLVED },
+                }),
             })
           : { count: 0 };
       const sim = await tx.riskEvent.updateMany({

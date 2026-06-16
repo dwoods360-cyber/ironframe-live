@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import prisma from '@/lib/prisma';
 import { ThreatState } from '@prisma/client';
@@ -174,6 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     const manualIngestSealedAt = new Date().toISOString();
+    const threatId = randomUUID();
     ingestionDetailsForCreate = mergeIngestionDetailsPatch(ingestionDetailsForCreate ?? null, {
       sourcePlane: "MANUAL",
       ingestionProvenance: "MANUAL_ANALYST_ENTRY",
@@ -185,6 +187,8 @@ export async function POST(request: NextRequest) {
         sealedAt: manualIngestSealedAt,
         primaryAgentSource: source,
       },
+      threadId: threatId,
+      orchestrationThreadId: threatId,
     });
 
     const descriptionText = description
@@ -193,6 +197,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.threatEvent.create({
       data: sanitizeThreatIngressPayload({
+        id: threatId,
         title,
         sourceAgent: source || 'Manual Analyst Entry',
         score,
@@ -216,18 +221,7 @@ export async function POST(request: NextRequest) {
         ingestionDetails: true,
       },
     });
-
-    const ingestionWithThread = mergeIngestionDetailsPatch(created.ingestionDetails ?? ingestionDetailsForCreate ?? null, {
-      threadId: created.id,
-      orchestrationThreadId: created.id,
-    });
-    if (ingestionWithThread !== (created.ingestionDetails ?? ingestionDetailsForCreate ?? "")) {
-      await prisma.threatEvent.update({
-        where: { id: created.id },
-        data: { ingestionDetails: ingestionWithThread },
-      });
-    }
-    ingestionDetailsForCreate = ingestionWithThread;
+    ingestionDetailsForCreate = created.ingestionDetails ?? ingestionDetailsForCreate;
 
     if (deficiencyReportId) {
       try {

@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import {
   SYSTEM_OWNER_ID,
@@ -577,9 +578,15 @@ export async function applyIronlockConstitutionalFreeze(): Promise<{ threatsFroz
     const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
       [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
     });
-    await prisma.threatEvent.update({
-      where: { id: row.id },
-      data: { ingestionDetails: merged },
+    await runAuditedThreatEventWormBypass({
+      threatId: row.id,
+      eventType: "TAS_IRONLOCK_CONSTITUTIONAL_FREEZE",
+      actorUserId: "IRONLOCK_AGENT_06",
+      execute: (tx) =>
+        tx.threatEvent.update({
+          where: { id: row.id },
+          data: { ingestionDetails: merged },
+        }),
     });
     threatsFrozen += 1;
   }
@@ -638,9 +645,16 @@ export async function applyIronlockConstitutionalFreezeForTenant(
       const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
         [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
       });
-      await prisma.threatEvent.update({
-        where: { id: row.id },
-        data: { ingestionDetails: merged },
+      await runAuditedThreatEventWormBypass({
+        threatId: row.id,
+        eventType: "TAS_IRONLOCK_TENANT_CONSTITUTIONAL_FREEZE",
+        actorUserId: "IRONLOCK_AGENT_06",
+        detail: `tenant=${tid}`,
+        execute: (tx) =>
+          tx.threatEvent.update({
+            where: { id: row.id },
+            data: { ingestionDetails: merged },
+          }),
       });
       threatsFrozen += 1;
     }
@@ -736,9 +750,15 @@ export async function performIrontechRebaselineVerification(): Promise<{
   for (const row of prodRows) {
     const cleared = clearEmergencyPatchFromIngestion(row.ingestionDetails);
     if (cleared === row.ingestionDetails) continue;
-    await prisma.threatEvent.update({
-      where: { id: row.id },
-      data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
+    await runAuditedThreatEventWormBypass({
+      threatId: row.id,
+      eventType: "TAS_IRONTECH_REBASELINE_CLEAR",
+      actorUserId: "IRONTECH_AGENT_04",
+      execute: (tx) =>
+        tx.threatEvent.update({
+          where: { id: row.id },
+          data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
+        }),
     });
     clearedProd += 1;
   }

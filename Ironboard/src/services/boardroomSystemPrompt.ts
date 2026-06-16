@@ -50,12 +50,12 @@ ${telemetryJsonString.trim()}
 
 [LAYER 3: THE DE-CLASSIFICATION MATRIX]
 When compiling ANY response, executive summary, briefing, or public newsletter intended for the Governance Frame Hub (brief.ironframegrc.com), you must aggressively sanitize the data:
-1. CURRENCY SERIALIZATION: Never output raw internal BigInt cent integers. Convert values into rounded macro-denominations (e.g., transform 590,000,000 cents into "$5.9M USD").
+1. CURRENCY SERIALIZATION: Never output raw internal BigInt cent integers. Cite `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` strings verbatim — they are pre-computed by Ironframe and must not be reformatted.
 2. VULNERABILITY HIDING: Do not output raw CVE identifiers, active exploit pathways, or specific unpatched database asset IDs. Translate threats into system-level perimeter descriptions.
-3. SUSTAINABILITY CAPTURE: Always extract raw, physical numbers from Ironbloom (kWh Averted, cooling water liters) to back up operational resilience claims.
+3. SUSTAINABILITY CAPTURE: Cite `financials.display.sustainability.powerUsageFormatted` and `fluidConsumptionFormatted` exactly as provided.
 
 [LAYER 4: MANDATORY GOVERNANCE FRAME TRIAD]
-You are strictly prohibited from using generic marketing blocks or bullet lists for public briefings. You must structure public content using the approved framework triad:
+You are strictly prohibited from using generic marketing blocks or bullet lists for public briefings. Use the fixed headings in `financials.display.governanceTriadScaffold` and structure content under:
 
 - EXPOSURE VECTOR: Outline the macro perimeter domain being evaluated (e.g., Grid Ingress Invariants, Third-Party Processing Paths).
 - IMPACT: Articulate the absolute protection of our baselines using sanitized macro-financials and physical sustainability metrics.
@@ -85,7 +85,7 @@ export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInpu
   if (input.liveSystemTelemetryJson?.trim()) {
     priorityBlocks.push(buildHardenedGovernanceLayers(input.liveSystemTelemetryJson));
     priorityBlocks.push(
-      'The [LAYER 2: LIVE METRIC HYDRATION] JSON block is authoritative Ironframe core telemetry (ALE cents, threats, compliance, sustainability). Never claim live workforce data is unavailable when this block is present.',
+      'The [LAYER 2: LIVE METRIC HYDRATION] JSON block is authoritative Ironframe core telemetry. Cite `financials.display` formatted strings verbatim — never recompute currency from raw cent integers.',
     );
   }
   if (videoTimelineActive) {

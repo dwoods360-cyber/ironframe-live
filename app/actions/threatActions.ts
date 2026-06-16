@@ -65,6 +65,8 @@ import { CHAOS_ASSIGNEE_IRONTECH_04 } from "@/app/config/chaosShadowAudit";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { integrityService } from "@/src/services/integrityService";
 import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/services/threatStateService";
+import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormGuard";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
@@ -1488,25 +1490,28 @@ export async function resolveThreatAction(
             auditProtocol: "IRONTECH_AGENT04_SHADOW_CLEARANCE",
           },
         });
-        await prisma.$transaction(async (tx) => {
-          await tx.threatEvent.updateMany({
-            where: { id: chaosThreat.id },
-            data: {
-              status: ThreatState.RESOLVED,
-              ingestionDetails: mergedIngestionChaos,
-              assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
-            },
-          });
-          await auditLogCreateLooseTx(tx, {
-            data: {
-              action: "THREAT_RESOLVED",
-              justification: justificationPayloadChaos,
-              operatorId: CHAOS_ASSIGNEE_IRONTECH_04,
-              threatId: id,
-              isSimulation: true,
-            },
-          });
-        });
+        await runAuditedThreatEventWormBypass(
+          buildWormAuditedBypassLabel(chaosThreat.id, "CHAOS_SHADOW_RESOLVED"),
+          async (tx) => {
+            await tx.threatEvent.updateMany({
+              where: { id: chaosThreat.id },
+              data: {
+                status: ThreatState.RESOLVED,
+                ingestionDetails: mergedIngestionChaos,
+                assigneeId: CHAOS_ASSIGNEE_IRONTECH_04,
+              },
+            });
+            await auditLogCreateLooseTx(tx, {
+              data: {
+                action: "THREAT_RESOLVED",
+                justification: justificationPayloadChaos,
+                operatorId: CHAOS_ASSIGNEE_IRONTECH_04,
+                threatId: id,
+                isSimulation: true,
+              },
+            });
+          },
+        );
         revalidatePath("/");
         await logThreatActivity(id, "STATUS_UPDATED", `Threat status changed to RESOLVED (shadow Chaos).`, {
           isSimulation: true,
@@ -3445,9 +3450,11 @@ export async function primeAgentPlaybookSelectionAction(
         eventType: "THREAT_RESOLUTION_LINKED_APPROVAL",
       });
     } else {
-      await prisma.threatEvent.update({
-        where: { id: tid },
-        data: { ingestionDetails: mergedString },
+      await updateThreatWithIntegrity({
+        threatId: tid,
+        changes: { ingestionDetails: mergedString },
+        actorUserId: uid,
+        eventType: "THREAT_INGESTION_DETAILS_MERGED",
       });
       linkedApprovalId = threat.resolutionApprovalId;
     }
@@ -3594,9 +3601,11 @@ export async function primeManualJustificationAction(
         eventType: "THREAT_RESOLUTION_LINKED_APPROVAL",
       });
     } else {
-      await prisma.threatEvent.update({
-        where: { id: tid },
-        data: { ingestionDetails: mergedString },
+      await updateThreatWithIntegrity({
+        threatId: tid,
+        changes: { ingestionDetails: mergedString },
+        actorUserId: uid,
+        eventType: "THREAT_INGESTION_DETAILS_MERGED",
       });
       linkedApprovalId = threat.resolutionApprovalId;
     }

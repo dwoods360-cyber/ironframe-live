@@ -1,5 +1,7 @@
 import { createHash } from "crypto";
 import { EventSource, ThreatState, type Prisma } from "@prisma/client";
+import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormGuard";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import prisma from "@/lib/prisma";
 import {
   GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL,
@@ -50,13 +52,14 @@ export async function updateThreatWithIntegrity<T>(args: {
   }
 
   const payloadHash = payloadHashFromChanges(args.changes);
-  const execute = async (tx: any) => {
+  const wormBypassLabel = buildWormAuditedBypassLabel(args.threatId, args.eventType);
+  const execute = async (tx: Prisma.TransactionClient) => {
     const updated = await tx.threatEvent.update({
       where: { id: args.threatId },
       data: args.changes,
       ...(args.select ? { select: args.select } : {}),
     });
-    await integrityService.logEvent(tx as Prisma.TransactionClient, {
+    await integrityService.logEvent(tx, {
       tenantId: company.tenantId,
       eventType: args.eventType,
       entityType: "THREAT_EVENT",
@@ -68,16 +71,19 @@ export async function updateThreatWithIntegrity<T>(args: {
         toStatus: (args.changes.status as ThreatState | undefined) ?? scope.status,
         changes: args.changes,
         payloadHash,
+        wormAuditedBypass: true,
+        wormBypassLabel,
         ...(args.ledgerPayloadExtras ?? {}),
       },
     });
     return updated as T;
   };
 
-  if (args.tx) {
-    return execute(args.tx);
-  }
-  return prisma.$transaction(async (tx) => execute(tx));
+  return runAuditedThreatEventWormBypass(
+    wormBypassLabel,
+    (tx) => execute(tx),
+    args.tx as Prisma.TransactionClient | undefined,
+  );
 }
 
 export async function transitionThreatStatus<T>(args: {

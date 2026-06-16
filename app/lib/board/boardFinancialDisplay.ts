@@ -74,6 +74,11 @@ export type BoardFinancialDisplay = {
 };
 
 const SOVEREIGN_POOL_SLUGS = ["medshield", "vaultbank", "gridcore"] as const;
+type SovereignPoolSlug = (typeof SOVEREIGN_POOL_SLUGS)[number];
+
+function isSovereignPoolSlug(slug: TenantKey | "unknown"): slug is SovereignPoolSlug {
+  return slug !== "unknown" && SOVEREIGN_POOL_SLUGS.includes(slug as SovereignPoolSlug);
+}
 
 export function buildSovereignEntityDisplay(
   baselineCents: bigint,
@@ -114,10 +119,9 @@ export function buildBoardFinancialDisplay(args: {
     ),
   };
 
-  const activePoolEntity =
-    args.activeTenantSlug !== "unknown"
-      ? sovereignPool[args.activeTenantSlug]
-      : null;
+  const activePoolEntity = isSovereignPoolSlug(args.activeTenantSlug)
+    ? sovereignPool[args.activeTenantSlug]
+    : null;
   const activeExposureFormatted = formatCentsToPreciseUsd(args.activeExposureCents);
 
   return {
@@ -134,7 +138,11 @@ export function buildBoardFinancialDisplay(args: {
       companyName: args.activeTenantName,
       baselineFormatted:
         activePoolEntity?.baselineFormatted ??
-        formatCentsToMacroUsd(args.baselines[args.activeTenantSlug === "unknown" ? "medshield" : args.activeTenantSlug]),
+        formatCentsToMacroUsd(
+          isSovereignPoolSlug(args.activeTenantSlug)
+            ? args.baselines[args.activeTenantSlug]
+            : args.baselines.medshield,
+        ),
       currentExposureFormatted: activeExposureFormatted,
     },
     sustainability: {

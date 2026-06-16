@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import type { ThreatState } from "@prisma/client";
 import {
   buildBoardFinancialDisplay,
   type BoardFinancialDisplay,
@@ -81,7 +82,7 @@ const BOARD_FRAMEWORK_BINDINGS: Array<{
   { name: "UK_CSR", irontallyId: "uk_csr" },
 ];
 
-const TERMINAL_THREAT_STATES = new Set(["RESOLVED", "CLOSED_ARCHIVED"]);
+const TERMINAL_THREAT_STATES: ThreatState[] = ["RESOLVED", "CLOSED_ARCHIVED"];
 
 const SOVEREIGN_POOL_SLUGS = ["medshield", "vaultbank", "gridcore"] as const;
 
@@ -109,12 +110,12 @@ async function sumActiveThreatExposureCents(companyIds: bigint[]): Promise<bigin
   const aggregate = await prisma.threatEvent.aggregate({
     where: {
       tenantCompanyId: { in: companyIds },
-      status: { notIn: [...TERMINAL_THREAT_STATES] },
+      status: { notIn: TERMINAL_THREAT_STATES },
     },
     _sum: { financialRisk_cents: true },
   });
 
-  return aggregate._sum.financialRisk_cents ?? 0n;
+  return aggregate._sum?.financialRisk_cents ?? 0n;
 }
 
 async function resolveTenantExposureCents(tenantId: string): Promise<bigint> {
@@ -225,7 +226,7 @@ export async function getSharedBoardContextForTenant(
       ? prisma.threatEvent.findMany({
           where: {
             tenantCompanyId: { in: companyIds },
-            status: { notIn: [...TERMINAL_THREAT_STATES] },
+            status: { notIn: TERMINAL_THREAT_STATES },
           },
           select: {
             id: true,

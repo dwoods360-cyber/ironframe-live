@@ -133,18 +133,6 @@ if (!process.env.GOOGLE_API_KEY && !getIronboardApiKey()) {
 }
 
 // ─── Markdown docs federation ──────────────────────────────────────────────────
-function resolveDocsRoot(): string {
-  const candidates = [
-    path.resolve(IRONBOARD_ROOT, '../docs'),
-    path.resolve(process.cwd(), 'docs'),
-    path.resolve(process.cwd(), '../docs'),
-  ];
-  for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'TAS.md'))) return dir;
-  }
-  return candidates[0];
-}
-
 function readDoc(filePath: string): string {
   try {
     return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';

@@ -78,11 +78,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   /** Host subdomain wins, then path prefix, then dev override, then cookie. */
   const activeTenantUuid = hostUuid ?? routeUuid ?? devUuid ?? cookieTenantUuid;
 
-  const activeTenantKey =
+  const activeTenantKey = (
     hostTenantSlug ??
     routeTenantKey ??
     (process.env.NODE_ENV === "development" ? devTenantOverride : null) ??
-    tenantKeyFromUuid(cookieTenantUuid);
+    tenantKeyFromUuid(cookieTenantUuid)
+  ) as TenantKey | null;
 
   useEffect(() => {
     if (devIronguardCookieSyncSuppressed) return;

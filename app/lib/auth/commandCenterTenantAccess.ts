@@ -60,14 +60,16 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     return { tenants: [], canAccessGlobal: false, hostTenantSlug: null };
   }
 
-  const tenantQuery = {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      industry: true,
-      ale_baseline: true,
-    },
+  const tenantSelect = {
+    id: true,
+    name: true,
+    slug: true,
+    industry: true,
+    ale_baseline: true,
+  } as const;
+
+  const tenantListQuery = {
+    select: tenantSelect,
     orderBy: { name: "asc" as const },
   };
 
@@ -78,8 +80,8 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
       return { tenants: [], canAccessGlobal: false, hostTenantSlug: null };
     }
     const row = await prisma.tenant.findUnique({
-      ...tenantQuery,
       where: { id: hostTenantUuid },
+      select: tenantSelect,
     });
     if (!row) {
       return { tenants: [], canAccessGlobal: false, hostTenantSlug: null };
@@ -95,12 +97,12 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   const assignedTenantIds = [...new Set(assignments.map((row) => row.tenantId.trim()).filter(Boolean))];
 
   if (hasGlobalAdmin) {
-    const rows = await prisma.tenant.findMany(tenantQuery);
+    const rows = await prisma.tenant.findMany(tenantListQuery);
     return { tenants: mapTenantRows(rows), canAccessGlobal: true, hostTenantSlug: null };
   }
 
   const rows = await prisma.tenant.findMany({
-    ...tenantQuery,
+    ...tenantListQuery,
     where: { id: { in: assignedTenantIds } },
   });
 

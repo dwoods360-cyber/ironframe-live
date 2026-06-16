@@ -22,7 +22,7 @@ export default function DemoDashboardClient() {
       serverTimeEpochMs={Date.now()}
       governanceMaturity={mockGovernance}
       initialRiskRegistry={[]}
-      carbonMitigatedValueCents={aggregateCents}
+      carbonMitigatedValueCents={aggregateCents.toString()}
       carbonMitigatedDisplay={carbonDisplay}
     >
       <GlobalHealthSummaryCard coreintelTrendActive={false} />

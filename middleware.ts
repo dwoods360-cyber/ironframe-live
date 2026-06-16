@@ -21,7 +21,7 @@ function shadowPlaneRequestActive(request: NextRequest): boolean {
   return hdr === "1" || hdr === "true" || hdr === "yes";
 }
 
-/** Next.js App Router server actions — must not 302 to /login or the client throws `TypeError: Failed to fetch`. */
+/** Next.js App Router server actions ? must not 302 to /login or the client throws `TypeError: Failed to fetch`. */
 function isNextServerActionPost(request: NextRequest): boolean {
   return request.method.toUpperCase() === "POST" && request.headers.has("next-action");
 }
@@ -174,7 +174,7 @@ export async function middleware(request: NextRequest) {
   // ==========================================
   // 1. PRODUCTION QUARANTINE PERIMETER
   // ==========================================
-  // Localhost is whitelisted inside shouldBlockProductionIngress — never early-return here;
+  // Localhost is whitelisted inside shouldBlockProductionIngress ? never early-return here;
   // that would skip Supabase session refresh, tenant isolation, and auth redirects below.
   if (shouldBlockProductionIngress(request, pathname)) {
     return buildDeploymentQuarantineResponse();
@@ -198,14 +198,16 @@ export async function middleware(request: NextRequest) {
     isResetPasswordRoute ||
     isAuthCallbackRoute;
   const isPublicHomeRoute = pathname === "/";
-  /** Static documentation hub — public read + protocol download (no tenant scope). */
+  /** Static documentation hub ? public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
     pathname === "/api/docs/download-protocol" ||
     pathname === "/api/docs/download-matrix";
+  /** IronBoard (:8082) server bridge ? tenant cookie / host header scoped; no browser session required. */
+  const isBoardSharedContextRoute = pathname === "/api/board/shared-context";
 
-  /** Common URL typo — trailing period after `/dashboard/exports` yields 404 in App Router. */
+  /** Common URL typo ? trailing period after `/dashboard/exports` yields 404 in App Router. */
   if (pathname === "/dashboard/exports.") {
     const fixed = request.nextUrl.clone();
     fixed.pathname = "/dashboard/exports";
@@ -362,20 +364,20 @@ export async function middleware(request: NextRequest) {
   // 3. AUTH ENTRANCE CODES (core telemetry paths)
   // ==========================================
 
-  // RULE A: Unauthenticated users targeting internal telemetry grids → /login
+  // RULE A: Unauthenticated users targeting internal telemetry grids ? /login
   if (!user && isIntegrityRoute) {
     const loginUrl = new URL("/login", request.url);
     return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
   }
 
-  // RULE B: Authenticated users on /login → Integrity Hub
+  // RULE B: Authenticated users on /login ? Integrity Hub
   if (user && isLoginRoute) {
     const integrityUrl = new URL("/integrity", request.url);
     return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
   }
 
   if (!user && !isAuthPublicRoute) {
-    if (isPublicDocsRoute || isPublicHomeRoute) {
+    if (isPublicDocsRoute || isPublicHomeRoute || isBoardSharedContextRoute) {
       return supabaseResponse;
     }
     // Cron endpoints are token-gated in their own route handlers.
@@ -388,7 +390,7 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
       return supabaseResponse;
     }
-    /** Server Actions: let RSC handle auth — redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
+    /** Server Actions: let RSC handle auth ? redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
     if (isNextServerActionPost(request)) {
       return supabaseResponse;
     }
@@ -411,7 +413,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Broad matcher — tenant isolation, Ironguard, API cron gates, and dashboard auth all depend on this.
+  // Broad matcher ? tenant isolation, Ironguard, API cron gates, and dashboard auth all depend on this.
   // Do not narrow to only /, /login, /integrity or unauthenticated API/dashboard routes would leak.
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",

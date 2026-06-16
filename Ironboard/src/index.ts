@@ -65,6 +65,10 @@ import { requiresCorporateDocsPrefetch } from './services/ingress/docsQueryInten
 import { requiresVideoIntelligencePrefetch } from './services/ingress/videoQueryIntent.js';
 import { buildBoardroomSystemInstruction, resolveVideoTimelineActiveFromPayload } from './services/boardroomSystemPrompt.js';
 import {
+  CORE_TELEMETRY_DISCONNECTED,
+  fetchIronframeSharedContext,
+} from './services/coreTelemetryBridge.js';
+import {
   buildToolExecutionDirective,
   prependVideoIntelligenceSystemOverride,
   stripCapabilityDenialFallbacks,
@@ -183,6 +187,7 @@ function buildSystemInstruction(
   query: string,
   linkScraperEnrichment: string,
   requestBody: unknown,
+  liveSystemTelemetryJson: string,
 ): string {
   return buildBoardroomSystemInstruction({
     leader,
@@ -195,6 +200,7 @@ function buildSystemInstruction(
     query,
     linkScraperEnrichment,
     requestBody,
+    liveSystemTelemetryJson,
   });
 }
 
@@ -1540,6 +1546,26 @@ app.post('/api/query', async (req, res) => {
     return;
   }
 
+  const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
+
+  let liveSystemTelemetryJson: string;
+  try {
+    const telemetry = await fetchIronframeSharedContext({
+      incomingRequest: req,
+      tenantId,
+    });
+    liveSystemTelemetryJson = telemetry.jsonBody;
+  } catch (telemetryErr) {
+    const detail =
+      telemetryErr instanceof Error ? telemetryErr.message : 'Ironframe shared-context fetch failed';
+    res.status(502).json({
+      ok: false,
+      error: CORE_TELEMETRY_DISCONNECTED,
+      detail,
+    });
+    return;
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -1550,7 +1576,13 @@ app.post('/api/query', async (req, res) => {
     abort.closed = true;
   });
 
-  const tenantId = String(req.body?.tenantId ?? '').trim() || undefined;
+  writeSseToolCall(res, {
+    name: 'coreTelemetryBridge',
+    status: 'complete',
+    ok: true,
+    prefetch: true,
+    bytes: liveSystemTelemetryJson.length,
+  });
 
   writeSseToolCall(res, {
     name: 'linkScraper',
@@ -1708,7 +1740,15 @@ app.post('/api/query', async (req, res) => {
     }
 
     const systemInstruction = [
-      buildSystemInstruction(leader, flywheelContext, history, query, linkScraperEnrichment, req.body),
+      buildSystemInstruction(
+        leader,
+        flywheelContext,
+        history,
+        query,
+        linkScraperEnrichment,
+        req.body,
+        liveSystemTelemetryJson,
+      ),
       systemEnrichment,
       prefetchedExchange.length
         ? 'Discovery and workspace tools have ALREADY executed — functionResponse payloads are in the conversation history above. Synthesize strictly from those receipts. Never claim tools or live data are unavailable.'

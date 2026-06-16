@@ -140,6 +140,25 @@ describe('boardroomSystemPrompt', () => {
     expect(prompt).toContain(LINK_SCRAPER_VIDEO_TIMELINE_TAG);
   });
 
+  it('includes hardened governance layers when live telemetry is present', () => {
+    const leader = AGENTIC_BOARD_ROSTER[0];
+    const prompt = buildBoardroomSystemInstruction({
+      leader,
+      staticContext: 'STATIC',
+      docsFederation: 'DOCS',
+      boardroomDirective: 'BOARD',
+      workforceDisambiguation: 'WORKFORCE',
+      history: [],
+      query: 'Summarize tenant posture.',
+      liveSystemTelemetryJson: '{"systemStatus":"ARCHITECTURE ENFORCED"}',
+    });
+    expect(prompt).toContain('[LAYER 1: UNIDIRECTIONAL DIODE POSTURE]');
+    expect(prompt).toContain('[LAYER 2: LIVE METRIC HYDRATION - ARCHITECTURE ENFORCED]');
+    expect(prompt).toContain('ARCHITECTURE ENFORCED');
+    expect(prompt).toContain('[LAYER 4: MANDATORY GOVERNANCE FRAME TRIAD]');
+    expect(prompt).toContain('EXPOSURE VECTOR');
+  });
+
   it('includes domain boundary and execution-layer persona directives', () => {
     const leader = AGENTIC_BOARD_ROSTER.find(a => a.id === 'board-sales-lead')!;
     const prompt = buildBoardroomSystemInstruction({

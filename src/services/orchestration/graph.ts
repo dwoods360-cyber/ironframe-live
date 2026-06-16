@@ -17,6 +17,7 @@ import { TheWarden } from "../agents/warden";
 import { getPostgresCheckpointer } from "./checkpointer";
 import { Ironbloom } from "../agents/ironbloom";
 import { ironsightCvePoll } from "../agents/ironsight";
+import { irongateSanitize } from "../agents/irongateSanitize";
 import { irontallyFrameworkMap } from "../agents/irontally";
 import { generateIronqueryAnalystInsight } from "../agents/ironquery";
 import {
@@ -147,6 +148,9 @@ const passThroughIrontally = async (state: GraphState) => {
   );
   return {
     ...idle,
+    routing_target: state.routing_target,
+    health_bar_percent: state.health_bar_percent,
+    ironquery_summary_signature: state.ironquery_summary_signature,
     agent_logs: [
       `Irontally (Agent 19): ${mapping.frameworkId} — ${mapping.controls.length} controls mapped.`,
     ],
@@ -159,6 +163,33 @@ const passThroughIrontally = async (state: GraphState) => {
  */
 export async function compileSovereignOrchestrationBus() {
   const workflow = new StateGraph(SovereignGraphState)
+    .addNode("irongate", async (state: GraphState) => {
+      try {
+        const envelope = {
+          tenant_id: state.tenant_id,
+          ...(state.raw_payload ?? {}),
+        };
+        const sanitized = await irongateSanitize(envelope);
+        return {
+          tenant_id: sanitized.tenant_id,
+          raw_payload: sanitized,
+          current_agent: "IRONGATE",
+          routing_target: "ironcore_router",
+          agent_logs: [
+            "[Agent 14 — Irongate] DMZ sanitization complete. Tenant stamp verified.",
+          ],
+        };
+      } catch (e) {
+        return {
+          status: "FAILED" as const,
+          routing_target: "END",
+          current_agent: "IRONGATE",
+          agent_logs: [
+            `[Agent 14 — Irongate] DMZ rejection: ${e instanceof Error ? e.message : String(e)}`,
+          ],
+        };
+      }
+    })
     .addNode("ironcore_router", async (state: GraphState) => {
       const health = resolveHealthBarPercent(state);
       const threatId = resolveThreatId(state);
@@ -241,6 +272,9 @@ export async function compileSovereignOrchestrationBus() {
       );
       return {
         current_agent: "IRONTALLY",
+        routing_target: state.routing_target,
+        health_bar_percent: state.health_bar_percent,
+        ironquery_summary_signature: state.ironquery_summary_signature,
         agent_logs: sidecarLogs,
       };
     })
@@ -377,7 +411,16 @@ export async function compileSovereignOrchestrationBus() {
         agent_logs: ironcastLogs,
       };
     })
-    .addEdge("__start__", "ironcore_router")
+    .addEdge("__start__", "irongate")
+    .addConditionalEdges(
+      "irongate",
+      (state: GraphState) =>
+        state.status === "FAILED" || state.routing_target === "END" ? "__end__" : "ironcore_router",
+      {
+        ironcore_router: "ironcore_router",
+        __end__: END,
+      },
+    )
     .addEdge("ironcore_router", "ironscribe")
     .addConditionalEdges(
       "ironscribe",

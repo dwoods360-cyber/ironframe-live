@@ -59,6 +59,9 @@ import {
 import { manageCrmPipeline } from './tools/crmTools.js';
 import { handleVideoIngress } from './api/ingress/video.js';
 import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
+import { createGovernanceFrameRouter } from './governanceFrame/router.js';
+import { scanPublishedBriefings } from './governanceFrame/briefingScanner.js';
+import { resolveDocsRoot } from './governanceFrame/resolveDocsRoot.js';
 import { prefetchCorporateDocsForBoardQuery } from './services/ingress/docsBoardPrefetch.js';
 import { prefetchVideoIntelligenceForBoardQuery } from './services/ingress/videoBoardPrefetch.js';
 import { requiresCorporateDocsPrefetch } from './services/ingress/docsQueryIntent.js';
@@ -157,7 +160,10 @@ function buildDocsFederationMatrix(): string {
   const tas = readDoc(path.join(docsRoot, 'TAS.md'));
   const trd = readDoc(path.join(docsRoot, 'stakeholders', 'technical-requirements.md'));
   const hub = readDoc(path.join(docsRoot, 'hub.md'));
-  const loaded = [tas, trd, hub].filter(Boolean).length;
+  const monetizationBlueprint = readDoc(
+    path.join(docsRoot, 'stakeholder-deck', 'ironframe-monetization-market-blueprint-2026-q2.md'),
+  );
+  const loaded = [tas, trd, hub, monetizationBlueprint].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -165,6 +171,9 @@ function buildDocsFederationMatrix(): string {
     tas ? `\n── TAS.md ──\n${tas}` : '',
     trd ? `\n── technical-requirements.md ──\n${trd}` : '',
     hub ? `\n── hub.md ──\n${hub}` : '',
+    monetizationBlueprint
+      ? `\n── MONETIZATION & MARKET BLUEPRINT (Q2 2026 — BOARD PRIORITY) ──\n${monetizationBlueprint}`
+      : '',
     '═══ END FEDERATION ═══',
   ].join('\n');
 }
@@ -631,6 +640,7 @@ async function runBoardroomToolStream(params: {
       const { text: finalText, rewritten } = finalizeSanitizedBoardCompletion(
         accumulatedText,
         sanitizeDenials,
+        { query: lastUserTurnText(history) },
       );
       if (finalText && !emitTokens) {
         writeSseToken(res, finalText, false);
@@ -1456,6 +1466,15 @@ function renderDashboard(): string {
         });
 
         if (!response.ok || !response.body) {
+          var errBody = null;
+          try {
+            errBody = await response.json();
+          } catch (parseErr) {
+            errBody = null;
+          }
+          if (response.status === 502 && errBody && errBody.error === 'CORE_TELEMETRY_DISCONNECTED') {
+            throw new Error(errBody.error + (errBody.detail ? ': ' + errBody.detail : ''));
+          }
           throw new Error('Request failed: ' + response.status);
         }
 
@@ -1900,13 +1919,20 @@ app.post('/api/market/harvest', async (req, res) => {
 
 app.post('/api/ingress/video', handleVideoIngress);
 
+/** The Governance Frame — chronological markdown briefings (published ledger only). */
+app.use('/governance-frame', createGovernanceFrameRouter());
+
 app.use((_req, res) => {
   res.status(404).json({ status: 'NOT_FOUND' });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`[IRONBOARD ENGINE] Live at http://localhost:${PORT}/`);
+const server = app.listen(PORT, "127.0.0.1", () => {
+  console.log(`[IRONBOARD ENGINE] Live at http://127.0.0.1:${PORT}/`);
   console.log(`[IRONBOARD ENGINE] 17-agent boardroom online · Gemini: ${getIronboardApiKey() ? 'ready' : 'offline'}`);
+  const published = scanPublishedBriefings(resolveDocsRoot());
+  console.log(
+    `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:${PORT}/governance-frame · published=${published.length}`,
+  );
 });
 
 server.on('error', (err: NodeJS.ErrnoException) => {

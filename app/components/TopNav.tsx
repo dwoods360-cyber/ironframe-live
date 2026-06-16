@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Lock, CheckCircle2 } from "lucide-react";
 import HeaderTwo from "@/app/components/HeaderTwo";
@@ -13,13 +13,11 @@ import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTri
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 import { LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
-import { createClient } from "@/lib/supabase/client";
+import TopNavUserProfileMenu from "@/app/components/TopNavUserProfileMenu";
 
 export default function TopNav() {
   const pathname = usePathname();
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-  const { displayName, displayRole, isLoading: userLoading, isGuest } = useOperatorIdentity();
+  const { isLoading: userLoading, isGuest } = useOperatorIdentity();
   const routes = useMemo(() => buildHeaderRouteMatrix(pathname), [pathname]);
   const {
     isAuditTrailRoute,
@@ -68,15 +66,6 @@ export default function TopNav() {
     window.dispatchEvent(new CustomEvent("vendors:download", { detail: { format: "both" } }));
   };
 
-  const identityName = displayName;
-  const identityRole = displayRole;
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
-
   useEffect(() => {
     if (!lockToast) return;
     const id = window.setTimeout(() => dismissLockToast(), 6000);
@@ -91,7 +80,7 @@ export default function TopNav() {
 
   return (
     <header className="w-full">
-      <div className={`${LAYOUT_MASTER_HEADER_Z_CLASS} relative flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6`}>
+      <div className={`${LAYOUT_MASTER_HEADER_Z_CLASS} ironframe-topnav-master relative flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6`}>
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3">
             <span className="font-mono text-sm font-black tracking-widest text-white">IRONFRAME CORE</span>
@@ -136,24 +125,7 @@ export default function TopNav() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 rounded border border-slate-900/60 bg-slate-900/40 px-3 py-1">
-            <span className="font-mono text-[10px] text-slate-500" aria-hidden>
-              👤
-            </span>
-            <span className="font-mono text-[10px] font-medium tracking-wide text-slate-300">
-              {userLoading ? (
-                "Resolving operator…"
-              ) : (
-                <>
-                  {identityName}{" "}
-                  <span className="font-normal text-slate-600">
-                    ({identityRole}
-                    {isGuest ? " · local session" : ""})
-                  </span>
-                </>
-              )}
-            </span>
-          </div>
+          <TopNavUserProfileMenu isLoading={userLoading} isGuest={isGuest} />
 
           <div className="flex items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider">
             <div className="flex items-center gap-1.5 rounded border border-emerald-900/50 bg-emerald-950/50 px-2 py-1 text-emerald-400">
@@ -170,20 +142,11 @@ export default function TopNav() {
                 ]}
               />
             </div>
-            <button
-              type="button"
-              onClick={() => void handleLogout()}
-              disabled={userLoading}
-              className="px-1 py-1 text-slate-500 transition-colors hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Logout"
-            >
-              LOGOUT ➔
-            </button>
           </div>
         </div>
       </div>
 
-      <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex h-10 items-center justify-between border-b border-slate-800 bg-slate-900 px-4`}>
+      <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} ironframe-topnav-subnav flex h-10 items-center justify-between border-b border-slate-800 bg-slate-900 px-4`}>
         <div className="flex h-full items-center gap-3">
           <TenantSwitcher />
           {/* # MAGNITUDE_SELECTOR — global currency scale toggle (AUTO, K, M, B, T) */}

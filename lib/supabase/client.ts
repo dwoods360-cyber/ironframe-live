@@ -1,7 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createBrowserClient } from "@supabase/ssr";
+import { envPublicSupabaseUrl, envSupabaseAnonKey } from "@/lib/supabase/envPublic";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://build-bypass.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'build-bypass-key';
+const supabaseUrl = envPublicSupabaseUrl() || "https://build-bypass.supabase.co";
+const supabaseKey = envSupabaseAnonKey() || "build-bypass-key";
 
-export const createClient = () =>
-  createBrowserClient(supabaseUrl, supabaseKey)
+export const createClient = () => createBrowserClient(supabaseUrl, supabaseKey);

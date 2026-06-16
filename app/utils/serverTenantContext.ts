@@ -73,11 +73,16 @@ export async function getRedTeamSimulationTenantUuid(): Promise<string | null> {
 /**
  * Resolves the active tenant UUID from the ironframe-tenant cookie (dashboard / clearance parity).
  * Accepts slug (medshield, …) or a known tenant UUID string.
- * Falls back to Medshield when the cookie is missing or unrecognized (same default as dashboard fetch).
+ * When cookie is missing, uses first RBAC assignment for authenticated sessions before Medshield default.
  */
 export async function getActiveTenantUuidFromCookies(): Promise<string> {
   const scoped = await getScopedTenantUuidFromCookies();
-  return scoped ?? TENANT_UUIDS.medshield;
+  if (scoped) return scoped;
+
+  const { resolveDashboardActiveTenantUuid } = await import(
+    "@/app/lib/auth/resolveDashboardActiveTenant"
+  );
+  return resolveDashboardActiveTenantUuid();
 }
 
 export function isValidTenantUuid(value: string | null | undefined): value is string {

@@ -124,9 +124,15 @@
   --bg-secondary: #22272e;
   --bg-tertiary: #2d333b;
   --border-color: #444c56;
+  --text-main: #e6edf3;
   --text-primary: #e6edf3;
   --text-secondary: #c9d1d9;
   --text-tertiary: #adbac7;
+  --login-border: #334155;
+  --login-muted: #94a3b8;
+  --login-error: #ef4444;
+  --login-accent: #059669;
+  --login-warning: #f59e0b;
   --accent-primary: #539bf5;
   --accent-success: #57ab5a;
   --accent-warning: #c69026;
@@ -622,6 +628,190 @@ body {
 }
 .ironframe-connector-flow-x {
   animation: ironframe-connector-flow-x 1.15s ease-in-out infinite;
+}
+
+/* --- Ironframe UI theme engine (profile menu → document.body data attributes) --- */
+html[data-ironframe-theme="executive-light"],
+body[data-ironframe-theme="executive-light"] {
+  --if-shell-bg: #f8fafc;
+  --if-shell-text: #0f172a;
+  --bg-primary: #ffffff;
+  --text-main: #0f172a;
+  --text-primary: #0f172a;
+  --login-border: #cbd5e1;
+  --login-muted: #475569;
+  --login-error: #b91c1c;
+  --login-accent: #15803d;
+  --bg-secondary: #f1f5f9;
+  --login-warning: #b45309;
+  --if-topnav-border: #cbd5e1;
+  --if-subnav-bg: #f1f5f9;
+  --if-subnav-border: #e2e8f0;
+  --if-status-success: #15803d;
+  --if-status-danger: #b91c1c;
+  --if-shadow-policy: none;
+  color-scheme: light;
+}
+
+html[data-ironframe-theme="cyber-command-dark"],
+body[data-ironframe-theme="cyber-command-dark"] {
+  --if-shell-bg: #020617;
+  --if-shell-text: #e2e8f0;
+  --bg-primary: #020617;
+  --text-main: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --login-border: #1e293b;
+  --login-muted: #94a3b8;
+  --login-error: #ef4444;
+  --login-accent: #22c55e;
+  --bg-secondary: #0b1120;
+  --login-warning: #fbbf24;
+  --if-topnav-border: #0f172a;
+  --if-subnav-bg: #0b1120;
+  --if-subnav-border: #1e293b;
+  --if-status-success: #22c55e;
+  --if-status-danger: #ef4444;
+  --if-shadow-policy: 0 0 18px rgba(34, 197, 94, 0.12);
+  color-scheme: dark;
+}
+
+html[data-ironframe-theme="system"],
+html:not([data-ironframe-theme]),
+body[data-ironframe-theme="system"] {
+  --if-shell-bg: #020618;
+  --if-shell-text: #e6edf3;
+  --if-topnav-bg: #020618;
+  --if-topnav-border: #0f172a;
+  --if-subnav-bg: #0f172b;
+  --if-subnav-border: #1e293b;
+  --if-status-success: #10b981;
+  --if-status-danger: #ef4444;
+  --if-shadow-policy: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-ironframe-theme="system"],
+  body[data-ironframe-theme="system"] {
+    --if-shell-bg: #f1f5f9;
+    --if-shell-text: #0f172a;
+    --bg-primary: #ffffff;
+    --text-main: #0f172a;
+    --text-primary: #0f172a;
+    --login-border: #cbd5e1;
+    --login-muted: #475569;
+    --if-topnav-bg: #ffffff;
+    --if-topnav-border: #e2e8f0;
+    --if-subnav-bg: #f8fafc;
+    --if-subnav-border: #cbd5e1;
+    --if-status-success: #059669;
+    --if-status-danger: #dc2626;
+    --if-shadow-policy: 0 1px 2px rgba(15, 23, 42, 0.06);
+    color-scheme: light;
+  }
+}
+
+html[data-ironframe-theme="executive-light"] body,
+body[data-ironframe-theme="executive-light"].ironframe-layout-body,
+html[data-ironframe-theme="executive-light"] .ironframe-app-shell,
+body[data-ironframe-theme="executive-light"] .ironframe-app-shell {
+  background-color: var(--if-shell-bg) !important;
+  color: var(--if-shell-text);
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-master,
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav {
+  background-color: var(--if-topnav-bg) !important;
+  border-color: var(--if-topnav-border) !important;
+  box-shadow: none !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav {
+  background-color: var(--if-subnav-bg) !important;
+  border-color: var(--if-subnav-border) !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-app-shell *,
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu {
+  text-shadow: none;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-app-shell [class*="shadow"],
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu {
+  box-shadow: none !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu .text-slate-200,
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu .text-slate-300 {
+  color: #1e293b !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu .text-slate-500 {
+  color: #475569 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu .bg-slate-800,
+html[data-ironframe-theme="executive-light"] .ironframe-profile-menu [class*="bg-slate-9"] {
+  background-color: #e2e8f0 !important;
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-master .font-mono,
+html[data-ironframe-theme="executive-light"] .ironframe-topnav-subnav .font-mono {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+html[data-ironframe-theme="cyber-command-dark"] body,
+body[data-ironframe-theme="cyber-command-dark"].ironframe-layout-body,
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-app-shell,
+body[data-ironframe-theme="cyber-command-dark"] .ironframe-app-shell {
+  background-color: var(--if-shell-bg) !important;
+  color: var(--if-shell-text);
+}
+
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-master {
+  background-color: var(--if-topnav-bg) !important;
+  border-color: var(--if-topnav-border) !important;
+}
+
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-subnav {
+  background-color: var(--if-subnav-bg) !important;
+  border-color: var(--if-subnav-border) !important;
+}
+
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-master .text-emerald-400,
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-master .text-emerald-500,
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-subnav .text-emerald-400 {
+  color: var(--if-status-success) !important;
+}
+
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-topnav-master .hover\:text-rose-400:hover,
+html[data-ironframe-theme="cyber-command-dark"] .ironframe-profile-menu .text-rose-400 {
+  color: var(--if-status-danger) !important;
+}
+
+html[data-ironframe-theme="system"] body,
+body[data-ironframe-theme="system"].ironframe-layout-body,
+html[data-ironframe-theme="system"] .ironframe-app-shell,
+body[data-ironframe-theme="system"] .ironframe-app-shell {
+  background-color: var(--if-shell-bg);
+  color: var(--if-shell-text);
+}
+
+/* Public marketing landing — theme token surface (Executive Light / Cyber Command Dark) */
+.ironframe-public-landing {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+}
+
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing [class*="shadow"],
+body[data-ironframe-theme="executive-light"] .ironframe-public-landing [class*="shadow"] {
+  box-shadow: none !important;
 }
 
 @keyframes shimmer {

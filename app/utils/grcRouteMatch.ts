@@ -88,6 +88,33 @@ export function buildHeaderRouteMatrix(pathname: string): HeaderRouteMatrix {
   };
 }
 
+/** Auth surfaces that must not mount workspace chrome (TopNav, tenant switcher, telemetry). */
+export function isAuthPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/login" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
+    pathname === "/unauthorized"
+  );
+}
+
+/** Routes under `app/(dashboard)/` — command center shell lives in that layout group. */
+export function isDashboardRouteGroupPath(pathname: string): boolean {
+  const bases = [
+    "/integrity",
+    "/profile",
+    "/cockpit",
+    "/op-support",
+    "/opsupport",
+    "/evidence",
+    "/board-report",
+    "/audit",
+    "/admin/governance/comparison",
+    "/admin/clearance/vault",
+  ] as const;
+  return bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+}
+
 /** Full-page routes that scroll in AppShell (not tripane column scroll). */
 export function isScrollableStandalonePath(pathname: string): boolean {
   return (

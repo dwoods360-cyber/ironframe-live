@@ -1,6 +1,9 @@
 "use server";
 
-import { resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
+import {
+  buildPasswordResetRedirectUrl,
+  resolveAuthRedirectOrigin,
+} from "@/app/lib/auth/publicAppUrl";
 import { createServerSessionClient } from "@/lib/supabase/serverSession";
 
 const GENERIC_SUCCESS =
@@ -23,16 +26,23 @@ export async function requestResetPasswordAction(
 
   try {
     const supabase = await createServerSessionClient();
-    const appUrl = resolvePublicAppUrl();
-    const redirectTo = `${appUrl}/api/auth/callback?next=/reset-password`;
+    const origin = await resolveAuthRedirectOrigin();
+    const redirectTo = buildPasswordResetRedirectUrl(origin);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
     if (error) {
-      console.error("[requestResetPasswordAction]", error.message);
+      console.error("[requestResetPasswordAction]", error.message, { redirectTo });
+      if (/redirect|url|invalid/i.test(error.message)) {
+        return {
+          ok: false,
+          error:
+            "Password reset redirect URL rejected by Supabase. Add this exact callback to Authentication → URL Configuration → Redirect URLs: " +
+            redirectTo,
+        };
+      }
     }
 
-    // Uniform response — do not disclose whether the account exists.
     return { ok: true, message: GENERIC_SUCCESS };
   } catch (e) {
     console.error("[requestResetPasswordAction]", e);

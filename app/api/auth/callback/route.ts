@@ -2,18 +2,30 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { readTenantSlugFromUserMetadata } from "@/app/lib/auth/tenantInviteMetadata";
-import { resolvePublicAppUrl, sanitizeAuthNextPath } from "@/app/lib/auth/publicAppUrl";
+import {
+  resolvePublicAppUrl,
+  sanitizeAuthNextPath,
+  sanitizePublicOrigin,
+} from "@/app/lib/auth/publicAppUrl";
 
 const IRONFRAME_TENANT_COOKIE = "ironframe-tenant";
 const TENANT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function resolveRedirectOrigin(request: NextRequest): string {
-  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
-  const forwardedProto = request.headers.get("x-forwarded-proto")?.trim() || "https";
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   if (forwardedHost && process.env.NODE_ENV === "production") {
-    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+    return sanitizePublicOrigin(`${forwardedProto || "https"}://${forwardedHost}`);
   }
-  return resolvePublicAppUrl() || request.nextUrl.origin;
+  if (forwardedHost) {
+    const proto =
+      forwardedProto ||
+      (forwardedHost.startsWith("localhost") || forwardedHost.startsWith("127.0.0.1")
+        ? "http"
+        : "https");
+    return sanitizePublicOrigin(`${proto}://${forwardedHost}`);
+  }
+  return resolvePublicAppUrl() || sanitizePublicOrigin(request.nextUrl.origin);
 }
 
 /**

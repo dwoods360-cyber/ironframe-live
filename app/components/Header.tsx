@@ -40,7 +40,11 @@ export default function Header() {
       style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
       <div className="min-w-0 flex-1 basis-0 text-left">
-        <h1 className="text-left text-sm font-bold tracking-wide text-white">
+        <h1
+          className="ironframe-tenant-command-line text-left text-sm font-bold tracking-wide text-white"
+          data-tenant-command-line="true"
+          aria-label={`Ironframe workspace command line. Active client: ${tenantTitle}.`}
+        >
           <span className="uppercase tracking-wider">IRONFRAME V1.0 — </span>
           <span
             className={
@@ -48,6 +52,7 @@ export default function Header() {
                 ? "font-semibold normal-case tracking-normal text-white"
                 : "uppercase tracking-wider text-slate-300"
             }
+            data-tenant-client-name={selectedTenantName?.trim() || "pending-selection"}
           >
             {tenantTitle}
           </span>

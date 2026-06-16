@@ -5,6 +5,11 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { assertTenantAccess } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { IRONTECH_STALE_LOCKDOWN_MESSAGE } from "@/app/config/sustainabilityStaleLockdown";
+import {
+  buildDeploymentQuarantineResponse,
+  shouldBlockProductionIngress,
+} from "@/app/lib/security/deploymentQuarantine";
+import { isAuthPublicPath } from "@/app/utils/grcRouteMatch";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -110,6 +115,8 @@ function quarantineMiddlewareBypassPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/operational-freeze-status")) return true;
   if (pathname.startsWith("/api/internal/stale-lockdown-status")) return true;
   if (pathname.startsWith("/api/internal/ironguard-violation")) return true;
+  if (pathname.startsWith("/api/auth/callback")) return true;
+  if (isAuthPublicPath(pathname)) return true;
   if (internalTokenGatedApiPath(pathname)) return true;
   return false;
 }
@@ -142,14 +149,44 @@ async function fetchQuarantineIngressBlocked(
   }
 }
 
+function mergeSupabaseCookies(source: NextResponse, target: NextResponse): NextResponse {
+  source.cookies.getAll().forEach(({ name, value }) => {
+    target.cookies.set(name, value);
+  });
+  return target;
+}
+
+function redirectWithSupabaseCookies(
+  supabaseResponse: NextResponse,
+  url: URL,
+): NextResponse {
+  return mergeSupabaseCookies(supabaseResponse, NextResponse.redirect(url));
+}
+
 /**
  * Global: Supabase session refresh (`updateSession` on all matched routes).
  * API routes: same tenant cross-check as legacy `proxy.ts` (x-tenant-id / x-target-tenant-id / tenantUuid).
  */
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const pathname = url.pathname;
+
+  // ==========================================
+  // 1. PRODUCTION QUARANTINE PERIMETER
+  // ==========================================
+  // Localhost is whitelisted inside shouldBlockProductionIngress — never early-return here;
+  // that would skip Supabase session refresh, tenant isolation, and auth redirects below.
+  if (shouldBlockProductionIngress(request, pathname)) {
+    return buildDeploymentQuarantineResponse();
+  }
+
+  // ==========================================
+  // 2. SUPABASE SESSION + PLATFORM GATES
+  // ==========================================
   const supabaseResponse = await updateSession(request);
-  const pathname = request.nextUrl.pathname;
+
   const isLoginRoute = pathname === "/login";
+  const isIntegrityRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isUnauthorizedRoute = pathname === "/unauthorized";
   const isResetPasswordRoute = pathname === "/reset-password";
@@ -160,6 +197,7 @@ export async function middleware(request: NextRequest) {
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
     isAuthCallbackRoute;
+  const isPublicHomeRoute = pathname === "/";
   /** Static documentation hub — public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||
@@ -320,8 +358,24 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ==========================================
+  // 3. AUTH ENTRANCE CODES (core telemetry paths)
+  // ==========================================
+
+  // RULE A: Unauthenticated users targeting internal telemetry grids → /login
+  if (!user && isIntegrityRoute) {
+    const loginUrl = new URL("/login", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+  }
+
+  // RULE B: Authenticated users on /login → Integrity Hub
+  if (user && isLoginRoute) {
+    const integrityUrl = new URL("/integrity", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+  }
+
   if (!user && !isAuthPublicRoute) {
-    if (isPublicDocsRoute) {
+    if (isPublicDocsRoute || isPublicHomeRoute) {
       return supabaseResponse;
     }
     // Cron endpoints are token-gated in their own route handlers.
@@ -341,14 +395,12 @@ export async function middleware(request: NextRequest) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";
-    return NextResponse.redirect(loginUrl);
+    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
   }
 
-  if (user && (isLoginRoute || isForgotPasswordRoute)) {
-    const integrityUrl = request.nextUrl.clone();
-    integrityUrl.pathname = "/integrity";
-    integrityUrl.search = "";
-    return NextResponse.redirect(integrityUrl);
+  if (user && isForgotPasswordRoute) {
+    const integrityUrl = new URL("/integrity", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
   }
 
   if (user && isUnauthorizedRoute) {
@@ -359,6 +411,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Broad matcher — tenant isolation, Ironguard, API cron gates, and dashboard auth all depend on this.
+  // Do not narrow to only /, /login, /integrity or unauthenticated API/dashboard routes would leak.
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

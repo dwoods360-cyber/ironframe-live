@@ -121,6 +121,30 @@ export function buildHeaderRouteMatrix(
   };
 }
 
+/** Prospect funnel pages + lead intake APIs — allow without Supabase session. */
+export function isPublicProspectOnboardingPath(pathname: string): boolean {
+  if (
+    pathname === "/marketing" ||
+    pathname === "/pricing" ||
+    pathname === "/terms" ||
+    pathname === "/privacy"
+  ) {
+    return true;
+  }
+  if (
+    pathname === "/api/register/public-lead" ||
+    pathname === "/api/register/public-intake"
+  ) {
+    return true;
+  }
+  return (
+    pathname === "/register/contact" ||
+    pathname === "/register/setup" ||
+    pathname === "/register/demo" ||
+    pathname.startsWith("/register/")
+  );
+}
+
 /** Auth surfaces that must not mount workspace chrome (TopNav, tenant switcher, telemetry). */
 export function isAuthPublicPath(pathname: string): boolean {
   return (

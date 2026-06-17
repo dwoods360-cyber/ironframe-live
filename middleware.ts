@@ -9,7 +9,7 @@ import {
   buildDeploymentQuarantineResponse,
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
-import { isAuthPublicPath } from "@/app/utils/grcRouteMatch";
+import { isAuthPublicPath, isPublicProspectOnboardingPath } from "@/app/utils/grcRouteMatch";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -378,7 +378,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!user && !isAuthPublicRoute) {
-    if (isPublicDocsRoute || isPublicHomeRoute || isBoardSharedContextRoute) {
+    if (isPublicDocsRoute || isPublicHomeRoute || isBoardSharedContextRoute || isPublicProspectOnboardingPath(pathname)) {
       return supabaseResponse;
     }
     // Cron endpoints are token-gated in their own route handlers.

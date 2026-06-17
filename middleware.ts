@@ -45,6 +45,7 @@ function middlewareSimulationBypass(request: NextRequest): boolean {
 function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/cron/")) return true;
   if (pathname === "/api/cron/narrate") return true;
+  if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   return false;
 }

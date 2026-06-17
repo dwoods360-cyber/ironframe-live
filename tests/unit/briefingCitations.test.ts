@@ -6,8 +6,14 @@ import {
 } from "@/app/lib/governanceFrame/parseBriefingCitations";
 import { parseBriefingSections } from "@/app/lib/governanceFrame/parseBriefingSections";
 import {
+  evaluateAlertThresholds,
+  parseExposureThresholdCents,
   validateBriefingDraftContent,
   validateBriefingQueueDraft,
+  buildBriefingDraftFrontmatter,
+  parseBriefingDraftAlertFlags,
+  parseBriefingDraftFrontmatter,
+  stripFrontmatter,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
 import { buildTelemetryCitationCatalog } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
 import type { BoardContextPayload } from "@/app/lib/board/sharedBoardContext";
@@ -75,6 +81,50 @@ describe("briefingDraftValidation", () => {
     const result = validateBriefingDraftContent(withCve, { promotion: true });
     expect(result.ok).toBe(false);
     expect(result.issues.some((i) => i.code === "CVE_LEAK")).toBe(true);
+  });
+
+  it("evaluates exposure threshold with BigInt (no float drift)", () => {
+    const below = evaluateAlertThresholds(4_999_999n);
+    expect(below.requiresImmediatePromotion).toBe(false);
+
+    const at = evaluateAlertThresholds(5_000_000n);
+    expect(at.requiresImmediatePromotion).toBe(true);
+
+    const medshield = evaluateAlertThresholds(9_650_000n);
+    expect(medshield.requiresImmediatePromotion).toBe(true);
+    expect(medshield.thresholdCents).toBe(parseExposureThresholdCents("5000000"));
+  });
+
+  it("builds quarantine frontmatter with escalation flag", () => {
+    const header = buildBriefingDraftFrontmatter({
+      title: "Automated Governance Triad Narrative",
+      dateIso: "2026-06-17T03:00:00.000Z",
+      tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+      tenantSlug: "medshield",
+      currentExposureCents: 9_650_000n,
+      requiresImmediatePromotion: true,
+    });
+    expect(header).toMatch(/requiresImmediatePromotion: true/);
+    expect(header).toMatch(/activeExposureCents: "9650000"/);
+    expect(header).toMatch(/status: "QUARANTINED_DRAFT"/);
+
+    const flags = parseBriefingDraftAlertFlags(`${header}\n\n# Body`);
+    expect(flags.requiresImmediatePromotion).toBe(true);
+  });
+
+  it("parses promotion frontmatter for database persistence", () => {
+    const header = buildBriefingDraftFrontmatter({
+      title: "Automated Governance Triad Narrative",
+      dateIso: "2026-06-17T03:00:00.000Z",
+      tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+      tenantSlug: "medshield",
+      currentExposureCents: 9_650_000n,
+      requiresImmediatePromotion: true,
+    });
+    const parsed = parseBriefingDraftFrontmatter(`${header}\n\n${SAMPLE_BODY}`, "fallback");
+    expect(parsed?.tenantId).toBe("5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01");
+    expect(parsed?.activeExposureCents).toBe(9_650_000n);
+    expect(stripFrontmatter(`${header}\n\n${SAMPLE_BODY}`)).toContain("### I. Exposure Vector");
   });
 });
 

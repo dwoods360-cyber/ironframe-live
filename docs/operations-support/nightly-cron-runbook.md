@@ -1,33 +1,55 @@
 # Nightly Cron Runbook — Documentation Engine vs API Narrate
 
-**One-page ops reference** for Ironframe’s two separate “narrate” pipelines. They share a name in conversation but **do not call each other** unless you wire them together manually.
+**One-page ops reference** for Ironframe’s two separate “narrate” pipelines. They run on a **staggered cadence** so documentation sync and filesystem state settle before exposure-threshold narrate reads live telemetry.
+
+---
+
+## Staggered pipeline (default)
+
+| Time (local Windows) | Time (Vercel UTC) | Job | Entry |
+|----------------------|-------------------|-----|--------|
+| **03:00** | **03:00** | Documentation sync + OSINT + governance memo | `scripts\cron_narrate_scheduled.ps1` |
+| *(30 min settle)* | *(30 min settle)* | Filesystem, glossary, and DB state finalize | — |
+| **03:30** | **03:30** | GRC triad narrate + briefing-queue draft + exposure alerts | `scripts\cron_narrate_api_scheduled.ps1` → `bin\cron_narrate.ps1` or Vercel `/api/cron/narrate` |
+
+**Why stagger:** When both jobs coincided at 03:00, narrate could evaluate `INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS` against telemetry while the doc engine was still mutating docs and related state. Shifting API narrate to **03:30** guarantees a finalized post-update environment.
+
+**Register local tasks:**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-nightly-cron-tasks.ps1
+```
 
 ---
 
 ## At a glance
 
 | | **Doc Engine (Windows)** | **API Narrate (Core / Vercel)** |
-|---|--------------------------|----------------------------------|
+|---|---|---|
 | **Purpose** | Refresh app documentation from git deltas; OSINT sweep; governance memo via Cursor CLI | Persist **Governance Frame Triad** snapshot + board narrative in Postgres |
-| **Primary output** | `docs/qa/complete-feature-glossary.md`, agent-written memos in log | `GovernanceFrameTriadSnapshot`, `CronJobArtifact` rows |
-| **Scheduler** | Windows Task Scheduler — `\Ironframe Daily Documentation Engine` | Vercel cron — `30 3 * * *` UTC → `GET/POST /api/cron/narrate` |
-| **Entry script** | `scripts\cron_narrate_scheduled.ps1` → `scripts\cron_narrate.ps1` | `app/api/cron/narrate/route.ts` |
-| **Optional local wrapper** | *(not registered by default)* `bin\cron_narrate.ps1` | Same API; use for manual smoke on `:3000` |
-| **Log file** | `scripts\cron_narrate.log` | Vercel function logs + JSON response body |
+| **Primary output** | `docs/qa/complete-feature-glossary.md`, agent-written memos in log | `GovernanceFrameTriadSnapshot`, `CronJobArtifact`, `briefing-queue` draft |
+| **Scheduler** | Windows Task `\Ironframe Daily Documentation Engine` — **03:00** local | Windows Task `\Ironframe GRC Narrative Hydration` — **03:30** local; Vercel `30 3 * * *` UTC |
+| **Entry script** | `scripts\cron_narrate_scheduled.ps1` → `scripts\cron_narrate.ps1` | `scripts\cron_narrate_api_scheduled.ps1` → `bin\cron_narrate.ps1` · `app/api/cron/narrate/route.ts` |
+| **Log file** | `scripts\cron_narrate.log` | `logs\cron_narrate_log.txt` (local) · Vercel function logs |
 | **Needs app running?** | No (Cursor CLI only) | Yes — Core on `:3000` (local) or deployed preview/prod |
 
 ---
 
 ## 1. Windows Documentation Engine
 
-### Task settings (current baseline)
+### Task settings (staggered baseline)
 
-| Setting | Value |
+| Setting | Doc engine | GRC API narrate |
+|---------|------------|-----------------|
+| **Task name** | `\Ironframe Daily Documentation Engine` | `\Ironframe GRC Narrative Hydration` |
+| **Trigger** | Daily **03:00** local | Daily **03:30** local |
+| **Action** | `scripts\cron_narrate_scheduled.ps1` | `scripts\cron_narrate_api_scheduled.ps1` |
+| **Start in** | `C:\Users\Dereck\ironframe-live` | same |
+
+Legacy single-task installs may only have the doc engine at 03:00. Re-register with `scripts\register-nightly-cron-tasks.ps1` to add the 03:30 narrate task.
+
+| Setting | Value (doc engine) |
 |---------|--------|
-| **Task name** | `\Ironframe Daily Documentation Engine` |
-| **Trigger** | Daily **03:00** local (`StartBoundary` 2026-06-10T03:00:00`) |
-| **Action** | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Dereck\ironframe-live\scripts\cron_narrate_scheduled.ps1"` |
-| **Start in** | `C:\Users\Dereck\ironframe-live` |
 | **Run as** | Interactive user (`Dereck`) |
 | **Logon** | Interactive only |
 | **Power** | Stop on battery; no start on batteries |
@@ -87,6 +109,8 @@ Get-Content .\scripts\cron_narrate.log -Tail 20
 ```powershell
 schtasks /Query /TN "\Ironframe Daily Documentation Engine" /FO LIST /V |
   Select-String "Last Run|Last Result|Next Run|Status|Task To Run"
+schtasks /Query /TN "\Ironframe GRC Narrative Hydration" /FO LIST /V |
+  Select-String "Last Run|Last Result|Next Run|Status|Task To Run"
 ```
 
 | `Last Result` | Meaning |
@@ -102,7 +126,8 @@ schtasks /Query /TN "\Ironframe Daily Documentation Engine" /FO LIST /V |
 
 | Host | Cron | Route |
 |------|------|-------|
-| **Vercel (production/preview)** | `30 3 * * *` UTC | `/api/cron/narrate` |
+| **Vercel (production/preview)** | `30 3 * * *` UTC (after `0 3` ironwatch heartbeat) | `/api/cron/narrate` |
+| **Local (scheduled)** | **03:30** local | `scripts\cron_narrate_api_scheduled.ps1` → `bin\cron_narrate.ps1` |
 | **Local (manual)** | On demand | `POST http://127.0.0.1:3000/api/cron/narrate` |
 
 Vercel sends `Authorization: Bearer <IRONFRAME_CRON_SECRET>` automatically when the secret is configured in the project.
@@ -194,19 +219,19 @@ Success: Snapshot generated. snapshotId=... artifactId=...
 
 ---
 
-## 4. Optional: chain both pipelines
+## 4. Pipeline cadence reference
 
-To run **doc engine then API narrate** in one nightly window:
+| Layer | Schedule | Config location |
+|-------|----------|-----------------|
+| Doc engine (local) | `03:00` | Windows Task `\Ironframe Daily Documentation Engine` |
+| Ironwatch heartbeat (Vercel) | `0 3 * * *` UTC | `vercel.json` |
+| GRC API narrate (local) | `03:30` | Windows Task `\Ironframe GRC Narrative Hydration` |
+| GRC API narrate (Vercel) | `30 3 * * *` UTC | `vercel.json` → `/api/cron/narrate` |
 
-1. Keep existing Task Scheduler action on `scripts\cron_narrate_scheduled.ps1`.
-2. Append to end of `scripts\cron_narrate.ps1` (after `complete.`):
+To shift Vercel narrate to **04:00 UTC** (longer settle), change `vercel.json` to `"0 4 * * *"` and local task to `04:00` in `register-nightly-cron-tasks.ps1`.
 
-   ```powershell
-   & "$ProjectRoot\bin\cron_narrate.ps1"
-   ```
-
-3. Ensure Core is running as a Windows Service or scheduled **before** 03:30 if you need same-night snapshots.
+**Do not** chain `bin\cron_narrate.ps1` immediately after `cron_narrate.ps1` in the same script — that collapses the stagger and reintroduces race conditions on exposure threshold evaluation.
 
 ---
 
-*Last aligned to repo: Epic 16 `/api/cron/narrate`, Windows task `\Ironframe Daily Documentation Engine`, branch `feature/epic17-commercial-plumbing`.*
+*Last aligned to repo: staggered nightly pipeline (03:00 doc / 03:30 narrate), `scripts/register-nightly-cron-tasks.ps1`.*

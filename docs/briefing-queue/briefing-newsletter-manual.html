@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ironframe — Briefing &amp; Newsletter Production Manual</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --border: #2d3a4f;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --warn: #fbbf24;
+      --ok: #4ade80;
+      --code-bg: #0d1117;
+      --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 2rem 1.5rem;
+      background: linear-gradient(180deg, #15202b 0%, var(--bg) 100%);
+    }
+    header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); max-width: 52rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      margin-top: 1rem;
+    }
+    main { max-width: 56rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    nav.toc {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    nav.toc h2 { margin: 0 0 0.75rem; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    nav.toc ol { margin: 0; padding-left: 1.25rem; }
+    nav.toc a { color: var(--accent); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section { margin-bottom: 2.5rem; }
+    h2 {
+      font-size: 1.35rem;
+      margin: 0 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.05rem; margin: 1.5rem 0 0.75rem; color: #cbd5e1; }
+    p { margin: 0 0 1rem; }
+    ul, ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); color: var(--muted); font-weight: 600; }
+    code, .path {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.45;
+    }
+    .step {
+      display: flex;
+      gap: 1rem;
+      margin: 1.25rem 0;
+      padding: 1rem 1.25rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: var(--bg);
+      font-weight: 700;
+      border-radius: 50%;
+      font-size: 0.9rem;
+    }
+    .step-body { flex: 1; min-width: 0; }
+    .step-body h4 { margin: 0 0 0.5rem; font-size: 1rem; }
+    .step-body p:last-child { margin-bottom: 0; }
+    .callout {
+      border-left: 4px solid var(--warn);
+      background: rgba(251, 191, 36, 0.08);
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      border-radius: 0 8px 8px 0;
+    }
+    .callout.info { border-left-color: var(--accent); background: rgba(56, 189, 248, 0.08); }
+    .callout.ok { border-left-color: var(--ok); background: rgba(74, 222, 128, 0.08); }
+    .flow {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      border-radius: 8px;
+      white-space: pre;
+      overflow-x: auto;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    @media print {
+      body { background: #fff; color: #111; }
+      header, nav.toc, .step, pre, table th { background: #f4f4f5; }
+      code, .path, pre { border-color: #ccc; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Briefing &amp; Newsletter Production Manual</h1>
+    <p>Step-by-step operator guide for Governance Frame briefings, human promotion, RSS syndication, and Ironcast newsletter HTML — with exact repository file locations.</p>
+    <span class="badge">Ironframe GRC · Human-in-the-loop publication</span>
+  </header>
+
+  <main>
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#overview">Pipeline overview</a></li>
+        <li><a href="#locations">File &amp; route locations</a></li>
+        <li><a href="#draft">Step 1 — Create a quarantined draft</a></li>
+        <li><a href="#review">Step 2 — Editorial &amp; citation review</a></li>
+        <li><a href="#promote">Step 3 — Promote to production receipt</a></li>
+        <li><a href="#ledger">Step 4 — Publish to the filesystem ledger</a></li>
+        <li><a href="#rss">Step 5 — RSS feeds</a></li>
+        <li><a href="#newsletter">Step 6 — Newsletter HTML (Ironcast)</a></li>
+        <li><a href="#deploy">Step 7 — Deploy &amp; verify</a></li>
+        <li><a href="#automated">Automated nightly path</a></li>
+        <li><a href="#validation">Validation matrix</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+      </ol>
+    </nav>
+
+    <section id="overview">
+      <h2>1. Pipeline overview</h2>
+      <p>Governance briefings follow a <strong>quarantine → review → promote → compile → syndicate</strong> model. Drafts never reach the public surface until a human operator signs off.</p>
+
+      <div class="flow">┌─────────────────────────────────────────────────────────────────────────────┐
+│  AUTHORING (quarantined)                                                     │
+│  docs/briefing-queue/*.md          ← manual, IronBoard, or narrate cron      │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │ human review + Section V citations
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PROMOTION (signed receipt)                                                  │
+│  scripts/promote-briefing-draft.ts  →  PostgreSQL published_briefings      │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │ mirror for web / static RSS / email
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  FILESYSTEM LEDGER (public reader compile source)                            │
+│  docs/published-briefings/{slug}.md                                          │
+└───────────────┬─────────────────────────────┬───────────────────────────────┘
+                │                             │
+                ▼                             ▼
+   app/governance-frame/              lib/agents/ironcast/workers/
+   IronBoard :8082/governance-frame   compileNewsletter.ts → HTML
+                │                             │
+                ▼                             ▼
+   public/rss.xml (npm run build:rss)   out/governance-frame/newsletters/
+                │
+                ▼
+   GET /api/board/feed?secret=…  (live DB RSS — Substack / syndication)</div>
+
+      <div class="callout info">
+        <strong>Two persistence layers:</strong> Promotion stamps an immutable row in <code>published_briefings</code> (Postgres). The public Next.js reader, static <code>public/rss.xml</code>, and Ironcast newsletter compiler still read <code>docs/published-briefings/</code>. For full surface coverage, complete both Step 3 and Step 4.
+      </div>
+    </section>
+
+    <section id="locations">
+      <h2>2. File &amp; route locations</h2>
+
+      <h3>Draft quarantine (never public)</h3>
+      <table>
+        <thead>
+          <tr><th>Path</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>docs/briefing-queue/</code></td>
+            <td>All unvetted drafts. Scanners emit <code>[SECURITY AUDIT]</code> / <code>[BRIEFING DRAFT WARN]</code> if compilation is attempted.</td>
+          </tr>
+          <tr>
+            <td><code>docs/briefing-queue/template.md</code></td>
+            <td>Canonical triad + Section V scaffold for new drafts.</td>
+          </tr>
+          <tr>
+            <td><code>docs/briefing-queue/README.md</code></td>
+            <td>Markdown runbook (validation rules summary).</td>
+          </tr>
+          <tr>
+            <td><code>docs/briefing-queue/briefing-newsletter-manual.html</code></td>
+            <td>This manual.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Published ledger (filesystem — web &amp; static RSS)</h3>
+      <table>
+        <thead>
+          <tr><th>Path</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>docs/published-briefings/{slug}.md</code></td>
+            <td>Approved markdown consumed by Governance Frame pages, RSS build, and newsletter compile.</td>
+          </tr>
+          <tr>
+            <td><code>docs/published-briefings/2026-06-07-staging-boundary-check.md</code></td>
+            <td>Seed / staging example briefing.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Database (syndication receipt)</h3>
+      <table>
+        <thead>
+          <tr><th>Artifact</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>prisma/schema.prisma</code> → <code>PublishedBriefing</code></td>
+            <td>Model mapped to <code>published_briefings</code> table.</td>
+          </tr>
+          <tr>
+            <td><code>prisma/migrations/20260617230000_add_published_briefing_persistence/</code></td>
+            <td>Migration SQL for CI / <code>prisma migrate deploy</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Application code</h3>
+      <table>
+        <thead>
+          <tr><th>Path</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>app/lib/governanceFrame/briefingDraftValidation.ts</code></td><td>Promotion validation, frontmatter parsing, exposure threshold flags.</td></tr>
+          <tr><td><code>app/lib/governanceFrame/briefingLoader.ts</code></td><td>Loads <code>published-briefings/</code>; enforces queue quarantine warnings.</td></tr>
+          <tr><td><code>app/lib/governanceFrame/briefingQueueDraftWriter.ts</code></td><td>Writes narrate cron output into <code>briefing-queue/</code>.</td></tr>
+          <tr><td><code>app/lib/governanceFrame/boardFeedXml.ts</code></td><td>RSS XML builder for live DB feed.</td></tr>
+          <tr><td><code>app/lib/reports/narrateGovernanceTriad.ts</code></td><td>Nightly triad narrative + DB snapshot + queue draft.</td></tr>
+          <tr><td><code>scripts/promote-briefing-draft.ts</code></td><td>Human promotion gate → <code>published_briefings</code>.</td></tr>
+          <tr><td><code>scripts/compile-rss.ts</code></td><td>Static RSS: <code>published-briefings/</code> → <code>public/rss.xml</code>.</td></tr>
+          <tr><td><code>lib/agents/ironcast/workers/compileNewsletter.ts</code></td><td>Newsletter HTML compile worker (Agent 7).</td></tr>
+          <tr><td><code>lib/agents/ironcast/templates/governanceFrameEmail.ts</code></td><td>Alabaster editorial HTML email template.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Public routes &amp; surfaces</h3>
+      <table>
+        <thead>
+          <tr><th>URL / command</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>http://127.0.0.1:3000/governance-frame</code></td><td>Next.js reader — <code>app/governance-frame/page.tsx</code></td></tr>
+          <tr><td><code>http://127.0.0.1:3000/governance-frame/{slug}</code></td><td>Article — <code>app/governance-frame/[slug]/page.tsx</code></td></tr>
+          <tr><td><code>http://127.0.0.1:8082/governance-frame</code></td><td>IronBoard mirror — <code>Ironboard/src/governanceFrame/router.ts</code></td></tr>
+          <tr><td><code>/public/rss.xml</code></td><td>Static RSS (built at compile time)</td></tr>
+          <tr><td><code>GET /api/board/feed?secret=…&amp;tenantId=…</code></td><td>Live DB RSS — <code>app/api/board/feed/route.ts</code></td></tr>
+          <tr><td><code>POST /api/cron/narrate</code></td><td>Nightly narrative cron — <code>app/api/cron/narrate/route.ts</code></td></tr>
+          <tr><td><code>GET /api/board/shared-context</code></td><td>Live telemetry for Section V citations</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Output artifacts</h3>
+      <table>
+        <thead>
+          <tr><th>Path</th><th>Produced by</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>public/rss.xml</code></td><td><code>npm run build:rss</code></td></tr>
+          <tr><td><code>out/governance-frame/newsletters/{slug}.html</code></td><td><code>writeCompiledNewsletterArtifacts()</code></td></tr>
+          <tr><td><code>scripts/cron_narrate.log</code></td><td><code>scripts/cron_narrate.ps1</code> (local scheduler)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="draft">
+      <h2>3. Step 1 — Create a quarantined draft</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Choose an authoring path</h4>
+          <p><strong>Manual:</strong> Copy <code>docs/briefing-queue/template.md</code> to a dated filename:</p>
+          <pre>docs/briefing-queue/YYYY-MM-DD-draft-{tenant-slug}.md</pre>
+          <p><strong>IronBoard (:8082):</strong> Board operator drafts via Command Post; Layer 6 system prompt enforces triad + citations (<code>Ironboard/src/services/boardroomSystemPrompt.ts</code>).</p>
+          <p><strong>Nightly narrate:</strong> Cron writes <code>{date}-draft-{tenant}.md</code> automatically (<code>app/lib/governanceFrame/briefingQueueDraftWriter.ts</code>).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Required markdown structure</h4>
+          <ul>
+            <li><strong>YAML frontmatter</strong> — <code>title</code>, <code>tenantId</code> (UUID), <code>activeExposureCents</code> (quoted whole cents), <code>status: "QUARANTINED_DRAFT"</code></li>
+            <li><strong>### I. Exposure Vector</strong></li>
+            <li><strong>### II. Calculated Quantitative Impact</strong> — BigInt cent strings only; no float math</li>
+            <li><strong>### III. Machine-Rule Technical Translation</strong></li>
+            <li><strong>### V. Sources &amp; Citations</strong> — at least one traceable locator before promotion</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Confirm quarantine (draft must NOT appear publicly)</h4>
+          <p>Reload <code>/governance-frame</code> — queue files must not list. Server logs may show:</p>
+          <pre>[SECURITY AUDIT] Unauthorized compilation attempt blocked for unvetted draft: …</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="review">
+      <h2>4. Step 2 — Editorial &amp; citation review</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Fact-check Section V against live telemetry</h4>
+          <pre>curl -s "http://127.0.0.1:3000/api/board/shared-context" \
+  -H "x-tenant-id: &lt;TENANT_UUID&gt;" | jq .</pre>
+          <p>Cross-reference <code>financials.display.activeTenant</code>, DORA readiness, and TAS baseline (<code>docs/TAS.md</code>).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Check exposure escalation flag</h4>
+          <p>If <code>requiresImmediatePromotion: true</code> or exposure ≥ <code>INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS</code> (default <code>5000000</code> = $50,000.00 USD), treat as urgent HITL review. See <code>.env.example</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Reject or redact before promotion</h4>
+          <ul>
+            <li>Raw <code>CVE-YYYY-NNNN</code> literals (blocked at promotion)</li>
+            <li>Executable HTML / <code>javascript:</code> URIs</li>
+            <li>Missing triad sections I–III or Section V citations</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="promote">
+      <h2>5. Step 3 — Promote to production receipt (PostgreSQL)</h2>
+
+      <div class="callout">
+        Always use the promotion script — never rename/copy queue files directly without validation.
+      </div>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Run the signed promotion gate</h4>
+          <pre>npx tsx scripts/promote-briefing-draft.ts \
+  --file 2026-06-17-draft-medshield.md \
+  --slug medshield-sec-update-01 \
+  --operator "your.name@corp.example"</pre>
+          <p>On success:</p>
+          <pre>🔒 [MUTATION COMPLETE] Public receipt safely stamped in database.
+[AUDIT] {"event":"BRIEFING_PROMOTED",…}</pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Verify live syndication feed (optional)</h4>
+          <pre>curl -s "http://127.0.0.1:3000/api/board/feed?secret=$IRONFRAME_CRON_SECRET"</pre>
+          <p>Optional tenant scope: <code>&amp;tenantId=&lt;UUID&gt;</code></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="ledger">
+      <h2>6. Step 4 — Publish to the filesystem ledger</h2>
+
+      <div class="callout info">
+        Required for <code>/governance-frame</code> web pages, <code>npm run build:rss</code>, and Ironcast newsletter HTML. Content should match the promoted draft (body without quarantine frontmatter).
+      </div>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Write approved markdown to the published ledger</h4>
+          <pre>docs/published-briefings/{slug}.md</pre>
+          <p>Use publication frontmatter (example):</p>
+          <pre>---
+title: "Medshield Governance Review"
+publishedAt: "2026-06-17T12:00:00.000Z"
+author: "Executive Intelligence Unit"
+classification: "Institutional Governance"
+issueNumber: 1
+summary: "One-line executive distillation for RSS description."
+---</pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Commit &amp; deploy for production</h4>
+          <p>Vercel ships <code>docs/published-briefings/**/*</code> via <code>next.config.ts</code> <code>outputFileTracingIncludes</code>. Production readers update after git deploy — not from local disk alone.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Preview locally</h4>
+          <pre>npm run dev
+# → http://127.0.0.1:3000/governance-frame/{slug}</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="rss">
+      <h2>7. Step 5 — RSS feeds</h2>
+
+      <h3>Static RSS (filesystem ledger)</h3>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Compile RSS XML</h4>
+          <pre>npm run build:rss
+# writes public/rss.xml from docs/published-briefings/*.md</pre>
+          <p>Runs automatically in <code>prebuild</code> before <code>next build</code>.</p>
+        </div>
+      </div>
+
+      <h3>Live DB RSS (syndication API)</h3>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Point Substack or RSS reader at the API feed</h4>
+          <pre>https://&lt;your-domain&gt;/api/board/feed?secret=&lt;IRONFRAME_CRON_SECRET&gt;</pre>
+          <p>Auth also accepts <code>Authorization: Bearer</code> or <code>x-cron-secret</code> header (<code>app/api/internal/cron/cronAuth.ts</code> → <code>checkBoardFeedAuth</code>).</p>
+        </div>
+      </div>
+
+      <h3>Static brief host (GCP)</h3>
+      <pre>npm run sync:brief:gcs
+# or: npm run deploy:brief:gcp</pre>
+    </section>
+
+    <section id="newsletter">
+      <h2>8. Step 6 — Newsletter HTML (Ironcast / Agent 7)</h2>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Ensure briefing exists in filesystem ledger</h4>
+          <p><code>docs/published-briefings/{slug}.md</code> must be present (Step 4).</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Compile HTML newsletters</h4>
+          <p>From repository root (Node / tsx):</p>
+          <pre>npx tsx -e "
+import {
+  runGovernanceFramePublicationCompile,
+  writeCompiledNewsletterArtifacts,
+} from './lib/agents/ironcast/workers/compileNewsletter.ts';
+
+const result = runGovernanceFramePublicationCompile();
+const paths = writeCompiledNewsletterArtifacts(result.compiled);
+console.log('Compiled', result.compiled.length, 'newsletter(s)');
+paths.forEach((p) => console.log(' →', p));
+"</pre>
+          <p>Output: <code>out/governance-frame/newsletters/{slug}.html</code></p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Compile a single slug (programmatic)</h4>
+          <p>Use <code>compileGovernanceFrameNewsletterBySlug('your-slug')</code> from the same module — see <code>tests/unit/governanceFrameEmail.test.ts</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Outbound email dispatch</h4>
+          <p>Production transactional email routes through <code>services/ironcast.service.ts</code> and React Email templates under <code>emails/</code>. Governance Frame HTML uses the presentation-only template at <code>lib/agents/ironcast/templates/governanceFrameEmail.ts</code> (no scripts, no inline handlers).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="deploy">
+      <h2>9. Step 7 — Deploy &amp; verify</h2>
+
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Command / URL</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Unit tests (validation + feed)</td><td><code>npx vitest run tests/unit/briefingCitations.test.ts tests/unit/publishedBriefingFeed.test.ts tests/unit/governanceFrameEmail.test.ts</code></td></tr>
+          <tr><td>Static RSS in build</td><td><code>npm run build</code> (includes <code>build:rss</code>)</td></tr>
+          <tr><td>Web reader</td><td><code>/governance-frame</code> lists <code>published-briefings</code> slugs</td></tr>
+          <tr><td>DB migration</td><td><code>npx prisma migrate deploy</code> (CI/production)</td></tr>
+          <tr><td>IronBoard mirror</td><td><code>http://127.0.0.1:8082/governance-frame</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="automated">
+      <h2>10. Automated nightly path (staggered)</h2>
+
+      <div class="callout info">
+        <strong>Cadence:</strong> Documentation sync at <strong>03:00</strong> → 30-minute settle → GRC narrate at <strong>03:30</strong>. This prevents exposure-threshold checks from reading mid-update telemetry.
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Time</th><th>Job</th><th>Entry</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>03:00 local / UTC</td><td>Doc engine + ironwatch heartbeat</td><td><code>scripts/cron_narrate_scheduled.ps1</code> · Vercel <code>0 3 * * *</code></td></tr>
+          <tr><td>03:30 local / UTC</td><td>GRC triad narrate + queue draft</td><td><code>scripts/cron_narrate_api_scheduled.ps1</code> · <code>POST /api/cron/narrate</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Register Windows tasks (one-time)</h4>
+          <pre>powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\register-nightly-cron-tasks.ps1</pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Trigger narrate manually (smoke)</h4>
+          <pre>curl -X POST "http://127.0.0.1:3000/api/cron/narrate" \
+  -H "Authorization: Bearer $IRONFRAME_CRON_SECRET" \
+  -H "x-tenant-id: &lt;TENANT_UUID&gt;"</pre>
+          <p>Scheduled local run: <code>scripts/cron_narrate_api_scheduled.ps1</code> (03:30). Doc engine log: <code>scripts/cron_narrate.log</code> · API log: <code>logs/cron_narrate_log.txt</code>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>What narrate produces (03:30 window)</h4>
+          <ul>
+            <li><code>governance_frame_triad_snapshots</code> row — <code>app/lib/reports/narrateGovernanceTriad.ts</code></li>
+            <li><code>cron_job_artifact</code> audit row</li>
+            <li>Quarantined draft in <code>docs/briefing-queue/{date}-draft-{tenant}.md</code></li>
+          </ul>
+          <p class="callout ok" style="margin-top:0.75rem;">Narrate does <em>not</em> auto-publish. A human must still run Step 3 (and Step 4 for web/RSS/email).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="validation">
+      <h2>11. Validation matrix</h2>
+      <table>
+        <thead>
+          <tr><th>Check</th><th>Queue (warn)</th><th>Promotion (block)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Triad sections I–III</td><td>warn</td><td>error</td></tr>
+          <tr><td>Section V citations</td><td>warn</td><td>error</td></tr>
+          <tr><td>Exposure ≥ threshold</td><td>warn (<code>EXPOSURE_THRESHOLD_EXCEEDED</code>)</td><td>warn</td></tr>
+          <tr><td>Raw CVE literals</td><td>warn</td><td>error</td></tr>
+          <tr><td>Raw UUID literals</td><td>warn</td><td>—</td></tr>
+          <tr><td>Executable HTML / javascript:</td><td>error</td><td>error</td></tr>
+          <tr><td>Filename convention</td><td>warn</td><td>warn</td></tr>
+        </tbody>
+      </table>
+      <p>Validator: <code>app/lib/governanceFrame/briefingDraftValidation.ts</code></p>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>12. Troubleshooting</h2>
+
+      <h3>Promotion blocked</h3>
+      <ul>
+        <li>Read <code>[ERROR]</code> lines from <code>promote-briefing-draft.ts</code> output.</li>
+        <li>Add Section V citations and triad sections; remove CVE literals.</li>
+        <li>Ensure frontmatter includes valid <code>tenantId</code> UUID.</li>
+      </ul>
+
+      <h3>Briefing missing on /governance-frame</h3>
+      <ul>
+        <li>Confirm file exists at <code>docs/published-briefings/{slug}.md</code> (Step 4).</li>
+        <li>DB promotion alone does not update the filesystem reader.</li>
+        <li>On Vercel, commit and redeploy so traced files ship with the build.</li>
+      </ul>
+
+      <h3>Empty RSS</h3>
+      <ul>
+        <li>Static: run <code>npm run build:rss</code> after adding published markdown.</li>
+        <li>Live API: confirm <code>published_briefings</code> rows exist and feed secret matches <code>IRONFRAME_CRON_SECRET</code>.</li>
+      </ul>
+
+      <h3>Newsletter HTML empty or missing slug</h3>
+      <ul>
+        <li>Slug must exist in <code>docs/published-briefings/</code>.</li>
+        <li>Run compile with explicit <code>slugs: ['your-slug']</code> option to <code>runGovernanceFramePublicationCompile</code>.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>Ironframe Governance Frame · Operator manual · Repository: <code>ironframe-live</code></p>
+      <p>Related: <code>docs/briefing-queue/README.md</code> · Tests: <code>tests/unit/briefingCitations.test.ts</code>, <code>tests/unit/publishedBriefingFeed.test.ts</code>, <code>tests/unit/governanceFrameEmail.test.ts</code></p>
+    </footer>
+  </main>
+</body>
+</html>

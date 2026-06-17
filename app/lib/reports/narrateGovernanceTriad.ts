@@ -13,6 +13,8 @@ import {
   sanitizeExportProse,
 } from "@/app/lib/reports/governanceTriadSanitizer";
 import { appendTelemetryCitationsToMarkdown } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
+import { writeBriefingQueueDraftFromNarrate } from "@/app/lib/governanceFrame/briefingQueueDraftWriter";
+import { dispatchInternalExposureAlert } from "@/app/lib/governanceFrame/dispatchInternalExposureAlert";
 import prisma from "@/lib/prisma";
 
 const NARRATE_MODEL =
@@ -92,6 +94,12 @@ export type NarrateGovernanceTriadResult = {
   snapshotId: string;
   artifactId: string;
   narrativeChars: number;
+  briefingQueueDraft?: {
+    filename: string;
+    requiresImmediatePromotion: boolean;
+    currentExposureCents: string;
+    thresholdCents: string;
+  };
 };
 
 export async function runNightlyGovernanceNarrate(
@@ -143,11 +151,36 @@ export async function runNightlyGovernanceNarrate(
     select: { id: true },
   });
 
+  const operationalDateLabel = operationalDate.toISOString().slice(0, 10);
+  const queueDraft = writeBriefingQueueDraftFromNarrate(
+    payload,
+    narrativeMarkdown,
+    operationalDateLabel,
+  );
+
+  if (queueDraft.requiresImmediatePromotion) {
+    await dispatchInternalExposureAlert({
+      tenantId,
+      tenantSlug: payload.financials.display.activeTenant.slug || "tenant",
+      companyName: payload.financials.display.activeTenant.companyName,
+      currentExposureCents: queueDraft.currentExposureCents,
+      thresholdCents: queueDraft.thresholdCents,
+      draftFilename: queueDraft.filename,
+      operationalDate: operationalDateLabel,
+    });
+  }
+
   return {
     tenantId,
-    operationalDate: operationalDate.toISOString().slice(0, 10),
+    operationalDate: operationalDateLabel,
     snapshotId: snapshot.id,
     artifactId: artifact.id,
     narrativeChars: narrativeMarkdown.length,
+    briefingQueueDraft: {
+      filename: queueDraft.filename,
+      requiresImmediatePromotion: queueDraft.requiresImmediatePromotion,
+      currentExposureCents: queueDraft.currentExposureCents,
+      thresholdCents: queueDraft.thresholdCents,
+    },
   };
 }

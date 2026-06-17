@@ -1,17 +1,23 @@
 #!/usr/bin/env npx tsx
 /**
- * Human promotion gate: briefing-queue → published-briefings.
+ * Human promotion gate: briefing-queue → published_briefings (PostgreSQL).
  * Usage:
  *   npx tsx scripts/promote-briefing-draft.ts --file 2026-06-17-draft-medshield.md --slug 2026-06-17-medshield-review
  *   npx tsx scripts/promote-briefing-draft.ts --file draft.md --slug my-briefing --operator "j.doe@corp.example"
  */
 import fs from "fs";
 import path from "path";
+import { PrismaClient } from "@prisma/client";
 
-import { validateBriefingQueueDraft } from "../app/lib/governanceFrame/briefingDraftValidation";
+import {
+  parseBriefingDraftFrontmatter,
+  stripFrontmatter,
+  validateBriefingQueueDraft,
+} from "../app/lib/governanceFrame/briefingDraftValidation";
 
 const BRIEFING_QUEUE_DIR = "briefing-queue";
-const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
+const TENANT_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -41,7 +47,7 @@ function resolveDocsRoot(): string {
   return candidates[0];
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const file = args.file?.trim();
   const slug = args.slug?.trim().toLowerCase();
@@ -59,8 +65,6 @@ function main(): void {
 
   const docsRoot = resolveDocsRoot();
   const queuePath = path.join(docsRoot, BRIEFING_QUEUE_DIR, file);
-  const publishedDir = path.join(docsRoot, PUBLISHED_BRIEFINGS_DIR);
-  const targetPath = path.join(publishedDir, `${slug}.md`);
 
   if (!fs.existsSync(queuePath)) {
     console.error(`Queue draft not found: ${queuePath}`);
@@ -80,24 +84,57 @@ function main(): void {
     process.exit(1);
   }
 
-  fs.mkdirSync(publishedDir, { recursive: true });
-  if (fs.existsSync(targetPath)) {
-    console.error(`Published slug already exists: ${targetPath}`);
+  const parsedFrontmatter = parseBriefingDraftFrontmatter(markdown, slug);
+  if (!parsedFrontmatter) {
+    console.error("Promotion blocked — frontmatter must include tenantId.");
     process.exit(1);
   }
 
-  fs.copyFileSync(queuePath, targetPath);
+  const validatedTenantUuid = parsedFrontmatter.tenantId.trim();
+  if (!TENANT_UUID_PATTERN.test(validatedTenantUuid)) {
+    console.error("Promotion blocked — tenantId must be a valid UUID.");
+    process.exit(1);
+  }
 
-  const auditLine = JSON.stringify({
-    event: "BRIEFING_PROMOTED",
-    at: new Date().toISOString(),
-    operator,
-    sourceQueueFile: file,
-    publishedSlug: slug,
-    targetPath: path.relative(process.cwd(), targetPath),
-  });
-  console.log(`[AUDIT] ${auditLine}`);
-  console.log(`Promoted → ${targetPath}`);
+  const cleanMarkdownBody = stripFrontmatter(markdown);
+  const prisma = new PrismaClient();
+
+  try {
+    const existing = await prisma.publishedBriefing.findUnique({ where: { slug } });
+    if (existing) {
+      console.error(`Published slug already exists in database: ${slug}`);
+      process.exit(1);
+    }
+
+    const record = await prisma.publishedBriefing.create({
+      data: {
+        tenantId: validatedTenantUuid,
+        slug,
+        title: parsedFrontmatter.title,
+        content: cleanMarkdownBody,
+        exposureCents: parsedFrontmatter.activeExposureCents,
+        doraScore: parsedFrontmatter.doraScore,
+        publishedBy: operator,
+      },
+    });
+
+    const auditLine = JSON.stringify({
+      event: "BRIEFING_PROMOTED",
+      at: new Date().toISOString(),
+      operator,
+      sourceQueueFile: file,
+      publishedSlug: slug,
+      publishedBriefingId: record.id,
+      tenantId: validatedTenantUuid,
+    });
+    console.log(`[AUDIT] ${auditLine}`);
+    console.log("🔒 [MUTATION COMPLETE] Public receipt safely stamped in database.");
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main();
+main().catch((error) => {
+  console.error("Promotion failed:", error);
+  process.exit(1);
+});

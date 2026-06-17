@@ -45,3 +45,17 @@ export function checkCronAuth(request: NextRequest): boolean {
   if (cronHeader === localSecret) return true;
   return false;
 }
+
+/**
+ * Board syndication feed — query `?secret=` (Substack/RSS) or Bearer / x-cron-secret.
+ */
+export function checkBoardFeedAuth(request: Request): boolean {
+  const secret = process.env.IRONFRAME_CRON_SECRET?.trim();
+  if (!secret) return false;
+
+  const url = new URL(request.url);
+  const querySecret = url.searchParams.get("secret")?.trim();
+  if (querySecret && querySecret === secret) return true;
+
+  return checkCronAuth(request as NextRequest);
+}

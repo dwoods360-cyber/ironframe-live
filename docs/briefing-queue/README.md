@@ -28,6 +28,7 @@ npx tsx scripts/promote-briefing-draft.ts --file 2026-06-17-draft-medshield.md -
 |-------|----------------|-------------------|
 | Triad sections I–III | warn | error |
 | Section V citations | warn | error |
+| Exposure ≥ `INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS` | warn (`EXPOSURE_THRESHOLD_EXCEEDED`) | warn |
 | Raw `CVE-YYYY-NNNN` | warn | error |
 | Raw UUID literals | warn | — |
 | Executable HTML / `javascript:` | error | error |
@@ -47,4 +48,4 @@ npx tsx scripts/promote-briefing-draft.ts --file 2026-06-17-draft-medshield.md -
 - **[1] Label** — `locator` · retrieved 2026-06-17 · optional reviewer note
 ```
 
-Nightly narrate (`POST /api/cron/narrate`) appends deterministic telemetry citations when the model omits Section V.
+Nightly narrate (`POST /api/cron/narrate`) appends deterministic telemetry citations when the model omits Section V and writes quarantined drafts to `briefing-queue/` with `requiresImmediatePromotion` when active tenant exposure (whole cents) meets or exceeds `INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS` (default `5000000` = $50,000.00 USD).

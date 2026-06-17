@@ -6,6 +6,21 @@ export const DRAFT_FILENAME_PATTERN = /^\d{4}-\d{2}-\d{2}-draft-[a-z0-9-]+\.md$/
 
 export const QUARANTINE_ALLOWLIST = new Set(["template.md", ".gitkeep", "readme.md"]);
 
+/** Conservative $50,000.00 USD default when env is unset. */
+export const DEFAULT_ALERT_EXPOSURE_THRESHOLD_CENTS = 5_000_000n;
+
+export type ThresholdEvaluation = {
+  requiresImmediatePromotion: boolean;
+  currentExposureCents: bigint;
+  thresholdCents: bigint;
+};
+
+export type BriefingDraftAlertFlags = {
+  requiresImmediatePromotion: boolean;
+  activeExposureCents: bigint | null;
+  thresholdCents: bigint;
+};
+
 export type BriefingDraftValidationIssue = {
   code: string;
   message: string;
@@ -21,6 +36,122 @@ const CVE_PATTERN = /\bCVE-\d{4}-\d+/i;
 const RAW_UUID_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
 const RAW_CENT_LITERAL = /\b\d{9,}\s*cents?\b/i;
+
+export function parseExposureThresholdCents(
+  envValue = process.env.INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS,
+): bigint {
+  const raw = String(envValue ?? "").trim() || DEFAULT_ALERT_EXPOSURE_THRESHOLD_CENTS.toString();
+  try {
+    const parsed = BigInt(raw);
+    if (parsed < 0n) return DEFAULT_ALERT_EXPOSURE_THRESHOLD_CENTS;
+    return parsed;
+  } catch {
+    return DEFAULT_ALERT_EXPOSURE_THRESHOLD_CENTS;
+  }
+}
+
+/** Compare live tenant exposure against INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS (whole cents, BigInt-safe). */
+export function evaluateAlertThresholds(currentExposureCents: bigint): ThresholdEvaluation {
+  const thresholdCents = parseExposureThresholdCents();
+  const requiresImmediatePromotion = currentExposureCents >= thresholdCents;
+  return {
+    requiresImmediatePromotion,
+    currentExposureCents,
+    thresholdCents,
+  };
+}
+
+export function buildBriefingDraftFrontmatter(args: {
+  title: string;
+  dateIso?: string;
+  tenantId: string;
+  tenantSlug: string;
+  currentExposureCents: bigint;
+  requiresImmediatePromotion: boolean;
+}): string {
+  const dateIso = args.dateIso ?? new Date().toISOString();
+  return `---
+title: "${args.title.replace(/"/g, '\\"')}"
+date: "${dateIso}"
+status: "QUARANTINED_DRAFT"
+tenantId: "${args.tenantId}"
+tenantSlug: "${args.tenantSlug}"
+requiresImmediatePromotion: ${args.requiresImmediatePromotion}
+activeExposureCents: "${args.currentExposureCents.toString()}"
+---
+`;
+}
+
+/** Remove YAML frontmatter block when present. */
+export function stripFrontmatter(markdown: string): string {
+  if (!markdown.startsWith("---")) return markdown;
+  const end = markdown.indexOf("---", 3);
+  if (end === -1) return markdown;
+  return markdown.slice(end + 3).trimStart();
+}
+
+function parseFrontmatterField(markdown: string, key: string): string | null {
+  const match = markdown.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  if (!match?.[1]) return null;
+  return match[1].trim().replace(/^["']|["']$/g, "");
+}
+
+export type BriefingDraftFrontmatter = {
+  title: string;
+  tenantId: string;
+  activeExposureCents: bigint;
+  doraScore: number;
+};
+
+/** Parse promotion fields from quarantine frontmatter (whole-cent BigInt, no float drift). */
+export function parseBriefingDraftFrontmatter(
+  markdown: string,
+  fallbackTitle: string,
+): BriefingDraftFrontmatter | null {
+  const tenantId = parseFrontmatterField(markdown, "tenantId");
+  if (!tenantId) return null;
+
+  const title = parseFrontmatterField(markdown, "title") ?? fallbackTitle;
+
+  const exposureRaw = parseFrontmatterField(markdown, "activeExposureCents") ?? "0";
+  let activeExposureCents = 0n;
+  try {
+    activeExposureCents = BigInt(exposureRaw.replace(/"/g, ""));
+  } catch {
+    activeExposureCents = 0n;
+  }
+
+  const doraRaw = parseFrontmatterField(markdown, "doraScore") ?? "100";
+  const parsedDora = parseInt(doraRaw, 10);
+  const doraScore = Number.isFinite(parsedDora) ? parsedDora : 100;
+
+  return { title, tenantId, activeExposureCents, doraScore };
+}
+
+export function parseBriefingDraftAlertFlags(markdown: string): BriefingDraftAlertFlags {
+  const thresholdCents = parseExposureThresholdCents();
+  const requiresMatch = markdown.match(/^requiresImmediatePromotion:\s*(true|false)\s*$/im);
+  const exposureMatch = markdown.match(/^activeExposureCents:\s*"?(\d+)"?\s*$/im);
+
+  let activeExposureCents: bigint | null = null;
+  if (exposureMatch?.[1]) {
+    try {
+      activeExposureCents = BigInt(exposureMatch[1]);
+    } catch {
+      activeExposureCents = null;
+    }
+  }
+
+  const requiresImmediatePromotion =
+    requiresMatch?.[1]?.toLowerCase() === "true" ||
+    (activeExposureCents !== null && activeExposureCents >= thresholdCents);
+
+  return {
+    requiresImmediatePromotion,
+    activeExposureCents,
+    thresholdCents,
+  };
+}
 
 function hasTriadSections(markdown: string): boolean {
   const sections = parseBriefingSections(markdown);
@@ -96,6 +227,15 @@ export function validateBriefingDraftContent(
     issues.push({
       code: "MISSING_CITATIONS",
       message: "Add Section V citations so reviewers can fact-check against live telemetry.",
+      severity: "warn",
+    });
+  }
+
+  const alertFlags = parseBriefingDraftAlertFlags(markdown);
+  if (alertFlags.requiresImmediatePromotion) {
+    issues.push({
+      code: "EXPOSURE_THRESHOLD_EXCEEDED",
+      message: `Active exposure exceeds INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS (${alertFlags.thresholdCents.toString()} ¢) — urgent human promotion review required.`,
       severity: "warn",
     });
   }

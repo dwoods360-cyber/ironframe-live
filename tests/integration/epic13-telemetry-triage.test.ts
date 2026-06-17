@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "@/lib/prisma";
+import { withThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { evaluateSystemTriage } from "@/src/services/irontech/triageRouter";
 import { ensureTriageThreadCheckpoint } from "@/src/services/irontech/healthPostureMonitor";
 import * as Agent17SentinelCron from "@/app/api/internal/cron/agent17-sentinel/route";
@@ -75,7 +76,9 @@ describe("Epic 13 — Active telemetry triage (TAS §4.3)", () => {
 
     if (threatFixtureId) {
       await prisma.auditLog.deleteMany({ where: { threatId: threatFixtureId } });
-      await prisma.threatEvent.deleteMany({ where: { id: threatFixtureId } });
+      await withThreatEventWormBypass(async (tx) => {
+        await tx.threatEvent.deleteMany({ where: { id: threatFixtureId! } });
+      });
       threatFixtureId = null;
     }
 

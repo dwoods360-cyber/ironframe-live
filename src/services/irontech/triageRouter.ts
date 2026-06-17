@@ -61,6 +61,24 @@ export type SystemTriageResult = SystemTriageBaselineResult | SystemTriageHealed
 
 const IRONTECH_AGENT_12_ASSIGNEE = "Agent_12_Irontech";
 
+function parseIngestionDetailsJson(raw: unknown): Record<string, unknown> {
+  if (raw == null) return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 function toSystemHealthAssessment(
   input: SystemHealthAssessment | TriageAssessment,
 ): SystemHealthAssessment {
@@ -222,18 +240,14 @@ async function applyIronguardRegistryLockdown(input: {
 
   const existing = await findRiskRegistryByThreatEventId(input.threadId, input.tenantId);
   if (existing) {
-    let merged: Record<string, unknown> = { tasSelfHealingTriage: triageStamp };
-    try {
-      const prev =
-        existing.ingestionDetails == null
-          ? {}
-          : (JSON.parse(existing.ingestionDetails) as Record<string, unknown>);
-      const history = Array.isArray(prev.triageHistory) ? [...prev.triageHistory] : [];
-      history.push(triageStamp);
-      merged = { ...prev, tasSelfHealingTriage: triageStamp, triageHistory: history };
-    } catch {
-      merged = { tasSelfHealingTriage: triageStamp, triageHistory: [triageStamp] };
-    }
+    const prev = parseIngestionDetailsJson(existing.ingestionDetails);
+    const history = Array.isArray(prev.triageHistory) ? [...prev.triageHistory] : [];
+    history.push(triageStamp);
+    const merged: Record<string, unknown> = {
+      ...prev,
+      tasSelfHealingTriage: triageStamp,
+      triageHistory: history,
+    };
 
     await registry.update({
       where: { id: existing.id },

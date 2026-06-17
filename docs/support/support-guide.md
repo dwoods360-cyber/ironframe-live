@@ -60,6 +60,7 @@ User report
 | Supabase logs | Auth failures, RLS denials |
 | `npm run test:vercel-smoke` | Post-deploy cron/auth probe |
 | `/api/grc/tas-integrity` | Constitutional health (200 vs 503) |
+| [Nightly Cron Runbook](../operations-support/nightly-cron-runbook.md) | Doc Engine vs API narrate — logs, env, pass/fail |
 | Prisma Studio | Read-only row inspection (never mutate without runbook) |
 
 ## Communication templates
@@ -74,4 +75,5 @@ User report
 
 - [Knowledge Base](./knowledge-base.md)
 - [Error Messages & Solutions](./error-messages.md)
+- [Nightly Cron Runbook](../operations-support/nightly-cron-runbook.md) — Documentation Engine (Windows) vs API narrate
 - [DOCS_OPERATIONS.md](../../DOCS_OPERATIONS.md)

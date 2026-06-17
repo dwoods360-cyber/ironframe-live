@@ -39,7 +39,7 @@ export default function TenantCoBrandBadge({
         <>
           <span className="font-black tracking-widest text-slate-400">Ironframe</span>
           <span className="text-slate-600" aria-hidden>
-            //
+            {"//"}
           </span>
         </>
       ) : null}

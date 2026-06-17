@@ -40,7 +40,7 @@ export default defineConfig({
       : 'npm run dev -- -p 3000',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: process.env.CI ? 240 * 1000 : 120 * 1000,
   },
 });
 

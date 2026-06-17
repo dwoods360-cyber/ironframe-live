@@ -13,6 +13,7 @@ import {
   type BriefingSection,
   type ImpactMetricRow,
 } from "@/app/lib/governanceFrame/parseBriefingSections";
+import { parseBriefingCitations } from "@/app/lib/governanceFrame/parseBriefingCitations";
 import { parseCentBigIntSafe } from "@/app/lib/governanceFrame/parseCentBigInt";
 import { stripDangerousMarkdown } from "@/app/lib/governanceFrame/sanitizeMarkdown";
 
@@ -157,6 +158,35 @@ function sectionHeading(title: string): string {
   return `<h2 style="margin:32px 0 12px;padding-top:24px;border-top:1px solid #e2e8f0;font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0f172a;">${escapeHtml(title)}</h2>`;
 }
 
+function renderCitationsTable(body: string): string {
+  const citations = parseBriefingCitations(body);
+  if (!citations.length) return renderProseParagraphs(body);
+
+  const rows = citations
+    .map(
+      (c) =>
+        `<tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-family:'Courier New',monospace;font-size:11px;color:#64748b;">${c.index}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-family:system-ui,Arial,sans-serif;font-size:13px;color:#0f172a;">${escapeHtml(c.label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-family:'Courier New',monospace;font-size:11px;color:#475569;">${escapeHtml(c.locator)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-family:'Courier New',monospace;font-size:11px;color:#64748b;">${escapeHtml(c.retrievedAt ?? "—")}</td>
+        </tr>`,
+    )
+    .join("");
+
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:12px 0 20px;border:1px solid #e2e8f0;border-radius:8px;border-collapse:collapse;overflow:hidden;">
+    <thead>
+      <tr style="background:#f8fafc;">
+        <th style="padding:10px 12px;text-align:left;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">#</th>
+        <th style="padding:10px 12px;text-align:left;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Resource</th>
+        <th style="padding:10px 12px;text-align:left;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Locator</th>
+        <th style="padding:10px 12px;text-align:left;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;">Retrieved</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 function renderSection(section: BriefingSection): string {
   const body = section.body.trim();
   if (!body && !section.title) return "";
@@ -170,6 +200,8 @@ function renderSection(section: BriefingSection): string {
     }
     case "machine-rule":
       return `${heading}<div style="margin:12px 0 20px;padding:16px;border:1px solid #cbd5e1;border-radius:8px;background:#ffffff;">${renderMachineRuleBlock(body)}</div>`;
+    case "citations":
+      return `${heading}${renderCitationsTable(body)}`;
     case "exposure":
     case "preamble":
     case "verification":

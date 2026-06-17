@@ -6,6 +6,7 @@ export type BriefingSectionId =
   | "impact"
   | "machine-rule"
   | "verification"
+  | "citations"
   | "other";
 
 export type ImpactMetricRow = {
@@ -28,6 +29,7 @@ function classifySection(title: string): BriefingSectionId {
   if (/^II\.\s*Calculated Quantitative Impact/i.test(t)) return "impact";
   if (/^III\.\s*Machine-Rule Technical Translation/i.test(t)) return "machine-rule";
   if (/^IV\.\s*Verification Protocol/i.test(t)) return "verification";
+  if (/^V\.\s*Sources/i.test(t)) return "citations";
   return "other";
 }
 

@@ -44,3 +44,11 @@ export async function enforceControlBoundary(context: IngressContext) {
 **Verification Check 1:** [Specify exact actionable engineering or DevOps verification step]
 
 **Verification Check 2:** [Specify exact actionable accounting or data validation step]
+
+### V. Sources & Citations
+
+Human reviewers use this section to fact-check every claim before promotion to `docs/published-briefings/`.
+
+- **[1] Ironframe live telemetry** — `GET /api/board/shared-context` · `financials.display.activeTenant.currentExposureFormatted` · retrieved YYYY-MM-DD · cite formatted USD verbatim
+- **[2] TAS constitutional baseline** — `docs/TAS.md` · section reference · retrieved YYYY-MM-DD
+- **[3] External regulator primary source** — `https://` · document id · retrieved YYYY-MM-DD · optional excerpt note

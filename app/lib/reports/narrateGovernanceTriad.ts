@@ -12,6 +12,7 @@ import {
   buildGovernanceTriadRows,
   sanitizeExportProse,
 } from "@/app/lib/reports/governanceTriadSanitizer";
+import { appendTelemetryCitationsToMarkdown } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
 import prisma from "@/lib/prisma";
 
 const NARRATE_MODEL =
@@ -46,6 +47,9 @@ Structure the narrative using the fixed headings in financials.display.governanc
 
 [LAYER 5: EXECUTIVE PERSONA RATIOS]
 Anchor financial assertions in macro-sanitized USD. Validate DORA alignment.
+
+[LAYER 6: MANDATORY SOURCES & CITATIONS]
+Append "### V. Sources & Citations" with traceable locators from the telemetry JSON (financials.display.* paths, GET /api/board/shared-context). Format: - **[n] Label** — \`locator\` · retrieved YYYY-MM-DD
 `.trim();
 }
 
@@ -70,7 +74,7 @@ Compile tonight's boardroom narrative using these deterministic triad anchors:
 - Impact: ${triadRows[1]?.summary ?? ""}
 - Remediation: ${triadRows[2]?.summary ?? ""}
 
-Output markdown only.`;
+Output markdown only. Include Section V citations for every financial and compliance claim.`;
 
   const { text } = await generateText({
     model: google(NARRATE_MODEL),
@@ -78,7 +82,8 @@ Output markdown only.`;
     maxOutputTokens: 4096,
   });
 
-  return sanitizeExportProse(text.trim());
+  const sanitized = sanitizeExportProse(text.trim());
+  return appendTelemetryCitationsToMarkdown(sanitized, payload);
 }
 
 export type NarrateGovernanceTriadResult = {

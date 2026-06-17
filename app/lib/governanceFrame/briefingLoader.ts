@@ -1,6 +1,10 @@
 import "server-only";
 
 import { quarantineAuditMessage } from "@/app/lib/governanceFrame/parseCentBigInt";
+import {
+  QUARANTINE_ALLOWLIST,
+  validateBriefingQueueDraft,
+} from "@/app/lib/governanceFrame/briefingDraftValidation";
 
 import fs from "fs";
 import path from "path";
@@ -8,7 +12,7 @@ import path from "path";
 export const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
 export const BRIEFING_QUEUE_DIR = "briefing-queue";
 
-const QUARANTINE_ALLOWLIST = new Set(["template.md", ".gitkeep", "readme.md"]);
+export { QUARANTINE_ALLOWLIST };
 
 export type GovernanceBriefing = {
   slug: string;
@@ -86,6 +90,13 @@ export function enforceBriefingQuarantine(docsRoot: string): void {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     if (QUARANTINE_ALLOWLIST.has(entry.name.toLowerCase())) continue;
     console.warn(quarantineAuditMessage(entry.name));
+
+    const markdown = fs.readFileSync(path.join(queueDir, entry.name), "utf-8");
+    const validation = validateBriefingQueueDraft(entry.name, markdown);
+    for (const issue of validation.issues) {
+      const prefix = issue.severity === "error" ? "[BRIEFING DRAFT ERROR]" : "[BRIEFING DRAFT WARN]";
+      console.warn(`${prefix} ${entry.name}: ${issue.message}`);
+    }
   }
 }
 

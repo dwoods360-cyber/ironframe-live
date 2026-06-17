@@ -16,7 +16,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const SALES_INTAKE_OPERATOR_ID = "SALES_ASSISTED_INTAKE";
+const SALES_INTAKE_OPERATOR_ID = "SALES_ASSISTED_INTAKE";
 
 type SalesIntakeBody = {
   name?: unknown;

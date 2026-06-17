@@ -49,9 +49,18 @@ export function isStripeWebhookIngressPath(pathname: string): boolean {
   return pathname === STRIPE_WEBHOOK_PATH;
 }
 
+/** Cron, board RSS, and ironquery export — auth at route layer via Bearer / secret query. */
+export function isTokenGatedApiIngressPath(pathname: string): boolean {
+  if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (pathname === "/api/cron/narrate") return true;
+  if (pathname === "/api/board/feed") return true;
+  if (pathname.startsWith("/api/internal/ironquery/export")) return true;
+  return false;
+}
+
 /**
  * Returns true when the request must receive the 403 ingress block.
- * Stripe signed webhooks bypass quarantine so commerce can run while the UI stays dark.
+ * Stripe signed webhooks and token-gated API routes bypass quarantine; route handlers enforce secrets.
  */
 export function shouldBlockProductionIngress(
   request: NextRequest,
@@ -60,6 +69,7 @@ export function shouldBlockProductionIngress(
   const hostname = request.nextUrl.hostname;
   if (isLocalDevelopmentHost(hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
+  if (isTokenGatedApiIngressPath(pathname)) return false;
   if (isPublicIngressAllowed()) return false;
   return true;
 }

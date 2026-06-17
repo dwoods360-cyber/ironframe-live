@@ -73,6 +73,26 @@ describe("deploymentQuarantine", () => {
     expect(shouldBlockProductionIngress(mockRequest("/pricing"), "/pricing")).toBe(true);
   });
 
+  it("allows token-gated API ingress on cloud while UI stays quarantined", () => {
+    delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
+    expect(
+      shouldBlockProductionIngress(mockRequest("/api/board/feed"), "/api/board/feed"),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/api/cron/narrate"),
+        "/api/cron/narrate",
+      ),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/api/internal/cron/agent17-sentinel"),
+        "/api/internal/cron/agent17-sentinel",
+      ),
+    ).toBe(false);
+    expect(shouldBlockProductionIngress(mockRequest("/dashboard"), "/dashboard")).toBe(true);
+  });
+
   it("opens non-local ingress only when IRONFRAME_ALLOW_PUBLIC_INGRESS=1", () => {
     delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
     expect(isPublicIngressAllowed()).toBe(false);

@@ -1,23 +1,38 @@
 import { getPrisma } from './prisma.js';
-import { listProspects } from './marketIntelligence.js';
+import { listProspects, listProspectsInRegions } from './marketIntelligence.js';
+import type { StoredProspect } from './marketIntelligence.js';
 
 export type WorkspaceQueryType = 'active_prospects' | 'outreach_history' | 'flywheel_logs';
+
+export const WORKSPACE_DATA_STATE = {
+  POPULATED: 'POPULATED',
+  PROVISIONED_EMPTY: 'PROVISIONED_EMPTY',
+} as const;
+
+export type WorkspaceDataState = (typeof WORKSPACE_DATA_STATE)[keyof typeof WORKSPACE_DATA_STATE];
 
 export const QUERY_LOCAL_WORKSPACE_DECLARATION = {
   name: 'queryLocalWorkspace',
   description:
-    'Fetch live IronBoard workspace data from the local Prisma database: qualified GTM prospects, outreach pitch history, or market flywheel diagnostic logs. Use before recommending account-level strategy.',
+    'Fetch live IronBoard workspace data from the local Prisma database: qualified GTM prospects, outreach pitch history, or market flywheel diagnostic logs. Use before recommending account-level strategy. Region filters accept any market label (country, city, or campaign geography) — not limited to legacy hubs.',
   parameters: {
     type: 'OBJECT',
     properties: {
       queryType: {
         type: 'STRING',
-        description: 'Which dataset to load.',
-        enum: ['active_prospects', 'outreach_history', 'flywheel_logs'],
+        description:
+          'Which dataset to load: active_prospects, outreach_history, or flywheel_logs.',
       },
       region: {
         type: 'STRING',
-        description: 'Optional hub filter for active_prospects (London or Singapore).',
+        description:
+          'Optional single market filter for active_prospects (free-text geography, e.g. Germany, U.S., Canada, London).',
+      },
+      regions: {
+        type: 'ARRAY',
+        items: { type: 'STRING' },
+        description:
+          'Optional multi-market filter for active_prospects (e.g. ["Germany", "Australia", "U.S."]).',
       },
       prospectId: {
         type: 'STRING',
@@ -32,6 +47,84 @@ export const QUERY_LOCAL_WORKSPACE_DECLARATION = {
   },
 };
 
+/** Coerce monetary BigInt fields to stringified whole-cent integers for agent-safe JSON. */
+export function stringifyWorkspaceBigIntFields(
+  value: unknown,
+): string | number | boolean | null | Record<string, unknown> | unknown[] {
+  if (typeof value === 'bigint') return value.toString();
+  if (Array.isArray(value)) return value.map(item => stringifyWorkspaceBigIntFields(item));
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      out[key] =
+        typeof entry === 'bigint' ||
+        (typeof entry === 'number' && /cents$/i.test(key) && Number.isFinite(entry))
+          ? String(entry)
+          : stringifyWorkspaceBigIntFields(entry);
+    }
+    return out;
+  }
+  return value as string | number | boolean | null;
+}
+
+function formatProspectRow(prospect: StoredProspect): Record<string, unknown> {
+  return stringifyWorkspaceBigIntFields({
+    id: prospect.id,
+    companyName: prospect.companyName,
+    domain: prospect.domain,
+    region: prospect.region,
+    employeeCount: prospect.employeeCount,
+    dealStage: prospect.dealStage,
+    aiFitnessScore: prospect.aiFitnessScore,
+    icpScore: prospect.icpScore,
+    compliancePressure: prospect.compliancePressure,
+    recentFunding: prospect.recentFunding,
+    hasComplianceJob: prospect.hasComplianceJob,
+  }) as Record<string, unknown>;
+}
+
+function resolveActiveProspectScope(raw: Record<string, unknown>): {
+  region?: string;
+  regions: string[];
+} {
+  const regions = Array.isArray(raw.regions)
+    ? raw.regions.map(value => String(value).trim()).filter(Boolean)
+    : [];
+  const region = String(raw.region ?? '').trim() || undefined;
+  return { region, regions };
+}
+
+function buildActiveProspectsResponse(params: {
+  queryType: WorkspaceQueryType;
+  region?: string;
+  regions: string[];
+  prospects: StoredProspect[];
+  limit: number;
+}): Record<string, unknown> {
+  const { queryType, region, regions, prospects, limit } = params;
+  const scopedRegions = regions.length > 0 ? regions : region ? [region] : [];
+  const rows = prospects.slice(0, limit).map(formatProspectRow);
+  const dataState: WorkspaceDataState =
+    rows.length > 0 ? WORKSPACE_DATA_STATE.POPULATED : WORKSPACE_DATA_STATE.PROVISIONED_EMPTY;
+
+  return {
+    ok: true,
+    success: true,
+    queryType,
+    count: rows.length,
+    region: region ?? scopedRegions[0] ?? null,
+    regions: scopedRegions.length > 0 ? scopedRegions : null,
+    dataState,
+    prospects: rows,
+    ...(dataState === WORKSPACE_DATA_STATE.PROVISIONED_EMPTY
+      ? {
+          message:
+            'Workspace prospect channel is provisioned; no qualified rows match the requested market filter yet. Run the Market Flywheel batch loader for this geography.',
+        }
+      : {}),
+  };
+}
+
 export async function executeQueryLocalWorkspace(
   raw: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
@@ -41,26 +134,18 @@ export async function executeQueryLocalWorkspace(
   try {
     switch (queryType) {
       case 'active_prospects': {
-        const region = String(raw.region ?? '').trim() || undefined;
-        const prospects = await listProspects(region, true);
-        return {
-          ok: true,
+        const { region, regions } = resolveActiveProspectScope(raw);
+        const prospects =
+          regions.length > 0
+            ? await listProspectsInRegions(regions, true)
+            : await listProspects(region, true);
+        return buildActiveProspectsResponse({
           queryType,
-          count: prospects.length,
-          prospects: prospects.slice(0, limit).map(p => ({
-            id: p.id,
-            companyName: p.companyName,
-            domain: p.domain,
-            region: p.region,
-            employeeCount: p.employeeCount,
-            dealStage: p.dealStage,
-            aiFitnessScore: p.aiFitnessScore,
-            icpScore: p.icpScore,
-            compliancePressure: p.compliancePressure,
-            recentFunding: p.recentFunding,
-            hasComplianceJob: p.hasComplianceJob,
-          })),
-        };
+          region,
+          regions,
+          prospects,
+          limit,
+        });
       }
       case 'outreach_history': {
         const prisma = getPrisma();
@@ -71,11 +156,8 @@ export async function executeQueryLocalWorkspace(
           orderBy: { timestamp: 'desc' },
           take: limit,
         });
-        return {
-          ok: true,
-          queryType,
-          count: rows.length,
-          outreach: rows.map((r: (typeof rows)[number]) => ({
+        const outreach = rows.map((r: (typeof rows)[number]) =>
+          stringifyWorkspaceBigIntFields({
             id: r.id,
             prospectId: r.prospectId,
             companyName: r.prospect.companyName,
@@ -83,7 +165,18 @@ export async function executeQueryLocalWorkspace(
             timestamp: r.timestamp.toISOString(),
             valueProposition: r.valueProposition,
             generatedCopyPreview: r.generatedCopy.slice(0, 280),
-          })),
+          }),
+        );
+        return {
+          ok: true,
+          success: true,
+          queryType,
+          count: outreach.length,
+          dataState:
+            outreach.length > 0
+              ? WORKSPACE_DATA_STATE.POPULATED
+              : WORKSPACE_DATA_STATE.PROVISIONED_EMPTY,
+          outreach,
         };
       }
       case 'flywheel_logs': {
@@ -92,27 +185,35 @@ export async function executeQueryLocalWorkspace(
           orderBy: { timestamp: 'desc' },
           take: limit,
         });
-        return {
-          ok: true,
-          queryType,
-          count: rows.length,
-          logs: rows.map((r: (typeof rows)[number]) => ({
+        const logs = rows.map((r: (typeof rows)[number]) =>
+          stringifyWorkspaceBigIntFields({
             id: r.id,
             component: r.component,
             message: r.message,
             timestamp: r.timestamp.toISOString(),
-          })),
+          }),
+        );
+        return {
+          ok: true,
+          success: true,
+          queryType,
+          count: logs.length,
+          dataState:
+            logs.length > 0 ? WORKSPACE_DATA_STATE.POPULATED : WORKSPACE_DATA_STATE.PROVISIONED_EMPTY,
+          logs,
         };
       }
       default:
         return {
           ok: false,
+          success: false,
           error: `Unknown queryType "${queryType}". Use active_prospects, outreach_history, or flywheel_logs.`,
         };
     }
   } catch (err) {
     return {
       ok: false,
+      success: false,
       queryType,
       error: err instanceof Error ? err.message : 'Workspace query failed',
     };

@@ -37,26 +37,32 @@ import {
 } from './services/dynamicDiscovery.js';
 import {
   fetchProspectingBatch,
+  fetchProspectingBatchForTargets,
   generateGroundedPitch,
   harvestInteractionSignal,
   listProspects,
+  listProspectsInRegions,
   findProspectByDomain,
   triggerProspectIngest,
   buildFlywheelWorkspaceContext,
 } from './services/marketIntelligence.js';
+import { parseTargetCountriesInput } from './lib/flywheelTargetCountries.js';
 import {
   QUERY_LOCAL_WORKSPACE_DECLARATION,
   queryLocalWorkspace,
 } from './services/queryLocalWorkspace.js';
-import { buildBoardroomTools, type BoardroomToolMode } from './services/boardroomTools.js';
 import {
-  inferRegionFromQuery,
+  buildBoardroomTools,
+  type BoardroomToolMode,
+} from './services/boardroomTools.js';
+import { executeBoardroomTool, isBoardroomToolName } from './services/boardroomToolHandlers.js';
+import {
+  inferRegionsFromQuery,
   requiresCrmDiscovery,
   requiresWorkspaceTools,
   shouldPrefetchProspects,
   shouldPrefetchWeb,
 } from './services/boardroomQueryIntent.js';
-import { manageCrmPipeline } from './tools/crmTools.js';
 import { handleVideoIngress } from './api/ingress/video.js';
 import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
 import { createGovernanceFrameRouter } from './governanceFrame/router.js';
@@ -230,9 +236,20 @@ const MAX_TOOL_ROUNDS = 4;
 type GeminiPart = Record<string, unknown>;
 type GeminiContent = { role: string; parts: GeminiPart[] };
 
-function resolveBoardroomToolMode(model: string, query: string): BoardroomToolMode {
+function resolveBoardroomToolMode(
+  model: string,
+  query: string,
+  options: { hasWorkspacePrefetch?: boolean } = {},
+): BoardroomToolMode {
   if (/gemini-3/i.test(model)) return 'combined';
-  if (shouldPrefetchWeb(query) && !requiresWorkspaceTools(query)) return 'web';
+  if (
+    requiresWorkspaceTools(query) ||
+    shouldPrefetchProspects(query) ||
+    options.hasWorkspacePrefetch
+  ) {
+    return 'workspace';
+  }
+  if (shouldPrefetchWeb(query)) return 'web';
   return 'workspace';
 }
 
@@ -246,9 +263,6 @@ function buildBoardroomStreamConfig(
     toolMode === 'workspace' || toolMode === 'combined'
       ? { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } }
       : {};
-  if (toolMode === 'combined') {
-    toolConfig.includeServerSideToolInvocations = true;
-  }
 
   const config: Record<string, unknown> = {
     systemInstruction: prependVideoIntelligenceSystemOverride(
@@ -388,17 +402,19 @@ async function prefetchBoardroomGroundTruth(params: {
   if (crmEnrichment) enrichmentBlocks.push(crmEnrichment);
 
   if (shouldPrefetchProspects(query)) {
-    const region = inferRegionFromQuery(query, activeHub);
+    const regions = inferRegionsFromQuery(query, activeHub);
     const args: Record<string, unknown> = {
       queryType: 'active_prospects',
       limit: 20,
-      ...(region ? { region } : {}),
+      ...(regions.length === 1 ? { region: regions[0] } : {}),
+      ...(regions.length > 1 ? { regions } : {}),
     };
     writeSseToolCall(res, {
       name: 'queryLocalWorkspace',
       status: 'running',
       queryType: 'active_prospects',
-      region: region ?? null,
+      region: regions[0] ?? null,
+      regions: regions.length > 1 ? regions : null,
       prefetch: true,
     });
     const toolResult = await queryLocalWorkspace(args);
@@ -406,7 +422,8 @@ async function prefetchBoardroomGroundTruth(params: {
       name: 'queryLocalWorkspace',
       status: 'complete',
       queryType: 'active_prospects',
-      region: region ?? null,
+      region: regions[0] ?? null,
+      regions: regions.length > 1 ? regions : null,
       ok: toolResult.ok === true,
       prefetch: true,
     });
@@ -564,13 +581,7 @@ async function resolveBoardroomToolCall(
 
   let toolResult: Record<string, unknown>;
   try {
-    if (call.name === 'manageCrmPipeline') {
-      toolResult = await manageCrmPipeline(args);
-    } else if (call.name === 'queryLocalWorkspace') {
-      toolResult = await queryLocalWorkspace(args);
-    } else {
-      toolResult = { ok: false, error: `Unknown boardroom tool: ${call.name}` };
-    }
+    toolResult = await executeBoardroomTool(call.name, args);
   } catch (err) {
     toolResult = {
       ok: false,
@@ -643,9 +654,7 @@ async function runBoardroomToolStream(params: {
     const modelParts: GeminiPart[] = functionCalls.map(call => ({ functionCall: call }));
     contents.push({ role: 'model', parts: modelParts });
 
-    const boardroomCalls = functionCalls.filter(
-      call => call.name === 'queryLocalWorkspace' || call.name === 'manageCrmPipeline',
-    );
+    const boardroomCalls = functionCalls.filter(call => isBoardroomToolName(call.name));
     const responseParts: GeminiPart[] = [];
     for (const call of boardroomCalls) {
       responseParts.push(await resolveBoardroomToolCall(res, call));
@@ -727,9 +736,10 @@ function renderDashboard(): string {
     #left-panel { display: flex; flex-direction: column; gap: 1rem; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     #market-flywheel { border-top: 1px solid #1e293b; padding-top: 0.75rem; flex-shrink: 0; }
     #market-flywheel h2 { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: #34d399; margin-bottom: 0.5rem; line-height: 1.4; }
-    .hub-toggles { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-    .hub-toggle { flex: 1; min-width: 6rem; padding: 0.4rem 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #94a3b8; cursor: pointer; }
-    .hub-toggle.active { border-color: #34d399; color: #34d399; background: #022c22; }
+    .target-countries-label { display: block; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.25rem; }
+    #target-countries-input { width: 100%; margin-bottom: 0.35rem; padding: 0.45rem 0.5rem; font-size: 0.62rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; font-family: inherit; }
+    .target-countries-hint { font-size: 0.56rem; color: #64748b; margin-bottom: 0.5rem; line-height: 1.35; }
+    .target-countries-payload { color: #34d399; font-weight: 700; }
     #fetch-batch-btn { width: 100%; margin-bottom: 0.5rem; padding: 0.45rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; background: #065f46; color: #ecfdf5; border: 1px solid #34d399; border-radius: 0.35rem; cursor: pointer; }
     #fetch-batch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #prospect-list { max-height: 11rem; overflow-y: auto; border: 1px solid #334155; border-radius: 0.35rem; background: #0f172a; margin-bottom: 0.5rem; }
@@ -816,12 +826,11 @@ function renderDashboard(): string {
       </div>
       <div id="market-flywheel">
         <h2>📈 MARKET INTEGRATION &amp; LEAD FLYWHEEL</h2>
-        <div class="hub-toggles">
-          <button type="button" id="hub-london" class="hub-toggle active" data-region="London">London Hub</button>
-          <button type="button" id="hub-singapore" class="hub-toggle" data-region="Singapore">Singapore Hub</button>
-        </div>
+        <label class="target-countries-label" for="target-countries-input">Target countries</label>
+        <input type="text" id="target-countries-input" placeholder="Germany, Australia, Ireland, Canada" spellcheck="false" autocomplete="off" />
+        <p class="target-countries-hint">Active markets: <span id="target-countries-payload" class="target-countries-payload">—</span></p>
         <button type="button" id="fetch-batch-btn">Load Prospecting Batch</button>
-        <div id="prospect-list"><div class="prospect-empty">Select a hub and load a Fintech SaaS batch (5–50 employees).</div></div>
+        <div id="prospect-list"><div class="prospect-empty">Enter target countries and load a Fintech SaaS batch (5–50 employees).</div></div>
         <textarea id="pitch-preview-pane" readonly placeholder="Select a prospect to generate BigInt-grounded outreach copy…"></textarea>
         <div class="harvest-actions">
           <button type="button" id="harvest-positive" class="harvest-btn" disabled>Harvest Signal (+)</button>
@@ -1094,13 +1103,44 @@ function renderDashboard(): string {
 
     bindCenterPaneAutoScroll();
 
-    var activeHubRegion = 'London';
+    var TARGET_COUNTRIES_KEY = 'ironboard_target_countries';
+    var DEFAULT_TARGET_COUNTRIES = 'Germany, Australia, Ireland, Canada';
     var selectedProspectDomain = '';
     var selectedProspectId = '';
     var loadedProspects = [];
 
+    function parseTargetCountriesInput(raw) {
+      return String(raw || '')
+        .split(/[,|;]+/)
+        .map(function(part) { return part.trim(); })
+        .filter(Boolean);
+    }
+
+    function formatTargetCountriesPayload(countries) {
+      return countries.map(function(c) { return c.trim().toUpperCase(); }).join(',');
+    }
+
+    function hydrateTargetCountriesInput() {
+      var input = document.getElementById('target-countries-input');
+      if (!input) return;
+      var saved = '';
+      try { saved = localStorage.getItem(TARGET_COUNTRIES_KEY) || ''; } catch (e) { saved = ''; }
+      input.value = (saved && saved.trim()) ? saved.trim() : DEFAULT_TARGET_COUNTRIES;
+      updateTargetCountriesPayload();
+    }
+
+    function updateTargetCountriesPayload() {
+      var input = document.getElementById('target-countries-input');
+      var payloadEl = document.getElementById('target-countries-payload');
+      if (!input || !payloadEl) return;
+      var countries = parseTargetCountriesInput(input.value);
+      payloadEl.textContent = countries.length ? formatTargetCountriesPayload(countries) : 'PENDING TARGET INPUT';
+    }
+
     function getActiveHubPayload() {
-      return activeHubRegion === 'Singapore' ? 'SINGAPORE' : 'LONDON';
+      var input = document.getElementById('target-countries-input');
+      var countries = parseTargetCountriesInput(input ? input.value : '');
+      return countries.length ? formatTargetCountriesPayload(countries) : '';
     }
 
     function setMarketStatus(msg) {
@@ -1151,22 +1191,31 @@ function renderDashboard(): string {
 
     async function loadProspectingBatch() {
       var btn = document.getElementById('fetch-batch-btn');
+      var input = document.getElementById('target-countries-input');
+      var countries = parseTargetCountriesInput(input ? input.value : '');
+      if (!countries.length) {
+        setMarketStatus('Enter at least one target country or region.');
+        return;
+      }
+      try { localStorage.setItem(TARGET_COUNTRIES_KEY, input ? input.value : ''); } catch (e) {}
+      updateTargetCountriesPayload();
       if (btn) btn.disabled = true;
       selectedProspectDomain = '';
       selectedProspectId = '';
       loadedProspects = [];
       updateHarvestButtons();
-      setMarketStatus('Fetching ' + activeHubRegion + ' batch…');
+      var label = countries.join(', ');
+      setMarketStatus('Fetching batch for ' + label + '…');
       try {
         var response = await fetch('/api/prospects/trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ region: activeHubRegion })
+          body: JSON.stringify({ targetCountries: countries })
         });
         if (!response.ok) throw new Error('Batch fetch failed: ' + response.status);
         var data = await response.json();
         renderProspectList(data.prospects || []);
-        setMarketStatus('Loaded ' + (data.prospects || []).length + ' qualified Fintech targets · ' + activeHubRegion);
+        setMarketStatus('Loaded ' + (data.prospects || []).length + ' qualified Fintech targets · ' + label);
       } catch (err) {
         console.error(err);
         setMarketStatus(err && err.message ? err.message : 'Batch load failed.');
@@ -1256,19 +1305,14 @@ function renderDashboard(): string {
       }
     }
 
-    document.getElementById('hub-london').addEventListener('click', function() {
-      activeHubRegion = 'London';
-      document.querySelectorAll('.hub-toggle').forEach(function(b) { b.classList.remove('active'); });
-      document.getElementById('hub-london').classList.add('active');
-      loadProspectingBatch();
-    });
-
-    document.getElementById('hub-singapore').addEventListener('click', function() {
-      activeHubRegion = 'Singapore';
-      document.querySelectorAll('.hub-toggle').forEach(function(b) { b.classList.remove('active'); });
-      document.getElementById('hub-singapore').classList.add('active');
-      loadProspectingBatch();
-    });
+    hydrateTargetCountriesInput();
+    var targetCountriesInput = document.getElementById('target-countries-input');
+    if (targetCountriesInput) {
+      targetCountriesInput.addEventListener('input', function() {
+        try { localStorage.setItem(TARGET_COUNTRIES_KEY, targetCountriesInput.value); } catch (e) {}
+        updateTargetCountriesPayload();
+      });
+    }
 
     document.getElementById('fetch-batch-btn').addEventListener('click', loadProspectingBatch);
 
@@ -1715,8 +1759,6 @@ app.post('/api/query', async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: key });
     const model = getIronboardGeminiModel();
 
-    const toolMode = resolveBoardroomToolMode(model, query);
-
     const { prefetchedExchange, systemEnrichment, receipts } = await prefetchBoardroomGroundTruth({
       ai,
       model,
@@ -1726,6 +1768,10 @@ app.post('/api/query', async (req, res) => {
       prospectId: selectedProspectId || undefined,
       res,
       linkScraperEnrichment,
+    });
+
+    const toolMode = resolveBoardroomToolMode(model, query, {
+      hasWorkspacePrefetch: prefetchedExchange.length > 0,
     });
 
     if (requiresCrmDiscovery(query)) {
@@ -1792,15 +1838,14 @@ app.post('/api/query', async (req, res) => {
   }
 });
 
-const MARKET_HUBS = new Set(['London', 'Singapore']);
 
 app.get('/api/prospects', async (req, res) => {
-  const region = String(req.query.region ?? '').trim();
+  const regionsRaw = String(req.query.regions ?? req.query.region ?? '').trim();
   try {
-    const prospects = region && MARKET_HUBS.has(region)
-      ? await listProspects(region)
-      : await listProspects();
-    res.json({ prospects });
+    const regions = regionsRaw ? parseTargetCountriesInput(regionsRaw) : [];
+    const prospects =
+      regions.length > 0 ? await listProspectsInRegions(regions) : await listProspects();
+    res.json({ regions: regions.length ? regions : null, prospects });
   } catch (err) {
     console.error('[IRONBOARD PROSPECTS LIST]', err);
     res.status(500).json({ error: err instanceof Error ? err.message : 'Prospect query failed' });
@@ -1808,14 +1853,33 @@ app.get('/api/prospects', async (req, res) => {
 });
 
 app.post('/api/prospects/trigger', async (req, res) => {
+  const targetCountries = Array.isArray(req.body?.targetCountries)
+    ? req.body.targetCountries.map((v: unknown) => String(v).trim()).filter(Boolean)
+    : undefined;
+  const regions = Array.isArray(req.body?.regions)
+    ? req.body.regions.map((v: unknown) => String(v).trim()).filter(Boolean)
+    : undefined;
   const region = String(req.body?.region ?? '').trim();
   const account = req.body?.account;
   try {
     const prospects = await triggerProspectIngest({
+      targetCountries,
+      regions,
       region: region || undefined,
       account: account && typeof account === 'object' ? account : undefined,
     });
-    res.json({ region: region || account?.region || null, prospects });
+    const resolvedTargets =
+      targetCountries?.length
+        ? targetCountries
+        : regions?.length
+          ? regions
+          : region
+            ? parseTargetCountriesInput(region)
+            : [];
+    res.json({
+      targetCountries: resolvedTargets.length ? resolvedTargets : null,
+      prospects,
+    });
   } catch (err) {
     console.error('[IRONBOARD PROSPECTS TRIGGER]', err);
     res.status(500).json({ error: err instanceof Error ? err.message : 'Prospect trigger failed' });
@@ -1841,11 +1905,11 @@ app.post('/api/prospects/signal', async (req, res) => {
 
 /** Legacy aliases — dashboard pitch pane still uses /api/market/pitch */
 app.get('/api/market/prospects', async (req, res) => {
-  const region = String(req.query.region ?? '').trim();
+  const regionsRaw = String(req.query.regions ?? req.query.region ?? '').trim();
   try {
-    const prospects = region && MARKET_HUBS.has(region)
-      ? await listProspects(region)
-      : await listProspects();
+    const regions = regionsRaw ? parseTargetCountriesInput(regionsRaw) : [];
+    const prospects =
+      regions.length > 0 ? await listProspectsInRegions(regions) : await listProspects();
     res.json({ prospects });
   } catch (err) {
     console.error('[IRONBOARD MARKET PROSPECTS]', err);
@@ -1854,14 +1918,22 @@ app.get('/api/market/prospects', async (req, res) => {
 });
 
 app.post('/api/market/batch', async (req, res) => {
+  const targetCountries = Array.isArray(req.body?.targetCountries)
+    ? req.body.targetCountries.map((v: unknown) => String(v).trim()).filter(Boolean)
+    : undefined;
   const region = String(req.body?.region ?? '').trim();
-  if (!MARKET_HUBS.has(region)) {
-    res.status(400).json({ error: 'region must be London or Singapore' });
+  const regions = targetCountries?.length
+    ? targetCountries
+    : region
+      ? parseTargetCountriesInput(region)
+      : [];
+  if (!regions.length) {
+    res.status(400).json({ error: 'targetCountries or region is required.' });
     return;
   }
   try {
-    const prospects = await fetchProspectingBatch(region as 'London' | 'Singapore');
-    res.json({ region, prospects });
+    const prospects = await fetchProspectingBatchForTargets(regions);
+    res.json({ targetCountries: regions, prospects });
   } catch (err) {
     console.error('[IRONBOARD MARKET BATCH]', err);
     res.status(500).json({ error: err instanceof Error ? err.message : 'Batch ingest failed' });

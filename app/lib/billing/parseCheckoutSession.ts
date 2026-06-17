@@ -9,6 +9,7 @@ export type ParsedCheckoutSessionMetadata = {
   amountTotalCents: bigint;
   stripeCustomerId: string;
   checkoutSessionId: string;
+  invitationToken: string | null;
 };
 
 export type ParseCheckoutSessionResult =
@@ -73,6 +74,11 @@ export function parseCheckoutSessionCompleted(
     return { ok: false, error: "Checkout session missing stripe customer id." };
   }
 
+  const invitationToken =
+    readMetadataString(session.metadata, "invitationToken") ||
+    readMetadataString(session.metadata, "invitation_token") ||
+    null;
+
   return {
     ok: true,
     data: {
@@ -82,6 +88,7 @@ export function parseCheckoutSessionCompleted(
       amountTotalCents,
       stripeCustomerId,
       checkoutSessionId,
+      invitationToken,
     },
   };
 }

@@ -28,6 +28,22 @@ describe("parseCheckoutSessionCompleted", () => {
     expect(parsed.data.companyName).toBe("Acme Corporation");
     expect(parsed.data.amountTotalCents).toBe(499900n);
     expect(parsed.data.stripeCustomerId).toBe("cus_test_abc");
+    expect(parsed.data.invitationToken).toBeNull();
+  });
+
+  it("reads invitation token metadata when present", () => {
+    const parsed = parseCheckoutSessionCompleted(
+      mockSession({
+        metadata: {
+          slug: "acmecorp",
+          companyName: "Acme Corporation",
+          invitationToken: "invite-token-xyz",
+        },
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.invitationToken).toBe("invite-token-xyz");
   });
 
   it("rejects missing slug metadata", () => {

@@ -1,5 +1,9 @@
 import { QUERY_LOCAL_WORKSPACE_DECLARATION } from './queryLocalWorkspace.js';
 import { MANAGE_CRM_PIPELINE_DECLARATION } from '../tools/crmTools.js';
+import {
+  BOARDROOM_TOOL_HANDLERS,
+  type BoardroomToolName,
+} from './boardroomToolHandlers.js';
 
 export const BOARDROOM_FUNCTION_DECLARATIONS = [
   QUERY_LOCAL_WORKSPACE_DECLARATION,
@@ -39,4 +43,8 @@ export function buildBoardroomTools(model: string, mode: BoardroomToolMode = 'wo
 }
 
 export { modelSupportsGoogleSearch };
+
+/** Gemini-declared tools paired with the server-side executable handler map. */
+export const BOARDROOM_EXECUTABLE_TOOLS: Record<BoardroomToolName, (typeof BOARDROOM_TOOL_HANDLERS)[BoardroomToolName]> =
+  BOARDROOM_TOOL_HANDLERS;
 

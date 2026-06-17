@@ -1,0 +1,33 @@
+{
+  "version": 0,
+  "actions": [
+    {
+      "name": "acorp_payment_intent",
+      "path": "/v1/payment_intents",
+      "method": "post",
+      "params": {
+        "amount": 50000,
+        "currency": "usd",
+        "payment_method_types": ["card"],
+        "metadata": {
+          "tenant_slug": "acorp",
+          "stripe_customer_id": "cus_acorp_test_fixture"
+        }
+      }
+    },
+    {
+      "name": "confirm_acorp_payment",
+      "path": "/v1/payment_intents/{acorp_payment_intent:id}/confirm",
+      "method": "post",
+      "params": {
+        "payment_method": "pm_card_visa"
+      }
+    }
+  ],
+  "events": [
+    {
+      "name": "payment_intent.succeeded",
+      "source": "acorp_payment_intent"
+    }
+  ]
+}

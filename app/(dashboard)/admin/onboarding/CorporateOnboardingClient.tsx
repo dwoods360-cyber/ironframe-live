@@ -3,11 +3,15 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
-import { Building2, Mail, UserPlus } from "lucide-react";
+import { Building2, KeyRound, Mail, UserPlus } from "lucide-react";
 import {
   provisionCorporateTenantAction,
   type ProvisionCorporateTenantResult,
 } from "@/app/actions/admin/provisionCorporateTenant";
+import {
+  mintWorkspaceInvitationAction,
+  type MintWorkspaceInvitationResult,
+} from "@/app/actions/admin/mintWorkspaceInvitation";
 import {
   inviteCorporateTenantUserAction,
   type InviteCorporateTenantUserResult,
@@ -21,14 +25,17 @@ import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
+type MintInvitationState = MintWorkspaceInvitationResult | null;
 
 export default function CorporateOnboardingClient() {
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [provisionBusy, setProvisionBusy] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [mintBusy, setMintBusy] = useState(false);
   const [provisionResult, setProvisionResult] = useState<ProvisionState>(null);
   const [inviteResult, setInviteResult] = useState<InviteState>(null);
+  const [mintResult, setMintResult] = useState<MintInvitationState>(null);
   const [inviteTenantSlug, setInviteTenantSlug] = useState("");
   const [billingBusySlug, setBillingBusySlug] = useState<string | null>(null);
 
@@ -90,6 +97,20 @@ export default function CorporateOnboardingClient() {
     }
   };
 
+  const onMintInvitation = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setMintBusy(true);
+    setMintResult(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const res = await mintWorkspaceInvitationAction(fd);
+    setMintBusy(false);
+    setMintResult(res);
+    if (res.ok) {
+      form.reset();
+    }
+  };
+
   const supabaseRedirectHint = (slug: string) => `${formatLocalTenantWorkspaceUrl(slug, 3000)}/**`;
 
   return (
@@ -116,6 +137,77 @@ export default function CorporateOnboardingClient() {
       </header>
 
       <div className="grid max-w-3xl gap-6 lg:grid-cols-2">
+        <section className="rounded border border-violet-800/50 bg-slate-900/50 p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-violet-400" aria-hidden />
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-violet-200">
+              0 — Mint invitation token
+            </h2>
+          </div>
+          <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
+            Sales-assisted and Stripe checkout provisioning require an active admin invitation token
+            that matches database state. Tokens are hashed at rest; copy the plaintext once.
+          </p>
+          <form onSubmit={onMintInvitation} className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-[10px] text-slate-400">
+              Bound email (optional)
+              <input
+                name="email"
+                type="email"
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+                placeholder="ciso@customer.com"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Bound slug (optional)
+              <input
+                name="tenantSlug"
+                pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+                placeholder="acmecorp"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              TTL (days)
+              <input
+                name="ttlDays"
+                type="number"
+                min={1}
+                max={90}
+                defaultValue={14}
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={mintBusy}
+              className="sm:col-span-3 rounded border border-violet-600/70 bg-violet-950/40 py-2 text-[10px] font-black uppercase text-violet-200 disabled:opacity-40"
+            >
+              {mintBusy ? "Minting…" : "Generate invitation token"}
+            </button>
+          </form>
+          {mintResult && !mintResult.ok ? (
+            <p className="mt-3 text-[10px] text-rose-300" role="alert">
+              {mintResult.error}
+            </p>
+          ) : null}
+          {mintResult?.ok ? (
+            <div
+              className="mt-4 rounded border border-violet-700/40 bg-violet-950/30 p-3 text-[10px] text-violet-100"
+              role="status"
+            >
+              <p className="font-bold uppercase tracking-wide">Invitation minted</p>
+              <p className="mt-2 text-slate-400">Plaintext token (single display):</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-violet-200">
+                {mintResult.token}
+              </code>
+              <p className="mt-2 font-mono text-[9px] text-slate-500">
+                expires {mintResult.expiresAt}
+              </p>
+            </div>
+          ) : null}
+        </section>
+
         <section className="rounded border border-emerald-800/50 bg-slate-900/50 p-4">
           <div className="mb-3 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-emerald-400" aria-hidden />

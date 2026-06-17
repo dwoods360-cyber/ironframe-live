@@ -1,9 +1,13 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { displayIcpScore } from './flywheelScore.js';
-
-export type HubRegion = 'London' | 'Singapore';
+import {
+  formatTargetCountriesPayload,
+  parseTargetCountriesInput,
+  readDefaultTargetCountriesText,
+  TARGET_COUNTRIES_STORAGE_KEY,
+} from '../lib/flywheelTargetCountries.js';
 
 export type FlywheelProspect = {
   id: string;
@@ -24,8 +28,21 @@ type Props = {
   apiBase?: string;
 };
 
+function hydrateTargetCountriesText(): string {
+  if (typeof window === 'undefined') return readDefaultTargetCountriesText();
+  try {
+    const saved = window.localStorage.getItem(TARGET_COUNTRIES_STORAGE_KEY)?.trim();
+    return saved || readDefaultTargetCountriesText();
+  } catch {
+    return readDefaultTargetCountriesText();
+  }
+}
+
 export default function MarketFlywheel({ apiBase = '' }: Props) {
-  const [activeHub, setActiveHub] = useState<HubRegion>('London');
+  const [targetCountriesText, setTargetCountriesText] = useState(readDefaultTargetCountriesText);
+  const [targetCountries, setTargetCountries] = useState<string[]>(() =>
+    parseTargetCountriesInput(readDefaultTargetCountriesText()),
+  );
   const [prospects, setProspects] = useState<FlywheelProspect[]>([]);
   const [selectedDomain, setSelectedDomain] = useState('');
   const [pitch, setPitch] = useState('');
@@ -34,33 +51,48 @@ export default function MarketFlywheel({ apiBase = '' }: Props) {
   const [loadingPitch, setLoadingPitch] = useState(false);
   const [harvesting, setHarvesting] = useState(false);
 
-  const loadBatch = useCallback(async (region: HubRegion) => {
+  useEffect(() => {
+    setTargetCountriesText(hydrateTargetCountriesText());
+  }, []);
+
+  useEffect(() => {
+    setTargetCountries(parseTargetCountriesInput(targetCountriesText));
+    try {
+      window.localStorage.setItem(TARGET_COUNTRIES_STORAGE_KEY, targetCountriesText);
+    } catch {
+      /* non-fatal */
+    }
+  }, [targetCountriesText]);
+
+  const loadBatch = useCallback(async () => {
+    const countries = parseTargetCountriesInput(targetCountriesText);
+    if (!countries.length) {
+      setStatus('Enter at least one target country or region.');
+      return;
+    }
+
     setLoadingBatch(true);
     setSelectedDomain('');
     setPitch('');
-    setStatus(`Fetching ${region} batch…`);
+    const label = countries.join(', ');
+    setStatus(`Fetching batch for ${label}…`);
     try {
       const response = await fetch(`${apiBase}/api/prospects/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ region }),
+        body: JSON.stringify({ targetCountries: countries }),
       });
       if (!response.ok) throw new Error(`Batch fetch failed: ${response.status}`);
       const data = (await response.json()) as { prospects?: FlywheelProspect[] };
       const next = data.prospects ?? [];
       setProspects(next);
-      setStatus(`Loaded ${next.length} qualified Fintech targets · ${region}`);
+      setStatus(`Loaded ${next.length} qualified Fintech targets · ${label}`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Batch load failed.');
     } finally {
       setLoadingBatch(false);
     }
-  }, [apiBase]);
-
-  const selectHub = (region: HubRegion) => {
-    setActiveHub(region);
-    void loadBatch(region);
-  };
+  }, [apiBase, targetCountriesText]);
 
   const selectProspect = async (prospect: FlywheelProspect) => {
     setSelectedDomain(prospect.domain);
@@ -131,26 +163,35 @@ export default function MarketFlywheel({ apiBase = '' }: Props) {
     }
   };
 
+  const activeMarketsLabel =
+    targetCountries.length > 0
+      ? formatTargetCountriesPayload(targetCountries)
+      : 'PENDING TARGET INPUT';
+
   return (
     <div id="market-flywheel">
       <h2>📈 MARKET INTEGRATION &amp; LEAD FLYWHEEL</h2>
-      <div className="hub-toggles">
-        <button
-          type="button"
-          className={`hub-toggle${activeHub === 'London' ? ' active' : ''}`}
-          onClick={() => selectHub('London')}
-        >
-          London Hub
-        </button>
-        <button
-          type="button"
-          className={`hub-toggle${activeHub === 'Singapore' ? ' active' : ''}`}
-          onClick={() => selectHub('Singapore')}
-        >
-          Singapore Hub
-        </button>
-      </div>
-      <button type="button" id="fetch-batch-btn" disabled={loadingBatch} onClick={() => void loadBatch(activeHub)}>
+      <label className="target-countries-label" htmlFor="target-countries-input">
+        Target countries
+      </label>
+      <input
+        id="target-countries-input"
+        type="text"
+        value={targetCountriesText}
+        onChange={ev => setTargetCountriesText(ev.target.value)}
+        placeholder="Germany, Australia, Ireland, Canada"
+        spellCheck={false}
+        autoComplete="off"
+      />
+      <p className="target-countries-hint">
+        Active markets: <span className="target-countries-payload">{activeMarketsLabel}</span>
+      </p>
+      <button
+        type="button"
+        id="fetch-batch-btn"
+        disabled={loadingBatch || targetCountries.length === 0}
+        onClick={() => void loadBatch()}
+      >
         Load Prospecting Batch
       </button>
       <div id="prospect-list">
@@ -158,7 +199,7 @@ export default function MarketFlywheel({ apiBase = '' }: Props) {
           <div className="prospect-empty">
             {loadingBatch
               ? 'Loading qualified targets…'
-              : 'Select a hub and load a Fintech SaaS batch (5–50 employees).'}
+              : 'Enter target countries and load a Fintech SaaS batch (5–50 employees).'}
           </div>
         ) : (
           prospects.map(prospect => {
@@ -180,8 +221,8 @@ export default function MarketFlywheel({ apiBase = '' }: Props) {
                 <div>
                   <div className="firm-name">{prospect.companyName}</div>
                   <div className="firm-meta">
-                    {prospect.region} · {prospect.employeeCount} emp · {prospect.compliancePressure} · {funding} ·{' '}
-                    {hireTag} · {prospect.dealStage}
+                    {prospect.region} · {prospect.employeeCount} emp · {prospect.compliancePressure} ·{' '}
+                    {funding} · {hireTag} · {prospect.dealStage}
                   </div>
                 </div>
                 <span className="score-pill" data-score={displayIcpScore(prospect)} title="icpScore">

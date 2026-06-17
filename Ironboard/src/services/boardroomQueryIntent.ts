@@ -1,7 +1,21 @@
+import { parseTargetCountriesInput } from '../lib/flywheelTargetCountries.js';
 import { payloadSignalsVideoIntelligence } from './boardResponseLibrary.js';
 
-/** Terms that indicate the user wants internal flywheel / CRM data. */
-const WORKSPACE_QUERY_TERMS = [
+const MARKET_COUNTRY_ALIASES: ReadonlyArray<{ token: string; label: string }> = [
+  { token: 'germany', label: 'Germany' },
+  { token: 'australia', label: 'Australia' },
+  { token: 'ireland', label: 'Ireland' },
+  { token: 'canada', label: 'Canada' },
+  { token: 'singapore', label: 'Singapore' },
+  { token: 'london', label: 'London' },
+  { token: 'united kingdom', label: 'United Kingdom' },
+  { token: 'uk', label: 'United Kingdom' },
+];
+
+const REGIONAL_ICP_SIGNAL =
+  /\b(icp|fit our|qualified|prospects?|companies|leads?|pipeline|accounts?|targets?)\b/i;
+
+/** Terms that indicate the user wants internal flywheel / CRM data. */const WORKSPACE_QUERY_TERMS = [
   'crm',
   'customer relationship',
   'contact management',
@@ -82,16 +96,54 @@ export function needsExternalInfo(query: string): boolean {
   return EXTERNAL_INFO_TERMS.some(term => q.includes(term));
 }
 
+export function matchCountriesInQuery(query: string): string[] {
+  const q = query.toLowerCase();
+  const found: string[] = [];
+  for (const { token, label } of MARKET_COUNTRY_ALIASES) {
+    if (token === 'uk') {
+      if (/\buk\b/.test(q)) found.push(label);
+      continue;
+    }
+    if (q.includes(token)) found.push(label);
+  }
+  return [...new Set(found)];
+}
+
+function normalizeMarketLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const token = trimmed.toLowerCase();
+  for (const { token: aliasToken, label } of MARKET_COUNTRY_ALIASES) {
+    if (aliasToken === token || label.toLowerCase() === token) return label;
+  }
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+export function parseActiveTargetCountries(activeHub: string): string[] {
+  return parseTargetCountriesInput(String(activeHub ?? '').replace(/,/g, '|'))
+    .map(normalizeMarketLabel)
+    .filter(Boolean);
+}
+
+export function inferRegionsFromQuery(query: string, activeHub: string): string[] {
+  const fromQuery = matchCountriesInQuery(query);
+  if (fromQuery.length) return fromQuery;
+  const fromHub = parseActiveTargetCountries(activeHub);
+  if (fromHub.length) return fromHub;
+  const legacy = inferRegionFromQuery(query, activeHub);
+  return legacy ? [legacy] : [];
+}
+
 export function shouldPrefetchProspects(query: string): boolean {
   const q = query.toLowerCase();
   if (WORKSPACE_QUERY_TERMS.some(term => q.includes(term))) return true;
+  if (matchCountriesInQuery(query).length > 0 && REGIONAL_ICP_SIGNAL.test(query)) return true;
   if (/\b(our|active|local|my)\b[\s\S]{0,40}\b(london|singapore)\b/.test(q)) return true;
   if (/\b(london|singapore)\b[\s\S]{0,40}\b(prospect|prospects|pipeline|lead|leads|flywheel|outreach|harvest|icp)\b/.test(q)) {
     return true;
   }
   return false;
 }
-
 /** Prefetch live web grounding unless the query is strictly internal CRM data or a video link. */
 export function shouldPrefetchWeb(query: string): boolean {
   if (payloadSignalsVideoIntelligence(query)) return false;

@@ -70,6 +70,12 @@ describe("deploymentQuarantine", () => {
         "/api/webhooks/stripe",
       ),
     ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/api/billing/webhook"),
+        "/api/billing/webhook",
+      ),
+    ).toBe(false);
     expect(shouldBlockProductionIngress(mockRequest("/pricing"), "/pricing")).toBe(true);
   });
 

@@ -19,6 +19,7 @@ import {
   resolvePostAuthLandingPath,
 } from "@/app/lib/tenantSubdomain";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseInviteDeliveryDeferrable } from "@/app/lib/server/corporateTenantInviteDelivery";
 
 export const PUBLIC_INTAKE_OPERATOR_ID = "PUBLIC_INTAKE";
 
@@ -29,6 +30,10 @@ export type ProvisionCorporateTenantCoreInput = {
   aleBaselineCentsRaw: string;
   operatorId: string;
   auditAction?: string;
+  /** Required for non-admin provisioning lanes (sales intake, Stripe checkout). */
+  invitationToken?: string | null;
+  /** Platform-admin server actions bypass invite-only gate after RBAC check. */
+  skipInvitationGate?: boolean;
 };
 
 export type ProvisionCorporateTenantCoreResult =
@@ -61,6 +66,25 @@ export async function provisionCorporateTenantCore(
       error:
         "Slug must be 2–63 lowercase letters, numbers, or hyphens — not a reserved host label (www, api, login, etc.).",
     };
+  }
+
+  if (!input.skipInvitationGate) {
+    const token = input.invitationToken?.trim() ?? "";
+    if (!token) {
+      return {
+        ok: false,
+        error: "Active admin invitation token required for workspace provisioning.",
+      };
+    }
+    const { validateWorkspaceInvitation } = await import("@/app/lib/auth/workspaceInvitationCore");
+    const inviteCheck = await validateWorkspaceInvitation({
+      token,
+      tenantSlug: slug,
+      consume: true,
+    });
+    if (!inviteCheck.ok) {
+      return { ok: false, error: inviteCheck.error };
+    }
   }
 
   let aleBaseline = 0n;
@@ -139,7 +163,7 @@ export type InviteCorporateTenantUserCoreResult =
         redirectTo: string;
       };
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; deferrable?: boolean };
 
 function serializeSupabaseInvitePayload(value: unknown): Record<string, unknown> | null {
   if (value === null || value === undefined) return null;
@@ -189,7 +213,17 @@ export async function inviteCorporateTenantUserCore(
 
     if (error) {
       console.error("[inviteCorporateTenantUserCore]", error.message);
-      return { ok: false, error: error.message || "Invitation failed." };
+      const deferrable = isSupabaseInviteDeliveryDeferrable(error.message);
+      if (deferrable) {
+        console.warn(
+          `[inviteCorporateTenantUserCore] invite delivery deferred for ${email} → ${tenant.slug}: ${error.message}`,
+        );
+      }
+      return {
+        ok: false,
+        error: error.message || "Invitation failed.",
+        deferrable,
+      };
     }
 
     const invitedUserId = data.user?.id?.trim();
@@ -234,6 +268,11 @@ export async function inviteCorporateTenantUserCore(
     };
   } catch (e) {
     console.error("[inviteCorporateTenantUserCore]", e);
-    return { ok: false, error: "Invitation failed. Verify SUPABASE_SERVICE_ROLE_KEY." };
+    const message = e instanceof Error ? e.message : "Invitation failed. Verify SUPABASE_SERVICE_ROLE_KEY.";
+    const deferrable = isSupabaseInviteDeliveryDeferrable(e);
+    if (deferrable) {
+      console.warn(`[inviteCorporateTenantUserCore] invite delivery deferred: ${message}`);
+    }
+    return { ok: false, error: message, deferrable };
   }
 }

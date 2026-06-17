@@ -5,6 +5,7 @@ import {
   inviteCorporateTenantUserCore,
   provisionCorporateTenantCore,
 } from "@/app/lib/server/corporateTenantProvisionCore";
+import { INVITE_PENDING_SUCCESS_MESSAGE } from "@/app/lib/server/corporateTenantInviteDelivery";
 import { recordProspectLead } from "@/app/lib/server/prospectLedger";
 import {
   isSalesCanonicalProfile,
@@ -22,6 +23,7 @@ type SalesIntakeBody = {
   name?: unknown;
   slug?: unknown;
   email?: unknown;
+  invitationToken?: unknown;
   /** medshield | vaultbank | gridcore — ALE must match TAS canonical cents. */
   canonicalProfile?: unknown;
   /** Dollar-denominated ALE (commas/currency stripped, ×100 → cents). */
@@ -93,6 +95,7 @@ export async function POST(req: NextRequest) {
     aleBaselineCentsRaw: aleParsed.cents.toString(),
     operatorId: SALES_INTAKE_OPERATOR_ID,
     auditAction: "SALES_ASSISTED_TENANT_PROVISIONED",
+    invitationToken: String(body.invitationToken ?? "").trim(),
   });
 
   if (!provision.ok) {
@@ -128,6 +131,22 @@ export async function POST(req: NextRequest) {
   });
 
   if (!invite.ok) {
+    if (invite.deferrable) {
+      return NextResponse.json({
+        status: "SUCCESS",
+        invitePending: true,
+        message: INVITE_PENDING_SUCCESS_MESSAGE,
+        ok: true,
+        success: true,
+        tenantSlug: provision.slug,
+        workspaceUrl: provision.workspaceUrl,
+        redirectUrl: provision.redirectUrl,
+        email,
+        canonicalProfile,
+        aleBaselineCents: aleParsed.cents.toString(),
+        prospectSlug: provision.slug,
+      });
+    }
     return NextResponse.json(
       {
         ok: false,

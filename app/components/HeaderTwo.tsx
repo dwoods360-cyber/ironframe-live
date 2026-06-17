@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Folder, UserRound } from "lucide-react";
+import { Folder, ShieldCheck, UserRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
@@ -9,6 +9,7 @@ import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
 import StagedNavLink from "@/app/components/nav/StagedNavLink";
 import { useAuditConsoleAccess } from "@/app/hooks/useAuditConsoleAccess";
+import { useBoardroomSecurityAuditAccess } from "@/app/hooks/useBoardroomSecurityAuditAccess";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 
@@ -27,6 +28,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   );
   const { isVendorsRoute, isConfigRoute, currentTenant, prefix } = routes;
   const { canViewAudit } = useAuditConsoleAccess();
+  const { canViewSecurityAuditLogs } = useBoardroomSecurityAuditAccess();
 
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
@@ -52,7 +54,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
       window.removeEventListener("resize", updateOverflowState);
       observer?.disconnect();
     };
-  }, [isVendorsRoute, isConfigRoute, canViewAudit]);
+  }, [isVendorsRoute, isConfigRoute, canViewAudit, canViewSecurityAuditLogs]);
 
   const scrollChipBar = useCallback((direction: "left" | "right") => {
     chipBarRef.current?.scrollBy({
@@ -216,6 +218,18 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
               >
                 <span aria-hidden>🛡️</span>
                 INTEGRITY & AUDIT
+              </Link>
+            ) : null}
+            {canViewSecurityAuditLogs ? (
+              <Link
+                href="/boardroom/admin/audit-logs"
+                prefetch={NAV_LINK_PREFETCH}
+                data-testid="header-security-audit-logs-chip"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-600/70 bg-zinc-950/60 px-4 py-2 text-[10px] font-bold text-emerald-100 transition-all hover:border-emerald-400 hover:bg-zinc-900/70"
+                title="Boardroom Security Audit Logs"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
+                SECURITY AUDIT LOGS
               </Link>
             ) : null}
             <Link

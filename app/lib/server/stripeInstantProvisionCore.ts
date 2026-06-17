@@ -13,6 +13,7 @@ import {
   provisionCorporateTenantCore,
 } from "@/app/lib/server/corporateTenantProvisionCore";
 import { recordProspectLead } from "@/app/lib/server/prospectLedger";
+import { INVITE_PENDING_SUCCESS_MESSAGE } from "@/app/lib/server/corporateTenantInviteDelivery";
 import { STRIPE_INSTANT_CHECKOUT_OPERATOR_ID } from "@/config/stripe";
 
 export type StripeInstantProvisionResult =
@@ -22,6 +23,8 @@ export type StripeInstantProvisionResult =
       workspaceUrl: string;
       email: string;
       idempotent: boolean;
+      invitePending?: boolean;
+      message?: string;
     }
   | { ok: false; error: string; retryable: boolean };
 
@@ -46,6 +49,7 @@ export async function fulfillStripeInstantCheckout(
     aleBaselineCentsRaw: parsed.amountTotalCents.toString(),
     operatorId: STRIPE_INSTANT_CHECKOUT_OPERATOR_ID,
     auditAction: "STRIPE_CHECKOUT_TENANT_PROVISIONED",
+    invitationToken: parsed.invitationToken,
   });
 
   if (!provision.ok) {
@@ -80,6 +84,17 @@ export async function fulfillStripeInstantCheckout(
     });
 
     if (!invite.ok) {
+      if (invite.deferrable) {
+        return {
+          ok: true,
+          tenantSlug: provision.slug,
+          workspaceUrl: provision.workspaceUrl,
+          email: parsed.email,
+          idempotent: false,
+          invitePending: true,
+          message: INVITE_PENDING_SUCCESS_MESSAGE,
+        };
+      }
       return {
         ok: false,
         error: invite.error,

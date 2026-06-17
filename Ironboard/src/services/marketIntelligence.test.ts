@@ -51,14 +51,21 @@ const { prospectStore, flywheelLogs, prismaMock } = vi.hoisted(() => {
           orderBy,
         }: {
           where?: {
-            region?: string;
+            region?: string | { in: string[] };
             dealStage?: { not: string };
             aiFitnessScore?: { gte: number };
           };
           orderBy?: { aiFitnessScore: 'desc' | 'asc' };
         }) => {
           let rows = [...prospectStore.values()];
-          if (where?.region) rows = rows.filter(r => r.region === where.region);
+          if (where?.region) {
+            if (typeof where.region === 'string') {
+              rows = rows.filter(r => r.region === where.region);
+            } else if (Array.isArray(where.region.in)) {
+              const allowed = new Set(where.region.in);
+              rows = rows.filter(r => allowed.has(r.region));
+            }
+          }
           if (where?.dealStage?.not) rows = rows.filter(r => r.dealStage !== where.dealStage!.not);
           if (where?.aiFitnessScore?.gte != null) {
             rows = rows.filter(r => r.aiFitnessScore >= where.aiFitnessScore!.gte);
@@ -155,6 +162,7 @@ vi.mock('./prisma.js', () => ({
 import {
   calculateTierScore,
   fetchProspectingBatch,
+  fetchProspectingBatchForTargets,
   harvestInteractionSignal,
   mapStoredProspect,
   resolveDealStageForScore,
@@ -409,5 +417,26 @@ describe('fetchProspectingBatch', () => {
     const row = prospectStore.get('sub-threshold.io');
     expect(row?.aiFitnessScore).toBe(50);
     expect(row?.dealStage).toBe('REJECTED');
+  });
+});
+
+describe('fetchProspectingBatchForTargets', () => {
+  beforeEach(() => {
+    prospectStore.clear();
+    vi.clearAllMocks();
+  });
+
+  it('loads London and Singapore batches for multi-target campaigns', async () => {
+    const rows = await fetchProspectingBatchForTargets(['London', 'Singapore']);
+    expect(rows.length).toBe(8);
+    expect(rows.some(p => p.region === 'London')).toBe(true);
+    expect(rows.some(p => p.region === 'Singapore')).toBe(true);
+  });
+
+  it('seeds expansion markets for arbitrary country labels', async () => {
+    const rows = await fetchProspectingBatchForTargets(['Germany']);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every(p => p.region === 'Germany')).toBe(true);
+    expect(rows.every(p => p.aiFitnessScore >= 100)).toBe(true);
   });
 });

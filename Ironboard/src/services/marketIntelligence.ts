@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { parseTargetCountriesInput } from '../lib/flywheelTargetCountries.js';
 import { getIronboardApiKey, getIronboardGeminiModel, loadIronboardEnv } from '../loadIronboardEnv.js';
 import { getPrisma } from './prisma.js';
 
@@ -167,7 +168,7 @@ export function calculateTierScore(account: Pick<
   'region' | 'compliancePressure' | 'recentFunding' | 'hasComplianceJob'
 >): number {
   let tierScore = 0;
-  if (['London', 'Singapore'].includes(account.region)) tierScore += 50;
+  if (account.region?.trim()) tierScore += 50;
   if (['SOC2', 'ISO27001'].includes(account.compliancePressure)) tierScore += 50;
   const funding = String(account.recentFunding ?? 'NONE').trim().toUpperCase();
   if (funding === 'SEED' || funding === 'SERIES_A') tierScore += 100;
@@ -183,10 +184,25 @@ export function resolveDealStageForScore(tierScore: number, requested?: DealStag
 
 /** Cockpit-visible prospects only — excludes sub-threshold and REJECTED rows. */
 export async function listProspects(region?: string, activeOnly = true): Promise<StoredProspect[]> {
+  if (region?.trim()) {
+    return listProspectsInRegions([region.trim()], activeOnly);
+  }
+  return listProspectsInRegions([], activeOnly);
+}
+
+export async function listProspectsInRegions(
+  regions: string[],
+  activeOnly = true,
+): Promise<StoredProspect[]> {
   const prisma = getPrisma();
+  const trimmed = regions.map(r => r.trim()).filter(Boolean);
   const rows = await prisma.marketProspect.findMany({
     where: {
-      ...(region ? { region } : {}),
+      ...(trimmed.length === 1
+        ? { region: trimmed[0] }
+        : trimmed.length > 1
+          ? { region: { in: trimmed } }
+          : {}),
       ...(activeOnly
         ? {
             dealStage: { not: 'REJECTED' },
@@ -215,10 +231,45 @@ export async function findProspectById(id: string): Promise<StoredProspect | nul
   return row ? mapProspect(row) : null;
 }
 
-const HUB_TO_REGION: Record<string, 'London' | 'Singapore'> = {
-  LONDON: 'London',
-  SINGAPORE: 'Singapore',
-};
+function normalizeTargetCountryLabel(country: string): string {
+  const trimmed = country.trim();
+  const key = trimmed.toLowerCase();
+  if (key === 'london' || key === 'uk' || key === 'united kingdom') return 'London';
+  if (key === 'singapore' || key === 'sg') return 'Singapore';
+  return trimmed;
+}
+
+function expansionBatchForRegion(region: string): Omit<ProspectAccount, 'dealStage'>[] {
+  const label = normalizeTargetCountryLabel(region);
+  const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'market';
+  return [
+    {
+      domain: `${slug}-ledger.io`,
+      companyName: `${label} Ledger`,
+      employeeCount: 24,
+      region: label,
+      compliancePressure: 'SOC2',
+      recentFunding: 'SEED',
+      hasComplianceJob: true,
+    },
+    {
+      domain: `${slug}-vault.finance`,
+      companyName: `${label} Vault`,
+      employeeCount: 18,
+      region: label,
+      compliancePressure: 'ISO27001',
+      recentFunding: 'NONE',
+      hasComplianceJob: false,
+    },
+  ];
+}
+
+function resolveSeedsForTargetCountry(country: string): Omit<ProspectAccount, 'dealStage'>[] {
+  const label = normalizeTargetCountryLabel(country);
+  if (label === 'London') return LONDON_BATCH;
+  if (label === 'Singapore') return SINGAPORE_BATCH;
+  return expansionBatchForRegion(label);
+}
 
 function formatFundingTag(recentFunding: string | null, hasComplianceJob: boolean): string {
   const funding = recentFunding?.trim().toUpperCase() || 'NONE';
@@ -231,12 +282,12 @@ export async function buildFlywheelWorkspaceContext(
   activeHub?: string,
   selectedProspectId?: string,
 ): Promise<string | null> {
-  const hubKey = String(activeHub ?? '').trim().toUpperCase();
-  const region = HUB_TO_REGION[hubKey];
-  if (!region) return null;
+  const regions = parseTargetCountriesInput(String(activeHub ?? '').replace(/,/g, '|'));
+  if (!regions.length) return null;
+  const activeLabel = regions.join(', ');
 
   let selectedAccount =
-    'No specific account selected — analyze the loaded hub batch collectively and rank against the 5–50 employee Fintech SaaS ICP.';
+    'No specific account selected — analyze the loaded market batch collectively and rank against the 5–50 employee Fintech SaaS ICP.';
 
   const prospectId = String(selectedProspectId ?? '').trim();
   if (prospectId) {
@@ -254,7 +305,7 @@ export async function buildFlywheelWorkspaceContext(
     }
   }
 
-  const batch = await listProspects(region, true);
+  const batch = await listProspectsInRegions(regions, true);
   const batchSummary = batch.length
     ? batch
         .map(
@@ -262,13 +313,13 @@ export async function buildFlywheelWorkspaceContext(
             `${p.companyName} (${p.employeeCount} emp, ${p.compliancePressure}, ${formatFundingTag(p.recentFunding, p.hasComplianceJob)}, score ${p.aiFitnessScore})`,
         )
         .join('; ')
-    : 'Prisma returned zero qualified rows for this hub — report count=0 explicitly and tell the operator to click Load Prospecting Batch; never claim database or tool access is missing.';
+    : 'Prisma returned zero qualified rows for these markets — report count=0 explicitly and tell the operator to click Load Prospecting Batch; never claim database or tool access is missing.';
 
   return [
     'CRITICAL WORKSPACE CONTEXT: The operator is currently staging a market entry campaign targeting early-stage Fintech SaaS startups.',
-    `Active Hub: ${hubKey}.`,
+    `Active target markets: ${activeLabel}.`,
     `Selected Target Account: ${selectedAccount}.`,
-    `Loaded ${hubKey} qualified batch (5–50 employees, score ≥ ${ACTIVE_PROSPECT_MIN_SCORE}): ${batchSummary}.`,
+    `Loaded qualified batch for ${activeLabel} (5–50 employees, score ≥ ${ACTIVE_PROSPECT_MIN_SCORE}): ${batchSummary}.`,
     'Focus your strategy entirely on this scaling tier.',
     'Heavily penalize and reject any recommendations involving enterprise whales or multi-national corporations.',
     'When evaluating target quality, analyze ONLY this loaded fintech batch and lean-team constraints — never generic Fortune 500 banks or multinational entities.',
@@ -325,25 +376,58 @@ export async function scoreAndInsertProspect(account: ProspectAccount) {
 }
 
 export async function fetchProspectingBatch(region: 'London' | 'Singapore'): Promise<StoredProspect[]> {
-  const seeds = region === 'London' ? LONDON_BATCH : SINGAPORE_BATCH;
-  for (const seed of seeds) {
-    await scoreAndInsertProspect({ ...seed, dealStage: 'PROSPECT' });
+  return fetchProspectingBatchForTargets([region]);
+}
+
+export async function fetchProspectingBatchForTargets(
+  targetCountries: string[],
+): Promise<StoredProspect[]> {
+  const normalized = targetCountries.map(normalizeTargetCountryLabel).filter(Boolean);
+  if (!normalized.length) {
+    throw new Error('targetCountries must include at least one market label.');
   }
-  return listProspects(region, true);
+
+  for (const country of normalized) {
+    const seeds = resolveSeedsForTargetCountry(country);
+    for (const seed of seeds) {
+      await scoreAndInsertProspect({ ...seed, dealStage: 'PROSPECT' });
+    }
+  }
+
+  return listProspectsInRegions(normalized, true);
+}
+
+function resolveTargetCountriesFromTriggerInput(input: {
+  targetCountries?: unknown;
+  regions?: unknown;
+  region?: string;
+}): string[] {
+  if (Array.isArray(input.targetCountries)) {
+    return input.targetCountries.map(v => String(v).trim()).filter(Boolean);
+  }
+  if (Array.isArray(input.regions)) {
+    return input.regions.map(v => String(v).trim()).filter(Boolean);
+  }
+  const regionRaw = String(input.region ?? '').trim();
+  if (regionRaw) return parseTargetCountriesInput(regionRaw);
+  return [];
 }
 
 export async function triggerProspectIngest(input: {
   region?: string;
+  targetCountries?: string[];
+  regions?: string[];
   account?: ProspectAccount;
 }): Promise<StoredProspect[]> {
-  if (input.region === 'London' || input.region === 'Singapore') {
-    return fetchProspectingBatch(input.region);
+  const targets = resolveTargetCountriesFromTriggerInput(input);
+  if (targets.length) {
+    return fetchProspectingBatchForTargets(targets);
   }
   if (input.account) {
     await scoreAndInsertProspect(input.account);
-    return listProspects(input.account.region, true);
+    return listProspectsInRegions([input.account.region], true);
   }
-  throw new Error('Provide region (London | Singapore) or a full account payload.');
+  throw new Error('Provide targetCountries (array), regions, region text, or a full account payload.');
 }
 
 /**

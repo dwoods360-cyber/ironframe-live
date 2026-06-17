@@ -58,6 +58,22 @@ model TenantBilling {
   @@map("tenant_billing")
 }
 
+/// Admin-generated invite-only workspace provisioning token (hashed at rest).
+model TenantWorkspaceInvitation {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tokenHash         String    @unique @map("token_hash")
+  email             String?
+  tenantSlug        String?   @map("tenant_slug")
+  status            String    @default("ACTIVE") // ACTIVE, CONSUMED, REVOKED
+  expiresAt         DateTime  @map("expires_at")
+  consumedAt        DateTime? @map("consumed_at")
+  createdByOperator String    @map("created_by_operator")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@index([status, expiresAt])
+  @@map("tenant_workspace_invitations")
+}
+
 /// Cryptographic record of in-app MSA + privacy acceptance (Supabase user id).
 model UserLegalConsent {
   id              String   @id @default(uuid())

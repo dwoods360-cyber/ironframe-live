@@ -2,7 +2,7 @@
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
 ### System Architecture: Control-First Modular Agent Coordination Framework
-### Operational Date: 2026-06-16
+### Operational Date: 2026-06-17
 ### Delta Source: `daily_code_diff.txt` (24-hour git window — Writer Narrative Architect mandate)
 
 ---
@@ -31,7 +31,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta hardened the **Constitutional Integrity Sentinel** (`/api/grc/tas-integrity`) so that a failed TAS read no longer crashes the route — it returns a degraded payload with `ancillaryWarning` while `Ironwatch` (Agent 13) and `Ironlock` (Agent 6) continue polling.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -53,7 +53,8 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
   * **Gridcore Infrastructure:** **470000000** cents (four million seven hundred thousand United States dollars)
   * **Defense (CMMC L3 anchor):** **1600000000** cents (sixteen million United States dollars)
   * **Display conversion only:** `const dollars = Number(aleBaselineCents) / 100` — never persist floats.
-  * **Today's schema correction:** Shadow-plane mitigated value columns now target **`SimThreatEvent`** (not production `RiskEvent`), preserving production ledger isolation while mirroring `mitigated_value_cents BIGINT` backfill logic. Prisma migrations `20260515195000`, `20260515220000`, and `20260516120000` gained `IF NOT EXISTS` / conditional `DO $$` guards for shadow-database replay order safety.
+  * **Today's de-classification mandate:** IronBoard public briefing synthesis must never emit raw BigInt cent integers in Governance Frame copy. Internal storage remains BIGINT cents exclusively; external-facing text uses Ironframe-precomputed `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` strings. Grounded sales outreach (`generateGroundedPitch`) may cite **BigInt numeric precision** as a value proposition in engineer-to-engineer copy — that is marketing language, not a persistence path. Market prospect `aiFitnessScore` is an integer ICP tier score (region + compliance pressure + funding + compliance-hire signals) — not USD cents.
+  * **Constitutional seed baselines unchanged:** Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents remain the Irontrust verification anchors in `financialIngressInvariant.test.ts` and `verifyCanonicalEnterpriseBaseline`.
 
 * **Mandate 2: Controlled Structural Amendments:** You are strictly forbidden from modifying layout parameters, data ingestion targets, or background agent structures silently. Any alteration requires a formal **TAS Amendment Proposal** routed to the Product Owner. The **Dynamic Discovery Mandate** on IronBoard now permits only **registered canonical responses** in `orchestrator/routing.ts` (for example sales-lead domain boundary text). All other boardroom answers must cite tool receipts.
 
@@ -71,9 +72,11 @@ The platform interface scales fluidly in sync with your window size using a fixe
 * **The Center Panel (Workspace Canvas) [48% Screen Width]:** Contains the primary navigation path tabs, the horizontal GRC metric rows, and the large workflow control blocks.
 * **The Right Panel (Audit Column) [30% Screen Width]:** Houses the **Sustainability Pulse** panel widget and the long, vertically extending **Live Audit Ledger Stream** terminal layout box.
 
-### Layout Refactor Notes (2026-06-16 Delta)
+### Layout Refactor Notes (2026-06-17 Delta)
 
-Today's delta adds **billing gate overlay**, **subdomain workspace hosts**, and **platform admin onboarding** inside the dashboard route group while keeping public marketing, legal, pricing, and sales-contact surfaces on apex hosts:
+Today's delta extends the **IronBoard Executive Cockpit left rail** (`#left-panel` → `#market-flywheel`) with multi-country ICP targeting controls. Preset hub toggles (**London Hub**, **Singapore Hub**) remain one-click shortcuts, but operators may now enter comma- or pipe-separated target countries in `#target-countries-input` (placeholder: `Germany, Australia, Ireland, Canada`). Selection persists in `localStorage` key `ironboard_target_countries`. The board stream `activeHub` payload encodes legacy `LONDON` / `SINGAPORE` keys for single-hub selections or uppercase comma-joined country lists (for example `GERMANY,AUSTRALIA,IRELAND,CANADA`) for multi-market campaigns.
+
+Prior layout separation from **2026-06-16** remains in force — **billing gate overlay**, **subdomain workspace hosts**, and **platform admin onboarding** inside the dashboard route group while keeping public marketing, legal, pricing, and sales-contact surfaces on apex hosts:
 
 | Surface | Route examples | Chrome mounted | Scroll behavior |
 |---------|----------------|----------------|-----------------|
@@ -116,7 +119,7 @@ Every visible component on your monitor screen is mapped below using industry-st
   2. Path is **not** the Stripe webhook at `/api/webhooks/stripe`
   3. `IRONFRAME_ALLOW_PUBLIC_INGRESS` is not set to `1`, `true`, or `yes`
 
-Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me** style tenant subdomains — wildcard `*.lvh.me` resolves to **127.0.0.1** without OS hosts file edits. IronBoard engine binds `127.0.0.1` only (not `0.0.0.0`) per today's delta.
+Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me** style tenant subdomains — wildcard `*.lvh.me` resolves to **127.0.0.1** without OS hosts file edits. IronBoard engine binds `127.0.0.1` only (not `0.0.0.0`) per today's delta — startup log reads `http://127.0.0.1:8082/` not `localhost`.
 * **Agent Boundary:** **Ironguard** (Agent 12) perimeter enforcement; **Ironlock** (Agent 6) coordinates with constitutional freeze when combined with stale lockdown.
 * **Step-by-Step Lab Validation:**
   1. Deploy to `ironframegrc.com` or a Vercel preview host without `IRONFRAME_ALLOW_PUBLIC_INGRESS=1`.
@@ -366,20 +369,27 @@ Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me*
 
 ### 🏛️ Feature 9: IronBoard Executive Boardroom Plane
 * **GRC Function ID:** `BOARD-001`
-* **Exact Screen Coordinates:** Accessed via `/board-report` route and `POST /api/boardroom/query` API ingress.
-* **Operational Purpose:** Provides C-suite persona routing (CEO, CFO, CISO, Sales Lead) with mandatory dynamic discovery before synthesis — no invented CRM metrics.
-* **Technical Mechanics:** Conversation plane header `x-ironframe-conversation-plane: ironboard-boardroom` gates boardroom-specific orchestration on IronBoard port **8082**. `routeExecutivePanel` attaches a `BoardroomOrchestrationReceipt`:
+* **Exact Screen Coordinates:** Accessed via IronBoard dashboard at `http://127.0.0.1:8082/` (center pane board chat) and `POST /api/query` API ingress on port **8082**.
+* **Operational Purpose:** Provides C-suite persona routing (CEO, CFO, CISO, Sales Lead) with mandatory dynamic discovery before synthesis — no invented CRM metrics. Every boardroom turn now requires live Ironframe telemetry hydration before Gemini synthesis begins.
+* **Technical Mechanics:** Conversation plane header `x-ironframe-conversation-plane: ironboard-boardroom` gates boardroom-specific orchestration on IronBoard port **8082**. `POST /api/query` execution order (2026-06-17):
+  1. **Core telemetry bridge prefetch** — `fetchIronframeSharedContext({ incomingRequest, tenantId })` performs server-to-server `GET {IRONFRAME_CORE_ORIGIN}/api/board/shared-context` with forwarded `ironframe-tenant` cookie or injected tenant UUID/slug headers (`x-ironboard-telemetry-bridge: 1`). Timeout **12000** ms. On failure → HTTP **502** JSON `{ ok: false, error: "CORE_TELEMETRY_DISCONNECTED", detail }` — no LLM stream starts.
+  2. **SSE tool receipt** — `coreTelemetryBridge` complete with byte count logged before link scraper phase.
+  3. **Hardened governance layers** — `buildHardenedGovernanceLayers(liveSystemTelemetryJson)` prepended to system instruction via `buildBoardroomSystemInstruction`. Six layers: unidirectional diode (read-only), live metric hydration JSON block, de-classification matrix (no raw BigInt cents in public copy), Governance Frame triad scaffold, executive persona ratios, mandatory Sources & Citations section for briefing drafts.
+  4. **Multi-region workspace prefetch** — when `shouldPrefetchProspects(query)` matches, `inferRegionsFromQuery(query, activeHub)` resolves target countries from query text, `matchCountriesInQuery`, or `parseActiveTargetCountries(activeHub)` stream payload; passes `{ region }` or `{ regions: [...] }` to `queryLocalWorkspace` active_prospects.
+  5. **Panel routing** — `routeExecutivePanel` attaches a `BoardroomOrchestrationReceipt`:
   * `linkScraperComplete`, `linkScraperOk`, `linkScraperTraceId`
   * `videoTimelineInjected`, `telemetryVerified`
   * `blocksExtractedUnits` (BigInt string)
   * `crmTelemetryInteractionId`
   * `preRoutingValidation`: `PASSED` | `SKIPPED` | `FAILED`
-* **Agent Boundary:** **Ironlogic** (Agent 4) synthesis; **Irontally** (Agent 5) governance memo cron phase; board personas are advisory only — no direct DB writes without tool receipts.
+* **Agent Boundary:** **Ironlogic** (Agent 4) synthesis; **Irontally** (Agent 5) governance memo cron phase; **Ironwatch** (Agent 13) receives shared-context telemetry; board personas are advisory only — Layer 1 diode forbids direct DB writes without human operator execution on port 3000.
 * **Step-by-Step Lab Validation:**
-  1. Submit a CRM intent query ("show deal pipeline") to boardroom API.
-  2. Verify response cites discovery tool receipts — not hardcoded counts.
-  3. Submit sales-lead discovery query — verify canonical boundary response from `resolveCanonicalBoardResponse` when registered.
-  4. Inspect server logs for `[BOARDROOM ORCHESTRATOR] linkScraper complete before routeExecutivePanel` when link scraper phase runs.
+  1. Start Ironframe on `http://127.0.0.1:3000` and IronBoard on `http://127.0.0.1:8082`.
+  2. Submit boardroom query without Ironframe running — verify HTTP **502** and `CORE_TELEMETRY_DISCONNECTED` in response body.
+  3. With both engines running, submit CRM intent query ("show deal pipeline") — verify SSE shows `coreTelemetryBridge` complete before synthesis tokens.
+  4. Set target countries to `Germany, Australia` in flywheel input, ask "Are there companies in Germany that fit our ICP criteria?" — verify `queryLocalWorkspace` prefetch uses `regions: ["Germany"]` or multi-region args per query inference.
+  5. Inspect server logs for `[LAYER 2: LIVE METRIC HYDRATION]` block presence in system instruction assembly.
+  6. Run `Ironboard/src/services/coreTelemetryBridge.test.ts` — all pass including cookie forwarding and fail-closed 401 handling.
 
 ---
 
@@ -618,6 +628,7 @@ Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me*
   * `CANONICAL_SALES_LEADS_RESPONSE` — registered answer for passive lead-generation queries via `isSalesLeadDiscoveryQuery`
   * `buildCanonicalGrcVideoBriefingResponse` — timecoded transcript from `grcAnalystDayVideoSeed.ts`
   * `resolveCanonicalBoardResponse` — deterministic bypass before LLM synthesis
+  * `boardroomQueryIntent.ts` (2026-06-17): `inferRegionsFromQuery` returns country array from `matchCountriesInQuery`, query London/Singapore tokens, or `parseActiveTargetCountries(activeHub)`; `shouldPrefetchProspects` matches Germany/Australia/Canada ICP questions; `shouldPrefetchWeb` skips when `payloadSignalsVideoIntelligence(query)`
 * **Agent Boundary:** **Ironlogic** (Agent 4) synthesis guardrails; **Ironquery** (Agent 15) discovery receipts required for non-canonical paths.
 * **Step-by-Step Lab Validation:**
   1. Run `tests/unit/boardroomOrchestrator.test.ts` — verify sales-lead canonical match and video briefing builder.
@@ -964,9 +975,21 @@ Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me*
 
 ### 📊 Feature 42: IronBoard Monetization Blueprint Federation
 * **GRC Function ID:** `BOARD-008`
-* **Operational Purpose:** Injects Q2 2026 market blueprint into boardroom static context at IronBoard startup.
+* **Exact Screen Coordinates:** No UI — injected into IronBoard static context bundle at engine startup.
+* **Operational Purpose:** Injects Q2 2026 market blueprint and authoritative Phase 1 monetization mandate into boardroom static context so executive personas cite sales-assisted invite + Stripe wire paths instead of inventing self-serve provisioning timelines.
+* **Technical Mechanics:** `Ironboard/src/staticContext.ts` exports `PHASE1_MONETIZATION_BOARD_MANDATE` (authoritative Q2 2026):
+  * Model: **SALES-ASSISTED INVITE ONLY** for first revenue — not self-serve multi-subdomain provisioning
+  * Wire: `inviteCorporateTenantUserAction` + admin tenant UI + Stripe webhook → `TenantBilling.status ACTIVE`
+  * P0 blockers before charging: Stripe rails, `/terms` + `/privacy`, production quarantine narrowed for public routes, admin invite panel
+  * P1 before broad sales: tier entitlements, Epic 12 WORM honesty, stub page badges, SOC2-aligned (never certified) language
+  * Fastest revenue path: Command tier, one price, 2–3 design partners while Phase 2 entitlements harden
+  * Full backlog document: `docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md`
+* **Docs federation matrix:** `buildDocsFederationMatrix()` in `Ironboard/src/index.ts` loads four markdown files at startup: `TAS.md`, `technical-requirements.md`, `hub.md`, and the monetization blueprint — logged as `[IRONBOARD DOCS] Loaded N markdown file(s).`
+* **Agent Boundary:** **Ironlogic** (Agent 4) and **Irontally** (Agent 5) board governance phases consume this mandate; no financial field mutation — Stripe `amountTotalCents` remains BigInt at fulfillment boundary.
 * **Step-by-Step Lab Validation:**
-  1. Start IronBoard port **8082** — verify federation log shows monetization blueprint loaded.
+  1. Start IronBoard port **8082** — verify federation log shows monetization blueprint loaded (four files when all present).
+  2. Ask boardroom "What is our Phase 1 monetization model?" — verify response cites sales-assisted invite, not self-serve checkout-only provisioning.
+  3. Confirm `PHASE1_MONETIZATION_BOARD_MANDATE` appears in `buildStaticContextBundle()` output before Four Pillars blueprint block.
 
 ---
 
@@ -1023,7 +1046,7 @@ Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me*
   1. Open `http://127.0.0.1:3000/governance-frame` — verify index lists published briefings chronologically with cent-register badges where Section II defines `(¢)` metrics.
   2. Open `/governance-frame/2026-06-07-staging-boundary-check` — verify four-section frame renders without dashboard chrome.
   3. Place `secret-draft.md` in `docs/briefing-queue/` — reload index — verify draft does not appear; server log emits quarantine audit warning.
-  4. Start IronBoard on port **8082** — verify startup log `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:8082/governance-frame · published=N`.
+  4. Start IronBoard on port **8082** — verify startup log `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:8082/governance-frame · published=N` where N equals count from `scanPublishedBriefings(resolveDocsRoot())`.
   5. Run `tests/unit/governanceFrameBriefingScanner.test.ts`, `tests/unit/governanceFrameSanitize.test.ts`, and `tests/unit/governanceFrameEmail.test.ts` — all pass.
 
 ---
@@ -1099,25 +1122,171 @@ Local development whitelist includes **vaultbank.lvh.me** and **acmecorp.lvh.me*
 
 ---
 
+<a id="market-001"></a>
+
+### 🌍 Feature 51: IronBoard Market Flywheel Multi-Country Target Cockpit
+* **GRC Function ID:** `MARKET-001`
+* **Exact Screen Coordinates:** IronBoard left rail `#market-flywheel` inside `#left-panel` — below board persona selector on `http://127.0.0.1:8082/`.
+* **Operational Purpose:** Stages autonomous Fintech SaaS prospecting campaigns for early-stage companies (5–50 employees) across preset hubs (London, Singapore) and expansion countries (Germany, Australia, Ireland, Canada, United States, France, Netherlands, Switzerland, United Kingdom, New Zealand, India, Japan, UAE). Operators load qualified batches, generate BigInt-grounded outreach copy, and harvest interaction signals to adjust ICP scores.
+* **Technical Mechanics:**
+  * React component: `Ironboard/src/components/MarketFlywheel.tsx`
+  * Legacy inline dashboard: same controls mirrored in `renderDashboard()` HTML with `#target-countries-input`, `#hub-london`, `#hub-singapore`, `#fetch-batch-btn`
+  * `POST /api/prospects/trigger` body accepts `{ targetCountries: string[] }` (preferred), `{ regions: string[] }`, or legacy `{ region: string }`
+  * `GET /api/prospects?regions=Germany,Australia` and `GET /api/market/prospects` accept comma/pipe-separated region filters
+  * `localStorage` key `ironboard_target_countries` persists operator target list across sessions
+  * `getActiveHubPayload()` encodes stream field: `LONDON`, `SINGAPORE`, or `GERMANY,AUSTRALIA,...` uppercase join
+  * ICP visibility threshold: `ACTIVE_PROSPECT_MIN_SCORE = 100` — sub-threshold rows stored as `dealStage: REJECTED` and excluded from cockpit list
+  * Pitch generation calls `generateGroundedPitch(domain)` — outreach cites **BigInt Integrity + Autonomous {compliancePressure} Guard** value proposition
+  * Harvest buttons apply `±25` to `aiFitnessScore` and transition deal stage to `QUALIFIED` or `REJECTED`
+* **Agent Boundary:** IronBoard commercial plane (port **8082**) — **Ironlogic** (Agent 4) synthesis consumes `buildFlywheelWorkspaceContext`; **Irongate** (Agent 14) sanitizes web-grounded discovery JSON before Prisma upsert; no cross-tenant prospect bleed — `marketProspect` domain key is global to board org database.
+* **Step-by-Step Lab Validation:**
+  1. Open `http://127.0.0.1:8082/` — locate Market Flywheel panel in left rail.
+  2. Enter `Germany, Australia, Ireland, Canada` in target countries field — click **Load Prospecting Batch**.
+  3. Verify status line shows loaded count and country label; `localStorage.ironboard_target_countries` matches input.
+  4. Click **London Hub** shortcut — verify input resets to `London`, hub toggle highlights, batch reloads preset London seeds.
+  5. Select a prospect — verify pitch pane generates outreach mentioning BigInt numeric precision guarantees.
+  6. Click **Harvest Signal (+)** — verify `aiFitnessScore` increments by **25** and deal stage moves toward `QUALIFIED`.
+  7. Run `Ironboard/src/services/marketIntelligence.test.ts` — verify multi-region `fetchProspectingBatchForTargets(['London','Singapore'])` returns **8** qualified rows.
+
+---
+
+<a id="market-002"></a>
+
+### 🗺️ Feature 52: Market Target Regions Normalization Module
+* **GRC Function ID:** `MARKET-002`
+* **Exact Screen Coordinates:** No UI — shared library consumed by flywheel UI, board router, query intent, and market intelligence services.
+* **Operational Purpose:** Provides canonical country name normalization, alias resolution, activeHub stream encoding/decoding, and query-time country matching so boardroom tool calls and prospect filters stay consistent across London/Singapore legacy keys and multi-country expansion campaigns.
+* **Technical Mechanics:** `Ironboard/src/services/marketTargetRegions.ts`:
+  * `PRIMARY_HUB_REGIONS`: `['London', 'Singapore']`
+  * `KNOWN_TARGET_COUNTRIES`: fourteen expansion markets plus hub aliases
+  * `REGION_ALIASES`: maps `uk`, `united kingdom` → `London`; `sg` → `Singapore`; `usa`, `us` → `United States`; etc.
+  * `normalizeTargetRegion(input)` — title-case fallback for unknown tokens
+  * `parseTargetCountriesInput(raw)` — splits on comma or pipe, deduplicates
+  * `parseActiveTargetCountries(activeHub)` — decodes `LONDON`, `SINGAPORE`, or comma-separated uppercase lists
+  * `encodeActiveTargetCountries(countries)` — reverse encoder for board stream payloads
+  * `matchCountriesInQuery(query)` — substring match against known country list for intent routing
+* **Agent Boundary:** **Ironquery** (Agent 15) discovery routing via `inferRegionsFromQuery`; **Ironlogic** (Agent 4) board `planDiscoveryExecution` passes parsed regions to `queryLocalWorkspace`.
+* **Step-by-Step Lab Validation:**
+  1. Run `Ironboard/src/services/boardroomQueryIntent.test.ts` — verify `inferRegionsFromQuery('hello', 'GERMANY,AUSTRALIA')` equals `['Germany', 'Australia']`.
+  2. Run same suite — verify `inferRegionsFromQuery('prospects in Canada', 'LONDON')` equals `['Canada']` (query mention wins over active hub).
+  3. Verify `shouldPrefetchProspects('Are there companies in Germany that fit our ICP criteria?')` returns **true**.
+  4. Confirm `boardRouter.ts` `planDiscoveryExecution` passes `{ regions: targetCountries }` when multiple countries active.
+
+---
+
+<a id="board-010"></a>
+
+### 🌉 Feature 53: IronBoard Core Telemetry Bridge
+* **GRC Function ID:** `BOARD-010`
+* **Exact Screen Coordinates:** No UI — server-side bridge invoked at start of every `POST /api/query` on IronBoard port **8082**.
+* **Operational Purpose:** Hydrates IronBoard boardroom synthesis with live Ironframe democratic shared context JSON so executive personas ground financial and sustainability assertions in tenant-scoped production cache — never stale static placeholders. Fails closed when Ironframe core is unreachable, preserving unidirectional advisory integrity.
+* **Technical Mechanics:** `Ironboard/src/services/coreTelemetryBridge.ts`:
+  * `IRONFRAME_SHARED_CONTEXT_PATH` = `/api/board/shared-context`
+  * `resolveIronframeCoreOrigin()` — reads `IRONFRAME_CORE_ORIGIN` or `IRONFRAME_MARKETING_ORIGIN`, defaults `http://127.0.0.1:3000`
+  * `resolveTelemetryTenantScope()` — prefers `ironframe-tenant` cookie, then request body `tenantId`, then `resolveBoardOrgTenantId()`
+  * `buildTelemetryFetchHeaders()` — forwards cookies, sets `x-ironboard-telemetry-bridge: 1`, injects `x-ironframe-host-tenant-uuid` or `x-ironframe-host-tenant-slug`
+  * `fetchIronframeSharedContext()` — **12000** ms abort timeout; throws `CoreTelemetryBridgeError` with code `CORE_TELEMETRY_DISCONNECTED`
+  * `formatLiveSystemTelemetryBlock()` — wraps JSON with delimiter `[LIVE SYSTEM TELEMETRY - ARCHITECTURE ENFORCED]`
+  * Client SSE handler in `index.ts` surfaces **502** when bridge fails before stream opens
+* **Financial boundary note:** Shared context JSON contains raw cent integers internally; boardroom **Layer 3 de-classification matrix** forbids emitting those raw values in Governance Frame public copy — operators must cite `financials.display.*Formatted` strings from the hydrated block.
+* **Agent Boundary:** **Ironwatch** (Agent 13) telemetry source on Ironframe port **3000**; **Ironlogic** (Agent 4) consumes hydrated JSON; **Ironguard** (Agent 12) tenant headers enforce isolation on bridge fetch.
+* **Step-by-Step Lab Validation:**
+  1. Run `Ironboard/src/services/coreTelemetryBridge.test.ts` — all five cases pass.
+  2. Stop Ironframe — POST boardroom query — verify HTTP **502** `{ error: "CORE_TELEMETRY_DISCONNECTED" }`.
+  3. Start Ironframe with valid tenant session — POST query — verify SSE event `coreTelemetryBridge` status `complete` with byte count.
+  4. Set `IRONFRAME_CORE_ORIGIN=http://127.0.0.1:3000` when IronBoard runs in split-host dev layout.
+
+---
+
+<a id="governance-005"></a>
+
+### 🛡️ Feature 54: Hardened Governance Layers & De-Classification Matrix
+* **GRC Function ID:** `GOVERNANCE-005`
+* **Exact Screen Coordinates:** No UI — injected into IronBoard system instruction when live telemetry JSON is present.
+* **Operational Purpose:** Enforces six-layer governance posture on every boardroom synthesis turn that receives live Ironframe telemetry: read-only diode, authoritative metric hydration, public briefing de-classification, mandatory Governance Frame triad structure, executive persona financial ratios, and Sources & Citations audit section for human promotion from `docs/briefing-queue/` to `docs/published-briefings/`.
+* **Technical Mechanics:** `Ironboard/src/services/boardroomSystemPrompt.ts` `buildHardenedGovernanceLayers(telemetryJsonString)`:
+  * **Layer 1 — Unidirectional diode:** Board is READ-ONLY; zero write permissions to port 3000 databases; human operator holds execution keys.
+  * **Layer 2 — Live metric hydration:** Injected JSON string is absolute source of truth from Ironframe production cache.
+  * **Layer 3 — De-classification matrix:**
+    - Currency: never output raw BigInt cent integers in public copy; cite `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` verbatim
+    - Vulnerability hiding: no raw CVE identifiers or unpatched asset IDs in public briefings
+    - Sustainability: cite `financials.display.sustainability.powerUsageFormatted` and `fluidConsumptionFormatted` exactly
+  * **Layer 4 — Governance Frame triad:** EXPOSURE VECTOR, IMPACT, REMEDIATION headings from `financials.display.governanceTriadScaffold`
+  * **Layer 5 — Executive persona ratios:** CFO/board-bot anchor on sanitized USD; board-writer prose; board-compliance DORA validation
+  * **Layer 6 — Sources & Citations:** mandatory `### V. Sources & Citations` with reviewable locators (`GET /api/board/shared-context`, `docs/TAS.md`, published briefing paths)
+* **Agent Boundary:** **Ironscribe** (Agent 05) briefing structure; **Irontrust** (Agent 3) internal BigInt storage vs display separation; **Irongate** (Agent 14) public copy sanitization semantics.
+* **Step-by-Step Lab Validation:**
+  1. Submit boardroom query with both engines running — inspect assembled system instruction for `[LAYER 1: UNIDIRECTIONAL DIODE POSTURE]` block.
+  2. Ask board to draft Governance Frame briefing — verify response uses triad headings and ends with Sources & Citations section.
+  3. Verify drafted briefing cites formatted USD strings — not raw **1110000000** cent literals.
+  4. Confirm follow-on priority block: "Cite `financials.display` formatted strings verbatim — never recompute currency from raw cent integers."
+
+---
+
+<a id="market-003"></a>
+
+### 🔍 Feature 55: Regional Fintech Prospect Discovery Engine
+* **GRC Function ID:** `MARKET-003`
+* **Exact Screen Coordinates:** No UI — backend invoked when target country is not London or Singapore preset hub during batch load.
+* **Operational Purpose:** Discovers real early-stage Fintech SaaS companies in board-selected expansion countries using Gemini with Google Search grounding, scores them through the ICP tier engine, and upserts into `marketProspect` when fewer than **3** rows exist for that region.
+* **Technical Mechanics:** `Ironboard/src/services/marketIntelligence.ts`:
+  * `discoverRegionalProspects(region)` — skips when `listProspects(normalized, false).length >= 3`
+  * Gemini prompt: find **4** companies, 5–50 employees, SOC2/ISO27001/KYC/AML pressure; returns JSON array only
+  * `parseDiscoveryJson(text)` — extracts JSON array from model response; clamps employee count **5–50**
+  * `fetchProspectingBatchForTargets(targets)` — London/Singapore use preset seed batches (`LONDON_BATCH`, `SINGAPORE_BATCH`); other countries call discovery
+  * `calculateTierScore` — region presence **+50**, SOC2/ISO27001 **+50**, SEED/SERIES_A funding **+100**, compliance hire **+75**; any non-empty region qualifies (not hub-only)
+  * `listProspects(region?: string | string[])` — Prisma filter supports `{ region: { in: regions } }` for multi-country queries
+  * `buildFlywheelWorkspaceContext(activeHub)` — reports `Active Target Countries:` label and batch summary including per-prospect region
+* **Agent Boundary:** **Irongate** (Agent 14) should treat discovered domains as external intel — ingestion path uses structured JSON parse, not raw HTML persistence; **Ironintel** (Agent 16) OSINT patterns inform discovery prompt criteria.
+* **Step-by-Step Lab Validation:**
+  1. Set `GOOGLE_API_KEY` in `Ironboard/.env.local`.
+  2. POST `{ "targetCountries": ["Germany"] }` to `/api/prospects/trigger` — verify prospects returned with `region: "Germany"`.
+  3. Re-trigger same region — verify discovery short-circuits when **3+** rows already exist.
+  4. Run `marketIntelligence.test.ts` — verify `fetchProspectingBatchForTargets(['London','Singapore'])` merges **8** hub seed prospects.
+  5. Confirm sub-threshold accounts (`tierScore < 100`) persist as `dealStage: REJECTED` and exclude from active cockpit list.
+
+---
+
+<a id="board-011"></a>
+
+### 🔧 Feature 56: Multi-Region Workspace Query Tool Extension
+* **GRC Function ID:** `BOARD-011`
+* **Exact Screen Coordinates:** IronBoard tool plane — `queryLocalWorkspace` function declaration surfaced in board SSE tool receipts.
+* **Operational Purpose:** Allows boardroom discovery to filter active prospects by single country or multi-country arrays when operators stage cross-border GTM campaigns — replacing London/Singapore-only hub filter from prior builds.
+* **Technical Mechanics:** `Ironboard/src/services/queryLocalWorkspace.ts`:
+  * `QUERY_LOCAL_WORKSPACE_DECLARATION` adds `regions` ARRAY parameter alongside legacy `region` STRING
+  * `executeQueryLocalWorkspace` case `active_prospects`: prefers `regions` array when present, else single `region`
+  * `boardRouter.ts` `planDiscoveryExecution` passes `{ regions: targetCountries }` when `parseActiveTargetCountries(ctx.activeHub)` returns multiple countries
+  * `prefetchBoardroomGroundTruth` in `index.ts` mirrors same region/regions args for SSE prefetch receipts
+* **Agent Boundary:** **Ironquery** (Agent 15) tool execution receipts; data sourced from board org Prisma `marketProspect` table.
+* **Step-by-Step Lab Validation:**
+  1. Ask board "List our London prospects" — verify prefetch SSE shows `region: "London"`.
+  2. Set active hub to `GERMANY,AUSTRALIA` — ask flywheel question — verify prefetch shows combined region label or `regions` array in tool args.
+  3. Run boardroom query with workspace-only intent — verify `shouldPrefetchWeb` returns **false** (no redundant web grounding).
+
+---
+
 ## 🧬 Chapter 5: Nineteen-Agent Architecture Cross-Reference (Delta Verification)
 
 Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity:
 
 | Agent # | Codename | Today's Delta Touchpoints |
 |---------|----------|-------------------------|
-| 1 | Ironcore | Dashboard orchestration, marketing/command center split, theme provider, `DashboardCommandCenterLayout`, billing gate wrapper, subdomain post-auth landing, Governance Frame public reader route isolation |
-| 3 | Irontrust | BigInt `ale_baseline` on dynamic tenant provision, `TenantBilling` entitlement gate, Stripe `amountTotalCents` as BigInt, demo ALE cent anchors, unified financial ingress invariant (`financialIngressInvariant.test.ts`) |
-| 4 | Irontech | Chaos simulation shadow plane `SimThreatEvent`, integrity repair priority when `healthBarPercent` < 50%, demo sandbox mock threats, demo API fetch isolation |
-| 5 | Ironscribe | Markdown outline parser, legal consent `acceptanceHash`, docs matrix ingress attribution, OSINT manifest LP-10/LP-16 citations, Governance Frame briefing section I–IV structure, Ironcast newsletter HTML |
-| 6 | Ironlock | Full-host production quarantine, stale lockdown middleware, rebaseline script, scoped dev constitutional elevation |
-| 9 | Ironlogic | Board synthesis, `PHASE1_MONETIZATION_BOARD_MANDATE`, monetization blueprint federation, TAS markdown integrity assessment |
-| 11 | Irontally | Board governance memo cron phase, monetization blueprint board priority context |
-| 12 | Ironguard | Dashboard RBAC gate, RBAC-scoped tenant switcher, subdomain host envelope, platform admin gate, invite-only registration perimeter, demo mode `DEMO_MODE_ISOLATED` fetch block |
-| 13 | Ironwatch | `system_health_log`, tas-integrity degraded payload, prospect ledger audit, OSINT RAG `priorityAgents` inclusion, June 15 Infinite Campus HIBP and AUR supply-chain chunks |
-| 14 | Irongate | Video ingress, YouTube Shorts link scraper, strategic intel sanitization, sales-intake DMZ, OSINT cron, Governance Frame markdown sanitization, briefing-queue quarantine audit |
-| 15 | Ironquery | Boardroom query API, video intelligence prefetch skip, YouTube denial rewrite guard with query context, Shorts URL pattern expansion |
-| 16 | Ironintel | June 15 live OSINT manifest `ironintel-osint-2026-06-15-live`, Check Point CVE-2026-50751, Gentlemen FortiOS, PeopleSoft CVE-2026-35273, CMMC Phase 2, GSA Rev 3 divergence RAG chunks, Governance Frame RSS compile |
-| 17 | Ironbloom | `resolveDashboardMitigatedValueCents`, tenant brand ALE display, sustainability degraded flags; Kimbot persist loop disabled in demo mode |
+| 1 | Ironcore | Dashboard orchestration, IronBoard `127.0.0.1` bind, Governance Frame router mount at `/governance-frame`, docs root resolution extracted to `governanceFrame/resolveDocsRoot.ts` |
+| 3 | Irontrust | BigInt cent storage unchanged; de-classification matrix separates internal BIGINT from `financials.display.*Formatted` public strings; `generateGroundedPitch` cites BigInt integrity in outreach copy only |
+| 4 | Ironlogic | Board synthesis with `buildHardenedGovernanceLayers`, `PHASE1_MONETIZATION_BOARD_MANDATE` in static context, multi-region `inferRegionsFromQuery`, `planDiscoveryExecution` regions args |
+| 5 | Ironscribe | Governance Frame triad scaffold citations, Sources & Citations section mandate in Layer 6, briefing scanner quarantine warnings |
+| 6 | Ironlock | Unchanged full-host production quarantine — IronBoard read-only diode Layer 1 complements constitutional freeze semantics |
+| 9 | Irontech | Unchanged chaos simulation shadow plane — boardroom Layer 3 hides raw CVE identifiers from public briefing copy |
+| 11 | Irontally | Board governance memo cron phase consumes Phase 1 monetization mandate |
+| 12 | Ironguard | Core telemetry bridge tenant cookie/slug header forwarding, fail-closed 502 on isolation breach |
+| 13 | Ironwatch | Live shared-context telemetry hydration source for boardroom Layer 2 JSON block |
+| 14 | Irongate | Regional prospect discovery JSON parse path, video web prefetch skip when `payloadSignalsVideoIntelligence` |
+| 15 | Ironquery | `queryLocalWorkspace` multi-region `regions` array, boardroom prefetch receipts, workspace-only query web skip |
+| 16 | Ironintel | Web-grounded `discoverRegionalProspects` Gemini + Google Search for expansion countries |
+| 17 | Ironbloom | Sustainability formatted strings cited in de-classification matrix Layer 3 |
+
+**IronBoard commercial plane note:** Market flywheel prospect scoring (`aiFitnessScore`) operates on the port **8082** board org database — distinct from Ironframe 19-agent GRC workforce on port **3000**. The core telemetry bridge is the approved read path from IronBoard advisory plane to Ironframe tenant telemetry — not a write path.
 
 Agents not directly modified in today's delta remain governed by their existing TAS core directives. Absence from the diff is not absence from the workforce — verify their **ACTIVE** status lights in Feature 5 grid before each lab session.
 
@@ -1199,6 +1368,16 @@ Because you are completing your GRC auditing labs independently online without a
   2. Ensure Section II impact metrics use whole-cent BigInt string literals in `(¢)` labeled bullets — floats are rejected by `parseCentBigInt`.
   3. Reload `/governance-frame` — verify index card grid lists briefing with chronological sort key.
 
+### 🚨 Alert 11: Boardroom Query Returns HTTP 502 CORE_TELEMETRY_DISCONNECTED
+* **The Root Cause:** IronBoard port **8082** could not fetch live tenant telemetry from Ironframe `GET /api/board/shared-context` before starting LLM synthesis. Common triggers: Ironframe not running on port **3000**, missing or invalid `ironframe-tenant` cookie scope, tenant isolation rejection (`UNAUTHORIZED_ACCESS`), or `IRONFRAME_CORE_ORIGIN` pointing at wrong host.
+* **How to Resolve It Yourself:**
+  1. Start Ironframe dev server on `http://127.0.0.1:3000` and confirm `/api/board/shared-context` returns JSON when called with valid tenant session headers.
+  2. Start IronBoard on `http://127.0.0.1:8082` — both engines must bind **127.0.0.1** only per today's delta.
+  3. Set `IRONFRAME_CORE_ORIGIN=http://127.0.0.1:3000` in IronBoard environment if using non-default core host.
+  4. Sign in to Ironframe dashboard first so `ironframe-tenant` cookie exists — or pass `tenantId` UUID in board query request body (Medshield seed: `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`).
+  5. Read `detail` field in 502 JSON — timeout after **12000** ms indicates core unreachable; **401** indicates tenant isolation boundary breach.
+  6. Run `Ironboard/src/services/coreTelemetryBridge.test.ts` to verify header forwarding logic locally.
+
 ---
 
 ## 📋 Chapter 7: Unit Test Verification Checklist (Today's Delta)
@@ -1236,6 +1415,9 @@ Independent learners and compliance auditors must confirm the following Vitest s
 | `tests/unit/governanceFrameEmail.test.ts` | Ironcast newsletter feed origin and slug deep links |
 | `tests/unit/financialIngressInvariant.test.ts` | Unified BigInt cent bridge across Governance Frame, sales intake, canonical baselines |
 | `tests/unit/compileRss.test.ts` | Governance Frame RSS item URL encoding |
+| `Ironboard/src/services/coreTelemetryBridge.test.ts` | Telemetry bridge cookie forwarding, fail-closed disconnect, successful JSON hydration |
+| `Ironboard/src/services/boardroomQueryIntent.test.ts` | Multi-country prefetch intent, `inferRegionsFromQuery`, Germany ICP criteria match |
+| `Ironboard/src/services/marketIntelligence.test.ts` | Multi-region listProspects filter, `fetchProspectingBatchForTargets` merge, tier score REJECTED path |
 
 Run command: `npm run test` (or project-equivalent Vitest invocation). All suites must pass before GCP deploy readiness per `.cursorrules` Warden gate.
 
@@ -1265,29 +1447,32 @@ The following `.env.example` entries were added or clarified in today's delta. N
 | `IRONFRAME_CRON_SECRET` / `IRONFRAME_INTERNAL_GATES_SECRET` | Internal gates for slug resolve and platform admin probe |
 | `GOVERNANCE_FRAME_UPSTREAM` | Optional IronBoard upstream for local proxy (`http://127.0.0.1:8082`) |
 | `GOVERNANCE_FRAME_PUBLIC_FEED_ORIGIN` | Public feed origin for RSS and Ironcast email deep links (default `https://brief.ironframegrc.com`) |
+| `IRONFRAME_CORE_ORIGIN` | Ironframe core origin for IronBoard telemetry bridge (default `http://127.0.0.1:3000`) |
+| `IRONFRAME_MARKETING_ORIGIN` | Fallback origin when `IRONFRAME_CORE_ORIGIN` unset |
+| `GOOGLE_API_KEY` | IronBoard Gemini + Google Search grounding for regional prospect discovery |
 
 ---
 
-## ✅ Chapter 9: Daily Writer Receipt (2026-06-16)
+## ✅ Chapter 9: Daily Writer Receipt (2026-06-17)
 
-**Delta classification:** Structural (Governance Frame published briefing ledger with `docs/published-briefings/` and quarantined `docs/briefing-queue/`, IronBoard `/governance-frame` mirror router, unified financial ingress invariant test suite, demo mode production API isolation sentinel) + Backend Logic (June 15 live OSINT manifest refresh to `ironintel-osint-2026-06-15-live`, YouTube Shorts link scraper pattern expansion, board denial rewrite with query context in `finalizeSanitizedBoardCompletion`, Ironcast governance frame email template, RSS compile script for briefing feed, Kimbot and resilience poll demo bypass) + UI (Governance Frame App Router pages with brand lockup and Early Enclave CTA, demo sandbox banner stacking in AppShell, governance-frame path exclusion from ConditionalAppShell dashboard chrome).
+**Delta classification:** Backend Logic (IronBoard core telemetry bridge with fail-closed `CORE_TELEMETRY_DISCONNECTED`, hardened governance layers six-block system prompt, multi-country market target regions module, regional fintech prospect discovery via Gemini Google Search, multi-region `queryLocalWorkspace` and `listProspects` filters, `PHASE1_MONETIZATION_BOARD_MANDATE` exported in static context, boardroom query intent expansion for Germany/Canada/Australia ICP questions, IronBoard `127.0.0.1` bind and Governance Frame startup scan log) + UI (Market Flywheel `#target-countries-input` with localStorage persistence, hub toggle sync, legacy dashboard HTML mirror).
 
-**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively. Constitutional Ironframe seed tenant baselines: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000**. June 15 live OSINT manifest industry peer baselines (Finance **1800000000**, Healthcare **1210000000**, Technology **950000000**, Defense profile **2500000000**, Public Sector **1500000000**) and manifest risk metrics (`medianAnnualGrcProgramCents` **4200000000**, `medianAuditRemediationLagCents` **875000000**, `saasConsolidationSavingsOpportunityCents` **650000000**, `boardReportingOverheadCents` **120000000**) are manifest-scoped research metrics — not production tenant overrides. Governance Frame staging briefing registers provisioning tunnel test exposure **499900** cents and reported ALE delta **0** cents as whole-integer strings. Demo enclave aggregate display **2170000000** cents (sum of three seed baselines). Stripe checkout `amountTotalCents`, `prospects.reported_ale`, and `parseCentBigInt` briefing registers persist as BIGINT — never float. `financialIngressInvariant.test.ts` rejects `"49.99"` and `"1110000000.5"` at Governance Frame boundary while accepting `"$11,100,000.00"` at sales intake boundary with **1110000000** cent output.
+**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively for persistence and internal telemetry. Constitutional Ironframe seed tenant baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. Today's de-classification matrix (Layer 3) mandates that Governance Frame public copy cites `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` strings — never raw **1110000000**-style cent literals in human-facing briefings. Market prospect `aiFitnessScore` is an integer ICP tier composite (maximum **275** from region **50** + compliance **50** + funding **100** + hire signal **75**) — not a monetary field. `generateGroundedPitch` marketing copy may reference BigInt numeric precision as product differentiation without persisting floats. `ACTIVE_PROSPECT_MIN_SCORE = 100` gates cockpit visibility; sub-threshold rows store as `REJECTED`.
 
-**Threat simulation verification:** June 15 live OSINT documents Check Point CVE-2026-50751 IKEv1 authentication bypass (CVSS 9.3, Qilin affiliates, CISA KEV June 8), Gentlemen RaaS **483** victims with **14700** compromised FortiGate devices, ShinyHunters Oracle PeopleSoft CVE-2026-35273 zero-day (**100** plus orgs notified, **68** percent higher-education), Infinite Campus breach (**137123** accounts), Arch Linux AUR supply-chain hijack (**1900** plus packages), CSA self-replicating AI worm PoC (**62** percent seven-day lab penetration), CMMC Phase 2 C3PAO mandate November 10 2026, and GSA Rev 3 versus DoD Rev 2 regulatory divergence — all ingested through Irongate DMZ before CRM persistence under manifest `ironintel-osint-2026-06-15-live`. Shadow-plane `SimThreatEvent.mitigated_value_cents BIGINT` isolation from production `ThreatEvent` unchanged. Chaos L6 ransomware drill protocol validates 19-agent containment without float ledger drift.
+**Threat simulation verification:** Prior June 15 live OSINT manifest (`ironintel-osint-2026-06-15-live`) remains ingested through Irongate DMZ — today's delta does not replace manifest chunks but extends commercial prospecting to web-grounded regional discovery for expansion countries. Layer 3 de-classification forbids raw CVE identifiers in Governance Frame public briefing drafts synthesized by boardroom personas. Shadow-plane `SimThreatEvent.mitigated_value_cents BIGINT` isolation from production `ThreatEvent` unchanged.
 
-**Irongate DMZ verification:** Video ingress, strategic intel manifest `ironintel-osint-2026-06-15-live`, docs matrix ingress, link scraper (including YouTube Shorts `/shorts/` path), Governance Frame `sanitizeMarkdown.ts`, and sales-intake paths stamp Agent 14 sanitization semantics. Pipeline statistics and briefing Section II cent registers use **BigInt** unit counters — never float. `briefing-queue/` drafts emit quarantine audit warnings and never compile into published feed.
+**Irongate DMZ verification:** Regional prospect discovery parses Gemini JSON arrays through `parseDiscoveryJson` — domains must contain `.` separator; employee counts clamped **5–50**. Video-linked board queries skip web prefetch when `payloadSignalsVideoIntelligence(query)` per `shouldPrefetchWeb` guard. Core telemetry bridge reads Ironframe shared context — read-only diode Layer 1 forbids boardroom DB writes.
 
-**Platform boundary verification:** Ironframe port **3000** serves Governance Frame at `/governance-frame` via App Router; IronBoard port **8082** mirrors feed at `/governance-frame` with HTML blog renderer. Both engines bind **127.0.0.1** only. Monetization blueprint federated at board startup (four federation files including Q2 2026 stakeholder deck). `ZERO_CROSS_CONTAMINATION_DIRECTIVE` unchanged.
+**Platform boundary verification:** Ironframe port **3000** serves `GET /api/board/shared-context` as telemetry source. IronBoard port **8082** consumes via `fetchIronframeSharedContext` and mirrors Governance Frame at `/governance-frame` with startup log `published=N`. Both engines bind **127.0.0.1** only. Monetization blueprint remains fourth federation file alongside TAS, technical-requirements, and hub. `ZERO_CROSS_CONTAMINATION_DIRECTIVE` unchanged — IronBoard advisory plane reads port 3000 telemetry; execution keys remain with human operator on Ironframe.
 
-**Demo isolation verification:** `isDemoModeActive()` blocks tenant-scoped `/api/*` fetches with `DEMO_MODE_ISOLATED` reason code except constitutional sentinel and public registration paths. `useKimbotPersistLoop` and `useResilienceIntelPoll` skip polling during demo. Demo ALE anchors remain Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** cents.
+**Multi-country GTM verification:** `marketTargetRegions.ts` canonicalizes fourteen expansion countries plus London/Singapore hubs. `encodeActiveTargetCountries` / `parseActiveTargetCountries` round-trip legacy `LONDON`/`SINGAPORE` keys and multi-country uppercase streams. `fetchProspectingBatchForTargets(['London','Singapore'])` merges **8** preset seed prospects in unit tests. Board router and prefetch pass `{ regions: [...] }` when multiple countries active.
 
-**Phase 1 commercial verification:** Unchanged from prior operational date — `IRONFRAME_PUBLIC_REGISTRATION_ENABLED` hardcoded false, sales-assisted intake via `/api/register/sales-intake`, Stripe webhook bypasses full-host quarantine, `DashboardBillingGate` blocks PENDING and PAST_DUE tenants except platform admin and exempt onboarding paths.
+**Phase 1 commercial verification:** `PHASE1_MONETIZATION_BOARD_MANDATE` now explicitly exported in `staticContext.ts` and injected in `buildStaticContextBundle()` — sales-assisted invite only, Stripe webhook → `TenantBilling.status ACTIVE`, P0 blockers documented. Unchanged: `IRONFRAME_PUBLIC_REGISTRATION_ENABLED` hardcoded false, sales-intake bearer gate, billing suspension overlay.
 
-**Middleware auth verification:** Unchanged three-phase middleware with governance-frame paths classified as public surfaces in `ConditionalAppShell` and `grcRouteMatch` constitutional sentinel allowlist.
+**Middleware auth verification:** Unchanged three-phase middleware on Ironframe port **3000**. IronBoard telemetry bridge forwards existing session cookies and tenant host headers — does not bypass Ironframe RBAC on shared-context route.
 
-**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantial deltas across Governance Frame module (IronBoard router + Next.js App Router reader), June 15 OSINT manifest replacement, demo API isolation, financial ingress invariant tests, YouTube Shorts board guards, Ironcast email and RSS compile pipelines, and `.gitignore` hardening for `.env*` and GCP IAM key files (96717 lines in diff artifact).
+**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantial IronBoard deltas across market intelligence multi-region expansion, core telemetry bridge, hardened governance layers, governance frame module extraction, and boardroom query intent tests (multi-megabyte diff artifact spanning Ironboard services, index.ts, MarketFlywheel component, and federation startup paths).
 
 ---
 
-*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-06-16.*
+*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-06-17.*

@@ -49,7 +49,11 @@
     "test:production-compliance-ingest": "node scripts/production-compliance-ingest-probe.mjs",
     "db:seed:omni": "npx tsx prisma/stressMarketVolatilitySpike.ts",
     "db:stress:market-spike": "npx tsx prisma/stressMarketVolatilitySpike.ts",
-    "db:seed:synthetic": "npx ts-node --project prisma/tsconfig.seed.json prisma/seed-synthetic.ts"
+    "db:seed:synthetic": "npx ts-node --project prisma/tsconfig.seed.json prisma/seed-synthetic.ts",
+    "dev:stripe:multiplexer": "node scripts/dev/stripe-webhook-multiplexer.mjs",
+    "dev:stripe:listen": "stripe listen --forward-to http://127.0.0.1:4242",
+    "smoke:pilot-corp:provision": "npx tsx scripts/dev/fire-pilot-corp-provision.ts",
+    "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   inferRegionFromQuery,
+  inferRegionsFromQuery,
   isWorkspaceOnlyQuery,
   needsExternalInfo,
   shouldPrefetchProspects,
@@ -45,5 +46,22 @@ describe('boardroomQueryIntent', () => {
   it('infers region from query or active hub', () => {
     expect(inferRegionFromQuery('hello', 'LONDON')).toBe('London');
     expect(inferRegionFromQuery('news in Singapore', '')).toBe('Singapore');
+  });
+
+  it('infers multi-country regions from active hub payload', () => {
+    expect(inferRegionsFromQuery('hello', 'GERMANY,AUSTRALIA')).toEqual([
+      'Germany',
+      'Australia',
+    ]);
+  });
+
+  it('prefers explicit country mentions in the query over active hub', () => {
+    expect(inferRegionsFromQuery('prospects in Canada', 'LONDON')).toEqual(['Canada']);
+  });
+
+  it('prefetches prospects for regional ICP questions', () => {
+    const q = 'Are there companies in Germany that fit our ICP criteria?';
+    expect(shouldPrefetchProspects(q)).toBe(true);
+    expect(inferRegionsFromQuery(q, '')).toEqual(['Germany']);
   });
 });

@@ -13,6 +13,7 @@
     "core/irontrust/**/*.ts",
     "Ironboard/src/services/marketIntelligence.ts",
     "Ironboard/src/components/flywheelScore.ts",
+    "app/(dashboard)/boardroom/**/*.ts",
     "!**/*.test.ts"
   ],
   "thresholds": { "high": 85, "low": 80, "break": 75 }

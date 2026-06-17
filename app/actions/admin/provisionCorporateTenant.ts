@@ -22,5 +22,6 @@ export async function provisionCorporateTenantAction(
     industry: String(formData.get("industry") ?? "") || null,
     aleBaselineCentsRaw: String(formData.get("aleBaselineCents") ?? "0"),
     operatorId: admin.userId,
+    skipInvitationGate: true,
   });
 }

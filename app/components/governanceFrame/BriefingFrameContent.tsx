@@ -12,6 +12,10 @@ import {
   type BriefingSectionId,
 } from "@/app/lib/governanceFrame/parseBriefingSections";
 import {
+  parseBriefingCitations,
+  type BriefingCitation,
+} from "@/app/lib/governanceFrame/parseBriefingCitations";
+import {
   DISALLOWED_MARKDOWN_ELEMENTS,
   sanitizeMarkdownUrl,
   stripDangerousMarkdown,
@@ -212,6 +216,49 @@ function SafeMarkdown({
   );
 }
 
+function CitationsPanel({ body }: { body: string }) {
+  const citations = parseBriefingCitations(body);
+  if (!citations.length) {
+    return <SafeMarkdown markdown={body} components={sansComponents} />;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/80">
+      <table className="w-full min-w-[24rem] border-collapse font-mono text-xs">
+        <thead>
+          <tr className="border-b border-slate-800 text-left text-[10px] uppercase tracking-widest text-slate-500">
+            <th className="px-4 py-3 font-bold">#</th>
+            <th className="px-4 py-3 font-bold">Resource</th>
+            <th className="px-4 py-3 font-bold">Locator</th>
+            <th className="px-4 py-3 font-bold">Retrieved</th>
+          </tr>
+        </thead>
+        <tbody>
+          {citations.map((row: BriefingCitation) => (
+            <tr key={row.index} className="border-b border-slate-800/80 last:border-0">
+              <td className="px-4 py-3 tabular-nums text-slate-400">{row.index}</td>
+              <td className="px-4 py-3 text-slate-200">{row.label}</td>
+              <td className="px-4 py-3 text-slate-400">{row.locator}</td>
+              <td className="px-4 py-3 text-slate-500">{row.retrievedAt ?? "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {citations.some((c) => c.note) ? (
+        <ul className="space-y-2 border-t border-slate-800 px-4 py-3 font-sans text-xs text-slate-500">
+          {citations
+            .filter((c) => c.note)
+            .map((c) => (
+              <li key={`note-${c.index}`}>
+                [{c.index}] {c.note}
+              </li>
+            ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function renderSection(id: BriefingSectionId, title: string, body: string) {
   const trimmed = body.trim();
   if (!trimmed && !title) return null;
@@ -234,6 +281,15 @@ function renderSection(id: BriefingSectionId, title: string, body: string) {
       >
         <SectionZoneHeading title={title} />
         <SafeMarkdown markdown={trimmed} components={machineRuleComponents} />
+      </section>
+    );
+  }
+
+  if (id === "citations") {
+    return (
+      <section key={id} aria-labelledby={`section-${id}`}>
+        <SectionZoneHeading title={title} />
+        <CitationsPanel body={trimmed} />
       </section>
     );
   }

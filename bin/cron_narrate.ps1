@@ -1,4 +1,4 @@
-# bin/cron_narrate.ps1 — Windows Task Scheduler wrapper for nightly Governance Frame narrate.
+# bin/cron_narrate.ps1 — POST /api/cron/narrate (scheduled 03:30 local via cron_narrate_api_scheduled.ps1).
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
@@ -40,7 +40,7 @@ function Import-ProjectDotEnv {
 Import-ProjectDotEnv (Join-Path $ProjectRoot ".env.local")
 Import-ProjectDotEnv (Join-Path $ProjectRoot ".env")
 
-Log-Message "Starting Nightly 3:00 AM Boardroom Narrative Hydration Loop."
+Log-Message "Starting Nightly 03:30 Boardroom Narrative Hydration (post doc-engine settle window)."
 
 try {
     $CronSecret = $env:IRONFRAME_CRON_SECRET

@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 /**
- * Nightly 03:00 boardroom narrative hydration.
+ * Nightly 03:30 UTC boardroom narrative hydration (staggered after 03:00 doc/heartbeat crons).
+ * Local Windows: Task `\Ironframe GRC Narrative Hydration` at 03:30 via `scripts/cron_narrate_api_scheduled.ps1`.
  * Auth: Authorization: Bearer ${IRONFRAME_CRON_SECRET}
  */
 async function handleNarrate(request: Request) {

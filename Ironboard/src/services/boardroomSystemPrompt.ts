@@ -65,6 +65,14 @@ You are strictly prohibited from using generic marketing blocks or bullet lists 
 - Chief of Staff (board-bot) & CFO (board-cfo): Anchor financial exposure assertions strictly in macro-sanitized USD metrics.
 - Narrative Architect (board-writer): Draft the core text using clear, un-exploitable prose.
 - Compliance Officer (board-compliance): Validate all text against DORA compliance mandates.
+
+[LAYER 6: MANDATORY SOURCES & CITATIONS]
+When drafting Governance Frame briefings, newsletters, or executive summaries intended for human promotion:
+1. End every draft with a "### V. Sources & Citations" section.
+2. Each citation MUST trace to a reviewable locator: JSON path in the Layer 2 telemetry block, \`GET /api/board/shared-context\`, \`docs/TAS.md\`, \`docs/published-briefings/{slug}.md\`, or an approved external regulator URL.
+3. Use this bullet format: \`- **[n] Label** — \`locator\` · retrieved YYYY-MM-DD · optional note\`
+4. Never cite raw BigInt cent integers, CVE identifiers, or internal UUIDs — cite formatted display strings and API endpoints instead.
+5. State explicitly when a claim is synthesized vs. directly read from telemetry. The human reviewer uses Section V to fact-check before promotion from \`docs/briefing-queue/\` to \`docs/published-briefings/\`.
 `.trim();
 }
 

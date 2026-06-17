@@ -41,3 +41,9 @@ const PUBLISHED_DIR = "docs/published-briefings";
 **Verification Check 1 (engineering / DevOps):** Confirm `/governance-frame` renders the index card grid and `/governance-frame/[slug]` resolves a published briefing without dashboard shell chrome.
 
 **Verification Check 2 (accounting / data validation):** Confirm ALE and provisioning cent registers remain BigInt strings with no floating-point coercion in prospect or billing tables.
+
+### V. Sources & Citations
+
+- **[1] Published ledger ingestion** — `docs/published-briefings/` · compile path `app/lib/governanceFrame/briefingLoader.ts` · retrieved 2026-06-07
+- **[2] Queue quarantine audit** — `docs/briefing-queue/` · `[SECURITY AUDIT]` scanner · retrieved 2026-06-07 · drafts never enter public feed
+- **[3] Staging boundary register** — `financials.display` N/A (static engineering brief) · `docs/TAS.md` § BigInt cent invariants · retrieved 2026-06-07

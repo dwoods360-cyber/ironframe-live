@@ -56,7 +56,7 @@ Central index of support articles. Link users to [FAQ](../end-users/faq.md) for 
 | `/api/internal/cron/gridcore-rate-poll` | Utility rate poll |
 | `/api/internal/cron/health-posture-triage` | Telemetry triage |
 | `/api/internal/cron/ironscribe-daily-audit` | Daily audit synthesis |
-| `/api/cron/narrate` | Governance Frame triad snapshot → board `narrativeCache` (Vercel `30 3 * * *` UTC) |
+| `/api/cron/narrate` | Governance Frame triad snapshot → board `narrativeCache` (Vercel `30 3 * * *` UTC; local task 03:30) |
 
 Auth: `Authorization: Bearer $IRONFRAME_CRON_SECRET` or internal gates secret.
 
@@ -64,7 +64,7 @@ Auth: `Authorization: Bearer $IRONFRAME_CRON_SECRET` or internal gates secret.
 |---------|---------|
 | **[Nightly Cron Runbook](../operations-support/nightly-cron-runbook.md)** | Windows **Documentation Engine** (03:00 Task Scheduler, Cursor CLI, glossary) vs **API narrate** (Core/Vercel); env vars, log paths, success criteria |
 
-Local Windows task: `\Ironframe Daily Documentation Engine` → `scripts\cron_narrate_scheduled.ps1` (see runbook).
+Local Windows tasks: `\Ironframe Daily Documentation Engine` (03:00) + `\Ironframe GRC Narrative Hydration` (03:30) — register via `scripts\register-nightly-cron-tasks.ps1` (see runbook).
 
 ## Engineering references
 

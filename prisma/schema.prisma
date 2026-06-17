@@ -42,6 +42,7 @@ model Tenant {
   ironboardCrmDeals            IronboardCrmDeal[]
   ironboardCrmInteractions     IronboardCrmInteraction[]
   governanceFrameTriadSnapshots GovernanceFrameTriadSnapshot[]
+  publishedBriefings           PublishedBriefing[]
 
   @@map("tenants")
 }
@@ -1478,4 +1479,21 @@ model IronboardCrmInteraction {
   @@index([dealId])
   @@index([contactId])
   @@map("ironboard_crm_interactions")
+}
+
+/// Human-promoted governance briefings — syndicated via `/api/board/feed` (Postgres source of truth).
+model PublishedBriefing {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  slug          String   @unique
+  title         String
+  content       String   @db.Text
+  exposureCents BigInt   @map("exposure_cents")
+  doraScore     Int      @default(100) @map("dora_score")
+  publishedBy   String   @map("published_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("published_briefings")
 }

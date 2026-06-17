@@ -1,6 +1,14 @@
 import "server-only";
 
 import { quarantineAuditMessage } from "@/app/lib/governanceFrame/parseCentBigInt";
+import {
+  QUARANTINE_ALLOWLIST,
+  parseBriefingDraftAlertFlags,
+  stripFrontmatter,
+  validateBriefingQueueDraft,
+} from "@/app/lib/governanceFrame/briefingDraftValidation";
+
+export { stripFrontmatter };
 
 import fs from "fs";
 import path from "path";
@@ -8,7 +16,7 @@ import path from "path";
 export const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
 export const BRIEFING_QUEUE_DIR = "briefing-queue";
 
-const QUARANTINE_ALLOWLIST = new Set(["template.md", ".gitkeep", "readme.md"]);
+export { QUARANTINE_ALLOWLIST };
 
 export type GovernanceBriefing = {
   slug: string;
@@ -46,14 +54,6 @@ function parseTitleFromMarkdown(markdown: string, fallback: string): string {
   return fallback;
 }
 
-/** Remove YAML frontmatter block when present. */
-export function stripFrontmatter(markdown: string): string {
-  if (!markdown.startsWith("---")) return markdown;
-  const end = markdown.indexOf("---", 3);
-  if (end === -1) return markdown;
-  return markdown.slice(end + 3).trimStart();
-}
-
 /** Body copy for reader — no frontmatter or duplicate title heading. */
 export function briefingBodyMarkdown(markdown: string, title: string): string {
   let body = stripFrontmatter(markdown);
@@ -86,6 +86,20 @@ export function enforceBriefingQuarantine(docsRoot: string): void {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     if (QUARANTINE_ALLOWLIST.has(entry.name.toLowerCase())) continue;
     console.warn(quarantineAuditMessage(entry.name));
+
+    const markdown = fs.readFileSync(path.join(queueDir, entry.name), "utf-8");
+    const alertFlags = parseBriefingDraftAlertFlags(markdown);
+    if (alertFlags.requiresImmediatePromotion) {
+      console.warn(
+        `[BRIEFING DRAFT WARN] ${entry.name}: URGENT security review — requiresImmediatePromotion=true (exposure ${alertFlags.activeExposureCents?.toString() ?? "unknown"} ¢ vs threshold ${alertFlags.thresholdCents.toString()} ¢). Run promote-briefing-draft.ts after human fact-check.`,
+      );
+    }
+
+    const validation = validateBriefingQueueDraft(entry.name, markdown);
+    for (const issue of validation.issues) {
+      const prefix = issue.severity === "error" ? "[BRIEFING DRAFT ERROR]" : "[BRIEFING DRAFT WARN]";
+      console.warn(`${prefix} ${entry.name}: ${issue.message}`);
+    }
   }
 }
 

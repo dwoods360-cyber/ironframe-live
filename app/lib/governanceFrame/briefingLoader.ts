@@ -7,6 +7,8 @@ import {
   stripFrontmatter,
   validateBriefingQueueDraft,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
+import prisma from "@/lib/prisma";
+import type { PublishedBriefing as PublishedBriefingRecord } from "@prisma/client";
 
 export { stripFrontmatter };
 
@@ -103,7 +105,47 @@ export function enforceBriefingQuarantine(docsRoot: string): void {
   }
 }
 
-export function loadPublishedBriefings(): GovernanceBriefing[] {
+/** Map Postgres `published_briefings` row → reader view model (single ledger source). */
+export function mapPublishedBriefingRecord(record: PublishedBriefingRecord): GovernanceBriefing {
+  return {
+    slug: record.slug,
+    filename: `${record.slug}.md`,
+    title: record.title,
+    author: record.publishedBy?.trim() || null,
+    classification: null,
+    publishedAt: record.createdAt.toISOString(),
+    markdown: record.content,
+    sortKey: record.createdAt.getTime(),
+  };
+}
+
+/**
+ * Governance Frame reader — authoritative published ledger in PostgreSQL.
+ * Queue drafts remain file-quarantined via `enforceBriefingQuarantine`.
+ */
+export async function fetchPublishedBriefings(): Promise<GovernanceBriefing[]> {
+  enforceBriefingQuarantine(resolveDocsRoot());
+
+  const records = await prisma.publishedBriefing.findMany({
+    orderBy: { createdAt: "asc" },
+  });
+
+  return records.map(mapPublishedBriefingRecord);
+}
+
+export async function fetchBriefingBySlug(slug: string): Promise<GovernanceBriefing | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized || normalized.includes("..") || normalized.includes("/")) return null;
+
+  const record = await prisma.publishedBriefing.findUnique({
+    where: { slug: normalized },
+  });
+
+  return record ? mapPublishedBriefingRecord(record) : null;
+}
+
+/** @deprecated Filesystem mirror — Ironcast newsletter worker only; prefer `fetchPublishedBriefings`. */
+export function loadPublishedBriefingsFromFilesystem(): GovernanceBriefing[] {
   const docsRoot = resolveDocsRoot();
   enforceBriefingQuarantine(docsRoot);
 
@@ -140,8 +182,19 @@ export function loadPublishedBriefings(): GovernanceBriefing[] {
   return briefings;
 }
 
-export function loadBriefingBySlug(slug: string): GovernanceBriefing | null {
+/** @deprecated Filesystem mirror — Ironcast newsletter worker only; prefer `fetchBriefingBySlug`. */
+export function loadBriefingBySlugFromFilesystem(slug: string): GovernanceBriefing | null {
   const normalized = slug.trim().toLowerCase();
   if (!normalized || normalized.includes("..") || normalized.includes("/")) return null;
-  return loadPublishedBriefings().find((b) => b.slug.toLowerCase() === normalized) ?? null;
+  return loadPublishedBriefingsFromFilesystem().find((b) => b.slug.toLowerCase() === normalized) ?? null;
+}
+
+/** @deprecated Use `loadPublishedBriefingsFromFilesystem` or `fetchPublishedBriefings`. */
+export function loadPublishedBriefings(): GovernanceBriefing[] {
+  return loadPublishedBriefingsFromFilesystem();
+}
+
+/** @deprecated Use `loadBriefingBySlugFromFilesystem` or `fetchBriefingBySlug`. */
+export function loadBriefingBySlug(slug: string): GovernanceBriefing | null {
+  return loadBriefingBySlugFromFilesystem(slug);
 }

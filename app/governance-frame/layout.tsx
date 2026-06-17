@@ -5,7 +5,7 @@ import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/Governa
 export const metadata: Metadata = {
   title: "The Governance Frame",
   description:
-    "Chronological institutional governance briefings — local staging feed from docs/published-briefings.",
+    "Chronological institutional governance briefings — published ledger in PostgreSQL.",
   robots: {
     index: false,
     follow: false,
@@ -22,8 +22,8 @@ export default function GovernanceFrameLayout({ children }: { children: React.Re
           </p>
           <GovernanceFrameBrandLockup />
           <p className="max-w-2xl font-sans text-sm text-slate-400">
-            Chronological regulatory and technical briefings — published ledger only. Draft queue
-            files are quarantined from this reader.
+            Chronological regulatory and technical briefings from the published ledger. Draft queue
+            files remain quarantined from this reader.
           </p>
         </div>
       </header>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import EarlyEnclaveCta from "@/app/components/governanceFrame/EarlyEnclaveCta";
 import {
   briefingBodyMarkdown,
-  loadPublishedBriefings,
+  fetchPublishedBriefings,
 } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   parseBriefingSections,
@@ -32,8 +32,8 @@ function primaryCentMetric(markdown: string, title: string): string | null {
   return centRow?.cents ?? rows[0]?.cents ?? null;
 }
 
-export default function GovernanceFrameIndexPage() {
-  const briefings = loadPublishedBriefings();
+export default async function GovernanceFrameIndexPage() {
+  const briefings = await fetchPublishedBriefings();
 
   return (
     <>
@@ -47,8 +47,8 @@ export default function GovernanceFrameIndexPage() {
 
         {briefings.length === 0 ? (
           <p className="mt-6 text-sm text-slate-400">
-            No published briefings yet. Promote reviewed markdown to{" "}
-            <code className="text-slate-200">docs/published-briefings/</code>.
+            No published briefings yet. Promote a reviewed draft with{" "}
+            <code className="text-slate-200">scripts/promote-briefing-draft.ts</code>.
           </p>
         ) : (
           <ul className="mt-8 grid gap-4">

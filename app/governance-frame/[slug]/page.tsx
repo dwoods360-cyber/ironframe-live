@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import BriefingFrameContent from "@/app/components/governanceFrame/BriefingFrameContent";
 import EarlyEnclaveCta from "@/app/components/governanceFrame/EarlyEnclaveCta";
-import { briefingBodyMarkdown, loadBriefingBySlug, loadPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { briefingBodyMarkdown, fetchBriefingBySlug, fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,8 @@ type PageProps = {
 };
 
 export async function generateStaticParams() {
-  return loadPublishedBriefings().map((b) => ({ slug: b.slug }));
+  const briefings = await fetchPublishedBriefings();
+  return briefings.map((b) => ({ slug: b.slug }));
 }
 
 function formatPublishedDate(iso: string): string {
@@ -28,7 +29,7 @@ function formatPublishedDate(iso: string): string {
 
 export default async function GovernanceFrameBriefingPage({ params }: PageProps) {
   const { slug } = await params;
-  const briefing = loadBriefingBySlug(slug);
+  const briefing = await fetchBriefingBySlug(slug);
   if (!briefing) notFound();
 
   return (

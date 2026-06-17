@@ -21,7 +21,7 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
     actionTimeout: 15_000, // 15s for click/fill — slower than default 10s
   },
@@ -38,9 +38,9 @@ export default defineConfig({
     command: process.env.CI
       ? 'npm run build && npm run start -- -p 3000'
       : 'npm run dev -- -p 3000',
-    url: 'http://localhost:3000',
+    url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
+    timeout: process.env.CI ? 240 * 1000 : 120 * 1000,
   },
 });
 

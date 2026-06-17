@@ -5,6 +5,11 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { assertTenantAccess } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { IRONTECH_STALE_LOCKDOWN_MESSAGE } from "@/app/config/sustainabilityStaleLockdown";
+import {
+  buildDeploymentQuarantineResponse,
+  shouldBlockProductionIngress,
+} from "@/app/lib/security/deploymentQuarantine";
+import { isAuthPublicPath, isPublicProspectOnboardingPath } from "@/app/utils/grcRouteMatch";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -16,7 +21,7 @@ function shadowPlaneRequestActive(request: NextRequest): boolean {
   return hdr === "1" || hdr === "true" || hdr === "yes";
 }
 
-/** Next.js App Router server actions — must not 302 to /login or the client throws `TypeError: Failed to fetch`. */
+/** Next.js App Router server actions ? must not 302 to /login or the client throws `TypeError: Failed to fetch`. */
 function isNextServerActionPost(request: NextRequest): boolean {
   return request.method.toUpperCase() === "POST" && request.headers.has("next-action");
 }
@@ -39,6 +44,7 @@ function middlewareSimulationBypass(request: NextRequest): boolean {
 
 function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (pathname === "/api/cron/narrate") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   return false;
 }
@@ -110,6 +116,8 @@ function quarantineMiddlewareBypassPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/operational-freeze-status")) return true;
   if (pathname.startsWith("/api/internal/stale-lockdown-status")) return true;
   if (pathname.startsWith("/api/internal/ironguard-violation")) return true;
+  if (pathname.startsWith("/api/auth/callback")) return true;
+  if (isAuthPublicPath(pathname)) return true;
   if (internalTokenGatedApiPath(pathname)) return true;
   return false;
 }
@@ -142,14 +150,44 @@ async function fetchQuarantineIngressBlocked(
   }
 }
 
+function mergeSupabaseCookies(source: NextResponse, target: NextResponse): NextResponse {
+  source.cookies.getAll().forEach(({ name, value }) => {
+    target.cookies.set(name, value);
+  });
+  return target;
+}
+
+function redirectWithSupabaseCookies(
+  supabaseResponse: NextResponse,
+  url: URL,
+): NextResponse {
+  return mergeSupabaseCookies(supabaseResponse, NextResponse.redirect(url));
+}
+
 /**
  * Global: Supabase session refresh (`updateSession` on all matched routes).
  * API routes: same tenant cross-check as legacy `proxy.ts` (x-tenant-id / x-target-tenant-id / tenantUuid).
  */
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  const pathname = url.pathname;
+
+  // ==========================================
+  // 1. PRODUCTION QUARANTINE PERIMETER
+  // ==========================================
+  // Localhost is whitelisted inside shouldBlockProductionIngress ? never early-return here;
+  // that would skip Supabase session refresh, tenant isolation, and auth redirects below.
+  if (shouldBlockProductionIngress(request, pathname)) {
+    return buildDeploymentQuarantineResponse();
+  }
+
+  // ==========================================
+  // 2. SUPABASE SESSION + PLATFORM GATES
+  // ==========================================
   const supabaseResponse = await updateSession(request);
-  const pathname = request.nextUrl.pathname;
+
   const isLoginRoute = pathname === "/login";
+  const isIntegrityRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isUnauthorizedRoute = pathname === "/unauthorized";
   const isResetPasswordRoute = pathname === "/reset-password";
@@ -160,14 +198,17 @@ export async function middleware(request: NextRequest) {
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
     isAuthCallbackRoute;
-  /** Static documentation hub — public read + protocol download (no tenant scope). */
+  const isPublicHomeRoute = pathname === "/";
+  /** Static documentation hub ? public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
     pathname === "/api/docs/download-protocol" ||
     pathname === "/api/docs/download-matrix";
+  /** IronBoard (:8082) server bridge ? tenant cookie / host header scoped; no browser session required. */
+  const isBoardSharedContextRoute = pathname === "/api/board/shared-context";
 
-  /** Common URL typo — trailing period after `/dashboard/exports` yields 404 in App Router. */
+  /** Common URL typo ? trailing period after `/dashboard/exports` yields 404 in App Router. */
   if (pathname === "/dashboard/exports.") {
     const fixed = request.nextUrl.clone();
     fixed.pathname = "/dashboard/exports";
@@ -320,8 +361,24 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // ==========================================
+  // 3. AUTH ENTRANCE CODES (core telemetry paths)
+  // ==========================================
+
+  // RULE A: Unauthenticated users targeting internal telemetry grids ? /login
+  if (!user && isIntegrityRoute) {
+    const loginUrl = new URL("/login", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+  }
+
+  // RULE B: Authenticated users on /login ? Integrity Hub
+  if (user && isLoginRoute) {
+    const integrityUrl = new URL("/integrity", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+  }
+
   if (!user && !isAuthPublicRoute) {
-    if (isPublicDocsRoute) {
+    if (isPublicDocsRoute || isPublicHomeRoute || isBoardSharedContextRoute || isPublicProspectOnboardingPath(pathname)) {
       return supabaseResponse;
     }
     // Cron endpoints are token-gated in their own route handlers.
@@ -334,21 +391,19 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
       return supabaseResponse;
     }
-    /** Server Actions: let RSC handle auth — redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
+    /** Server Actions: let RSC handle auth ? redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
     if (isNextServerActionPost(request)) {
       return supabaseResponse;
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";
-    return NextResponse.redirect(loginUrl);
+    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
   }
 
-  if (user && (isLoginRoute || isForgotPasswordRoute)) {
-    const integrityUrl = request.nextUrl.clone();
-    integrityUrl.pathname = "/integrity";
-    integrityUrl.search = "";
-    return NextResponse.redirect(integrityUrl);
+  if (user && isForgotPasswordRoute) {
+    const integrityUrl = new URL("/integrity", request.url);
+    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
   }
 
   if (user && isUnauthorizedRoute) {
@@ -359,6 +414,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Broad matcher ? tenant isolation, Ironguard, API cron gates, and dashboard auth all depend on this.
+  // Do not narrow to only /, /login, /integrity or unauthenticated API/dashboard routes would leak.
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

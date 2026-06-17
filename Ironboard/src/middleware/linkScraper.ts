@@ -15,9 +15,9 @@ import { LINK_SCRAPER_VIDEO_TIMELINE_TAG } from '../services/boardResponseLibrar
 
 export { LINK_SCRAPER_VIDEO_TIMELINE_TAG };
 
-/** Authoritative streaming-media URL layout matrix (YouTube). */
+/** Authoritative streaming-media URL layout matrix (YouTube, including Shorts). */
 export const STREAMING_MEDIA_URL_PATTERN =
-  /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/gi;
+  /(?:youtube\.com\/(?:shorts\/|(?:v|e(?:mbed)?)\/|[^/]+\/.+\/|.*[?&]v=)|youtu\.be\/)([A-Za-z0-9_-]{11})/gi;
 
 export type StreamingMediaMatch = {
   videoId: string;

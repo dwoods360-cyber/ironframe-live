@@ -1,6 +1,14 @@
 import { CONSTITUTIONAL_DIRECTIVE_BY_ID } from "@/app/config/constitutionalDirectives";
 
-export type IrontallyFrameworkId = "nist_csf" | "iso_27001" | "soc2_type2" | "csrd_esrs";
+export type IrontallyFrameworkId =
+  | "nist_csf"
+  | "iso_27001"
+  | "soc2_type2"
+  | "csrd_esrs"
+  | "eu_ai_act"
+  | "dora"
+  | "nydfs_500"
+  | "uk_csr";
 
 /** CSRD ESRS E1-6 — gross Scope 1/2/3 GHG emissions (Kimbot / Ironscribe sustainability export). */
 export const IRONTALLY_CSRD_ESRS_E1_6 = {
@@ -161,6 +169,98 @@ export const IRONTALLY_FRAMEWORK_CONTROL_MAPPINGS: Record<
       controlTitle: "Energy consumption and mix",
       satisfaction:
         "Ironscribe Carbon Pulse retention and achievement reports attest grid intensity samples used for CSRD energy disclosures.",
+    },
+  ],
+  eu_ai_act: [
+    {
+      ...directiveRef("irontally"),
+      controlId: "Art. 9",
+      controlTitle: "Risk management system",
+      satisfaction:
+        "Irontrust BigInt ALE baselines and Irontally crosswalk map high-risk AI workloads to documented risk treatment.",
+    },
+    {
+      ...directiveRef("irongate"),
+      controlId: "Art. 10",
+      controlTitle: "Data and data governance",
+      satisfaction:
+        "Irongate DMZ sanitization enforces tenant-stamped ingress before AI training or inference payloads enter the trust zone.",
+    },
+    {
+      ...directiveRef("ironlock"),
+      controlId: "Art. 15",
+      controlTitle: "Human oversight",
+      satisfaction:
+        "Bank Vault dual-gate HITL and Ironlock constitutional freeze provide human-in-the-loop override on autonomous agent actions.",
+    },
+  ],
+  dora: [
+    {
+      ...directiveRef("irontech"),
+      controlId: "Art. 11",
+      controlTitle: "ICT-related incident management",
+      satisfaction:
+        "Irontech post-mortem checkpoints and Ironcast notification cycles document ICT incident detection and recovery.",
+    },
+    {
+      ...directiveRef("ironwatch"),
+      controlId: "Art. 17",
+      controlTitle: "ICT risk management framework",
+      satisfaction:
+        "Ironwatch telemetry triage and health-posture crons provide continuous ICT risk monitoring for financial entities.",
+    },
+    {
+      ...directiveRef("rls"),
+      controlId: "Art. 28",
+      controlTitle: "Third-party ICT risk management",
+      satisfaction:
+        "Ironmap vendor blast-radius mapping and tenant RLS isolation enforce third-party ICT dependency boundaries.",
+    },
+  ],
+  nydfs_500: [
+    {
+      ...directiveRef("ironlock"),
+      controlId: "500.07",
+      controlTitle: "Access privileges",
+      satisfaction:
+        "Ironlock quarantine and RBAC role gates restrict privileged access to governed threat resolution workflows.",
+    },
+    {
+      ...directiveRef("irongate"),
+      controlId: "500.12",
+      controlTitle: "Multi-factor authentication",
+      satisfaction:
+        "Constitutional emergency overlay and Bank Vault Gate A PKI signatures satisfy MFA-equivalent supervisor attestation.",
+    },
+    {
+      ...directiveRef("ironwatch"),
+      controlId: "500.14",
+      controlTitle: "Audit trail",
+      satisfaction:
+        "IntegrityEvent hash chain and AuditLog mirror provide non-repudiable audit trails for cybersecurity events.",
+    },
+  ],
+  uk_csr: [
+    {
+      ...directiveRef("ironcast"),
+      controlId: "Reg 12",
+      controlTitle: "Material incident notification",
+      satisfaction:
+        "Ironcast escalation paths target executive notification within governed SLA windows (default 45-day cycle; drill overrides).",
+    },
+    {
+      ...directiveRef("irontech"),
+      controlId: "Reg 15",
+      controlTitle: "Incident response and recovery",
+      satisfaction:
+        "Irontech LKG restoration and forensic rollback tests prove recoverability after material ICT disruptions.",
+    },
+    {
+      ...directiveRef("ironmap"),
+      controlId: "Reg 18",
+      controlTitle: "Supply chain risk",
+      satisfaction:
+        "Ironmap vendor supply-chain graph surfaces N-tier subprocessors and cascaded blast-radius for material providers.",
     },
   ],
 };

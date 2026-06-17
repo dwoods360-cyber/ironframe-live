@@ -43,9 +43,6 @@ export function isDevConstitutionalAuthorityUser(user: User | null | undefined):
 
   if (process.env.IRONFRAME_DEV_CONSTITUTIONAL_ELEVATION?.trim() === "1") return true;
 
-  // Default local dev: elevate authenticated sessions unless restricted by env above.
-  if (!configuredId && !configuredEmail) return true;
-
   return false;
 }
 

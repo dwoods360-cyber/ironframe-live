@@ -50,13 +50,17 @@ export default async function DocsPage({ params }: DocsPageProps) {
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 font-sans text-slate-100 antialiased selection:bg-teal-500/30 selection:text-slate-950">
       <nav className="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-slate-900 bg-slate-950/80 px-6 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+        <Link
+          href="/"
+          className="flex items-center gap-3 transition hover:opacity-90"
+          data-testid="docs-brand-home-link"
+        >
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" aria-hidden />
           <span className="font-mono text-xs font-bold uppercase tracking-widest text-slate-400">
             IRONFRAME CORE <span className="text-slate-700">|</span>{" "}
             <span className="text-teal-400">REFERENCE MANUALS</span>
           </span>
-        </div>
+        </Link>
 
         <Link
           href="/"

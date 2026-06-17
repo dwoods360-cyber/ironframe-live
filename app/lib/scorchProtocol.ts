@@ -2,6 +2,7 @@ import "server-only";
 
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { clearAgentCacheForTenant } from "@/app/lib/agentCache";
@@ -72,11 +73,17 @@ async function brickActiveThreatsForTenant(tenantId: string): Promise<{
 
   let prod = { count: 0 };
   if (companyIds.length > 0) {
-    prod = await prisma.threatEvent.deleteMany({
-      where: {
-        tenantCompanyId: { in: companyIds },
-        status: { in: ACTIVE_THREAT_STATES },
-      },
+    prod = await runAuditedThreatEventWormBypass({
+      threatId: `tenant:${tenantId}`,
+      eventType: "ADMIN_SCORCH_PROTOCOL_EXECUTION",
+      actorUserId: "SYSTEM_DMS",
+      execute: (tx) =>
+        tx.threatEvent.deleteMany({
+          where: {
+            tenantCompanyId: { in: companyIds },
+            status: { in: ACTIVE_THREAT_STATES },
+          },
+        }),
     });
   }
 

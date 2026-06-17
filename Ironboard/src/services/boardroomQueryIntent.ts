@@ -1,3 +1,5 @@
+import { payloadSignalsVideoIntelligence } from './boardResponseLibrary.js';
+
 /** Terms that indicate the user wants internal flywheel / CRM data. */
 const WORKSPACE_QUERY_TERMS = [
   'crm',
@@ -90,8 +92,9 @@ export function shouldPrefetchProspects(query: string): boolean {
   return false;
 }
 
-/** Prefetch live web grounding unless the query is strictly internal CRM data. */
+/** Prefetch live web grounding unless the query is strictly internal CRM data or a video link. */
 export function shouldPrefetchWeb(query: string): boolean {
+  if (payloadSignalsVideoIntelligence(query)) return false;
   return !isWorkspaceOnlyQuery(query);
 }
 

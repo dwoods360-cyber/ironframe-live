@@ -1,4 +1,4 @@
-/docs/TAS.md — Technical Architecture Specification
+﻿/docs/TAS.md — Technical Architecture Specification
 Project: Ironframe
 Version: 2.0.2 (Sovereign Build State)
 Last Updated: 2026-05-07
@@ -19,7 +19,7 @@ These rules permanently anchor forensic UI components and dashboard identity; ch
 
 - **Forensic artifacts:** The **Print Chip** (Audit Intelligence PDF export) and **Sign-off** control (GRC Gold forensic seal / SHA-256 receipt path) are **non-negotiable gates** for establishing and attesting the **Defense ALE baseline** and associated ledger semantics.
 
-- **UI anchor:** The legacy **header logo** and redundant **“My Organization”** tenant dropdown are **permanently decommissioned** to preserve horizontal density; tenant identity is conveyed via **Command Center** and the **header title line** (`IRONFRAME V1.0 — [tenant | PENDING SELECTION]`).
+- **UI anchor:** The legacy **header logo** and redundant **â€œMy Organizationâ€** tenant dropdown are **permanently decommissioned** to preserve horizontal density; tenant identity is conveyed via **Command Center** and the **header title line** (`IRONFRAME V1.0 — [tenant | PENDING SELECTION]`).
 
 1. Core Architectural Philosophy <a id="tas-core-philosophy"></a>
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
@@ -52,17 +52,17 @@ Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 <a id="agent-13"></a>Ironwatch — Anomaly Hunter. Internal User Behavior Analytics (UBA) and Directive Violation monitoring.
 <a id="agent-14"></a>Irongate — Data Sanitizer. The DMZ. ALL external ingestion routes here first.
 <a id="agent-15"></a>Ironquery — Interactive Analyst / Copilot. Conversational RAG and On-Demand Reporting for end-users.
-<a id="agent-16"></a>Ironscout — Ad-Hoc Tracker. Ephemeral worker (TTL: 0.50–71.75 hrs) that self-terminates after completing specific reconnaissance.
+<a id="agent-16"></a>Ironscout — Ad-Hoc Tracker. Ephemeral worker (TTL: 0.50â€“71.75 hrs) that self-terminates after completing specific reconnaissance.
 <a id="agent-17"></a><a id="ironbloom-production"></a>Ironbloom — Sustainability Analyst. Scope 1-3 and Carbon ALE calculations. Strictly requires physical units (kWh, L, km); monetary-only data rejected.
 <a id="agent-18"></a>Ironethic — Social & DEI Monitor. Operates under a strict No-PII Lock. All data must be aggregated and salted.
 <a id="agent-19"></a>Irontally — Disclosure & Framework Mapper. Cross-walks data against CSRD, GRI, and ISSB frameworks.
 
-<a id="tas-simulation-bots"></a>**Simulation Bots (A–D) — Separate from 19-Agent Workforce**
+<a id="tas-simulation-bots"></a>**Simulation Bots (Aâ€“D) — Separate from 19-Agent Workforce**
 Kimbot, Attbot, and GRCbot are **shadow-plane antagonists** for structural drills and red-team testing. They are **not** numbered agents in the 19-agent production roster.
 - **Bot A (Attbot):** External attack / chaos simulation (`ATTACK_BOT`).
 - **Bot B (Kimbot):** Red-team adversary threat injector (`KIMBOT`). Injects simulated ransomware, data leak, and API breach signals into the threat pipeline for dual-key and ACK drill exercises.
 - **Bot C (GRCbot):** Policy drift and GRC gate QA (`GRC_BOT`).
-- **Master Purge:** Clears simulation-scoped pipeline state; production audit ledger remains isolated per §4.3.
+- **Master Purge:** Clears simulation-scoped pipeline state; production audit ledger remains isolated per Â§4.3.
 
 **Naming lock:** Agent 17 in the production workforce is **Ironbloom** (CSRD / sustainability ledger, physical units only). **Kimbot is Bot B (red team), not Agent 17.** Do not conflate Kimbot with Ironbloom.
 
@@ -84,24 +84,24 @@ Vaultbank: 5,900,000 USD (590000000 cents)
 Gridcore: 4,700,000 USD (470000000 cents)
 Defense (CMMC L3 anchor): 16,000,000 USD (1600000000 cents)
 
-**METRICS:** The Version Manifest (Audit Intelligence sidebar footer) MUST include **DRIFT_DELTA**: real-time variance between **active ALE** (BIGINT aggregate from `getTotalCurrentRiskCentsString` / Command Center posture) and the **constitutional industry baseline** for the bound tenant (Medshield / Vaultbank / Gridcore / Defense cents above). Display uses a **Δ** prefix; negative Δ (active below baseline) indicates optimization posture; positive Δ indicates elevated exposure vs. baseline. When no tenant route/dev scope is bound, the line shows **Δ ---**.
+**METRICS:** The Version Manifest (Audit Intelligence sidebar footer) MUST include **DRIFT_DELTA**: real-time variance between **active ALE** (BIGINT aggregate from `getTotalCurrentRiskCentsString` / Command Center posture) and the **constitutional industry baseline** for the bound tenant (Medshield / Vaultbank / Gridcore / Defense cents above). Display uses a **Î”** prefix; negative Î” (active below baseline) indicates optimization posture; positive Î” indicates elevated exposure vs. baseline. When no tenant route/dev scope is bound, the line shows **Î” ---**.
 
 <a id="tas-sustainability-kimbot"></a><a id="tas-sustainability-ironbloom"></a>Sustainability Data (Ironbloom Mandate):
 Carbon metrics require physical units (e.g., kWh, Liters, km). Monetary-only data is strictly rejected by Ironbloom (Agent 17). Carbon ALE must be derived from physical unit conversions, never direct financial proxies. Kimbot (simulation Bot B) does not own production sustainability metrics.
 ### 4.3 Diagnostics & Isolation (Shadow Plane)
-Constitutional scope (GRC Repair 4.7–4.8): structural diagnostics, operational self-tests, and component reliability analytics are **shadow-plane-only** capabilities. They extend the CONTROL-FIRST posture without polluting the production threat ledger.
+Constitutional scope (GRC Repair 4.7â€“4.8): structural diagnostics, operational self-tests, and component reliability analytics are **shadow-plane-only** capabilities. They extend the CONTROL-FIRST posture without polluting the production threat ledger.
 
 **Diagnostic isolation (UI boundary)**  
 All operational self-test surfaces — **System Pass**, **System Fail** (deficiency filing), and **System Receipt** — MUST be bound to **`isSimulationMode === true`** on the client (`systemConfigStore`). The canonical UI implementation MUST NOT render these controls in production mode (e.g. `PipelineSelfTestBar` returns no DOM when shadow mode is off). Any new diagnostic affordance MUST follow the same rule.
 
-**Architectural boundary (client ↔ server)**  
+**Architectural boundary (client â†” server)**  
 `isSimulationMode` is not decorative: it is paired with the **`ironframe-simulation-mode`** cookie so server routes and Server Actions observe the same plane. Server code MUST use **`readSimulationPlaneEnabled()`** (`app/lib/security/ingressGateway.ts`, cookie value `1` = shadow) before accepting diagnostic writes or returning shadow-only queues. Client and server checks together form a **hard boundary**; bypassing either side is a constitutional defect.
 
 **Quarantine storage (No-Bleed Rule)**  
-Operational deficiencies, self-test passes, and deficiency resolutions MUST be persisted **only** in **`SimulationDiagnosticLog`** (Prisma), keyed to tenant and optional `simThreatId`. These actions MUST NOT be written to production-scoped **`AuditLog`** rows for operational self-test semantics, and MUST NOT attach operational “self-test” narratives to **`ThreatEvent`**. The production audit trail and golden threat ledger remain clean of shadow structural noise. OpSupport “simulation audit” MAY merge simulation-flagged `AuditLog` with `SimulationDiagnosticLog` for display, but diagnostic **writes** stay on `SimulationDiagnosticLog` only.
+Operational deficiencies, self-test passes, and deficiency resolutions MUST be persisted **only** in **`SimulationDiagnosticLog`** (Prisma), keyed to tenant and optional `simThreatId`. These actions MUST NOT be written to production-scoped **`AuditLog`** rows for operational self-test semantics, and MUST NOT attach operational â€œself-testâ€ narratives to **`ThreatEvent`**. The production audit trail and golden threat ledger remain clean of shadow structural noise. OpSupport â€œsimulation auditâ€ MAY merge simulation-flagged `AuditLog` with `SimulationDiagnosticLog` for display, but diagnostic **writes** stay on `SimulationDiagnosticLog` only.
 
 **Weighted reliability engine (preservation mandate)**  
-Component health for PO prioritization is computed by **`calculateComponentHealth`** (`app/lib/opsupport/componentHealth.ts`) from `SimulationDiagnosticLog` payloads. The following weights are **frozen** for all future refactors unless a TAS Amendment explicitly changes them: **Critical deficiency −10**, **High deficiency −5**, **Medium/Low (or unknown severity) deficiency −2**, **System pass +1**. Derived **`healthBarPercent`** (0–100, baseline mapping in `healthPointsToBarPercent`) MUST remain semantically consistent with this scale when refactored.
+Component health for PO prioritization is computed by **`calculateComponentHealth`** (`app/lib/opsupport/componentHealth.ts`) from `SimulationDiagnosticLog` payloads. The following weights are **frozen** for all future refactors unless a TAS Amendment explicitly changes them: **Critical deficiency âˆ’10**, **High deficiency âˆ’5**, **Medium/Low (or unknown severity) deficiency âˆ’2**, **System pass +1**. Derived **`healthBarPercent`** (0â€“100, baseline mapping in `healthPointsToBarPercent`) MUST remain semantically consistent with this scale when refactored.
 
 <a id="tas-irontech-self-healing"></a>**Irontech self-healing mandate (Irontech / orchestration)**  
 The Irontech workforce MUST treat components with **`healthBarPercent` below 50%** as **priority repair candidates** when consuming shadow diagnostic data (including archived **`OPERATIONAL_DEFICIENCY_REPORT`** payloads and full ingestion snapshots). Lower health indicates higher structural brittleness (e.g. Kimbot pulse surfaces, Attbot state-machine cards) and SHALL drive triage ordering ahead of purely cosmetic backlog work.
@@ -118,11 +118,11 @@ Every filed deficiency MUST retain the full **Gemini repair packet** and ingesti
 <a id="tas-rls-isolation"></a><a id="tas-row-level-security"></a>Strict RLS & Memory Bleed Prevention:
 Database Level: Supabase Row Level Security (RLS) must be explicitly defined and enforced on every tenant-scoped table (direct `tenant_id` / `tenantId` columns or an approved join path documented below). Global reference tables (e.g. anonymized industry benchmarks) are exempt only where explicitly listed in schema commentary. No tenant-bound query may execute without a validated tenant context; Postgres sessions SHOULD set `app.current_tenant_id` (via `ironguard_set_session_tenant`) before RLS-protected operations once policies are enabled.
 
-**Schema reality (verification):** Some legacy surfaces use indirect tenancy (e.g. `ThreatEvent.tenantCompanyId` → `companies.tenantId`). RLS policies MUST encode those join paths; tables without any tenancy linkage remain engineering debt and must not carry tenant-controlled payloads until amended.
+**Schema reality (verification):** Some legacy surfaces use indirect tenancy (e.g. `ThreatEvent.tenantCompanyId` â†’ `companies.tenantId`). RLS policies MUST encode those join paths; tables without any tenancy linkage remain engineering debt and must not carry tenant-controlled payloads until amended.
 
 <a id="tas-langgraph-tenant-isolation"></a>LangGraph Level: Reinterpreting tenant boundaries or allowing cross-tenant memory bleed in LangGraph is a forbidden action. Every LangGraph thread ID must be cryptographically bound to the active tenant_id. State checkpoints must be isolated per tenant.
 
-Client plane (Ironguard): Outbound same-origin `/api` requests that carry `x-tenant-id` / `x-target-tenant-id` must match the Command-Center–resolved effective tenant session or the client throws `[ 🚫 IRONGUARD BREACH ] | UNAUTHORIZED CROSS-TENANT FETCH BLOCKED.` Same-origin `/api` reads/writes without an optional-route carve-out must resolve an effective tenant UUID; otherwise the client throws `[ 🚫 IRONGUARD ] | FETCH BLOCKED: NO TENANT CONTEXT.` All such requests automatically attach `X-Tenant-ID` from the secure session after injection.
+Client plane (Ironguard): Outbound same-origin `/api` requests that carry `x-tenant-id` / `x-target-tenant-id` must match the Command-Centerâ€“resolved effective tenant session or the client throws `[ ðŸš« IRONGUARD BREACH ] | UNAUTHORIZED CROSS-TENANT FETCH BLOCKED.` Same-origin `/api` reads/writes without an optional-route carve-out must resolve an effective tenant UUID; otherwise the client throws `[ ðŸš« IRONGUARD ] | FETCH BLOCKED: NO TENANT CONTEXT.` All such requests automatically attach `X-Tenant-ID` from the secure session after injection.
 
 **Rule:** The Dev Tenant Switcher must trigger a **Cold Boot** of all data stores (`switchDevTenantColdBoot`): risks, audit buffer, agent streams, cached dashboard/insurance payloads, and session tenant flush — **before** the new override applies. No cross-tenant data persistence is permitted between those transitions.
 
@@ -134,16 +134,16 @@ The following rules are **constitutional**: bypass requires a formal **TAS Amend
 
 1. **Kernel:** PostgreSQL RLS **must** ultimately enforce `tenant_id` (or approved join-path equivalents) for tenant-bound rows. Tables lacking a tenant discriminator suitable for policy attachment are **engineering debt** and must not hold unsliced tenant payloads until remediated (see `docs/FORENSIC_INTEGRITY_REPORT.md`).
 
-2. **Gateway (server):** Tenant-scoped Route Handlers **must** validate `x-tenant-id` against the **`ironframe-tenant`** cookie session when the cookie is present; mismatch → **403 Forbidden**. Client-only tenant props are **never** sufficient authorization.
+2. **Gateway (server):** Tenant-scoped Route Handlers **must** validate `x-tenant-id` against the **`ironframe-tenant`** cookie session when the cookie is present; mismatch â†’ **403 Forbidden**. Client-only tenant props are **never** sufficient authorization.
 
 3. **Gateway (client):** Ironguard **must** inject `X-Tenant-ID` from the secure effective session and **must** throw on cross-tenant header misuse; blocked attempts **must** emit the Sentinel audit line (`IRONGUARD|SENTINEL_BLOCK`) in Audit Intelligence.
 
 4. **Memory:** `resetAllStores()` **must** run **before** `tenantScopeCache.clear()` **before** binding a new tenant context on Command Center or Dev switcher transitions — **no shadow RAM** from prior tenant boards, bots, scenarios, or overlays.
 
-5. **Ledger:** Any isolation breach attempt blocked in the client **must** leave a durable sidebar audit entry (`[ 🚨 SECURITY ALERT ] | ISOLATION BREACH ATTEMPT BLOCKED…`).
+5. **Ledger:** Any isolation breach attempt blocked in the client **must** leave a durable sidebar audit entry (`[ ðŸš¨ SECURITY ALERT ] | ISOLATION BREACH ATTEMPT BLOCKEDâ€¦`).
 
 **Amendment — Internal Simulation Loop (Shadow Plane exception)**  
-Immutable directives **(1)–(5)** apply without exception in **production** tenant sessions. For the **internal simulation / shadow plane** only (`SHADOW_PLANE_ACTIVE` server-side, paired per §4.3 with `ironframe-simulation-mode` and/or `NEXT_PUBLIC_SHADOW_PLANE_ACTIVE` / Command Center simulation): server Route Handlers **may** accept a validated `x-tenant-id` when it conflicts with `ironframe-tenant` **solely** to unblock automated simulation clients and dashboard reads during drills — implemented in `assertIronguardApiTenantOr403` + shadow diagnostics elsewhere. This **does not** weaken PostgreSQL RLS or LangGraph tenant binding; it **only** prevents false **403** mismatches between cookie snapshot and bot-declared scope during testing. Quarantine and **SimulationDiagnosticLog** isolation from §4.3 remain mandatory.
+Immutable directives **(1)â€“(5)** apply without exception in **production** tenant sessions. For the **internal simulation / shadow plane** only (`SHADOW_PLANE_ACTIVE` server-side, paired per Â§4.3 with `ironframe-simulation-mode` and/or `NEXT_PUBLIC_SHADOW_PLANE_ACTIVE` / Command Center simulation): server Route Handlers **may** accept a validated `x-tenant-id` when it conflicts with `ironframe-tenant` **solely** to unblock automated simulation clients and dashboard reads during drills — implemented in `assertIronguardApiTenantOr403` + shadow diagnostics elsewhere. This **does not** weaken PostgreSQL RLS or LangGraph tenant binding; it **only** prevents false **403** mismatches between cookie snapshot and bot-declared scope during testing. Quarantine and **SimulationDiagnosticLog** isolation from Â§4.3 remain mandatory.
 
 <a id="tas-ironethic-pii"></a>PII Lock: Ironethic (Agent 18) enforces a strict No-PII lock. All social and DEI data must be aggregated and salted before storage or processing. Raw PII must never persist in the LangGraph state or database.
 6. Product Roadmap — Epic Status (PO Authority)

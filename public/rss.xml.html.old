@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ironframe Labs — Privacy Policy</title>
+    <style>
+        body { font-family: monospace; max-width: 600px; margin: 40px auto; padding: 0 20px; color: #333; line-height: 1.6; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; font-size: 1.5rem; }
+        .meta { color: #666; font-size: 0.85rem; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+    <h1>PRIVACY POLICY // IRONFRAME LABS</h1>
+    <div class="meta">Last Updated: June 15, 2026</div>
+    <p>Ironframe Labs operates as a technical briefing publication. We do not deploy telemetry trackers, tracking cookies, or persistent consumer profiling scripts on this static edge domain.</p>
+    <p>Any subscription data provided willingly via our third-party newsletter distribution node (Substack) is handled strictly under Substack's canonical privacy architecture. We do not store, sell, or cross-reference your contact information with external marketing graphs.</p>
+    <hr>
+    <p><small>Control-First Architecture Enforced // Zero-Trust Verified</small></p>
+</body>
+</html>

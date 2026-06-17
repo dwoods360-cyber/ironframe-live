@@ -8,7 +8,7 @@ export interface VerifiedEvidenceLog {
 
 /** Per-framework readiness rollup consumed by `/api/grc/irontally?readiness=1`. */
 export interface FrameworkReadinessSummary {
-  framework: "SOC2" | "ISO27001" | "CSRD";
+  framework: "SOC2" | "ISO27001" | "CSRD" | "EU_AI_ACT" | "DORA" | "NYDFS_500" | "UK_CSR";
   totalControlsMonitored: number;
   passingControlsCount: number;
   verifiedEvidenceLogs: VerifiedEvidenceLog[];

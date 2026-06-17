@@ -14,6 +14,9 @@ vi.mock("next/headers", () => ({
       return undefined;
     },
   })),
+  headers: vi.fn(async () => ({
+    get: (_name: string) => null,
+  })),
 }));
 
 vi.mock("@/app/utils/serverAuth", () => ({

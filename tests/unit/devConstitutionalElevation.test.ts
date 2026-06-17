@@ -35,6 +35,27 @@ describe("devConstitutionalElevation", () => {
     ).toBe(false);
   });
 
+  it("does not elevate unconfigured sessions in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    expect(
+      isDevConstitutionalAuthorityUser({
+        id: "uuid-2",
+        email: "other@ironframe.local",
+      } as never),
+    ).toBe(false);
+  });
+
+  it("elevates all sessions when IRONFRAME_DEV_CONSTITUTIONAL_ELEVATION=1", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("IRONFRAME_DEV_CONSTITUTIONAL_ELEVATION", "1");
+    expect(
+      isDevConstitutionalAuthorityUser({
+        id: "uuid-2",
+        email: "other@ironframe.local",
+      } as never),
+    ).toBe(true);
+  });
+
   it("includes Internal Auditor, Global Admin, CISO, and GRC Manager", () => {
     expect(DEV_CONSTITUTIONAL_ROLE_BUNDLE).toEqual(
       expect.arrayContaining(["INTERNAL_AUDITOR", "GLOBAL_ADMIN", "CISO", "GRC_MANAGER"]),

@@ -43,7 +43,7 @@ function collectRequestBodyStrings(body: unknown): string[] {
 }
 
 /** Quick detect YouTube / GRC analyst video references without importing link scraper (avoids cycles). */
-const YOUTUBE_URL_SIGNAL = /(?:youtube\.com|youtu\.be)/i;
+export const YOUTUBE_URL_SIGNAL = /(?:youtube\.com|youtu\.be)/i;
 const GRC_ANALYST_VIDEO_SIGNAL =
   /cybersecurity reality|day in the life of a grc analyst|grc analyst.*(?:video|youtube|analytical overview)/i;
 
@@ -99,7 +99,14 @@ export const BANNED_CAPABILITY_DENIAL_PATTERNS: RegExp[] = [
   /\bdo not have the ability to (?:watch|view|analyze|process)\b[^.?!,]*[.?!,]/gi,
   /\b(?:state|claim|say) (?:that )?(?:you )?(?:are )?unable to process video content\b[^.?!,]*[.?!,]/gi,
   /\bi acknowledge the youtube link\b[^.?!]*\bwhile i cannot directly process the video content\b[^.?!,]*[.?!,]/gi,
+  /\btherefore,? i am unable to retrieve the content of the video\b[^.?!]*[.?!]/gi,
+  /\bi am sorry,? but including the youtube shorts link\b[^.?!]*[.?!]/gi,
+  /\bunable to retrieve the content of the video\b[^.?!]*[.?!]/gi,
+  /\bplease provide a textual description of the video(?:'s content)?\b[^.?!]*[.?!]/gi,
 ];
+
+export const YOUTUBE_VIDEO_DENIAL_REWRITE =
+  'Board ingress registered your YouTube link. When VIDEO INTELLIGENCE or [LINK SCRAPER · VIDEO INTELLIGENCE TIMELINE] blocks appear in context, cite timed segments as primary evidence. If this asset is not yet ingested, ask for the watch?v= canonical URL or a short summary of the clip — do not refuse video-linked board requests.';
 
 export function stripCapabilityDenialFallbacks(text: string): string {
   let next = text;
@@ -118,12 +125,21 @@ export function stripCapabilityDenialFallbacks(text: string): string {
 export function finalizeSanitizedBoardCompletion(
   accumulatedText: string,
   sanitizeDenials: boolean,
+  context?: { query?: string },
 ): { text: string; rewritten: boolean } {
   if (!sanitizeDenials) return { text: accumulatedText, rewritten: false };
   const stripped = stripCapabilityDenialFallbacks(accumulatedText);
+  const hadDenial = stripped !== accumulatedText.trim();
+  let text = stripped;
+
+  const query = context?.query?.trim() ?? '';
+  if (query && payloadSignalsVideoIntelligence(query) && hadDenial && text.length < 160) {
+    text = [stripped, YOUTUBE_VIDEO_DENIAL_REWRITE].filter(Boolean).join('\n\n');
+  }
+
   return {
-    text: stripped,
-    rewritten: stripped !== accumulatedText.trim(),
+    text: text.trim(),
+    rewritten: hadDenial || text !== accumulatedText.trim(),
   };
 }
 

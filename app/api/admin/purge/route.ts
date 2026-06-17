@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { runAuditedThreatEventWormBypass } from '@/app/lib/prisma/threatEventWormBypass';
 
 /**
  * Master Purge API: wipes from the root of the hierarchy so no ghost data remains.
@@ -11,7 +12,12 @@ export async function POST() {
     const tenantResult = await prisma.tenant.deleteMany({});
     const auditLogResult = await prisma.auditLog.deleteMany({});
     const workNoteResult = await prisma.workNote.deleteMany({});
-    const threatEventResult = await prisma.threatEvent.deleteMany({});
+    const threatEventResult = await runAuditedThreatEventWormBypass({
+      threatId: "ALL_TENANT_RECORDS",
+      eventType: "ADMIN_MASTER_PURGE",
+      actorUserId: "SUPER_ADMIN_OVERRIDE",
+      execute: (tx) => tx.threatEvent.deleteMany({}),
+    });
 
     return NextResponse.json({
       ok: true,

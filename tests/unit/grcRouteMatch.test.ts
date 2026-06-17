@@ -55,6 +55,16 @@ describe("grcRouteMatch", () => {
     expect(vendors.currentTenant).toBe("medshield");
     expect(vendors.isVendorsRoute).toBe(true);
     expect(vendors.prefix).toBe("/medshield");
+    expect(vendors.homeLink).toBe("/");
+
+    const subdomainVendors = buildHeaderRouteMatrix("/vendors/onboarding", "acmecorp");
+    expect(subdomainVendors.currentTenant).toBe("acmecorp");
+    expect(subdomainVendors.isVendorsRoute).toBe(true);
+    expect(subdomainVendors.prefix).toBe("");
+
+    const config = buildHeaderRouteMatrix("/settings/config");
+    expect(config.isConfigRoute).toBe(true);
+    expect(config.homeLink).toBe("/");
 
     const ops = buildHeaderRouteMatrix("/opsupport");
     expect(ops.isOpSupportRoute).toBe(true);

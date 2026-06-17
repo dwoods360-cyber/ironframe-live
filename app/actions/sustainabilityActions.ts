@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { computeSustainabilityAleForTenantUuid } from "@/app/services/ironbloom/scoring";
 import { computeTotalSocietalValueCents } from "@/app/services/ironbloom/tsvCalculator";
 import { lockCarbonScore } from "@/src/services/ironbloom/artifactLock";
@@ -94,8 +95,8 @@ export async function recordSustainabilityImpact(
       mitigatedValueCents: ale.mitigatedValueCents,
     });
 
-    await prisma.$transaction([
-      prisma.sustainabilityMetric.upsert({
+    await prisma.$transaction(async (tx) => {
+      await tx.sustainabilityMetric.upsert({
         where: { threatId },
         create: {
           threatId,
@@ -112,12 +113,19 @@ export async function recordSustainabilityImpact(
           mitigatedValueCents: ale.mitigatedValueCents,
           totalSocietalValueCents: tsv.societalValueCents,
         },
-      }),
-      prisma.threatEvent.update({
-        where: { id: threatId },
-        data: { mitigatedValueCents: ale.mitigatedValueCents },
-      }),
-    ]);
+      });
+      await runAuditedThreatEventWormBypass({
+        threatId,
+        eventType: "SUSTAINABILITY_MITIGATED_VALUE_STAMP",
+        actorUserId: "IRONLOCK_AGENT_6",
+        existingTx: tx,
+        execute: (innerTx) =>
+          innerTx.threatEvent.update({
+            where: { id: threatId },
+            data: { mitigatedValueCents: ale.mitigatedValueCents },
+          }),
+      });
+    });
 
     try {
       await auditLogCreateLoose({

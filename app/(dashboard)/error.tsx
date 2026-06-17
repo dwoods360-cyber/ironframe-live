@@ -41,6 +41,12 @@ export default function DashboardRouteError({ error, reset }: DashboardRouteErro
             Retry
           </button>
           <Link
+            href="/"
+            className="rounded-md border border-teal-700/60 bg-teal-950/40 px-4 py-2 text-sm font-medium text-teal-100 transition hover:border-teal-500 hover:bg-teal-900/50"
+          >
+            Command Post
+          </Link>
+          <Link
             href="/unauthorized"
             className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-400"
           >

@@ -123,6 +123,7 @@ Interactive HTML chapters are served at clean `/docs/.../*.html` URLs (rewritten
 |----------|---------|
 | [Support Guide](./support/support-guide.md) | Triage, escalation, tenant isolation |
 | [Knowledge Base](./support/knowledge-base.md) | Article index and deep links |
+| [Nightly Cron Runbook](./operations-support/nightly-cron-runbook.md) | Windows doc engine vs API narrate — ops verification |
 | [Error Messages & Solutions](./support/error-messages.md) | Known errors and remediation |
 
 ## Sales

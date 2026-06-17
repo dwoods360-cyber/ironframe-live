@@ -1,10 +1,17 @@
 import { getIronguardEffectiveTenant, setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import { isPublicRegistrationApiPath } from "@/app/lib/auth/publicRegistrationRoute";
+import { isPublicConstitutionalSentinelPath } from "@/app/utils/grcRouteMatch";
+import {
+  DEMO_API_BLOCK_MESSAGE,
+  isDemoModeActive,
+} from "@/app/lib/demo/demoMode";
 import { logIsolationSentinelBlocked } from "@/app/utils/isolationSentinelLog";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { useRiskStore } from "@/app/store/riskStore";
 import { getSystemConfigSnapshot } from "@/app/store/systemConfigStore";
 import { isShadowPlaneUiActive } from "@/app/utils/shadowPlaneActive";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+import { PUBLIC_LEAD_API_PATH } from "@/config/registration";
 
 export const IRONGUARD_BREACH =
   "[ 🚫 IRONGUARD BREACH ] | UNAUTHORIZED CROSS-TENANT FETCH BLOCKED.";
@@ -15,9 +22,12 @@ export const IRONGUARD_NO_TENANT =
 export { setIronguardEffectiveTenant, getIronguardEffectiveTenant };
 
 /** Paths that remain callable without a resolved tenant session (infra probes only). */
-const TENANT_OPTIONAL_API_PATHS = ["/api/health"];
+const TENANT_OPTIONAL_API_PATHS = ["/api/health", PUBLIC_LEAD_API_PATH];
 
 function isTenantOptionalApiPath(pathname: string): boolean {
+  if (isPublicRegistrationApiPath(pathname)) return true;
+  if (isPublicConstitutionalSentinelPath(pathname)) return true;
+  if (pathname.startsWith("/api/auth/callback")) return true;
   return TENANT_OPTIONAL_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
@@ -88,6 +98,17 @@ export function applyIronguardToFetch(
 
   if (isTenantOptionalApiPath(pathname)) return [input, init];
 
+  if (isDemoModeActive() && !isPublicConstitutionalSentinelPath(pathname)) {
+    logIsolationSentinelBlocked({
+      reasonCode: "DEMO_MODE_ISOLATED",
+      path: pathname,
+      method,
+      effectiveTenantUuid: null,
+      requestedTenantUuid: null,
+    });
+    throw new Error(DEMO_API_BLOCK_MESSAGE);
+  }
+
   let effective = resolveEffectiveTenantForIronguardFetch();
   /** Last-resort internal authorized scope — never emit IRONGUARD FETCH BLOCKED for shadow/sim builds. */
   if (!effective && ironguardShadowPlaneBypassesMissingSession()) {
@@ -157,6 +178,8 @@ export function assertIronguardBeforeFetch(input: RequestInfo | URL, init?: Requ
   if (!pathname.startsWith("/api")) return;
 
   const method = getMethod(input, init);
+
+  if (isTenantOptionalApiPath(pathname)) return;
 
   const headers = new Headers();
   if (typeof Request !== "undefined" && input instanceof Request) {

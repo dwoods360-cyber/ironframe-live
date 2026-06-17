@@ -7,6 +7,9 @@ import AgentInspectShell from "@/app/components/grc/AgentInspectShell";
 import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { layoutContentShellClass } from "@/app/config/layoutConstants";
 import { isScrollableStandalonePath } from "@/app/utils/grcRouteMatch";
+import DemoSandboxBanner from "@/app/components/demo/DemoSandboxBanner";
+import { isDemoModeActive } from "@/app/lib/demo/demoMode";
+import { isDemoRouteGroupPath } from "@/app/utils/grcRouteMatch";
 import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
@@ -18,11 +21,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
   const isScrollableStandalonePage = isScrollableStandalonePath(pathname);
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
-  const contentShell = layoutContentShellClass(isSimulationMode);
+  const demoSandbox = isDemoRouteGroupPath(pathname) || isDemoModeActive();
+  const topBannerOffset = demoSandbox || isSimulationMode;
+  const contentShell = layoutContentShellClass(topBannerOffset);
 
   useKimbotPersistLoop();
   useResilienceIntelPoll();
-  useIronwatchTelemetryFeed(true);
+  useIronwatchTelemetryFeed(!demoSandbox);
 
   useEffect(() => {
     hydrateSystemConfig();
@@ -31,9 +36,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isThreatDetailPage) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <AirlockBanner />
+        <div className={isBoardReport ? "print:hidden" : undefined}>
+          {demoSandbox ? <DemoSandboxBanner /> : null}
+          <AirlockBanner />
+        </div>
         <div
-          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${isSimulationMode ? "pt-9" : ""}`}
+          className={`fixed inset-x-0 z-50 ${
+            demoSandbox && isSimulationMode
+              ? "top-[4.5rem]"
+              : demoSandbox || isSimulationMode
+                ? "top-9"
+                : "top-0"
+          } ${isBoardReport ? "print:hidden" : ""}`}
+        >
+          <TopNav />
+        </div>
+        <div
+          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${contentShell.marginTop} ${topBannerOffset ? (demoSandbox && isSimulationMode ? "pt-[4.5rem]" : "pt-9") : ""}`}
         >
           {children}
         </div>
@@ -44,19 +63,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className={isBoardReport ? "print:hidden" : undefined}>
+        {demoSandbox ? <DemoSandboxBanner /> : null}
         <AirlockBanner />
       </div>
       <div
-        className={`fixed inset-x-0 z-50 ${isSimulationMode ? "top-9" : "top-0"} ${
-          isBoardReport ? "print:hidden" : ""
-        }`}
+        className={`fixed inset-x-0 z-50 ${
+          demoSandbox && isSimulationMode
+            ? "top-[4.5rem]"
+            : demoSandbox || isSimulationMode
+              ? "top-9"
+              : "top-0"
+        } ${isBoardReport ? "print:hidden" : ""}`}
       >
         <TopNav />
       </div>
       <div
         className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${contentShell.marginTop} ${contentShell.height} ${
-          isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""
-        }`}
+          topBannerOffset ? (demoSandbox && isSimulationMode ? "pt-[4.5rem]" : "pt-9") : ""
+        } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
       >
         <div
           className={`flex min-h-0 min-w-0 flex-1 flex-col ${

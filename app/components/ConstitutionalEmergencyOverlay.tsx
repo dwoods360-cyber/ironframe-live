@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   useConstitutionalIntegrity,
   useConstitutionalLockFlags,
   useSustainabilityStaleLockdownBlocking,
 } from "@/app/context/ConstitutionalIntegrityProvider";
+import { isConstitutionalOverlaySuppressedPath } from "@/app/utils/grcRouteMatch";
 import { SYSTEM_OWNER_ID } from "@/app/config/constitutionalAuthority";
 import {
   SECURITY_POSTURE_DUAL_LOCK,
@@ -28,6 +30,7 @@ type SealDescriptor = {
 };
 
 export default function ConstitutionalEmergencyOverlay() {
+  const pathname = usePathname();
   const { isConstitutionalEmergency, constitutionalDegradedMode, isOverrideSpent } =
     useConstitutionalLockFlags();
   const staleLockdownBlocking = useSustainabilityStaleLockdownBlocking();
@@ -136,6 +139,10 @@ export default function ConstitutionalEmergencyOverlay() {
       setSubmitBusy(false);
     }
   }, [descriptor, vaultKey, secondKey, thirdKey, secondaryMfaToken, refreshIntegrity]);
+
+  if (isConstitutionalOverlaySuppressedPath(pathname)) {
+    return null;
+  }
 
   if (!isConstitutionalEmergency || constitutionalDegradedMode) {
     return null;

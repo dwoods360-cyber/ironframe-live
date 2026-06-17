@@ -2,44 +2,80 @@ import prisma from "@/lib/prisma";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import {
+  getHostBoundTenantUuid,
   getScopedTenantUuidFromCookies,
   isValidTenantUuid,
 } from "@/app/utils/serverTenantContext";
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+
+export type DashboardAccessAllowed = {
+  status: "allowed";
+  userId: string;
+  /** Active workspace UUID — always set when access is allowed. */
+  tenantUuid: string;
+  /** True when no valid session cookie matched the resolved assignment tenant. */
+  tenantFallbackApplied: boolean;
+};
 
 export type DashboardAccessResult =
-  | { status: "allowed"; userId: string; tenantUuid: string | null }
+  | DashboardAccessAllowed
   | { status: "unauthenticated" }
   | { status: "pending"; userId: string; tenantUuid: string | null };
 
+async function loadOrderedAssignments(userId: string): Promise<Array<{ tenantId: string }>> {
+  return prisma.userRoleAssignment.findMany({
+    where: { userId },
+    select: { tenantId: true },
+    orderBy: [{ grantedAt: "desc" }, { tenantId: "asc" }],
+  });
+}
+
+function allowedFromAssignment(
+  userId: string,
+  tenantUuid: string,
+  tenantFallbackApplied: boolean,
+): DashboardAccessAllowed {
+  return {
+    status: "allowed",
+    userId,
+    tenantUuid,
+    tenantFallbackApplied,
+  };
+}
+
+/**
+ * Resolve workspace from cookie scope first; otherwise first RBAC assignment row.
+ * Preserves tenant isolation — fallback tenant always comes from user's own assignment.
+ */
 async function lookupRoleAssignment(
   userId: string,
-  tenantUuid: string | null,
+  cookieTenantUuid: string | null,
+  hostBoundTenantUuid: string | null,
 ): Promise<DashboardAccessResult> {
-  if (tenantUuid) {
+  if (cookieTenantUuid) {
     const scopedAssignment = await prisma.userRoleAssignment.findFirst({
-      where: { userId, tenantId: tenantUuid },
-      select: { id: true },
+      where: { userId, tenantId: cookieTenantUuid },
+      select: { id: true, tenantId: true },
     });
     if (scopedAssignment) {
-      return { status: "allowed", userId, tenantUuid };
+      return allowedFromAssignment(userId, scopedAssignment.tenantId, false);
+    }
+    /** Subdomain host envelope — never fall back to a different tenant assignment. */
+    if (hostBoundTenantUuid && hostBoundTenantUuid === cookieTenantUuid) {
+      return { status: "pending", userId, tenantUuid: cookieTenantUuid };
     }
   }
 
-  const anyAssignment = await prisma.userRoleAssignment.findFirst({
-    where: { userId },
-    select: { id: true, tenantId: true },
-    orderBy: { grantedAt: "desc" },
-  });
-
-  if (anyAssignment) {
-    return {
-      status: "allowed",
-      userId,
-      tenantUuid: tenantUuid ?? anyAssignment.tenantId,
-    };
+  const assignments = await loadOrderedAssignments(userId);
+  const primary = assignments[0];
+  if (!primary?.tenantId || !isValidTenantUuid(primary.tenantId)) {
+    return { status: "pending", userId, tenantUuid: cookieTenantUuid };
   }
 
-  return { status: "pending", userId, tenantUuid };
+  const tenantFallbackApplied =
+    cookieTenantUuid == null || cookieTenantUuid !== primary.tenantId;
+
+  return allowedFromAssignment(userId, primary.tenantId, tenantFallbackApplied);
 }
 
 /**
@@ -58,15 +94,24 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
       return { status: "unauthenticated" };
     }
 
+    const hostBoundTenantUuid = await getHostBoundTenantUuid();
     const scopedRaw = await getScopedTenantUuidFromCookies();
-    const tenantUuid =
+    const cookieTenantUuid =
       scopedRaw && isValidTenantUuid(scopedRaw) ? scopedRaw.trim() : null;
 
     if (isDevConstitutionalAuthorityUser(user)) {
-      return { status: "allowed", userId, tenantUuid };
+      if (cookieTenantUuid) {
+        return allowedFromAssignment(userId, cookieTenantUuid, false);
+      }
+      const assignments = await loadOrderedAssignments(userId);
+      const primary = assignments[0]?.tenantId;
+      if (primary && isValidTenantUuid(primary)) {
+        return allowedFromAssignment(userId, primary, true);
+      }
+      return allowedFromAssignment(userId, TENANT_UUIDS.medshield, true);
     }
 
-    return await lookupRoleAssignment(userId, tenantUuid);
+    return await lookupRoleAssignment(userId, cookieTenantUuid, hostBoundTenantUuid);
   } catch (error) {
     console.error("[dashboardRoleAccess] resolveDashboardAccess failed", error);
 
@@ -81,4 +126,11 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
       return { status: "unauthenticated" };
     }
   }
+}
+
+/** RBAC access result — tenant cookie hydration runs in Route Handlers or client shell (not RSC). */
+export async function ensureDashboardTenantSession(
+  access: DashboardAccessResult,
+): Promise<DashboardAccessResult> {
+  return access;
 }

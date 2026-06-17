@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { ThreatState } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import {
   SYSTEM_OWNER_ID,
@@ -154,7 +155,29 @@ function readAssessment(tenantId?: string | null): TasMdIntegrityAssessment {
       message: `[CHAOS:CONSTITUTIONAL_COLLAPSE] Simulated TAS.md void for tenant ${tenantId.trim()}`,
     };
   }
-  return assessTasMdIntegritySync();
+  const assessment = assessTasMdIntegritySync();
+  if (process.env.NODE_ENV === "development" && assessment.ok) {
+    releaseDevIronlockLatches();
+  }
+  return assessment;
+}
+
+/** Local dev: drop in-memory Ironlock void latches when TAS.md is present (HMR-safe). */
+function releaseDevIronlockLatches(): void {
+  if (
+    !ironlockFreezeApplied &&
+    !constitutionalRebaselinePending &&
+    !emergencyFatalLogged &&
+    !constitutionalDegradedMode
+  ) {
+    return;
+  }
+  ironlockFreezeApplied = false;
+  constitutionalRebaselinePending = false;
+  emergencyFatalLogged = false;
+  constitutionalDegradedMode = false;
+  invalidateTasFingerprintCache();
+  console.log("[tasFingerprint][dev] Ironlock constitutional latch cleared — TAS.md validated");
 }
 
 export function invalidateTasFingerprintCache(): void {
@@ -555,9 +578,15 @@ export async function applyIronlockConstitutionalFreeze(): Promise<{ threatsFroz
     const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
       [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
     });
-    await prisma.threatEvent.update({
-      where: { id: row.id },
-      data: { ingestionDetails: merged },
+    await runAuditedThreatEventWormBypass({
+      threatId: row.id,
+      eventType: "TAS_IRONLOCK_CONSTITUTIONAL_FREEZE",
+      actorUserId: "IRONLOCK_AGENT_06",
+      execute: (tx) =>
+        tx.threatEvent.update({
+          where: { id: row.id },
+          data: { ingestionDetails: merged },
+        }),
     });
     threatsFrozen += 1;
   }
@@ -616,9 +645,16 @@ export async function applyIronlockConstitutionalFreezeForTenant(
       const merged = mergeIngestionDetailsPatch(row.ingestionDetails, {
         [IRONLOCK_CONSTITUTIONAL_EMERGENCY_KEY]: patchJson,
       });
-      await prisma.threatEvent.update({
-        where: { id: row.id },
-        data: { ingestionDetails: merged },
+      await runAuditedThreatEventWormBypass({
+        threatId: row.id,
+        eventType: "TAS_IRONLOCK_TENANT_CONSTITUTIONAL_FREEZE",
+        actorUserId: "IRONLOCK_AGENT_06",
+        detail: `tenant=${tid}`,
+        execute: (tx) =>
+          tx.threatEvent.update({
+            where: { id: row.id },
+            data: { ingestionDetails: merged },
+          }),
       });
       threatsFrozen += 1;
     }
@@ -714,9 +750,15 @@ export async function performIrontechRebaselineVerification(): Promise<{
   for (const row of prodRows) {
     const cleared = clearEmergencyPatchFromIngestion(row.ingestionDetails);
     if (cleared === row.ingestionDetails) continue;
-    await prisma.threatEvent.update({
-      where: { id: row.id },
-      data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
+    await runAuditedThreatEventWormBypass({
+      threatId: row.id,
+      eventType: "TAS_IRONTECH_REBASELINE_CLEAR",
+      actorUserId: "IRONTECH_AGENT_04",
+      execute: (tx) =>
+        tx.threatEvent.update({
+          where: { id: row.id },
+          data: { ingestionDetails: typeof cleared === "string" ? cleared : JSON.stringify(cleared) },
+        }),
     });
     clearedProd += 1;
   }
@@ -799,8 +841,24 @@ export async function syncConstitutionalIntegrityEnforcement(
   tenantId?: string | null,
 ): Promise<TasFingerprintSnapshot> {
   const tenantScope = tenantId?.trim() ?? null;
-  const priorEmergency = cachedSnapshot?.isConstitutionalEmergency ?? false;
   const chaosVoid = Boolean(tenantScope && isChaosConstitutionalVoidActive(tenantScope));
+  const assessment = readAssessment(tenantScope);
+
+  if (process.env.NODE_ENV === "development" && assessment.ok && !chaosVoid) {
+    return getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
+  }
+
+  if (
+    assessment.ok &&
+    !chaosVoid &&
+    !ironlockFreezeApplied &&
+    !emergencyFatalLogged &&
+    !constitutionalRebaselinePending
+  ) {
+    return getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
+  }
+
+  const priorEmergency = cachedSnapshot?.isConstitutionalEmergency ?? false;
   const snap = getTasFingerprintSnapshot({ forceRefresh: true, tenantId: tenantScope });
 
   if (snap.isConstitutionalEmergency) {

@@ -14,11 +14,13 @@ const { prismaMock, threatUpdate, logEvent } = vi.hoisted(() => {
     company: { findUnique: ReturnType<typeof vi.fn> };
     threatApproval: { findUnique: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
+    $executeRaw: ReturnType<typeof vi.fn>;
   } = {
     threatEvent: { findUnique: vi.fn(), update: threatUpdateInner },
     company: { findUnique: vi.fn() },
     threatApproval: { findUnique: vi.fn() },
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(async () => undefined),
   };
   mock.$transaction.mockImplementation(async (fn: (tx: typeof mock) => Promise<unknown>) =>
     fn(mock),

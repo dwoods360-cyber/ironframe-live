@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { updateUserPasswordAction } from "@/app/actions/auth/updateUserPassword";
+import { resolvePostAuthLandingPath } from "@/app/lib/tenantSubdomain";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -31,7 +32,11 @@ export function ResetPasswordForm() {
       return;
     }
 
-    router.replace("/integrity");
+    const landing =
+      typeof window !== "undefined"
+        ? resolvePostAuthLandingPath(window.location.host)
+        : "/integrity";
+    router.replace(landing);
     router.refresh();
   }
 

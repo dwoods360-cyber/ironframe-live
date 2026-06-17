@@ -23,6 +23,7 @@ import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
 import { ironguardFetch } from "@/app/utils/apiClient";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { devTenantHandshakeAle, devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
 
 type TenantContextValue = {
@@ -58,6 +59,7 @@ function snapshotIronframeTenantUuid(): string | null {
 
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const hostTenantSlug = useHostTenantSlug();
   const [devTenantOverride, setDevTenantOverrideState] = useState<TenantKey | null>(null);
 
   /** Dev Tenant Switcher (`ironframe-tenant` cookie) — Medshield UUID `5c420f5a-…` when that tenant is selected (see `TENANT_UUIDS`). */
@@ -68,17 +70,20 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   );
 
   const routeTenantKey = detectTenantFromPath(pathname);
+  const hostUuid = hostTenantSlug ? TENANT_UUIDS[hostTenantSlug as TenantKey] : null;
   const routeUuid = routeTenantKey ? TENANT_UUIDS[routeTenantKey] : null;
   const devUuid =
     process.env.NODE_ENV === "development" && devTenantOverride ? TENANT_UUIDS[devTenantOverride] : null;
 
-  /** Null when Global Command Center has no cookie — aggregate dashboard stays unscoped (TAS). */
-  const activeTenantUuid = routeUuid ?? devUuid ?? cookieTenantUuid;
+  /** Host subdomain wins, then path prefix, then dev override, then cookie. */
+  const activeTenantUuid = hostUuid ?? routeUuid ?? devUuid ?? cookieTenantUuid;
 
-  const activeTenantKey =
+  const activeTenantKey = (
+    hostTenantSlug ??
     routeTenantKey ??
     (process.env.NODE_ENV === "development" ? devTenantOverride : null) ??
-    tenantKeyFromUuid(cookieTenantUuid);
+    tenantKeyFromUuid(cookieTenantUuid)
+  ) as TenantKey | null;
 
   useEffect(() => {
     if (devIronguardCookieSyncSuppressed) return;
@@ -175,12 +180,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     return {
       activeTenantKey,
       activeTenantUuid,
-      isTenantRoute: Boolean(routeTenantKey),
+      isTenantRoute: Boolean(routeTenantKey || hostTenantSlug),
       setDevTenantOverride,
       switchDevTenantColdBoot,
       tenantFetch,
     };
-  }, [activeTenantKey, activeTenantUuid, routeTenantKey, setDevTenantOverride, switchDevTenantColdBoot]);
+  }, [activeTenantKey, activeTenantUuid, routeTenantKey, hostTenantSlug, setDevTenantOverride, switchDevTenantColdBoot]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }

@@ -1,5 +1,7 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import prisma from "@/lib/prisma";
+import { IRONFRAME_HOST_TENANT_SLUG_HEADER, IRONFRAME_HOST_TENANT_UUID_HEADER } from "@/app/lib/tenantSubdomain";
+import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { readSimulationModeCookieEnabled } from "@/app/utils/simulationModeCookieServer";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
@@ -49,10 +51,27 @@ async function resolveTenantUuidFromIronframeCookieRaw(
   return tenantBySlug?.id ?? null;
 }
 
+/** Host-bound tenant UUID from subdomain middleware (wins over cookie scope). */
+export async function getHostBoundTenantUuid(): Promise<string | null> {
+  const h = await headers();
+  const rawUuid = h.get(IRONFRAME_HOST_TENANT_UUID_HEADER)?.trim();
+  if (rawUuid && isValidTenantUuid(rawUuid)) return rawUuid;
+
+  const slug = h.get(IRONFRAME_HOST_TENANT_SLUG_HEADER)?.trim();
+  if (!slug) return null;
+
+  const tenant = await lookupTenantBySlug(slug);
+  return tenant?.id ?? null;
+}
+
 /**
  * Command Center cookie scope only — **null** when Global Aggregate (no `ironframe-tenant` cookie).
+ * Subdomain host binding takes precedence when present.
  */
 export async function getScopedTenantUuidFromCookies(): Promise<string | null> {
+  const hostBound = await getHostBoundTenantUuid();
+  if (hostBound) return hostBound;
+
   const store = await cookies();
   const rawFull = store.get("ironframe-tenant")?.value?.trim();
   return resolveTenantUuidFromIronframeCookieRaw(rawFull);
@@ -73,11 +92,16 @@ export async function getRedTeamSimulationTenantUuid(): Promise<string | null> {
 /**
  * Resolves the active tenant UUID from the ironframe-tenant cookie (dashboard / clearance parity).
  * Accepts slug (medshield, …) or a known tenant UUID string.
- * Falls back to Medshield when the cookie is missing or unrecognized (same default as dashboard fetch).
+ * When cookie is missing, uses first RBAC assignment for authenticated sessions before Medshield default.
  */
 export async function getActiveTenantUuidFromCookies(): Promise<string> {
   const scoped = await getScopedTenantUuidFromCookies();
-  return scoped ?? TENANT_UUIDS.medshield;
+  if (scoped) return scoped;
+
+  const { resolveDashboardActiveTenantUuid } = await import(
+    "@/app/lib/auth/resolveDashboardActiveTenant"
+  );
+  return resolveDashboardActiveTenantUuid();
 }
 
 export function isValidTenantUuid(value: string | null | undefined): value is string {

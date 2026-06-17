@@ -4,6 +4,10 @@ export const fetchCache = "force-no-store";
 
 import { NextRequest, NextResponse } from 'next/server';
 import { unstable_noStore as noStore, revalidatePath } from 'next/cache';
+import {
+  buildWormAuditedBypassLabel,
+} from '@/app/lib/evidence/threatEventWormGuard';
+import { runAuditedThreatEventWormBypass } from '@/app/lib/prisma/threatEventWormBypass';
 import prisma from '@/lib/prisma';
 import { acknowledgeThreatAction } from '@/app/actions/threatActions';
 import { mergeIngestionDetailsPatch, mergeIngestionDetailsPatchJson, parseIngestionDetailsForMerge } from '@/app/utils/ingestionDetailsMerge';
@@ -256,10 +260,14 @@ export async function POST(request: NextRequest) {
             discoveryIngestHoldStartedAt: holdIso,
             riskVelocityDiscoveryHold: true,
           });
-          await prisma.threatEvent.updateMany({
-            where: { id: threatId },
-            data: { ingestionDetails: mergedHold },
-          });
+          await runAuditedThreatEventWormBypass(
+            buildWormAuditedBypassLabel(threatId, 'INGEST_DISCOVERY_HOLD_STAMP'),
+            (tx) =>
+              tx.threatEvent.updateMany({
+                where: { id: threatId },
+                data: { ingestionDetails: mergedHold },
+              }),
+          );
         }
       } catch (stampErr) {
         console.warn("[api/threats/ingest] discovery hold stamp failed", stampErr);
@@ -316,10 +324,14 @@ export async function POST(request: NextRequest) {
           /** Product “Active Risk” — DB uses `ThreatState.CONFIRMED` / MITIGATED (ack path promotes IDENTIFIED → CONFIRMED). */
           commandCenterLifecycle: 'ACTIVE_RISK',
         });
-        await prisma.threatEvent.updateMany({
-          where: { id: threatId },
-          data: { ingestionDetails: merged },
-        });
+        await runAuditedThreatEventWormBypass(
+          buildWormAuditedBypassLabel(threatId, 'INGEST_SIGNAL_PROMOTION_STAMP'),
+          (tx) =>
+            tx.threatEvent.updateMany({
+              where: { id: threatId },
+              data: { ingestionDetails: merged },
+            }),
+        );
       }
       if (deficiencyReportId) {
         await markOperationalDeficiencyReportPromotedToThreat(tenantId, deficiencyReportId, threatId);
@@ -372,10 +384,14 @@ export async function POST(request: NextRequest) {
           const mergedChaos = mergeIngestionDetailsPatch(rowIngest?.ingestionDetails ?? null, {
             ...chaosPatch,
           });
-          await prisma.threatEvent.updateMany({
-            where: { id: threatId },
-            data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
-          });
+          await runAuditedThreatEventWormBypass(
+            buildWormAuditedBypassLabel(threatId, 'INGEST_CHAOS_ASSIGNEE_STAMP'),
+            (tx) =>
+              tx.threatEvent.updateMany({
+                where: { id: threatId },
+                data: { assigneeId: 'User_00', ingestionDetails: mergedChaos },
+              }),
+          );
         }
       }
     } catch (chaosStampErr) {
@@ -465,10 +481,14 @@ export async function POST(request: NextRequest) {
               select: { ingestionDetails: true },
             });
             const merged = mergeIngestionDetailsPatch(te?.ingestionDetails ?? null, busPatch);
-            await prisma.threatEvent.updateMany({
-              where: { id: threatId },
-              data: { ingestionDetails: merged },
-            });
+            await runAuditedThreatEventWormBypass(
+              buildWormAuditedBypassLabel(threatId, 'INGEST_ORCHESTRATION_BUS_STAMP'),
+              (tx) =>
+                tx.threatEvent.updateMany({
+                  where: { id: threatId },
+                  data: { ingestionDetails: merged },
+                }),
+            );
           }
         } catch (busStampErr) {
           console.warn('[api/threats/ingest] orchestration bus ingestion stamp failed', busStampErr);

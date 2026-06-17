@@ -9,9 +9,28 @@ import {
   useRef,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { useRiskStore } from "@/app/store/riskStore";
+import { isConstitutionalOverlaySuppressedPath } from "@/app/utils/grcRouteMatch";
 
 const POLL_MS = 4000;
+const INTEGRITY_FETCH_TIMEOUT_MS = 12_000;
+
+function publicSurfaceIntegrityClearPatch() {
+  return {
+    isConstitutionalEmergency: false,
+    constitutionalRebaselinePending: false,
+    constitutionalDegradedMode: false,
+    requiredForensicAttestationMin: 50,
+    isSustainabilityApiDegraded: false,
+    isSustainabilityStaleLockdownBlocking: false,
+    isOverrideSpent: false,
+    sha256: null as string | null,
+    sha256Short: "",
+    failureReason: null as string | null,
+    failureMessage: null as string | null,
+  };
+}
 
 export type ConstitutionalIntegrityClientState = {
   isConstitutionalEmergency: boolean;
@@ -35,6 +54,7 @@ const ConstitutionalIntegrityContext = createContext<ConstitutionalIntegrityClie
 );
 
 export function ConstitutionalIntegrityProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const setConstitutionalIntegrityState = useRiskStore((s) => s.setConstitutionalIntegrityState);
   const isConstitutionalEmergency = useRiskStore((s) => s.isConstitutionalEmergency);
   const constitutionalRebaselinePending = useRiskStore((s) => s.constitutionalRebaselinePending);
@@ -44,18 +64,48 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
   const constitutionalFailureMessage = useRiskStore((s) => s.constitutionalFailureMessage);
   const constitutionalDegradedMode = useRiskStore((s) => s.constitutionalDegradedMode);
   const isSustainabilityApiDegraded = useRiskStore((s) => s.isSustainabilityApiDegraded);
-  const isSustainabilityStaleLockdownBlocking = useRiskStore((s) => s.isSustainabilityStaleLockdownBlocking);
+  const isSustainabilityStaleLockdownBlocking = useRiskStore(
+    (s) => s.isSustainabilityStaleLockdownBlocking,
+  );
   const requiredForensicAttestationMin = useRiskStore((s) => s.requiredForensicAttestationMin);
   const isOverrideSpent = useRiskStore((s) => s.isOverrideSpent);
 
   const pollInFlightRef = useRef(false);
+  const overlaySuppressed = isConstitutionalOverlaySuppressedPath(pathname);
+
+  useEffect(() => {
+    if (overlaySuppressed) {
+      setConstitutionalIntegrityState(publicSurfaceIntegrityClearPatch());
+    }
+  }, [overlaySuppressed, pathname, setConstitutionalIntegrityState]);
 
   const refreshIntegrity = useCallback(async () => {
     if (pollInFlightRef.current) return;
     pollInFlightRef.current = true;
+    const suppressed = isConstitutionalOverlaySuppressedPath(pathname);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), INTEGRITY_FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/grc/tas-integrity", { cache: "no-store" });
+      const res = await fetch("/api/grc/tas-integrity", {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        if (suppressed) {
+          setConstitutionalIntegrityState(publicSurfaceIntegrityClearPatch());
+        }
+        return;
+      }
       const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (suppressed) {
+        setConstitutionalIntegrityState({
+          ...publicSurfaceIntegrityClearPatch(),
+          sha256: typeof body.sha256 === "string" && body.sha256.length === 64 ? body.sha256 : null,
+          sha256Short: typeof body.sha256Short === "string" ? body.sha256Short : "",
+        });
+        return;
+      }
       setConstitutionalIntegrityState({
         isConstitutionalEmergency: Boolean(body.isConstitutionalEmergency),
         constitutionalRebaselinePending: Boolean(body.constitutionalRebaselinePending),
@@ -74,6 +124,10 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
         failureMessage: typeof body.failureMessage === "string" ? body.failureMessage : null,
       });
     } catch {
+      if (suppressed) {
+        setConstitutionalIntegrityState(publicSurfaceIntegrityClearPatch());
+        return;
+      }
       setConstitutionalIntegrityState({
         isConstitutionalEmergency: true,
         constitutionalRebaselinePending: false,
@@ -88,9 +142,10 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
         failureMessage: "Failed to reach constitutional integrity sentinel.",
       });
     } finally {
+      window.clearTimeout(timeoutId);
       pollInFlightRef.current = false;
     }
-  }, [setConstitutionalIntegrityState]);
+  }, [pathname, setConstitutionalIntegrityState]);
 
   useEffect(() => {
     void refreshIntegrity();

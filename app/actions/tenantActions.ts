@@ -1,38 +1,27 @@
 "use server";
 
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
-import prisma from "@/lib/prisma";
+import {
+  resolveCommandCenterTenantScope,
+  type CommandCenterTenantRow,
+  type CommandCenterTenantScope,
+} from "@/app/lib/auth/commandCenterTenantAccess";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 
-export type CommandCenterTenantRow = {
-  id: string;
-  name: string;
-  slug: string;
-  industry: string | null;
-  aleBaselineCents: string;
-};
+export type { CommandCenterTenantRow, CommandCenterTenantScope };
 
 /**
- * All tenants for Global Command Center dropdown — name/slug/industry from DB (cross-industry testing).
+ * RBAC-scoped tenants for the Global Command Center dropdown.
+ * GLOBAL_ADMIN sees every tenant; other roles see assigned workspaces only.
  */
 export async function listCommandCenterTenants(): Promise<CommandCenterTenantRow[]> {
-  const rows = await prisma.tenant.findMany({
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      industry: true,
-      ale_baseline: true,
-    },
-    orderBy: { name: "asc" },
-  });
-  return rows.map((t) => ({
-    id: t.id,
-    name: t.name,
-    slug: t.slug,
-    industry: t.industry,
-    aleBaselineCents: t.ale_baseline.toString(),
-  }));
+  const scope = await resolveCommandCenterTenantScope();
+  return scope.tenants;
+}
+
+/** Tenant rows plus whether the aggregate global lane is permitted. */
+export async function listCommandCenterTenantScope(): Promise<CommandCenterTenantScope> {
+  return resolveCommandCenterTenantScope();
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

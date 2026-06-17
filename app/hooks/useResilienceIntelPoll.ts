@@ -18,6 +18,7 @@ import { createSimulationFetchScope } from "@/app/hooks/useSimulationFetchAbort"
 import { fetchIronintelResilienceLines } from "@/app/lib/client/simulationAgentFetch";
 
 import { isSimulationFetchAborted } from "@/app/utils/simulationNavAbort";
+import { isDemoModeActive } from "@/app/lib/demo/demoMode";
 
 
 
@@ -47,6 +48,7 @@ export function useResilienceIntelPoll() {
   );
 
   useEffect(() => {
+    if (isDemoModeActive()) return;
     if (!expertModeEnabled) return;
 
     const scope = createSimulationFetchScope();

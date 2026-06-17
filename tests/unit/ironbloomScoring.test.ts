@@ -9,9 +9,9 @@ import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRos
 import {
   assertEsgPhysicalIngestion,
   IronbloomCriticalIngestionError,
-  PhysicalUnitRequiredError,
   validateIronbloomEsgEntry,
 } from "@/lib/sustainability/constants";
+import { InvalidIronbloomMetricError } from "@/lib/sustainability/ironbloom";
 
 describe("ironbloomScoring", () => {
   it("computes ALE_carbon = (kWh × CI) × P_offset × R_tax", () => {
@@ -44,12 +44,14 @@ describe("ironbloomScoring", () => {
     expect(share).toBeLessThan(0.01);
   });
 
-  it("returns PHYSICAL_UNIT_REQUIRED when monetaryValue lacks physical units", () => {
-    expect(() => assertEsgPhysicalIngestion({ monetaryValue: 50000 })).toThrow(PhysicalUnitRequiredError);
+  it("returns INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY when monetaryValue lacks physical units", () => {
+    expect(() => assertEsgPhysicalIngestion({ monetaryValue: 50000 })).toThrow(InvalidIronbloomMetricError);
     try {
       assertEsgPhysicalIngestion({ monetaryValue: 50000 });
     } catch (e) {
-      expect((e as PhysicalUnitRequiredError).code).toBe("PHYSICAL_UNIT_REQUIRED");
+      expect((e as InvalidIronbloomMetricError).code).toBe(
+        "INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY",
+      );
     }
   });
 

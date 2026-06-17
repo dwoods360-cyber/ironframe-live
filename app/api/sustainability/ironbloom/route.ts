@@ -1,19 +1,25 @@
 import { NextResponse } from "next/server";
-import {
-  assertEsgPhysicalIngestion,
-  IronbloomCriticalIngestionError,
-  IronbloomIngestUnprocessableError,
-  PhysicalUnitRequiredError,
-  validateIronbloomEsgEntry,
-  validateIronbloomSustainabilityPayload,
-} from "@/lib/sustainability/constants";
+
 import {
   ingressSanitizerFailureResponse,
   sanitizeIngressPayload,
 } from "@/app/lib/ironethic/ingressSanitizer";
+import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
+import {
+  IronbloomCriticalIngestionError,
+  IronbloomIngestUnprocessableError,
+  PhysicalUnitRequiredError,
+  validateIronbloomEsgEntry,
+} from "@/lib/sustainability/constants";
+import {
+  computeIronbloomCarbonTrace,
+  InvalidIronbloomMetricError,
+} from "@/lib/sustainability/ironbloom";
 
 /**
- * Ironbloom (CSRD) intake — physical units mandatory; monetary-only → 400 PHYSICAL_UNIT_REQUIRED.
+ * Ironbloom (CSRD) intake — physical units mandatory (kWh, L, km).
+ * Monetary-only payloads → INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -28,36 +34,48 @@ export async function POST(req: Request) {
   }
 
   try {
-    assertEsgPhysicalIngestion(body);
+    const tenantId =
+      body != null && typeof body === "object" && "tenantId" in body
+        ? String((body as { tenantId?: unknown }).tenantId ?? "").trim()
+        : "";
+    const resolvedTenantId = tenantId || (await getActiveTenantUuidFromCookies());
+    const tenantKey = tenantKeyFromUuid(resolvedTenantId);
+
+    const trace = computeIronbloomCarbonTrace({
+      tenantId: resolvedTenantId,
+      tenantKey,
+      body,
+    });
+
+    validateIronbloomEsgEntry({
+      assetId: trace.assetId,
+      kwh: trace.physicalUnit === "kWh" ? trace.physicalQuantity : null,
+      liters: trace.physicalUnit === "L" ? trace.physicalQuantity : null,
+      km: trace.physicalUnit === "km" ? trace.physicalQuantity : null,
+      payload: body,
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        accepted: true,
+        tenantId: trace.tenantId,
+        carbonTrace: {
+          physicalUnit: trace.physicalUnit,
+          physicalQuantity: trace.physicalQuantity,
+          carbonGramsCo2e: trace.carbonGramsCo2e.toString(),
+          serializedTrace: trace.serializedTrace,
+        },
+      },
+      { status: 200 },
+    );
   } catch (e) {
+    if (e instanceof InvalidIronbloomMetricError) {
+      return NextResponse.json({ error: e.message, code: e.code }, { status: e.httpStatus });
+    }
     if (e instanceof PhysicalUnitRequiredError) {
-      return NextResponse.json({ error: e.message, code: e.code }, { status: 400 });
+      return NextResponse.json({ error: e.message, code: e.code }, { status: e.httpStatus });
     }
-    throw e;
-  }
-
-  const assetId =
-    body != null && typeof body === "object" && "assetId" in body
-      ? String((body as { assetId?: unknown }).assetId ?? "ESG_INGEST")
-      : "ESG_INGEST";
-
-  try {
-    if (body != null && typeof body === "object") {
-      const o = body as Record<string, unknown>;
-      validateIronbloomEsgEntry({
-        assetId,
-        kwh: o.kwh != null ? Number(o.kwh) : o.units_kwh != null ? Number(o.units_kwh) : null,
-        liters: o.liters != null ? Number(o.liters) : null,
-        km: o.km != null ? Number(o.km) : null,
-        mitigatedValueCents:
-          o.mitigatedValueCents != null || o.monetaryValue != null
-            ? String(o.mitigatedValueCents ?? o.monetaryValue)
-            : null,
-        payload: body,
-      });
-    }
-    validateIronbloomSustainabilityPayload(body, assetId);
-  } catch (e) {
     if (e instanceof IronbloomCriticalIngestionError) {
       return NextResponse.json({ error: e.message, code: e.code }, { status: e.httpStatus });
     }
@@ -66,6 +84,4 @@ export async function POST(req: Request) {
     }
     throw e;
   }
-
-  return NextResponse.json({ ok: true, accepted: true }, { status: 200 });
 }

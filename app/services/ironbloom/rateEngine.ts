@@ -2,6 +2,8 @@ import "server-only";
 
 import type { CarbonIntensityQuote } from "@/app/types/ironbloomScoring";
 import { resolveTenantLocation, US_ZIP_GEO_ANCHORS } from "@/app/config/tenantUtilityLocation";
+import { normalizeElectricityMapsZone } from "@/app/config/tenantCarbonZones";
+import { resolveRegionalGridIntensityGco2PerKwh } from "@/lib/sustainability/ironbloom";
 import {
   getCachedRateForTenant,
   IRONBLOOM_RATE_DRIFT_THRESHOLD,
@@ -345,10 +347,18 @@ export function jitterForensicCarbonIntensity(base = FALLBACK_CARBON_INTENSITY):
   return Math.round(jittered * 10) / 10;
 }
 
-export function buildForensicFallbackQuote(zone: string): CarbonIntensityQuote {
+export function buildForensicFallbackQuote(
+  zone: string,
+  tenantKey?: TenantSlug | null,
+): CarbonIntensityQuote {
+  const resolvedZone = normalizeElectricityMapsZone(zone, tenantKey ?? null);
+  const carbonIntensityGco2PerKwh = resolveRegionalGridIntensityGco2PerKwh(
+    resolvedZone,
+    tenantKey ?? null,
+  );
   return {
-    zone,
-    carbonIntensityGco2PerKwh: jitterForensicCarbonIntensity(),
+    zone: resolvedZone,
+    carbonIntensityGco2PerKwh,
     source: "FORENSIC_FALLBACK",
     transparencyLabel: CSRD_TRANSPARENCY_ESTIMATED_REGIONAL_AVG,
     polledAt: new Date().toISOString(),

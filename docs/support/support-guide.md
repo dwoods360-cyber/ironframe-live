@@ -19,7 +19,7 @@ Collect on every ticket:
 3. URL path and timestamp (UTC)
 4. Browser and OS
 5. Screenshot or HAR (no secrets)
-6. Response status for `/api/dashboard` and `/api/sustainability/stats`
+6. Response status for dashboard and sustainability telemetry endpoints
 
 ## Triage flow
 
@@ -29,7 +29,7 @@ User report
     ├─ Auth/login? → Supabase dashboard, session cookies, middleware
     ├─ Blank dashboard? → Tenant switch race, refetch, 401 on dashboard
     ├─ Carbon pulse? → Electricity Maps key, fallback env, LKG route
-    ├─ Export fail? → Tenant scope, /dashboard/exports auth
+    ├─ Export fail? → Tenant scope, exports dashboard auth
     ├─ Stale data banner? → Ironwatch heartbeat, SystemConfig.degraded flags
     └─ Cross-tenant data? → STOP — escalate L3 immediately
 ```
@@ -41,8 +41,8 @@ User report
 | Session expired | Clear site cookies, re-login |
 | No tenant scope | Select tenant; not Global for exports |
 | Carbon loop / missing API key | Confirm `IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED=true` or set `ELECTRICITY_MAPS_API_KEY` |
-| Dashboard 503 | Check Vercel deploy logs; run health: `/api/health` |
-| Cron not running | Verify `vercel.json` crons + `IRONFRAME_CRON_SECRET` |
+| Dashboard 503 | Check deployment logs; run platform health probe |
+| Cron not running | Verify cron schedule configuration and `IRONFRAME_CRON_SECRET` |
 | Simulation noise in audit | Expected—GRCBOT filtered in UI; use purge tools if admin requests |
 
 ## Escalation triggers (immediate)
@@ -56,10 +56,10 @@ User report
 
 | Tool | Use |
 |------|-----|
-| Vercel logs | Function errors, cron execution |
+| Deployment logs | Function errors, cron execution |
 | Supabase logs | Auth failures, RLS denials |
 | `npm run test:vercel-smoke` | Post-deploy cron/auth probe |
-| `/api/grc/tas-integrity` | Constitutional health (200 vs 503) |
+| TAS integrity probe | Constitutional health (200 vs 503) |
 | [Nightly Cron Runbook](../operations-support/nightly-cron-runbook.md) | Doc Engine vs API narrate — logs, env, pass/fail |
 | Prisma Studio | Read-only row inspection (never mutate without runbook) |
 

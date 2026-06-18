@@ -33,7 +33,7 @@ Follow these step-by-step tracking actions on your computer screen to audit the 
 * **Where it is on screen:** Pinned permanently to the global slate header bar running across the top frame of your screen window.
 * **What it is used for:** Making sure that when you access your control room, the system issues you a secure digital badge so it remembers your specific user account.
 * **How to use and test it:**
-  1. Open your web browser layout window and navigate to the application endpoint (`http://localhost:3000`).
+  1. Open your provisioned workspace URL in your browser.
   2. Input your assigned student credentials to log into the main operations deck.
   3. Once your dashboard mounts on screen, right-click anywhere on the dark background space and select **Inspect** (or press F12).
   4. Navigate to the **Application** or **Storage** tab menu and select the **Cookies** row on the left sidebar list.
@@ -78,4 +78,4 @@ If you ever get stuck or confused while working through your laboratory modules 
 
 * **The Help Triggers:** Next to major module titles, look for a button labeled **`❓ HELP`**.
 * **What happens when clicked:** Clicking this button opens an overlay window sliding out from the right margin of your display screen. It will tell you the exact **Function Name**, **On-Screen Location**, **What it is used for**, and **How to use it** instantly without closing your active work.
-* **Deep Links:** Inside that help window, click the text button labeled **`OPEN DEEP-DIVE WEB DOCUMENT`** to automatically open a fresh tab routing you directly to the public web-facing documentation hub pages at `/docs/qa/complete-feature-glossary`.
+* **Deep Links:** Inside that help window, click the text button labeled **`OPEN DEEP-DIVE WEB DOCUMENT`** to open the complete feature glossary chapter in the documentation corpus (`docs/qa/complete-feature-glossary.md`).

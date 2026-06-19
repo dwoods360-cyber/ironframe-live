@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { SALES_CONTACT_PATH } from "@/config/registration";
+
+import { GOVERNANCE_FRAME_PUBLIC_ORIGIN } from "@/config/governanceFramePublic";
+
 import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
 
 const REGULATORY_BRIEFS = [
@@ -121,20 +123,19 @@ export default function MarketingHomepage() {
           <span className="text-[var(--login-accent)]">tenant.ironframegrc.com</span>
         </p>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-          <MarketingSalesPortalTrigger className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-slate-950 uppercase shadow-lg shadow-cyan-950/20 transition-all duration-150 hover:from-cyan-400 hover:to-indigo-500 active:scale-[0.98] sm:w-auto">
-            ⚡ Interface with Sales Specialist
+          <MarketingSalesPortalTrigger className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase shadow-lg shadow-indigo-950/40 transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto">
+            Request Demo: Contact Sales
           </MarketingSalesPortalTrigger>
-          <Link
-            href={SALES_CONTACT_PATH}
-            className="w-full rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition-all hover:opacity-90 sm:w-auto"
-          >
-            Request demo: Contact sales
-          </Link>
           <a
-            href="#pulse"
-            className="w-full rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm font-medium text-[var(--text-main)] transition-all hover:opacity-90 sm:w-auto"
+            href={GOVERNANCE_FRAME_PUBLIC_ORIGIN}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-[var(--login-border)] bg-[var(--bg-secondary)] px-6 font-sans text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--bg-primary)] sm:w-auto"
           >
             Explore the GRC Pulse
+            <span className="ml-1.5" aria-hidden="true">
+              →
+            </span>
           </a>
         </div>
       </header>
@@ -295,7 +296,7 @@ export default function MarketingHomepage() {
             aria-labelledby="pulse-sidebar-heading"
           >
             <h4 id="pulse-sidebar-heading" className="sr-only">
-              System telemetry sidebar
+              Operational telemetry sidebar
             </h4>
             <div>
               <h5 className="mb-3 font-mono text-xs tracking-wider text-[var(--login-muted)] uppercase">

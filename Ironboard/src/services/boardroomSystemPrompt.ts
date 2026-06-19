@@ -1,4 +1,5 @@
 import type { BoardPersona } from '../staticContext.js';
+import { BOARD_DUAL_LOCATION_OUTPUT_MATRIX } from '../config/dualLocationOutputMatrix.js';
 import {
   BOARD_CONVERSATIONAL_BOUNDARY,
   BOARD_CRM_TOOL_MANDATE,
@@ -29,6 +30,17 @@ export type BoardroomSystemPromptInput = {
   /** Raw JSON from GET /api/board/shared-context — injected before LLM synthesis. */
   liveSystemTelemetryJson?: string;
 };
+
+export const BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE = BOARD_DUAL_LOCATION_OUTPUT_MATRIX;
+
+export const BOARD_GTM_MARKET_AUTHENTICITY_MANDATE = `
+[GTM MARKET DATA AUTHENTICITY — CONSTITUTIONAL DIRECTIVE]
+You are the core GTM intelligence plane with visibility into market_prospects via flywheel context and queryLocalWorkspace snapshots.
+- Rows named "{Region} Ledger" (24 employees) or "{Region} Vault" (18 employees), or domains ending in -ledger.io / -vault.finance, are SYNTHETIC_SCAFFOLDING — never present them as real market research, named prospects, or customer proof points.
+- When authenticity audit shows polluted=true or authentic count below threshold, state that live web discovery is required or in progress; do not invent company names.
+- Label every cited prospect with data lineage: LIVE_WEB_GROUNDING, SYNTHETIC_SCAFFOLDING, or CURATED_DEMO_SEED (London/Singapore classroom batches only).
+- If verifyAndOptimizeMarketData has not yet populated authentic rows, tell the operator live discovery is running — do not recycle template names from memory.
+`.trim();
 
 /**
  * Unified hardened governance layers: unidirectional diode, live telemetry hydration,
@@ -63,13 +75,14 @@ You are strictly prohibited from using generic marketing blocks or bullet lists 
 
 [LAYER 5: EXECUTIVE PERSONA EXECUTION RATIOS]
 - Chief of Staff (board-bot) & CFO (board-cfo): Anchor financial exposure assertions strictly in macro-sanitized USD metrics.
-- Narrative Architect (board-writer): Draft the core text using clear, un-exploitable prose.
+- Trainer (board-trainer): ISOLATED from live boardroom chat — interactive sessions use POST /api/agents/trainer on Ironframe (:3000). Authoring still runs via documentation pipeline; corpus placement docs/user-manuals/ and docs/training/ only.
+- Narrative Architect (board-writer): ISOLATED from live boardroom chat — practitioner sessions use POST /api/agents/writer on Ironframe (:3000). Authoring still runs via documentation pipeline; corpus placement docs/technical/ and training/level-2/ only.
 - Compliance Officer (board-compliance): Validate all text against DORA compliance mandates.
 
 [LAYER 6: MANDATORY SOURCES & CITATIONS]
 When drafting Governance Frame briefings, newsletters, or executive summaries intended for human promotion:
 1. End every draft with a "### V. Sources & Citations" section.
-2. Each citation MUST trace to a reviewable locator: JSON path in the Layer 2 telemetry block, \`GET /api/board/shared-context\`, \`docs/TAS.md\`, \`docs/published-briefings/{slug}.md\`, or an approved external regulator URL.
+2. Each citation MUST trace to a reviewable locator: JSON path in the Layer 2 telemetry block, \`GET /api/board/shared-context\`, \`docs/README.md\`, \`docs/user-manuals/{file}.md\`, \`docs/technical/{file}.md\`, \`docs/TAS.md\`, \`config/route-manifest.v0.1.0-ga-epic17.json\`, \`docs/published-briefings/{slug}.md\`, or an approved external regulator URL.
 3. Use this bullet format: \`- **[n] Label** — \`locator\` · retrieved YYYY-MM-DD · optional note\`
 4. Never cite raw BigInt cent integers, CVE identifiers, or internal UUIDs — cite formatted display strings and API endpoints instead.
 5. State explicitly when a claim is synthesized vs. directly read from telemetry. The human reviewer uses Section V to fact-check before promotion from \`docs/briefing-queue/\` to \`docs/published-briefings/\`.
@@ -115,6 +128,8 @@ export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInpu
 
   const blocks = [
     ...priorityBlocks,
+    BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE,
+    BOARD_GTM_MARKET_AUTHENTICITY_MANDATE,
     BOARD_EXECUTION_LAYER_PERSONA,
     BOARD_CONVERSATIONAL_BOUNDARY,
     BOARD_CRM_TOOL_MANDATE,

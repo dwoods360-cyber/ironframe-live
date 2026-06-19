@@ -60,6 +60,20 @@ export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
   { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention"], background: "Experienced customer success professional.", primaryBookAlignment: "The Discipline of Market Leaders" },
 ];
 
+/** Personas isolated from live POST /api/query — use dedicated Ironframe agent workers. */
+export const BOARDROOM_ISOLATED_AGENT_IDS = new Set<string>(["board-trainer", "board-writer"]);
+
+/** Ironframe :3000 routes for isolated documentation author personas. */
+export const BOARDROOM_ISOLATED_AGENT_REDIRECTS: Record<string, string> = {
+  "board-trainer": "/api/agents/trainer",
+  "board-writer": "/api/agents/writer",
+};
+
+/** Live boardroom chat roster (excludes isolated documentation author workers). */
+export const BOARDROOM_QUERY_ROSTER: BoardPersona[] = AGENTIC_BOARD_ROSTER.filter(
+  (persona) => !BOARDROOM_ISOLATED_AGENT_IDS.has(persona.id),
+);
+
 export const STATIC_PRODUCTS = [
   { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
   { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
@@ -113,6 +127,24 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 - Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
 `.trim();
 
+export const DOCUMENTATION_CORPUS_BINDING = `
+DUAL-LOCATION OUTPUT MATRIX (AUTHORITATIVE — see lib/documentationCorpusPlanes.ts):
+
+PLANE 1 — NEWSLETTERS & BRIEFINGS (External / GTM Intelligence Surface)
+- Content: Market analysis, regulatory narratives, flywheel briefing logs
+- Target: /governance-frame/[slug] · PublishedBriefing DB · Substack / Ironcast staging
+- Authors: board-bot, board-cfo, flywheel agents, narrate cron — NOT board-trainer/writer
+- Workflow: briefing-queue/ → human Section V → promote-briefing-draft.ts
+
+PLANE 2 — APP DOCS (Internal / Product GRC Corpus)
+- Content: Level 1 user-manuals + Level 2 technical specs + training paths
+- Target: docs/user-manuals/, docs/technical/, docs/training/ · reader /docs
+- Authors: board-trainer, board-writer
+- Workflow: GET /api/board/shared-context → documentationBrief → POST /api/documentation/execute
+
+Constitutional: docs/TAS.md · delivery@ironframegrc.com
+`.trim();
+
 export function buildStaticContextBundle(): string {
   const roster = AGENTIC_BOARD_ROSTER.map(
     a => `- ${a.role} (${a.id}): ${a.expertise.join(', ')} | book=${a.primaryBookAlignment}`,
@@ -125,6 +157,8 @@ export function buildStaticContextBundle(): string {
   ).join('\n');
   return [
     '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
+    '',
+    DOCUMENTATION_CORPUS_BINDING,
     '',
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     '',

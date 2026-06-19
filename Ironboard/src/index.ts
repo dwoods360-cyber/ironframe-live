@@ -10,6 +10,9 @@ import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type Groundi
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
 import {
   AGENTIC_BOARD_ROSTER,
+  BOARDROOM_ISOLATED_AGENT_IDS,
+  BOARDROOM_ISOLATED_AGENT_REDIRECTS,
+  BOARDROOM_QUERY_ROSTER,
   STATIC_PRODUCTS,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
@@ -45,8 +48,9 @@ import {
   findProspectByDomain,
   triggerProspectIngest,
   buildFlywheelWorkspaceContext,
+  verifyAndOptimizeMarketData,
 } from './services/marketIntelligence.js';
-import { parseTargetCountriesInput } from './lib/flywheelTargetCountries.js';
+import { parseTargetCountriesInput, resolveFlywheelTargetRegions } from './lib/flywheelTargetCountries.js';
 import {
   QUERY_LOCAL_WORKSPACE_DECLARATION,
   queryLocalWorkspace,
@@ -64,6 +68,7 @@ import {
   shouldPrefetchWeb,
 } from './services/boardroomQueryIntent.js';
 import { handleVideoIngress } from './api/ingress/video.js';
+import { handleResendWebhookIngress } from './api/ingress/email.js';
 import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
 import { createGovernanceFrameRouter } from './governanceFrame/router.js';
 import { scanPublishedBriefings } from './governanceFrame/briefingScanner.js';
@@ -77,6 +82,7 @@ import {
   CORE_TELEMETRY_DISCONNECTED,
   fetchIronframeSharedContext,
 } from './services/coreTelemetryBridge.js';
+import { runDocumentationAuthoringPipeline } from './services/documentationPipeline.js';
 import {
   buildToolExecutionDirective,
   prependVideoIntelligenceSystemOverride,
@@ -102,7 +108,7 @@ function composeToolExecutionDirective(videoTimelineActive: boolean): string {
 const BOARDROOM_DIRECTIVE =
   'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
 
-const VALID_AGENT_IDS = new Set(AGENTIC_BOARD_ROSTER.map(a => a.id));
+const VALID_AGENT_IDS = new Set(BOARDROOM_QUERY_ROSTER.map(a => a.id));
 const AUTO_ROUTER_ID = 'auto';
 
 // ─── Environment ───────────────────────────────────────────────────────────────
@@ -178,6 +184,7 @@ const STATIC_CONTEXT = buildStaticContextBundle();
 // ─── 17-agent boardroom routing ────────────────────────────────────────────────
 function resolveAgentId(agentId: string): string | null {
   const id = agentId.trim();
+  if (BOARDROOM_ISOLATED_AGENT_IDS.has(id)) return null;
   if (id === AUTO_ROUTER_ID) return AUTO_ROUTER_ID;
   if (VALID_AGENT_IDS.has(id)) return id;
   return null;
@@ -402,7 +409,15 @@ async function prefetchBoardroomGroundTruth(params: {
   if (crmEnrichment) enrichmentBlocks.push(crmEnrichment);
 
   if (shouldPrefetchProspects(query)) {
-    const regions = inferRegionsFromQuery(query, activeHub);
+    const inferred = inferRegionsFromQuery(query, activeHub);
+    const regions = inferred.length > 0 ? inferred : resolveFlywheelTargetRegions(activeHub);
+    for (const region of regions) {
+      try {
+        await verifyAndOptimizeMarketData(region, { operatorTriggered: true });
+      } catch (err) {
+        console.warn('[IRONBOARD MARKET AUTHENTICITY]', region, err);
+      }
+    }
     const args: Record<string, unknown> = {
       queryType: 'active_prospects',
       limit: 20,
@@ -701,7 +716,7 @@ function lastUserTurnText(history: HistoryTurn[]): string {
 
 // ─── Dashboard HTML ────────────────────────────────────────────────────────────
 function renderDashboard(): string {
-  const rosterButtons = AGENTIC_BOARD_ROSTER.map(a =>
+  const rosterButtons = BOARDROOM_QUERY_ROSTER.map(a =>
     `<button type="button" class="roster-btn" data-id="${a.id}" data-role="${a.role.replace(/"/g, '&quot;')}">
       <span class="role">${a.role}</span><span class="team">${a.team}</span>
     </button>`,
@@ -1566,6 +1581,14 @@ function renderDashboard(): string {
 
 // ─── Express app ───────────────────────────────────────────────────────────────
 const app = express();
+
+// Raw body required for Resend/Svix webhook signature verification.
+app.post(
+  '/api/ingress/email',
+  express.raw({ type: 'application/json' }),
+  handleResendWebhookIngress,
+);
+
 app.use(express.json({ limit: '12mb' }));
 
 app.get('/', (_req, res) => {
@@ -1575,12 +1598,24 @@ app.get('/', (_req, res) => {
 
 app.post('/api/query', async (req, res) => {
   const rawAgentId = String(req.body?.agentId ?? AUTO_ROUTER_ID).trim();
+
+  if (BOARDROOM_ISOLATED_AGENT_IDS.has(rawAgentId)) {
+    const ironframeRoute = BOARDROOM_ISOLATED_AGENT_REDIRECTS[rawAgentId] ?? "/api/agents/";
+    res.status(403).json({
+      error: 'DOCUMENTATION_AGENT_ISOLATED',
+      message: `${rawAgentId} is isolated from the live boardroom. Use POST ${ironframeRoute} on Ironframe (:3000).`,
+      isolatedAgent: rawAgentId,
+      ironframeRoute,
+    });
+    return;
+  }
+
   const agentId = resolveAgentId(rawAgentId);
   let history = normalizeHistory(req.body?.history);
 
   if (!agentId) {
     res.status(400).json({
-      error: 'Invalid agentId. Must be "auto" or one of the 17 boardroom agent IDs.',
+      error: 'Invalid agentId. Must be "auto" or one of the live boardroom agent IDs.',
       validAgents: [...VALID_AGENT_IDS],
     });
     return;
@@ -1978,6 +2013,39 @@ app.post('/api/market/harvest', async (req, res) => {
 });
 
 app.post('/api/ingress/video', handleVideoIngress);
+
+/**
+ * One-way documentation pipeline — Ironframe shared-context brief → board-trainer → board-writer.
+ */
+app.post('/api/documentation/execute', async (req, res) => {
+  try {
+    const tenantId =
+      typeof req.body?.tenantId === 'string' ? req.body.tenantId.trim() : undefined;
+    const result = await runDocumentationAuthoringPipeline(req, tenantId);
+    if (!result.ok) {
+      res.status(502).json({
+        ok: false,
+        error: 'DOCUMENTATION_BRIEF_INGRESS_FAILED',
+        detail: result.error ?? 'Unknown ingress fault',
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      release: result.brief?.release,
+      posture: result.brief?.posture,
+      communicationDirection: result.brief?.communicationDirection,
+      documentationArtifacts: result.documentationArtifacts,
+      executiveSummaryLog: result.executiveSummaryLog,
+    });
+  } catch (err) {
+    console.error('[IRONBOARD DOCUMENTATION PIPELINE]', err);
+    res.status(500).json({
+      ok: false,
+      error: err instanceof Error ? err.message : 'Documentation pipeline failed',
+    });
+  }
+});
 
 /** The Governance Frame — chronological markdown briefings (published ledger only). */
 app.use('/governance-frame', createGovernanceFrameRouter());

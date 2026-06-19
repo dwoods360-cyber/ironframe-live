@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SALES_CONTACT_PATH } from "@/config/registration";
+import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
 
 const REGULATORY_BRIEFS = [
   {
@@ -38,28 +39,62 @@ export default function MarketingHomepage() {
       aria-labelledby="homepage-hero-title"
     >
       <nav
-        className="sticky top-0 z-50 flex w-full items-center justify-between border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-6 py-4"
+        className="sticky top-0 z-20 flex min-h-11 w-full items-center justify-between gap-3 border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 sm:px-6"
         aria-label="Global execution navigation"
       >
-        <p className="font-mono text-xl font-bold tracking-tight" aria-label="Ironframe Governance Risk and Compliance">
-          <span aria-hidden="true">
-            IRONFRAME<span className="ml-1 text-xs text-[var(--login-accent)]">GRC</span>
+        <div
+          className="flex min-w-0 items-center font-mono text-base font-bold leading-none tracking-tight"
+          aria-label="Ironframe Governance Risk and Compliance"
+        >
+          <span aria-hidden="true" className="truncate">
+            IRONFRAME<span className="ml-1 text-[10px] font-bold text-[var(--login-accent)]">GRC</span>
           </span>
-        </p>
-        <div className="hidden space-x-8 text-sm font-medium text-[var(--login-muted)] md:ml-auto md:flex" role="list">
-          <a href="#problem" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
+        </div>
+        <div className="hidden items-center gap-8 text-sm font-medium leading-none text-[var(--login-muted)] md:flex">
+          <a href="#problem" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
             The Problem
           </a>
-          <a href="#solution" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
+          <a href="#solution" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
             The Solution
           </a>
-          <a href="#pulse" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
+          <a href="#pulse" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
             GRC Pulse
           </a>
-          <a href="#workforce" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
+          <a href="#workforce" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
             19-Agent Grid
           </a>
         </div>
+        <details className="relative md:hidden">
+          <summary className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--login-border)] font-mono text-xs font-bold uppercase tracking-wide text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
+            Menu
+          </summary>
+          <div className="absolute right-0 z-30 mt-2 w-[min(16rem,88vw)] rounded-md border border-[var(--login-border)] bg-[var(--bg-primary)] p-2 shadow-lg">
+            <a
+              href="#problem"
+              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
+            >
+              The Problem
+            </a>
+            <a
+              href="#solution"
+              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
+            >
+              The Solution
+            </a>
+            <a
+              href="#pulse"
+              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
+            >
+              GRC Pulse
+            </a>
+            <a
+              href="#workforce"
+              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
+            >
+              19-Agent Grid
+            </a>
+          </div>
+        </details>
       </nav>
 
       <header className="mx-auto max-w-6xl space-y-6 px-6 pt-20 pb-16 text-center">
@@ -85,7 +120,10 @@ export default function MarketingHomepage() {
           {SECTOR_CUES.join(" · ")} — each workspace ring-fenced at{" "}
           <span className="text-[var(--login-accent)]">tenant.ironframegrc.com</span>
         </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
+        <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <MarketingSalesPortalTrigger className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-slate-950 uppercase shadow-lg shadow-cyan-950/20 transition-all duration-150 hover:from-cyan-400 hover:to-indigo-500 active:scale-[0.98] sm:w-auto">
+            ⚡ Interface with Sales Specialist
+          </MarketingSalesPortalTrigger>
           <Link
             href={SALES_CONTACT_PATH}
             className="w-full rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition-all hover:opacity-90 sm:w-auto"

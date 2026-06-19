@@ -1435,6 +1435,7 @@ enum IronboardInteractionChannel {
   MEETING
   LINKEDIN
   NOTE
+  SYSTEM_AGENT
   OTHER
 }
 
@@ -1446,6 +1447,7 @@ model IronboardCrmContact {
   company      String
   title        String                    @default("")
   phone        String?
+  metadata     Json                      @default("{}")
   createdAt    DateTime                  @default(now()) @map("created_at")
   updatedAt    DateTime                  @updatedAt @map("updated_at")
   tenant       Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1512,4 +1514,18 @@ model PublishedBriefing {
 
   @@index([tenantId])
   @@map("published_briefings")
+}
+
+/// In-app documentation corpus (APP_DOCS plane) — Level 1, Level 2, and training markdown streams.
+model AppDocument {
+  id           String   @id @default(uuid()) @db.Uuid
+  slug         String   @unique
+  title        String
+  content      String   @db.Text
+  readingLevel String   @map("reading_level")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([readingLevel])
+  @@map("app_documents")
 }

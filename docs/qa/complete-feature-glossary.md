@@ -1393,17 +1393,18 @@ Every visible component on your monitor screen is mapped below using industry-st
 ### 💼 Feature 61: Public Sales Agent Portal
 * **GRC Function ID:** `SALES-001`
 * **Exact Screen Coordinates:** `/sales-agent-portal` — `MarketingSalesPortalTrigger` on marketing homepage opens `SalesAgentSlideOver`.
-* **Operational Purpose:** Provides unauthenticated prospect-facing sales agent chat isolated to the **prospect pool tenant** — no customer environment bleed.
+* **Operational Purpose:** Provides unauthenticated prospect-facing lead intake isolated to the **prospect pool tenant** — no customer environment bleed and **no public LLM pitch rendering**.
 * **Technical Mechanics:**
-  * `app/api/agents/sales/route.ts` — public POST; tenant UUID from `IRONFRAME_PROSPECT_POOL_TENANT_UUID` or fallback `tenant_prospect_pool_01`
-  * `app/lib/server/salesAgentConsoleCore.ts` — Gemini synthesis at temperature **0.0**; CRM contact upsert with `fullName` field
+  * `app/api/agents/sales/route.ts` — public POST; returns `{ status: "QUEUED", interactionId, message }` immediately after CRM logging
+  * `app/lib/server/salesAgentConsoleCore.ts` — Gemini synthesis at temperature **0.0** runs server-side only; output stored as `[PENDING SALES DRAFT APPROVAL]` in CRM
+  * Prospect pool tenant UUID from `IRONFRAME_PROSPECT_POOL_TENANT_UUID` or Medshield fallback; CRM contact upsert uses `fullName` field
   * `isPublicProspectOnboardingPath` includes `/sales-agent-portal` and `/api/agents/sales` for quarantine funnel bypass
   * `scripts/smoke-test-sales.mjs` — sales agent smoke validation
-* **Agent Boundary:** **Ironguard** (Agent 12) prospect pool isolation; **Ironlogic** (Agent 4) synthesis; zero authenticated tenant context required.
+* **Agent Boundary:** **Ironguard** (Agent 12) prospect pool isolation; **Ironlogic** (Agent 4) synthesis; zero authenticated tenant context required; human operator dispatch via **HITL-001**.
 * **Step-by-Step Lab Validation:**
-  1. Run `tests/unit/agentPerimeter.test.ts` — verify prospect pool tenant binding.
+  1. Run `tests/unit/agentPerimeter.test.ts` — verify prospect pool tenant binding and QUEUED response (no `pitch` field).
   2. Open `/sales-agent-portal` on cloud preview without full ingress — verify **200** (narrow funnel).
-  3. POST message to `/api/agents/sales` — verify CRM row scoped to prospect pool UUID only.
+  3. POST to `/api/agents/sales` — verify CRM interaction summary contains `[PENDING SALES DRAFT APPROVAL]`.
   4. Run `scripts/smoke-test-sales.mjs` — smoke pass.
 
 ---
@@ -1412,17 +1413,18 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🎧 Feature 62: Customer Service Console API
 * **GRC Function ID:** `SUPPORT-001`
-* **Exact Screen Coordinates:** Authenticated API `POST /api/agents/customer-service` — no default marketing UI chip.
-* **Operational Purpose:** Grounds authenticated tenant support replies against `app_documents` where `readingLevel: "LEVEL_1"` — fail-closed **403** when Ironguard tenant validation drops.
+* **Exact Screen Coordinates:** `/dashboard/support` UI and authenticated API `POST /api/agents/customer-service`.
+* **Operational Purpose:** Grounds authenticated tenant support inquiries against `app_documents` where `readingLevel: "LEVEL_1"` — fail-closed **403** when Ironguard tenant validation drops; returns queued acknowledgment to operators (not live agent reply text).
 * **Technical Mechanics:** `app/lib/server/customerServiceConsoleCore.ts`:
-  * `assertIronguardApiTenantOr403` on every request
+  * `assertIronguardApiTenantOr403` on every request — **tenant-scoped**; does not require `GLOBAL_ADMIN`
   * Documentation rows filtered strictly to LEVEL_1 reading level
-  * Gemini synthesis temperature **0.0**; channel `SYSTEM_AGENT` on CRM interactions ledger
+  * Gemini synthesis temperature **0.0**; proposed reply logged as `[PENDING DRAFT APPROVAL]` via per-tenant support console CRM contact
+  * Response payload: `{ status: "QUEUED", interactionId, reply: acknowledgmentMessage }`
   * Prisma `ironboardCrmContact.fullName` — never `name` or `firstName`/`lastName`
-* **Agent Boundary:** **Ironguard** (Agent 12) tenant perimeter; **Ironscribe** (Agent 05) doc citation lineage.
+* **Agent Boundary:** **Ironguard** (Agent 12) tenant perimeter; **Ironscribe** (Agent 05) doc citation lineage; dispatch via **HITL-001**.
 * **Step-by-Step Lab Validation:**
   1. POST without tenant session — verify **403**.
-  2. POST with valid tenant — verify reply cites LEVEL_1 doc slugs only.
+  2. POST with valid tenant — verify QUEUED response and CRM pending draft tag (not raw synthesis in API body).
   3. Confirm no LEVEL_2 technical corpus rows appear in grounded context.
 
 ---
@@ -1524,22 +1526,23 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ---
 
-<a id="support-002"></a>
+<a id="hitl-001"></a>
 
-### ✅ Feature 68: Customer Service Approval Queue
-* **GRC Function ID:** `SUPPORT-002`
-* **Exact Screen Coordinates:** `/api/admin/approvals` — admin approval queue API; pending draft tags in CRM interactions.
-* **Operational Purpose:** Holds AI-drafted customer service replies for human operator approval before dispatch — tier inference from contact metadata (Gridcore, Vaultbank, Medshield baseline alignment).
+### ✅ Feature 68: Unified Human-in-the-Loop Approval Desk
+* **GRC Function ID:** `HITL-001`
+* **Exact Screen Coordinates:** `/dashboard/admin/approvals` — admin UI; `GET/POST /api/admin/approvals` API.
+* **Operational Purpose:** Aggregates all pending agent outputs (`draftKind: "SUPPORT" | "SALES"`) for **GLOBAL_ADMIN** review before Resend outbound dispatch — tier inference from contact metadata (Gridcore, Vaultbank, Medshield baseline alignment).
 * **Technical Mechanics:** `app/lib/server/approvalQueueCore.ts`:
-  * `PENDING_DRAFT_TAG`, `DISPATCHED_DRAFT_TAG`, `PURGED_DRAFT_TAG`
-  * `inferTierFromContact` — reads `initialBaselineAlignment` metadata or title Baseline: prefix
-  * `listPendingApprovalDrafts` — queries CRM interactions with pending tag
-  * `app/api/admin/approvals/route.ts` — dispatch and purge actions
+  * Support tag: `[PENDING DRAFT APPROVAL]` · Sales tag: `[PENDING SALES DRAFT APPROVAL]`
+  * Dispatch tags: `[DISPATCHED SUPPORT COURIER]` · `[DISPATCHED SALES COURIER]` · purge: `[PURGED DRAFT]`
+  * `fetchPendingApprovalDrafts` — unified queue query; `parsePendingDraftSummary` handles both tag formats
+  * `app/api/admin/approvals/[id]/route.ts` — DISPATCH / PURGE via `sendOutboundEmail` (Ironboard Resend transport)
+  * `canUsePlatformAdminTools` — requires `UserRole.GLOBAL_ADMIN` (distinct from Ironguard tenant scope on SUPPORT-001)
 * **Agent Boundary:** **Ironwatch** (Agent 13) audit on dispatch; human operator holds execution keys.
 * **Step-by-Step Lab Validation:**
-  1. Run `tests/unit/approvalQueueCore.test.ts` — tier inference and draft parse pass.
-  2. Create pending draft interaction — list via admin API — verify tier assignment.
-  3. Dispatch approved reply — verify `DISPATCHED_DRAFT_TAG` replaces pending tag.
+  1. Run `tests/unit/approvalQueueCore.test.ts` — tier inference, sales parse, and draft kind inference pass.
+  2. Queue sales and support drafts — list via admin API — verify `draftKind` badges in UI.
+  3. DISPATCH approved reply — verify correct dispatched tag replaces pending tag.
 
 ---
 

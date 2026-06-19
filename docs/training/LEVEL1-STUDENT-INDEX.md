@@ -4,16 +4,9 @@
 
 ## Corpus status
 
-- **Level 1 chapters:** 12 (student track)
-- **Full training corpus:** 24 chapters (12 Level 1 student + 12 Level 2 practitioner)
+- **Chapters:** 24
 - **Target words per chapter:** 1600
 - **Minimum manual page target:** 63+ (450 words/page)
-
-## In-app documentation hub
-
-- `/docs/*` routes read from PostgreSQL **`app_documents`**, not the filesystem directly.
-- Missing rows show the **Compilation Ingress Portal** — seed with `npx tsx scripts/seed-app-documents.ts` (~121 documents).
-- Index slug in `app_documents` is lowercase: `/docs/training/level1-student-index`.
 
 ## Chapter index
 
@@ -38,4 +31,4 @@ All chapters reference PNG assets under `/docs/training/assets/`.
 Run `npm run training:screenshots` from the repo root to capture live UI screenshots.
 
 source-file: config/training-corpus-manifest.json
-ref: GET /api/board/shared-context · emittedAt=2026-06-18T05:29:31.461Z
+ref: GET /api/board/shared-context · emittedAt=2026-06-19T15:48:50.175Z

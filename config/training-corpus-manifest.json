@@ -360,14 +360,19 @@
       "primaryRoute": "/dashboard/support",
       "captureRoute": "/register/contact",
       "screenshotFile": "level-2-09-sales-support-portals.png",
-      "featureIds": ["SALES-001", "CS-001"],
+      "featureIds": ["SALES-001", "SUPPORT-001"],
       "navigationPath": [
-        "Review /register/contact public intake",
-        "Open /sales-agent-portal for grounded pitch workflow",
-        "Open /dashboard/support for CS pending drafts",
-        "Trace SYSTEM_AGENT CRM metadata on contact records"
+        "Submit lead via /sales-agent-portal or POST /api/agents/sales",
+        "Verify API returns { status: \"QUEUED\" } — no public pitch text is rendered",
+        "Open /dashboard/support; submit operator query under Ironguard tenant scope",
+        "Verify CS console returns queued acknowledgment and CRM [PENDING DRAFT APPROVAL]"
       ],
-      "sourceAnchors": ["Ironboard/src/agents/sales/playbook.ts", "app/api/agents/sales/route.ts"]
+      "sourceAnchors": [
+        "app/api/agents/sales/route.ts",
+        "app/api/agents/customer-service/route.ts",
+        "app/lib/server/salesAgentConsoleCore.ts",
+        "app/lib/server/customerServiceConsoleCore.ts"
+      ]
     },
     {
       "slug": "training/level-2/10-approvals-human-in-loop",
@@ -379,12 +384,17 @@
       "screenshotFile": "level-2-10-approvals-human-in-loop.png",
       "featureIds": ["HITL-001"],
       "navigationPath": [
-        "Navigate to /dashboard/admin/approvals",
-        "Review pending draft queue",
-        "DISPATCH approved outbound email via admin action",
-        "PURGE soft-archived entries per queue policy"
+        "Sign in as GLOBAL_ADMIN and open /dashboard/admin/approvals",
+        "Review unified queue; note draftKind badge (SUPPORT vs SALES)",
+        "Edit proposed reply text inline in the admin workspace",
+        "DISPATCH via Resend transport or PURGE discarded draft per queue policy"
       ],
-      "sourceAnchors": ["app/lib/server/approvalQueueCore.ts", "app/api/admin/approvals"]
+      "sourceAnchors": [
+        "app/lib/server/approvalQueueCore.ts",
+        "app/api/admin/approvals/route.ts",
+        "app/api/admin/approvals/[id]/route.ts",
+        "Ironboard/src/services/email/emailSender.ts"
+      ]
     },
     {
       "slug": "training/level-2/11-bigint-financial-integrity",

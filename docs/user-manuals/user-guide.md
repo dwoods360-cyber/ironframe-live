@@ -48,8 +48,8 @@ source-file: config/route-manifest.v0.1.0-ga-epic17.json
 | Documentation | `/docs` | This handbook and training manuals |
 | Audit exports | `/dashboard/exports` | Download tenant-scoped CSV/PDF |
 | Audit trail | `/reports/audit-trail` | Forensic audit trail reports |
-| Support | `/dashboard/support` | Customer service pending drafts |
-| Admin approvals | `/dashboard/admin/approvals` | Human-in-the-loop email dispatch |
+| Support | `/dashboard/support` | Tenant-scoped CS console; replies queue for operator HITL |
+| Admin approvals | `/dashboard/admin/approvals` | GLOBAL_ADMIN unified queue (SUPPORT + SALES drafts) |
 
 ![Integrity Hub](/docs/training/assets/level-1-04-integrity-hub-ale.png)
 
@@ -111,8 +111,8 @@ source-file: config/route-manifest.v0.1.0-ga-epic17.json
 |---------|-------|---------|
 | Trust Center | `/trust` | Procurement materials, subprocessors, residency |
 | Admin onboarding | `/admin/onboarding` | GLOBAL_ADMIN tenant provisioning |
-| Sales portal | `/sales-agent-portal` | Grounded B2B pitch workflow |
-| Approvals queue | `/dashboard/admin/approvals` | DISPATCH / PURGE human-in-the-loop emails |
+| Sales portal | `/sales-agent-portal` | Public lead intake; returns QUEUED receipt; pitch held for admin HITL dispatch |
+| Approvals queue | `/dashboard/admin/approvals` | GLOBAL_ADMIN DISPATCH / PURGE for SUPPORT and SALES pending drafts |
 | Governance Frame | `/governance-frame` | External briefing reader (not editable here) |
 | IronBoard bridge | `:8082` | Agent coordination (read-only telemetry to boardroom) |
 

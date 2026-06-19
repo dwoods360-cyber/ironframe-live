@@ -20,7 +20,7 @@ After completing this chapter, you will be able to navigate to `/audit`, execute
 
 ### How to reach this feature
 
-1. Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+1. Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 2. Review meta-audit configuration panels
 3. Open /docs/technical/security-and-compliance
 4. Map Irontally framework readiness to control mappings
@@ -29,7 +29,7 @@ After completing this chapter, you will be able to navigate to `/audit`, execute
 
 | Step | Action | Primary route |
 |------|--------|---------------|
-| 1 | Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE) | /audit |
+| 1 | Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles) | /audit |
 | 2 | Review meta-audit configuration panels | /audit |
 | 3 | Open /docs/technical/security-and-compliance | /audit |
 | 4 | Map Irontally framework readiness to control mappings | /audit |
@@ -45,9 +45,9 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 ### Lab 1: SEC-001
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
-2. Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+2. Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 2: SEC-001
@@ -55,7 +55,7 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Review meta-audit configuration panels
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 3: SEC-001
@@ -63,7 +63,7 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Open /docs/technical/security-and-compliance
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 4: SEC-001
@@ -71,15 +71,15 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Map Irontally framework readiness to control mappings
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 5: SEC-001
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
-2. Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+2. Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 6: SEC-001
@@ -87,7 +87,7 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Review meta-audit configuration panels
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 7: SEC-001
@@ -95,7 +95,7 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Open /docs/technical/security-and-compliance
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ### Lab 8: SEC-001
@@ -103,7 +103,7 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Map Irontally framework readiness to control mappings
 3. Locate the feature in the SaaS UI at route `/audit`.
-4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
+4. Record observations in your lab journal with timestamp 2026-06-19T15:48:50.176Z.
 5. Cross-check against source anchors before marking complete.
 
 ## Extended procedures & navigation reference
@@ -112,9 +112,9 @@ source-file: public/docs/training/assets/level-2-04-security-compliance-controls
 
 This procedure validates SEC-001 against the live Ironframe workspace at `/audit`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+Execute: Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -124,7 +124,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Review meta-audit configuration panels
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -134,7 +134,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Open /docs/technical/security-and-compliance
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -144,7 +144,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Map Irontally framework readiness to control mappings
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -152,9 +152,9 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submit
 
 This procedure validates SEC-001 against the live Ironframe workspace at `/audit`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+Execute: Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -164,7 +164,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Review meta-audit configuration panels
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -174,7 +174,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Open /docs/technical/security-and-compliance
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -184,7 +184,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Map Irontally framework readiness to control mappings
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -192,9 +192,9 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submit
 
 This procedure validates SEC-001 against the live Ironframe workspace at `/audit`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Navigate to /audit (CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE)
+Execute: Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -204,7 +204,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Review meta-audit configuration panels
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -214,7 +214,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Open /docs/technical/security-and-compliance
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -224,7 +224,7 @@ This procedure validates SEC-001 against the live Ironframe workspace at `/audit
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Map Irontally framework readiness to control mappings
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
-Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
+Document the outcome with a timestamp aligned to telemetry mirror 2026-06-19T15:48:50.176Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
 Cross-reference `docs/qa/complete-feature-glossary.md` for SEC-001 before submitting the lab.
 
@@ -297,7 +297,7 @@ These rules permanently anchor forensic UI components and dashboard identity; ch
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
 Modular Execution: Strict separation of concerns enforced via a specialized agent workforce.
 Zero-Trust Data Ingestion: No external payload enters the internal message bus or database without cryptographic and structural sanitization.
-Offline LangGraph Orchestration: CLI/offline deliberation workflows; production :8082 boardroom queries use Express + Gemini SSE (no PostgresSaver checkpoint layer on the live server). <a id="tas-langgraph-memory"></a>
+Persistent LangGraph State Memory: Human-in-the-loop observability and self-healing capabilities powered by immutable state checkpoints. <a id="tas-langgraph-memory"></a>
 The Sovereign Stack:
 Framework: Next.js 15.1.6 with Turbopack
 Database & Auth: Supabase (PostgreSQL)
@@ -308,7 +308,7 @@ IDE: Cursor (Exclusive)
 Testing: Playwright (E2E) + Vitest (Unit/Integration)
 Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 2. The 19-Agent Workforce <a id="tas-nineteen-agent-roster"></a>
-<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph.js supports offline orchestration only; live :8082 boardroom queries use Express + Gemini SSE without PostgresSaver persistence.
+<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph state memory ensures persistent checkpoints and prevents cross-tenant memory bleed.
 <a id="agent-1"></a>Ironcore — Orchestrator & Routing. The central nervous system directing traffic to specialized agents.
 <a id="agent-2"></a>Ironwave — Live Telemetry Monitoring. Ingests and standardizes real-time system health and performance metrics.
 <a id="agent-3"></a>Irontrust — Scoring Engine. Executes ALE Math (Constitutionally Frozen). Modifying this math requires 100% unit test coverage and snapshot comparison.
@@ -322,7 +322,7 @@ Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
 ### System Architecture: Control-First Modular Agent Coordination Framework
-### Operational Date: 2026-06-17
+### Operational Date: 2026-06-19
 ### Delta Source: `daily_code_diff.txt` (24-hour git window — Writer Narrative Architect mandate)
 
 ---
@@ -351,7 +351,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent IronBoard boardroom (subset of the 19-agent production workforce) advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta compacts `.cursorrules` from the legacy 204-line governance protocol into a 43-line auto-completion constraint sheet — Prisma import discipline (`import prisma from "@/lib/prisma"`), test file locations (`tests/unit/*.test.ts` for Next.js, `Ironboard/src/tests/*.test.ts` for workforce queues), CRM field alignment (`fullName`, interaction `channel`), BigInt cent mandate, `@google/genai` temperature **0.0**, prospect pool tenant isolation, and customer service LEVEL_1 doc grounding remain constitutionally locked. The **IronBoard Core Telemetry Bridge** requires every `POST /api/query` on port **8082** to hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. Founding board personas (CEO, CFO, Compliance, Legal) now delegate synthesis to `generateBoardAgentAssessment` in `boardAgentLlm.ts` with `formatBoardStateSummary` anchoring `financialProjectionsCents` as whole-integer cent strings. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers. Today's delta wires the **Documentation Brief one-way ingress**: Ironframe emits `documentationBrief` inside `GET /api/board/shared-context`; IronBoard Trainer (`board-trainer`) and Writer (`board-writer`) personas consume it exclusively via expanded `knowledge.ts` pipeline (`pushAppDocumentToIronframe`, `publishTrainerCorpus`, `publishWriterCorpus`) — zero write-back to port **3000** production stores except via bearer-gated `POST /api/documentation/execute`. Executive documentation chapter loop (`runExecutiveDocumentationCommand`) now fails closed when `fetchIronframeDocumentationBrief` returns no brief.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -367,13 +367,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 To completely eliminate operational risk, protect multi-tenant cloud client assets, and shield your training program from liability, you must strictly adhere to the following **Four Corporate Compliance Mandates**. Any violation will automatically cause the security tracking systems to flag your active session context and quarantine your workspace:
 
-* **Mandate 1: Strict Whole-Integer Financial Integrity:** All monetary paths must use a variable type called **`BigInt` (Big Integer)** representing raw cents exclusively. One United States dollar equals **100** cents. Decimals and floating-point values are completely forbidden in financial modules to eliminate computational rounding drift during audits. Constitutionally frozen ALE baselines per `docs/TAS.md`:
-  * **Medshield:** **1110000000** cents (eleven million one hundred thousand United States dollars)
-  * **Vaultbank NA:** **590000000** cents (five million nine hundred thousand United States dollars)
-  * **Gridcore Infrastructure:** **470000000** cents (four million seven hundred thousand United States dollars)
-  * **Defense (CMMC L3 anchor):** **1600000000** cents (sixteen million United States dollars)
-  * **Display conversion only:** `const dollars = Number(aleBaselineCents) / 100` — never persist floats.
-  * **Today's de-classification mandate:** IronBoard public briefing synthesis must never emit raw BigInt cent integers in Governance Frame copy. Internal storage remains BIGINT cents exclusively; external-facing text uses Ironframe-precomputed `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` strings. Grounded sales outreach (`generateGroundedPitch`) may cite **BigInt numeric precision** as 
+* **M
 
 === ROUTE MANIFEST ===
 
@@ -480,10 +474,7 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
         "roles": [
           "CISO",
           "GRC_MANAGER",
-          "GLOBAL_ADMIN",
-          "INTERNAL_AUDITOR",
-          "EXTERNAL_AUDITOR",
-          "DIRECTOR_OF_COMPLIANCE"
+          "GLOBAL_ADMIN"
         ],
         "billing_gate": true,
         "purpose": "Meta-audit configuration and data compilation panel"
@@ -530,5 +521,5 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
 - source-file: docs/README.md
 - source-file: GET /api/board/shared-context
 
-ref: GET /api/board/shared-context · emittedAt=2026-06-18T05:29:31.461Z
+ref: GET /api/board/shared-context · emittedAt=2026-06-19T15:48:50.175Z
 ref: config/training-corpus-manifest.json · slug=training/level-2/04-security-compliance-controls

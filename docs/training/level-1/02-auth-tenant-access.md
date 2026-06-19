@@ -23,7 +23,8 @@ After completing this chapter, you will be able to navigate to `/login`, execute
 1. Navigate to /login from guest landing
 2. Complete Supabase email/password authentication
 3. If unauthorized, verify redirect to /unauthorized
-4. After assignment, confirm ironframe-tenant cookie in DevTools → Application → Cookies
+4. After assignment, confirm `ironframe-tenant` cookie in DevTools → Application → Cookies
+5. For `/audit` workspace access, verify role is one of: CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, or DIRECTOR_OF_COMPLIANCE
 
 ## Navigation path (step-by-step)
 
@@ -32,7 +33,8 @@ After completing this chapter, you will be able to navigate to `/login`, execute
 | 1 | Navigate to /login from guest landing | /login |
 | 2 | Complete Supabase email/password authentication | /login |
 | 3 | If unauthorized, verify redirect to /unauthorized | /login |
-| 4 | After assignment, confirm ironframe-tenant cookie in DevTools → Application → Cookies | /login |
+| 4 | After assignment, confirm `ironframe-tenant` cookie in DevTools → Application → Cookies | /login |
+| 5 | For `/audit`, verify CISO / GRC_MANAGER / GLOBAL_ADMIN / INTERNAL_AUDITOR / EXTERNAL_AUDITOR / DIRECTOR_OF_COMPLIANCE | /login |
 ## Reference screenshot
 
 ![Chapter 2 — Authentication, RBAC & Tenant Assignment](/docs/training/assets/level-1-02-auth-tenant-access.png)
@@ -297,7 +299,7 @@ These rules permanently anchor forensic UI components and dashboard identity; ch
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
 Modular Execution: Strict separation of concerns enforced via a specialized agent workforce.
 Zero-Trust Data Ingestion: No external payload enters the internal message bus or database without cryptographic and structural sanitization.
-Persistent LangGraph State Memory: Human-in-the-loop observability and self-healing capabilities powered by immutable state checkpoints. <a id="tas-langgraph-memory"></a>
+Offline LangGraph Orchestration: CLI/offline deliberation workflows; production :8082 boardroom queries use Express + Gemini SSE (no PostgresSaver checkpoint layer on the live server). <a id="tas-langgraph-memory"></a>
 The Sovereign Stack:
 Framework: Next.js 15.1.6 with Turbopack
 Database & Auth: Supabase (PostgreSQL)
@@ -308,7 +310,7 @@ IDE: Cursor (Exclusive)
 Testing: Playwright (E2E) + Vitest (Unit/Integration)
 Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 2. The 19-Agent Workforce <a id="tas-nineteen-agent-roster"></a>
-<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph state memory ensures persistent checkpoints and prevents cross-tenant memory bleed.
+<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph.js supports offline orchestration only; live :8082 boardroom queries use Express + Gemini SSE without PostgresSaver persistence.
 <a id="agent-1"></a>Ironcore — Orchestrator & Routing. The central nervous system directing traffic to specialized agents.
 <a id="agent-2"></a>Ironwave — Live Telemetry Monitoring. Ingests and standardizes real-time system health and performance metrics.
 <a id="agent-3"></a>Irontrust — Scoring Engine. Executes ALE Math (Constitutionally Frozen). Modifying this math requires 100% unit test coverage and snapshot comparison.
@@ -351,7 +353,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent IronBoard boardroom (subset of the 19-agent production workforce) advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -480,7 +482,10 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
         "roles": [
           "CISO",
           "GRC_MANAGER",
-          "GLOBAL_ADMIN"
+          "GLOBAL_ADMIN",
+          "INTERNAL_AUDITOR",
+          "EXTERNAL_AUDITOR",
+          "DIRECTOR_OF_COMPLIANCE"
         ],
         "billing_gate": true,
         "purpose": "Meta-audit configuration and data compilation panel"

@@ -18,6 +18,7 @@ Summary for auditors, security reviewers, and customers. Authoritative controls:
 
 ### Authentication & authorization
 - Supabase Auth (SSR cookies)
+- **`/audit` workspace:** CISO, GRC_MANAGER, GLOBAL_ADMIN, INTERNAL_AUDITOR, EXTERNAL_AUDITOR, DIRECTOR_OF_COMPLIANCE (`app/actions/auditActions.ts`)
 - Internal cron routes: `IRONFRAME_CRON_SECRET` / `IRONFRAME_INTERNAL_GATES_SECRET`
 - Bank Vault dual-gate (Epic 11): PKI supervisor keys in environment
 - Admin purge and constitutional override: restricted routes with audit witnesses

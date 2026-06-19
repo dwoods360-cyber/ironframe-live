@@ -141,7 +141,7 @@ Complete step-by-step chapters with navigation paths and screenshots:
 | Track | Index |
 |-------|-------|
 | Level 1 — Student | [LEVEL1-STUDENT-INDEX](../training/LEVEL1-STUDENT-INDEX.md) |
-| Level 2 — Practitioner | [LEVEL2-PRACTITIONER-INDEX](../training/LEVEL2-PRACTITIONER-INDEX.md) |
+| Level 2 — Practitioner | [Level 2 Practitioner Index](../training/LEVEL2-PRACTITIONER-INDEX.md) (`/docs/training/level2-practitioner-index`) |
 
 Sample chapters:
 

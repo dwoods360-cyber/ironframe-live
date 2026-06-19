@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json.schemastore.org/chrome-manifest",
+  "milestone": "v0.1.0-ga-epic17",
+  "release_posture": "Sales-Assisted Pilot Ready",
+  "routes": {
+    "public_funnel": [
+      { "path": "/", "auth": "none", "purpose": "Guest landing page and routing router" },
+      { "path": "/marketing", "auth": "none", "purpose": "Public value proposition and collateral showcase" },
+      { "path": "/pricing", "auth": "none", "purpose": "Command Tier packaging metrics linked to active Stripe SKUs" },
+      { "path": "/terms", "auth": "none", "purpose": "Master Services Agreement (MSA) legal text boundaries" },
+      { "path": "/privacy", "auth": "none", "purpose": "Data Processing Addendum (DPA) and data privacy policies" },
+      { "path": "/legal/accept", "auth": "none", "purpose": "Post-checkout mandatory legal signature routing point" },
+      { "path": "/register/contact", "auth": "none", "purpose": "Primary sales-assisted intake form for inbound prospects" },
+      { "path": "/account/billing-hold", "auth": "none", "purpose": "Graceful billing degradation screen with checkout portal links" }
+    ],
+    "identity_and_auth": [
+      { "path": "/login", "auth": "none", "purpose": "Tenant-branded isolated workspace login gateway" },
+      { "path": "/forgot-password", "auth": "none", "purpose": "Self-serve identity access retrieval initialization" },
+      { "path": "/reset-password", "auth": "none", "purpose": "Secure token handshake key password updates" },
+      { "path": "/unauthorized", "auth": "session", "purpose": "Fallback workspace perimeter for pending tenant assignments" }
+    ],
+    "command_center_dashboard": [
+      { "path": "/integrity", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Integrity Hub, ALE metrics ledger, and shadow simulation engine" },
+      { "path": "/cockpit", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Active 19-agent workforce coordination viewport panel" },
+      { "path": "/board-report", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Executive real-time readiness compiling platform posture data" },
+      { "path": "/audit", "auth": "session", "roles": ["CISO", "GRC_MANAGER", "GLOBAL_ADMIN"], "billing_gate": true, "purpose": "Meta-audit configuration and data compilation panel" },
+      { "path": "/evidence", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Epic 12 immutable WORM ledger evidence locker portal" },
+      { "path": "/opsupport", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Internal infrastructure and runtime status dashboard view" },
+      { "path": "/trust", "auth": "session", "roles": ["all"], "billing_gate": true, "purpose": "Enterprise procurement materials, subprocessor tracking, and residency charts" },
+      { "path": "/admin/onboarding", "auth": "session", "roles": ["GLOBAL_ADMIN"], "billing_gate": false, "purpose": "B2B manual sales provisioning engine and core tenant builder" },
+      { "path": "/boardroom/admin/audit-logs", "auth": "session", "roles": ["CISO", "GRC_MANAGER", "GLOBAL_ADMIN"], "billing_gate": true, "purpose": "Boardroom isolated operational financial change logs view" }
+    ],
+    "institutional_briefings": [
+      { "path": "/governance-frame", "auth": "session", "purpose": "Syndicated compliance and threat reporting frame ledger index" },
+      { "path": "/governance-frame/[slug]", "auth": "session", "purpose": "Isolated regulatory trace data view driven by Ironboard agents" }
+    ],
+    "documentation_hub": [
+      { "path": "/docs", "auth": "none", "purpose": "Integrated handbook index accessible as guest or app-wrapped user" },
+      { "path": "/docs/[...slug]", "auth": "none", "purpose": "Dynamic reader compiling APP_DOCS corpus from app_documents (~121 markdown sources under docs/)" }
+    ]
+  }
+}

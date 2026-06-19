@@ -38,7 +38,7 @@ ELECTRICITY_MAPS_API_KEY="..."         # Live utility grid lookups
 IRONFRAME_CRON_SECRET="..."            # Cron + board feed auth
 ```
 
-See also: `.env.staging.example`, `config/stripe.ts`, `app/lib/auth/supabaseRedirectAllowlist.ts`.
+See also: `.env.example`, `.env.local` (local overrides), `config/stripe.ts`, `app/lib/auth/supabaseRedirectAllowlist.ts`.
 
 ---
 
@@ -96,11 +96,11 @@ WHERE region = 'Germany'
 | **Cause** | Unhandled error in `app/docs/[[...slug]]/page.tsx` — missing markdown file or build failure |
 | **Fix** | 1. Check server logs for `ENOENT` / module build errors. 2. Verify `resolveDocPath()` target exists under `docs/`. 3. Clear `.next` and restart `npm run dev`. |
 
-### Runbook 04: Health posture freeze (Agent 12)
+### Runbook 04: Health posture freeze (Agent 04 — Irontech)
 
 | Item | Detail |
 |------|--------|
-| **Cause** | TAS health below triage threshold |
+| **Cause** | TAS health bar below triage threshold (50%) — triggers **Irontech (Agent 04)** structural freeze, not Ironguard (Agent 12) |
 | **Fix** | Review `health-posture-triage` cron; follow `src/services/irontech/healthPostureMonitor.ts` |
 
 ---

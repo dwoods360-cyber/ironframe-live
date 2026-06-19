@@ -4,9 +4,16 @@
 
 ## Corpus status
 
-- **Chapters:** 24
+- **Level 1 chapters:** 12 (student track)
+- **Full training corpus:** 24 chapters (12 Level 1 student + 12 Level 2 practitioner)
 - **Target words per chapter:** 1600
 - **Minimum manual page target:** 63+ (450 words/page)
+
+## In-app documentation hub
+
+- `/docs/*` routes read from PostgreSQL **`app_documents`**, not the filesystem directly.
+- Missing rows show the **Compilation Ingress Portal** — seed with `npx tsx scripts/seed-app-documents.ts` (~121 documents).
+- Index slug in `app_documents` is lowercase: `/docs/training/level1-student-index`.
 
 ## Chapter index
 

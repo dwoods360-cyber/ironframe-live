@@ -20,19 +20,21 @@ After completing this chapter, you will be able to navigate to `/docs`, execute 
 
 ### How to reach this feature
 
-1. Open /docs as guest or authenticated user
-2. Browse user-manuals/quickstart from sidebar
-3. Open training/LEVEL1-STUDENT-INDEX
-4. Verify markdown renders with navigation cross-links
+1. Open `/docs` — content is served from PostgreSQL **`app_documents`**, not the filesystem directly
+2. If the hub shows **Compilation Ingress Portal**, run `npx tsx scripts/seed-app-documents.ts` (~121 documents) and reload
+3. Browse **user-manuals/quickstart** from the sidebar (`/docs/user-manuals/quickstart`)
+4. Open Level 1 index at `/docs/training/level1-student-index` (lowercase slug in `app_documents`)
+5. Verify markdown renders with navigation cross-links
 
 ## Navigation path (step-by-step)
 
 | Step | Action | Primary route |
 |------|--------|---------------|
-| 1 | Open /docs as guest or authenticated user | /docs |
-| 2 | Browse user-manuals/quickstart from sidebar | /docs |
-| 3 | Open training/LEVEL1-STUDENT-INDEX | /docs |
-| 4 | Verify markdown renders with navigation cross-links | /docs |
+| 1 | Open `/docs` (PostgreSQL `app_documents` plane) | /docs |
+| 2 | Seed via `npx tsx scripts/seed-app-documents.ts` if Compilation Ingress Portal appears | /docs |
+| 3 | Browse user-manuals/quickstart from sidebar | /docs |
+| 4 | Open `/docs/training/level1-student-index` | /docs |
+| 5 | Verify markdown renders with navigation cross-links | /docs |
 ## Reference screenshot
 
 ![Chapter 9 — In-App Documentation Hub (/docs)](/docs/training/assets/level-1-09-docs-hub-handbook.png)
@@ -61,7 +63,7 @@ source-file: public/docs/training/assets/level-1-09-docs-hub-handbook.png
 ### Lab 3: DOCS-001
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
-2. Open training/LEVEL1-STUDENT-INDEX
+2. Open `/docs/training/level1-student-index`
 3. Locate the feature in the SaaS UI at route `/docs`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
@@ -93,7 +95,7 @@ source-file: public/docs/training/assets/level-1-09-docs-hub-handbook.png
 ### Lab 7: DOCS-001
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
-2. Open training/LEVEL1-STUDENT-INDEX
+2. Open `/docs/training/level1-student-index`
 3. Locate the feature in the SaaS UI at route `/docs`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
@@ -132,7 +134,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for DOCS-001 before submi
 
 This procedure validates DOCS-001 against the live Ironframe workspace at `/docs`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Open training/LEVEL1-STUDENT-INDEX
+Execute: Open `/docs/training/level1-student-index`
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
 Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
@@ -172,7 +174,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for DOCS-001 before submi
 
 This procedure validates DOCS-001 against the live Ironframe workspace at `/docs`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Open training/LEVEL1-STUDENT-INDEX
+Execute: Open `/docs/training/level1-student-index`
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
 Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
@@ -212,7 +214,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for DOCS-001 before submi
 
 This procedure validates DOCS-001 against the live Ironframe workspace at `/docs`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
-Execute: Open training/LEVEL1-STUDENT-INDEX
+Execute: Open `/docs/training/level1-student-index`
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
 Document the outcome with a timestamp aligned to telemetry mirror 2026-06-18T05:29:31.461Z.
 If the route requires elevated roles per route manifest, verify your session includes the correct GRC role assignment.
@@ -297,7 +299,7 @@ These rules permanently anchor forensic UI components and dashboard identity; ch
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
 Modular Execution: Strict separation of concerns enforced via a specialized agent workforce.
 Zero-Trust Data Ingestion: No external payload enters the internal message bus or database without cryptographic and structural sanitization.
-Persistent LangGraph State Memory: Human-in-the-loop observability and self-healing capabilities powered by immutable state checkpoints. <a id="tas-langgraph-memory"></a>
+Offline LangGraph Orchestration: CLI/offline deliberation workflows; production :8082 boardroom queries use Express + Gemini SSE (no PostgresSaver checkpoint layer on the live server). <a id="tas-langgraph-memory"></a>
 The Sovereign Stack:
 Framework: Next.js 15.1.6 with Turbopack
 Database & Auth: Supabase (PostgreSQL)
@@ -308,7 +310,7 @@ IDE: Cursor (Exclusive)
 Testing: Playwright (E2E) + Vitest (Unit/Integration)
 Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 2. The 19-Agent Workforce <a id="tas-nineteen-agent-roster"></a>
-<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph state memory ensures persistent checkpoints and prevents cross-tenant memory bleed.
+<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph.js supports offline orchestration only; live :8082 boardroom queries use Express + Gemini SSE without PostgresSaver persistence.
 <a id="agent-1"></a>Ironcore — Orchestrator & Routing. The central nervous system directing traffic to specialized agents.
 <a id="agent-2"></a>Ironwave — Live Telemetry Monitoring. Ingests and standardizes real-time system health and performance metrics.
 <a id="agent-3"></a>Irontrust — Scoring Engine. Executes ALE Math (Constitutionally Frozen). Modifying this math requires 100% unit test coverage and snapshot comparison.
@@ -351,7 +353,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent IronBoard boardroom (subset of the 19-agent production workforce) advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -480,7 +482,10 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
         "roles": [
           "CISO",
           "GRC_MANAGER",
-          "GLOBAL_ADMIN"
+          "GLOBAL_ADMIN",
+          "INTERNAL_AUDITOR",
+          "EXTERNAL_AUDITOR",
+          "DIRECTOR_OF_COMPLIANCE"
         ],
         "billing_gate": true,
         "purpose": "Meta-audit configuration and data compilation panel"
@@ -524,6 +529,8 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
 
 - source-file: docs/README.md
 - source-file: docs/user-manuals/quickstart.md
+- source-file: scripts/seed-app-documents.ts
+- source-file: app/lib/server/appDocumentStore.ts
 - source-file: GET /api/board/shared-context
 
 ref: GET /api/board/shared-context · emittedAt=2026-06-18T05:29:31.461Z

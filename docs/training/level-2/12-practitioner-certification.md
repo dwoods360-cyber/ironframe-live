@@ -1,18 +1,18 @@
 # Chapter 12 — Level 2 Practitioner Certification
 
 > **Track:** LEVEL_2 · **Author agent:** board-writer · **Release:** `v0.1.0-ga-epic17`
-> **Target length:** ~1600 words · **Primary route:** `/docs/training/LEVEL2-PRACTITIONER-INDEX`
+> **Target length:** ~1600 words · **Primary route:** `/docs/training/level2-practitioner-index`
 
 ## Learning objectives
 
-After completing this chapter, you will be able to navigate to `/docs/training/LEVEL2-PRACTITIONER-INDEX`, execute the prescribed task flow, and verify CERT-L2 controls using tenant-scoped session context.
+After completing this chapter, you will be able to navigate to `/docs/training/level2-practitioner-index`, execute the prescribed task flow, and verify CERT-L2 controls using tenant-scoped session context.
 
 ## Feature location in the SaaS application
 
 | Attribute | Value |
 |-----------|-------|
-| Primary route | `/docs/training/LEVEL2-PRACTITIONER-INDEX` |
-| Capture route | `/docs/training/LEVEL2-PRACTITIONER-INDEX` |
+| Primary route | `/docs/training/level2-practitioner-index` |
+| Capture route | `/docs/training/level2-practitioner-index` |
 | GRC function IDs | CERT-L2 |
 | Left panel (22%) | Metrics, framework matrix, target asset profiles |
 | Center panel (48%) | Primary workflow tabs and GRC control blocks |
@@ -29,15 +29,15 @@ After completing this chapter, you will be able to navigate to `/docs/training/L
 
 | Step | Action | Primary route |
 |------|--------|---------------|
-| 1 | Complete practitioner reading order from LEVEL2 index | /docs/training/LEVEL2-PRACTITIONER-INDEX |
-| 2 | Execute architecture + deployment + TAS review | /docs/training/LEVEL2-PRACTITIONER-INDEX |
-| 3 | Pass manual testing protocol checkpoints | /docs/training/LEVEL2-PRACTITIONER-INDEX |
-| 4 | Submit practitioner attestation with route manifest citation | /docs/training/LEVEL2-PRACTITIONER-INDEX |
+| 1 | Complete practitioner reading order from LEVEL2 index | /docs/training/level2-practitioner-index |
+| 2 | Execute architecture + deployment + TAS review | /docs/training/level2-practitioner-index |
+| 3 | Pass manual testing protocol checkpoints | /docs/training/level2-practitioner-index |
+| 4 | Submit practitioner attestation with route manifest citation | /docs/training/level2-practitioner-index |
 ## Reference screenshot
 
 ![Chapter 12 — Level 2 Practitioner Certification](/docs/training/assets/level-2-12-practitioner-certification.png)
 
-*Figure: Chapter 12 — Level 2 Practitioner Certification — captured at `/docs/training/LEVEL2-PRACTITIONER-INDEX`. Asset path: `/docs/training/assets/level-2-12-practitioner-certification.png`.*
+*Figure: Chapter 12 — Level 2 Practitioner Certification — captured at `/docs/training/level2-practitioner-index`. Asset path: `/docs/training/assets/level-2-12-practitioner-certification.png`.*
 
 source-file: public/docs/training/assets/level-2-12-practitioner-certification.png
 ## Hands-on lab sequence
@@ -46,7 +46,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Complete practitioner reading order from LEVEL2 index
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -54,7 +54,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Execute architecture + deployment + TAS review
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -62,7 +62,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Pass manual testing protocol checkpoints
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -70,7 +70,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Submit practitioner attestation with route manifest citation
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -78,7 +78,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Complete practitioner reading order from LEVEL2 index
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -86,7 +86,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Execute architecture + deployment + TAS review
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -94,7 +94,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Pass manual testing protocol checkpoints
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -102,7 +102,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 1. Start from authenticated session on tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`.
 2. Submit practitioner attestation with route manifest citation
-3. Locate the feature in the SaaS UI at route `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+3. Locate the feature in the SaaS UI at route `/docs/training/level2-practitioner-index`.
 4. Record observations in your lab journal with timestamp 2026-06-18T05:29:31.461Z.
 5. Cross-check against source anchors before marking complete.
 
@@ -110,7 +110,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 ### Procedure 1: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Complete practitioner reading order from LEVEL2 index
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -120,7 +120,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 2: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Execute architecture + deployment + TAS review
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -130,7 +130,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 3: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Pass manual testing protocol checkpoints
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -140,7 +140,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 4: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Submit practitioner attestation with route manifest citation
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -150,7 +150,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 5: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Complete practitioner reading order from LEVEL2 index
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -160,7 +160,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 6: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Execute architecture + deployment + TAS review
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -170,7 +170,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 7: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Pass manual testing protocol checkpoints
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -180,7 +180,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 8: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Submit practitioner attestation with route manifest citation
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -190,7 +190,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 9: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Complete practitioner reading order from LEVEL2 index
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -200,7 +200,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 10: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Execute architecture + deployment + TAS review
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -210,7 +210,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 11: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Pass manual testing protocol checkpoints
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -220,7 +220,7 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 
 ### Procedure 12: CERT-L2
 
-This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/LEVEL2-PRACTITIONER-INDEX`.
+This procedure validates CERT-L2 against the live Ironframe workspace at `/docs/training/level2-practitioner-index`.
 Begin from tenant `5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01` with DORA status COMPLIANT.
 Execute: Submit practitioner attestation with route manifest citation
 Confirm the UI element appears in the expected tripane column (left 22%, center 48%, or right 30%).
@@ -231,28 +231,28 @@ Cross-reference `docs/qa/complete-feature-glossary.md` for CERT-L2 before submit
 ## Training FAQ
 
 **Q: Where is this feature located in the SaaS app?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: What is the shortest navigation path from login?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: Which panel column shows primary controls?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: What roles are required for this route?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: How do I verify tenant isolation during the lab?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: What screenshot asset documents this chapter?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: Which source-file anchors must I cite?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 **Q: How do I escalate if the route returns unauthorized?**
-A: Use primary route `/docs/training/LEVEL2-PRACTITIONER-INDEX`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
+A: Use primary route `/docs/training/level2-practitioner-index`, follow the navigation path table in this chapter, and archive screenshot `level-2-12-practitioner-certification.png`.
 
 ## Operational context (Ironframe ingress)
 
@@ -297,7 +297,7 @@ These rules permanently anchor forensic UI components and dashboard identity; ch
 Ironframe is engineered for structured speed under a CONTROL-FIRST paradigm. Our core philosophy rests on three pillars:
 Modular Execution: Strict separation of concerns enforced via a specialized agent workforce.
 Zero-Trust Data Ingestion: No external payload enters the internal message bus or database without cryptographic and structural sanitization.
-Persistent LangGraph State Memory: Human-in-the-loop observability and self-healing capabilities powered by immutable state checkpoints. <a id="tas-langgraph-memory"></a>
+Offline LangGraph Orchestration: CLI/offline deliberation workflows; production :8082 boardroom queries use Express + Gemini SSE (no PostgresSaver checkpoint layer on the live server). <a id="tas-langgraph-memory"></a>
 The Sovereign Stack:
 Framework: Next.js 15.1.6 with Turbopack
 Database & Auth: Supabase (PostgreSQL)
@@ -308,7 +308,7 @@ IDE: Cursor (Exclusive)
 Testing: Playwright (E2E) + Vitest (Unit/Integration)
 Infrastructure: Google Cloud Platform (via GitHub Actions CI/CD)
 2. The 19-Agent Workforce <a id="tas-nineteen-agent-roster"></a>
-<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph state memory ensures persistent checkpoints and prevents cross-tenant memory bleed.
+<a id="tas-langgraph-checkpoints"></a>The Ironframe AI system operates via a strict 19-agent roster. No agent may expand beyond its defined Core Directive. LangGraph.js supports offline orchestration only; live :8082 boardroom queries use Express + Gemini SSE without PostgresSaver persistence.
 <a id="agent-1"></a>Ironcore — Orchestrator & Routing. The central nervous system directing traffic to specialized agents.
 <a id="agent-2"></a>Ironwave — Live Telemetry Monitoring. Ingests and standardizes real-time system health and performance metrics.
 <a id="agent-3"></a>Irontrust — Scoring Engine. Executes ALE Math (Constitutionally Frozen). Modifying this math requires 100% unit test coverage and snapshot comparison.
@@ -351,7 +351,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta wires the **IronBoard Core Telemetry Bridge** so every `POST /api/query` on port **8082** must hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent IronBoard boardroom (subset of the 19-agent production workforce) advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -480,7 +480,10 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
         "roles": [
           "CISO",
           "GRC_MANAGER",
-          "GLOBAL_ADMIN"
+          "GLOBAL_ADMIN",
+          "INTERNAL_AUDITOR",
+          "EXTERNAL_AUDITOR",
+          "DIRECTOR_OF_COMPLIANCE"
         ],
         "billing_gate": true,
         "purpose": "Meta-audit configuration and data compilation panel"

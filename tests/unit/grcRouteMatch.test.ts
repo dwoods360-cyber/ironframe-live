@@ -35,14 +35,15 @@ describe("grcRouteMatch", () => {
     expect(isScrollableStandalonePath("/integrity")).toBe(true);
     expect(isScrollableStandalonePath("/reports/audit-trail")).toBe(true);
     expect(isScrollableStandalonePath("/profile")).toBe(true);
-    expect(isScrollableStandalonePath("/config")).toBe(true);
+    expect(isScrollableStandalonePath("/settings/config")).toBe(true);
     expect(isScrollableStandalonePath("/opsupport")).toBe(true);
     expect(isScrollableStandalonePath("/op-support")).toBe(true);
     expect(isScrollableStandalonePath("/audit")).toBe(true);
     expect(isScrollableStandalonePath("/vault")).toBe(true);
     expect(isScrollableStandalonePath("/evidence")).toBe(true);
     expect(isScrollableStandalonePath("/get-started")).toBe(true);
-    expect(isScrollableStandalonePath("/")).toBe(false);
+    expect(isScrollableStandalonePath("/admin/onboarding")).toBe(true);
+    expect(isScrollableStandalonePath("/")).toBe(true);
     expect(isScrollableStandalonePath("/medshield/config")).toBe(false);
   });
 

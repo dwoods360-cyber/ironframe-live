@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
 import { Building2, KeyRound, Mail, UserPlus } from "lucide-react";
 import {
@@ -20,8 +19,6 @@ import {
   listProvisionedTenantsForAdminAction,
   type ProvisionedTenantAdminRow,
 } from "@/app/actions/admin/listProvisionedTenants";
-import { setTenantBillingStatusAction } from "@/app/actions/admin/setTenantBillingStatus";
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
@@ -37,7 +34,6 @@ export default function CorporateOnboardingClient() {
   const [inviteResult, setInviteResult] = useState<InviteState>(null);
   const [mintResult, setMintResult] = useState<MintInvitationState>(null);
   const [inviteTenantSlug, setInviteTenantSlug] = useState("");
-  const [billingBusySlug, setBillingBusySlug] = useState<string | null>(null);
 
   const refreshTenants = useCallback(async () => {
     const res = await listProvisionedTenantsForAdminAction();
@@ -88,15 +84,6 @@ export default function CorporateOnboardingClient() {
     }
   };
 
-  const onActivateBilling = async (slug: string) => {
-    setBillingBusySlug(slug);
-    const res = await setTenantBillingStatusAction(slug, TENANT_BILLING_STATUS.ACTIVE);
-    setBillingBusySlug(null);
-    if (res.ok) {
-      void refreshTenants();
-    }
-  };
-
   const onMintInvitation = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMintBusy(true);
@@ -114,25 +101,14 @@ export default function CorporateOnboardingClient() {
   const supabaseRedirectHint = (slug: string) => `${formatLocalTenantWorkspaceUrl(slug, 3000)}/**`;
 
   return (
-    <div className="min-h-full bg-[#050509] p-6 text-slate-200">
-      <p className="mb-4 text-[10px] text-slate-500">
-        <Link href="/settings/config" className="text-cyan-400 hover:underline">
-          ← System configuration
-        </Link>
-      </p>
-
+    <div className="rounded-xl border border-slate-800/80 bg-[#070e20]/30 p-4 sm:p-6">
       <header className="mb-6 max-w-3xl">
-        <h1 className="text-sm font-black uppercase tracking-widest text-emerald-200">
-          Corporate client onboarding
-        </h1>
+        <h2 className="font-mono text-[11px] font-black uppercase tracking-widest text-emerald-200">
+          Provisioning controls
+        </h2>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-          Provision a B2B workspace on its tenant subdomain, then invite the customer&apos;s first
-          operator. Requires GLOBAL_ADMIN (or platform constitutional authority in dev).
-        </p>
-        <p className="mt-2 text-[10px]">
-          <Link href="/admin/onboarding/test-assets" className="text-cyan-400 hover:underline">
-            Acme Corp ingestion test PDF suite →
-          </Link>
+          Mint invitation tokens, provision B2B workspaces, and invite corporate operators. Requires
+          GLOBAL_ADMIN (or platform constitutional authority in dev).
         </p>
       </header>
 
@@ -204,6 +180,10 @@ export default function CorporateOnboardingClient() {
               <p className="mt-2 font-mono text-[9px] text-slate-500">
                 expires {mintResult.expiresAt}
               </p>
+              <p className="mt-2 text-slate-400">Secure activation URL:</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-violet-200">
+                /register/{mintResult.token}
+              </code>
             </div>
           ) : null}
         </section>
@@ -385,48 +365,6 @@ export default function CorporateOnboardingClient() {
           ) : null}
         </section>
       </div>
-
-      {tenants.length > 0 ? (
-        <section className="mt-8 max-w-3xl rounded border border-slate-800 bg-slate-900/30 p-4">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-            Provisioned workspaces ({tenants.length})
-          </h2>
-          <ul className="mt-3 divide-y divide-slate-800">
-            {tenants.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[10px]">
-                <div>
-                  <span className="font-medium text-slate-200">{t.name}</span>
-                  <p className="mt-1 font-mono text-[9px] text-slate-500">
-                    billing: {t.billingStatus ?? "UNTRACKED"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={t.workspaceUrl}
-                    className="font-mono text-cyan-400 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {formatLocalTenantWorkspaceUrl(t.slug, 3000).replace(/^https?:\/\//, "")}
-                  </a>
-                  {t.billingStatus !== TENANT_BILLING_STATUS.ACTIVE ? (
-                    <button
-                      type="button"
-                      disabled={billingBusySlug === t.slug}
-                      onClick={() => void onActivateBilling(t.slug)}
-                      className="rounded border border-amber-600/60 bg-amber-950/40 px-2 py-1 font-mono text-[9px] uppercase text-amber-200 disabled:opacity-40"
-                    >
-                      {billingBusySlug === t.slug ? "…" : "Activate billing"}
-                    </button>
-                  ) : (
-                    <span className="font-mono text-[9px] uppercase text-emerald-400">Active</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

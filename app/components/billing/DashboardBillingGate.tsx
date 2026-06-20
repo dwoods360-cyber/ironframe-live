@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import BillingSuspensionNotice from "@/app/components/billing/BillingSuspensionNotice";
 
-const BILLING_EXEMPT_PREFIXES = ["/admin/onboarding", "/account/billing-hold"] as const;
+const BILLING_EXEMPT_PREFIXES = ["/admin/onboarding", "/account/billing-hold", "/get-started"] as const;
 
 type Props = {
   blocked: boolean;

@@ -128,6 +128,13 @@ export default function TopNav() {
               COMMAND POST
             </Link>
             <Link
+              href="/get-started"
+              className="rounded border border-indigo-900/40 bg-indigo-950/30 px-3 py-1.5 text-indigo-300 transition-all duration-150 hover:bg-indigo-500 hover:text-slate-950"
+              data-testid="topnav-get-started-link"
+            >
+              GET STARTED
+            </Link>
+            <Link
               href="/profile"
               className="rounded border border-slate-900 bg-slate-900/20 px-3 py-1.5 text-slate-400 transition-all duration-150 hover:border-slate-800 hover:bg-slate-900 hover:text-white"
               data-testid="topnav-security-profile-link"

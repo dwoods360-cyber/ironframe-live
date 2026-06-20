@@ -41,6 +41,7 @@ describe("grcRouteMatch", () => {
     expect(isScrollableStandalonePath("/audit")).toBe(true);
     expect(isScrollableStandalonePath("/vault")).toBe(true);
     expect(isScrollableStandalonePath("/evidence")).toBe(true);
+    expect(isScrollableStandalonePath("/get-started")).toBe(true);
     expect(isScrollableStandalonePath("/")).toBe(false);
     expect(isScrollableStandalonePath("/medshield/config")).toBe(false);
   });

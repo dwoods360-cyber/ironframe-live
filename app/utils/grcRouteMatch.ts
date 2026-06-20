@@ -175,6 +175,7 @@ export function isDashboardRouteGroupPath(pathname: string): boolean {
     "/admin/governance/comparison",
     "/admin/clearance/vault",
     "/admin/onboarding",
+    "/get-started",
   ] as const;
   return bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));
 }
@@ -202,7 +203,9 @@ export function isScrollableStandalonePath(pathname: string): boolean {
     pathname === "/vault" ||
     pathname.startsWith("/vault/") ||
     pathname === "/evidence" ||
-    pathname.startsWith("/evidence/")
+    pathname.startsWith("/evidence/") ||
+    pathname === "/get-started" ||
+    pathname.startsWith("/get-started/")
   );
 }
 

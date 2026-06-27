@@ -2,7 +2,17 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
-import { Building2, KeyRound, Mail, UserPlus } from "lucide-react";
+import { Building2, KeyRound, Mail, Rocket, UserPlus } from "lucide-react";
+import {
+  quickProvisionCorporateWorkspaceAction,
+  type QuickProvisionCorporateWorkspaceActionResult,
+} from "@/app/actions/admin/quickProvisionCorporateWorkspace";
+import {
+  QuickProvisionProgressPanel,
+  advanceQuickProvisionProgress,
+  buildInitialQuickProvisionProgress,
+  type QuickProvisionProgressState,
+} from "@/app/components/onboarding/QuickProvisionProgressPanel";
 import {
   provisionCorporateTenantAction,
   type ProvisionCorporateTenantResult,
@@ -23,6 +33,7 @@ import {
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
 type MintInvitationState = MintWorkspaceInvitationResult | null;
+type QuickProvisionState = QuickProvisionCorporateWorkspaceActionResult | null;
 
 export default function CorporateOnboardingClient() {
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
@@ -33,6 +44,9 @@ export default function CorporateOnboardingClient() {
   const [provisionResult, setProvisionResult] = useState<ProvisionState>(null);
   const [inviteResult, setInviteResult] = useState<InviteState>(null);
   const [mintResult, setMintResult] = useState<MintInvitationState>(null);
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickResult, setQuickResult] = useState<QuickProvisionState>(null);
+  const [quickProgress, setQuickProgress] = useState<QuickProvisionProgressState | null>(null);
   const [inviteTenantSlug, setInviteTenantSlug] = useState("");
 
   const refreshTenants = useCallback(async () => {
@@ -96,6 +110,35 @@ export default function CorporateOnboardingClient() {
     if (res.ok) {
       form.reset();
     }
+  };
+
+  const onQuickProvision = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setQuickBusy(true);
+    setQuickResult(null);
+    setQuickProgress(buildInitialQuickProvisionProgress());
+
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const tenantStageTimer = window.setTimeout(() => {
+      setQuickProgress((current) =>
+        current ? advanceQuickProvisionProgress(current, 1) : current,
+      );
+    }, 800);
+
+    const res = await quickProvisionCorporateWorkspaceAction(fd);
+    window.clearTimeout(tenantStageTimer);
+    setQuickProgress((current) =>
+      current ? advanceQuickProvisionProgress(current, 2) : current,
+    );
+    setQuickBusy(false);
+    setQuickResult(res);
+    if (res.ok) {
+      form.reset();
+      setInviteTenantSlug(res.slug);
+      void refreshTenants();
+    }
+    window.setTimeout(() => setQuickProgress(null), 2000);
   };
 
   const supabaseRedirectHint = (slug: string) => `${formatLocalTenantWorkspaceUrl(slug, 3000)}/**`;
@@ -184,6 +227,98 @@ export default function CorporateOnboardingClient() {
               <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-violet-200">
                 /register/{mintResult.token}
               </code>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded border border-cyan-800/50 bg-slate-900/50 p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-cyan-400" aria-hidden />
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-cyan-200">
+              Quick provision — tenant + activation invite
+            </h2>
+          </div>
+          <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
+            One-shot design-partner path: creates the tenant, mints a register token, and sends the
+            welcome email. Operator completes ALE + company profile on Get Started after activation.
+          </p>
+
+          {quickProgress ? (
+            <div className="mb-4">
+              <QuickProvisionProgressPanel
+                progress={quickProgress}
+                onTick={setQuickProgress}
+              />
+            </div>
+          ) : null}
+
+          <form onSubmit={onQuickProvision} className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-[10px] text-slate-400">
+              Business display name
+              <input
+                name="name"
+                required
+                minLength={2}
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="Acme Corporation"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Workspace slug
+              <input
+                name="slug"
+                required
+                pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="acmecorp"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Operator email
+              <input
+                name="email"
+                type="email"
+                required
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="ciso@customer.com"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={quickBusy}
+              className="sm:col-span-3 inline-flex h-11 items-center justify-center rounded border border-cyan-600/70 bg-cyan-950/40 text-[10px] font-black uppercase text-cyan-200 disabled:opacity-40"
+            >
+              {quickBusy ? "Provisioning…" : "Quick provision workspace"}
+            </button>
+          </form>
+
+          {quickResult && !quickResult.ok ? (
+            <p className="mt-3 text-[10px] text-rose-300" role="alert">
+              {quickResult.error}
+            </p>
+          ) : null}
+
+          {quickResult?.ok ? (
+            <div
+              className="mt-4 rounded border border-cyan-700/40 bg-cyan-950/30 p-3 text-[10px] text-cyan-100"
+              role="status"
+            >
+              <p className="font-bold uppercase tracking-wide">
+                {quickResult.tenantAlreadyExisted ? "Invitation minted" : "Workspace provisioned"}
+              </p>
+              <p className="mt-1 font-mono text-[9px] text-cyan-200/90">{quickResult.workspaceUrl}</p>
+              <p className="mt-2 text-slate-400">Secure activation URL:</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
+                {quickResult.registerUrl}
+              </code>
+              {quickResult.inviteEmail && !quickResult.inviteEmail.sent ? (
+                <p className="mt-2 text-amber-200" role="alert">
+                  Email not sent: {quickResult.inviteEmail.error ?? "delivery failed"}
+                </p>
+              ) : null}
             </div>
           ) : null}
         </section>

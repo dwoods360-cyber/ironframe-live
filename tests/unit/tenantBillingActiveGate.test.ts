@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertTenantBillingActive,
+  assertTenantBillingActiveForCompanyProfileIngress,
   TenantBillingHoldError,
   tenantBillingHoldJsonResponse,
 } from "@/app/lib/billing/tenantBillingEntitlement";
@@ -11,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     tenant: { findUnique: vi.fn() },
     tenantBilling: { findUnique: vi.fn() },
+    company: { findFirst: vi.fn() },
   },
 }));
 
@@ -20,6 +22,7 @@ describe("assertTenantBillingActive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" } as never);
+    vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
   });
 
   it("allows ACTIVE billing without throwing", async () => {
@@ -48,6 +51,41 @@ describe("assertTenantBillingActive", () => {
     await expect(
       assertTenantBillingActive("tenant-uuid-1", { platformAdminBypass: true }),
     ).resolves.toBeUndefined();
+  });
+
+  it("allows primary company bootstrap under PENDING billing", async () => {
+    vi.mocked(prisma.tenantBilling.findUnique).mockResolvedValue({
+      status: TENANT_BILLING_STATUS.PENDING,
+    } as never);
+
+    await expect(
+      assertTenantBillingActive("tenant-uuid-1", { allowPrimaryCompanyBootstrap: true }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("assertTenantBillingActiveForCompanyProfileIngress", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" } as never);
+    vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.tenantBilling.findUnique).mockResolvedValue({
+      status: TENANT_BILLING_STATUS.PENDING,
+    } as never);
+  });
+
+  it("allows first primary company while billing is PENDING", async () => {
+    await expect(
+      assertTenantBillingActiveForCompanyProfileIngress("tenant-uuid-1"),
+    ).resolves.toBeUndefined();
+  });
+
+  it("blocks updates when primary company exists and billing is PENDING", async () => {
+    vi.mocked(prisma.company.findFirst).mockResolvedValue({ id: 1n } as never);
+
+    await expect(
+      assertTenantBillingActiveForCompanyProfileIngress("tenant-uuid-1"),
+    ).rejects.toBeInstanceOf(TenantBillingHoldError);
   });
 });
 

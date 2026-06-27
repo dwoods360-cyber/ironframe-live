@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { canUsePlatformAdminTools } from '@/app/lib/auth/platformAdminAccess';
 import {
-  assertTenantBillingActive,
+  assertTenantBillingActiveForCompanyProfileIngress,
   TenantBillingHoldError,
   tenantBillingHoldJsonResponse,
 } from '@/app/lib/billing/tenantBillingEntitlement';
@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
 
     const platformAdmin = await canUsePlatformAdminTools();
     try {
-      await assertTenantBillingActive(tenantId!, { platformAdminBypass: platformAdmin });
+      await assertTenantBillingActiveForCompanyProfileIngress(tenantId!, {
+        platformAdminBypass: platformAdmin,
+      });
     } catch (err) {
       if (err instanceof TenantBillingHoldError) {
         return tenantBillingHoldJsonResponse(err);

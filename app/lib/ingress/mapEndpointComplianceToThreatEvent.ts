@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { ThreatState } from '@prisma/client';
+import { ThreatState, type Prisma } from '@prisma/client';
 import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import {
   buildEndpointComplianceFingerprint,
@@ -69,7 +69,7 @@ export function mapEndpointComplianceToThreatEvent(
       financialRiskCents: payload.financialRiskCents ?? '0',
       isRemoteAccessAuthorized: payload.isRemoteAccessAuthorized ?? false,
       ...(payload.extensions ? { extensions: payload.extensions } : {}),
-    },
+    } as Prisma.InputJsonValue,
   });
 
   return {

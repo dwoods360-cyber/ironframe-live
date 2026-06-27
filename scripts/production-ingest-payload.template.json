@@ -1,4 +1,5 @@
 {
+  "_deprecatedNotice": "Illustrative ack/orchestration sample only. New endpoint integrators must use POST /api/ingestion/endpoint-compliance — see docs/technical/endpoint-compliance-ingress-schema.md",
   "endpoint": "https://ironframe-live.vercel.app/api/threats/ingest",
   "headers": {
     "Content-Type": "application/json",

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "endpoint-compliance-v1",
+  "tenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+  "sourceType": "MDM",
+  "sourceIntegrationId": "intune-prod-east",
+  "observedAt": "2026-06-27T14:30:00.000Z",
+  "idempotencyKey": "intune-device-abc123-noncompliant-cc61",
+  "endpoint": {
+    "deviceId": "abc123-device-guid",
+    "hostname": "ws-finance-042.corp.example",
+    "assetClass": "WORKSTATION",
+    "site": "NYC-HQ",
+    "os": "Windows 11 Enterprise"
+  },
+  "finding": {
+    "controlIds": ["SOC2-CC6.1", "ISO-A.8.2"],
+    "framework": "SOC2",
+    "state": "NON_COMPLIANT",
+    "ruleId": "disk-encryption-required",
+    "ruleTitle": "Full-disk encryption disabled",
+    "severity": "HIGH",
+    "remediationDueAt": "2026-07-04T00:00:00.000Z",
+    "evidenceUrl": "https://portal.example.com/evidence/abc123"
+  },
+  "financialRiskCents": "250000000",
+  "justification": "Workstation holds regulated finance data; encryption gap exceeds tenant risk appetite."
+}

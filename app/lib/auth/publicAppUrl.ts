@@ -26,6 +26,37 @@ export function resolvePublicAppUrl(): string {
   return "http://localhost:3000";
 }
 
+/** Dev port for tenant subdomain links — prefers NEXT_PUBLIC_APP_URL over PORT. */
+export function resolveLocalDevAppPort(): number {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (explicit) {
+    try {
+      const parsed = new URL(explicit.startsWith("http") ? explicit : `http://${explicit}`);
+      if (parsed.port) return Number(parsed.port) || 3000;
+      return parsed.protocol === "https:" ? 443 : 80;
+    } catch {
+      // fall through
+    }
+  }
+  return Number(process.env.PORT?.trim() || "3000") || 3000;
+}
+
+export function isPasswordRecoveryNextPath(nextPath: string): boolean {
+  return nextPath.trim() === "/reset-password";
+}
+
+export function resolveSupabasePasswordResetRedirectOrigin(): string {
+  return resolvePublicAppUrl();
+}
+
+/** Supabase invite redirect: apex localhost in dev, tenant subdomain in production. */
+export function resolveSupabaseInviteRedirectOrigin(tenantSlug: string): string {
+  if (process.env.NODE_ENV === "production") {
+    return resolveTenantAuthRedirectOrigin(tenantSlug);
+  }
+  return resolvePublicAppUrl();
+}
+
 /** Safe internal redirect path — blocks open redirects. */
 export function sanitizeAuthNextPath(raw: string | null | undefined, fallback = "/integrity"): string {
   const next = (raw ?? "").trim();
@@ -40,8 +71,7 @@ export function buildPasswordResetRedirectUrl(origin: string): string {
 
 /** Tenant workspace origin for B2B invites and deep links (`vaultbank.lvh.me:3000`, `vaultbank.ironframegrc.com`). */
 export function resolveTenantAuthRedirectOrigin(tenantSlug: string): string {
-  const port = Number(process.env.PORT?.trim() || "3000") || 3000;
-  return buildTenantSubdomainOrigin(tenantSlug, port);
+  return buildTenantSubdomainOrigin(tenantSlug, resolveLocalDevAppPort());
 }
 
 export function buildAuthCallbackUrl(origin: string, nextPath: string): string {

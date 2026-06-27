@@ -479,6 +479,7 @@ export function setSimulationMode(mode: boolean) {
     ...systemConfigState,
     isSimulationMode: mode,
   };
+  syncSimulationModeCookie(mode);
   appendAuditLog({
     action_type: "CONFIG_CHANGE",
     log_type: "GRC",
@@ -487,6 +488,13 @@ export function setSimulationMode(mode: boolean) {
   });
   persistSystemConfig();
   emitChange();
+}
+
+/** After workspace activation, drop shadow-plane simulation so Get Started runs in production posture. */
+export function clearShadowPlaneForWorkspaceActivation(): void {
+  if (typeof window === "undefined") return;
+  if (!systemConfigState.isSimulationMode) return;
+  setSimulationMode(false);
 }
 
 export type SystemConfigStoreSnapshot = SystemConfigState & {

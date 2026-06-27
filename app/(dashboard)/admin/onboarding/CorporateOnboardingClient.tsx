@@ -247,7 +247,9 @@ export default function CorporateOnboardingClient() {
             <div className="mb-4">
               <QuickProvisionProgressPanel
                 progress={quickProgress}
-                onTick={setQuickProgress}
+                onTick={(updater) => {
+                  setQuickProgress((current) => (current ? updater(current) : current));
+                }}
               />
             </div>
           ) : null}

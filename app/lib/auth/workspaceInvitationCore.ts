@@ -138,3 +138,67 @@ export async function validateWorkspaceInvitation(
 
   return { ok: true, invitationId: row.id };
 }
+
+export type ResolveWorkspaceInvitationForRegistrationResult =
+  | {
+      ok: true;
+      invitation: {
+        email: string;
+        tenantSlug: string | null;
+        expiresAt: string;
+      };
+    }
+  | {
+      ok: false;
+      reason: "not_found" | "email_unbound" | "consumed" | "expired";
+    };
+
+export async function resolveWorkspaceInvitationForRegistration(
+  token: string,
+): Promise<ResolveWorkspaceInvitationForRegistrationResult> {
+  const trimmed = token.trim();
+  if (!trimmed) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  const tokenHash = hashWorkspaceInvitationToken(trimmed);
+  const row = await prisma.tenantWorkspaceInvitation.findUnique({
+    where: { tokenHash },
+    select: {
+      status: true,
+      expiresAt: true,
+      email: true,
+      tenantSlug: true,
+    },
+  });
+
+  if (!row) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  if (row.status === WORKSPACE_INVITATION_STATUS.CONSUMED) {
+    return { ok: false, reason: "consumed" };
+  }
+
+  if (row.status !== WORKSPACE_INVITATION_STATUS.ACTIVE) {
+    return { ok: false, reason: "not_found" };
+  }
+
+  if (row.expiresAt.getTime() < Date.now()) {
+    return { ok: false, reason: "expired" };
+  }
+
+  const email = row.email?.trim().toLowerCase() ?? "";
+  if (!email) {
+    return { ok: false, reason: "email_unbound" };
+  }
+
+  return {
+    ok: true,
+    invitation: {
+      email,
+      tenantSlug: row.tenantSlug?.trim().toLowerCase() || null,
+      expiresAt: row.expiresAt.toISOString(),
+    },
+  };
+}

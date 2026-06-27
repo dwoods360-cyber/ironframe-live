@@ -1,9 +1,16 @@
 import "server-only";
 
 import { createWorkspaceInvitation } from "@/app/lib/auth/workspaceInvitationCore";
+import { resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { provisionCorporateTenantCore } from "@/app/lib/server/corporateTenantProvisionCore";
+import { sendWorkspaceInviteEmailCore } from "@/app/lib/server/workspaceInviteEmailDelivery";
+
+function buildRegisterInvitationUrl(token: string): string {
+  const base = resolvePublicAppUrl().replace(/\/+$/, "");
+  return `${base}/register/${encodeURIComponent(token.trim())}`;
+}
 
 export type QuickProvisionCorporateWorkspaceInput = {
   operatorId: string;
@@ -82,13 +89,20 @@ export async function quickProvisionCorporateWorkspaceCore(
     operatorId: input.operatorId,
     email,
     tenantSlug: slug,
-    tenantDisplayName: name,
-    dispatchInviteEmail: true,
   });
 
   if (!invitation.ok) {
     return { ok: false, error: invitation.error };
   }
+
+  const registerUrl = buildRegisterInvitationUrl(invitation.token);
+  const inviteEmailResult = await sendWorkspaceInviteEmailCore({
+    email,
+    tenantSlug: slug,
+    registerToken: invitation.token,
+    tenantDisplayName: name,
+    inviteExpiresAt: invitation.expiresAt,
+  });
 
   return {
     ok: true,
@@ -96,21 +110,19 @@ export async function quickProvisionCorporateWorkspaceCore(
     name,
     email,
     workspaceUrl,
-    registerUrl: invitation.registerUrl,
+    registerUrl,
     token: invitation.token,
     invitationId: invitation.invitationId,
     expiresAt: invitation.expiresAt,
     tenantAlreadyExisted,
-    inviteEmail: invitation.inviteEmail
+    inviteEmail: inviteEmailResult.ok
       ? {
-          sent: invitation.inviteEmail.sent,
-          deliveryChannel:
-            invitation.inviteEmail.sent === true
-              ? invitation.inviteEmail.deliveryChannel
-              : undefined,
-          error:
-            invitation.inviteEmail.sent === false ? invitation.inviteEmail.error : undefined,
+          sent: true,
+          deliveryChannel: inviteEmailResult.deliveryChannel,
         }
-      : undefined,
+      : {
+          sent: false,
+          error: inviteEmailResult.error,
+        },
   };
 }

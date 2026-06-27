@@ -106,7 +106,7 @@ export default function GetStartedPortalClient({
   const inlineDocHref = useGetStartedReaderStore((s) => s.inlineDocHref);
   const setInlineDocHref = useGetStartedReaderStore((s) => s.setInlineDocHref);
   const clearInlineDoc = useGetStartedReaderStore((s) => s.clearInlineDoc);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
   const demoSandbox = isDemoRouteGroupPath(pathname) || isDemoModeActive();
   const [progress, setProgress] = useState<StoredProgress>({});
   const [inlineDoc, setInlineDoc] = useState<InlineDocPayload | null>(null);
@@ -1029,9 +1029,7 @@ export default function GetStartedPortalClient({
                 </h2>
                 <DocsMarkdown
                   content={inlineDoc.content}
-                  pathResolver={inlineDocPathResolver}
-                  onInterceptDocLink={handleInlineDocLinkClick}
-                  variant="saas"
+                  currentSlug={inlineDoc.slug ? dbKeyToSlugSegments(inlineDoc.slug) : []}
                 />
               </article>
             ) : null}

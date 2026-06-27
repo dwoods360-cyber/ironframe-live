@@ -23,9 +23,11 @@ Overview of public and internal HTTP APIs. All tenant-scoped routes require Supa
 |--------|------|-------------|
 | GET | `/api/threats` | Threat list |
 | GET | `/api/threats/active` | Active threats |
-| POST | `/api/threats/ingest` | Irongate-sanitized ingest |
+| POST | `/api/threats/ingest` | Ack/orchestration for existing threat (`threatId` required) |
+| POST | `/api/ingestion/endpoint-compliance` | Typed MDM/EDR/SIEM endpoint compliance ingress ([schema](./endpoint-compliance-ingress-schema.md)) |
 | POST | `/api/ingestion/company-profile` | Primary company + department graph upsert ([schema](./company-profile-ingress-schema.md)) |
-| POST | `/api/ingest` | Alternate ingest surface |
+| POST | `/api/ingestion/raw-signal` | Loose envelope raw signal (Irongate → Ironcore routing) |
+| POST | `/api/ingest` | Legacy alias → `/api/ingestion/raw-signal` |
 | GET | `/api/threat-events-heatmap` | Heatmap data |
 | GET/POST | `/api/threats/[id]` | Single threat |
 | POST | `/api/threats/[id]/neutralize` | Neutralize threat |

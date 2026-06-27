@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "company-profile-v1",
+  "tenantId": "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
+  "companyName": "Acme Aerospace Holdings",
+  "sector": "Defense and Critical Infrastructure",
+  "industryAvgLossCents": "1250000000",
+  "departments": ["SecOps", "Flight Operations", "Core Infrastructure", "Legal Compliance"]
+}

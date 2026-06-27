@@ -55,10 +55,7 @@ export class TenantBillingHoldError extends Error {
   }
 }
 
-/**
- * Hard commercial stop before corpus or agent orchestration reads tenant IP surfaces.
- * Platform operators bypass for provisioning and QA.
- */
+/** Hard commercial stop before tenant-scoped ingress writes. Platform operators bypass for QA. */
 export async function assertTenantBillingActive(
   tenantUuid: string,
   options?: { platformAdminBypass?: boolean },

@@ -19,6 +19,9 @@ export const metadata = {
 export default async function GetStartedPage() {
   const access = await ensureDashboardTenantSession(await resolveDashboardAccess());
   let initialAleBaselineCents = "0";
+  let initialHasPrimaryCompany = false;
+  let initialTenantName = "";
+  let initialTenantIndustry = "";
   let billingBlocked = false;
   let billingStatus = "UNTRACKED";
 
@@ -28,17 +31,29 @@ export default async function GetStartedPage() {
     billingStatus = billing?.status ?? "UNTRACKED";
     billingBlocked = Boolean(billing?.blocked && !platformAdmin);
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: access.tenantUuid },
-      select: { ale_baseline: true },
-    });
+    const [tenant, primaryCompany] = await Promise.all([
+      prisma.tenant.findUnique({
+        where: { id: access.tenantUuid },
+        select: { ale_baseline: true, name: true, industry: true },
+      }),
+      prisma.company.findFirst({
+        where: { tenantId: access.tenantUuid, isTestRecord: false },
+        select: { id: true },
+      }),
+    ]);
     initialAleBaselineCents = tenant?.ale_baseline?.toString() ?? "0";
+    initialHasPrimaryCompany = Boolean(primaryCompany);
+    initialTenantName = tenant?.name ?? "";
+    initialTenantIndustry = tenant?.industry ?? "";
   }
 
   return (
     <Suspense fallback={null}>
       <GetStartedPortalClient
         initialAleBaselineCents={initialAleBaselineCents}
+        initialHasPrimaryCompany={initialHasPrimaryCompany}
+        initialTenantName={initialTenantName}
+        initialTenantIndustry={initialTenantIndustry}
         billingBlocked={billingBlocked}
         billingStatus={billingStatus}
       />

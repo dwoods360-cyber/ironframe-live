@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import { useTenantContext } from "@/app/context/TenantProvider";
 import DocsMarkdown from "@/app/docs/[[...slug]]/DocsMarkdown";
+import { syncCompanyProfileAction } from "@/app/actions/getStarted/syncCompanyProfile";
 import { updateWorkspaceAleBaselineAction } from "@/app/actions/getStarted/updateWorkspaceAleBaseline";
 import { getStartedStepAudioSrc } from "@/app/lib/getStartedStepAudio";
 import {
@@ -84,12 +85,18 @@ type InlineDocPayload = {
 
 type GetStartedPortalClientProps = {
   initialAleBaselineCents?: string;
+  initialHasPrimaryCompany?: boolean;
+  initialTenantName?: string;
+  initialTenantIndustry?: string;
   billingBlocked?: boolean;
   billingStatus?: string;
 };
 
 export default function GetStartedPortalClient({
   initialAleBaselineCents = "0",
+  initialHasPrimaryCompany = false,
+  initialTenantName = "",
+  initialTenantIndustry = "",
   billingBlocked = false,
   billingStatus = "PENDING",
 }: GetStartedPortalClientProps) {
@@ -115,6 +122,13 @@ export default function GetStartedPortalClient({
   const [aleSaveBusy, setAleSaveBusy] = useState(false);
   const [aleSaveError, setAleSaveError] = useState<string | null>(null);
   const [aleSaveMessage, setAleSaveMessage] = useState<string | null>(null);
+  const [hasPrimaryCompany, setHasPrimaryCompany] = useState(initialHasPrimaryCompany);
+  const [companyNameDraft, setCompanyNameDraft] = useState(initialTenantName);
+  const [sectorDraft, setSectorDraft] = useState(initialTenantIndustry);
+  const [departmentsDraft, setDepartmentsDraft] = useState("");
+  const [companySaveBusy, setCompanySaveBusy] = useState(false);
+  const [companySaveError, setCompanySaveError] = useState<string | null>(null);
+  const [companySaveMessage, setCompanySaveMessage] = useState<string | null>(null);
   const stepAudioRef = useRef<HTMLAudioElement>(null);
   const welcomeAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -159,6 +173,10 @@ export default function GetStartedPortalClient({
     }
   }, [aleBaselineCents]);
 
+  const companyProfileUnset = !hasPrimaryCompany;
+
+  const onboardingProfileComplete = !aleBaselineUnset && !companyProfileUnset;
+
   const saveAleBaseline = useCallback(async () => {
     if (aleSaveBusy) return;
     setAleSaveBusy(true);
@@ -202,6 +220,37 @@ export default function GetStartedPortalClient({
       setAleSaveBusy(false);
     }
   }, [aleDraftDollars, aleSaveBusy]);
+
+  const saveCompanyProfile = useCallback(async () => {
+    if (companySaveBusy) return;
+    setCompanySaveBusy(true);
+    setCompanySaveError(null);
+    setCompanySaveMessage(null);
+
+    try {
+      const result = await syncCompanyProfileAction({
+        companyName: companyNameDraft,
+        sector: sectorDraft,
+        departmentsRaw: departmentsDraft.trim() || undefined,
+      });
+      if (!result.ok) {
+        setCompanySaveError(result.error);
+        return;
+      }
+      setHasPrimaryCompany(true);
+      setCompanySaveMessage(
+        result.created
+          ? "Company profile saved. Guided onboarding is now unlocked."
+          : "Company profile updated. Guided onboarding is now unlocked.",
+      );
+    } catch (error) {
+      setCompanySaveError(
+        error instanceof Error ? error.message : "Could not save the company profile.",
+      );
+    } finally {
+      setCompanySaveBusy(false);
+    }
+  }, [companyNameDraft, companySaveBusy, departmentsDraft, sectorDraft]);
 
   useEffect(() => {
     setProgress(readProgress());
@@ -250,13 +299,13 @@ export default function GetStartedPortalClient({
   }, [setInlineDocHref]);
 
   useEffect(() => {
-    if (billingBlocked) return;
+    if (billingBlocked || !onboardingProfileComplete) return;
     const rawHash = window.location.hash.replace(/^#/, "");
     const hashRoot = rawHash.split(":")[0] ?? "";
     if (hashRoot === GET_STARTED_ORIENTATION_HASH || hashRoot === "quickstart") {
       openInlineGuide(GET_STARTED_QUICKSTART_GUIDE_HREF, "quickstart");
     }
-  }, [openInlineGuide, billingBlocked]);
+  }, [billingBlocked, onboardingProfileComplete, openInlineGuide]);
 
   const playStepAudio = useCallback(async (stepId: GetStartedStepId) => {
     const audio = stepAudioRef.current;
@@ -272,7 +321,7 @@ export default function GetStartedPortalClient({
   }, []);
 
   useEffect(() => {
-    if (billingBlocked) {
+    if (billingBlocked || !onboardingProfileComplete) {
       clearInlineDoc();
       return;
     }
@@ -317,7 +366,7 @@ export default function GetStartedPortalClient({
       cancelled = true;
       controller.abort();
     };
-  }, [inlineDocHref, tenantFetch, billingBlocked, clearInlineDoc]);
+  }, [billingBlocked, clearInlineDoc, inlineDocHref, onboardingProfileComplete, tenantFetch]);
 
   useEffect(() => {
     if (!inlineDoc || !inlineDocHref) return;
@@ -546,14 +595,81 @@ export default function GetStartedPortalClient({
             ) : null}
           </section>
         ) : (
-          <p className="font-mono text-[10px] text-slate-500">
-            Workspace ALE baseline: {formatCentsToUSD(BigInt(aleBaselineCents))}
-          </p>
+          <>
+            <p className="font-mono text-[10px] text-slate-500">
+              Workspace ALE baseline: {formatCentsToUSD(BigInt(aleBaselineCents))}
+            </p>
+
+            {companyProfileUnset ? (
+              <section className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-950/15 px-4 py-4">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+                  Company profile required
+                </p>
+                <p className="mt-2 text-xs leading-relaxed text-cyan-100/90">
+                  Provision creates your workspace tenant only. Name your organization and sector so
+                  Integrity Hub, risk registers, and board reporting have a primary company record.
+                  ALE baseline is applied automatically from your saved workspace value.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-[10px] text-cyan-200/80">
+                    Company name
+                    <input
+                      type="text"
+                      value={companyNameDraft}
+                      onChange={(event) => setCompanyNameDraft(event.target.value)}
+                      placeholder={initialTenantName || "Acme Holdings"}
+                      className="mt-1 h-11 w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                  <label className="block text-[10px] text-cyan-200/80">
+                    Sector
+                    <input
+                      type="text"
+                      value={sectorDraft}
+                      onChange={(event) => setSectorDraft(event.target.value)}
+                      placeholder={initialTenantIndustry || "Financial Services"}
+                      className="mt-1 h-11 w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                  <label className="block text-[10px] text-cyan-200/80 sm:col-span-2">
+                    Departments (optional, comma or newline separated)
+                    <textarea
+                      value={departmentsDraft}
+                      onChange={(event) => setDepartmentsDraft(event.target.value)}
+                      placeholder="Finance, IT, Legal"
+                      rows={2}
+                      className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 py-2 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    companySaveBusy || !companyNameDraft.trim() || !sectorDraft.trim()
+                  }
+                  onClick={() => void saveCompanyProfile()}
+                  className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-cyan-500/50 bg-cyan-950/50 px-5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {companySaveBusy ? "Saving…" : "Save company profile"}
+                </button>
+                {companySaveError ? (
+                  <p className="mt-2 text-xs text-rose-300" role="alert">
+                    {companySaveError}
+                  </p>
+                ) : null}
+                {companySaveMessage ? (
+                  <p className="mt-2 text-xs text-emerald-300" role="status">
+                    {companySaveMessage}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+          </>
         )}
 
         {billingBlocked ? (
           <CommercialEntitlementHoldPanel billingStatus={billingStatus} compact />
-        ) : (
+        ) : onboardingProfileComplete ? (
           <>
         {welcomeAudioSrc ? (
           <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 px-4 py-3">
@@ -845,10 +961,10 @@ export default function GetStartedPortalClient({
           </div>
         </footer>
           </>
-        )}
+        ) : null}
       </div>
 
-      {!billingBlocked && inlineDocHref ? (
+      {!billingBlocked && onboardingProfileComplete && inlineDocHref ? (
         <div
           className={`ironframe-orientation-surface fixed inset-x-0 bottom-0 z-[35] flex flex-col border-t border-[var(--login-border)] bg-[#020617] ${inlineReaderTopClass}`}
           role="dialog"

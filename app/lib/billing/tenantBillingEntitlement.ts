@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { NextResponse } from "next/server";
 import {
   isBillingGateActiveStatus,
   TENANT_BILLING_STATUS,
@@ -43,6 +44,46 @@ export async function resolveTenantBillingEntitlementByUuid(
   });
   if (!tenant) return null;
   return resolveTenantBillingEntitlementBySlug(tenant.slug);
+}
+
+export class TenantBillingHoldError extends Error {
+  readonly code = "BILLING_HOLD" as const;
+
+  constructor(readonly billingStatus: TenantBillingStatus | "UNTRACKED") {
+    super(`Commercial entitlement required (billing=${billingStatus}).`);
+    this.name = "TenantBillingHoldError";
+  }
+}
+
+/**
+ * Hard commercial stop before corpus or agent orchestration reads tenant IP surfaces.
+ * Platform operators bypass for provisioning and QA.
+ */
+export async function assertTenantBillingActive(
+  tenantUuid: string,
+  options?: { platformAdminBypass?: boolean },
+): Promise<void> {
+  if (options?.platformAdminBypass) {
+    return;
+  }
+
+  const entitlement = await resolveTenantBillingEntitlementByUuid(tenantUuid);
+  const billingStatus = entitlement?.status ?? "UNTRACKED";
+
+  if (entitlement?.blocked || isBillingGateActiveStatus(billingStatus)) {
+    throw new TenantBillingHoldError(billingStatus);
+  }
+}
+
+export function tenantBillingHoldJsonResponse(error: TenantBillingHoldError): NextResponse {
+  return NextResponse.json(
+    {
+      error: "Commercial entitlement required.",
+      code: error.code,
+      billingStatus: error.billingStatus,
+    },
+    { status: 402 },
+  );
 }
 
 export async function ensureTenantBillingPending(slug: string): Promise<void> {

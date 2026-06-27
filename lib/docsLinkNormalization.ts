@@ -57,8 +57,26 @@ export function normalizeDocMarkdownHref(
     const outside = segments
       .filter((segment) => segment !== ".." && segment !== "." && segment !== "")
       .map(stripMd);
-    return `/${outside.join("/")}${hash}`;
+    return `/docs/${outside.join("/")}${hash}`;
   }
 
   return `/docs/${resolved.join("/")}${hash}`;
+}
+
+function lowercaseDocsRouteHref(href: string): string {
+  if (!href.startsWith("/docs/") && href !== "/docs") return href;
+  const hashIndex = href.indexOf("#");
+  const pathPart = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+  const hash = hashIndex >= 0 ? href.slice(hashIndex) : "";
+  if (pathPart === "/docs") return href;
+  return `${pathPart.toLowerCase()}${hash}`;
+}
+
+/** Context-aware resolver for the docs catch-all page — maps markdown hrefs to `/docs/...` routes. */
+export function resolveAbsoluteDocPath(href: string, activeSlugArray: string[]): string {
+  const trimmed = href?.trim() ?? "";
+  if (!trimmed) return "#";
+  const normalized = normalizeDocMarkdownHref(trimmed, activeSlugArray);
+  if (!normalized) return "#";
+  return lowercaseDocsRouteHref(normalized);
 }

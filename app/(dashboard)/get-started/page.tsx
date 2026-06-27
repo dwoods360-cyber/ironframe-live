@@ -1,4 +1,12 @@
+import { Suspense } from "react";
 import GetStartedPortalClient from "./GetStartedPortalClient";
+import {
+  ensureDashboardTenantSession,
+  resolveDashboardAccess,
+} from "@/app/lib/auth/dashboardRoleAccess";
+import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import { resolveTenantBillingEntitlementByUuid } from "@/app/lib/billing/tenantBillingEntitlement";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +16,32 @@ export const metadata = {
     "Progressive onboarding portal — quick-start guides, Level 1 training, and Trainer agent sandbox.",
 };
 
-export default function GetStartedPage() {
-  return <GetStartedPortalClient />;
+export default async function GetStartedPage() {
+  const access = await ensureDashboardTenantSession(await resolveDashboardAccess());
+  let initialAleBaselineCents = "0";
+  let billingBlocked = false;
+  let billingStatus = "UNTRACKED";
+
+  if (access.status === "allowed") {
+    const platformAdmin = await canUsePlatformAdminTools();
+    const billing = await resolveTenantBillingEntitlementByUuid(access.tenantUuid);
+    billingStatus = billing?.status ?? "UNTRACKED";
+    billingBlocked = Boolean(billing?.blocked && !platformAdmin);
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: access.tenantUuid },
+      select: { ale_baseline: true },
+    });
+    initialAleBaselineCents = tenant?.ale_baseline?.toString() ?? "0";
+  }
+
+  return (
+    <Suspense fallback={null}>
+      <GetStartedPortalClient
+        initialAleBaselineCents={initialAleBaselineCents}
+        billingBlocked={billingBlocked}
+        billingStatus={billingStatus}
+      />
+    </Suspense>
+  );
 }

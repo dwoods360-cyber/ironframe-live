@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import {
+  assertTenantBillingActive,
+  TenantBillingHoldError,
+  tenantBillingHoldJsonResponse,
+} from "@/app/lib/billing/tenantBillingEntitlement";
 import {
   resolveTrainerApiKey,
   synthesizeTrainerSession,
@@ -14,6 +20,9 @@ export async function POST(req: NextRequest) {
     if (!guard.ok) {
       return guard.response;
     }
+
+    const platformAdmin = await canUsePlatformAdminTools();
+    await assertTenantBillingActive(guard.tenantUuid!, { platformAdminBypass: platformAdmin });
 
     let body: { topic?: unknown; message?: unknown };
     try {
@@ -48,6 +57,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err: unknown) {
+    if (err instanceof TenantBillingHoldError) {
+      return tenantBillingHoldJsonResponse(err);
+    }
     if (err instanceof Error && err.message === "TOPIC_REQUIRED") {
       return NextResponse.json({ error: "Invalid payload: 'topic' string is required." }, { status: 400 });
     }

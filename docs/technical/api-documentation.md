@@ -24,6 +24,7 @@ Overview of public and internal HTTP APIs. All tenant-scoped routes require Supa
 | GET | `/api/threats` | Threat list |
 | GET | `/api/threats/active` | Active threats |
 | POST | `/api/threats/ingest` | Irongate-sanitized ingest |
+| POST | `/api/ingestion/company-profile` | Primary company + department graph upsert ([schema](./company-profile-ingress-schema.md)) |
 | POST | `/api/ingest` | Alternate ingest surface |
 | GET | `/api/threat-events-heatmap` | Heatmap data |
 | GET/POST | `/api/threats/[id]` | Single threat |

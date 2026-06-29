@@ -215,41 +215,22 @@ export function isDashboardRouteGroupPath(pathname: string): boolean {
     "/admin/clearance/vault",
     "/admin/onboarding",
     "/get-started",
+    "/trust",
+    "/dashboard/support",
+    "/dashboard/admin",
+    "/boardroom",
   ] as const;
   return bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));
 }
 
+/** Tripane home and cockpit — bounded viewport; column or grid scroll, not AppShell body. */
+export function isViewportBoundedDashboardPath(pathname: string): boolean {
+  return pathname === "/" || pathname === "/cockpit";
+}
+
 /** Full-page routes that scroll in AppShell (not tripane column scroll). */
 export function isScrollableStandalonePath(pathname: string): boolean {
-  return (
-    pathname === "/" ||
-    pathname === "/marketing" ||
-    pathname === "/docs" ||
-    pathname.startsWith("/docs/") ||
-    pathname === "/board-report" ||
-    pathname.startsWith("/board-report/") ||
-    isReportsPath(pathname) ||
-    pathname === "/integrity" ||
-    pathname.startsWith("/integrity/") ||
-    pathname === "/profile" ||
-    pathname.startsWith("/profile/") ||
-    pathname === "/settings/config" ||
-    pathname.startsWith("/settings/config/") ||
-    pathname === "/opsupport" ||
-    pathname.startsWith("/opsupport/") ||
-    pathname === "/op-support" ||
-    pathname.startsWith("/op-support/") ||
-    pathname === "/audit" ||
-    pathname.startsWith("/audit/") ||
-    pathname === "/vault" ||
-    pathname.startsWith("/vault/") ||
-    pathname === "/evidence" ||
-    pathname.startsWith("/evidence/") ||
-    pathname === "/get-started" ||
-    pathname.startsWith("/get-started/") ||
-    pathname === "/admin/onboarding" ||
-    pathname.startsWith("/admin/onboarding/")
-  );
+  return !isViewportBoundedDashboardPath(pathname);
 }
 
 /** Read-only constitutional sentinel + Irontech recovery — must work without a dashboard session (marketing shell polls these). */
@@ -266,6 +247,8 @@ export function isPublicConstitutionalSentinelPath(pathname: string): boolean {
 export function isConstitutionalOverlaySuppressedPath(pathname: string): boolean {
   return (
     pathname === "/" ||
+    pathname === "/integrity" ||
+    pathname.startsWith("/integrity/") ||
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
     pathname === "/marketing" ||

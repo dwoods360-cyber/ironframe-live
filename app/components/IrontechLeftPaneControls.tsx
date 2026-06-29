@@ -168,7 +168,9 @@ export default function IrontechLeftPaneControls() {
           const title = isSimulationActive ? item.titleShadow : item.titleLive;
           const href = resolveNavHref(item);
           const focusTarget = item.shadowFocusTarget;
-          const useShadowFocus = isSimulationActive && focusTarget != null;
+          /** Integrity Hub always routes to /integrity — shadow focus only scrolls sim deck widgets. */
+          const useShadowFocus =
+            isSimulationActive && focusTarget != null && item.key !== "integrity";
 
           const onClick = useShadowFocus
             ? (event: MouseEvent<HTMLAnchorElement>) => {

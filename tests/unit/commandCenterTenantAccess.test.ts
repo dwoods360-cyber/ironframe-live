@@ -42,6 +42,7 @@ describe("resolveCommandCenterTenantScope", () => {
       tenants: [],
       canAccessGlobal: false,
       hostTenantSlug: null,
+      canSwitchTenantsOnSubdomain: false,
     });
   });
 
@@ -62,13 +63,15 @@ describe("resolveCommandCenterTenantScope", () => {
     const scope = await resolveCommandCenterTenantScope();
     expect(scope.canAccessGlobal).toBe(false);
     expect(scope.hostTenantSlug).toBeNull();
+    expect(scope.canSwitchTenantsOnSubdomain).toBe(false);
     expect(scope.tenants).toHaveLength(1);
     expect(scope.tenants[0]?.slug).toBe("vaultbank");
   });
 
-  it("returns all tenants and global lane for GLOBAL_ADMIN", async () => {
+  it("returns assigned tenants and global lane for GLOBAL_ADMIN", async () => {
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
       { tenantId: MED, role: "GLOBAL_ADMIN" },
+      { tenantId: VAULT, role: "CISO" },
     ] as never);
     vi.mocked(prisma.tenant.findMany).mockResolvedValue([
       {
@@ -90,7 +93,13 @@ describe("resolveCommandCenterTenantScope", () => {
     const scope = await resolveCommandCenterTenantScope();
     expect(scope.canAccessGlobal).toBe(true);
     expect(scope.hostTenantSlug).toBeNull();
+    expect(scope.canSwitchTenantsOnSubdomain).toBe(true);
     expect(scope.tenants).toHaveLength(2);
+    expect(prisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: [MED, VAULT] } },
+      }),
+    );
   });
 
   it("locks scope to host tenant on subdomain with no global lane", async () => {
@@ -105,16 +114,62 @@ describe("resolveCommandCenterTenantScope", () => {
       industry: "FINANCE",
       ale_baseline: 250000000n,
     } as never);
+    vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+      {
+        id: VAULT,
+        name: "Vaultbank NA",
+        slug: "vaultbank",
+        industry: "FINANCE",
+        ale_baseline: 250000000n,
+      },
+    ] as never);
 
     const scope = await resolveCommandCenterTenantScope();
     expect(scope.canAccessGlobal).toBe(false);
     expect(scope.hostTenantSlug).toBe("vaultbank");
+    expect(scope.canSwitchTenantsOnSubdomain).toBe(false);
     expect(scope.tenants).toHaveLength(1);
     expect(scope.tenants[0]?.slug).toBe("vaultbank");
-    expect(prisma.tenant.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: VAULT } }),
+    expect(prisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [VAULT] } } }),
     );
-    expect(prisma.tenant.findMany).not.toHaveBeenCalled();
+  });
+
+  it("GLOBAL_ADMIN on subdomain keeps assigned-tenant switcher", async () => {
+    vi.mocked(getHostBoundTenantUuid).mockResolvedValue(MED);
+    vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
+      { tenantId: MED, role: "GLOBAL_ADMIN" },
+      { tenantId: VAULT, role: "CISO" },
+    ] as never);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
+      id: MED,
+      name: "Medshield",
+      slug: "medshield",
+      industry: "HEALTH",
+      ale_baseline: 100n,
+    } as never);
+    vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+      {
+        id: MED,
+        name: "Medshield",
+        slug: "medshield",
+        industry: "HEALTH",
+        ale_baseline: 100n,
+      },
+      {
+        id: VAULT,
+        name: "Vaultbank NA",
+        slug: "vaultbank",
+        industry: "FINANCE",
+        ale_baseline: 200n,
+      },
+    ] as never);
+
+    const scope = await resolveCommandCenterTenantScope();
+    expect(scope.canAccessGlobal).toBe(false);
+    expect(scope.hostTenantSlug).toBe("medshield");
+    expect(scope.canSwitchTenantsOnSubdomain).toBe(true);
+    expect(scope.tenants).toHaveLength(2);
   });
 
   it("returns empty scope when host tenant is not assigned", async () => {
@@ -128,6 +183,7 @@ describe("resolveCommandCenterTenantScope", () => {
       tenants: [],
       canAccessGlobal: false,
       hostTenantSlug: null,
+      canSwitchTenantsOnSubdomain: false,
     });
   });
 });

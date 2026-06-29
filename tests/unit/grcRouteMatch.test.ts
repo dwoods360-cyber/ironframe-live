@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHeaderRouteMatrix,
+  isDashboardRouteGroupPath,
   isLegacyAuditTrailRedirectPath,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
   isReportsPath,
   isScrollableStandalonePath,
+  isViewportBoundedDashboardPath,
 } from "@/app/utils/grcRouteMatch";
 
 describe("grcRouteMatch", () => {
@@ -36,15 +38,26 @@ describe("grcRouteMatch", () => {
     expect(isScrollableStandalonePath("/reports/audit-trail")).toBe(true);
     expect(isScrollableStandalonePath("/profile")).toBe(true);
     expect(isScrollableStandalonePath("/settings/config")).toBe(true);
-    expect(isScrollableStandalonePath("/opsupport")).toBe(true);
-    expect(isScrollableStandalonePath("/op-support")).toBe(true);
-    expect(isScrollableStandalonePath("/audit")).toBe(true);
-    expect(isScrollableStandalonePath("/vault")).toBe(true);
-    expect(isScrollableStandalonePath("/evidence")).toBe(true);
-    expect(isScrollableStandalonePath("/get-started")).toBe(true);
-    expect(isScrollableStandalonePath("/admin/onboarding")).toBe(true);
-    expect(isScrollableStandalonePath("/")).toBe(true);
-    expect(isScrollableStandalonePath("/medshield/config")).toBe(false);
+    expect(isScrollableStandalonePath("/trust")).toBe(true);
+    expect(isScrollableStandalonePath("/vendors")).toBe(true);
+    expect(isScrollableStandalonePath("/dashboard/exports")).toBe(true);
+    expect(isScrollableStandalonePath("/medshield/config")).toBe(true);
+    expect(isScrollableStandalonePath("/")).toBe(false);
+    expect(isScrollableStandalonePath("/cockpit")).toBe(false);
+  });
+
+  it("detects viewport-bounded dashboard paths", () => {
+    expect(isViewportBoundedDashboardPath("/")).toBe(true);
+    expect(isViewportBoundedDashboardPath("/cockpit")).toBe(true);
+    expect(isViewportBoundedDashboardPath("/integrity")).toBe(false);
+  });
+
+  it("detects dashboard route group paths for layout shell delegation", () => {
+    expect(isDashboardRouteGroupPath("/trust")).toBe(true);
+    expect(isDashboardRouteGroupPath("/trust/dpa")).toBe(true);
+    expect(isDashboardRouteGroupPath("/dashboard/support")).toBe(true);
+    expect(isDashboardRouteGroupPath("/boardroom/admin/audit-logs")).toBe(true);
+    expect(isDashboardRouteGroupPath("/dashboard")).toBe(false);
   });
 
   it("builds memoized header route matrix for tenant vendors and audit trail", () => {

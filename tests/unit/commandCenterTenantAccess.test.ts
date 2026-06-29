@@ -95,11 +95,16 @@ describe("resolveCommandCenterTenantScope", () => {
     expect(scope.hostTenantSlug).toBeNull();
     expect(scope.canSwitchTenantsOnSubdomain).toBe(true);
     expect(scope.tenants).toHaveLength(2);
-    expect(prisma.tenant.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: { in: [MED, VAULT] } },
-      }),
-    );
+    expect(prisma.tenant.findMany).toHaveBeenCalledWith({
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        industry: true,
+        ale_baseline: true,
+      },
+      orderBy: { name: "asc" },
+    });
   });
 
   it("locks scope to host tenant on subdomain with no global lane", async () => {

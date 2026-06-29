@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   inferRegionFromQuery,
   inferRegionsFromQuery,
+  isCompetitivePositioningQuery,
   isMarketResearchCapabilityQuery,
   isWorkspaceOnlyQuery,
   needsExternalInfo,
@@ -82,5 +83,14 @@ describe('boardroomQueryIntent', () => {
     );
     expect(isMarketResearchCapabilityQuery('Can you conduct market research in Germany?')).toBe(true);
     expect(isMarketResearchCapabilityQuery('List prospects in Germany')).toBe(false);
+  });
+
+  it('detects competitive positioning questions without conflating market research execution', () => {
+    expect(isCompetitivePositioningQuery('Do we have a true market edge?')).toBe(true);
+    expect(isCompetitivePositioningQuery('Is the board in line with us on positioning?')).toBe(true);
+    expect(isCompetitivePositioningQuery('Are we ahead of Vanta on SOC 2?')).toBe(true);
+    expect(isCompetitivePositioningQuery('Are you not able to perform real market research?')).toBe(
+      false,
+    );
   });
 });

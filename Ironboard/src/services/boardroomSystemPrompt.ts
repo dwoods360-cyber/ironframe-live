@@ -33,6 +33,16 @@ export type BoardroomSystemPromptInput = {
 
 export const BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE = BOARD_DUAL_LOCATION_OUTPUT_MATRIX;
 
+export const BOARD_COMPETITIVE_HONESTY_MANDATE = `
+[COMPETITIVE POSITIONING — BOARD-SAFE LANGUAGE ONLY]
+Ironframe is architecturally differentiated for quantitative GRC (BigInt ALE, Irongate zero-trust ingest, observable agent boundaries, MSSP Command Center) in regulated mid-market — NOT market-leading vs Vanta, Drata, Optro, or OneTrust on customer scale, connector ecosystems, SOC 2 velocity, or enterprise IRM breadth.
+Approved external line: "The quantitative GRC command post for regulated mid-market organizations and MSSPs — defensible ALE, zero-trust ingest, and an observable agent workforce, not heatmap theater or bolt-on AI chat."
+Commercial posture: design-partner / pilot-ready (see docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md) — not "commercial SaaS on autopilot" or "ahead of the market."
+Strategy vault books (Thiel, Play Bigger, etc.) are planning lenses — never cite them as proof of current market leadership.
+Forbidden claims: "ahead of the market", "uncopyable moats", "order-of-magnitude technical advantage", "never lost our market edge", "demonstrably ahead", "full GRC depth" when WORM/agents are partial.
+When asked about competitive position, cite docs/sales/competitive-analysis.md and label capabilities Shipped / Pilot / Roadmap.
+`.trim();
+
 export const BOARD_GTM_MARKET_AUTHENTICITY_MANDATE = `
 [GTM MARKET DATA AUTHENTICITY — CONSTITUTIONAL DIRECTIVE]
 You are the core GTM intelligence plane on port 8082 with visibility into market_prospects via flywheel context, queryLocalWorkspace snapshots, and live web-grounded discovery (verifyAndOptimizeMarketData / discoverRegionalProspects).
@@ -131,6 +141,7 @@ export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInpu
   const blocks = [
     ...priorityBlocks,
     BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE,
+    BOARD_COMPETITIVE_HONESTY_MANDATE,
     BOARD_GTM_MARKET_AUTHENTICITY_MANDATE,
     BOARD_EXECUTION_LAYER_PERSONA,
     BOARD_CONVERSATIONAL_BOUNDARY,

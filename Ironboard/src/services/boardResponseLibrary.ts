@@ -110,7 +110,16 @@ export const BANNED_CAPABILITY_DENIAL_PATTERNS: RegExp[] = [
   /\bthe human operator[^.?!]*would need to execute[^.?!]*[.?!]/gi,
   /\bhuman operator or a dedicated ironframe agent[^.?!]*would need to execute[^.?!]*[.?!]/gi,
   /\bmarket flywheel batch loader for this geography\b[^.?!]*[.?!]/gi,
+  /\bahead of the market\b[^.?!]*[.?!]/gi,
+  /\buncopyable(?: technical)? moats?\b[^.?!]*[.?!]/gi,
+  /\border-of-magnitude technical advantage\b[^.?!]*[.?!]/gi,
+  /\bnever lost (?:its |our )?market edge\b[^.?!]*[.?!]/gi,
+  /\bmassive,? uncopyable technical moats?\b[^.?!]*[.?!]/gi,
+  /\bdemonstrably ahead of the market\b[^.?!]*[.?!]/gi,
 ];
+
+export const COMPETITIVE_HONESTY_REWRITE =
+  'Competitive posture (board-safe): Ironframe is architecturally differentiated for quantitative GRC in regulated mid-market and MSSPs — BigInt ALE, Irongate ingest, observable agents — not market-leading vs Vanta/Drata/Optro on scale or SOC 2 velocity. Cite docs/sales/competitive-analysis.md; label capabilities Shipped / Pilot / Roadmap.';
 
 export const MARKET_RESEARCH_DENIAL_REWRITE =
   'IronBoard executes live GTM market research via verifyAndOptimizeMarketData, discoverRegionalProspects (Google Search grounding), and queryLocalWorkspace. Report the MARKET AUTHENTICITY OPTIMIZATION log and any ingested prospect rows from the prefetch receipts. Answer affirmatively: market research is in scope — never refuse by contrasting surveys with company discovery.';
@@ -135,7 +144,7 @@ export function stripCapabilityDenialFallbacks(text: string): string {
 export function finalizeSanitizedBoardCompletion(
   accumulatedText: string,
   sanitizeDenials: boolean,
-  context?: { query?: string; gtmMarketQuery?: boolean },
+  context?: { query?: string; gtmMarketQuery?: boolean; competitivePositioningQuery?: boolean },
 ): { text: string; rewritten: boolean } {
   if (!sanitizeDenials) return { text: accumulatedText, rewritten: false };
   const stripped = stripCapabilityDenialFallbacks(accumulatedText);
@@ -149,6 +158,10 @@ export function finalizeSanitizedBoardCompletion(
 
   if (context?.gtmMarketQuery && hadDenial) {
     text = [text, MARKET_RESEARCH_DENIAL_REWRITE].filter(Boolean).join('\n\n');
+  }
+
+  if (context?.competitivePositioningQuery && hadDenial) {
+    text = [text, COMPETITIVE_HONESTY_REWRITE].filter(Boolean).join('\n\n');
   }
 
   return {

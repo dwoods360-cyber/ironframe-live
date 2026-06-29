@@ -143,6 +143,22 @@ export function isGtmMarketQuery(query: string): boolean {
   return GTM_MARKET_SIGNAL.test(query.trim());
 }
 
+/** Competitive / investor positioning questions — answer with canonical honesty, not strategy-vault hype. */
+export function isCompetitivePositioningQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (isMarketResearchCapabilityQuery(q)) return false;
+  return (
+    /\b(market edge|competitive position|competitive landscape|ahead of the market|uncopyable|order-of-magnitude)\b/.test(
+      q,
+    ) ||
+    /\b(lost our edge|never lost(?: its| our)? market edge|true market edge)\b/.test(q) ||
+    /\b(demonstrably ahead|massive,? uncopyable)\b/.test(q) ||
+    /\b(are we|is ironframe) ahead\b/.test(q) ||
+    /\bvs\.?\s*(vanta|drata|optro|onetrust|servicenow|auditboard)\b/.test(q) ||
+    /\b(board|ironframe).{0,40}\b(in line|aligned)\b/.test(q)
+  );
+}
+
 /** Meta questions ("can you perform real market research?") — answer with execution proof, not LLM disclaimers. */
 export function isMarketResearchCapabilityQuery(query: string): boolean {
   const q = query.trim().toLowerCase();

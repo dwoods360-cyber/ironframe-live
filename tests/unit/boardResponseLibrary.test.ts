@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   finalizeSanitizedBoardCompletion,
+  COMPETITIVE_HONESTY_REWRITE,
   MARKET_RESEARCH_DENIAL_REWRITE,
   stripCapabilityDenialFallbacks,
   YOUTUBE_VIDEO_DENIAL_REWRITE,
 } from '../../Ironboard/src/services/boardResponseLibrary.js';
 import {
+  isCompetitivePositioningQuery,
   isMarketResearchCapabilityQuery,
   shouldPrefetchWeb,
 } from '../../Ironboard/src/services/boardroomQueryIntent.js';
@@ -54,6 +56,26 @@ describe('boardResponseLibrary market research denials', () => {
       true,
     );
     expect(isMarketResearchCapabilityQuery('Perform market research for Germany')).toBe(false);
+  });
+
+  it('strips competitive oversell boilerplate', () => {
+    const hype =
+      'Ironframe is demonstrably ahead of the market with massive, uncopyable technical moats and an order-of-magnitude technical advantage.';
+    const stripped = stripCapabilityDenialFallbacks(hype);
+    expect(stripped.toLowerCase()).not.toContain('ahead of the market');
+    expect(stripped.toLowerCase()).not.toContain('uncopyable');
+  });
+
+  it('rewrites competitive positioning hype with honesty directive', () => {
+    const hype =
+      'We have never lost our market edge and possess uncopyable moats that put us ahead of the market.';
+    const { text, rewritten } = finalizeSanitizedBoardCompletion(hype, true, {
+      query: 'Do we have a true market edge?',
+      competitivePositioningQuery: true,
+    });
+    expect(rewritten).toBe(true);
+    expect(text).toContain(COMPETITIVE_HONESTY_REWRITE);
+    expect(isCompetitivePositioningQuery('Do we have a true market edge?')).toBe(true);
   });
 });
 

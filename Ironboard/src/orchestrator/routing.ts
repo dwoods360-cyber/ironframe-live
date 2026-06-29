@@ -7,6 +7,7 @@ import {
 } from '../knowledge/grcAnalystDayVideoSeed.js';
 import { scanStreamingMediaUrls } from '../middleware/linkScraper.js';
 import { LINK_SCRAPER_VIDEO_TIMELINE_TAG, payloadSignalsVideoIntelligence } from '../services/boardResponseLibrary.js';
+import { isCompetitivePositioningQuery } from '../services/boardroomQueryIntent.js';
 import { IRONBOARD_DOMAIN_BOUNDARY } from './platformApplicationBoundary.js';
 
 /** IronBoard (:8082) vs Ironframe (:3000) — constitutional zero cross-contamination boundary. */
@@ -40,6 +41,15 @@ When asked for market research or GTM prospect discovery, execute and report too
 
 export const CANONICAL_SALES_LEADS_RESPONSE =
   'Ironboard does not autonomously crawl external networks for passive lead generation. Instead, Ironboard executes operational lead discovery and pipeline management through its embedded, tenant-isolated CRM engine (`manageCrmPipeline`). The platform structures incoming B2B contact records (`B2BContact`), tracks stage progression vectors (`DealRecord`), and applies the strategic parameters of our sales methodology corpus (The Challenger Sale / SPIN Selling) to actively progress enterprise accounts within this tenant partition. All core security, threat isolation, and technical compliance parameters are offloaded to Ironframe.';
+
+export const CANONICAL_COMPETITIVE_POSITIONING_RESPONSE = [
+  'Ironframe has not lost a commercial market edge we previously held at scale. We are pre-GA with an architecturally differentiated wedge — not a market leader on revenue, integrations, or SOC 2 velocity.',
+  'Differentiators (Shipped / architectural): BigInt ALE baselines, Irongate zero-trust ingest before persistence, named agent boundaries with temperature 0.0 production reasoning, MSSP-native Command Center multi-tenancy.',
+  'Approved positioning: "The quantitative GRC command post for regulated mid-market organizations and MSSPs — defensible ALE, zero-trust ingest, and an observable agent workforce, not heatmap theater or bolt-on AI chat."',
+  'Honest gaps: behind Vanta/Drata on continuous compliance connectors; behind Optro/OneTrust on enterprise audit breadth; WORM and full 19-agent orchestration still maturing — label Pilot/Roadmap, not GA.',
+  'Commercial posture: design-partner ready per docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md — not "ahead of the market" or "uncopyable moats."',
+  'Sources: docs/sales/competitive-analysis.md · docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md',
+].join('\n\n');
 
 export function isGrcVideoBriefingQuery(query: string): boolean {
   if (!payloadSignalsVideoIntelligence(query)) return false;
@@ -81,6 +91,9 @@ export function isSalesLeadDiscoveryQuery(query: string): boolean {
 export function resolveCanonicalBoardResponse(query: string): string | null {
   if (isGrcVideoBriefingQuery(query)) {
     return buildCanonicalGrcVideoBriefingResponse();
+  }
+  if (isCompetitivePositioningQuery(query)) {
+    return CANONICAL_COMPETITIVE_POSITIONING_RESPONSE;
   }
   if (isSalesLeadDiscoveryQuery(query)) {
     return CANONICAL_SALES_LEADS_RESPONSE;

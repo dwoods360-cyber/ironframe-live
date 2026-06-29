@@ -64,6 +64,7 @@ import {
 import { executeBoardroomTool, isBoardroomToolName } from './services/boardroomToolHandlers.js';
 import {
   inferRegionsFromQuery,
+  isCompetitivePositioningQuery,
   isGtmMarketQuery,
   isMarketResearchCapabilityQuery,
   requiresCrmDiscovery,
@@ -648,6 +649,7 @@ async function runBoardroomToolStream(params: {
   prefetchedExchange?: GeminiContent[];
   sanitizeDenials?: boolean;
   gtmMarketQuery?: boolean;
+  competitivePositioningQuery?: boolean;
 }): Promise<void> {
   const {
     ai,
@@ -659,6 +661,7 @@ async function runBoardroomToolStream(params: {
     prefetchedExchange = [],
     sanitizeDenials = false,
     gtmMarketQuery = false,
+    competitivePositioningQuery = false,
   } = params;
   let contents: GeminiContent[] = [...mapHistoryToGeminiContents(history), ...prefetchedExchange];
   const skipFirstRoundTokens = prefetchedExchange.length > 0;
@@ -683,7 +686,7 @@ async function runBoardroomToolStream(params: {
       const { text: finalText, rewritten } = finalizeSanitizedBoardCompletion(
         accumulatedText,
         sanitizeDenials,
-        { query: lastUserTurnText(history), gtmMarketQuery },
+        { query: lastUserTurnText(history), gtmMarketQuery, competitivePositioningQuery },
       );
       if (finalText && !emitTokens) {
         writeSseToken(res, finalText, false);
@@ -1836,6 +1839,7 @@ app.post('/api/query', async (req, res) => {
     });
 
     const gtmMarketQuery = isGtmMarketQuery(query);
+    const competitivePositioningQuery = isCompetitivePositioningQuery(query);
 
     const toolMode = resolveBoardroomToolMode(model, query, {
       hasWorkspacePrefetch: prefetchedExchange.length > 0,
@@ -1905,8 +1909,13 @@ app.post('/api/query', async (req, res) => {
       history,
       config: streamConfig,
       prefetchedExchange,
-      sanitizeDenials: videoTimelineActive || gtmMarketQuery || shouldPrefetchProspects(query),
+      sanitizeDenials:
+        videoTimelineActive ||
+        gtmMarketQuery ||
+        competitivePositioningQuery ||
+        shouldPrefetchProspects(query),
       gtmMarketQuery,
+      competitivePositioningQuery,
     });
   } catch (err) {
     console.error('[IRONBOARD STREAM]', err);

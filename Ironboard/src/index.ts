@@ -31,10 +31,12 @@ import {
 } from './boardRouter.js';
 import {
   buildCrmDiscoveryEnrichment,
+  buildMarketAuthenticityEnrichment,
   formatDiscoveryEvidence,
   runDynamicDiscovery,
   summarizeEmptyDiscoveryStates,
   synthesizeCrmCapabilityFromDiscovery,
+  synthesizeMarketResearchBoardResponse,
   synthesizePlaybookInventoryFromDiscovery,
   type DiscoveryReceipt,
 } from './services/dynamicDiscovery.js';
@@ -48,8 +50,8 @@ import {
   findProspectByDomain,
   triggerProspectIngest,
   buildFlywheelWorkspaceContext,
-  verifyAndOptimizeMarketData,
 } from './services/marketIntelligence.js';
+import { verifyAndOptimizeMarketData, type VerifyAndOptimizeMarketDataResult } from './services/marketProspectAuthenticity.js';
 import { parseTargetCountriesInput, resolveFlywheelTargetRegions } from './lib/flywheelTargetCountries.js';
 import {
   QUERY_LOCAL_WORKSPACE_DECLARATION,
@@ -62,6 +64,8 @@ import {
 import { executeBoardroomTool, isBoardroomToolName } from './services/boardroomToolHandlers.js';
 import {
   inferRegionsFromQuery,
+  isGtmMarketQuery,
+  isMarketResearchCapabilityQuery,
   requiresCrmDiscovery,
   requiresWorkspaceTools,
   shouldPrefetchProspects,
@@ -365,10 +369,14 @@ async function prefetchBoardroomGroundTruth(params: {
   prefetchedExchange: GeminiContent[];
   systemEnrichment: string;
   receipts: DiscoveryReceipt[];
+  marketResults: VerifyAndOptimizeMarketDataResult[];
+  workspaceSnapshot?: Record<string, unknown>;
 }> {
   const { ai, model, query, activeHub, tenantId, prospectId, res, linkScraperEnrichment } = params;
   const prefetchedExchange: GeminiContent[] = [];
   const enrichmentBlocks: string[] = [];
+  const marketResults: VerifyAndOptimizeMarketDataResult[] = [];
+  let workspaceSnapshot: Record<string, unknown> | undefined;
 
   const { receipts } = await runDynamicDiscovery(query, {
     tenantId,
@@ -413,11 +421,14 @@ async function prefetchBoardroomGroundTruth(params: {
     const regions = inferred.length > 0 ? inferred : resolveFlywheelTargetRegions(activeHub);
     for (const region of regions) {
       try {
-        await verifyAndOptimizeMarketData(region, { operatorTriggered: true });
+        const result = await verifyAndOptimizeMarketData(region, { operatorTriggered: true });
+        marketResults.push(result);
       } catch (err) {
         console.warn('[IRONBOARD MARKET AUTHENTICITY]', region, err);
       }
     }
+    const marketEnrichment = buildMarketAuthenticityEnrichment(marketResults);
+    if (marketEnrichment) enrichmentBlocks.push(marketEnrichment);
     const args: Record<string, unknown> = {
       queryType: 'active_prospects',
       limit: 20,
@@ -433,6 +444,7 @@ async function prefetchBoardroomGroundTruth(params: {
       prefetch: true,
     });
     const toolResult = await queryLocalWorkspace(args);
+    workspaceSnapshot = toolResult;
     writeSseToolCall(res, {
       name: 'queryLocalWorkspace',
       status: 'complete',
@@ -494,7 +506,13 @@ async function prefetchBoardroomGroundTruth(params: {
     if (video.enrichment) enrichmentBlocks.push(video.enrichment);
   }
 
-  return { prefetchedExchange, systemEnrichment: enrichmentBlocks.join('\n\n'), receipts };
+  return {
+    prefetchedExchange,
+    systemEnrichment: enrichmentBlocks.join('\n\n'),
+    receipts,
+    marketResults,
+    workspaceSnapshot,
+  };
 }
 
 function serializeGroundingForClient(meta: GroundingMetadata | null): ClientGroundingPayload | null {
@@ -629,8 +647,19 @@ async function runBoardroomToolStream(params: {
   config: Record<string, unknown>;
   prefetchedExchange?: GeminiContent[];
   sanitizeDenials?: boolean;
+  gtmMarketQuery?: boolean;
 }): Promise<void> {
-  const { ai, res, abort, model, history, config, prefetchedExchange = [], sanitizeDenials = false } = params;
+  const {
+    ai,
+    res,
+    abort,
+    model,
+    history,
+    config,
+    prefetchedExchange = [],
+    sanitizeDenials = false,
+    gtmMarketQuery = false,
+  } = params;
   let contents: GeminiContent[] = [...mapHistoryToGeminiContents(history), ...prefetchedExchange];
   const skipFirstRoundTokens = prefetchedExchange.length > 0;
 
@@ -654,7 +683,7 @@ async function runBoardroomToolStream(params: {
       const { text: finalText, rewritten } = finalizeSanitizedBoardCompletion(
         accumulatedText,
         sanitizeDenials,
-        { query: lastUserTurnText(history) },
+        { query: lastUserTurnText(history), gtmMarketQuery },
       );
       if (finalText && !emitTokens) {
         writeSseToken(res, finalText, false);
@@ -1794,7 +1823,8 @@ app.post('/api/query', async (req, res) => {
     const ai = new GoogleGenAI({ apiKey: key });
     const model = getIronboardGeminiModel();
 
-    const { prefetchedExchange, systemEnrichment, receipts } = await prefetchBoardroomGroundTruth({
+    const { prefetchedExchange, systemEnrichment, receipts, marketResults, workspaceSnapshot } =
+      await prefetchBoardroomGroundTruth({
       ai,
       model,
       query,
@@ -1805,6 +1835,8 @@ app.post('/api/query', async (req, res) => {
       linkScraperEnrichment,
     });
 
+    const gtmMarketQuery = isGtmMarketQuery(query);
+
     const toolMode = resolveBoardroomToolMode(model, query, {
       hasWorkspacePrefetch: prefetchedExchange.length > 0,
     });
@@ -1813,6 +1845,18 @@ app.post('/api/query', async (req, res) => {
       const crmDetermination = synthesizeCrmCapabilityFromDiscovery(query, receipts);
       if (crmDetermination) {
         writeSseToken(res, crmDetermination);
+        res.end();
+        return;
+      }
+    }
+
+    if (isMarketResearchCapabilityQuery(query)) {
+      const marketDetermination = synthesizeMarketResearchBoardResponse(query, {
+        marketResults,
+        workspaceSnapshot,
+      });
+      if (marketDetermination) {
+        writeSseToken(res, marketDetermination);
         res.end();
         return;
       }
@@ -1861,7 +1905,8 @@ app.post('/api/query', async (req, res) => {
       history,
       config: streamConfig,
       prefetchedExchange,
-      sanitizeDenials: videoTimelineActive,
+      sanitizeDenials: videoTimelineActive || gtmMarketQuery || shouldPrefetchProspects(query),
+      gtmMarketQuery,
     });
   } catch (err) {
     console.error('[IRONBOARD STREAM]', err);

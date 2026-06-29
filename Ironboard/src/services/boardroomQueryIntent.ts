@@ -15,7 +15,12 @@ const MARKET_COUNTRY_ALIASES: ReadonlyArray<{ token: string; label: string }> = 
 const REGIONAL_ICP_SIGNAL =
   /\b(icp|fit our|qualified|prospects?|companies|leads?|pipeline|accounts?|targets?)\b/i;
 
-/** Terms that indicate the user wants internal flywheel / CRM data. */const WORKSPACE_QUERY_TERMS = [
+/** Operator requests for GTM / market intelligence (triggers live discovery prefetch). */
+const GTM_MARKET_SIGNAL =
+  /\b(market research|market scan|market intelligence|go-to-market|go to market|gtm\b|target market|potential customers?|addressable market|tam\b|competitive landscape|industry research|sector analysis|identify companies|find companies|company discovery|who should we sell to|ideal customer profile)\b/i;
+
+/** Terms that indicate the user wants internal flywheel / CRM data. */
+const WORKSPACE_QUERY_TERMS = [
   'crm',
   'customer relationship',
   'contact management',
@@ -134,8 +139,23 @@ export function inferRegionsFromQuery(query: string, activeHub: string): string[
   return legacy ? [legacy] : [];
 }
 
+export function isGtmMarketQuery(query: string): boolean {
+  return GTM_MARKET_SIGNAL.test(query.trim());
+}
+
+/** Meta questions ("can you perform real market research?") — answer with execution proof, not LLM disclaimers. */
+export function isMarketResearchCapabilityQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!GTM_MARKET_SIGNAL.test(q)) return false;
+  if (/\b(real market research|comprehensive sense)\b/.test(q)) return true;
+  return /\b(are you|can you|could you|unable|not able|not capable|capable of|ability to|do you)\b/.test(
+    q,
+  );
+}
+
 export function shouldPrefetchProspects(query: string): boolean {
   const q = query.toLowerCase();
+  if (GTM_MARKET_SIGNAL.test(q)) return true;
   if (WORKSPACE_QUERY_TERMS.some(term => q.includes(term))) return true;
   if (matchCountriesInQuery(query).length > 0 && REGIONAL_ICP_SIGNAL.test(query)) return true;
   if (/\b(our|active|local|my)\b[\s\S]{0,40}\b(london|singapore)\b/.test(q)) return true;

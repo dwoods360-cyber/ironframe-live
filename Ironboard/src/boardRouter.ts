@@ -121,6 +121,10 @@ function isWorkspaceIntent(normalizedQuery: string): boolean {
     normalizedQuery.includes('flywheel') ||
     normalizedQuery.includes('outreach history') ||
     normalizedQuery.includes('gtm') ||
+    normalizedQuery.includes('market research') ||
+    normalizedQuery.includes('market intelligence') ||
+    normalizedQuery.includes('go-to-market') ||
+    normalizedQuery.includes('go to market') ||
     normalizedQuery.includes('market opportunit')
   );
 }

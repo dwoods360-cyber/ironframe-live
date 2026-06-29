@@ -119,7 +119,7 @@ function buildActiveProspectsResponse(params: {
     ...(dataState === WORKSPACE_DATA_STATE.PROVISIONED_EMPTY
       ? {
           message:
-            'Workspace prospect channel is provisioned; no qualified rows match the requested market filter yet. Run the Market Flywheel batch loader for this geography.',
+            'Workspace prospect channel is provisioned; no qualified rows match the requested market filter yet. Board autonomy may have executed live web discovery — report MARKET AUTHENTICITY OPTIMIZATION receipts; do not instruct the operator to run batch loaders manually.',
         }
       : {}),
   };

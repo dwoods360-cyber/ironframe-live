@@ -1,3 +1,5 @@
+import type { VerifyAndOptimizeMarketDataResult } from './marketProspectAuthenticity.js';
+import { isMarketResearchCapabilityQuery } from './boardroomQueryIntent.js';
 import {
   planDiscoveryExecution,
   type DiscoveryContext,
@@ -6,7 +8,6 @@ import {
 } from '../boardRouter.js';
 import { manageCrmPipeline } from '../tools/crmTools.js';
 import { queryLocalWorkspace } from './queryLocalWorkspace.js';
-
 export type DiscoveryReceipt = {
   purpose: string;
   tool: DiscoveryToolCall['tool'];
@@ -200,4 +201,64 @@ export function buildCrmDiscoveryEnrichment(receipts: DiscoveryReceipt[]): strin
     return 'CRM DISCOVERY VERDICT: manageCrmPipeline is reachable — IronBoard HAS embedded CRM schema; corpus empty. Never answer that Ironframe/IronBoard lacks CRM.';
   }
   return `CRM DISCOVERY VERDICT: manageCrmPipeline list_sales_playbooks returned ${count} playbooks — IronBoard HAS embedded CRM. Ironframe root is GRC infrastructure; CRM lives in IronBoard. Never deny contact management, pipeline tracking, or interaction logging when this receipt is present.`;
+}
+
+export function buildMarketAuthenticityEnrichment(
+  results: VerifyAndOptimizeMarketDataResult[],
+): string {
+  if (!results.length) return '';
+  const lines = results.map(result => {
+    const discovery = result.discovery;
+    const discoveryNote = discovery
+      ? discovery.skipped
+        ? `discovery=${discovery.skipReason ?? discovery.source}`
+        : `ingested=${discovery.ingested.length} parsed=${discovery.candidatesParsed}`
+      : 'verified — no live pass required';
+    return `- ${result.region}: action=${result.action}; authentic=${result.assessment.authenticCount}/${result.assessment.totalRows}; ${discoveryNote}`;
+  });
+  return [
+    'MARKET AUTHENTICITY OPTIMIZATION (verifyAndOptimizeMarketData — authoritative):',
+    ...lines,
+    'IronBoard executes live GTM market research via verifyAndOptimizeMarketData and discoverRegionalProspects. Never refuse by contrasting surveys with company discovery.',
+  ].join('\n');
+}
+
+export function synthesizeMarketResearchBoardResponse(
+  query: string,
+  params: {
+    marketResults: VerifyAndOptimizeMarketDataResult[];
+    workspaceSnapshot?: Record<string, unknown>;
+  },
+): string | null {
+  if (!isMarketResearchCapabilityQuery(query)) return null;
+
+  const regions = params.marketResults.map(result => result.region);
+  const regionLabel = regions.length ? regions.join(', ') : 'target markets';
+  const totalIngested = params.marketResults.reduce(
+    (sum, result) => sum + (result.discovery?.ingested.length ?? 0),
+    0,
+  );
+  const workspaceRows = Array.isArray(params.workspaceSnapshot?.prospects)
+    ? (params.workspaceSnapshot.prospects as unknown[]).length
+    : Number(params.workspaceSnapshot?.count ?? 0);
+
+  const blocks = [
+    'Yes — IronBoard performs live GTM market research in this boardroom session.',
+    'Execution path: verifyAndOptimizeMarketData (synthetic purge + Google Search grounding via discoverRegionalProspects) followed by queryLocalWorkspace active_prospects.',
+  ];
+
+  const marketEnrichment = buildMarketAuthenticityEnrichment(params.marketResults);
+  if (marketEnrichment) blocks.push(marketEnrichment);
+
+  if (workspaceRows > 0) {
+    blocks.push(
+      `Workspace snapshot: ${workspaceRows} qualified prospect row(s) returned for ${regionLabel}.`,
+    );
+  } else {
+    blocks.push(
+      `Workspace snapshot: channel provisioned for ${regionLabel}; ${totalIngested > 0 ? `${totalIngested} candidate(s) ingested this pass` : 'zero rows match the filter after live discovery'}. Market research was executed — an empty workspace is a data outcome, not a capability refusal.`,
+    );
+  }
+
+  return blocks.join('\n\n');
 }

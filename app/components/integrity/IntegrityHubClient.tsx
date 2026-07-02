@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
 import { useRouter } from "next/navigation";
 import { Clock, HardDrive } from "lucide-react";
 import { listIntegritySyntheticTargetsAction } from "@/app/actions/integritySyntheticTargetsActions";
@@ -375,12 +376,11 @@ export default function IntegrityHubClient({
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-teal-500/90">Integrity hub</p>
             <h1 className="mt-0.5 text-xl font-bold tracking-tight text-white">Audit ledger &amp; cold-store attestation</h1>
           </div>
-          <Link
-            href="/"
+          <CommandPostNavLink
             className="shrink-0 rounded-md border border-slate-600 bg-slate-900 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-200 hover:border-teal-600/50 hover:text-teal-200"
           >
             ← Main ops
-          </Link>
+          </CommandPostNavLink>
         </div>
 
         {aleHero}

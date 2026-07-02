@@ -4,19 +4,37 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ensureCorporateInviteRoleAssignment } from "@/app/lib/auth/corporateInviteProvisioning";
 import { readTenantSlugFromUserMetadata } from "@/app/lib/auth/tenantInviteMetadata";
 import { sanitizeAuthNextPath } from "@/app/lib/auth/publicAppUrl";
+import { resolveBrowserFacingRequestOrigin } from "@/app/lib/auth/publicAppUrl.server";
+import { workspaceActivationNextParam } from "@/app/lib/auth/workspaceActivationLanding";
+import {
+  assertWorkspaceBootstrapMembership,
+  consumeWorkspaceBootstrapTicket,
+} from "@/app/lib/auth/workspaceBootstrapTicket";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
-import { tenantSlugFromHost, tenantUuidFromSlug } from "@/app/lib/tenantSubdomain";
+import { buildTenantSubdomainOrigin, tenantSlugFromHost, tenantUuidFromSlug, isApexControlPlaneHost } from "@/app/lib/tenantSubdomain";
 
 const IRONFRAME_TENANT_COOKIE = "ironframe-tenant";
 const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
 const TENANT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 function resolvePostActivationDestination(request: NextRequest, nextPath: string): URL {
-  const url = new URL(nextPath, request.nextUrl.origin);
-  if (nextPath === "/get-started" || nextPath.startsWith("/get-started/")) {
+  const url = new URL(nextPath, resolveBrowserFacingRequestOrigin(request));
+  const barePath = nextPath.split("?")[0] ?? nextPath;
+  if (barePath === "/get-started" || barePath.startsWith("/get-started/")) {
     url.searchParams.set("activation", "1");
   }
   return url;
+}
+
+function redirectSessionBootstrapToTenantHost(
+  request: NextRequest,
+  tenantSlug: string,
+): NextResponse {
+  const corrected = new URL(
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    buildTenantSubdomainOrigin(tenantSlug),
+  );
+  return NextResponse.redirect(corrected);
 }
 
 function stampProductionPlaneCookies(response: NextResponse): void {
@@ -28,34 +46,108 @@ function stampProductionPlaneCookies(response: NextResponse): void {
   });
 }
 
-/**
- * Establishes Supabase session cookies on the tenant workspace host immediately after
- * assisted registration — avoids cross-origin password sign-in and Supabase /verify GET quirks.
- */
 function buildLoginFailureUrl(request: NextRequest, errorCode: string): URL {
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/login";
-  loginUrl.search = "";
+  const loginUrl = new URL("/login", resolveBrowserFacingRequestOrigin(request));
   loginUrl.searchParams.set("error", errorCode);
   loginUrl.searchParams.set("fresh", "1");
   loginUrl.searchParams.set("next", "/get-started");
   return loginUrl;
 }
 
+function bootstrapUnauthorizedResponse(request: NextRequest, errorCode: string): NextResponse {
+  const accept = request.headers.get("accept")?.toLowerCase() ?? "";
+  if (accept.includes("application/json")) {
+    return NextResponse.json({ error: errorCode }, { status: 401 });
+  }
+
+  const requestHost =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    request.headers.get("host")?.trim() ||
+    "";
+
+  // Authenticated apex operators must not bounce through /login (middleware sends authed users to /integrity).
+  if (isApexControlPlaneHost(requestHost)) {
+    const tenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    const origin = resolveBrowserFacingRequestOrigin(request);
+    if (tenantSlug) {
+      const launchUrl = new URL("/api/auth/workspace-launch", origin);
+      launchUrl.searchParams.set("tenant", tenantSlug);
+      launchUrl.searchParams.set("next", sanitizeAuthNextPath(request.nextUrl.searchParams.get("next"), "/"));
+      return NextResponse.redirect(launchUrl);
+    }
+    const loginUrl = new URL("/login", origin);
+    loginUrl.searchParams.set("error", errorCode);
+    loginUrl.searchParams.set("fresh", "1");
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return NextResponse.redirect(buildLoginFailureUrl(request, errorCode));
+}
+
+/**
+ * Establishes Supabase session cookies on the tenant workspace host via a single-use,
+ * tenant-bound exchange token — never raw Supabase tokens in the query string.
+ */
 export async function GET(request: NextRequest) {
-  const accessToken = request.nextUrl.searchParams.get("access_token")?.trim();
-  const refreshToken = request.nextUrl.searchParams.get("refresh_token")?.trim();
-  const nextPath = sanitizeAuthNextPath(request.nextUrl.searchParams.get("next"), "/get-started");
+  const requestHost =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    request.headers.get("host")?.trim() ||
+    "";
+  const hostTenantSlug = tenantSlugFromHost(requestHost);
+
+  const bootstrapToken = request.nextUrl.searchParams.get("token")?.trim();
+  const legacyAccessToken = request.nextUrl.searchParams.get("access_token")?.trim();
+  const legacyRefreshToken = request.nextUrl.searchParams.get("refresh_token")?.trim();
+  const legacyTenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase() || null;
+
+  if (legacyTenantSlug && hostTenantSlug !== legacyTenantSlug) {
+    return redirectSessionBootstrapToTenantHost(request, legacyTenantSlug);
+  }
+
+  if (legacyAccessToken || legacyRefreshToken) {
+    return bootstrapUnauthorizedResponse(request, "legacy_bootstrap_retired");
+  }
+
+  const nextPath = sanitizeAuthNextPath(
+    request.nextUrl.searchParams.get("next"),
+    workspaceActivationNextParam(),
+  );
   const destination = resolvePostActivationDestination(request, nextPath);
 
-  if (!accessToken || !refreshToken) {
-    return NextResponse.redirect(buildLoginFailureUrl(request, "missing_session_tokens"));
+  if (!bootstrapToken) {
+    return bootstrapUnauthorizedResponse(request, "missing_bootstrap_token");
+  }
+
+  if (!hostTenantSlug) {
+    return bootstrapUnauthorizedResponse(request, "workspace_host_required");
+  }
+
+  const ticket = consumeWorkspaceBootstrapTicket(bootstrapToken, hostTenantSlug);
+  if (!ticket) {
+    return bootstrapUnauthorizedResponse(request, "bootstrap_token_invalid");
+  }
+
+  await ensureCorporateInviteRoleAssignment(ticket.userId, ticket.tenantSlug);
+
+  const membershipAllowed = await assertWorkspaceBootstrapMembership(
+    ticket.userId,
+    ticket.tenantUuid,
+    ticket.userEmail,
+  );
+  if (!membershipAllowed) {
+    return NextResponse.json(
+      {
+        error:
+          "Workspace access revoked or not assigned for this tenant. Sign in again or contact your administrator.",
+      },
+      { status: 403 },
+    );
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!supabaseUrl || !anonKey) {
-    return NextResponse.redirect(buildLoginFailureUrl(request, "auth_not_configured"));
+    return bootstrapUnauthorizedResponse(request, "auth_not_configured");
   }
 
   let response = NextResponse.redirect(destination);
@@ -79,32 +171,31 @@ export async function GET(request: NextRequest) {
   });
 
   const { error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken,
+    access_token: ticket.accessToken,
+    refresh_token: ticket.refreshToken,
   });
 
   if (error) {
     console.error("[api/auth/session-bootstrap] setSession", error.message);
-    return NextResponse.redirect(buildLoginFailureUrl(request, "session_bootstrap_failed"));
+    return bootstrapUnauthorizedResponse(request, "session_bootstrap_failed");
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user?.id?.trim() || user.id.trim() !== ticket.userId) {
+    return bootstrapUnauthorizedResponse(request, "session_identity_mismatch");
+  }
+
   const inviteTenantSlug = readTenantSlugFromUserMetadata(user?.user_metadata ?? null);
   if (user?.id && inviteTenantSlug) {
     await ensureCorporateInviteRoleAssignment(user.id, inviteTenantSlug);
   }
 
-  const hostTenantSlug = tenantSlugFromHost(
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-      request.headers.get("host")?.trim() ||
-      "",
-  );
-  const cookieSlug = inviteTenantSlug ?? hostTenantSlug;
-  let cookieUuid: string | null = null;
-  if (cookieSlug) {
+  const cookieSlug = ticket.tenantSlug ?? inviteTenantSlug ?? hostTenantSlug;
+  let cookieUuid: string | null = ticket.tenantUuid;
+  if (!cookieUuid && cookieSlug) {
     cookieUuid = tenantUuidFromSlug(cookieSlug);
     if (!cookieUuid) {
       const tenant = await lookupTenantBySlug(cookieSlug);

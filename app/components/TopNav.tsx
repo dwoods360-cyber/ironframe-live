@@ -1,27 +1,36 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Lock, CheckCircle2 } from "lucide-react";
+import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
 import HeaderTwo from "@/app/components/HeaderTwo";
 import TenantSwitcher from "./TenantSwitcher";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
+import GetStartedInlineDocTopNavControls from "@/app/components/onboarding/GetStartedInlineDocTopNavControls";
+import TrainerAgentTopNavTrigger from "@/app/components/trainer/TrainerAgentTopNavTrigger";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { useTenantBrand } from "@/app/hooks/useTenantBrand";
-import TenantCoBrandBadge from "@/app/components/brand/TenantCoBrandBadge";
 import TenantBrandAccent from "@/app/components/brand/TenantBrandAccent";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
-import { LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
+import { IRONFRAME_MASTER_HEADER_LOCKUP, LAYOUT_MASTER_HEADER_Z_CLASS, LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import TopNavUserProfileMenu from "@/app/components/TopNavUserProfileMenu";
+import { useGetStartedReaderStore } from "@/app/store/getStartedReaderStore";
 
 export default function TopNav() {
   const pathname = usePathname();
   const hostTenantSlug = useHostTenantSlug();
+  const inlineDocHref = useGetStartedReaderStore((s) => s.inlineDocHref);
+  const [topNavHydrated, setTopNavHydrated] = useState(false);
+  const isOnboardingPortal =
+    pathname === "/get-started" || pathname.startsWith("/get-started/");
+  const isOrientationReaderOpen =
+    topNavHydrated && isOnboardingPortal && Boolean(inlineDocHref);
   const { brand: tenantBrand, isCoBranded } = useTenantBrand();
   const { isLoading: userLoading, isGuest } = useOperatorIdentity();
   const routes = useMemo(
@@ -78,6 +87,10 @@ export default function TopNav() {
   };
 
   useEffect(() => {
+    setTopNavHydrated(true);
+  }, []);
+
+  useEffect(() => {
     if (!lockToast) return;
     const id = window.setTimeout(() => dismissLockToast(), 6000);
     return () => window.clearTimeout(id);
@@ -95,19 +108,14 @@ export default function TopNav() {
       <div className={`${LAYOUT_MASTER_HEADER_Z_CLASS} ironframe-topnav-master relative flex h-16 shrink-0 items-center justify-between border-b border-slate-900 bg-slate-950 px-6`}>
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
+            <CommandPostNavLink
               className="transition hover:opacity-90"
               data-testid="topnav-brand-home-link"
             >
-              {isCoBranded ? (
-                <TenantCoBrandBadge brand={tenantBrand} size="sm" />
-              ) : (
-                <span className="font-mono text-sm font-black tracking-widest text-white hover:text-teal-300">
-                  IRONFRAME CORE
-                </span>
-              )}
-            </Link>
+              <span className="font-mono text-sm font-black tracking-widest text-white hover:text-teal-300">
+                {IRONFRAME_MASTER_HEADER_LOCKUP}
+              </span>
+            </CommandPostNavLink>
             <span className="text-sm text-slate-800">|</span>
             <span
               className={`rounded border px-2.5 py-0.5 font-mono text-[10px] font-bold tracking-widest shadow-sm ${
@@ -122,24 +130,11 @@ export default function TopNav() {
 
           <nav className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-widest">
             <Link
-              href="/"
-              className="rounded border border-teal-900/40 bg-teal-950/30 px-3 py-1.5 text-teal-400 shadow-sm shadow-teal-950/10 transition-all duration-150 hover:bg-teal-500 hover:text-slate-950"
-            >
-              COMMAND POST
-            </Link>
-            <Link
               href="/get-started"
               className="rounded border border-indigo-900/40 bg-indigo-950/30 px-3 py-1.5 text-indigo-300 transition-all duration-150 hover:bg-indigo-500 hover:text-slate-950"
               data-testid="topnav-get-started-link"
             >
               GET STARTED
-            </Link>
-            <Link
-              href="/profile"
-              className="rounded border border-slate-900 bg-slate-900/20 px-3 py-1.5 text-slate-400 transition-all duration-150 hover:border-slate-800 hover:bg-slate-900 hover:text-white"
-              data-testid="topnav-security-profile-link"
-            >
-              SECURITY PROFILE
             </Link>
           </nav>
         </div>
@@ -179,36 +174,45 @@ export default function TopNav() {
 
       <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} ironframe-topnav-subnav flex h-10 items-center justify-between border-b border-slate-800 bg-slate-900 px-4`}>
         <div className="flex h-full items-center gap-3">
-          <TenantSwitcher />
-          {/* # MAGNITUDE_SELECTOR — global currency scale toggle (AUTO, K, M, B, T) */}
-          {/* # GLOBAL_CURRENCY_SELECTOR — tenant-scoped currency scaling control */}
-          <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300`}>
-            <span className="text-slate-400">Scale</span>
-            <div className="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-1 py-0.5">
-              {(["AUTO", "K", "M", "B", "T"] as const).map((scale) => (
-                <button
-                  key={scale}
-                  type="button"
-                  onClick={() => setCurrencyScale(scale)}
-                  className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                    currencyScale === scale
-                      ? "bg-emerald-500 text-black"
-                      : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  {scale}
-                </button>
-              ))}
-            </div>
-          </div>
-          <CommandPostFreezeControl variant="topnav" />
+          {isOrientationReaderOpen ? (
+            <GetStartedInlineDocTopNavControls />
+          ) : (
+            <>
+              <TenantSwitcher />
+              {/* # MAGNITUDE_SELECTOR — global currency scale toggle (AUTO, K, M, B, T) */}
+              {/* # GLOBAL_CURRENCY_SELECTOR — tenant-scoped currency scaling control */}
+              <div className={`relative ${LAYOUT_SUBNAV_HEADER_Z_CLASS} flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wide text-slate-300`}>
+                <span className="text-slate-400">Scale</span>
+                <div className="inline-flex rounded-full border border-slate-700 bg-slate-900/80 px-1 py-0.5">
+                  {(["AUTO", "K", "M", "B", "T"] as const).map((scale) => (
+                    <button
+                      key={scale}
+                      type="button"
+                      onClick={() => setCurrencyScale(scale)}
+                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                        currencyScale === scale
+                          ? "bg-emerald-500 text-black"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {scale}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <CommandPostFreezeControl variant="topnav" />
+            </>
+          )}
         </div>
-        <div className="text-[10px] font-bold uppercase text-emerald-400 flex items-center gap-2">
-            AGENT MANAGER: ONLINE
+        <div className="flex shrink-0 items-center gap-2 text-[10px] font-bold uppercase text-emerald-400">
+          {!isOrientationReaderOpen ? <TrainerAgentTopNavTrigger /> : null}
+          <span className="hidden sm:inline">
+            {isOrientationReaderOpen ? "ORIENTATION MODE" : "AGENT MANAGER: ONLINE"}
+          </span>
         </div>
       </div>
 
-      <HeaderTwo onVendorDownload={handleVendorDownload} />
+      {!isOrientationReaderOpen ? <HeaderTwo onVendorDownload={handleVendorDownload} /> : null}
 
       {(lockToast || ironcastToast) ? (
         <div className="fixed bottom-5 right-5 z-[500] flex max-w-sm flex-col gap-2">

@@ -8,8 +8,11 @@ import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay
 import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
 import StagedNavLink from "@/app/components/nav/StagedNavLink";
+import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
+import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
 import { useAuditConsoleAccess } from "@/app/hooks/useAuditConsoleAccess";
 import { useBoardroomSecurityAuditAccess } from "@/app/hooks/useBoardroomSecurityAuditAccess";
+import { usePlatformAdminToolsAccess } from "@/app/hooks/usePlatformAdminToolsAccess";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
 
@@ -23,6 +26,8 @@ const CHIP_CLASS =
 
 export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const pathname = usePathname();
+  const { suppressed: vendorExportSuppressed, blockedMessage: vendorExportBlockedMessage } =
+    usePilotStubExportGate();
   const hostTenantSlug = useHostTenantSlug();
   const routes = useMemo(
     () => buildHeaderRouteMatrix(pathname, hostTenantSlug),
@@ -31,6 +36,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const { isVendorsRoute, isConfigRoute, isIntegrityHubRoute, currentTenant, prefix } = routes;
   const { canViewAudit } = useAuditConsoleAccess();
   const { canViewSecurityAuditLogs } = useBoardroomSecurityAuditAccess();
+  const { canUsePlatformAdminTools } = usePlatformAdminToolsAccess();
 
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [chipBarMounted, setChipBarMounted] = useState(false);
@@ -59,7 +65,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
       window.removeEventListener("resize", updateOverflowState);
       observer?.disconnect();
     };
-  }, [isVendorsRoute, isConfigRoute, canViewAudit, canViewSecurityAuditLogs]);
+  }, [isVendorsRoute, isConfigRoute, canViewAudit, canViewSecurityAuditLogs, canUsePlatformAdminTools]);
 
   const scrollChipBar = useCallback((direction: "left" | "right") => {
     chipBarRef.current?.scrollBy({
@@ -127,14 +133,13 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
           }`}
         >
           <div className="flex min-w-max flex-nowrap items-center justify-start gap-x-2">
-            <Link
-              href="/"
+            <CommandPostNavLink
               prefetch={NAV_LINK_PREFETCH}
               data-testid="header-command-post-chip"
               className={`${CHIP_CLASS} border border-teal-600/60 bg-teal-950/40 text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/50`}
             >
               COMMAND POST
-            </Link>
+            </CommandPostNavLink>
             <a
               href="/integrity"
               data-testid="header-integrity-hub-chip"
@@ -162,22 +167,28 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
                 </button>
                 <button
                   type="button"
-                  onClick={onVendorDownload}
+                  onClick={() => {
+                    if (vendorExportSuppressed) return;
+                    onVendorDownload();
+                  }}
+                  disabled={vendorExportSuppressed}
+                  title={vendorExportSuppressed ? vendorExportBlockedMessage : "Download pilot registry CSV"}
                   data-testid="header-vendor-download-chip"
-                  className={`${CHIP_CLASS} rounded-full border border-slate-800 bg-slate-900/80 px-4 text-white transition-all hover:border-blue-500`}
+                  className={`${CHIP_CLASS} rounded-full border border-slate-800 bg-slate-900/80 px-4 text-white transition-all hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-45`}
                 >
                   DOWNLOAD
                 </button>
               </>
             ) : null}
 
-            <Link
+            <StagedNavLink
               href={vendorsHref}
               prefetch={NAV_LINK_PREFETCH}
+              data-testid="header-vendor-list-chip"
               className={`${CHIP_CLASS} bg-blue-600 px-4 text-white transition-all hover:bg-blue-500`}
             >
               VENDOR LIST
-            </Link>
+            </StagedNavLink>
             <StagedNavLink
               href={supplyChainHref}
               prefetch={NAV_LINK_PREFETCH}
@@ -250,6 +261,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               BOARD REPORT
             </Link>
+            {canUsePlatformAdminTools ? (
             <Link
               href="/opsupport"
               prefetch={NAV_LINK_PREFETCH}
@@ -258,6 +270,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               OP SUPPORT
             </Link>
+            ) : null}
             <Link
               href="/admin/clearance"
               prefetch={NAV_LINK_PREFETCH}
@@ -274,13 +287,12 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
               QUICK REPORTS
             </Link>
             {isConfigRoute ? (
-              <Link
-                href="/"
+              <CommandPostNavLink
                 prefetch={NAV_LINK_PREFETCH}
                 className={`${CHIP_CLASS} rounded-full border border-slate-800 bg-slate-900/80 px-4 text-white transition-all hover:border-blue-500`}
               >
                 BACK TO COMMAND POST
-              </Link>
+              </CommandPostNavLink>
             ) : null}
           </div>
         </div>

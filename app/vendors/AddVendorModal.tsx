@@ -1,10 +1,12 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, UploadCloud } from "lucide-react";
 import { Industry, RiskTier, VendorType } from "@/app/vendors/schema";
 import { ClassifiedDocumentType, analyzeVendorDocument } from "@/services/idpService";
 import { VendorTypeRequirements } from "@/app/store/systemConfigStore";
+import { LAYOUT_GLOBAL_MODAL_Z_CLASS } from "@/app/config/layoutConstants";
 
 export type AddVendorSubmission = {
   vendorName: string;
@@ -24,6 +26,7 @@ type AddVendorModalProps = {
 };
 
 export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRequirements }: AddVendorModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [vendorType, setVendorType] = useState<VendorType>("SaaS");
   const [industry, setIndustry] = useState<Industry>("Healthcare");
@@ -42,7 +45,20 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
   const canSubmit = useMemo(() => vendorName.trim().length > 0, [vendorName]);
   const requiredEvidence = vendorTypeRequirements[vendorType] ?? ["SOC2"];
 
-  if (!isOpen) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) {
     return null;
   }
 
@@ -106,13 +122,14 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-[85] flex justify-end bg-slate-950/70">
+  return createPortal(
+    <div className={`fixed inset-0 ${LAYOUT_GLOBAL_MODAL_Z_CLASS} flex justify-end bg-slate-950/70`} data-testid="add-vendor-modal">
       <div className="h-full w-full max-w-md border-l border-slate-800 bg-slate-900 p-4 shadow-2xl">
         <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-white">Manual Vendor Ingestion</h2>
           <button
             type="button"
+            data-testid="add-vendor-close"
             onClick={onClose}
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold uppercase text-slate-300"
           >
@@ -259,6 +276,7 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

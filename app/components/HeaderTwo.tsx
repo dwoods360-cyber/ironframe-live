@@ -4,9 +4,7 @@ import Link from "next/link";
 import { Folder, ShieldCheck, UserRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
 import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
-import UploadArtifactModal from "@/app/components/vendor-risk/UploadArtifactModal";
 import StagedNavLink from "@/app/components/nav/StagedNavLink";
 import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
 import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
@@ -33,7 +31,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
     () => buildHeaderRouteMatrix(pathname, hostTenantSlug),
     [pathname, hostTenantSlug],
   );
-  const { isVendorsRoute, isConfigRoute, isIntegrityHubRoute, currentTenant, prefix } = routes;
+  const { isVendorsRoute, isConfigRoute, isIntegrityHubRoute, prefix } = routes;
   const { canViewAudit } = useAuditConsoleAccess();
   const { canViewSecurityAuditLogs } = useBoardroomSecurityAuditAccess();
   const { canUsePlatformAdminTools } = usePlatformAdminToolsAccess();
@@ -41,7 +39,6 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [chipBarMounted, setChipBarMounted] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
-  const [isPortalOpen, setIsPortalOpen] = useState(false);
 
   useEffect(() => {
     setChipBarMounted(true);
@@ -79,7 +76,6 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   }, []);
 
   const openAddVendor = useCallback(() => {
-    setIsPortalOpen(true);
     window.dispatchEvent(new CustomEvent("vendors:open-add-vendor"));
   }, []);
 
@@ -297,20 +293,6 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
           </div>
         </div>
       </div>
-
-      <GlobalViewportOverlay
-        open={isPortalOpen}
-        onClose={() => setIsPortalOpen(false)}
-        backdropClassName="bg-slate-950/80 backdrop-blur-sm"
-        panelClassName="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-      >
-        <UploadArtifactModal
-          isOpen={isPortalOpen}
-          onClose={() => setIsPortalOpen(false)}
-          onUploadComplete={() => setIsPortalOpen(false)}
-          tenantId={currentTenant ?? ""}
-        />
-      </GlobalViewportOverlay>
     </div>
   );
 }

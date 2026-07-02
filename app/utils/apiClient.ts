@@ -1,4 +1,8 @@
-import { getIronguardEffectiveTenant, setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import {
+  getDashboardWorkspaceFallbackTenant,
+  getIronguardEffectiveTenant,
+  setIronguardEffectiveTenant,
+} from "@/app/utils/ironguardSession";
 import { isPublicRegistrationApiPath } from "@/app/lib/auth/publicRegistrationRoute";
 import { isPublicConstitutionalSentinelPath } from "@/app/utils/grcRouteMatch";
 import {
@@ -54,6 +58,8 @@ function ironguardShadowPlaneBypassesMissingSession(): boolean {
 function resolveEffectiveTenantForIronguardFetch(): string | null {
   const fromSession = getIronguardEffectiveTenant();
   if (fromSession) return fromSession;
+  const dashboardFallback = getDashboardWorkspaceFallbackTenant();
+  if (dashboardFallback) return dashboardFallback;
   if (ironguardShadowPlaneBypassesMissingSession()) {
     return TENANT_UUIDS.medshield;
   }
@@ -96,7 +102,24 @@ export function applyIronguardToFetch(
   const method = getMethod(input, init);
   if (method === "OPTIONS" || method === "HEAD") return [input, init];
 
-  if (isTenantOptionalApiPath(pathname)) return [input, init];
+  if (isTenantOptionalApiPath(pathname)) {
+    const optionalTenant = resolveEffectiveTenantForIronguardFetch();
+    if (!optionalTenant) return [input, init];
+
+    const headers = new Headers();
+    if (typeof Request !== "undefined" && input instanceof Request) {
+      input.headers.forEach((value, key) => headers.set(key, value));
+    }
+    new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+    if (!headers.get("x-tenant-id")?.trim()) {
+      headers.set("x-tenant-id", optionalTenant);
+    }
+
+    if (typeof Request !== "undefined" && input instanceof Request) {
+      return [new Request(input, { ...init, headers }), undefined];
+    }
+    return [input, { ...init, headers }];
+  }
 
   if (isDemoModeActive() && !isPublicConstitutionalSentinelPath(pathname)) {
     logIsolationSentinelBlocked({

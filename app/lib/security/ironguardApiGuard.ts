@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { recordIronguardViolation } from "@/app/lib/security/recordIronguardViolation";
+import {
+  IRONFRAME_HOST_TENANT_UUID_HEADER,
+  tenantSlugFromHost,
+} from "@/app/lib/tenantSubdomain";
 const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
 
 /** Bot / CLI simulation clients may send without `ironframe-tenant`; pair with `x-tenant-id` + Ironguard mismatch bypass. */
@@ -74,6 +78,23 @@ export async function getIronframeSessionTenantUuidFromCookies(): Promise<string
   return null;
 }
 
+function resolveHostBoundTenantUuid(request: NextRequest): string | null {
+  const fromMiddleware = request.headers.get(IRONFRAME_HOST_TENANT_UUID_HEADER)?.trim();
+  if (fromMiddleware && UUID_RE.test(normalizeUuid(fromMiddleware))) {
+    return normalizeUuid(fromMiddleware);
+  }
+
+  const host =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    request.headers.get("host")?.trim() ||
+    "";
+  const slug = tenantSlugFromHost(host);
+  if (slug && SLUGS.has(slug as TenantKey)) {
+    return TENANT_UUIDS[slug as TenantKey];
+  }
+  return null;
+}
+
 /**
  * Ironguard API enforcement: when the browser session already binds a tenant UUID via cookie,
  * `x-tenant-id` **must** match or the response is **403**.
@@ -109,6 +130,12 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
       await persistShadowPlaneTenantCookie(uuid);
       return { ok: true, tenantUuid: uuid };
     }
+
+    const sessionUuid = await getIronframeSessionTenantUuidFromCookies();
+    if (sessionUuid) {
+      return { ok: true, tenantUuid: sessionUuid };
+    }
+
     void recordIronguardViolation({
       sessionTenantUuid: null,
       attemptedTenantUuid: null,
@@ -143,6 +170,13 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
       await persistShadowPlaneTenantCookie(headerNorm);
       return { ok: true, tenantUuid: headerNorm };
     }
+
+    const hostBoundUuid = resolveHostBoundTenantUuid(request);
+    if (hostBoundUuid && hostBoundUuid === headerNorm) {
+      await persistShadowPlaneTenantCookie(headerNorm);
+      return { ok: true, tenantUuid: headerNorm };
+    }
+
     void recordIronguardViolation({
       sessionTenantUuid: sessionUuid,
       attemptedTenantUuid: headerNorm,

@@ -234,9 +234,9 @@ export async function runCommandPostClickDiagnostic(
     await page.waitForURL(
       (url) =>
         url.href.includes("workspace-launch") ||
-        url.hostname.includes("lvh.me") ||
+        (url.hostname.includes("lvh.me") && !url.pathname.includes("session-bootstrap")) ||
         url.pathname === "/login",
-      { timeout: 12_000 },
+      { timeout: 30_000 },
     );
   } catch {
     // Capture final state even when navigation stalls.

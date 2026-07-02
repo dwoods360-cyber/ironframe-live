@@ -12,6 +12,10 @@ import {
 import { usePathname } from "next/navigation";
 import { useRiskStore } from "@/app/store/riskStore";
 import { isConstitutionalOverlaySuppressedPath } from "@/app/utils/grcRouteMatch";
+import { isBenignRuntimeEmissionError } from "@/app/utils/safeRuntimeEmission";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
+import { ironguardFetch } from "@/app/utils/apiClient";
+import { logExplicitDiagnosticAbort, observeSuppressedFetchAbort } from "@/app/utils/diagnosticAbortLog";
 
 const POLL_MS = 4000;
 const INTEGRITY_FETCH_TIMEOUT_MS = 12_000;
@@ -84,9 +88,16 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
     pollInFlightRef.current = true;
     const suppressed = isConstitutionalOverlaySuppressedPath(pathname);
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), INTEGRITY_FETCH_TIMEOUT_MS);
+    const timeoutId = window.setTimeout(() => {
+      logExplicitDiagnosticAbort(ABORT_REASONS.integrityFetchTimeout, {
+        surface: "ConstitutionalIntegrityProvider",
+        path: "/api/grc/tas-integrity",
+        method: "GET",
+      });
+      controller.abort(ABORT_REASONS.integrityFetchTimeout);
+    }, INTEGRITY_FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/grc/tas-integrity", {
+      const res = await ironguardFetch("/api/grc/tas-integrity", {
         cache: "no-store",
         signal: controller.signal,
       });
@@ -123,7 +134,15 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
         failureReason: typeof body.failureReason === "string" ? body.failureReason : null,
         failureMessage: typeof body.failureMessage === "string" ? body.failureMessage : null,
       });
-    } catch {
+    } catch (error) {
+      if (isBenignRuntimeEmissionError(error)) {
+        observeSuppressedFetchAbort(error, {
+          surface: "ConstitutionalIntegrityProvider",
+          path: "/api/grc/tas-integrity",
+          method: "GET",
+        });
+        return;
+      }
       if (suppressed) {
         setConstitutionalIntegrityState(publicSurfaceIntegrityClearPatch());
         return;
@@ -152,7 +171,14 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
     const id = window.setInterval(() => {
       void refreshIntegrity();
     }, POLL_MS);
-    return () => window.clearInterval(id);
+    const onTenantChanged = () => {
+      void refreshIntegrity();
+    };
+    window.addEventListener("ironframe-tenant-changed", onTenantChanged);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("ironframe-tenant-changed", onTenantChanged);
+    };
   }, [refreshIntegrity]);
 
   const value = useMemo<ConstitutionalIntegrityClientState>(

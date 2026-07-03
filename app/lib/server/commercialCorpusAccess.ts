@@ -21,6 +21,12 @@ export function requiresCommercialCorpusEntitlement(readingLevel: string): boole
   return isOperatorFacingReadingLevel(readingLevel);
 }
 
+/** Public /docs reader — operator manuals remain guest-readable (Playwright + prospect hub). */
+function isPublicDocumentationReaderPath(loginNextPath: string): boolean {
+  const path = loginNextPath.trim();
+  return path === "/docs/README" || path.startsWith("/docs/");
+}
+
 export async function resolveCommercialCorpusGate(
   readingLevel: string,
   loginNextPath: string,
@@ -30,7 +36,12 @@ export async function resolveCommercialCorpusGate(
   }
 
   const user = await getSupabaseSessionUser();
-  if (!user) {
+
+  if (isPublicDocumentationReaderPath(loginNextPath)) {
+    if (!user) {
+      return { status: "public_publisher" };
+    }
+  } else if (!user) {
     return { status: "unauthenticated", loginNextPath };
   }
 

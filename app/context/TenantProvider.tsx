@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -90,10 +91,11 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     tenantKeyFromUuid(cookieTenantUuid)
   ) as TenantKey | null;
 
-  useEffect(() => {
+  /** Bind before child effects fire dashboard `/api` reads (host subdomain > path > dev > cookie). */
+  useLayoutEffect(() => {
     if (devIronguardCookieSyncSuppressed) return;
-    setIronguardEffectiveTenant(resolveDashboardTenantUuid(routeUuid ?? devUuid ?? null));
-  }, [routeUuid, devUuid, cookieTenantUuid]);
+    setIronguardEffectiveTenant(activeTenantUuid);
+  }, [activeTenantUuid]);
 
   const setDevTenantOverride = useCallback((tenant: TenantKey | null) => {
     if (process.env.NODE_ENV !== "development") {

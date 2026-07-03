@@ -213,7 +213,7 @@ export async function sealIronqueryComplianceExport(input: {
       payload,
     });
 
-    revalidatePath("/dashboard/exports");
+    revalidatePath("/exports");
     return { ok: true, artifactId: archived.artifactId, canonicalSha256: archived.canonicalSha256 };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };

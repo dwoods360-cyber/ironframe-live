@@ -45,7 +45,7 @@ export type PublicDarkShellSurface = "public-landing" | "docs-reader" | "invite-
 
 export function resolvePublicDarkShellSurface(pathname: string): PublicDarkShellSurface {
   if (isMarketingPathname(pathname)) return "public-landing";
-  if (isDocsPathname(pathname)) return "docs-reader";
+  if (isDocsPathname(pathname)) return "public-funnel";
   if (isInviteTokenRegistrationPath(pathname)) return "invite-registration";
   return "public-funnel";
 }

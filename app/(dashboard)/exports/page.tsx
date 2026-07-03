@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import IronqueryExportDashboard from "@/app/components/IronqueryExportDashboard";
+import ExportScopeRequiredPanel from "@/app/components/IronqueryExportScopeRequiredPanel";
 import { getIronqueryExportDashboardContext } from "@/app/actions/ironqueryExportActions";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function AnalystExportsPage() {
         `/account/billing-hold?${tenantQuery}status=${encodeURIComponent(context.billingStatus ?? "PENDING")}`,
       );
     }
-    redirect("/?exportScope=required");
+    return <ExportScopeRequiredPanel message={context.error} />;
   }
 
   return (

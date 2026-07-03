@@ -30,21 +30,22 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      /** Legacy hub HTML only — markdown slugs under /docs/* stay on the reader route. */
       {
-        source: "/docs/product/:file",
-        destination: "/api/docs/hub-asset/product/:file",
+        source: "/docs/product/:file.html",
+        destination: "/api/docs/hub-asset/product/:file.html",
       },
       {
-        source: "/docs/support/:file",
-        destination: "/api/docs/hub-asset/support/:file",
+        source: "/docs/support/:file.html",
+        destination: "/api/docs/hub-asset/support/:file.html",
       },
       {
-        source: "/docs/technical/:file",
-        destination: "/api/docs/hub-asset/technical/:file",
+        source: "/docs/technical/:file.html",
+        destination: "/api/docs/hub-asset/technical/:file.html",
       },
       {
-        source: "/docs/training/:track/:file",
-        destination: "/api/docs/hub-asset/training/:track/:file",
+        source: "/docs/training/:track/:file.html",
+        destination: "/api/docs/hub-asset/training/:track/:file.html",
       },
     ];
   },

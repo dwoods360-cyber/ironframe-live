@@ -41,7 +41,7 @@ describe("grcRouteMatch", () => {
     expect(isScrollableStandalonePath("/settings/config")).toBe(true);
     expect(isScrollableStandalonePath("/trust")).toBe(true);
     expect(isScrollableStandalonePath("/vendors")).toBe(true);
-    expect(isScrollableStandalonePath("/dashboard/exports")).toBe(true);
+    expect(isScrollableStandalonePath("/exports")).toBe(true);
     expect(isScrollableStandalonePath("/medshield/config")).toBe(true);
     expect(isScrollableStandalonePath("/")).toBe(false);
     expect(isScrollableStandalonePath("/cockpit")).toBe(false);
@@ -56,13 +56,14 @@ describe("grcRouteMatch", () => {
   it("detects dashboard route group paths for layout shell delegation", () => {
     expect(isDashboardRouteGroupPath("/trust")).toBe(true);
     expect(isDashboardRouteGroupPath("/trust/dpa")).toBe(true);
+    expect(isDashboardRouteGroupPath("/exports")).toBe(true);
     expect(isDashboardRouteGroupPath("/dashboard/support")).toBe(true);
     expect(isDashboardRouteGroupPath("/boardroom/admin/audit-logs")).toBe(true);
     expect(isDashboardRouteGroupPath("/dashboard")).toBe(false);
   });
 
   it("detects Ironframe SaaS workspace paths for Cyber Command Dark lock", () => {
-    expect(isIronframeSaaSAppPath("/dashboard/exports")).toBe(true);
+    expect(isIronframeSaaSAppPath("/exports")).toBe(true);
     expect(isIronframeSaaSAppPath("/vendors")).toBe(true);
     expect(isIronframeSaaSAppPath("/integrity")).toBe(true);
     expect(isIronframeSaaSAppPath("/login")).toBe(false);

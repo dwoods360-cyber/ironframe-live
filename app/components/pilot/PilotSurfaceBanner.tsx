@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import NavMaturityBadge from "@/app/components/nav/NavMaturityBadge";
+import AnalystExportsLink from "@/app/components/nav/AnalystExportsLink";
 
 type Props = {
   title?: string;
@@ -39,12 +40,11 @@ export default function PilotSurfaceBanner({
       </div>
       <p className={`text-sm leading-relaxed text-slate-400 ${compact ? "mt-1.5" : "mt-3"}`}>
         {detail}{" "}
-        <Link
-          href="/dashboard/exports"
+        <AnalystExportsLink
           className="text-cyan-300 underline-offset-2 hover:underline"
         >
           Analyst exports
-        </Link>{" "}
+        </AnalystExportsLink>{" "}
         ·{" "}
         <Link href="/get-started" className="text-cyan-300 underline-offset-2 hover:underline">
           Get Started

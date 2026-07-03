@@ -15,6 +15,7 @@ import {
   isOperatorFacingReadingLevel,
   prepareDocContentForDisplay,
 } from "@/lib/docsContentDecoupling";
+import { loadAppDocumentForReader } from "@/app/lib/server/loadAppDocumentForReader";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -97,9 +98,7 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
 
   let docRecord = null;
   try {
-    docRecord = await prisma.appDocument.findUnique({
-      where: { slug: targetSlug },
-    });
+    docRecord = await loadAppDocumentForReader(targetSlug);
   } catch (dbError) {
     console.error("[Docs DB Connection Failure]", dbError);
     return (
@@ -188,7 +187,7 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
               <h1 className="font-sans text-2xl font-bold tracking-tight text-white">{displayTitle}</h1>
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-slate-500">
                 <span>REF_PATH: {docRecord.slug}</span>
-                <span>SYNC_ID: {new Date(docRecord.updatedAt).toISOString()}</span>
+                <span>SOURCE: {docRecord.source === "database" ? "APP_DOCUMENTS_DB" : "FILESYSTEM_FALLBACK"}</span>
               </div>
             </>
           )}

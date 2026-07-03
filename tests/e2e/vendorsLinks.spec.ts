@@ -8,6 +8,10 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("Vendors page links", () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(
+      !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+      "SUPABASE_SERVICE_ROLE_KEY required to mint apex session",
+    );
     await bootstrapApexOperatorSession(page, OPERATOR_EMAIL);
     await page.goto("/medshield/vendors", { waitUntil: "domcontentloaded", timeout: 60_000 });
     await page.waitForSelector("text=VENDOR NAME", { state: "visible", timeout: 30_000 });

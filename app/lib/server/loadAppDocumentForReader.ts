@@ -28,7 +28,8 @@ function isOperatorFilesystemDocSlug(slug: string): boolean {
     slug === "readme" ||
     slug.startsWith("user-manuals/") ||
     slug.startsWith("training/") ||
-    slug.startsWith("end-users/")
+    slug.startsWith("end-users/") ||
+    slug.startsWith("technical/")
   );
 }
 

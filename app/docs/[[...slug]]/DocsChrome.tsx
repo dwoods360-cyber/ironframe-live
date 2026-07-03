@@ -45,7 +45,11 @@ export default function DocsChrome({
   const navLabel = audience === "operator" ? "USER GUIDE" : "REFERENCE MANUALS";
 
   return (
-    <div className="ironframe-docs-shell flex min-h-screen flex-col bg-[#020617] text-slate-100 selection:bg-cyan-500/30">
+    <div
+      className="ironframe-docs-shell flex min-h-screen flex-col bg-[#020617] text-slate-100 selection:bg-cyan-500/30"
+      data-ironframe-public="true"
+      data-ironframe-surface="docs-reader"
+    >
       {embedded ? null : (
       <nav className="sticky top-0 z-50 flex h-14 w-full items-center justify-between gap-3 border-b border-slate-800/80 bg-[#020617]/95 px-4 backdrop-blur-md sm:px-6">
         <div className="flex min-w-0 items-center gap-2">

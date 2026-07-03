@@ -136,13 +136,13 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               COMMAND POST
             </CommandPostNavLink>
-            <a
+            <Link
               href="/integrity"
               data-testid="header-integrity-hub-chip"
               className={integrityHubChipClass}
             >
               INTEGRITY HUB
-            </a>
+            </Link>
             {isVendorsRoute ? (
               <>
                 <button

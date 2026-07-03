@@ -219,7 +219,7 @@ export default function AdminApprovalDashboard() {
                         Proposed Resolution Content
                       </span>
                       <span className="font-mono text-[9px] text-slate-500">
-                        // Editable Workspace Field
+                        {"// Editable Workspace Field"}
                       </span>
                     </div>
                     <textarea

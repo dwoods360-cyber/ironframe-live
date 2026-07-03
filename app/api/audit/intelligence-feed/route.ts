@@ -5,7 +5,7 @@ export const fetchCache = "force-no-store";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export type IntelligenceDiagnosticRow = {
   id: string;
@@ -21,10 +21,9 @@ export type IntelligenceDiagnosticRow = {
  */
 export async function GET(request: NextRequest) {
   noStore();
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!tenantUuid) {
-    return NextResponse.json({ rows: [] as IntelligenceDiagnosticRow[] }, { status: 401 });
-  }
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantUuid = guard.tenantUuid;
 
   const threatId = request.nextUrl.searchParams.get("threatId")?.trim() || null;
   const take = Math.min(

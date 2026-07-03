@@ -1,0 +1,332 @@
+import fs from "node:fs";
+import path from "node:path";
+
+import { GoogleGenAI } from "@google/genai";
+
+import { DETERMINISTIC_GENERATION_PARAMS } from "../config/deterministicModel.js";
+import { buildGroundedSystemPrompt } from "../prompts.js";
+import { getIronboardApiKey, getIronboardGeminiModel, loadIronboardEnv } from "../loadIronboardEnv.js";
+import { withGeminiRateLimitRetry } from "../lib/geminiRetry.js";
+import { validateOutboundContent } from "../validation/contentFirewall.js";
+import type { IronframeDocumentationBrief } from "../types/ironframeDocumentationBrief.js";
+
+loadIronboardEnv();
+
+const OUTPUT_RELATIVE = "docs/user-manuals/get-started-orientation-audio-script.md";
+const MAX_OUTPUT_TOKENS = 4_096;
+
+export type OrientationCorpusSources = {
+  quickstartMarkdown: string;
+  onboardingMarkdown: string;
+  getStartedStepsJson: string;
+};
+
+function resolveRepoRoot(): string {
+  const candidates = [process.cwd(), path.join(process.cwd(), "..")];
+  for (const root of candidates) {
+    if (fs.existsSync(path.join(root, "docs", "user-manuals", "quickstart.md"))) {
+      return root;
+    }
+  }
+  return process.cwd();
+}
+
+function readRepoFile(relativePath: string): string {
+  const absolute = path.join(resolveRepoRoot(), relativePath);
+  if (!fs.existsSync(absolute)) {
+    throw new Error(`Missing corpus source: ${relativePath}`);
+  }
+  return fs.readFileSync(absolute, "utf8").trim();
+}
+
+export function loadOrientationCorpusSources(): OrientationCorpusSources {
+  return {
+    quickstartMarkdown: readRepoFile("docs/user-manuals/quickstart.md"),
+    onboardingMarkdown: readRepoFile("docs/end-users/onboarding.md"),
+    getStartedStepsJson: readRepoFile("app/lib/getStartedSteps.ts"),
+  };
+}
+
+function buildChecklistSummary(getStartedStepsSource: string): string {
+  const matches = [...getStartedStepsSource.matchAll(/title:\s*"([^"]+)"[\s\S]*?description:\s*"([^"]+)"/g)];
+  if (matches.length === 0) {
+    return "- Command Post orientation\n- Integrity Hub\n- Level 1 training\n- Trainer sandbox\n- Audit exports";
+  }
+  return matches
+    .map((match, index) => `${index + 1}. ${match[1]} — ${match[2]}`)
+    .join("\n");
+}
+
+/** Deterministic backbone — used when LLM unavailable and as structural guardrails. */
+export function buildDeterministicOrientationScript(
+  brief: IronframeDocumentationBrief,
+  sources: OrientationCorpusSources,
+): string {
+  const checklist = buildChecklistSummary(sources.getStartedStepsJson);
+
+  return [
+    "### [0:00] Open",
+    "",
+    "Welcome to the Ironframe Command Post. You are signed in to your assigned workspace. This walkthrough covers layout and first tasks on the Get Started portal. Invite and credential steps were handled during activation. We focus on orientation only.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [0:20] Command Post layout",
+    "",
+    "Use the top navigation bar: Dashboard Cockpit, Integrity Hub, Evidence Locker, and Documentation. Your active tenant window shows which workspace you are viewing. On the left, Financial Targets show your safe baselines. On the right, the Hazard Pipeline tracks real-time risks. Press Tab to move between controls. Charts include text summaries for screen readers.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [0:55] Get Started checklist",
+    "",
+    "The Get Started portal tracks five steps:",
+    "",
+    checklist,
+    "",
+    "Pause one second.",
+    "",
+    "---",
+    "",
+    "### [1:15] Primary control areas",
+    "",
+    "Integrity Hub holds financial risk scores and protection baselines. Workforce Cockpit shows automated safety sweeps and agent trails. Evidence Locker stores sealed compliance documents. Documentation holds Level 1 manuals and training tracks. Settings holds tenant configuration and contacts.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [1:50] Command Post orientation",
+    "",
+    "The first step is Command Post orientation. Review the layout, primary control areas, and keyboard navigation. Invite steps are handled separately in your activation email.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [2:20] Integrity Hub and ALE baselines",
+    "",
+    "Open Integrity Hub from the checklist or top navigation. Confirm your tenant name and baseline figures in USD.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [2:40] Level 1 training track",
+    "",
+    "Open the twenty-four-chapter Level 1 student index from the checklist. Work chapters in order when you have time.",
+    "",
+    "Pause one second.",
+    "",
+    "---",
+    "",
+    "### [3:00] Trainer agent sandbox",
+    "",
+    "Use Ask Trainer from Header number one or the panel on Get Started. Ask questions grounded on the verified Level 1 corpus in multi-turn sessions.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [3:20] Audit export path",
+    "",
+    "Open Dashboard Exports from the checklist. Locate tenant-scoped CSV and PDF export actions for auditor handoff.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [3:45] Close",
+    "",
+    "Replay this audio while you complete the checklist. Progress saves in your browser. For deeper first-week tasks, open the extended onboarding checklist in Documentation.",
+    "",
+    `ref: GET /api/board/shared-context · emittedAt=${brief.emittedAt}`,
+    "source-file: docs/user-manuals/quickstart.md",
+    "source-file: docs/end-users/onboarding.md",
+    "source-file: app/lib/getStartedSteps.ts",
+  ].join("\n");
+}
+
+function buildOrientationUserPrompt(
+  brief: IronframeDocumentationBrief,
+  sources: OrientationCorpusSources,
+  deterministicDraft: string,
+): string {
+  return `=== IRONFRAME DOCUMENTATION BRIEF ===
+Release: ${brief.release}
+Posture: ${brief.posture}
+Mandate: ${brief.mandate}
+Tenant scope: ${brief.platformFacts.tenantId}
+
+=== BUCKET B CONSTRAINT (MANDATORY) ===
+This is post-authentication operator audio only (Bucket B). FORBIDDEN in spoken script:
+- Invite email inbox instructions, Initialize Workspace email CTA, password setup walkthrough
+- MSA/DPA acceptance steps, billing hold, legal sign-off portals
+- ASCII wireframes, markdown tables, or UI labels not in source corpus
+
+=== CORPUS: QUICKSTART (LEVEL 1) ===
+${sources.quickstartMarkdown}
+
+=== CORPUS: ONBOARDING (DAY 1 EXCERPT) ===
+${sources.onboardingMarkdown.slice(0, 4_000)}
+
+=== CORPUS: GET STARTED STEPS (app/lib/getStartedSteps.ts) ===
+${sources.getStartedStepsJson}
+
+=== STRUCTURAL BACKBONE (professionalize — preserve section timestamps) ===
+${deterministicDraft}
+
+AUTHORING REQUIREMENTS:
+1. Output ONLY the "## Script" body: timestamped sections (### [m:ss] Title), spoken paragraphs, and "Pause N seconds." lines.
+2. Target 3:30–4:30 at calm pace. Short sentences. No emojis or exclamation points.
+3. Include separate spoken sections for EACH of the five Get Started checklist steps (orientation, Integrity Hub, Level 1 index, Trainer sandbox, audit exports) — not only a numbered list.
+4. Ground every UI surface name in quickstart.md or onboarding.md — do not invent routes or features.
+5. After each major section, include source-file lines citing the corpus file used.
+6. Do NOT include production notes, CapCut instructions, or markdown document title.
+7. Do NOT read checklist step descriptions verbatim — professionalize for spoken audio while preserving meaning.
+8. Level 1 training index has twenty-four chapters per training/level1-student-index — never say twelve chapters.
+9. Trainer sandbox supports multi-turn sessions via Header #1 Ask Trainer and the Get Started panel — never say one question only.
+10. Do not mention cryptographic key paths in Settings — tenant configuration and contacts only.
+
+Write the complete spoken script now:`;
+}
+
+export async function generateOrientationAudioScriptBody(
+  brief: IronframeDocumentationBrief,
+  sources: OrientationCorpusSources = loadOrientationCorpusSources(),
+): Promise<string> {
+  const deterministicDraft = buildDeterministicOrientationScript(brief, sources);
+  const apiKey = getIronboardApiKey();
+
+  if (!apiKey) {
+    console.warn(
+      "[OrientationAudioScriptGenerator] GEMINI_API_KEY missing — using deterministic Trainer backbone.",
+    );
+    return deterministicDraft;
+  }
+
+  const systemInstruction = buildGroundedSystemPrompt("TRAINER");
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await withGeminiRateLimitRetry(
+      () =>
+        ai.models.generateContent({
+          model: getIronboardGeminiModel(),
+          contents: buildOrientationUserPrompt(brief, sources, deterministicDraft),
+          config: {
+            systemInstruction,
+            temperature: DETERMINISTIC_GENERATION_PARAMS.temperature,
+            topP: DETERMINISTIC_GENERATION_PARAMS.topP,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          },
+        }),
+      { label: "orientation-audio-script-generator" },
+    );
+
+    const synthesized = response.text?.trim();
+    if (!synthesized || synthesized.length < 400) {
+      return deterministicDraft;
+    }
+
+    const withAnchors = synthesized.includes("source-file:")
+      ? synthesized
+      : `${synthesized}\n\nsource-file: docs/user-manuals/quickstart.md\nsource-file: app/lib/getStartedSteps.ts\nref: GET /api/board/shared-context · emittedAt=${brief.emittedAt}`;
+
+    const validation = validateOutboundContent(withAnchors, {
+      agentRole: "TRAINER",
+      requireSourceReferences: true,
+    });
+    if (!validation.ok) {
+      console.warn(
+        `[OrientationAudioScriptGenerator] Content firewall: ${validation.violations.join(" | ")} — using backbone.`,
+      );
+      return deterministicDraft;
+    }
+
+    return withAnchors;
+  } catch (error) {
+    console.warn(
+      "[OrientationAudioScriptGenerator] LLM synthesis failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return deterministicDraft;
+  }
+}
+
+export function buildOrientationAudioScriptDocument(
+  scriptBody: string,
+  brief: IronframeDocumentationBrief,
+  options?: { generatedAt?: string; synthesisMode?: "llm" | "deterministic" },
+): string {
+  const generatedAt = options?.generatedAt ?? new Date().toISOString();
+  const mode = options?.synthesisMode ?? "llm";
+
+  return `# Get Started Orientation — Audio Script (Level 1)
+
+**Author:** board-trainer (IronBoard User Trainer Agent)
+**Generated:** ${generatedAt}
+**Synthesis:** ${mode}
+**Ingress:** docs/user-manuals/quickstart.md, docs/end-users/onboarding.md, app/lib/getStartedSteps.ts
+**Companion doc:** [Command Post Orientation](./quickstart.md)
+
+---
+
+## Production notes
+
+| Item | Value |
+|------|--------|
+| **Script path (this file)** | \`${OUTPUT_RELATIVE}\` |
+| **Regenerate** | \`npm run docs:orientation-audio-script\` |
+| **Save your audio here** | \`public/docs/training/assets/get-started-orientation.mp3\` |
+| **Env var (after export)** | \`NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/docs/training/assets/get-started-orientation.mp3\` |
+| **Portal surface** | \`/get-started\` — Orientation walkthrough panel (audio player) |
+
+**Tone:** Calm briefing. Short sentences. No sales language. Assume the listener is already signed in.
+
+**Bucket B only:** Invite, password, MSA/DPA, and billing hold belong in Bucket A (email and \`/register/{token}\`).
+
+**Format tips:** Export mono or stereo MP3, 128 kbps or higher. Trim leading and trailing silence.
+
+**Optional spoken glossary** (define on first use if recording extended take): **Command Post** — main dashboard; **Integrity Hub** — financial risk scores and baselines; **Evidence Locker** — WORM-sealed compliance documents; **ALE** — estimated annual loss from vulnerabilities; **WORM** — write-once storage that cannot be altered after seal; **Hazard Pipeline** — live risk tracking view; **Workforce Cockpit** — agent activity and safety sweeps.
+
+---
+
+## CapCut workflow
+
+Use **CapCut Desktop** (recommended) or mobile.
+
+### Text-to-speech
+
+1. **New project** → blank timeline.
+2. Copy **spoken paragraphs only** from \`## Script\` below (one section at a time) into **Text → Text-to-speech**.
+3. Voice: calm, neutral English.
+4. At each **Pause one/two seconds** line, add 1–2 s silence on the timeline — do not paste pause text into TTS.
+5. Export MP3, or MP4 then \`ffmpeg -i export.mp4 -vn -acodec libmp3lame -q:a 2 get-started-orientation.mp3\`
+6. Save to \`public/docs/training/assets/get-started-orientation.mp3\`
+
+---
+
+## Script
+
+${scriptBody.trim()}
+
+---
+
+## Verification before publish
+
+- [ ] Regenerated via \`npm run docs:orientation-audio-script\` after quickstart or checklist changes
+- [ ] Script contains no Bucket A invite or legal sign-off copy
+- [ ] Audio file at \`public/docs/training/assets/get-started-orientation.mp3\`
+- [ ] \`.env.local\` sets \`NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/docs/training/assets/get-started-orientation.mp3\`
+- [ ] Hard refresh \`/get-started\` — audio control appears
+
+source-file: docs/user-manuals/quickstart.md
+ref: GET /api/board/shared-context · emittedAt=${brief.emittedAt}
+`;
+}
+
+export const ORIENTATION_AUDIO_SCRIPT_OUTPUT = OUTPUT_RELATIVE;

@@ -1,7 +1,8 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { countTenantQuarantineHardBans } from "@/app/lib/security/quarantineLedgerRead";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -9,9 +10,11 @@ export const dynamic = "force-dynamic";
  * Read-only Ironlock global state freeze + quarantine hard-ban (Gavel) for Ironwatch / Command Post.
  * Does not expose operational internals beyond boolean flags.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const tenantUuid = await getActiveTenantUuidFromCookies();
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
+    if (!guard.ok) return guard.response;
+    const tenantUuid = guard.tenantUuid;
     let ironlockGlobalStateFreezeActive = false;
     let quarantineHardBanActive = false;
 

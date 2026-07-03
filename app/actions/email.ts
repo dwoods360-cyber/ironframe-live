@@ -220,8 +220,17 @@ export async function sendVendorEmail(vendorName: string, docName: string, expir
     <p>— Ironframe GRC Agent</p>
   `;
 
+  const recipient =
+    getPrimaryThreatNotificationRecipient() ||
+    process.env.ADMIN_ALERT_EMAIL?.trim() ||
+    null;
+  if (!recipient) {
+    console.error('[EMAIL SKIPPED] No vendor alert recipient configured.');
+    return { success: false, error: 'No vendor alert recipient configured' };
+  }
+
   const result = await sendRiskNotification(
-    'compliance@blackwoodscoffee.com',
+    recipient,
     subject,
     html,
   );

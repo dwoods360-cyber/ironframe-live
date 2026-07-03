@@ -16,7 +16,7 @@ Canonical contract for instantiating or updating the **primary corporate organiz
 |-------------|--------|
 | **`x-tenant-id` header** | Tenant UUID (required in production) |
 | **`tenantId` in body** | Must match `x-tenant-id` exactly |
-| **Billing** | Tenant must have active commercial entitlement (402 when `PENDING` / `PAST_DUE`) |
+| **Billing** | First primary company bootstrap allowed while `PENDING` (post-provision vacuum). Updates require `ACTIVE` entitlement (402 when `PENDING` / `PAST_DUE`). Platform admins bypass. |
 | **Session** | Shadow plane may resolve tenant from `ironframe-tenant` cookie when header absent |
 
 ---

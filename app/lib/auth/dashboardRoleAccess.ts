@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
+import { readTenantSlugFromUserMetadata } from "@/app/lib/auth/tenantInviteMetadata";
+import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import {
   getHostBoundTenantUuid,
@@ -51,6 +53,7 @@ async function lookupRoleAssignment(
   userId: string,
   cookieTenantUuid: string | null,
   hostBoundTenantUuid: string | null,
+  inviteTenantSlug: string | null,
 ): Promise<DashboardAccessResult> {
   if (cookieTenantUuid) {
     const scopedAssignment = await prisma.userRoleAssignment.findFirst({
@@ -64,6 +67,34 @@ async function lookupRoleAssignment(
     if (hostBoundTenantUuid && hostBoundTenantUuid === cookieTenantUuid) {
       return { status: "pending", userId, tenantUuid: cookieTenantUuid };
     }
+  }
+
+  if (!cookieTenantUuid && inviteTenantSlug) {
+    const invitedTenant = await lookupTenantBySlug(inviteTenantSlug);
+    if (invitedTenant) {
+      const invitedAssignment = await prisma.userRoleAssignment.findFirst({
+        where: { userId, tenantId: invitedTenant.id },
+        select: { id: true, tenantId: true },
+      });
+      if (invitedAssignment) {
+        return allowedFromAssignment(userId, invitedAssignment.tenantId, true);
+      }
+    }
+  }
+
+  if (hostBoundTenantUuid) {
+    const hostAssignment = await prisma.userRoleAssignment.findFirst({
+      where: { userId, tenantId: hostBoundTenantUuid },
+      select: { id: true, tenantId: true },
+    });
+    if (hostAssignment) {
+      return allowedFromAssignment(
+        userId,
+        hostAssignment.tenantId,
+        cookieTenantUuid !== hostBoundTenantUuid,
+      );
+    }
+    return { status: "pending", userId, tenantUuid: hostBoundTenantUuid };
   }
 
   const assignments = await loadOrderedAssignments(userId);
@@ -98,6 +129,7 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
     const scopedRaw = await getScopedTenantUuidFromCookies();
     const cookieTenantUuid =
       scopedRaw && isValidTenantUuid(scopedRaw) ? scopedRaw.trim() : null;
+    const inviteTenantSlug = readTenantSlugFromUserMetadata(user?.user_metadata ?? null);
 
     if (isDevConstitutionalAuthorityUser(user)) {
       if (cookieTenantUuid) {
@@ -111,7 +143,7 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
       return allowedFromAssignment(userId, TENANT_UUIDS.medshield, true);
     }
 
-    return await lookupRoleAssignment(userId, cookieTenantUuid, hostBoundTenantUuid);
+    return await lookupRoleAssignment(userId, cookieTenantUuid, hostBoundTenantUuid, inviteTenantSlug);
   } catch (error) {
     console.error("[dashboardRoleAccess] resolveDashboardAccess failed", error);
 

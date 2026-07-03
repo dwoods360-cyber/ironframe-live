@@ -81,24 +81,24 @@ export async function fetchLiveCarbonIntensity(
 
   if (!token) {
     logCarbonIngressFallback({ zone: resolvedZone, reason: "missing_api_key" });
-    return buildForensicFallbackQuote(resolvedZone);
+    return buildForensicFallbackQuote(resolvedZone, tenantKey);
   }
 
   if (!isProductionElectricityMapsKey(token)) {
     logCarbonIngressFallback({ zone: resolvedZone, reason: "staging_key" });
-    return buildForensicFallbackQuote(resolvedZone);
+    return buildForensicFallbackQuote(resolvedZone, tenantKey);
   }
 
   const result = await fetchElectricityMapsJson(ELECTRICITY_MAPS_CARBON_LATEST, resolvedZone, token);
   if (!result.ok) {
     logCarbonIngressFallback({ zone: resolvedZone, reason: result.reason, detail: result.detail });
-    return buildForensicFallbackQuote(resolvedZone);
+    return buildForensicFallbackQuote(resolvedZone, tenantKey);
   }
 
   const intensity = parseCarbonIntensityGco2PerKwh(result.data);
   if (intensity == null) {
     logCarbonIngressFallback({ zone: resolvedZone, reason: "invalid_payload", detail: "missing carbon intensity" });
-    return buildForensicFallbackQuote(resolvedZone);
+    return buildForensicFallbackQuote(resolvedZone, tenantKey);
   }
 
   return {
@@ -121,7 +121,7 @@ export async function resolveCarbonIntensityForMitigation(
   ) {
     return quote;
   }
-  return buildForensicFallbackQuote(zone);
+  return buildForensicFallbackQuote(zone, tenantKey);
 }
 
 export async function fetchLiveCarbonIntensityForTenant(tenantKey: TenantKey): Promise<CarbonIntensityQuote> {

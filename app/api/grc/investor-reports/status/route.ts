@@ -1,7 +1,8 @@
+import type { NextRequest } from "next/server";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { NextResponse } from "next/server";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +15,10 @@ type LatestManifest = {
   wormTargetGsUri?: string;
 };
 
-export async function GET() {
-  const tenantId = await getActiveTenantUuidFromCookies();
-  if (!tenantId) {
-    return NextResponse.json({ ok: false, error: "No active tenant." }, { status: 400 });
-  }
+export async function GET(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantId = guard.tenantUuid;
 
   const latestPath = join(process.cwd(), "storage", "investor-reports", "latest.json");
   if (!existsSync(latestPath)) {

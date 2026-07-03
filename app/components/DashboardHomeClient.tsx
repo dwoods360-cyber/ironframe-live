@@ -26,6 +26,7 @@ import { useAgentStore } from '../store/agentStore';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useSystemConfigStore } from '../store/systemConfigStore';
 import { useDashboardThreatRealtime } from '../hooks/useDashboardThreatRealtime';
+import { useHasMounted } from '@/app/hooks/useHasMounted';
 import { IronwaveHeartbeat } from './IronwaveHeartbeat';
 import IrontechLeftPaneControls from './IrontechLeftPaneControls';
 import ClockDriftBanner from './ClockDriftBanner';
@@ -50,7 +51,13 @@ import { getTenantGovernanceMultiplierBps } from '@/app/actions/complianceAction
 import { useKimbotStore } from '@/app/store/kimbotStore';
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useAdversarySimulatorStore } from '@/app/store/adversarySimulatorStore';
-import { useHasMounted } from '@/app/hooks/useHasMounted';
+import { isBenignRuntimeEmissionError, resolveClientFacingError } from "@/app/utils/safeRuntimeEmission";
+import { logExplicitDiagnosticAbort, observeSuppressedFetchAbort } from "@/app/utils/diagnosticAbortLog";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
+import {
+  readDashboardClientSnapshot,
+  writeDashboardClientSnapshot,
+} from "@/app/lib/dashboardClientSnapshotCache";
 import {
   GRC_GOLD_AUDITOR_LEDGER_HEADING,
   GRC_GOLD_AUDITOR_VIEW_INTRO,
@@ -552,9 +559,25 @@ export default function DashboardHomeClient({
   }, []);
 
   const fetchDashboardWithRetry = useCallback(
-    async (attempt = 1): Promise<DashboardData> => {
+    async (mountSignal?: AbortSignal, attempt = 1): Promise<DashboardData> => {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), DASHBOARD_FETCH_TIMEOUT_MS);
+      const onMountAbort = () => {
+        logExplicitDiagnosticAbort(ABORT_REASONS.dashboardNavCleanup, {
+          surface: "DashboardHomeClient",
+          path: "/api/dashboard",
+          method: "GET",
+        });
+        controller.abort(ABORT_REASONS.dashboardNavCleanup);
+      };
+      mountSignal?.addEventListener("abort", onMountAbort);
+      const timeoutId = window.setTimeout(() => {
+        logExplicitDiagnosticAbort(ABORT_REASONS.dashboardFetchTimeout, {
+          surface: "DashboardHomeClient",
+          path: "/api/dashboard",
+          method: "GET",
+        });
+        controller.abort(ABORT_REASONS.dashboardFetchTimeout);
+      }, DASHBOARD_FETCH_TIMEOUT_MS);
       try {
         const res = await tenantFetch(
           "/api/dashboard",
@@ -571,10 +594,11 @@ export default function DashboardHomeClient({
         return (await res.json()) as DashboardData;
       } catch (error) {
         if (attempt < DASHBOARD_FETCH_MAX_ATTEMPTS && isRecoverableDashboardNetworkError(error)) {
-          return fetchDashboardWithRetry(attempt + 1);
+          return fetchDashboardWithRetry(mountSignal, attempt + 1);
         }
         throw error;
       } finally {
+        mountSignal?.removeEventListener("abort", onMountAbort);
         window.clearTimeout(timeoutId);
       }
     },
@@ -586,6 +610,7 @@ export default function DashboardHomeClient({
     void fetchDashboardWithRetry()
       .then((json: DashboardData) => {
         lastGoodDashboardSnapshotRef.current = json;
+        writeDashboardClientSnapshot(dashboardTenantUuid, json);
         setData(json);
         setError(null);
       })
@@ -595,7 +620,21 @@ export default function DashboardHomeClient({
           setError(null);
           return;
         }
-        setError(err instanceof Error ? err.message : "Failed to refresh dashboard");
+        if (isBenignRuntimeEmissionError(err)) {
+          observeSuppressedFetchAbort(err, {
+            surface: "DashboardHomeClient",
+            path: "/api/dashboard",
+            method: "GET",
+          });
+          setError(null);
+          return;
+        }
+        const message = resolveClientFacingError(err, "Failed to refresh dashboard", {
+          surface: "DashboardHomeClient",
+          path: "/api/dashboard",
+          method: "GET",
+        });
+        if (message) setError(message);
       });
   }, [dashboardTenantUuid, fetchDashboardWithRetry]);
 
@@ -629,6 +668,7 @@ export default function DashboardHomeClient({
   });
 
   useEffect(() => {
+    const mountAbort = new AbortController();
     let cancelled = false;
     if (!dashboardTenantUuid) {
       setData(null);
@@ -637,14 +677,24 @@ export default function DashboardHomeClient({
       setLoading(false);
       return () => {
         cancelled = true;
+        mountAbort.abort(ABORT_REASONS.dashboardNavCleanup);
       };
     }
-    setLoading(true);
+
+    const cached = readDashboardClientSnapshot<DashboardData>(dashboardTenantUuid);
+    if (cached) {
+      lastGoodDashboardSnapshotRef.current = cached;
+      setData(cached);
+      setError(null);
+    }
+
+    setLoading(!cached);
     setError(null);
-    fetchDashboardWithRetry()
+    fetchDashboardWithRetry(mountAbort.signal)
       .then((json) => {
         if (!cancelled) {
           lastGoodDashboardSnapshotRef.current = json;
+          writeDashboardClientSnapshot(dashboardTenantUuid, json);
           setData(json);
         }
       })
@@ -655,13 +705,28 @@ export default function DashboardHomeClient({
           setError(null);
           return;
         }
-        setError(err instanceof Error ? err.message : 'Failed to load');
+        if (isBenignRuntimeEmissionError(err)) {
+          observeSuppressedFetchAbort(err, {
+            surface: "DashboardHomeClient",
+            path: "/api/dashboard",
+            method: "GET",
+          });
+          setError(null);
+          return;
+        }
+        const message = resolveClientFacingError(err, "Failed to load dashboard", {
+          surface: "DashboardHomeClient",
+          path: "/api/dashboard",
+          method: "GET",
+        });
+        if (message) setError(message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      mountAbort.abort(ABORT_REASONS.dashboardNavCleanup);
     };
   }, [dashboardTenantUuid, fetchDashboardWithRetry]);
 
@@ -1061,8 +1126,15 @@ export default function DashboardHomeClient({
   }
   if (error && dashboardTenantUuid && !data && !lastGoodDashboardSnapshotRef.current) {
     return (
-      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-slate-950">
-        <p className="text-red-400">{error ?? "Failed to load dashboard"}</p>
+      <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-4 bg-slate-950 px-6">
+        <p className="max-w-md text-center text-sm text-red-300">{error ?? "Failed to load dashboard"}</p>
+        <button
+          type="button"
+          onClick={() => refetchDashboard()}
+          className="inline-flex h-11 items-center rounded-lg border border-cyan-700/60 bg-cyan-950/40 px-5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-200 transition hover:bg-cyan-900/50"
+        >
+          Retry dashboard load
+        </button>
       </div>
     );
   }

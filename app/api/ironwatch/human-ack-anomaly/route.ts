@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { HUMAN_ACK_ANOMALY_AUDIT_ACTION } from "@/app/lib/ironwatch/humanAckAnomalyAuditAction";
 import { countTenantQuarantineHardBans } from "@/app/lib/security/quarantineLedgerRead";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import { logStructuredEvent } from "@/lib/structuredServerLog";
 import prisma from "@/lib/prisma";
@@ -14,6 +14,9 @@ export const dynamic = "force-dynamic";
  * Ironscribe daily synthesis includes `HUMAN_ACK_ANOMALY` in the 24h digest.
  */
 export async function POST(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   let body: { agentName?: unknown; agentIndex?: unknown; userId?: unknown };
   try {
     body = (await request.json()) as { agentName?: unknown; agentIndex?: unknown; userId?: unknown };
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
   const bodyId = typeof body.userId === "string" ? body.userId.trim().slice(0, 256) : "";
   const userId = headerId || bodyId || "unknown-human";
 
-  const tenantUuid = await getActiveTenantUuidFromCookies();
+  const tenantUuid = guard.tenantUuid;
   const [cfg, hardBanCount] = await Promise.all([
     prisma.systemConfig.findUnique({
       where: { id: "global" },

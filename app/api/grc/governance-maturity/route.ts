@@ -1,6 +1,8 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
 import { buildCarbonPulsePayload } from "@/app/services/ironbloom/carbonPulseService";
 import { buildIrontallyFrameworkSnapshot } from "@/app/services/irontallyMapper";
@@ -8,16 +10,17 @@ import {
   computeCostOfNonCompliance,
   resolveGovernanceBaselineMode,
 } from "@/app/utils/financialRisk";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import prisma from "@/lib/prisma";
 import { computeSustainabilityStaleLockdown } from "@/app/config/sustainabilityStaleLockdown";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
-  const tenantId = await getActiveTenantUuidFromCookies();
-  const recalc = new URL(request.url).searchParams.get("recalc") === "1";
+export async function GET(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantId = guard.tenantUuid;
+  const recalc = request.nextUrl.searchParams.get("recalc") === "1";
 
   let state = recalc
     ? await recalculateSystemMaturityScore({

@@ -89,13 +89,14 @@ import { ForensicAuditModal } from '@/app/components/ForensicAuditModal';
 import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
 import { extractRawAuditMarkdown } from '@/app/utils/riskCardEnrichment';
 import { toThreatSourceLabel } from '@/app/utils/threatSourceLabels';
-
-const STAKEHOLDER_EMAIL_RECIPIENT = 'blackwoodscoffee@gmail.com';
+import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from '@/app/config/stakeholderAlert';
 
 type WorkNote = { timestamp: string; text: string; user: string };
 
 /** Active Risks lifecycle registry: 4s IDENTIFIED chaos ingestion shell, 4s RESOLVED victory lap (any operator). */
 const ACTIVE_THREAT_LIFECYCLE_MS = ACTIVE_THREAT_VICTORY_LAP_MS;
+/** Victory-lap / ingestion UI tick — avoid 100ms full-tree re-renders (browser "page unresponsive"). */
+const ACTIVE_RISKS_LIFECYCLE_TICK_MS = 250;
 /** Full-opacity victory lap ends at 4s; content ghost + motion exit run the final 500ms. */
 const VICTORY_LAP_GHOST_MS = ACTIVE_THREAT_VICTORY_LAP_MS;
 const THREAT_EXIT_FADE_MS = 500;
@@ -1625,8 +1626,19 @@ export default function ActiveRisksClient({
         purgeResolvedThreatFromBoard(tid);
       }
 
-      setLifecycleSweep((n) => n + 1);
-    }, 100);
+      let needsUiTick = exitingThreatIdsRef.current.size > 0;
+      if (!needsUiTick) {
+        for (const e of Object.values(lifecycleRegistryRef.current)) {
+          if (now < e.startedAt + ACTIVE_THREAT_LIFECYCLE_MS) {
+            needsUiTick = true;
+            break;
+          }
+        }
+      }
+      if (needsUiTick) {
+        setLifecycleSweep((n) => n + 1);
+      }
+    }, ACTIVE_RISKS_LIFECYCLE_TICK_MS);
     return () => window.clearInterval(iv);
   }, [purgeResolvedThreatFromBoard]);
 
@@ -2167,10 +2179,10 @@ export default function ActiveRisksClient({
     const notesText = (workNotes[risk.id] ?? []).map((n) => n.text).join(' | ') || 'None';
     const template = `URGENT: GRC Event Registered. Threat: ${risk.title}, Liability: $0.0M, Acknowledged By: Dereck, Notes: ${notesText}.`;
 
-    useAgentStore.getState().addStreamMessage(`> [SYSTEM] Stakeholder alert staged for ${STAKEHOLDER_EMAIL_RECIPIENT}.`);
+    useAgentStore.getState().addStreamMessage(`> [SYSTEM] Stakeholder alert staged for ${STAKEHOLDER_ALERT_RECIPIENT_LABEL}.`);
 
     console.log('Mock sendStakeholderEmail (ActiveRisks)', {
-      to: STAKEHOLDER_EMAIL_RECIPIENT,
+      to: STAKEHOLDER_ALERT_RECIPIENT_LABEL,
       body: template,
     });
 

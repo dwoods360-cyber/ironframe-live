@@ -9,6 +9,8 @@ import {
   resolveTenantAuthRedirectOrigin,
   sanitizePublicOrigin,
 } from "@/app/lib/auth/publicAppUrl";
+import { workspaceActivationNextParam } from "@/app/lib/auth/workspaceActivationLanding";
+import { mintWorkspaceBootstrapHandoffUrl } from "@/app/lib/auth/workspaceSessionBootstrap";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { tenantSlugFromHost, tenantUuidFromSlug } from "@/app/lib/tenantSubdomain";
 
@@ -24,6 +26,17 @@ function resolveRequestHost(request: NextRequest): string {
 }
 
 function resolveRedirectOrigin(request: NextRequest): string {
+  const requestHost = resolveRequestHost(request);
+  const hostTenantSlug = tenantSlugFromHost(requestHost);
+  if (hostTenantSlug) {
+    const proto =
+      request.nextUrl.protocol ||
+      (requestHost.startsWith("localhost") || requestHost.startsWith("127.0.0.1")
+        ? "http:"
+        : "https:");
+    return sanitizePublicOrigin(`${proto}//${requestHost}`);
+  }
+
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   if (forwardedHost && process.env.NODE_ENV === "production") {
@@ -50,9 +63,11 @@ function resolveFinalAuthDestination(
   let origin = resolveRedirectOrigin(request);
   let nextPath = resolveAuthNextPathForHost(requestHost, rawNext);
 
-  if (inviteTenantSlug && (!hostTenantSlug || hostTenantSlug !== inviteTenantSlug)) {
-    origin = resolveTenantAuthRedirectOrigin(inviteTenantSlug);
-    nextPath = resolveAuthNextPathForHost(new URL(origin).host, nextPath);
+  if (inviteTenantSlug) {
+    if (!hostTenantSlug || hostTenantSlug !== inviteTenantSlug) {
+      origin = resolveTenantAuthRedirectOrigin(inviteTenantSlug);
+    }
+    nextPath = workspaceActivationNextParam();
   }
 
   return { origin, nextPath };
@@ -76,11 +91,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=auth_not_configured", requestUrl.origin));
   }
 
-  const provisionalOrigin = resolveRedirectOrigin(request);
-  const provisionalNext = resolveAuthNextPathForHost(
-    resolveRequestHost(request),
-    requestUrl.searchParams.get("next"),
-  );
+  const tenantQuerySlug = requestUrl.searchParams.get("tenant")?.trim().toLowerCase() || null;
+  const provisionalOrigin = tenantQuerySlug
+    ? resolveTenantAuthRedirectOrigin(tenantQuerySlug)
+    : resolveRedirectOrigin(request);
+  const provisionalNext = tenantQuerySlug
+    ? workspaceActivationNextParam()
+    : resolveAuthNextPathForHost(resolveRequestHost(request), requestUrl.searchParams.get("next"));
   let response = NextResponse.redirect(new URL(provisionalNext, provisionalOrigin));
 
   const supabase = createServerClient(supabaseUrl, anonKey, {
@@ -126,6 +143,32 @@ export async function GET(request: NextRequest) {
     requestUrl.searchParams.get("next"),
   );
 
+  const requestHost = resolveRequestHost(request);
+  const hostTenantSlug = tenantSlugFromHost(requestHost);
+  const crossHostWorkspaceActivation =
+    Boolean(inviteTenantSlug) &&
+    (!hostTenantSlug || hostTenantSlug !== inviteTenantSlug) &&
+    origin !== sanitizePublicOrigin(requestUrl.origin);
+
+  if (crossHostWorkspaceActivation) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token && session?.refresh_token && inviteTenantSlug && user?.id) {
+      const bootstrapUrl = await mintWorkspaceBootstrapHandoffUrl({
+        tenantSlug: inviteTenantSlug,
+        userId: user.id,
+        userEmail: user.email,
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        nextPath: workspaceActivationNextParam(),
+      });
+      if (bootstrapUrl) {
+        return NextResponse.redirect(bootstrapUrl);
+      }
+    }
+  }
+
   if (needsLegalAccept) {
     const acceptUrl = new URL(LEGAL_ACCEPT_PATH, origin);
     acceptUrl.searchParams.set("next", nextPath);
@@ -142,7 +185,6 @@ export async function GET(request: NextRequest) {
   });
   response = finalResponse;
 
-  const hostTenantSlug = tenantSlugFromHost(resolveRequestHost(request));
   const cookieSlug = inviteTenantSlug ?? hostTenantSlug;
   let cookieUuid: string | null = null;
   if (cookieSlug) {

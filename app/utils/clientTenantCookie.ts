@@ -34,3 +34,27 @@ export function resolveDashboardTenantUuid(pathTenantUuid: string | null): strin
   }
   return null;
 }
+
+/** Slug label from `ironframe-tenant` when the cookie stores a known seed slug (not UUID). */
+export function readIronframeTenantSlugFromCookie(): TenantKey | null {
+  if (typeof document === "undefined") return null;
+
+  const raw = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("ironframe-tenant="))
+    ?.split("=")[1]
+    ?.trim()
+    .toLowerCase();
+
+  if (!raw) return null;
+  if (raw === "defense-logistics") return "defense";
+  if (SLUGS.has(raw as TenantKey)) return raw as TenantKey;
+
+  if (UUID_RE.test(raw)) {
+    for (const [key, uuid] of Object.entries(TENANT_UUIDS) as Array<[TenantKey, string]>) {
+      if (uuid.toLowerCase() === raw) return key;
+    }
+  }
+
+  return null;
+}

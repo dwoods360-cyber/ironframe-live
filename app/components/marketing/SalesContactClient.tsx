@@ -48,7 +48,7 @@ export default function SalesContactClient() {
   };
 
   return (
-    <main className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-6 py-12">
+    <main className="ironframe-public-funnel mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-6 py-12">
       <p className="font-mono text-xs uppercase tracking-widest text-[var(--login-muted)]">
         Sales-assisted onboarding
       </p>

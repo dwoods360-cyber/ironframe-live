@@ -12,6 +12,9 @@ export const IRONFRAME_THEME_PALETTE_ATTR = "data-ironframe-palette";
 /** Values passed to next-themes (`system` enables OS light/dark sync). */
 export type IronframeNextThemeValue = "system" | "executive-light" | "cyber-command-dark";
 
+/** Locked palette for authenticated tenant workspace / command-center surfaces. */
+export const IRONFRAME_SAAS_THEME: IronframeNextThemeValue = "cyber-command-dark";
+
 export const IRONFRAME_THEME_OPTIONS: ReadonlyArray<{
   id: IronframeThemeId;
   nextTheme: IronframeNextThemeValue;

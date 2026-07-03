@@ -49,12 +49,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: result.error, retryable: result.retryable }, { status });
     }
 
-    return NextResponse.json({
-      ok: true,
-      tenantSlug: result.tenantSlug,
-      email: result.email,
-      idempotent: result.idempotent,
-    });
+    return NextResponse.json(
+      result.invitePending
+        ? {
+            status: "SUCCESS",
+            invitePending: true,
+            message: result.message,
+            ok: true,
+            tenantSlug: result.tenantSlug,
+            email: result.email,
+            idempotent: result.idempotent,
+          }
+        : {
+            ok: true,
+            tenantSlug: result.tenantSlug,
+            email: result.email,
+            idempotent: result.idempotent,
+          },
+    );
   } catch (err) {
     console.error("[stripe/webhook] unhandled", err);
     return NextResponse.json(

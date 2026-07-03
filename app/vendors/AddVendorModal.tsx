@@ -1,10 +1,16 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useMemo, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, UploadCloud } from "lucide-react";
 import { Industry, RiskTier, VendorType } from "@/app/vendors/schema";
 import { ClassifiedDocumentType, analyzeVendorDocument } from "@/services/idpService";
 import { VendorTypeRequirements } from "@/app/store/systemConfigStore";
+import { LAYOUT_GLOBAL_MODAL_Z_CLASS } from "@/app/config/layoutConstants";
+import {
+  VENDOR_INDUSTRY_OPTIONS,
+  resolveRequiredVendorEvidence,
+} from "@/app/vendors/vendorEvidenceRequirements";
 
 export type AddVendorSubmission = {
   vendorName: string;
@@ -24,6 +30,7 @@ type AddVendorModalProps = {
 };
 
 export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRequirements }: AddVendorModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [vendorName, setVendorName] = useState("");
   const [vendorType, setVendorType] = useState<VendorType>("SaaS");
   const [industry, setIndustry] = useState<Industry>("Healthcare");
@@ -40,9 +47,43 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
   const [fieldConfidence, setFieldConfidence] = useState<{ name?: number; documentType?: number; expirationDate?: number }>({});
 
   const canSubmit = useMemo(() => vendorName.trim().length > 0, [vendorName]);
-  const requiredEvidence = vendorTypeRequirements[vendorType] ?? ["SOC2"];
+  const requiredEvidence = useMemo(
+    () =>
+      resolveRequiredVendorEvidence({
+        vendorType,
+        industry,
+        vendorTypeRequirements,
+      }),
+    [vendorType, industry, vendorTypeRequirements],
+  );
 
-  if (!isOpen) {
+  useEffect(() => {
+    if (isOpen) return;
+    setVendorName("");
+    setVendorType("SaaS");
+    setIndustry("Healthcare");
+    setRiskTier("HIGH");
+    setDocumentType("UNKNOWN");
+    setExpirationDate("");
+    setUploadFileName(null);
+    setGhostFields({ name: false, documentType: false, expirationDate: false });
+    setFieldConfidence({});
+  }, [isOpen]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) {
     return null;
   }
 
@@ -106,13 +147,14 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-[85] flex justify-end bg-slate-950/70">
+  return createPortal(
+    <div className={`fixed inset-0 ${LAYOUT_GLOBAL_MODAL_Z_CLASS} flex justify-end bg-slate-950/70`} data-testid="add-vendor-modal">
       <div className="h-full w-full max-w-md border-l border-slate-800 bg-slate-900 p-4 shadow-2xl">
         <div className="mb-4 flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-white">Manual Vendor Ingestion</h2>
           <button
             type="button"
+            data-testid="add-vendor-close"
             onClick={onClose}
             className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] font-bold uppercase text-slate-300"
           >
@@ -156,9 +198,28 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
             </select>
           </div>
 
+          <div>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-300">Industry</label>
+            <select
+              data-testid="add-vendor-industry"
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value as Industry)}
+              className="h-8 w-full max-w-[180px] rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
+            >
+              {VENDOR_INDUSTRY_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
             <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-300">Required Evidence</p>
-            <ul className="space-y-1">
+            <p className="mb-2 text-[8px] uppercase tracking-wide text-slate-500">
+              Vendor type + industry profile
+            </p>
+            <ul className="space-y-1" data-testid="add-vendor-required-evidence">
               {requiredEvidence.map((doc) => (
                 <li key={doc} className="text-[9px] text-slate-400">• {doc}</li>
               ))}
@@ -182,20 +243,6 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
             {ghostFields.name && fieldConfidence.name !== undefined ? (
               <p className="mt-1 text-[9px] text-blue-200">{Math.round(fieldConfidence.name * 100)}% Confident</p>
             ) : null}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-300">Industry</label>
-            <select
-              data-testid="add-vendor-industry"
-              value={industry}
-              onChange={(event) => setIndustry(event.target.value as Industry)}
-              className="h-8 w-full max-w-[180px] rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
-            >
-              <option value="Healthcare">Healthcare</option>
-              <option value="Finance">Finance</option>
-              <option value="Energy">Energy</option>
-            </select>
           </div>
 
           <div>
@@ -259,6 +306,7 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

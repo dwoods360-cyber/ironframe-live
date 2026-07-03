@@ -11,7 +11,7 @@
 - Release evidence: [RELEASE_EVIDENCE_2026-06-02.md](../RELEASE_EVIDENCE_2026-06-02.md)
 
 ### Infrastructure
-- `health-posture-triage` cron schedule adjusted for Vercel Hobby tier
+- `health-posture-triage` cron schedule adjusted for Hobby-tier hosting limits
 - Ironquery export CSV/PDF probes pass on production edge
 
 ---
@@ -22,7 +22,7 @@
 - **CarbonPulse:** SWR cache keyed by tenant UUID (no cross-tenant stale data)
 - **Zone normalization:** Rogue hints (e.g. `US-GD`) map to canonical roster zones (e.g. `US-CO`)
 - **Credential normalizer:** `LOCAL_RESERVE_BYPASS_TOKEN` when `IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED=true`
-- **LKG routes:** `/api/sustainability/stats` and `/api/grc/carbon-pulse` return forensic fallback on error
+- **LKG routes:** Sustainability stats and carbon-pulse handlers return forensic fallback on error
 - **Dashboard:** Preserves last-good snapshot during tenant cache invalidation
 - **Middleware:** Strips empty `_api_key=` query noise on sustainability paths
 
@@ -31,8 +31,8 @@
 - Shared client in Ironwatch heartbeat; default zone `US-MIDW-MISO`
 
 ### feat(ui): Analyst export dashboard (`87ae6b90`)
-- `/dashboard/exports` — tenant-scoped CSV/PDF + server actions
-- Middleware redirect for `/dashboard/exports.` typo
+- Tenant-scoped CSV/PDF export dashboard and server actions
+- Middleware redirect for common exports path typo
 
 ### chore(security): Email parameterization (`e119cfd3`)
 - Threat notification recipients from env (`THREAT_CONFIRMATION_RECIPIENTS`)
@@ -55,6 +55,6 @@ Full granular history: [Changelog](../technical/changelog.md) and root [CHANGES.
 
 ## Upgrade notes for operators
 
-1. Set `IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED=true` on Vercel Preview/Production if Electricity Maps key is absent
+1. Set `IRONWATCH_SUSTAINABILITY_FALLBACK_ENABLED=true` on preview/production if Electricity Maps key is absent
 2. Restart dev server after `.env.local` changes
-3. Run `npm run test:vercel-integration:cloud:epic17` after deploy
+3. Run cloud integration verification after deploy

@@ -13,6 +13,7 @@ import { acknowledgeThreatAction } from '@/app/actions/threatActions';
 import { mergeIngestionDetailsPatch, mergeIngestionDetailsPatchJson, parseIngestionDetailsForMerge } from '@/app/utils/ingestionDetailsMerge';
 import { markOperationalDeficiencyReportPromotedToThreat } from '@/app/lib/opsupport/markDeficiencyPromoted';
 import { grcGatePass } from '@/app/utils/grcGate';
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
 import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
@@ -97,6 +98,9 @@ function isAdversarialBotIngestPayload(body: Record<string, unknown>): boolean {
 export async function POST(request: NextRequest) {
   noStore();
   try {
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
+    if (!guard.ok) return guard.response;
+
     let body: Record<string, unknown>;
     try {
       body = sanitizeIngressPayload(
@@ -112,38 +116,40 @@ export async function POST(request: NextRequest) {
     const threatId = typeof body.threatId === 'string' ? body.threatId.trim() : null;
     const bodyTenantRaw = typeof body.tenantId === 'string' ? body.tenantId.trim() : null;
     const bodyTenant = bodyTenantRaw && isValidTenantUuid(bodyTenantRaw) ? bodyTenantRaw : null;
-    let tenantId = bodyTenant;
     const headerTenant = tenantUuidFromHeader(request);
     const shadow = shadowPlaneActive(request);
     const botIngest = isAdversarialBotIngestPayload(body);
+    let tenantId: string | null = guard.userId ? guard.tenantUuid : bodyTenant;
     /**
      * Shadow plane bot passport — align with KIM/Attbot/Chaos: **`x-tenant-id` first** (bot-declared scope),
      * then body `tenantId`, session cookie, env pin, then Medshield default — RLS must see a real tenant UUID.
      */
-    if (isShadowPlaneActiveFromEnv()) {
-      const sessionTenant = await getActiveTenantUuidFromCookies();
-      tenantId =
-        headerTenant ||
-        tenantId ||
-        sessionTenant ||
-        process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-        SHADOW_PLANE_DEFAULT_TENANT_UUID;
-    } else if (shadow) {
-      tenantId =
-        headerTenant ||
-        tenantId ||
-        (await getActiveTenantUuidFromCookies()) ||
-        (botIngest ? SHADOW_PLANE_DEFAULT_TENANT_UUID : null);
-    } else {
-      tenantId = headerTenant || tenantId || (await getActiveTenantUuidFromCookies());
-    }
-    if (!tenantId && botIngest) {
-      tenantId =
-        headerTenant ||
-        bodyTenant ||
-        (await getActiveTenantUuidFromCookies()) ||
-        process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
-        SHADOW_PLANE_DEFAULT_TENANT_UUID;
+    if (!guard.userId) {
+      if (isShadowPlaneActiveFromEnv()) {
+        const sessionTenant = await getActiveTenantUuidFromCookies();
+        tenantId =
+          headerTenant ||
+          tenantId ||
+          sessionTenant ||
+          process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
+          SHADOW_PLANE_DEFAULT_TENANT_UUID;
+      } else if (shadow) {
+        tenantId =
+          headerTenant ||
+          tenantId ||
+          (await getActiveTenantUuidFromCookies()) ||
+          (botIngest ? SHADOW_PLANE_DEFAULT_TENANT_UUID : null);
+      } else {
+        tenantId = headerTenant || tenantId || (await getActiveTenantUuidFromCookies());
+      }
+      if (!tenantId && botIngest) {
+        tenantId =
+          headerTenant ||
+          bodyTenant ||
+          (await getActiveTenantUuidFromCookies()) ||
+          process.env.SHADOW_PLANE_INGEST_TENANT_UUID?.trim() ||
+          SHADOW_PLANE_DEFAULT_TENANT_UUID;
+      }
     }
     const justification = typeof body.justification === 'string' ? body.justification : undefined;
     const operatorId = typeof body.operatorId === 'string' ? body.operatorId.trim() : 'api-user';

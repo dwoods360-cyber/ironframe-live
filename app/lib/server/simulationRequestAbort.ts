@@ -42,7 +42,11 @@ export function isSimulationRequestAbortError(error: unknown): boolean {
     return (
       msg.includes("simulation request aborted") ||
       msg.includes("signal is aborted") ||
-      msg.includes("simulation-nav-switch")
+      msg.includes("simulation-nav-switch") ||
+      msg.includes("active-threats-board-superseded") ||
+      msg.includes("inline-doc-unmount") ||
+      msg.includes("dashboard-fetch-timeout") ||
+      msg.includes("integrity-fetch-timeout")
     );
   }
   return false;

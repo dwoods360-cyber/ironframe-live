@@ -17,8 +17,10 @@ import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useAgentStore } from "@/app/store/agentStore";
 import { ThreatState, type ThreatStateValue } from "@/app/types/clientSafePrismaEnums";
 import ClearanceDispositionReceiptBar from "@/app/components/ClearanceDispositionReceiptBar";
-import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
 import { DiagnosticReportModal } from "@/app/components/ui/DiagnosticReportModal";
+import { PipelineSelfTestBar } from "@/app/components/ui/PipelineSelfTestBar";
+import { resolveClientFacingError } from "@/app/utils/safeRuntimeEmission";
+import type { DiagnosticAbortLogRow } from "@/app/lib/opsupport/diagnosticAbortTypes";
 
 const POLL_MS = 2500;
 
@@ -120,6 +122,7 @@ export default function OpSupportClient({
   const [deficiencyItems, setDeficiencyItems] = useState<OpSupportDeficiencyItem[]>([]);
   const [resolvingReportId, setResolvingReportId] = useState<string | null>(null);
   const [diagComponents, setDiagComponents] = useState<OpSupportDiagnosticComponentRow[]>([]);
+  const [abortTelemetryRows, setAbortTelemetryRows] = useState<DiagnosticAbortLogRow[]>([]);
   const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
   const [diagReplay, setDiagReplay] = useState<DiagReplayState | null>(null);
 
@@ -175,7 +178,8 @@ export default function OpSupportClient({
       setDeficiencyItems(dJson.unresolved ?? []);
       setLastTick(new Date().toISOString());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Poll failed");
+      const message = resolveClientFacingError(e, "Poll failed");
+      if (message) setError(message);
     }
   }, []);
 
@@ -193,7 +197,19 @@ export default function OpSupportClient({
       setDiagnosticError(null);
       setDiagComponents(j.components ?? []);
     } catch (e) {
-      setDiagnosticError(e instanceof Error ? e.message : "Diagnostic history fetch failed");
+      const message = resolveClientFacingError(e, "Diagnostic history fetch failed");
+      if (message) setDiagnosticError(message);
+    }
+  }, []);
+
+  const fetchAbortTelemetry = useCallback(async () => {
+    try {
+      const res = await fetch("/api/opsupport/diagnostic-abort", { cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as { rows?: DiagnosticAbortLogRow[] };
+      if (!res.ok) return;
+      setAbortTelemetryRows(j.rows ?? []);
+    } catch {
+      // diagnostic-only
     }
   }, []);
 
@@ -212,9 +228,13 @@ export default function OpSupportClient({
   useEffect(() => {
     if (mainTab !== "diagnostic") return;
     void fetchDiagnosticHistory();
-    const id = window.setInterval(() => void fetchDiagnosticHistory(), POLL_MS);
+    void fetchAbortTelemetry();
+    const id = window.setInterval(() => {
+      void fetchDiagnosticHistory();
+      void fetchAbortTelemetry();
+    }, POLL_MS);
     return () => window.clearInterval(id);
-  }, [mainTab, fetchDiagnosticHistory]);
+  }, [mainTab, fetchDiagnosticHistory, fetchAbortTelemetry]);
 
   useEffect(() => {
     return () => {
@@ -823,6 +843,34 @@ export default function OpSupportClient({
                         </ul>
                       </div>
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="border-t border-teal-900/40 p-3">
+            <h3 className="font-mono text-[10px] font-black uppercase tracking-widest text-cyan-300/90">
+              Cooperative fetch abort telemetry
+            </h3>
+            <p className="mt-1 font-mono text-[10px] leading-relaxed text-zinc-500">
+              Nav supersede, timeouts, and client disconnects (HTTP 499). Not shown to operators — persisted in{" "}
+              <code className="text-zinc-400">SystemHealthLog</code>.
+            </p>
+            {abortTelemetryRows.length === 0 ? (
+              <p className="mt-3 px-2 py-4 text-center font-mono text-[11px] text-zinc-600">
+                No abort telemetry recorded yet.
+              </p>
+            ) : (
+              <ul className="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
+                {abortTelemetryRows.map((row) => (
+                  <li
+                    key={row.id}
+                    className="rounded border border-zinc-800/80 bg-black/30 px-2 py-1.5 font-mono text-[10px] text-zinc-400"
+                  >
+                    <span className="text-zinc-500">{new Date(row.createdAt).toLocaleString()}</span>
+                    <span className="ml-2 text-cyan-200/90">{row.reason}</span>
+                    {row.surface ? <span className="ml-2 text-zinc-600">· {row.surface}</span> : null}
+                    {row.path ? <span className="ml-2 text-zinc-600">· {row.path}</span> : null}
                   </li>
                 ))}
               </ul>

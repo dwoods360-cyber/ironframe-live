@@ -1,0 +1,160 @@
+import { NextResponse } from "next/server";
+
+import {
+  DISPATCHED_DRAFT_TAG,
+  DISPATCHED_SALES_DRAFT_TAG,
+  inferDraftKind,
+  isPendingDraftSummary,
+  parsePendingDraftSummary,
+} from "@/app/lib/server/approvalQueueCore";
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { validateIngressContext } from "@/app/middleware/irongateShield";
+import { sendOutboundEmail } from "@/app/lib/server/sendOutboundEmail";
+import prisma from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requirePlatformAdministrator();
+  if ("error" in auth) {
+    return NextResponse.json({ error: auth.error }, { status: 403 });
+  }
+
+  try {
+    const { id: interactionId } = await params;
+    const body = (await req.json()) as { action?: string; adjustedText?: string };
+    const { action, adjustedText } = body;
+
+    if (!action || !["DISPATCH", "PURGE"].includes(action)) {
+      return NextResponse.json({ error: "Invalid action perimeter request." }, { status: 400 });
+    }
+
+    const pendingInteraction = await prisma.ironboardCrmInteraction.findUnique({
+      where: { id: interactionId },
+      include: {
+        contact: true,
+      },
+    });
+
+    if (!pendingInteraction) {
+      return NextResponse.json(
+        { error: "Target draft record not found in system space." },
+        { status: 404 },
+      );
+    }
+
+    validateIngressContext(pendingInteraction.tenantId);
+
+    if (!isPendingDraftSummary(pendingInteraction.summary)) {
+      return NextResponse.json(
+        { error: "Target interaction is not in a pending draft approval state." },
+        { status: 409 },
+      );
+    }
+
+    const draftKind = inferDraftKind(pendingInteraction.summary);
+
+    const contact = pendingInteraction.contact;
+    if (!contact?.email) {
+      return NextResponse.json(
+        { error: "Target contact configuration has no valid email mapping." },
+        { status: 422 },
+      );
+    }
+
+    if (action === "DISPATCH") {
+      if (!adjustedText || adjustedText.trim().length === 0) {
+        return NextResponse.json({ error: "Cannot dispatch an empty text payload." }, { status: 400 });
+      }
+
+      const trimmedText = adjustedText.trim();
+      const { subject } = parsePendingDraftSummary(pendingInteraction.summary);
+      const dispatchSubject =
+        draftKind === "SALES"
+          ? subject
+          : subject.startsWith("Re:")
+            ? subject
+            : `Re: ${subject}`;
+
+      const sendResult = await sendOutboundEmail({
+        tenantId: pendingInteraction.tenantId,
+        contactId: contact.id,
+        to: [contact.email],
+        subject: dispatchSubject,
+        html: `<p>${escapeHtml(trimmedText).replace(/\n/g, "<br />")}</p>`,
+        text: trimmedText,
+      });
+
+      if (!sendResult.success) {
+        return NextResponse.json(
+          {
+            error: "Resend transport rejected the outbound payload.",
+            details: sendResult.error ?? "Unknown provider failure.",
+          },
+          { status: 502 },
+        );
+      }
+
+      const dispatchedTag =
+        draftKind === "SALES" ? DISPATCHED_SALES_DRAFT_TAG : DISPATCHED_DRAFT_TAG;
+      const updatedSummary = [
+        `${dispatchedTag} ${draftKind === "SALES" ? subject : "Re: Resolution update sent."}`,
+        "--- Authorized Text Dispatched ---",
+        trimmedText,
+        "--- Trace Matrix ---",
+        `Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+        sendResult.emailId ? `Resend Message ID: ${sendResult.emailId}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      await prisma.ironboardCrmInteraction.update({
+        where: { id: interactionId },
+        data: {
+          summary: updatedSummary.slice(0, 12_000),
+          occurredAt: new Date(),
+        },
+      });
+
+      console.log(
+        `Dispatch complete. Interaction [${interactionId}] closed and verified on wire.`,
+      );
+      return NextResponse.json({ status: "SUCCESS_DISPATCHED", emailId: sendResult.emailId });
+    }
+
+    const purgedSummary = [
+      "[PURGED DRAFT] This automated strategy suggestion was discarded by an operator.",
+      "--- Discarded Copy Text ---",
+      pendingInteraction.summary,
+    ].join("\n");
+
+    await prisma.ironboardCrmInteraction.update({
+      where: { id: interactionId },
+      data: {
+        summary: purgedSummary.slice(0, 12_000),
+        occurredAt: new Date(),
+      },
+    });
+
+    console.log(`Purge operation complete. Draft interaction [${interactionId}] soft-archived.`);
+    return NextResponse.json({ status: "SUCCESS_PURGED" });
+  } catch (err: unknown) {
+    const details = err instanceof Error ? err.message : "Unknown error context.";
+    console.error("Critical error encountered inside admin execution gate:", err);
+    return NextResponse.json(
+      { error: "Internal Workflow Processing Interruption", details },
+      { status: 500 },
+    );
+  }
+}

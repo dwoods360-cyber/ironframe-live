@@ -74,8 +74,6 @@ export function buildHeaderRouteMatrix(
   const prefix = pathTenant ? `/${pathTenant}` : "";
 
   const isGlobalConfigRoute =
-    pathname === "/config" ||
-    pathname.startsWith("/config/") ||
     pathname === "/settings/config" ||
     pathname.startsWith("/settings/config/");
 
@@ -121,19 +119,84 @@ export function buildHeaderRouteMatrix(
   };
 }
 
+/** Guest-readable marketing, pricing, and documentation surfaces (no session required). */
+export function isPublicRoute(pathname: string): boolean {
+  if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
+  if (pathname === "/marketing" || pathname.startsWith("/marketing/")) return true;
+  if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
+  if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
+  return false;
+}
+
+/**
+ * Public surfaces allowed through deployment quarantine on non-local hosts
+ * when `IRONFRAME_ALLOW_PUBLIC_INGRESS` is unset (narrow staging baseline).
+ * Private workspace routes (`/integrity`, `/dashboard`, tenant enclaves, etc.) stay blocked.
+ */
+export function isPublicCloudIngressPath(pathname: string): boolean {
+  if (pathname === "/") return true;
+  if (isPublicRoute(pathname)) return true;
+  if (pathname.startsWith("/api/auth/callback")) return true;
+  if (isAuthPublicPath(pathname)) return true;
+  if (isPublicProspectOnboardingPath(pathname)) return true;
+  if (pathname === "/legal/accept" || pathname.startsWith("/legal/accept/")) return true;
+  if (pathname === "/account/billing-hold" || pathname.startsWith("/account/billing-hold/")) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Ironframe tenant workspace / command-center UI — always renders Cyber Command Dark.
+ * Guest marketing, auth, and prospect funnel routes are excluded.
+ */
+export function isIronframeSaaSAppPath(
+  pathname: string,
+  options?: { authenticated?: boolean; hostTenantSlug?: string | null },
+): boolean {
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  if (isPrivateWorkspaceIngressPath(normalized)) return true;
+
+  const authenticated = options?.authenticated === true;
+  if (authenticated && (normalized === "/" || normalized.startsWith("/docs"))) {
+    return true;
+  }
+
+  const hostTenantSlug = options?.hostTenantSlug?.trim();
+  if (hostTenantSlug && normalized === "/") {
+    return true;
+  }
+
+  return false;
+}
+
+/** True when a path is a tenant workspace / command-center surface (not public funnel). */
+export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
+  if (isPublicCloudIngressPath(pathname)) return false;
+  if (pathname.startsWith("/api/internal/cron/")) return false;
+  if (pathname === "/api/cron/narrate") return false;
+  if (pathname === "/api/board/feed") return false;
+  if (pathname.startsWith("/api/internal/ironquery/export")) return false;
+  if (pathname === "/api/webhooks/stripe" || pathname === "/api/billing/webhook") return false;
+  if (isPublicConstitutionalSentinelPath(pathname)) return false;
+  return true;
+}
+
 /** Prospect funnel pages + lead intake APIs — allow without Supabase session. */
 export function isPublicProspectOnboardingPath(pathname: string): boolean {
   if (
     pathname === "/marketing" ||
     pathname === "/pricing" ||
     pathname === "/terms" ||
-    pathname === "/privacy"
+    pathname === "/privacy" ||
+    pathname === "/sales-agent-portal"
   ) {
     return true;
   }
   if (
     pathname === "/api/register/public-lead" ||
-    pathname === "/api/register/public-intake"
+    pathname === "/api/register/public-intake" ||
+    pathname === "/api/agents/sales"
   ) {
     return true;
   }
@@ -175,35 +238,23 @@ export function isDashboardRouteGroupPath(pathname: string): boolean {
     "/admin/governance/comparison",
     "/admin/clearance/vault",
     "/admin/onboarding",
+    "/get-started",
+    "/trust",
+    "/dashboard/support",
+    "/dashboard/admin",
+    "/boardroom",
   ] as const;
   return bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));
 }
 
+/** Tripane home and cockpit — bounded viewport; column or grid scroll, not AppShell body. */
+export function isViewportBoundedDashboardPath(pathname: string): boolean {
+  return pathname === "/" || pathname === "/cockpit";
+}
+
 /** Full-page routes that scroll in AppShell (not tripane column scroll). */
 export function isScrollableStandalonePath(pathname: string): boolean {
-  return (
-    pathname === "/docs" ||
-    pathname.startsWith("/docs/") ||
-    pathname === "/board-report" ||
-    pathname.startsWith("/board-report/") ||
-    isReportsPath(pathname) ||
-    pathname === "/integrity" ||
-    pathname.startsWith("/integrity/") ||
-    pathname === "/profile" ||
-    pathname.startsWith("/profile/") ||
-    pathname === "/config" ||
-    pathname.startsWith("/config/") ||
-    pathname === "/opsupport" ||
-    pathname.startsWith("/opsupport/") ||
-    pathname === "/op-support" ||
-    pathname.startsWith("/op-support/") ||
-    pathname === "/audit" ||
-    pathname.startsWith("/audit/") ||
-    pathname === "/vault" ||
-    pathname.startsWith("/vault/") ||
-    pathname === "/evidence" ||
-    pathname.startsWith("/evidence/")
-  );
+  return !isViewportBoundedDashboardPath(pathname);
 }
 
 /** Read-only constitutional sentinel + Irontech recovery — must work without a dashboard session (marketing shell polls these). */
@@ -220,6 +271,10 @@ export function isPublicConstitutionalSentinelPath(pathname: string): boolean {
 export function isConstitutionalOverlaySuppressedPath(pathname: string): boolean {
   return (
     pathname === "/" ||
+    pathname === "/integrity" ||
+    pathname.startsWith("/integrity/") ||
+    pathname === "/docs" ||
+    pathname.startsWith("/docs/") ||
     pathname === "/marketing" ||
     pathname === "/login" ||
     pathname === "/forgot-password" ||

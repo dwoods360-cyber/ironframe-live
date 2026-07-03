@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
+import { logExplicitDiagnosticAbort } from "@/app/utils/diagnosticAbortLog";
 import { subscribeSimulationNavAbort } from "@/app/utils/simulationNavAbort";
 
 export type SimulationFetchScope = {
@@ -17,13 +19,14 @@ export function createSimulationFetchScope(
 ): SimulationFetchScope {
   const controller = new AbortController();
   const detach = subscribeSimulationNavAbort(() => {
-    controller.abort("simulation-nav-switch");
+    controller.abort(ABORT_REASONS.simulationNavSwitch);
   });
   return {
     signal: controller.signal,
     dispose: () => {
       detach();
       if (!controller.signal.aborted) {
+        logExplicitDiagnosticAbort(reason, { surface: "useSimulationFetchAbort" });
         controller.abort(reason);
       }
     },

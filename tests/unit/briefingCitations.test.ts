@@ -15,7 +15,7 @@ import {
   parseBriefingDraftFrontmatter,
   stripFrontmatter,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
-import { buildTelemetryCitationCatalog } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
+import { buildInternalReviewCitationCatalog, buildPublicBriefingCitationCatalog } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
 import type { BoardContextPayload } from "@/app/lib/board/sharedBoardContext";
 
 const SAMPLE_BODY = `### I. Exposure Vector
@@ -61,10 +61,46 @@ describe("parseBriefingCitations", () => {
 });
 
 describe("briefingDraftValidation", () => {
-  it("passes well-formed queue drafts with warnings only", () => {
+  it("warns on filename convention for queue drafts", () => {
     const result = validateBriefingQueueDraft("my-draft.md", SAMPLE_BODY);
     expect(result.ok).toBe(true);
     expect(result.issues.some((i) => i.code === "FILENAME_CONVENTION")).toBe(true);
+  });
+
+  it("blocks promotion when public body contains internal references", () => {
+    const result = validateBriefingQueueDraft("2026-06-17-draft-medshield.md", SAMPLE_BODY, {
+      promotion: true,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((i) => i.code === "INTERNAL_API_ROUTE")).toBe(true);
+  });
+
+  it("warns on internal references in queue drafts", () => {
+    const result = validateBriefingQueueDraft("2026-06-17-draft-medshield.md", SAMPLE_BODY);
+    expect(result.issues.some((i) => i.code === "INTERNAL_API_ROUTE" && i.severity === "warn")).toBe(
+      true,
+    );
+  });
+
+  it("passes promotion when body is public-safe", () => {
+    const publicBody = `### I. Exposure Vector
+Federal contractor KEV triage velocity remains elevated.
+
+### II. Calculated Quantitative Impact
+Modeled liability boundary: $4.7M USD for critical infrastructure segments.
+
+### III. Machine-Rule Technical Translation
+Continuous verification loops with human-in-the-loop attestation.
+
+### V. Sources & Citations
+
+- **[1] CISA KEV Catalog** — https://www.cisa.gov/known-exploited-vulnerabilities-catalog · retrieved 2026-06-17
+- **[2] NIST CSF** — https://www.nist.gov/cyberframework · retrieved 2026-06-17
+`;
+    const result = validateBriefingQueueDraft("2026-06-17-draft-medshield.md", publicBody, {
+      promotion: true,
+    });
+    expect(result.ok).toBe(true);
   });
 
   it("blocks promotion without citations", () => {
@@ -74,6 +110,13 @@ describe("briefingDraftValidation", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.issues.some((i) => i.code === "MISSING_CITATIONS")).toBe(true);
+  });
+
+  it("blocks forbidden sales superlatives on promotion", () => {
+    const withSuperlative = `${SAMPLE_BODY}\nIronframe has uncopyable moats in this segment.`;
+    const result = validateBriefingDraftContent(withSuperlative, { promotion: true });
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((i) => i.code === "FORBIDDEN_SALES_CLAIM")).toBe(true);
   });
 
   it("flags CVE literals on promotion", () => {
@@ -129,7 +172,7 @@ describe("briefingDraftValidation", () => {
 });
 
 describe("telemetryCitationCatalog", () => {
-  it("builds deterministic locators from board context payload", () => {
+  it("builds internal review locators from board context payload", () => {
     const payload = {
       tenantId: "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01",
       timestamp: "2026-06-17T00:00:00.000Z",
@@ -192,8 +235,14 @@ describe("telemetryCitationCatalog", () => {
       narrativeCache: null,
     } as BoardContextPayload;
 
-    const citations = buildTelemetryCitationCatalog(payload, "2026-06-17T12:00:00.000Z");
+    const citations = buildInternalReviewCitationCatalog(payload, "2026-06-17T12:00:00.000Z");
     expect(citations[1]?.locator).toContain("$96,500.00 USD");
     expect(citations.some((c) => c.locator.includes("doraReadinessFormatted"))).toBe(true);
+  });
+
+  it("builds public-safe citation catalog without internal locators", () => {
+    const citations = buildPublicBriefingCitationCatalog("2026-06-17T12:00:00.000Z");
+    expect(citations.every((c) => c.locator.startsWith("https://"))).toBe(true);
+    expect(citations.some((c) => c.locator.includes("/api/"))).toBe(false);
   });
 });

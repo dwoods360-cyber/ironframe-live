@@ -1,5 +1,10 @@
 # User Guide — Ironframe Command Center
 
+> **Canonical guide:** The complete beginner manual with training links and screenshots lives at  
+> **[user-manuals/user-guide.md](../user-manuals/user-guide.md)** (`/docs/user-manuals/user-guide`).
+
+This file is a **legacy mirror**. Prefer the canonical guide for onboarding and support indexing.
+
 ## Prerequisites
 
 - Supabase account provisioned for your organization
@@ -8,9 +13,9 @@
 
 ## Signing in
 
-1. Navigate to your Ironframe URL (e.g. `https://ironframe-live.vercel.app`)
-2. Open **Login** and authenticate via Supabase
-3. After login, land on the **Command Center** dashboard
+1. Open the workspace URL provided in your sales-assisted invitation email.
+2. Open **Login** and authenticate via Supabase.
+3. After login, land on the **Command Center** dashboard.
 
 ## Tenant scope
 
@@ -39,7 +44,7 @@ After switching tenants, the dashboard refetches automatically. Brief loading st
 - If live API is unavailable, **Offline / Verified** LKG bundle displays automatically
 
 ### Analyst exports
-- Path: **`/dashboard/exports`**
+- Open **Dashboard → Exports** from the main navigation
 - Download **CSV** or **PDF** ledger for the active tenant
 - Requires tenant cookie scope and login
 
@@ -62,7 +67,7 @@ When enabled by your administrator (`SHADOW_PLANE_ACTIVE`), handshake banners ma
 
 ### Export for audit
 1. Set tenant scope in switcher
-2. Go to **Dashboard → Exports** (`/dashboard/exports`)
+2. Open **Dashboard → Exports**
 3. Download CSV/PDF; optional **Seal → WORM** when enabled
 
 ## Troubleshooting

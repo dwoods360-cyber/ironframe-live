@@ -12,8 +12,8 @@ const { guardMock, dashboardPayloadMock } = vi.hoisted(() => ({
   dashboardPayloadMock: vi.fn(),
 }));
 
-vi.mock('@/app/lib/security/ironguardApiGuard', () => ({
-  assertIronguardApiTenantOr403: guardMock,
+vi.mock('@/app/lib/security/tenantMembershipGuard', () => ({
+  assertAuthenticatedIronguardTenantOr403: guardMock,
 }));
 
 vi.mock('@/app/actions/dashboardActions', () => ({

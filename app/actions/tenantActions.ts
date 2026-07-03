@@ -1,18 +1,20 @@
 "use server";
 
-import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import {
   resolveCommandCenterTenantScope,
   type CommandCenterTenantRow,
   type CommandCenterTenantScope,
 } from "@/app/lib/auth/commandCenterTenantAccess";
+import type { CommandPostWorkspaceTarget } from "@/app/lib/commandPostNavigation";
+import { resolveServerCommandPostTarget } from "@/app/lib/auth/resolveCommandPostTarget.server";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 
-export type { CommandCenterTenantRow, CommandCenterTenantScope };
+export type { CommandCenterTenantRow, CommandCenterTenantScope, CommandPostWorkspaceTarget };
 
 /**
  * RBAC-scoped tenants for the Global Command Center dropdown.
- * GLOBAL_ADMIN sees every tenant; other roles see assigned workspaces only.
+ * GLOBAL_ADMIN unlocks the aggregate lane on apex and may switch assigned workspaces on subdomains.
  */
 export async function listCommandCenterTenants(): Promise<CommandCenterTenantRow[]> {
   const scope = await resolveCommandCenterTenantScope();
@@ -22,6 +24,11 @@ export async function listCommandCenterTenants(): Promise<CommandCenterTenantRow
 /** Tenant rows plus whether the aggregate global lane is permitted. */
 export async function listCommandCenterTenantScope(): Promise<CommandCenterTenantScope> {
   return resolveCommandCenterTenantScope();
+}
+
+/** Server-resolved Command Post target for apex → tenant workspace hops. */
+export async function resolveCommandPostNavigationTarget(): Promise<CommandPostWorkspaceTarget> {
+  return resolveServerCommandPostTarget();
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

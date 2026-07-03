@@ -27,7 +27,7 @@ export const STRATEGIC_KNOWLEDGE_VAULT = [
   { title: "Crossing the Chasm", author: "Geoffrey A. Moore", coreConcepts: ["Technology Adoption Life Cycle", "The Chasm", "Bowling Alley Strategy", "The Beachhead Market"], strategicInvariants: "Targets highly specific enterprise target profiles to cross the adoption gap from early visionary testers to mainstream corporations." },
   { title: "Good to Great", author: "Jim Collins", coreConcepts: ["First Who... Then What", "The Hedgehog Concept", "Culture of Discipline", "The Flywheel Effect"], strategicInvariants: "Anchors structural execution solely at the intersection of deep passion, world-class technical capabilities, and deterministic economic engines." },
   { title: "The Lean Startup", author: "Eric Ries", coreConcepts: ["Validated Learning", "Build-Measure-Learn", "Minimum Viable Product", "Pivot or Persevere"], strategicInvariants: "Drives rapid, atomic code deployments coupled with deterministic user telemetry to minimize wasted developmental energy." },
-  { title: "Zero to One", author: "Peter Thiel", coreConcepts: ["Vertical Progress", "Proprietary Technology", "Network Effects", "Monopoly vs. Perfect Competition"], strategicInvariants: "Mandates building software with an order-of-magnitude technical advantage, establishing absolute defensive moats around architecture." },
+  { title: "Zero to One", author: "Peter Thiel", coreConcepts: ["Vertical Progress", "Proprietary Technology", "Network Effects", "Monopoly vs. Perfect Competition"], strategicInvariants: "Planning lens only — pursue 10x product bets and defensible architecture; never cite this book as proof Ironframe currently leads the GRC market or holds uncopyable moats." },
   { title: "Measure What Matters", author: "John Doerr", coreConcepts: ["Objectives and Key Results (OKRs)", "Radical Alignment", "Continuous Tracking", "Stretch Goals"], strategicInvariants: "Binds every agent workflow execution to quantifiable metrics to guarantee zero systemic drift across the organization." },
 ] as const;
 
@@ -60,6 +60,20 @@ export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
   { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention"], background: "Experienced customer success professional.", primaryBookAlignment: "The Discipline of Market Leaders" },
 ];
 
+/** Personas isolated from live POST /api/query — use dedicated Ironframe agent workers. */
+export const BOARDROOM_ISOLATED_AGENT_IDS = new Set<string>(["board-trainer", "board-writer"]);
+
+/** Ironframe :3000 routes for isolated documentation author personas. */
+export const BOARDROOM_ISOLATED_AGENT_REDIRECTS: Record<string, string> = {
+  "board-trainer": "/api/agents/trainer",
+  "board-writer": "/api/agents/writer",
+};
+
+/** Live boardroom chat roster (excludes isolated documentation author workers). */
+export const BOARDROOM_QUERY_ROSTER: BoardPersona[] = AGENTIC_BOARD_ROSTER.filter(
+  (persona) => !BOARDROOM_ISOLATED_AGENT_IDS.has(persona.id),
+);
+
 export const STATIC_PRODUCTS = [
   { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
   { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
@@ -91,7 +105,7 @@ PRICING MODEL CONSTITUTIONAL STANDARD:
 
 OPERATIONAL COST VS. CLIENT BASELINE DISTINCTION:
 - Our internal operational cost is lean, totaling exactly between 7,700 cents ($77 USD) and 11,700 cents ($117 USD) per month for cloud infrastructure hosting (Vercel, Supabase, and Gemini API usage tokens).
-- The multi-million dollar figures for Medshield (1,110,000,000 cents), Vaultbank (590,000,000 cents), and Gridcore (470,000,000 cents) are STRICTLY Sovereign Pool risk baselines simulated for client GRC environments.
+- Slugs medshield (1,110,000,000 cents), vaultbank (590,000,000 cents), and gridcore (470,000,000 cents) are SYNTHETIC_DEMO_SEED engineering fixtures — NOT real companies. Prospect company names MUST come from live discoverRegionalProspects rows only — never static lists.
 - Under no circumstances shall any agent misrepresent these client benchmarks as the platform's operating costs. Keep company overhead calculations bound tightly to actual local infrastructure whole-cent parameters.
 `.trim();
 
@@ -113,6 +127,24 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 - Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
 `.trim();
 
+export const DOCUMENTATION_CORPUS_BINDING = `
+DUAL-LOCATION OUTPUT MATRIX (AUTHORITATIVE — see lib/documentationCorpusPlanes.ts):
+
+PLANE 1 — NEWSLETTERS & BRIEFINGS (External / GTM Intelligence Surface)
+- Content: Market analysis, regulatory narratives, flywheel briefing logs
+- Target: /governance-frame/[slug] · PublishedBriefing DB · Substack / Ironcast staging
+- Authors: board-bot, board-cfo, flywheel agents, narrate cron — NOT board-trainer/writer
+- Workflow: briefing-queue/ → human Section V → promote-briefing-draft.ts
+
+PLANE 2 — APP DOCS (Internal / Product GRC Corpus)
+- Content: Level 1 user-manuals + Level 2 technical specs + training paths
+- Target: docs/user-manuals/, docs/technical/, docs/training/ · reader /docs
+- Authors: board-trainer, board-writer
+- Workflow: GET /api/board/shared-context → documentationBrief → POST /api/documentation/execute
+
+Constitutional: docs/TAS.md · delivery@ironframegrc.com
+`.trim();
+
 export function buildStaticContextBundle(): string {
   const roster = AGENTIC_BOARD_ROSTER.map(
     a => `- ${a.role} (${a.id}): ${a.expertise.join(', ')} | book=${a.primaryBookAlignment}`,
@@ -125,6 +157,8 @@ export function buildStaticContextBundle(): string {
   ).join('\n');
   return [
     '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
+    '',
+    DOCUMENTATION_CORPUS_BINDING,
     '',
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     '',
@@ -142,10 +176,10 @@ export function buildStaticContextBundle(): string {
     'PRODUCT REGISTRY:',
     products,
     '',
-    'SOVEREIGN POOL BASELINES (BigInt cents — do not invent other values):',
-    `- Medshield: ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
-    `- Vaultbank: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
-    `- Gridcore: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
+    'SYNTHETIC DEMO SEED BASELINES (BigInt cents — NOT real companies; do not invent other values):',
+    `- slug medshield (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
+    `- slug vaultbank (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
+    `- slug gridcore (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
     `- Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
     '',
     buildStrategicIntelResearchBinding(),

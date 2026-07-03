@@ -1,9 +1,11 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ThreatState } from "@prisma/client";
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import type { OpSupportClearanceCard } from "@/app/lib/opsupportDashTypes";
 import { normalizeIngestionDetailsToString } from "@/app/utils/ingestionDetailsMerge";
 
@@ -14,15 +16,16 @@ export const revalidate = 0;
  * Pipeline + quarantined threats for the active tenant (sim + non-sim companies).
  * Used by Operational Support live clearance view.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   noStore();
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!tenantUuid) {
-    return NextResponse.json(
-      { error: "No active tenant.", cards: [] as OpSupportClearanceCard[] },
-      { status: 401 },
-    );
+  const admin = await requirePlatformAdministrator();
+  if ("error" in admin) {
+    return NextResponse.json({ error: admin.error }, { status: 403 });
   }
+
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantUuid = guard.tenantUuid;
 
   const companies = await prisma.company.findMany({
     where: { tenantId: tenantUuid },

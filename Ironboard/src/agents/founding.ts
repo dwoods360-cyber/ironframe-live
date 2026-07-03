@@ -15,7 +15,7 @@ export async function agentCEO(
   const model = instantiateBoardAgentModel("CEO");
   const strategicLayer = model.systemPrompt;
   const productLabel = resolveActiveProductLabel(state);
-  const assessmentLog = `[CEO] Portfolio target: ${productLabel}. Objective scoped under Zero to One monopoly matrix (${strategicLayer.length} chars, temperature=${model.generation.temperature}). Vaultbank baseline 590000000 cents acknowledged. ref: docs/TAS.md`;
+  const assessmentLog = `[CEO] Portfolio target: ${productLabel}. Objective scoped under Zero to One monopoly matrix (${strategicLayer.length} chars, temperature=${model.generation.temperature}). Demo-seed baseline vaultbank 590000000 cents acknowledged (SYNTHETIC_DEMO_SEED). ref: docs/TAS.md`;
 
   return {
     activeSpeaker: "CFO",
@@ -32,7 +32,7 @@ export async function agentCFO(
   const rawProjectedCents = state.financialProjectionsCents;
   assertWholeIntegerCents(rawProjectedCents);
 
-  const assessmentLog = `[CFO] Financial validation cleared (${strategicLayer.length} chars, topP=${model.generation.topP}). Allocation ${rawProjectedCents} cents — Medshield 1110000000 · Vaultbank 590000000 · Gridcore 470000000 baselines aligned. ref: prisma/seed.ts`;
+  const assessmentLog = `[CFO] Financial validation cleared (${strategicLayer.length} chars, topP=${model.generation.topP}). Allocation ${rawProjectedCents} cents — demo-seed baselines medshield 1110000000 · vaultbank 590000000 · gridcore 470000000 (SYNTHETIC_DEMO_SEED). ref: prisma/seed.ts`;
 
   return {
     activeSpeaker: "ComplianceOfficer",

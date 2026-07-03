@@ -5,6 +5,7 @@ import { generateBudgetReport } from "@/app/utils/generateBudgetReport";
 import { normalizeCarrierKey } from "@/app/utils/carrierTemplates";
 import { fetchInsuranceModelForTenant } from "@/app/utils/insuranceTenantModel";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   noStore();
-  const activeTenantUuid = request.headers.get("x-tenant-id")?.trim() || null;
-  if (!activeTenantUuid) {
-    return NextResponse.json(
-      { error: "Tenant context required. Send x-tenant-id header (tenant UUID)." },
-      { status: 401 },
-    );
-  }
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const activeTenantUuid = guard.tenantUuid;
 
   let basePremium_cents: bigint | undefined;
   const raw = request.nextUrl.searchParams.get("premiumCents")?.trim();

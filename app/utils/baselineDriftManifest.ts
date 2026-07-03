@@ -1,9 +1,23 @@
 import type { TenantKey } from "@/app/utils/tenantIsolation";
 import { TENANT_INDUSTRY_BASELINE_ALE_CENTS } from "@/app/constants/devTenantRoster";
 
+function resolveSeedTenantBaselineCents(tenantKey: TenantKey): bigint | null {
+  if (!(tenantKey in TENANT_INDUSTRY_BASELINE_ALE_CENTS)) {
+    return null;
+  }
+  return TENANT_INDUSTRY_BASELINE_ALE_CENTS[tenantKey];
+}
+
 /** Δ = active ALE − industry baseline (bigint cents). Negative ⇒ posture below baseline (optimized). */
-export function computeBaselineDriftDeltaCents(activeAleCents: bigint, tenantKey: TenantKey): bigint {
-  return activeAleCents - TENANT_INDUSTRY_BASELINE_ALE_CENTS[tenantKey];
+export function computeBaselineDriftDeltaCents(
+  activeAleCents: bigint,
+  tenantKey: TenantKey,
+): bigint | null {
+  const baselineCents = resolveSeedTenantBaselineCents(tenantKey);
+  if (baselineCents === null) {
+    return null;
+  }
+  return activeAleCents - baselineCents;
 }
 
 function formatAbsUsdCompactFromCents(absCents: bigint): string {
@@ -35,6 +49,9 @@ export function formatBaselineDriftManifestParts(
   tenantKey: TenantKey,
 ): { text: string; tone: ManifestDriftTone } {
   const delta = computeBaselineDriftDeltaCents(activeAleCents, tenantKey);
+  if (delta === null) {
+    return { text: "Δ ---", tone: "neutral" };
+  }
   if (delta === 0n) {
     return { text: "Δ $0", tone: "neutral" };
   }
@@ -51,6 +68,9 @@ export function formatAleEngineManifestLine(activeTenantKey: TenantKey | null): 
   if (!activeTenantKey) {
     return "ALE_ENGINE: BIGINT_DETERMINISTIC (ANCHOR UNBOUND — BIND TENANT FOR BASELINE ¢)";
   }
-  const cents = TENANT_INDUSTRY_BASELINE_ALE_CENTS[activeTenantKey];
+  const cents = resolveSeedTenantBaselineCents(activeTenantKey);
+  if (cents === null) {
+    return "ALE_ENGINE: BIGINT_DETERMINISTIC (WORKSPACE BASELINE — SET IN GET STARTED)";
+  }
   return `ALE_ENGINE: BIGINT_DETERMINISTIC (${cents.toString()} ¢)`;
 }

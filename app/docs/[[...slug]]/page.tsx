@@ -1,104 +1,203 @@
-import fs from "fs";
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import DocsSidebar from "./DocsSidebar";
+import { redirect } from "next/navigation";
+
+import CommercialEntitlementHoldPanel from "@/app/components/billing/CommercialEntitlementHoldPanel";
+import DocsChrome from "./DocsChrome";
+import CompilationIngressPortal from "./CompilationIngressPortal";
 import DocsMarkdown from "./DocsMarkdown";
 import {
-  resolveDocPath,
-  walkMarkdownSlugs,
-  DOCS_ROOT,
-} from "@/lib/docsNavigation";
-import { sanitizeDocSlugSegments } from "@/lib/docsLinkNormalization";
-/** FS-backed markdown pages — literal required by Next.js; policy in docsRouteRuntime.ts. */
+  buildAppDocsNavigation,
+  groupAppDocsNavigation,
+} from "@/app/lib/server/appDocsNavigation";
+import { enforceCommercialCorpusGateOrRedirect } from "@/app/lib/server/commercialCorpusAccess";
+import { dbKeyToSlugSegments, inferReadingLevelFromSlug } from "@/lib/appDocumentSlug";
+import {
+  formatOperatorDocTitle,
+  isOperatorFacingReadingLevel,
+  prepareDocContentForDisplay,
+} from "@/lib/docsContentDecoupling";
+import { loadAppDocumentForReader } from "@/app/lib/server/loadAppDocumentForReader";
+import prisma from "@/lib/prisma";
+
 export const dynamic = "force-dynamic";
-
-interface DocsPageProps {
-  params: Promise<{ slug?: string[] }>;
-}
-
-export async function generateStaticParams() {
-  if (!fs.existsSync(DOCS_ROOT)) return [{ slug: [] }];
-
-  const paths = walkMarkdownSlugs(DOCS_ROOT, DOCS_ROOT);
-  return [{ slug: [] }, ...paths.map((slug) => ({ slug }))];
-}
 
 export const metadata = {
   title: "Documentation | Ironframe",
   description: "Ironframe product, technical, and QA documentation hub.",
 };
 
+interface DocsPageProps {
+  params: Promise<{
+    slug?: string[];
+  }>;
+  searchParams: Promise<{
+    embed?: string;
+  }>;
+}
 
-export default async function DocsPage({ params }: DocsPageProps) {
-  const resolvedParams = await params;
-  const rawSlug = resolvedParams.slug?.length ? resolvedParams.slug : ["hub"];
-  const slugArray = sanitizeDocSlugSegments(rawSlug);
+function isAppDocumentClientReady(): boolean {
+  return typeof prisma.appDocument?.findUnique === "function";
+}
 
-  if (slugArray.length === 1 && slugArray[0]?.toLowerCase() === "readme") {
-    redirect("/docs/hub");
-  }
-
-  const slugPath = slugArray.join("/");
-  const fullDocPath = resolveDocPath(slugArray);
-
-  if (!fullDocPath) {
-    notFound();
-  }
-
-  const fileContent = fs.readFileSync(fullDocPath, "utf8");
-
+function prismaClientNotReadyPanel() {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 font-sans text-slate-100 antialiased selection:bg-teal-500/30 selection:text-slate-950">
-      <nav className="sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b border-slate-900 bg-slate-950/80 px-6 backdrop-blur-md">
-        <Link
-          href="/"
-          className="flex items-center gap-3 transition hover:opacity-90"
-          data-testid="docs-brand-home-link"
-        >
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" aria-hidden />
-          <span className="font-mono text-xs font-bold uppercase tracking-widest text-slate-400">
-            IRONFRAME CORE <span className="text-slate-700">|</span>{" "}
-            <span className="text-teal-400">REFERENCE MANUALS</span>
-          </span>
-        </Link>
-
-        <Link
-          href="/"
-          className="flex items-center gap-2 rounded border border-teal-900/50 bg-teal-950/30 px-4 py-1.5 font-mono text-xs font-bold tracking-wider text-teal-400 shadow-sm shadow-teal-950/20 transition-all duration-200 hover:bg-teal-500 hover:text-slate-950"
-        >
-          ➔ RETURN TO OPERATIONS DASHBOARD
-        </Link>
-      </nav>
-
-      <div className="flex min-h-0 flex-1">
-        <DocsSidebar currentSlug={slugArray} />
-
-        <main className="mx-auto min-h-full max-w-5xl flex-1 overflow-y-auto px-6 py-12 lg:px-8 lg:py-16">
-          <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-slate-600">
-            SYSTEM FILEPATH: docs/{slugPath}.md
-          </p>
-
-          <article className="prose prose-invert max-w-none font-sans">
-            <DocsMarkdown content={fileContent} currentSlug={slugArray} />
-          </article>
-
-          <div className="mt-12 flex items-center justify-between border-t border-slate-800 pt-8">
-            <div>
-              <h4 className="text-sm font-semibold text-white">UI/UX & Feature Test Protocol</h4>
-              <p className="mt-1 text-xs text-slate-400">
-                Download the verified MS Word (.docx) compliance specification file.
-              </p>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- attachment download, not RSC navigation */}
-            <a
-              href="/api/docs/download-protocol"
-              className="transform rounded bg-teal-500 px-4 py-2 font-mono text-xs font-bold text-slate-950 shadow-lg shadow-teal-500/20 transition-all hover:bg-teal-400 active:scale-95"
-            >
-              DOWNLOAD PLAYBOOK (.DOCX)
-            </a>
-          </div>
-        </main>
+    <div className="flex min-h-screen items-center justify-center bg-[#030712] p-6 text-slate-100">
+      <div className="w-full max-w-xl rounded-xl border border-amber-500/30 bg-amber-950/20 p-6 font-mono text-xs text-amber-200 shadow-2xl backdrop-blur-md">
+        <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-amber-400">
+          Prisma client out of date
+        </h3>
+        <p className="leading-relaxed">
+          The <code>AppDocument</code> delegate is missing from the active client. Regenerate and
+          restart:
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-lg border border-amber-500/10 bg-slate-950/60 p-3 text-slate-400">
+          {`npx prisma generate\nnpm run dev`}
+        </pre>
       </div>
     </div>
+  );
+}
+
+function resolveTargetSlug(slugArray: string[]): string {
+  const joined = slugArray.join("/");
+  if (joined === "" || joined.toLowerCase() === "readme") {
+    return "readme";
+  }
+  return joined.toLowerCase();
+}
+
+export default async function DocsCatchAllPage({ params, searchParams }: DocsPageProps) {
+  if (!isAppDocumentClientReady()) {
+    return prismaClientNotReadyPanel();
+  }
+
+  const resolvedParams = await params;
+  const resolvedSearch = await searchParams;
+  const embedded = resolvedSearch.embed === "1";
+  const slugArray = resolvedParams.slug ?? [];
+
+  if (slugArray.length === 1 && slugArray[0]?.toLowerCase() === "hub") {
+    redirect("/docs/README");
+  }
+
+  if (slugArray.length === 1 && slugArray[0]?.toLowerCase() === "user-guide") {
+    redirect("/docs/user-manuals/user-guide");
+  }
+
+  const targetSlug = resolveTargetSlug(slugArray);
+  const currentSlug = dbKeyToSlugSegments(targetSlug);
+  const loginNextPath =
+    slugArray.length === 0 ? "/docs/README" : `/docs/${slugArray.join("/")}`;
+
+  let navSections: Awaited<ReturnType<typeof groupAppDocsNavigation>> = [];
+  try {
+    const navItems = await buildAppDocsNavigation();
+    navSections = await groupAppDocsNavigation(navItems);
+  } catch (navError) {
+    console.error("[Docs Navigation Failure]", navError);
+  }
+
+  let docRecord = null;
+  try {
+    docRecord = await loadAppDocumentForReader(targetSlug);
+  } catch (dbError) {
+    console.error("[Docs DB Connection Failure]", dbError);
+    return (
+      <DocsChrome currentSlug={currentSlug} navSections={navSections} embedded={embedded}>
+        <div className="mx-auto max-w-xl rounded-xl border border-amber-500/30 bg-amber-950/20 p-6 font-mono text-xs text-amber-200 shadow-2xl backdrop-blur-md">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-bold text-amber-400">
+            System subsurface disconnected
+          </h3>
+          <p className="leading-relaxed">
+            The documentation compilation engine failed to interface with your PostgreSQL core
+            cluster storage array.
+          </p>
+          <p className="mt-3 border-t border-amber-500/10 pt-2 text-slate-500">
+            Check runtime cluster allocations and verified environment bindings.
+          </p>
+        </div>
+      </DocsChrome>
+    );
+  }
+
+  if (!docRecord) {
+    const missingDocOperatorView = isOperatorFacingReadingLevel(
+      inferReadingLevelFromSlug(targetSlug),
+    );
+    const corpusGate = await enforceCommercialCorpusGateOrRedirect(
+      inferReadingLevelFromSlug(targetSlug),
+      loginNextPath,
+    );
+    return (
+      <DocsChrome
+        currentSlug={currentSlug}
+        navSections={navSections}
+        audience={missingDocOperatorView ? "operator" : "publisher"}
+        embedded={embedded}
+      >
+        {corpusGate.status === "billing_hold" ? (
+          <CommercialEntitlementHoldPanel billingStatus={corpusGate.billingStatus} />
+        ) : (
+          <CompilationIngressPortal targetSlug={targetSlug} />
+        )}
+      </DocsChrome>
+    );
+  }
+
+  const operatorView = isOperatorFacingReadingLevel(docRecord.readingLevel);
+  const corpusGate = await enforceCommercialCorpusGateOrRedirect(
+    docRecord.readingLevel,
+    loginNextPath,
+  );
+  const documentContent = prepareDocContentForDisplay(docRecord.content, {
+    readingLevel: docRecord.readingLevel,
+    title: docRecord.title,
+  });
+  const displayTitle = operatorView
+    ? formatOperatorDocTitle(docRecord.title)
+    : docRecord.title;
+
+  return (
+    <DocsChrome
+      currentSlug={currentSlug}
+      navSections={navSections}
+      audience={operatorView ? "operator" : "publisher"}
+      embedded={embedded}
+    >
+      {corpusGate.status === "billing_hold" ? (
+        <CommercialEntitlementHoldPanel billingStatus={corpusGate.billingStatus} />
+      ) : (
+      <div className="relative mx-auto max-w-4xl overflow-hidden rounded-xl border border-slate-800/80 bg-[#070e20]/40 p-8 shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+
+        <header className="relative z-10 mb-8 border-b border-slate-800/80 pb-5">
+          {operatorView ? (
+            <>
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+                User guide
+              </p>
+              <h1 className="font-sans text-2xl font-bold tracking-tight text-white">{displayTitle}</h1>
+            </>
+          ) : (
+            <>
+              <div className="mb-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-indigo-400">
+                <span>DOCUMENTATION HUB</span>
+                <span>·</span>
+                <span className="text-cyan-400">{docRecord.readingLevel}</span>
+              </div>
+              <h1 className="font-sans text-2xl font-bold tracking-tight text-white">{displayTitle}</h1>
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-slate-500">
+                <span>REF_PATH: {docRecord.slug}</span>
+                <span>SOURCE: {docRecord.source === "database" ? "APP_DOCUMENTS_DB" : "FILESYSTEM_FALLBACK"}</span>
+              </div>
+            </>
+          )}
+        </header>
+
+        <article className="prose prose-invert pointer-events-auto relative z-20 max-w-none font-sans prose-a:text-cyan-400 hover:prose-a:text-cyan-300 prose-a:transition-colors">
+          <DocsMarkdown content={documentContent} currentSlug={currentSlug} />
+        </article>
+      </div>
+      )}
+    </DocsChrome>
   );
 }

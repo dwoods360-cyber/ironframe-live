@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
+
 /**
  * E2E: Main dashboard and Assessment Workspace (drawer).
  * Accuracy and Resilience: no silent passes. Data state drives assertions.
@@ -17,6 +19,8 @@ const TRIPANE_LEFT_VW = 0.22;
 const TRIPANE_CENTER_VW = 0.48;
 const TRIPANE_RIGHT_VW = 0.3;
 
+const DASHBOARD_ENTRY_PATH = '/integrity';
+
 async function waitForTripaneShell(page: import('@playwright/test').Page) {
   const leftPane = page.locator('[data-testid="dashboard-left-panel"]:not([aria-hidden="true"])');
   const centerPane = page.locator('[data-testid="dashboard-main"]');
@@ -29,52 +33,15 @@ async function waitForTripaneShell(page: import('@playwright/test').Page) {
   return { leftPane, centerPane, rightPane };
 }
 
-type PageMode = 'dashboard' | 'signin' | 'constitutional_void';
-
-async function waitForDashboardReady(page: import('@playwright/test').Page): Promise<PageMode> {
-  // Dashboard shell marker changed over time; rely on stable visible content instead.
-  await page.waitForLoadState('domcontentloaded');
-  const dashboardMarker = page
-    .getByText('Enterprise Risk Posture')
-    .or(page.getByText('Protected Tenants'))
-    .first();
-  const signInMarker = page.getByRole('heading', { name: /Sign in/i }).first();
-  const constitutionalVoidMarker = page
-    .getByText(/critical system failure: constitutional void detected/i)
-    .first();
-
-  // Non-authenticated CI/dev runs can land on Sign in or constitutional lock screen.
-  try {
-    await Promise.race([
-      dashboardMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-      signInMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-      constitutionalVoidMarker.waitFor({ state: 'visible', timeout: 20_000 }),
-    ]);
-  } catch {
-    // Continue to explicit assertions below for clearer error messages.
-  }
-
-  if (await dashboardMarker.isVisible().catch(() => false)) return 'dashboard';
-  if (await signInMarker.isVisible().catch(() => false)) return 'signin';
-  if (await constitutionalVoidMarker.isVisible().catch(() => false)) return 'constitutional_void';
-
-  // Fall back to original dashboard assertion to preserve signal if no known page mode is detected.
-  await expect(dashboardMarker).toBeVisible({ timeout: 10_000 });
-  return 'dashboard';
+async function openDashboardOrSkip(page: import('@playwright/test').Page) {
+  await page.goto(DASHBOARD_ENTRY_PATH);
+  const mode = await waitForDashboardReady(page);
+  skipUnlessDashboard(mode);
 }
 
 test.describe('Main Dashboard and Risk Assessment Drawer', () => {
   test('data state and drawer match UI; GRC gate verified when drawer opens', async ({ page }) => {
-    await page.goto('/');
-    const mode = await waitForDashboardReady(page);
-    if (mode === 'signin') {
-      await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible();
-      return;
-    }
-    if (mode === 'constitutional_void') {
-      await expect(page.getByText(/critical system failure: constitutional void detected/i)).toBeVisible();
-      return;
-    }
+    await openDashboardOrSkip(page);
 
     // Verify main dashboard header and layout (current UI)
     await expect(page.getByRole('heading', { name: 'EMERGENCY CLICK TEST', level: 1 }).first()).toBeVisible({ timeout: 10_000 });
@@ -120,16 +87,7 @@ test.describe('Main Dashboard and Risk Assessment Drawer', () => {
    * Control-First: Deterministic Data-Aware Test.
    */
   test('Deterministic Risk Validation', async ({ page }) => {
-    await page.goto('/');
-    const mode = await waitForDashboardReady(page);
-    if (mode === 'signin') {
-      await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible();
-      return;
-    }
-    if (mode === 'constitutional_void') {
-      await expect(page.getByText(/critical system failure: constitutional void detected/i)).toBeVisible();
-      return;
-    }
+    await openDashboardOrSkip(page);
     await expect(page.getByRole('heading', { name: 'EMERGENCY CLICK TEST' }).first()).toBeVisible({ timeout: 10_000 });
 
     const postureSection = page.locator('[id="enterprise-risk-posture-heading"]').locator('..');
@@ -156,16 +114,7 @@ test.describe('Main Dashboard and Risk Assessment Drawer', () => {
 
 test.describe('Tripane layout geometry', () => {
   test('Verify Core Tripane Layout Geometry Invariants', async ({ page }) => {
-    await page.goto('/');
-    const mode = await waitForDashboardReady(page);
-    if (mode === 'signin') {
-      await expect(page.getByRole('heading', { name: /Sign in/i })).toBeVisible();
-      return;
-    }
-    if (mode === 'constitutional_void') {
-      await expect(page.getByText(/critical system failure: constitutional void detected/i)).toBeVisible();
-      return;
-    }
+    await openDashboardOrSkip(page);
 
     const { leftPane, centerPane, rightPane } = await waitForTripaneShell(page);
 

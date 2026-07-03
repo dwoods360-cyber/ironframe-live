@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { assertTenantAccess } from "@/app/utils/tenantIsolation";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 const CLOUDTRAIL_UNAUTHORIZED_EVENTS = [
   {
@@ -46,7 +47,9 @@ const CLOUDTRAIL_UNAUTHORIZED_EVENTS = [
 ];
 
 export async function GET(request: NextRequest) {
-  const activeTenantUuid = request.headers.get("x-tenant-id");
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const activeTenantUuid = guard.tenantUuid;
   const targetTenantUuidFromHeader = request.headers.get("x-target-tenant-id");
   const targetTenantUuidFromQuery = request.nextUrl.searchParams.get("tenantUuid");
   const targetTenantUuid = targetTenantUuidFromHeader ?? targetTenantUuidFromQuery;

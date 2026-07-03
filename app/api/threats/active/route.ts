@@ -12,7 +12,8 @@ import {
   mapThreatEventRowsToPipelineThreatFromDb,
 } from "@/app/utils/activeThreatsBoardQuery";
 import { isClientDisconnectError } from "@/app/utils/isClientDisconnectError";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { logServerRequestAbort } from "@/app/lib/server/logServerRequestAbort";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import {
   getTasFingerprintSnapshot,
   resolveThreatStatusUnderConstitutionalLock,
@@ -26,12 +27,18 @@ import {
 export async function GET(request: NextRequest) {
   noStore();
   if (request.signal.aborted) {
+    logServerRequestAbort({
+      reason: "client-disconnect",
+      path: request.nextUrl.pathname,
+      method: request.method,
+      surface: "api/threats/active",
+    });
     return new NextResponse(null, { status: 499 });
   }
   try {
     const integritySnap = await syncConstitutionalIntegrityEnforcement();
 
-    const guard = await assertIronguardApiTenantOr403(request);
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
     if (!guard.ok) {
       return guard.response;
     }
@@ -64,6 +71,15 @@ export async function GET(request: NextRequest) {
     });
   } catch (e) {
     if (isClientDisconnectError(e) || request.signal.aborted) {
+      logServerRequestAbort({
+        reason:
+          e instanceof Error && e.message.trim().length > 0
+            ? e.message.trim()
+            : "client-disconnect",
+        path: request.nextUrl.pathname,
+        method: request.method,
+        surface: "api/threats/active",
+      });
       return new NextResponse(null, { status: 499 });
     }
     console.error("[api/threats/active]", e);

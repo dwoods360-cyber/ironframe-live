@@ -96,3 +96,9 @@ export function getIronboardPort(): number {
 export function getIronboardGeminiModel(): string {
   return isolated.geminiModel.trim() || 'gemini-2.5-flash';
 }
+
+/** When false, live regional discovery runs only on explicit operator triggers. */
+export function isIronboardSemiAutonomousMode(): boolean {
+  const raw = process.env.IRONBOARD_SEMI_AUTONOMOUS_MODE?.trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes';
+}

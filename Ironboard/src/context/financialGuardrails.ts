@@ -50,9 +50,9 @@ export function assertWholeIntegerCents(value: unknown, label: string): bigint {
 export function validateSovereignPoolBaselines(): typeof SOVEREIGN_POOL_BASELINES {
   const { medshield_cents, vaultbank_cents, gridcore_cents } = SOVEREIGN_POOL_BASELINES;
 
-  assertWholeIntegerCents(medshield_cents, 'Medshield Pool');
-  assertWholeIntegerCents(vaultbank_cents, 'Vaultbank Pool');
-  assertWholeIntegerCents(gridcore_cents, 'Gridcore Pool');
+  assertWholeIntegerCents(medshield_cents, 'synthetic demo seed medshield');
+  assertWholeIntegerCents(vaultbank_cents, 'synthetic demo seed vaultbank');
+  assertWholeIntegerCents(gridcore_cents, 'synthetic demo seed gridcore');
 
   const sum = medshield_cents + vaultbank_cents + gridcore_cents;
   if (sum !== 2170000000n) {

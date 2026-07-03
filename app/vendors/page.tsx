@@ -1,15 +1,46 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Search, ShieldAlert, Zap, BarChart3, FileText, MoreVertical, ChevronDown, ShieldX, Map, Activity } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Search, ShieldAlert, Zap, BarChart3, MoreVertical, ChevronDown, ShieldX } from "lucide-react";
 
 // Components
 import NotificationHub from "@/app/components/NotificationHub";
 import ScorecardIcon from "@/app/vendors/ScorecardIcon";
+import RFITemplate from "@/app/vendors/RFITemplate";
+import VendorRiskOverrideModal from "@/app/vendors/VendorRiskOverrideModal";
 
-// Services & Engine
-import { MASTER_VENDORS, getDaysUntilExpiration } from "@/app/vendors/schema";
+import AddVendorModal, { type AddVendorSubmission } from "@/app/vendors/AddVendorModal";
+import { MASTER_VENDORS, getDaysUntilExpiration, resolveCadenceStatus, type RiskTier, type VendorRecord } from "@/app/vendors/schema";
 import { calculateVendorGrade, VendorLetterGrade } from "@/utils/scoringEngine";
+import PilotSurfaceBanner, { VENDORS_PILOT_SURFACE_DETAIL } from "@/app/components/pilot/PilotSurfaceBanner";
+import { createMonitoringAlertId } from "@/app/vendors/monitoringAlertIds";
+import { vendorContactEmail } from "@/app/vendors/vendorContactEmail";
+import { useSystemConfigStore } from "@/app/store/systemConfigStore";
+import { slugVendorId } from "@/app/lib/ironmap/vendorSupplyChainGraph";
+import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
+import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
+import {
+  loadSessionIngestedVendors,
+  saveSessionIngestedVendors,
+  tenantEntityLabelFromSlug,
+} from "@/app/vendors/vendorEvidenceRequirements";
+
+export type VendorWorkflowAction =
+  | "soc2-update"
+  | "bulk-rfi"
+  | "fourth-party-graph"
+  | "map-view"
+  | "override-risk";
+
+type VendorRow = {
+  vendorId: string;
+  vendorName: string;
+  riskTier: RiskTier;
+  ale: number;
+  healthScore: ReturnType<typeof calculateVendorGrade>;
+};
 
 const GRADE_STYLE: Record<VendorLetterGrade, string> = {
   A: "border-emerald-400/80 bg-emerald-500/15 text-emerald-300",
@@ -26,6 +57,62 @@ const FILTER_COLORS: Record<string, { active: string, inactive: string }> = {
   MED: { active: "bg-blue-500/30 border-blue-400 text-blue-200", inactive: "bg-slate-950 border-slate-800 text-blue-400 hover:border-blue-400/80 hover:text-blue-300" },
   LOW: { active: "bg-emerald-500/30 border-emerald-400 text-emerald-200", inactive: "bg-slate-950 border-slate-800 text-emerald-400 hover:border-emerald-400/80 hover:text-emerald-300" },
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function buildIngestedVendorRecord(
+  payload: AddVendorSubmission,
+  associatedEntity: string,
+): VendorRecord {
+  const parsedExpiration = payload.expirationDate
+    ? new Date(payload.expirationDate).getTime()
+    : Number.NaN;
+  const documentExpirationDate = Number.isNaN(parsedExpiration)
+    ? new Date(Date.now() + 90 * DAY_MS).toISOString()
+    : new Date(parsedExpiration).toISOString();
+
+  return {
+    vendorName: payload.vendorName,
+    associatedEntity,
+    industry: payload.industry,
+    vendorType: payload.vendorType,
+    riskTier: payload.riskTier,
+    securityRating: "Pending review",
+    contractStatus: "MANUAL INGEST",
+    documentExpirationDate,
+    lastRequestSent: new Date().toISOString(),
+    currentCadence: resolveCadenceStatus(getDaysUntilExpiration(documentExpirationDate)),
+    criticalSubProcessors: [],
+  };
+}
+
+function mapVendorToRow(
+  vendor: VendorRecord,
+  riskOverrides: Record<string, RiskTier>,
+): VendorRow {
+  const days = getDaysUntilExpiration(vendor.documentExpirationDate);
+  const vendorId = slugVendorId(vendor.vendorName);
+  const baseTier = vendor.vendorName.includes("Azure Health") ? "CRITICAL" : vendor.riskTier;
+  const effectiveTier = riskOverrides[vendorId] ?? baseTier;
+  const evidenceLockerDocs =
+    vendor.contractStatus === "MANUAL INGEST" ? [] : (["SOC2", "INSURANCE"] as string[]);
+
+  return {
+    ...vendor,
+    vendorId,
+    riskTier: effectiveTier,
+    ale: effectiveTier === "CRITICAL" ? 160000 : effectiveTier === "HIGH" ? 80000 : 20000,
+    healthScore: calculateVendorGrade({
+      daysUntilSoc2Expiration: days,
+      evidenceLockerDocs,
+      hasActiveIndustryAlert: false,
+      hasActiveBreachAlert: vendor.vendorName === "Schneider Electric",
+      hasPendingVersioning: false,
+      hasStakeholderEscalation: false,
+      requiresManualReview: vendor.contractStatus === "MANUAL INGEST",
+    }),
+  };
+}
 
 // ==========================================
 // ++++ COMPONENT 1: Alerts Section      ++++
@@ -54,7 +141,29 @@ function ActiveNotificationSystem({ alerts, setAlerts, vendorGraph }: any) {
 // ++++ COMPONENT 2: Header & Actions    ++++
 // ==========================================
 
-function PageHeaderAndActions({ persona, setPersona, showRoi, setShowRoi, onZeroDayToggle, isZeroDayOpen }: any) {
+function PageHeaderAndActions({
+  persona,
+  setPersona,
+  showRoi,
+  setShowRoi,
+  onZeroDayToggle,
+  isZeroDayOpen,
+  onAutoTriage,
+  onActivityLog,
+  workflowActionsBlocked,
+  workflowBlockedMessage,
+}: {
+  persona: "CISO" | "CEO";
+  setPersona: (p: "CISO" | "CEO") => void;
+  showRoi: boolean;
+  setShowRoi: (v: boolean) => void;
+  onZeroDayToggle: () => void;
+  isZeroDayOpen: boolean;
+  onAutoTriage: () => void;
+  onActivityLog: () => void;
+  workflowActionsBlocked: boolean;
+  workflowBlockedMessage: string;
+}) {
   return (
     <div className="flex justify-between items-start mb-6 shrink-0">
       <div className="flex flex-col gap-4">
@@ -62,15 +171,29 @@ function PageHeaderAndActions({ persona, setPersona, showRoi, setShowRoi, onZero
           SUPPLY CHAIN // GLOBAL VENDOR INTELLIGENCE
         </h1>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 border border-slate-700 bg-slate-800/50 px-4 py-2 text-xs text-blue-300 uppercase tracking-wider rounded hover:bg-slate-800 transition-all font-normal">
+          <button
+            type="button"
+            onClick={onAutoTriage}
+            className="flex h-11 items-center gap-2 border border-slate-700 bg-slate-800/50 px-4 text-xs font-normal uppercase tracking-wider text-blue-300 rounded transition-all hover:bg-slate-800 hover:border-blue-500/60"
+          >
             <Zap size={14} /> AUTO-TRIAGE
           </button>
           {/* ROI CALC toggle with Amber text for disruption */}
-          <button onClick={() => setShowRoi(!showRoi)} className={`flex items-center gap-2 border px-4 py-2 text-xs uppercase tracking-wider rounded transition-all font-normal ${showRoi ? 'bg-amber-500 border-amber-400 text-white' : 'bg-slate-800/50 border-slate-700 text-amber-300 hover:bg-slate-800'}`}>
+          <button
+            type="button"
+            onClick={() => setShowRoi(!showRoi)}
+            className={`flex h-11 items-center gap-2 border px-4 text-xs font-normal uppercase tracking-wider rounded transition-all ${showRoi ? "bg-amber-500 border-amber-400 text-white" : "bg-slate-800/50 border-slate-700 text-amber-300 hover:bg-slate-800"}`}
+          >
             <BarChart3 size={14} /> ROI CALC
           </button>
           {/* Red Disruptor Button */}
-          <button onClick={onZeroDayToggle} className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest transition-all border ${isZeroDayOpen ? 'bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]' : 'border-red-500/50 text-red-500 hover:bg-red-500/10'}`}>
+          <button
+            type="button"
+            title={workflowActionsBlocked ? workflowBlockedMessage : undefined}
+            aria-disabled={workflowActionsBlocked}
+            onClick={onZeroDayToggle}
+            className={`h-11 px-4 rounded text-[10px] font-black uppercase tracking-widest transition-all border ${workflowActionsBlocked ? "cursor-not-allowed border-red-500/20 text-red-500/40 opacity-50" : isZeroDayOpen ? "bg-red-600 border-red-500 text-white shadow-[0_0_15px_rgba(220,38,38,0.4)]" : "border-red-500/50 text-red-500 hover:bg-red-500/10"}`}
+          >
             {isZeroDayOpen ? "TERMINAL ACTIVE" : "INITIATE ZERO-DAY SYNC"}
           </button>
         </div>
@@ -78,12 +201,25 @@ function PageHeaderAndActions({ persona, setPersona, showRoi, setShowRoi, onZero
 
       <div className="flex flex-col items-end gap-4">
         <div className="flex bg-slate-950 p-1 rounded border border-slate-800">
-          <button onClick={() => setPersona("CISO")} className={`px-4 py-1.5 text-xs transition-all font-normal ${persona === "CISO" ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>CISO VIEW</button>
-          <button onClick={() => setPersona("CEO")} className={`px-4 py-1.5 text-xs transition-all font-normal ${persona === "CEO" ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>CEO VIEW</button>
+          <button type="button" onClick={() => setPersona("CISO")} className={`h-11 px-4 text-xs font-normal transition-all ${persona === "CISO" ? "bg-blue-600 text-white" : "text-slate-500 hover:text-slate-300"}`}>CISO VIEW</button>
+          <button type="button" onClick={() => setPersona("CEO")} className={`h-11 px-4 text-xs font-normal transition-all ${persona === "CEO" ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-300"}`}>CEO VIEW</button>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 bg-slate-950 border border-slate-800 rounded text-[10px] uppercase tracking-wider text-slate-400 hover:text-white font-bold">ACTIVITY LOG</button>
-          <button className="px-4 py-2 bg-slate-950 border border-slate-800 rounded text-[10px] uppercase tracking-wider text-blue-400 font-bold">TABLE VIEW</button>
+          <button
+            type="button"
+            onClick={onActivityLog}
+            data-testid="vendors-activity-log"
+            className="h-11 px-4 bg-slate-950 border border-slate-800 rounded text-[10px] uppercase tracking-wider text-slate-400 hover:text-white hover:border-slate-600 font-bold transition-colors"
+          >
+            ACTIVITY LOG
+          </button>
+          <button
+            type="button"
+            aria-current="page"
+            className="h-11 px-4 bg-slate-950 border border-blue-500/60 rounded text-[10px] uppercase tracking-wider text-blue-400 font-bold"
+          >
+            TABLE VIEW
+          </button>
         </div>
       </div>
     </div>
@@ -207,8 +343,75 @@ function ZeroDayPanel({ isOpen, onClose, onExecute }: any) {
 // ++++ COMPONENT 5: Vendor Table Grid   ++++
 // ==========================================
 
-function VendorTable({ filteredVendors, quarantinedIds, handleQuarantine, persona, showRoi, grcDateFilter, getDynamicStatus }: any) {
+function VendorTable({
+  filteredVendors,
+  quarantinedIds,
+  handleQuarantine,
+  onWorkflowAction,
+  workflowActionsBlocked,
+  workflowBlockedMessage,
+  onPilotWorkflowBlocked,
+  persona,
+  showRoi,
+  grcDateFilter,
+  getDynamicStatus,
+}: {
+  filteredVendors: VendorRow[];
+  quarantinedIds: Set<string>;
+  handleQuarantine: (vendorId: string, vendorName: string) => void;
+  onWorkflowAction: (action: VendorWorkflowAction, vendor: VendorRow) => void;
+  workflowActionsBlocked: boolean;
+  workflowBlockedMessage: string;
+  onPilotWorkflowBlocked: () => void;
+  persona: "CISO" | "CEO";
+  showRoi: boolean;
+  grcDateFilter: string;
+  getDynamicStatus: (filter: string) => string;
+}) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenuId]);
+
+  const runWorkflowAction = (action: VendorWorkflowAction, vendor: VendorRow) => {
+    if (workflowActionsBlocked) {
+      onPilotWorkflowBlocked();
+      return;
+    }
+    onWorkflowAction(action, vendor);
+    setOpenMenuId(null);
+  };
+
+  const handleMenuToggle = (vendorId: string, isMenuOpen: boolean) => {
+    setOpenMenuId(isMenuOpen ? null : vendorId);
+  };
+
+  const menuItemClass = (toneClass: string, withBorder = false) =>
+    [
+      "min-h-11 w-full px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest",
+      withBorder ? "border-t border-slate-800" : "",
+      workflowActionsBlocked
+        ? "cursor-not-allowed text-slate-500 opacity-60"
+        : `${toneClass} hover:bg-slate-800`,
+    ].join(" ");
 
   const getPayloadLabel = (tier: string) => {
     if (tier === 'CRITICAL') return "PHI / PII";
@@ -230,7 +433,7 @@ function VendorTable({ filteredVendors, quarantinedIds, handleQuarantine, person
         <p>{persona === "CEO" || showRoi ? "PROJ. LOSS" : "RATING"}</p><p>STATUS</p><p>COUNTDOWN</p><p className="text-blue-300">LOCKER</p><p className="text-right">ACTIONS</p>
       </div>
       <div className="divide-y divide-slate-800/50 pb-32">
-        {filteredVendors.map((vendor: any) => {
+        {filteredVendors.map((vendor) => {
           const isQuarantined = quarantinedIds.has(vendor.vendorId);
           const isMenuOpen = openMenuId === vendor.vendorId;
           return (
@@ -246,17 +449,39 @@ function VendorTable({ filteredVendors, quarantinedIds, handleQuarantine, person
               <p className={`text-[10px] uppercase font-bold tracking-widest ${isQuarantined ? 'text-rose-400' : 'text-slate-400'}`}>{isQuarantined ? "QUARANTINED" : getDynamicStatus(grcDateFilter)}</p>
               <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">72 DAYS</p>
               <div>{renderLockerBadge(vendor.healthScore.grade, isQuarantined)}</div>
-              <div className="text-right flex items-center justify-end gap-1 relative">
-                <button onClick={() => handleQuarantine(vendor.vendorId, vendor.vendorName)} className={`p-1.5 rounded border ${isQuarantined ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'text-slate-500 border-transparent hover:text-rose-400'}`}><ShieldX size={14} /></button>
-                <button onClick={() => setOpenMenuId(isMenuOpen ? null : vendor.vendorId)} className={`p-1.5 rounded ${isMenuOpen ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-800'}`}><MoreVertical size={14}/></button>
+              <div ref={isMenuOpen ? menuRef : undefined} className="text-right flex items-center justify-end gap-1 relative">
+                <button
+                  type="button"
+                  title={isQuarantined ? "Release quarantine (demonstration)" : "Quarantine vendor (demonstration)"}
+                  onClick={() => handleQuarantine(vendor.vendorId, vendor.vendorName)}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded border ${isQuarantined ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'text-slate-500 border-transparent hover:text-rose-400'}`}
+                >
+                  <ShieldX size={14} />
+                </button>
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={isMenuOpen}
+                  aria-label={`Workflow actions for ${vendor.vendorName}`}
+                  title="Workflow actions"
+                  onClick={() => handleMenuToggle(vendor.vendorId, isMenuOpen)}
+                  className={`inline-flex h-11 w-11 items-center justify-center rounded ${isMenuOpen ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-800'}`}
+                >
+                  <MoreVertical size={14}/>
+                </button>
                 {isMenuOpen && (
-                  <div className="absolute top-8 right-0 w-52 bg-slate-900 border border-slate-700 rounded-md shadow-2xl z-50 overflow-hidden flex flex-col text-left">
+                  <div role="menu" className="absolute top-12 right-0 w-60 bg-slate-900 border border-slate-700 rounded-md shadow-2xl z-50 overflow-hidden flex flex-col text-left">
                     <div className="px-3 py-2 border-b border-slate-800 bg-slate-950 font-black text-[9px] tracking-widest text-slate-500 uppercase">WORKFLOW ACTIONS</div>
-                    <button className="px-4 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-800 text-left uppercase tracking-widest">Request SOC2 Update</button>
-                    <button className="px-4 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-800 text-left uppercase tracking-widest border-t border-slate-800">Initiate Bulk RFI</button>
-                    <button className="px-4 py-2 text-[10px] font-bold text-slate-300 hover:bg-slate-800 text-left uppercase tracking-widest border-t border-slate-800">View 4th-Party Graph</button>
-                    <button className="px-4 py-2 text-[10px] font-bold text-blue-400 hover:bg-slate-800 text-left uppercase tracking-widest border-t border-slate-800">Switch to Map View</button>
-                    <button className="px-4 py-2 text-[10px] font-black text-amber-400 hover:bg-slate-800 text-left uppercase tracking-widest border-t border-slate-800">Override Risk Score</button>
+                    {workflowActionsBlocked ? (
+                      <p className="border-b border-amber-500/25 bg-amber-950/20 px-3 py-2 text-[9px] leading-snug text-amber-200/90">
+                        Seed registry preview — select an action to see why it is disabled until billing is ACTIVE.
+                      </p>
+                    ) : null}
+                    <button type="button" role="menuitem" aria-disabled={workflowActionsBlocked} title={workflowActionsBlocked ? workflowBlockedMessage : undefined} onClick={() => runWorkflowAction("soc2-update", vendor)} className={menuItemClass("text-slate-300")}>Request SOC2 Update</button>
+                    <button type="button" role="menuitem" aria-disabled={workflowActionsBlocked} title={workflowActionsBlocked ? workflowBlockedMessage : undefined} onClick={() => runWorkflowAction("bulk-rfi", vendor)} className={menuItemClass("text-slate-300", true)}>Initiate Bulk RFI</button>
+                    <button type="button" role="menuitem" aria-disabled={workflowActionsBlocked} title={workflowActionsBlocked ? workflowBlockedMessage : undefined} onClick={() => runWorkflowAction("fourth-party-graph", vendor)} className={menuItemClass("text-slate-300", true)}>View 4th-Party Graph</button>
+                    <button type="button" role="menuitem" aria-disabled={workflowActionsBlocked} title={workflowActionsBlocked ? workflowBlockedMessage : undefined} onClick={() => runWorkflowAction("map-view", vendor)} className={menuItemClass("text-blue-400", true)}>Switch to Map View</button>
+                    <button type="button" role="menuitem" aria-disabled={workflowActionsBlocked} title={workflowActionsBlocked ? workflowBlockedMessage : undefined} onClick={() => runWorkflowAction("override-risk", vendor)} className={menuItemClass("text-amber-400 font-black", true)}>Override Risk Score</button>
                   </div>
                 )}
               </div>
@@ -273,6 +498,17 @@ function VendorTable({ filteredVendors, quarantinedIds, handleQuarantine, person
 // ==========================================
 
 export default function VendorsOverviewPage() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "/";
+  const hostTenantSlug = useHostTenantSlug();
+  const routes = useMemo(
+    () => buildHeaderRouteMatrix(pathname, hostTenantSlug),
+    [pathname, hostTenantSlug],
+  );
+  const vendorsBase = routes.prefix ? `${routes.prefix}/vendors` : "/vendors";
+  const { generalRfiChecklist, vendorDocumentUpdateTemplate, socDepartmentEmail, vendorTypeRequirements } =
+    useSystemConfigStore();
+  const { suppressed: workflowActionsBlocked, workflowBlockedMessage } = usePilotStubExportGate();
   const [isMounted, setIsMounted] = useState(false);
   const [persona, setPersona] = useState<"CISO" | "CEO">("CISO"); 
   const [showRoi, setShowRoi] = useState(false);
@@ -281,29 +517,50 @@ export default function VendorsOverviewPage() {
   const [grcDateFilter, setGrcDateFilter] = useState("ALL"); 
   const [riskFilter, setRiskFilter] = useState<"ALL" | "CRITICAL" | "HIGH" | "MED" | "LOW">("ALL");
   const [quarantinedIds, setQuarantinedIds] = useState<Set<string>>(new Set());
+  const [riskOverrides, setRiskOverrides] = useState<Record<string, RiskTier>>({});
   const [isZeroDayOpen, setIsZeroDayOpen] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [rfiVendor, setRfiVendor] = useState<VendorRow | null>(null);
+  const [overrideVendor, setOverrideVendor] = useState<VendorRow | null>(null);
+  const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  const [ingestedVendors, setIngestedVendors] = useState<VendorRecord[]>([]);
+
+  const tenantEntity = useMemo(
+    () => tenantEntityLabelFromSlug(hostTenantSlug),
+    [hostTenantSlug],
+  );
+
+  const showPilotWorkflowBlocked = () => setWorkflowNotice(workflowBlockedMessage);
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  const vendorGraph = useMemo(() => {
+  useEffect(() => {
+    if (!isMounted) return;
+    setIngestedVendors(loadSessionIngestedVendors(hostTenantSlug));
+  }, [isMounted, hostTenantSlug]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    saveSessionIngestedVendors(hostTenantSlug, ingestedVendors);
+  }, [ingestedVendors, hostTenantSlug, isMounted]);
+
+  useEffect(() => {
+    const handleOpenAddVendor = () => setIsAddVendorOpen(true);
+    window.addEventListener("vendors:open-add-vendor", handleOpenAddVendor);
+    return () => window.removeEventListener("vendors:open-add-vendor", handleOpenAddVendor);
+  }, []);
+
+  const vendorGraph = useMemo((): VendorRow[] => {
     if (!isMounted) return [];
-    return MASTER_VENDORS.map(v => {
-      const days = getDaysUntilExpiration(v.documentExpirationDate);
-      const effectiveTier = v.vendorName.includes("Azure Health") ? "CRITICAL" : v.riskTier;
-      return {
-        ...v,
-        vendorId: v.vendorName.toLowerCase().replace(/\s+/g, "-"),
-        riskTier: effectiveTier,
-        ale: effectiveTier === "CRITICAL" ? 160000 : effectiveTier === "HIGH" ? 80000 : 20000,
-        healthScore: calculateVendorGrade({ 
-          daysUntilSoc2Expiration: days, evidenceLockerDocs: ["SOC2", "INSURANCE"], 
-          hasActiveIndustryAlert: false, hasActiveBreachAlert: v.vendorName === "Schneider Electric",
-          hasPendingVersioning: false, hasStakeholderEscalation: false, requiresManualReview: false
-        })
-      };
+
+    const registry = [...MASTER_VENDORS, ...ingestedVendors].filter((vendor) => {
+      if (!hostTenantSlug) return true;
+      return vendor.associatedEntity.toUpperCase() === tenantEntity;
     });
-  }, [isMounted]);
+
+    return registry.map((vendor) => mapVendorToRow(vendor, riskOverrides));
+  }, [isMounted, riskOverrides, ingestedVendors, hostTenantSlug, tenantEntity]);
 
   // DYNAMIC CHIP COUNTS (Fixed)
   const counts = useMemo(() => {
@@ -316,22 +573,138 @@ export default function VendorsOverviewPage() {
   }, [vendorGraph]);
 
   const handleZeroDayExecute = (cve: string) => {
-    const newAlert = { id: `cve-${Date.now()}`, vendorName: "SYSTEM REGISTRY", documentType: `THREAT DETECTED: ${cve}`, source: "ZeroDayAgent", discoveredAt: new Date().toISOString() };
-    setAlerts(prev => [newAlert, ...prev]);
+    if (workflowActionsBlocked) {
+      showPilotWorkflowBlocked();
+      return;
+    }
+    const newAlert = {
+      id: createMonitoringAlertId("cve"),
+      vendorName: "SYSTEM REGISTRY",
+      documentType: `THREAT DETECTED: ${cve}`,
+      source: "ZeroDayAgent",
+      discoveredAt: new Date().toISOString(),
+    };
+    setAlerts((prev) => [newAlert, ...prev]);
     setIsZeroDayOpen(false);
     alert(`🚀 ZERO-DAY AGENT ACTIVE\n\nScanning registry for ${cve}.\nNotifying: [CISO], [VP_INFRA], [LEGAL]`);
   };
 
   const handleQuarantine = (vendorId: string, vendorName: string) => {
-    setQuarantinedIds(prev => {
+    let shouldCreateAlert = false;
+    setQuarantinedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(vendorId)) next.delete(vendorId);
-      else {
+      if (next.has(vendorId)) {
+        next.delete(vendorId);
+        shouldCreateAlert = false;
+      } else {
         next.add(vendorId);
-        setAlerts(a => [{ id: `q-${Date.now()}`, vendorName, documentType: "QUARANTINE_PROTOCOL", source: "AgentManager", discoveredAt: new Date().toISOString() }, ...a]);
+        shouldCreateAlert = true;
       }
       return next;
     });
+    if (shouldCreateAlert) {
+      setAlerts((prev) => [
+        {
+          id: createMonitoringAlertId("q", vendorId),
+          vendorName,
+          documentType: "QUARANTINE_PROTOCOL",
+          source: "AgentManager",
+          discoveredAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    }
+  };
+
+  const queuePermissionAlert = (vendorName: string, documentType: string, source: string, idPrefix: string, vendorId?: string) => {
+    setAlerts((prev) => [
+      {
+        id: createMonitoringAlertId(idPrefix, vendorId),
+        vendorName,
+        documentType,
+        source,
+        discoveredAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const handleWorkflowAction = (action: VendorWorkflowAction, vendor: VendorRow) => {
+    if (workflowActionsBlocked) {
+      showPilotWorkflowBlocked();
+      return;
+    }
+    switch (action) {
+      case "soc2-update": {
+        const vendorEmail = vendorContactEmail(vendor.vendorName);
+        const subject = `SOC 2 Evidence Update Request // ${vendor.vendorName}`;
+        const body = vendorDocumentUpdateTemplate;
+        const mailto = `mailto:${encodeURIComponent(vendorEmail)}?cc=${encodeURIComponent(socDepartmentEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.open(mailto, "_blank");
+        queuePermissionAlert(vendor.vendorName, "SOC2_RENEWAL_REQUEST", "CadenceManager", "soc2", vendor.vendorId);
+        break;
+      }
+      case "bulk-rfi":
+        setRfiVendor(vendor);
+        break;
+      case "fourth-party-graph":
+        router.push(`${vendorsBase}/supply-chain?vendor=${encodeURIComponent(vendor.vendorId)}`);
+        break;
+      case "map-view":
+        router.push(`${vendorsBase}/supply-chain`);
+        break;
+      case "override-risk":
+        setOverrideVendor(vendor);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleRiskOverrideSubmit = (nextTier: RiskTier, justification: string) => {
+    if (!overrideVendor) return;
+
+    setRiskOverrides((prev) => ({ ...prev, [overrideVendor.vendorId]: nextTier }));
+    queuePermissionAlert(
+      overrideVendor.vendorName,
+      `RISK_OVERRIDE: ${overrideVendor.riskTier} -> ${nextTier} | ${justification}`,
+      "GovernanceBoard",
+      "risk",
+      overrideVendor.vendorId,
+    );
+    setOverrideVendor(null);
+  };
+
+  const handleAutoTriage = () => {
+    setAlerts((prev) =>
+      prev.filter((alert) => {
+        const tier =
+          vendorGraph.find((row) => row.vendorName === alert.vendorName)?.riskTier ?? "LOW";
+        return tier === "CRITICAL" || tier === "HIGH";
+      }),
+    );
+  };
+
+  const handleActivityLog = () => {
+    router.push("/reports/audit-trail");
+  };
+
+  const handleAddVendorSubmit = (payload: AddVendorSubmission) => {
+    const record = buildIngestedVendorRecord(payload, tenantEntity);
+    setIngestedVendors((prev) => {
+      const vendorId = slugVendorId(record.vendorName);
+      const withoutDuplicate = prev.filter((row) => slugVendorId(row.vendorName) !== vendorId);
+      return [record, ...withoutDuplicate];
+    });
+    queuePermissionAlert(
+      payload.vendorName,
+      "VENDOR_MANUAL_INGEST",
+      "AgentManager",
+      "ingest",
+      slugVendorId(payload.vendorName),
+    );
+    setWorkflowNotice(`${payload.vendorName} added to the ${tenantEntity} vendor registry.`);
+    setIsAddVendorOpen(false);
   };
 
   if (!isMounted) return <div className="h-screen bg-slate-950" />;
@@ -342,15 +715,99 @@ export default function VendorsOverviewPage() {
 
   return (
     <div className="h-screen bg-slate-950 font-sans text-slate-200 flex flex-col overflow-hidden">
+      <div className="px-6 pt-4">
+        <PilotSurfaceBanner
+          compact
+          detail={workflowActionsBlocked ? VENDORS_PILOT_SURFACE_DETAIL : undefined}
+        />
+      </div>
       <div className="px-6 pb-6 flex flex-col flex-1 overflow-hidden relative">
         <ActiveNotificationSystem alerts={alerts} setAlerts={setAlerts} vendorGraph={vendorGraph} />
         <div className="border border-slate-800 bg-slate-900/40 rounded-lg p-6 flex flex-col flex-1 min-h-0">
-          <PageHeaderAndActions persona={persona} setPersona={setPersona} showRoi={showRoi} setShowRoi={setShowRoi} onZeroDayToggle={() => setIsZeroDayOpen(!isZeroDayOpen)} isZeroDayOpen={isZeroDayOpen} />
+          <PageHeaderAndActions
+            persona={persona}
+            setPersona={setPersona}
+            showRoi={showRoi}
+            setShowRoi={setShowRoi}
+            onZeroDayToggle={() => {
+              if (workflowActionsBlocked) {
+                showPilotWorkflowBlocked();
+                return;
+              }
+              setIsZeroDayOpen(!isZeroDayOpen);
+            }}
+            isZeroDayOpen={isZeroDayOpen}
+            onAutoTriage={handleAutoTriage}
+            onActivityLog={handleActivityLog}
+            workflowActionsBlocked={workflowActionsBlocked}
+            workflowBlockedMessage={workflowBlockedMessage}
+          />
           <ZeroDayPanel isOpen={isZeroDayOpen} onClose={() => setIsZeroDayOpen(false)} onExecute={handleZeroDayExecute} />
           <FilterControls searchQuery={searchQuery} setSearchQuery={setSearchQuery} grcContext={grcContext} setGrcContext={setGrcContext} grcDateFilter={grcDateFilter} setGrcDateFilter={setGrcDateFilter} riskFilter={riskFilter} setRiskFilter={setRiskFilter} counts={counts} />
-          <VendorTable filteredVendors={filteredVendors} quarantinedIds={quarantinedIds} handleQuarantine={handleQuarantine} persona={persona} showRoi={showRoi} grcDateFilter={grcDateFilter} getDynamicStatus={(d:any) => d === "EXPIRED" ? "IMMEDIATE ACTION" : "VIOLATION DETECTED"} />
+          <VendorTable
+            filteredVendors={filteredVendors}
+            quarantinedIds={quarantinedIds}
+            handleQuarantine={handleQuarantine}
+            onWorkflowAction={handleWorkflowAction}
+            workflowActionsBlocked={workflowActionsBlocked}
+            workflowBlockedMessage={workflowBlockedMessage}
+            onPilotWorkflowBlocked={showPilotWorkflowBlocked}
+            persona={persona}
+            showRoi={showRoi}
+            grcDateFilter={grcDateFilter}
+            getDynamicStatus={(d) => (d === "EXPIRED" ? "IMMEDIATE ACTION" : "VIOLATION DETECTED")}
+          />
         </div>
       </div>
+
+      {workflowNotice ? (
+        <div
+          className="fixed bottom-4 right-4 z-[60] max-w-sm rounded-lg border border-amber-500/40 bg-amber-950/90 px-4 py-3 font-mono text-[11px] leading-relaxed text-amber-100 shadow-lg"
+          role="alert"
+        >
+          <p>{workflowNotice}</p>
+          <button
+            type="button"
+            onClick={() => setWorkflowNotice(null)}
+            className="mt-2 inline-flex h-11 items-center rounded border border-amber-500/50 px-3 text-[10px] font-bold uppercase tracking-wider text-amber-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
+      {rfiVendor ? (
+        <RFITemplate
+          isOpen
+          vendorName={rfiVendor.vendorName}
+          vendorEmail={vendorContactEmail(rfiVendor.vendorName)}
+          internalStakeholderEmail={socDepartmentEmail}
+          checklistItems={generalRfiChecklist}
+          onClose={() => setRfiVendor(null)}
+          onGenerate={() => {
+            queuePermissionAlert(rfiVendor.vendorName, "GENERAL_RFI_DISPATCHED", "AgentManager", "rfi", rfiVendor.vendorId);
+            setRfiVendor(null);
+          }}
+        />
+      ) : null}
+
+      {overrideVendor ? (
+        <VendorRiskOverrideModal
+          vendorName={overrideVendor.vendorName}
+          currentTier={overrideVendor.riskTier}
+          onClose={() => setOverrideVendor(null)}
+          onSubmit={handleRiskOverrideSubmit}
+        />
+      ) : null}
+
+      {isAddVendorOpen ? (
+        <AddVendorModal
+          isOpen={isAddVendorOpen}
+          onClose={() => setIsAddVendorOpen(false)}
+          onSubmit={handleAddVendorSubmit}
+          vendorTypeRequirements={vendorTypeRequirements}
+        />
+      ) : null}
     </div>
   );
 }

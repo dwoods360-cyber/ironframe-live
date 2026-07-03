@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { SALES_CONTACT_PATH } from "@/config/registration";
+
+import { GOVERNANCE_FRAME_PUBLIC_ORIGIN } from "@/config/governanceFramePublic";
+
+import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
+import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
+import PublicApexNav from "./PublicApexNav";
 
 const REGULATORY_BRIEFS = [
   {
@@ -37,32 +42,37 @@ export default function MarketingHomepage() {
       data-ironframe-surface="public-landing"
       aria-labelledby="homepage-hero-title"
     >
+      <PublicApexNav />
+
       <nav
-        className="sticky top-0 z-50 flex w-full items-center justify-between border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-6 py-4"
-        aria-label="Global execution navigation"
+        className="flex min-h-11 w-full items-center justify-center gap-6 border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--login-muted)] sm:gap-8 sm:px-6"
+        aria-label="Product sections"
       >
-        <p className="font-mono text-xl font-bold tracking-tight" aria-label="Ironframe Governance Risk and Compliance">
-          <span aria-hidden="true">
-            IRONFRAME<span className="ml-1 text-xs text-[var(--login-accent)]">GRC</span>
-          </span>
-        </p>
-        <div className="hidden space-x-8 text-sm font-medium text-[var(--login-muted)] md:ml-auto md:flex" role="list">
-          <a href="#problem" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
-            The Problem
-          </a>
-          <a href="#solution" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
-            The Solution
-          </a>
-          <a href="#pulse" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
-            GRC Pulse
-          </a>
-          <a href="#workforce" className="transition-colors hover:text-[var(--text-main)]" role="listitem">
-            19-Agent Grid
-          </a>
-        </div>
+        <a href="#problem" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          The Problem
+        </a>
+        <a href="#solution" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          The Solution
+        </a>
+        <a href="#pulse" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          GRC Pulse
+        </a>
+        <a href="#workforce" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          19-Agent Grid
+        </a>
       </nav>
 
-      <header className="mx-auto max-w-6xl space-y-6 px-6 pt-20 pb-16 text-center">
+      <div className="flex flex-col items-center px-4 pt-8 sm:px-6">
+        <MarketingAnimatedLogo className="h-28 w-28 sm:h-36 sm:w-36" />
+        <p className="mt-3 font-mono text-sm font-black tracking-widest text-[var(--text-main)] sm:text-base">
+          IRONFRAME CORE
+        </p>
+        <p className="mt-2 text-center font-mono text-[10px] font-semibold uppercase tracking-wide text-[var(--login-muted)] sm:text-xs">
+          New York - Tel Aviv - London - San Francisco - Seattle
+        </p>
+      </div>
+
+      <header className="mx-auto max-w-6xl space-y-6 px-6 pt-8 pb-16 text-center">
         <div
           className="inline-flex items-center space-x-2 rounded-full border border-[var(--login-accent)]/20 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-xs text-[var(--login-accent)]"
           role="status"
@@ -85,18 +95,20 @@ export default function MarketingHomepage() {
           {SECTOR_CUES.join(" · ")} — each workspace ring-fenced at{" "}
           <span className="text-[var(--login-accent)]">tenant.ironframegrc.com</span>
         </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
-          <Link
-            href={SALES_CONTACT_PATH}
-            className="w-full rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition-all hover:opacity-90 sm:w-auto"
-          >
-            Request demo: Contact sales
-          </Link>
+        <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <MarketingSalesPortalTrigger className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase shadow-lg shadow-indigo-950/40 transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto">
+            Request Demo: Contact Sales
+          </MarketingSalesPortalTrigger>
           <a
-            href="#pulse"
-            className="w-full rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm font-medium text-[var(--text-main)] transition-all hover:opacity-90 sm:w-auto"
+            href={GOVERNANCE_FRAME_PUBLIC_ORIGIN}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
           >
             Explore the GRC Pulse
+            <span className="ml-1.5" aria-hidden="true">
+              →
+            </span>
           </a>
         </div>
       </header>
@@ -257,7 +269,7 @@ export default function MarketingHomepage() {
             aria-labelledby="pulse-sidebar-heading"
           >
             <h4 id="pulse-sidebar-heading" className="sr-only">
-              System telemetry sidebar
+              Operational telemetry sidebar
             </h4>
             <div>
               <h5 className="mb-3 font-mono text-xs tracking-wider text-[var(--login-muted)] uppercase">

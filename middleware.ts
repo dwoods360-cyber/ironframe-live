@@ -1,15 +1,19 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { updateSession } from "@/lib/supabase/middleware";
+import { updateSession, withPathnameRequestHeaders } from "@/lib/supabase/middleware";
 import { assertTenantAccess } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { IRONTECH_STALE_LOCKDOWN_MESSAGE } from "@/app/config/sustainabilityStaleLockdown";
 import {
   buildDeploymentQuarantineResponse,
+  isStripeWebhookIngressPath,
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
-import { isAuthPublicPath, isPublicProspectOnboardingPath } from "@/app/utils/grcRouteMatch";
+import { isAuthPublicPath, isPublicCloudIngressPath, isPublicRoute } from "@/app/utils/grcRouteMatch";
+import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
+import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
+import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -44,9 +48,13 @@ function middlewareSimulationBypass(request: NextRequest): boolean {
 
 function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/cron/")) return true;
+  if (pathname === "/api/internal/platform-admin-gate") return true;
+  if (pathname === "/api/internal/tenant-slug-resolve") return true;
   if (pathname === "/api/cron/narrate") return true;
+  if (pathname === "/api/documentation/execute") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
+  if (isStripeWebhookIngressPath(pathname)) return true;
   return false;
 }
 
@@ -117,8 +125,7 @@ function quarantineMiddlewareBypassPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/operational-freeze-status")) return true;
   if (pathname.startsWith("/api/internal/stale-lockdown-status")) return true;
   if (pathname.startsWith("/api/internal/ironguard-violation")) return true;
-  if (pathname.startsWith("/api/auth/callback")) return true;
-  if (isAuthPublicPath(pathname)) return true;
+  if (isPublicCloudIngressPath(pathname)) return true;
   if (internalTokenGatedApiPath(pathname)) return true;
   return false;
 }
@@ -158,11 +165,57 @@ function mergeSupabaseCookies(source: NextResponse, target: NextResponse): NextR
   return target;
 }
 
+async function assertGlobalAdminForOnboarding(
+  request: NextRequest,
+  user: { id: string; email?: string | null },
+  supabaseResponse: NextResponse,
+): Promise<NextResponse | null> {
+  const secret =
+    process.env.IRONFRAME_INTERNAL_GATES_SECRET?.trim() ||
+    process.env.IRONFRAME_CRON_SECRET?.trim();
+  if (!secret) {
+    const denied = NextResponse.redirect(new URL("/unauthorized", request.url));
+    return mergeSupabaseCookies(supabaseResponse, denied);
+  }
+
+  const gateUrl = new URL("/api/internal/platform-admin-gate", request.url);
+  gateUrl.searchParams.set("userId", user.id);
+  if (user.email?.trim()) gateUrl.searchParams.set("email", user.email.trim());
+
+  try {
+    const gateResponse = await fetch(gateUrl.toString(), {
+      headers: { "x-ironframe-internal-gates": secret },
+      cache: "no-store",
+    });
+    if (!gateResponse.ok) {
+      const denied = NextResponse.redirect(new URL("/unauthorized", request.url));
+      return mergeSupabaseCookies(supabaseResponse, denied);
+    }
+    const payload = (await gateResponse.json()) as { allowed?: boolean };
+    if (payload.allowed !== true) {
+      const denied = NextResponse.redirect(new URL("/unauthorized", request.url));
+      return mergeSupabaseCookies(supabaseResponse, denied);
+    }
+    return null;
+  } catch {
+    const denied = NextResponse.redirect(new URL("/unauthorized", request.url));
+    return mergeSupabaseCookies(supabaseResponse, denied);
+  }
+}
+
 function redirectWithSupabaseCookies(
+  request: NextRequest,
   supabaseResponse: NextResponse,
   url: URL,
 ): NextResponse {
   return mergeSupabaseCookies(supabaseResponse, NextResponse.redirect(url));
+}
+
+async function finalizeMiddlewareResponse(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse> {
+  return applySubdomainTenancy(request, response);
 }
 
 /**
@@ -185,21 +238,47 @@ export async function middleware(request: NextRequest) {
   // ==========================================
   // 2. SUPABASE SESSION + PLATFORM GATES
   // ==========================================
-  const supabaseResponse = await updateSession(request);
+  const pathnameRequestHeaders = withPathnameRequestHeaders(request.headers, pathname);
+  const supabaseResponse = await updateSession(request, pathnameRequestHeaders);
+
+  const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
+  const isSessionBootstrapRoute = pathname.startsWith("/api/auth/session-bootstrap");
+
+  // Workspace activation: never exchange auth codes or session tokens on apex localhost.
+  if (isAuthCallbackRoute && request.nextUrl.searchParams.get("code")) {
+    const tenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    const hostSlug = tenantSlugFromHost(request.headers.get("host"));
+    if (tenantSlug && hostSlug !== tenantSlug) {
+      const corrected = new URL(
+        `${request.nextUrl.pathname}${request.nextUrl.search}`,
+        buildTenantSubdomainOrigin(tenantSlug),
+      );
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, corrected));
+    }
+  }
+  if (isSessionBootstrapRoute) {
+    const tenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    const hostSlug = tenantSlugFromHost(request.headers.get("host"));
+    if (tenantSlug && hostSlug !== tenantSlug) {
+      const corrected = new URL(
+        `${request.nextUrl.pathname}${request.nextUrl.search}`,
+        buildTenantSubdomainOrigin(tenantSlug),
+      );
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, corrected));
+    }
+  }
 
   const isLoginRoute = pathname === "/login";
   const isIntegrityRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isUnauthorizedRoute = pathname === "/unauthorized";
   const isResetPasswordRoute = pathname === "/reset-password";
-  const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
   const isAuthPublicRoute =
     isLoginRoute ||
     isForgotPasswordRoute ||
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
     isAuthCallbackRoute;
-  const isPublicHomeRoute = pathname === "/";
   /** Static documentation hub ? public read + protocol download (no tenant scope). */
   const isPublicDocsRoute =
     pathname === "/docs" ||
@@ -344,7 +423,7 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!supabaseUrl || !supabaseAnon) {
-    return supabaseResponse;
+    return await finalizeMiddlewareResponse(request, supabaseResponse);
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnon, {
@@ -369,49 +448,76 @@ export async function middleware(request: NextRequest) {
   // RULE A: Unauthenticated users targeting internal telemetry grids ? /login
   if (!user && isIntegrityRoute) {
     const loginUrl = new URL("/login", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
-  // RULE B: Authenticated users on /login ? Integrity Hub
+  const hostSlugForAuth = tenantSlugFromHost(request.headers.get("host"));
+
+  // Tenant workspace hosts: never render Command Post for guests on `/`.
+  if (!user && hostSlugForAuth && pathname === "/") {
+    const loginUrl = new URL("/login", request.url);
+    return await finalizeMiddlewareResponse(
+      request,
+      redirectWithSupabaseCookies(request, supabaseResponse, loginUrl),
+    );
+  }
+
+  // RULE B: Authenticated users on /login → Command Post (tenant host) or Integrity Hub (apex).
+  // Apex corporate workspace routing uses RBAC on the server — not stale user_metadata.tenant_slug.
   if (user && isLoginRoute) {
-    const integrityUrl = new URL("/integrity", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+    const inviteToken = request.nextUrl.searchParams.get("invite")?.trim();
+    if (!inviteToken) {
+      const landingPath = hostSlugForAuth ? "/" : "/integrity";
+      const landingUrl = new URL(landingPath, request.url);
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, landingUrl));
+    }
   }
 
   if (!user && !isAuthPublicRoute) {
-    if (isPublicDocsRoute || isPublicHomeRoute || isBoardSharedContextRoute || isPublicProspectOnboardingPath(pathname)) {
-      return supabaseResponse;
+    if (
+      isPublicCloudIngressPath(pathname) ||
+      isPublicRoute(pathname) ||
+      isPublicDocsRoute ||
+      isBoardSharedContextRoute
+    ) {
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     // Cron endpoints are token-gated in their own route handlers.
     // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
     if (internalTokenGatedApiPath(pathname)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
 
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     /** Server Actions: let RSC handle auth ? redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
     if (isNextServerActionPost(request)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";
-    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
   if (user && isForgotPasswordRoute) {
     const integrityUrl = new URL("/integrity", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, integrityUrl));
   }
 
   if (user && isUnauthorizedRoute) {
-    return supabaseResponse;
+    return await finalizeMiddlewareResponse(request, supabaseResponse);
   }
 
-  return supabaseResponse;
+  // RULE A0: GLOBAL_ADMIN gate for internal onboarding console
+  if (user && isAdminOnboardingPath(pathname)) {
+    const denied = await assertGlobalAdminForOnboarding(request, user, supabaseResponse);
+    if (denied) return denied;
+  }
+
+  return await finalizeMiddlewareResponse(request, supabaseResponse);
 }
 
 export const config = {

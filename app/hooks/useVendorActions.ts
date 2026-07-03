@@ -14,7 +14,7 @@ type DocumentGapContext = {
   soc2ExpirationDate: string;
   evidenceLockerDocs: string[];
   vendorType: VendorType;
-  industry?: "Healthcare" | "Finance" | "Energy";
+  industry?: import("@/app/vendors/schema").Industry;
 };
 
 export function useVendorActions(stakeholders: CompanyStakeholder[], vendorTypeRequirements: VendorTypeRequirements) {

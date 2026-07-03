@@ -24,6 +24,7 @@ import { ironguardFetch } from "@/app/utils/apiClient";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
+import { useHostTenantUuidServerSnapshot } from "@/app/context/HostTenantSlugContext";
 import { devTenantHandshakeAle, devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
 
 type TenantContextValue = {
@@ -60,6 +61,7 @@ function snapshotIronframeTenantUuid(): string | null {
 export function TenantProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hostTenantSlug = useHostTenantSlug();
+  const hostTenantUuidFromServer = useHostTenantUuidServerSnapshot();
   const [devTenantOverride, setDevTenantOverrideState] = useState<TenantKey | null>(null);
 
   /** Dev Tenant Switcher (`ironframe-tenant` cookie) — Medshield UUID `5c420f5a-…` when that tenant is selected (see `TENANT_UUIDS`). */
@@ -70,7 +72,10 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   );
 
   const routeTenantKey = detectTenantFromPath(pathname);
-  const hostUuid = hostTenantSlug ? TENANT_UUIDS[hostTenantSlug as TenantKey] : null;
+  const hostUuid =
+    hostTenantUuidFromServer ??
+    (hostTenantSlug ? TENANT_UUIDS[hostTenantSlug as TenantKey] : null) ??
+    null;
   const routeUuid = routeTenantKey ? TENANT_UUIDS[routeTenantKey] : null;
   const devUuid =
     process.env.NODE_ENV === "development" && devTenantOverride ? TENANT_UUIDS[devTenantOverride] : null;
@@ -155,20 +160,18 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<TenantContextValue>(() => {
     const tenantFetch: TenantContextValue["tenantFetch"] = async (input, init = {}, targetTenantUuid) => {
-      const requestedTenantUuid = targetTenantUuid ?? activeTenantUuid ?? "";
+      const explicitTarget = targetTenantUuid?.trim() ?? "";
+      const scopeUuid = explicitTarget || activeTenantUuid?.trim() || "";
 
-      if (requestedTenantUuid && !assertTenantAccess(activeTenantUuid, requestedTenantUuid)) {
+      if (scopeUuid && activeTenantUuid && !assertTenantAccess(activeTenantUuid, scopeUuid)) {
         throw new Error("Tenant isolation violation: attempted cross-tenant data access.");
       }
 
       const headers = new Headers(init.headers);
 
-      if (activeTenantUuid) {
-        headers.set("x-tenant-id", activeTenantUuid);
-      }
-
-      if (requestedTenantUuid) {
-        headers.set("x-target-tenant-id", requestedTenantUuid);
+      if (scopeUuid) {
+        headers.set("x-tenant-id", scopeUuid);
+        headers.set("x-target-tenant-id", scopeUuid);
       }
 
       return ironguardFetch(input, {

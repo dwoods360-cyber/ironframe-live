@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { resolveTenantLocation } from "@/app/config/tenantUtilityLocation";
+import { resolveTenantLocationForExport } from "@/app/config/tenantUtilityLocation";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
 import type { IronqueryAnalystCsvRow } from "@/app/utils/ironquery/csvEncoder";
 import { encodeIronqueryAnalystCsv } from "@/app/utils/ironquery/csvEncoder";
@@ -57,7 +57,7 @@ export async function buildIronqueryAnalystPdf(
 
   const primary = rows[0];
   assertPhysicalUnitForPdf(primary.unitType);
-  const location = resolveTenantLocation(primary.tenantKey);
+  const location = resolveTenantLocationForExport(primary.tenantKey);
 
   doc.setProperties({
     title: "Ironquery Analyst Pack Export",

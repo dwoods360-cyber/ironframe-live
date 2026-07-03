@@ -1,8 +1,10 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from 'next/server';
 import type { Prisma } from '@prisma/client';
 import { unstable_noStore as noStore } from 'next/cache';
 import prisma from '@/lib/prisma';
-import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
+import { getCompanyIdForTenantUuid } from '@/app/lib/grc/clearanceThreatResolve';
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = 'force-dynamic';
 
@@ -84,13 +86,16 @@ function serializeThreatPayload(
 }
 
 export async function GET(
-  _request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   const { id } = await params;
   noStore();
   try {
-    const tenantCompanyId = await getCompanyIdForActiveTenant();
+    const tenantCompanyId = await getCompanyIdForTenantUuid(guard.tenantUuid);
 
     let threatRow: ApiThreatDetail | null = null;
     let isSimulation = false;

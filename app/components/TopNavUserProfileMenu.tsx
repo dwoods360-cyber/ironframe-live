@@ -29,7 +29,7 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
   const { profile } = useOperatorContext();
   const { displayName } = useOperatorIdentity();
   const { role } = usePermissions();
-  const { mounted, activeId, options, setIronframeTheme } = useIronframeTheme();
+  const { mounted, activeId, options, saasLocked, setIronframeTheme } = useIronframeTheme();
 
   const email = profile.email?.trim() || displayName.trim() || "Operator session";
   const roleLabel = formatUserRoleLabel(role || profile.displayRole);
@@ -99,6 +99,7 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
 
           <DropdownMenu.Separator className="my-1 h-px bg-slate-800" />
 
+          {!saasLocked ? (
           <section aria-labelledby="profile-menu-theme-heading" className="px-2 py-1">
             <DropdownMenu.Label
               id="profile-menu-theme-heading"
@@ -141,6 +142,7 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
               })}
             </div>
           </section>
+          ) : null}
 
           <DropdownMenu.Separator className="my-1 h-px bg-slate-800" />
 

@@ -18,7 +18,7 @@ Common errors, log signatures, and remediation. Severity: **Critical** | **High*
 
 ### `Pulse unavailable` / `Live feed unavailable`  
 **Severity:** Medium  
-**Cause:** `/api/sustainability/stats` failed and LKG not yet loaded.  
+**Cause:** Sustainability stats endpoint failed and LKG not yet loaded.  
 **Fix:** Wait 60s; confirm tenant cookie; check stats route returns 200 with `ok: true`.
 
 ---
@@ -27,14 +27,14 @@ Common errors, log signatures, and remediation. Severity: **Critical** | **High*
 
 ### `{ "ok": false, "error": "No active tenant." }` (400)  
 **Severity:** Medium  
-**Routes:** `/api/sustainability/stats`, `/api/grc/carbon-pulse`, exports  
+**Routes:** Sustainability stats, carbon-pulse, exports handlers  
 **Fix:** Set `ironframe-tenant` cookie via switcher; pass `x-tenant-id` on server actions.
 
 ### Dashboard fetch failed: 401  
 **Severity:** High  
 **Fix:** Re-authenticate Supabase session; verify middleware not blocking server actions.
 
-### `/api/grc/tas-integrity` → 503  
+### TAS integrity probe → 503  
 **Severity:** Critical  
 **Cause:** Constitutional emergency (TAS gold mismatch or integrity failure).  
 **Fix:** Ops runbook — [DOCS_OPERATIONS.md](../../DOCS_OPERATIONS.md); do not mutate production data until cleared.
@@ -74,7 +74,7 @@ Common errors, log signatures, and remediation. Severity: **Critical** | **High*
 ## Cron / integration
 
 ### Cron 401 Unauthorized  
-**Fix:** Align `IRONFRAME_CRON_SECRET` on Vercel with cron `Authorization` header.
+**Fix:** Align `IRONFRAME_CRON_SECRET` in deployment with cron authorization header.
 
 ### Cron 405 Method Not Allowed  
 **Fix:** Ensure GET handler exists on cron route (Epic 13 fix).

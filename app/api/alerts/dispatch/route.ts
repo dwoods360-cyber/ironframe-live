@@ -1,17 +1,21 @@
 import { NextResponse } from 'next/server';
 import { sendRiskNotification } from '@/app/actions/email';
+import { getPrimaryThreatNotificationRecipient } from '@/app/utils/threatNotificationRecipients';
 
-/** POST /api/alerts/dispatch — Stakeholder notification routing [cite: 2025-12-18] */
+/** POST /api/alerts/dispatch — Stakeholder notification routing */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const email = typeof body?.email === 'string' ? body.email.trim() : '';
+    const email = getPrimaryThreatNotificationRecipient();
     const threatId = typeof body?.threatId === 'string' ? body.threatId.trim() : '';
     const severity = body?.severity === 'HIGH' || body?.severity === 'CRITICAL' ? body.severity : 'HIGH';
     const agentSource = typeof body?.agentSource === 'string' ? body.agentSource : 'Coreintel';
 
     if (!email) {
-      return NextResponse.json({ ok: false, message: 'Missing email' }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, message: 'THREAT_CONFIRMATION_RECIPIENTS not configured' },
+        { status: 503 },
+      );
     }
     if (!threatId) {
       return NextResponse.json({ ok: false, message: 'Missing threatId' }, { status: 400 });
@@ -19,7 +23,7 @@ export async function POST(request: Request) {
 
     const subject = `[${severity}] Threat Alert: ${threatId}`;
     const html = `
-      <p><strong>Stakeholder Alert</strong> [cite: 2025-12-18]</p>
+      <p><strong>Stakeholder Alert</strong></p>
       <p><strong>Threat ID:</strong> ${threatId}</p>
       <p><strong>Severity:</strong> ${severity}</p>
       <p><strong>Source:</strong> ${agentSource}</p>

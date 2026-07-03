@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { STRIPE_WEBHOOK_PATH } from "@/config/stripe";
+import { STRIPE_WEBHOOK_PATHS } from "@/config/stripe";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
 
 export const IRONFRAME_DEV_BYPASS_COOKIE = "ironframe_dev_bypass";
@@ -46,7 +46,7 @@ export function hasDeveloperBypassCookie(request: NextRequest): boolean {
 }
 
 export function isStripeWebhookIngressPath(pathname: string): boolean {
-  return pathname === STRIPE_WEBHOOK_PATH;
+  return (STRIPE_WEBHOOK_PATHS as readonly string[]).includes(pathname);
 }
 
 /** Cron, board RSS, and ironquery export — auth at route layer via Bearer / secret query. */

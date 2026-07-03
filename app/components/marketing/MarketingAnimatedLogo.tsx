@@ -1,0 +1,177 @@
+"use client";
+
+import type { SVGProps } from "react";
+
+const ID = "if-marketing-logo";
+
+/**
+ * Branded isometric cube lockup — inlined from the authoritative animated SVG
+ * (Downloads/Ironframe_logo.svg). Inline rendering keeps CSS keyframes active and
+ * avoids the white box that external <object>/<img> embeds can show.
+ */
+export default function MarketingAnimatedLogo({
+  className = "h-28 w-28 sm:h-36 sm:w-36",
+  ...rest
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 400 400"
+      role="img"
+      aria-label="Ironframe"
+      className={className}
+      {...rest}
+    >
+      <title>Ironframe</title>
+      <defs>
+        <style>{`
+          @keyframes ${ID}-discrete-pulse {
+            0%, 90%, 100% {
+              fill: #334155;
+              opacity: 0.4;
+              filter: none;
+            }
+            95% {
+              fill: #06b6d4;
+              opacity: 1;
+              filter: drop-shadow(0 0 2px #06b6d4);
+            }
+          }
+          @keyframes ${ID}-core-pulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 0.75;
+            }
+            50% {
+              transform: scale(1.25);
+              opacity: 1;
+            }
+          }
+          .${ID}-pulse-node {
+            animation: ${ID}-discrete-pulse 9s infinite ease-in-out;
+          }
+          .${ID}-core-node {
+            animation: ${ID}-core-pulse 2.5s infinite ease-in-out;
+            transform-origin: 0 0;
+          }
+        `}</style>
+
+        <filter id={`${ID}-quantum-glow`} x="-400%" y="-400%" width="900%" height="900%">
+          <feGaussianBlur stdDeviation="0.08" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+
+        <radialGradient id={`${ID}-internal-refraction`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
+          <stop offset="50%" stopColor="#06b6d4" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#020617" stopOpacity="0" />
+        </radialGradient>
+
+        <linearGradient id={`${ID}-top-face-glass`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.18" />
+          <stop offset="40%" stopColor="#06b6d4" stopOpacity="0.03" />
+          <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.08" />
+        </linearGradient>
+
+        <linearGradient id={`${ID}-left-face-glass`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#0b1322" stopOpacity="0.6" />
+        </linearGradient>
+
+        <linearGradient id={`${ID}-right-face-glass`} x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.15" />
+          <stop offset="100%" stopColor="#050a12" stopOpacity="0.7" />
+        </linearGradient>
+
+        <linearGradient id={`${ID}-specular-sheen`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+          <stop offset="30%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+
+        <polygon
+          id={`${ID}-femto-node`}
+          points="0,-0.035 0.03,-0.017 0.03,0.017 0,0.035 -0.03,0.017 -0.03,-0.017"
+        />
+      </defs>
+
+      <g stroke="rgba(6, 182, 212, 0.12)" strokeWidth="1" fill="none">
+        <line x1="200" y1="90" x2="200" y2="200" strokeDasharray="2 2" />
+        <line x1="105" y1="255" x2="200" y2="200" strokeDasharray="2 2" />
+        <line x1="295" y1="255" x2="200" y2="200" strokeDasharray="2 2" />
+      </g>
+
+      <circle cx="200" cy="200" r="65" fill={`url(#${ID}-internal-refraction)`} />
+
+      <g transform="translate(200, 200) scale(175)" fill="none" stroke="none">
+        <use href={`#${ID}-femto-node`} x="-0.16" y="-0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "0s" }} />
+        <use href={`#${ID}-femto-node`} x="0" y="-0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "2.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0.16" y="-0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "5s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.24" y="-0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "1.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0.24" y="-0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "7s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.32" y="0" className={`${ID}-pulse-node`} style={{ animationDelay: "3.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0.32" y="0" className={`${ID}-pulse-node`} style={{ animationDelay: "8s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.24" y="0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "6s" }} />
+        <use href={`#${ID}-femto-node`} x="0.24" y="0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "1s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.16" y="0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "4.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0" y="0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "2s" }} />
+        <use href={`#${ID}-femto-node`} x="0.16" y="0.2772" className={`${ID}-pulse-node`} style={{ animationDelay: "7.5s" }} />
+
+        <use href={`#${ID}-femto-node`} x="-0.08" y="-0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "3s" }} />
+        <use href={`#${ID}-femto-node`} x="0.08" y="-0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "6.5s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.16" y="0" className={`${ID}-pulse-node`} style={{ animationDelay: "0.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0.16" y="0" className={`${ID}-pulse-node`} style={{ animationDelay: "4s" }} />
+        <use href={`#${ID}-femto-node`} x="-0.08" y="0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "8.5s" }} />
+        <use href={`#${ID}-femto-node`} x="0.08" y="0.1386" className={`${ID}-pulse-node`} style={{ animationDelay: "5.5s" }} />
+
+        <g className={`${ID}-core-node`}>
+          <use href={`#${ID}-femto-node`} x="0" y="0" fill="#10b981" filter={`url(#${ID}-quantum-glow)`} />
+          <circle
+            cx="0"
+            cy="0"
+            r="0.06"
+            fill="none"
+            stroke="#06b6d4"
+            strokeWidth="0.008"
+            strokeDasharray="0.01 0.01"
+            opacity="0.95"
+          />
+        </g>
+      </g>
+
+      <polygon
+        points="105,145 200,200 200,310 105,255"
+        fill={`url(#${ID}-left-face-glass)`}
+        stroke="#1e293b"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="200,200 295,145 295,255 200,310"
+        fill={`url(#${ID}-right-face-glass)`}
+        stroke="#162235"
+        strokeWidth="1.5"
+      />
+      <polygon
+        points="200,90 295,145 200,200 105,145"
+        fill={`url(#${ID}-top-face-glass)`}
+        stroke="#475569"
+        strokeWidth="1.5"
+      />
+
+      <g stroke="#06b6d4" strokeWidth="2" strokeLinecap="round" opacity="0.4">
+        <line x1="200" y1="90" x2="295" y2="145" />
+        <line x1="200" y1="90" x2="105" y2="145" />
+        <line x1="200" y1="200" x2="200" y2="310" stroke="#ffffff" strokeWidth="2.5" opacity="0.6" />
+      </g>
+
+      <polygon
+        points="135,135 180,110 245,147 200,172"
+        fill={`url(#${ID}-specular-sheen)`}
+        opacity="0.3"
+        pointerEvents="none"
+      />
+    </svg>
+  );
+}

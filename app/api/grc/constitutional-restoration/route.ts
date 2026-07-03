@@ -1,7 +1,8 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { performManualConstitutionalRebaseline } from "@/app/lib/constitutionalRebaseline";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import {
   getTasFingerprintSnapshot,
   performIrontechRestorationFromGoldImage,
@@ -12,9 +13,11 @@ export const dynamic = "force-dynamic";
 /**
  * Irontech (Agent 04) — gold image restoration during void, or manual rebaseline when baseline is intact.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const tenantId = await getActiveTenantUuidFromCookies();
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
+    if (!guard.ok) return guard.response;
+    const tenantId = guard.tenantUuid;
     const restoration = await performIrontechRestorationFromGoldImage();
     if (restoration.ok) {
       const rebaseline = await performManualConstitutionalRebaseline(tenantId);

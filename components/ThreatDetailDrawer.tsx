@@ -8,6 +8,7 @@ import ThreatInvestigationPanel from '@/components/ThreatInvestigationPanel';
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import { useAuditLoggerStore } from '@/app/utils/auditLoggerStore';
 import { useRiskStore } from '@/app/store/riskStore';
+import { resolveClientFacingError } from '@/app/utils/safeRuntimeEmission';
 import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
 // # UI_GLASS_LAYER_CONTROLS (Close/X, Minimize, Z-Index) — drawer header + overlay
@@ -222,9 +223,6 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
         if (!cancelled && data) setThreat(data);
       })
       .catch((err: unknown) => {
-        const isAbort =
-          err instanceof Error && (err.name === "AbortError" || err.message === "The user aborted a request.");
-        if (isAbort) return;
         if (!cancelled) {
           const fallbackThreat = useRiskStore.getState().threatIndexById[threatId];
           if (fallbackThreat) {
@@ -232,7 +230,12 @@ export default function ThreatDetailDrawer({ threatId, onClose, initialFocusHash
             setError(null);
             return;
           }
-          setError(err instanceof Error ? err.message : 'Failed to load');
+          const message = resolveClientFacingError(err, "Failed to load", {
+            surface: "ThreatDetailDrawer",
+            path: `/api/threats/${threatId}`,
+            method: "GET",
+          });
+          if (message) setError(message);
         }
       })
       .finally(() => {

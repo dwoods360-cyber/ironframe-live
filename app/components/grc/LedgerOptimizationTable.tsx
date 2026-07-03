@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState } from 'react';
+import PilotSurfaceBanner from '@/app/components/pilot/PilotSurfaceBanner';
+import { usePilotStubExportGate } from '@/app/hooks/usePilotStubExportGate';
 import { useAgentStore } from '@/app/store/agentStore';
 
 interface LedgerRow {
@@ -16,6 +19,7 @@ interface LedgerRow {
 
 export function LedgerOptimizationTable() {
   const activeAgentId = useAgentStore((s) => s.activeAgentId);
+  const { suppressed: suppressClientExport } = usePilotStubExportGate();
   const [isExporting, setIsExporting] = useState(false);
 
   // Sovereign Asset Baseline Values Cast to Pure BigInt Whole Cents
@@ -26,6 +30,8 @@ export function LedgerOptimizationTable() {
   ]);
 
   const handleExportTabularCSV = async () => {
+    if (suppressClientExport) return;
+
     setIsExporting(true);
     try {
       console.log("[EXPORT ENGINE] Commencing Feature 8 compliance tabular compilation...");
@@ -60,22 +66,46 @@ export function LedgerOptimizationTable() {
 
   return (
     <div className="w-full flex flex-col space-y-4 p-4 bg-slate-900 border border-slate-800 rounded-lg select-text">
+      {suppressClientExport ? (
+        <PilotSurfaceBanner
+          compact
+          title="Command Post ledger canvas — demonstration baselines"
+          detail="Feature 8 tabular CSV compiles hardcoded medshield/vaultbank/gridcore seed rows in the browser. Active workspaces must use"
+        />
+      ) : null}
       <div className="flex items-center justify-between border-b border-slate-800 pb-3">
         <div>
           <h2 className="text-sm font-bold font-mono text-slate-100">Systemic Optimization Ledger Canvas</h2>
           <p className="text-xs text-slate-500 font-mono">Active Focus Context: {activeAgentId || 'None (Idle)'}</p>
         </div>
         
-        
-        <button
-          type="button"
-          data-testid="export-tabular-ledger-csv"
-          onClick={handleExportTabularCSV}
-          disabled={isExporting}
-          className="bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-slate-950 disabled:text-slate-600 text-xs font-mono font-black py-2 px-4 rounded transition duration-150 shadow-md uppercase tracking-wider"
-        >
-          {isExporting ? "Printing..." : "💾 Export Tabular Ledger CSV"}
-        </button>
+        {suppressClientExport ? (
+          <div className="max-w-xs text-right">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-amber-400/90">
+              Analyst export required
+            </p>
+            <p className="mt-1 text-[11px] leading-snug text-slate-400">
+              Client-side ledger stubs are disabled for active workspaces. Use{" "}
+              <Link
+                href="/dashboard/exports"
+                className="text-cyan-300 underline-offset-2 hover:underline"
+              >
+                Analyst exports
+              </Link>{" "}
+              after billing is active.
+            </p>
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-testid="export-tabular-ledger-csv"
+            onClick={handleExportTabularCSV}
+            disabled={isExporting}
+            className="bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 text-slate-950 disabled:text-slate-600 text-xs font-mono font-black py-2 px-4 rounded transition duration-150 shadow-md uppercase tracking-wider"
+          >
+            {isExporting ? "Printing..." : "💾 Export Tabular Ledger CSV"}
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto">

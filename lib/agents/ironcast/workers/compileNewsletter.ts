@@ -8,12 +8,12 @@ import fs from "fs";
 import path from "path";
 
 import {
-  briefingBodyMarkdown,
   enforceBriefingQuarantine,
   loadBriefingBySlug,
   loadPublishedBriefings,
   type GovernanceBriefing,
-} from "@/app/lib/governanceFrame/briefingLoader";
+} from "@/app/lib/governanceFrame/briefingFilesystemLedger";
+import { briefingBodyMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
 import { stripDangerousMarkdown } from "@/app/lib/governanceFrame/sanitizeMarkdown";
 
 import {
@@ -75,6 +75,7 @@ export function compileGovernanceFrameNewsletterBySlug(
 export function runGovernanceFramePublicationCompile(options?: {
   /** When set, compile only these slugs (must exist in published ledger). */
   slugs?: string[];
+  docsRoot?: string;
 }): GovernancePublicationCompileResult {
   const quarantineWarnings: string[] = [];
   const originalWarn = console.warn;
@@ -86,7 +87,7 @@ export function runGovernanceFramePublicationCompile(options?: {
   }) as typeof console.warn;
 
   try {
-    const briefings = loadPublishedBriefings();
+    const briefings = loadPublishedBriefings(options?.docsRoot);
     const targetSlugs = options?.slugs?.map((s) => s.trim().toLowerCase()).filter(Boolean);
     const selected =
       targetSlugs && targetSlugs.length > 0

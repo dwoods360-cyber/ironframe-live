@@ -12,7 +12,11 @@ import {
   buildGovernanceTriadRows,
   sanitizeExportProse,
 } from "@/app/lib/reports/governanceTriadSanitizer";
-import { appendTelemetryCitationsToMarkdown } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
+import { PUBLIC_BRIEFING_DECLASSIFICATION_MANDATE } from "@/app/lib/governanceFrame/publicBriefingDeclassification";
+import {
+  buildPublicBriefingAuthoringMandate,
+} from "@/app/lib/governanceFrame/publicBriefingSolutionVoice";
+import { appendPublicBriefingCitationsToMarkdown } from "@/app/lib/governanceFrame/telemetryCitationCatalog";
 import { writeBriefingQueueDraftFromNarrate } from "@/app/lib/governanceFrame/briefingQueueDraftWriter";
 import { dispatchInternalExposureAlert } from "@/app/lib/governanceFrame/dispatchInternalExposureAlert";
 import prisma from "@/lib/prisma";
@@ -37,21 +41,25 @@ You are the Ironframe Narrative Architect executing the nightly Governance Frame
 ${telemetryJson}
 
 [LAYER 3: DE-CLASSIFICATION MATRIX]
-- Never output raw BigInt cent integers — cite financials.display formatted strings verbatim.
+- Read telemetry from Layer 2 for factual grounding only — never echo internal JSON paths, API routes, UUIDs, agent names, or demo tenant slugs in output.
+- Never output raw BigInt cent integers — use formatted USD strings only.
 - Never output CVE identifiers or raw database asset UUIDs.
 - Preserve physical sustainability formatted strings exactly (kWh, L).
+- Describe industry segments generically (regulated healthcare, regional banking, critical infrastructure).
+
+${buildPublicBriefingAuthoringMandate(PUBLIC_BRIEFING_DECLASSIFICATION_MANDATE)}
 
 [LAYER 4: MANDATORY GOVERNANCE FRAME TRIAD]
-Structure the narrative using the fixed headings in financials.display.governanceTriadScaffold:
 ## I. Exposure Vector
 ## II. Calculated Quantitative Impact
-## III. Machine-Rule Technical Translation
+## III. Machine-Rule Technical Translation — include soft Ironframe solution bridge here when mapping is genuine (see SOFT SOLUTION INTERJECTION above)
 
 [LAYER 5: EXECUTIVE PERSONA RATIOS]
-Anchor financial assertions in macro-sanitized USD. Validate DORA alignment.
+- Anchor financial assertions in macro-sanitized USD. Validate DORA alignment.
 
-[LAYER 6: MANDATORY SOURCES & CITATIONS]
-Append "### V. Sources & Citations" with traceable locators from the telemetry JSON (financials.display.* paths, GET /api/board/shared-context). Format: - **[n] Label** — \`locator\` · retrieved YYYY-MM-DD
+[LAYER 6: PUBLIC SOURCES & CITATIONS]
+Append "### V. Sources & Citations" with external regulator URLs and https://brief.ironframegrc.com only.
+Format: - **[n] Label** — https://… · retrieved YYYY-MM-DD
 `.trim();
 }
 
@@ -76,7 +84,7 @@ Compile tonight's boardroom narrative using these deterministic triad anchors:
 - Impact: ${triadRows[1]?.summary ?? ""}
 - Remediation: ${triadRows[2]?.summary ?? ""}
 
-Output markdown only. Include Section V citations for every financial and compliance claim.`;
+Output markdown only. Include Section V citations for every financial and compliance claim. When Ironframe provides a relevant control path, add one soft solution bridge in Section III only.`;
 
   const { text } = await generateText({
     model: google(NARRATE_MODEL),
@@ -85,7 +93,7 @@ Output markdown only. Include Section V citations for every financial and compli
   });
 
   const sanitized = sanitizeExportProse(text.trim());
-  return appendTelemetryCitationsToMarkdown(sanitized, payload);
+  return appendPublicBriefingCitationsToMarkdown(sanitized);
 }
 
 export type NarrateGovernanceTriadResult = {

@@ -23,6 +23,7 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
+import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from "@/app/config/stakeholderAlert";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { toBigIntCents } from "@/app/utils/riskStoreBigIntMath";
@@ -118,7 +119,6 @@ function formatBigIntCentsLabel(value: bigint): string {
   return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 }
 
-const STAKEHOLDER_EMAIL_RECIPIENT = "blackwoodscoffee@gmail.com";
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 const LIABILITY_ALERT_POLL_MS = 30_000;
 const SYNC_RECONCILE_INTERVAL_MS = 60 * 1000;
@@ -156,11 +156,11 @@ function sendStakeholderEmail(
     1,
   )}M, Acknowledged By: ${acknowledgedByLabel}, Notes: ${notesText}.`;
 
-  // Hard-coded recipient; stage alert and log to Coreintel stream
-  useAgentStore.getState().addStreamMessage(`> [SYSTEM] Stakeholder alert staged for ${STAKEHOLDER_EMAIL_RECIPIENT}.`);
+  // Terminal staging log; delivery uses THREAT_CONFIRMATION_RECIPIENTS server-side.
+  useAgentStore.getState().addStreamMessage(`> [SYSTEM] Stakeholder alert staged for ${STAKEHOLDER_ALERT_RECIPIENT_LABEL}.`);
 
   console.log("Mock sendStakeholderEmail", {
-    to: STAKEHOLDER_EMAIL_RECIPIENT,
+    to: STAKEHOLDER_ALERT_RECIPIENT_LABEL,
     body: template,
   });
 

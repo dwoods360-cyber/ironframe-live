@@ -12,6 +12,7 @@ import { useAgentStore } from "@/app/store/agentStore";
 import { useRiskStore } from "@/app/store/riskStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { computeAverageFleetEfficiencyPct, FLEET_AGENT_COUNT } from "@/app/utils/agentFleetEfficiency";
+import { usePlatformAdminToolsAccess } from "@/app/hooks/usePlatformAdminToolsAccess";
 import LiabilityExposureDisplay from "./LiabilityExposureDisplay";
 import SlaComplianceRing from "./SlaComplianceRing";
 
@@ -83,6 +84,7 @@ export default function GlobalHealthSummaryCardClient({
   sustainabilityImpact,
   coreintelTrendActive,
 }: Props) {
+  const { canUsePlatformAdminTools } = usePlatformAdminToolsAccess();
   const selectedIndustry = useRiskStore((s) => s.selectedIndustry);
   const selectedTenantName = useRiskStore((s) => s.selectedTenantName);
   const grcBotEnabled = useGrcBotStore((s) => s.enabled);
@@ -235,16 +237,25 @@ export default function GlobalHealthSummaryCardClient({
           />
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Link
-            href="/op-support#workforce"
-            className="inline-flex items-center gap-2 rounded border border-slate-700/80 bg-slate-900/50 px-2.5 py-1.5 text-[10px] text-slate-300 transition-colors hover:border-emerald-600/40 hover:bg-slate-900 hover:text-emerald-100"
-            title="Open Workforce Command Post on Operational Support"
-          >
-            <span className="font-mono tabular-nums text-slate-200">
-              Workforce Status: {operationalAgentCount}/{FLEET_AGENT_COUNT}{" "}
-              {operationalAgentCount === FLEET_AGENT_COUNT ? "Operational" : "Degraded"}
+          {canUsePlatformAdminTools ? (
+            <Link
+              href="/op-support#workforce"
+              className="inline-flex items-center gap-2 rounded border border-slate-700/80 bg-slate-900/50 px-2.5 py-1.5 text-[10px] text-slate-300 transition-colors hover:border-emerald-600/40 hover:bg-slate-900 hover:text-emerald-100"
+              title="Open Workforce Command Post on Operational Support"
+            >
+              <span className="font-mono tabular-nums text-slate-200">
+                Workforce Status: {operationalAgentCount}/{FLEET_AGENT_COUNT}{" "}
+                {operationalAgentCount === FLEET_AGENT_COUNT ? "Operational" : "Degraded"}
+              </span>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded border border-slate-800/80 bg-slate-950/40 px-2.5 py-1.5 text-[10px] text-slate-500">
+              <span className="font-mono tabular-nums text-slate-400">
+                Workforce Status: {operationalAgentCount}/{FLEET_AGENT_COUNT}{" "}
+                {operationalAgentCount === FLEET_AGENT_COUNT ? "Operational" : "Degraded"}
+              </span>
             </span>
-          </Link>
+          )}
         </div>
       </div>
 

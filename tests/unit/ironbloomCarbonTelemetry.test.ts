@@ -88,21 +88,20 @@ describe("ironbloom carbon telemetry", () => {
     }
   });
 
-  it("buildForensicFallbackQuote tags FORENSIC_FALLBACK source", () => {
-    const q = buildForensicFallbackQuote("US-MIDW-MISO");
+  it("buildForensicFallbackQuote tags FORENSIC_FALLBACK source with regional grid intensity", () => {
+    const q = buildForensicFallbackQuote("US-CO", "gridcore");
     expect(q.source).toBe("FORENSIC_FALLBACK");
-    expect(q.zone).toBe("US-MIDW-MISO");
-    expect(q.carbonIntensityGco2PerKwh).toBeGreaterThan(0);
+    expect(q.zone).toBe("US-CO");
+    expect(q.carbonIntensityGco2PerKwh).toBe(445);
   });
 
-  it("fetchLiveCarbonIntensity uses forensic fallback when API key is unset", async () => {
+  it("fetchLiveCarbonIntensity uses regional forensic fallback when API key is unset", async () => {
     const prior = process.env.ELECTRICITY_MAPS_API_KEY;
     vi.stubEnv("ELECTRICITY_MAPS_API_KEY", "");
     try {
       const q = await fetchLiveCarbonIntensity("US-MIDW-MISO", "medshield");
       expect(q.source).toBe("FORENSIC_FALLBACK");
-      expect(q.carbonIntensityGco2PerKwh).toBeGreaterThanOrEqual(FALLBACK_CARBON_INTENSITY * 0.975);
-      expect(q.carbonIntensityGco2PerKwh).toBeLessThanOrEqual(FALLBACK_CARBON_INTENSITY * 1.025);
+      expect(q.carbonIntensityGco2PerKwh).toBe(392);
       expect(q.transparencyLabel).toBe("[ESTIMATED: REGIONAL_AVG]");
     } finally {
       if (prior === undefined) {

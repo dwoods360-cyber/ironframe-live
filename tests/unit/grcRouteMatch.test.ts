@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHeaderRouteMatrix,
+  isDashboardRouteGroupPath,
+  isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
   isReportsPath,
   isScrollableStandalonePath,
+  isViewportBoundedDashboardPath,
 } from "@/app/utils/grcRouteMatch";
 
 describe("grcRouteMatch", () => {
@@ -35,14 +38,40 @@ describe("grcRouteMatch", () => {
     expect(isScrollableStandalonePath("/integrity")).toBe(true);
     expect(isScrollableStandalonePath("/reports/audit-trail")).toBe(true);
     expect(isScrollableStandalonePath("/profile")).toBe(true);
-    expect(isScrollableStandalonePath("/config")).toBe(true);
-    expect(isScrollableStandalonePath("/opsupport")).toBe(true);
-    expect(isScrollableStandalonePath("/op-support")).toBe(true);
-    expect(isScrollableStandalonePath("/audit")).toBe(true);
-    expect(isScrollableStandalonePath("/vault")).toBe(true);
-    expect(isScrollableStandalonePath("/evidence")).toBe(true);
+    expect(isScrollableStandalonePath("/settings/config")).toBe(true);
+    expect(isScrollableStandalonePath("/trust")).toBe(true);
+    expect(isScrollableStandalonePath("/vendors")).toBe(true);
+    expect(isScrollableStandalonePath("/dashboard/exports")).toBe(true);
+    expect(isScrollableStandalonePath("/medshield/config")).toBe(true);
     expect(isScrollableStandalonePath("/")).toBe(false);
-    expect(isScrollableStandalonePath("/medshield/config")).toBe(false);
+    expect(isScrollableStandalonePath("/cockpit")).toBe(false);
+  });
+
+  it("detects viewport-bounded dashboard paths", () => {
+    expect(isViewportBoundedDashboardPath("/")).toBe(true);
+    expect(isViewportBoundedDashboardPath("/cockpit")).toBe(true);
+    expect(isViewportBoundedDashboardPath("/integrity")).toBe(false);
+  });
+
+  it("detects dashboard route group paths for layout shell delegation", () => {
+    expect(isDashboardRouteGroupPath("/trust")).toBe(true);
+    expect(isDashboardRouteGroupPath("/trust/dpa")).toBe(true);
+    expect(isDashboardRouteGroupPath("/dashboard/support")).toBe(true);
+    expect(isDashboardRouteGroupPath("/boardroom/admin/audit-logs")).toBe(true);
+    expect(isDashboardRouteGroupPath("/dashboard")).toBe(false);
+  });
+
+  it("detects Ironframe SaaS workspace paths for Cyber Command Dark lock", () => {
+    expect(isIronframeSaaSAppPath("/dashboard/exports")).toBe(true);
+    expect(isIronframeSaaSAppPath("/vendors")).toBe(true);
+    expect(isIronframeSaaSAppPath("/integrity")).toBe(true);
+    expect(isIronframeSaaSAppPath("/login")).toBe(false);
+    expect(isIronframeSaaSAppPath("/marketing")).toBe(false);
+    expect(isIronframeSaaSAppPath("/register/setup")).toBe(false);
+    expect(isIronframeSaaSAppPath("/", { hostTenantSlug: "bwc" })).toBe(true);
+    expect(isIronframeSaaSAppPath("/", { authenticated: true })).toBe(true);
+    expect(isIronframeSaaSAppPath("/docs/training/quickstart", { authenticated: true })).toBe(true);
+    expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(false);
   });
 
   it("builds memoized header route matrix for tenant vendors and audit trail", () => {

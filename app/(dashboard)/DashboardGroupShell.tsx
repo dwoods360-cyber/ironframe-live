@@ -10,8 +10,11 @@ import {
   DASHBOARD_LAYOUT_RIGHT_RAIL,
 } from "@/app/lib/dashboardTripaneLayout";
 import { readIronframeTenantCookie } from "@/app/utils/commandCenterScopeSync";
-import { isScrollableStandalonePath } from "@/app/utils/grcRouteMatch";
-import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import { isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
+import {
+  setDashboardWorkspaceFallbackTenant,
+  setIronguardEffectiveTenant,
+} from "@/app/utils/ironguardSession";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 
@@ -33,31 +36,34 @@ function writeIronframeTenantCookie(raw: string): void {
  */
 export default function DashboardGroupShell({ children, initialTenantUuid }: Props) {
   const pathname = usePathname();
-  const standaloneScroll = isScrollableStandalonePath(pathname);
+  const viewportBounded = isViewportBoundedDashboardPath(pathname);
 
   useEffect(() => {
+    const resolvedInitial = initialTenantUuid?.trim() || null;
+    setDashboardWorkspaceFallbackTenant(resolvedInitial);
+
     const cookieScope = resolveDashboardTenantUuid(null);
     if (cookieScope) {
       setIronguardEffectiveTenant(cookieScope);
       return;
     }
-    if (!initialTenantUuid?.trim()) {
+    if (!resolvedInitial) {
       return;
     }
-    const token = tenantKeyFromUuid(initialTenantUuid) ?? initialTenantUuid.trim();
+    const token = tenantKeyFromUuid(resolvedInitial) ?? resolvedInitial;
     if (!readIronframeTenantCookie()) {
       writeIronframeTenantCookie(token);
       window.dispatchEvent(new Event("ironframe-tenant-changed"));
     }
-    setIronguardEffectiveTenant(initialTenantUuid.trim());
+    setIronguardEffectiveTenant(resolvedInitial);
   }, [initialTenantUuid]);
 
   return (
     <div
       className={
-        standaloneScroll
-          ? "flex w-full min-w-0 flex-col bg-slate-950"
-          : `${DASHBOARD_GROUP_SHELL} border-none p-0 shadow-none`
+        viewportBounded
+          ? `${DASHBOARD_GROUP_SHELL} border-none p-0 shadow-none`
+          : "flex w-full min-w-0 flex-col bg-slate-950"
       }
       data-dashboard-left-rail={DASHBOARD_LAYOUT_LEFT_RAIL}
       data-dashboard-right-rail={DASHBOARD_LAYOUT_RIGHT_RAIL}

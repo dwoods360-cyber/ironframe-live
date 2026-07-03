@@ -121,25 +121,26 @@
 }
 
 :root {
-  --bg-primary: #1c2128;
-  --bg-secondary: #22272e;
-  --bg-tertiary: #2d333b;
-  --border-color: #444c56;
-  --text-main: #e6edf3;
-  --text-primary: #e6edf3;
-  --text-secondary: #c9d1d9;
-  --text-tertiary: #adbac7;
-  --login-border: #334155;
+  --bg-primary: #020617;
+  --bg-secondary: #0b1120;
+  --bg-tertiary: #1e293b;
+  --border-color: #1e293b;
+  --text-main: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --login-border: #1e293b;
   --login-muted: #94a3b8;
   --login-error: #ef4444;
-  --login-accent: #059669;
-  --login-warning: #f59e0b;
+  --login-accent: #22c55e;
+  --login-warning: #fbbf24;
   --accent-primary: #539bf5;
-  --accent-success: #57ab5a;
-  --accent-warning: #c69026;
-  --accent-danger: #e5534b;
+  --accent-success: #22c55e;
+  --accent-warning: #fbbf24;
+  --accent-danger: #ef4444;
   --gold-lock: #ffd700;
   --silver-lock: #c0c0c0;
+  color-scheme: dark;
 }
 
 body {
@@ -355,6 +356,7 @@ body {
 .command-center-surface {
   position: relative;
   isolation: isolate;
+  background-color: var(--bg-primary);
 }
 
 .command-center-surface::before {
@@ -704,15 +706,19 @@ body[data-ironframe-theme="cyber-command-dark"] {
 html[data-ironframe-theme="system"],
 html:not([data-ironframe-theme]),
 body[data-ironframe-theme="system"] {
-  --if-shell-bg: #020618;
-  --if-shell-text: #e6edf3;
-  --if-topnav-bg: #020618;
+  --if-shell-bg: #020617;
+  --if-shell-text: #e2e8f0;
+  --bg-primary: #020617;
+  --text-main: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --if-topnav-bg: #020617;
   --if-topnav-border: #0f172a;
-  --if-subnav-bg: #0f172b;
+  --if-subnav-bg: #0b1120;
   --if-subnav-border: #1e293b;
-  --if-status-success: #10b981;
+  --if-status-success: #22c55e;
   --if-status-danger: #ef4444;
-  --if-shadow-policy: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --if-shadow-policy: 0 0 18px rgba(34, 197, 94, 0.12);
+  color-scheme: dark;
 }
 
 @media (prefers-color-scheme: light) {
@@ -870,4 +876,59 @@ body[data-ironframe-theme="executive-light"] .ironframe-public-landing [class*="
   -webkit-text-fill-color: var(--text-main) !important;
   caret-color: var(--text-main);
   transition: background-color 99999s ease-out 0s;
+}
+
+/* Public SaaS funnel — pinned dark cockpit (Executive Light / system-light safe) */
+[data-ironframe-public="true"],
+.ironframe-public-landing,
+.ironframe-public-funnel,
+.ironframe-login-page {
+  --if-shell-bg: #020617;
+  --if-shell-text: #e2e8f0;
+  --bg-primary: #020617;
+  --bg-secondary: #0b1120;
+  --bg-tertiary: #0f172a;
+  --border-color: #1e293b;
+  --text-main: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --login-border: #1e293b;
+  --login-muted: #94a3b8;
+  --login-accent: #22c55e;
+  --login-error: #ef4444;
+  --login-warning: #fbbf24;
+  --if-topnav-bg: #020617;
+  --if-topnav-border: #0f172a;
+  --if-subnav-bg: #0b1120;
+  --if-subnav-border: #1e293b;
+  --if-status-success: #22c55e;
+  --if-status-danger: #ef4444;
+  --if-shadow-policy: 0 0 18px rgba(34, 197, 94, 0.12);
+  color-scheme: dark;
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"],
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] main,
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing,
+html[data-ironframe-theme="executive-light"] .ironframe-login-page {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-ironframe-theme="system"] [data-ironframe-public="true"],
+  html[data-ironframe-theme="system"] .ironframe-public-landing,
+  html[data-ironframe-theme="system"] .ironframe-login-page {
+    --bg-primary: #020617;
+    --bg-secondary: #0b1120;
+    --text-main: #e2e8f0;
+    --login-muted: #94a3b8;
+    --login-border: #1e293b;
+    --login-accent: #22c55e;
+    background-color: #020617 !important;
+    color: #e2e8f0 !important;
+  }
 }

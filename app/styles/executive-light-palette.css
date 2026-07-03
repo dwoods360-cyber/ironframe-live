@@ -338,3 +338,24 @@ html[data-ironframe-theme="executive-light"] .global-ekg-pulse-layer {
     ),
     linear-gradient(to right, transparent, rgba(26, 115, 232, 0.25) 50%, transparent);
 }
+
+/* Public funnel routes stay dark — do not remap surfaces inside the pinned shell */
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"],
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] main,
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] .ironframe-public-landing,
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing,
+html[data-ironframe-theme="executive-light"] .ironframe-login-page {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] .bg-slate-900\/60,
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] .bg-slate-900\/80,
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing .bg-slate-900\/60 {
+  background-color: rgb(15 23 42 / 0.6) !important;
+}
+
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] .hover\:bg-slate-800\/80:hover,
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing .hover\:bg-slate-800\/80:hover {
+  background-color: rgb(30 41 59 / 0.8) !important;
+}

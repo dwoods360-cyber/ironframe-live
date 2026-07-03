@@ -21,6 +21,7 @@ import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTri
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
+import { navigateToTenantWorkspace } from "@/app/lib/auth/navigateToTenantWorkspace";
 import { getDemoCommandCenterScope, isDemoModeActive } from "@/app/lib/demo/demoMode";
 import { Loader2 } from "lucide-react";
 
@@ -66,10 +67,11 @@ export default function TenantSwitcher() {
   const setContextSwitching = useRiskStore((s) => s.setContextSwitching);
   const [rows, setRows] = useState<CommandCenterTenantRow[]>([]);
   const [canAccessGlobal, setCanAccessGlobal] = useState(false);
-  const [hostTenantSlug, setHostTenantSlug] = useState<string | null>(null);
+  const [canSwitchTenantsOnSubdomain, setCanSwitchTenantsOnSubdomain] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const clientHostSlug = useHostTenantSlug();
-  const isSubdomainLocked = Boolean(hostTenantSlug ?? clientHostSlug);
+  const lockedTenantSlug = clientHostSlug;
+  const isSubdomainLocked = Boolean(lockedTenantSlug) && !canSwitchTenantsOnSubdomain;
   /** Bumps after cookie writes so `selectedValue` recomputes before refresh completes. */
   const [cookieRevision, setCookieRevision] = useState(0);
 
@@ -78,7 +80,7 @@ export default function TenantSwitcher() {
       const scope = getDemoCommandCenterScope();
       setRows(scope.tenants);
       setCanAccessGlobal(scope.canAccessGlobal);
-      setHostTenantSlug(scope.hostTenantSlug);
+      setCanSwitchTenantsOnSubdomain(scope.canSwitchTenantsOnSubdomain);
       setLoadError(null);
       return;
     }
@@ -88,7 +90,7 @@ export default function TenantSwitcher() {
         if (!cancelled) {
           setRows(scope.tenants);
           setCanAccessGlobal(scope.canAccessGlobal);
-          setHostTenantSlug(scope.hostTenantSlug);
+          setCanSwitchTenantsOnSubdomain(scope.canSwitchTenantsOnSubdomain);
           setLoadError(null);
         }
       })
@@ -111,8 +113,27 @@ export default function TenantSwitcher() {
   /** Align Industry Profile + header with restored cookie once tenant rows load. */
   useEffect(() => {
     if (rows.length === 0) return;
+
+    const raw = readIronframeTenantCookie();
+    const cookieAllowed =
+      !raw ||
+      rows.some((r) => r.id === raw || r.slug.toLowerCase() === (raw ?? "").toLowerCase());
+
+    if (raw && !cookieAllowed) {
+      const fallback = rows[0];
+      if (canAccessGlobal) {
+        setIronframeTenantCookie(null);
+        setSelectedTenantName(null);
+      } else if (fallback) {
+        setIronframeTenantCookie(fallback.id);
+        setIronguardEffectiveTenant(fallback.id);
+        setSelectedTenantName(fallback.name?.trim() ? fallback.name.trim() : null);
+        syncIndustryFromTenant(fallback);
+      }
+      setCookieRevision((n) => n + 1);
+    }
+
     if (!canAccessGlobal) {
-      const raw = readIronframeTenantCookie();
       const allowed = rows.some(
         (r) =>
           r.id === raw ||
@@ -124,6 +145,13 @@ export default function TenantSwitcher() {
         setIronguardEffectiveTenant(only.id);
         setSelectedTenantName(only.name?.trim() ? only.name.trim() : null);
         syncIndustryFromTenant(only);
+        setCookieRevision((n) => n + 1);
+      } else if (!raw && rows[0]) {
+        const primary = rows[0];
+        setIronframeTenantCookie(primary.id);
+        setIronguardEffectiveTenant(primary.id);
+        setSelectedTenantName(primary.name?.trim() ? primary.name.trim() : null);
+        syncIndustryFromTenant(primary);
         setCookieRevision((n) => n + 1);
       }
     }
@@ -198,6 +226,12 @@ export default function TenantSwitcher() {
       window.dispatchEvent(new CustomEvent("ironframe-tenant-changed"));
     }
     if (tenant?.slug) {
+      const currentSlug = clientHostSlug?.trim().toLowerCase() ?? null;
+      const targetSlug = tenant.slug.trim().toLowerCase();
+      if (currentSlug !== targetSlug) {
+        await navigateToTenantWorkspace(targetSlug, "/");
+        return;
+      }
       window.location.assign(buildTenantSubdomainOrigin(tenant.slug));
       return;
     }
@@ -234,7 +268,7 @@ export default function TenantSwitcher() {
         <select
           value={selectValue}
           onChange={(ev) => void handleChange(ev)}
-          disabled={isContextSwitching || isSubdomainLocked}
+          disabled={Boolean(isContextSwitching || isSubdomainLocked)}
           data-audit-target="Command Post Dropdown Activated"
           data-audit-section="Global Nav Header"
           className={`max-w-[min(22rem,72vw)] appearance-none bg-transparent pr-4 text-sm font-medium outline-none focus:ring-0 disabled:cursor-wait ${
@@ -246,15 +280,13 @@ export default function TenantSwitcher() {
           }`}
           aria-label={
             isSubdomainLocked
-              ? `Tenant locked to subdomain ${hostTenantSlug ?? clientHostSlug}`
+              ? `Tenant locked to subdomain ${lockedTenantSlug}`
               : "Global Command Center tenant scope"
           }
           aria-busy={isContextSwitching}
-          title={
-            isSubdomainLocked
-              ? `Tenant scope is locked to the ${hostTenantSlug ?? clientHostSlug} subdomain`
-              : undefined
-          }
+          {...(isSubdomainLocked
+            ? { title: `Tenant scope is locked to the ${lockedTenantSlug} subdomain` }
+            : {})}
         >
         <option value="global" className="bg-slate-900 text-slate-200" disabled={!canAccessGlobal || isSubdomainLocked} hidden={!canAccessGlobal || isSubdomainLocked}>
           Global Command Center — Aggregate Dashboard

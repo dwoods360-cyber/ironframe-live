@@ -1,10 +1,28 @@
 import { stripDangerousMarkdown } from "@/app/lib/governanceFrame/sanitizeMarkdown";
 import { parseBriefingCitations } from "@/app/lib/governanceFrame/parseBriefingCitations";
 import { parseBriefingSections } from "@/app/lib/governanceFrame/parseBriefingSections";
+import { resolvePublicBriefingProfile, scanPublicBriefingDeclassification } from "@/app/lib/governanceFrame/publicBriefingDeclassification";
+import { scanForbiddenPublicSalesClaims } from "@/app/lib/governanceFrame/publicBriefingSolutionVoice";
 
 export const DRAFT_FILENAME_PATTERN = /^\d{4}-\d{2}-\d{2}-draft-[a-z0-9-]+\.md$/i;
 
-export const QUARANTINE_ALLOWLIST = new Set(["template.md", ".gitkeep", "readme.md"]);
+export const QUARANTINE_ALLOWLIST = new Set([
+  "template.md",
+  "template-emerging-threats-notice.md",
+  ".gitkeep",
+  "readme.md",
+]);
+
+/** Queue filenames that are internal ops artifacts — never promote to published-briefings. */
+export const NON_PROMOTABLE_DRAFT_MARKERS = [
+  "writer-glossary",
+  "glossary-delta",
+] as const;
+
+export function isNonPromotableBriefingDraft(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return NON_PROMOTABLE_DRAFT_MARKERS.some((marker) => lower.includes(marker));
+}
 
 /** Conservative $50,000.00 USD default when env is unset. */
 export const DEFAULT_ALERT_EXPOSURE_THRESHOLD_CENTS = 5_000_000n;
@@ -78,6 +96,29 @@ tenantId: "${args.tenantId}"
 tenantSlug: "${args.tenantSlug}"
 requiresImmediatePromotion: ${args.requiresImmediatePromotion}
 activeExposureCents: "${args.currentExposureCents.toString()}"
+---
+`;
+}
+
+/** Public-facing quarantine frontmatter — promotion metadata stripped before publish. */
+export function buildPublicQuarantineFrontmatter(args: {
+  title: string;
+  classification: string;
+  summary: string;
+  tenantId: string;
+  tenantSlug: string;
+  dateIso?: string;
+}): string {
+  const dateIso = args.dateIso ?? new Date().toISOString();
+  return `---
+title: "${args.title.replace(/"/g, '\\"')}"
+date: "${dateIso}"
+classification: "${args.classification.replace(/"/g, '\\"')}"
+status: "QUARANTINED_DRAFT"
+summary: "${args.summary.replace(/"/g, '\\"')}"
+audience: "Public — brief.ironframegrc.com"
+tenantId: "${args.tenantId}"
+tenantSlug: "${args.tenantSlug}"
 ---
 `;
 }
@@ -165,11 +206,21 @@ function citationsSectionBody(markdown: string): string {
   return citations?.body ?? "";
 }
 
+function hasEmergingThreatsSections(markdown: string): boolean {
+  const body = stripFrontmatter(markdown);
+  return (
+    /##\s+Active Threat Landscape Analysis/i.test(body) &&
+    /##\s+Regulatory Posture & Institutional Impact/i.test(body) &&
+    /##\s+Recommended Mitigation Controls/i.test(body)
+  );
+}
+
 export function validateBriefingDraftContent(
   markdown: string,
-  options?: { requireCitations?: boolean; promotion?: boolean },
+  options?: { requireCitations?: boolean; promotion?: boolean; filename?: string },
 ): BriefingDraftValidationResult {
   const requireCitations = options?.requireCitations ?? options?.promotion ?? false;
+  const profile = resolvePublicBriefingProfile(markdown, options?.filename);
   const issues: BriefingDraftValidationIssue[] = [];
   const safe = stripDangerousMarkdown(markdown);
 
@@ -181,7 +232,7 @@ export function validateBriefingDraftContent(
     });
   }
 
-  if (CVE_PATTERN.test(markdown)) {
+  if (profile === "governance-triad" && CVE_PATTERN.test(markdown)) {
     issues.push({
       code: "CVE_LEAK",
       message: "Draft contains raw CVE identifiers — translate to perimeter descriptions before queueing.",
@@ -189,7 +240,7 @@ export function validateBriefingDraftContent(
     });
   }
 
-  if (RAW_UUID_PATTERN.test(markdown)) {
+  if (RAW_UUID_PATTERN.test(stripFrontmatter(markdown))) {
     issues.push({
       code: "UUID_LEAK",
       message: "Draft contains raw UUID literals — cite formatted telemetry locators instead.",
@@ -205,7 +256,16 @@ export function validateBriefingDraftContent(
     });
   }
 
-  if (!hasTriadSections(markdown)) {
+  if (profile === "emerging-threats-notice") {
+    if (!hasEmergingThreatsSections(markdown)) {
+      issues.push({
+        code: "MISSING_THREAT_NOTICE_SECTIONS",
+        message:
+          "Emerging Threats Notice must include Active Threat Landscape, Regulatory Posture, and Recommended Mitigation Controls sections.",
+        severity: options?.promotion ? "error" : "warn",
+      });
+    }
+  } else if (!hasTriadSections(markdown)) {
     issues.push({
       code: "MISSING_TRIAD",
       message: "Draft must include Governance Frame triad sections I–III.",
@@ -240,6 +300,25 @@ export function validateBriefingDraftContent(
     });
   }
 
+  for (const leak of scanPublicBriefingDeclassification(markdown, {
+    profile,
+    filename: options?.filename,
+  })) {
+    issues.push({
+      code: leak.code,
+      message: leak.message,
+      severity: options?.promotion ? "error" : "warn",
+    });
+  }
+
+  for (const claim of scanForbiddenPublicSalesClaims(markdown)) {
+    issues.push({
+      code: claim.code,
+      message: claim.message,
+      severity: options?.promotion ? "error" : "warn",
+    });
+  }
+
   const blocking = issues.some((i) => i.severity === "error");
   return { ok: !blocking, issues };
 }
@@ -262,9 +341,17 @@ export function validateBriefingQueueDraft(
   options?: { promotion?: boolean },
 ): BriefingDraftValidationResult {
   const nameIssues = validateBriefingDraftFilename(filename);
+  if (options?.promotion && isNonPromotableBriefingDraft(filename)) {
+    nameIssues.push({
+      code: "NON_PROMOTABLE_ARTIFACT",
+      message: `${filename} is an internal glossary/ops artifact — not eligible for public briefing promotion.`,
+      severity: "error",
+    });
+  }
   const content = validateBriefingDraftContent(markdown, {
     promotion: options?.promotion,
     requireCitations: options?.promotion,
+    filename,
   });
 
   const issues = [...nameIssues, ...content.issues];

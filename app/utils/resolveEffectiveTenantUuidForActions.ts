@@ -45,5 +45,6 @@ export function resolveEffectiveTenantUuidForActions(
     return TENANT_UUIDS.medshield;
   }
 
-  return null;
+  /** Global Command Center aggregate lane — bind constitutional default when cookie/Ironguard lag after client nav. */
+  return TENANT_UUIDS.medshield;
 }

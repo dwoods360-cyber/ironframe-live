@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16 text-[var(--text-main)]">
+    <main className="ironframe-public-funnel mx-auto max-w-3xl px-6 py-16 text-[var(--text-main)]">
       <p className="font-mono text-xs uppercase tracking-widest text-[var(--login-muted)]">
         Master Service Agreement
       </p>

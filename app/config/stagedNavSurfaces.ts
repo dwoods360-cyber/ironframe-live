@@ -1,6 +1,6 @@
 import type { GrcWorkspaceRole } from "@/app/lib/grcRoles";
 
-export type NavMaturityBadge = "STAGED DRAFT" | "PREVIEW";
+export type NavMaturityBadge = "STAGED DRAFT" | "PREVIEW" | "PILOT";
 
 export type StagedNavSurface = {
   href: string;
@@ -11,6 +11,16 @@ export type StagedNavSurface = {
 
 /** Stub routes surfaced in dashboard nav with maturity badges and pilot role guards. */
 export const STAGED_NAV_SURFACES: readonly StagedNavSurface[] = [
+  {
+    href: "/vendors",
+    badge: "PILOT",
+    blockRoles: [],
+  },
+  {
+    href: "/vendors/supply-chain",
+    badge: "PILOT",
+    blockRoles: [],
+  },
   {
     href: "/reports/dora-eu-resilience",
     badge: "PREVIEW",
@@ -34,7 +44,13 @@ export function normalizeDashboardNavHref(href: string): string {
 }
 
 export function getStagedNavSurface(href: string): StagedNavSurface | undefined {
-  return STAGED_BY_HREF.get(normalizeDashboardNavHref(href));
+  const normalized = normalizeDashboardNavHref(href);
+  const exact = STAGED_BY_HREF.get(normalized);
+  if (exact) return exact;
+  if (normalized === "/vendors" || normalized.startsWith("/vendors/")) {
+    return STAGED_BY_HREF.get("/vendors");
+  }
+  return undefined;
 }
 
 export function isStagedNavBlockedForRole(

@@ -2,6 +2,17 @@
  * Ironbloom / Epic 9 physical-unit gate — not a Server Action module (safe to import from API routes & actions).
  */
 
+import {
+  INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY,
+  InvalidIronbloomMetricError,
+  validateIronbloomIngress,
+} from "@/lib/sustainability/ironbloom";
+
+export {
+  INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY,
+  InvalidIronbloomMetricError,
+} from "@/lib/sustainability/ironbloom";
+
 /** Reject monetary-only “offsets” (currency symbols). */
 export const IRONBLOOM_CURRENCY_SYMBOL_RE = /[\u0024\u00A2\u00A3\u20AC\u00A5\uFFE5]/;
 
@@ -67,19 +78,13 @@ function hasMonetaryProxy(o: Record<string, unknown>): boolean {
  * Ironbloom ESG ingestion: reject monetary-only payloads (HTTP 400).
  */
 export function assertEsgPhysicalIngestion(body: unknown): void {
-  if (body == null || typeof body !== "object" || Array.isArray(body)) {
-    throw new PhysicalUnitRequiredError();
-  }
-  const o = body as Record<string, unknown>;
-  const hasPhysical = hasStructuredPhysicalUnits(o);
-  if (hasMonetaryProxy(o) && !hasPhysical) {
-    throw new PhysicalUnitRequiredError();
-  }
-  if (!hasPhysical) {
-    const raw = JSON.stringify(body);
-    if (!IRONBLOOM_ANY_PHYSICAL_UNIT_RE.test(raw)) {
-      throw new PhysicalUnitRequiredError();
+  try {
+    validateIronbloomIngress(body);
+  } catch (error) {
+    if (error instanceof InvalidIronbloomMetricError) {
+      throw error;
     }
+    throw new PhysicalUnitRequiredError();
   }
 }
 

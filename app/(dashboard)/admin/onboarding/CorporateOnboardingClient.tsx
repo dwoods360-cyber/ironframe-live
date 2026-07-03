@@ -1,13 +1,26 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
-import { Building2, Mail, UserPlus } from "lucide-react";
+import { Building2, KeyRound, Mail, Rocket, UserPlus } from "lucide-react";
+import {
+  quickProvisionCorporateWorkspaceAction,
+  type QuickProvisionCorporateWorkspaceActionResult,
+} from "@/app/actions/admin/quickProvisionCorporateWorkspace";
+import {
+  QuickProvisionProgressPanel,
+  advanceQuickProvisionProgress,
+  buildInitialQuickProvisionProgress,
+  type QuickProvisionProgressState,
+} from "@/app/components/onboarding/QuickProvisionProgressPanel";
 import {
   provisionCorporateTenantAction,
   type ProvisionCorporateTenantResult,
 } from "@/app/actions/admin/provisionCorporateTenant";
+import {
+  mintWorkspaceInvitationAction,
+  type MintWorkspaceInvitationResult,
+} from "@/app/actions/admin/mintWorkspaceInvitation";
 import {
   inviteCorporateTenantUserAction,
   type InviteCorporateTenantUserResult,
@@ -16,21 +29,25 @@ import {
   listProvisionedTenantsForAdminAction,
   type ProvisionedTenantAdminRow,
 } from "@/app/actions/admin/listProvisionedTenants";
-import { setTenantBillingStatusAction } from "@/app/actions/admin/setTenantBillingStatus";
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
+type MintInvitationState = MintWorkspaceInvitationResult | null;
+type QuickProvisionState = QuickProvisionCorporateWorkspaceActionResult | null;
 
 export default function CorporateOnboardingClient() {
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [provisionBusy, setProvisionBusy] = useState(false);
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [mintBusy, setMintBusy] = useState(false);
   const [provisionResult, setProvisionResult] = useState<ProvisionState>(null);
   const [inviteResult, setInviteResult] = useState<InviteState>(null);
+  const [mintResult, setMintResult] = useState<MintInvitationState>(null);
+  const [quickBusy, setQuickBusy] = useState(false);
+  const [quickResult, setQuickResult] = useState<QuickProvisionState>(null);
+  const [quickProgress, setQuickProgress] = useState<QuickProvisionProgressState | null>(null);
   const [inviteTenantSlug, setInviteTenantSlug] = useState("");
-  const [billingBusySlug, setBillingBusySlug] = useState<string | null>(null);
 
   const refreshTenants = useCallback(async () => {
     const res = await listProvisionedTenantsForAdminAction();
@@ -81,41 +98,233 @@ export default function CorporateOnboardingClient() {
     }
   };
 
-  const onActivateBilling = async (slug: string) => {
-    setBillingBusySlug(slug);
-    const res = await setTenantBillingStatusAction(slug, TENANT_BILLING_STATUS.ACTIVE);
-    setBillingBusySlug(null);
+  const onMintInvitation = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setMintBusy(true);
+    setMintResult(null);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const res = await mintWorkspaceInvitationAction(fd);
+    setMintBusy(false);
+    setMintResult(res);
     if (res.ok) {
+      form.reset();
+    }
+  };
+
+  const onQuickProvision = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setQuickBusy(true);
+    setQuickResult(null);
+    setQuickProgress(buildInitialQuickProvisionProgress());
+
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const tenantStageTimer = window.setTimeout(() => {
+      setQuickProgress((current) =>
+        current ? advanceQuickProvisionProgress(current, 1) : current,
+      );
+    }, 800);
+
+    const res = await quickProvisionCorporateWorkspaceAction(fd);
+    window.clearTimeout(tenantStageTimer);
+    setQuickProgress((current) =>
+      current ? advanceQuickProvisionProgress(current, 2) : current,
+    );
+    setQuickBusy(false);
+    setQuickResult(res);
+    if (res.ok) {
+      form.reset();
+      setInviteTenantSlug(res.slug);
       void refreshTenants();
     }
+    window.setTimeout(() => setQuickProgress(null), 2000);
   };
 
   const supabaseRedirectHint = (slug: string) => `${formatLocalTenantWorkspaceUrl(slug, 3000)}/**`;
 
   return (
-    <div className="min-h-full bg-[#050509] p-6 text-slate-200">
-      <p className="mb-4 text-[10px] text-slate-500">
-        <Link href="/settings/config" className="text-cyan-400 hover:underline">
-          ← System configuration
-        </Link>
-      </p>
-
+    <div className="rounded-xl border border-slate-800/80 bg-[#070e20]/30 p-4 sm:p-6">
       <header className="mb-6 max-w-3xl">
-        <h1 className="text-sm font-black uppercase tracking-widest text-emerald-200">
-          Corporate client onboarding
-        </h1>
+        <h2 className="font-mono text-[11px] font-black uppercase tracking-widest text-emerald-200">
+          Provisioning controls
+        </h2>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-          Provision a B2B workspace on its tenant subdomain, then invite the customer&apos;s first
-          operator. Requires GLOBAL_ADMIN (or platform constitutional authority in dev).
-        </p>
-        <p className="mt-2 text-[10px]">
-          <Link href="/admin/onboarding/test-assets" className="text-cyan-400 hover:underline">
-            Acme Corp ingestion test PDF suite →
-          </Link>
+          Mint invitation tokens, provision B2B workspaces, and invite corporate operators. Requires
+          GLOBAL_ADMIN (or platform constitutional authority in dev).
         </p>
       </header>
 
       <div className="grid max-w-3xl gap-6 lg:grid-cols-2">
+        <section className="rounded border border-violet-800/50 bg-slate-900/50 p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <KeyRound className="h-4 w-4 text-violet-400" aria-hidden />
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-violet-200">
+              0 — Mint invitation token
+            </h2>
+          </div>
+          <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
+            Sales-assisted and Stripe checkout provisioning require an active admin invitation token
+            that matches database state. Tokens are hashed at rest; copy the plaintext once.
+          </p>
+          <form onSubmit={onMintInvitation} className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-[10px] text-slate-400">
+              Bound email (optional)
+              <input
+                name="email"
+                type="email"
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+                placeholder="ciso@customer.com"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Bound slug (optional)
+              <input
+                name="tenantSlug"
+                pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+                placeholder="acmecorp"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              TTL (days)
+              <input
+                name="ttlDays"
+                type="number"
+                min={1}
+                max={90}
+                defaultValue={14}
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={mintBusy}
+              className="sm:col-span-3 rounded border border-violet-600/70 bg-violet-950/40 py-2 text-[10px] font-black uppercase text-violet-200 disabled:opacity-40"
+            >
+              {mintBusy ? "Minting…" : "Generate invitation token"}
+            </button>
+          </form>
+          {mintResult && !mintResult.ok ? (
+            <p className="mt-3 text-[10px] text-rose-300" role="alert">
+              {mintResult.error}
+            </p>
+          ) : null}
+          {mintResult?.ok ? (
+            <div
+              className="mt-4 rounded border border-violet-700/40 bg-violet-950/30 p-3 text-[10px] text-violet-100"
+              role="status"
+            >
+              <p className="font-bold uppercase tracking-wide">Invitation minted</p>
+              <p className="mt-2 text-slate-400">Plaintext token (single display):</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-violet-200">
+                {mintResult.token}
+              </code>
+              <p className="mt-2 font-mono text-[9px] text-slate-500">
+                expires {mintResult.expiresAt}
+              </p>
+              <p className="mt-2 text-slate-400">Secure activation URL:</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-violet-200">
+                /register/{mintResult.token}
+              </code>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded border border-cyan-800/50 bg-slate-900/50 p-4 lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <Rocket className="h-4 w-4 text-cyan-400" aria-hidden />
+            <h2 className="text-[11px] font-black uppercase tracking-widest text-cyan-200">
+              Quick provision — tenant + activation invite
+            </h2>
+          </div>
+          <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
+            One-shot design-partner path: creates the tenant, mints a register token, and sends the
+            welcome email. Operator completes ALE + company profile on Get Started after activation.
+          </p>
+
+          {quickProgress ? (
+            <div className="mb-4">
+              <QuickProvisionProgressPanel
+                progress={quickProgress}
+                onTick={(updater) => {
+                  setQuickProgress((current) => (current ? updater(current) : current));
+                }}
+              />
+            </div>
+          ) : null}
+
+          <form onSubmit={onQuickProvision} className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-[10px] text-slate-400">
+              Business display name
+              <input
+                name="name"
+                required
+                minLength={2}
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="Acme Corporation"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Workspace slug
+              <input
+                name="slug"
+                required
+                pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="acmecorp"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400">
+              Operator email
+              <input
+                name="email"
+                type="email"
+                required
+                disabled={quickBusy}
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                placeholder="ciso@customer.com"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={quickBusy}
+              className="sm:col-span-3 inline-flex h-11 items-center justify-center rounded border border-cyan-600/70 bg-cyan-950/40 text-[10px] font-black uppercase text-cyan-200 disabled:opacity-40"
+            >
+              {quickBusy ? "Provisioning…" : "Quick provision workspace"}
+            </button>
+          </form>
+
+          {quickResult && !quickResult.ok ? (
+            <p className="mt-3 text-[10px] text-rose-300" role="alert">
+              {quickResult.error}
+            </p>
+          ) : null}
+
+          {quickResult?.ok ? (
+            <div
+              className="mt-4 rounded border border-cyan-700/40 bg-cyan-950/30 p-3 text-[10px] text-cyan-100"
+              role="status"
+            >
+              <p className="font-bold uppercase tracking-wide">
+                {quickResult.tenantAlreadyExisted ? "Invitation minted" : "Workspace provisioned"}
+              </p>
+              <p className="mt-1 font-mono text-[9px] text-cyan-200/90">{quickResult.workspaceUrl}</p>
+              <p className="mt-2 text-slate-400">Secure activation URL:</p>
+              <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
+                {quickResult.registerUrl}
+              </code>
+              {quickResult.inviteEmail && !quickResult.inviteEmail.sent ? (
+                <p className="mt-2 text-amber-200" role="alert">
+                  Email not sent: {quickResult.inviteEmail.error ?? "delivery failed"}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+
         <section className="rounded border border-emerald-800/50 bg-slate-900/50 p-4">
           <div className="mb-3 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-emerald-400" aria-hidden />
@@ -210,9 +419,10 @@ export default function CorporateOnboardingClient() {
             </h2>
           </div>
           <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
-            Sends a Supabase invite with tenant metadata and pre-assigns{" "}
-            <code className="text-slate-300">user_role_assignments</code> for the workspace.
-            Requires <code className="text-slate-300">SUPABASE_SERVICE_ROLE_KEY</code>.
+            Mints a workspace invite and pre-assigns{" "}
+            <code className="text-slate-300">user_role_assignments</code>. New operators receive a
+            Supabase invite; existing Ironframe accounts get a tenant login link with{" "}
+            <code className="text-slate-300">?invite=</code>.
           </p>
 
           {tenantsError ? (
@@ -283,58 +493,32 @@ export default function CorporateOnboardingClient() {
             >
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5" aria-hidden />
-                <p className="font-bold uppercase tracking-wide">Invite sent</p>
+                <p className="font-bold uppercase tracking-wide">
+                  {inviteResult.deliveryPath === "workspace-invitation"
+                    ? "Workspace invite issued"
+                    : "Invite sent"}
+                </p>
               </div>
               <p className="mt-1">
                 {inviteResult.email} → <span className="font-mono">{inviteResult.tenantSlug}</span>
               </p>
-              <p className="mt-2 font-mono text-[9px] text-sky-200/90">{inviteResult.workspaceUrl}</p>
+              <p className="mt-2 text-slate-400">Activation link — open in incognito:</p>
+              {inviteResult.inviteLoginUrl ? (
+                <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
+                  {inviteResult.inviteLoginUrl}
+                </code>
+              ) : null}
+              {inviteResult.inviteEmail && !inviteResult.inviteEmail.sent ? (
+                <p className="mt-2 text-amber-200" role="alert">
+                  {inviteResult.inviteEmail.error ?? "Email not sent — copy the activation link above."}
+                </p>
+              ) : inviteResult.inviteEmail?.sent ? (
+                <p className="mt-2 text-emerald-200">Invite email dispatched via Resend.</p>
+              ) : null}
             </div>
           ) : null}
         </section>
       </div>
-
-      {tenants.length > 0 ? (
-        <section className="mt-8 max-w-3xl rounded border border-slate-800 bg-slate-900/30 p-4">
-          <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-300">
-            Provisioned workspaces ({tenants.length})
-          </h2>
-          <ul className="mt-3 divide-y divide-slate-800">
-            {tenants.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-[10px]">
-                <div>
-                  <span className="font-medium text-slate-200">{t.name}</span>
-                  <p className="mt-1 font-mono text-[9px] text-slate-500">
-                    billing: {t.billingStatus ?? "UNTRACKED"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={t.workspaceUrl}
-                    className="font-mono text-cyan-400 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {formatLocalTenantWorkspaceUrl(t.slug, 3000).replace(/^https?:\/\//, "")}
-                  </a>
-                  {t.billingStatus !== TENANT_BILLING_STATUS.ACTIVE ? (
-                    <button
-                      type="button"
-                      disabled={billingBusySlug === t.slug}
-                      onClick={() => void onActivateBilling(t.slug)}
-                      className="rounded border border-amber-600/60 bg-amber-950/40 px-2 py-1 font-mono text-[9px] uppercase text-amber-200 disabled:opacity-40"
-                    >
-                      {billingBusySlug === t.slug ? "…" : "Activate billing"}
-                    </button>
-                  ) : (
-                    <span className="font-mono text-[9px] uppercase text-emerald-400">Active</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
 import { isPublicRegistrationEnabled, SALES_CONTACT_PATH } from "@/config/registration";
 
 type IntakeSuccessDetails = {
@@ -94,7 +95,7 @@ export default function PublicRegistrationClient() {
 
     const controller = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(
-      () => controller.abort(),
+      () => controller.abort(ABORT_REASONS.publicRegistrationTimeout),
       90_000,
     );
 

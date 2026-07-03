@@ -6,6 +6,7 @@ import {
   LOCAL_APP_ORIGIN,
   PILOT_CORP_SLUG,
   assertTenantBillingActive,
+  isSupabaseInviteRateLimitError,
   buildCheckoutSessionCompletedEvent,
   cleanupPilotCorpFixture,
   disconnectE2ePrisma,
@@ -15,6 +16,7 @@ import {
   hasSupabaseAdmin,
   postSignedStripeWebhook,
   redeemInviteOnTenantSubdomain,
+  seedPilotCorpInvitationToken,
   tenantSubdomainOrigin,
   uniquePilotBuyerEmail,
 } from "./helpers/ingestionPipeline";
@@ -90,6 +92,7 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     pilotBuyerEmail = uniquePilotBuyerEmail();
     const stripeCustomerId = `cus_e2e_${leadRunId}`;
     const checkoutSessionId = `cs_e2e_${leadRunId}`;
+    const invitationToken = await seedPilotCorpInvitationToken(PILOT_CORP_SLUG);
 
     const event = buildCheckoutSessionCompletedEvent({
       email: pilotBuyerEmail,
@@ -98,23 +101,40 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
       amountTotalCents: 4_999_00,
       stripeCustomerId,
       checkoutSessionId,
+      invitationToken,
     });
 
     const { status, body } = await postSignedStripeWebhook(request, event);
 
-    expect(status, JSON.stringify(body)).toBe(200);
-    expect(body.ok).toBe(true);
-    expect(body.tenantSlug).toBe(PILOT_CORP_SLUG);
-    expect(body.email).toBe(pilotBuyerEmail);
+    const inviteEmailRateLimited = isSupabaseInviteRateLimitError(status, body);
+    const inviteDeferredSuccess =
+      status === 200 && body.status === "SUCCESS" && body.invitePending === true;
+    if (!inviteEmailRateLimited && !inviteDeferredSuccess) {
+      expect(status, JSON.stringify(body)).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.tenantSlug).toBe(PILOT_CORP_SLUG);
+      expect(body.email).toBe(pilotBuyerEmail);
+    }
+
+    if (inviteDeferredSuccess) {
+      expect(body.message).toMatch(/Tenant and billing initialized/i);
+    }
 
     const tenant = await getE2ePrisma().tenant.findUnique({
       where: { slug: PILOT_CORP_SLUG },
     });
-    expect(tenant).not.toBeNull();
+    expect(tenant, JSON.stringify(body)).not.toBeNull();
     expect(tenant!.name).toBe("Pilot Corporation");
     pilotTenantUuid = tenant!.id;
 
     await assertTenantBillingActive(PILOT_CORP_SLUG);
+
+    const invitation = await getE2ePrisma().tenantWorkspaceInvitation.findFirst({
+      where: { tenantSlug: PILOT_CORP_SLUG },
+      orderBy: { createdAt: "desc" },
+      select: { consumedAt: true },
+    });
+    expect(invitation?.consumedAt, "invitation gate must be consumed after provision").toBeTruthy();
 
     const prospect = await getE2ePrisma().prospect.findUnique({
       where: { slug: PILOT_CORP_SLUG },
@@ -152,25 +172,33 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
 
   test("Block 4 — cross-tenant API fetch is rejected with 403", async ({ page }) => {
     test.skip(!pilotTenantUuid, "Authenticated pilot-corp session required.");
+    test.skip(!pilotBuyerEmail, "Pilot buyer email required.");
 
+    await redeemInviteOnTenantSubdomain(page, pilotBuyerEmail, PILOT_CORP_SLUG);
     await page.goto(tenantSubdomainOrigin(PILOT_CORP_SLUG));
 
     const foreignTenantUuid = TENANT_UUIDS.vaultbank;
     expect(foreignTenantUuid.toLowerCase()).not.toBe(pilotTenantUuid.toLowerCase());
 
-    const result = await page.evaluate(async (foreignUuid) => {
-      const res = await fetch(`/api/dmz/pipeline-telemetry?tenantUuid=${foreignUuid}`, {
-        method: "GET",
-        credentials: "include",
-      });
-      let body: Record<string, unknown> = {};
-      try {
-        body = (await res.json()) as Record<string, unknown>;
-      } catch {
-        body = {};
-      }
-      return { status: res.status, error: String(body.error ?? "") };
-    }, foreignTenantUuid);
+    const result = await page.evaluate(
+      async ({ foreignUuid, activeUuid }) => {
+        const res = await fetch(`/api/dmz/pipeline-telemetry?tenantUuid=${foreignUuid}`, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "x-tenant-id": activeUuid,
+          },
+        });
+        let body: Record<string, unknown> = {};
+        try {
+          body = (await res.json()) as Record<string, unknown>;
+        } catch {
+          body = {};
+        }
+        return { status: res.status, error: String(body.error ?? "") };
+      },
+      { foreignUuid: foreignTenantUuid, activeUuid: pilotTenantUuid },
+    );
 
     expect(result.status).toBe(403);
     expect(result.error).toMatch(/cross-tenant|Tenant isolation/i);

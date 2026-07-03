@@ -25,6 +25,15 @@ export function resolveTenantLocation(tenantKey: TenantKey): TenantLocation {
   return TENANT_UTILITY_LOCATIONS[tenantKey];
 }
 
+/** Utility geography for analyst export — seed slugs map directly; provisioned tenants use US corporate default. */
+export function resolveTenantLocationForExport(exportKey: string): TenantLocation {
+  const normalized = exportKey.trim().toLowerCase();
+  if (normalized in TENANT_UTILITY_LOCATIONS) {
+    return TENANT_UTILITY_LOCATIONS[normalized as TenantKey];
+  }
+  return TENANT_UTILITY_LOCATIONS.medshield;
+}
+
 export function resolveTenantLocationByUuid(tenantUuid: string | null): TenantLocation | null {
   const key = tenantKeyFromUuid(tenantUuid);
   if (!key) return null;

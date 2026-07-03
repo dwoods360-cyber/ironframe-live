@@ -12,7 +12,7 @@ Follow these simple steps on your computer screen to test the app and learn how 
 ### Test Case: AUTH-001 — Checking Your Access Badge
 * **What you are testing:** Making sure the app securely remembers who you are without mixing you up with another user.
 * **What to do on screen:**
-  1. Open the app's main page in your browser (`http://localhost:3000`).
+  1. Open your provisioned workspace URL in your browser.
   2. Type in your assigned username and password to log in.
   3. Once you are in, right-click anywhere on the screen, click **Inspect**, and look for a tab named **Application** (or **Storage**). Click on **Cookies** on the left menu.
 * **What you should expect to see:** The app logs you in smoothly. In your browser inspection panel, you should see a small piece of saved code (a cookie) that proves your account is securely linked to your screen session.

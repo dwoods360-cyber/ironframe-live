@@ -1,10 +1,12 @@
+import type { NextRequest } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { irongateInterceptRestrictedEvidenceChapterAccess } from "@/app/actions/agentActions";
-import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { USER_CLEARANCE_COOKIE_NAME } from "@/app/utils/clearanceLogic";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,9 +23,12 @@ function parseStoredPath(
   return { kind: "local", relative: stored };
 }
 
-export async function GET(_req: Request, ctx: { params: Promise<{ threatId: string }> }) {
+export async function GET(request: NextRequest, ctx: { params: Promise<{ threatId: string }> }) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   const { threatId } = await ctx.params;
-  const companyId = await getCompanyIdForActiveTenant();
+  const companyId = await getCompanyIdForTenantUuid(guard.tenantUuid);
   if (companyId == null) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

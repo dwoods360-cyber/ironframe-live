@@ -115,6 +115,16 @@ export async function writeDmzThreatActivityWithIronlock(params: {
     select: { id: true },
   });
 
+  console.info(
+    "[EPIC12_WORM_LEDGER] ThreatEvent append-only ingest",
+    JSON.stringify({
+      threatEventId: created.id,
+      tenantId: params.tenantId,
+      dmzAction: built.action,
+      wormImmutable: true,
+    }),
+  );
+
   if (built.quarantined) {
     void dispatchIronlockQuarantineAutoEscalation({
       threatId: created.id,

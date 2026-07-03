@@ -55,12 +55,24 @@ export class TenantBillingHoldError extends Error {
   }
 }
 
+export async function tenantHasPrimaryCompany(tenantUuid: string): Promise<boolean> {
+  const row = await prisma.company.findFirst({
+    where: { tenantId: tenantUuid, isTestRecord: false },
+    select: { id: true },
+  });
+  return Boolean(row);
+}
+
 /** Hard commercial stop before tenant-scoped ingress writes. Platform operators bypass for QA. */
 export async function assertTenantBillingActive(
   tenantUuid: string,
-  options?: { platformAdminBypass?: boolean },
+  options?: {
+    platformAdminBypass?: boolean;
+    /** First primary company bootstrap (post-provision vacuum) may proceed under PENDING billing. */
+    allowPrimaryCompanyBootstrap?: boolean;
+  },
 ): Promise<void> {
-  if (options?.platformAdminBypass) {
+  if (options?.platformAdminBypass || options?.allowPrimaryCompanyBootstrap) {
     return;
   }
 
@@ -70,6 +82,18 @@ export async function assertTenantBillingActive(
   if (entitlement?.blocked || isBillingGateActiveStatus(billingStatus)) {
     throw new TenantBillingHoldError(billingStatus);
   }
+}
+
+/** Company profile ingress: bootstrap allowed before billing is ACTIVE; updates require entitlement. */
+export async function assertTenantBillingActiveForCompanyProfileIngress(
+  tenantUuid: string,
+  options?: { platformAdminBypass?: boolean },
+): Promise<void> {
+  const hasPrimaryCompany = await tenantHasPrimaryCompany(tenantUuid);
+  await assertTenantBillingActive(tenantUuid, {
+    platformAdminBypass: options?.platformAdminBypass,
+    allowPrimaryCompanyBootstrap: !hasPrimaryCompany,
+  });
 }
 
 export function tenantBillingHoldJsonResponse(error: TenantBillingHoldError): NextResponse {

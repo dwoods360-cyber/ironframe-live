@@ -6,8 +6,8 @@ import {
   type BriefingCitation,
 } from "@/app/lib/governanceFrame/parseBriefingCitations";
 
-/** Canonical locators reviewers use to fact-check board and narrate output. */
-export function buildTelemetryCitationCatalog(
+/** @deprecated Internal reviewer locators — never append to public-bound briefing bodies. */
+export function buildInternalReviewCitationCatalog(
   payload: BoardContextPayload,
   retrievedAt = new Date().toISOString(),
 ): BriefingCitation[] {
@@ -72,6 +72,49 @@ export function buildTelemetryCitationCatalog(
   return citations;
 }
 
+/** External-facing Section V scaffold — safe for public newsletter and Governance Frame readers. */
+export function buildPublicBriefingCitationCatalog(
+  retrievedAt = new Date().toISOString(),
+): BriefingCitation[] {
+  const date = retrievedAt.slice(0, 10);
+  return [
+    {
+      index: 1,
+      label: "CISA Known Exploited Vulnerabilities Catalog",
+      locator: "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+      retrievedAt: date,
+      note: "Federal cyber defense coordination baseline",
+    },
+    {
+      index: 2,
+      label: "NIST Cybersecurity Framework",
+      locator: "https://www.nist.gov/cyberframework",
+      retrievedAt: date,
+      note: null,
+    },
+    {
+      index: 3,
+      label: "Ironframe Governance Frame",
+      locator: "https://brief.ironframegrc.com",
+      retrievedAt: date,
+      note: "Institutional GRC intelligence surface",
+    },
+  ];
+}
+
+/** @deprecated Alias — use buildInternalReviewCitationCatalog for operator review tooling only. */
+export const buildTelemetryCitationCatalog = buildInternalReviewCitationCatalog;
+
+export function appendPublicBriefingCitationsToMarkdown(
+  markdown: string,
+  retrievedAt = new Date().toISOString(),
+): string {
+  if (/###\s+V\.\s+Sources/i.test(markdown)) return markdown;
+  const block = renderBriefingCitationsMarkdown(buildPublicBriefingCitationCatalog(retrievedAt));
+  return `${markdown.trim()}\n\n${block}`;
+}
+
+/** @deprecated Appends internal reviewer locators — not for public-bound drafts. */
 export function appendTelemetryCitationsToMarkdown(
   markdown: string,
   payload: BoardContextPayload,
@@ -79,7 +122,7 @@ export function appendTelemetryCitationsToMarkdown(
 ): string {
   if (/###\s+V\.\s+Sources/i.test(markdown)) return markdown;
   const block = renderBriefingCitationsMarkdown(
-    buildTelemetryCitationCatalog(payload, retrievedAt),
+    buildInternalReviewCitationCatalog(payload, retrievedAt),
   );
   return `${markdown.trim()}\n\n${block}`;
 }
@@ -88,5 +131,5 @@ export function formatTelemetryCitationLines(
   payload: BoardContextPayload,
   retrievedAt = new Date().toISOString(),
 ): string[] {
-  return buildTelemetryCitationCatalog(payload, retrievedAt).map(formatBriefingCitationLine);
+  return buildInternalReviewCitationCatalog(payload, retrievedAt).map(formatBriefingCitationLine);
 }

@@ -53,6 +53,18 @@ function stripConflictingTenantPath(pathname: string, hostSlug: string): string 
   return rest.startsWith("/") ? rest : `/${rest}`;
 }
 
+/** Preserve browser-facing host when Next dev normalizes `request.nextUrl` to localhost. */
+function browserFacingRequestOrigin(request: NextRequest): string {
+  const host =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    request.headers.get("host")?.trim() ||
+    request.nextUrl.host;
+  const proto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    request.nextUrl.protocol.replace(/:$/, "");
+  return `${proto}://${host}`;
+}
+
 function mergeCookies(source: NextResponse, target: NextResponse): NextResponse {
   source.cookies.getAll().forEach(({ name, value, ...options }) => {
     target.cookies.set(name, value, options);
@@ -100,8 +112,10 @@ export async function applySubdomainTenancy(
   const pathname = request.nextUrl.pathname;
   const conflictPath = stripConflictingTenantPath(pathname, hostSlug);
   if (conflictPath && conflictPath !== pathname) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = conflictPath;
+    const redirectUrl = new URL(
+      `${conflictPath}${request.nextUrl.search}`,
+      browserFacingRequestOrigin(request),
+    );
     const redirect = NextResponse.redirect(redirectUrl);
     return mergeCookies(baseResponse, redirect);
   }

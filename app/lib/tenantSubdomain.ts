@@ -33,6 +33,15 @@ export const APP_ROUTE_ROOTS = new Set([
   "opsupport",
   "op-support",
   "cockpit",
+  "register",
+  "marketing",
+  "pricing",
+  "docs",
+  "dashboard",
+  "account",
+  "admin",
+  "get-started",
+  "legal",
 ]);
 
 const SEED_TENANT_SLUGS = new Set<string>(Object.keys(TENANT_UUIDS));
@@ -146,6 +155,12 @@ export function buildTenantLoginRedirectUrl(slug: string): string {
   return `${formatLocalTenantWorkspaceUrl(slug)}/login`;
 }
 
+/** Existing-operator invite ingress on the tenant workspace host. */
+export function buildTenantInviteLoginUrl(tenantSlug: string, inviteToken: string): string {
+  const token = inviteToken.trim();
+  return `${buildTenantLoginRedirectUrl(tenantSlug)}?invite=${encodeURIComponent(token)}`;
+}
+
 function labelBeforeDevSuffix(host: string, suffix: string): string | null {
   const idx = host.indexOf(`.${suffix}`);
   if (idx <= 0) return null;
@@ -225,16 +240,22 @@ export function pathTenantSlugFromPathname(pathname: string): string | null {
   return seg;
 }
 
-export function buildTenantSubdomainOrigin(slug: string, port = 3000): string {
+export function buildTenantSubdomainOrigin(slug: string, port?: number): string {
   const apex = resolveTenantApexDomain();
   const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
   if (apex && !apex.includes("localhost") && !apex.includes("lvh.me")) {
     return `${protocol}://${slug.toLowerCase()}.${apex}`;
   }
-  return formatLocalTenantWorkspaceUrl(slug, port);
+  const resolvedPort = port ?? (Number(resolveDevelopmentDomainHost().port) || 3000);
+  return formatLocalTenantWorkspaceUrl(slug, resolvedPort);
 }
 
 /** Post-login landing: Command Post on tenant subdomain, Integrity Hub on apex. */
 export function resolvePostAuthLandingPath(host: string | null | undefined): "/integrity" | "/" {
   return tenantSlugFromHost(host) ? "/" : "/integrity";
+}
+
+/** True when the request host is the apex control plane (localhost, www, bare apex) — not a tenant subdomain. */
+export function isApexControlPlaneHost(host: string | null | undefined): boolean {
+  return !tenantSlugFromHost(host);
 }

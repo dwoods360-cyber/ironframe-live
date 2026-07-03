@@ -3,6 +3,7 @@ import "server-only";
 import fs from "fs";
 import path from "path";
 import { sanitizeDocSlugSegments } from "@/lib/docsLinkNormalization";
+import { isGovernanceBriefingDocSlug } from "@/lib/documentationCorpusPlanes";
 
 export const DOCS_ROOT = path.join(process.cwd(), "docs");
 
@@ -61,7 +62,9 @@ export function walkMarkdownSlugs(dir: string, root: string): string[][] {
     } else if (file.endsWith(".md")) {
       const relativePath = path.relative(root, fullPath);
       const slug = relativePath.replace(/\.md$/i, "").split(path.sep);
-      results.push(slug);
+      if (!isGovernanceBriefingDocSlug(slug)) {
+        results.push(slug);
+      }
     }
   }
   return results;
@@ -127,6 +130,7 @@ export function groupDocsNavigation(items: DocNavItem[]): DocNavSection[] {
 export function resolveDocPath(slugSegments: string[]): string | null {
   const sanitized = sanitizeDocSlugSegments(slugSegments);
   if (sanitized.length === 0) return null;
+  if (isGovernanceBriefingDocSlug(sanitized)) return null;
 
   const relativeDocPath = `${sanitized.join("/")}.md`;
   const candidate = path.resolve(DOCS_ROOT, relativeDocPath);

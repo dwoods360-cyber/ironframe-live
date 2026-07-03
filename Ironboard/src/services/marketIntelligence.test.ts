@@ -51,14 +51,21 @@ const { prospectStore, flywheelLogs, prismaMock } = vi.hoisted(() => {
           orderBy,
         }: {
           where?: {
-            region?: string;
+            region?: string | { in: string[] };
             dealStage?: { not: string };
             aiFitnessScore?: { gte: number };
           };
           orderBy?: { aiFitnessScore: 'desc' | 'asc' };
         }) => {
           let rows = [...prospectStore.values()];
-          if (where?.region) rows = rows.filter(r => r.region === where.region);
+          if (where?.region) {
+            if (typeof where.region === 'string') {
+              rows = rows.filter(r => r.region === where.region);
+            } else if (Array.isArray(where.region.in)) {
+              const allowed = new Set(where.region.in);
+              rows = rows.filter(r => allowed.has(r.region));
+            }
+          }
           if (where?.dealStage?.not) rows = rows.filter(r => r.dealStage !== where.dealStage!.not);
           if (where?.aiFitnessScore?.gte != null) {
             rows = rows.filter(r => r.aiFitnessScore >= where.aiFitnessScore!.gte);
@@ -152,9 +159,31 @@ vi.mock('./prisma.js', () => ({
   getPrisma: vi.fn(() => prismaMock),
 }));
 
+const verifyAndOptimizeMarketDataMock = vi.hoisted(() =>
+  vi.fn(async (region: string) => ({
+    region,
+    assessment: {
+      region,
+      totalRows: 0,
+      syntheticCount: 0,
+      authenticCount: 0,
+      polluted: false,
+      meetsAuthenticThreshold: false,
+    },
+    syntheticPurged: 0,
+    discovery: null,
+    action: 'live_discovery' as const,
+  })),
+);
+
+vi.mock('./marketProspectAuthenticity.js', () => ({
+  verifyAndOptimizeMarketData: verifyAndOptimizeMarketDataMock,
+}));
+
 import {
   calculateTierScore,
   fetchProspectingBatch,
+  fetchProspectingBatchForTargets,
   harvestInteractionSignal,
   mapStoredProspect,
   resolveDealStageForScore,
@@ -337,51 +366,31 @@ describe('fetchProspectingBatch', () => {
     vi.clearAllMocks();
   });
 
-  it('seeds London hub batch into an empty store and returns qualified regional rows', async () => {
-    expect(prospectStore.size).toBe(0);
+  it('runs verifyAndOptimizeMarketData instead of injecting curated fiction', async () => {
+    seedProspect({
+      domain: 'smud.org',
+      companyName: 'Sacramento Municipal Utility District',
+      employeeCount: 2200,
+      region: 'London',
+      compliancePressure: 'SOC2',
+      aiFitnessScore: 150,
+      dealStage: 'PROSPECT',
+    });
 
     const london = await fetchProspectingBatch('London');
 
-    expect(prismaMock.marketProspect.upsert).toHaveBeenCalledTimes(4);
-    for (const domain of LONDON_SEED_DOMAINS) {
-      expect(prospectStore.has(domain)).toBe(true);
-    }
-
-    expect(london.every(p => p.region === 'London')).toBe(true);
-    expect(london.every(p => p.aiFitnessScore >= 100)).toBe(true);
-    expect(london.every(p => p.icpScore === p.aiFitnessScore)).toBe(true);
-    expect(london.map(p => p.domain).sort()).toEqual([...LONDON_SEED_DOMAINS].sort());
-
-    const payflow = london.find(p => p.domain === 'payflow-london.io');
-    expect(payflow?.aiFitnessScore).toBe(275);
-    expect(payflow?.dealStage).toBe('PROSPECT');
-  });
-
-  it('seeds Singapore hub batch into an empty store with distinct payloads', async () => {
-    const singapore = await fetchProspectingBatch('Singapore');
-
-    expect(prismaMock.marketProspect.upsert).toHaveBeenCalledTimes(4);
-    for (const domain of SINGAPORE_SEED_DOMAINS) {
-      expect(prospectStore.has(domain)).toBe(true);
-    }
-
-    expect(singapore.every(p => p.region === 'Singapore')).toBe(true);
-    expect(singapore.map(p => p.domain).sort()).toEqual([...SINGAPORE_SEED_DOMAINS].sort());
-
-    const finstack = singapore.find(p => p.domain === 'finstack.sg');
-    expect(finstack?.aiFitnessScore).toBe(275);
-
-    const londonDomains = new Set(LONDON_SEED_DOMAINS);
-    expect(singapore.some(p => londonDomains.has(p.domain as (typeof LONDON_SEED_DOMAINS)[number]))).toBe(
-      false,
-    );
+    expect(verifyAndOptimizeMarketDataMock).toHaveBeenCalledWith('London', {
+      operatorTriggered: true,
+    });
+    expect(prismaMock.marketProspect.upsert).not.toHaveBeenCalled();
+    expect(london.some(p => p.domain === 'smud.org')).toBe(true);
   });
 
   it('scoreAndInsertProspect writes tierScore and dealStage from resolveDealStageForScore', async () => {
     await scoreAndInsertProspect({
       domain: 'payflow-london.io',
       companyName: 'PayFlow London',
-      employeeCount: 28,
+      employeeCount: 280,
       region: 'London',
       compliancePressure: 'SOC2',
       recentFunding: 'SERIES_A',
@@ -398,7 +407,7 @@ describe('fetchProspectingBatch', () => {
     await scoreAndInsertProspect({
       domain: 'sub-threshold.io',
       companyName: 'Sub Threshold',
-      employeeCount: 20,
+      employeeCount: 200,
       region: 'London',
       compliancePressure: 'NONE',
       recentFunding: 'NONE',
@@ -409,5 +418,56 @@ describe('fetchProspectingBatch', () => {
     const row = prospectStore.get('sub-threshold.io');
     expect(row?.aiFitnessScore).toBe(50);
     expect(row?.dealStage).toBe('REJECTED');
+  });
+});
+
+describe('fetchProspectingBatchForTargets', () => {
+  beforeEach(() => {
+    prospectStore.clear();
+    vi.clearAllMocks();
+  });
+
+  it('runs live discovery for each target region', async () => {
+    seedProspect({
+      domain: 'zionsbancorporation.com',
+      companyName: 'Zions Bancorporation',
+      employeeCount: 9000,
+      region: 'London',
+      compliancePressure: 'SOC2',
+      aiFitnessScore: 150,
+      dealStage: 'PROSPECT',
+    });
+    seedProspect({
+      domain: 'smud.org',
+      companyName: 'SMUD',
+      employeeCount: 2200,
+      region: 'Singapore',
+      compliancePressure: 'ISO27001',
+      aiFitnessScore: 150,
+      dealStage: 'PROSPECT',
+    });
+
+    const rows = await fetchProspectingBatchForTargets(['London', 'Singapore']);
+    expect(verifyAndOptimizeMarketDataMock).toHaveBeenCalledTimes(2);
+    expect(rows.length).toBe(2);
+  });
+
+  it('returns qualified rows for arbitrary country labels after discovery gate', async () => {
+    seedProspect({
+      domain: 'customersbank.com',
+      companyName: 'Customers Bancorp',
+      employeeCount: 1200,
+      region: 'Germany',
+      compliancePressure: 'SOC2',
+      aiFitnessScore: 150,
+      dealStage: 'PROSPECT',
+    });
+
+    const rows = await fetchProspectingBatchForTargets(['Germany']);
+    expect(verifyAndOptimizeMarketDataMock).toHaveBeenCalledWith('Germany', {
+      operatorTriggered: true,
+    });
+    expect(rows.every(p => p.region === 'Germany')).toBe(true);
+    expect(rows.every(p => p.aiFitnessScore >= 100)).toBe(true);
   });
 });

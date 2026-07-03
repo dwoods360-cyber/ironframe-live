@@ -9,7 +9,7 @@ A multi-tenant GRC platform with quantitative ALE, threat pipeline, sustainabili
 CISOs, GRC teams, CFO/risk officers, internal audit, and MSSPs managing multiple client tenants.
 
 **Is it cloud-only?**  
-Production targets Vercel + Supabase. Local dev uses `npm run dev` with `.env.local`.
+Production targets managed cloud hosting with Supabase. Local development uses the standard dev server with `.env.local`.
 
 ## Tenants and access
 
@@ -49,7 +49,7 @@ Simulation entries are filtered from the production audit sidebar by design.
 ## Exports and audit
 
 **Where are analyst exports?**  
-`/dashboard/exports` — CSV/PDF for the active tenant.
+**Dashboard → Exports** — CSV/PDF for the active tenant.
 
 **What is WORM?**  
 Write-Once-Read-Many storage for sealed evidence (Epic 12)—prevents deletion after attestation.
@@ -57,7 +57,7 @@ Write-Once-Read-Many storage for sealed evidence (Epic 12)—prevents deletion a
 ## Technical
 
 **How do I report a bug?**  
-Support channel with: tenant UUID, timestamp, browser, and `/api/dashboard` or sustainability route status code.
+Support channel with: tenant UUID, timestamp, browser, and dashboard or sustainability telemetry status.
 
 **Where is API documentation?**  
 [API Documentation](../technical/api-documentation.md)

@@ -8,8 +8,7 @@ import { mergeIngestionDetailsPatch } from '@/app/utils/ingestionDetailsMerge';
 import { markOperationalDeficiencyReportPromotedToThreat } from '@/app/lib/opsupport/markDeficiencyPromoted';
 import { ZodError } from 'zod';
 import { assertSimulationInjectAllowedForTenant } from '@/app/lib/simulationStandDown';
-import { getActiveTenantUuidFromCookies, isValidTenantUuid } from '@/app/utils/serverTenantContext';
-import { isShadowPlaneActiveFromEnv } from '@/app/utils/shadowPlaneActive';
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import {
   ingressSanitizerFailureResponse,
   sanitizeIngressPayload,
@@ -19,17 +18,6 @@ import {
   ingestOrchestrationBusDisabled,
   invokeIngestOrchestrationBus,
 } from '@/src/services/orchestration/ingestBusBridge';
-
-/** Align bot/header UUID with Command Center cookie under shadow plane (RLS + dashboard scope). */
-function shadowPlaneActive(request: NextRequest): boolean {
-  if (isShadowPlaneActiveFromEnv()) return true;
-  return request.cookies.get('ironframe-simulation-mode')?.value === '1';
-}
-
-function tenantUuidFromHeader(request: NextRequest): string | null {
-  const raw = request.headers.get('x-tenant-id')?.trim();
-  return raw && isValidTenantUuid(raw) ? raw : null;
-}
 
 const DEFAULT_TTL_SECONDS = 259200; // 72 hours
 const CENTS_PER_MILLION = 100_000_000;
@@ -72,16 +60,9 @@ export type CreateThreatBody = {
  */
 export async function POST(request: NextRequest) {
   try {
-    const headerTenant = tenantUuidFromHeader(request);
-    let tenantId = headerTenant;
-    if (shadowPlaneActive(request)) {
-      tenantId = headerTenant ?? (await getActiveTenantUuidFromCookies());
-    } else if (!tenantId) {
-      return NextResponse.json(
-        { error: 'Tenant context required. Send x-tenant-id header (tenant UUID).' },
-        { status: 401 }
-      );
-    }
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
+    if (!guard.ok) return guard.response;
+    const tenantId = guard.tenantUuid;
 
     let body: CreateThreatBody;
     try {

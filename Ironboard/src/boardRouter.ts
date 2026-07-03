@@ -3,6 +3,7 @@ import {
   STRATEGIC_KNOWLEDGE_VAULT,
   type BoardPersona,
 } from './staticContext.js';
+import { inferRegionsFromQuery } from './services/boardroomQueryIntent.js';
 import { isSalesLeadDiscoveryQuery } from './orchestrator/routing.js';
 export {
   BOARD_CONVERSATIONAL_BOUNDARY,
@@ -120,6 +121,10 @@ function isWorkspaceIntent(normalizedQuery: string): boolean {
     normalizedQuery.includes('flywheel') ||
     normalizedQuery.includes('outreach history') ||
     normalizedQuery.includes('gtm') ||
+    normalizedQuery.includes('market research') ||
+    normalizedQuery.includes('market intelligence') ||
+    normalizedQuery.includes('go-to-market') ||
+    normalizedQuery.includes('go to market') ||
     normalizedQuery.includes('market opportunit')
   );
 }
@@ -180,12 +185,14 @@ export function planDiscoveryExecution(
 
   if (workspace || capability) {
     intents.push('workspace_records');
+    const regions = inferRegionsFromQuery(query, ctx.activeHub ?? '');
     pushUniqueToolCall(toolCalls, {
       tool: 'queryLocalWorkspace',
       args: {
         queryType: 'active_prospects',
         limit: 10,
-        ...(ctx.activeHub ? { region: ctx.activeHub } : {}),
+        ...(regions.length === 1 ? { region: regions[0] } : {}),
+        ...(regions.length > 1 ? { regions } : {}),
       },
       purpose: 'Verify live GTM prospect records in workspace database',
     });

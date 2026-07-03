@@ -1,7 +1,9 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { assessTasMdIntegritySync } from "@/app/lib/tasMdIntegrity";
 import { readSystemConfigStaleLockdownSliceSafe } from "@/app/lib/systemConfigSafeAccess";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import {
   getTasFingerprintSnapshot,
   syncConstitutionalIntegrityEnforcement,
@@ -9,7 +11,6 @@ import {
 import { shortenSha256Hex } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { checkAndExecuteDeadMansSwitch, getDeadManSwitchStatus } from "@/app/lib/deadMansSwitch";
 import { readGovernanceMaturityState } from "@/app/lib/governanceMaturityState";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { computeSustainabilityStaleLockdown } from "@/app/config/sustainabilityStaleLockdown";
 
 export const dynamic = "force-dynamic";
@@ -61,9 +62,11 @@ function buildIntegrityPayload(params: {
 /**
  * Constitutional Integrity Sentinel — polled on app start / interval for emergency + rebirth.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const tenantId = await getActiveTenantUuidFromCookies();
+    const guard = await assertAuthenticatedIronguardTenantOr403(request);
+    if (!guard.ok) return guard.response;
+    const tenantId = guard.tenantUuid;
 
     let snap = getTasFingerprintSnapshot({ forceRefresh: true, tenantId });
     try {

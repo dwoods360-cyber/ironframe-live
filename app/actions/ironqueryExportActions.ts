@@ -3,23 +3,25 @@
 import { createHash, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getLatestUtilityRateForTenant } from "@/app/services/ironbloom/rateEngine";
 import { encodeIronqueryAnalystCsv, type IronqueryAnalystCsvRow } from "@/app/utils/ironquery/csvEncoder";
 import { buildIronqueryAnalystPdf } from "@/app/utils/ironquery/pdfReportEncoder";
+import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import {
+  assertTenantBillingActive,
+  TenantBillingHoldError,
+} from "@/app/lib/billing/tenantBillingEntitlement";
+import {
+  resolveIronqueryExportScope,
+  resolveUtilityRateForExportScope,
+  type IronqueryExportScope,
+} from "@/app/lib/ironquery/resolveIronqueryExportScope";
 import { getActiveTenantUuidFromCookies, isValidTenantUuid } from "@/app/utils/serverTenantContext";
-import { tenantKeyFromUuid, type TenantKey } from "@/app/utils/tenantIsolation";
 import {
   archiveComplianceReport,
   type ArchiveClassification,
   type ArchiveFormat,
 } from "@/src/services/ironquery/exportArchive";
 import type { PdfExportDescriptor } from "@/src/services/ironquery/exportSigner";
-
-const ANALYST_BASELINE_CENTS: Record<"medshield" | "vaultbank" | "gridcore", bigint> = {
-  medshield: 1110000000n,
-  vaultbank: 590000000n,
-  gridcore: 470000000n,
-};
 
 export type IronqueryExportHistoryRow = {
   artifactId: string;
@@ -33,47 +35,86 @@ export type IronqueryExportHistoryRow = {
 
 export type IronqueryExportDashboardContext =
   | { ok: true; tenantId: string; history: IronqueryExportHistoryRow[] }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      tenantSlug?: string;
+      billingStatus?: string;
+    };
 
 function filenameFromStoragePath(storagePath: string): string {
   const segment = storagePath.split("/").pop() ?? storagePath;
   return segment || "ironquery-export.sealed.json";
 }
 
-async function requireScopedTenantId(): Promise<
-  { ok: true; tenantId: string; tenantKey: TenantKey } | { ok: false; error: string }
+async function requireIronqueryExportScope(): Promise<
+  | { ok: true; scope: IronqueryExportScope }
+  | {
+      ok: false;
+      error: string;
+      code: "SCOPE_REQUIRED";
+    }
 > {
   const tenantId = await getActiveTenantUuidFromCookies();
   if (!tenantId || !isValidTenantUuid(tenantId)) {
     return {
       ok: false,
+      code: "SCOPE_REQUIRED",
       error: "Select a tenant in Command Center (ironframe-tenant cookie) to access analyst exports.",
     };
   }
-  const tenantKey = tenantKeyFromUuid(tenantId);
-  if (!tenantKey) {
-    return { ok: false, error: "Unknown tenant scope for analyst export." };
+
+  const scope = await resolveIronqueryExportScope(tenantId);
+  if (!scope) {
+    return {
+      ok: false,
+      code: "SCOPE_REQUIRED",
+      error:
+        "Analyst export scope unavailable. Complete Get Started (ALE baseline) for this workspace, then retry.",
+    };
   }
-  return { ok: true, tenantId, tenantKey };
+
+  return { ok: true, scope };
 }
 
-function resolveAleBaseline(tenantKey: TenantKey): bigint {
-  if (!(tenantKey in ANALYST_BASELINE_CENTS)) {
-    throw new Error("IRONQUERY_EXPORT_BASELINE_UNAVAILABLE");
+async function requireExportBillingEntitlement(
+  tenantId: string,
+): Promise<
+  | { ok: true }
+  | { ok: false; error: string; code: "BILLING_HOLD"; tenantSlug?: string; billingStatus: string }
+> {
+  try {
+    const platformAdmin = await canUsePlatformAdminTools();
+    await assertTenantBillingActive(tenantId, { platformAdminBypass: platformAdmin });
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof TenantBillingHoldError) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { slug: true },
+      });
+      return {
+        ok: false,
+        code: "BILLING_HOLD",
+        error: "Commercial entitlement required before analyst export.",
+        tenantSlug: tenant?.slug,
+        billingStatus: error.billingStatus,
+      };
+    }
+    throw error;
   }
-  return ANALYST_BASELINE_CENTS[tenantKey as keyof typeof ANALYST_BASELINE_CENTS];
 }
 
-async function buildAnalystRow(tenantId: string, tenantKey: TenantKey): Promise<IronqueryAnalystCsvRow> {
-  const aleBaselineCents = resolveAleBaseline(tenantKey);
-  const quote = await getLatestUtilityRateForTenant(tenantKey);
+async function buildAnalystRow(scope: IronqueryExportScope): Promise<IronqueryAnalystCsvRow> {
+  const quote = await resolveUtilityRateForExportScope(scope.exportKey);
   if (quote.unitType !== "kWh") {
     throw new Error("IRONQUERY_EXPORT_NON_PHYSICAL_UNIT");
   }
   return {
-    tenantId,
-    tenantKey,
-    aleBaselineCents,
+    tenantId: scope.tenantId,
+    tenantKey: scope.exportKey,
+    aleBaselineCents: scope.aleBaselineCents,
     rateUsdPerUnit: quote.rateUsdPerUnit,
     unitType: "kWh",
     source: quote.source,
@@ -84,12 +125,15 @@ async function buildAnalystRow(tenantId: string, tenantKey: TenantKey): Promise<
 }
 
 export async function getIronqueryExportDashboardContext(): Promise<IronqueryExportDashboardContext> {
-  const scope = await requireScopedTenantId();
-  if (!scope.ok) return scope;
+  const scoped = await requireIronqueryExportScope();
+  if (!scoped.ok) return scoped;
+
+  const billing = await requireExportBillingEntitlement(scoped.scope.tenantId);
+  if (!billing.ok) return billing;
 
   const rows = await prisma.evidenceArtifact.findMany({
     where: {
-      tenantId: scope.tenantId,
+      tenantId: scoped.scope.tenantId,
       OR: [{ storagePath: { contains: "/financial/" } }, { storagePath: { contains: "/forensic/" } }],
       storagePath: { contains: "/ironquery/" },
     },
@@ -106,7 +150,7 @@ export async function getIronqueryExportDashboardContext(): Promise<IronqueryExp
 
   return {
     ok: true,
-    tenantId: scope.tenantId,
+    tenantId: scoped.scope.tenantId,
     history: rows.map((row) => ({
       artifactId: row.id,
       filename: filenameFromStoragePath(row.storagePath),
@@ -124,13 +168,22 @@ export async function sealIronqueryComplianceExport(input: {
   classification: ArchiveClassification;
 }): Promise<
   | { ok: true; artifactId: string; canonicalSha256: string }
-  | { ok: false; error: string }
+  | {
+      ok: false;
+      error: string;
+      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      tenantSlug?: string;
+      billingStatus?: string;
+    }
 > {
   try {
-    const scope = await requireScopedTenantId();
-    if (!scope.ok) return scope;
+    const scoped = await requireIronqueryExportScope();
+    if (!scoped.ok) return scoped;
 
-    const analystRow = await buildAnalystRow(scope.tenantId, scope.tenantKey);
+    const billing = await requireExportBillingEntitlement(scoped.scope.tenantId);
+    if (!billing.ok) return billing;
+
+    const analystRow = await buildAnalystRow(scoped.scope);
     const payload: string | PdfExportDescriptor =
       input.format === "csv"
         ? encodeIronqueryAnalystCsv([analystRow])
@@ -144,7 +197,7 @@ export async function sealIronqueryComplianceExport(input: {
               sections: [
                 {
                   id: "analyst-pack",
-                  title: `Ironquery Analyst — ${scope.tenantKey}`,
+                  title: `Ironquery Analyst — ${scoped.scope.exportKey}`,
                   dataHash,
                   rowsCount: 1,
                 },
@@ -153,7 +206,7 @@ export async function sealIronqueryComplianceExport(input: {
           })();
 
     const archived = await archiveComplianceReport({
-      tenantId: scope.tenantId,
+      tenantId: scoped.scope.tenantId,
       generatedByUserId: "ANALYST_EXPORT_DASHBOARD",
       format: input.format,
       classification: input.classification,
@@ -171,18 +224,27 @@ export async function downloadIronqueryAnalystPack(
   format: "csv" | "pdf",
 ): Promise<
   | { ok: true; filename: string; contentType: string; base64: string }
-  | { ok: false; error: string }
+  | {
+      ok: false;
+      error: string;
+      code?: "BILLING_HOLD" | "SCOPE_REQUIRED";
+      tenantSlug?: string;
+      billingStatus?: string;
+    }
 > {
   try {
-    const scope = await requireScopedTenantId();
-    if (!scope.ok) return scope;
+    const scoped = await requireIronqueryExportScope();
+    if (!scoped.ok) return scoped;
 
-    const analystRow = await buildAnalystRow(scope.tenantId, scope.tenantKey);
+    const billing = await requireExportBillingEntitlement(scoped.scope.tenantId);
+    if (!billing.ok) return billing;
+
+    const analystRow = await buildAnalystRow(scoped.scope);
     if (format === "csv") {
       const csv = encodeIronqueryAnalystCsv([analystRow]);
       return {
         ok: true,
-        filename: `ironquery-analyst-export-${scope.tenantKey}.csv`,
+        filename: `ironquery-analyst-export-${scoped.scope.exportKey}.csv`,
         contentType: "text/csv; charset=utf-8",
         base64: Buffer.from(csv, "utf8").toString("base64"),
       };
@@ -191,7 +253,7 @@ export async function downloadIronqueryAnalystPack(
     const pdfBytes = await buildIronqueryAnalystPdf([analystRow]);
     return {
       ok: true,
-      filename: `ironquery-analyst-export-${scope.tenantKey}.pdf`,
+      filename: `ironquery-analyst-export-${scoped.scope.exportKey}.pdf`,
       contentType: "application/pdf",
       base64: Buffer.from(pdfBytes).toString("base64"),
     };

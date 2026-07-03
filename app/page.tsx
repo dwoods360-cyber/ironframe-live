@@ -1,6 +1,6 @@
 /**
- * Root route: Ironframe GRC public homepage for guests; Command Center for authenticated operators.
- * Marketing layout lives in MarketingHomepage (theme tokens + semantic HTML5 + aria-live regions).
+ * Root route: tenant subdomain Command Post; apex routes to Integrity Hub or sign-in.
+ * Public marketing copy lives at `/marketing`.
  */
 
 import type { Metadata } from "next";
@@ -8,18 +8,22 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import DashboardGroupShell from "@/app/(dashboard)/DashboardGroupShell";
 import DashboardHomeClient from "@/app/components/DashboardHomeClient";
+import DashboardBillingGate from "@/app/components/billing/DashboardBillingGate";
 import GlobalHealthSummaryCard from "@/app/components/GlobalHealthSummaryCard";
-import MarketingHomepage from "@/app/components/marketing/MarketingHomepage";
 import {
   ensureDashboardTenantSession,
   resolveDashboardAccess,
 } from "@/app/lib/auth/dashboardRoleAccess";
+import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import { resolveTenantBillingEntitlementByUuid } from "@/app/lib/billing/tenantBillingEntitlement";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
+import { getHostBoundTenantUuid } from "@/app/utils/serverTenantContext";
 import { resolveDashboardActiveTenantUuid } from "@/app/lib/auth/resolveDashboardActiveTenant";
 import { resolveDashboardMitigatedValueCents } from "@/app/lib/ironbloom/productionCarbonLedger";
 import { ingestGovernanceMaturityForTenant } from "@/app/lib/riskDeckIngress";
 import { listRiskRegistryForTenant } from "@/app/lib/riskRegistryDb";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -40,22 +44,47 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
+  const h = await headers();
+  const hostSlug = tenantSlugFromHost(h.get("host"));
   const access = await ensureDashboardTenantSession(await resolveDashboardAccess());
 
-  if (access.status === "unauthenticated") {
-    const h = await headers();
-    if (tenantSlugFromHost(h.get("host"))) {
+  /** Apex (localhost, www): Integrity Hub lane — not marketing, not Command Post. */
+  if (!hostSlug) {
+    if (access.status === "unauthenticated") {
       redirect("/login");
     }
-    return <MarketingHomepage />;
+    if (access.status === "pending") {
+      redirect("/unauthorized");
+    }
+    redirect("/integrity");
+  }
+
+  if (access.status === "unauthenticated") {
+    redirect("/login");
   }
 
   if (access.status === "pending") {
     redirect("/unauthorized");
   }
 
+  if (hostSlug) {
+    const hostTenantUuid = await getHostBoundTenantUuid();
+    if (hostTenantUuid && access.tenantUuid !== hostTenantUuid) {
+      redirect("/unauthorized");
+    }
+  }
+
   const tenantUuid = await resolveDashboardActiveTenantUuid();
   const serverTimeEpochMs = Date.now();
+
+  const platformAdmin = await canUsePlatformAdminTools();
+  const billing = await resolveTenantBillingEntitlementByUuid(access.tenantUuid);
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: access.tenantUuid },
+    select: { slug: true },
+  });
+  const tenantSlug = tenant?.slug ?? hostSlug ?? "workspace";
+  const billingBlocked = Boolean(billing?.blocked && !platformAdmin);
 
   const unifiedRiskQueue = tenantUuid ? await listRiskRegistryForTenant(tenantUuid) : [];
   const governanceMaturity = await ingestGovernanceMaturityForTenant(tenantUuid);
@@ -64,15 +93,21 @@ export default async function HomePage() {
 
   return (
     <DashboardGroupShell initialTenantUuid={access.tenantUuid}>
-      <DashboardHomeClient
-        serverTimeEpochMs={serverTimeEpochMs}
-        governanceMaturity={governanceMaturity}
-        initialRiskRegistry={unifiedRiskQueue}
-        carbonMitigatedValueCents={productionCarbon.mitigatedValueCents}
-        carbonMitigatedDisplay={carbonMitigatedDisplay}
+      <DashboardBillingGate
+        blocked={billingBlocked}
+        tenantSlug={tenantSlug}
+        billingStatus={billing?.status ?? "UNTRACKED"}
       >
-        <GlobalHealthSummaryCard coreintelTrendActive={false} />
-      </DashboardHomeClient>
+        <DashboardHomeClient
+          serverTimeEpochMs={serverTimeEpochMs}
+          governanceMaturity={governanceMaturity}
+          initialRiskRegistry={unifiedRiskQueue}
+          carbonMitigatedValueCents={productionCarbon.mitigatedValueCents}
+          carbonMitigatedDisplay={carbonMitigatedDisplay}
+        >
+          <GlobalHealthSummaryCard coreintelTrendActive={false} />
+        </DashboardHomeClient>
+      </DashboardBillingGate>
     </DashboardGroupShell>
   );
 }

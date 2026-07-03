@@ -1,7 +1,9 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import { ThreatState } from "@prisma/client";
-import { getCompanyIdForActiveTenant } from "@/app/lib/grc/clearanceThreatResolve";
+import { getCompanyIdForTenantUuid } from "@/app/lib/grc/clearanceThreatResolve";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { loadIncidentReportPayload } from "@/app/utils/incidentReportData";
 import { buildDueDiligencePdfBytes } from "@/app/utils/generateDueDiligenceReport";
 import prisma from "@/lib/prisma";
@@ -18,15 +20,18 @@ const JUSTIFY_ALLOWED: ThreatState[] = [
  * GET budget-optimized due diligence PDF (includes Executive Budget Justification appendix).
  * Requires session tenant scope; risk event must be MITIGATED, RESOLVED, or CLOSED_ARCHIVED.
  */
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   noStore();
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   const { id: riskEventId } = await ctx.params;
   const tid = riskEventId?.trim();
   if (!tid) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const companyId = await getCompanyIdForActiveTenant();
+  const companyId = await getCompanyIdForTenantUuid(guard.tenantUuid);
   if (companyId == null) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

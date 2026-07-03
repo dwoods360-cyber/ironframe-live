@@ -1,7 +1,9 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { calculateComponentHealth } from "@/app/lib/opsupport/componentHealth";
 import {
   OPERATIONAL_DEFICIENCY_REPORT,
@@ -15,12 +17,16 @@ export const revalidate = 0;
  * Shadow diagnostic analytics: rows from `SimulationDiagnosticLog` fed through
  * `calculateComponentHealth` (weighted points + health bar) for PO prioritization.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   noStore();
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!tenantUuid) {
-    return NextResponse.json({ error: "No active tenant.", components: [] }, { status: 401 });
+  const admin = await requirePlatformAdministrator();
+  if ("error" in admin) {
+    return NextResponse.json({ error: admin.error }, { status: 403 });
   }
+
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantUuid = guard.tenantUuid;
 
   const logs = await prisma.simulationDiagnosticLog.findMany({
     where: {

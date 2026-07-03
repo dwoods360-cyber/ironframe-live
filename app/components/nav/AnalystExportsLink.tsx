@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
 
 type Props = {
@@ -21,13 +22,13 @@ export default function AnalystExportsLink({ children, className, onClick }: Pro
   };
 
   return (
-    <a
+    <Link
       href="/exports"
       data-testid="analyst-exports-link"
       onClick={handleClick}
       className={className}
     >
       {children}
-    </a>
+    </Link>
   );
 }

@@ -42,6 +42,7 @@ describe("tenantSubdomain", () => {
   it("detects path tenant prefixes", () => {
     expect(pathTenantSlugFromPathname("/medshield/vendors")).toBe("medshield");
     expect(pathTenantSlugFromPathname("/integrity")).toBeNull();
+    expect(pathTenantSlugFromPathname("/exports")).toBeNull();
     expect(pathTenantSlugFromPathname("/register/sample-token")).toBeNull();
   });
 

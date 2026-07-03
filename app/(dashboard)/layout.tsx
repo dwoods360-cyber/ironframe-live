@@ -49,7 +49,8 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
   const access = await ensureDashboardTenantSession(await resolveDashboardAccess());
 
   if (access.status === "unauthenticated") {
-    redirect(await resolveDashboardLoginRedirectPath());
+    const loginPath = await resolveDashboardLoginRedirectPath();
+    redirect(loginPath);
   }
 
   if (access.status === "pending") {

@@ -81,7 +81,7 @@ export default function IronqueryExportDashboard({ tenantId, history }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-testid="analyst-exports-console">
       <header className="border-b border-slate-800/90 pb-4">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/90">
           Epic 16 · Analyst Export Console

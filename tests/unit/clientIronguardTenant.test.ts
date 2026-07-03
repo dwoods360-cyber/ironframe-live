@@ -58,6 +58,23 @@ describe("applyIronguardToFetch host binding", () => {
     expect(headers.get("x-tenant-id")).toBe(TENANT_UUIDS.vaultbank);
   });
 
+  it("injects x-tenant-id when host-bound workspace fallback is set before session bind", () => {
+    const hostBoundUuid = "487b37d0-7942-4b6f-a637-274115b06476";
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        ...window.location,
+        host: "bwc.lvh.me:3000",
+        origin: "http://bwc.lvh.me:3000",
+      },
+    });
+
+    setDashboardWorkspaceFallbackTenant(hostBoundUuid);
+    const [, init] = applyIronguardToFetch("/api/dashboard");
+    const headers = new Headers(init?.headers);
+    expect(headers.get("x-tenant-id")).toBe(hostBoundUuid.toLowerCase());
+  });
+
   it("injects x-tenant-id for constitutional sentinel reads when dashboard fallback is bound", () => {
     setDashboardWorkspaceFallbackTenant(TENANT_UUIDS.gridcore);
 

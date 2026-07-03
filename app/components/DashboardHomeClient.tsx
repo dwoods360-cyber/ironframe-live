@@ -44,6 +44,7 @@ import { useContextSwitchPaintGate } from "@/app/hooks/useContextSwitchPaintGate
 import GrcAleExposureMap from '@/app/components/GrcAleExposureMap';
 import BudgetJustification from '@/components/BudgetJustification';
 import { LedgerOptimizationTable } from '@/app/components/grc/LedgerOptimizationTable';
+import ExportScopeRequiredBannerSlot from '@/app/components/ExportScopeRequiredBannerSlot';
 import ForensicReasoningPlaybackModal from '@/components/ForensicReasoningPlaybackModal';
 import AuditorRiskLedger from '@/components/AuditorRiskLedger';
 import { formatCentsToUSD } from '@/app/utils/formatCentsToUSD';
@@ -1252,6 +1253,7 @@ export default function DashboardHomeClient({
               className={`sticky top-0 z-[49] mt-3 ${DASHBOARD_CENTER_PAD_X}`}
             />
           ) : null}
+          <ExportScopeRequiredBannerSlot />
           <DashboardAlertBanners phoneHomeAlert={null} regulatoryState={{ ticker: [], isSyncing: false }} />
           <Header />
           <div className="border-b border-slate-800/80 px-6 py-2">

@@ -65,6 +65,7 @@ describe("publicAppUrl", () => {
 
   it("resolveAuthNextPathForHost preserves get-started on tenant subdomain", () => {
     expect(resolveAuthNextPathForHost("bwc.lvh.me:3000", "/get-started")).toBe("/get-started");
+    expect(resolveAuthNextPathForHost("bwc.lvh.me:3000", "/exports")).toBe("/exports");
     expect(resolveAuthNextPathForHost("localhost:3000", "/get-started")).toBe("/get-started");
     expect(resolveAuthNextPathForHost("bwc.lvh.me:3000", null)).toBe("/");
     expect(resolveAuthNextPathForHost("localhost:3000", null)).toBe("/integrity");

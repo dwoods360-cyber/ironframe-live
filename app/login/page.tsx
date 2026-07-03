@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { resolveWorkspaceInvitationForRegistration } from "@/app/lib/auth/workspaceInvitationCore";
 import { buildRegisterInvitationUrl } from "@/app/lib/server/workspaceInviteEmailDelivery";
 import { completeWorkspaceInviteLoginCore } from "@/app/lib/server/workspaceInviteLoginCore";
@@ -41,13 +42,21 @@ function inviteErrorMessage(reason: "not_found" | "email_unbound" | "consumed" |
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; next?: string }>;
 }) {
   const params = await searchParams;
   const inviteToken = params.invite?.trim() ?? "";
 
   const h = await headers();
   const hostSlug = tenantSlugFromHost(h.get("host"));
+
+  if (!inviteToken) {
+    const sessionUser = await getSupabaseSessionUser();
+    if (sessionUser) {
+      redirect(resolveAuthNextPathForHost(hostSlug, params.next));
+    }
+  }
+
   const initialBrand = hostSlug ? await resolveTenantBrand(hostSlug) : null;
 
   let inviteState: InviteLookupState | null = null;

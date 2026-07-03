@@ -15,7 +15,7 @@ describe("GetStarted orientation guide", () => {
 
   it("maps export-path step to dashboard exports console and screenshot", () => {
     const exportStep = GET_STARTED_STEPS.find((step) => step.id === "export-path");
-    expect(exportStep?.href).toBe("/dashboard/exports");
+    expect(exportStep?.href).toBe("/exports");
     expect(GET_STARTED_STEP_VISUALS["export-path"].screenshotSrc).toContain(
       "get-started-dashboard-exports-stack",
     );

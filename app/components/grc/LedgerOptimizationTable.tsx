@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import React, { useState } from 'react';
 import PilotSurfaceBanner from '@/app/components/pilot/PilotSurfaceBanner';
+import AnalystExportsLink from '@/app/components/nav/AnalystExportsLink';
 import { usePilotStubExportGate } from '@/app/hooks/usePilotStubExportGate';
 import { useAgentStore } from '@/app/store/agentStore';
 
@@ -86,12 +86,11 @@ export function LedgerOptimizationTable() {
             </p>
             <p className="mt-1 text-[11px] leading-snug text-slate-400">
               Client-side ledger stubs are disabled for active workspaces. Use{" "}
-              <Link
-                href="/dashboard/exports"
+              <AnalystExportsLink
                 className="text-cyan-300 underline-offset-2 hover:underline"
               >
                 Analyst exports
-              </Link>{" "}
+              </AnalystExportsLink>{" "}
               after billing is active.
             </p>
           </div>

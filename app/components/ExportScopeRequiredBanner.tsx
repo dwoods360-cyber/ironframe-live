@@ -1,11 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-/** Home-route banner when exports redirect legacy query `?exportScope=required` is present. */
+import AnalystExportsLink from "@/app/components/nav/AnalystExportsLink";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
+
+/** Banner when analyst exports redirect with `?exportScope=required` (Command Post or Get Started). */
 export default function ExportScopeRequiredBanner() {
   const searchParams = useSearchParams();
+  const hostSlug = useHostTenantSlug();
+
   if (searchParams.get("exportScope") !== "required") {
     return null;
   }
@@ -20,11 +24,24 @@ export default function ExportScopeRequiredBanner() {
         Analyst export scope
       </p>
       <p className="mt-1 text-sm text-amber-100/90">
-        Select your workspace tenant in the header switcher, then open{" "}
-        <Link href="/dashboard/exports" className="text-cyan-300 underline-offset-2 hover:underline">
-          Analyst exports
-        </Link>{" "}
-        again.
+        {hostSlug ? (
+          <>
+            Save your workspace ALE baseline in Get Started, then open{" "}
+            <AnalystExportsLink className="text-cyan-300 underline-offset-2 hover:underline">
+              Analyst exports
+            </AnalystExportsLink>{" "}
+            again.
+          </>
+        ) : (
+          <>
+            Select your workspace tenant in the header switcher, complete Get Started (ALE baseline),
+            then open{" "}
+            <AnalystExportsLink className="text-cyan-300 underline-offset-2 hover:underline">
+              Analyst exports
+            </AnalystExportsLink>{" "}
+            again.
+          </>
+        )}
       </p>
     </div>
   );

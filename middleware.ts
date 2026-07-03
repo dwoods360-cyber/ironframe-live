@@ -11,8 +11,10 @@ import {
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
 import { isAuthPublicPath, isPublicCloudIngressPath, isPublicRoute } from "@/app/utils/grcRouteMatch";
+import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
 import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
+import { browserFacingUrl } from "@/app/lib/middlewareRequestOrigin";
 import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
@@ -288,10 +290,17 @@ export async function middleware(request: NextRequest) {
   /** IronBoard (:8082) server bridge ? tenant cookie / host header scoped; no browser session required. */
   const isBoardSharedContextRoute = pathname === "/api/board/shared-context";
 
-  /** Common URL typo ? trailing period after `/dashboard/exports` yields 404 in App Router. */
-  if (pathname === "/dashboard/exports.") {
+  /** Legacy nested path — `app/dashboard/page.tsx` shadowed `/dashboard/*` on tenant hosts. */
+  if (pathname === "/dashboard/exports" || pathname === "/dashboard/exports.") {
     const fixed = request.nextUrl.clone();
-    fixed.pathname = "/dashboard/exports";
+    fixed.pathname = "/exports";
+    return NextResponse.redirect(fixed);
+  }
+
+  /** Common URL typo — trailing period after `/exports` yields 404 in App Router. */
+  if (pathname === "/exports.") {
+    const fixed = request.nextUrl.clone();
+    fixed.pathname = "/exports";
     return NextResponse.redirect(fixed);
   }
 
@@ -447,7 +456,11 @@ export async function middleware(request: NextRequest) {
 
   // RULE A: Unauthenticated users targeting internal telemetry grids ? /login
   if (!user && isIntegrityRoute) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = browserFacingUrl(
+      request,
+      "/login",
+      `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`,
+    );
     return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
@@ -455,20 +468,23 @@ export async function middleware(request: NextRequest) {
 
   // Tenant workspace hosts: never render Command Post for guests on `/`.
   if (!user && hostSlugForAuth && pathname === "/") {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = browserFacingUrl(request, "/login");
     return await finalizeMiddlewareResponse(
       request,
       redirectWithSupabaseCookies(request, supabaseResponse, loginUrl),
     );
   }
 
-  // RULE B: Authenticated users on /login → Command Post (tenant host) or Integrity Hub (apex).
+  // RULE B: Authenticated users on /login → intended post-auth path (honors `?next=`).
   // Apex corporate workspace routing uses RBAC on the server — not stale user_metadata.tenant_slug.
   if (user && isLoginRoute) {
     const inviteToken = request.nextUrl.searchParams.get("invite")?.trim();
     if (!inviteToken) {
-      const landingPath = hostSlugForAuth ? "/" : "/integrity";
-      const landingUrl = new URL(landingPath, request.url);
+      const landingPath = resolveAuthNextPathForHost(
+        request.headers.get("host"),
+        request.nextUrl.searchParams.get("next"),
+      );
+      const landingUrl = browserFacingUrl(request, landingPath);
       return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, landingUrl));
     }
   }
@@ -496,14 +512,16 @@ export async function middleware(request: NextRequest) {
     if (isNextServerActionPost(request)) {
       return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.search = "";
+    const loginUrl = browserFacingUrl(
+      request,
+      "/login",
+      `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`,
+    );
     return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
   if (user && isForgotPasswordRoute) {
-    const integrityUrl = new URL("/integrity", request.url);
+    const integrityUrl = browserFacingUrl(request, "/integrity");
     return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, integrityUrl));
   }
 

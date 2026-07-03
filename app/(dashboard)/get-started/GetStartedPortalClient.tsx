@@ -25,6 +25,8 @@ import {
   shouldInterceptGetStartedInlineDocLink,
 } from "@/app/lib/getStartedInlineDocLinks";
 import OperatorActivationBanner from "@/app/components/onboarding/OperatorActivationBanner";
+import ExportScopeRequiredBannerSlot from "@/app/components/ExportScopeRequiredBannerSlot";
+import AnalystExportsLink from "@/app/components/nav/AnalystExportsLink";
 import CommercialEntitlementHoldPanel from "@/app/components/billing/CommercialEntitlementHoldPanel";
 import GetStartedOrientationFallback, {
   GET_STARTED_ORIENTATION_HASH,
@@ -141,6 +143,17 @@ export default function GetStartedPortalClient({
   useEffect(() => {
     return () => clearInlineDoc();
   }, [clearInlineDoc]);
+
+  useEffect(() => {
+    if (searchParams.get("exportScope") !== "required") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("workspace-ale-baseline")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [searchParams]);
 
   useEffect(() => {
     if (searchParams.get("activation") !== "1") return;
@@ -576,6 +589,7 @@ export default function GetStartedPortalClient({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-20" />
 
       <div className="relative z-10 mx-auto max-w-7xl space-y-6">
+        <ExportScopeRequiredBannerSlot />
         <header className="flex flex-col justify-between gap-4 border-b border-slate-800/80 pb-6 lg:flex-row lg:items-end">
           <div>
             <div className="mb-1 font-mono text-[10px] tracking-widest text-cyan-400 uppercase">
@@ -604,7 +618,10 @@ export default function GetStartedPortalClient({
         <OperatorActivationBanner />
 
         {aleBaselineUnset ? (
-          <section className="rounded-xl border border-amber-500/30 bg-amber-950/15 px-4 py-4">
+          <section
+            id="workspace-ale-baseline"
+            className="rounded-xl border border-amber-500/30 bg-amber-950/15 px-4 py-4"
+          >
             <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">
               Workspace ALE baseline required
             </p>
@@ -913,6 +930,28 @@ export default function GetStartedPortalClient({
                           >
                             {step.docLabel}
                           </button>
+                        ) : step.id === "export-path" && aleBaselineUnset ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setFocusedStepId(step.id);
+                              document.getElementById("workspace-ale-baseline")?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                              });
+                            }}
+                            className="inline-flex h-9 items-center rounded-lg border border-amber-500/40 bg-amber-950/25 px-3 font-mono text-[10px] font-bold tracking-wide text-amber-200 uppercase transition hover:bg-amber-950/45"
+                          >
+                            Save ALE baseline first
+                          </button>
+                        ) : step.href === "/exports" ? (
+                          <AnalystExportsLink
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex h-9 items-center rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-3 font-mono text-[10px] font-bold tracking-wide text-cyan-300 uppercase transition hover:bg-cyan-950/40"
+                          >
+                            {step.docLabel}
+                          </AnalystExportsLink>
                         ) : (
                           <Link
                             href={step.href}

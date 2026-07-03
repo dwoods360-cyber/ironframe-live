@@ -8,6 +8,7 @@ import {
   resolveTenantSlugFromRequestHost,
   tenantUuidFromSlug,
 } from "@/app/lib/tenantSubdomain";
+import { browserFacingRequestOrigin } from "@/app/lib/middlewareRequestOrigin";
 
 const IRONFRAME_TENANT_COOKIE = "ironframe-tenant";
 const TENANT_COOKIE_MAX_AGE = 60 * 60 * 24 * 180;
@@ -54,15 +55,8 @@ function stripConflictingTenantPath(pathname: string, hostSlug: string): string 
 }
 
 /** Preserve browser-facing host when Next dev normalizes `request.nextUrl` to localhost. */
-function browserFacingRequestOrigin(request: NextRequest): string {
-  const host =
-    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
-    request.headers.get("host")?.trim() ||
-    request.nextUrl.host;
-  const proto =
-    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
-    request.nextUrl.protocol.replace(/:$/, "");
-  return `${proto}://${host}`;
+function browserFacingRequestOriginForTenancy(request: NextRequest): string {
+  return browserFacingRequestOrigin(request);
 }
 
 function mergeCookies(source: NextResponse, target: NextResponse): NextResponse {
@@ -114,7 +108,7 @@ export async function applySubdomainTenancy(
   if (conflictPath && conflictPath !== pathname) {
     const redirectUrl = new URL(
       `${conflictPath}${request.nextUrl.search}`,
-      browserFacingRequestOrigin(request),
+      browserFacingRequestOriginForTenancy(request),
     );
     const redirect = NextResponse.redirect(redirectUrl);
     return mergeCookies(baseResponse, redirect);

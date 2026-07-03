@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
   DASHBOARD_GRID_PROPORTIONS,
@@ -38,7 +38,7 @@ export default function DashboardGroupShell({ children, initialTenantUuid }: Pro
   const pathname = usePathname();
   const viewportBounded = isViewportBoundedDashboardPath(pathname);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const resolvedInitial = initialTenantUuid?.trim() || null;
     setDashboardWorkspaceFallbackTenant(resolvedInitial);
 

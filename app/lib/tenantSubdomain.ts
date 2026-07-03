@@ -41,6 +41,7 @@ export const APP_ROUTE_ROOTS = new Set([
   "account",
   "admin",
   "get-started",
+  "exports",
   "legal",
 ]);
 

@@ -36,7 +36,7 @@ export const GET_STARTED_STEPS = [
     title: "Audit export path",
     description:
       "Locate tenant-scoped CSV/PDF exports for auditor handoff from the dashboard exports surface.",
-    href: "/dashboard/exports",
+    href: "/exports",
     docLabel: "Open exports console",
   },
 ] as const;

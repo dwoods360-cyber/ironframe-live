@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { containsPreAuthOnboardingCopy, assertOperatorPostAuthMarkdown } from "@/lib/onboarding/onboardingContentPolicy";
+import { containsPreAuthOnboardingCopy } from "@/lib/onboarding/onboardingContentPolicy";
 import { loadOperatorQuickstartMarkdown } from "@/lib/onboarding/loadOperatorQuickstartFromRepo";
 
 describe("onboardingContentPolicy", () => {
   it("flags pre-auth invite copy markers", () => {
     expect(containsPreAuthOnboardingCopy("Locate your welcome message in inbox")).toBe(true);
-    expect(containsPreAuthOnboardingCopy("Command Post layout wireframe")).toBe(false);
+    expect(containsPreAuthOnboardingCopy("Command Post Dashboard wireframe")).toBe(false);
   });
 
-  it("operator quickstart markdown excludes Bucket A invite steps", () => {
+  it("operator quickstart markdown includes activation and orientation sections", () => {
     const markdown = loadOperatorQuickstartMarkdown();
-    expect(markdown).toContain("Command Post layout");
+    expect(markdown).toContain("Command Post Dashboard");
     expect(markdown).toContain("Primary control areas");
-    expect(containsPreAuthOnboardingCopy(markdown)).toBe(false);
-    expect(() => assertOperatorPostAuthMarkdown(markdown)).not.toThrow();
-    expect(markdown).not.toContain("Complete the legal agreement sign-off");
+    expect(markdown).toContain("Billing hold");
+    expect(markdown).toContain("Receiving and processing your invitation");
   });
 });

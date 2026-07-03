@@ -13,9 +13,9 @@ describe("GetStarted orientation guide", () => {
     expect(GET_STARTED_QUICKSTART_GUIDE_HREF).toBe("/docs/user-manuals/quickstart");
   });
 
-  it("maps export-path step to audit-exports guide and dashboard exports screenshot", () => {
+  it("maps export-path step to dashboard exports console and screenshot", () => {
     const exportStep = GET_STARTED_STEPS.find((step) => step.id === "export-path");
-    expect(exportStep?.href).toBe("/docs/user-manuals/audit-exports");
+    expect(exportStep?.href).toBe("/dashboard/exports");
     expect(GET_STARTED_STEP_VISUALS["export-path"].screenshotSrc).toContain(
       "get-started-dashboard-exports-stack",
     );

@@ -20,7 +20,7 @@ describe("loadAppDocumentForReader filesystem fallback", () => {
     const record = loadAppDocumentFromFilesystem("user-manuals/quickstart");
     expect(record).not.toBeNull();
     expect(record?.slug).toBe("user-manuals/quickstart");
-    expect(record?.content).toContain("Command Post layout");
+    expect(record?.content).toContain("Command Post Dashboard");
     expect(record?.source).toBe("filesystem");
   });
 

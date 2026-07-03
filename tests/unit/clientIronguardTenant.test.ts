@@ -1,43 +1,32 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
-import { resolveClientIronguardTenantUuid } from "@/app/utils/clientTenantCookie";
+import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
 import { applyIronguardToFetch, IRONGUARD_NO_TENANT } from "@/app/utils/apiClient";
 import {
   setDashboardWorkspaceFallbackTenant,
   setIronguardEffectiveTenant,
 } from "@/app/utils/ironguardSession";
 
-describe("resolveClientIronguardTenantUuid", () => {
+describe("resolveDashboardTenantUuid", () => {
   afterEach(() => {
     document.cookie = "ironframe-tenant=; path=/; max-age=0";
     setIronguardEffectiveTenant(null);
     setDashboardWorkspaceFallbackTenant(null);
   });
 
-  it("returns explicit path/host hint UUID without reading cookie", () => {
-    expect(
-      resolveClientIronguardTenantUuid({ pathTenantUuid: TENANT_UUIDS.vaultbank }),
-    ).toBe(TENANT_UUIDS.vaultbank);
+  it("returns explicit path tenant UUID without reading cookie", () => {
+    expect(resolveDashboardTenantUuid(TENANT_UUIDS.vaultbank)).toBe(TENANT_UUIDS.vaultbank);
   });
 
-  it("resolves constitutional seed tenant from subdomain host", () => {
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { ...window.location, host: "vaultbank.lvh.me:3000" },
-    });
-
-    expect(resolveClientIronguardTenantUuid()).toBe(TENANT_UUIDS.vaultbank);
+  it("resolves constitutional seed tenant slug from ironframe-tenant cookie", () => {
+    document.cookie = "ironframe-tenant=vaultbank; path=/";
+    expect(resolveDashboardTenantUuid(null)).toBe(TENANT_UUIDS.vaultbank);
   });
 
-  it("falls back to ironframe-tenant cookie on apex host", () => {
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { ...window.location, host: "localhost:3000" },
-    });
+  it("falls back to ironframe-tenant UUID cookie on apex host", () => {
     document.cookie = `ironframe-tenant=${TENANT_UUIDS.medshield}; path=/`;
-
-    expect(resolveClientIronguardTenantUuid()).toBe(TENANT_UUIDS.medshield);
+    expect(resolveDashboardTenantUuid(null)).toBe(TENANT_UUIDS.medshield);
   });
 });
 
@@ -51,7 +40,7 @@ describe("applyIronguardToFetch host binding", () => {
     });
   });
 
-  it("does not block dashboard fetch on vaultbank subdomain before TenantProvider effects", () => {
+  it("blocks dashboard fetch on subdomain host until workspace fallback is bound", () => {
     Object.defineProperty(window, "location", {
       configurable: true,
       value: {
@@ -61,7 +50,9 @@ describe("applyIronguardToFetch host binding", () => {
       },
     });
 
-    expect(() => applyIronguardToFetch("/api/dashboard")).not.toThrow(IRONGUARD_NO_TENANT);
+    expect(() => applyIronguardToFetch("/api/dashboard")).toThrow(IRONGUARD_NO_TENANT);
+
+    setDashboardWorkspaceFallbackTenant(TENANT_UUIDS.vaultbank);
     const [, init] = applyIronguardToFetch("/api/dashboard");
     const headers = new Headers(init?.headers);
     expect(headers.get("x-tenant-id")).toBe(TENANT_UUIDS.vaultbank);

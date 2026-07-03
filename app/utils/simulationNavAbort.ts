@@ -1,12 +1,18 @@
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
 import { isBenignRuntimeEmissionError } from "@/app/utils/safeRuntimeEmission";
+import { logExplicitDiagnosticAbort } from "@/app/utils/diagnosticAbortLog";
 
 export const SIM_NAV_ABORT_EVENT = "ironframe:sim-nav-abort" as const;
 
 let activeSimulationAbort: AbortController | null = null;
 
 /** Kill in-flight simulation fetches before the next navigation-bound request. */
-export function abortActiveSimulationFetches(reason = "simulation-nav-switch"): void {
+export function abortActiveSimulationFetches(reason = ABORT_REASONS.simulationNavSwitch): void {
   if (activeSimulationAbort) {
+    logExplicitDiagnosticAbort(reason, {
+      surface: "simulationNavAbort",
+      method: "GET",
+    });
     try {
       activeSimulationAbort.abort(reason);
     } catch {

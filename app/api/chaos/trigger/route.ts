@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { isConstitutionalChaosDrill } from "@/app/config/chaosRegistry";
 import { triggerConstitutionalCollapseChaos } from "@/app/lib/constitutionalCollapseChaos";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { syncConstitutionalIntegrityEnforcement } from "@/app/utils/tasFingerprint";
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const tenantGuard = await assertIronguardApiTenantOr403(request);
+  const tenantGuard = await assertAuthenticatedIronguardTenantOr403(request);
   if (!tenantGuard.ok) {
     return tenantGuard.response;
   }

@@ -6,7 +6,7 @@
 import {
   briefingBodyMarkdown,
   stripFrontmatter,
-} from "@/app/lib/governanceFrame/briefingLoader";
+} from "@/app/lib/governanceFrame/briefingMarkdown";
 import {
   parseBriefingSections,
   parseImpactMetrics,

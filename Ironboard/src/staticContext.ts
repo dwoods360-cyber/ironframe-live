@@ -105,7 +105,7 @@ PRICING MODEL CONSTITUTIONAL STANDARD:
 
 OPERATIONAL COST VS. CLIENT BASELINE DISTINCTION:
 - Our internal operational cost is lean, totaling exactly between 7,700 cents ($77 USD) and 11,700 cents ($117 USD) per month for cloud infrastructure hosting (Vercel, Supabase, and Gemini API usage tokens).
-- The multi-million dollar figures for Medshield (1,110,000,000 cents), Vaultbank (590,000,000 cents), and Gridcore (470,000,000 cents) are STRICTLY Sovereign Pool risk baselines simulated for client GRC environments.
+- Slugs medshield (1,110,000,000 cents), vaultbank (590,000,000 cents), and gridcore (470,000,000 cents) are SYNTHETIC_DEMO_SEED engineering fixtures — NOT real companies. Prospect company names MUST come from live discoverRegionalProspects rows only — never static lists.
 - Under no circumstances shall any agent misrepresent these client benchmarks as the platform's operating costs. Keep company overhead calculations bound tightly to actual local infrastructure whole-cent parameters.
 `.trim();
 
@@ -176,10 +176,10 @@ export function buildStaticContextBundle(): string {
     'PRODUCT REGISTRY:',
     products,
     '',
-    'SOVEREIGN POOL BASELINES (BigInt cents — do not invent other values):',
-    `- Medshield: ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
-    `- Vaultbank: ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
-    `- Gridcore: ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
+    'SYNTHETIC DEMO SEED BASELINES (BigInt cents — NOT real companies; do not invent other values):',
+    `- slug medshield (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,
+    `- slug vaultbank (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}¢`,
+    `- slug gridcore (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}¢`,
     `- Enterprise reserve reference: ${SOVEREIGN_POOL_BASELINES_CENTS.enterpriseReserve}¢`,
     '',
     buildStrategicIntelResearchBinding(),

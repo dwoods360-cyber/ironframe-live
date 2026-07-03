@@ -146,6 +146,30 @@ export function isPublicCloudIngressPath(pathname: string): boolean {
   return false;
 }
 
+/**
+ * Ironframe tenant workspace / command-center UI — always renders Cyber Command Dark.
+ * Guest marketing, auth, and prospect funnel routes are excluded.
+ */
+export function isIronframeSaaSAppPath(
+  pathname: string,
+  options?: { authenticated?: boolean; hostTenantSlug?: string | null },
+): boolean {
+  const normalized = pathname.replace(/\/$/, "") || "/";
+  if (isPrivateWorkspaceIngressPath(normalized)) return true;
+
+  const authenticated = options?.authenticated === true;
+  if (authenticated && (normalized === "/" || normalized.startsWith("/docs"))) {
+    return true;
+  }
+
+  const hostTenantSlug = options?.hostTenantSlug?.trim();
+  if (hostTenantSlug && normalized === "/") {
+    return true;
+  }
+
+  return false;
+}
+
 /** True when a path is a tenant workspace / command-center surface (not public funnel). */
 export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
   if (isPublicCloudIngressPath(pathname)) return false;

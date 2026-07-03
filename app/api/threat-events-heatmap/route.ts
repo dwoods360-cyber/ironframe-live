@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
 import { resolveTenantIndustryForBenchmarks } from "@/app/utils/tenantIndustryBenchmark";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { ThreatState } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -55,13 +56,9 @@ function deriveAleIntensity(financialRiskCents: bigint): number {
 /** GET /api/threat-events-heatmap — tenant-scoped ThreatEvent rows for the risk matrix. */
 export async function GET(request: NextRequest) {
   noStore();
-  const tenantUuid = request.headers.get("x-tenant-id")?.trim() || null;
-  if (!tenantUuid) {
-    return NextResponse.json(
-      { error: "Tenant context required. Send x-tenant-id header (tenant UUID)." },
-      { status: 401 },
-    );
-  }
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantUuid = guard.tenantUuid;
 
   const [tenantRow, company] = await Promise.all([
     prisma.tenant.findUnique({

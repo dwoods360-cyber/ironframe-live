@@ -219,6 +219,52 @@ export async function fetchUtilityRateForLocation(location: TenantLocation): Pro
   }, `tenant utility quote (INTL:${location.countryCode ?? location.country})`);
 }
 
+function buildForensicUtilityQuote(location: TenantLocation, polledAt: string): UtilityRateQuote {
+  const country = normalizeCountry(location.country);
+  if (country === "USA") {
+    const zip = location.zipCode?.trim() ?? "02115";
+    return validateUtilityQuote(
+      {
+        rateUsdPerUnit: DEV_FALLBACK_USD_PER_KWH,
+        unitType: "kWh",
+        source: "forensic-estimate",
+        jurisdiction: `USA:${zip}`,
+        polledAt,
+      },
+      `analyst export forensic fallback (USA:${zip})`,
+    );
+  }
+
+  return validateUtilityQuote(
+    {
+      rateUsdPerUnit: DEV_FALLBACK_USD_PER_KWH * 1.12,
+      unitType: "kWh",
+      source: "forensic-estimate",
+      jurisdiction: `INTL:${location.countryCode ?? location.country}`,
+      polledAt,
+    },
+    `analyst export forensic fallback (INTL:${location.countryCode ?? location.country})`,
+  );
+}
+
+/**
+ * Ironquery analyst packs — design-partner / Golden Path exports must not hard-fail when live
+ * utility APIs are absent while Electricity Maps is configured for sustainability telemetry.
+ */
+export async function fetchUtilityRateForAnalystExport(
+  location: TenantLocation,
+): Promise<UtilityRateQuote> {
+  try {
+    return await fetchUtilityRateForLocation(location);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("IRONBLOOM_LIVE_SOURCE_REQUIRED")) {
+      throw error;
+    }
+    return buildForensicUtilityQuote(location, new Date().toISOString());
+  }
+}
+
 export async function fetchUtilityRateForTenant(tenantKey: TenantSlug): Promise<UtilityRateQuote> {
   return fetchUtilityRateForTenantWithOverrides(tenantKey);
 }

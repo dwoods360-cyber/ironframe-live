@@ -15,7 +15,9 @@ const IRONGATE_DMZ_MARKERS = [
   "sanitizeThreatIngressPayload",
   "sanitizeIngressPayload",
   "assertIronguardApiTenantOr403",
+  "assertAuthenticatedIronguardTenantOr403",
   "ironguardApiGuard",
+  "tenantMembershipGuard",
   "checkCronBearerAuth",
   "cronBearerUnauthorizedResponse",
   "threatIngressSchema",
@@ -28,6 +30,10 @@ const IRONGATE_DMZ_MARKERS = [
   "checkBoardFeedAuth",
   "runAuditedThreatEventWormBypass",
   "assertTenantFeatureEntitled",
+  "requirePlatformAdministrator",
+  "platformAdminAccess",
+  "authorizeRequest",
+  "requireSystemOwnerSession",
 ] as const;
 
 /** Routes exempt from DMZ marker requirement (token-gated cron, webhooks, auth callbacks). */

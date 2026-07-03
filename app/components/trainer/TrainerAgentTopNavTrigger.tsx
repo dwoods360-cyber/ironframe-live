@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useTenantBillingGate } from "@/app/context/TenantBillingGateContext";
@@ -13,8 +14,13 @@ export default function TrainerAgentTopNavTrigger() {
   const { isGuest, isLoading } = useOperatorIdentity();
   const isOpen = useTrainerAgentDrawerStore((s) => s.isOpen);
   const toggle = useTrainerAgentDrawerStore((s) => s.toggle);
+  const [hydrated, setHydrated] = useState(false);
 
-  if (isLoading || isGuest || isAuthPublicPath(pathname) || billingBlocked) {
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  if (!hydrated || isLoading || isGuest || isAuthPublicPath(pathname) || billingBlocked) {
     return null;
   }
 

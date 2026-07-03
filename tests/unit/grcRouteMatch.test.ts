@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHeaderRouteMatrix,
   isDashboardRouteGroupPath,
+  isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -58,6 +59,19 @@ describe("grcRouteMatch", () => {
     expect(isDashboardRouteGroupPath("/dashboard/support")).toBe(true);
     expect(isDashboardRouteGroupPath("/boardroom/admin/audit-logs")).toBe(true);
     expect(isDashboardRouteGroupPath("/dashboard")).toBe(false);
+  });
+
+  it("detects Ironframe SaaS workspace paths for Cyber Command Dark lock", () => {
+    expect(isIronframeSaaSAppPath("/dashboard/exports")).toBe(true);
+    expect(isIronframeSaaSAppPath("/vendors")).toBe(true);
+    expect(isIronframeSaaSAppPath("/integrity")).toBe(true);
+    expect(isIronframeSaaSAppPath("/login")).toBe(false);
+    expect(isIronframeSaaSAppPath("/marketing")).toBe(false);
+    expect(isIronframeSaaSAppPath("/register/setup")).toBe(false);
+    expect(isIronframeSaaSAppPath("/", { hostTenantSlug: "bwc" })).toBe(true);
+    expect(isIronframeSaaSAppPath("/", { authenticated: true })).toBe(true);
+    expect(isIronframeSaaSAppPath("/docs/training/quickstart", { authenticated: true })).toBe(true);
+    expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(false);
   });
 
   it("builds memoized header route matrix for tenant vendors and audit trail", () => {

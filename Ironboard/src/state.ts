@@ -69,6 +69,12 @@ export const BoardStateAnnotation = Annotation.Root({
     reducer: (x: string[], y: string[]) => [...new Set([...(x ?? []), ...(y ?? [])])],
     default: () => [],
   }),
+
+  /** Serialized Ironframe documentation brief from one-way ingress (Trainer / Writer context). */
+  ironframeDocumentationBrief: Annotation<string>({
+    reducer: (x: string, y: string) => y ?? x,
+    default: () => "",
+  }),
 });
 
 export type BoardGraphState = typeof BoardStateAnnotation.State;

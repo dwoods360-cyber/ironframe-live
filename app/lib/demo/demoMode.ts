@@ -44,6 +44,7 @@ export type DemoCommandCenterScope = {
   tenants: CommandCenterTenantRow[];
   canAccessGlobal: boolean;
   hostTenantSlug: string | null;
+  canSwitchTenantsOnSubdomain: boolean;
 };
 
 export type DemoSession = {
@@ -201,6 +202,7 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
     ],
     canAccessGlobal: false,
     hostTenantSlug: null,
+    canSwitchTenantsOnSubdomain: true,
   };
 }
 

@@ -27,7 +27,7 @@ export class InvalidIronbloomMetricError extends Error {
   readonly code = INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY;
   readonly httpStatus = 422;
 
-  constructor(message = INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY) {
+  constructor(message: string = INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY) {
     super(message);
     this.name = "InvalidIronbloomMetricError";
   }

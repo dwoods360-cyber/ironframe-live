@@ -4,14 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx src/index.ts"
+    "start": "node --import tsx src/index.ts",
+    "predev": "npm run stop",
+    "dev": "node --import tsx src/index.ts",
+    "dev:safe": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-board.ps1",
+    "stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-board.ps1"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
     "@prisma/client": "^6.19.2",
     "express": "^5.2.1",
     "react": "^19.0.0",
+    "resend": "^4.8.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

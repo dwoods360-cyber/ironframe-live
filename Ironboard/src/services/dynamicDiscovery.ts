@@ -203,6 +203,31 @@ export function buildCrmDiscoveryEnrichment(receipts: DiscoveryReceipt[]): strin
   return `CRM DISCOVERY VERDICT: manageCrmPipeline list_sales_playbooks returned ${count} playbooks — IronBoard HAS embedded CRM. Ironframe root is GRC infrastructure; CRM lives in IronBoard. Never deny contact management, pipeline tracking, or interaction logging when this receipt is present.`;
 }
 
+export function formatLiveProspectNamesFromSnapshot(
+  workspaceSnapshot?: Record<string, unknown>,
+): string {
+  const prospects = workspaceSnapshot?.prospects;
+  if (!Array.isArray(prospects) || !prospects.length) return '';
+  const lines = prospects
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
+    .filter(
+      row =>
+        row.dataLineage !== 'SYNTHETIC_SCAFFOLDING' && row.dataLineage !== 'CURATED_DEMO_SEED',
+    )
+    .map(row => {
+      const name = String(row.companyName ?? '').trim();
+      const domain = String(row.domain ?? '').trim();
+      const lineage = String(row.dataLineage ?? 'LIVE_CANDIDATE');
+      if (!name) return '';
+      return `- ${name}${domain ? ` (${domain})` : ''} · dataLineage=${lineage}`;
+    })
+    .filter(Boolean);
+  if (!lines.length) return '';
+  return ['LIVE-DISCOVERED PROSPECTS (only these names may be cited as targets):', ...lines].join(
+    '\n',
+  );
+}
+
 export function buildMarketAuthenticityEnrichment(
   results: VerifyAndOptimizeMarketDataResult[],
 ): string {
@@ -249,6 +274,9 @@ export function synthesizeMarketResearchBoardResponse(
 
   const marketEnrichment = buildMarketAuthenticityEnrichment(params.marketResults);
   if (marketEnrichment) blocks.push(marketEnrichment);
+
+  const liveNames = formatLiveProspectNamesFromSnapshot(params.workspaceSnapshot);
+  if (liveNames) blocks.push(liveNames);
 
   if (workspaceRows > 0) {
     blocks.push(

@@ -48,7 +48,7 @@ export function writeBriefingQueueDraftFromNarrate(
     .replace(/^-+|-+$/g, "");
   const filename = `${operationalDate}-draft-${safeSlug || "tenant"}.md`;
 
-  const title = `Automated Governance Triad Narrative — ${payload.financials.display.activeTenant.companyName}`;
+  const title = `Governance Frame Briefing — ${operationalDate}`;
   const frontmatter = buildBriefingDraftFrontmatter({
     title,
     dateIso: new Date().toISOString(),

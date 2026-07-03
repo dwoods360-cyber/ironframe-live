@@ -31,7 +31,7 @@ export type FinancialExposureInput = {
   industryMultiplier: number;
 };
 
-export type VendorIndustry = "Healthcare" | "Finance" | "Energy";
+export type VendorIndustry = "Healthcare" | "Finance" | "Energy" | "Technology" | "Defense";
 
 export type VendorQuestionnaireInput = {
   vendorName: string;

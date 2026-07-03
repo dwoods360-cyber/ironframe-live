@@ -6,7 +6,7 @@ import {
   TenantBillingHoldError,
   tenantBillingHoldJsonResponse,
 } from "@/app/lib/billing/tenantBillingEntitlement";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { loadAppDocumentForReader } from "@/app/lib/server/loadAppDocumentForReader";
 import {
   formatOperatorDocTitle,
@@ -18,14 +18,14 @@ import { normalizeAppDocumentSlug } from "@/lib/appDocumentSlug";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const guard = await assertIronguardApiTenantOr403(req);
+  const guard = await assertAuthenticatedIronguardTenantOr403(req);
   if (!guard.ok) {
     return guard.response;
   }
 
   try {
     const platformAdmin = await canUsePlatformAdminTools();
-    await assertTenantBillingActive(guard.tenantUuid!, { platformAdminBypass: platformAdmin });
+    await assertTenantBillingActive(guard.tenantUuid, { platformAdminBypass: platformAdmin });
   } catch (err) {
     if (err instanceof TenantBillingHoldError) {
       return tenantBillingHoldJsonResponse(err);

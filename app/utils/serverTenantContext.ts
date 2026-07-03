@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import prisma from "@/lib/prisma";
-import { IRONFRAME_HOST_TENANT_SLUG_HEADER, IRONFRAME_HOST_TENANT_UUID_HEADER } from "@/app/lib/tenantSubdomain";
+import { IRONFRAME_HOST_TENANT_SLUG_HEADER, IRONFRAME_HOST_TENANT_UUID_HEADER, tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { readSimulationModeCookieEnabled } from "@/app/utils/simulationModeCookieServer";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
@@ -51,13 +51,16 @@ async function resolveTenantUuidFromIronframeCookieRaw(
   return tenantBySlug?.id ?? null;
 }
 
-/** Host-bound tenant UUID from subdomain middleware (wins over cookie scope). */
+/** Host-bound tenant UUID from subdomain middleware or request host slug. */
 export async function getHostBoundTenantUuid(): Promise<string | null> {
   const h = await headers();
   const rawUuid = h.get(IRONFRAME_HOST_TENANT_UUID_HEADER)?.trim();
   if (rawUuid && isValidTenantUuid(rawUuid)) return rawUuid;
 
-  const slug = h.get(IRONFRAME_HOST_TENANT_SLUG_HEADER)?.trim();
+  const slug =
+    h.get(IRONFRAME_HOST_TENANT_SLUG_HEADER)?.trim() ||
+    tenantSlugFromHost(h.get("host")) ||
+    null;
   if (!slug) return null;
 
   const tenant = await lookupTenantBySlug(slug);

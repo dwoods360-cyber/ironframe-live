@@ -19,8 +19,8 @@ vi.mock("@/app/lib/server/prospectLedger", () => ({
   }),
 }));
 
-vi.mock("@/app/lib/security/ironguardApiGuard", () => ({
-  assertIronguardApiTenantOr403: vi.fn(),
+vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({
+  assertAuthenticatedIronguardTenantOr403: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -56,7 +56,7 @@ vi.mock("@google/genai", () => ({
   },
 }));
 
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { GRC_SALES_PLAYBOOK } from "@/Ironboard/src/agents/sales/playbook";
 
 function buildJsonRequest(
@@ -85,11 +85,12 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     process.env.IRONBOARD_GEMINI_MODEL = "gemini-2.5-flash";
     process.env.IRONFRAME_PROSPECT_POOL_TENANT_UUID = PROSPECT_POOL_TENANT_ID;
 
-    vi.mocked(assertIronguardApiTenantOr403).mockResolvedValue({
+    vi.mocked(assertAuthenticatedIronguardTenantOr403).mockResolvedValue({
       ok: true,
       tenantUuid: SESSION_TENANT_ID,
-      response: new Response(null, { status: 200 }),
-    } as Awaited<ReturnType<typeof assertIronguardApiTenantOr403>>);
+      userId: "user-1",
+      membershipEnforced: true,
+    });
   });
 
   it("isolates public sales conversions to the prospect tenant pool and queues a pending CRM draft", async () => {
@@ -100,7 +101,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
       fullName: "Dereck",
       email: "dereck@minnesota-dev.internal",
       company: "Ironframe Innovators",
-      title: "Baseline:Medshield [BL_MED_111]",
+      title: "Beachhead:communityHealth [BL_HLTH_111]",
       phone: null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -121,7 +122,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
         name: "Dereck",
         email: "dereck@minnesota-dev.internal",
         company: "Ironframe Innovators",
-        baselineTarget: "Medshield",
+        baselineTarget: "communityHealth",
         notes: "Verifying multi-tenant isolation gates.",
       }),
     );
@@ -138,15 +139,15 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     expect(data.message).toContain("queued for operator review");
     expect(data.pitch).toBeUndefined();
 
-    const medshieldPlaybook = GRC_SALES_PLAYBOOK.Medshield;
+    const healthPlaybook = GRC_SALES_PLAYBOOK.communityHealth;
     const generateCall = mockGenerateContent.mock.calls[0]?.[0] as {
       config?: { systemInstruction?: string };
     };
     const systemInstruction = generateCall?.config?.systemInstruction ?? "";
-    expect(systemInstruction).toContain(medshieldPlaybook.name);
-    expect(systemInstruction).toContain(medshieldPlaybook.targetALE);
-    expect(systemInstruction).toContain(medshieldPlaybook.complianceFrameworks[0]);
-    expect(systemInstruction).toContain(medshieldPlaybook.coreValueProposition.slice(0, 40));
+    expect(systemInstruction).toContain(healthPlaybook.name);
+    expect(systemInstruction).toContain(healthPlaybook.targetALE);
+    expect(systemInstruction).toContain(healthPlaybook.complianceFrameworks[0]);
+    expect(systemInstruction).toContain(healthPlaybook.coreValueProposition.slice(0, 40));
 
     expect(prisma.ironboardCrmContact.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -221,7 +222,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     expect(data.status).toBe("QUEUED");
     expect(data.reply).toContain("queued for operator review");
     expect(data.interactionId).toBe("int_cs_001");
-    expect(assertIronguardApiTenantOr403).toHaveBeenCalled();
+    expect(assertAuthenticatedIronguardTenantOr403).toHaveBeenCalled();
 
     expect(prisma.appDocument.findMany).toHaveBeenCalledWith({
       where: { readingLevel: "LEVEL_1" },
@@ -238,11 +239,10 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
   });
 
   it("rejects customer service requests that fail the Ironguard tenant perimeter", async () => {
-    vi.mocked(assertIronguardApiTenantOr403).mockResolvedValue({
+    vi.mocked(assertAuthenticatedIronguardTenantOr403).mockResolvedValue({
       ok: false,
-      tenantUuid: null,
       response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }),
-    } as Awaited<ReturnType<typeof assertIronguardApiTenantOr403>>);
+    });
 
     const response = await handleCustomerServicePost(
       buildJsonRequest("http://localhost/api/agents/customer-service", {
@@ -289,7 +289,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     expect(data.lesson).toContain("Mocked structural platform synthesis");
     expect(data.sourceSlugs).toContain("training/level-1/03-dashboard-navigation");
     expect(data.sessionId).toBeTruthy();
-    expect(assertIronguardApiTenantOr403).toHaveBeenCalled();
+    expect(assertAuthenticatedIronguardTenantOr403).toHaveBeenCalled();
 
     expect(prisma.appDocument.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

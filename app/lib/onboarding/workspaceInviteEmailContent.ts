@@ -82,11 +82,11 @@ export function buildWorkspaceInviteEmailPlainText(input: WorkspaceInviteEmailIn
     "ACTIVATE YOUR WORKSPACE",
     `Open this secure link: ${input.initializeWorkspaceUrl}`,
     "",
-    "Configure your credentials — choose a strong password. This binds your identity to your organization's compliance profile.",
-    `You will land directly on your assigned workspace: ${input.workspaceUrl}`,
-    "You will not need to manually select a tenant during your first login.",
+    "Sign in with your existing Ironframe email and password to bind this workspace.",
+    "First time on Ironframe? Use the password-setup link inside the activation page.",
+    `You will land on your assigned workspace: ${input.workspaceUrl}`,
     "",
-    "Note on first login: Before you can view live corporate risk metrics or system dashboards, you will complete a one-time digital signature on your organization's Master Services Agreement (MSA) and Data Processing Addendum (DPA).",
+    "Existing operators: MSA and DPA attestation is recorded automatically when you sign in to activate.",
     "",
     `If your invite email is delayed or expires, contact ${support} to safely resend the secure initialization link.`,
     "",
@@ -116,8 +116,8 @@ export function buildWorkspaceInviteEmailHtml(input: WorkspaceInviteEmailInput):
   <p style="margin: 24px 0;">
     <a href="${input.initializeWorkspaceUrl}" style="display: inline-block; min-height: 44px; line-height: 44px; padding: 0 20px; background: #0891b2; color: #020617; font-weight: 700; text-decoration: none; border-radius: 8px;">Activate Account Perimeter</a>
   </p>
-  <p style="font-size: 14px; color: #334155;">Configure your credentials with a strong password. You will land on <strong>${input.workspaceUrl}</strong> and will not need to pick a tenant on first login.</p>
-  <p style="font-size: 13px; color: #64748b; border-left: 3px solid #6366f1; padding-left: 12px;"><strong>Required on activation:</strong> You will attest to your organization's MSA and DPA before entering the workspace.</p>
+  <p style="font-size: 14px; color: #334155;">Sign in with your existing Ironframe credentials to activate <strong>${input.workspaceUrl}</strong>. First-time operators can set a password from the activation page.</p>
+  <p style="font-size: 13px; color: #64748b; border-left: 3px solid #6366f1; padding-left: 12px;"><strong>After activation:</strong> Complete workspace ALE baseline and company profile on Get Started before entering the Command Center.</p>
   <p style="font-size: 13px; color: #64748b;">Invite delayed or expired? Contact <a href="mailto:${support}">${support}</a>.</p>
   <pre style="display: none;">${text.replace(/</g, "&lt;")}</pre>
 </body>

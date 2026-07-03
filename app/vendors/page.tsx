@@ -11,9 +11,7 @@ import RFITemplate from "@/app/vendors/RFITemplate";
 import VendorRiskOverrideModal from "@/app/vendors/VendorRiskOverrideModal";
 
 import AddVendorModal, { type AddVendorSubmission } from "@/app/vendors/AddVendorModal";
-
-// Services & Engine
-import { MASTER_VENDORS, getDaysUntilExpiration, type RiskTier } from "@/app/vendors/schema";
+import { MASTER_VENDORS, getDaysUntilExpiration, resolveCadenceStatus, type RiskTier, type VendorRecord } from "@/app/vendors/schema";
 import { calculateVendorGrade, VendorLetterGrade } from "@/utils/scoringEngine";
 import PilotSurfaceBanner, { VENDORS_PILOT_SURFACE_DETAIL } from "@/app/components/pilot/PilotSurfaceBanner";
 import { createMonitoringAlertId } from "@/app/vendors/monitoringAlertIds";
@@ -23,6 +21,11 @@ import { slugVendorId } from "@/app/lib/ironmap/vendorSupplyChainGraph";
 import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
+import {
+  loadSessionIngestedVendors,
+  saveSessionIngestedVendors,
+  tenantEntityLabelFromSlug,
+} from "@/app/vendors/vendorEvidenceRequirements";
 
 export type VendorWorkflowAction =
   | "soc2-update"
@@ -54,6 +57,62 @@ const FILTER_COLORS: Record<string, { active: string, inactive: string }> = {
   MED: { active: "bg-blue-500/30 border-blue-400 text-blue-200", inactive: "bg-slate-950 border-slate-800 text-blue-400 hover:border-blue-400/80 hover:text-blue-300" },
   LOW: { active: "bg-emerald-500/30 border-emerald-400 text-emerald-200", inactive: "bg-slate-950 border-slate-800 text-emerald-400 hover:border-emerald-400/80 hover:text-emerald-300" },
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function buildIngestedVendorRecord(
+  payload: AddVendorSubmission,
+  associatedEntity: string,
+): VendorRecord {
+  const parsedExpiration = payload.expirationDate
+    ? new Date(payload.expirationDate).getTime()
+    : Number.NaN;
+  const documentExpirationDate = Number.isNaN(parsedExpiration)
+    ? new Date(Date.now() + 90 * DAY_MS).toISOString()
+    : new Date(parsedExpiration).toISOString();
+
+  return {
+    vendorName: payload.vendorName,
+    associatedEntity,
+    industry: payload.industry,
+    vendorType: payload.vendorType,
+    riskTier: payload.riskTier,
+    securityRating: "Pending review",
+    contractStatus: "MANUAL INGEST",
+    documentExpirationDate,
+    lastRequestSent: new Date().toISOString(),
+    currentCadence: resolveCadenceStatus(getDaysUntilExpiration(documentExpirationDate)),
+    criticalSubProcessors: [],
+  };
+}
+
+function mapVendorToRow(
+  vendor: VendorRecord,
+  riskOverrides: Record<string, RiskTier>,
+): VendorRow {
+  const days = getDaysUntilExpiration(vendor.documentExpirationDate);
+  const vendorId = slugVendorId(vendor.vendorName);
+  const baseTier = vendor.vendorName.includes("Azure Health") ? "CRITICAL" : vendor.riskTier;
+  const effectiveTier = riskOverrides[vendorId] ?? baseTier;
+  const evidenceLockerDocs =
+    vendor.contractStatus === "MANUAL INGEST" ? [] : (["SOC2", "INSURANCE"] as string[]);
+
+  return {
+    ...vendor,
+    vendorId,
+    riskTier: effectiveTier,
+    ale: effectiveTier === "CRITICAL" ? 160000 : effectiveTier === "HIGH" ? 80000 : 20000,
+    healthScore: calculateVendorGrade({
+      daysUntilSoc2Expiration: days,
+      evidenceLockerDocs,
+      hasActiveIndustryAlert: false,
+      hasActiveBreachAlert: vendor.vendorName === "Schneider Electric",
+      hasPendingVersioning: false,
+      hasStakeholderEscalation: false,
+      requiresManualReview: vendor.contractStatus === "MANUAL INGEST",
+    }),
+  };
+}
 
 // ==========================================
 // ++++ COMPONENT 1: Alerts Section      ++++
@@ -465,10 +524,26 @@ export default function VendorsOverviewPage() {
   const [overrideVendor, setOverrideVendor] = useState<VendorRow | null>(null);
   const [workflowNotice, setWorkflowNotice] = useState<string | null>(null);
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
+  const [ingestedVendors, setIngestedVendors] = useState<VendorRecord[]>([]);
+
+  const tenantEntity = useMemo(
+    () => tenantEntityLabelFromSlug(hostTenantSlug),
+    [hostTenantSlug],
+  );
 
   const showPilotWorkflowBlocked = () => setWorkflowNotice(workflowBlockedMessage);
 
   useEffect(() => { setIsMounted(true); }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    setIngestedVendors(loadSessionIngestedVendors(hostTenantSlug));
+  }, [isMounted, hostTenantSlug]);
+
+  useEffect(() => {
+    if (!isMounted) return;
+    saveSessionIngestedVendors(hostTenantSlug, ingestedVendors);
+  }, [ingestedVendors, hostTenantSlug, isMounted]);
 
   useEffect(() => {
     const handleOpenAddVendor = () => setIsAddVendorOpen(true);
@@ -478,24 +553,14 @@ export default function VendorsOverviewPage() {
 
   const vendorGraph = useMemo((): VendorRow[] => {
     if (!isMounted) return [];
-    return MASTER_VENDORS.map(v => {
-      const days = getDaysUntilExpiration(v.documentExpirationDate);
-      const vendorId = slugVendorId(v.vendorName);
-      const baseTier = v.vendorName.includes("Azure Health") ? "CRITICAL" : v.riskTier;
-      const effectiveTier = riskOverrides[vendorId] ?? baseTier;
-      return {
-        ...v,
-        vendorId,
-        riskTier: effectiveTier,
-        ale: effectiveTier === "CRITICAL" ? 160000 : effectiveTier === "HIGH" ? 80000 : 20000,
-        healthScore: calculateVendorGrade({ 
-          daysUntilSoc2Expiration: days, evidenceLockerDocs: ["SOC2", "INSURANCE"], 
-          hasActiveIndustryAlert: false, hasActiveBreachAlert: v.vendorName === "Schneider Electric",
-          hasPendingVersioning: false, hasStakeholderEscalation: false, requiresManualReview: false
-        })
-      };
+
+    const registry = [...MASTER_VENDORS, ...ingestedVendors].filter((vendor) => {
+      if (!hostTenantSlug) return true;
+      return vendor.associatedEntity.toUpperCase() === tenantEntity;
     });
-  }, [isMounted, riskOverrides]);
+
+    return registry.map((vendor) => mapVendorToRow(vendor, riskOverrides));
+  }, [isMounted, riskOverrides, ingestedVendors, hostTenantSlug, tenantEntity]);
 
   // DYNAMIC CHIP COUNTS (Fixed)
   const counts = useMemo(() => {
@@ -625,6 +690,12 @@ export default function VendorsOverviewPage() {
   };
 
   const handleAddVendorSubmit = (payload: AddVendorSubmission) => {
+    const record = buildIngestedVendorRecord(payload, tenantEntity);
+    setIngestedVendors((prev) => {
+      const vendorId = slugVendorId(record.vendorName);
+      const withoutDuplicate = prev.filter((row) => slugVendorId(row.vendorName) !== vendorId);
+      return [record, ...withoutDuplicate];
+    });
     queuePermissionAlert(
       payload.vendorName,
       "VENDOR_MANUAL_INGEST",
@@ -632,6 +703,7 @@ export default function VendorsOverviewPage() {
       "ingest",
       slugVendorId(payload.vendorName),
     );
+    setWorkflowNotice(`${payload.vendorName} added to the ${tenantEntity} vendor registry.`);
     setIsAddVendorOpen(false);
   };
 

@@ -3,11 +3,11 @@ import { NextRequest } from "next/server";
 
 import { POST } from "@/app/api/get-started/progress/route";
 import { logGetStartedProgress } from "@/app/lib/server/getStartedOnboardingCore";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import prisma from "@/lib/prisma";
 
-vi.mock("@/app/lib/security/ironguardApiGuard", () => ({
-  assertIronguardApiTenantOr403: vi.fn(),
+vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({
+  assertAuthenticatedIronguardTenantOr403: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -31,19 +31,20 @@ function buildJsonRequest(body: Record<string, unknown>): NextRequest {
 describe("/api/get-started/progress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(assertIronguardApiTenantOr403).mockResolvedValue({
+    vi.mocked(assertAuthenticatedIronguardTenantOr403).mockResolvedValue({
       ok: true,
       tenantUuid: TENANT_ID,
-      response: new Response(null, { status: 200 }),
-    } as Awaited<ReturnType<typeof assertIronguardApiTenantOr403>>);
+      userId: "user-1",
+      membershipEnforced: true,
+    });
     vi.mocked(prisma.agentLog.create).mockResolvedValue({} as never);
   });
 
   it("returns 403 when tenant guard fails", async () => {
-    vi.mocked(assertIronguardApiTenantOr403).mockResolvedValue({
+    vi.mocked(assertAuthenticatedIronguardTenantOr403).mockResolvedValue({
       ok: false,
       response: new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 }),
-    } as Awaited<ReturnType<typeof assertIronguardApiTenantOr403>>);
+    });
 
     const res = await POST(buildJsonRequest({ stepId: "quickstart", completed: true }));
     expect(res.status).toBe(403);

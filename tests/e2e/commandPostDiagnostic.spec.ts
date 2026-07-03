@@ -5,6 +5,8 @@ import { runCommandPostClickDiagnostic } from "./helpers/commandPostDiagnostic";
 const OPERATOR_EMAIL =
   process.env.E2E_OPERATOR_EMAIL?.trim().toLowerCase() || "dwoods360@gmail.com";
 
+test.describe.configure({ mode: "serial" });
+
 test.describe("Command Post diagnostic", () => {
   test("integrity hub chip wiring and click navigation", async ({ page }) => {
     test.skip(

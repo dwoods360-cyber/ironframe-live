@@ -3,6 +3,9 @@ import { GET_STARTED_STEPS, type GetStartedStepId } from "@/app/lib/getStartedSt
 /** Scroll container for the Get Started inline documentation reader drawer. */
 export const GET_STARTED_INLINE_READER_SCROLL_ID = "get-started-inline-reader-scroll";
 
+/** Level 1 training chapter for Integrity Hub orientation (inline reader). */
+export const INTEGRITY_HUB_TRAINING_DOC_HREF = "/docs/training/level-1/04-integrity-hub-ale";
+
 export function shouldInterceptGetStartedInlineDocLink(resolvedHref: string): boolean {
   const pathOnly = resolvedHref.split("#")[0]?.split("?")[0] ?? "";
   return pathOnly.startsWith("/docs/");

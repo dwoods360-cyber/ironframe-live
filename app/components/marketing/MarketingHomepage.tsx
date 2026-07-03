@@ -2,7 +2,9 @@ import Link from "next/link";
 
 import { GOVERNANCE_FRAME_PUBLIC_ORIGIN } from "@/config/governanceFramePublic";
 
+import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
 import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
+import PublicApexNav from "./PublicApexNav";
 
 const REGULATORY_BRIEFS = [
   {
@@ -40,66 +42,37 @@ export default function MarketingHomepage() {
       data-ironframe-surface="public-landing"
       aria-labelledby="homepage-hero-title"
     >
+      <PublicApexNav />
+
       <nav
-        className="sticky top-0 z-20 flex min-h-11 w-full items-center justify-between gap-3 border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 sm:px-6"
-        aria-label="Global execution navigation"
+        className="flex min-h-11 w-full items-center justify-center gap-6 border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--login-muted)] sm:gap-8 sm:px-6"
+        aria-label="Product sections"
       >
-        <div
-          className="flex min-w-0 items-center font-mono text-base font-bold leading-none tracking-tight"
-          aria-label="Ironframe Governance Risk and Compliance"
-        >
-          <span aria-hidden="true" className="truncate">
-            IRONFRAME<span className="ml-1 text-[10px] font-bold text-[var(--login-accent)]">GRC</span>
-          </span>
-        </div>
-        <div className="hidden items-center gap-8 text-sm font-medium leading-none text-[var(--login-muted)] md:flex">
-          <a href="#problem" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-            The Problem
-          </a>
-          <a href="#solution" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-            The Solution
-          </a>
-          <a href="#pulse" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-            GRC Pulse
-          </a>
-          <a href="#workforce" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-            19-Agent Grid
-          </a>
-        </div>
-        <details className="relative md:hidden">
-          <summary className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-md border border-[var(--login-border)] font-mono text-xs font-bold uppercase tracking-wide text-[var(--text-main)] [&::-webkit-details-marker]:hidden">
-            Menu
-          </summary>
-          <div className="absolute right-0 z-30 mt-2 w-[min(16rem,88vw)] rounded-md border border-[var(--login-border)] bg-[var(--bg-primary)] p-2 shadow-lg">
-            <a
-              href="#problem"
-              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
-            >
-              The Problem
-            </a>
-            <a
-              href="#solution"
-              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
-            >
-              The Solution
-            </a>
-            <a
-              href="#pulse"
-              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
-            >
-              GRC Pulse
-            </a>
-            <a
-              href="#workforce"
-              className="block rounded px-3 py-2.5 text-sm font-medium text-[var(--login-muted)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-main)]"
-            >
-              19-Agent Grid
-            </a>
-          </div>
-        </details>
+        <a href="#problem" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          The Problem
+        </a>
+        <a href="#solution" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          The Solution
+        </a>
+        <a href="#pulse" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          GRC Pulse
+        </a>
+        <a href="#workforce" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
+          19-Agent Grid
+        </a>
       </nav>
 
-      <header className="mx-auto max-w-6xl space-y-6 px-6 pt-20 pb-16 text-center">
+      <div className="flex flex-col items-center px-4 pt-8 sm:px-6">
+        <MarketingAnimatedLogo className="h-28 w-28 sm:h-36 sm:w-36" />
+        <p className="mt-3 font-mono text-sm font-black tracking-widest text-[var(--text-main)] sm:text-base">
+          IRONFRAME CORE
+        </p>
+        <p className="mt-2 text-center font-mono text-[10px] font-semibold uppercase tracking-wide text-[var(--login-muted)] sm:text-xs">
+          New York - Tel Aviv - London - San Francisco - Seattle
+        </p>
+      </div>
+
+      <header className="mx-auto max-w-6xl space-y-6 px-6 pt-8 pb-16 text-center">
         <div
           className="inline-flex items-center space-x-2 rounded-full border border-[var(--login-accent)]/20 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-xs text-[var(--login-accent)]"
           role="status"
@@ -130,7 +103,7 @@ export default function MarketingHomepage() {
             href={GOVERNANCE_FRAME_PUBLIC_ORIGIN}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-[var(--login-border)] bg-[var(--bg-secondary)] px-6 font-sans text-sm font-medium text-[var(--text-main)] transition-colors hover:bg-[var(--bg-primary)] sm:w-auto"
+            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
           >
             Explore the GRC Pulse
             <span className="ml-1.5" aria-hidden="true">

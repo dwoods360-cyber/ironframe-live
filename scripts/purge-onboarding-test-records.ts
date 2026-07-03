@@ -5,7 +5,8 @@
  *   npx tsx scripts/purge-onboarding-test-records.ts          # dry-run (preview only)
  *   npx tsx scripts/purge-onboarding-test-records.ts --slug acorp --execute
  *
- * Loads DATABASE_URL / DIRECT_URL from .env.local then .env.
+ * Slug matching is EXACT only (no substring). Seed tenants (medshield, vaultbank,
+ * gridcore) are protected unless --allow-seed-tenants is passed.
  * Requires SUPABASE_SERVICE_ROLE_KEY to remove auth.users for linked test accounts.
  */
 import { PrismaClient } from "@prisma/client";
@@ -19,6 +20,24 @@ const slugArgs = process.argv
   .filter(Boolean);
 const MATCH_TERMS = (slugArgs.length > 0 ? slugArgs : ["kim", "dwoods"]) as readonly string[];
 const EXECUTE = process.argv.includes("--execute");
+const ALLOW_SEED = process.argv.includes("--allow-seed-tenants");
+
+/** Constitutional seed workspaces — never purge unless --allow-seed-tenants. */
+const PROTECTED_SEED_SLUGS = new Set(["medshield", "vaultbank", "gridcore", "defense"]);
+
+function effectiveMatchTerms(): string[] {
+  const terms: string[] = [];
+  for (const term of MATCH_TERMS) {
+    if (PROTECTED_SEED_SLUGS.has(term) && !ALLOW_SEED) {
+      console.warn(
+        `[purge] Skipping protected seed slug "${term}" — pass --allow-seed-tenants to override.`,
+      );
+      continue;
+    }
+    terms.push(term);
+  }
+  return terms;
+}
 
 function loadEnvFile(filePath: string) {
   if (!existsSync(filePath)) return;
@@ -45,29 +64,14 @@ loadEnvFile(resolve(process.cwd(), ".env"));
 
 const prisma = new PrismaClient();
 
-function tenantMatchFilter() {
+function tenantMatchFilter(terms: readonly string[]) {
+  if (terms.length === 0) {
+    return { id: { in: [] as string[] } };
+  }
   return {
-    OR: MATCH_TERMS.flatMap((term) => [
-      { slug: { equals: term, mode: "insensitive" as const } },
-      { slug: { contains: term, mode: "insensitive" as const } },
-      { name: { contains: term, mode: "insensitive" as const } },
-    ]),
-  };
-}
-
-function companyMatchFilter() {
-  return {
-    OR: MATCH_TERMS.flatMap((term) => [
-      { name: { contains: term, mode: "insensitive" as const } },
-    ]),
-  };
-}
-
-function emailMatchFilter() {
-  return {
-    OR: MATCH_TERMS.flatMap((term) => [
-      { email: { contains: term, mode: "insensitive" as const } },
-    ]),
+    OR: terms.map((term) => ({
+      slug: { equals: term, mode: "insensitive" as const },
+    })),
   };
 }
 
@@ -94,7 +98,7 @@ async function deleteThreatPlaneForCompanies(companyIds: bigint[]) {
   return { threatEvents: deleted.count };
 }
 
-async function deleteTenantScopedOrphans(tenantIds: string[]) {
+async function deleteTenantScopedOrphans(tenantIds: string[], terms: readonly string[]) {
   if (tenantIds.length === 0) return {};
 
   const [
@@ -116,6 +120,7 @@ async function deleteTenantScopedOrphans(tenantIds: string[]) {
     simDiagnostics,
     sentinelOutbox,
     riskRegistry,
+    workspaceInvitations,
   ] = await Promise.all([
     prisma.userRoleAssignment.deleteMany({ where: { tenantId: { in: tenantIds } } }),
     prisma.auditLog.deleteMany({ where: { tenantId: { in: tenantIds } } }),
@@ -135,6 +140,11 @@ async function deleteTenantScopedOrphans(tenantIds: string[]) {
     prisma.simulationDiagnosticLog.deleteMany({ where: { tenantUuid: { in: tenantIds } } }),
     prisma.sentinelAutomationOutbox.deleteMany({ where: { tenantScope: { in: tenantIds } } }),
     prisma.riskRegistry.deleteMany({ where: { tenantId: { in: tenantIds } } }),
+    prisma.tenantWorkspaceInvitation.deleteMany({
+      where: {
+        tenantSlug: { in: [...terms] },
+      },
+    }),
   ]);
 
   return {
@@ -156,7 +166,20 @@ async function deleteTenantScopedOrphans(tenantIds: string[]) {
     simulationDiagnosticLogs: simDiagnostics.count,
     sentinelOutbox: sentinelOutbox.count,
     riskRegistry: riskRegistry.count,
+    workspaceInvitations: workspaceInvitations.count,
   };
+}
+
+async function deleteOrphanInvitationsBySlug(terms: readonly string[]) {
+  if (terms.length === 0) return { count: 0 };
+  const result = await prisma.tenantWorkspaceInvitation.deleteMany({
+    where: {
+      OR: terms.map((term) => ({
+        tenantSlug: { equals: term, mode: "insensitive" as const },
+      })),
+    },
+  });
+  return { count: result.count };
 }
 
 async function listAllSupabaseUsers(supabase: ReturnType<typeof createClient>) {
@@ -179,7 +202,7 @@ async function listAllSupabaseUsers(supabase: ReturnType<typeof createClient>) {
   return users;
 }
 
-async function deleteSupabaseUsersForTenantRoles(tenantIds: string[]) {
+async function deleteSupabaseUsersForTenantRoles(tenantIds: string[], terms: readonly string[]) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!serviceKey || !supabaseUrl) {
@@ -200,7 +223,7 @@ async function deleteSupabaseUsersForTenantRoles(tenantIds: string[]) {
   const metadataMatchedIds = allAuthUsers
     .filter((u) => {
       const slug = String(u.user_metadata?.tenant_slug ?? "").toLowerCase();
-      return MATCH_TERMS.some((term) => slug.includes(term));
+      return terms.some((term) => slug === term);
     })
     .map((u) => u.id);
 
@@ -218,7 +241,8 @@ async function deleteSupabaseUsersForTenantRoles(tenantIds: string[]) {
   return { skipped: false as const, deleted, errors, candidateCount: allUserIds.length };
 }
 
-async function deleteOrphanRolesForMatchedAuthUsers() {
+async function deleteOrphanRolesForMatchedAuthUsers(terms: readonly string[]) {
+  if (terms.length === 0) return { count: 0 };
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!serviceKey || !supabaseUrl) return { count: 0 };
@@ -230,7 +254,7 @@ async function deleteOrphanRolesForMatchedAuthUsers() {
   const matchedUserIds = allAuthUsers
     .filter((u) => {
       const slug = String(u.user_metadata?.tenant_slug ?? "").toLowerCase();
-      return MATCH_TERMS.some((term) => slug.includes(term));
+      return terms.some((term) => slug === term);
     })
     .map((u) => u.id);
 
@@ -276,30 +300,21 @@ async function main() {
     throw new Error("DATABASE_URL is not set (.env.local or .env).");
   }
 
+  const terms = effectiveMatchTerms();
+
   console.log(`=== Purge onboarding test records (${EXECUTE ? "EXECUTE" : "DRY-RUN"}) ===`);
-  console.log(`Match terms (tenant slug / org name / auth tenant_slug): ${MATCH_TERMS.join(", ")}\n`);
+  console.log(`Exact slug terms: ${terms.length > 0 ? terms.join(", ") : "(none after filters)"}\n`);
 
-  const tenantsBySlugOrName = await prisma.tenant.findMany({
-    where: tenantMatchFilter(),
-    select: { id: true, slug: true, name: true },
-  });
-
-  const companiesByName = await prisma.company.findMany({
-    where: companyMatchFilter(),
-    select: { id: true, name: true, tenantId: true },
-  });
-
-  const tenantIdsFromCompanies = companiesByName.map((c) => c.tenantId);
-  const tenantsByCompany = await prisma.tenant.findMany({
-    where: { id: { in: tenantIdsFromCompanies } },
-    select: { id: true, slug: true, name: true },
-  });
-
-  const tenantMap = new Map<string, { id: string; slug: string; name: string }>();
-  for (const t of [...tenantsBySlugOrName, ...tenantsByCompany]) {
-    tenantMap.set(t.id, t);
+  if (terms.length === 0) {
+    console.log("Nothing to purge — all slug terms were filtered or omitted.");
+    console.log("\nDry-run complete. Re-run with --execute to delete.");
+    return;
   }
-  const tenants = [...tenantMap.values()];
+
+  const tenants = await prisma.tenant.findMany({
+    where: tenantMatchFilter(terms),
+    select: { id: true, slug: true, name: true },
+  });
   const tenantIds = tenants.map((t) => t.id);
 
   const companies = await prisma.company.findMany({
@@ -350,15 +365,19 @@ async function main() {
   }
 
   if (tenants.length === 0) {
-    const orphanMeta = await deleteOrphanRolesForMatchedAuthUsers();
+    const orphanMeta = await deleteOrphanRolesForMatchedAuthUsers(terms);
     const orphanDangling = await deleteDanglingRoleAssignments();
+    const orphanInvites = await deleteOrphanInvitationsBySlug(terms);
     if (orphanMeta.count > 0) {
       console.log(`\nOrphan role rows removed (auth tenant_slug match): ${orphanMeta.count}`);
     }
     if (orphanDangling.count > 0) {
       console.log(`Dangling UserRoleAssignment removed (missing tenant FK): ${orphanDangling.count}`);
     }
-    if (orphanMeta.count === 0 && orphanDangling.count === 0) {
+    if (orphanInvites.count > 0) {
+      console.log(`Orphan workspace invitations removed: ${orphanInvites.count}`);
+    }
+    if (orphanMeta.count === 0 && orphanDangling.count === 0 && orphanInvites.count === 0) {
       console.log("\nNo tenants matched kim/dwoods; no dangling roles to remove.");
     } else {
       console.log("\n[OK] Orphan RBAC cleanup complete.");
@@ -366,7 +385,7 @@ async function main() {
     return;
   }
 
-  const authResult = await deleteSupabaseUsersForTenantRoles(tenantIds);
+  const authResult = await deleteSupabaseUsersForTenantRoles(tenantIds, terms);
   if (authResult.skipped) {
     console.warn(`\nSupabase auth purge skipped: ${authResult.reason}`);
   } else {
@@ -379,7 +398,7 @@ async function main() {
   const threatResult = await deleteThreatPlaneForCompanies(companyIds);
   console.log(`ThreatEvent deleted: ${threatResult.threatEvents}`);
 
-  const orphanCounts = await deleteTenantScopedOrphans(tenantIds);
+  const orphanCounts = await deleteTenantScopedOrphans(tenantIds, terms);
   console.log("Tenant-scoped orphan purge:", orphanCounts);
 
   const tenantDelete = await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });

@@ -3,6 +3,8 @@ import { resolveCommandCenterTenantScope } from "@/app/lib/auth/commandCenterTen
 
 const VAULT = "c6932d16-a716-4a07-9bc4-6ec987f641e2";
 const MED = "5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01";
+const BWC = "ba130f7c-453e-4c79-a611-0d69c1904a10";
+const RUN3 = "ef58739c-ada9-4d2e-89f1-ec8ca625506a";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
@@ -137,6 +139,46 @@ describe("resolveCommandCenterTenantScope", () => {
     expect(scope.tenants[0]?.slug).toBe("vaultbank");
     expect(prisma.tenant.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: { in: [VAULT] } } }),
+    );
+  });
+
+  it("multi-assigned GRC on subdomain can switch between assigned workspaces", async () => {
+    vi.mocked(getHostBoundTenantUuid).mockResolvedValue(RUN3);
+    vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
+      { tenantId: RUN3, role: "GRC_MANAGER" },
+      { tenantId: BWC, role: "GRC_MANAGER" },
+    ] as never);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
+      id: RUN3,
+      name: "Run #3 — execution sequence",
+      slug: "run3",
+      industry: "HEALTH",
+      ale_baseline: 100n,
+    } as never);
+    vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+      {
+        id: RUN3,
+        name: "Run #3 — execution sequence",
+        slug: "run3",
+        industry: "HEALTH",
+        ale_baseline: 100n,
+      },
+      {
+        id: BWC,
+        name: "The Blackwoods Coffee Co.",
+        slug: "bwc",
+        industry: "FINANCE",
+        ale_baseline: 200n,
+      },
+    ] as never);
+
+    const scope = await resolveCommandCenterTenantScope();
+    expect(scope.hostTenantSlug).toBe("run3");
+    expect(scope.canSwitchTenantsOnSubdomain).toBe(true);
+    expect(scope.tenants).toHaveLength(2);
+    expect(scope.tenants.map((t) => t.slug).sort()).toEqual(["bwc", "run3"]);
+    expect(prisma.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [RUN3, BWC] } } }),
     );
   });
 

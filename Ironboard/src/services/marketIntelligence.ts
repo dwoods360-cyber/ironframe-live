@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { parseTargetCountriesInput } from '../lib/flywheelTargetCountries.js';
+import { BOARD_LIVE_DISCOVERY_ONLY_MANDATE } from '../config/boardMarketTruthMandate.js';
+import { verifyAndOptimizeMarketData } from './marketProspectAuthenticity.js';
 import { getIronboardApiKey, getIronboardGeminiModel, loadIronboardEnv } from '../loadIronboardEnv.js';
 import { getPrisma } from './prisma.js';
 
@@ -115,6 +117,8 @@ export type StoredProspect = {
   updatedAt: Date;
 };
 
+const BEACHHEAD_MIN_EMPLOYEES = 50;
+const BEACHHEAD_MAX_EMPLOYEES = 15_000;
 const ACTIVE_PROSPECT_MIN_SCORE = 100;
 
 function mapProspect(row: {
@@ -287,7 +291,7 @@ export async function buildFlywheelWorkspaceContext(
   const activeLabel = regions.join(', ');
 
   let selectedAccount =
-    'No specific account selected — analyze the loaded market batch collectively and rank against the 5–50 employee Fintech SaaS ICP.';
+    'No specific account selected — rank ONLY companies in the loaded workspace snapshot (live-discovered rows).';
 
   const prospectId = String(selectedProspectId ?? '').trim();
   if (prospectId) {
@@ -313,16 +317,15 @@ export async function buildFlywheelWorkspaceContext(
             `${p.companyName} (${p.employeeCount} emp, ${p.compliancePressure}, ${formatFundingTag(p.recentFunding, p.hasComplianceJob)}, score ${p.aiFitnessScore})`,
         )
         .join('; ')
-    : 'Prisma returned zero qualified rows for these markets — report count=0 explicitly and tell the operator to click Load Prospecting Batch; never claim database or tool access is missing.';
+    : 'Prisma returned zero qualified rows for these markets — report count=0 explicitly and tell the operator to click Load Prospecting Batch (runs live web discovery); never claim database or tool access is missing.';
 
   return [
-    'CRITICAL WORKSPACE CONTEXT: The operator is currently staging a market entry campaign targeting early-stage Fintech SaaS startups.',
+    'CRITICAL WORKSPACE CONTEXT: Operator is staging market entry. Company names may ONLY come from the loaded batch below (live web discovery).',
     `Active target markets: ${activeLabel}.`,
     `Selected Target Account: ${selectedAccount}.`,
-    `Loaded qualified batch for ${activeLabel} (5–50 employees, score ≥ ${ACTIVE_PROSPECT_MIN_SCORE}): ${batchSummary}.`,
-    'Focus your strategy entirely on this scaling tier.',
-    'Heavily penalize and reject any recommendations involving enterprise whales or multi-national corporations.',
-    'When evaluating target quality, analyze ONLY this loaded fintech batch and lean-team constraints — never generic Fortune 500 banks or multinational entities.',
+    `Loaded qualified batch for ${activeLabel} (score ≥ ${ACTIVE_PROSPECT_MIN_SCORE}): ${batchSummary}.`,
+    BOARD_LIVE_DISCOVERY_ONLY_MANDATE,
+    'Never cite Medshield, Vaultbank, or Gridcore as market entities — SYNTHETIC_DEMO_SEED fixtures only.',
   ].join(' ');
 }
 
@@ -330,8 +333,11 @@ export async function buildFlywheelWorkspaceContext(
  * 1. AUTONOMOUS PROSPECTING & DYNAMIC SCORING
  */
 export async function scoreAndInsertProspect(account: ProspectAccount) {
-  if (account.employeeCount < 5 || account.employeeCount > 50) {
-    return { status: 'SKIPPED' as const, reason: 'Out of ideal 5-50 scaling profile' };
+  if (account.employeeCount < BEACHHEAD_MIN_EMPLOYEES || account.employeeCount > BEACHHEAD_MAX_EMPLOYEES) {
+    return {
+      status: 'SKIPPED' as const,
+      reason: `Outside regulated mid-market beachhead band (${BEACHHEAD_MIN_EMPLOYEES}-${BEACHHEAD_MAX_EMPLOYEES} employees)`,
+    };
   }
 
   const tierScore = calculateTierScore(account);
@@ -388,10 +394,7 @@ export async function fetchProspectingBatchForTargets(
   }
 
   for (const country of normalized) {
-    const seeds = resolveSeedsForTargetCountry(country);
-    for (const seed of seeds) {
-      await scoreAndInsertProspect({ ...seed, dealStage: 'PROSPECT' });
-    }
+    await verifyAndOptimizeMarketData(country, { operatorTriggered: true });
   }
 
   return listProspectsInRegions(normalized, true);
@@ -445,10 +448,9 @@ export async function generateGroundedPitch(domain: string) {
 
   const systemPrompt = `
     You are the Sales Strategy Director on a 17-agent corporate Board of Directors.
-    Your current target is an early-stage Fintech SaaS startup under immediate regulatory crunch.
-    Draft a cold outreach brief that offers our platform as a fractional, automated GRC expert.
-    Highlight our absolute BigInt numeric precision and zero-drift database safety guarantees.
-    DO NOT use generic marketing jargon. Keep it engineer-to-engineer.
+    Draft a cold outreach brief grounded in the prospect row from live discovery (domain and compliance pressure in workspace).
+    Highlight BigInt ALE precision, tenant isolation, and Irongate-sanitized ingest — engineer-to-engineer tone.
+    NEVER cite Medshield, Vaultbank, or Gridcore as companies.
   `;
 
   const ai = new GoogleGenAI({ apiKey });

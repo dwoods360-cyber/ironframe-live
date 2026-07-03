@@ -254,3 +254,8 @@ export function buildTenantSubdomainOrigin(slug: string, port?: number): string 
 export function resolvePostAuthLandingPath(host: string | null | undefined): "/integrity" | "/" {
   return tenantSlugFromHost(host) ? "/" : "/integrity";
 }
+
+/** True when the request host is the apex control plane (localhost, www, bare apex) — not a tenant subdomain. */
+export function isApexControlPlaneHost(host: string | null | undefined): boolean {
+  return !tenantSlugFromHost(host);
+}

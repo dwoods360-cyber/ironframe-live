@@ -4,13 +4,13 @@ import {
   resolveWriterApiKey,
   synthesizeWriterSession,
 } from "@/app/lib/server/writerAgentConsoleCore";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const guard = await assertIronguardApiTenantOr403(req);
+    const guard = await assertAuthenticatedIronguardTenantOr403(req);
     if (!guard.ok) {
       return guard.response;
     }

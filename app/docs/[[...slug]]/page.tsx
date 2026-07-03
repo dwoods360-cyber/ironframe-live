@@ -15,7 +15,6 @@ import {
   isOperatorFacingReadingLevel,
   prepareDocContentForDisplay,
 } from "@/lib/docsContentDecoupling";
-import { resolveAbsoluteDocPath } from "@/lib/docsLinkNormalization";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -154,7 +153,6 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
     readingLevel: docRecord.readingLevel,
     title: docRecord.title,
   });
-  const pathResolver = (href: string) => resolveAbsoluteDocPath(href, currentSlug);
   const displayTitle = operatorView
     ? formatOperatorDocTitle(docRecord.title)
     : docRecord.title;
@@ -197,7 +195,7 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
         </header>
 
         <article className="prose prose-invert pointer-events-auto relative z-20 max-w-none font-sans prose-a:text-cyan-400 hover:prose-a:text-cyan-300 prose-a:transition-colors">
-          <DocsMarkdown content={documentContent} pathResolver={pathResolver} />
+          <DocsMarkdown content={documentContent} currentSlug={currentSlug} />
         </article>
       </div>
       )}

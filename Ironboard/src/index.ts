@@ -5,6 +5,7 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
+import readline from 'node:readline';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type GroundingMetadata } from '@google/genai';
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
@@ -69,9 +70,19 @@ import {
   isMarketResearchCapabilityQuery,
   requiresCrmDiscovery,
   requiresWorkspaceTools,
+  shouldPrefetchGrcEnvironment,
   shouldPrefetchProspects,
   shouldPrefetchWeb,
 } from './services/boardroomQueryIntent.js';
+import {
+  discoverGrcEnvironmentIntel,
+  formatGrcEnvironmentEnrichment,
+} from './services/discoverGrcEnvironmentIntel.js';
+import {
+  formatMarketEntryReadinessEnrichment,
+  parseMarketEntryReadinessFromTelemetry,
+} from './services/marketEntryReadinessEnrichment.js';
+import { findLatestRegulatoryCatalystForDomain } from './services/regulatoryCatalystLookup.js';
 import { handleVideoIngress } from './api/ingress/video.js';
 import { handleResendWebhookIngress } from './api/ingress/email.js';
 import { interceptBoardroomLinkPayload } from './middleware/linkScraper.js';
@@ -97,6 +108,9 @@ import {
 } from './services/boardResponseLibrary.js';
 
 const PORT = Number(process.env.PORT) || 8082;
+
+/** Open boardroom SSE streams — must be ended on shutdown or Ctrl+C hangs on Windows. */
+const activeSseClients = new Set<express.Response>();
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const IRONBOARD_ROOT = path.resolve(MODULE_DIR, '..');
 
@@ -111,7 +125,7 @@ function composeToolExecutionDirective(videoTimelineActive: boolean): string {
 }
 
 const BOARDROOM_DIRECTIVE =
-  'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. You are prohibited from answering strategic business questions with generic theory or abstract jargon. When asked for target clients, strategic acquisitions, or market opportunities, you MUST return concrete, real-world company names, localized market entities, and actionable business leads. Utilize the data loaded from local markdown docs to ground your corporate directives in exact, non-speculative account execution plans. CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability). If federated docs conflict on Kimbot, follow the NAMING LOCK in static context.';
+  'You are an active, data-driven member of a 17-agent corporate Board of Directors operating under the Ironframe Constitution. When asked for target clients, prospects, or market opportunities, you MUST cite ONLY company names returned in the WORKSPACE DATABASE SNAPSHOT from live discoverRegionalProspects ingestion in this session — never from static docs, playbooks, or model memory. Execute verifyAndOptimizeMarketData when the snapshot is empty. Never cite Medshield, Vaultbank, or Gridcore (SYNTHETIC_DEMO_SEED fixtures). CRITICAL: Kimbot is Simulation Bot B (red-team antagonist), NOT Agent 17. Ironbloom is Agent 17 (sustainability).';
 
 const VALID_AGENT_IDS = new Set(BOARDROOM_QUERY_ROSTER.map(a => a.id));
 const AUTO_ROUTER_ID = 'auto';
@@ -459,6 +473,40 @@ async function prefetchBoardroomGroundTruth(params: {
     enrichmentBlocks.push(
       `WORKSPACE DATABASE SNAPSHOT (authoritative — do not claim tools are unavailable):\n${JSON.stringify(toolResult)}`,
     );
+
+    const prospectRows = Array.isArray(toolResult.prospects)
+      ? (toolResult.prospects as Array<{ domain?: string }>)
+      : [];
+    const catalystLines: string[] = [];
+    for (const row of prospectRows.slice(0, 5)) {
+      const domain = String(row.domain ?? '').trim();
+      if (!domain) continue;
+      const catalyst = await findLatestRegulatoryCatalystForDomain(domain);
+      if (catalyst) {
+        catalystLines.push(
+          `- ${catalyst.prospectDomain}: [${catalyst.authority}] ${catalyst.title} — ${catalyst.whyNow} (${catalyst.sourceUrl})`,
+        );
+      }
+    }
+    if (catalystLines.length) {
+      enrichmentBlocks.push(
+        `INDUSTRY SCOUT REGULATORY CATALYSTS (CRM — cite sourceUrl):\n${catalystLines.join('\n')}`,
+      );
+    }
+  }
+
+  if (shouldPrefetchGrcEnvironment(query)) {
+    const grcRegions = inferRegionsFromQuery(query, activeHub);
+    const grcTargets = grcRegions.length > 0 ? grcRegions : resolveFlywheelTargetRegions(activeHub);
+    for (const region of grcTargets) {
+      try {
+        const grcResult = await discoverGrcEnvironmentIntel(region);
+        const grcEnrichment = formatGrcEnvironmentEnrichment(grcResult);
+        if (grcEnrichment) enrichmentBlocks.push(grcEnrichment);
+      } catch (err) {
+        console.warn('[IRONBOARD GRC ENVIRONMENT]', region, err);
+      }
+    }
   }
 
   if (shouldPrefetchWeb(query)) {
@@ -903,9 +951,9 @@ function renderDashboard(): string {
       <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Product Matrix</p>
       ${products}
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>
-      <div class="baseline"><span>Medshield</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.medshield}</span></div>
-      <div class="baseline"><span>Vaultbank</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}</span></div>
-      <div class="baseline"><span>Gridcore</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}</span></div>
+      <div class="baseline"><span>Demo seed (medshield)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.medshield}</span></div>
+      <div class="baseline"><span>Demo seed (vaultbank)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}</span></div>
+      <div class="baseline"><span>Demo seed (gridcore)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.gridcore}</span></div>
     </section>
   </main>
   <script>
@@ -1252,7 +1300,7 @@ function renderDashboard(): string {
       loadedProspects = [];
       updateHarvestButtons();
       var label = countries.join(', ');
-      setMarketStatus('Fetching batch for ' + label + '…');
+      setMarketStatus('Running live web discovery for ' + label + '…');
       try {
         var response = await fetch('/api/prospects/trigger', {
           method: 'POST',
@@ -1262,7 +1310,7 @@ function renderDashboard(): string {
         if (!response.ok) throw new Error('Batch fetch failed: ' + response.status);
         var data = await response.json();
         renderProspectList(data.prospects || []);
-        setMarketStatus('Loaded ' + (data.prospects || []).length + ' qualified Fintech targets · ' + label);
+        setMarketStatus('Loaded ' + (data.prospects || []).length + ' live-grounded prospects · ' + label);
       } catch (err) {
         console.error(err);
         setMarketStatus(err && err.message ? err.message : 'Batch load failed.');
@@ -1688,10 +1736,12 @@ app.post('/api/query', async (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
+  activeSseClients.add(res);
 
   let abort = { closed: false };
   res.on('close', () => {
     abort.closed = true;
+    activeSseClients.delete(res);
   });
 
   writeSseToolCall(res, {
@@ -1884,6 +1934,9 @@ app.post('/api/query', async (req, res) => {
         linkScraperEnrichment,
         req.body,
         liveSystemTelemetryJson,
+      ),
+      formatMarketEntryReadinessEnrichment(
+        parseMarketEntryReadinessFromTelemetry(liveSystemTelemetryJson),
       ),
       systemEnrichment,
       prefetchedExchange.length
@@ -2111,6 +2164,7 @@ app.use((_req, res) => {
 const server = app.listen(PORT, "127.0.0.1", () => {
   console.log(`[IRONBOARD ENGINE] Live at http://127.0.0.1:${PORT}/`);
   console.log(`[IRONBOARD ENGINE] 17-agent boardroom online · Gemini: ${getIronboardApiKey() ? 'ready' : 'offline'}`);
+  console.log(`[IRONBOARD ENGINE] Stop: Ctrl+C (or npm run stop if port 8082 sticks)`);
   const published = scanPublishedBriefings(resolveDocsRoot());
   console.log(
     `[GOVERNANCE FRAME] Briefing feed at http://127.0.0.1:${PORT}/governance-frame · published=${published.length}`,
@@ -2125,10 +2179,75 @@ server.on('error', (err: NodeJS.ErrnoException) => {
   throw err;
 });
 
-process.on('SIGINT', () => {
-  server.close(() => process.exit(0));
-});
+let shuttingDown = false;
 
-process.on('SIGTERM', () => {
-  server.close(() => process.exit(0));
+function installWindowsCtrlCHandler(): void {
+  if (!process.stdin.isTTY) return;
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  rl.on('SIGINT', () => {
+    void shutdownBoard('SIGINT (readline)');
+  });
+}
+
+async function shutdownBoard(signal: string): Promise<void> {
+  if (shuttingDown) {
+    process.exit(1);
+    return;
+  }
+  shuttingDown = true;
+  console.log(`\n[IRONBOARD] ${signal} — shutting down...`);
+
+  for (const client of activeSseClients) {
+    try {
+      const socket = client.socket;
+      if (socket && !socket.destroyed) {
+        socket.destroy();
+      }
+      if (!client.writableEnded) {
+        client.end();
+      }
+    } catch {
+      /* connection may already be closed */
+    }
+  }
+  activeSseClients.clear();
+
+  try {
+    if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  try {
+    const { disconnectPrisma } = await import('./services/prisma.js');
+    await disconnectPrisma();
+  } catch {
+    /* optional when DATABASE_URL unset */
+  }
+
+  try {
+    server.close();
+  } catch {
+    /* best-effort */
+  }
+
+  process.exit(0);
+}
+
+installWindowsCtrlCHandler();
+process.on('SIGINT', () => {
+  void shutdownBoard('SIGINT');
 });
+process.on('SIGTERM', () => {
+  void shutdownBoard('SIGTERM');
+});
+if (process.platform === 'win32') {
+  process.on('SIGBREAK', () => {
+    void shutdownBoard('SIGBREAK');
+  });
+}

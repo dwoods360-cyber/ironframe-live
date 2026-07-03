@@ -10,25 +10,39 @@ import {
 } from "@/app/lib/server/approvalQueueCore";
 import {
   GRC_SALES_PLAYBOOK,
+  type BeachheadSegment,
   type GRCPlaybookTier,
 } from "@/Ironboard/src/agents/sales/playbook";
 import prisma from "@/lib/prisma";
 
 const MAX_DRAFT_SUMMARY_CHARS = 12_000;
 
-export type BaselineTarget = "Gridcore" | "Vaultbank" | "Medshield";
+/** Real beachhead segment — never fictional demo tenant names. */
+export type BaselineTarget = BeachheadSegment;
+
+const BEACHHEAD_SEGMENTS: BeachheadSegment[] = ["regionalBHC", "publicPower", "communityHealth"];
+
+/** Legacy fictional keys map to beachhead segments for backward-compatible API intake. */
+const LEGACY_BASELINE_MAP: Record<string, BeachheadSegment> = {
+  Gridcore: "publicPower",
+  Vaultbank: "regionalBHC",
+  Medshield: "communityHealth",
+  regionalBHC: "regionalBHC",
+  publicPower: "publicPower",
+  communityHealth: "communityHealth",
+};
 
 /** Display-scale protected units + stable baseline reference ids for sales prompts. */
 export const ALE_BASELINES: Record<BaselineTarget, { units: number; baselineId: string }> = {
-  Gridcore: { units: 4_700_000, baselineId: "BL_GRID_47" },
-  Vaultbank: { units: 5_900_000, baselineId: "BL_VAULT_59" },
-  Medshield: { units: 11_100_000, baselineId: "BL_MED_111" },
+  regionalBHC: { units: 5_900_000, baselineId: "BL_BHC_59" },
+  publicPower: { units: 4_700_000, baselineId: "BL_PWR_47" },
+  communityHealth: { units: 11_100_000, baselineId: "BL_HLTH_111" },
 };
 
 const BASELINE_CENTS: Record<BaselineTarget, bigint> = {
-  Gridcore: 470_000_000n,
-  Vaultbank: 590_000_000n,
-  Medshield: 1_110_000_000n,
+  regionalBHC: 590_000_000n,
+  publicPower: 470_000_000n,
+  communityHealth: 1_110_000_000n,
 };
 
 export type SalesAgentIntake = {
@@ -56,6 +70,11 @@ function sanitizeField(raw: string, maxLen: number): string {
     .slice(0, maxLen);
 }
 
+function resolveBeachheadSegment(raw: unknown): BaselineTarget | null {
+  const key = String(raw ?? "regionalBHC").trim();
+  return LEGACY_BASELINE_MAP[key] ?? null;
+}
+
 export function sanitizeSalesIntake(raw: {
   name?: unknown;
   email?: unknown;
@@ -67,7 +86,6 @@ export function sanitizeSalesIntake(raw: {
   const email = sanitizeField(String(raw.email ?? ""), 320).toLowerCase();
   const company = sanitizeField(String(raw.company ?? ""), 200);
   const notes = sanitizeField(String(raw.notes ?? ""), 2_000);
-  const baselineRaw = String(raw.baselineTarget ?? "Gridcore").trim();
 
   if (!name || !email || !company) {
     return { error: "Missing required qualification parameters." };
@@ -76,20 +94,19 @@ export function sanitizeSalesIntake(raw: {
     return { error: "Valid secure return email is required." };
   }
 
-  const baselineTarget =
-    baselineRaw === "Gridcore" || baselineRaw === "Vaultbank" || baselineRaw === "Medshield"
-      ? baselineRaw
-      : null;
+  const baselineTarget = resolveBeachheadSegment(raw.baselineTarget);
   if (!baselineTarget) {
-    return { error: "Invalid baselineTarget. Use Gridcore, Vaultbank, or Medshield." };
+    return {
+      error:
+        "Invalid baselineTarget. Use regionalBHC, publicPower, or communityHealth (legacy Gridcore/Vaultbank/Medshield map to these segments).",
+    };
   }
 
   return { name, email, company, baselineTarget, notes };
 }
 
 export function resolveBaselineTarget(raw: unknown): BaselineTarget {
-  const key = String(raw ?? "Gridcore").trim();
-  return key in ALE_BASELINES ? (key as BaselineTarget) : "Gridcore";
+  return resolveBeachheadSegment(raw) ?? "regionalBHC";
 }
 
 export async function upsertProspectCrmContact(intake: SalesAgentIntake) {
@@ -106,7 +123,7 @@ export async function upsertProspectCrmContact(intake: SalesAgentIntake) {
       data: {
         fullName: intake.name,
         company: intake.company,
-        title: `Baseline:${intake.baselineTarget} [${metricData.baselineId}]`,
+        title: `Beachhead:${intake.baselineTarget} [${metricData.baselineId}]`,
         metadata: {
           initialBaselineAlignment: intake.baselineTarget,
           targetALE: GRC_SALES_PLAYBOOK[intake.baselineTarget].targetALE,
@@ -123,7 +140,7 @@ export async function upsertProspectCrmContact(intake: SalesAgentIntake) {
       fullName: intake.name,
       email: intake.email,
       company: intake.company,
-      title: `Baseline:${intake.baselineTarget} [${metricData.baselineId}]`,
+      title: `Beachhead:${intake.baselineTarget} [${metricData.baselineId}]`,
       metadata: {
         initialBaselineAlignment: intake.baselineTarget,
         targetALE: GRC_SALES_PLAYBOOK[intake.baselineTarget].targetALE,
@@ -145,7 +162,7 @@ export function buildSalesPendingDraftSummary(input: {
     "--- Agent Proposed Reply Text ---",
     input.proposedPitch.trim(),
     "--- Prospect Context ---",
-    `Baseline Track: ${input.baselineTarget}`,
+    `Beachhead Segment: ${input.baselineTarget}`,
     input.notes ? `Ingress Notes: ${input.notes}` : "Ingress Notes: Standard multi-tenant lifecycle optimization.",
     "Execution Source: agentSalesConsole | Channel: PUBLIC_LEAD_FORM",
   ]
@@ -190,7 +207,7 @@ export async function logAutomatedSalesProposal(input: {
 }): Promise<void> {
   const metricData = ALE_BASELINES[input.baselineTarget];
   const consolidatedSummary = [
-    `[AUTOMATED PROPOSAL] Strategy pitch computed for ${input.baselineTarget} alignment.`,
+    `[AUTOMATED PROPOSAL] Strategy pitch computed for ${input.baselineTarget} beachhead.`,
     `Baseline ID: ${metricData.baselineId} | Units: ${metricData.units.toLocaleString()}`,
     input.notes ? `Ingress Notes: ${input.notes}` : "",
     "--- Generated Pitch Summary ---",
@@ -223,7 +240,7 @@ export async function synthesizeSalesAgentPitch(
   intake: SalesAgentIntake,
   contact: { fullName: string; company: string },
   playbookTier: GRCPlaybookTier = GRC_SALES_PLAYBOOK[intake.baselineTarget] ??
-    GRC_SALES_PLAYBOOK.Gridcore,
+    GRC_SALES_PLAYBOOK.regionalBHC,
 ): Promise<string> {
   const apiKey = resolveApiKey();
   if (!apiKey) {
@@ -232,6 +249,7 @@ export async function synthesizeSalesAgentPitch(
 
   const metricData = ALE_BASELINES[intake.baselineTarget];
   const selectedTarget = intake.baselineTarget;
+  const icpCriteria = playbookTier.icpCriteria;
 
   const systemInstruction = `You are the elite Sales Specialist Agent for the Ironframe/Ironboard GRC platform core.
 Your absolute mandate is to evaluate incoming leads against the strict constraints of the ${playbookTier.name}.
@@ -239,16 +257,18 @@ Your absolute mandate is to evaluate incoming leads against the strict constrain
 CRITICAL OUTREACH ALGORITHMS:
 1. Address the prospect's reported scale metrics directly: ${playbookTier.targetALE} (${metricData.units.toLocaleString()} protected units).
 2. Focus the structural pitch on their target compliance frameworks: ${playbookTier.complianceFrameworks.join(", ")}.
-3. Explicitly deploy the platform's core technical advantage for this scale: "${playbookTier.coreValueProposition}".
-4. Maintain a peer-to-peer engineering tone. Avoid fluff, emojis, and vague promises.
-5. Emphasize our control-first architecture, tenant isolation guarantees, and pure BigInt financial integrity.
+3. ICP segment criteria (no pre-seeded company names): ${icpCriteria}.
+4. Explicitly deploy the platform's core technical advantage for this scale: "${playbookTier.coreValueProposition}".
+5. Maintain a peer-to-peer engineering tone. Avoid fluff, emojis, and vague promises.
 6. Do not quote hard software licensing costs or financial pricing estimates unless explicitly stated in your core directives.
-7. Output ONLY the clean, structured message body text.`;
+7. NEVER cite Medshield, Vaultbank, or Gridcore as companies — those are internal SYNTHETIC_DEMO_SEED fixtures only.
+8. Do not name example organizations from documentation — only the prospect's company from intake metadata.
+9. Output ONLY the clean, structured message body text.`;
 
   const inputPrompt = `Prospect Metadata:
 - Name: ${contact.fullName}
 - Enterprise: ${contact.company}
-- Baseline Alignment Track: ${selectedTarget} (${metricData.units.toLocaleString()} Units Checked)
+- Beachhead Segment: ${selectedTarget} (${metricData.units.toLocaleString()} Units Checked)
 - Operation Obstacles Noted: ${intake.notes || "Standard multi-tenant lifecycle optimization."}
 
 Synthesize a precise engineering-focused platform capabilities overview:`;
@@ -274,3 +294,5 @@ Synthesize a precise engineering-focused platform capabilities overview:`;
 export function baselineAleCents(target: BaselineTarget): bigint {
   return BASELINE_CENTS[target];
 }
+
+export { BEACHHEAD_SEGMENTS };

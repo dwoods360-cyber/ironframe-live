@@ -8,6 +8,7 @@ import { appendAuditLog } from '@/app/utils/auditLogger';
 import { maskSensitiveData } from '@/app/utils/retentionPolicy';
 import { useAgentStore } from '@/app/store/agentStore';
 import { useRiskStore } from '@/app/store/riskStore';
+import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from '@/app/config/stakeholderAlert';
 
 // # GRC_ACTION_CHIPS (Save, Email, PDF Export) — Commit Evidence, Email Stakeholders, Export PDF; INITIATE RISK ASSESSMENT
 // # ANALYST_NOTES_FEED — Commit button appends NOTE_ADDED to useAuditLoggerStore so notes appear in sidebar immediately
@@ -169,7 +170,7 @@ export default function ThreatInvestigationPanel({ threatId, threatTitle, financ
 
   const handleEmailStakeholders = async () => {
     // # GRC_ACTION_CHIPS — terminal log + audit store + toast
-    const systemMessage = '> [SYSTEM] Secure Briefing dispatched to blackwoodscoffee@gmail.com';
+    const systemMessage = `> [SYSTEM] Secure Briefing dispatched to ${STAKEHOLDER_ALERT_RECIPIENT_LABEL}`;
     useAgentStore.getState().addStreamMessage(systemMessage);
     appendAuditLog({
       action_type: 'EMAIL_SENT',

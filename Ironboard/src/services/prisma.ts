@@ -23,3 +23,9 @@ export function getPrisma(): InstanceType<typeof PrismaClient> {
   }
   return globalForPrisma.ironboardPrisma;
 }
+
+export async function disconnectPrisma(): Promise<void> {
+  if (!globalForPrisma.ironboardPrisma) return;
+  await globalForPrisma.ironboardPrisma.$disconnect();
+  globalForPrisma.ironboardPrisma = undefined;
+}

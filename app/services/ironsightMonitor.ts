@@ -94,9 +94,11 @@ function parseRssItems(xml: string): Array<{ title: string; description: string;
   return items;
 }
 
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
+
 async function fetchFeedItems(feed: IronsightFeedConfig): Promise<RegulatoryFeedItem[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), POLL_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(ABORT_REASONS.ironsightPollTimeout), POLL_TIMEOUT_MS);
   try {
     const res = await fetch(feed.url, {
       signal: controller.signal,

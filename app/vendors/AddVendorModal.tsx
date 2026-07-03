@@ -7,6 +7,10 @@ import { Industry, RiskTier, VendorType } from "@/app/vendors/schema";
 import { ClassifiedDocumentType, analyzeVendorDocument } from "@/services/idpService";
 import { VendorTypeRequirements } from "@/app/store/systemConfigStore";
 import { LAYOUT_GLOBAL_MODAL_Z_CLASS } from "@/app/config/layoutConstants";
+import {
+  VENDOR_INDUSTRY_OPTIONS,
+  resolveRequiredVendorEvidence,
+} from "@/app/vendors/vendorEvidenceRequirements";
 
 export type AddVendorSubmission = {
   vendorName: string;
@@ -43,7 +47,28 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
   const [fieldConfidence, setFieldConfidence] = useState<{ name?: number; documentType?: number; expirationDate?: number }>({});
 
   const canSubmit = useMemo(() => vendorName.trim().length > 0, [vendorName]);
-  const requiredEvidence = vendorTypeRequirements[vendorType] ?? ["SOC2"];
+  const requiredEvidence = useMemo(
+    () =>
+      resolveRequiredVendorEvidence({
+        vendorType,
+        industry,
+        vendorTypeRequirements,
+      }),
+    [vendorType, industry, vendorTypeRequirements],
+  );
+
+  useEffect(() => {
+    if (isOpen) return;
+    setVendorName("");
+    setVendorType("SaaS");
+    setIndustry("Healthcare");
+    setRiskTier("HIGH");
+    setDocumentType("UNKNOWN");
+    setExpirationDate("");
+    setUploadFileName(null);
+    setGhostFields({ name: false, documentType: false, expirationDate: false });
+    setFieldConfidence({});
+  }, [isOpen]);
 
   useEffect(() => {
     setMounted(true);
@@ -173,9 +198,28 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
             </select>
           </div>
 
+          <div>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-300">Industry</label>
+            <select
+              data-testid="add-vendor-industry"
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value as Industry)}
+              className="h-8 w-full max-w-[180px] rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
+            >
+              {VENDOR_INDUSTRY_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
             <p className="mb-1 text-[9px] font-bold uppercase tracking-wide text-slate-300">Required Evidence</p>
-            <ul className="space-y-1">
+            <p className="mb-2 text-[8px] uppercase tracking-wide text-slate-500">
+              Vendor type + industry profile
+            </p>
+            <ul className="space-y-1" data-testid="add-vendor-required-evidence">
               {requiredEvidence.map((doc) => (
                 <li key={doc} className="text-[9px] text-slate-400">• {doc}</li>
               ))}
@@ -199,20 +243,6 @@ export default function AddVendorModal({ isOpen, onClose, onSubmit, vendorTypeRe
             {ghostFields.name && fieldConfidence.name !== undefined ? (
               <p className="mt-1 text-[9px] text-blue-200">{Math.round(fieldConfidence.name * 100)}% Confident</p>
             ) : null}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-300">Industry</label>
-            <select
-              data-testid="add-vendor-industry"
-              value={industry}
-              onChange={(event) => setIndustry(event.target.value as Industry)}
-              className="h-8 w-full max-w-[180px] rounded border border-slate-800 bg-slate-950 px-3 pr-7 text-[10px] text-white focus:border-blue-500 focus:outline-none"
-            >
-              <option value="Healthcare">Healthcare</option>
-              <option value="Finance">Finance</option>
-              <option value="Energy">Energy</option>
-            </select>
           </div>
 
           <div>

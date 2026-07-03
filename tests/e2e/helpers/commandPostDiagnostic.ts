@@ -4,6 +4,21 @@ import type { Page } from "@playwright/test";
 
 const APEX_ORIGIN = "http://127.0.0.1:3000";
 
+/** Serialize Supabase generateLink — parallel workers invalidate each other's OTP. */
+let apexAuthBootstrapChain: Promise<void> = Promise.resolve();
+
+function buildApexMagicLinkVerifyUrl(hashedToken: string, redirectTo: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
+  const params = new URLSearchParams({
+    token: hashedToken,
+    type: "magiclink",
+    redirect_to: redirectTo,
+    apikey: anonKey,
+  });
+  return `${supabaseUrl.replace(/\/+$/, "")}/auth/v1/verify?${params.toString()}`;
+}
+
 export type CommandPostDomSnapshot = {
   found: boolean;
   tag: string | null;
@@ -115,6 +130,12 @@ async function materializeSupabaseAuthCookies(
 
 /** Mint Supabase session cookies on apex 127.0.0.1 (matches playwright.config baseURL). */
 export async function bootstrapApexOperatorSession(page: Page, email: string): Promise<void> {
+  await (apexAuthBootstrapChain = apexAuthBootstrapChain.then(() =>
+    bootstrapApexOperatorSessionInner(page, email),
+  ));
+}
+
+async function bootstrapApexOperatorSessionInner(page: Page, email: string): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!supabaseUrl || !serviceKey) {
@@ -136,26 +157,58 @@ export async function bootstrapApexOperatorSession(page: Page, email: string): P
   const { accessToken, refreshToken } = await exchangeMagicLinkForSession(
     email.trim().toLowerCase(),
     data.properties ?? {},
-  );
-  const authCookies = await materializeSupabaseAuthCookies(accessToken, refreshToken);
+  ).catch(async () => {
+    const hashedToken = data.properties?.hashed_token?.trim();
+    const actionLink = data.properties?.action_link?.trim();
+    const verifyUrl =
+      hashedToken != null && hashedToken.length > 0
+        ? buildApexMagicLinkVerifyUrl(hashedToken, redirectTo)
+        : actionLink;
+    if (!verifyUrl) {
+      throw new Error("Supabase generateLink returned no verification path.");
+    }
 
-  const normalizeSameSite = (value: unknown): "Lax" | "Strict" | "None" => {
-    if (value === "strict" || value === "Strict") return "Strict";
-    if (value === "none" || value === "None") return "None";
-    return "Lax";
-  };
+    await page.goto(verifyUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    const landed = page.url();
+    if (landed.includes("#")) {
+      const hash = landed.slice(landed.indexOf("#") + 1);
+      const params = new URLSearchParams(hash);
+      const access = params.get("access_token");
+      const refresh = params.get("refresh_token");
+      if (access && refresh) {
+        return { accessToken: access, refreshToken: refresh };
+      }
+    }
 
-  await page.context().addCookies([
-    ...authCookies.map((cookie) => ({
-      name: cookie.name,
-      value: cookie.value,
-      domain: "127.0.0.1",
-      path: typeof cookie.options.path === "string" ? cookie.options.path : "/",
-      httpOnly: Boolean(cookie.options.httpOnly),
-      secure: false,
-      sameSite: normalizeSameSite(cookie.options.sameSite),
-    })),
-  ]);
+    const cookies = await page.context().cookies(APEX_ORIGIN);
+    const hasSession = cookies.some((row) => row.name.includes("sb-") && row.value.length > 0);
+    if (hasSession) {
+      return { accessToken: "", refreshToken: "" };
+    }
+
+    throw new Error("Browser magic-link verify did not establish a Supabase session.");
+  });
+
+  if (accessToken && refreshToken) {
+    const authCookies = await materializeSupabaseAuthCookies(accessToken, refreshToken);
+    const normalizeSameSite = (value: unknown): "Lax" | "Strict" | "None" => {
+      if (value === "strict" || value === "Strict") return "Strict";
+      if (value === "none" || value === "None") return "None";
+      return "Lax";
+    };
+
+    await page.context().addCookies([
+      ...authCookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: "127.0.0.1",
+        path: typeof cookie.options.path === "string" ? cookie.options.path : "/",
+        httpOnly: Boolean(cookie.options.httpOnly),
+        secure: false,
+        sameSite: normalizeSameSite(cookie.options.sameSite),
+      })),
+    ]);
+  }
 }
 
 export async function readCommandPostDomSnapshot(page: Page): Promise<CommandPostDomSnapshot> {
@@ -227,7 +280,7 @@ export async function runCommandPostClickDiagnostic(
   await chip.waitFor({ state: "visible", timeout: 20_000 });
 
   const urlBeforeClick = page.url();
-  await chip.click({ timeout: 10_000 });
+  await chip.click({ noWaitAfter: true, timeout: 10_000 });
 
   let workspaceLaunchSeen = false;
   try {
@@ -236,7 +289,7 @@ export async function runCommandPostClickDiagnostic(
         url.href.includes("workspace-launch") ||
         (url.hostname.includes("lvh.me") && !url.pathname.includes("session-bootstrap")) ||
         url.pathname === "/login",
-      { timeout: 30_000 },
+      { timeout: 60_000 },
     );
   } catch {
     // Capture final state even when navigation stalls.

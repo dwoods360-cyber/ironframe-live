@@ -22,7 +22,7 @@ export function usePlatformAdminToolsAccess(): PlatformAdminToolsAccessState {
 
   useEffect(() => {
     let cancelled = false;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let timeoutId: number | undefined;
     let frameId = 0;
 
     const finish = (canUsePlatformAdminTools: boolean) => {

@@ -6,7 +6,10 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 
 
-import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
+import { mintWorkspaceBootstrapHandoffUrl } from "@/app/lib/auth/workspaceSessionBootstrap";
+import { userIdFromAccessToken } from "@/app/lib/auth/workspaceBootstrapTicket";
+import { ensureCorporateInviteRoleAssignment } from "@/app/lib/auth/corporateInviteProvisioning";
+import { workspaceActivationNextParam } from "@/app/lib/auth/workspaceActivationLanding";
 
 
 
@@ -78,7 +81,51 @@ export async function findSupabaseAuthUserByEmail(
 
 }
 
+/** Invalidate all refresh tokens / sessions for a user (post-revocation hardening). */
+export async function revokeAllSupabaseSessionsForUser(
+  supabaseAdmin: SupabaseClient,
+  userId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const uid = userId.trim();
+  if (!uid) {
+    return { ok: false, error: "User id is required to revoke sessions." };
+  }
 
+  const { error } = await supabaseAdmin.auth.admin.signOut(uid, "global");
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
+}
+
+/** Paginated auth.users index for platform-admin roster views (user id → email). */
+export async function listSupabaseAuthEmailsByUserId(
+  supabaseAdmin: SupabaseClient,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  let page = 1;
+  const perPage = 1000;
+
+  for (;;) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      throw new Error(`Supabase listUsers failed: ${error.message}`);
+    }
+
+    for (const user of data.users) {
+      const email = user.email?.trim();
+      if (email) {
+        map.set(user.id, email);
+      }
+    }
+
+    if (data.users.length < perPage) break;
+    page += 1;
+  }
+
+  return map;
+}
 
 export type SupabaseMagicLinkProperties = {
 
@@ -87,6 +134,52 @@ export type SupabaseMagicLinkProperties = {
   hashed_token?: string | null;
 
 };
+
+
+
+/** Password grant immediately after assisted registration — reliable vs magic-link verify. */
+export async function exchangePasswordForSession(
+  email: string,
+  password: string,
+): Promise<{ accessToken: string; refreshToken: string } | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!supabaseUrl || !anonKey) return null;
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail || !password) return null;
+
+  const response = await fetch(`${supabaseUrl.replace(/\/+$/, "")}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email: normalizedEmail, password }),
+  });
+
+  const payload = (await response.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    error_description?: string;
+    msg?: string;
+    message?: string;
+  };
+
+  if (response.ok && payload.access_token && payload.refresh_token) {
+    return {
+      accessToken: payload.access_token,
+      refreshToken: payload.refresh_token,
+    };
+  }
+
+  console.error(
+    "[exchangePasswordForSession]",
+    payload.error_description ?? payload.msg ?? payload.message ?? `HTTP ${response.status}`,
+  );
+  return null;
+}
 
 
 
@@ -208,40 +301,6 @@ export async function exchangeSupabaseMagicLinkForSession(
 
 
 
-/** Tenant-hosted bootstrap URL — sets session cookies on the workspace host after activation. */
-
-export function buildTenantWorkspaceSessionBootstrapUrl(input: {
-
-  tenantSlug: string;
-
-  accessToken: string;
-
-  refreshToken: string;
-
-  nextPath?: string;
-
-}): string {
-
-  const tenantSlug = input.tenantSlug.trim().toLowerCase();
-
-  const origin = buildTenantSubdomainOrigin(tenantSlug);
-
-  const params = new URLSearchParams({
-
-    access_token: input.accessToken,
-
-    refresh_token: input.refreshToken,
-
-    next: input.nextPath?.trim() || "/get-started",
-
-  });
-
-  return `${origin}/api/auth/session-bootstrap?${params.toString()}`;
-
-}
-
-
-
 /** Browser-navigable Supabase magic-link verify URL (requires public anon key). */
 
 export function buildSupabaseMagicLinkVerifyUrl(input: {
@@ -280,7 +339,7 @@ export async function buildTenantWorkspaceSessionHandoffUrl(
 
   supabaseAdmin: SupabaseClient,
 
-  input: { email: string; tenantSlug: string; nextPath?: string },
+  input: { email: string; tenantSlug: string; nextPath?: string; password?: string },
 
 ): Promise<string | null> {
 
@@ -292,18 +351,39 @@ export async function buildTenantWorkspaceSessionHandoffUrl(
 
 
 
+  if (input.password) {
+    const activationNext = input.nextPath ?? workspaceActivationNextParam();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+      }
+      const passwordTokens = await exchangePasswordForSession(email, input.password);
+      if (passwordTokens) {
+        const userId = userIdFromAccessToken(passwordTokens.accessToken);
+        if (!userId) continue;
+        await ensureCorporateInviteRoleAssignment(userId, tenantSlug);
+        const handoffUrl = await mintWorkspaceBootstrapHandoffUrl({
+          tenantSlug,
+          userId,
+          userEmail: email,
+          accessToken: passwordTokens.accessToken,
+          refreshToken: passwordTokens.refreshToken,
+          nextPath: activationNext,
+        });
+        if (handoffUrl) return handoffUrl;
+      }
+    }
+  }
+
   const { buildAuthCallbackUrl, resolveTenantAuthRedirectOrigin } = await import(
-
     "@/app/lib/auth/publicAppUrl"
-
   );
 
+  const activationNext = input.nextPath ?? workspaceActivationNextParam();
   const redirectTo = buildAuthCallbackUrl(
-
     resolveTenantAuthRedirectOrigin(tenantSlug),
-
-    input.nextPath ?? "/get-started",
-
+    activationNext,
+    { workspaceTenantSlug: tenantSlug },
   );
 
 
@@ -340,18 +420,18 @@ export async function buildTenantWorkspaceSessionHandoffUrl(
 
   if (!tokens) return null;
 
+  const userId = userIdFromAccessToken(tokens.accessToken);
+  if (!userId) return null;
 
+  await ensureCorporateInviteRoleAssignment(userId, tenantSlug);
 
-  return buildTenantWorkspaceSessionBootstrapUrl({
-
+  return mintWorkspaceBootstrapHandoffUrl({
     tenantSlug,
-
+    userId,
+    userEmail: email,
     accessToken: tokens.accessToken,
-
     refreshToken: tokens.refreshToken,
-
-    nextPath: input.nextPath ?? "/get-started",
-
+    nextPath: input.nextPath ?? workspaceActivationNextParam(),
   });
 
 }

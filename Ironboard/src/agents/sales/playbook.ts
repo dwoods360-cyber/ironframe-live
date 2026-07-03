@@ -1,34 +1,47 @@
 export interface GRCPlaybookTier {
   name: string;
+  /** Segment firmographics only — no pre-seeded company names (board must discover via live web grounding). */
+  icpCriteria: string;
   targetALE: string;
   complianceFrameworks: string[];
   coreValueProposition: string;
 }
 
+export type BeachheadSegment = "regionalBHC" | "publicPower" | "communityHealth";
+
 /**
- * Deterministic B2B Sales Playbook Manifest
- * Aligned perfectly with Ironboard's immutable risk tiering and baselines.
+ * Deterministic B2B sales playbook — beachhead segments only.
+ * Named prospects MUST come from discoverRegionalProspects / market_prospects — never from this file.
  */
-export const GRC_SALES_PLAYBOOK: Record<string, GRCPlaybookTier> = {
-  Gridcore: {
-    name: "Gridcore Alignment Track",
-    targetALE: "4.7M Protected Units",
-    complianceFrameworks: ["SOC2", "ISO27001"],
+export const GRC_SALES_PLAYBOOK: Record<BeachheadSegment, GRCPlaybookTier> = {
+  regionalBHC: {
+    name: "Regional Bank Holding Company",
+    icpCriteria:
+      "US regional BHC $10B–$100B consolidated assets; 2–7 affiliate banks; FFIEC/GLBA/BSA programs; board reporting in dollars.",
+    targetALE: "Fed regional BHC consolidated supervision ($10B–$100B assets)",
+    complianceFrameworks: ["FFIEC IT Handbooks", "GLBA", "BSA/AML", "SOX overlay"],
     coreValueProposition:
-      "Automated perimeter isolation and continuous token rotation for mid-market utility and infrastructure operators. Eliminates manual control mapping drift.",
+      "Per-affiliate tenant enclaves with BigInt ALE for board reporting — parent/subsidiary audit boundaries without evidence cross-bleed.",
   },
-  Vaultbank: {
-    name: "Vaultbank Financial Track",
-    targetALE: "5.9M Protected Units",
-    complianceFrameworks: ["PCI-DSS v4.0", "SOC2 Type II", "Sovereign Encryption Metrics"],
+  publicPower: {
+    name: "Public Power & Mid-Market Utility",
+    icpCriteria:
+      "Public power or municipal utility; 200–5,000 employees; NERC CIP registrant or equivalent; OT/IT converged ops.",
+    targetALE: "NERC CIP + OT/IT converged ops GRC",
+    complianceFrameworks: ["NERC CIP", "TSA pipeline directives", "IEC 62443 alignment", "NIST CSF"],
     coreValueProposition:
-      "Strict BigInt financial calculation verification layer. Guarantees mutation-tested mathematical isolation to eliminate cross-tenant ledger bleed.",
+      "Quantified command post with physical telemetry (kWh) and Irongate-sanitized ingest for elected boards and reliability compliance.",
   },
-  Medshield: {
-    name: "Medshield Enterprise Track",
-    targetALE: "11.1M Protected Units",
-    complianceFrameworks: ["HIPAA Security Rule", "HITRUST CSF", "GDPR Data Sovereignty"],
+  communityHealth: {
+    name: "Regional Community Health System",
+    icpCriteria:
+      "Regional community hospital system; 500–5,000 employees; HIPAA/HITRUST pressure; thin CISO bench; board cyber liability reporting.",
+    targetALE: "HIPAA / HITRUST board-grade cyber liability",
+    complianceFrameworks: ["HIPAA Security Rule", "HITRUST CSF", "NIST CSF for healthcare"],
     coreValueProposition:
-      "Maximal air-gapped data ingestion pipelines with mandatory DMZ sanitization layers (Irongate Agent 14 shielding). Tailored for high-throughput healthcare ecosystems.",
+      "Dollar-denominated cyber risk for trustees when CISO capacity is thin — LEVEL_1 grounded support, tenant-isolated exports.",
   },
 };
+
+/** @deprecated Use BeachheadSegment — legacy keys rejected at intake. */
+export const LEGACY_FICTIONAL_BASELINE_TARGETS = ["Gridcore", "Vaultbank", "Medshield"] as const;

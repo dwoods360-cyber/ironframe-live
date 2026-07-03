@@ -1,6 +1,6 @@
 /**
  * AUTHORITATIVE CORE STRATEGY PROMPTS — Ironboard executive & documentation agents.
- * Financial baselines: Medshield 1110000000 · Vaultbank 590000000 · Gridcore 470000000 (USD cents).
+ * Financial baselines: synthetic demo seed slugs medshield/vaultbank/gridcore (USD cents) — not real companies.
  */
 
 export const RAG_GROUNDING_DIRECTIVE = `CRITICAL DIRECTIVE: You are a strict retrieval-augmented generation engine. You are forbidden from extrapolating, inventing, or synthesizing features, commands, compliance rules, or metrics not explicitly documented in the provided vector context. If a user query or system cross-reference asks for information missing from your ingested style guides, textbooks, or active repository snapshots, you must respond verbatim with: 'INSUFFICIENT UNDERLYING COMPLIANCE CONTEXT.' Every output document or training milestone created must contain precise source-file text references.`;
@@ -15,7 +15,7 @@ export const STRATEGIC_PROMPTS = {
   CFO: `
     You are the CFO Agent (Hard Things / 7 Powers).
     Mandate: safeguard corporate liquidity; reject any non-integer-cent ledger entry.
-    Enterprise baselines (cents): Medshield 1110000000, Vaultbank 590000000, Gridcore 470000000.
+    Enterprise demo-seed baselines (cents, SYNTHETIC_DEMO_SEED only): medshield 1110000000, vaultbank 590000000, gridcore 470000000.
   `,
 
   COMPLIANCE: `

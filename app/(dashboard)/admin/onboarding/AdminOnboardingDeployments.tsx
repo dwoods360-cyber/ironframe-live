@@ -9,6 +9,25 @@ function infrastructureBadgeClass(status: TenantDeploymentRow["infrastructureSta
   return "border border-amber-500/20 bg-amber-500/10 text-amber-400";
 }
 
+function billingBadgeClass(status: TenantDeploymentRow["billingStatus"]): string {
+  if (status === "ACTIVE") {
+    return "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+  }
+  if (status === "PAST_DUE") {
+    return "border border-rose-500/20 bg-rose-500/10 text-rose-400";
+  }
+  if (status === "PENDING") {
+    return "border border-amber-500/20 bg-amber-500/10 text-amber-400";
+  }
+  return "border border-slate-700 bg-slate-900/60 text-slate-500";
+}
+
+function formatOperatorEmails(emails: string[]): string {
+  if (emails.length === 0) return "—";
+  if (emails.length === 1) return emails[0];
+  return `${emails[0]} +${emails.length - 1}`;
+}
+
 function DeploymentRowActions({ tenant }: { tenant: TenantDeploymentRow }) {
   return (
     <div className="flex gap-3 pt-2">
@@ -52,12 +71,15 @@ export default function AdminOnboardingDeployments({ deployments }: AdminOnboard
   return (
     <>
       <div className="hidden overflow-hidden rounded-xl border border-slate-800/80 bg-[#070e20]/40 shadow-2xl backdrop-blur-md md:block">
-        <div className="grid grid-cols-12 gap-4 border-b border-slate-800 bg-slate-950/60 px-6 py-3.5 font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-          <div className="col-span-2">Tenant ID</div>
-          <div className="col-span-3">Organization</div>
-          <div className="col-span-2 text-right">ALE Target Allocation</div>
-          <div className="col-span-2 text-center">Infrastructure</div>
-          <div className="col-span-2 text-center">Legal Posture</div>
+        <div className="grid grid-cols-12 gap-3 border-b border-slate-800 bg-slate-950/60 px-6 py-3.5 font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+          <div className="col-span-1">Tenant ID</div>
+          <div className="col-span-2">Organization</div>
+          <div className="col-span-2">Invite Email</div>
+          <div className="col-span-2">Activated Operator</div>
+          <div className="col-span-1 text-center">Billing</div>
+          <div className="col-span-1 text-right">ALE Target</div>
+          <div className="col-span-1 text-center">Infra</div>
+          <div className="col-span-1 text-center">Legal</div>
           <div className="col-span-1 text-right">Actions</div>
         </div>
 
@@ -65,22 +87,47 @@ export default function AdminOnboardingDeployments({ deployments }: AdminOnboard
           {deployments.map((tenant) => (
             <div
               key={tenant.tenantUuid}
-              className="grid grid-cols-12 items-center gap-4 px-6 py-4 font-sans text-sm text-slate-300 transition-colors duration-150 hover:bg-slate-900/20"
+              className="grid grid-cols-12 items-center gap-3 px-6 py-4 font-sans text-sm text-slate-300 transition-colors duration-150 hover:bg-slate-900/20"
             >
-              <div className="col-span-2 font-mono text-xs text-slate-500">{tenant.id}</div>
-              <div className="col-span-3 font-semibold text-white">{tenant.company}</div>
-              <div className="col-span-2 text-right font-mono text-xs text-indigo-300">
+              <div className="col-span-1 font-mono text-[10px] text-slate-500">{tenant.id}</div>
+              <div className="col-span-2 font-semibold text-white">{tenant.company}</div>
+              <div className="col-span-2 min-w-0">
+                <p className="truncate text-xs text-slate-200" title={tenant.inviteEmail ?? undefined}>
+                  {tenant.inviteEmail ?? "—"}
+                </p>
+                {tenant.inviteStatus ? (
+                  <p className="mt-0.5 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                    {tenant.inviteStatus}
+                  </p>
+                ) : null}
+              </div>
+              <div className="col-span-2 min-w-0">
+                <p
+                  className="truncate text-xs text-cyan-300"
+                  title={tenant.activatedOperatorEmails.join(", ") || undefined}
+                >
+                  {formatOperatorEmails(tenant.activatedOperatorEmails)}
+                </p>
+              </div>
+              <div className="col-span-1 text-center">
+                <span
+                  className={`inline-block rounded px-2 py-0.5 font-mono text-[10px] font-bold ${billingBadgeClass(tenant.billingStatus)}`}
+                >
+                  {tenant.billingStatus ?? "NONE"}
+                </span>
+              </div>
+              <div className="col-span-1 text-right font-mono text-[10px] text-indigo-300">
                 {tenant.allocatedBaseline}
               </div>
-              <div className="col-span-2 text-center">
+              <div className="col-span-1 text-center">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 font-mono text-[10px] font-bold ${infrastructureBadgeClass(tenant.infrastructureStatus)}`}
+                  className={`inline-block rounded px-2 py-0.5 font-mono text-[9px] font-bold ${infrastructureBadgeClass(tenant.infrastructureStatus)}`}
                 >
                   {tenant.infrastructureStatus}
                 </span>
               </div>
-              <div className="col-span-2 text-center text-xs text-slate-400">{tenant.legalSignoff}</div>
-              <div className="col-span-1 flex justify-end gap-2">
+              <div className="col-span-1 text-center text-[10px] text-slate-400">{tenant.legalSignoff}</div>
+              <div className="col-span-1 flex justify-end">
                 <Link
                   href="#onboarding-controls"
                   title={`Invite ref ${tenant.tokenLabel}`}
@@ -106,15 +153,28 @@ export default function AdminOnboardingDeployments({ deployments }: AdminOnboard
                 <p className="mt-0.5 font-mono text-[10px] text-slate-500">ID: {tenant.id}</p>
               </div>
               <span
-                className={`rounded px-2 py-0.5 font-mono text-[9px] font-bold ${infrastructureBadgeClass(tenant.infrastructureStatus)}`}
+                className={`rounded px-2 py-0.5 font-mono text-[9px] font-bold ${billingBadgeClass(tenant.billingStatus)}`}
               >
-                {tenant.infrastructureStatus}
+                {tenant.billingStatus ?? "NONE"}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-y-2 font-mono text-[11px] leading-relaxed">
+              <div className="text-slate-500">INVITE EMAIL:</div>
+              <div className="truncate text-right text-slate-200" title={tenant.inviteEmail ?? undefined}>
+                {tenant.inviteEmail ?? "—"}
+              </div>
+              <div className="text-slate-500">ACTIVATED OPERATOR:</div>
+              <div
+                className="truncate text-right text-cyan-300"
+                title={tenant.activatedOperatorEmails.join(", ") || undefined}
+              >
+                {formatOperatorEmails(tenant.activatedOperatorEmails)}
+              </div>
               <div className="text-slate-500">ALE PROTECTION:</div>
               <div className="text-right font-bold text-indigo-300">{tenant.allocatedBaseline}</div>
+              <div className="text-slate-500">INFRASTRUCTURE:</div>
+              <div className="text-right text-slate-400">{tenant.infrastructureStatus}</div>
               <div className="text-slate-500">LEGAL COMPLIANCE:</div>
               <div className="text-right text-slate-400">{tenant.legalSignoff}</div>
               <div className="text-slate-500">INVITE REF:</div>

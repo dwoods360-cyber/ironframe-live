@@ -6,6 +6,14 @@ import {
   buildBoardFinancialDisplay,
   type BoardFinancialDisplay,
 } from "@/app/lib/board/boardFinancialDisplay";
+import {
+  BOARD_MARKET_TRUTH_MANDATE,
+  BOARD_LIVE_DISCOVERY_ONLY_MANDATE,
+} from "@/app/lib/board/boardMarketTruthMandate";
+import {
+  buildMarketEntryReadiness,
+  type MarketEntryReadiness,
+} from "@/app/lib/board/marketEntryReadiness";
 import { getFrameworkControlMappings } from "@/app/config/irontallyFrameworkControls";
 import type { IrontallyFrameworkId } from "@/app/config/irontallyFrameworkControls";
 import { compileFrameworkReadiness } from "@/src/services/compliance/irontallyEngine";
@@ -67,6 +75,14 @@ export interface BoardContextPayload {
     remediation: string;
     narrativeMarkdown: string | null;
   } | null;
+  /** Constitutional market-truth perimeter for board synthesis. */
+  marketTruth: {
+    mandate: string;
+    liveDiscoveryOnly: string;
+    prospectSource: "discoverRegionalProspects";
+  };
+  /** Engineering certification ledger — Golden Path + live gate blockers (:8082 authoritative). */
+  marketEntryReadiness: MarketEntryReadiness;
 }
 
 const CVE_PATTERN = /CVE-\d{4}-\d+/i;
@@ -85,6 +101,16 @@ const BOARD_FRAMEWORK_BINDINGS: Array<{
 const TERMINAL_THREAT_STATES: ThreatState[] = ["RESOLVED", "CLOSED_ARCHIVED"];
 
 const SOVEREIGN_POOL_SLUGS = ["medshield", "vaultbank", "gridcore"] as const;
+
+function formatActiveTenantDisplayName(
+  name: string | null | undefined,
+  slug: TenantKey | "unknown",
+): string {
+  if (slug === "medshield" || slug === "vaultbank" || slug === "gridcore") {
+    return `Internal demo fixture (${slug}) — not a real company`;
+  }
+  return name?.trim() || slug;
+}
 
 function resolveTenantSlug(tenantId: string, slugFromDb: string | null | undefined): TenantKey | "unknown" {
   for (const key of SOVEREIGN_POOL_SLUGS) {
@@ -332,6 +358,11 @@ export async function getSharedBoardContextForTenant(
     bigint
   >;
 
+  const tenantSlugResolved = tenantRow?.slug?.trim().toLowerCase() ?? null;
+  const marketEntryReadiness = await buildMarketEntryReadiness({
+    tenantSlug: tenantSlugResolved,
+  });
+
   const financialDisplay = buildBoardFinancialDisplay({
     baselines: {
       medshield: BOARD_ALE_BASELINES_CENTS.medshield,
@@ -340,7 +371,7 @@ export async function getSharedBoardContextForTenant(
     },
     activeTenantId: tenantId,
     activeTenantSlug: resolveTenantSlug(tenantId, tenantRow?.slug),
-    activeTenantName: tenantRow?.name?.trim() || resolveTenantSlug(tenantId, tenantRow?.slug),
+    activeTenantName: formatActiveTenantDisplayName(tenantRow?.name, resolveTenantSlug(tenantId, tenantRow?.slug)),
     activeExposureCents: currentExposureCents,
     poolExposureBySlug,
     powerUsageKwh,
@@ -381,6 +412,12 @@ export async function getSharedBoardContextForTenant(
           narrativeMarkdown: narrativeSnapshot.narrativeMarkdown,
         }
       : null,
+    marketTruth: {
+      mandate: BOARD_MARKET_TRUTH_MANDATE,
+      liveDiscoveryOnly: BOARD_LIVE_DISCOVERY_ONLY_MANDATE,
+      prospectSource: "discoverRegionalProspects",
+    },
+    marketEntryReadiness,
   };
 }
 

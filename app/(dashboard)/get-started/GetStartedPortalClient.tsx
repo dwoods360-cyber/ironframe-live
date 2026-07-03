@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTenantContext } from "@/app/context/TenantProvider";
 import DocsMarkdown from "@/app/docs/[[...slug]]/DocsMarkdown";
@@ -18,6 +18,7 @@ import { GET_STARTED_STEPS, type GetStartedStepId } from "@/app/lib/getStartedSt
 import { GET_STARTED_STEP_VISUALS } from "@/app/lib/getStartedStepVisuals";
 import {
   GET_STARTED_INLINE_READER_SCROLL_ID,
+  INTEGRITY_HUB_TRAINING_DOC_HREF,
   normalizeGetStartedInlineDocHref,
   resolveGetStartedStepIdForDocHref,
   scrollGetStartedInlineReaderToAnchor,
@@ -32,7 +33,9 @@ import GetStartedOrientationFallback, {
 import TrainerAgentSessionForm from "@/app/components/trainer/TrainerAgentSessionForm";
 import { openOrientationWalkthroughWindow } from "@/app/lib/openOrientationWalkthroughWindow";
 import { isDemoModeActive } from "@/app/lib/demo/demoMode";
-import { isBenignRuntimeEmissionError } from "@/app/utils/safeRuntimeEmission";
+import { isBenignRuntimeEmissionError, resolveClientFacingError } from "@/app/utils/safeRuntimeEmission";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
+import { logExplicitDiagnosticAbort } from "@/app/utils/diagnosticAbortLog";
 import { isDemoRouteGroupPath } from "@/app/utils/grcRouteMatch";
 import { useGetStartedReaderStore } from "@/app/store/getStartedReaderStore";
 import {
@@ -101,6 +104,7 @@ export default function GetStartedPortalClient({
   billingStatus = "PENDING",
 }: GetStartedPortalClientProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { tenantFetch } = useTenantContext();
   const inlineDocHref = useGetStartedReaderStore((s) => s.inlineDocHref);
@@ -213,9 +217,11 @@ export default function GetStartedPortalClient({
         `ALE baseline saved at ${formatCentsToUSD(BigInt(result.aleBaselineCents))}.`,
       );
     } catch (error) {
-      setAleSaveError(
-        error instanceof Error ? error.message : "Could not save the ALE baseline.",
-      );
+      const message = resolveClientFacingError(error, "Could not save the ALE baseline.", {
+        surface: "GetStartedPortalClient",
+        method: "POST",
+      });
+      if (message) setAleSaveError(message);
     } finally {
       setAleSaveBusy(false);
     }
@@ -244,9 +250,11 @@ export default function GetStartedPortalClient({
           : "Company profile updated. Guided onboarding is now unlocked.",
       );
     } catch (error) {
-      setCompanySaveError(
-        error instanceof Error ? error.message : "Could not save the company profile.",
-      );
+      const message = resolveClientFacingError(error, "Could not save the company profile.", {
+        surface: "GetStartedPortalClient",
+        method: "POST",
+      });
+      if (message) setCompanySaveError(message);
     } finally {
       setCompanySaveBusy(false);
     }
@@ -286,17 +294,46 @@ export default function GetStartedPortalClient({
     void playWelcomeAudio();
   }, [welcomeAudioSrc, playWelcomeAudio]);
 
-  const openInlineGuide = useCallback((href: string, stepId?: GetStartedStepId) => {
-    const resolvedStepId = stepId ?? resolveGetStartedStepIdForDocHref(href);
-    if (resolvedStepId) {
-      setFocusedStepId(resolvedStepId);
-    }
-    setInlineDocHref(href);
-    if (typeof window !== "undefined") {
-      const base = `${window.location.pathname}${window.location.search}`;
-      window.history.replaceState(null, "", `${base}#${GET_STARTED_ORIENTATION_HASH}`);
-    }
-  }, [setInlineDocHref]);
+  const openInlineGuide = useCallback(
+    (href: string, stepId?: GetStartedStepId) => {
+      const resolvedStepId = stepId ?? resolveGetStartedStepIdForDocHref(href);
+      if (resolvedStepId) {
+        setFocusedStepId(resolvedStepId);
+      }
+
+      const pathOnly = href.split("#")[0]?.split("?")[0] ?? href;
+
+      if (pathOnly.startsWith("/get-started")) {
+        clearInlineDoc();
+        const anchorId = href.split("#")[1]?.trim();
+        if (anchorId && typeof window !== "undefined") {
+          window.requestAnimationFrame(() => {
+            document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        }
+        return;
+      }
+
+      if (!shouldInterceptGetStartedInlineDocLink(href)) {
+        clearInlineDoc();
+        router.push(pathOnly);
+        const anchorId = href.split("#")[1]?.trim();
+        if (anchorId) {
+          window.setTimeout(() => {
+            document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+        }
+        return;
+      }
+
+      setInlineDocHref(normalizeGetStartedInlineDocHref(href));
+      if (typeof window !== "undefined") {
+        const base = `${window.location.pathname}${window.location.search}`;
+        window.history.replaceState(null, "", `${base}#${GET_STARTED_ORIENTATION_HASH}`);
+      }
+    },
+    [clearInlineDoc, router, setInlineDocHref],
+  );
 
   useEffect(() => {
     if (billingBlocked || !onboardingProfileComplete) return;
@@ -364,7 +401,12 @@ export default function GetStartedPortalClient({
 
     return () => {
       cancelled = true;
-      controller.abort();
+      logExplicitDiagnosticAbort(ABORT_REASONS.inlineDocUnmount, {
+        surface: "GetStartedPortalClient",
+        path: "/api/docs/reader",
+        method: "GET",
+      });
+      controller.abort(ABORT_REASONS.inlineDocUnmount);
     };
   }, [billingBlocked, clearInlineDoc, inlineDocHref, onboardingProfileComplete, tenantFetch]);
 
@@ -437,12 +479,21 @@ export default function GetStartedPortalClient({
       }
 
       if (!shouldInterceptGetStartedInlineDocLink(resolvedHref)) {
+        const pathOnly = resolvedHref.split("#")[0]?.split("?")[0] ?? resolvedHref;
+        clearInlineDoc();
+        router.push(pathOnly);
+        const anchorId = resolvedHref.split("#")[1]?.trim() ?? rawHref.split("#")[1]?.trim();
+        if (anchorId) {
+          window.setTimeout(() => {
+            document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+        }
         return;
       }
 
       openInlineGuide(normalizeGetStartedInlineDocHref(resolvedHref));
     },
-    [openInlineGuide],
+    [clearInlineDoc, openInlineGuide, router],
   );
 
   useEffect(() => {
@@ -840,7 +891,18 @@ export default function GetStartedPortalClient({
                       <h3 className="font-sans text-sm font-semibold text-white">{step.title}</h3>
                       <p className="mt-1 text-xs leading-relaxed text-slate-400">{step.description}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {step.href.startsWith("/get-started") ? null : isDocsHref(step.href) ? (
+                        {step.href.startsWith("/get-started") ? (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openInlineGuide(step.href, step.id);
+                            }}
+                            className="inline-flex h-9 items-center rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-3 font-mono text-[10px] font-bold tracking-wide text-cyan-300 uppercase transition hover:bg-cyan-950/40"
+                          >
+                            {step.docLabel}
+                          </button>
+                        ) : isDocsHref(step.href) ? (
                           <button
                             type="button"
                             onClick={(event) => {
@@ -866,9 +928,7 @@ export default function GetStartedPortalClient({
                             onClick={(event) => {
                               event.stopPropagation();
                               setFocusedStepId(step.id);
-                              if (isDocsHref(step.href)) {
-                                openInlineGuide(step.href, step.id);
-                              }
+                              openInlineGuide(step.href, step.id);
                               markStepComplete(step.id);
                             }}
                             className="inline-flex h-9 items-center rounded-lg border border-slate-700 px-3 font-mono text-[10px] text-slate-400 uppercase transition hover:border-slate-500 hover:text-slate-200"
@@ -940,10 +1000,8 @@ export default function GetStartedPortalClient({
             <button
               type="button"
               onClick={() => {
-                const step = GET_STARTED_STEPS.find((row) => row.id === "integrity-hub");
-                if (!step) return;
                 setFocusedStepId("integrity-hub");
-                openInlineGuide(step.href, "integrity-hub");
+                openInlineGuide(INTEGRITY_HUB_TRAINING_DOC_HREF, "integrity-hub");
               }}
               className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-700 px-5 font-mono text-xs text-slate-300 uppercase transition hover:border-slate-500"
             >

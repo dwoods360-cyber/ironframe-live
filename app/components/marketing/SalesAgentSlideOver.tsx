@@ -7,14 +7,14 @@ interface SalesAgentSlideOverProps {
   onClose: () => void;
 }
 
-type BaselineTarget = "Gridcore" | "Vaultbank" | "Medshield";
+type BaselineTarget = "regionalBHC" | "publicPower" | "communityHealth";
 
 export default function SalesAgentSlideOver({ isOpen, onClose }: SalesAgentSlideOverProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     company: "",
-    baselineTarget: "Medshield" as BaselineTarget,
+    baselineTarget: "regionalBHC" as BaselineTarget,
     notes: "",
   });
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -148,9 +148,9 @@ export default function SalesAgentSlideOver({ isOpen, onClose }: SalesAgentSlide
                   }
                   className="h-11 w-full touch-manipulation rounded-lg border border-slate-800 bg-slate-950/60 px-3 font-sans text-sm text-slate-300 transition-all outline-none focus:border-cyan-500"
                 >
-                  <option value="Gridcore">Gridcore Tier Baseline (4.7M Protected Units)</option>
-                  <option value="Vaultbank">Vaultbank Tier Baseline (5.9M Protected Units)</option>
-                  <option value="Medshield">Medshield Tier Baseline (11.1M Protected Units)</option>
+                  <option value="regionalBHC">Regional BHC (Fed supervision, $10B–$100B assets)</option>
+                  <option value="publicPower">Public Power / Utility (NERC CIP, OT/IT)</option>
+                  <option value="communityHealth">Community Health System (HIPAA / HITRUST)</option>
                 </select>
               </div>
 

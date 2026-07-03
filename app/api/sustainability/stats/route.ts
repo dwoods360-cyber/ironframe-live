@@ -1,18 +1,18 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   buildCarbonPulseFinancialBundle,
   buildCarbonPulseLkgPayload,
 } from "@/app/services/ironbloom/carbonPulseService";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
 
 /** Sustainability + carbon pulse snapshot for UI polling (60s). Mirrors /api/grc/carbon-pulse. */
-export async function GET() {
-  const tenantId = await getActiveTenantUuidFromCookies();
-  if (!tenantId) {
-    return NextResponse.json({ ok: false, error: "No active tenant." }, { status: 400 });
-  }
+export async function GET(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantId = guard.tenantUuid;
 
   try {
     const { pulse, financialImpact } = await buildCarbonPulseFinancialBundle(tenantId);

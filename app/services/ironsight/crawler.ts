@@ -5,6 +5,7 @@ import { INDUSTRY_SCOUT_FEEDS, type IndustryScoutFeed } from "@/app/config/indus
 import { ironscribeForensicIngest } from "@/app/services/ironscribe/forensicIngestor";
 import { processIngestedRegulation } from "@/app/services/regulatoryPipeline";
 import prisma from "@/lib/prisma";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const USER_AGENT = "Ironframe-Ironsight-IndustryScout/1.0 (GRC; +https://ironframe.local)";
@@ -57,7 +58,7 @@ function stableItemId(feedId: string, link: string, title: string): string {
 
 async function fetchFeed(feed: IndustryScoutFeed): Promise<CrawlDiscoveredItem[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(ABORT_REASONS.ironsightCrawlTimeout), FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(feed.url, {
       signal: controller.signal,

@@ -1,10 +1,11 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import {
   ingressSanitizerFailureResponse,
   sanitizeIngressPayload,
 } from "@/app/lib/ironethic/ingressSanitizer";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import { tenantKeyFromUuid } from "@/app/utils/tenantIsolation";
 import {
   IronbloomCriticalIngestionError,
@@ -21,10 +22,13 @@ import {
  * Ironbloom (CSRD) intake — physical units mandatory (kWh, L, km).
  * Monetary-only payloads → INVALID_IRONBLOOM_METRIC_HOURS_OR_MONETARY_ONLY.
  */
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+
   let body: unknown;
   try {
-    body = sanitizeIngressPayload(await req.json());
+    body = sanitizeIngressPayload(await request.json());
   } catch (error) {
     const pepperFailure = ingressSanitizerFailureResponse(error);
     if (pepperFailure) {
@@ -34,11 +38,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const tenantId =
+    const bodyTenantId =
       body != null && typeof body === "object" && "tenantId" in body
         ? String((body as { tenantId?: unknown }).tenantId ?? "").trim()
         : "";
-    const resolvedTenantId = tenantId || (await getActiveTenantUuidFromCookies());
+    const resolvedTenantId = guard.userId ? guard.tenantUuid : bodyTenantId || guard.tenantUuid;
     const tenantKey = tenantKeyFromUuid(resolvedTenantId);
 
     const trace = computeIronbloomCarbonTrace({

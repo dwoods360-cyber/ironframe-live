@@ -1,6 +1,7 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 function toJsonSafe(value: unknown): unknown {
   return JSON.parse(
@@ -8,11 +9,10 @@ function toJsonSafe(value: unknown): unknown {
   );
 }
 
-export async function GET() {
-  const tenantId = await getActiveTenantUuidFromCookies();
-  if (!tenantId) {
-    return NextResponse.json({ logs: [] as unknown[] });
-  }
+export async function GET(request: NextRequest) {
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantId = guard.tenantUuid;
 
   const rows = await prisma.botAuditLog.findMany({
     where: { tenantId },
@@ -48,4 +48,3 @@ export async function GET() {
 
   return NextResponse.json({ logs });
 }
-

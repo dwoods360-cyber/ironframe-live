@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>The Governance Frame</title>
+    <link>https://brief.ironframegrc.com</link>
+    <description>Immutable Executive GRC Intelligence from the Ironframe System.</description>
+    <language>en-us</language>
+    <lastBuildDate>Fri, 03 Jul 2026 01:06:46 GMT</lastBuildDate>
+    <generator>Ironframe Governance Frame RSS Compiler</generator>
+    <item>
+      <title>TGF Emerging Threats Notice — July 2, 2026</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-07-02-emerging-threats-kev-deadline</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-07-02-emerging-threats-kev-deadline</guid>
+      <pubDate>Thu, 02 Jul 2026 22:50:17 GMT</pubDate>
+      <description>Same-day CISA BOD 26-04 deadline pressure on Cisco SD-WAN, post-deadline hunts on collaboration and PLM stacks, coordinated EDR-killer ransomware, and accelerating healthcare extortion activity.</description>
+    </item>
+    <item>
+      <title>Institutional Governance Brief: Safeguarding Multi-Tenant Context Isolation in Regulated Healthcare</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-06-28-healthcare-workspace-isolation-framework</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-06-28-healthcare-workspace-isolation-framework</guid>
+      <pubDate>Thu, 02 Jul 2026 22:50:05 GMT</pubDate>
+      <description>An executive assessment of technical boundaries required to maintain absolute patient data isolation across distributed healthcare computing environments.</description>
+    </item>
+  </channel>
+</rss>

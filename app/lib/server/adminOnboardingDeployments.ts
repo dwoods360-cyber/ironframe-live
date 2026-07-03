@@ -1,7 +1,9 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { TENANT_BILLING_STATUS, type TenantBillingStatus } from "@/app/lib/billing/constants";
+import { listSupabaseAuthEmailsByUserId } from "@/app/lib/server/supabaseAuthAdminHelpers";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
 import { WORKSPACE_INVITATION_STATUS } from "@/app/utils/invitation-core";
@@ -13,6 +15,12 @@ export type TenantLegalSignoffStatus =
   | "PENDING_SIGNATURE"
   | "AWAITING_INITIALIZATION";
 
+export type TenantInvitationSnapshot = {
+  email: string | null;
+  status: string;
+  createdAt: Date;
+};
+
 export type TenantDeploymentRow = {
   id: string;
   tenantUuid: string;
@@ -20,6 +28,10 @@ export type TenantDeploymentRow = {
   slug: string;
   allocatedBaseline: string;
   infrastructureStatus: TenantInfrastructureStatus;
+  billingStatus: TenantBillingStatus | null;
+  inviteEmail: string | null;
+  inviteStatus: string | null;
+  activatedOperatorEmails: string[];
   legalSignoff: TenantLegalSignoffStatus;
   tokenLabel: string;
   workspaceUrl: string;
@@ -51,6 +63,46 @@ export function resolveInfrastructureStatus(
   billingStatus: string | null | undefined,
 ): TenantInfrastructureStatus {
   return billingStatus === TENANT_BILLING_STATUS.ACTIVE ? "PROVISIONED" : "STAGED";
+}
+
+export function resolvePrimaryInviteEmail(
+  invitations: TenantInvitationSnapshot[],
+): { email: string | null; status: string | null } {
+  if (invitations.length === 0) {
+    return { email: null, status: null };
+  }
+
+  const sorted = [...invitations].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const withEmail = sorted.find((row) => row.email?.trim());
+  if (withEmail?.email?.trim()) {
+    return { email: withEmail.email.trim(), status: withEmail.status };
+  }
+
+  return { email: null, status: sorted[0]?.status ?? null };
+}
+
+export function resolveActivatedOperatorEmails(
+  userIds: string[],
+  emailByUserId: ReadonlyMap<string, string | null | undefined>,
+): string[] {
+  const emails = userIds
+    .map((id) => emailByUserId.get(id)?.trim())
+    .filter((email): email is string => Boolean(email));
+
+  return [...new Set(emails)].sort((a, b) => a.localeCompare(b));
+}
+
+async function loadSupabaseAuthEmailIndex(): Promise<Map<string, string>> {
+  try {
+    const supabaseAdmin = createSupabaseAdminClient();
+    return await listSupabaseAuthEmailsByUserId(supabaseAdmin);
+  } catch (error) {
+    console.warn(
+      "[adminOnboardingDeployments] Supabase auth email index unavailable:",
+      error instanceof Error ? error.message : error,
+    );
+    return new Map();
+  }
 }
 
 function resolveLegalSignoff(input: {
@@ -105,19 +157,21 @@ export async function fetchTenantDeploymentRows(): Promise<TenantDeploymentRow[]
   const tenantIds = tenants.map((tenant) => tenant.id);
   const slugs = tenants.map((tenant) => tenant.slug);
 
-  const [billingRows, invitationRows, roleAssignments] = await Promise.all([
+  const [billingRows, invitationRows, roleAssignments, authEmailByUserId] = await Promise.all([
     prisma.tenantBilling.findMany({
       where: { tenantSlug: { in: slugs } },
       select: { tenantSlug: true, status: true },
     }),
     prisma.tenantWorkspaceInvitation.findMany({
       where: { tenantSlug: { in: slugs } },
-      select: { tenantSlug: true, status: true },
+      select: { tenantSlug: true, email: true, status: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.userRoleAssignment.findMany({
       where: { tenantId: { in: tenantIds } },
       select: { tenantId: true, userId: true },
     }),
+    loadSupabaseAuthEmailIndex(),
   ]);
 
   const userIds = [...new Set(roleAssignments.map((row) => row.userId))];
@@ -130,11 +184,15 @@ export async function fetchTenantDeploymentRows(): Promise<TenantDeploymentRow[]
       : [];
 
   const billingBySlug = new Map(billingRows.map((row) => [row.tenantSlug, row.status]));
-  const invitationsBySlug = new Map<string, Array<{ status: string }>>();
+  const invitationsBySlug = new Map<string, TenantInvitationSnapshot[]>();
   for (const row of invitationRows) {
     if (!row.tenantSlug) continue;
     const bucket = invitationsBySlug.get(row.tenantSlug) ?? [];
-    bucket.push({ status: row.status });
+    bucket.push({
+      email: row.email,
+      status: row.status,
+      createdAt: row.createdAt,
+    });
     invitationsBySlug.set(row.tenantSlug, bucket);
   }
 
@@ -149,6 +207,8 @@ export async function fetchTenantDeploymentRows(): Promise<TenantDeploymentRow[]
     const tenantUserIds = userIdsByTenantId.get(tenant.id) ?? [];
     const invitations = invitationsBySlug.get(tenant.slug) ?? [];
     const tenantConsents = consentRows.filter((row) => tenantUserIds.includes(row.userId));
+    const billingStatus = billingBySlug.get(tenant.slug) ?? null;
+    const { email: inviteEmail, status: inviteStatus } = resolvePrimaryInviteEmail(invitations);
 
     return {
       id: buildTenantDisplayId(tenant.slug, tenant.id),
@@ -156,7 +216,16 @@ export async function fetchTenantDeploymentRows(): Promise<TenantDeploymentRow[]
       company: tenant.name,
       slug: tenant.slug,
       allocatedBaseline: formatCentsToAccountingUSD(tenant.ale_baseline),
-      infrastructureStatus: resolveInfrastructureStatus(billingBySlug.get(tenant.slug)),
+      infrastructureStatus: resolveInfrastructureStatus(billingStatus),
+      billingStatus:
+        billingStatus === TENANT_BILLING_STATUS.ACTIVE ||
+        billingStatus === TENANT_BILLING_STATUS.PENDING ||
+        billingStatus === TENANT_BILLING_STATUS.PAST_DUE
+          ? billingStatus
+          : null,
+      inviteEmail,
+      inviteStatus,
+      activatedOperatorEmails: resolveActivatedOperatorEmails(tenantUserIds, authEmailByUserId),
       legalSignoff: resolveLegalSignoff({
         tenantUserIds,
         invitations,

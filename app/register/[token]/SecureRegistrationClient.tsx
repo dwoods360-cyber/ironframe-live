@@ -4,7 +4,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { activateWorkspaceInvitationAction } from "@/app/actions/register/activateWorkspaceInvitation";
-import { buildTenantLoginRedirectUrl } from "@/app/lib/tenantSubdomain";
+import { buildTenantActivationLandingUrl } from "@/app/lib/auth/workspaceActivationLanding";
+import { buildTenantInviteLoginUrl, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { clearShadowPlaneForWorkspaceActivation } from "@/app/store/systemConfigStore";
 import { createClient } from "@/lib/supabase/client";
 
@@ -37,24 +38,52 @@ export default function SecureRegistrationClient({
     }
   }, [expiresAt]);
 
+  const loginInviteUrl = useMemo(() => {
+    if (tenantSlug) {
+      return buildTenantInviteLoginUrl(tenantSlug, token);
+    }
+    return `/login?invite=${encodeURIComponent(token)}`;
+  }, [tenantSlug, token]);
+
   useEffect(() => {
     void supabase.auth.signOut({ scope: "local" });
     clearShadowPlaneForWorkspaceActivation();
   }, [supabase]);
 
-  function withWorkspaceActivationMarker(url: string): string {
+  function resolveWorkspaceNavigationUrl(url: string): string | null {
     try {
-      const parsed = new URL(url, window.location.origin);
-      if (
-        parsed.pathname === "/get-started" ||
-        parsed.pathname.startsWith("/get-started/")
-      ) {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      if (tenantSlug) {
+        const expectedOrigin = new URL(buildTenantSubdomainOrigin(tenantSlug)).origin;
+        if (parsed.origin !== expectedOrigin) {
+          return null;
+        }
+      }
+      const barePath = parsed.pathname;
+      if (barePath === "/get-started" || barePath.startsWith("/get-started/")) {
         parsed.searchParams.set("activation", "1");
       }
       return parsed.toString();
     } catch {
-      return url;
+      return null;
     }
+  }
+
+  async function signInOnTenantHost(email: string, passwordValue: string): Promise<boolean> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: passwordValue,
+      });
+      if (!signInError) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -82,27 +111,38 @@ export default function SecureRegistrationClient({
     await supabase.auth.signOut({ scope: "local" });
     clearShadowPlaneForWorkspaceActivation();
 
+    if (result.tenantSlug) {
+      const signedIn = await signInOnTenantHost(result.email, password);
+      if (signedIn) {
+        window.location.assign(buildTenantActivationLandingUrl(result.tenantSlug));
+        return;
+      }
+    }
+
     if (result.sessionHandoffUrl) {
-      window.location.assign(result.sessionHandoffUrl);
+      const handoffUrl = resolveWorkspaceNavigationUrl(result.sessionHandoffUrl);
+      if (!handoffUrl) {
+        setError("Workspace session bridge targeted the wrong host. Contact your administrator.");
+        setBusy(false);
+        return;
+      }
+      window.location.assign(handoffUrl);
       return;
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: result.email,
-      password,
-    });
-
-    if (signInError) {
-      const loginUrl = tenantSlug
-        ? new URL(buildTenantLoginRedirectUrl(tenantSlug))
-        : new URL("/login", window.location.origin);
-      loginUrl.searchParams.set("next", "/get-started");
-      loginUrl.searchParams.set("fresh", "1");
-      window.location.assign(loginUrl.toString());
+    if (result.tenantSlug) {
+      setError("Workspace session bridge failed. Contact your administrator.");
+      setBusy(false);
       return;
     }
 
-    window.location.assign(withWorkspaceActivationMarker(result.redirectUrl));
+    const fallbackUrl = resolveWorkspaceNavigationUrl(result.redirectUrl);
+    if (!fallbackUrl) {
+      setError("Workspace activation redirect failed. Contact your administrator.");
+      setBusy(false);
+      return;
+    }
+    window.location.assign(fallbackUrl);
   }
 
   return (
@@ -264,6 +304,16 @@ export default function SecureRegistrationClient({
             {busy ? "Activating perimeter…" : "Activate Account Perimeter"}
           </button>
         </form>
+
+        <p className="border-t border-slate-800/60 px-6 pb-6 pt-4 text-center text-xs text-slate-400 sm:px-8">
+          Already have an Ironframe account?{" "}
+          <a
+            href={loginInviteUrl}
+            className="font-mono text-cyan-400 underline hover:text-cyan-300"
+          >
+            Sign in to activate
+          </a>
+        </p>
       </div>
     </div>
   );

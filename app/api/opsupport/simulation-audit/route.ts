@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
-import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 import type { OpSupportSimAuditRow } from "@/app/lib/opsupportDashTypes";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 
@@ -25,19 +26,20 @@ function previewFromJsonPayload(payload: unknown): string {
  */
 export async function GET(request: NextRequest) {
   noStore();
+  const admin = await requirePlatformAdministrator();
+  if ("error" in admin) {
+    return NextResponse.json({ error: admin.error }, { status: 403 });
+  }
+
   const untilRaw = request.nextUrl.searchParams.get("until");
   const untilDate =
     untilRaw != null && untilRaw.trim() !== "" ? new Date(untilRaw.trim()) : null;
   const untilValid =
     untilDate != null && !Number.isNaN(untilDate.getTime()) ? untilDate : null;
 
-  const tenantUuid = await getActiveTenantUuidFromCookies();
-  if (!tenantUuid) {
-    return NextResponse.json(
-      { error: "No active tenant.", rows: [] as OpSupportSimAuditRow[] },
-      { status: 401 },
-    );
-  }
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
+  if (!guard.ok) return guard.response;
+  const tenantUuid = guard.tenantUuid;
 
   const companies = await prisma.company.findMany({
     where: { tenantId: tenantUuid },

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState, useTransition } from "re
 import { getDiagnosticsGitRevisionAction } from "@/app/actions/diagnosticsContextActions";
 import { submitOperationalDeficiencyReportAction } from "@/app/actions/operationalDeficiencyActions";
 import { buildGeminiRepairPacket } from "@/app/lib/diagnostics/geminiRepairPacket";
+import { copyTextToClipboard } from "@/app/utils/safeClipboard";
 
 const DMZ_OPERATOR_COOKIE = "ironframe-operator-id";
 const DMZ_DEFAULT_OPERATOR = "ironframe-dmz-console";
@@ -96,9 +97,8 @@ export function DiagnosticReportModal({
   ]);
 
   const copyPacket = async () => {
-    try {
-      await navigator.clipboard.writeText(geminiPacket);
-    } catch {
+    const copied = await copyTextToClipboard(geminiPacket);
+    if (!copied) {
       setError("Could not copy to clipboard.");
     }
   };

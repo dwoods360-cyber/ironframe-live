@@ -12,6 +12,11 @@ import {
   type PanelAssembly,
   type RoutedPanel,
 } from './boardRouter.js';
+import { BOARD_GTM_MARKET_AUTHENTICITY_MANDATE } from './services/boardroomSystemPrompt.js';
+import {
+  BOARD_MARKET_TRUTH_MANDATE,
+  BOARD_LIVE_DISCOVERY_ONLY_MANDATE,
+} from './config/boardMarketTruthMandate.js';
 import { TOOL_RESULT_PARSE_DIRECTIVE } from './services/boardResponseLibrary.js';
 import {
   formatDiscoveryEvidence,
@@ -30,6 +35,12 @@ ${BOARD_CONVERSATIONAL_BOUNDARY}
 ${BOARD_CRM_TOOL_MANDATE}
 
 ${BOARD_VIDEO_INTELLIGENCE_MANDATE}
+
+${BOARD_GTM_MARKET_AUTHENTICITY_MANDATE}
+
+${BOARD_MARKET_TRUTH_MANDATE}
+
+${BOARD_LIVE_DISCOVERY_ONLY_MANDATE}
 
 ${TOOL_RESULT_PARSE_DIRECTIVE}
 

@@ -1,16 +1,15 @@
 import "server-only";
 
 import { createWorkspaceInvitation } from "@/app/lib/auth/workspaceInvitationCore";
-import { resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { provisionCorporateTenantCore } from "@/app/lib/server/corporateTenantProvisionCore";
-import { sendWorkspaceInviteEmailCore } from "@/app/lib/server/workspaceInviteEmailDelivery";
-
-function buildRegisterInvitationUrl(token: string): string {
-  const base = resolvePublicAppUrl().replace(/\/+$/, "");
-  return `${base}/register/${encodeURIComponent(token.trim())}`;
-}
+import {
+  buildRegisterInvitationUrl,
+  buildWorkspaceInviteLoginUrl,
+  sendWorkspaceInviteEmailCore,
+  summarizeWorkspaceInviteEmailDelivery,
+} from "@/app/lib/server/workspaceInviteEmailDelivery";
 
 export type QuickProvisionCorporateWorkspaceInput = {
   operatorId: string;
@@ -95,7 +94,7 @@ export async function quickProvisionCorporateWorkspaceCore(
     return { ok: false, error: invitation.error };
   }
 
-  const registerUrl = buildRegisterInvitationUrl(invitation.token);
+  const registerUrl = buildWorkspaceInviteLoginUrl(invitation.token, slug);
   const inviteEmailResult = await sendWorkspaceInviteEmailCore({
     email,
     tenantSlug: slug,
@@ -115,14 +114,6 @@ export async function quickProvisionCorporateWorkspaceCore(
     invitationId: invitation.invitationId,
     expiresAt: invitation.expiresAt,
     tenantAlreadyExisted,
-    inviteEmail: inviteEmailResult.ok
-      ? {
-          sent: true,
-          deliveryChannel: inviteEmailResult.deliveryChannel,
-        }
-      : {
-          sent: false,
-          error: inviteEmailResult.error,
-        },
+    inviteEmail: summarizeWorkspaceInviteEmailDelivery(inviteEmailResult),
   };
 }

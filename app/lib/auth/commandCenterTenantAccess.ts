@@ -20,7 +20,7 @@ export type CommandCenterTenantScope = {
   canAccessGlobal: boolean;
   /** Tenant slug when host is subdomain-bound (switcher locked). */
   hostTenantSlug: string | null;
-  /** GLOBAL_ADMIN may switch assigned workspaces even on tenant subdomains. */
+  /** Operators with multiple assignments (or GLOBAL_ADMIN) may switch workspaces on tenant subdomains. */
   canSwitchTenantsOnSubdomain: boolean;
 };
 
@@ -61,7 +61,8 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
 
   const assignments = await prisma.userRoleAssignment.findMany({
     where: { userId },
-    select: { tenantId: true, role: true },
+    select: { tenantId: true, role: true, grantedAt: true },
+    orderBy: [{ grantedAt: "desc" }, { tenantId: "asc" }],
   });
 
   if (assignments.length === 0) {
@@ -74,7 +75,14 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   }
 
   const hasGlobalAdmin = assignments.some((row) => row.role === UserRole.GLOBAL_ADMIN);
-  const assignedTenantIds = [...new Set(assignments.map((row) => row.tenantId.trim()).filter(Boolean))];
+  const assignedTenantIds = [
+    ...new Map(
+      assignments
+        .map((row) => row.tenantId.trim())
+        .filter(Boolean)
+        .map((tenantId) => [tenantId, tenantId] as const),
+    ).keys(),
+  ];
 
   const tenantSelect = {
     id: true,
@@ -89,7 +97,10 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     orderBy: { name: "asc" as const },
   };
 
-  /** Subdomain host envelope — scoped operators stay locked; GLOBAL_ADMIN keeps assigned-tenant switch. */
+  const hasMultiAssignment = assignedTenantIds.length > 1;
+  const canSwitchAssignedWorkspaces = hasGlobalAdmin || hasMultiAssignment;
+
+  /** Subdomain host envelope — single-assignment operators stay locked; multi-assignment can hop subdomains. */
   if (hostTenantUuid) {
     const allowed = assignments.some((row) => row.tenantId === hostTenantUuid);
     if (!allowed) {
@@ -104,7 +115,11 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
       where: { id: hostTenantUuid },
       select: tenantSelect,
     });
-    if (!hostRow || isHiddenStagingTenantSlug(hostRow.slug)) {
+    const hostIsStagingHidden =
+      Boolean(hostRow) &&
+      isHiddenStagingTenantSlug(hostRow?.slug ?? "") &&
+      !assignedTenantIds.includes(hostTenantUuid);
+    if (!hostRow || hostIsStagingHidden) {
       return {
         tenants: [],
         canAccessGlobal: false,
@@ -113,33 +128,44 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
       };
     }
 
-    const tenantIdsForSwitcher = hasGlobalAdmin ? assignedTenantIds : [hostTenantUuid];
+    const tenantIdsForSwitcher = canSwitchAssignedWorkspaces ? assignedTenantIds : [hostTenantUuid];
     const rows = await prisma.tenant.findMany({
       ...tenantListQuery,
       where: { id: { in: tenantIdsForSwitcher } },
     });
 
     return {
-      tenants: filterHiddenStagingTenants(mapTenantRows(rows)),
+      tenants: filterHiddenStagingTenants(mapTenantRows(rows), assignedTenantIds),
       canAccessGlobal: false,
       hostTenantSlug: hostRow.slug,
-      canSwitchTenantsOnSubdomain: hasGlobalAdmin,
+      canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
     };
   }
 
-  const rows = await prisma.tenant.findMany(
-    hasGlobalAdmin
-      ? tenantListQuery
-      : {
-          ...tenantListQuery,
-          where: { id: { in: assignedTenantIds } },
-        },
+  if (hasGlobalAdmin) {
+    const rows = await prisma.tenant.findMany(tenantListQuery);
+    return {
+      tenants: filterHiddenStagingTenants(mapTenantRows(rows), assignedTenantIds),
+      canAccessGlobal: true,
+      hostTenantSlug: null,
+      canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
+    };
+  }
+
+  const rows = await prisma.tenant.findMany({
+    ...tenantListQuery,
+    where: { id: { in: assignedTenantIds } },
+  });
+
+  const tenantOrder = new Map(assignedTenantIds.map((tenantId, index) => [tenantId, index]));
+  const orderedRows = [...rows].sort(
+    (left, right) => (tenantOrder.get(left.id) ?? 0) - (tenantOrder.get(right.id) ?? 0),
   );
 
   return {
-    tenants: filterHiddenStagingTenants(mapTenantRows(rows)),
-    canAccessGlobal: hasGlobalAdmin,
+    tenants: filterHiddenStagingTenants(mapTenantRows(orderedRows), assignedTenantIds),
+    canAccessGlobal: false,
     hostTenantSlug: null,
-    canSwitchTenantsOnSubdomain: hasGlobalAdmin,
+    canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
   };
 }

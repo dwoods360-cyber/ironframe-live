@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { Clipboard, Shield, X } from "lucide-react";
 import GlobalViewportOverlay from "@/app/components/layout/GlobalViewportOverlay";
+import { copyTextToClipboard } from "@/app/utils/safeClipboard";
 
 export type ForensicAuditModalProps = {
   isOpen: boolean;
@@ -18,7 +19,7 @@ export function ForensicAuditModal({
   markdownAuditBlock,
 }: ForensicAuditModalProps) {
   const handleCopyToClipboard = useCallback(() => {
-    void navigator.clipboard.writeText(markdownAuditBlock);
+    void copyTextToClipboard(markdownAuditBlock);
   }, [markdownAuditBlock]);
 
   const inspectionLabel = threatId.trim()

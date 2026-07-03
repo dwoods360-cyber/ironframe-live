@@ -19,6 +19,10 @@ const REGIONAL_ICP_SIGNAL =
 const GTM_MARKET_SIGNAL =
   /\b(market research|market scan|market intelligence|go-to-market|go to market|gtm\b|target market|potential customers?|addressable market|tam\b|competitive landscape|industry research|sector analysis|identify companies|find companies|company discovery|who should we sell to|ideal customer profile)\b/i;
 
+/** GRC / regulatory environment intelligence (live web grounding — no fabricated rules). */
+const GRC_ENVIRONMENT_SIGNAL =
+  /\b(grc\b|governance[\s-]risk[\s-]compliance|regulatory environment|regulatory landscape|compliance environment|compliance landscape|regulatory catalyst|regulatory pressure|enforcement trend|ffiec|nerc\b|cip\b|hipaa|hitrust|bsa\b|glba|sector oversight|framework pressure)\b/i;
+
 /** Terms that indicate the user wants internal flywheel / CRM data. */
 const WORKSPACE_QUERY_TERMS = [
   'crm',
@@ -169,11 +173,24 @@ export function isMarketResearchCapabilityQuery(query: string): boolean {
   );
 }
 
+export function isGrcEnvironmentQuery(query: string): boolean {
+  return GRC_ENVIRONMENT_SIGNAL.test(query.trim());
+}
+
+export function shouldPrefetchGrcEnvironment(query: string): boolean {
+  if (isGrcEnvironmentQuery(query)) return true;
+  if (shouldPrefetchProspects(query)) return true;
+  return false;
+}
+
 export function shouldPrefetchProspects(query: string): boolean {
   const q = query.toLowerCase();
   if (GTM_MARKET_SIGNAL.test(q)) return true;
   if (WORKSPACE_QUERY_TERMS.some(term => q.includes(term))) return true;
   if (matchCountriesInQuery(query).length > 0 && REGIONAL_ICP_SIGNAL.test(query)) return true;
+  if (/\b(bhc|bank holding|utility|utilities|nerc|hospital|health system)\b/.test(q)) {
+    return true;
+  }
   if (/\b(our|active|local|my)\b[\s\S]{0,40}\b(london|singapore)\b/.test(q)) return true;
   if (/\b(london|singapore)\b[\s\S]{0,40}\b(prospect|prospects|pipeline|lead|leads|flywheel|outreach|harvest|icp)\b/.test(q)) {
     return true;
@@ -183,6 +200,7 @@ export function shouldPrefetchProspects(query: string): boolean {
 /** Prefetch live web grounding unless the query is strictly internal CRM data or a video link. */
 export function shouldPrefetchWeb(query: string): boolean {
   if (payloadSignalsVideoIntelligence(query)) return false;
+  if (shouldPrefetchGrcEnvironment(query)) return false;
   return !isWorkspaceOnlyQuery(query);
 }
 

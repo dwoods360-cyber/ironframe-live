@@ -20,7 +20,7 @@ export type VendorSupplyChainNode = {
   breachSubProcessors: string[];
 };
 
-function slugVendorId(name: string): string {
+export function slugVendorId(name: string): string {
   return name
     .trim()
     .toLowerCase()

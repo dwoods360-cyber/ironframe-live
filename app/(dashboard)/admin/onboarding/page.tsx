@@ -8,6 +8,7 @@ import { fetchTenantDeploymentRows } from "@/app/lib/server/adminOnboardingDeplo
 import AdminOnboardingDashboardHeader from "./AdminOnboardingDashboardHeader";
 import AdminOnboardingDeployments from "./AdminOnboardingDeployments";
 import CorporateOnboardingClient from "./CorporateOnboardingClient";
+import RevokeAccessControlPanel from "@/app/components/admin/RevokeAccessControlPanel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -47,6 +48,7 @@ export default async function AdminOnboardingDashboardPage() {
 
         <section id="onboarding-controls" className="scroll-mt-8">
           <CorporateOnboardingClient />
+          <RevokeAccessControlPanel />
         </section>
       </main>
     </div>

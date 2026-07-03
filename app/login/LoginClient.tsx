@@ -3,27 +3,56 @@
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseProjectRefFromUrl } from "@/lib/supabase/envPublic";
+import { completeWorkspaceInviteLoginAction } from "@/app/actions/register/completeWorkspaceInviteLogin";
 import { resolvePostAuthLandingPath } from "@/app/lib/tenantSubdomain";
+import { buildTenantActivationLandingUrl } from "@/app/lib/auth/workspaceActivationLanding";
 import TenantCoBrandBadge from "@/app/components/brand/TenantCoBrandBadge";
 import TenantBrandAccent from "@/app/components/brand/TenantBrandAccent";
+import PublicApexNav from "@/app/components/marketing/PublicApexNav";
 import type { TenantBrand } from "@/app/lib/brand/tenantBrandTypes";
+
+type InviteLookupState =
+  | {
+      ok: true;
+      inviteToken: string;
+      inviteEmail: string;
+      firstTimeRegisterUrl: string;
+      activationMode: "existing-account" | "new-account";
+    }
+  | {
+      ok: false;
+      inviteError: string;
+    };
 
 type Props = {
   initialBrand?: TenantBrand | null;
+  inviteState?: InviteLookupState | null;
+  inviteTenantSlug?: string | null;
+  showApexPublicNav?: boolean;
 };
 
-export default function LoginClient({ initialBrand = null }: Props) {
-  const router = useRouter();
+export default function LoginClient({
+  initialBrand = null,
+  inviteState = null,
+  inviteTenantSlug = null,
+  showApexPublicNav = false,
+}: Props) {
   const supabase = useMemo(() => createClient(), []);
   const supabaseProjectRef = useMemo(
     () => supabaseProjectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
     [],
   );
 
-  const [email, setEmail] = useState("");
+  const inviteMode = inviteState?.ok === true;
+  const inviteToken = inviteState?.ok ? inviteState.inviteToken : "";
+  const firstTimeRegisterUrl = inviteState?.ok ? inviteState.firstTimeRegisterUrl : "";
+  const existingAccountInvite = inviteState?.ok
+    ? inviteState.activationMode === "existing-account"
+    : false;
+
+  const [email, setEmail] = useState(inviteState?.ok ? inviteState.inviteEmail : "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -62,12 +91,40 @@ export default function LoginClient({ initialBrand = null }: Props) {
         return;
       }
 
+      if (inviteMode && inviteToken) {
+        await supabase.auth.getSession();
+        let activation = await completeWorkspaceInviteLoginAction(inviteToken);
+        for (
+          let attempt = 0;
+          attempt < 3 && !activation.ok && activation.error.includes("Sign in before");
+          attempt += 1
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+          await supabase.auth.refreshSession();
+          activation = await completeWorkspaceInviteLoginAction(inviteToken);
+        }
+        if (!activation.ok) {
+          setError(activation.error);
+          setSubmitting(false);
+          return;
+        }
+        const landing =
+          activation.redirectPath ||
+          (inviteTenantSlug ? buildTenantActivationLandingUrl(inviteTenantSlug) : null);
+        if (!landing) {
+          setError("Workspace activation redirect is unavailable. Contact your administrator.");
+          setSubmitting(false);
+          return;
+        }
+        window.location.assign(landing);
+        return;
+      }
+
       const landing =
         typeof window !== "undefined"
           ? resolvePostAuthLandingPath(window.location.host)
           : "/integrity";
-      router.replace(landing);
-      router.refresh();
+      window.location.assign(landing);
     } catch (signInFailure) {
       console.error("[login] unexpected sign-in failure", signInFailure);
       setError("An unexpected authentication error occurred.");
@@ -80,8 +137,9 @@ export default function LoginClient({ initialBrand = null }: Props) {
   return (
     <>
       <TenantBrandAccent brand={initialBrand} />
+      {showApexPublicNav ? <PublicApexNav loginActive /> : null}
       <main
-        className="ironframe-login-page flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4 transition-colors duration-150 sm:px-6 lg:px-8"
+        className={`ironframe-login-page flex min-h-screen items-center justify-center bg-[var(--bg-primary)] px-4 transition-colors duration-150 sm:px-6 lg:px-8${showApexPublicNav ? " pt-0" : ""}`}
         aria-labelledby="login-page-title"
       >
         <div
@@ -107,14 +165,20 @@ export default function LoginClient({ initialBrand = null }: Props) {
               id="login-page-title"
               className="mt-4 text-center text-xl font-medium tracking-tight text-[var(--text-main)]"
             >
-              {isCoBranded
-                ? `Sign in to ${initialBrand!.displayName}`
-                : "Sign in to your security console"}
+              {inviteMode
+                ? "Activate your workspace"
+                : isCoBranded
+                  ? `Sign in to ${initialBrand!.displayName}`
+                  : "Sign in to your security console"}
             </h1>
             <p id="login-page-subtitle" className="mt-2 text-center text-sm text-[var(--login-muted)]">
-              {isCoBranded
-                ? `Dedicated workspace enclave · ALE baseline ${initialBrand!.aleDisplay}`
-                : "Authorized personnel only. Continuous telemetry is active."}
+              {inviteMode
+                ? existingAccountInvite
+                  ? "This email already has an Ironframe account. Sign in to bind this workspace."
+                  : "Sign in with your existing Ironframe credentials to bind this workspace."
+                : isCoBranded
+                  ? `Dedicated workspace enclave · ALE baseline ${initialBrand!.aleDisplay}`
+                  : "Authorized personnel only. Continuous telemetry is active."}
             </p>
           </header>
 
@@ -125,6 +189,15 @@ export default function LoginClient({ initialBrand = null }: Props) {
             aria-busy={submitting}
             noValidate
           >
+            {inviteState?.ok === false ? (
+              <div
+                className="rounded border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-medium text-amber-200"
+                role="alert"
+              >
+                {inviteState.inviteError}
+              </div>
+            ) : null}
+
             {error ? (
               <div
                 className="rounded border border-red-500/20 bg-red-500/10 p-3 text-xs font-medium text-red-500"
@@ -147,7 +220,8 @@ export default function LoginClient({ initialBrand = null }: Props) {
                   inputMode="email"
                   spellCheck={false}
                   required
-                  disabled={submitting}
+                  disabled={submitting || inviteMode}
+                  readOnly={inviteMode}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="relative block w-full appearance-none rounded-md border border-slate-700 bg-[var(--bg-primary)] px-3 py-2 text-sm text-[var(--text-main)] focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-60"
@@ -195,9 +269,24 @@ export default function LoginClient({ initialBrand = null }: Props) {
               disabled={submitting}
               className="group relative flex w-full justify-center rounded-md border border-transparent bg-emerald-600 px-4 py-2 text-sm font-medium font-mono text-white transition-all hover:bg-emerald-500 disabled:opacity-50"
             >
-              {submitting ? "VALIDATING CREDS..." : "Initialize session"}
+              {submitting
+                ? inviteMode
+                  ? "ACTIVATING WORKSPACE..."
+                  : "VALIDATING CREDS..."
+                : inviteMode
+                  ? "Sign in and activate"
+                  : "Initialize session"}
             </button>
           </form>
+
+          {inviteMode && firstTimeRegisterUrl && !existingAccountInvite ? (
+            <p className="text-center text-sm text-[var(--login-muted)]">
+              First time on Ironframe?{" "}
+              <Link href={firstTimeRegisterUrl} className="text-emerald-500 hover:text-emerald-400">
+                Set up your password
+              </Link>
+            </p>
+          ) : null}
 
           <p className="text-center text-sm text-[var(--login-muted)]">
             <Link href="/forgot-password" className="text-emerald-500 hover:text-emerald-400">

@@ -20,6 +20,16 @@ import {
 } from "@/app/lib/tenantSubdomain";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseInviteDeliveryDeferrable } from "@/app/lib/server/corporateTenantInviteDelivery";
+import { createWorkspaceInvitation } from "@/app/lib/auth/workspaceInvitationCore";
+import {
+  findSupabaseAuthUserByEmail,
+  isSupabaseExistingUserError,
+} from "@/app/lib/server/supabaseAuthAdminHelpers";
+import {
+  buildWorkspaceInviteLoginUrl,
+  sendWorkspaceInviteEmailCore,
+  summarizeWorkspaceInviteEmailDelivery,
+} from "@/app/lib/server/workspaceInviteEmailDelivery";
 
 export const PUBLIC_INTAKE_OPERATOR_ID = "PUBLIC_INTAKE";
 
@@ -157,7 +167,14 @@ export type InviteCorporateTenantUserCoreResult =
       email: string;
       tenantSlug: string;
       workspaceUrl: string;
-      supabaseInvite: {
+      deliveryPath: "supabase-invite" | "workspace-invitation";
+      inviteLoginUrl?: string;
+      inviteEmail?: {
+        sent: boolean;
+        deliveryChannel?: string;
+        error?: string;
+      };
+      supabaseInvite?: {
         user: Record<string, unknown> | null;
         rawData: Record<string, unknown> | null;
         redirectTo: string;
@@ -172,6 +189,70 @@ function serializeSupabaseInvitePayload(value: unknown): Record<string, unknown>
   } catch {
     return { note: "Supabase invite payload was not JSON-serializable." };
   }
+}
+
+async function issueWorkspaceInvitationForOperator(input: {
+  email: string;
+  tenant: { id: string; slug: string; name: string };
+  operatorId: string;
+  role: UserRole;
+  userId: string;
+  auditAction?: string;
+}): Promise<InviteCorporateTenantUserCoreResult> {
+  const existingRole = await prisma.userRoleAssignment.findFirst({
+    where: {
+      userId: input.userId,
+      tenantId: input.tenant.id,
+    },
+    select: { id: true },
+  });
+  if (!existingRole) {
+    await prisma.userRoleAssignment.create({
+      data: {
+        userId: input.userId,
+        tenantId: input.tenant.id,
+        role: input.role,
+      },
+    });
+  }
+
+  const invitation = await createWorkspaceInvitation({
+    operatorId: input.operatorId,
+    email: input.email,
+    tenantSlug: input.tenant.slug,
+  });
+  if (!invitation.ok) {
+    return { ok: false, error: invitation.error };
+  }
+
+  const tenantOrigin = resolveTenantAuthRedirectOrigin(input.tenant.slug);
+  const inviteLoginUrl = buildWorkspaceInviteLoginUrl(invitation.token, input.tenant.slug);
+  const inviteEmailResult = await sendWorkspaceInviteEmailCore({
+    email: input.email,
+    tenantSlug: input.tenant.slug,
+    registerToken: invitation.token,
+    tenantDisplayName: input.tenant.name,
+    inviteExpiresAt: invitation.expiresAt,
+  });
+
+  await auditLogCreateLoose({
+    data: {
+      action: input.auditAction ?? "CORPORATE_USER_INVITED",
+      operatorId: input.operatorId,
+      tenantId: input.tenant.id,
+      justification: `Workspace invitation issued for existing operator ${input.email} → tenant ${input.tenant.slug} (supabaseUserId=${input.userId}).`,
+    },
+  });
+
+  return {
+    ok: true,
+    email: input.email,
+    tenantSlug: input.tenant.slug,
+    workspaceUrl: tenantOrigin,
+    deliveryPath: "workspace-invitation",
+    inviteLoginUrl,
+    inviteEmail: summarizeWorkspaceInviteEmailDelivery(inviteEmailResult),
+  };
 }
 
 export async function inviteCorporateTenantUserCore(
@@ -206,12 +287,38 @@ export async function inviteCorporateTenantUserCore(
     const landing = resolvePostAuthLandingPath(new URL(tenantOrigin).host);
     const redirectTo = buildAuthCallbackUrl(tenantOrigin, landing);
 
+    const existingUser = await findSupabaseAuthUserByEmail(supabaseAdmin, email);
+    if (existingUser?.id) {
+      return issueWorkspaceInvitationForOperator({
+        email,
+        tenant,
+        operatorId: input.operatorId,
+        role: inviteRole,
+        userId: existingUser.id,
+        auditAction: input.auditAction,
+      });
+    }
+
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { tenant_slug: tenant.slug },
       redirectTo,
     });
 
     if (error) {
+      if (isSupabaseExistingUserError(error.message)) {
+        const recoveredUser = await findSupabaseAuthUserByEmail(supabaseAdmin, email);
+        if (recoveredUser?.id) {
+          return issueWorkspaceInvitationForOperator({
+            email,
+            tenant,
+            operatorId: input.operatorId,
+            role: inviteRole,
+            userId: recoveredUser.id,
+            auditAction: input.auditAction,
+          });
+        }
+      }
+
       console.error("[inviteCorporateTenantUserCore]", error.message);
       const deferrable = isSupabaseInviteDeliveryDeferrable(error.message);
       if (deferrable) {
@@ -260,6 +367,7 @@ export async function inviteCorporateTenantUserCore(
       email,
       tenantSlug: tenant.slug,
       workspaceUrl: tenantOrigin,
+      deliveryPath: "supabase-invite",
       supabaseInvite: {
         user: serializeSupabaseInvitePayload(data.user),
         rawData: serializeSupabaseInvitePayload(data),

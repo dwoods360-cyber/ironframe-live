@@ -1,10 +1,21 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { resolveWorkspaceInvitationForRegistration } from "@/app/lib/auth/workspaceInvitationCore";
+import {
+  buildRegisterInvitationUrl,
+  buildWorkspaceInviteLoginUrl,
+} from "@/app/lib/server/workspaceInviteEmailDelivery";
+import { operatorSupabaseAccountExists, shouldRedirectInviteToTenantHost } from "@/app/lib/server/workspaceInviteIngressRouting";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
+import { tenantSlugFromHost, buildTenantLoginRedirectUrl } from "@/app/lib/tenantSubdomain";
 
 import RegisterInvitationError from "./RegisterInvitationError";
 import SecureRegistrationClient from "./SecureRegistrationClient";
+import {
+  lookupConsumedInviteTenantSlug,
+  resolveConsumedWorkspaceInviteRedirect,
+} from "@/app/lib/server/workspaceInvitationRecovery";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +56,23 @@ export default async function SecureRegistrationPage({ params }: RegisterPagePro
       );
     }
     if (lookup.reason === "consumed") {
+      const recovery = await resolveConsumedWorkspaceInviteRedirect(trimmedToken);
+      if (recovery) {
+        redirect(recovery.redirectTo);
+      }
+      const consumedTenantSlug = await lookupConsumedInviteTenantSlug(trimmedToken);
       return (
         <RegisterInvitationError
           title="Invitation already used"
-          detail="This activation token was already consumed. Ask your administrator to mint a new invitation or use Step 2 — Invite operator."
+          detail="This activation token was already consumed. Sign in at your workspace URL or ask your administrator to mint a new invitation."
+          primaryAction={
+            consumedTenantSlug
+              ? {
+                  href: buildTenantLoginRedirectUrl(consumedTenantSlug),
+                  label: "Open workspace sign-in",
+                }
+              : undefined
+          }
         />
       );
     }
@@ -61,6 +85,16 @@ export default async function SecureRegistrationPage({ params }: RegisterPagePro
   }
 
   const invitation = lookup.invitation;
+
+  const h = await headers();
+  const hostSlug = tenantSlugFromHost(h.get("host"));
+  if (shouldRedirectInviteToTenantHost(hostSlug, invitation.tenantSlug)) {
+    redirect(buildRegisterInvitationUrl(trimmedToken, invitation.tenantSlug));
+  }
+
+  if (await operatorSupabaseAccountExists(invitation.email)) {
+    redirect(buildWorkspaceInviteLoginUrl(trimmedToken, invitation.tenantSlug ?? hostSlug));
+  }
 
   if (invitation.tenantSlug) {
     const tenant = await lookupTenantBySlug(invitation.tenantSlug).catch(() => null);

@@ -3,6 +3,7 @@ import "server-only";
 import { Resend } from "resend";
 
 import { resolveLocalDevAppPort, resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
+import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import {
   buildWorkspaceInviteEmailHtml,
   buildWorkspaceInviteEmailInput,
@@ -16,9 +17,23 @@ const DEFAULT_FROM_NAME = "Ironframe Delivery";
 /** Resend sandbox sender — works without custom domain verification (dev / fallback). */
 const RESEND_SANDBOX_FROM_EMAIL = "onboarding@resend.dev";
 
-export function buildRegisterInvitationUrl(token: string): string {
-  const base = resolvePublicAppUrl().replace(/\/+$/, "");
+/** Primary assisted path: tenant login with invite token (existing operators). */
+export function buildWorkspaceInviteLoginUrl(token: string, tenantSlug?: string | null): string {
   const encoded = encodeURIComponent(token.trim());
+  const slug = tenantSlug?.trim().toLowerCase();
+  const base = slug
+    ? buildTenantSubdomainOrigin(slug, resolveLocalDevAppPort()).replace(/\/+$/, "")
+    : resolvePublicAppUrl().replace(/\/+$/, "");
+  return `${base}/login?invite=${encoded}`;
+}
+
+/** First-time operators: password + MSA/DPA on the tenant host. */
+export function buildRegisterInvitationUrl(token: string, tenantSlug?: string | null): string {
+  const encoded = encodeURIComponent(token.trim());
+  const slug = tenantSlug?.trim().toLowerCase();
+  const base = slug
+    ? buildTenantSubdomainOrigin(slug, resolveLocalDevAppPort()).replace(/\/+$/, "")
+    : resolvePublicAppUrl().replace(/\/+$/, "");
   return `${base}/register/${encoded}`;
 }
 
@@ -59,6 +74,30 @@ export type SendWorkspaceInviteEmailResult =
   | { ok: true; resendId?: string; deliveryChannel: WorkspaceInviteDeliveryChannel }
   | { ok: false; error: string; deferrable?: boolean };
 
+export type WorkspaceInviteEmailDeliverySummary = {
+  sent: boolean;
+  deliveryChannel?: WorkspaceInviteDeliveryChannel;
+  error?: string;
+};
+
+/** Maps Resend / dev-handoff results for admin UI — handoff is not an inbox delivery. */
+export function summarizeWorkspaceInviteEmailDelivery(
+  result: SendWorkspaceInviteEmailResult,
+): WorkspaceInviteEmailDeliverySummary {
+  if (!result.ok) {
+    return { sent: false, error: result.error };
+  }
+  if (result.deliveryChannel === "dev-browser-handoff") {
+    return {
+      sent: false,
+      deliveryChannel: result.deliveryChannel,
+      error:
+        "Local dev — email not sent. Resend sandbox only delivers to the account owner until a domain is verified. Copy the activation link below.",
+    };
+  }
+  return { sent: true, deliveryChannel: result.deliveryChannel };
+}
+
 /** Local/dev only: open `/register/{token}` when Resend is not configured at all. */
 export function isDevBrowserInviteHandoffEnabled(): boolean {
   if (process.env.IRONFRAME_DISABLE_DEV_INVITE_HANDOFF?.trim() === "1") return false;
@@ -84,8 +123,12 @@ export function isResendSandboxRecipientRestrictionError(message: string): boole
   );
 }
 
-function devBrowserInviteHandoffResult(registerToken: string, reason: string): SendWorkspaceInviteEmailResult {
-  const initializeWorkspaceUrl = buildRegisterInvitationUrl(registerToken);
+function devBrowserInviteHandoffResult(
+  registerToken: string,
+  tenantSlug: string,
+  reason: string,
+): SendWorkspaceInviteEmailResult {
+  const initializeWorkspaceUrl = buildWorkspaceInviteLoginUrl(registerToken, tenantSlug);
   console.info(`[workspace-invite] ${reason} — dev browser handoff → ${initializeWorkspaceUrl}`);
   return { ok: true, deliveryChannel: "dev-browser-handoff" };
 }
@@ -127,10 +170,16 @@ async function dispatchResendInvite(
 export async function sendWorkspaceInviteEmailCore(
   input: SendWorkspaceInviteEmailInput,
 ): Promise<SendWorkspaceInviteEmailResult> {
+  const email = input.email.trim().toLowerCase();
+  const tenantSlug = input.tenantSlug.trim().toLowerCase();
+  if (!email || !tenantSlug) {
+    return { ok: false, error: "Email and tenant slug are required to dispatch Bucket A invite." };
+  }
+
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     if (isDevBrowserInviteHandoffEnabled()) {
-      return devBrowserInviteHandoffResult(input.registerToken, "RESEND_API_KEY absent");
+      return devBrowserInviteHandoffResult(input.registerToken, tenantSlug, "RESEND_API_KEY absent");
     }
     return {
       ok: false,
@@ -139,15 +188,9 @@ export async function sendWorkspaceInviteEmailCore(
     };
   }
 
-  const email = input.email.trim().toLowerCase();
-  const tenantSlug = input.tenantSlug.trim().toLowerCase();
-  if (!email || !tenantSlug) {
-    return { ok: false, error: "Email and tenant slug are required to dispatch Bucket A invite." };
-  }
-
   const tenant = await lookupTenantBySlug(tenantSlug);
   const tenantDisplayName = input.tenantDisplayName?.trim() || tenant?.name || tenantSlug;
-  const initializeWorkspaceUrl = buildRegisterInvitationUrl(input.registerToken);
+  const initializeWorkspaceUrl = buildWorkspaceInviteLoginUrl(input.registerToken, tenantSlug);
   const emailContent = buildWorkspaceInviteEmailInput({
     tenantDisplayName,
     tenantSlug,
@@ -199,7 +242,7 @@ export async function sendWorkspaceInviteEmailCore(
           ? "Resend sandbox can only email the account owner until a domain is verified"
           : error.message;
         console.warn(`[workspace-invite] ${reason} — dev browser handoff`);
-        return devBrowserInviteHandoffResult(input.registerToken, reason);
+        return devBrowserInviteHandoffResult(input.registerToken, tenantSlug, reason);
       }
       return {
         ok: false,

@@ -73,6 +73,7 @@ import {
   type OmniBenchmarkIndustry,
 } from "@/app/utils/omniBenchmarkIndustries";
 import { listCommandCenterTenants } from "@/app/actions/tenantActions";
+import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from "@/app/config/stakeholderAlert";
 import { applyCommandCenterScopeFromCookie } from "@/app/utils/commandCenterScopeSync";
 import { computeMaturationProgress } from "@/app/utils/analystMaturation";
 
@@ -411,9 +412,7 @@ export default function StrategicIntel() {
    * Dispatches verified threats to primary business contact [cite: 2025-12-18]
    */
   const dispatchStakeholderAlert = async (threatId: string, severity: 'HIGH' | 'CRITICAL') => {
-    const stakeholderEmail = 'blackwoodscoffee@gmail.com'; // [cite: 2025-12-18]
-
-    addStreamMessage(`> [NOTIFY] Alert queued for ${stakeholderEmail} [cite: 2025-12-18]`);
+    addStreamMessage(`> [NOTIFY] Alert queued for ${STAKEHOLDER_ALERT_RECIPIENT_LABEL}`);
     addStreamMessage("> [SYSTEM] Routing via Ironcast agent...");
 
     try {
@@ -421,7 +420,6 @@ export default function StrategicIntel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: stakeholderEmail,
           threatId,
           severity,
           agentSource: 'Ironintel',
@@ -429,7 +427,7 @@ export default function StrategicIntel() {
       });
 
       if (response.ok) {
-        addStreamMessage(`> [SUCCESS] Alert delivered to ${stakeholderEmail} [cite: 2025-12-18]`);
+        addStreamMessage(`> [SUCCESS] Alert delivered via ${STAKEHOLDER_ALERT_RECIPIENT_LABEL}`);
       } else {
         addStreamMessage(`> [ERROR] Dispatch failed: ${response.status}`);
       }

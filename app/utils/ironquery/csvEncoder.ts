@@ -1,8 +1,7 @@
-import type { TenantKey } from "@/app/utils/tenantIsolation";
-
 export type IronqueryAnalystCsvRow = {
   tenantId: string;
-  tenantKey: TenantKey;
+  /** Seed tenant slug or provisioned workspace slug (e.g. run2). */
+  tenantKey: string;
   aleBaselineCents: bigint;
   rateUsdPerUnit: number;
   unitType: "kWh";

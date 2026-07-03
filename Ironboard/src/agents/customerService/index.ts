@@ -37,7 +37,7 @@ async function loadLevelOneKnowledgeContext(): Promise<string> {
   }
 
   return systemDocs
-    .map(doc => {
+    .map((doc: { title: string; slug: string; content: string }) => {
       const content = sanitizePromptSegment(doc.content, MAX_DOC_CONTENT_CHARS);
       return `Doc Title: ${doc.title}\nPath: /docs/${doc.slug}\nContent:\n${content}`;
     })
@@ -59,7 +59,10 @@ async function loadContactHistoryContext(tenantId: string, contactId: string): P
   }
 
   return historicalLogs
-    .map(log => `[${log.occurredAt.toISOString()}] ${sanitizePromptSegment(log.summary, 1_500)}`)
+    .map(
+      (log: { occurredAt: Date; summary: string }) =>
+        `[${log.occurredAt.toISOString()}] ${sanitizePromptSegment(log.summary, 1_500)}`,
+    )
     .join('\n');
 }
 

@@ -12,6 +12,8 @@ import {
 } from "@/app/lib/security/deploymentQuarantine";
 import { isAuthPublicPath, isPublicCloudIngressPath, isPublicRoute } from "@/app/utils/grcRouteMatch";
 import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
+import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
+import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -202,10 +204,18 @@ async function assertGlobalAdminForOnboarding(
 }
 
 function redirectWithSupabaseCookies(
+  request: NextRequest,
   supabaseResponse: NextResponse,
   url: URL,
 ): NextResponse {
   return mergeSupabaseCookies(supabaseResponse, NextResponse.redirect(url));
+}
+
+async function finalizeMiddlewareResponse(
+  request: NextRequest,
+  response: NextResponse,
+): Promise<NextResponse> {
+  return applySubdomainTenancy(request, response);
 }
 
 /**
@@ -231,12 +241,38 @@ export async function middleware(request: NextRequest) {
   const pathnameRequestHeaders = withPathnameRequestHeaders(request.headers, pathname);
   const supabaseResponse = await updateSession(request, pathnameRequestHeaders);
 
+  const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
+  const isSessionBootstrapRoute = pathname.startsWith("/api/auth/session-bootstrap");
+
+  // Workspace activation: never exchange auth codes or session tokens on apex localhost.
+  if (isAuthCallbackRoute && request.nextUrl.searchParams.get("code")) {
+    const tenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    const hostSlug = tenantSlugFromHost(request.headers.get("host"));
+    if (tenantSlug && hostSlug !== tenantSlug) {
+      const corrected = new URL(
+        `${request.nextUrl.pathname}${request.nextUrl.search}`,
+        buildTenantSubdomainOrigin(tenantSlug),
+      );
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, corrected));
+    }
+  }
+  if (isSessionBootstrapRoute) {
+    const tenantSlug = request.nextUrl.searchParams.get("tenant")?.trim().toLowerCase();
+    const hostSlug = tenantSlugFromHost(request.headers.get("host"));
+    if (tenantSlug && hostSlug !== tenantSlug) {
+      const corrected = new URL(
+        `${request.nextUrl.pathname}${request.nextUrl.search}`,
+        buildTenantSubdomainOrigin(tenantSlug),
+      );
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, corrected));
+    }
+  }
+
   const isLoginRoute = pathname === "/login";
   const isIntegrityRoute = pathname === "/integrity" || pathname.startsWith("/integrity/");
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isUnauthorizedRoute = pathname === "/unauthorized";
   const isResetPasswordRoute = pathname === "/reset-password";
-  const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
   const isAuthPublicRoute =
     isLoginRoute ||
     isForgotPasswordRoute ||
@@ -387,7 +423,7 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!supabaseUrl || !supabaseAnon) {
-    return supabaseResponse;
+    return await finalizeMiddlewareResponse(request, supabaseResponse);
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnon, {
@@ -412,13 +448,29 @@ export async function middleware(request: NextRequest) {
   // RULE A: Unauthenticated users targeting internal telemetry grids ? /login
   if (!user && isIntegrityRoute) {
     const loginUrl = new URL("/login", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
-  // RULE B: Authenticated users on /login ? Integrity Hub
+  const hostSlugForAuth = tenantSlugFromHost(request.headers.get("host"));
+
+  // Tenant workspace hosts: never render Command Post for guests on `/`.
+  if (!user && hostSlugForAuth && pathname === "/") {
+    const loginUrl = new URL("/login", request.url);
+    return await finalizeMiddlewareResponse(
+      request,
+      redirectWithSupabaseCookies(request, supabaseResponse, loginUrl),
+    );
+  }
+
+  // RULE B: Authenticated users on /login → Command Post (tenant host) or Integrity Hub (apex).
+  // Apex corporate workspace routing uses RBAC on the server — not stale user_metadata.tenant_slug.
   if (user && isLoginRoute) {
-    const integrityUrl = new URL("/integrity", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+    const inviteToken = request.nextUrl.searchParams.get("invite")?.trim();
+    if (!inviteToken) {
+      const landingPath = hostSlugForAuth ? "/" : "/integrity";
+      const landingUrl = new URL(landingPath, request.url);
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, landingUrl));
+    }
   }
 
   if (!user && !isAuthPublicRoute) {
@@ -428,35 +480,35 @@ export async function middleware(request: NextRequest) {
       isPublicDocsRoute ||
       isBoardSharedContextRoute
     ) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     // Cron endpoints are token-gated in their own route handlers.
     // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
     if (internalTokenGatedApiPath(pathname)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
 
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     /** Server Actions: let RSC handle auth ? redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
     if (isNextServerActionPost(request)) {
-      return supabaseResponse;
+      return await finalizeMiddlewareResponse(request, supabaseResponse);
     }
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     loginUrl.search = "";
-    return redirectWithSupabaseCookies(supabaseResponse, loginUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
   }
 
   if (user && isForgotPasswordRoute) {
     const integrityUrl = new URL("/integrity", request.url);
-    return redirectWithSupabaseCookies(supabaseResponse, integrityUrl);
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, integrityUrl));
   }
 
   if (user && isUnauthorizedRoute) {
-    return supabaseResponse;
+    return await finalizeMiddlewareResponse(request, supabaseResponse);
   }
 
   // RULE A0: GLOBAL_ADMIN gate for internal onboarding console
@@ -465,7 +517,7 @@ export async function middleware(request: NextRequest) {
     if (denied) return denied;
   }
 
-  return supabaseResponse;
+  return await finalizeMiddlewareResponse(request, supabaseResponse);
 }
 
 export const config = {

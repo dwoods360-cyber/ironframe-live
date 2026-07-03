@@ -1,6 +1,7 @@
 import { getPrisma } from './prisma.js';
 import { listProspects, listProspectsInRegions } from './marketIntelligence.js';
 import type { StoredProspect } from './marketIntelligence.js';
+import { formatProspectLineage } from './marketProspectAuthenticity.js';
 
 export type WorkspaceQueryType = 'active_prospects' | 'outreach_history' | 'flywheel_logs';
 
@@ -80,6 +81,7 @@ function formatProspectRow(prospect: StoredProspect): Record<string, unknown> {
     compliancePressure: prospect.compliancePressure,
     recentFunding: prospect.recentFunding,
     hasComplianceJob: prospect.hasComplianceJob,
+    dataLineage: formatProspectLineage(prospect),
   }) as Record<string, unknown>;
 }
 

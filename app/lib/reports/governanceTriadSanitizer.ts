@@ -38,16 +38,22 @@ function buildExposureSummary(payload: BoardContextPayload): string {
   );
 }
 
+const PUBLIC_INDUSTRY_SEGMENT_LABELS = {
+  medshield: "Regulated healthcare segment (illustrative)",
+  vaultbank: "Regional banking segment (illustrative)",
+  gridcore: "Critical infrastructure segment (illustrative)",
+} as const;
+
 function buildImpactSummary(payload: BoardContextPayload): string {
-  const pool = payload.financials.display.sovereignPool;
-  const med = pool.medshield.baselineFormatted;
-  const vault = pool.vaultbank.baselineFormatted;
-  const grid = pool.gridcore.baselineFormatted;
+  const seeds = payload.financials.display.syntheticDemoSeedPool;
+  const med = seeds.medshield;
+  const vault = seeds.vaultbank;
+  const grid = seeds.gridcore;
   const kwh = payload.financials.display.sustainability.powerUsageFormatted;
   const liters = payload.financials.display.sustainability.fluidConsumptionFormatted;
 
   return sanitizeExportProse(
-    `Medshield baseline ${med} (live ${pool.medshield.currentExposureFormatted}) | Vaultbank baseline ${vault} (live ${pool.vaultbank.currentExposureFormatted}) | Gridcore baseline ${grid} (live ${pool.gridcore.currentExposureFormatted}). Eco-dividend: ${kwh} averted; ${liters} cooling water conserved.`,
+    `${PUBLIC_INDUSTRY_SEGMENT_LABELS.medshield} baseline ${med.baselineFormatted} (modeled exposure ${med.currentExposureFormatted}) | ${PUBLIC_INDUSTRY_SEGMENT_LABELS.vaultbank} baseline ${vault.baselineFormatted} (modeled exposure ${vault.currentExposureFormatted}) | ${PUBLIC_INDUSTRY_SEGMENT_LABELS.gridcore} baseline ${grid.baselineFormatted} (modeled exposure ${grid.currentExposureFormatted}). Eco-dividend: ${kwh} averted; ${liters} cooling water conserved.`,
   );
 }
 

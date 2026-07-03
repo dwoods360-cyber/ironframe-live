@@ -23,3 +23,10 @@ export function formatTargetCountriesPayload(countries: string[]): string {
 export function readDefaultTargetCountriesText(): string {
   return DEFAULT_TARGET_COUNTRIES_TEXT;
 }
+
+/** Resolve flywheel campaign regions from activeHub payload, else operator defaults. */
+export function resolveFlywheelTargetRegions(activeHub: string): string[] {
+  const parsed = parseTargetCountriesInput(String(activeHub ?? '').replace(/,/g, '|'));
+  if (parsed.length > 0) return parsed;
+  return parseTargetCountriesInput(readDefaultTargetCountriesText());
+}

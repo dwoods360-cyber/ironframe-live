@@ -7,15 +7,19 @@ import { hashWorkspaceInvitationToken } from "@/app/utils/invitation-core";
 import { recordLegalConsent } from "@/app/lib/legal/consent";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import {
-  buildTenantSubdomainOrigin,
-} from "@/app/lib/tenantSubdomain";
+  buildTenantActivationLandingUrl,
+  workspaceActivationNextParam,
+} from "@/app/lib/auth/workspaceActivationLanding";
+import { stampWorkspaceTenantCookie } from "@/app/lib/auth/stampWorkspaceTenantCookie";
 import {
   findSupabaseAuthUserByEmail,
   isSupabaseExistingUserError,
   buildTenantWorkspaceSessionHandoffUrl,
 } from "@/app/lib/server/supabaseAuthAdminHelpers";
+import { operatorAlreadyActivatedConsumedInvite } from "@/app/lib/server/workspaceInvitationRecovery";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import prisma from "@/lib/prisma";
+import { WORKSPACE_INVITATION_STATUS } from "@/app/utils/invitation-core";
 
 const MIN_PASSWORD_LENGTH = 8;
 const ACTIVATION_OPERATOR_ID = "WORKSPACE_INVITE_ACTIVATION";
@@ -89,17 +93,6 @@ export async function activateWorkspaceInvitationCore(
     };
   }
 
-  const inviteCheck = await validateWorkspaceInvitation({
-    token,
-    email,
-    tenantSlug: invitation.tenantSlug,
-    consume: false,
-  });
-
-  if (!inviteCheck.ok) {
-    return { ok: false, error: inviteCheck.error };
-  }
-
   const tenantSlug = invitation.tenantSlug?.trim().toLowerCase() || null;
   let tenantId: string | null = null;
 
@@ -112,6 +105,46 @@ export async function activateWorkspaceInvitationCore(
       };
     }
     tenantId = tenant.id;
+  }
+
+  if (invitation.status === WORKSPACE_INVITATION_STATUS.CONSUMED) {
+    const alreadyActive = await operatorAlreadyActivatedConsumedInvite({
+      email,
+      tenantSlug: tenantSlug ?? "",
+    });
+    if (!alreadyActive || !tenantSlug) {
+      return {
+        ok: false,
+        error: "This invitation has already been used. Sign in at your workspace URL.",
+      };
+    }
+
+    const supabaseAdmin = createSupabaseAdminClient();
+    const sessionHandoffUrl = await buildTenantWorkspaceSessionHandoffUrl(supabaseAdmin, {
+      email,
+      tenantSlug,
+      nextPath: workspaceActivationNextParam(),
+      password,
+    });
+
+    return {
+      ok: true,
+      email,
+      tenantSlug,
+      redirectUrl: buildTenantActivationLandingUrl(tenantSlug),
+      sessionHandoffUrl,
+    };
+  }
+
+  const inviteCheck = await validateWorkspaceInvitation({
+    token,
+    email,
+    tenantSlug: invitation.tenantSlug,
+    consume: false,
+  });
+
+  if (!inviteCheck.ok) {
+    return { ok: false, error: inviteCheck.error };
   }
 
   try {
@@ -180,6 +213,10 @@ export async function activateWorkspaceInvitationCore(
 
     await recordLegalConsent(userId);
 
+    if (tenantSlug) {
+      await stampWorkspaceTenantCookie(tenantSlug);
+    }
+
     const consumed = await validateWorkspaceInvitation({
       token,
       email,
@@ -191,9 +228,8 @@ export async function activateWorkspaceInvitationCore(
       console.error("[activateWorkspaceInvitationCore] consume failed after createUser", consumed.error);
     }
 
-    const tenantOrigin = tenantSlug ? buildTenantSubdomainOrigin(tenantSlug) : null;
-    const redirectUrl = tenantOrigin
-      ? `${tenantOrigin}/get-started`
+    const redirectUrl = tenantSlug
+      ? buildTenantActivationLandingUrl(tenantSlug)
       : "/integrity";
 
     let sessionHandoffUrl: string | null = null;
@@ -201,8 +237,31 @@ export async function activateWorkspaceInvitationCore(
       sessionHandoffUrl = await buildTenantWorkspaceSessionHandoffUrl(supabaseAdmin, {
         email,
         tenantSlug,
-        nextPath: "/get-started",
+        nextPath: workspaceActivationNextParam(),
+        password,
       });
+
+      if (!sessionHandoffUrl) {
+        for (let attempt = 0; attempt < 3 && !sessionHandoffUrl; attempt += 1) {
+          if (attempt > 0) {
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+          sessionHandoffUrl = await buildTenantWorkspaceSessionHandoffUrl(supabaseAdmin, {
+            email,
+            tenantSlug,
+            nextPath: workspaceActivationNextParam(),
+            password,
+          });
+        }
+      }
+
+      if (!sessionHandoffUrl) {
+        return {
+          ok: false,
+          error:
+            "Workspace session bridge failed after activation. Sign in at your workspace URL or contact support.",
+        };
+      }
     }
 
     console.info(

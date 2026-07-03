@@ -10,12 +10,19 @@ import {
   isSimulationRequestAbortError,
   throwIfAborted,
 } from "@/app/lib/server/simulationRequestAbort";
+import { logServerRequestAbort } from "@/app/lib/server/logServerRequestAbort";
 
 /** Agent 11 (Ironintel) — abortable resilience intel poll; audit log read path only. */
 export async function GET(request: NextRequest) {
   noStore();
   const signal = request.signal;
   if (signal.aborted) {
+    logServerRequestAbort({
+      reason: "client-disconnect",
+      path: request.nextUrl.pathname,
+      method: request.method,
+      surface: "api/simulation/ironintel-resilience",
+    });
     return NextResponse.json({ rows: [], aborted: true }, { status: 499 });
   }
 
@@ -28,6 +35,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ rows });
   } catch (error) {
     if (isSimulationRequestAbortError(error) || signal.aborted) {
+      logServerRequestAbort({
+        reason: error instanceof Error ? error.message : "simulation-request-aborted",
+        path: request.nextUrl.pathname,
+        method: request.method,
+        surface: "api/simulation/ironintel-resilience",
+      });
       return NextResponse.json({ rows: [], aborted: true }, { status: 499 });
     }
     const message = error instanceof Error ? error.message : "Resilience poll unavailable.";

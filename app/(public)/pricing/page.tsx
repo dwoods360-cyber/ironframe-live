@@ -15,7 +15,7 @@ export default function PricingPage() {
   const checkoutUrl = resolveStripeCommandTierCheckoutUrl();
 
   return (
-    <main className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-main)]">
+    <main className="ironframe-public-funnel min-h-screen bg-[var(--bg-primary)] text-[var(--text-main)]">
       <div className="mx-auto max-w-5xl px-6 py-20">
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-[var(--login-accent)]">
           Enterprise packaging
@@ -31,7 +31,7 @@ export default function PricingPage() {
         </p>
 
         <div className="mt-16 grid gap-8 lg:grid-cols-1">
-          <article className="relative overflow-hidden rounded-2xl border border-[var(--login-border)] bg-gradient-to-b from-slate-900/80 to-[var(--bg-primary)] p-8 shadow-xl shadow-black/20 sm:p-10">
+          <article className="relative overflow-hidden rounded-2xl border border-[var(--login-border)] bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] p-8 shadow-xl shadow-black/20 sm:p-10">
             <div className="absolute right-6 top-6 rounded-full border border-[var(--login-accent)]/30 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[var(--login-accent)]">
               Command Tier
             </div>

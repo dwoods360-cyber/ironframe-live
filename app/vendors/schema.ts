@@ -1,4 +1,4 @@
-export type Industry = "Healthcare" | "Finance" | "Energy";
+export type Industry = "Healthcare" | "Finance" | "Energy" | "Technology" | "Defense";
 export type RiskTier = "CRITICAL" | "HIGH" | "LOW";
 export type VendorCadenceStatus = "90" | "60" | "30" | "OVERDUE";
 export type VendorType = "SaaS" | "On-Prem Software" | "Managed Services" | "Hardware";

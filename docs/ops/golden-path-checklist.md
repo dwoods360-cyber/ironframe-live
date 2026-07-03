@@ -4,6 +4,8 @@
 **Stabilization commits:** `fix(ui): integrity hub routing…`, `fix(ironboard): GTM market research routing…`  
 **Purpose:** Prove the cockpit is stable for design-partner demos before expanding Epic 17 scope.
 
+**GTM context:** [Market Entrance Playbook](../sales/market-entrance-playbook.md) — beachhead, 4-agent rhythm, 90-day milestones.
+
 ---
 
 ## Pass bar
@@ -24,9 +26,25 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 | Operator session | **GLOBAL_ADMIN** for Stop 1 |
 | IronBoard API key | `GOOGLE_API_KEY` in `Ironboard/.env.local` when testing GTM / market research on board |
 | Host | Prefer **localhost / lvh.me** — cloud hosts may quarantine private workspace routes without `IRONFRAME_ALLOW_PUBLIC_INGRESS=1` |
+| Session hygiene | **Incognito** for Stop 2; clear stale `ironframe-tenant` cookie or use a **fresh slug** — do not reuse `abc co` from Run #1 |
+| Billing before Stop 5 | Quick provision seeds `tenant_billing` as **PENDING**; flip to **ACTIVE** for design-partner export pass (Stop 5) |
 
 ---
 
+## Run #2 prep (2026-06-30)
+
+Use this sequence after revocation / API membership hardening landed in code:
+
+1. **Purge or abandon** prior test slugs (`abc co`, `bwc` if re-testing) — `npx tsx scripts/purge-onboarding-test-records.ts --slug {slug} --execute` when needed.
+2. **Stop 0** — `npm run dev` at repo root (`:3000`). IronBoard only if running Stop 6 (`cd Ironboard && npm run dev` → `:8082`).
+3. **Stop 1** — Quick provision a **new** workspace slug at `/admin/onboarding`.
+4. **Stop 2** — Incognito activation at `http://{slug}.lvh.me:3000/login?invite={token}` (existing operators) or `/register/{token}` (first-time password setup).
+5. **Stop 3** — Complete ALE + company profile on `/get-started`.
+6. **Before Stop 5** — Set `tenant_billing.status` to **ACTIVE** for that slug (design-partner waiver).
+7. **Stop 4 + 4b** — Integrity Hub load, then optional revoke spot-check (4b).
+8. **Stop 5** — `/dashboard/exports` — expect `ironquery-analyst-export-{tenantKey}.csv`, not `feature8_tabular_ledger_export_*`.
+
+---
 ## Stop 1 — Admin provision
 
 | Field | Value |
@@ -34,7 +52,7 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 | **Path** | `/admin/onboarding` |
 | **Action** | Execute **Quick provision — tenant + activation invite** (`quickProvisionCorporateWorkspaceAction`) |
 | **Target outcome** | New tenant row created; registration token logged (terminal, invite email, or dev handoff UI) |
-| **Pass** | No Prisma/validation error; invite URL contains `/register/{token}` |
+| **Pass** | No Prisma/validation error; invite URL contains `/login?invite=` on tenant host |
 
 ---
 
@@ -42,10 +60,10 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 
 | Field | Value |
 |-------|--------|
-| **Path** | `/register/{token}` |
-| **Action** | Open invite in **incognito**; complete MSA/DPA + password registration |
-| **Target outcome** | `user_legal_consent` persisted; session bootstrap; redirect to tenant workspace or `/get-started` |
-| **Pass** | Authenticated session on intended host (subdomain or apex) without `/unauthorized` |
+| **Path** | `http://{slug}.lvh.me:3000/login?invite={token}` (tenant host — **not** `localhost`) |
+| **Action** | Open invite in **incognito**; sign in with existing email/password (or use `/register/{token}` for first-time password setup) |
+| **Target outcome** | `user_legal_consent` + role assignment persisted; redirect to `http://{slug}.lvh.me:3000/get-started?activation=1` **without** apex `/integrity` detour |
+| **Pass** | Authenticated session on tenant subdomain; no manual login on apex `localhost` |
 
 ---
 
@@ -73,6 +91,22 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 
 ---
 
+## Stop 4b — Revocation perimeter (post–Run #1 hardening)
+
+Run once per Golden Path cycle after Stop 4, or on any build that touches RBAC / revoke.
+
+| Field | Value |
+|-------|--------|
+| **Path** | `/admin/onboarding` → **Revoke operator access**; then browser DevTools → Network |
+| **Action** | Revoke the activated operator for the **same** workspace slug. Without signing in again, attempt `GET /api/threats/active` and `GET /api/dashboard` (same stale `ironframe-tenant` cookie if still present). |
+| **Target outcome** | **403** with workspace-access message; **no** threat row stream or dashboard payload |
+| **Pass** | API returns 403; optional confirm global `signOut` forced re-login on next navigation |
+| **Fail signals** | 200 JSON with tenant data after assignment row deleted; operator still polls Active Risks |
+
+**Perimeter note (2026-06-30):** Tenant-scoped JSON routes use `assertAuthenticatedIronguardTenantOr403` (`app/lib/security/tenantMembershipGuard.ts`). Revoke path calls `revokeAllSupabaseSessionsForUser` (`signOut` global) in `revokeOperatorAccessCore.ts`.
+
+---
+
 ## Stop 5 — Executive export
 
 | Field | Value |
@@ -80,7 +114,10 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 | **Path** | `/dashboard/exports` |
 | **Action** | Trigger an **Ironquery** analytical export (CSV/PDF per entitled tier) |
 | **Target outcome** | Download or generation completes with tenant-scoped data |
-| **Pass** | Export succeeds for entitled tenant; framework crosswalk fields present where documented for tier |
+| **Pass** | Export succeeds for entitled tenant; downloaded file is named `ironquery-analyst-export-{tenantKey}.csv` (not `feature8_tabular_ledger_export_*`); framework crosswalk fields present where documented for tier |
+| **Fail signals** | Redirect to `/?exportScope=required` with client-side Feature 8 stub download; `CommercialEntitlementHoldPanel` on `/dashboard/exports` while billing is `PENDING` |
+
+**Perimeter note (2026-06-29):** `/dashboard/exports` inherits `(dashboard)/layout.tsx` billing gate. Server actions call `assertTenantBillingActive` before compilation. Command Post home suppresses the legacy Feature 8 client export when a workspace session is active.
 
 ---
 
@@ -114,9 +151,9 @@ Until this checklist passes **3× consecutively**, defer:
 
 | Run # | Date | Operator | Stops 1–5 | Stop 6 (optional) | Notes |
 |-------|------|----------|-----------|-------------------|-------|
-| 1 | | | ☐ | ☐ | |
-| 2 | | | ☐ | ☐ | |
-| 3 | | | ☐ | ☐ | |
+| 1 | 2026-06-29 | Dereck | FAIL | — | Stops 1–4 partial: `abc co` provisioned, ALE + profile saved, Integrity Hub OK. Stop 5 false positive: `feature8_tabular_ledger_export_*` from home-page client stub after `?exportScope=required` redirect; billing `PENDING`. Perimeter hardened post-run. |
+| 2 | 2026-07-01 | Dereck | ☑ | ☑ | Stops 1–5 operator-verified; Stop 6 `golden-path-stop6-gtm.ts` PASS. |
+| 3 | 2026-07-01 | Dereck | ☐ | ☐ | Fresh slug `run3` (or new); incognito Stop 2; billing ACTIVE before Stop 5; Stop 4b + Stop 6 optional. |
 
 ---
 
@@ -129,5 +166,7 @@ Until this checklist passes **3× consecutively**, defer:
 | Get Started | `app/(dashboard)/get-started/` |
 | Integrity hub | `app/(dashboard)/integrity/`, `app/components/HeaderTwo.tsx` |
 | Billing gate | `app/components/billing/DashboardBillingGate.tsx` |
-| Exports | `app/dashboard/exports/` |
+| Exports | `app/(dashboard)/dashboard/exports/`, `app/actions/ironqueryExportActions.ts` |
 | IronBoard GTM | `Ironboard/src/index.ts`, `Ironboard/src/services/boardroomQueryIntent.ts` |
+| API membership gate | `app/lib/security/tenantMembershipGuard.ts`, `tests/architecture/tenantMembershipGuard.test.ts` |
+| Operator revoke | `app/lib/server/revokeOperatorAccessCore.ts`, `app/lib/server/supabaseAuthAdminHelpers.ts` |

@@ -419,9 +419,10 @@ export default function CorporateOnboardingClient() {
             </h2>
           </div>
           <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
-            Sends a Supabase invite with tenant metadata and pre-assigns{" "}
-            <code className="text-slate-300">user_role_assignments</code> for the workspace.
-            Requires <code className="text-slate-300">SUPABASE_SERVICE_ROLE_KEY</code>.
+            Mints a workspace invite and pre-assigns{" "}
+            <code className="text-slate-300">user_role_assignments</code>. New operators receive a
+            Supabase invite; existing Ironframe accounts get a tenant login link with{" "}
+            <code className="text-slate-300">?invite=</code>.
           </p>
 
           {tenantsError ? (
@@ -492,12 +493,28 @@ export default function CorporateOnboardingClient() {
             >
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5" aria-hidden />
-                <p className="font-bold uppercase tracking-wide">Invite sent</p>
+                <p className="font-bold uppercase tracking-wide">
+                  {inviteResult.deliveryPath === "workspace-invitation"
+                    ? "Workspace invite issued"
+                    : "Invite sent"}
+                </p>
               </div>
               <p className="mt-1">
                 {inviteResult.email} → <span className="font-mono">{inviteResult.tenantSlug}</span>
               </p>
-              <p className="mt-2 font-mono text-[9px] text-sky-200/90">{inviteResult.workspaceUrl}</p>
+              <p className="mt-2 text-slate-400">Activation link — open in incognito:</p>
+              {inviteResult.inviteLoginUrl ? (
+                <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
+                  {inviteResult.inviteLoginUrl}
+                </code>
+              ) : null}
+              {inviteResult.inviteEmail && !inviteResult.inviteEmail.sent ? (
+                <p className="mt-2 text-amber-200" role="alert">
+                  {inviteResult.inviteEmail.error ?? "Email not sent — copy the activation link above."}
+                </p>
+              ) : inviteResult.inviteEmail?.sent ? (
+                <p className="mt-2 text-emerald-200">Invite email dispatched via Resend.</p>
+              ) : null}
             </div>
           ) : null}
         </section>

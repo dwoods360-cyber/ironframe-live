@@ -49,12 +49,9 @@ export function resolveSupabasePasswordResetRedirectOrigin(): string {
   return resolvePublicAppUrl();
 }
 
-/** Supabase invite redirect: apex localhost in dev, tenant subdomain in production. */
+/** Supabase invite redirect — always tenant workspace host (never apex localhost). */
 export function resolveSupabaseInviteRedirectOrigin(tenantSlug: string): string {
-  if (process.env.NODE_ENV === "production") {
-    return resolveTenantAuthRedirectOrigin(tenantSlug);
-  }
-  return resolvePublicAppUrl();
+  return resolveTenantAuthRedirectOrigin(tenantSlug);
 }
 
 /** Safe internal redirect path — blocks open redirects. */
@@ -74,9 +71,19 @@ export function resolveTenantAuthRedirectOrigin(tenantSlug: string): string {
   return buildTenantSubdomainOrigin(tenantSlug, resolveLocalDevAppPort());
 }
 
-export function buildAuthCallbackUrl(origin: string, nextPath: string): string {
+export function buildAuthCallbackUrl(
+  origin: string,
+  nextPath: string,
+  options?: { workspaceTenantSlug?: string },
+): string {
   const safeNext = sanitizeAuthNextPath(nextPath, "/integrity");
-  return `${sanitizePublicOrigin(origin)}/api/auth/callback?next=${encodeURIComponent(safeNext)}`;
+  const url = new URL("/api/auth/callback", sanitizePublicOrigin(origin));
+  url.searchParams.set("next", safeNext);
+  const tenantSlug = options?.workspaceTenantSlug?.trim().toLowerCase();
+  if (tenantSlug) {
+    url.searchParams.set("tenant", tenantSlug);
+  }
+  return url.toString();
 }
 
 /** Host-aware post-auth path — remaps apex `/integrity` invites to `/` on tenant subdomains. */

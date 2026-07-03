@@ -1,12 +1,21 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
+import { useHostTenantSlugServerSnapshot } from "@/app/context/HostTenantSlugContext";
 
-/** Client-side tenant slug from subdomain host (null on apex localhost). */
+/**
+ * Tenant slug from subdomain host — SSR snapshot from middleware header, then client host after mount.
+ */
 export function useHostTenantSlug(): string | null {
-  return useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return tenantSlugFromHost(window.location.host);
-  }, []);
+  const serverSlug = useHostTenantSlugServerSnapshot();
+  const pathname = usePathname();
+  const [clientSlug, setClientSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClientSlug(tenantSlugFromHost(window.location.host));
+  }, [pathname]);
+
+  return clientSlug ?? serverSlug;
 }

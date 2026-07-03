@@ -23,10 +23,9 @@ import { isDemoRouteGroupPath } from "@/app/utils/grcRouteMatch";
 export default function TrainerAgentDrawer() {
   const pathname = usePathname();
   const { billingBlocked } = useTenantBillingGate();
-  const isOpen = useTrainerAgentDrawerStore((s) => s.isOpen);
-  const close = useTrainerAgentDrawerStore((s) => s.close);
-  const isSimulationMode = useSystemConfigStore((s) => s.isSimulationMode);
-  const inlineDocHref = useGetStartedReaderStore((s) => s.inlineDocHref);
+  const { isOpen, close } = useTrainerAgentDrawerStore();
+  const isSimulationMode = useSystemConfigStore().isSimulationMode;
+  const inlineDocHref = useGetStartedReaderStore().inlineDocHref;
   const demoSandbox = isDemoRouteGroupPath(pathname) || isDemoModeActive();
   const isGetStartedOrientationReader =
     (pathname === "/get-started" || pathname.startsWith("/get-started/")) &&

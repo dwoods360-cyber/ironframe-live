@@ -5,7 +5,7 @@ export const fetchCache = "force-no-store";
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_noStore as noStore } from "next/cache";
 import { fetchTenantAuditLedgerRows } from "@/app/actions/auditActions";
-import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGuard";
+import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 /**
  * GET /api/audit/ledger-feed — tenant-scoped AuditLog rows for Audit Intelligence polling.
@@ -13,7 +13,7 @@ import { assertIronguardApiTenantOr403 } from "@/app/lib/security/ironguardApiGu
  */
 export async function GET(request: NextRequest) {
   noStore();
-  const guard = await assertIronguardApiTenantOr403(request);
+  const guard = await assertAuthenticatedIronguardTenantOr403(request);
   if (!guard.ok) {
     return guard.response;
   }

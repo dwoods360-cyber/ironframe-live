@@ -54,6 +54,7 @@ import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyti
 import { floatingNotifyTopClass } from "@/app/config/layoutConstants";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
+import { ABORT_REASONS } from "@/app/utils/abortReasons";
 
 // # AUDIT_STREAM_LOGIC (Real-time log mapping) — buildListItems, clientFiltered, listItems, filteredAuditLogs, hasAnyLogs
 
@@ -1111,7 +1112,7 @@ export default function AuditIntelligence({
         },
       )
       .catch(() => undefined);
-    return () => ac.abort();
+    return () => ac.abort(ABORT_REASONS.auditIntelUnmount);
   }, [ledgerTenantUuid, tenantFetch]);
 
   useEffect(() => {
@@ -1356,7 +1357,7 @@ export default function AuditIntelligence({
         setReplayRows(mapped);
       })
       .catch(() => setReplayRows([]));
-    return () => ac.abort();
+    return () => ac.abort(ABORT_REASONS.auditIntelUnmount);
   }, [replayCutoffMs]);
 
   useEffect(() => {
@@ -1370,7 +1371,7 @@ export default function AuditIntelligence({
         setDiagnosticFeedItems((data.rows ?? []).map(mapDiagnosticRowToLogItem));
       })
       .catch(() => setDiagnosticFeedItems([]));
-    return () => ac.abort();
+    return () => ac.abort(ABORT_REASONS.auditIntelUnmount);
   }, [focusId, effectiveServerAuditLogs]);
 
   const workNoteFeedItems = useMemo(

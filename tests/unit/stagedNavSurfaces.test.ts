@@ -17,7 +17,12 @@ describe("stagedNavSurfaces", () => {
 
   it("resolves DORA preview surface", () => {
     expect(getStagedNavSurface("/reports/dora-eu-resilience")?.badge).toBe("PREVIEW");
-    expect(getStagedNavSurface("/vendors/supply-chain")).toBeUndefined();
+    expect(getStagedNavSurface("/vendors/supply-chain")?.badge).toBe("PILOT");
+    expect(getStagedNavSurface("/vendors")?.badge).toBe("PILOT");
+  });
+
+  it("resolves vendor child routes via vendors pilot surface", () => {
+    expect(getStagedNavSurface("/medshield/vendors/reports")?.badge).toBe("PILOT");
   });
 
   it("blocks GRC_MANAGER from staged stubs", () => {

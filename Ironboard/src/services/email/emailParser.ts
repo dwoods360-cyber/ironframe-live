@@ -1,5 +1,6 @@
 import type { InboundEmailMetadata, NormalizedEmailMessage } from '../../types/email.js';
 import { getResendClient } from './emailConfig.js';
+import { asResendIngressClient } from './resendSdkExtensions.js';
 
 /** Handles `Name <addr@domain.com>` and bare `addr@domain.com`. */
 export function parseEmailAddress(raw: string): string {
@@ -43,7 +44,7 @@ export function parseIncomingWebhookMetadata(payload: ResendWebhookPayload): Inb
 
 /** Hydrate body via Resend receiving API — webhooks ship metadata only. */
 export async function hydrateEmailContent(meta: InboundEmailMetadata): Promise<NormalizedEmailMessage> {
-  const resend = getResendClient();
+  const resend = asResendIngressClient(getResendClient());
   const emailDetails = await resend.emails.receiving.get(meta.emailId);
 
   if (emailDetails.error || !emailDetails.data) {

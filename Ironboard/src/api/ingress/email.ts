@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { emailConfig, getResendClient } from '../../services/email/emailConfig.js';
 import { bridgeEmailToCrmPipeline } from '../../services/email/emailCrmBridge.js';
 import { hydrateEmailContent, parseIncomingWebhookMetadata } from '../../services/email/emailParser.js';
+import { asResendIngressClient } from '../../services/email/resendSdkExtensions.js';
 
 /** POST /api/ingress/email — Resend inbound webhook (raw body required for Svix verify). */
 export async function handleResendWebhookIngress(req: Request, res: Response): Promise<void> {
@@ -29,7 +30,7 @@ export async function handleResendWebhookIngress(req: Request, res: Response): P
   const svixSignature = req.headers['svix-signature'] as string;
 
   try {
-    const resend = getResendClient();
+    const resend = asResendIngressClient(getResendClient());
 
     const parsedPayload = resend.webhooks.verify({
       payload: rawBodyString,

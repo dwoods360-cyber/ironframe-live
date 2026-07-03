@@ -4,8 +4,19 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST } from '@/app/api/threats/route';
-import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
+
+const mockCookiesGet = vi.fn();
+const mockCookiesSet = vi.fn();
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: mockCookiesGet,
+    set: mockCookiesSet,
+  })),
+  headers: vi.fn(async () => ({
+    get: vi.fn(),
+  })),
+}));
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -38,6 +49,9 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+import { POST } from '@/app/api/threats/route';
+import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
+
 import prisma from '@/lib/prisma';
 
 const MEDSHIELD_UUID = TENANT_UUIDS.medshield;
@@ -59,6 +73,7 @@ function buildRequest(
 
 describe('POST /api/threats — Threat Ingress API', () => {
   beforeEach(() => {
+    mockCookiesGet.mockReturnValue(undefined);
     vi.mocked(prisma.threatEvent.create).mockReset();
     vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.simulationConfig.findUnique).mockResolvedValue(null);

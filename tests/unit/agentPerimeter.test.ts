@@ -1,6 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+const mockCookiesGet = vi.fn();
+const mockCookiesSet = vi.fn();
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: mockCookiesGet,
+    set: mockCookiesSet,
+  })),
+  headers: vi.fn(async () => ({
+    get: vi.fn(),
+  })),
+}));
+
+vi.mock("@/app/lib/auth/platformAdminAccess", () => ({
+  canUsePlatformAdminTools: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("@/app/lib/billing/tenantBillingEntitlement", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/app/lib/billing/tenantBillingEntitlement")>();
+  return {
+    ...actual,
+    assertTenantBillingActive: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 import { POST as handleCustomerServicePost } from "@/app/api/agents/customer-service/route";
 import { POST as handleSalesPost } from "@/app/api/agents/sales/route";
 import { POST as handleTrainerPost } from "@/app/api/agents/trainer/route";
@@ -77,6 +102,7 @@ function buildJsonRequest(
 describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCookiesGet.mockReturnValue(undefined);
     mockGenerateContent.mockResolvedValue({
       text: "Mocked structural platform synthesis proposal report output.",
     });

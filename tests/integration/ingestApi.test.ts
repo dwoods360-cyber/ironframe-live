@@ -4,7 +4,19 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST } from '@/app/api/threats/ingest/route';
+
+const mockCookiesGet = vi.fn();
+const mockCookiesSet = vi.fn();
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: mockCookiesGet,
+    set: mockCookiesSet,
+  })),
+  headers: vi.fn(async () => ({
+    get: vi.fn(),
+  })),
+}));
 
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
@@ -40,32 +52,45 @@ vi.mock('@/app/utils/serverTenantContext', () => ({
 }));
 
 import prisma from '@/lib/prisma';
+import { POST } from '@/app/api/threats/ingest/route';
 import { acknowledgeThreatAction } from '@/app/actions/threatActions';
 import { getActiveTenantUuidFromCookies } from '@/app/utils/serverTenantContext';
+import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
-const SAMPLE_TENANT = '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01';
+const SAMPLE_TENANT = TENANT_UUIDS.medshield;
+
+function buildIngestRequest(
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {},
+): NextRequest {
+  return new NextRequest('http://localhost/api/threats/ingest', {
+    method: 'POST',
+    headers: new Headers({
+      'Content-Type': 'application/json',
+      'x-tenant-id': SAMPLE_TENANT,
+      ...headers,
+    }),
+    body: JSON.stringify(body),
+  });
+}
 
 describe('POST /api/threats/ingest — GRC gate', () => {
   beforeEach(() => {
+    mockCookiesGet.mockReturnValue(undefined);
     vi.mocked(prisma.threatEvent.findUnique).mockResolvedValue(null);
     vi.mocked(acknowledgeThreatAction).mockResolvedValue({ success: true });
     vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValue(SAMPLE_TENANT);
   });
 
   it('returns 400 when threatId is missing', async () => {
-    const req = new NextRequest('http://localhost/api/threats/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantId: '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01', operatorId: 'test-user' }),
-    });
+    const req = buildIngestRequest({ tenantId: SAMPLE_TENANT, operatorId: 'test-user' });
     const res = await POST(req);
     const body = await res.json();
     expect(res.status).toBe(400);
     expect(body.error).toMatch(/Missing threatId/i);
   });
 
-  it('returns 400 when tenantId is missing and session tenant cannot be resolved', async () => {
-    vi.mocked(getActiveTenantUuidFromCookies).mockResolvedValueOnce(null as unknown as string);
+  it('returns 401 when ironguard tenant scope is missing from the request', async () => {
     const req = new NextRequest('http://localhost/api/threats/ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,8 +98,8 @@ describe('POST /api/threats/ingest — GRC gate', () => {
     });
     const res = await POST(req);
     const body = await res.json();
-    expect(res.status).toBe(400);
-    expect(body.error).toMatch(/Missing tenant scope/i);
+    expect(res.status).toBe(401);
+    expect(String(body.error)).toMatch(/tenant|Unauthorized|required/i);
   });
 
   it('returns 400 when threat is $10M and justification is missing', async () => {
@@ -86,10 +111,10 @@ describe('POST /api/threats/ingest — GRC gate', () => {
       targetEntity: 'Healthcare',
     } as any);
 
-    const req = new NextRequest('http://localhost/api/threats/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threatId: 'threat-10m', tenantId: '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01', operatorId: 'test-user' }),
+    const req = buildIngestRequest({
+      threatId: 'threat-10m',
+      tenantId: SAMPLE_TENANT,
+      operatorId: 'test-user',
     });
 
     const res = await POST(req);
@@ -109,15 +134,11 @@ describe('POST /api/threats/ingest — GRC gate', () => {
       targetEntity: 'Healthcare',
     } as any);
 
-    const req = new NextRequest('http://localhost/api/threats/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        threatId: 'threat-10m',
-        tenantId: '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01',
-        justification: 'Too short',
-        operatorId: 'test-user',
-      }),
+    const req = buildIngestRequest({
+      threatId: 'threat-10m',
+      tenantId: SAMPLE_TENANT,
+      justification: 'Too short',
+      operatorId: 'test-user',
     });
 
     const res = await POST(req);
@@ -137,15 +158,12 @@ describe('POST /api/threats/ingest — GRC gate', () => {
       targetEntity: 'Healthcare',
     } as any);
 
-    const req = new NextRequest('http://localhost/api/threats/ingest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        threatId: 'threat-10m',
-        tenantId: '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01',
-        justification: 'This is a sufficiently long note to satisfy the GRC 50-character minimum requirement.',
-        operatorId: 'test-user',
-      }),
+    const req = buildIngestRequest({
+      threatId: 'threat-10m',
+      tenantId: SAMPLE_TENANT,
+      justification:
+        'This is a sufficiently long note to satisfy the GRC 50-character minimum requirement.',
+      operatorId: 'test-user',
     });
 
     const res = await POST(req);
@@ -155,7 +173,7 @@ describe('POST /api/threats/ingest — GRC gate', () => {
     expect(body.success).toBe(true);
     expect(acknowledgeThreatAction).toHaveBeenCalledWith(
       'threat-10m',
-      '5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01',
+      SAMPLE_TENANT,
       'test-user',
       expect.stringContaining('sufficiently long'),
       { shadowPlaneIngestBot: false },

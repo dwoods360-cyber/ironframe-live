@@ -9,7 +9,7 @@ import {
 } from "@/app/lib/server/approvalQueueCore";
 import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
-import { sendOutboundEmail } from "@/Ironboard/src/services/email/emailSender";
+import { sendOutboundEmail } from "@/app/lib/server/sendOutboundEmail";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";

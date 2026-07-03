@@ -74,8 +74,37 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: 🔒 Validate Cross-Origin Session Perimeter
+        run: npx vitest run tests/unit/sessionBootstrapPerimeter.test.ts
+        env:
+          NODE_ENV: test
+          SUPABASE_AUTH_JWT_SECRET: ${{ secrets.TEST_SUPABASE_AUTH_JWT_SECRET }}
+          GOOGLE_API_KEY: ${{ env.GOOGLE_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: 🔒 Governance Frame Briefing Perimeter
+        run: npm run test:perimeter:briefing
+        env:
+          GOOGLE_API_KEY: ${{ env.GOOGLE_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
       - name: Run Unit Tests
-        run: npx vitest run --pool forks --maxWorkers 2
+        run: npx vitest run --pool forks --maxWorkers 2 --exclude tests/unit/sessionBootstrapPerimeter.test.ts
+        env:
+          GOOGLE_API_KEY: ${{ env.GOOGLE_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Epic 17 billing and onboarding gate matrix
+        run: >-
+          npx vitest run
+          tests/unit/tenantBillingActiveGate.test.ts
+          tests/unit/billingWebhookRoute.test.ts
+          tests/unit/ironqueryExportBillingGate.test.ts
+          tests/unit/vendorEvidenceRequirements.test.ts
+          tests/unit/workspaceInvitationRecovery.test.ts
         env:
           GOOGLE_API_KEY: ${{ env.GOOGLE_API_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}

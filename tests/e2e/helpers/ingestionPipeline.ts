@@ -5,7 +5,10 @@ import type { APIRequestContext, Page } from "@playwright/test";
 import Stripe from "stripe";
 import dotenv from "dotenv";
 
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
+import {
+  manualStripeCustomerIdForSlug,
+  TENANT_BILLING_STATUS,
+} from "@/app/lib/billing/constants";
 import {
   generateWorkspaceInvitationToken,
   hashWorkspaceInvitationToken,
@@ -300,6 +303,67 @@ export async function postSignedStripeWebhook(
   });
   const body = (await response.json()) as Record<string, unknown>;
   return { status: response.status(), body };
+}
+
+export function buildPaymentIntentSucceededEvent(input: {
+  tenantSlug: string;
+  stripeCustomerId?: string;
+  amountReceivedCents?: number;
+  paymentIntentId?: string;
+}): Stripe.Event {
+  const tenantSlug = input.tenantSlug.trim().toLowerCase();
+  const paymentIntent = {
+    id: input.paymentIntentId ?? `pi_e2e_${Date.now()}`,
+    object: "payment_intent",
+    amount_received: input.amountReceivedCents ?? 4_999_00,
+    customer: input.stripeCustomerId ?? manualStripeCustomerIdForSlug(tenantSlug),
+    metadata: {
+      tenant_slug: tenantSlug,
+    },
+  } as Stripe.PaymentIntent;
+
+  return {
+    id: `evt_pi_e2e_${Date.now()}`,
+    object: "event",
+    api_version: "2024-11-20.acacia",
+    created: Math.floor(Date.now() / 1000),
+    type: "payment_intent.succeeded",
+    livemode: false,
+    pending_webhooks: 0,
+    request: null,
+    data: { object: paymentIntent },
+  } as Stripe.Event;
+}
+
+/** Path B — flip existing tenant billing PENDING → ACTIVE via production revenue webhook. */
+export async function postSignedBillingWebhook(
+  request: APIRequestContext,
+  event: Stripe.Event,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const payload = JSON.stringify(event);
+  const signature = signStripeWebhookPayload(payload);
+  const response = await request.post(`${LOCAL_APP_ORIGIN}/api/billing/webhook`, {
+    headers: {
+      "stripe-signature": signature,
+      "content-type": "application/json",
+    },
+    data: payload,
+  });
+  const body = (await response.json()) as Record<string, unknown>;
+  return { status: response.status(), body };
+}
+
+export async function ensureTenantBillingPending(slug: string): Promise<void> {
+  const tenantSlug = slug.trim().toLowerCase();
+  await getE2ePrisma().tenantBilling.upsert({
+    where: { tenantSlug },
+    create: {
+      tenantSlug,
+      stripeCustomerId: manualStripeCustomerIdForSlug(tenantSlug),
+      status: TENANT_BILLING_STATUS.PENDING,
+    },
+    update: { status: TENANT_BILLING_STATUS.PENDING },
+  });
 }
 
 /** Dev Supabase projects often rate-limit `inviteUserByEmail` after repeated smoke runs. */

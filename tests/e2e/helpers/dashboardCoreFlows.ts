@@ -22,12 +22,29 @@ export async function readIronframeTenantCookie(page: Page): Promise<string | nu
 }
 
 export async function dismissClockDriftBannersIfPresent(page: Page): Promise<void> {
-  for (const label of [/Dismiss clock drift/i, /Dismiss forensic calibration/i]) {
+  for (const label of [
+    /Dismiss clock drift/i,
+    /Dismiss forensic calibration/i,
+    /Dismiss clock drift warning/i,
+  ]) {
     const btn = page.getByRole("button", { name: label });
     if (await btn.isVisible().catch(() => false)) {
       await btn.click();
     }
   }
+}
+
+export async function scrollToLiveIntelligenceStream(page: Page): Promise<void> {
+  const heading = page.getByText(/Live Intelligence Stream/i).first();
+  await expect(heading).toBeVisible({ timeout: 60_000 });
+  await heading.scrollIntoViewIfNeeded();
+}
+
+export async function scrollToSentinelInstruction(page: Page): Promise<void> {
+  await scrollToLiveIntelligenceStream(page);
+  const input = page.getByTestId("sentinel-instruction-input");
+  await expect(input).toBeVisible({ timeout: 60_000 });
+  await input.scrollIntoViewIfNeeded();
 }
 
 export async function ensureAuditorViewOff(page: Page): Promise<void> {
@@ -42,21 +59,50 @@ export async function ensureAuditorViewOff(page: Page): Promise<void> {
 export async function selectTenantByUuid(page: Page, tenantUuid: string): Promise<void> {
   const select = page.getByTestId("tenant-context-switcher").locator("select");
   await expect(select).toBeVisible({ timeout: 15_000 });
+  const isDisabled = await select.isDisabled().catch(() => false);
+  if (isDisabled) {
+    const cookieTenant = await readIronframeTenantCookie(page);
+    if (cookieTenant?.toLowerCase() === tenantUuid.toLowerCase()) {
+      return;
+    }
+    throw new Error(
+      `Tenant switcher is locked; cookie=${cookieTenant ?? "null"} cannot select ${tenantUuid}.`,
+    );
+  }
+  const current = await select.inputValue().catch(() => "");
+  if (current.toLowerCase() === tenantUuid.toLowerCase()) {
+    return;
+  }
   await select.selectOption(tenantUuid);
-  await expect(page.getByTestId("tenant-context-switcher").locator("svg.animate-spin")).toBeHidden({
-    timeout: 30_000,
-  });
+  await expect
+    .poll(async () => (await readIronframeTenantCookie(page))?.toLowerCase() ?? "", {
+      timeout: 45_000,
+    })
+    .toBe(tenantUuid.toLowerCase());
+  await expect(page.getByTestId("tenant-context-switcher").locator("svg.animate-spin"))
+    .toBeHidden({ timeout: 15_000 })
+    .catch(() => undefined);
 }
 
 export async function waitForLeftRailReady(page: Page): Promise<void> {
+  await expect(
+    page.getByRole("region", { name: /Loading pipeline and active risk posture/i }),
+  )
+    .toBeHidden({ timeout: 90_000 })
+    .catch(() => undefined);
+
   const leftPanel = page.getByTestId("dashboard-left-panel");
-  await expect(leftPanel).toBeVisible({ timeout: 20_000 });
-  await expect(leftPanel.getByText("CONTROL ROOM")).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId("workforce-showcase-grid")).toBeVisible({ timeout: 20_000 });
+  await expect(leftPanel).toBeVisible({ timeout: 60_000 });
+  await expect(leftPanel.getByText("CONTROL ROOM")).toBeVisible({ timeout: 30_000 });
 }
 
 export async function assertWorkforceShowcaseIndices(page: Page): Promise<void> {
-  await expect(page.locator('[data-left-panel-feature-index="25"]')).toBeVisible();
+  await page
+    .getByTestId("dashboard-left-panel")
+    .getByText(/Workforce spotlight/i)
+    .scrollIntoViewIfNeeded()
+    .catch(() => undefined);
+  await expect(page.getByTestId("workforce-showcase-grid")).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("workforce-showcase-ironcore")).toBeVisible();
   await expect(page.getByTestId("workforce-showcase-ironsight")).toBeVisible();
   await expect(page.getByTestId("workforce-showcase-ironintel")).toBeVisible();

@@ -21,6 +21,35 @@ export function resolveStripeWebhookSecret(): string {
   return process.env.STRIPE_WEBHOOK_SECRET?.trim() ?? "";
 }
 
+export type StripeCredentialMode = "test" | "live";
+
+export function resolveStripeCredentialMode(): StripeCredentialMode {
+  const explicit = process.env.STRIPE_CREDENTIAL_MODE?.trim().toLowerCase();
+  if (explicit === "live" || explicit === "test") return explicit;
+
+  const key = resolveStripeSecretKey();
+  if (key.startsWith("sk_live_")) return "live";
+  return "test";
+}
+
 export function resolveStripeSecretKey(): string {
+  const mode = process.env.STRIPE_CREDENTIAL_MODE?.trim().toLowerCase();
+  if (mode === "test") {
+    return process.env.STRIPE_SECRET_KEY_TEST?.trim() ?? process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  }
+  if (mode === "live") {
+    return process.env.STRIPE_SECRET_KEY_LIVE?.trim() ?? process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+  }
   return process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+}
+
+export function resolveStripeInstantCheckoutWebhookSecret(): string {
+  return (
+    process.env.STRIPE_INSTANT_CHECKOUT_WEBHOOK_SECRET?.trim() ||
+    resolveStripeWebhookSecret()
+  );
+}
+
+export function resolveStripeBillingWebhookSecret(): string {
+  return process.env.STRIPE_BILLING_WEBHOOK_SECRET?.trim() || resolveStripeWebhookSecret();
 }

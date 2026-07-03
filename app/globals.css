@@ -355,6 +355,7 @@ body {
 .command-center-surface {
   position: relative;
   isolation: isolate;
+  background-color: var(--bg-primary);
 }
 
 .command-center-surface::before {
@@ -870,4 +871,59 @@ body[data-ironframe-theme="executive-light"] .ironframe-public-landing [class*="
   -webkit-text-fill-color: var(--text-main) !important;
   caret-color: var(--text-main);
   transition: background-color 99999s ease-out 0s;
+}
+
+/* Public SaaS funnel — pinned dark cockpit (Executive Light / system-light safe) */
+[data-ironframe-public="true"],
+.ironframe-public-landing,
+.ironframe-public-funnel,
+.ironframe-login-page {
+  --if-shell-bg: #020617;
+  --if-shell-text: #e2e8f0;
+  --bg-primary: #020617;
+  --bg-secondary: #0b1120;
+  --bg-tertiary: #0f172a;
+  --border-color: #1e293b;
+  --text-main: #e2e8f0;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --login-border: #1e293b;
+  --login-muted: #94a3b8;
+  --login-accent: #22c55e;
+  --login-error: #ef4444;
+  --login-warning: #fbbf24;
+  --if-topnav-bg: #020617;
+  --if-topnav-border: #0f172a;
+  --if-subnav-bg: #0b1120;
+  --if-subnav-border: #1e293b;
+  --if-status-success: #22c55e;
+  --if-status-danger: #ef4444;
+  --if-shadow-policy: 0 0 18px rgba(34, 197, 94, 0.12);
+  color-scheme: dark;
+  background-color: #020617;
+  color: #e2e8f0;
+}
+
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"],
+html[data-ironframe-theme="executive-light"] [data-ironframe-public="true"] main,
+html[data-ironframe-theme="executive-light"] .ironframe-public-landing,
+html[data-ironframe-theme="executive-light"] .ironframe-login-page {
+  background-color: #020617 !important;
+  color: #e2e8f0 !important;
+}
+
+@media (prefers-color-scheme: light) {
+  html[data-ironframe-theme="system"] [data-ironframe-public="true"],
+  html[data-ironframe-theme="system"] .ironframe-public-landing,
+  html[data-ironframe-theme="system"] .ironframe-login-page {
+    --bg-primary: #020617;
+    --bg-secondary: #0b1120;
+    --text-main: #e2e8f0;
+    --login-muted: #94a3b8;
+    --login-border: #1e293b;
+    --login-accent: #22c55e;
+    background-color: #020617 !important;
+    color: #e2e8f0 !important;
+  }
 }

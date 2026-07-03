@@ -6,12 +6,12 @@ import {
 
 describe("layoutConstants", () => {
   it("reserves 9rem for the three-row fixed header stack", () => {
-    expect(layoutContentShellClass(false).marginTop).toBe("mt-[9rem]");
-    expect(layoutContentShellClass(false).height).toBe("h-[calc(100dvh-9rem)]");
+    expect(layoutContentShellClass(false).paddingTop).toBe("pt-[9rem]");
+    expect(layoutContentShellClass(false).height).toBe("h-[100dvh] box-border");
   });
 
   it("adds airlock height in simulation mode", () => {
-    expect(layoutContentShellClass(true).marginTop).toBe("mt-[11.25rem]");
+    expect(layoutContentShellClass(true).paddingTop).toBe("pt-[11.25rem]");
   });
 
   it("places tier-1 notices below Header #2", () => {

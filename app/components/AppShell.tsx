@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import TopNav from "@/app/components/TopNav";
 import AgentInspectShell from "@/app/components/grc/AgentInspectShell";
+import TrainerAgentDrawer from "@/app/components/trainer/TrainerAgentDrawer";
+import VendorHeaderToolbarBridge from "@/app/components/vendor-risk/VendorHeaderToolbarBridge";
 import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { layoutContentShellClass } from "@/app/config/layoutConstants";
 import { isScrollableStandalonePath } from "@/app/utils/grcRouteMatch";
@@ -52,10 +54,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <TopNav />
         </div>
         <div
-          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto ${contentShell.marginTop} ${topBannerOffset ? (demoSandbox && isSimulationMode ? "pt-[4.5rem]" : "pt-9") : ""}`}
+          className={`command-center-surface flex min-h-0 flex-1 flex-col overflow-y-auto bg-[var(--bg-primary)] ${contentShell.paddingTop} ${topBannerOffset ? (demoSandbox && isSimulationMode ? "pt-[4.5rem]" : "pt-9") : ""}`}
         >
           {children}
         </div>
+        <AgentInspectShell />
+        <TrainerAgentDrawer />
+        <VendorHeaderToolbarBridge />
       </div>
     );
   }
@@ -78,7 +83,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <TopNav />
       </div>
       <div
-        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden ${contentShell.marginTop} ${contentShell.height} ${
+        className={`command-center-surface flex min-h-0 flex-col overflow-x-hidden bg-[var(--bg-primary)] ${contentShell.paddingTop} ${contentShell.height} ${
           topBannerOffset ? (demoSandbox && isSimulationMode ? "pt-[4.5rem]" : "pt-9") : ""
         } ${isBoardReport ? "print:mt-0 print:h-auto print:min-h-screen print:overflow-visible" : ""}`}
       >
@@ -93,6 +98,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <AgentInspectShell />
+      <TrainerAgentDrawer />
+      <VendorHeaderToolbarBridge />
     </div>
   );
 }

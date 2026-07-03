@@ -23,7 +23,8 @@
 export const VIEWPORT_HEADER_CLEARANCE_CLASS =
   "h-6 w-full shrink-0 clear-both select-none pointer-events-none block";
 
-/** #1 Master window header — IRONFRAME CORE / operator row. */
+/** #1 Master window header — invariant platform lockup (never tenant co-brand). */
+export const IRONFRAME_MASTER_HEADER_LOCKUP = "IRONFRAME CORE";
 export const LAYOUT_MASTER_HEADER_Z_CLASS = "z-40";
 
 /** #2 Header navigation strip — AUDIT TRAIL, INTEGRITY HUB, BOARD REPORT, etc. */
@@ -74,13 +75,19 @@ export const LAYOUT_HEADER_STACK_OFFSET = "9rem";
 /** Airlock banner (`h-9`) when simulation mode is active. */
 export const LAYOUT_AIRLOCK_OFFSET = "2.25rem";
 
-/** Main tripane shell — clears Header #1 + tenant bar + Header #2. */
-export const LAYOUT_CONTENT_SHELL_MT = "mt-[9rem]";
-export const LAYOUT_CONTENT_SHELL_H = "h-[calc(100dvh-9rem)]";
+/** Main tripane shell — clears Header #1 + tenant bar + Header #2 (padding paints shell bg; margin caused white flash). */
+export const LAYOUT_CONTENT_SHELL_PT = "pt-[9rem]";
+export const LAYOUT_CONTENT_SHELL_H = "h-[100dvh] box-border";
 
 /** Simulation: airlock + full header stack. */
-export const LAYOUT_CONTENT_SHELL_MT_SIM = "mt-[11.25rem]";
-export const LAYOUT_CONTENT_SHELL_H_SIM = "h-[calc(100dvh-11.25rem)]";
+export const LAYOUT_CONTENT_SHELL_PT_SIM = "pt-[11.25rem]";
+export const LAYOUT_CONTENT_SHELL_H_SIM = "h-[100dvh] box-border";
+
+/** @deprecated Use {@link LAYOUT_CONTENT_SHELL_PT} — margin-top left a transparent band under fixed headers. */
+export const LAYOUT_CONTENT_SHELL_MT = LAYOUT_CONTENT_SHELL_PT;
+
+/** @deprecated Use {@link LAYOUT_CONTENT_SHELL_PT_SIM} */
+export const LAYOUT_CONTENT_SHELL_MT_SIM = LAYOUT_CONTENT_SHELL_PT_SIM;
 
 /** Viewport-fixed notices stay until the operator dismisses them (not scroll-linked). */
 export const FLOATING_NOTIFY_INTERACTIVE_CLASS = "pointer-events-auto";
@@ -109,12 +116,22 @@ export function floatingNotifyTopRightClass(isSimulationMode: boolean): string {
 }
 
 export function layoutContentShellClass(isSimulationMode: boolean): {
-  marginTop: string;
+  paddingTop: string;
   height: string;
+  /** @deprecated Use paddingTop */
+  marginTop: string;
 } {
   return isSimulationMode
-    ? { marginTop: LAYOUT_CONTENT_SHELL_MT_SIM, height: LAYOUT_CONTENT_SHELL_H_SIM }
-    : { marginTop: LAYOUT_CONTENT_SHELL_MT, height: LAYOUT_CONTENT_SHELL_H };
+    ? {
+        paddingTop: LAYOUT_CONTENT_SHELL_PT_SIM,
+        height: LAYOUT_CONTENT_SHELL_H_SIM,
+        marginTop: LAYOUT_CONTENT_SHELL_PT_SIM,
+      }
+    : {
+        paddingTop: LAYOUT_CONTENT_SHELL_PT,
+        height: LAYOUT_CONTENT_SHELL_H,
+        marginTop: LAYOUT_CONTENT_SHELL_PT,
+      };
 }
 
 /** Agent inspect slide-out (portaled) — aligns with Agent Log Inspector. */

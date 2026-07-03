@@ -154,6 +154,7 @@ Until this checklist passes **3× consecutively**, defer:
 | 1 | 2026-06-29 | Dereck | FAIL | — | Stops 1–4 partial: `abc co` provisioned, ALE + profile saved, Integrity Hub OK. Stop 5 false positive: `feature8_tabular_ledger_export_*` from home-page client stub after `?exportScope=required` redirect; billing `PENDING`. Perimeter hardened post-run. |
 | 2 | 2026-07-01 | Dereck | ☑ | ☑ | Stops 1–5 operator-verified; Stop 6 `golden-path-stop6-gtm.ts` PASS. |
 | 3 | 2026-07-03 | Dereck | ☑ | — | Slug `run3b`; operator `tall360will@gmail.com`; incognito Stop 2 on tenant host; billing ACTIVE pre–Stop 5; Integrity Hub + Ironquery export verified. |
+| 4 | — | Dereck | ☐ | ☐ | Fresh slug (e.g. `run4b`); incognito Stop 2; billing ACTIVE pre–Stop 5 — completes 3× consecutive pass bar with Runs 2–3. |
 
 ---
 

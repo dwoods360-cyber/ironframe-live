@@ -8,6 +8,7 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: mockCookiesGet,
     set: mockCookiesSet,
+    getAll: vi.fn(() => []),
   })),
   headers: vi.fn(async () => ({
     get: vi.fn(),

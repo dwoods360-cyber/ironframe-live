@@ -55,15 +55,12 @@ describe("resolveCommercialCorpusGate", () => {
     ).resolves.toEqual({ status: "public_publisher" });
   });
 
-  it("returns unauthenticated for operator corpus without session", async () => {
+  it("returns public_publisher for guest operator docs on /docs reader", async () => {
     vi.mocked(getSupabaseSessionUser).mockResolvedValue(null);
 
     await expect(
       resolveCommercialCorpusGate("LEVEL_1", "/docs/user-manuals/quickstart"),
-    ).resolves.toEqual({
-      status: "unauthenticated",
-      loginNextPath: "/docs/user-manuals/quickstart",
-    });
+    ).resolves.toEqual({ status: "public_publisher" });
   });
 
   it("returns billing_hold for pending tenants", async () => {

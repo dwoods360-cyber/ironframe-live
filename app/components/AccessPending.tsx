@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ShieldAlert, ShieldOff } from "lucide-react";
 
+import SessionLogoutButton from "@/app/components/SessionLogoutButton";
+
 import type {
   AssignedWorkspaceAccess,
   WorkspaceAccessDenialReason,
@@ -187,12 +189,7 @@ export default function AccessPending({
           </p>
         ) : null}
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/login"
-            className="inline-flex min-h-11 items-center rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-200 transition hover:border-slate-400 hover:text-white"
-          >
-            Sign out
-          </Link>
+          <SessionLogoutButton />
           <Link
             href="/docs/hub"
             className="inline-flex min-h-11 items-center rounded-md bg-cyan-600/90 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"

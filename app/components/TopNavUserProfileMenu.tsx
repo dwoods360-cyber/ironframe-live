@@ -1,10 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDown, LogOut, Monitor, Moon, SunMedium, UserRound } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { performClientSessionLogout } from "@/app/lib/auth/performClientSessionLogout";
 import { useOperatorContext } from "@/app/context/OperatorContext";
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
 import { usePermissions } from "@/app/hooks/usePermissions";
@@ -24,8 +22,6 @@ type TopNavUserProfileMenuProps = {
 };
 
 export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUserProfileMenuProps) {
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const { profile } = useOperatorContext();
   const { displayName } = useOperatorIdentity();
   const { role } = usePermissions();
@@ -34,10 +30,8 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
   const email = profile.email?.trim() || displayName.trim() || "Operator session";
   const roleLabel = formatUserRoleLabel(role || profile.displayRole);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+  const handleLogout = () => {
+    void performClientSessionLogout();
   };
 
   const triggerLabel = isLoading
@@ -156,7 +150,7 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
             <DropdownMenu.Item asChild>
               <button
                 type="button"
-                onClick={() => void handleLogout()}
+                onClick={handleLogout}
                 disabled={isLoading}
                 className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 font-mono text-[10px] font-bold uppercase tracking-wide text-rose-400 outline-none hover:bg-rose-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
               >

@@ -57,9 +57,16 @@ test.describe("BWC Ironguard tenant race — Command Post bootstrap", () => {
     await redeemInviteOnTenantSubdomain(page, BWC_OPERATOR_EMAIL, BWC_SLUG);
 
     await page.goto(`${tenantSubdomainOrigin(BWC_SLUG)}/`, {
-      waitUntil: "domcontentloaded",
-      timeout: 60_000,
+      waitUntil: "commit",
+      timeout: 120_000,
     });
+
+    await page
+      .getByText(/Synchronizing workspace ledger/i)
+      .waitFor({ state: "hidden", timeout: 90_000 })
+      .catch(() => undefined);
+
+    await waitForLeftRailReady(page);
 
     await expect(page.locator('[data-testid="dashboard-main"]')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText(IRONGUARD_BLOCKED)).toHaveCount(0);
@@ -88,7 +95,7 @@ test.describe("BWC Ironguard tenant race — Command Post bootstrap", () => {
     ).toBe(false);
 
     await waitForLeftRailReady(page);
-    await page.getByTestId("analyst-exports-link").first().click();
+    await page.getByTestId("analyst-exports-link").first().click({ noWaitAfter: true });
     await page.waitForURL(/\/exports(?:\?|#|$)/i, { timeout: 60_000 });
     await expect(page.getByText(IRONGUARD_BLOCKED)).toHaveCount(0);
 

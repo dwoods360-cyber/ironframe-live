@@ -42,7 +42,7 @@ Use this sequence after revocation / API membership hardening landed in code:
 5. **Stop 3** — Complete ALE + company profile on `/get-started`.
 6. **Before Stop 5** — Set `tenant_billing.status` to **ACTIVE** for that slug (design-partner waiver).
 7. **Stop 4 + 4b** — Integrity Hub load, then optional revoke spot-check (4b).
-8. **Stop 5** — `/dashboard/exports` — expect `ironquery-analyst-export-{tenantKey}.csv`, not `feature8_tabular_ledger_export_*`.
+8. **Stop 5** — `/exports` — expect `ironquery-analyst-export-{tenantKey}.csv`, not `feature8_tabular_ledger_export_*`.
 
 ---
 ## Stop 1 — Admin provision
@@ -111,13 +111,13 @@ Run once per Golden Path cycle after Stop 4, or on any build that touches RBAC /
 
 | Field | Value |
 |-------|--------|
-| **Path** | `/dashboard/exports` |
+| **Path** | `/exports` |
 | **Action** | Trigger an **Ironquery** analytical export (CSV/PDF per entitled tier) |
 | **Target outcome** | Download or generation completes with tenant-scoped data |
 | **Pass** | Export succeeds for entitled tenant; downloaded file is named `ironquery-analyst-export-{tenantKey}.csv` (not `feature8_tabular_ledger_export_*`); framework crosswalk fields present where documented for tier |
-| **Fail signals** | Redirect to `/?exportScope=required` with client-side Feature 8 stub download; `CommercialEntitlementHoldPanel` on `/dashboard/exports` while billing is `PENDING` |
+| **Fail signals** | Redirect to `/?exportScope=required` with client-side Feature 8 stub download; `CommercialEntitlementHoldPanel` on `/exports` while billing is `PENDING` |
 
-**Perimeter note (2026-06-29):** `/dashboard/exports` inherits `(dashboard)/layout.tsx` billing gate. Server actions call `assertTenantBillingActive` before compilation. Command Post home suppresses the legacy Feature 8 client export when a workspace session is active.
+**Perimeter note (2026-06-29):** `/exports` inherits `(dashboard)/layout.tsx` billing gate. Server actions call `assertTenantBillingActive` before compilation. Command Post home suppresses the legacy Feature 8 client export when a workspace session is active.
 
 ---
 
@@ -167,7 +167,7 @@ Until this checklist passes **3× consecutively**, defer:
 | Get Started | `app/(dashboard)/get-started/` |
 | Integrity hub | `app/(dashboard)/integrity/`, `app/components/HeaderTwo.tsx` |
 | Billing gate | `app/components/billing/DashboardBillingGate.tsx` |
-| Exports | `app/(dashboard)/dashboard/exports/`, `app/actions/ironqueryExportActions.ts` |
+| Exports | `app/(dashboard)/exports/`, `app/actions/ironqueryExportActions.ts` |
 | IronBoard GTM | `Ironboard/src/index.ts`, `Ironboard/src/services/boardroomQueryIntent.ts` |
 | API membership gate | `app/lib/security/tenantMembershipGuard.ts`, `tests/architecture/tenantMembershipGuard.test.ts` |
 | Operator revoke | `app/lib/server/revokeOperatorAccessCore.ts`, `app/lib/server/supabaseAuthAdminHelpers.ts` |

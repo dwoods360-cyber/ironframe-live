@@ -16,6 +16,7 @@ import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemCon
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
 import { useResilienceIntelPoll } from "@/app/hooks/useResilienceIntelPoll";
 import { useIronwatchTelemetryFeed } from "@/app/hooks/useIronwatchTelemetryFeed";
+import RouteNavigationProgress from "@/app/components/navigation/RouteNavigationProgress";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -38,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isThreatDetailPage) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <RouteNavigationProgress />
         <div className={isBoardReport ? "print:hidden" : undefined}>
           {demoSandbox ? <DemoSandboxBanner /> : null}
           <AirlockBanner />
@@ -67,6 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <RouteNavigationProgress />
       <div className={isBoardReport ? "print:hidden" : undefined}>
         {demoSandbox ? <DemoSandboxBanner /> : null}
         <AirlockBanner />

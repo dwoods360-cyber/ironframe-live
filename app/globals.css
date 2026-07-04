@@ -338,6 +338,19 @@ body {
   }
 }
 
+@keyframes ironframe-route-loading-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(380%);
+  }
+}
+
+.ironframe-route-loading-bar {
+  animation: ironframe-route-loading-slide 1.2s ease-in-out infinite;
+}
+
 @keyframes regulatory-slide {
   from {
     opacity: 0;

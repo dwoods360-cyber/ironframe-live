@@ -122,7 +122,7 @@ export default function GetStartedPortalClient({
   const [stepAudioAutoplay, setStepAudioAutoplay] = useState(true);
   const [stepAudioPlaying, setStepAudioPlaying] = useState(false);
   const [welcomeAudioPlaying, setWelcomeAudioPlaying] = useState(false);
-  const [welcomePhaseDone, setWelcomePhaseDone] = useState(true);
+  const [welcomePhaseDone, setWelcomePhaseDone] = useState(false);
   const [aleBaselineCents, setAleBaselineCents] = useState(initialAleBaselineCents);
   const [aleDraftDollars, setAleDraftDollars] = useState("");
   const [aleSaveBusy, setAleSaveBusy] = useState(false);
@@ -511,8 +511,9 @@ export default function GetStartedPortalClient({
 
   useEffect(() => {
     if (!stepAudioAutoplay || !welcomePhaseDone) return;
+    if (welcomeAudioSrc && !hasPlayedGetStartedWelcome()) return;
     void playStepAudio(guidedStepId);
-  }, [guidedStepId, stepAudioAutoplay, playStepAudio, welcomePhaseDone]);
+  }, [guidedStepId, stepAudioAutoplay, playStepAudio, welcomePhaseDone, welcomeAudioSrc]);
 
   const logProgress = useCallback(
     async (stepId: string, completed: boolean, markAllComplete = false) => {

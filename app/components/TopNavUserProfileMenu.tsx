@@ -1,7 +1,8 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, LogOut, Monitor, Moon, SunMedium, UserRound } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, LogOut, Monitor, Moon, Settings, SunMedium, UserRound } from "lucide-react";
 import { performClientSessionLogout } from "@/app/lib/auth/performClientSessionLogout";
 import { useOperatorContext } from "@/app/context/OperatorContext";
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
@@ -136,6 +137,28 @@ export default function TopNavUserProfileMenu({ isLoading, isGuest }: TopNavUser
               })}
             </div>
           </section>
+          ) : null}
+
+          <DropdownMenu.Separator className="my-1 h-px bg-slate-800" />
+
+          {!isGuest ? (
+            <section aria-labelledby="profile-menu-workspace-heading" className="px-2 py-1">
+              <DropdownMenu.Label
+                id="profile-menu-workspace-heading"
+                className="px-1 text-[9px] font-bold uppercase tracking-widest text-slate-500"
+              >
+                Workspace
+              </DropdownMenu.Label>
+              <DropdownMenu.Item asChild>
+                <Link
+                  href="/settings/workspace"
+                  className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-300 outline-none hover:bg-cyan-950/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-500"
+                >
+                  <Settings className="h-3.5 w-3.5" aria-hidden />
+                  Workspace settings
+                </Link>
+              </DropdownMenu.Item>
+            </section>
           ) : null}
 
           <DropdownMenu.Separator className="my-1 h-px bg-slate-800" />

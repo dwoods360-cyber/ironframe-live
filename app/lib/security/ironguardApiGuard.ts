@@ -7,6 +7,7 @@ import {
   IRONFRAME_HOST_TENANT_UUID_HEADER,
   tenantSlugFromHost,
 } from "@/app/lib/tenantSubdomain";
+import { isPublicConstitutionalSentinelPath } from "@/app/utils/grcRouteMatch";
 const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
 
 /** Bot / CLI simulation clients may send without `ironframe-tenant`; pair with `x-tenant-id` + Ironguard mismatch bypass. */
@@ -46,13 +47,21 @@ function ironguardLedgerMetadata(request: NextRequest): Record<string, unknown> 
   return meta;
 }
 
-async function persistShadowPlaneTenantCookie(tenantUuid: string): Promise<void> {
+async function persistShadowPlaneTenantCookie(
+  tenantUuid: string,
+  request: NextRequest,
+): Promise<void> {
+  const pathname = request.nextUrl.pathname;
+  if (isPublicConstitutionalSentinelPath(pathname)) {
+    return;
+  }
   const store = await cookies();
   store.set(IRONFRAME_TENANT_COOKIE, tenantUuid, {
     path: "/",
     sameSite: "lax",
     maxAge: SHADOW_TENANT_COOKIE_MAX_AGE_SEC,
     httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
   });
 }
 
@@ -114,11 +123,11 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
     const headerEarly = request.headers.get("x-tenant-id")?.trim();
     if (headerEarly && UUID_RE.test(normalizeUuid(headerEarly))) {
       const hn = normalizeUuid(headerEarly);
-      await persistShadowPlaneTenantCookie(hn);
+      await persistShadowPlaneTenantCookie(hn, request);
       return { ok: true, tenantUuid: hn };
     }
     const uuid = TENANT_UUIDS.medshield;
-    await persistShadowPlaneTenantCookie(uuid);
+    await persistShadowPlaneTenantCookie(uuid, request);
     return { ok: true, tenantUuid: uuid };
   }
 
@@ -127,7 +136,7 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
   if (!headerRaw) {
     if (isShadowPlaneSessionRequest(request)) {
       const uuid = TENANT_UUIDS.medshield;
-      await persistShadowPlaneTenantCookie(uuid);
+      await persistShadowPlaneTenantCookie(uuid, request);
       return { ok: true, tenantUuid: uuid };
     }
 
@@ -167,13 +176,13 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
   if (sessionUuid != null && sessionUuid !== headerNorm) {
     /** TAS §5 + §4.3: internal simulation / SHADOW_PLANE_ACTIVE — honor declared `x-tenant-id` over stale cookie mismatch. */
     if (isShadowPlaneSessionRequest(request)) {
-      await persistShadowPlaneTenantCookie(headerNorm);
+      await persistShadowPlaneTenantCookie(headerNorm, request);
       return { ok: true, tenantUuid: headerNorm };
     }
 
     const hostBoundUuid = resolveHostBoundTenantUuid(request);
     if (hostBoundUuid && hostBoundUuid === headerNorm) {
-      await persistShadowPlaneTenantCookie(headerNorm);
+      await persistShadowPlaneTenantCookie(headerNorm, request);
       return { ok: true, tenantUuid: headerNorm };
     }
 

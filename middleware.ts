@@ -16,6 +16,7 @@ import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
 import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { browserFacingUrl } from "@/app/lib/middlewareRequestOrigin";
 import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
+import { stampWorkspaceCookieClears } from "@/app/lib/auth/workspaceSessionCookies";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -216,7 +217,16 @@ function redirectWithSupabaseCookies(
 async function finalizeMiddlewareResponse(
   request: NextRequest,
   response: NextResponse,
+  authUser: { id: string } | null = null,
 ): Promise<NextResponse> {
+  const pathname = request.nextUrl.pathname;
+  const redirectTarget = response.headers.get("location") ?? "";
+  const clearsWorkspaceScope =
+    (!authUser && isAuthPublicPath(pathname)) ||
+    (!authUser && redirectTarget.includes("/login"));
+  if (clearsWorkspaceScope) {
+    stampWorkspaceCookieClears(response);
+  }
   return applySubdomainTenancy(request, response);
 }
 
@@ -464,7 +474,7 @@ export async function middleware(request: NextRequest) {
       "/login",
       `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`,
     );
-    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl), user);
   }
 
   const hostSlugForAuth = tenantSlugFromHost(request.headers.get("host"));
@@ -475,6 +485,7 @@ export async function middleware(request: NextRequest) {
     return await finalizeMiddlewareResponse(
       request,
       redirectWithSupabaseCookies(request, supabaseResponse, loginUrl),
+      user,
     );
   }
 
@@ -488,7 +499,7 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.searchParams.get("next"),
       );
       const landingUrl = browserFacingUrl(request, landingPath);
-      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, landingUrl));
+      return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, landingUrl), user);
     }
   }
 
@@ -499,37 +510,37 @@ export async function middleware(request: NextRequest) {
       isPublicDocsRoute ||
       isBoardSharedContextRoute
     ) {
-      return await finalizeMiddlewareResponse(request, supabaseResponse);
+      return await finalizeMiddlewareResponse(request, supabaseResponse, user);
     }
     // Cron endpoints are token-gated in their own route handlers.
     // Never redirect them to /login, or Vercel will return HTML fallback instead of JSON/401.
     if (internalTokenGatedApiPath(pathname)) {
-      return await finalizeMiddlewareResponse(request, supabaseResponse);
+      return await finalizeMiddlewareResponse(request, supabaseResponse, user);
     }
 
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
-      return await finalizeMiddlewareResponse(request, supabaseResponse);
+      return await finalizeMiddlewareResponse(request, supabaseResponse, user);
     }
     /** Server Actions: let RSC handle auth ? redirect HTML breaks `fetchServerAction` (apiClient fetch patch stack). */
     if (isNextServerActionPost(request)) {
-      return await finalizeMiddlewareResponse(request, supabaseResponse);
+      return await finalizeMiddlewareResponse(request, supabaseResponse, user);
     }
     const loginUrl = browserFacingUrl(
       request,
       "/login",
       `?next=${encodeURIComponent(pathname + request.nextUrl.search)}`,
     );
-    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl));
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, loginUrl), user);
   }
 
   if (user && isForgotPasswordRoute) {
     const integrityUrl = browserFacingUrl(request, "/integrity");
-    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, integrityUrl));
+    return await finalizeMiddlewareResponse(request, redirectWithSupabaseCookies(request, supabaseResponse, integrityUrl), user);
   }
 
   if (user && isUnauthorizedRoute) {
-    return await finalizeMiddlewareResponse(request, supabaseResponse);
+    return await finalizeMiddlewareResponse(request, supabaseResponse, user);
   }
 
   // RULE A0: GLOBAL_ADMIN gate for internal onboarding console
@@ -538,7 +549,7 @@ export async function middleware(request: NextRequest) {
     if (denied) return denied;
   }
 
-  return await finalizeMiddlewareResponse(request, supabaseResponse);
+  return await finalizeMiddlewareResponse(request, supabaseResponse, user);
 }
 
 export const config = {

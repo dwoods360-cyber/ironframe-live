@@ -2,27 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  IRONFRAME_SIMULATION_MODE_COOKIE,
-  IRONFRAME_TENANT_COOKIE,
+  stampWorkspaceCookieClears,
+  WORKSPACE_SCOPE_COOKIE_NAMES,
 } from "@/app/lib/auth/workspaceSessionCookies";
 
 export const SESSION_LOGOUT_PATH = "/api/auth/session-logout";
-
-const WORKSPACE_SCOPE_COOKIES = [IRONFRAME_TENANT_COOKIE, IRONFRAME_SIMULATION_MODE_COOKIE] as const;
-
-function workspaceCookieClearOptions(): {
-  path: string;
-  sameSite: "lax";
-  secure: boolean;
-  maxAge: number;
-} {
-  return {
-    path: "/",
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-  };
-}
 
 export function resolveSessionLogoutNextPath(request: NextRequest): string {
   const raw = request.nextUrl.searchParams.get("next")?.trim();
@@ -32,10 +16,19 @@ export function resolveSessionLogoutNextPath(request: NextRequest): string {
   return raw;
 }
 
-function stampWorkspaceCookieClears(response: NextResponse): void {
-  const options = workspaceCookieClearOptions();
-  for (const name of WORKSPACE_SCOPE_COOKIES) {
-    response.cookies.set(name, "", options);
+function clearSupabaseAuthCookiesFromRequest(request: NextRequest, response: NextResponse): void {
+  const options = {
+    path: "/",
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
+    expires: new Date(0),
+  };
+  for (const { name } of request.cookies.getAll()) {
+    if (name.startsWith("sb-") || WORKSPACE_SCOPE_COOKIE_NAMES.includes(name as (typeof WORKSPACE_SCOPE_COOKIE_NAMES)[number])) {
+      response.cookies.set(name, "", options);
+      response.cookies.delete(name);
+    }
   }
 }
 
@@ -49,7 +42,7 @@ export async function buildSessionLogoutResponse(
 
   let response =
     mode === "redirect"
-      ? NextResponse.redirect(redirectTarget)
+      ? NextResponse.redirect(redirectTarget, 303)
       : NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -67,12 +60,13 @@ export async function buildSessionLogoutResponse(
           });
           response =
             mode === "redirect"
-              ? NextResponse.redirect(redirectTarget)
+              ? NextResponse.redirect(redirectTarget, 303)
               : NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
           stampWorkspaceCookieClears(response);
+          clearSupabaseAuthCookiesFromRequest(request, response);
         },
       },
     });
@@ -81,5 +75,6 @@ export async function buildSessionLogoutResponse(
   }
 
   stampWorkspaceCookieClears(response);
+  clearSupabaseAuthCookiesFromRequest(request, response);
   return response;
 }

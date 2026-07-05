@@ -1,11 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { IRONFRAME_TENANT_COOKIE } from "@/app/lib/auth/dashboardTenantSession";
+import {
+  IRONFRAME_SIMULATION_MODE_COOKIE,
+  IRONFRAME_TENANT_COOKIE,
+} from "@/app/lib/auth/workspaceSessionCookies";
 
 export const SESSION_LOGOUT_PATH = "/api/auth/session-logout";
 
-const WORKSPACE_SCOPE_COOKIES = [IRONFRAME_TENANT_COOKIE, "ironframe-simulation-mode"] as const;
+const WORKSPACE_SCOPE_COOKIES = [IRONFRAME_TENANT_COOKIE, IRONFRAME_SIMULATION_MODE_COOKIE] as const;
 
 function workspaceCookieClearOptions(): {
   path: string;

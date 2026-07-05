@@ -1,9 +1,13 @@
 "use client";
 
-import { SESSION_LOGOUT_PATH } from "@/app/lib/auth/sessionLogoutCore";
+import {
+  IRONFRAME_SIMULATION_MODE_COOKIE,
+  IRONFRAME_TENANT_COOKIE,
+  SESSION_LOGOUT_PATH,
+} from "@/app/lib/auth/workspaceSessionCookies";
 import { resetAllStoresAndTenantScopeCache } from "@/app/utils/purgeClientTenantScope";
 
-const WORKSPACE_SCOPE_COOKIES = ["ironframe-tenant", "ironframe-simulation-mode"] as const;
+const WORKSPACE_SCOPE_COOKIES = [IRONFRAME_TENANT_COOKIE, IRONFRAME_SIMULATION_MODE_COOKIE] as const;
 
 function clearWorkspaceScopeCookiesClient(): void {
   if (typeof document === "undefined") return;

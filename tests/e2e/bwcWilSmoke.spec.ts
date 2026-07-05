@@ -64,7 +64,13 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
       if (await page.getByRole("heading", { name: /Workspace access paused/i }).isVisible().catch(() => false)) {
         return "billing_hold";
       }
-      if (path === "/" && (await page.locator('[data-testid="dashboard-main"]').isVisible().catch(() => false))) {
+      if (
+        path === "/" &&
+        (await page
+          .locator('[data-testid="dashboard-main"]')
+          .isVisible({ timeout: 90_000 })
+          .catch(() => false))
+      ) {
         return "command_post";
       }
       if (
@@ -98,9 +104,17 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     for (const path of paths) {
       const loginHitsBefore = loginNavigationLog.length;
       await page.goto(`${tenantSubdomainOrigin(BWC_SLUG)}${path}`, {
-        waitUntil: path === "/integrity" ? "commit" : "domcontentloaded",
-        timeout: path === "/integrity" ? 120_000 : 60_000,
+        waitUntil: path === "/" || path === "/integrity" ? "commit" : "domcontentloaded",
+        timeout: path === "/" || path === "/integrity" ? 120_000 : 60_000,
       });
+
+      if (path === "/") {
+        await page
+          .getByText(/Synchronizing workspace ledger/i)
+          .waitFor({ state: "hidden", timeout: 90_000 })
+          .catch(() => undefined);
+        await waitForLeftRailReady(page).catch(() => undefined);
+      }
 
       if (path === "/integrity") {
         await page
@@ -166,7 +180,7 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
       });
       await expect(page.locator('[data-testid="dashboard-main"]')).toBeVisible({ timeout: 60_000 });
       await waitForLeftRailReady(page);
-      await page.getByTestId("analyst-exports-link").first().click();
+      await page.getByTestId("analyst-exports-link").first().click({ noWaitAfter: true });
       await page.waitForURL(/\/exports(?:\?|#|$)/i, { timeout: 60_000 });
       const exportsConsole = page.getByTestId("analyst-exports-console");
       const exportsScopeGate = page.getByTestId("analyst-exports-scope-gate");

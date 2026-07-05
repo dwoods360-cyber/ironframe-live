@@ -127,9 +127,14 @@ export async function applySubdomainTenancy(
     request: { headers: requestHeaders },
   });
 
+  // Realign stale cross-tenant cookies only — never stamp when absent (post-logout /login must stay cleared).
   if (hostUuid) {
     const cookieTenant = request.cookies.get(IRONFRAME_TENANT_COOKIE)?.value?.trim();
-    if (cookieTenant !== hostUuid && cookieTenant?.toLowerCase() !== hostSlug) {
+    if (
+      cookieTenant &&
+      cookieTenant !== hostUuid &&
+      cookieTenant.toLowerCase() !== hostSlug
+    ) {
       response.cookies.set(IRONFRAME_TENANT_COOKIE, hostUuid, {
         path: "/",
         sameSite: "lax",

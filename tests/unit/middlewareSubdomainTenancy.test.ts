@@ -42,6 +42,22 @@ describe("applySubdomainTenancy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("does not stamp ironframe-tenant on /login when the cookie is absent (post-logout)", async () => {
+    const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
+    const request = new NextRequest("http://bwc.lvh.me:3000/login", {
+      headers: { host: "bwc.lvh.me:3000" },
+    });
+    const base = NextResponse.next();
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, tenant: { id: "487b37d0-7942-4b6f-a637-274115b06476" } }),
+    }) as unknown as typeof fetch;
+
+    const response = await applySubdomainTenancy(request, base);
+    expect(response.cookies.get("ironframe-tenant")).toBeUndefined();
+  });
+
   it("preserves tenant host when stripping a conflicting path-prefix slug", async () => {
     vi.resetModules();
     vi.doMock("@/app/lib/tenantSubdomain", async (importOriginal) => {

@@ -1,41 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const signOut = vi.fn().mockResolvedValue({ error: null });
 const replace = vi.fn();
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: { signOut },
-  }),
-}));
-
-vi.mock("@/app/utils/purgeClientTenantScope", () => ({
-  resetAllStoresAndTenantScopeCache: vi.fn(),
-}));
 
 describe("performClientSessionLogout", () => {
   beforeEach(() => {
     vi.resetModules();
-    signOut.mockClear();
     replace.mockClear();
-    vi.stubGlobal("location", { replace: replace });
+    vi.stubGlobal("location", { replace: replace, protocol: "https:" });
     document.cookie = "ironframe-tenant=tenant-uuid; path=/";
+    document.cookie = "ironframe-simulation-mode=0; path=/";
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    document.cookie = "ironframe-tenant=; path=/; max-age=0";
+    document.cookie = "ironframe-tenant=; path=/; max-age=0; Secure";
+    document.cookie = "ironframe-simulation-mode=; path=/; max-age=0; Secure";
   });
 
-  it("clears tenant cookie, signs out locally, and hard-redirects to /login", async () => {
+  it("clears workspace cookies client-side and hard-navigates to server logout redirect", async () => {
     const { performClientSessionLogout } = await import(
       "@/app/lib/auth/performClientSessionLogout"
     );
 
-    await performClientSessionLogout();
+    performClientSessionLogout();
 
     expect(document.cookie).not.toContain("ironframe-tenant=tenant-uuid");
-    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
-    expect(replace).toHaveBeenCalledWith("/login");
+    expect(document.cookie).not.toContain("ironframe-simulation-mode=0");
+    expect(replace).toHaveBeenCalledWith("/api/auth/session-logout?next=%2Flogin");
   });
 });

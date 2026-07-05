@@ -241,7 +241,10 @@ export async function middleware(request: NextRequest) {
   // 2. SUPABASE SESSION + PLATFORM GATES
   // ==========================================
   const pathnameRequestHeaders = withPathnameRequestHeaders(request.headers, pathname);
-  const supabaseResponse = await updateSession(request, pathnameRequestHeaders);
+  const isSessionLogoutRoute = pathname.startsWith("/api/auth/session-logout");
+  const supabaseResponse = isSessionLogoutRoute
+    ? NextResponse.next({ request: { headers: pathnameRequestHeaders } })
+    : await updateSession(request, pathnameRequestHeaders);
 
   const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
   const isSessionBootstrapRoute = pathname.startsWith("/api/auth/session-bootstrap");

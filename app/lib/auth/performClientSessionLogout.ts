@@ -1,32 +1,26 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { SESSION_LOGOUT_PATH } from "@/app/lib/auth/sessionLogoutCore";
 import { resetAllStoresAndTenantScopeCache } from "@/app/utils/purgeClientTenantScope";
 
-const IRONFRAME_TENANT_COOKIE = "ironframe-tenant";
-/** Bound local sign-out — never block redirect longer than this on slow networks. */
-const LOGOUT_LOCAL_SIGNOUT_BUDGET_MS = 300;
+const WORKSPACE_SCOPE_COOKIES = ["ironframe-tenant", "ironframe-simulation-mode"] as const;
 
-function clearIronframeTenantCookie(): void {
+function clearWorkspaceScopeCookiesClient(): void {
   if (typeof document === "undefined") return;
-  document.cookie = `${IRONFRAME_TENANT_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  const secure =
+    typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+  for (const name of WORKSPACE_SCOPE_COOKIES) {
+    document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax${secure}`;
+  }
 }
 
 /**
- * Terminate the browser session and hard-navigate to `/login` on the current host.
+ * Terminate the browser session via server logout redirect (Set-Cookie on navigation).
  * Uses `location.replace` so protected dashboard routes cannot be restored via Back.
  */
-export async function performClientSessionLogout(): Promise<void> {
+export function performClientSessionLogout(): void {
   resetAllStoresAndTenantScopeCache();
-  clearIronframeTenantCookie();
-
-  const supabase = createClient();
-  await Promise.race([
-    supabase.auth.signOut({ scope: "local" }),
-    new Promise<void>((resolve) => {
-      window.setTimeout(resolve, LOGOUT_LOCAL_SIGNOUT_BUDGET_MS);
-    }),
-  ]);
-
-  window.location.replace("/login");
+  clearWorkspaceScopeCookiesClient();
+  const next = encodeURIComponent("/login");
+  window.location.replace(`${SESSION_LOGOUT_PATH}?next=${next}`);
 }

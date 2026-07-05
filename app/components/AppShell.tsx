@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import TopNav from "@/app/components/TopNav";
 import AgentInspectShell from "@/app/components/grc/AgentInspectShell";
 import TrainerAgentDrawer from "@/app/components/trainer/TrainerAgentDrawer";
+import InTenantSupportDrawer from "@/app/components/support/InTenantSupportDrawer";
 import VendorHeaderToolbarBridge from "@/app/components/vendor-risk/VendorHeaderToolbarBridge";
 import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { layoutContentShellClass } from "@/app/config/layoutConstants";
@@ -62,6 +63,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <AgentInspectShell />
         <TrainerAgentDrawer />
+        <InTenantSupportDrawer />
         <VendorHeaderToolbarBridge />
       </div>
     );
@@ -102,6 +104,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <AgentInspectShell />
       <TrainerAgentDrawer />
+      <InTenantSupportDrawer />
       <VendorHeaderToolbarBridge />
     </div>
   );

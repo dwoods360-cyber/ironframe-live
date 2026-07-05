@@ -27,6 +27,10 @@ vi.mock("@/app/lib/billing/tenantBillingEntitlement", async (importOriginal) => 
   };
 });
 
+vi.mock("@/app/lib/server/inTenantSupportTelemetry", () => ({
+  buildInTenantSupportTelemetry: vi.fn().mockResolvedValue(null),
+}));
+
 import { POST as handleCustomerServicePost } from "@/app/api/agents/customer-service/route";
 import { POST as handleSalesPost } from "@/app/api/agents/sales/route";
 import { POST as handleTrainerPost } from "@/app/api/agents/trainer/route";

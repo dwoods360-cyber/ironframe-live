@@ -12,6 +12,7 @@ import { useLayoutStore } from "@/app/store/useLayoutStore";
 import CommandPostFreezeControl from "@/app/components/commandPost/CommandPostFreezeControl";
 import GetStartedInlineDocTopNavControls from "@/app/components/onboarding/GetStartedInlineDocTopNavControls";
 import TrainerAgentTopNavTrigger from "@/app/components/trainer/TrainerAgentTopNavTrigger";
+import InTenantSupportTopNavTrigger from "@/app/components/support/InTenantSupportTopNavTrigger";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { useOperatorIdentity } from "@/app/hooks/useOperatorIdentity";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
@@ -205,7 +206,12 @@ export default function TopNav() {
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-[10px] font-bold uppercase text-emerald-400">
-          {!isOrientationReaderOpen ? <TrainerAgentTopNavTrigger /> : null}
+          {!isOrientationReaderOpen ? (
+            <>
+              <InTenantSupportTopNavTrigger />
+              <TrainerAgentTopNavTrigger />
+            </>
+          ) : null}
           <span className="hidden sm:inline">
             {isOrientationReaderOpen ? "ORIENTATION MODE" : "AGENT MANAGER: ONLINE"}
           </span>

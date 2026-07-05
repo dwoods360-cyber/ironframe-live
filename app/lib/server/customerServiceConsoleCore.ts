@@ -3,6 +3,18 @@ import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 
 import { PENDING_DRAFT_TAG } from "@/app/lib/server/approvalQueueCore";
+import {
+  formatInTenantSupportTelemetryForCrm,
+} from "@/app/lib/server/inTenantSupportTelemetry";
+import {
+  SUPPORT_OBJECTIVE_VALUES,
+  supportObjectiveLabel,
+} from "@/app/lib/support/supportIntentObjectives";
+import type {
+  InTenantSupportTelemetry,
+  InTenantSupportTicketInput,
+  InTenantSupportUrgency,
+} from "@/app/types/inTenantSupportTelemetry";
 import { sanitizeAppDocumentContent } from "@/lib/appDocumentSanitizer";
 import prisma from "@/lib/prisma";
 
@@ -115,13 +127,19 @@ export function buildSupportConsolePendingDraftSummary(input: {
   inquiry: string;
   proposedReply: string;
   tenantId: string;
+  telemetry?: InTenantSupportTelemetry | null;
 }): string {
+  const telemetryBlock = input.telemetry
+    ? `\n${formatInTenantSupportTelemetryForCrm(input.telemetry)}\n`
+    : "";
+
   return [
     `${PENDING_DRAFT_TAG} Re: Support console inquiry`,
     "--- Incoming Query ---",
     input.inquiry.trim(),
     "--- Agent Proposed Reply Text ---",
     input.proposedReply.trim(),
+    telemetryBlock,
     "--- Tracking Core ---",
     `Execution Source: agentCustomerServiceConsole | Tenant: ${input.tenantId}`,
   ]
@@ -134,6 +152,7 @@ export async function logPendingSupportConsoleDraft(input: {
   contactId: string;
   inquiry: string;
   proposedReply: string;
+  telemetry?: InTenantSupportTelemetry | null;
 }): Promise<string> {
   const interaction = await prisma.ironboardCrmInteraction.create({
     data: {
@@ -150,3 +169,140 @@ export async function logPendingSupportConsoleDraft(input: {
 
 export const CUSTOMER_SERVICE_QUEUED_MESSAGE =
   "Your inquiry has been queued for operator review. A platform administrator will verify the proposed resolution and follow up shortly.";
+
+export const IN_TENANT_SUPPORT_DISPATCHED_MESSAGE =
+  "Secure support ticket dispatched. Forensic workspace diagnostics are attached for engineering triage.";
+
+const VALID_URGENCIES = new Set<InTenantSupportUrgency>([
+  "ROUTINE",
+  "AUDIT_BLOCKER",
+  "DATA_INTEGRITY",
+]);
+
+export function parseInTenantSupportTicketInput(raw: unknown): InTenantSupportTicketInput | null {
+  if (!raw || typeof raw !== "object") return null;
+  const body = raw as Record<string, unknown>;
+  const urgency = body.urgency;
+  const objective = body.objective;
+  const userNotes = typeof body.userNotes === "string" ? body.userNotes.trim() : "";
+  if (!VALID_URGENCIES.has(urgency as InTenantSupportUrgency)) return null;
+  if (!SUPPORT_OBJECTIVE_VALUES.has(objective as InTenantSupportTicketInput["objective"])) {
+    return null;
+  }
+  if (objective === "OTHER" && !userNotes) return null;
+
+  const context =
+    body.context && typeof body.context === "object"
+      ? (body.context as Record<string, unknown>)
+      : undefined;
+
+  return {
+    urgency: urgency as InTenantSupportUrgency,
+    objective: objective as InTenantSupportTicketInput["objective"],
+    userNotes: userNotes.slice(0, MAX_MESSAGE_CHARS),
+    attachTelemetry: body.attachTelemetry !== false,
+    context: {
+      surface: typeof context?.surface === "string" ? context.surface : undefined,
+      path: typeof context?.path === "string" ? context.path : undefined,
+    },
+    clientTimestamp: typeof body.clientTimestamp === "string" ? body.clientTimestamp : undefined,
+    clientLatencyMs:
+      typeof body.clientLatencyMs === "number" && Number.isFinite(body.clientLatencyMs)
+        ? Math.max(0, Math.round(body.clientLatencyMs))
+        : undefined,
+    frameworkContext:
+      typeof body.frameworkContext === "string" ? body.frameworkContext.slice(0, 128) : undefined,
+  };
+}
+
+export function buildInTenantSupportTicketSummary(input: {
+  ticket: InTenantSupportTicketInput;
+  tenantId: string;
+  telemetry?: InTenantSupportTelemetry | null;
+  proposedReply?: string;
+}): string {
+  const telemetryBlock =
+    input.ticket.attachTelemetry && input.telemetry
+      ? `\n${formatInTenantSupportTelemetryForCrm(input.telemetry)}\n`
+      : "\n--- Forensic Telemetry ---\nOperator opted out of diagnostic attachment.\n";
+
+  const agentBlock = input.proposedReply
+    ? ["--- Agent Proposed Reply Text ---", input.proposedReply.trim()].join("\n")
+    : "--- Agent Proposed Reply Text ---\nEscalated for direct engineering triage (non-routine urgency).";
+
+  return [
+    `${PENDING_DRAFT_TAG} Re: In-tenant support ticket`,
+    `--- Urgency ---`,
+    input.ticket.urgency,
+    "--- Objective ---",
+    `${input.ticket.objective} | ${supportObjectiveLabel(input.ticket.objective)}`,
+    "--- Operator Details ---",
+    input.ticket.userNotes.trim() || "(none — structured objective only)",
+    "--- Route / Framework ---",
+    `framework=${input.ticket.frameworkContext ?? "UNKNOWN"} | path=${input.ticket.context?.path ?? "n/a"} | surface=${input.ticket.context?.surface ?? "n/a"}`,
+    `clientTimestamp=${input.ticket.clientTimestamp ?? "n/a"} | clientLatencyMs=${input.ticket.clientLatencyMs ?? "n/a"}`,
+    agentBlock,
+    telemetryBlock,
+    "--- Tracking Core ---",
+    `Execution Source: inTenantSupportTicket | Tenant: ${input.tenantId}`,
+  ]
+    .join("\n")
+    .slice(0, MAX_DRAFT_SUMMARY_CHARS);
+}
+
+export async function logInTenantSupportTicket(input: {
+  tenantId: string;
+  contactId: string;
+  ticket: InTenantSupportTicketInput;
+  telemetry?: InTenantSupportTelemetry | null;
+  proposedReply?: string;
+}): Promise<string> {
+  const interaction = await prisma.ironboardCrmInteraction.create({
+    data: {
+      id: randomUUID(),
+      tenantId: input.tenantId,
+      contactId: input.contactId,
+      channel: "SYSTEM_AGENT",
+      summary: buildInTenantSupportTicketSummary({
+        ticket: input.ticket,
+        tenantId: input.tenantId,
+        telemetry: input.telemetry,
+        proposedReply: input.proposedReply,
+      }),
+      occurredAt: new Date(),
+    },
+  });
+  return interaction.id;
+}
+
+export async function dispatchInTenantSupportTicket(input: {
+  tenantId: string;
+  ticket: InTenantSupportTicketInput;
+  telemetry?: InTenantSupportTelemetry | null;
+}): Promise<{ interactionId: string; reply: string }> {
+  const contact = await resolveSupportConsoleContact(input.tenantId);
+
+  let proposedReply: string | undefined;
+  if (input.ticket.urgency === "ROUTINE" && resolveCustomerServiceApiKey()) {
+    const inquiry = [
+      `Objective: ${supportObjectiveLabel(input.ticket.objective)}`,
+      input.ticket.userNotes.trim(),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    proposedReply = await synthesizeCustomerServiceConsoleReply(inquiry);
+  }
+
+  const interactionId = await logInTenantSupportTicket({
+    tenantId: input.tenantId,
+    contactId: contact.id,
+    ticket: input.ticket,
+    telemetry: input.ticket.attachTelemetry ? input.telemetry : null,
+    proposedReply,
+  });
+
+  return {
+    interactionId,
+    reply: IN_TENANT_SUPPORT_DISPATCHED_MESSAGE,
+  };
+}

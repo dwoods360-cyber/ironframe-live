@@ -7,7 +7,9 @@ import {
   resolveSupportConsoleContact,
   synthesizeCustomerServiceConsoleReply,
 } from "@/app/lib/server/customerServiceConsoleCore";
+import { buildInTenantSupportTelemetry } from "@/app/lib/server/inTenantSupportTelemetry";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 
 export const dynamic = "force-dynamic";
 
@@ -18,14 +20,14 @@ export async function POST(req: NextRequest) {
       return guard.response;
     }
 
-    let body: { message?: unknown };
+    let body: { message?: unknown; context?: { surface?: unknown; path?: unknown } };
     try {
-      body = (await req.json()) as { message?: unknown };
+      body = (await req.json()) as { message?: unknown; context?: { surface?: unknown; path?: unknown } };
     } catch {
       return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
     }
 
-    const { message } = body;
+    const { message, context } = body;
     if (!message || typeof message !== "string") {
       return NextResponse.json(
         { error: "Invalid payload: 'message' string is required." },
@@ -56,6 +58,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Tenant context unresolved." }, { status: 403 });
     }
 
+    const user = await getSupabaseSessionUser();
+    const telemetry = await buildInTenantSupportTelemetry({
+      tenantUuid,
+      userId: guard.userId ?? user?.id ?? null,
+      userEmail: user?.email ?? null,
+      clientContext: {
+        surface: typeof context?.surface === "string" ? context.surface : undefined,
+        path: typeof context?.path === "string" ? context.path : undefined,
+      },
+    });
+
     const proposedReply = await synthesizeCustomerServiceConsoleReply(trimmedMessage);
     const contact = await resolveSupportConsoleContact(tenantUuid);
     const interactionId = await logPendingSupportConsoleDraft({
@@ -63,12 +76,14 @@ export async function POST(req: NextRequest) {
       contactId: contact.id,
       inquiry: trimmedMessage,
       proposedReply,
+      telemetry,
     });
 
     return NextResponse.json({
       status: "QUEUED",
       interactionId,
       reply: CUSTOMER_SERVICE_QUEUED_MESSAGE,
+      telemetryCaptured: Boolean(telemetry),
     });
   } catch (err: unknown) {
     const details = err instanceof Error ? err.message : "Unknown exception.";

@@ -167,6 +167,7 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
   }, [pathname, setConstitutionalIntegrityState]);
 
   useEffect(() => {
+    if (overlaySuppressed) return;
     void refreshIntegrity();
     const id = window.setInterval(() => {
       void refreshIntegrity();
@@ -179,7 +180,7 @@ export function ConstitutionalIntegrityProvider({ children }: { children: ReactN
       window.clearInterval(id);
       window.removeEventListener("ironframe-tenant-changed", onTenantChanged);
     };
-  }, [refreshIntegrity]);
+  }, [overlaySuppressed, refreshIntegrity]);
 
   const value = useMemo<ConstitutionalIntegrityClientState>(
     () => ({

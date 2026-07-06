@@ -44,6 +44,7 @@ describe("tenantSubdomain", () => {
     expect(pathTenantSlugFromPathname("/integrity")).toBeNull();
     expect(pathTenantSlugFromPathname("/exports")).toBeNull();
     expect(pathTenantSlugFromPathname("/register/sample-token")).toBeNull();
+    expect(pathTenantSlugFromPathname("/boardroom/admin/audit-logs")).toBeNull();
   });
 
   it("parses dynamic client slugs from host labels", () => {

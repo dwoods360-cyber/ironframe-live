@@ -58,6 +58,24 @@ describe("applySubdomainTenancy", () => {
     expect(response.cookies.get("ironframe-tenant")).toBeUndefined();
   });
 
+  it("does not strip /boardroom namespace paths on tenant subdomain hosts", async () => {
+    const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
+    const request = new NextRequest(
+      "http://bwc.ironframegrc.com/boardroom/admin/audit-logs?tenant=bwc",
+      { headers: { host: "bwc.ironframegrc.com" } },
+    );
+    const base = NextResponse.next();
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, tenant: { id: "487b37d0-7942-4b6f-a637-274115b06476" } }),
+    }) as unknown as typeof fetch;
+
+    const response = await applySubdomainTenancy(request, base);
+    expect(response.status).not.toBe(307);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("preserves tenant host when stripping a conflicting path-prefix slug", async () => {
     vi.resetModules();
     vi.doMock("@/app/lib/tenantSubdomain", async (importOriginal) => {

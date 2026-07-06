@@ -29,6 +29,7 @@ export const APP_ROUTE_ROOTS = new Set([
   "evidence",
   "vault",
   "audit",
+  "boardroom",
   "board-report",
   "opsupport",
   "op-support",

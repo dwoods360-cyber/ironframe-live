@@ -81,6 +81,9 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
 
   const vendorsHref = prefix ? `${prefix}/vendors` : "/vendors";
   const supplyChainHref = prefix ? `${prefix}/vendors/supply-chain` : "/vendors/supply-chain";
+  const securityAuditLogsHref = hostTenantSlug
+    ? `/boardroom/admin/audit-logs?tenant=${encodeURIComponent(hostTenantSlug)}`
+    : "/boardroom/admin/audit-logs";
   const showOverflowControls = chipBarMounted && isOverflowing;
 
   const integrityHubChipClass = `${CHIP_CLASS} border px-4 transition-all ${
@@ -240,7 +243,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             ) : null}
             {canViewSecurityAuditLogs ? (
               <Link
-                href="/boardroom/admin/audit-logs"
+                href={securityAuditLogsHref}
                 prefetch={NAV_LINK_PREFETCH}
                 data-testid="header-security-audit-logs-chip"
                 className={`${CHIP_CLASS} border border-zinc-600/70 bg-zinc-950/60 px-4 text-emerald-100 transition-all hover:border-emerald-400 hover:bg-zinc-900/70`}

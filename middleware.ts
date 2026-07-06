@@ -556,6 +556,6 @@ export const config = {
   // Broad matcher ? tenant isolation, Ironguard, API cron gates, and dashboard auth all depend on this.
   // Do not narrow to only /, /login, /integrity or unauthenticated API/dashboard routes would leak.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp3|m4a|wav|ogg)$).*)",
   ],
 };

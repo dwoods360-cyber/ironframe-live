@@ -84,6 +84,9 @@ type AuditIntelligenceProps = {
   layout?: "pane" | "standalone";
 };
 
+/** Cap historical threat title lookups per render wave (avoids fetch storms on large ledgers). */
+const HISTORICAL_THREAT_LOOKUP_CAP = 24;
+
 const ACTION_LABELS: Partial<Record<AuditActionType, string>> = {
   LOGIN: "Login",
   CONFIG_CHANGE: "Config Change",
@@ -1031,6 +1034,7 @@ export default function AuditIntelligence({
   layout = "pane",
 }: AuditIntelligenceProps) {
   const isStandaloneLayout = layout === "standalone";
+  const showEmbeddedTelemetry = !isStandaloneLayout;
   const [searchTerm, setSearchTerm] = useState("");
   const [auditLingerTick, setAuditLingerTick] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<LogEntryItem | null>(null);
@@ -1177,6 +1181,7 @@ export default function AuditIntelligence({
   }, [effectiveServerAuditLogs]);
 
   useEffect(() => {
+    if (isStandaloneLayout) return;
     let cancelled = false;
     const poll = () => {
       void tenantFetch("/api/grc/governance-maturity?recalc=1")
@@ -1196,7 +1201,7 @@ export default function AuditIntelligence({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [tenantFetch]);
+  }, [tenantFetch, isStandaloneLayout]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1311,12 +1316,16 @@ export default function AuditIntelligence({
     [auditLogs, logTypeFilter, industryLower, companyKey, descriptionKeywords.join("|")],
   );
 
-  const clientWithSort = clientFiltered.map((entry) => {
-    const ts = (entry as { timestamp?: string }).timestamp;
-    let ms = ts ? new Date(ts).getTime() : NaN;
-    if (!Number.isFinite(ms)) ms = Date.now();
-    return { ...entry, _sortTime: ms };
-  });
+  const clientWithSort = useMemo(
+    () =>
+      clientFiltered.map((entry) => {
+        const ts = (entry as { timestamp?: string }).timestamp;
+        let ms = ts ? new Date(ts).getTime() : NaN;
+        if (!Number.isFinite(ms)) ms = Date.now();
+        return { ...entry, _sortTime: ms };
+      }),
+    [clientFiltered],
+  );
 
   useEffect(() => {
     const until = auditLingerThreatIdUntil;
@@ -1361,6 +1370,10 @@ export default function AuditIntelligence({
   }, [replayCutoffMs]);
 
   useEffect(() => {
+    if (isStandaloneLayout) {
+      setDiagnosticFeedItems([]);
+      return;
+    }
     const ac = new AbortController();
     const q = focusId
       ? `?limit=100&threatId=${encodeURIComponent(focusId)}`
@@ -1372,7 +1385,7 @@ export default function AuditIntelligence({
       })
       .catch(() => setDiagnosticFeedItems([]));
     return () => ac.abort(ABORT_REASONS.auditIntelUnmount);
-  }, [focusId, effectiveServerAuditLogs]);
+  }, [focusId, effectiveServerAuditLogs, isStandaloneLayout]);
 
   const workNoteFeedItems = useMemo(
     () => buildWorkNoteLogItemsFromThreats(Object.values(threatIndexById), effectiveServerAuditLogs),
@@ -1448,13 +1461,6 @@ export default function AuditIntelligence({
     if (n === 0) {
       return { slice: [] as LogEntryItem[], startIndex: 0, totalHeight: 0 };
     }
-    if (isStandaloneLayout) {
-      return {
-        slice: logsToDisplay,
-        startIndex: 0,
-        totalHeight: n * AUDIT_LOG_ROW_EST_PX,
-      };
-    }
     const effectiveScrollTop = Math.max(0, logScrollTop - logsSectionOffset);
     const start = Math.max(
       0,
@@ -1469,7 +1475,7 @@ export default function AuditIntelligence({
       startIndex: start,
       totalHeight: n * AUDIT_LOG_ROW_EST_PX,
     };
-  }, [isStandaloneLayout, logsToDisplay, logScrollTop, logViewportH, logsSectionOffset]);
+  }, [logsToDisplay, logScrollTop, logViewportH, logsSectionOffset]);
 
   const auditFocusId = focusId;
   const focusedThreat = auditFocusId ? threatIndexById[auditFocusId] : undefined;
@@ -1507,9 +1513,11 @@ export default function AuditIntelligence({
       if (historicalThreatNames[id]) continue;
       unresolvedIds.add(id);
     }
-    unresolvedIds.forEach((id) => {
-      void resolveHistoricalThreatName(id);
-    });
+    Array.from(unresolvedIds)
+      .slice(0, HISTORICAL_THREAT_LOOKUP_CAP)
+      .forEach((id) => {
+        void resolveHistoricalThreatName(id);
+      });
   }, [filteredLogs, threatIndexById, historicalThreatNames, resolveHistoricalThreatName]);
 
   useEffect(() => {
@@ -1602,14 +1610,15 @@ export default function AuditIntelligence({
     >
       <div
         ref={logScrollRef}
-        onScroll={isStandaloneLayout ? undefined : (e) => setLogScrollTop(e.currentTarget.scrollTop)}
+        onScroll={(e) => setLogScrollTop(e.currentTarget.scrollTop)}
         className={
           isStandaloneLayout
-            ? "flex w-full flex-col"
+            ? "custom-scrollbar flex max-h-[min(72vh,720px)] w-full flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
             : "custom-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-gutter:stable]"
         }
         data-testid="audit-ledger-stream"
       >
+      {showEmbeddedTelemetry ? (
       <div className="shrink-0 px-4 pt-4">
       <CarbonPulse />
       <div className="mt-3">
@@ -1641,6 +1650,7 @@ export default function AuditIntelligence({
         </div>
       ) : null}
       </div>
+      ) : null}
       <div className="sticky top-0 z-20 shrink-0 border-b border-slate-800/50 bg-slate-950 px-4 pt-3 pb-2 shadow-[0_10px_24px_rgba(15,23,42,0.88)]">
         <div className="mb-2 flex items-center justify-between gap-2">
           <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-300">

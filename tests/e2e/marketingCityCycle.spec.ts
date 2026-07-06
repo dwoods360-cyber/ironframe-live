@@ -7,34 +7,23 @@ test("marketing city subtitle cycles", async ({ page }) => {
   });
 
   const readActiveCityLine = () =>
-    page.evaluate(() => {
-      const lines = Array.from(
-        document.querySelectorAll<HTMLElement>(".marketing-city-cycle-line"),
-      );
-      const visible = lines
-        .filter((line) => Number(window.getComputedStyle(line).opacity) > 0.5)
-        .map((line) => line.textContent?.trim() ?? "");
-      return visible.join("|");
-    });
+    page.getByTestId("marketing-city-cycle").innerText();
 
-  await expect(page.getByTestId("marketing-city-cycle")).toBeAttached({ timeout: 10_000 });
+  await expect(page.getByTestId("marketing-city-cycle")).toBeVisible({ timeout: 10_000 });
 
   const initial = (await readActiveCityLine()).trim();
-  expect(initial.length).toBeGreaterThan(0);
+  expect(initial).toBe("NEW YORK — LONDON — FRANKFURT");
 
   await page.waitForFunction(
     (start) => {
-      const lines = Array.from(document.querySelectorAll<HTMLElement>(".marketing-city-cycle-line"));
-      const visible = lines
-        .filter((line) => Number(window.getComputedStyle(line).opacity) > 0.5)
-        .map((line) => line.textContent?.trim() ?? "")
-        .join("|");
-      return visible.length > 0 && visible !== start;
+      const el = document.querySelector("[data-testid='marketing-city-cycle']");
+      const text = el?.textContent?.trim() ?? "";
+      return text.length > 0 && text !== start;
     },
     initial,
-    { timeout: 12_000 },
+    { timeout: 8_000 },
   );
 
   const after = (await readActiveCityLine()).trim();
-  expect(after).not.toBe(initial);
+  expect(after).toBe("WASHINGTON DC — TEL AVIV — OTTAWA");
 });

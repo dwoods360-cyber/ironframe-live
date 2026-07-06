@@ -14,8 +14,9 @@
 |------|--------|
 | **Script path (this file)** | `docs/user-manuals/get-started-orientation-audio-script.md` |
 | **Regenerate** | `npm run docs:orientation-audio-script` |
-| **Save your audio here** | `public/docs/training/assets/get-started-orientation.mp3` |
-| **Env var (after export)** | `NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/docs/training/assets/get-started-orientation.mp3` |
+| **Save your audio here** | `public/training-audio/get-started-orientation.mp3` |
+| **Regenerate audio** | `npm run synthesize:get-started-audio` |
+| **Env var (after export)** | `NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/training-audio/get-started-orientation.mp3` |
 | **Portal surface** | `/get-started` — Orientation walkthrough panel (audio player) |
 
 **Tone:** Calm briefing. Short sentences. No sales language. Assume the listener is already signed in.
@@ -39,7 +40,7 @@ Use **CapCut Desktop** (recommended) or mobile.
 3. Voice: calm, neutral English.
 4. At each **Pause one/two seconds** line, add 1–2 s silence on the timeline — do not paste pause text into TTS.
 5. Export MP3, or MP4 then `ffmpeg -i export.mp4 -vn -acodec libmp3lame -q:a 2 get-started-orientation.mp3`
-6. Save to `public/docs/training/assets/get-started-orientation.mp3`
+6. Save to `public/training-audio/get-started-orientation.mp3` (or run `npm run synthesize:get-started-audio`)
 
 ---
 
@@ -139,8 +140,8 @@ source-file: docs/end-users/onboarding.md
 
 - [ ] Regenerated via `npm run docs:orientation-audio-script` after quickstart or checklist changes
 - [ ] Script contains no Bucket A invite or legal sign-off copy
-- [ ] Audio file at `public/docs/training/assets/get-started-orientation.mp3`
-- [ ] `.env.local` sets `NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/docs/training/assets/get-started-orientation.mp3`
+- [ ] Audio file at `public/training-audio/get-started-orientation.mp3`
+- [ ] `.env.local` sets `NEXT_PUBLIC_GET_STARTED_VIDEO_URL=/training-audio/get-started-orientation.mp3`
 - [ ] Hard refresh `/get-started` — audio control appears
 
 source-file: docs/user-manuals/quickstart.md

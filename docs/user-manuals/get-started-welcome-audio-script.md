@@ -14,8 +14,9 @@
 |------|--------|
 | **Script path (this file)** | `docs/user-manuals/get-started-welcome-audio-script.md` |
 | **Regenerate** | `npm run docs:welcome-audio-script` |
-| **Save your audio here** | `public/docs/training/assets/get-started-welcome.mp3` |
-| **Env var (optional override)** | `NEXT_PUBLIC_GET_STARTED_WELCOME_AUDIO_URL=/docs/training/assets/get-started-welcome.mp3` |
+| **Save your audio here** | `public/training-audio/get-started-welcome.mp3` |
+| **Regenerate audio** | `npm run synthesize:get-started-audio` |
+| **Env var (optional override)** | `NEXT_PUBLIC_GET_STARTED_WELCOME_AUDIO_URL=/training-audio/get-started-welcome.mp3` |
 | **Portal surface** | `/get-started` — welcome audio plays before step narration |
 
 **Tone:** Warm, brief, operator-facing. One shared Ironframe welcome for all tenants — no company names in audio.
@@ -51,7 +52,7 @@ source-file: docs/end-users/onboarding.md
 ## Verification before publish
 
 - [ ] Regenerated via `npm run docs:welcome-audio-script`
-- [ ] Audio file at `public/docs/training/assets/get-started-welcome.mp3`
+- [ ] Audio file at `public/training-audio/get-started-welcome.mp3`
 - [ ] Hard refresh `/get-started` on a fresh browser profile — welcome plays once before step audio
 
 source-file: docs/end-users/onboarding.md

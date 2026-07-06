@@ -122,6 +122,7 @@ export default function GetStartedPortalClient({
   const [stepAudioAutoplay, setStepAudioAutoplay] = useState(true);
   const [stepAudioPlaying, setStepAudioPlaying] = useState(false);
   const [welcomeAudioPlaying, setWelcomeAudioPlaying] = useState(false);
+  const [welcomeAutoplayBlocked, setWelcomeAutoplayBlocked] = useState(false);
   const [welcomePhaseDone, setWelcomePhaseDone] = useState(false);
   const [aleBaselineCents, setAleBaselineCents] = useState(initialAleBaselineCents);
   const [aleDraftDollars, setAleDraftDollars] = useState("");
@@ -295,9 +296,11 @@ export default function GetStartedPortalClient({
     audio.load();
     try {
       await audio.play();
+      setWelcomeAutoplayBlocked(false);
       setWelcomeAudioPlaying(true);
     } catch {
       setWelcomeAudioPlaying(false);
+      setWelcomeAutoplayBlocked(true);
       setWelcomePhaseDone(true);
     }
   }, [welcomeAudioSrc]);
@@ -748,6 +751,11 @@ export default function GetStartedPortalClient({
             <p className="mt-1 text-xs leading-relaxed text-slate-300">
               A short welcome message plays once before guided training narration begins.
             </p>
+            {welcomeAutoplayBlocked ? (
+              <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+                Your browser blocked automatic playback. Tap replay below to hear the welcome message.
+              </p>
+            ) : null}
             <audio
               ref={welcomeAudioRef}
               preload="metadata"

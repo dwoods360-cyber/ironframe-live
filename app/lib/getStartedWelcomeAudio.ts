@@ -1,4 +1,5 @@
-const DEFAULT_WELCOME_AUDIO_PATH = "/docs/training/assets/get-started-welcome.mp3";
+/** Served from `public/training-audio/` — must not live under `/docs/*` (App Router intercepts that prefix). */
+const DEFAULT_WELCOME_AUDIO_PATH = "/training-audio/get-started-welcome.mp3";
 
 export const GET_STARTED_WELCOME_PLAYED_KEY = "ironframe-get-started-welcome-played-v1";
 

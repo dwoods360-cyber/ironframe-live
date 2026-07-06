@@ -42,6 +42,26 @@ describe("applySubdomainTenancy", () => {
     expect(response.headers.get("location")).toBeNull();
   });
 
+  it("preserves auth redirect on tenant subdomain hosts", async () => {
+    const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
+    const request = new NextRequest("http://bwc.ironframegrc.com/reports/audit-trail", {
+      headers: { host: "bwc.ironframegrc.com" },
+    });
+    const loginUrl = new URL(
+      "http://bwc.ironframegrc.com/login?next=%2Freports%2Faudit-trail",
+    );
+    const base = NextResponse.redirect(loginUrl);
+
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, tenant: { id: "487b37d0-7942-4b6f-a637-274115b06476" } }),
+    }) as unknown as typeof fetch;
+
+    const response = await applySubdomainTenancy(request, base);
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(loginUrl.toString());
+  });
+
   it("does not stamp ironframe-tenant on /login when the cookie is absent (post-logout)", async () => {
     const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
     const request = new NextRequest("http://bwc.lvh.me:3000/login", {

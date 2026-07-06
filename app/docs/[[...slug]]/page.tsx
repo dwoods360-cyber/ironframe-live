@@ -23,6 +23,10 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Documentation | Ironframe",
   description: "Ironframe product, technical, and QA documentation hub.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 interface DocsPageProps {

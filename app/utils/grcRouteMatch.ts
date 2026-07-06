@@ -119,12 +119,20 @@ export function buildHeaderRouteMatrix(
   };
 }
 
-/** Guest-readable marketing, pricing, and documentation surfaces (no session required). */
+/** Guest-readable marketing surfaces (no session required). Product docs and pricing require login. */
 export function isPublicRoute(pathname: string): boolean {
-  if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) return true;
+  return false;
+}
+
+/** Product documentation, pricing, and strategic briefings — authenticated operators only. */
+export function isAuthenticatedProductSurfacePath(pathname: string): boolean {
+  if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
+  if (pathname === "/api/docs/download-protocol") return true;
+  if (pathname === "/api/docs/download-matrix") return true;
+  if (pathname.startsWith("/api/docs/hub-asset/")) return true;
   return false;
 }
 
@@ -186,7 +194,6 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
 export function isPublicProspectOnboardingPath(pathname: string): boolean {
   if (
     pathname === "/marketing" ||
-    pathname === "/pricing" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/sales-agent-portal"

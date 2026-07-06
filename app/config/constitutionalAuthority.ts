@@ -3,15 +3,17 @@
  * User_00 is the operational workforce; only SYSTEM_OWNER_ID may submit the override key.
  */
 
+import { IRONFRAME_PLATFORM_GLOBAL_ADMIN_EMAIL } from "@/config/platformSecurity";
+
 /** Canonical GRC workforce operator (acknowledge / neutralize / attestations). */
 export const USER_00_WORKFORCE_ID = "User_00" as const;
 
 /**
  * Human authority permitted to authorize constitutional emergency override.
- * Set `SYSTEM_OWNER_ID` to the Supabase user UUID or email of the platform owner.
+ * Defaults to the platform GLOBAL_ADMIN email; override with SYSTEM_OWNER_ID env (UUID or email).
  */
 export const SYSTEM_OWNER_ID = (
-  process.env.SYSTEM_OWNER_ID?.trim() || "SYSTEM_OWNER"
+  process.env.SYSTEM_OWNER_ID?.trim() || IRONFRAME_PLATFORM_GLOBAL_ADMIN_EMAIL
 ).trim();
 
 export type ConstitutionalOperatorAuthority = "workforce" | "system_owner";

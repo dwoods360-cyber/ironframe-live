@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
+
 const UNAUTH_DMZ =
   "Unauthorized: DMZ disposition requires an authenticated operator. Sign in with Supabase, set cookie ironframe-operator-id, or set DMZ_DISPOSITION_OPERATOR_ID.";
 
@@ -74,7 +76,7 @@ export function userEligibleForRemoteAccessToggle(user: User): boolean {
     return true;
   }
   const email = user.email?.trim().toLowerCase();
-  if (email && remoteAccessAdminEmailAllowlist().includes(email)) {
+  if (email && (isPlatformGlobalAdminEmail(email) || remoteAccessAdminEmailAllowlist().includes(email))) {
     return true;
   }
   return false;

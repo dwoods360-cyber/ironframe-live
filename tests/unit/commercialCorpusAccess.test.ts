@@ -49,18 +49,23 @@ describe("resolveCommercialCorpusGate", () => {
     vi.mocked(getScopedTenantUuidFromCookies).mockResolvedValue("tenant-uuid-1");
   });
 
-  it("returns public_publisher for technical docs", async () => {
-    await expect(
-      resolveCommercialCorpusGate("LEVEL_2", "/docs/technical/foo"),
-    ).resolves.toEqual({ status: "public_publisher" });
-  });
-
-  it("returns public_publisher for guest operator docs on /docs reader", async () => {
+  it("returns unauthenticated for guest readers", async () => {
     vi.mocked(getSupabaseSessionUser).mockResolvedValue(null);
 
     await expect(
-      resolveCommercialCorpusGate("LEVEL_1", "/docs/user-manuals/quickstart"),
-    ).resolves.toEqual({ status: "public_publisher" });
+      resolveCommercialCorpusGate("LEVEL_2", "/docs/technical/foo"),
+    ).resolves.toEqual({
+      status: "unauthenticated",
+      loginNextPath: "/docs/technical/foo",
+    });
+  });
+
+  it("allows authenticated technical docs without entitlement", async () => {
+    vi.mocked(getSupabaseSessionUser).mockResolvedValue({ id: "user-1" } as never);
+
+    await expect(
+      resolveCommercialCorpusGate("LEVEL_2", "/docs/technical/foo"),
+    ).resolves.toEqual({ status: "allowed" });
   });
 
   it("returns billing_hold for pending tenants", async () => {

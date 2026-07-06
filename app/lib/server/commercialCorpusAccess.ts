@@ -13,7 +13,6 @@ import {
 
 export type CommercialCorpusGateResult =
   | { status: "allowed" }
-  | { status: "public_publisher" }
   | { status: "unauthenticated"; loginNextPath: string }
   | { status: "billing_hold"; billingStatus: string };
 
@@ -21,28 +20,18 @@ export function requiresCommercialCorpusEntitlement(readingLevel: string): boole
   return isOperatorFacingReadingLevel(readingLevel);
 }
 
-/** Public /docs reader — operator manuals remain guest-readable (Playwright + prospect hub). */
-function isPublicDocumentationReaderPath(loginNextPath: string): boolean {
-  const path = loginNextPath.trim();
-  return path === "/docs/README" || path.startsWith("/docs/");
-}
-
 export async function resolveCommercialCorpusGate(
   readingLevel: string,
   loginNextPath: string,
 ): Promise<CommercialCorpusGateResult> {
-  if (!requiresCommercialCorpusEntitlement(readingLevel)) {
-    return { status: "public_publisher" };
-  }
-
   const user = await getSupabaseSessionUser();
 
-  if (isPublicDocumentationReaderPath(loginNextPath)) {
-    if (!user) {
-      return { status: "public_publisher" };
-    }
-  } else if (!user) {
+  if (!user) {
     return { status: "unauthenticated", loginNextPath };
+  }
+
+  if (!requiresCommercialCorpusEntitlement(readingLevel)) {
+    return { status: "allowed" };
   }
 
   const platformAdmin = await canUsePlatformAdminTools();

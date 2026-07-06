@@ -2,6 +2,7 @@ import "server-only";
 
 import { UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
 import { getSupabaseSessionUser, userEligibleForRemoteAccessToggle } from "@/app/utils/serverAuth";
 import type { User } from "@supabase/supabase-js";
@@ -27,6 +28,9 @@ export async function isPlatformAdministratorIdentity(
   if (!uid) return false;
 
   const stubUser = minimalUserForElevation(uid, email);
+  if (isPlatformGlobalAdminEmail(email)) {
+    return true;
+  }
   if (userEligibleForRemoteAccessToggle(stubUser) || isDevConstitutionalAuthorityUser(stubUser)) {
     return true;
   }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buildHeaderRouteMatrix,
+  isAuthenticatedProductSurfacePath,
   isDashboardRouteGroupPath,
   isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
+  isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
   isReportsPath,
@@ -72,7 +74,23 @@ describe("grcRouteMatch", () => {
     expect(isIronframeSaaSAppPath("/", { hostTenantSlug: "bwc" })).toBe(true);
     expect(isIronframeSaaSAppPath("/", { authenticated: true })).toBe(true);
     expect(isIronframeSaaSAppPath("/docs/training/quickstart", { authenticated: true })).toBe(true);
-    expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(false);
+    expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(true);
+  });
+
+  it("keeps marketing public while gating product docs and pricing", () => {
+    expect(isPublicRoute("/marketing")).toBe(true);
+    expect(isPublicRoute("/docs/TAS.md")).toBe(false);
+    expect(isPublicRoute("/pricing")).toBe(false);
+    expect(isPublicRoute("/governance-frame/briefing")).toBe(false);
+  });
+
+  it("marks authenticated product surfaces for middleware and audits", () => {
+    expect(isAuthenticatedProductSurfacePath("/docs/competitive-landscape.md")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/pricing")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/governance-frame/q1")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/api/docs/download-protocol")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/api/docs/hub-asset/product/foo.html")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/marketing")).toBe(false);
   });
 
   it("builds memoized header route matrix for tenant vendors and audit trail", () => {

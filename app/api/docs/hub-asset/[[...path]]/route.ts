@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+import { requireSessionForDocumentationApi } from "@/app/lib/auth/requireSessionApi";
+
 /** FS-backed docs ingress — must stay literal for Next.js static analysis (see docsRouteRuntime.ts). */
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,9 @@ export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ path?: string[] }> },
 ) {
+  const denied = await requireSessionForDocumentationApi();
+  if (denied) return denied;
+
   const { path: segments } = await context.params;
   if (!segments?.length) {
     return new NextResponse("Hub asset path required.", { status: 400 });

@@ -9,12 +9,16 @@ Outputs:
 Source scripts:
   docs/user-manuals/get-started-welcome-audio-script.md
   docs/user-manuals/get-started-orientation-audio-script.md
+
+Pause handling:
+  - Script "Pause N seconds." production notes must never be spoken.
+  - <break time="Ns"/> is SSML silence only (requires <speak> wrapper).
 """
 
 from __future__ import annotations
 
 import asyncio
-import sys
+import re
 from pathlib import Path
 
 import edge_tts
@@ -24,7 +28,9 @@ OUT_DIR = ROOT / "public" / "training-audio"
 STEPS_DIR = OUT_DIR / "steps"
 VOICE = "en-US-AriaNeural"
 RATE = "-5%"
+SSML_NS = "http://www.w3.org/2001/10/synthesis"
 
+# Spoken copy only — pauses via SSML <break>, never "Pause N seconds." prose.
 WELCOME_TEXT = """
 Welcome to Ironframe. Your workspace is now active. You have successfully signed in as an operator.
 <break time="2s"/>
@@ -113,10 +119,39 @@ Exports are scoped to your active workspace and named for your tenant key.
 """.strip(),
 }
 
+_PAUSE_LINE = re.compile(
+    r"^\s*Pause\s+(?:one|two|three|\d+)\s+seconds?\.?\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+_BREAK_TAG = re.compile(r"<break\s+time=\"\d+s\"\s*/>", re.IGNORECASE)
+
+
+def strip_spoken_pause_lines(text: str) -> str:
+    """Remove 'Pause N seconds.' script directions — never spoken in TTS."""
+    cleaned = _PAUSE_LINE.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+
+def to_ssml(spoken: str) -> str:
+    """Wrap narration in SSML so <break> renders as silence, not spoken text."""
+    body = strip_spoken_pause_lines(spoken)
+    if body.startswith("<speak"):
+        return body
+    return (
+        f'<speak version="1.0" xmlns="{SSML_NS}" xml:lang="en-US">'
+        f"{body}</speak>"
+    )
+
 
 async def synthesize(text: str, output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
-    communicate = edge_tts.Communicate(text, VOICE, rate=RATE)
+    ssml = to_ssml(text)
+    if not _BREAK_TAG.search(ssml) and "<break" not in ssml.lower():
+        # No pauses — plain text avoids SSML parser overhead.
+        payload = strip_spoken_pause_lines(text)
+    else:
+        payload = ssml
+    communicate = edge_tts.Communicate(payload, VOICE, rate=RATE)
     await communicate.save(str(output))
     size = output.stat().st_size
     print(f"wrote {output.relative_to(ROOT)} ({size:,} bytes)")

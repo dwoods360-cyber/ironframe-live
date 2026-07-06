@@ -143,6 +143,7 @@ export function isAuthenticatedProductSurfacePath(pathname: string): boolean {
  */
 export function isPublicCloudIngressPath(pathname: string): boolean {
   if (pathname === "/") return true;
+  if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return true;
   if (isPublicRoute(pathname)) return true;
   if (pathname.startsWith("/api/auth/callback")) return true;
   if (isAuthPublicPath(pathname)) return true;

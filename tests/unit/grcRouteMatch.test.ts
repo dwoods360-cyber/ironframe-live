@@ -5,6 +5,7 @@ import {
   isDashboardRouteGroupPath,
   isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
+  isPublicCloudIngressPath,
   isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -75,6 +76,11 @@ describe("grcRouteMatch", () => {
     expect(isIronframeSaaSAppPath("/", { authenticated: true })).toBe(true);
     expect(isIronframeSaaSAppPath("/docs/training/quickstart", { authenticated: true })).toBe(true);
     expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(true);
+  });
+
+  it("allows robots.txt through public cloud ingress", () => {
+    expect(isPublicCloudIngressPath("/robots.txt")).toBe(true);
+    expect(isPublicCloudIngressPath("/sitemap.xml")).toBe(true);
   });
 
   it("keeps marketing public while gating product docs and pricing", () => {

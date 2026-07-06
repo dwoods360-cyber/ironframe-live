@@ -92,4 +92,18 @@ test.describe("Reports audit trail responsiveness", () => {
     await search.fill("Stress audit row 42");
     await expect(search).toHaveValue("Stress audit row 42");
   });
+
+  test("header nav leaves /reports/audit-trail without opening a ledger row", async ({ page }) => {
+    const origin = tenantSubdomainOrigin(BWC_SLUG);
+
+    await page.goto(`${origin}/reports/audit-trail`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+
+    await expect(page.getByTestId("reports-audit-trail-page")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByTestId("header-integrity-hub-chip").click();
+    await expect(page).toHaveURL(`${origin}/integrity`, { timeout: 20_000 });
+  });
 });

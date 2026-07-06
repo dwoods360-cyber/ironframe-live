@@ -2,7 +2,7 @@
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
 ### System Architecture: Control-First Modular Agent Coordination Framework
-### Operational Date: 2026-06-19
+### Operational Date: 2026-07-06
 ### Delta Source: `daily_code_diff.txt` (24-hour git window — Writer Narrative Architect mandate)
 
 ---
@@ -31,7 +31,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta compacts `.cursorrules` from the legacy 204-line governance protocol into a 43-line auto-completion constraint sheet — Prisma import discipline (`import prisma from "@/lib/prisma"`), test file locations (`tests/unit/*.test.ts` for Next.js, `Ironboard/src/tests/*.test.ts` for workforce queues), CRM field alignment (`fullName`, interaction `channel`), BigInt cent mandate, `@google/genai` temperature **0.0**, prospect pool tenant isolation, and customer service LEVEL_1 doc grounding remain constitutionally locked. The **IronBoard Core Telemetry Bridge** requires every `POST /api/query` on port **8082** to hydrate live Ironframe shared context from `GET /api/board/shared-context` on port **3000** before LLM synthesis — fail-closed HTTP **502** with `CORE_TELEMETRY_DISCONNECTED` when the bridge cannot reach tenant-scoped telemetry. Founding board personas (CEO, CFO, Compliance, Legal) now delegate synthesis to `generateBoardAgentAssessment` in `boardAgentLlm.ts` with `formatBoardStateSummary` anchoring `financialProjectionsCents` as whole-integer cent strings. The **Hardened Governance Layers** prompt block (`buildHardenedGovernanceLayers`) enforces a unidirectional read-only diode: the 17-agent boardroom advises from live JSON but holds zero write permissions to production databases. Public Governance Frame briefings must cite `financials.display.*.baselineFormatted` strings verbatim — never raw internal BigInt cent integers. Today's delta wires the **Documentation Brief one-way ingress**: Ironframe emits `documentationBrief` inside `GET /api/board/shared-context`; IronBoard Trainer (`board-trainer`) and Writer (`board-writer`) personas consume it exclusively via expanded `knowledge.ts` pipeline (`pushAppDocumentToIronframe`, `publishTrainerCorpus`, `publishWriterCorpus`) — zero write-back to port **3000** production stores except via bearer-gated `POST /api/documentation/execute`. Executive documentation chapter loop (`runExecutiveDocumentationCommand`) now fails closed when `fetchIronframeDocumentationBrief` returns no brief.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta (2026-07-06) refactors authenticated operator support from an inline chat console into a **context-aware in-tenant support envelope** — forensic workspace telemetry auto-attaches to every ticket dispatched through `POST /api/support/in-tenant-ticket`, with Golden Path–aligned objective selection (`supportIntentObjectives.ts`) and route-derived framework context (`resolveSupportFrameworkContext.ts`). The **Request engineering help** drawer mounts globally from TopNav via `InTenantSupportTopNavTrigger` and `InTenantSupportDrawer` inside `AppShell.tsx`; the legacy `/dashboard/support` full-page chat UI is replaced by `InTenantSupportModal` embedding the same ticket form. **Workspace settings** surface at `/settings/workspace` with RBAC-gated ALE baseline and company profile edits (`WORKSPACE_PROFILE_EDITOR_ROLES`: GRC_MANAGER and CISO only) — all ALE persistence remains BigInt integer cents via `updateWorkspaceAleBaselineSettingsAction` with production `AuditLog` entries (`WORKSPACE_ALE_BASELINE_UPDATED`, `WORKSPACE_COMPANY_PROFILE_UPDATED`). **Session logout hardening** centralizes cookie termination in `buildSessionLogoutResponse` at `GET|POST /api/auth/session-logout` — middleware `finalizeMiddlewareResponse` stamps `stampWorkspaceCookieClears` when unauthenticated users land on auth public paths or redirect to `/login`; subdomain tenancy no longer re-stamps `ironframe-tenant` when the cookie is absent post-logout. Ironguard shadow-plane cookie persistence skips public constitutional sentinel paths (`isPublicConstitutionalSentinelPath`). Constitutional integrity polling pauses when `overlaySuppressed` is true in `ConstitutionalIntegrityProvider`. Prisma import discipline, BigInt cent mandate, `@google/genai` temperature **0.0**, prospect pool tenant isolation, and customer service LEVEL_1 doc grounding remain constitutionally locked from prior governance cycles.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -54,7 +54,8 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
   * **Defense (CMMC L3 anchor):** **1600000000** cents (sixteen million United States dollars)
   * **Display conversion only:** `const dollars = Number(aleBaselineCents) / 100` — never persist floats.
   * **Today's de-classification mandate:** IronBoard public briefing synthesis must never emit raw BigInt cent integers in Governance Frame copy. Internal storage remains BIGINT cents exclusively; external-facing text uses Ironframe-precomputed `financials.display.sovereignPool.*.baselineFormatted` and `currentExposureFormatted` strings. Grounded sales outreach (`generateGroundedPitch`) may cite **BigInt numeric precision** as a value proposition in engineer-to-engineer copy — that is marketing language, not a persistence path. Market prospect `aiFitnessScore` is an integer ICP tier score (region + compliance pressure + funding + compliance-hire signals) — not USD cents.
-  * **Ironbloom physical telemetry gate (2026-06-19):** `recordSustainabilityImpact` no longer assigns synthetic kWh from severity tiers (`isHighSeverity` removed). Mitigated value cents derive exclusively from `parseThreatIngestionTelemetry(threat.ingestionDetails)` — unresolved physical payloads return `no_physical_telemetry` without persisting float or guessed kWh. `resolveDashboardMitigatedValueCents` removed `IRONBLOOM_PULSE_REFERENCE_KWH` forensic fallback — dashboard hero reads sealed tenant physical ledger via `aggregateTenantKwhAverted` and `findLatestThreatPhysicalTelemetry` before reporting **0** cents.
+  * **In-tenant support telemetry display (2026-07-06):** `InTenantSupportContextPanel` renders `profileScope.aleBaselineCents` as a stringified BigInt cent value in the diagnostics envelope — this is operator-facing forensic context inside authenticated tenant scope, not public Governance Frame copy. CRM ticket summaries via `formatInTenantSupportTelemetryForCrm` embed `ALE=${telemetry.profileScope.aleBaselineCents}` for engineering triage. `WorkspaceSettingsClient` displays current ALE using `formatCentsToAccountingUSD(BigInt(aleBaseline))` with explicit copy **stored as BigInt cents**; draft input accepts USD display strings but `updateWorkspaceAleBaselineSettingsAction` persists integer cents only.
+  * **Ironbloom physical telemetry gate (2026-06-19, unchanged):** `recordSustainabilityImpact` no longer assigns synthetic kWh from severity tiers (`isHighSeverity` removed). Mitigated value cents derive exclusively from `parseThreatIngestionTelemetry(threat.ingestionDetails)` — unresolved physical payloads return `no_physical_telemetry` without persisting float or guessed kWh. `resolveDashboardMitigatedValueCents` removed `IRONBLOOM_PULSE_REFERENCE_KWH` forensic fallback — dashboard hero reads sealed tenant physical ledger via `aggregateTenantKwhAverted` and `findLatestThreatPhysicalTelemetry` before reporting **0** cents.
   * **Constitutional seed baselines unchanged:** Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents remain the Irontrust verification anchors in `financialIngressInvariant.test.ts` and `verifyCanonicalEnterpriseBaseline`.
 
 * **Mandate 2: Controlled Structural Amendments:** You are strictly forbidden from modifying layout parameters, data ingestion targets, or background agent structures silently. Any alteration requires a formal **TAS Amendment Proposal** routed to the Product Owner. The **Dynamic Discovery Mandate** on IronBoard now permits only **registered canonical responses** in `orchestrator/routing.ts` (for example sales-lead domain boundary text). All other boardroom answers must cite tool receipts.
@@ -64,6 +65,10 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
 * **Mandate 4: Absolute Tenant Isolation Enforcement:** Cross-tenant memory bleed is a critical security failure. Row-Level Security (RLS) constraints strictly isolate customer boundaries. You are completely forbidden from attempting to extract database rows from a separate company profile while logged into another. The dashboard gate (`resolveDashboardAccess`) binds workspace UUIDs exclusively from cookie scope or the operator's own `user_role_assignments` row — never from guessed tenant IDs.
 
 * **Mandate 5: Public Conversion Perimeter & Customer Service Documentation Grounding:** All unauthenticated landing traffic (sales slide-over gateway, `/sales-agent-portal`, `POST /api/agents/sales`) must route to the prospect pool tenant UUID via `process.env.IRONFRAME_PROSPECT_POOL_TENANT_UUID` or fallback **`tenant_prospect_pool_01`** — never into authenticated customer workspaces. The customer service agent (`POST /api/agents/customer-service`) must ground exclusively against `app_documents` rows where `readingLevel: "LEVEL_1"`. Ironguard tenant validation runs before any documentation pull; fail closed with HTTP **403** when perimeter validation drops. All automated GRC reasoning nodes, sales plays, and customer service workers run at **`temperature: 0.0`** with no emojis or creative flourishes in production copy.
+
+* **Mandate 6: In-Tenant Support Forensic Attachment & Urgency Gates:** Authenticated support tickets dispatched through `POST /api/support/in-tenant-ticket` must capture tenant-scoped telemetry via `buildInTenantSupportTelemetry` when `attachTelemetry` is true. Urgency levels **`AUDIT_BLOCKER`** and **`DATA_INTEGRITY`** require diagnostic attachment — API returns HTTP **400** with **Diagnostic telemetry attachment is required for this urgency level** when `attachTelemetry` is false. Telemetry includes `aleBaselineCents` as stringified BigInt, billing export entitlement, Ironquery export scope readiness, 24-hour Ironguard violation count, and diagnostic abort count — never cross-tenant bleed. Shadow-plane self-test diagnostics remain in `SimulationDiagnosticLog` only per TAS Section 4.3; production support telemetry reads production tables exclusively.
+
+* **Mandate 7: Workspace Profile Edit RBAC:** ALE baseline and primary company profile mutations require **`GRC_MANAGER`** or **`CISO`** role on the active tenant via `canEditWorkspaceProfile`. Read-only operators may view `/settings/workspace` but cannot invoke `updateWorkspaceAleBaselineSettingsAction` or `syncCompanyProfileSettingsAction`. All successful edits write production `AuditLog` rows with `isSimulation: false` through `logWorkspaceProfileAudit` — never `SimulationDiagnosticLog`.
 
 ---
 
@@ -75,7 +80,19 @@ The platform interface scales fluidly in sync with your window size using a fixe
 * **The Center Panel (Workspace Canvas) [48% Screen Width]:** Contains the primary navigation path tabs, the horizontal GRC metric rows, and the large workflow control blocks.
 * **The Right Panel (Audit Column) [30% Screen Width]:** Houses the **Sustainability Pulse** panel widget and the long, vertically extending **Live Audit Ledger Stream** terminal layout box.
 
-### Layout Refactor Notes (2026-06-19 Delta)
+### Layout Refactor Notes (2026-07-06 Delta)
+
+Today's delta introduces the **in-tenant support drawer plane** and **workspace settings surface** without altering the constitutional 22/48/30 tripane geometry:
+
+* **TopNav Support trigger:** `InTenantSupportTopNavTrigger` renders a **Support** button (min-height **2.75rem** / 44px touch target) to the left of `TrainerAgentTopNavTrigger` when the operator is authenticated, not a guest, and not on auth public paths. Clicking toggles `InTenantSupportDrawer` via `useInTenantSupportDrawerStore`.
+* **Global support drawer:** `InTenantSupportDrawer` portals to `document.body` with fixed right panel width `min(100vw, 420px)`, slide-in animation, Escape key dismiss, and backdrop click close. Top offset adapts for demo sandbox, simulation mode, and Get Started orientation reader states using `LAYOUT_AGENT_INSPECT_DRAWER_TOP_CLASS` constants.
+* **Contextual CTAs:** `RequestEngineeringHelpTrigger` opens the drawer with optional preset urgency (`ROUTINE`, `AUDIT_BLOCKER`, `DATA_INTEGRITY`) and surface string (for example `export-scope` on Ironquery export failures).
+* **Support route simplification:** `/dashboard/support` no longer hosts inline chat — it renders `InTenantSupportModal` with instructional copy directing operators to use TopNav **Support** from any cockpit route.
+* **Workspace settings route:** `/settings/workspace` — standalone scroll page inside dashboard chrome; linked from `TopNavUserProfileMenu` under **Workspace settings** with Settings icon.
+* **AppShell mount order:** `InTenantSupportDrawer` mounts alongside `AgentInspectShell`, `TrainerAgentDrawer`, and `VendorHeaderToolbarBridge` on both tripane and standalone scroll layouts.
+* **Get Started welcome audio guard:** `welcomePhaseDone` defaults to **`false`** (was `true`) — step audio autoplay waits until welcome phase completes; additional guard skips step audio when `welcomeAudioSrc` exists and `hasPlayedGetStartedWelcome()` returns false.
+
+### Layout Refactor Notes (2026-06-19 Delta — Retained Baseline)
 
 Today's delta consolidates role-based dashboards under `app/(dashboard)/dashboard/*` — the legacy `app/roles/*` tree is deleted. Configuration moves from `/config` to `/settings/config`. Tenant topology and logs placeholder pages (`app/*/topology`, `app/*/logs`) are removed. Public `/docs` renders from PostgreSQL `app_documents` via `CompilationIngressPortal` when slug resolution fails — filesystem-only `generateStaticParams` removed; `/docs/hub` redirects to `/docs/README`; `/docs/user-guide` redirects to `/docs/user-manuals/user-guide`. Trust Center procurement pages mount at `/trust/*` inside the dashboard route group. **Registration surface deletion:** `app/(marketing)/register/setup/page.tsx` removed entirely; `/register/demo` server-redirects to `/register/contact?reason=sales_assisted_only`. **Training screenshot corpus:** twenty-four PNG assets land under `public/docs/training/assets/` (Level 1 chapters 01–12, Level 2 chapters 01–12 including `level-2-11-bigint-financial-integrity.png`) for Trainer corpus publisher embedding. **WCAG touch targets:** `app/globals.css` adds `ironframe-interactive` rules — coarse pointer devices enforce **2.75rem** (44px) minimum height on buttons and rounded anchors per dark cockpit aesthetic mandate.
 
@@ -94,6 +111,9 @@ Today's delta consolidates role-based dashboards under `app/(dashboard)/dashboar
 | Tenant subdomain workspace | `http://{slug}.lvh.me:3000/integrity` | Host-bound tenant switcher lock | Tripane or standalone |
 | Platform admin onboarding | `/admin/onboarding` | `AdminOnboardingDeployments` panel | Standalone scroll within gate |
 | Standalone dashboard pages | `/evidence`, `/board-report`, `/reports/audit-trail` | TopNav chrome | `standaloneScroll` on AppShell |
+| Workspace settings | `/settings/workspace` | TopNav profile menu → Workspace settings | Standalone scroll; ALE + company profile forms |
+| In-tenant support drawer | TopNav **Support** button (all authenticated cockpit routes) | `InTenantSupportDrawer` portal | Overlay drawer; does not alter tripane geometry |
+| Support console (legacy route) | `/dashboard/support` | Instructional shell + embedded `InTenantSupportModal` | Standalone scroll |
 
 **Layout separation mandate (2026-06-18):** Root `app/layout.tsx` mounts `IronframeThemeProvider` only — it does **not** mount `AppShell` or TopNav. Authenticated workspace chrome is confined to `app/(dashboard)/layout.tsx`, which calls `ensureDashboardTenantSession`, resolves billing entitlement, wraps children in `DashboardCommandCenterLayout` → `DashboardGroupShell` → `DashboardBillingGate`. Public `/login`, `/pricing`, `/register/contact`, `/docs`, and `/governance-frame` never inherit command-center chrome. `AppShellRouter` and `ConditionalAppShell` route chrome by pathname class. Tenant subdomain hosts receive host-bound scope via `applySubdomainTenancy` on every middleware response.
 
@@ -521,7 +541,7 @@ Every visible component on your monitor screen is mapped below using industry-st
   * `isPublicCloudIngressPath` — narrow cloud funnel paths bypass production quarantine
   * `isPrivateWorkspaceIngressPath` — command-center surfaces blocked on cloud until full ingress
   * `isPublicProspectOnboardingPath` — includes `/sales-agent-portal` and `/api/agents/sales`
-  * `isScrollableStandalonePath` — drives `DashboardGroupShell` overflow behavior; includes `/docs`, `/settings/config`
+  * `isScrollableStandalonePath` — drives `DashboardGroupShell` overflow behavior; includes `/docs`, `/settings/config`, `/settings/workspace`
 * **Step-by-Step Lab Validation:**
   1. Navigate to `/medshield/playbooks` — verify `playbookEntity` equals `MEDSHIELD` and playbook tab highlights.
   2. Navigate to `/reports/audit-trail` — verify audit trail route flag true with standalone scroll.
@@ -559,7 +579,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **Technical Mechanics:** `app/context/OperatorContext.tsx` pairs with `useOperatorIdentity` hook. `TopNav` removed inline `supabase.auth.getUser` polling — now reads `isGuest` and loading state from hooks. `OperatorContext` supplies `profile.email`, `profile.displayRole` to `TopNavUserProfileMenu`.
 * **Step-by-Step Lab Validation:**
   1. Load dashboard — verify TopNav shows "Resolving operator…" then email address.
-  2. Sign out via profile menu — verify redirect to `/login` and guest state on return.
+  2. Sign out via profile menu — verify redirect through `/api/auth/session-logout?next=%2Flogin` and guest state on return; confirm `ironframe-tenant` and `ironframe-simulation-mode` cookies cleared.
   3. Confirm no duplicate auth listeners in TopNav (network tab — single session refresh path).
 
 ---
@@ -592,7 +612,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `LAYOUT-002`
 * **Exact Screen Coordinates:** Wraps every route under `app/(dashboard)/` — invisible structural frame between dashboard layout and page content.
 * **Operational Purpose:** Keeps TopNav, airlock banner, and telemetry polling hooks out of the root layout so public marketing and auth surfaces never mount workspace chrome accidentally.
-* **Technical Mechanics:** `app/(dashboard)/DashboardCommandCenterLayout.tsx` renders a flex column with `AppShell` as the sole child. Root `app/layout.tsx` provides fonts, `IronframeThemeProvider`, and global CSS only. This satisfies TAS UI separation: presentation tokens are global; tenant-scoped navigation is dashboard-group only.
+* **Technical Mechanics:** `app/(dashboard)/DashboardCommandCenterLayout.tsx` renders a flex column with `AppShell` as the sole child. `AppShell` mounts `TopNav`, `InTenantSupportDrawer`, `AgentInspectShell`, `TrainerAgentDrawer`, and `VendorHeaderToolbarBridge`. Root `app/layout.tsx` provides fonts, `IronframeThemeProvider`, and global CSS only. This satisfies TAS UI separation: presentation tokens are global; tenant-scoped navigation is dashboard-group only.
 * **Agent Boundary:** **Ironcore** (Agent 1) orchestration shell; no financial or ingestion side effects.
 * **Step-by-Step Lab Validation:**
   1. Open `/login` in a private window — verify no TopNav tenant switcher or tripane rails appear.
@@ -607,12 +627,14 @@ Every visible component on your monitor screen is mapped below using industry-st
 * **GRC Function ID:** `AUTH-005`
 * **Exact Screen Coordinates:** Invisible server-side cookie write — no UI chip.
 * **Operational Purpose:** When RBAC resolves a workspace UUID but the browser lacks a scoped `ironframe-tenant` cookie, the server persists the assignment before dashboard chrome paints — preventing orphan sessions from guessing tenant scope.
-* **Technical Mechanics:** `app/lib/auth/dashboardTenantSession.ts`:
-  * `IRONFRAME_TENANT_COOKIE` = `ironframe-tenant`
+* **Technical Mechanics:** `app/lib/auth/dashboardTenantSession.ts` and `app/lib/auth/workspaceSessionCookies.ts`:
+  * `IRONFRAME_TENANT_COOKIE` = `ironframe-tenant`; `IRONFRAME_SIMULATION_MODE_COOKIE` = `ironframe-simulation-mode`
+  * `WORKSPACE_SCOPE_COOKIE_NAMES` — both cleared on logout via `stampWorkspaceCookieClears` and client `clearWorkspaceScopeCookiesClient`
   * `tenantCookieValueForUuid` — resolves canonical slug via `tenantKeyFromUuid` or Prisma `tenant.slug` lookup
   * `applyDashboardTenantSessionCookie` — sets secure cookie in production (`sameSite: lax`, 180-day max-age)
   * `ensureDashboardTenantSession` in `dashboardRoleAccess.ts` — calls apply only when `tenantFallbackApplied: true`
   * `resolveDashboardActiveTenantUuid` — React `cache()` wrapper; cookie scope first, then RBAC assignment, Medshield UUID fallback
+  * **Post-logout guard (2026-07-06):** `applySubdomainTenancy` realigns stale cookies only when cookie **exists** — absent cookie on subdomain `/login` after logout is not re-stamped
 * **Agent Boundary:** **Ironguard** (Agent 12) tenant isolation; never accepts guessed tenant IDs from client payloads.
 * **Step-by-Step Lab Validation:**
   1. Clear `ironframe-tenant` cookie after successful login.
@@ -1411,21 +1433,36 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 <a id="support-001"></a>
 
-### 🎧 Feature 62: Customer Service Console API
+### 🎧 Feature 62: In-Tenant Support Envelope & Customer Service API
 * **GRC Function ID:** `SUPPORT-001`
-* **Exact Screen Coordinates:** `/dashboard/support` UI and authenticated API `POST /api/agents/customer-service`.
-* **Operational Purpose:** Grounds authenticated tenant support inquiries against `app_documents` where `readingLevel: "LEVEL_1"` — fail-closed **403** when Ironguard tenant validation drops; returns queued acknowledgment to operators (not live agent reply text).
-* **Technical Mechanics:** `app/lib/server/customerServiceConsoleCore.ts`:
-  * `assertIronguardApiTenantOr403` on every request — **tenant-scoped**; does not require `GLOBAL_ADMIN`
-  * Documentation rows filtered strictly to LEVEL_1 reading level
-  * Gemini synthesis temperature **0.0**; proposed reply logged as `[PENDING DRAFT APPROVAL]` via per-tenant support console CRM contact
-  * Response payload: `{ status: "QUEUED", interactionId, reply: acknowledgmentMessage }`
-  * Prisma `ironboardCrmContact.fullName` — never `name` or `firstName`/`lastName`
-* **Agent Boundary:** **Ironguard** (Agent 12) tenant perimeter; **Ironscribe** (Agent 05) doc citation lineage; dispatch via **HITL-001**.
+* **Exact Screen Coordinates:**
+  * TopNav **Support** button — upper-right toolline beside Trainer trigger (`InTenantSupportTopNavTrigger`)
+  * Right-side drawer `#in-tenant-support-drawer` — 420px max width overlay (`InTenantSupportDrawer`)
+  * Ticket form `data-testid="in-tenant-support-modal"` (`InTenantSupportModal`)
+  * Context panel `data-testid="in-tenant-support-context-panel"` (`InTenantSupportContextPanel`)
+  * Standalone route `/dashboard/support` — instructional redirect shell embedding same modal
+  * APIs: `GET /api/support/in-tenant-context`, `POST /api/support/in-tenant-ticket`, `POST /api/agents/customer-service` (legacy chat ingress retained with telemetry enrichment)
+* **Operational Purpose:** Delivers **Request engineering help** as a context-aware, tenant-scoped support ticket system with automatic forensic telemetry attachment. Operators select operational urgency, Golden Path objective, and optional notes; the system captures billing state, export scope readiness, ALE baseline (BigInt cents as string), Ironguard violation counts, and active route context before dispatching to CRM as `[PENDING DRAFT APPROVAL]` interactions. ROUTINE urgency may trigger LEVEL_1–grounded Gemini synthesis (`temperature: 0.0`) as proposed reply text; AUDIT_BLOCKER and DATA_INTEGRITY escalate for direct engineering triage without live agent reply in the API response body.
+* **Technical Mechanics:**
+  * **Drawer store:** `app/store/inTenantSupportDrawerStore.ts` — Zustand state for `isOpen`, `presetUrgency`, `presetSurface`; `open({ urgency, surface })`, `close()`, `toggle()`
+  * **Framework context:** `resolveSupportFrameworkContext(pathname)` maps routes to module keys — `/exports` → `IRONQUERY_ANALYST_EXPORT`, `/integrity` → `INTEGRITY_HUB`, `/get-started` → `OPERATOR_ONBOARDING`, `/compliance` → `COMPLIANCE_FRAMEWORKS`, `/evidence` → `EVIDENCE_VAULT`, `/dashboard/support` → `SUPPORT_CONSOLE`, `/` and `/dashboard/*` → `COMMAND_POST`, default → `GLOBAL_WORKSPACE`
+  * **Objective mapping:** `supportIntentObjectives.ts` — ten structured objectives (`WORKSPACE_ACTIVATION`, `ONBOARDING_PROFILE`, `INTEGRITY_REVIEW`, `ANALYST_EXPORT`, `BILLING_ENTITLEMENT`, `TENANT_ACCESS`, `COMPLIANCE_MAPPING`, `EVIDENCE_VAULT`, `TRAINING_DOCUMENTATION`, `OTHER`); `resolveDefaultSupportObjective(frameworkContext)` pre-selects from route; `OTHER` requires free-text notes
+  * **Telemetry builder:** `buildInTenantSupportTelemetry` in `inTenantSupportTelemetry.ts` — parallel Prisma reads for tenant (`ale_baseline` as BigInt → stringified cents), `resolveIronqueryExportScope`, `tenantBilling.status`, company count, operator roles, 24h `ironguardViolation` count, 24h `systemHealthLog` diagnostic abort count (`DIAGNOSTIC_FETCH_ABORT_SERVICE_KEY`); `exportEntitled` true only when billing status equals `TENANT_BILLING_STATUS.ACTIVE`
+  * **Context API:** `GET /api/support/in-tenant-context?surface=&path=` — `assertAuthenticatedIronguardTenantOr403`; returns `InTenantSupportTelemetry` JSON with `Cache-Control: no-store`
+  * **Ticket API:** `POST /api/support/in-tenant-ticket` — validates via `parseInTenantSupportTicketInput`; enforces telemetry requirement for `AUDIT_BLOCKER` and `DATA_INTEGRITY`; `dispatchInTenantSupportTicket` → `logInTenantSupportTicket` → CRM `ironboardCrmInteraction` channel `SYSTEM_AGENT`
+  * **Customer service route enhancement:** `POST /api/agents/customer-service` accepts optional `context: { surface, path }`; attaches telemetry to `logPendingSupportConsoleDraft`; response includes `telemetryCaptured: boolean`
+  * **CRM formatting:** `formatInTenantSupportTelemetryForCrm` embeds forensic block with `ALE=${aleBaselineCents}` cent string, export scope, billing, Ironguard 24h count
+  * **Types:** `app/types/inTenantSupportTelemetry.ts` — urgency enum, objective enum, telemetry envelope schema
+* **Agent Boundary:** **Ironguard** (Agent 12) tenant perimeter on all ingress paths; **Ironwatch** (Agent 13) Ironguard violation and diagnostic abort counts in telemetry; **Ironquery** (Agent 15) export scope via `resolveIronqueryExportScope`; **Irontrust** (Agent 3) ALE baseline as BigInt cents in telemetry (display string only in authenticated envelope); **Ironscribe** (Agent 05) LEVEL_1 doc grounding for ROUTINE synthesis; dispatch via **HITL-001**.
 * **Step-by-Step Lab Validation:**
-  1. POST without tenant session — verify **403**.
-  2. POST with valid tenant — verify QUEUED response and CRM pending draft tag (not raw synthesis in API body).
-  3. Confirm no LEVEL_2 technical corpus rows appear in grounded context.
+  1. Sign in as GRC_MANAGER on `http://vaultbank.lvh.me:3000/integrity` — click TopNav **Support** — verify drawer slides in from right with title **Request engineering help**.
+  2. Expand **Attached diagnostics** — verify context panel shows tenant slug, billing chip, export scope chip, company profile chip, and **ALE baseline (cents)** as whole integer string (for Vaultbank seed: **590000000**).
+  3. Select urgency **DATA_INTEGRITY**, uncheck telemetry attachment — submit — verify HTTP **400** requiring diagnostic attachment.
+  4. Re-check telemetry, select objective **ANALYST_EXPORT**, submit — verify success message **Secure support ticket dispatched** and CRM interaction with forensic telemetry block.
+  5. Navigate to `/exports` — open support drawer — verify framework pre-selects **Generate analyst export** objective.
+  6. POST to `/api/agents/customer-service` with `{ message, context: { surface: "test", path: "/integrity" } }` — verify `telemetryCaptured: true` in response.
+  7. Run `tests/unit/inTenantSupportModal.test.ts`, `tests/unit/inTenantSupportTelemetry.test.ts` — framework mapping, ticket parsing, telemetry build pass.
+  8. Confirm guest users and auth public paths (`/login`) do not render TopNav Support trigger.
 
 ---
 
@@ -1721,30 +1758,95 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ---
 
+<a id="support-002"></a>
+
+### 🎫 Feature 78: Workspace Settings — ALE Baseline & Company Profile
+* **GRC Function ID:** `SETTINGS-001`
+* **Exact Screen Coordinates:** `/settings/workspace` — full-page form inside dashboard chrome; profile menu link **Workspace settings** with Settings icon in `TopNavUserProfileMenu`.
+* **Operational Purpose:** Provides GRC_MANAGER and CISO operators a dedicated surface to review and update tenant ALE baseline (BigInt integer cents) and primary company profile (name, sector, departments) without traversing the Get Started onboarding wizard. Read-only operators see amber banner stating edits require **GRC Manager** or **CISO** role.
+* **Technical Mechanics:**
+  * **Server page:** `app/(dashboard)/settings/workspace/page.tsx` — `ensureDashboardTenantSession`, `canEditWorkspaceProfile`, parallel Prisma fetch for `tenant.ale_baseline`, primary `company` (non-test, ordered by id asc)
+  * **Draft dollars helper:** `centsToDraftDollars(cents: bigint)` — integer division for dollars and remainder for cents fraction; never uses float arithmetic for persistence
+  * **Client:** `WorkspaceSettingsClient.tsx` — amber-bordered ALE section, cyan-bordered company profile section; saves via server actions with `formatCentsToAccountingUSD(BigInt(result.aleBaselineCents))` success message
+  * **Server actions:** `app/actions/settings/workspaceProfileSettings.ts`:
+    * `updateWorkspaceAleBaselineSettingsAction` — delegates to `updateWorkspaceAleBaselineAction`; audit `WORKSPACE_ALE_BASELINE_UPDATED` with summary `ale_baseline_cents=${result.aleBaselineCents}`; revalidates `/settings/workspace` and `/get-started`
+    * `syncCompanyProfileSettingsAction` — delegates to `syncCompanyProfileAction`; audit `WORKSPACE_COMPANY_PROFILE_UPDATED`; revalidates both paths
+    * `resolveWorkspaceSettingsEditorAccess` — returns `{ canEdit, roleBlocked }` for client gating
+  * **RBAC:** `workspaceProfileEditorAccess.ts` — `WORKSPACE_PROFILE_EDITOR_ROLES`: `[GRC_MANAGER, CISO]`; `canEditWorkspaceProfile(userId, tenantUuid)` queries `userRoleAssignment`
+  * **Audit:** `logWorkspaceProfileAudit.ts` — production `auditLogCreateLoose` with `isSimulation: false`
+* **Agent Boundary:** **Irontrust** (Agent 3) ALE baseline BigInt persistence; **Ironguard** (Agent 12) tenant-scoped cookie resolution via `getScopedTenantUuidFromCookies`; **Ironwatch** (Agent 13) audit log writes.
+* **Step-by-Step Lab Validation:**
+  1. Sign in as ANALYST — navigate to `/settings/workspace` — verify read-only amber banner; Save buttons disabled.
+  2. Sign in as GRC_MANAGER — enter ALE draft `5900000.00` for Vaultbank workspace — save — verify success message shows accounting USD and database `ale_baseline` equals **590000000** cents.
+  3. Update company name and sector — save — verify `AuditLog` action `WORKSPACE_COMPANY_PROFILE_UPDATED`.
+  4. Run `tests/unit/workspaceProfileEditorAccess.test.ts` — GRC_MANAGER and CISO allowed; missing assignment returns false.
+  5. Confirm link at page footer opens `/get-started` for onboarding checklists.
+
+---
+
+<a id="auth-010"></a>
+
+### 🔓 Feature 79: Hardened Session Logout & Workspace Cookie Clearing
+* **GRC Function ID:** `AUTH-010`
+* **Exact Screen Coordinates:** Profile menu **Sign out** action; server route `/api/auth/session-logout`; invisible middleware cookie clears on auth public paths.
+* **Operational Purpose:** Terminates Supabase session and clears all workspace scope cookies (`ironframe-tenant`, `ironframe-simulation-mode`) through server-side Set-Cookie on navigation — preventing post-logout tenant cookie resurrection on subdomain `/login` hosts and eliminating race conditions from client-only Supabase signOut with timeout budget.
+* **Technical Mechanics:**
+  * **Client logout:** `performClientSessionLogout()` — synchronous; calls `resetAllStoresAndTenantScopeCache()`, `clearWorkspaceScopeCookiesClient()` for both workspace cookies with Secure flag on HTTPS, then `window.location.replace("/api/auth/session-logout?next=%2Flogin")`
+  * **Server core:** `sessionLogoutCore.ts` — `buildSessionLogoutResponse(request, mode)`:
+    * `resolveSessionLogoutNextPath` — allows same-origin relative paths starting with `/`; rejects `//` open redirects
+    * Supabase server client `signOut()` with cookie adapter
+    * `stampWorkspaceCookieClears(response)` and `clearSupabaseAuthCookiesFromRequest` for all `sb-*` and workspace scope cookies
+    * GET mode → HTTP **303** redirect; POST mode → JSON `{ ok: true }`
+  * **Route:** `app/api/auth/session-logout/route.ts` — GET redirect, POST JSON
+  * **Cookie constants:** `workspaceSessionCookies.ts` — `IRONFRAME_TENANT_COOKIE`, `IRONFRAME_SIMULATION_MODE_COOKIE`, `SESSION_LOGOUT_PATH`, `WORKSPACE_SCOPE_COOKIE_NAMES`, `workspaceCookieClearOptions()`, `stampWorkspaceCookieClears`
+  * **Middleware:** `finalizeMiddlewareResponse` accepts `authUser` parameter; when unauthenticated on auth public path OR redirect target includes `/login`, calls `stampWorkspaceCookieClears`; session-logout route bypasses `updateSession` to avoid re-hydrating session mid-logout
+  * **Subdomain fix:** `applySubdomainTenancy` only realigns stale cross-tenant cookies when cookie **exists** — absent cookie after logout on `{slug}.lvh.me/login` is not re-stamped with host UUID
+  * **Ironguard guard:** `persistShadowPlaneTenantCookie` skips write when `isPublicConstitutionalSentinelPath(pathname)`; adds `secure: true` in production
+* **Agent Boundary:** **Ironguard** (Agent 12) tenant cookie lifecycle; **Ironlock** (Agent 6) simulation mode cookie clear on logout.
+* **Step-by-Step Lab Validation:**
+  1. Sign in on `http://bwc.lvh.me:3000/integrity` — sign out via profile menu — verify redirect lands on `/login` without `ironframe-tenant` cookie present.
+  2. Inspect network — first navigation hits `/api/auth/session-logout?next=%2Flogin` with Set-Cookie clears.
+  3. Run `tests/unit/performClientSessionLogout.test.ts` — workspace cookies cleared client-side; replace called with session-logout URL.
+  4. Run `tests/unit/sessionLogoutCore.test.ts` — unsafe `next=//evil.example` rejected to `/login`.
+  5. Run `tests/unit/middlewareSubdomainTenancy.test.ts` — post-logout `/login` without cookie does not receive host tenant stamp.
+
+---
+
+<a id="integrity-004"></a>
+
+### 🛡️ Feature 80: Constitutional Integrity Overlay Suppression Gate
+* **GRC Function ID:** `INTEGRITY-004`
+* **Exact Screen Coordinates:** Invisible React effect in `ConstitutionalIntegrityProvider` — no standalone panel.
+* **Operational Purpose:** Prevents constitutional integrity polling (`refreshIntegrity` interval and `ironframe-tenant-changed` listener) from firing when the integrity overlay is suppressed — avoiding redundant API traffic and state churn during orientation reader and other overlay-suppressed cockpit modes.
+* **Technical Mechanics:** `ConstitutionalIntegrityProvider.tsx` — integrity refresh `useEffect` early-returns when `overlaySuppressed` is true; dependency array includes `[overlaySuppressed, refreshIntegrity]`.
+* **Agent Boundary:** **Ironwatch** (Agent 13) telemetry polling discipline; no financial side effects.
+* **Step-by-Step Lab Validation:**
+  1. Open Get Started orientation reader with inline doc active — verify constitutional integrity fetch interval does not restart on tenant change events while overlay suppressed.
+  2. Exit orientation mode — verify integrity polling resumes on standard cockpit routes.
+
+---
+
 ## 🧬 Chapter 5: Nineteen-Agent Architecture Cross-Reference (Delta Verification)
 
-Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity for operational date **2026-06-19**:
+Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity for operational date **2026-07-06**:
 
 | Agent # | Codename | Today's Delta Touchpoints |
 |---------|----------|-------------------------|
-| 1 | Ironcore | Route consolidation under `app/(dashboard)/dashboard/*`; `AppShellRouter`; documentation execute pipeline; shared-context `documentationBrief` emission; `/docs` DB reader |
-| 3 | Irontrust | BigInt cent storage unchanged; dual Stripe webhook cent parsing; threat validate ActiveRisk id extraction; **Ironbloom physical telemetry gate** — no severity kWh fallback; procurement trust exhibits |
-| 4 | Ironlogic | `generateBoardAgentAssessment` founding refactor; `BOARD_GTM_MARKET_AUTHENTICITY_MANDATE`; sales/customer service at temperature **0.0**; `knowledge.ts` full documentation pipeline |
-| 5 | Ironscribe | Dual-location output matrix; Trainer/Writer placement; training screenshot corpus asset binding; Sources & Citations locator expansion |
-| 6 | Ironlock | Narrow funnel quarantine — private workspace blocked, public funnel open on cloud; admin deployments panel quarantine display |
-| 11 | Irontally | Board governance memo cron; documentation brief mandate consumption |
-| 12 | Ironguard | `assertGlobalAdminForOnboarding`; prospect pool sales isolation; customer service fail-closed **403**; gateway shield architecture test |
-| 13 | Ironwatch | Shared-context + documentationBrief hydration; admin deployment snapshots; **FortiBleed** OSINT telemetry correlation |
-| 14 | Irongate | Gateway shield DMZ markers; CompilationIngressPortal guard; documentation corpus plane isolation; web discovery JSON sanitization |
-| 15 | Ironquery | `stringifyWorkspaceBigIntFields`; multi-region `queryLocalWorkspace` regions array |
-| 16 | Ironintel | **June 18 OSINT manifest refresh** (`ironintel-osint-2026-06-18-live`); `regulatoryCatalystLookup` for grounded pitches; Industry Scout cron bridge |
-| 17 | Ironbloom | **Physical telemetry hardening** — `parseThreatIngestionTelemetry`, `no_physical_telemetry`, `aggregateTenantKwhAverted`, removed reference kWh fallback |
-| 18 | Ironcast | Resend email package in IronBoard `services/email/` |
-| 19 | Irontech | Threat validate ghost card reconciliation; chaos shadow plane; KEV deadline repair priority; component health repair when `healthBarPercent` < **50** on shadow diagnostic feeds |
+| 1 | Ironcore | `InTenantSupportDrawer` mount in `AppShell.tsx`; `/settings/workspace` route; `/dashboard/support` refactor to modal shell; TopNav Support + profile menu workspace link |
+| 3 | Irontrust | ALE baseline BigInt cents in `buildInTenantSupportTelemetry.profileScope.aleBaselineCents`; `WorkspaceSettingsClient` cent display and `updateWorkspaceAleBaselineSettingsAction` persistence unchanged integer path |
+| 4 | Ironlogic | ROUTINE support ticket Gemini synthesis at temperature **0.0** via `dispatchInTenantSupportTicket`; Golden Path objective mapping in `supportIntentObjectives.ts` |
+| 5 | Ironscribe | LEVEL_1 doc grounding for customer service console synthesis (ROUTINE path only) |
+| 6 | Ironlock | `ironframe-simulation-mode` cookie cleared on logout via `WORKSPACE_SCOPE_COOKIE_NAMES`; middleware workspace scope clear on auth public paths |
+| 12 | Ironguard | `assertAuthenticatedIronguardTenantOr403` on support context and ticket APIs; 24h violation count in telemetry; shadow-plane cookie skip on constitutional sentinel paths; post-logout subdomain cookie non-resurrection |
+| 13 | Ironwatch | `logWorkspaceProfileAudit` production audit entries; diagnostic abort 24h count in support telemetry; integrity polling suppression when overlay suppressed |
+| 15 | Ironquery | `resolveIronqueryExportScope` in telemetry envelope — `exportScopeReady`, `exportKey` |
+| 19 | Irontech | Support telemetry `recentDiagnosticAborts` from `DIAGNOSTIC_FETCH_ABORT_SERVICE_KEY` health log count |
 
-**IronBoard commercial plane note:** Sales agent (`/api/agents/sales`) and customer service agent (`/api/agents/customer-service`) operate on distinct tenancy boundaries — sales uses prospect pool UUID; customer service requires authenticated tenant with LEVEL_1 doc grounding. Documentation Trainer (`board-trainer`) and Writer (`board-writer`) personas consume `documentationBrief` one-way from port **3000**; published output syncs via bearer-gated **`POST /api/documentation/execute`** (upsert `app_documents` + mirror `docs/`).
+**Prior-cycle agents (unchanged in 2026-07-06 diff but constitutionally active):** IronBoard Core Telemetry Bridge (Agent plane port **8082**), Irongate DMZ (Agent 14), Ironbloom physical telemetry gate (Agent 17), Ironintel OSINT manifest (Agent 16), documentation brief one-way ingress (Ironcore + Ironscribe), narrow funnel quarantine (Ironlock Agent 6), dual Stripe webhook cent parsing (Irontrust Agent 3).
 
-**Documentation corpus plane note:** APP_DOCS (`/docs`, `app_documents` table) and GOVERNANCE_BRIEFINGS (`/governance-frame`, `published-briefings/`) must never cross-write. board-trainer owns Level 1 user manuals and training tracks; board-writer owns Level 2 technical corpus.
+**In-tenant support plane note:** Support drawer operates exclusively inside authenticated tenant scope — distinct from prospect pool sales agent (`IRONFRAME_PROSPECT_POOL_TENANT_UUID`). Telemetry never writes to `SimulationDiagnosticLog`; production tables only. CRM interactions use channel `SYSTEM_AGENT` with `[PENDING DRAFT APPROVAL]` tag via **HITL-001**.
+
+**Session logout plane note:** Server logout at `/api/auth/session-logout` is the authoritative cookie termination path — client `performClientSessionLogout` is a navigation stub that clears client-visible cookies before redirect. Middleware must not re-stamp tenant cookies on `/login` when cookie absent.
 
 Agents not directly modified in today's delta remain governed by their existing TAS core directives. Absence from the diff is not absence from the workforce — verify their **ACTIVE** status lights in Feature 5 grid before each lab session.
 
@@ -1886,6 +1988,36 @@ Because you are completing your GRC auditing labs independently online without a
   3. Cross-reference Joomla **CVE-2026-48907** (deadline June 18) — both require forensic triage before patch under BOD 26-04.
   4. Document remediation in board packet using formatted ALE strings — internal ledger remains BigInt cents only.
 
+### 🚨 Alert 18: Support Drawer Shows "Workspace Telemetry Unavailable"
+* **The Root Cause:** Operator opened the in-tenant support drawer without an active tenant context — `GET /api/support/in-tenant-context` returned non-OK or tenant UUID unresolved after Ironguard validation.
+* **How to Resolve It Yourself:**
+  1. Confirm `ironframe-tenant` cookie matches assigned workspace or host-bound subdomain slug.
+  2. Verify `user_role_assignments` row exists for current Supabase user on target tenant.
+  3. Reload cockpit route — expand **Attached diagnostics** — confirm tenant slug chip appears.
+  4. Run `tests/unit/inTenantSupportTelemetry.test.ts` — mocked tenant build returns non-null envelope.
+
+### 🚨 Alert 19: DATA_INTEGRITY Ticket Rejected — Telemetry Required
+* **The Root Cause:** Operator selected urgency **DATA_INTEGRITY** or **AUDIT_BLOCKER** with **Attach secure workspace diagnostics** unchecked — `POST /api/support/in-tenant-ticket` enforces HTTP **400**.
+* **How to Resolve It Yourself:**
+  1. Re-open support drawer — ensure telemetry checkbox is checked (default **true**).
+  2. For export-scope failures, use `RequestEngineeringHelpTrigger` with `surface="export-scope"` preset.
+  3. Verify billing status **ACTIVE** if export entitlement chip shows amber — resolve via `/account/billing-hold` or admin billing activation.
+
+### 🚨 Alert 20: Post-Logout Tenant Cookie Reappears on Subdomain Login
+* **The Root Cause:** Stale middleware behavior re-stamping `ironframe-tenant` when cookie absent — fixed in 2026-07-06 delta; if regression occurs, `applySubdomainTenancy` may be stamping without checking cookie presence.
+* **How to Resolve It Yourself:**
+  1. Sign out — inspect cookies on `{slug}.lvh.me/login` — `ironframe-tenant` must be absent.
+  2. Verify navigation uses `/api/auth/session-logout?next=%2Flogin` not direct `/login` link.
+  3. Run `tests/unit/middlewareSubdomainTenancy.test.ts` — post-logout login test passes.
+  4. Confirm `stampWorkspaceCookieClears` fires in middleware for unauthenticated auth public paths.
+
+### 🚨 Alert 21: Workspace Settings Save Blocked — Read-Only View
+* **The Root Cause:** Signed-in operator lacks **GRC_MANAGER** or **CISO** role on active tenant — `canEditWorkspaceProfile` returned false.
+* **How to Resolve It Yourself:**
+  1. Platform administrator assigns GRC_MANAGER or CISO via `user_role_assignments` for target tenant UUID.
+  2. Reload `/settings/workspace` — amber read-only banner should disappear; Save buttons enable.
+  3. Run `tests/unit/workspaceProfileEditorAccess.test.ts` — role matrix passes.
+
 ---
 
 
@@ -1918,6 +2050,12 @@ Independent learners and compliance auditors must confirm the following Vitest s
 
 | Test file | Validates |
 |-----------|-----------|
+| `tests/unit/inTenantSupportModal.test.ts` | Framework context mapping, Golden Path objective resolution, ticket input parsing and rejection |
+| `tests/unit/inTenantSupportTelemetry.test.ts` | Forensic telemetry build with BigInt ALE cents string, billing export entitlement, CRM format block |
+| `tests/unit/workspaceProfileEditorAccess.test.ts` | GRC_MANAGER and CISO edit roles; deny without assignment |
+| `tests/unit/performClientSessionLogout.test.ts` | Workspace cookie clear + server logout redirect URL |
+| `tests/unit/sessionLogoutCore.test.ts` | Safe `next` path resolution; open redirect rejection |
+| `tests/unit/middlewareSubdomainTenancy.test.ts` | Post-logout `/login` without tenant cookie stamp; stale cookie realignment |
 | `tests/unit/deploymentQuarantine.test.ts` | Narrow funnel public paths, private workspace block, localhost and lvh.me whitelist, dual Stripe webhook bypass, token-gated API bypass, `IRONFRAME_ALLOW_PUBLIC_INGRESS` |
 | `tests/unit/dashboardRoleAccess.test.ts` | RBAC gate states, `ensureDashboardTenantSession` cookie hydration |
 | `tests/unit/commandCenterTenantAccess.test.ts` | GLOBAL_ADMIN vs scoped tenant switcher, subdomain host lock |
@@ -1951,7 +2089,7 @@ Independent learners and compliance auditors must confirm the following Vitest s
 | `Ironboard/src/services/boardroomQueryIntent.test.ts` | Multi-country prefetch intent, `inferRegionsFromQuery`, Germany ICP criteria match |
 | `Ironboard/src/services/marketIntelligence.test.ts` | Multi-region listProspects filter, `fetchProspectingBatchForTargets` merge, tier score REJECTED path |
 | `tests/architecture/gatewayShield.test.ts` | Irongate DMZ markers on all Prisma-importing API routes |
-| `tests/unit/agentPerimeter.test.ts` | Sales agent prospect pool tenant isolation |
+| `tests/unit/agentPerimeter.test.ts` | Sales agent prospect pool tenant isolation; customer service route with in-tenant telemetry mock |
 | `tests/unit/approvalQueueCore.test.ts` | Pending draft tier inference and dispatch tags |
 | `tests/unit/documentationBrief.test.ts` | One-way documentationBrief builder and plane separation |
 | `tests/unit/docsContentDecoupling.test.ts` | APP_DOCS vs GOVERNANCE_BRIEFINGS decoupling |
@@ -2012,26 +2150,24 @@ The following `.env.example` entries were added or clarified in today's delta. N
 
 ---
 
-## ✅ Chapter 9: Daily Writer Receipt (2026-06-19)
+## ✅ Chapter 9: Daily Writer Receipt (2026-07-06)
 
-**Delta classification:** Structural (Prisma `AppDocument` model, `IronboardCrmContact.metadata` JSON, `SYSTEM_AGENT` interaction channel enum, twenty-four training screenshot PNG assets) + Backend Logic (`.cursorrules` compaction to 43 lines; IronBoard `generateBoardAgentAssessment` founding LLM refactor; `knowledge.ts` full documentation pipeline with `appDocsGateway`, `trainingCorpusPublisher`, brief-required chapter loop; GTM market authenticity gate `verifyAndOptimizeMarketData` / `isSyntheticExpansionTemplateProspect`; removal of expansion-country synthetic seed auto-insert; `regulatoryCatalystLookup` in grounded pitches; Ironbloom physical telemetry hardening — `isHighSeverity` kWh fallback removed, `no_physical_telemetry` reason, `aggregateTenantKwhAverted`, `findLatestThreatPhysicalTelemetry`, `physicalKwhLabel`; June 18 OSINT manifest refresh `ironintel-osint-2026-06-18-live` with FortiBleed, Joomla/LiteSpeed KEV cluster, Mastra npm supply chain; admin onboarding deployments panel refactor; register/setup page deletion; `/register/demo` redirect; WCAG touch target CSS; CI Stryker + Playwright + Ironboard npm test gates) + UI (`AdminOnboardingDeployments`, mint invitation `/register/{token}` URL display, `DocsChrome` DB reader, `CompilationIngressPortal`, corporate onboarding client chrome).
+**Delta classification:** Backend Logic (in-tenant support telemetry builder `buildInTenantSupportTelemetry`; ticket dispatch `dispatchInTenantSupportTicket`; customer service route telemetry enrichment; workspace profile settings server actions with audit logging; session logout core `buildSessionLogoutResponse`; middleware workspace cookie clearing; subdomain tenancy post-logout cookie guard; Ironguard shadow-plane cookie skip on constitutional sentinel paths; constitutional integrity overlay suppression) + UI (in-tenant support drawer/modal/context panel/top nav trigger; workspace settings page and client; TopNav profile menu workspace link; `/dashboard/support` refactor from inline chat to modal shell; Get Started welcome audio sequencing fix).
 
-**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively for persistence and internal telemetry. Constitutional Ironframe seed tenant baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. Manifest industry peer ALE baselines (Finance **1800000000**, Healthcare **1210000000**, Technology **950000000**, Defense **2500000000**, Public Sector **1500000000** cents) and risk metrics (`medianAnnualGrcProgramCents` **4200000000**, `medianAuditRemediationLagCents` **890000000**, `saasConsolidationSavingsOpportunityCents` **680000000**, `boardReportingOverheadCents` **125000000** cents) are manifest-scoped BigInt strings — never floats. Dual Stripe webhook paths parse `amountTotalCents` as BigInt at fulfillment. Ironbloom `kwhAverted` and `mitigatedValueCents` persist as **BigInt** — severity-tier synthetic kWh path eliminated. De-classification matrix (Layer 3) mandates Governance Frame public copy cites `financials.display.*Formatted` strings — never raw cent literals. Market prospect `aiFitnessScore` remains integer ICP tier composite — not monetary.
+**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively for persistence and internal telemetry. Constitutional Ironframe seed tenant baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. In-tenant support telemetry exposes `profileScope.aleBaselineCents` as stringified BigInt inside authenticated operator envelope and CRM forensic blocks — not public Governance Frame copy. `WorkspaceSettingsClient` persists via `updateWorkspaceAleBaselineSettingsAction` with audit summary `ale_baseline_cents=${result.aleBaselineCents}`. Display conversion uses `formatCentsToAccountingUSD(BigInt(...))` only — never float persistence. Prior-cycle manifest industry peer ALE baselines and Ironbloom physical telemetry gates remain constitutionally locked from 2026-06-19 cycle.
 
-**Threat simulation verification:** `POST /api/threats/validate` extracts ActiveRisk numeric ids as BigInt-safe strings for ghost card reconciliation. Ironbloom requires sealed physical telemetry in `ingestionDetails` — monetary-only or severity-inferred payloads return `no_physical_telemetry` without ledger write. Shadow-plane `SimThreatEvent.mitigated_value_cents BIGINT` isolation from production `ThreatEvent` unchanged. **June 18 OSINT manifest** ingested with active vectors: FortiBleed (**73932** verified Fortinet credentials, **194** countries), Joomla **CVE-2026-48907** (KEV deadline June 18), LiteSpeed **CVE-2026-54420** (KEV deadline **June 19, 2026** — operational today), Check Point **CVE-2026-50751**, Oracle PeopleSoft **CVE-2026-35273**, Mastra npm supply chain (**140** packages), DragonForce Backdoor.Turn Teams TURN C2, CISA BOD 26-04 four-variable matrix, CMMC Phase 2 **145** days to November 10, 2026.
+**Threat simulation verification:** No new threat simulation schema changes in today's diff. Support telemetry reads 24-hour `ironguardViolation` count and `systemHealthLog` diagnostic abort count for forensic triage — production tables only, not `SimulationDiagnosticLog`. Shadow-plane self-test controls remain gated on `isSimulationMode === true` per TAS Section 4.3. Prior-cycle `POST /api/threats/validate` ActiveRisk BigInt extraction and Ironbloom `no_physical_telemetry` gate unchanged.
 
-**Irongate DMZ verification:** `tests/architecture/gatewayShield.test.ts` enforces DMZ markers on all Prisma-importing API routes (CI gate added). CompilationIngressPortal fails closed on unresolved doc slugs. Documentation corpus planes forbid cross-write between APP_DOCS and GOVERNANCE_BRIEFINGS. GTM synthetic scaffolding must not enter CRM as live OSINT — authenticity gate purges before board synthesis.
+**Tenant isolation verification:** All support APIs require `assertAuthenticatedIronguardTenantOr403`. Telemetry queries scoped to `tenantUuid` from guard — cross-tenant Ironguard violation OR clause matches session or attempted tenant UUID only for the authenticated workspace. Workspace settings actions resolve tenant from scoped cookie or RBAC assignment — never client-supplied UUID. Post-logout middleware prevents absent-cookie resurrection on subdomain login hosts.
 
-**Platform boundary verification:** Ironframe port **3000** emits `documentationBrief` in shared-context. IronBoard port **8082** consumes via core telemetry bridge; `runExecutiveDocumentationCommand` throws when brief ingress fails. `platformApplicationBoundary.ts` adds `/api/documentation/execute` and `/settings/config` (replaces `/config`). Both engines bind **127.0.0.1** only. Narrow funnel permits public GTM surfaces on cloud without opening command center.
+**Session boundary verification:** Server logout at `/api/auth/session-logout` clears `ironframe-tenant`, `ironframe-simulation-mode`, and all `sb-*` Supabase cookies. Client logout navigates to server route — no local-only signOut race. Session-logout middleware bypass prevents session re-hydration during logout flow.
 
-**Documentation corpus verification:** `knowledge.ts` expanded — Trainer publishes via `publishTrainerCorpus`, Writer via `publishWriterCorpus`, push through `appDocsGateway`. Training screenshot corpus (24 PNG assets) binds to `training-corpus-manifest.json`. `Ironboard/vitest.config.ts` includes `tests/**/*.test.ts`. board-trainer owns `docs/user-manuals/` and `docs/training/`; board-writer owns `docs/technical/`.
+**Support plane verification:** Golden Path objectives map from route framework context. AUDIT_BLOCKER and DATA_INTEGRITY require telemetry attachment. ROUTINE path may synthesize LEVEL_1–grounded proposed reply at temperature **0.0**. CRM channel `SYSTEM_AGENT` with pending draft tag for HITL review.
 
-**Phase 1 commercial verification:** Dual webhook billing activation at `/api/billing/webhook`. Sales agent isolated to `IRONFRAME_PROSPECT_POOL_TENANT_UUID`. Workspace invitation required before corporate provision. Register setup page deleted; demo redirects to sales contact. Admin onboarding deployments panel surfaces quarantine posture; inline billing activation removed from provisioning client.
+**CI verification:** New unit suites `inTenantSupportModal.test.ts`, `inTenantSupportTelemetry.test.ts`, `workspaceProfileEditorAccess.test.ts`, `sessionLogoutCore.test.ts` added. Updated `performClientSessionLogout.test.ts`, `middlewareSubdomainTenancy.test.ts`, `agentPerimeter.test.ts`. All suites listed in Chapter 7 must pass before deploy.
 
-**CI verification:** `.github/workflows/ci.yml` adds architecture gateway shield test, Stryker mutation gate, Playwright E2E install/run, and Ironboard `npm test` step. All unit suites listed in Chapter 7 must pass before deploy.
-
-**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantial deltas across Ironbloom physical telemetry hardening, GTM market authenticity gate, June 18 OSINT manifest refresh, founding agent LLM refactor, documentation pipeline expansion, admin onboarding refactor, registration surface deletion, training screenshot assets, WCAG touch targets, CI gates, and `.cursorrules` compaction spanning Ironframe and Ironboard packages.
+**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantial deltas across in-tenant support envelope (11 new/modified support components, 2 API routes, telemetry types), workspace settings surface (page, client, server actions, RBAC, audit), session logout hardening (4 auth modules, middleware integration), subdomain tenancy post-logout fix, Ironguard cookie guard, constitutional integrity overlay gate, Get Started audio sequencing, and 7 unit test files spanning Ironframe authenticated operator plane.
 
 ---
 
-*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-06-19.*
+*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-07-06.*

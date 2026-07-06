@@ -366,6 +366,35 @@ body {
   animation: regulatory-slide 0.35s ease-out;
 }
 
+@keyframes marketing-city-cycle {
+  0%,
+  18% {
+    opacity: 1;
+  }
+  22%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.marketing-city-cycle-line {
+  opacity: 0;
+  animation-name: marketing-city-cycle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-city-cycle-line {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  .marketing-city-cycle-line:first-child {
+    opacity: 1 !important;
+  }
+}
+
 .command-center-surface {
   position: relative;
   isolation: isolate;

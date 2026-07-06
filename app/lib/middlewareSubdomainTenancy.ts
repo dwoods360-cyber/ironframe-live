@@ -123,26 +123,34 @@ export async function applySubdomainTenancy(
     }
   }
 
+  const realignStaleTenantCookie = (response: NextResponse): NextResponse => {
+    // Realign stale cross-tenant cookies only — never stamp when absent (post-logout /login must stay cleared).
+    if (hostUuid) {
+      const cookieTenant = request.cookies.get(IRONFRAME_TENANT_COOKIE)?.value?.trim();
+      if (
+        cookieTenant &&
+        cookieTenant !== hostUuid &&
+        cookieTenant.toLowerCase() !== hostSlug
+      ) {
+        response.cookies.set(IRONFRAME_TENANT_COOKIE, hostUuid, {
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: TENANT_COOKIE_MAX_AGE,
+        });
+      }
+    }
+    return response;
+  };
+
+  // Auth redirects and error responses must survive tenancy finish — NextResponse.next() drops Location/status.
+  if (baseResponse.status >= 300) {
+    return realignStaleTenantCookie(baseResponse);
+  }
+
   const response = NextResponse.next({
     request: { headers: requestHeaders },
   });
 
-  // Realign stale cross-tenant cookies only — never stamp when absent (post-logout /login must stay cleared).
-  if (hostUuid) {
-    const cookieTenant = request.cookies.get(IRONFRAME_TENANT_COOKIE)?.value?.trim();
-    if (
-      cookieTenant &&
-      cookieTenant !== hostUuid &&
-      cookieTenant.toLowerCase() !== hostSlug
-    ) {
-      response.cookies.set(IRONFRAME_TENANT_COOKIE, hostUuid, {
-        path: "/",
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: TENANT_COOKIE_MAX_AGE,
-      });
-    }
-  }
-
-  return mergeCookies(baseResponse, response);
+  return mergeCookies(baseResponse, realignStaleTenantCookie(response));
 }

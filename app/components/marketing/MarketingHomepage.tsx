@@ -3,7 +3,7 @@ import Link from "next/link";
 import { GOVERNANCE_FRAME_PUBLIC_ORIGIN } from "@/config/governanceFramePublic";
 
 import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
-import MarketingCityCycleSubtitle from "./MarketingCityCycleSubtitle";
+import MarketingCityCycleSubtitleLoader from "./MarketingCityCycleSubtitleLoader";
 import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
 import PublicApexNav from "./PublicApexNav";
 
@@ -68,7 +68,7 @@ export default function MarketingHomepage() {
         <p className="mt-3 font-mono text-sm font-black tracking-widest text-[var(--text-main)] sm:text-base">
           IRONFRAME CORE
         </p>
-        <MarketingCityCycleSubtitle />
+        <MarketingCityCycleSubtitleLoader />
       </div>
 
       <header className="mx-auto max-w-6xl space-y-6 px-6 pt-8 pb-16 text-center">

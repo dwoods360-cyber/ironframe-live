@@ -294,12 +294,6 @@ export async function middleware(request: NextRequest) {
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
     isAuthCallbackRoute;
-  /** Static documentation hub ? public read + protocol download (no tenant scope). */
-  const isPublicDocsRoute =
-    pathname === "/docs" ||
-    pathname.startsWith("/docs/") ||
-    pathname === "/api/docs/download-protocol" ||
-    pathname === "/api/docs/download-matrix";
   /** IronBoard (:8082) server bridge ? tenant cookie / host header scoped; no browser session required. */
   const isBoardSharedContextRoute = pathname === "/api/board/shared-context";
 
@@ -507,7 +501,6 @@ export async function middleware(request: NextRequest) {
     if (
       isPublicCloudIngressPath(pathname) ||
       isPublicRoute(pathname) ||
-      isPublicDocsRoute ||
       isBoardSharedContextRoute
     ) {
       return await finalizeMiddlewareResponse(request, supabaseResponse, user);

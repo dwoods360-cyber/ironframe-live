@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+import { requireSessionForDocumentationApi } from "@/app/lib/auth/requireSessionApi";
+
 /** FS-backed docs ingress — must stay literal for Next.js static analysis (see docsRouteRuntime.ts). */
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,9 @@ function protocolDocxPath(): string {
 }
 
 export async function GET(request: NextRequest) {
+  const denied = await requireSessionForDocumentationApi();
+  if (denied) return denied;
+
   const { searchParams } = new URL(request.url);
   const manifestOnly = searchParams.get("manifest") === "1" || searchParams.get("format") === "json";
 

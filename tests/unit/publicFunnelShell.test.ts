@@ -12,7 +12,7 @@ describe("publicFunnelShell", () => {
     expect(isPublicDarkShellPath("/login")).toBe(true);
     expect(isPublicDarkShellPath("/register/contact")).toBe(true);
     expect(isPublicDarkShellPath("/register/sample-token")).toBe(true);
-    expect(isPublicDarkShellPath("/pricing")).toBe(true);
+    expect(isPublicDarkShellPath("/pricing")).toBe(false);
   });
 
   it("does not treat dashboard routes as public dark shell paths", () => {

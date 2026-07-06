@@ -10,9 +10,6 @@ export function isPublicDarkShellPath(pathname: string): boolean {
   if (normalized === "/") return false;
   if (isAuthPublicPath(normalized)) return true;
   if (isPublicProspectOnboardingPath(normalized)) return true;
-  if (normalized === "/governance-frame" || normalized.startsWith("/governance-frame/")) {
-    return true;
-  }
   if (normalized === "/legal/accept") return true;
   if (
     normalized === "/register/contact" ||

@@ -1,7 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { SALES_CONTACT_PATH } from "@/config/registration";
 import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
+
+export const metadata: Metadata = {
+  title: "Pricing | Ironframe",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 const COMMAND_FEATURES = [
   "Multi-tenant Command Post with sovereign workspace isolation",

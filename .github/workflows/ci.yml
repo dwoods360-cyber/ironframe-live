@@ -97,6 +97,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ env.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: Constitutional TAS gold parity
+        run: npx vitest run tests/unit/tasGoldImageParity.test.ts
+
       - name: Epic 17 billing and onboarding gate matrix
         run: >-
           npx vitest run

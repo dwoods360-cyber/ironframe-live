@@ -1,4 +1,10 @@
 import { unstable_noStore as noStore } from "next/cache";
+import { headers } from "next/headers";
+
+import {
+  IRONFRAME_HOST_TENANT_SLUG_HEADER,
+  tenantSlugFromHost,
+} from "@/app/lib/tenantSubdomain";
 
 import { getSecureAuditLogs, type SerializedAuditLog } from "./actions";
 
@@ -17,7 +23,12 @@ interface Props {
 export default async function AdminAuditLogsPage({ searchParams }: Props) {
   noStore();
   const { tenant } = await searchParams;
-  const currentTenant = tenant?.trim() || "acorp";
+  const h = await headers();
+  const hostSlug =
+    h.get(IRONFRAME_HOST_TENANT_SLUG_HEADER)?.trim() ||
+    tenantSlugFromHost(h.get("host")) ||
+    null;
+  const currentTenant = tenant?.trim() || hostSlug || "acorp";
 
   let logs: SerializedAuditLog[] = [];
   let errorMsg: string | null = null;

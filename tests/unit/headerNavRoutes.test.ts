@@ -14,6 +14,7 @@ const HEADER_TWO_ROUTE_FIXTURES: Array<{ href: string; pagePath: string }> = [
   { href: "/integrity", pagePath: "app/(dashboard)/integrity/page.tsx" },
   { href: "/audit", pagePath: "app/(dashboard)/audit/page.tsx" },
   { href: "/boardroom/admin/audit-logs", pagePath: "app/(dashboard)/boardroom/admin/audit-logs/page.tsx" },
+  { href: "/admin/audit-logs", pagePath: "app/admin/audit-logs/page.tsx" },
   { href: "/board-report", pagePath: "app/(dashboard)/board-report/page.tsx" },
   { href: "/opsupport", pagePath: "app/(dashboard)/opsupport/page.tsx" },
   { href: "/admin/clearance", pagePath: "app/admin/clearance/page.tsx" },

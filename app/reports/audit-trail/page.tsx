@@ -70,7 +70,7 @@ export default function ReportsAuditTrailPage() {
   };
 
   return (
-    <div className="w-full min-w-0 bg-slate-950 px-4 py-6 pb-10 md:px-8">
+    <div className="w-full min-w-0 bg-slate-950 px-4 py-6 pb-10 md:px-8" data-testid="reports-audit-trail-page">
       <section className="rounded border border-slate-800 bg-slate-900/40 p-4">
         <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">

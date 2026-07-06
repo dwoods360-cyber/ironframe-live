@@ -2,190 +2,181 @@
   "manifestVersion": "1.0.0",
   "classification": "Strategic Intel Update",
   "sourceCorpus": "Infasys Knowledge Base",
-  "manifestId": "ironintel-osint-2026-06-29-live",
-  "generatedAt": "2026-06-29T18:00:00.000Z",
+  "manifestId": "ironintel-osint-2026-07-06-live",
+  "generatedAt": "2026-07-06T08:00:00.000Z",
   "documents": [
     {
       "documentId": "grc-professional-workday-analysis",
-      "title": "GRC Professional Workday Analysis — June 29 OSINT Sweep",
+      "title": "GRC Professional Workday Analysis — July 6 OSINT Sweep",
       "sourceType": "GRC_PROFESSIONAL_WORKDAY_ANALYSIS",
-      "executiveSummary": "Ironintel and Ironwatch live OSINT for June 29, 2026 confirms BOD 26-04 tier-1 remediation deadline lands today on CVE-2026-20262 (Cisco Catalyst SD-WAN Manager path traversal, actively exploited). Post-deadline forensic triage dominates for Cisco UCM CVE-2026-20230 and PTC Windchill CVE-2026-12569 (day one after June 28 FCEB window). Gentlemen RaaS deploys coordinated EDR killer suites (Backstab, Terminator, GentleKill) before encryption. INC ransomware exceeds 830 victims with Rust cross-platform encryptors targeting Citrix, Fortinet, and Veeam stacks. Healthcare ransomware activity runs 50 percent above 2025 pace with ANUBIS dual-extortion against Quest Health Solutions (239 GB exfiltrated June 24). CMMC Phase 2 mandatory Level 2 C3PAO certification remains 134 days out (November 10, 2026) on NIST SP 800-171 Rev 2 only. Senate NDAA fiscal 2027 proposes CMMC grant program up to 100000 dollars per small business. Federal contractor 24-hour KEV triage SLA enters day six of enforcement (effective June 24, 2026).",
+      "executiveSummary": "Ironintel and Ironwatch live OSINT for July 6, 2026 confirms post-deadline forensic triage dominates after BOD 26-04 tier-1 windows closed on SharePoint CVE-2026-45659 (FCEB deadline July 4) and SimpleHelp CVE-2026-48558 (FCEB deadline July 2). Sysdig documents JADEPUFFER as the first agentic ransomware campaign driven end-to-end by an LLM, exploiting Langflow CVE-2025-3248 with autonomous credential harvest, Nacos takeover, and destructive database extortion. CMMC Phase 2 mandatory Level 2 C3PAO certification remains 127 days out (November 10, 2026) on NIST SP 800-171 Rev 2 only. FAR Council June 23 proposed rule would standardize NIST SP 800-171 Rev 3 and 72-hour CUI incident reporting with public comments due July 23, 2026. Federal contractor 24-hour KEV triage SLA enters day twelve of enforcement (effective June 24, 2026).",
       "keyFindings": [
-        "CVE-2026-20262: Cisco Catalyst SD-WAN Manager directory traversal added to KEV June 15 with FCEB remediation deadline June 29, 2026 — authenticated remote attacker can overwrite arbitrary filesystem files under BOD 26-04 tier-1 same-day orchestration.",
-        "CVE-2026-20230 (CVSS 8.6): Cisco Unified Communications Manager SSRF enters day one post-deadline after June 28 FCEB window — Defused and CISA confirm active exploitation enabling arbitrary file write and root escalation; Technology and Finance profiles must execute forensic triage before patch.",
-        "CVE-2026-12569 (CVSS 9.3): PTC Windchill PDMlink and FlexPLM RCE enters day one post-deadline — ongoing web shell campaigns against manufacturing, engineering, retail, and apparel PLM stacks require supply-chain breach assessment.",
-        "Gentlemen RaaS (June 2026): Coordinated EDR killer deployment (Backstab BYOVD, Terminator Zemana driver abuse, GentleKill custom dropper) disables layered endpoint stacks simultaneously before AES-256 and RSA-4096 encryption — SOC 2 CC7.2 monitoring attestations fail when EDR is blinded pre-encryption.",
-        "INC ransomware (830 plus victims): Rust-based cross-platform encryptors target Windows, Linux, and ESXi via CVE-2023-3519 Citrix, CVE-2023-48788 Fortinet EMS, CVE-2024-57727 SimpleHelp, and modified Veeam-Get-Creds.ps1 credential theft — legal, healthcare, manufacturing, and technology sectors at highest velocity.",
-        "Healthcare OSINT: ANUBIS ransomware claims 239 GB exfiltration from Quest Health Solutions June 24; Google Threat Intelligence tracks 188 healthcare and pharma leak victims Jan-May 2026 versus 125 in 2025 — 50 percent year-over-year increase with OCR enforcement at 1280000 dollars in 2026 penalties.",
-        "Oracle PeopleSoft CVE-2026-35273 (June 12 KEV): Missing authentication for critical function enables unauthenticated PeopleTools takeover — Public Sector and Finance profiles with ERP stacks must verify patch status and BOD 26-04 forensic triage evidence.",
-        "CMMC Phase 2 countdown: 134 days to November 10, 2026 mandatory Level 2 C3PAO certification at award for applicable CUI solicitations; assessments remain locked to NIST SP 800-171 Revision 2 per DoD class deviation; Senate NDAA proposes grant program up to 100000 dollars per qualifying small business.",
-        "Federal contractor 24-hour KEV triage SLA effective June 24, 2026 — day six of enforcement on June 29; Defense and Public Sector Industry Profiles must align POA&M velocity with BOD 26-04 forensic-triage-before-patch workflow.",
-        "Ironintel correlation priority: same-day BOD 26-04 deadline on Cisco SD-WAN, post-deadline hunts on Cisco UCM and PTC Windchill, Gentlemen EDR-killer IOC sweep, INC Veeam credential rotation, Irongate DMZ validation before any external research enters tenant CRM."
+        "CVE-2026-45659 (CVSS 8.8): Microsoft SharePoint Server deserialization RCE added to KEV July 1 with FCEB remediation deadline July 4, 2026 — enters day two post-deadline July 6; authenticated attacker with minimal privileges executes arbitrary code on SharePoint Server 2016, 2019, and Subscription Edition per CISA and Computer Weekly reporting.",
+        "CVE-2026-48558 (CVSS 10.0): SimpleHelp OIDC authentication bypass enters day four post-deadline after July 2 FCEB window — unauthenticated remote attacker forges JWT identity tokens to obtain privileged technician sessions and bypass MFA on OIDC-configured instances; Technology and Finance Industry Profiles must hunt rogue technician registrations in server.log.",
+        "JADEPUFFER agentic ransomware (Sysdig July 1, 2026): First documented LLM-driven end-to-end extortion chain exploits Langflow CVE-2025-3248, harvests cloud and database credentials, pivots via MinIO default credentials, forges Nacos JWT tokens, encrypts 1342 configuration items with unrecoverable AES keys — Technology sector AI development stacks are primary exposure surface.",
+        "SharePoint post-deadline triage: Restrict Site Member permissions, audit worker process child processes, and verify May 2026 security update installation (16.0.5552.1002, 16.0.10417.20128, 16.0.19725.20280) before declaring BOD 26-04 forensic evidence complete.",
+        "SimpleHelp post-deadline triage: Upgrade to 5.5.16 or 6.0 RC2 minimum; audit OIDC technician group registrations; sever internet exposure on remote support planes used by INC and Lynx ransomware initial-access chains.",
+        "CMMC Phase 2 countdown: 127 days to November 10, 2026 mandatory Level 2 C3PAO certification at award for applicable CUI solicitations; assessments remain locked to NIST SP 800-171 Revision 2 per DoD class deviation; C3PAO assessor capacity bottleneck intensifies as Phase 2 approaches.",
+        "FAR Council CUI proposed rule (June 23, 2026): Would require NIST SP 800-171 Rev 3 compliance and 72-hour CUI incident reporting across civilian contractor base; public comment period closes July 23, 2026 — Public Sector and Defense Industry Profiles must align POA&M velocity with dual Rev 2 CMMC and prospective Rev 3 FAR obligations.",
+        "Federal contractor 24-hour KEV triage SLA effective June 24, 2026 — day twelve of enforcement on July 6; Defense and Public Sector Industry Profiles must align POA&M velocity with BOD 26-04 forensic-triage-before-patch workflow.",
+        "Ironintel correlation priority: post-deadline hunts on SharePoint and SimpleHelp, JADEPUFFER Langflow and Nacos IOC sweep, CMMC C3PAO scheduling, Irongate DMZ validation before any external research enters tenant CRM."
       ],
       "industryProfiles": [
         {
           "industryKey": "Finance",
           "displayName": "Finance",
           "peerAleBaselineCents": "1800000000",
-          "regulatoryPressureIndex": 94,
-          "saasDisruptionExposureIndex": 80,
+          "regulatoryPressureIndex": 95,
+          "saasDisruptionExposureIndex": 82,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Finance GRC faces same-day BOD 26-04 deadline on Cisco SD-WAN path traversal while post-deadline Cisco UCM SSRF triage invalidates voice and collaboration stack integrity; Oracle PeopleSoft CVE-2026-35273 ERP takeover risk requires board packets citing BIGINT-cent ALE without float drift and Gentlemen EDR-killer IOC hunts on trading floor endpoints."
+          "narrativeSummary": "Finance GRC faces post-deadline SharePoint CVE-2026-45659 triage on collaboration stacks holding deal-room CUI while SimpleHelp OIDC bypass invalidates remote-support MFA attestations; JADEPUFFER agentic ransomware on AI workflow tooling requires board packets citing BIGINT-cent ALE without float drift and Irongate-sanitized incident ingress."
         },
         {
           "industryKey": "Healthcare",
           "displayName": "Healthcare",
           "peerAleBaselineCents": "1210000000",
           "regulatoryPressureIndex": 97,
-          "saasDisruptionExposureIndex": 74,
+          "saasDisruptionExposureIndex": 76,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "June 29, 2026 healthcare OSINT: ANUBIS 239 GB exfiltration and INC Rust encryptors extend HIPAA OCR notification scope; ransomware activity 50 percent above 2025 pace with Qilin and Interlock targeting email initial access — risk analysis gaps remain primary OCR enforcement trigger at 1280000 dollars in 2026 penalties."
+          "narrativeSummary": "July 6, 2026 healthcare OSINT: SharePoint post-deadline triage extends HIPAA breach assessment scope when PHI repositories sit on on-premises SharePoint; SimpleHelp rogue technician sessions threaten remote clinical support planes — OCR enforcement and CIRCIA 72-hour parallel reporting readiness remain primary compliance triggers."
         },
         {
           "industryKey": "Technology",
           "displayName": "Technology",
           "peerAleBaselineCents": "950000000",
-          "regulatoryPressureIndex": 85,
+          "regulatoryPressureIndex": 88,
           "saasDisruptionExposureIndex": 99,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Cisco SD-WAN same-day deadline, Gentlemen coordinated EDR killers, and INC Rust cross-platform chains outpace manual control mapping; Technology sector buyers demand agent-orchestrated evidence vaults with Irongate-sanitized OSINT ingress and BOD 26-04 orchestration at same-day deadline velocity."
+          "narrativeSummary": "JADEPUFFER agentic ransomware, SharePoint deserialization RCE, and SimpleHelp MFA bypass outpace manual control mapping; Technology sector buyers demand agent-orchestrated evidence vaults with Irongate-sanitized OSINT ingress, Langflow isolation, and BOD 26-04 post-deadline orchestration at day-two velocity."
         },
         {
           "industryKey": "Defense",
           "displayName": "Defense",
           "peerAleBaselineCents": "2500000000",
           "regulatoryPressureIndex": 99,
-          "saasDisruptionExposureIndex": 63,
+          "saasDisruptionExposureIndex": 65,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "CMMC Level 2 C3PAO requirements phase into DoD contracts in 134 days while assessments remain on NIST 800-171 Rev 2; Senate NDAA grant program proposal offsets C3PAO costs for small businesses — Defense contractors must align SSP, SPRS, and POA&M with 24-hour KEV triage SLA and engage C3PAO immediately."
+          "narrativeSummary": "CMMC Level 2 C3PAO requirements phase into DoD contracts in 127 days while assessments remain on NIST 800-171 Rev 2; FAR Council Rev 3 proposed rule adds prospective civilian alignment pressure — Defense contractors must engage C3PAO immediately and align SSP, SPRS, and POA&M with 24-hour KEV triage SLA."
         },
         {
           "industryKey": "Public Sector",
           "displayName": "Public Sector",
           "peerAleBaselineCents": "1500000000",
-          "regulatoryPressureIndex": 93,
-          "saasDisruptionExposureIndex": 68,
+          "regulatoryPressureIndex": 94,
+          "saasDisruptionExposureIndex": 70,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "FCEB agencies operate under same-day BOD 26-04 deadline on Cisco SD-WAN CVE-2026-20262 June 29; post-deadline Cisco UCM and PTC Windchill triage plus Oracle PeopleSoft KEV hunt require forensic evidence before patch on internet-exposed assets per BOD 26-04 implementation guidance."
+          "narrativeSummary": "FCEB agencies operate under day-two post-deadline BOD 26-04 triage on SharePoint CVE-2026-45659 and day-four SimpleHelp CVE-2026-48558 hunt; FAR Council June 23 proposed rule would mandate NIST SP 800-171 Rev 3 and 72-hour CUI incident reporting with comments due July 23, 2026."
         }
       ],
       "riskMetricsCents": {
-        "medianAnnualGrcProgramCents": "4300000000",
-        "medianAuditRemediationLagCents": "920000000",
-        "saasConsolidationSavingsOpportunityCents": "690000000",
-        "boardReportingOverheadCents": "128000000"
+        "medianAnnualGrcProgramCents": "4350000000",
+        "medianAuditRemediationLagCents": "940000000",
+        "saasConsolidationSavingsOpportunityCents": "710000000",
+        "boardReportingOverheadCents": "131000000"
       }
     },
     {
       "documentId": "saas-disruption-memorandum",
-      "title": "SaaS Disruption Memorandum — June 29 BOD 26-04 Deadline Wave",
+      "title": "SaaS Disruption Memorandum — July 6 Post-Deadline KEV Wave",
       "sourceType": "SAAS_DISRUPTION_MEMORANDUM",
-      "executiveSummary": "June 29, 2026 OSINT confirms BOD 26-04 same-day remediation on Cisco SD-WAN while post-deadline triage on Cisco UCM and PTC PLM stacks exposes structural gaps in seat-based GRC SaaS that cannot absorb forensic-triage-before-patch workflows or EDR integrity attestation after Gentlemen RaaS coordinated killer deployment. Sovereign control planes with Irongate ingress and integer-cent registers win procurement when perimeter, observability, and endpoint planes converge on single-day KEV deadlines.",
+      "executiveSummary": "July 6, 2026 OSINT confirms BOD 26-04 post-deadline forensic triage on SharePoint and SimpleHelp while JADEPUFFER agentic ransomware exposes structural gaps in seat-based GRC SaaS that cannot absorb LLM-autonomous attack chains or OIDC MFA bypass on remote-support planes. Sovereign control planes with Irongate ingress and integer-cent registers win procurement when collaboration, observability, and AI workflow planes converge on single-week KEV deadlines.",
       "keyFindings": [
-        "Same-day BOD 26-04 tier-1 deadline on CVE-2026-20262 proves three-day remediation plus forensic triage is operational reality for private sector as de facto standard.",
-        "Gentlemen RaaS coordinated EDR killer deployment invalidates per-seat SOC monitoring SaaS when endpoint agents are terminated simultaneously — agentic GRC with Irongate-sanitized OSINT ingress replaces blind SIEM-only stacks.",
-        "INC Rust cross-platform encryptors and Veeam credential theft confirm backup infrastructure is initial access vector — SaaS GRC without backup integrity crosswalk fails SOC 2 CC7.2 continuous monitoring attestations.",
-        "Healthcare ransomware 50 percent above 2025 pace with ANUBIS dual-extortion proves seat-based compliance SaaS cannot scale OCR enforcement velocity or dual-reporting workflows for CIRCIA parallel obligations.",
-        "Flat annual platform fees in whole-cent BIGINT displace per-seat models when agentic workforce scales OSINT-to-board-report pipelines at BOD 26-04 same-day deadline velocity."
+        "SharePoint CVE-2026-45659 post-deadline triage proves three-day remediation plus forensic evidence is operational reality for private sector as de facto standard after July 4 FCEB window.",
+        "JADEPUFFER agentic ransomware invalidates per-seat SOC monitoring SaaS when LLM agents execute 600 plus autonomous actions without human keyboard — agentic GRC with Irongate-sanitized OSINT ingress replaces blind SIEM-only stacks.",
+        "SimpleHelp OIDC MFA bypass confirms remote-support SaaS planes are initial-access vectors for ransomware operators — SaaS GRC without remote-access integrity crosswalk fails SOC 2 CC7.2 continuous monitoring attestations.",
+        "FAR Council Rev 3 proposed rule and CMMC Phase 2 dual-track compliance prove seat-based compliance SaaS cannot scale POA&M velocity for 72-hour incident reporting and C3PAO certification simultaneously.",
+        "Flat annual platform fees in whole-cent BIGINT displace per-seat models when agentic workforce scales OSINT-to-board-report pipelines at BOD 26-04 post-deadline velocity."
       ],
       "industryProfiles": [
         {
           "industryKey": "Finance",
           "displayName": "Finance",
           "peerAleBaselineCents": "1800000000",
-          "regulatoryPressureIndex": 94,
-          "saasDisruptionExposureIndex": 96,
+          "regulatoryPressureIndex": 95,
+          "saasDisruptionExposureIndex": 97,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Incumbent SaaS renewals face scrutiny when Ironframe demonstrates BOD 26-04 tier scoring, deterministic board-report ALE, and Irongate-sanitized OSINT without spreadsheet exports; Gentlemen EDR-killer campaigns are board-level when fraud monitoring depends on tamper-evident endpoint telemetry."
+          "narrativeSummary": "Incumbent SaaS renewals face scrutiny when Ironframe demonstrates BOD 26-04 tier scoring, deterministic board-report ALE, and Irongate-sanitized OSINT without spreadsheet exports; SharePoint post-deadline triage and JADEPUFFER agentic campaigns are board-level when fraud monitoring depends on tamper-evident collaboration telemetry."
         },
         {
           "industryKey": "Technology",
           "displayName": "Technology",
           "peerAleBaselineCents": "950000000",
-          "regulatoryPressureIndex": 85,
+          "regulatoryPressureIndex": 88,
           "saasDisruptionExposureIndex": 99,
           "continuousAuditPriority": "CRITICAL",
-          "narrativeSummary": "Fastest SaaS disruption velocity; Cisco SD-WAN same-day deadline, Gentlemen EDR killers, and INC Rust encryptors demand agentic GRC to replace manual Jira-to-audit bridges while patching at BOD 26-04 same-day orchestration speed."
+          "narrativeSummary": "Fastest SaaS disruption velocity; JADEPUFFER Langflow exploitation, SharePoint deserialization, and SimpleHelp MFA bypass demand agentic GRC to replace manual Jira-to-audit bridges while patching at BOD 26-04 post-deadline orchestration speed."
         }
       ],
       "riskMetricsCents": {
-        "medianAnnualGrcProgramCents": "3950000000",
-        "medianAuditRemediationLagCents": "970000000",
-        "saasConsolidationSavingsOpportunityCents": "1160000000",
-        "boardReportingOverheadCents": "99000000"
+        "medianAnnualGrcProgramCents": "4000000000",
+        "medianAuditRemediationLagCents": "990000000",
+        "saasConsolidationSavingsOpportunityCents": "1180000000",
+        "boardReportingOverheadCents": "102000000"
       }
     }
   ],
   "ragChunks": [
     {
-      "chunkId": "osint-01-cisco-sdwan-deadline",
+      "chunkId": "osint-01-sharepoint-post-deadline",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Cisco SD-WAN CVE-2026-20262",
-      "text": "Ironintel OSINT 2026-06-29: CVE-2026-20262 Cisco Catalyst SD-WAN Manager directory traversal added to KEV June 15 with FCEB remediation deadline June 29, 2026. Authenticated remote attacker can create or overwrite arbitrary files on affected system filesystem. Technology, Finance, and Public Sector Industry Profiles must apply vendor mitigations immediately and execute BOD 26-04 forensic triage before patch on internet-exposed SD-WAN management planes.",
-      "tags": ["osint", "cisco", "sd-wan", "kev", "bod-26-04"],
+      "section": "Post-Deadline Triage — SharePoint CVE-2026-45659",
+      "text": "Ironwatch OSINT 2026-07-06: CVE-2026-45659 (CVSS 8.8) Microsoft SharePoint Server deserialization of untrusted data added to KEV July 1 with FCEB remediation deadline July 4, 2026 — enters day two post-deadline. CISA and Computer Weekly confirm active exploitation enabling authenticated remote code execution on SharePoint Server 2016, 2019, and Subscription Edition. Finance, Technology, and Public Sector Industry Profiles must restrict Site Member permissions, audit SharePoint worker process child processes, verify May 2026 patch levels, and execute BOD 26-04 forensic triage before declaring remediation complete.",
+      "tags": ["osint", "sharepoint", "kev", "bod-26-04", "post-deadline"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-02-cisco-ucm-post-deadline",
+      "chunkId": "osint-02-simplehelp-post-deadline",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Post-Deadline Triage — Cisco UCM CVE-2026-20230",
-      "text": "Ironwatch OSINT 2026-06-29: CVE-2026-20230 (CVSS 8.6) Cisco Unified Communications Manager SSRF enters day one post-deadline after June 28 FCEB window. Defused and CISA confirm active exploitation enabling unauthenticated remote attackers to write arbitrary files and escalate to root. Technology and Finance Industry Profiles must hunt for IOCs, restrict UCM management interfaces, and execute forensic triage before patch per BOD 26-04 guidance.",
-      "tags": ["osint", "cisco", "ucm", "ssrf", "kev", "post-deadline"],
+      "section": "Post-Deadline Triage — SimpleHelp CVE-2026-48558",
+      "text": "Ironintel OSINT 2026-07-06: CVE-2026-48558 (CVSS 10.0) SimpleHelp OIDC authentication bypass enters day four post-deadline after July 2 FCEB window. Unauthenticated attacker forges JWT identity tokens without cryptographic signature verification to obtain privileged technician sessions and bypass MFA on OIDC-configured instances. Technology and Finance Industry Profiles must upgrade to 5.5.16 or 6.0 RC2, audit server.log for rogue technician registrations, and sever internet exposure on remote support planes.",
+      "tags": ["osint", "simplehelp", "oidc", "mfa-bypass", "kev", "post-deadline"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-03-ptc-windchill-post-deadline",
+      "chunkId": "osint-03-jadepuffer-agentic-ransomware",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Post-Deadline Triage — PTC Windchill CVE-2026-12569",
-      "text": "Ironintel OSINT 2026-06-29: CVE-2026-12569 (CVSS 9.3) PTC Windchill PDMlink and FlexPLM RCE enters day one post-deadline after June 28 FCEB window. CISA and industry reporting confirm ongoing web shell attacks against manufacturing, engineering, retail, and apparel PLM stacks. Healthcare and Technology Industry Profiles should hunt for web shells, isolate PLM endpoints, and treat supply-chain engineering data as breach scope under HIPAA and CMMC-adjacent CUI flows.",
-      "tags": ["osint", "ptc", "windchill", "plm", "kev", "post-deadline", "web-shell"],
+      "section": "Active Threat Vector — JADEPUFFER Agentic Ransomware",
+      "text": "Ironwatch OSINT 2026-07-06: Sysdig documents JADEPUFFER as first LLM-driven agentic threat actor executing end-to-end database extortion via Langflow CVE-2025-3248 initial access. Autonomous agent harvests cloud credentials, accesses MinIO with default minioadmin credentials, forges Nacos JWT tokens via CVE-2021-29441, encrypts 1342 Nacos configuration items with unrecoverable AES keys, and establishes cron persistence every 30 minutes. Technology Industry Profile must isolate internet-facing Langflow and AI workflow orchestration backends and treat self-narrating adaptive payloads as pre-ransomware indicator requiring Irongate-sanitized incident ingress.",
+      "tags": ["osint", "jadepuffer", "agentic", "langflow", "ransomware", "ai"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
-      "chunkId": "osint-04-gentlemen-edr-killers",
-      "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Gentlemen RaaS EDR Killers",
-      "text": "Ironwatch OSINT 2026-06-29: Gentlemen RaaS deploys coordinated EDR killer suite before encryption — Backstab BYOVD targeting Microsoft Defender, Terminator abusing Zemana driver against CrowdStrike and SentinelOne, and GentleKill custom dropper terminating security services via SCM abuse and WMI. Technology and Finance Industry Profiles must monitor Sysmon Event ID 6 for vulnerable driver loads and treat simultaneous EDR termination as pre-ransomware indicator requiring Irongate-sanitized incident ingress.",
-      "tags": ["osint", "gentlemen", "ransomware", "edr-killer", "byovd"],
-      "priorityAgents": ["Ironintel", "Ironwatch"]
-    },
-    {
-      "chunkId": "osint-05-inc-rust-encryptors",
-      "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — INC Ransomware Rust Cross-Platform",
-      "text": "Ironintel OSINT 2026-06-29: INC ransomware exceeds 830 global victims with Rust-based encryptors targeting Windows, Linux, and ESXi. Initial access via CVE-2023-3519 Citrix, CVE-2023-48788 Fortinet EMS, CVE-2024-57727 SimpleHelp, and modified Veeam-Get-Creds.ps1 credential theft. Healthcare, legal, manufacturing, and technology sectors at highest velocity — rotate Veeam credentials, patch internet-facing Citrix and Fortinet, and document forensic triage for SOC 2 CC7.2 monitoring attestations.",
-      "tags": ["osint", "inc", "ransomware", "rust", "veeam", "citrix"],
-      "priorityAgents": ["Ironintel", "Ironwatch"]
-    },
-    {
-      "chunkId": "osint-06-healthcare-anubis",
-      "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Healthcare ANUBIS Ransomware",
-      "text": "Ironintel OSINT 2026-06-29: ANUBIS ransomware claims 239 GB exfiltration from Quest Health Solutions June 24 with two-to-three-day negotiation deadline. Go-based dual-extortion RaaS rebranded from Sphinx targets healthcare infrastructure. Google Threat Intelligence tracks 188 healthcare and pharma leak victims Jan-May 2026 versus 125 in 2025 — 50 percent year-over-year increase. Healthcare Industry Profile must align HIPAA risk analysis with OCR enforcement priority and CIRCIA parallel reporting readiness.",
-      "tags": ["osint", "anubis", "healthcare", "ransomware", "hipaa"],
-      "priorityAgents": ["Ironintel", "Ironwatch"]
-    },
-    {
-      "chunkId": "osint-07-cmmc-phase2-countdown",
+      "chunkId": "osint-04-cmmc-phase2-countdown",
       "documentId": "grc-professional-workday-analysis",
       "section": "CMMC / NIST Regulatory Horizon",
-      "text": "Ironintel policy monitor 2026-06-29: CMMC Phase 2 begins November 10, 2026 — 134 days remaining for mandatory Level 2 C3PAO certification at award for applicable CUI solicitations. Assessments remain on NIST SP 800-171 Revision 2 per DoD class deviation. Senate NDAA fiscal 2027 proposes CMMC grant program up to 100000 dollars per qualifying small business. Defense Industry Profile must engage C3PAO immediately and align SSP, SPRS, and POA&M with 24-hour KEV triage SLA effective June 24, 2026.",
+      "text": "Ironintel policy monitor 2026-07-06: CMMC Phase 2 begins November 10, 2026 — 127 days remaining for mandatory Level 2 C3PAO certification at award for applicable CUI solicitations. Assessments remain on NIST SP 800-171 Revision 2 per DoD class deviation. C3PAO assessor capacity bottleneck intensifies; organizations beginning preparation in Q3 2026 miss November Phase 2 eligibility. Defense Industry Profile must engage C3PAO immediately and align SSP, SPRS, and POA&M with 24-hour KEV triage SLA effective June 24, 2026.",
       "tags": ["cmmc", "nist-800-171", "regulatory", "LP-10"],
       "priorityAgents": ["Ironintel", "Ironscribe"]
     },
     {
-      "chunkId": "osint-08-oracle-peoplesoft",
+      "chunkId": "osint-05-far-cui-proposed-rule",
       "documentId": "grc-professional-workday-analysis",
-      "section": "Active Threat Vector — Oracle PeopleSoft CVE-2026-35273",
-      "text": "Ironwatch OSINT 2026-06-29: CVE-2026-35273 Oracle PeopleSoft Enterprise PeopleTools missing authentication for critical function added to KEV June 12. Unauthenticated attacker can obtain takeover of PeopleTools. Public Sector and Finance Industry Profiles with ERP stacks must verify patch status, restrict internet exposure, and execute BOD 26-04 forensic triage before patch on PeopleSoft management planes.",
-      "tags": ["osint", "oracle", "peoplesoft", "kev", "erp"],
+      "section": "NIST / FAR Regulatory Update — CUI Proposed Rule",
+      "text": "Ironintel policy monitor 2026-07-06: FAR Council proposed rule June 23, 2026 would standardize contractor CUI safeguarding under NIST SP 800-171 Revision 3 and mandate 72-hour CUI incident reporting via new clause 52.240-7. Public comment period closes July 23, 2026 — 17 days remaining. Public Sector and Defense Industry Profiles must track dual Rev 2 CMMC certification path and prospective Rev 3 FAR alignment without conflating assessment baselines.",
+      "tags": ["nist-800-171", "far", "cui", "regulatory", "incident-reporting"],
+      "priorityAgents": ["Ironintel", "Ironscribe"]
+    },
+    {
+      "chunkId": "osint-06-sharepoint-collaboration-exposure",
+      "documentId": "grc-professional-workday-analysis",
+      "section": "Active Threat Vector — SharePoint Perimeter Exposure",
+      "text": "Ironintel OSINT 2026-07-06: SharePoint on-premises servers holding sensitive corporate and CUI-adjacent data remain high-value nation-state and ransomware entry points. CVE-2026-45659 exploitation requires authenticated access with minimal privileges making Site Member permission audits and internet exposure reduction critical compensating controls until patch verification completes. Healthcare and Finance Industry Profiles with on-premises SharePoint must extend breach assessment scope beyond cloud-only M365 assumptions.",
+      "tags": ["osint", "sharepoint", "perimeter", "cui"],
+      "priorityAgents": ["Ironintel", "Ironwatch"]
+    },
+    {
+      "chunkId": "osint-07-kev-triage-sla",
+      "documentId": "grc-professional-workday-analysis",
+      "section": "Federal Contractor KEV Triage SLA",
+      "text": "Ironwatch OSINT 2026-07-06: Federal contractor 24-hour KEV triage SLA under BOD 26-04 enters day twelve of enforcement effective June 24, 2026. Post-deadline SharePoint and SimpleHelp entries require forensic triage evidence before patch declaration. Defense and Public Sector Industry Profiles must align POA&M velocity with same-week KEV orchestration and Irongate-sanitized deficiency reporting in simulation plane only.",
+      "tags": ["bod-26-04", "kev", "federal", "triage-sla"],
       "priorityAgents": ["Ironintel", "Ironwatch"]
     },
     {
       "chunkId": "saas-01-dmz-ingress",
       "documentId": "saas-disruption-memorandum",
       "section": "Irongate DMZ Ingress",
-      "text": "All June 29 live OSINT bytes passed Agent 14 Irongate DMZ sanitization (script-strip, BIGINT-cent validation) before CRM persistence. Strategic Intel dashboard refresh binds to manifest ironintel-osint-2026-06-29-live.",
+      "text": "All July 6 live OSINT bytes passed Agent 14 Irongate DMZ sanitization (script-strip, BIGINT-cent validation) before CRM persistence. Strategic Intel dashboard refresh binds to manifest ironintel-osint-2026-07-06-live.",
       "tags": ["irongate", "dmz", "ingress", "industry-profile"],
       "priorityAgents": ["Ironintel", "Ironscribe"]
     }

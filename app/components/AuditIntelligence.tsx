@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -11,6 +12,7 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, Copy, Crosshair, ExternalLink, Folder, Info } from "lucide-react";
 import {
   appendAuditLog,
@@ -51,7 +53,10 @@ import CarbonPulse from "@/app/components/AuditIntelligenceArea/CarbonPulse";
 import ContextualHelpTrigger from "@/app/components/HelpSystem/ContextualHelpTrigger";
 import { LogStatusBadge } from "@/app/components/grc/LogTerminalLine";
 import SustainabilityAnalyticsPlane from "@/app/components/SustainabilityAnalyticsPlane";
-import { floatingNotifyTopClass } from "@/app/config/layoutConstants";
+import {
+  floatingNotifyTopClass,
+  LAYOUT_GLOBAL_MODAL_Z_CLASS,
+} from "@/app/config/layoutConstants";
 import { extractConstitutionalHashFromLogEntry } from "@/app/utils/tasConstitutionalFingerprintFormat";
 import { parseIronscribePostMortemAuditFlags } from "@/app/utils/ironscribePostMortemAudit";
 import { ABORT_REASONS } from "@/app/utils/abortReasons";
@@ -1033,8 +1038,11 @@ export default function AuditIntelligence({
   tenantGovernanceBps = null,
   layout = "pane",
 }: AuditIntelligenceProps) {
+  const pathname = usePathname();
   const isStandaloneLayout = layout === "standalone";
   const showEmbeddedTelemetry = !isStandaloneLayout;
+  const [portalMounted, setPortalMounted] = useState(false);
+  const auditDetailInlineRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [auditLingerTick, setAuditLingerTick] = useState(0);
   const [selectedEntry, setSelectedEntry] = useState<LogEntryItem | null>(null);
@@ -1555,6 +1563,21 @@ export default function AuditIntelligence({
   }, [selectedEntry?.id]);
 
   useEffect(() => {
+    setPortalMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setSelectedEntry(null);
+    setMetadataModal(null);
+    setPostMortemOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!selectedEntry || !isStandaloneLayout) return;
+    auditDetailInlineRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedEntry?.id, isStandaloneLayout]);
+
+  useEffect(() => {
     hydrateAuditLogger();
     if (!isShadowPlaneActiveClient()) {
       purgeSimulationAuditLogs();
@@ -1599,6 +1622,262 @@ export default function AuditIntelligence({
   const showAdversarialTargetWarning =
     adversarialMaturityUi != null &&
     (adversarialMaturityUi.underSiege || adversarialMaturityUi.penalty > 0);
+
+  const modalTopClearance = floatingNotifyTopClass(isSimulationMode, 1);
+
+  const renderAuditDetailCard = (variant: "inline" | "modal"): ReactNode => {
+    if (!selectedEntry) return null;
+    const shellClass =
+      variant === "inline"
+        ? "flex w-full flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-xl shadow-black/40"
+        : `flex w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50 ${
+            isSimulationMode ? "max-h-[calc(100dvh-13.25rem)]" : "max-h-[calc(100dvh-11rem)]"
+          }`;
+
+    return (
+      <div className={shellClass} onClick={(e) => e.stopPropagation()}>
+        <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 id="audit-detail-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
+                {typeof (selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence === "number" &&
+                Number.isFinite((selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence!) ? (
+                  <span className="mr-2 inline font-mono text-[11px] font-bold tabular-nums text-slate-400">
+                    {formatLedgerSequenceLabel(
+                      (selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence!,
+                    )}
+                  </span>
+                ) : null}
+                {displayLabelForAuditEntry(selectedEntry.entry.action_type) ||
+                  selectedEntry.entry.action_type}
+              </h3>
+              <p className="mt-1 font-mono text-[10px] leading-relaxed text-slate-500">
+                Local:{" "}
+                {selectedEntry.createdAt.toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "medium",
+                })}{" "}
+                |{" "}
+                <span className="font-bold text-slate-200">
+                  UTC: {selectedEntry.createdAt.toISOString()}
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedEntry(null)}
+              className="shrink-0 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-400 hover:border-slate-500 hover:text-slate-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-b border-slate-800/80 px-4 py-3">
+          <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-slate-600">
+            Narrative Summary
+          </p>
+          <p className="mb-6 border-l-2 border-emerald-500 pl-4 text-sm italic text-slate-200">
+            <ConstitutionalText text={getForensicNarrative(selectedEntry)} tooltipTheme="parchment" />
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
+          <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-slate-600">
+            RAW FORENSIC DATA
+          </p>
+          <div className="max-h-[450px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
+            <pre className="whitespace-pre-wrap break-words rounded-md border border-slate-800 bg-black/60 p-4 font-mono text-[11px] text-emerald-400/90">
+              {buildForensicEntryJson(selectedEntry)}
+            </pre>
+          </div>
+
+          {selectedEntry.entry.threatId ? (
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  jumpToThreatCard(selectedEntry.entry.threatId!);
+                  setSelectedEntry(null);
+                }}
+                className="w-full rounded border border-sky-600/60 bg-sky-950/40 py-2 text-[10px] font-black uppercase tracking-wide text-sky-200 hover:border-sky-500 hover:bg-sky-900/40"
+              >
+                JUMP TO THREAT CARD
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-800 px-4 py-3">
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard?.writeText(buildForensicEntryJson(selectedEntry)).then(
+                () => setCopyState("copied"),
+                () => setCopyState("idle"),
+              );
+            }}
+            className="inline-flex items-center gap-1.5 rounded border border-slate-600 bg-slate-900/80 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-200 hover:border-slate-500"
+          >
+            <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+            Copy
+          </button>
+          <span
+            aria-live="polite"
+            className={`font-mono text-[10px] text-emerald-500 transition-opacity duration-300 whitespace-nowrap ${
+              copyState === "copied" ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            HASH COPIED TO CLIPBOARD
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const portaledOverlays =
+    portalMounted
+      ? createPortal(
+          <>
+            {postMortemOpen && postMortemSummary ? (
+              <div
+                className={`fixed inset-x-0 bottom-0 ${LAYOUT_GLOBAL_MODAL_Z_CLASS} ${modalTopClearance} flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="post-mortem-title"
+                data-testid="audit-post-mortem-modal-backdrop"
+                onClick={() => setPostMortemOpen(false)}
+              >
+                <div
+                  className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="shrink-0 border-b border-slate-800 px-4 py-3">
+                    <h3 id="post-mortem-title" className="text-[11px] font-black uppercase tracking-wide text-cyan-100">
+                      Session post-mortem
+                    </h3>
+                    <p className="mt-1 font-mono text-[8px] leading-snug text-slate-500">
+                      Window {postMortemSummary.windowStartIso.slice(0, 16)} → {postMortemSummary.windowEndIso.slice(0, 16)}{" "}
+                      · {postMortemSummary.auditRowSampled} audit rows · LKB {postMortemSummary.lookbackHours}h
+                    </p>
+                  </div>
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3 font-mono text-[9px] leading-snug text-slate-300">
+                    <div>
+                      <p className="font-black uppercase tracking-wide text-amber-400/90">Dominant attack vector</p>
+                      <p className="mt-0.5 text-slate-200">
+                        {postMortemSummary.dominantVector ?? "— (embed attack_vector in bot metadata / justification JSON)"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-black uppercase tracking-wide text-emerald-400/90">Top attack vectors</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {postMortemSummary.topAttackVectors.length === 0 ? (
+                          <li className="text-slate-500">No vectors extracted yet.</li>
+                        ) : (
+                          postMortemSummary.topAttackVectors.map((v) => (
+                            <li key={v.vector} className="flex justify-between gap-2 border-b border-slate-800/80 py-0.5">
+                              <span>{v.vector}</span>
+                              <span className="tabular-nums text-slate-400">{v.count}</span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-black uppercase tracking-wide text-cyan-400/90">Top threats (audit linkage)</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {postMortemSummary.topThreats.length === 0 ? (
+                          <li className="text-slate-500">No threat IDs in window.</li>
+                        ) : (
+                          postMortemSummary.topThreats.map((t) => (
+                            <li key={t.threatId} className="border-b border-slate-800/80 py-0.5">
+                              <span className="text-slate-400">{t.threatId.slice(0, 12)}…</span> — {t.title}{" "}
+                              <span className="tabular-nums text-slate-500">({t.eventCount})</span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-black uppercase tracking-wide text-rose-300/90">Agent MVP (resolved)</p>
+                      <p className="mt-0.5">
+                        {postMortemSummary.agentMvp ? (
+                          <>
+                            <span className="text-slate-100">{postMortemSummary.agentMvp.label}</span> —{" "}
+                            <span className="tabular-nums">{postMortemSummary.agentMvp.resolveCount}</span> resolves
+                          </>
+                        ) : (
+                          <span className="text-slate-500">No THREAT_RESOLVED rows in window.</span>
+                        )}
+                      </p>
+                      <p className="mt-2 text-[8px] uppercase tracking-wide text-slate-600">
+                        Live THREATS_RESOLVED (UI roster): {agentKillStats.total}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 border-t border-slate-800 px-4 py-2">
+                    <button
+                      type="button"
+                      className="w-full rounded border border-slate-600 bg-slate-900 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:border-slate-500"
+                      onClick={() => setPostMortemOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {metadataModal ? (
+              <div
+                className={`fixed inset-x-0 bottom-0 ${LAYOUT_GLOBAL_MODAL_Z_CLASS} ${modalTopClearance} flex items-center justify-center bg-black/60 p-4 backdrop-blur-md`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="agent-metadata-title"
+                data-testid="audit-metadata-modal-backdrop"
+                onClick={() => setMetadataModal(null)}
+              >
+                <div
+                  className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+                    <h3 id="agent-metadata-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
+                      Reasoning trace — {metadataModal.agentId}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setMetadataModal(null)}
+                      className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                    <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-emerald-200/90">
+                      {metadataModal.json}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {selectedEntry && !isStandaloneLayout ? (
+              <div
+                className={`fixed inset-x-0 bottom-0 ${LAYOUT_GLOBAL_MODAL_Z_CLASS} flex items-start justify-center overflow-y-auto bg-black/55 px-4 pb-6 pt-3 backdrop-blur-md ${modalTopClearance}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="audit-detail-title"
+                data-testid="audit-detail-modal-backdrop"
+                onClick={() => setSelectedEntry(null)}
+              >
+                {renderAuditDetailCard("modal")}
+              </div>
+            ) : null}
+          </>,
+          document.body,
+        )
+      : null;
 
   return (
     <div
@@ -2057,87 +2336,13 @@ export default function AuditIntelligence({
       </footer>
       </div>
 
-      {postMortemOpen && postMortemSummary ? (
+      {selectedEntry && isStandaloneLayout ? (
         <div
-          className="fixed inset-0 z-[275] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="post-mortem-title"
+          ref={auditDetailInlineRef}
+          className="px-4 pb-4"
+          data-testid="audit-detail-inline-panel"
         >
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-cyan-700/40 bg-slate-950 shadow-2xl shadow-cyan-950/30">
-            <div className="shrink-0 border-b border-slate-800 px-4 py-3">
-              <h3 id="post-mortem-title" className="text-[11px] font-black uppercase tracking-wide text-cyan-100">
-                Session post-mortem
-              </h3>
-              <p className="mt-1 font-mono text-[8px] leading-snug text-slate-500">
-                Window {postMortemSummary.windowStartIso.slice(0, 16)} → {postMortemSummary.windowEndIso.slice(0, 16)}{" "}
-                · {postMortemSummary.auditRowSampled} audit rows · LKB {postMortemSummary.lookbackHours}h
-              </p>
-            </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3 font-mono text-[9px] leading-snug text-slate-300">
-              <div>
-                <p className="font-black uppercase tracking-wide text-amber-400/90">Dominant attack vector</p>
-                <p className="mt-0.5 text-slate-200">
-                  {postMortemSummary.dominantVector ?? "— (embed attack_vector in bot metadata / justification JSON)"}
-                </p>
-              </div>
-              <div>
-                <p className="font-black uppercase tracking-wide text-emerald-400/90">Top attack vectors</p>
-                <ul className="mt-1 space-y-0.5">
-                  {postMortemSummary.topAttackVectors.length === 0 ? (
-                    <li className="text-slate-500">No vectors extracted yet.</li>
-                  ) : (
-                    postMortemSummary.topAttackVectors.map((v) => (
-                      <li key={v.vector} className="flex justify-between gap-2 border-b border-slate-800/80 py-0.5">
-                        <span>{v.vector}</span>
-                        <span className="tabular-nums text-slate-400">{v.count}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-              <div>
-                <p className="font-black uppercase tracking-wide text-cyan-400/90">Top threats (audit linkage)</p>
-                <ul className="mt-1 space-y-0.5">
-                  {postMortemSummary.topThreats.length === 0 ? (
-                    <li className="text-slate-500">No threat IDs in window.</li>
-                  ) : (
-                    postMortemSummary.topThreats.map((t) => (
-                      <li key={t.threatId} className="border-b border-slate-800/80 py-0.5">
-                        <span className="text-slate-400">{t.threatId.slice(0, 12)}…</span> — {t.title}{" "}
-                        <span className="tabular-nums text-slate-500">({t.eventCount})</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </div>
-              <div>
-                <p className="font-black uppercase tracking-wide text-rose-300/90">Agent MVP (resolved)</p>
-                <p className="mt-0.5">
-                  {postMortemSummary.agentMvp ? (
-                    <>
-                      <span className="text-slate-100">{postMortemSummary.agentMvp.label}</span> —{" "}
-                      <span className="tabular-nums">{postMortemSummary.agentMvp.resolveCount}</span> resolves
-                    </>
-                  ) : (
-                    <span className="text-slate-500">No THREAT_RESOLVED rows in window.</span>
-                  )}
-                </p>
-                <p className="mt-2 text-[8px] uppercase tracking-wide text-slate-600">
-                  Live THREATS_RESOLVED (UI roster): {agentKillStats.total}
-                </p>
-              </div>
-            </div>
-            <div className="shrink-0 border-t border-slate-800 px-4 py-2">
-              <button
-                type="button"
-                className="w-full rounded border border-slate-600 bg-slate-900 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-300 hover:border-slate-500"
-                onClick={() => setPostMortemOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
+          {renderAuditDetailCard("inline")}
         </div>
       ) : null}
 
@@ -2155,151 +2360,7 @@ export default function AuditIntelligence({
         </div>
       ) : null}
 
-      {metadataModal ? (
-        <div
-          className="fixed inset-0 z-[225] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="agent-metadata-title"
-          onClick={() => setMetadataModal(null)}
-        >
-          <div
-            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
-              <h3 id="agent-metadata-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
-                Reasoning trace — {metadataModal.agentId}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setMetadataModal(null)}
-                className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-400 hover:border-slate-500 hover:text-slate-200"
-              >
-                Close
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <pre className="whitespace-pre-wrap break-all font-mono text-[10px] leading-relaxed text-emerald-200/90">
-                {metadataModal.json}
-              </pre>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {selectedEntry ? (
-        <div
-          className={`fixed inset-x-0 bottom-0 z-[220] flex items-start justify-center overflow-y-auto bg-black/55 px-4 pb-6 pt-3 backdrop-blur-md ${floatingNotifyTopClass(isSimulationMode, 1)}`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="audit-detail-title"
-          onClick={() => setSelectedEntry(null)}
-        >
-          <div
-            className={`flex w-full max-w-lg flex-col overflow-hidden rounded-lg border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/50 ${
-              isSimulationMode ? "max-h-[calc(100dvh-13.25rem)]" : "max-h-[calc(100dvh-11rem)]"
-            }`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="shrink-0 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h3 id="audit-detail-title" className="text-[11px] font-black uppercase tracking-wide text-slate-200">
-                    {typeof (selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence === "number" &&
-                    Number.isFinite((selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence!) ? (
-                      <span className="mr-2 inline font-mono text-[11px] font-bold tabular-nums text-slate-400">
-                        {formatLedgerSequenceLabel(
-                          (selectedEntry.entry as { ledger_sequence?: number }).ledger_sequence!,
-                        )}
-                      </span>
-                    ) : null}
-                    {displayLabelForAuditEntry(selectedEntry.entry.action_type) ||
-                      selectedEntry.entry.action_type}
-                  </h3>
-                  <p className="mt-1 font-mono text-[10px] leading-relaxed text-slate-500">
-                    Local:{" "}
-                    {selectedEntry.createdAt.toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "medium",
-                    })}{" "}
-                    |{" "}
-                    <span className="font-bold text-slate-200">
-                      UTC: {selectedEntry.createdAt.toISOString()}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedEntry(null)}
-                  className="shrink-0 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase text-slate-400 hover:border-slate-500 hover:text-slate-200"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div className="shrink-0 border-b border-slate-800/80 px-4 py-3">
-              <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-slate-600">
-                Narrative Summary
-              </p>
-              <p className="mb-6 border-l-2 border-emerald-500 pl-4 text-sm italic text-slate-200">
-                <ConstitutionalText text={getForensicNarrative(selectedEntry)} tooltipTheme="parchment" />
-              </p>
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-3">
-              <p className="mb-2 text-[8px] font-black uppercase tracking-widest text-slate-600">
-                RAW FORENSIC DATA
-              </p>
-              <div className="max-h-[450px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700">
-                <pre className="whitespace-pre-wrap break-words rounded-md border border-slate-800 bg-black/60 p-4 font-mono text-[11px] text-emerald-400/90">
-                  {buildForensicEntryJson(selectedEntry)}
-                </pre>
-              </div>
-
-              {selectedEntry.entry.threatId ? (
-                <div className="mt-4 border-t border-slate-800 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      jumpToThreatCard(selectedEntry.entry.threatId!);
-                      setSelectedEntry(null);
-                    }}
-                    className="w-full rounded border border-sky-600/60 bg-sky-950/40 py-2 text-[10px] font-black uppercase tracking-wide text-sky-200 hover:border-sky-500 hover:bg-sky-900/40"
-                  >
-                    JUMP TO THREAT CARD
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-800 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(buildForensicEntryJson(selectedEntry)).then(
-                    () => setCopyState("copied"),
-                    () => setCopyState("idle"),
-                  );
-                }}
-                className="inline-flex items-center gap-1.5 rounded border border-slate-600 bg-slate-900/80 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wide text-slate-200 hover:border-slate-500"
-              >
-                <Copy className="h-3.5 w-3.5" strokeWidth={2} />
-                Copy
-              </button>
-              <span
-                aria-live="polite"
-                className={`font-mono text-[10px] text-emerald-500 transition-opacity duration-300 whitespace-nowrap ${
-                  copyState === "copied" ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                HASH COPIED TO CLIPBOARD
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {portaledOverlays}
     </div>
   );
 }

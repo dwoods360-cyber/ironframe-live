@@ -158,17 +158,38 @@ Reference implementation: `app/utils/ironquery/csvEncoder.ts`.
 
 ---
 
-## Automated smoke (local only)
+## Automated smoke
 
-Requires `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, dev server on `:3000`, billing **ACTIVE** for `bwc`.
+### Local / manual (production Vercel)
+
+Requires `DATABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_*` in `.env.local` — no local dev server; hits live `bwc.ironframegrc.com`.
 
 ```powershell
-npx playwright test tests/e2e/bwcWilSmoke.spec.ts --workers=1
+npm run test:e2e:production:bwc
 ```
 
 Optional operator override: `E2E_BWC_OPERATOR_EMAIL=wil@blackwoodscoffee.com`.
 
 Diagnostic JSON is printed to the terminal (`=== BWC WIL SMOKE DIAGNOSTIC ===`).
+
+**Suite:** `tests/e2e/bwcWilSmoke.spec.ts` (Command Post loop) + `tests/e2e/reportsAuditTrailResponsiveness.spec.ts` (audit-trail nav stress) — **6 tests** total.
+
+### Scheduled CI (GitHub Actions)
+
+Workflow: [`.github/workflows/production-bwc-smoke.yml`](../../.github/workflows/production-bwc-smoke.yml)
+
+| Setting | Purpose |
+|---------|---------|
+| Repository variable `PRODUCTION_BWC_SMOKE_ENABLED` | Set to `true` to run the daily cron |
+| Secret `DATABASE_URL` | Production Supabase Postgres (billing/RBAC pre-checks) |
+| Secret `SUPABASE_SERVICE_ROLE_KEY` | Magic-link session bootstrap for Wil |
+| Secrets `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth cookie materialization |
+| Secret `PRODUCTION_SMOKE_ALERT_WEBHOOK` | Optional Slack/Discord webhook on failure |
+| Secret `E2E_BWC_OPERATOR_EMAIL` | Optional; defaults to `wil@blackwoodscoffee.com` |
+
+**Schedule:** 06:00 America/Chicago (`0 11 * * *` UTC). Manual rerun: Actions → **Production BWC Smoke** → **Run workflow**.
+
+GitHub emails watchers on workflow failure; the optional webhook posts the run URL for faster paging.
 
 ---
 

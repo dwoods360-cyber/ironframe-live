@@ -368,25 +368,34 @@ body {
 
 @keyframes marketing-city-cycle-0 {
   0%,
-  23% {
+  21% {
     opacity: 1;
   }
-  24%,
-  100% {
+  25% {
     opacity: 0;
+  }
+  96% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
 @keyframes marketing-city-cycle-1 {
   0%,
-  24% {
+  21% {
     opacity: 0;
   }
-  25%,
-  48% {
+  25% {
     opacity: 1;
   }
-  49%,
+  46% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
   100% {
     opacity: 0;
   }
@@ -394,14 +403,18 @@ body {
 
 @keyframes marketing-city-cycle-2 {
   0%,
-  49% {
+  46% {
     opacity: 0;
   }
-  50%,
-  73% {
+  50% {
     opacity: 1;
   }
-  74%,
+  71% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0;
+  }
   100% {
     opacity: 0;
   }
@@ -409,14 +422,15 @@ body {
 
 @keyframes marketing-city-cycle-3 {
   0%,
-  74% {
+  71% {
     opacity: 0;
   }
-  75%,
-  98% {
+  75% {
     opacity: 1;
   }
-  99%,
+  96% {
+    opacity: 1;
+  }
   100% {
     opacity: 0;
   }
@@ -427,10 +441,13 @@ body {
   animation-duration: 16s;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
+  animation-fill-mode: both;
+  will-change: opacity;
 }
 
 .marketing-city-cycle-line-0 {
   animation-name: marketing-city-cycle-0;
+  opacity: 1;
 }
 
 .marketing-city-cycle-line-1 {
@@ -448,7 +465,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .marketing-city-cycle-line {
     animation-duration: 24s;
-    animation-timing-function: linear;
+    animation-timing-function: ease-in-out;
   }
 }
 

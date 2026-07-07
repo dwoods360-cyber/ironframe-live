@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
 
-type HubTab = "overview" | "workforce" | "crm" | "briefings" | "teams";
+type HubTab = "overview" | "workforce" | "crm" | "briefings" | "newsletters" | "teams";
 
 const STAGE_LABELS: Record<string, string> = {
   SUSPECT: "Suspect",
@@ -44,6 +44,14 @@ function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
+        {service.portalUrl ? (
+          <Link
+            href={service.portalUrl}
+            className="rounded border border-cyan-700/60 px-2 py-1 text-xs text-cyan-200 hover:border-cyan-500"
+          >
+            Open portal
+          </Link>
+        ) : null}
         {service.consoleUrl ? (
           <a
             href={service.consoleUrl}
@@ -51,7 +59,7 @@ function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
             rel="noreferrer"
             className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:border-cyan-600"
           >
-            Open console
+            Worker console
           </a>
         ) : null}
         <a
@@ -79,6 +87,9 @@ export default function OperationsHubClient() {
   const [promoteSlug, setPromoteSlug] = useState("");
   const [promoteBusy, setPromoteBusy] = useState(false);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [syndicateSlug, setSyndicateSlug] = useState("");
+  const [syndicateBusy, setSyndicateBusy] = useState(false);
+  const [syndicateMessage, setSyndicateMessage] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
 
   const loadSnapshot = useCallback(async () => {
@@ -139,11 +150,41 @@ export default function OperationsHubClient() {
     }
   };
 
+  const handleSyndicate = async (slug: string) => {
+    if (!slug.trim() || syndicateBusy) return;
+    setSyndicateBusy(true);
+    setSyndicateMessage(null);
+    try {
+      const response = await fetch("/api/admin/operations-hub/newsletters/syndicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: slug.trim() }),
+      });
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        newsletterHtmlPath?: string | null;
+      };
+      if (!response.ok) throw new Error(data.error ?? "Syndication failed.");
+      setSyndicateMessage(
+        data.newsletterHtmlPath
+          ? `Ironcast HTML compiled: ${data.newsletterHtmlPath}`
+          : "RSS + newsletter syndication complete.",
+      );
+      await loadSnapshot();
+    } catch (err) {
+      setSyndicateMessage(err instanceof Error ? err.message : "Syndication failed.");
+    } finally {
+      setSyndicateBusy(false);
+    }
+  };
+
   const tabs: Array<{ id: HubTab; label: string }> = [
     { id: "overview", label: "Overview" },
     { id: "workforce", label: "Workforce" },
     { id: "crm", label: "CRM" },
     { id: "briefings", label: "Briefings" },
+    { id: "newsletters", label: "Newsletters" },
     { id: "teams", label: "Teams" },
   ];
 
@@ -158,7 +199,7 @@ export default function OperationsHubClient() {
             <h1 className="text-2xl font-bold text-white">Revenue & Success Command Center</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
               Control Ironboard, Ironleads, SalesTeam, IronSuccessTeam, IronSupportTeam, CRM pipeline,
-              human-in-the-loop approvals, and public briefing promotion from one surface.
+              human-in-the-loop approvals, Ironcast newsletters, and public briefing promotion from one surface.
             </p>
           </div>
           <button
@@ -201,7 +242,7 @@ export default function OperationsHubClient() {
 
         {snapshot && tab === "overview" ? (
           <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="text-[10px] uppercase tracking-widest text-slate-500">Approval queue</div>
               <div className="mt-2 text-3xl font-bold text-white">{snapshot.approvals.total}</div>
@@ -253,16 +294,35 @@ export default function OperationsHubClient() {
               </button>
               <button
                 type="button"
+                onClick={() => setTab("newsletters")}
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                Ironcast newsletters
+              </button>
+              <button
+                type="button"
                 onClick={() => setTab("workforce")}
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 Check worker fleet
               </button>
               <Link
-                href="/governance-frame"
+                href="/dashboard/support"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
-                Public Governance Frame
+                Support ticket ingestion
+              </Link>
+              <Link
+                href="/dashboard/operations/ironleads"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                Ironleads portal
+              </Link>
+              <Link
+                href="/dashboard/operations/success-team"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                IronSuccessTeam portal
               </Link>
             </div>
           </section>
@@ -423,6 +483,125 @@ export default function OperationsHubClient() {
           </div>
         ) : null}
 
+        {snapshot && tab === "newsletters" ? (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">Ironcast syndication</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Compile published Governance Frame briefings into presentation-safe HTML for corporate
+                Substack / Ironcast routing, and refresh the public RSS feed.
+              </p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500">Compiled HTML</div>
+                  <div className="mt-1 text-2xl font-bold text-cyan-300">
+                    {snapshot.newsletters.compiledCount}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500">Pending syndication</div>
+                  <div className="mt-1 text-2xl font-bold text-amber-300">
+                    {snapshot.newsletters.pendingSyndicationCount}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                <a
+                  href={snapshot.newsletters.rssFeedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-300 hover:underline"
+                >
+                  Public RSS feed
+                  {snapshot.newsletters.rssItemCount != null
+                    ? ` (${snapshot.newsletters.rssItemCount} items)`
+                    : ""}
+                </a>
+                <Link href="/governance-frame" className="text-cyan-300 hover:underline">
+                  Governance Frame reader
+                </Link>
+              </div>
+              <div className="mt-5 space-y-3">
+                <label className="block text-xs text-slate-400">
+                  Re-syndicate published slug
+                  <input
+                    value={syndicateSlug}
+                    onChange={(e) => setSyndicateSlug(e.target.value)}
+                    placeholder="e.g. 2026-06-07-staging-boundary-check"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={syndicateBusy || !syndicateSlug.trim()}
+                  onClick={() => void handleSyndicate(syndicateSlug)}
+                  className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+                >
+                  {syndicateBusy ? "Compiling…" : "Compile RSS + newsletter HTML"}
+                </button>
+                {syndicateMessage ? (
+                  <p className="text-sm text-slate-300">{syndicateMessage}</p>
+                ) : null}
+              </div>
+            </section>
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">Published editions</h2>
+              <ul className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto pr-1">
+                {snapshot.newsletters.editions.length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    No published briefings yet — promote a draft from the Briefings tab first.
+                  </li>
+                ) : (
+                  snapshot.newsletters.editions.map((edition) => (
+                    <li
+                      key={edition.slug}
+                      className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="font-medium text-slate-100">{edition.title}</div>
+                          <div className="font-mono text-[10px] text-slate-500">{edition.slug}</div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-widest ${
+                            edition.syndicated ? "text-emerald-400" : "text-amber-400"
+                          }`}
+                        >
+                          {edition.syndicated ? "syndicated" : "pending"}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                        <Link
+                          href={`/governance-frame/${edition.slug}`}
+                          className="text-cyan-300 hover:underline"
+                        >
+                          View public
+                        </Link>
+                        {!edition.syndicated ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSyndicateSlug(edition.slug);
+                              void handleSyndicate(edition.slug);
+                            }}
+                            className="text-cyan-300 hover:underline"
+                          >
+                            Syndicate now
+                          </button>
+                        ) : edition.htmlModifiedAt ? (
+                          <span className="text-slate-500">
+                            HTML {new Date(edition.htmlModifiedAt).toLocaleString()}
+                          </span>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </section>
+          </div>
+        ) : null}
+
         {snapshot && tab === "teams" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
@@ -467,17 +646,31 @@ export default function OperationsHubClient() {
                 </li>
                 <li>
                   <Link href="/dashboard/support" className="text-cyan-300 hover:underline">
-                    Customer service console
+                    Support ticket ingestion portal
                   </Link>
                   <p className="text-slate-500">
                     In-tenant intake → IronSupportTeam poll worker (:8086) → SUPPORT approval queue.
                   </p>
                 </li>
                 <li>
+                  <Link href="/dashboard/operations/ironleads" className="text-cyan-300 hover:underline">
+                    Ironleads interaction portal
+                  </Link>
+                  <p className="text-slate-500">SUSPECT harvest & OSINT pipeline → CRM ingress (:8083).</p>
+                </li>
+                <li>
                   <Link href="/sales-agent-portal" className="text-cyan-300 hover:underline">
                     Sales agent portal
                   </Link>
                   <p className="text-slate-500">Public prospect intake → SalesTeam worker (:8084).</p>
+                </li>
+                <li>
+                  <Link href="/dashboard/operations/success-team" className="text-cyan-300 hover:underline">
+                    IronSuccessTeam interaction portal
+                  </Link>
+                  <p className="text-slate-500">
+                    CLOSED_WON health advisories → CS approval queue (:8085).
+                  </p>
                 </li>
               </ul>
             </section>

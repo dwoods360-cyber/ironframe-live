@@ -22,6 +22,7 @@ import {
   type BriefingDraftValidationIssue,
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
 import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
+import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
 import prisma from "@/lib/prisma";
 
 export type WorkforceServiceId =
@@ -37,6 +38,8 @@ export type WorkforceServiceStatus = {
   port: number;
   healthUrl: string;
   consoleUrl: string | null;
+  /** Operator interaction portal on Ironframe control plane (when not the worker root). */
+  portalUrl: string | null;
   role: string;
   reachable: boolean;
   status: string | null;
@@ -51,6 +54,15 @@ export type BriefingQueueDraftSummary = {
   requiresImmediatePromotion: boolean;
   validationOk: boolean;
   issues: BriefingDraftValidationIssue[];
+};
+
+export type NewsletterEditionSummary = {
+  slug: string;
+  title: string;
+  publishedAt: string;
+  syndicated: boolean;
+  htmlPath: string | null;
+  htmlModifiedAt: string | null;
 };
 
 export type OperationsHubSnapshot = {
@@ -79,6 +91,13 @@ export type OperationsHubSnapshot = {
       publishedAt: string;
       tenantId: string;
     }>;
+  };
+  newsletters: {
+    rssFeedUrl: string;
+    rssItemCount: number | null;
+    compiledCount: number;
+    pendingSyndicationCount: number;
+    editions: NewsletterEditionSummary[];
   };
   workforce: WorkforceServiceStatus[];
   quickLinks: Array<{ label: string; href: string; external?: boolean }>;
@@ -131,6 +150,7 @@ async function probeWorkerHealth(
       port,
       healthUrl,
       consoleUrl: consolePath ? `${base}${consolePath}` : null,
+      portalUrl: null,
       role,
       reachable: response.ok,
       status,
@@ -143,6 +163,7 @@ async function probeWorkerHealth(
       port,
       healthUrl,
       consoleUrl: consolePath ? `${base}${consolePath}` : null,
+      portalUrl: null,
       role,
       reachable: false,
       status: null,
@@ -176,6 +197,84 @@ function listBriefingQueueDrafts(docsRoot: string): BriefingQueueDraftSummary[] 
       };
     })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
+}
+
+function resolveNewsletterArtifactDirs(docsRoot: string): string[] {
+  const cwd = process.cwd();
+  const dirs = [
+    path.join(docsRoot, "newsletters"),
+    path.join(cwd, "out", "governance-frame", "newsletters"),
+    path.join(cwd, "public", "governance-frame", "newsletters"),
+  ];
+  return [...new Set(dirs)];
+}
+
+function findNewsletterHtmlArtifact(
+  slug: string,
+  dirs: string[],
+): { htmlPath: string; htmlModifiedAt: string } | null {
+  for (const dir of dirs) {
+    const filePath = path.join(dir, `${slug}.html`);
+    if (!fs.existsSync(filePath)) continue;
+    const stat = fs.statSync(filePath);
+    return { htmlPath: filePath, htmlModifiedAt: stat.mtime.toISOString() };
+  }
+  return null;
+}
+
+function countPublicRssItems(): number | null {
+  const rssPath = path.join(process.cwd(), "public", "rss.xml");
+  if (!fs.existsSync(rssPath)) return null;
+  const xml = fs.readFileSync(rssPath, "utf8");
+  return (xml.match(/<item\b/gi) ?? []).length;
+}
+
+function buildNewslettersSnapshot(
+  published: Array<{ slug: string; title: string; publishedAt: string }>,
+  docsRoot: string,
+): OperationsHubSnapshot["newsletters"] {
+  const artifactDirs = resolveNewsletterArtifactDirs(docsRoot);
+  const editions: NewsletterEditionSummary[] = published.map((row) => {
+    const artifact = findNewsletterHtmlArtifact(row.slug, artifactDirs);
+    return {
+      slug: row.slug,
+      title: row.title,
+      publishedAt: row.publishedAt,
+      syndicated: Boolean(artifact),
+      htmlPath: artifact?.htmlPath ?? null,
+      htmlModifiedAt: artifact?.htmlModifiedAt ?? null,
+    };
+  });
+
+  const compiledCount = editions.filter((row) => row.syndicated).length;
+
+  return {
+    rssFeedUrl: "/rss.xml",
+    rssItemCount: countPublicRssItems(),
+    compiledCount,
+    pendingSyndicationCount: editions.length - compiledCount,
+    editions,
+  };
+}
+
+export async function syndicateNewsletterForSlug(
+  slug: string,
+  docsRoot = resolveDocsRoot(),
+): Promise<{ slug: string; newsletterHtmlPath: string | null; rssPath: string }> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized || normalized.includes("..") || normalized.includes("/")) {
+    throw new Error("Invalid slug.");
+  }
+  const newsletterOutputDir = path.join(docsRoot, "newsletters");
+  fs.mkdirSync(newsletterOutputDir, { recursive: true });
+  const result = syndicatePublishedBriefing(normalized, docsRoot, {
+    newsletterOutputDir,
+  });
+  return {
+    slug: normalized,
+    newsletterHtmlPath: result.newsletterHtmlPath,
+    rssPath: result.rssPath,
+  };
 }
 
 export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapshot> {
@@ -273,6 +372,26 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
 
   const docsRoot = resolveDocsRoot();
   const queueDrafts = listBriefingQueueDrafts(docsRoot);
+  const publishedBriefings = publishedRows.map((row) => ({
+    slug: row.slug,
+    title: row.title,
+    publishedAt: row.createdAt.toISOString(),
+    tenantId: row.tenantId,
+  }));
+  const newsletters = buildNewslettersSnapshot(publishedBriefings, docsRoot);
+
+  const portalUrls: Record<WorkforceServiceId, string | null> = {
+    ironboard: workforce[0]?.consoleUrl ?? "/",
+    ironleads: "/dashboard/operations/ironleads",
+    salesteam: "/sales-agent-portal",
+    "success-team": "/dashboard/operations/success-team",
+    "support-team": "/dashboard/support",
+  };
+
+  const workforceWithPortals = workforce.map((service) => ({
+    ...service,
+    portalUrl: portalUrls[service.id],
+  }));
 
   return {
     generatedAt: new Date().toISOString(),
@@ -294,21 +413,20 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     },
     briefings: {
       queueDrafts,
-      published: publishedRows.map((row) => ({
-        slug: row.slug,
-        title: row.title,
-        publishedAt: row.createdAt.toISOString(),
-        tenantId: row.tenantId,
-      })),
+      published: publishedBriefings,
     },
-    workforce,
+    newsletters,
+    workforce: workforceWithPortals,
     quickLinks: [
       { label: "Operations hub", href: "/dashboard/operations" },
       { label: "Ironboard console", href: workforce[0]?.consoleUrl ?? "http://127.0.0.1:8082/", external: true },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
-      { label: "Customer support console", href: "/dashboard/support" },
+      { label: "Support ticket ingestion", href: "/dashboard/support" },
+      { label: "Ironleads portal", href: "/dashboard/operations/ironleads" },
       { label: "Sales agent portal", href: "/sales-agent-portal" },
+      { label: "IronSuccessTeam portal", href: "/dashboard/operations/success-team" },
       { label: "Governance Frame (public)", href: "/governance-frame" },
+      { label: "Governance Frame RSS", href: "/rss.xml" },
       { label: "Op Support", href: "/opsupport" },
       { label: "Tenant onboarding", href: "/admin/onboarding" },
       { label: "Published briefings folder", href: `/docs/${PUBLISHED_BRIEFINGS_DIR}` },

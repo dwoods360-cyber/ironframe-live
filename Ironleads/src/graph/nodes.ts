@@ -4,9 +4,9 @@ import { runSignalFilter } from '../agents/signalFilter.js';
 import {
   classifyVulnerability,
   computeQualificationScores,
+  isBeachheadSector,
   priorityScoreFromSignals,
-} from '../../../Ironboard/src/services/crm/leadPrioritization.js';
-import { isBeachheadSector } from '../../../Ironboard/src/types/crm.js';
+} from '../lib/leadScoring.js';
 import { listLeadGenByTrigger, searchLeadGenKnowledge } from '../knowledge/index.js';
 import { getIronleadsPrisma } from '../lib/prisma.js';
 import { fingerprintParserSuccess, LKG_PARSER_SUCCESS } from './lkg.js';

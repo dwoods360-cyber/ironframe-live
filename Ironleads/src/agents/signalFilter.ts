@@ -1,4 +1,4 @@
-import type { BeachheadSector } from '../../../Ironboard/src/types/crm.js';
+import type { BeachheadSector } from '../types/leadGenKnowledge.js';
 import { getAllowlistedSource } from '../config/allowlistedSources.js';
 import { loadIronleadsEnv } from '../loadIronleadsEnv.js';
 import { getIronleadsPrisma } from '../lib/prisma.js';

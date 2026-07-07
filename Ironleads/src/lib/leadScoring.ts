@@ -1,24 +1,44 @@
 /**
- * Deterministic IronBoard lead priority scoring.
- * P = (S_beachhead × 0.35) + (M_pain × 0.30) + (T_trigger × 0.20) + (C_methodology × 0.15)
- * All factors are 0.0–1.0; priorityScore is 0–100 integer.
+ * Shared lead qualification scoring — duplicated from Ironboard leadPrioritization
+ * so Ironleads compiles without cross-package rootDir violations.
  */
 
-import type {
-  BeachheadSector,
-  MethodologyMarkers,
-  PainMarkers,
-  QualificationSignals,
-  TriggerSignal,
-} from '../../types/crm.js';
-import {
-  BEACHHEAD_SECTORS,
-  isBeachheadSector,
-  isTriggerSignal,
-} from '../../types/crm.js';
+import type { BeachheadSector } from '../types/leadGenKnowledge.js';
+import { BEACHHEAD_SECTORS } from '../types/leadGenKnowledge.js';
 
-export type { BeachheadSector, MethodologyMarkers, PainMarkers, QualificationSignals, TriggerSignal };
-export { BEACHHEAD_SECTORS, isBeachheadSector, isTriggerSignal };
+export type PainMarkers = {
+  manualBoardReporting?: boolean;
+  noDollarRiskQuant?: boolean;
+  fragmentedGrc?: boolean;
+  multiEntityGovernance?: boolean;
+};
+
+export type MethodologyMarkers = {
+  commercialInsightDelivered?: boolean;
+  spinSituationReduced?: boolean;
+};
+
+export const TRIGGER_SIGNALS = [
+  'REG_FINE',
+  'NEW_CISO',
+  'M_AND_A',
+  'COMPLIANCE_JOB_POST',
+  'BOARD_MANDATE_DOLLAR_RISK',
+] as const;
+
+export type TriggerSignal = (typeof TRIGGER_SIGNALS)[number];
+
+export type QualificationSignals = {
+  beachheadScore: number;
+  painScore: number;
+  triggerScore: number;
+  methodologyScore: number;
+  priorityWeight: number;
+  painMarkers?: PainMarkers;
+  triggers?: TriggerSignal[];
+  methodology?: MethodologyMarkers;
+  computedAt: string;
+};
 
 export type QualificationInput = {
   industrySector?: BeachheadSector | null;
@@ -50,6 +70,14 @@ const WEIGHTS = {
   trigger: 0.2,
   methodology: 0.15,
 } as const;
+
+export function isBeachheadSector(value: string): value is BeachheadSector {
+  return (BEACHHEAD_SECTORS as readonly string[]).includes(value);
+}
+
+function isTriggerSignal(value: string): value is TriggerSignal {
+  return (TRIGGER_SIGNALS as readonly string[]).includes(value);
+}
 
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -133,24 +161,4 @@ export function classifyVulnerability(signals: QualificationSignals): 'HIGH' | '
   if (score >= 70) return 'HIGH';
   if (score >= 40) return 'MEDIUM';
   return 'LOW';
-}
-
-export function parseQualificationInputFromRecord(row: {
-  industrySector?: string | null;
-  detectedTrigger?: string | null;
-  qualificationSignals?: unknown;
-}): QualificationInput {
-  const signals =
-    row.qualificationSignals && typeof row.qualificationSignals === 'object'
-      ? (row.qualificationSignals as QualificationSignals)
-      : null;
-
-  return {
-    industrySector:
-      row.industrySector && isBeachheadSector(row.industrySector) ? row.industrySector : null,
-    detectedTrigger: row.detectedTrigger ?? null,
-    painMarkers: signals?.painMarkers,
-    triggers: signals?.triggers,
-    methodology: signals?.methodology,
-  };
 }

@@ -30,6 +30,16 @@ export const LEAD_INGESTION_SOURCES = [
 
 export type LeadIngestionSource = (typeof LEAD_INGESTION_SOURCES)[number];
 
+export const TRIGGER_SIGNALS = [
+  'REG_FINE',
+  'NEW_CISO',
+  'M_AND_A',
+  'COMPLIANCE_JOB_POST',
+  'BOARD_MANDATE_DOLLAR_RISK',
+] as const;
+
+export type TriggerSignal = (typeof TRIGGER_SIGNALS)[number];
+
 /** Monetary values are whole-cent BIGINT integers — never float dollars. */
 export type CentsBigInt = bigint;
 
@@ -52,7 +62,7 @@ export type QualificationSignals = {
   methodologyScore: number;
   priorityWeight: number;
   painMarkers?: PainMarkers;
-  triggers?: string[];
+  triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
   computedAt: string;
 };
@@ -130,7 +140,7 @@ export type CreateContactInput = {
   detectedTrigger?: string | null;
   ingestionSource?: LeadIngestionSource;
   painMarkers?: PainMarkers;
-  triggers?: string[];
+  triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
 };
 
@@ -139,7 +149,7 @@ export type UpdateQualificationInput = {
   industrySector?: BeachheadSector | null;
   detectedTrigger?: string | null;
   painMarkers?: PainMarkers;
-  triggers?: string[];
+  triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
 };
 
@@ -214,4 +224,8 @@ export function isBeachheadSector(value: string): value is BeachheadSector {
 
 export function isLeadIngestionSource(value: string): value is LeadIngestionSource {
   return (LEAD_INGESTION_SOURCES as readonly string[]).includes(value);
+}
+
+export function isTriggerSignal(value: string): value is TriggerSignal {
+  return (TRIGGER_SIGNALS as readonly string[]).includes(value);
 }

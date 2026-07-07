@@ -1,4 +1,4 @@
-import type { BeachheadSector } from '../../../Ironboard/src/types/crm.js';
+import type { BeachheadSector } from '../types/leadGenKnowledge.js';
 import { LEAD_GEN_KNOWLEDGE_CATALOG, LEAD_GEN_KNOWLEDGE_CORPUS } from './leadGenCorpus.js';
 import type {
   LeadGenCategory,

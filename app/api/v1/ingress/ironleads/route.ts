@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 
 import { ironleadsIngressSchema } from '@/app/lib/ingress/ironleadsIngressSchema';
-import { ingestIronleadsLead } from '@/Ironboard/src/services/crm/crmService';
+import { ingestIronleadsLead } from '@/app/lib/server/ironleadsIngressCore';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

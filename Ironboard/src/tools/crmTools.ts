@@ -22,7 +22,7 @@ import {
   parseOutreachStrategyDraft,
   validateOutreachStrategy,
 } from '../services/crm/knowledge/methodologyValidation.js';
-import { executeLeadGenKnowledgeTool } from '../../../Ironleads/src/tools/leadGenKnowledgeTools.js';
+import { executeLeadGenKnowledgeTool } from '../services/crm/knowledge/leadGenKnowledgeBridge.js';
 
 export const CRM_TOOL_ACTIONS = [
   'list_pipeline',
@@ -347,10 +347,12 @@ export async function executeManageCrmPipeline(
           contact: await updateContactQualification(tenantId, {
             contactId: String(raw.contactId ?? ''),
             industrySector:
-              raw.industrySector && isBeachheadSector(String(raw.industrySector))
-                ? String(raw.industrySector)
-                : raw.industrySector === null
+              raw.industrySector == null
+                ? raw.industrySector === null
                   ? null
+                  : undefined
+                : isBeachheadSector(String(raw.industrySector))
+                  ? (String(raw.industrySector) as (typeof BEACHHEAD_SECTORS)[number])
                   : undefined,
             detectedTrigger:
               raw.detectedTrigger !== undefined ? String(raw.detectedTrigger) : undefined,

@@ -1,5 +1,4 @@
 import type { RunnableConfig } from '@langchain/core/runnables';
-import type { CompiledStateGraph } from '@langchain/langgraph';
 
 import { LKG_PARSER_SUCCESS } from './lkg.js';
 import { quarantineDlqNode } from './nodes.js';
@@ -8,13 +7,28 @@ import { getIronleadsFailurePolicy } from '../loadIronleadsEnv.js';
 
 export { LKG_PARSER_SUCCESS, fingerprintParserSuccess } from './lkg.js';
 
-type StateSnapshot = Awaited<ReturnType<CompiledStateGraph['getState']>>;
+type GraphSnapshot = {
+  values: Partial<IronleadsGraphState>;
+  config: RunnableConfig;
+  metadata?: unknown;
+  next?: string[];
+};
+
+type IronleadsCompiledGraph = {
+  getState: (config: RunnableConfig) => Promise<GraphSnapshot>;
+  getStateHistory: (config: RunnableConfig) => AsyncIterable<GraphSnapshot>;
+  updateState: (
+    config: RunnableConfig,
+    values: Partial<IronleadsGraphState>,
+    asNode?: string,
+  ) => Promise<RunnableConfig>;
+};
 
 export async function collectThreadHistory(
-  app: CompiledStateGraph,
+  app: IronleadsCompiledGraph,
   threadConfig: RunnableConfig,
-): Promise<StateSnapshot[]> {
-  const history: StateSnapshot[] = [];
+): Promise<GraphSnapshot[]> {
+  const history: GraphSnapshot[] = [];
   for await (const snapshot of app.getStateHistory(threadConfig)) {
     history.push(snapshot);
   }
@@ -22,16 +36,15 @@ export async function collectThreadHistory(
 }
 
 /** Locate the most recent pristine checkpoint after LeadParser succeeded. */
-export function findLastKnownGoodSnapshot(history: StateSnapshot[]): StateSnapshot | null {
+export function findLastKnownGoodSnapshot(history: GraphSnapshot[]): GraphSnapshot | null {
   for (const snapshot of history) {
-    const values = snapshot.values as Partial<IronleadsGraphState> | undefined;
+    const values = snapshot.values;
     if (values?.lastKnownGoodNode !== LKG_PARSER_SUCCESS) continue;
     if (!values.stateFingerprint) continue;
     if ((values.scoredLeads?.length ?? 0) > 0) continue;
     if ((values.strategistResults?.length ?? 0) > 0) continue;
     if (values.error || values.lastError) continue;
-    const metadata = snapshot.metadata as { error?: unknown } | undefined;
-    if (metadata?.error) continue;
+    if (snapshot.metadata && typeof snapshot.metadata === 'object' && 'error' in snapshot.metadata && snapshot.metadata.error) continue;
     if (!snapshot.next?.length) continue;
     return snapshot;
   }
@@ -40,9 +53,9 @@ export function findLastKnownGoodSnapshot(history: StateSnapshot[]): StateSnapsh
 
 /** Rewind graph execution to the Last Known Good checkpoint. */
 export async function rewindToLastKnownGood(
-  app: CompiledStateGraph,
+  app: IronleadsCompiledGraph,
   threadConfig: RunnableConfig,
-  lastKnownGood: StateSnapshot,
+  lastKnownGood: GraphSnapshot,
 ): Promise<RunnableConfig> {
   const checkpointId = lastKnownGood.config.configurable?.checkpoint_id;
   if (!checkpointId) {
@@ -58,7 +71,7 @@ export async function rewindToLastKnownGood(
       },
     },
     {
-      ...(lastKnownGood.values as Partial<IronleadsGraphState>),
+      ...lastKnownGood.values,
       scoredLeads: [],
       strategistResults: [],
       marshalResults: [],
@@ -84,7 +97,7 @@ export type RecoveryOutcome = {
 
 /** Self-healing middleware — query history, rewind, then apply failure policy. */
 export async function executeLastKnownGoodRecovery(
-  app: CompiledStateGraph,
+  app: IronleadsCompiledGraph,
   threadConfig: RunnableConfig,
   error: unknown,
   failedNode = 'downstream',
@@ -110,7 +123,7 @@ export async function executeLastKnownGoodRecovery(
   const checkpointId = lastKnownGood.config.configurable?.checkpoint_id ?? null;
   await rewindToLastKnownGood(app, threadConfig, lastKnownGood);
 
-  const restored = lastKnownGood.values as Partial<IronleadsGraphState>;
+  const restored = lastKnownGood.values;
   let quarantined = 0;
   let threadFrozen = false;
 

@@ -207,10 +207,7 @@ function assertTenantRecord<T extends { tenantId: string }>(record: T, tenantId:
   return record;
 }
 
-function contactCreateData(
-  tenantId: string,
-  input: CreateContactInput,
-): Prisma.IronboardCrmContactUncheckedCreateInput {
+function contactCreateData(tenantId: string, input: CreateContactInput) {
   const qualification = computeQualificationScores(qualificationInputFromCreate(input));
   const priorityScore = priorityScoreFromSignals(qualification);
   const ingestionSource: LeadIngestionSource =
@@ -230,7 +227,7 @@ function contactCreateData(
     detectedTrigger: input.detectedTrigger ? sanitizeText(input.detectedTrigger, 120) : null,
     ingestionSource,
     priorityScore,
-    qualificationSignals: qualification as unknown as Prisma.InputJsonValue,
+    qualificationSignals: qualification,
   };
 }
 
@@ -347,7 +344,7 @@ export async function updateContactQualification(
               : null
             : existing.detectedTrigger,
         priorityScore: priorityScoreFromSignals(qualification),
-        qualificationSignals: qualification as unknown as Prisma.InputJsonValue,
+        qualificationSignals: qualification,
       },
     });
     return mapContact(assertTenantRecord(row, tenantId));

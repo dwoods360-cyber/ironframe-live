@@ -1,4 +1,12 @@
-import type { BeachheadSector } from '../../Ironboard/src/types/crm.js';
+export const BEACHHEAD_SECTORS = [
+  'REGIONAL_BHC',
+  'UTILITY_NERC',
+  'MSSP_ENCLAVE',
+  'HEALTH_HIPAA',
+  'UNCLASSIFIED',
+] as const;
+
+export type BeachheadSector = (typeof BEACHHEAD_SECTORS)[number];
 
 /** Canonical lead-generation knowledge entry kinds. */
 export const LEAD_GEN_ENTRY_KINDS = ['book', 'strategy', 'framework'] as const;

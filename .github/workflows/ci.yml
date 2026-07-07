@@ -45,6 +45,9 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Install Ironleads subpackage
+        run: npm run ironleads:install
+
       # Committed .env points at Supabase; pin CI URLs before Prisma/Next read env files.
       - name: Configure CI database env
         run: |
@@ -136,6 +139,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+      - name: Install root deps and generate Prisma client
+        run: npm ci && npx prisma generate
       - name: Install Subpackage Deps
         run: cd Ironboard && npm ci
       - name: Run Subpackage Typecheck

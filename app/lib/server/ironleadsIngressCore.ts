@@ -7,12 +7,12 @@ import type { IronleadsIngressPayload } from "@/app/lib/ingress/ironleadsIngress
 import {
   classifyVulnerability,
   computeQualificationScores,
+  isBeachheadSector,
   isTriggerSignal,
   priorityScoreFromSignals,
   type QualificationInput,
   type TriggerSignal,
-} from "@/Ironboard/src/services/crm/leadPrioritization";
-import { isBeachheadSector } from "@/Ironboard/src/types/crm";
+} from "@/lib/crm/leadPrioritization";
 import prisma from "@/lib/prisma";
 
 export type IronleadsIngressResult = {

@@ -218,84 +218,104 @@ export const BOARDROOM_QUERY_ROSTER: BoardPersona[] = AGENTIC_BOARD_ROSTER.filte
   (persona) => !BOARDROOM_ISOLATED_AGENT_IDS.has(persona.id),
 );
 
+export type BoardroomRosterDisplayEntry = BoardPersona & {
+  isolated: boolean;
+  ironframeRoute: string | null;
+};
+
+/** Full 17-persona roster for the boardroom UI (includes isolated doc authors). */
+export function buildBoardroomRosterDisplayEntries(): BoardroomRosterDisplayEntry[] {
+  return AGENTIC_BOARD_ROSTER.map((persona) => ({
+    ...persona,
+    isolated: BOARDROOM_ISOLATED_AGENT_IDS.has(persona.id),
+    ironframeRoute: BOARDROOM_ISOLATED_AGENT_REDIRECTS[persona.id] ?? null,
+  }));
+}
+
 export const STATIC_PRODUCTS = [
   { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
   { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
   { name: "Docs Hub Accessibility Engine", key: "docs-hub-accessibility", priority: "MEDIUM", frameworks: ["GRI"] },
 ] as const;
 
-/** Right-panel Product Matrix — core surfaces + perimeter poll workers with live health probes. */
+/** Consolidated right-panel fleet row — perimeter role copy + live health probe metadata. */
 export type ProductMatrixEntry = {
   key: string;
   name: string;
+  role: string;
   priority: "CRITICAL" | "HIGH" | "MEDIUM";
   port: number;
   healthPath: string;
   /** Env override for base URL (falls back to http://127.0.0.1:{port}). */
   envUrlKey: string;
   crmStage?: string | null;
+  ingressNote?: string | null;
+  frameworks?: readonly string[];
 };
 
-export const PRODUCT_MATRIX: readonly ProductMatrixEntry[] = [
-  {
+const PERIMETER_HEALTH_PROBE_META: Record<
+  PerimeterWorkforceApp["id"],
+  Pick<ProductMatrixEntry, "key" | "priority" | "healthPath" | "envUrlKey">
+> = {
+  ironframe: {
     key: "ironframe-core",
-    name: "Ironframe Control Center",
     priority: "CRITICAL",
-    port: 3000,
     healthPath: "/api/health",
     envUrlKey: "OPERATIONS_IRONFRAME_URL",
   },
-  {
+  ironboard: {
     key: "ironboard-exec",
-    name: "IronBoard Executive Cockpit",
     priority: "HIGH",
-    port: 8082,
     healthPath: "/health",
     envUrlKey: "OPERATIONS_IRONBOARD_URL",
   },
+  ironleads: {
+    key: "ironleads",
+    priority: "HIGH",
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_IRONLEADS_URL",
+  },
+  salesteam: {
+    key: "salesteam",
+    priority: "HIGH",
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SALESTEAM_URL",
+  },
+  "success-team": {
+    key: "success-team",
+    priority: "HIGH",
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUCCESS_TEAM_URL",
+  },
+  "support-team": {
+    key: "support-team",
+    priority: "HIGH",
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUPPORT_TEAM_URL",
+  },
+};
+
+/** Single authoritative fleet list for boardroom panel + health probes (no duplicate names). */
+export const PRODUCT_MATRIX: readonly ProductMatrixEntry[] = [
+  ...PERIMETER_WORKFORCE_APPS.map((app) => ({
+    ...PERIMETER_HEALTH_PROBE_META[app.id],
+    name: app.label,
+    port: app.port,
+    role: app.role,
+    crmStage: app.crmStage,
+    ingressNote: app.ingressNote,
+  })),
   {
     key: "docs-hub-accessibility",
     name: "Docs Hub Accessibility Engine",
+    role: "Level 1 user-manuals · Level 2 technical specs · reader /docs · GRI accessibility",
     priority: "MEDIUM",
     port: 3000,
     healthPath: "/docs",
     envUrlKey: "OPERATIONS_IRONFRAME_URL",
-  },
-  {
-    key: "ironleads",
-    name: "Ironleads",
-    priority: "HIGH",
-    port: 8083,
-    healthPath: "/health",
-    envUrlKey: "OPERATIONS_IRONLEADS_URL",
-    crmStage: "SUSPECT",
-  },
-  {
-    key: "salesteam",
-    name: "SalesTeam",
-    priority: "HIGH",
-    port: 8084,
-    healthPath: "/health",
-    envUrlKey: "OPERATIONS_SALESTEAM_URL",
-    crmStage: "PROSPECT",
-  },
-  {
-    key: "success-team",
-    name: "IronSuccessTeam",
-    priority: "HIGH",
-    port: 8085,
-    healthPath: "/health",
-    envUrlKey: "OPERATIONS_SUCCESS_TEAM_URL",
-    crmStage: "CLOSED_WON",
-  },
-  {
-    key: "support-team",
-    name: "IronSupportTeam",
-    priority: "HIGH",
-    port: 8086,
-    healthPath: "/health",
-    envUrlKey: "OPERATIONS_SUPPORT_TEAM_URL",
-    crmStage: "SUPPORT_INTAKE",
+    crmStage: null,
+    ingressNote: "Served by Ironframe :3000 — documentation federation plane",
+    frameworks: ["GRI"],
   },
 ] as const;
 

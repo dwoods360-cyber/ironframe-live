@@ -9,11 +9,11 @@ describe("product matrix health", () => {
     expect(keys).toEqual([
       "ironframe-core",
       "ironboard-exec",
-      "docs-hub-accessibility",
       "ironleads",
       "salesteam",
       "success-team",
       "support-team",
+      "docs-hub-accessibility",
     ]);
   });
 

@@ -48,6 +48,9 @@ jobs:
       - name: Install Ironleads subpackage
         run: npm run ironleads:install
 
+      - name: Prepare Ironleads SQLite scratchpad
+        run: cd Ironleads && npm run db:generate && npm run db:push
+
       # Committed .env points at Supabase; pin CI URLs before Prisma/Next read env files.
       - name: Configure CI database env
         run: |

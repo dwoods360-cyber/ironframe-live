@@ -84,19 +84,38 @@ export async function mintWorkspaceBootstrapFromRequest(
   });
 
   const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-  if (sessionError || !session?.access_token || !session.refresh_token) {
+  if (userError || !user?.id?.trim()) {
     return { ok: false, reason: "unauthenticated" };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let accessToken = "";
+  let refreshToken = "";
 
-  if (!user?.id?.trim()) {
+  const {
+    data: { session: initialSession },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (!sessionError && initialSession?.access_token && initialSession.refresh_token) {
+    accessToken = initialSession.access_token;
+    refreshToken = initialSession.refresh_token;
+  } else {
+    const {
+      data: { session: refreshedSession },
+      error: refreshError,
+    } = await supabase.auth.refreshSession();
+
+    if (!refreshError && refreshedSession?.access_token && refreshedSession.refresh_token) {
+      accessToken = refreshedSession.access_token;
+      refreshToken = refreshedSession.refresh_token;
+    }
+  }
+
+  if (!accessToken || !refreshToken) {
     return { ok: false, reason: "unauthenticated" };
   }
 
@@ -104,8 +123,8 @@ export async function mintWorkspaceBootstrapFromRequest(
     tenantSlug: slug,
     userId: user.id.trim(),
     userEmail: user.email,
-    accessToken: session.access_token,
-    refreshToken: session.refresh_token,
+    accessToken,
+    refreshToken,
     nextPath,
   });
 

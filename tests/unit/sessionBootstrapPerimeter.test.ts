@@ -12,6 +12,7 @@ import {
 const mockAuth = vi.hoisted(() => ({
   getSession: vi.fn(),
   getUser: vi.fn(),
+  refreshSession: vi.fn(),
   setSession: vi.fn(),
 }));
 
@@ -89,6 +90,10 @@ function configureAuthenticatedMintSession(): void {
     data: { user: WIL_USER },
     error: null,
   });
+  mockAuth.refreshSession.mockResolvedValue({
+    data: { session: WIL_SESSION },
+    error: null,
+  });
 }
 
 function configureSuccessfulRedeemSession(): void {
@@ -137,6 +142,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   it("workspace-launch sends unauthenticated operators to tenant login, not apex /integrity", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
     mockAuth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockAuth.refreshSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const launchRequest = new NextRequest(
       "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
@@ -150,6 +156,32 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     expect(loginUrl.hostname).toBe("bwc.lvh.me");
     expect(loginUrl.pathname).toBe("/login");
     expect(loginUrl.searchParams.get("fresh")).toBe("1");
+  });
+
+  it("workspace-launch refreshes session when getSession is empty but getUser is valid", async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockAuth.getUser.mockResolvedValue({
+      data: { user: WIL_USER },
+      error: null,
+    });
+    mockAuth.refreshSession.mockResolvedValue({
+      data: { session: WIL_SESSION },
+      error: null,
+    });
+
+    const launchRequest = new NextRequest(
+      "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
+    );
+    const launchResponse = await launchWorkspace(launchRequest);
+    expect(launchResponse.status).toBe(307);
+    expect(mockAuth.refreshSession).toHaveBeenCalled();
+
+    const location = launchResponse.headers.get("location");
+    expect(location).toBeTruthy();
+    const bootstrapUrl = new URL(location!);
+    expect(bootstrapUrl.hostname).toBe("bwc.lvh.me");
+    expect(bootstrapUrl.pathname).toBe("/api/auth/session-bootstrap");
+    expect(bootstrapUrl.searchParams.get("token")?.startsWith("bt_")).toBe(true);
   });
 
   it("mints an opaque bt_ ticket for a tenant with active role assignment", async () => {

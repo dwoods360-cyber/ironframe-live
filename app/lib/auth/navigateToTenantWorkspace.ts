@@ -15,7 +15,13 @@ export async function navigateToTenantWorkspace(
   if (!slug) return;
 
   const supabase = createClient();
-  await supabase.auth.getSession();
+  await supabase.auth.getUser();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    await supabase.auth.refreshSession();
+  }
 
   const params = new URLSearchParams({
     tenant: slug,

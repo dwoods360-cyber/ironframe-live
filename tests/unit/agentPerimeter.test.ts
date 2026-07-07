@@ -202,17 +202,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     );
   });
 
-  it("grounds customer service queries exclusively on LEVEL_1 documentation and queues HITL draft", async () => {
-    vi.mocked(prisma.appDocument.findMany).mockResolvedValue([
-      {
-        id: "doc_01",
-        title: "Level 1 System Architecture Guide",
-        slug: "technical/architecture-guide",
-        readingLevel: "LEVEL_1",
-        content: "Core platform isolation variables utilize strict cluster barriers.",
-        updatedAt: new Date(),
-      },
-    ]);
+  it("queues customer service intake for SupportTeam worker without inline Gemini drafting", async () => {
     vi.mocked(prisma.ironboardCrmContact.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.ironboardCrmContact.create).mockResolvedValue({
       id: "cnt_cs_console",
@@ -255,15 +245,13 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     expect(data.interactionId).toBe("int_cs_001");
     expect(assertAuthenticatedIronguardTenantOr403).toHaveBeenCalled();
 
-    expect(prisma.appDocument.findMany).toHaveBeenCalledWith({
-      where: { readingLevel: "LEVEL_1" },
-    });
+    expect(prisma.appDocument.findMany).not.toHaveBeenCalled();
 
     expect(prisma.ironboardCrmInteraction.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           tenantId: SESSION_TENANT_ID,
-          summary: expect.stringContaining("[PENDING DRAFT APPROVAL]"),
+          summary: expect.stringContaining("[PENDING SUPPORT INTAKE]"),
         }),
       }),
     );

@@ -38,16 +38,34 @@ describe("deploymentQuarantine", () => {
     expect(isTenantSubdomainHost("ironframegrc.com")).toBe(false);
   });
 
-  it("blocks every path on non-local hosts by default", () => {
+  it("allows narrow public funnel paths on cloud while workspace stays quarantined", () => {
     delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
 
-    expect(shouldBlockProductionIngress(mockRequest("/"), "/")).toBe(true);
-    expect(shouldBlockProductionIngress(mockRequest("/marketing"), "/marketing")).toBe(true);
+    expect(shouldBlockProductionIngress(mockRequest("/"), "/")).toBe(false);
+    expect(shouldBlockProductionIngress(mockRequest("/marketing"), "/marketing")).toBe(false);
     expect(shouldBlockProductionIngress(mockRequest("/docs/hub"), "/docs/hub")).toBe(true);
-    expect(shouldBlockProductionIngress(mockRequest("/login"), "/login")).toBe(true);
+    expect(shouldBlockProductionIngress(mockRequest("/login"), "/login")).toBe(false);
+    expect(
+      shouldBlockProductionIngress(mockRequest("/forgot-password"), "/forgot-password"),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(mockRequest("/reset-password"), "/reset-password"),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/api/auth/callback"),
+        "/api/auth/callback",
+      ),
+    ).toBe(false);
     expect(shouldBlockProductionIngress(mockRequest("/integrity"), "/integrity")).toBe(true);
     expect(
       shouldBlockProductionIngress(mockRequest("/login", {}, "vaultbank.ironframegrc.com"), "/login"),
+    ).toBe(false);
+    expect(
+      shouldBlockProductionIngress(
+        mockRequest("/dashboard", {}, "vaultbank.ironframegrc.com"),
+        "/dashboard",
+      ),
     ).toBe(true);
   });
 
@@ -102,11 +120,12 @@ describe("deploymentQuarantine", () => {
   it("opens non-local ingress only when IRONFRAME_ALLOW_PUBLIC_INGRESS=1", () => {
     delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
     expect(isPublicIngressAllowed()).toBe(false);
-    expect(shouldBlockProductionIngress(mockRequest("/"), "/")).toBe(true);
+    expect(shouldBlockProductionIngress(mockRequest("/"), "/")).toBe(false);
+    expect(shouldBlockProductionIngress(mockRequest("/integrity"), "/integrity")).toBe(true);
 
     process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS = "1";
     expect(isPublicIngressAllowed()).toBe(true);
-    expect(shouldBlockProductionIngress(mockRequest("/"), "/")).toBe(false);
+    expect(shouldBlockProductionIngress(mockRequest("/integrity"), "/integrity")).toBe(false);
 
     delete process.env.IRONFRAME_ALLOW_PUBLIC_INGRESS;
   });

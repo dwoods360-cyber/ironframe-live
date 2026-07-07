@@ -92,7 +92,7 @@ export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
     label: "Ironframe Control Plane",
     port: 3000,
     packageDir: "app/ (Next.js)",
-    role: "Tenancy · Ironguard RLS · signed ingress APIs · HITL approval desk · in-tenant support console",
+    role: "Tenancy · Ironguard RLS · signed ingress APIs · HITL approval desk · support intake console",
     crmStage: null,
     hitlDraftKind: "SUPPORT | SALES | CUSTOMER_SUCCESS (dispatch surface)",
     ingressNote: "Hosts all /api/v1/ingress/* routes; never runs poll graphs directly",
@@ -142,6 +142,17 @@ export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
     ingressNote: "GET accounts/health-snapshot + POST advisory (Bearer SUCCESS_TEAM_INGRESS_SECRET); poll ~hourly",
     boardOwnerIds: ["board-customer-success", "board-cfo"],
   },
+  {
+    id: "support-team",
+    label: "IronSupportTeam",
+    port: 8086,
+    packageDir: "SupportTeam/",
+    role: "Support intake poll · corpus-grounded reply drafts → SUPPORT approval queue",
+    crmStage: "SUPPORT_INTAKE",
+    hitlDraftKind: "SUPPORT",
+    ingressNote: "GET tickets/context-snapshot + POST reply (Bearer SUPPORT_TEAM_INGRESS_SECRET); poll ~90s",
+    boardOwnerIds: ["board-engineer", "board-cto", "board-bot"],
+  },
 ] as const;
 
 export const PERIMETER_WORKFORCE_BINDING = `
@@ -151,9 +162,10 @@ PERIMETER WORKFORCE APPS (AUTHORITATIVE — isolated packages; NOT the 19-agent 
 - Ironleads :8083 — OSINT → SUSPECT (Ironleads/src/knowledge/leadGenCorpus.ts)
 - SalesTeam :8084 — PROSPECT outbound drafts only (never auto-send)
 - IronSuccessTeam :8085 — CLOSED_WON retention/expansion advisories only (never auto-send)
+- IronSupportTeam :8086 — support intake reply drafts only (never auto-send)
 
 CRM pipeline ownership (do not blur roles):
-  SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support → Ironframe support console (SUPPORT drafts)
+  SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support intake → IronSupportTeam (SUPPORT drafts)
 
 Operator console: /dashboard/operations (workforce health probes + approvals + CRM snapshot)
 
@@ -210,6 +222,81 @@ export const STATIC_PRODUCTS = [
   { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
   { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
   { name: "Docs Hub Accessibility Engine", key: "docs-hub-accessibility", priority: "MEDIUM", frameworks: ["GRI"] },
+] as const;
+
+/** Right-panel Product Matrix — core surfaces + perimeter poll workers with live health probes. */
+export type ProductMatrixEntry = {
+  key: string;
+  name: string;
+  priority: "CRITICAL" | "HIGH" | "MEDIUM";
+  port: number;
+  healthPath: string;
+  /** Env override for base URL (falls back to http://127.0.0.1:{port}). */
+  envUrlKey: string;
+  crmStage?: string | null;
+};
+
+export const PRODUCT_MATRIX: readonly ProductMatrixEntry[] = [
+  {
+    key: "ironframe-core",
+    name: "Ironframe Control Center",
+    priority: "CRITICAL",
+    port: 3000,
+    healthPath: "/api/health",
+    envUrlKey: "OPERATIONS_IRONFRAME_URL",
+  },
+  {
+    key: "ironboard-exec",
+    name: "IronBoard Executive Cockpit",
+    priority: "HIGH",
+    port: 8082,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_IRONBOARD_URL",
+  },
+  {
+    key: "docs-hub-accessibility",
+    name: "Docs Hub Accessibility Engine",
+    priority: "MEDIUM",
+    port: 3000,
+    healthPath: "/docs",
+    envUrlKey: "OPERATIONS_IRONFRAME_URL",
+  },
+  {
+    key: "ironleads",
+    name: "Ironleads",
+    priority: "HIGH",
+    port: 8083,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_IRONLEADS_URL",
+    crmStage: "SUSPECT",
+  },
+  {
+    key: "salesteam",
+    name: "SalesTeam",
+    priority: "HIGH",
+    port: 8084,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SALESTEAM_URL",
+    crmStage: "PROSPECT",
+  },
+  {
+    key: "success-team",
+    name: "IronSuccessTeam",
+    priority: "HIGH",
+    port: 8085,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUCCESS_TEAM_URL",
+    crmStage: "CLOSED_WON",
+  },
+  {
+    key: "support-team",
+    name: "IronSupportTeam",
+    priority: "HIGH",
+    port: 8086,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUPPORT_TEAM_URL",
+    crmStage: "SUPPORT_INTAKE",
+  },
 ] as const;
 
 export const SOVEREIGN_POOL_BASELINES_CENTS = {

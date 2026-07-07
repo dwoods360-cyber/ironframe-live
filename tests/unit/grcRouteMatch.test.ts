@@ -15,6 +15,8 @@ import {
   isSuccessTeamAdvisoryIngressPath,
   isSuccessTeamHealthSnapshotIngressPath,
   isSuccessTeamIngressPath,
+  isSupportTeamIngressPath,
+  isSupportTeamTicketsIngressPath,
   isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -113,6 +115,12 @@ describe("grcRouteMatch", () => {
     expect(isSuccessTeamAdvisoryIngressPath("/api/v1/ingress/success-team/advisory")).toBe(true);
     expect(isSuccessTeamIngressPath("/api/v1/ingress/success-team/advisory")).toBe(true);
     expect(isSuccessTeamIngressPath("/api/v1/ingress/success-team/other")).toBe(false);
+  });
+
+  it("recognizes SupportTeam signed perimeter ingress paths", () => {
+    expect(isSupportTeamTicketsIngressPath("/api/v1/ingress/support-team/tickets")).toBe(true);
+    expect(isSupportTeamIngressPath("/api/v1/ingress/support-team/reply")).toBe(true);
+    expect(isSupportTeamIngressPath("/api/v1/ingress/support-team/other")).toBe(false);
   });
 
   it("recognizes infra health liveness path", () => {

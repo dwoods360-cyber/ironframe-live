@@ -157,8 +157,8 @@ export default function OperationsHubClient() {
             </p>
             <h1 className="text-2xl font-bold text-white">Revenue & Success Command Center</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              Control Ironboard, Ironleads, SalesTeam, IronSuccessTeam, CRM pipeline, human-in-the-loop
-              approvals, and public briefing promotion from one surface.
+              Control Ironboard, Ironleads, SalesTeam, IronSuccessTeam, IronSupportTeam, CRM pipeline,
+              human-in-the-loop approvals, and public briefing promotion from one surface.
             </p>
           </div>
           <button
@@ -469,7 +469,9 @@ export default function OperationsHubClient() {
                   <Link href="/dashboard/support" className="text-cyan-300 hover:underline">
                     Customer service console
                   </Link>
-                  <p className="text-slate-500">In-tenant CS agent → CRM pending drafts.</p>
+                  <p className="text-slate-500">
+                    In-tenant intake → IronSupportTeam poll worker (:8086) → SUPPORT approval queue.
+                  </p>
                 </li>
                 <li>
                   <Link href="/sales-agent-portal" className="text-cyan-300 hover:underline">

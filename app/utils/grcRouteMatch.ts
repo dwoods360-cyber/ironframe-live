@@ -174,6 +174,32 @@ export function isSuccessTeamIngressPath(pathname: string): boolean {
   );
 }
 
+/** Signed perimeter ingress for IronSupportTeam poll worker (Bearer SUPPORT_TEAM_INGRESS_SECRET). */
+export const SUPPORT_TEAM_TICKETS_INGRESS_PATH = "/api/v1/ingress/support-team/tickets" as const;
+export const SUPPORT_TEAM_REPLY_INGRESS_PATH = "/api/v1/ingress/support-team/reply" as const;
+export const SUPPORT_TEAM_CONTEXT_SNAPSHOT_INGRESS_PATH =
+  "/api/v1/ingress/support-team/context-snapshot" as const;
+
+export function isSupportTeamTicketsIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_TICKETS_INGRESS_PATH;
+}
+
+export function isSupportTeamReplyIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_REPLY_INGRESS_PATH;
+}
+
+export function isSupportTeamContextSnapshotIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_CONTEXT_SNAPSHOT_INGRESS_PATH;
+}
+
+export function isSupportTeamIngressPath(pathname: string): boolean {
+  return (
+    isSupportTeamTicketsIngressPath(pathname) ||
+    isSupportTeamReplyIngressPath(pathname) ||
+    isSupportTeamContextSnapshotIngressPath(pathname)
+  );
+}
+
 /** Infra liveness probe — no session or tenant context required. */
 export function isInfraHealthPath(pathname: string): boolean {
   return pathname === "/api/health";
@@ -244,6 +270,7 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
   if (isIronleadsIngressPath(pathname)) return false;
   if (isSalesteamIngressPath(pathname)) return false;
   if (isSuccessTeamIngressPath(pathname)) return false;
+  if (isSupportTeamIngressPath(pathname)) return false;
   if (isInfraHealthPath(pathname)) return false;
   if (isPublicConstitutionalSentinelPath(pathname)) return false;
   return true;

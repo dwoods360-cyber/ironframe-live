@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SUPPORT_TEAM_DATABASE_URL")
+}
+
+enum SupportSeverityTier {
+  T1_CRITICAL
+  T2_ELEVATED
+  T3_ROUTINE
+}
+
+enum ProcessedTicketStatus {
+  REPLY_QUEUED
+  SKIPPED
+  FAILED
+}
+
+/// Local poll cursor — tracks which support intake interactions SupportTeam processed.
+model ProcessedTicket {
+  id                    String                @id @default(uuid())
+  ironframeInteractionId String               @unique @map("ironframe_interaction_id")
+  tenantId              String                @map("tenant_id")
+  contactId             String                @map("contact_id")
+  severityTier          SupportSeverityTier   @default(T3_ROUTINE) @map("severity_tier")
+  status                ProcessedTicketStatus @default(REPLY_QUEUED)
+  replyInteractionId    String?               @map("reply_interaction_id")
+  errorMessage          String?               @map("error_message")
+  processedAt           DateTime              @default(now()) @map("processed_at")
+
+  @@index([tenantId, processedAt])
+  @@map("processed_tickets")
+}
+
+model PollRun {
+  id            String    @id @default(uuid())
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  ticketsSeen   Int       @default(0) @map("tickets_seen")
+  newTickets    Int       @default(0) @map("new_tickets")
+  repliesQueued Int       @default(0) @map("replies_queued")
+  skipped       Int       @default(0)
+  failed        Int       @default(0)
+  errorMessage  String?   @map("error_message")
+
+  @@index([startedAt])
+  @@map("poll_runs")
+}

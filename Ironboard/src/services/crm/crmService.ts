@@ -54,6 +54,7 @@ import {
   resolveQualificationLevel,
   evaluateConsecutiveGateBPass,
   type CrmPilotMilestone,
+  type PartnerLeadRow,
 } from './crmPilotTracking.js';
 
 function nowIso(): string {
@@ -396,7 +397,7 @@ export async function listPrioritizedLeads(
       take: limit,
     });
 
-    const partnerRows = await tx.ironboardCrmContact.findMany({
+    const partnerRows: PartnerLeadRow[] = await tx.ironboardCrmContact.findMany({
       where: { tenantId, ingestionSource: 'PARTNER_REFERRAL' },
       select: {
         createdAt: true,
@@ -409,7 +410,9 @@ export async function listPrioritizedLeads(
       },
     });
 
-    const weekKeys = [...new Set(partnerRows.map((r) => isoWeekKey(r.createdAt)))].sort();
+    const weekKeys: string[] = [
+      ...new Set(partnerRows.map((row) => isoWeekKey(row.createdAt))),
+    ].sort();
     const recentWeeks = weekKeys.slice(-4);
     const weeklyEvals = buildPartnerWeeklyGateEvaluations(partnerRows, recentWeeks);
     const { pass: gateBPass, consecutiveWeeks } = evaluateConsecutiveGateBPass(weeklyEvals);

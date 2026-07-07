@@ -47,7 +47,11 @@ function ensureSalesTeamSqliteSchema(): void {
   }
 
   execSync("npm run db:generate", { cwd: salesTeamRoot, stdio: "inherit", env: process.env });
-  execSync("npm run db:push", { cwd: salesTeamRoot, stdio: "inherit", env: process.env });
+  execSync("npx prisma db push --schema prisma/schema.prisma --skip-generate", {
+    cwd: salesTeamRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
 }
 
 function ensureSuccessTeamSqliteSchema(): void {
@@ -63,7 +67,11 @@ function ensureSuccessTeamSqliteSchema(): void {
   }
 
   execSync("npm run db:generate", { cwd: successTeamRoot, stdio: "inherit", env: process.env });
-  execSync("npm run db:push", { cwd: successTeamRoot, stdio: "inherit", env: process.env });
+  execSync("npx prisma db push --schema prisma/schema.prisma --skip-generate", {
+    cwd: successTeamRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
 }
 
 export default function globalSetup(): void {

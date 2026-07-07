@@ -40,6 +40,8 @@
     "app_backup",
     "Ironboard",
     "Ironleads",
+    "SalesTeam",
+    "SuccessTeam",
     "node_modules",
     "scripts",
     "tests"

@@ -166,7 +166,7 @@ function listBriefingQueueDrafts(docsRoot: string): BriefingQueueDraftSummary[] 
       const alertFlags = parseBriefingDraftAlertFlags(markdown);
       return {
         filename: entry.name,
-        title: parseTitleFromMarkdown(markdown) ?? entry.name,
+        title: parseTitleFromMarkdown(markdown, entry.name),
         modifiedAt: stat.mtime.toISOString(),
         promotable: !isNonPromotableBriefingDraft(entry.name),
         requiresImmediatePromotion: alertFlags.requiresImmediatePromotion,
@@ -199,12 +199,12 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
         },
       }),
       prisma.publishedBriefing.findMany({
-        orderBy: { publishedAt: "desc" },
+        orderBy: { createdAt: "desc" },
         take: 12,
         select: {
           slug: true,
           title: true,
-          publishedAt: true,
+          createdAt: true,
           tenantId: true,
         },
       }),
@@ -288,7 +288,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       published: publishedRows.map((row) => ({
         slug: row.slug,
         title: row.title,
-        publishedAt: row.publishedAt.toISOString(),
+        publishedAt: row.createdAt.toISOString(),
         tenantId: row.tenantId,
       })),
     },

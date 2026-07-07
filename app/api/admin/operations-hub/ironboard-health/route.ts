@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { redactIronboardEngineHealthSnapshot } from "@/app/lib/server/operationsApiRedaction";
 import { probeIronboardEngineHealth } from "@/app/lib/server/ironboardEngineHealth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requirePlatformAdministrator();
+  const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const snapshot = await probeIronboardEngineHealth();
-  return NextResponse.json(snapshot, {
-    status: snapshot.reachable ? 200 : 503,
+  const snapshot = probeIronboardEngineHealth();
+  const redacted = redactIronboardEngineHealthSnapshot(await snapshot);
+  return NextResponse.json(redacted, {
+    status: redacted.reachable ? 200 : 503,
   });
 }

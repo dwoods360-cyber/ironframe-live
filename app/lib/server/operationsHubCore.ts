@@ -1,5 +1,11 @@
 import "server-only";
 
+/**
+ * Operations Command Center snapshot — Ironframe-internal surface for GLOBAL_ADMIN
+ * or designated BUSINESS_ADMIN operators. Perimeter workforce apps (:8082–:8086)
+ * are never mounted in tenant workspaces.
+ */
+
 import fs from "fs";
 import path from "path";
 
@@ -393,9 +399,9 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
   const portalUrls: Record<WorkforceServiceId, string | null> = {
     ironboard: IRONBOARD_OPERATIONS_PORTAL_PATH,
     ironleads: "/dashboard/operations/ironleads",
-    salesteam: "/sales-agent-portal",
+    salesteam: "/dashboard/operations/salesteam",
     "success-team": "/dashboard/operations/success-team",
-    "support-team": "/dashboard/support",
+    "support-team": "/dashboard/operations/support-intake",
   };
 
   const workforceWithPortals = workforce.map((service) => ({
@@ -431,9 +437,10 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       { label: "Operations hub", href: "/dashboard/operations" },
       { label: "Ironboard console", href: IRONBOARD_OPERATIONS_PORTAL_PATH },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
-      { label: "IronSupportTeam portal", href: "/dashboard/support" },
+      { label: "Support intake console", href: "/dashboard/operations/support-intake" },
       { label: "Ironleads portal", href: "/dashboard/operations/ironleads" },
-      { label: "SalesTeam portal", href: "/sales-agent-portal" },
+      { label: "SalesTeam portal", href: "/dashboard/operations/salesteam" },
+      { label: "Public sales funnel", href: "/sales-agent-portal" },
       { label: "IronSuccessTeam portal", href: "/dashboard/operations/success-team" },
       { label: "Governance Frame (public)", href: "/governance-frame" },
       { label: "Governance Frame RSS", href: "/rss.xml" },

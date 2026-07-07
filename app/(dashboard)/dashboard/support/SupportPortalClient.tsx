@@ -6,11 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import InTenantSupportModal from "@/app/components/support/InTenantSupportModal";
 import { REQUEST_ENGINEERING_HELP_LABEL } from "@/app/components/support/RequestEngineeringHelpTrigger";
 import { useTenantContext } from "@/app/context/TenantProvider";
-import type { SupportPortalTicket, SupportTicketStatus } from "@/app/lib/server/supportPortalCore";
+import type { TenantSafeSupportTicket } from "@/app/types/tenantSupportPortal";
 
-type TicketFilter = SupportTicketStatus | "ALL";
+type TicketFilter = TenantSafeSupportTicket["status"] | "ALL";
 
-const STATUS_LABELS: Record<SupportTicketStatus, string> = {
+const STATUS_LABELS: Record<TenantSafeSupportTicket["status"], string> = {
   OPEN: "Open",
   IN_PROGRESS: "In progress",
   AWAITING_APPROVAL: "Awaiting approval",
@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<SupportTicketStatus, string> = {
   PURGED: "Closed",
 };
 
-const STATUS_TONE: Record<SupportTicketStatus, string> = {
+const STATUS_TONE: Record<TenantSafeSupportTicket["status"], string> = {
   OPEN: "border-cyan-500/40 bg-cyan-950/30 text-cyan-200",
   IN_PROGRESS: "border-amber-500/40 bg-amber-950/30 text-amber-200",
   AWAITING_APPROVAL: "border-violet-500/40 bg-violet-950/30 text-violet-200",
@@ -32,11 +32,15 @@ const URGENCY_TONE: Record<string, string> = {
   DATA_INTEGRITY: "text-orange-300",
 };
 
-export default function SupportPortalClient() {
+export default function SupportPortalClient({
+  showOperatorLinks = false,
+}: {
+  showOperatorLinks?: boolean;
+}) {
   const { tenantFetch } = useTenantContext();
   const [filter, setFilter] = useState<TicketFilter>("ALL");
-  const [tickets, setTickets] = useState<SupportPortalTicket[]>([]);
-  const [counts, setCounts] = useState<Partial<Record<SupportTicketStatus, number>>>({});
+  const [tickets, setTickets] = useState<TenantSafeSupportTicket[]>([]);
+  const [counts, setCounts] = useState<Partial<Record<TenantSafeSupportTicket["status"], number>>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -52,8 +56,8 @@ export default function SupportPortalClient() {
         cache: "no-store",
       });
       const data = (await response.json()) as {
-        tickets?: SupportPortalTicket[];
-        counts?: Partial<Record<SupportTicketStatus, number>>;
+        tickets?: TenantSafeSupportTicket[];
+        counts?: Partial<Record<TenantSafeSupportTicket["status"], number>>;
         error?: string;
       };
       if (!response.ok) throw new Error(data.error ?? "Failed to load support tickets.");
@@ -98,14 +102,13 @@ export default function SupportPortalClient() {
         <header className="flex flex-col gap-4 border-b border-slate-800/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              IronSupportTeam · ticket ingestion portal
+              Engineering support · workspace intake
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-white">
               {REQUEST_ENGINEERING_HELP_LABEL}
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              View all support tickets for your workspace, track intake through IronSupportTeam, and
-              submit new engineering requests.
+              View support tickets for your workspace, track status, and submit new engineering requests.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -123,23 +126,27 @@ export default function SupportPortalClient() {
             >
               {showNewTicket ? "Hide new ticket form" : "New ticket"}
             </button>
-            <Link
-              href="/dashboard/operations"
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
-            >
-              ← Operations hub
-            </Link>
-            <Link
-              href="/dashboard/admin/approvals"
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
-            >
-              Approval queue
-            </Link>
+            {showOperatorLinks ? (
+              <>
+                <Link
+                  href="/dashboard/operations"
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
+                >
+                  ← Operations hub
+                </Link>
+                <Link
+                  href="/dashboard/admin/approvals"
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+                >
+                  Approval queue
+                </Link>
+              </>
+            ) : null}
           </div>
         </header>
 
         <div className="grid gap-3 sm:grid-cols-4">
-          {(["OPEN", "IN_PROGRESS", "AWAITING_APPROVAL", "DISPATCHED"] as SupportTicketStatus[]).map(
+          {(["OPEN", "IN_PROGRESS", "AWAITING_APPROVAL", "DISPATCHED"] as TenantSafeSupportTicket["status"][]).map(
             (status) => (
               <div
                 key={status}
@@ -158,7 +165,7 @@ export default function SupportPortalClient() {
           <section className="rounded-xl border border-cyan-800/40 bg-slate-900/50 p-4 sm:p-5">
             <h2 className="text-lg font-semibold text-white">Submit new ticket</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Intake routes to IronSupportTeam for draft review before any outbound dispatch.
+              Requests are reviewed by Ironframe engineering before any outbound response.
             </p>
             <div className="mt-4 max-w-xl">
               <InTenantSupportModal
@@ -291,13 +298,13 @@ export default function SupportPortalClient() {
                     <p className="mt-1 whitespace-pre-wrap text-slate-300">{selectedTicket.userNotes}</p>
                   </div>
                 ) : null}
-                {selectedTicket.proposedReply ? (
+                {selectedTicket.resolutionText ? (
                   <div>
                     <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                      Proposed reply
+                      Resolution
                     </div>
                     <p className="mt-1 whitespace-pre-wrap text-slate-300">
-                      {selectedTicket.proposedReply}
+                      {selectedTicket.resolutionText}
                     </p>
                   </div>
                 ) : null}

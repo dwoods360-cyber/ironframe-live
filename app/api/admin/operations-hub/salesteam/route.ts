@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import {
-  redactSuccessTeamPortalSnapshot,
+  redactSalesTeamPortalSnapshot,
   resolveOperationsCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
 import {
-  buildSuccessTeamPortalSnapshot,
-  triggerSuccessTeamPoll,
+  buildSalesTeamPortalSnapshot,
+  triggerSalesTeamPoll,
 } from "@/app/lib/server/operationsTeamPortalsCore";
 
 export const dynamic = "force-dynamic";
@@ -18,27 +18,25 @@ export async function GET() {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const crmScopeSlug = resolveOperationsCrmScopeSlug();
-  const snapshot = await buildSuccessTeamPortalSnapshot(crmScopeSlug);
-  return NextResponse.json(redactSuccessTeamPortalSnapshot(snapshot));
+  const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+  return NextResponse.json(redactSalesTeamPortalSnapshot(snapshot));
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const result = await triggerSuccessTeamPoll();
+  const result = await triggerSalesTeamPoll();
   if (!result.ok) {
     return NextResponse.json({ error: result.error ?? "Poll failed" }, { status: 502 });
   }
 
-  const crmScopeSlug = resolveOperationsCrmScopeSlug();
-  const snapshot = await buildSuccessTeamPortalSnapshot(crmScopeSlug);
+  const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
   return NextResponse.json({
     ok: true,
     poll: result.result,
-    snapshot: redactSuccessTeamPortalSnapshot(snapshot),
+    snapshot: redactSalesTeamPortalSnapshot(snapshot),
   });
 }

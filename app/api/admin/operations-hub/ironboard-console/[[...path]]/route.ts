@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { IRONBOARD_BOARDROOM_PLANE, X_CONVERSATION_PLANE } from "@/app/lib/conversationPlaneGateway";
 import {
   injectIronboardConsoleBaseHref,
@@ -14,7 +14,7 @@ export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
 async function proxyIronboardConsole(request: NextRequest, pathSegments: string[] | undefined) {
-  const auth = await requirePlatformAdministrator();
+  const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }

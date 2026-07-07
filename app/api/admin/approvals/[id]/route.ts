@@ -7,7 +7,7 @@ import {
   isPendingDraftSummary,
   parsePendingDraftSummary,
 } from "@/app/lib/server/approvalQueueCore";
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
 import { sendOutboundEmail } from "@/app/lib/server/sendOutboundEmail";
 import prisma from "@/lib/prisma";
@@ -26,7 +26,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requirePlatformAdministrator();
+  const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }

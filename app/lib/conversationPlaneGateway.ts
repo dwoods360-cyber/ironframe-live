@@ -90,6 +90,7 @@ export function mustBypassIronframeCore(plane: ConversationPlane): boolean {
 
 export function resolveIronboardBaseUrl(): string {
   const fromEnv =
+    process.env.OPERATIONS_IRONBOARD_URL?.trim() ||
     process.env.IRONBOARD_URL?.trim() ||
     process.env.NEXT_PUBLIC_IRONBOARD_URL?.trim() ||
     "";

@@ -10,6 +10,7 @@ import TenantWorkspaceNavLink from "@/app/components/nav/TenantWorkspaceNavLink"
 import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
 import { useAuditConsoleAccess } from "@/app/hooks/useAuditConsoleAccess";
 import { useBoardroomSecurityAuditAccess } from "@/app/hooks/useBoardroomSecurityAuditAccess";
+import { usePerimeterWorkforceAccess } from "@/app/hooks/usePerimeterWorkforceAccess";
 import { usePlatformAdminToolsAccess } from "@/app/hooks/usePlatformAdminToolsAccess";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildHeaderRouteMatrix } from "@/app/utils/grcRouteMatch";
@@ -35,6 +36,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const { canViewAudit } = useAuditConsoleAccess();
   const { canViewSecurityAuditLogs } = useBoardroomSecurityAuditAccess();
   const { canUsePlatformAdminTools } = usePlatformAdminToolsAccess();
+  const { canUsePerimeterWorkforce } = usePerimeterWorkforceAccess();
 
   const chipBarRef = useRef<HTMLDivElement>(null);
   const [chipBarMounted, setChipBarMounted] = useState(false);
@@ -62,7 +64,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
       window.removeEventListener("resize", updateOverflowState);
       observer?.disconnect();
     };
-  }, [isVendorsRoute, isConfigRoute, canViewAudit, canViewSecurityAuditLogs, canUsePlatformAdminTools]);
+  }, [isVendorsRoute, isConfigRoute, canViewAudit, canViewSecurityAuditLogs, canUsePlatformAdminTools, canUsePerimeterWorkforce]);
 
   const scrollChipBar = useCallback((direction: "left" | "right") => {
     chipBarRef.current?.scrollBy({
@@ -260,25 +262,25 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               BOARD REPORT
             </TenantWorkspaceNavLink>
+            {canUsePerimeterWorkforce ? (
+              <TenantWorkspaceNavLink
+                href="/dashboard/operations"
+                prefetch={NAV_LINK_PREFETCH}
+                className={`${CHIP_CLASS} border border-violet-700/60 bg-violet-950/50 px-4 text-violet-100 transition-all hover:border-violet-500 hover:bg-violet-900/50`}
+                data-testid="header-operations-hub-chip"
+              >
+                OPS HUB
+              </TenantWorkspaceNavLink>
+            ) : null}
             {canUsePlatformAdminTools ? (
-              <>
-                <TenantWorkspaceNavLink
-                  href="/dashboard/operations"
-                  prefetch={NAV_LINK_PREFETCH}
-                  className={`${CHIP_CLASS} border border-violet-700/60 bg-violet-950/50 px-4 text-violet-100 transition-all hover:border-violet-500 hover:bg-violet-900/50`}
-                  data-testid="header-operations-hub-chip"
-                >
-                  OPS HUB
-                </TenantWorkspaceNavLink>
-                <TenantWorkspaceNavLink
-                  href="/opsupport"
-                  prefetch={NAV_LINK_PREFETCH}
-                  className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
-                  data-testid="header-opsupport-chip"
-                >
-                  OP SUPPORT
-                </TenantWorkspaceNavLink>
-              </>
+              <TenantWorkspaceNavLink
+                href="/opsupport"
+                prefetch={NAV_LINK_PREFETCH}
+                className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
+                data-testid="header-opsupport-chip"
+              >
+                OP SUPPORT
+              </TenantWorkspaceNavLink>
             ) : null}
             <TenantWorkspaceNavLink
               href="/admin/clearance"

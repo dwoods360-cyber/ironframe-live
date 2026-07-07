@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
-import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 
 import OperationsHubClient from "./OperationsHubClient";
 
@@ -10,11 +10,11 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Operations Command Center | Ironframe Admin",
   description:
-    "Unified platform console for Ironboard, Ironleads, SalesTeam, IronSuccessTeam, CRM, approvals, and public briefings.",
+    "Ironframe-internal console for perimeter workforce apps (:8082–:8086) — GLOBAL_ADMIN or designated BUSINESS_ADMIN only; not tenant workspaces.",
 };
 
 export default async function OperationsHubPage() {
-  const allowed = await canUsePlatformAdminTools();
+  const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }

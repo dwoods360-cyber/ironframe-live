@@ -264,7 +264,7 @@ export function buildInTenantSupportTicketSummary(input: {
     `clientTimestamp=${input.ticket.clientTimestamp ?? "n/a"} | clientLatencyMs=${input.ticket.clientLatencyMs ?? "n/a"}`,
     telemetryBlock,
     "--- Tracking Core ---",
-    `Execution Source: inTenantSupportTicket | Tenant: ${input.tenantId}`,
+    "Execution Source: inTenantSupportTicket | Workspace: session-bound",
   ]
     .join("\n")
     .slice(0, MAX_DRAFT_SUMMARY_CHARS);

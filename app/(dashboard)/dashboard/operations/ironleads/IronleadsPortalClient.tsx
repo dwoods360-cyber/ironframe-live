@@ -129,7 +129,6 @@ export default function IronleadsPortalClient() {
                   <span className="text-slate-500">Status:</span>{" "}
                   <span className="text-slate-200">{snapshot.worker.status ?? "—"}</span>
                 </p>
-                <p className="break-all font-mono text-xs text-slate-500">{snapshot.worker.healthUrl}</p>
               </div>
               {snapshot.worker.pipeline?.length ? (
                 <div className="mt-4">

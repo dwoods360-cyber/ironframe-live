@@ -5,6 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { SuccessTeamPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
 
+type RedactedSuccessTeamSnapshot = Omit<SuccessTeamPortalSnapshot, "tenantSlug" | "accounts" | "healthByDealId"> & {
+  crmScope: string;
+  accounts: Array<Omit<SuccessTeamPortalSnapshot["accounts"][number], "tenantId">>;
+  healthByDealId: Record<
+    string,
+    Omit<SuccessTeamPortalSnapshot["healthByDealId"][string], "tenantId">
+  >;
+};
+
 const HEALTH_TONE: Record<string, string> = {
   healthy: "text-emerald-400",
   watch: "text-amber-300",
@@ -13,8 +22,7 @@ const HEALTH_TONE: Record<string, string> = {
 };
 
 export default function SuccessTeamPortalClient() {
-  const [tenantSlug, setTenantSlug] = useState("bwc");
-  const [snapshot, setSnapshot] = useState<SuccessTeamPortalSnapshot | null>(null);
+  const [snapshot, setSnapshot] = useState<RedactedSuccessTeamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollBusy, setPollBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -24,11 +32,10 @@ export default function SuccessTeamPortalClient() {
     setLoading(true);
     setError(null);
     try {
-      const query = new URLSearchParams({ tenantSlug });
-      const response = await fetch(`/api/admin/operations-hub/success-team?${query}`, {
+      const response = await fetch("/api/admin/operations-hub/success-team", {
         cache: "no-store",
       });
-      const data = (await response.json()) as SuccessTeamPortalSnapshot & { error?: string };
+      const data = (await response.json()) as RedactedSuccessTeamSnapshot & { error?: string };
       if (!response.ok) throw new Error(data.error ?? "Failed to load IronSuccessTeam portal.");
       setSnapshot(data);
     } catch (err) {
@@ -37,7 +44,7 @@ export default function SuccessTeamPortalClient() {
     } finally {
       setLoading(false);
     }
-  }, [tenantSlug]);
+  }, []);
 
   useEffect(() => {
     void loadSnapshot();
@@ -49,14 +56,13 @@ export default function SuccessTeamPortalClient() {
     setMessage(null);
     setError(null);
     try {
-      const query = new URLSearchParams({ tenantSlug });
-      const response = await fetch(`/api/admin/operations-hub/success-team?${query}`, {
+      const response = await fetch("/api/admin/operations-hub/success-team", {
         method: "POST",
       });
       const data = (await response.json()) as {
         ok?: boolean;
         error?: string;
-        snapshot?: SuccessTeamPortalSnapshot;
+        snapshot?: RedactedSuccessTeamSnapshot;
       };
       if (!response.ok) throw new Error(data.error ?? "Poll failed.");
       if (data.snapshot) setSnapshot(data.snapshot);
@@ -79,18 +85,10 @@ export default function SuccessTeamPortalClient() {
             <h1 className="text-2xl font-bold text-white">Customer success interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
               Monitor post-sale account health, trigger advisory poll cycles, and route drafts to the
-              CUSTOMER_SUCCESS approval queue.
+              CUSTOMER_SUCCESS approval queue. CRM scope is server-resolved — not tenant-selectable.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
-            <label className="text-xs text-slate-400">
-              Tenant slug
-              <input
-                value={tenantSlug}
-                onChange={(e) => setTenantSlug(e.target.value.trim().toLowerCase())}
-                className="mt-1 block rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
-              />
-            </label>
             <Link
               href="/dashboard/operations"
               className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
@@ -159,12 +157,12 @@ export default function SuccessTeamPortalClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">CLOSED_WON accounts</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Tenant <span className="font-mono text-cyan-300">{snapshot.tenantSlug}</span> · polled{" "}
+                CRM scope <span className="font-mono text-cyan-300">{snapshot.crmScope}</span> · polled{" "}
                 {new Date(snapshot.polledAt).toLocaleString()}
               </p>
               <ul className="mt-4 space-y-3">
                 {snapshot.accounts.length === 0 ? (
-                  <li className="text-sm text-slate-500">No CLOSED_WON accounts for this tenant.</li>
+                  <li className="text-sm text-slate-500">No CLOSED_WON accounts in the configured scope.</li>
                 ) : (
                   snapshot.accounts.map((account) => {
                     const health = snapshot.healthByDealId[account.dealId];

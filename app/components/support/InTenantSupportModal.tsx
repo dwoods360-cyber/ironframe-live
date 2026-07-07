@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 
 import InTenantSupportContextPanel from "@/app/components/support/InTenantSupportContextPanel";
 import { useTenantContext } from "@/app/context/TenantProvider";
+import { assertTenantSupportFetchPath } from "@/app/lib/support/supportApiBoundary";
 import { resolveSupportFrameworkContext } from "@/app/lib/support/resolveSupportFrameworkContext";
 import {
   resolveDefaultSupportObjective,
@@ -75,7 +76,9 @@ export default function InTenantSupportModal({ onSubmitted }: InTenantSupportMod
           surface: supportSurface,
           path: pathname || "/",
         });
-        const response = await tenantFetch(`/api/support/in-tenant-context?${query.toString()}`);
+        const contextPath = `/api/support/in-tenant-context?${query.toString()}`;
+        assertTenantSupportFetchPath(contextPath.split("?")[0] ?? contextPath);
+        const response = await tenantFetch(contextPath);
         if (!response.ok) {
           if (!cancelled) setTelemetry(null);
           return;
@@ -107,6 +110,7 @@ export default function InTenantSupportModal({ onSubmitted }: InTenantSupportMod
     setSubmitError(null);
 
     try {
+      assertTenantSupportFetchPath("/api/support/in-tenant-ticket");
       const response = await tenantFetch("/api/support/in-tenant-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

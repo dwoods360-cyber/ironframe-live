@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { fetchPendingApprovalDrafts } from "@/app/lib/server/approvalQueueCore";
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const auth = await requirePlatformAdministrator();
+  const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }

@@ -85,14 +85,14 @@ export type PerimeterWorkforceApp = {
   boardOwnerIds: readonly string[];
 };
 
-/** Isolated poll workers + control plane — board must know boundaries vs 19-agent production workforce. */
+/** Isolated poll workers + control plane — Ironframe-internal only; never tenant workspaces. */
 export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
   {
     id: "ironframe",
     label: "Ironframe Control Plane",
     port: 3000,
     packageDir: "app/ (Next.js)",
-    role: "Tenancy · Ironguard RLS · signed ingress APIs · HITL approval desk · support intake console",
+    role: "Tenancy · Ironguard RLS · signed ingress APIs · HITL approval desk · tenant ticket intake API",
     crmStage: null,
     hitlDraftKind: "SUPPORT | SALES | CUSTOMER_SUCCESS (dispatch surface)",
     ingressNote: "Hosts all /api/v1/ingress/* routes; never runs poll graphs directly",
@@ -157,7 +157,9 @@ export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
 
 export const PERIMETER_WORKFORCE_BINDING = `
 PERIMETER WORKFORCE APPS (AUTHORITATIVE — isolated packages; NOT the 19-agent Irontech production roster):
-- Ironframe :3000 — control plane, ingress host, HITL approvals (/dashboard/admin/approvals), in-tenant support console
+INTERNAL USE ONLY — Ironframe platform operators: GLOBAL_ADMIN or designated BUSINESS_ADMIN assignments. Never tenant workspaces, never customer self-service surfaces.
+
+- Ironframe :3000 — control plane, ingress host, HITL approvals (/dashboard/admin/approvals)
 - Ironboard :8082 — this boardroom, CRM flywheel, executive personas (17 live query agents + 2 isolated doc authors)
 - Ironleads :8083 — OSINT → SUSPECT (Ironleads/src/knowledge/leadGenCorpus.ts)
 - SalesTeam :8084 — PROSPECT outbound drafts only (never auto-send)
@@ -167,7 +169,9 @@ PERIMETER WORKFORCE APPS (AUTHORITATIVE — isolated packages; NOT the 19-agent 
 CRM pipeline ownership (do not blur roles):
   SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support intake → IronSupportTeam (SUPPORT drafts)
 
-Operator console: /dashboard/operations (workforce health probes + approvals + CRM snapshot)
+Operator console (internal): /dashboard/operations — GLOBAL_ADMIN or BUSINESS_ADMIN gate; workforce health probes + approvals + CRM snapshot
+
+Tenant boundary: tenants may submit support tickets via /dashboard/support (engineering help intake only). They do not see or operate perimeter poll workers.
 
 Architectural invariants for ALL perimeter workers:
 - Read-only CRM poll via signed Bearer ingress into Ironframe — no direct production Prisma write authority in worker packages

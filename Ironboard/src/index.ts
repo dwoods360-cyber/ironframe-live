@@ -1003,7 +1003,7 @@ function renderDashboard(): string {
       </div>
     </section>
     <section>
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
+      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Perimeter Workforce Apps · internal only</p>
       <div id="product-matrix-status">Probing local fleet…</div>
       <div id="product-matrix-list">${fleetPanelRows}</div>
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>

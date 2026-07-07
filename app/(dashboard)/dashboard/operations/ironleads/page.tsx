@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 
 import IronleadsPortalClient from "./IronleadsPortalClient";
 
@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 export default async function IronleadsPortalPage() {
-  const allowed = await canUsePlatformAdminTools();
+  const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }

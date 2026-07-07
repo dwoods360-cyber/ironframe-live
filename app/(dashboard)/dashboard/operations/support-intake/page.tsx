@@ -2,20 +2,20 @@ import { redirect } from "next/navigation";
 
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 
-import SuccessTeamPortalClient from "./SuccessTeamPortalClient";
+import SupportIntakePortalClient from "./SupportIntakePortalClient";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "IronSuccessTeam Portal | Ironframe Operations",
-  description: "CLOSED_WON account health and customer success advisory console.",
+  title: "Support Intake Portal | Ironframe Operations",
+  description: "Internal operator console for support intake queue and SUPPORT approvals.",
 };
 
-export default async function SuccessTeamPortalPage() {
+export default async function SupportIntakePortalPage() {
   const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }
 
-  return <SuccessTeamPortalClient />;
+  return <SupportIntakePortalClient />;
 }

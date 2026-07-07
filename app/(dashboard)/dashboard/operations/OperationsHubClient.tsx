@@ -76,7 +76,7 @@ function WorkforceFleetList({ workforce }: { workforce: WorkforceServiceStatus[]
           <span className="text-xs font-semibold text-cyan-400">:3000 ingress host</span>
         </div>
         <p className="mt-1 text-xs text-slate-500">
-          Signed /api/v1/ingress/* routes · approvals desk · in-tenant support console
+          Signed /api/v1/ingress/* routes · approvals desk · tenant support intake API (not perimeter workers)
         </p>
       </li>
     </ul>
@@ -108,24 +108,6 @@ function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
             Open portal
           </Link>
         ) : null}
-        {service.consoleUrl ? (
-          <a
-            href={service.consoleUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:border-cyan-600"
-          >
-            Worker console
-          </a>
-        ) : null}
-        <a
-          href={service.healthUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:border-cyan-600"
-        >
-          Health probe
-        </a>
       </div>
       <p className="mt-2 font-mono text-[10px] text-slate-500">
         {service.reachable ? service.status ?? "HEALTHY" : "Unreachable — start local worker"}
@@ -255,12 +237,13 @@ export default function OperationsHubClient() {
         <header className="flex flex-col gap-4 border-b border-slate-800 pb-6 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              Platform operations · GLOBAL_ADMIN
+              Ironframe internal · GLOBAL_ADMIN or BUSINESS_ADMIN · not tenant-facing
             </p>
             <h1 className="text-2xl font-bold text-white">Revenue & Success Command Center</h1>
             <p className="mt-2 max-w-3xl text-sm text-slate-400">
-              Control Ironboard, Ironleads, SalesTeam, IronSuccessTeam, IronSupportTeam, CRM pipeline,
-              human-in-the-loop approvals, Ironcast newsletters, and public briefing promotion from one surface.
+              Internal perimeter workforce console — Ironboard, Ironleads, SalesTeam, IronSuccessTeam,
+              IronSupportTeam, CRM pipeline, human-in-the-loop approvals, Ironcast newsletters, and public
+              briefing promotion. Tenant workspaces never mount these apps.
             </p>
           </div>
           <button
@@ -375,16 +358,22 @@ export default function OperationsHubClient() {
                 Check worker fleet
               </Link>
               <Link
-                href="/dashboard/support"
+                href="/dashboard/admin/approvals"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
-                IronSupportTeam portal
+                Support approvals (SUPPORT)
               </Link>
               <Link
-                href="/sales-agent-portal"
+                href="/dashboard/operations/salesteam"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 SalesTeam portal
+              </Link>
+              <Link
+                href="/dashboard/operations/support-intake"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                Support intake console
               </Link>
               <Link
                 href="/dashboard/operations/ironboard"
@@ -454,12 +443,12 @@ export default function OperationsHubClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-white">Recent SUSPECT queue (Ironleads)</h2>
-                <a
+                <Link
                   href="/dashboard/operations/ironboard"
                   className="text-xs text-cyan-300 hover:underline"
                 >
                   Open Ironboard CRM tools →
-                </a>
+                </Link>
               </div>
               <ul className="mt-4 space-y-2">
                 {snapshot.crm.recentSuspects.length === 0 ? (
@@ -721,11 +710,12 @@ export default function OperationsHubClient() {
                   <p className="text-slate-500">Support, Sales, and Customer Success draft dispatch.</p>
                 </li>
                 <li>
-                  <Link href="/dashboard/support" className="text-cyan-300 hover:underline">
-                    IronSupportTeam interaction portal
+                  <Link href="/dashboard/operations/support-intake" className="text-cyan-300 hover:underline">
+                    Support intake operator console
                   </Link>
                   <p className="text-slate-500">
-                    In-tenant intake → IronSupportTeam poll worker (:8086) → SUPPORT approval queue.
+                    Tenant intake is session-scoped via /dashboard/support; worker drafts route to SUPPORT
+                    approvals only.
                   </p>
                 </li>
                 <li>

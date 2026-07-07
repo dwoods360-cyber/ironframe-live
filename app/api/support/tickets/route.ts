@@ -5,18 +5,13 @@ import {
   listSupportPortalTickets,
   type SupportTicketStatus,
 } from "@/app/lib/server/supportPortalCore";
+import {
+  assertTenantSupportTicketStatus,
+  toTenantSafeSupportTicket,
+} from "@/app/lib/server/supportTenantSurface";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
 
 export const dynamic = "force-dynamic";
-
-const VALID_STATUSES = new Set<SupportTicketStatus | "ALL">([
-  "ALL",
-  "OPEN",
-  "IN_PROGRESS",
-  "AWAITING_APPROVAL",
-  "DISPATCHED",
-  "PURGED",
-]);
 
 /** GET /api/support/tickets — tenant support portal ticket ledger. */
 export async function GET(req: NextRequest) {
@@ -28,10 +23,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Tenant context unresolved." }, { status: 403 });
   }
 
-  const statusParam = req.nextUrl.searchParams.get("status")?.trim().toUpperCase() ?? "ALL";
-  const status = VALID_STATUSES.has(statusParam as SupportTicketStatus | "ALL")
-    ? (statusParam as SupportTicketStatus | "ALL")
-    : "ALL";
+  const statusParam = req.nextUrl.searchParams.get("status")?.trim();
+  const status = assertTenantSupportTicketStatus(statusParam) ?? "ALL";
 
   const ticketId = req.nextUrl.searchParams.get("id")?.trim();
   if (ticketId) {
@@ -39,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found." }, { status: 404 });
     }
-    return NextResponse.json({ ticket });
+    return NextResponse.json({ ticket: toTenantSafeSupportTicket(ticket) });
   }
 
   const limitRaw = Number(req.nextUrl.searchParams.get("limit") ?? "100");
@@ -58,7 +51,8 @@ export async function GET(req: NextRequest) {
   );
 
   return NextResponse.json({
-    ...result,
+    tickets: result.tickets.map(toTenantSafeSupportTicket),
+    polledAt: result.polledAt,
     counts: byStatus,
     total: counts.tickets.length,
   });

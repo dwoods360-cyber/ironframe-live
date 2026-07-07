@@ -1235,6 +1235,7 @@ enum UserRole {
   INTERNAL_AUDITOR
   EXTERNAL_AUDITOR
   GLOBAL_ADMIN
+  BUSINESS_ADMIN
 }
 
 enum ApprovalStatus {

@@ -21,9 +21,11 @@ export async function inviteCorporateTenantUserAction(
   const inviteRole =
     inviteRoleRaw === "CISO"
       ? UserRole.CISO
-      : inviteRoleRaw === "GRC_MANAGER"
-        ? UserRole.GRC_MANAGER
-        : UserRole.GRC_MANAGER;
+      : inviteRoleRaw === "BUSINESS_ADMIN"
+        ? UserRole.BUSINESS_ADMIN
+        : inviteRoleRaw === "GRC_MANAGER"
+          ? UserRole.GRC_MANAGER
+          : UserRole.GRC_MANAGER;
 
   return inviteCorporateTenantUserCore({
     email: String(formData.get("email") ?? ""),

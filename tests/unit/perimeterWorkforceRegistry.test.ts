@@ -48,6 +48,9 @@ describe("perimeter workforce board awareness", () => {
     expect(bundle).toContain("Ironleads :8083");
     expect(bundle).toContain("IronSuccessTeam :8085");
     expect(bundle).toContain("IronSupportTeam :8086");
+    expect(PERIMETER_WORKFORCE_BINDING).toContain("INTERNAL USE ONLY");
+    expect(PERIMETER_WORKFORCE_BINDING).toContain("BUSINESS_ADMIN");
+    expect(PERIMETER_WORKFORCE_BINDING).toContain("Never tenant workspaces");
     expect(PERIMETER_WORKFORCE_BINDING).toContain("SUSPECT → Ironleads");
     expect(PERIMETER_WORKFORCE_BINDING).toContain("PROSPECT → SalesTeam");
     expect(PERIMETER_WORKFORCE_BINDING).toContain("IronSupportTeam");

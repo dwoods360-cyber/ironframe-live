@@ -1,6 +1,7 @@
-import { loadIronleadsEnv } from '../loadIronleadsEnv.js';
+import { loadIronleadsEnv, getIngressConfig } from '../loadIronleadsEnv.js';
 import { shipToIronframeIngress, type IngressPayload } from '../lib/ingressClient.js';
 import { getIronleadsPrisma } from '../lib/prisma.js';
+import { resolveTargetTenantSlugForSector } from '../lib/sectorTenantRouting.js';
 
 loadIronleadsEnv();
 
@@ -15,6 +16,7 @@ export type LeadGatekeeperResult = {
 /** Agent L-03 — sanitize, sign via bearer, ship to Irongate ingress. */
 export async function runLeadGatekeeper(limit = 10): Promise<LeadGatekeeperResult[]> {
   const prisma = getIronleadsPrisma();
+  const { targetTenantSlug: defaultTenantSlug } = getIngressConfig();
   const staged = await prisma.qualifiedLead.findMany({
     where: { processingStatus: 'QUALIFIED' },
     orderBy: [{ confidenceScore: 'desc' }, { createdAt: 'asc' }],
@@ -28,7 +30,7 @@ export async function runLeadGatekeeper(limit = 10): Promise<LeadGatekeeperResul
       companyName: lead.companyName,
       industrySector: lead.industrySector as IngressPayload['industrySector'],
       detectedTrigger: lead.detectedTrigger,
-      targetTenantSlug: '',
+      targetTenantSlug: resolveTargetTenantSlugForSector(lead.industrySector, defaultTenantSlug),
       contactEmail: lead.contactEmail ?? undefined,
       accountDomain: lead.accountDomain ?? undefined,
     };

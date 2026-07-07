@@ -45,7 +45,7 @@ describe('ironleadsAgents', () => {
       companyName: '<b>Acme</b> Bancorp',
       industrySector: 'REGIONAL_BHC',
       detectedTrigger: 'new_ciso',
-      targetTenantSlug: 'medshield',
+      targetTenantSlug: 'vaultbank',
     });
     expect(payload.companyName).toBe('Acme Bancorp');
     expect(payload.detectedTrigger).toBe('NEW_CISO');

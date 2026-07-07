@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ComponentProps, MouseEvent, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { assignTenantWorkspaceNav } from "@/app/lib/nav/tenantWorkspaceNav";
@@ -22,12 +23,13 @@ export default function TenantWorkspaceNavLink({
   ...rest
 }: Props) {
   const hostTenantSlug = useHostTenantSlug();
+  const pathname = usePathname();
   const browserHost = typeof window !== "undefined" ? window.location.host : null;
 
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(event);
     if (event.defaultPrevented) return;
-    if (assignTenantWorkspaceNav(href, browserHost, hostTenantSlug)) {
+    if (assignTenantWorkspaceNav(href, browserHost, hostTenantSlug, pathname)) {
       event.preventDefault();
       event.stopPropagation();
     }

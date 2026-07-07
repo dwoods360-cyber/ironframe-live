@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
 import { useRouter } from "next/navigation";
@@ -245,6 +245,7 @@ export default function IntegrityHubClient({
   const router = useRouter();
   const [vault, setVault] = useState<IntegrityVaultSnapshot>(initialVault);
   const [isPending, startTransition] = useTransition();
+  const refreshPausedRef = useRef(false);
   const [syntheticRows, setSyntheticRows] =
     useState<IntegrityHubSyntheticTarget[]>(syntheticTargets);
   const [syntheticLoadError, setSyntheticLoadError] = useState<string | null>(null);
@@ -335,7 +336,33 @@ export default function IntegrityHubClient({
   }, []);
 
   useEffect(() => {
+    const pauseRefreshForNavigation = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      const anchor = (event.target as Element | null)?.closest("a[href]");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      const href = anchor.getAttribute("href")?.trim() ?? "";
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+        return;
+      }
+      try {
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+        if (url.pathname !== window.location.pathname) {
+          refreshPausedRef.current = true;
+        }
+      } catch {
+        /* ignore malformed href */
+      }
+    };
+
+    document.addEventListener("click", pauseRefreshForNavigation, true);
+    return () => document.removeEventListener("click", pauseRefreshForNavigation, true);
+  }, []);
+
+  useEffect(() => {
     const id = window.setInterval(() => {
+      if (refreshPausedRef.current) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (!isPending) {
         startTransition(() => {
           router.refresh();

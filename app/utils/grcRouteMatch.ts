@@ -352,6 +352,19 @@ export function isScrollableStandalonePath(pathname: string): boolean {
   return !isViewportBoundedDashboardPath(pathname);
 }
 
+/**
+ * Heavy RSC surfaces where Next.js soft `<Link>` transitions stall (3s+).
+ * Force `location.assign` when leaving these routes — apex and tenant hosts.
+ */
+export function isHeavySoftNavSourcePath(pathname: string): boolean {
+  return (
+    pathname === "/integrity" ||
+    pathname.startsWith("/integrity/") ||
+    isReportsPath(pathname) ||
+    isReportsPathWithTenant(pathname)
+  );
+}
+
 /** Read-only constitutional sentinel + Irontech recovery — must work without a dashboard session (marketing shell polls these). */
 export function isPublicConstitutionalSentinelPath(pathname: string): boolean {
   return (

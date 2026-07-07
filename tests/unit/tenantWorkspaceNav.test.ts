@@ -37,4 +37,34 @@ describe("tenantWorkspaceNav", () => {
     expect(didAssign).toBe(false);
     expect(assign).not.toHaveBeenCalled();
   });
+
+  it("assigns full navigation from heavy apex surfaces like /integrity", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", { location: { assign } });
+
+    const didAssign = assignTenantWorkspaceNav(
+      "/vendors",
+      "localhost:3000",
+      null,
+      "/integrity",
+    );
+
+    expect(didAssign).toBe(true);
+    expect(assign).toHaveBeenCalledWith("/vendors");
+  });
+
+  it("does not assign when heavy source path matches target", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("window", { location: { assign } });
+
+    const didAssign = assignTenantWorkspaceNav(
+      "/integrity",
+      "localhost:3000",
+      null,
+      "/integrity",
+    );
+
+    expect(didAssign).toBe(false);
+    expect(assign).not.toHaveBeenCalled();
+  });
 });

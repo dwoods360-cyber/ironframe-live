@@ -21,7 +21,8 @@ IRONLEADS_PORT=8083
 IRONLEADS_DATABASE_URL="file:./data/ironleads.db"
 IRONLEADS_INGRESS_BASE_URL=http://127.0.0.1:3000
 IRONLEADS_INGRESS_SECRET=<same as Ironframe IRONLEADS_INGRESS_SECRET>
-IRONLEADS_TARGET_TENANT_SLUG=medshield
+# Default ingress fallback when sector routing does not apply (platform prospect pool).
+IRONLEADS_TARGET_TENANT_SLUG=prospect-pool
 IRONLEADS_HARVEST_CRON_ENABLED=false
 ```
 
@@ -31,7 +32,18 @@ IRONLEADS_HARVEST_CRON_ENABLED=false
 |---|---|
 | LeadScout (L-01) | Fetch allowlisted OSINT → `raw_scraped_signals` |
 | SignalFilter (L-02) | Deterministic extraction → `qualified_leads` |
-| LeadGatekeeper (L-03) | Sanitize + POST `/api/v1/ingress/ironleads` |
+| LeadGatekeeper (L-03) | Sector→tenant routing + sanitize + POST `/api/v1/ingress/ironleads` |
+
+### Sector → tenant CRM routing (LeadGatekeeper)
+
+| Beachhead sector | Tenant slug |
+|---|---|
+| `REGIONAL_BHC` | `vaultbank` |
+| `UTILITY_NERC` | `gridcore` |
+| `HEALTH_HIPAA` | `medshield` |
+| `MSSP_ENCLAVE` | `prospect-pool` |
+
+`IRONLEADS_TARGET_TENANT_SLUG` (default `prospect-pool`) is used only when sector routing does not apply.
 
 ## CLI
 

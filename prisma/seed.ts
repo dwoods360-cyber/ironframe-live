@@ -10,6 +10,9 @@ const TENANT_UUIDS = {
   gridcore: '4d1ea1a4-b6a8-4d12-9eb3-2f0a64ad0ef7',
 } as const;
 
+/** Air-gapped prospect pool — matches tests/unit/agentPerimeter.test.ts and Ironleads ingress default. */
+const PROSPECT_POOL_TENANT_ID = '11111111-1111-4111-8111-111111111111';
+
 /**
  * Seeds the full constitutional role bundle on all canonical tenants for the dev Supabase user
  * (`IRONFRAME_DEV_SUPABASE_USER_ID`) so Meta-Audit / HITL RBAC passes in local dev.
@@ -37,6 +40,9 @@ async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void
   );
 }
 
+/** Design-partner tenants preserved across baseline seed (production smoke / Wil sign-off). */
+const PRESERVED_TENANT_SLUGS = ['bwc'] as const;
+
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
@@ -47,8 +53,12 @@ async function main() {
   await prisma.activeRisk.deleteMany();
   await prisma.policy.deleteMany();
   await prisma.department.deleteMany();
-  await prisma.company.deleteMany();
-  await prisma.tenant.deleteMany();
+  await prisma.company.deleteMany({
+    where: { tenant: { slug: { notIn: [...PRESERVED_TENANT_SLUGS] } } },
+  });
+  await prisma.tenant.deleteMany({
+    where: { slug: { notIn: [...PRESERVED_TENANT_SLUGS] } },
+  });
 
   console.log('🚀 Initiating Ironframe Baseline Seed (v1.1 TPRM)...');
 
@@ -61,6 +71,15 @@ async function main() {
   });
   const tenantGridcore = await prisma.tenant.create({
     data: { id: TENANT_UUIDS.gridcore, name: 'Gridcore Infrastructure', slug: 'gridcore', industry: 'Energy', ale_baseline: 470000000n }
+  });
+  const tenantProspectPool = await prisma.tenant.create({
+    data: {
+      id: PROSPECT_POOL_TENANT_ID,
+      name: 'Ironframe Prospect Pool',
+      slug: 'prospect-pool',
+      industry: 'Platform',
+      ale_baseline: 0n,
+    },
   });
 
   // 2. Establish Companies (The 1st Party / Tenant Boundary) — each company scoped to one tenant
@@ -76,7 +95,17 @@ async function main() {
     data: { name: 'Gridcore Infrastructure', sector: 'Energy', industry_avg_loss_cents: 470000000n, infrastructure_val_cents: 2840000000n, tenantId: tenantGridcore.id }
   });
 
-  // 2b. Weekly industry mean ALE snapshots (benchmark trend chart; Healthcare last point +25% WoW for volatility demo)
+  await prisma.company.create({
+    data: {
+      name: 'Ironframe Prospect Pool',
+      sector: 'Platform',
+      industry_avg_loss_cents: 0n,
+      infrastructure_val_cents: 0n,
+      tenantId: tenantProspectPool.id,
+    },
+  });
+
+  // 2b. Weekly industry mean ALE snapshots
   const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
   const anchorMs = Date.now();
   const pctVolatileDemo = [88, 90, 92, 94, 96, 98, 100, 125] as const;

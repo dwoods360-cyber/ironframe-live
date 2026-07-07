@@ -8,7 +8,7 @@ describe('ironleadsIngressSchema', () => {
       companyName: 'Western Alliance Bancorporation',
       industrySector: 'REGIONAL_BHC',
       detectedTrigger: 'NEW_CISO',
-      targetTenantSlug: 'medshield',
+      targetTenantSlug: 'vaultbank',
       contactEmail: 'ciso@example.com',
     });
     expect(parsed.companyName).toContain('Western Alliance');
@@ -20,7 +20,7 @@ describe('ironleadsIngressSchema', () => {
         companyName: 'Acme Corp',
         industrySector: 'UNCLASSIFIED',
         detectedTrigger: 'REG_FINE',
-        targetTenantSlug: 'medshield',
+        targetTenantSlug: 'vaultbank',
       }),
     ).toThrow();
   });

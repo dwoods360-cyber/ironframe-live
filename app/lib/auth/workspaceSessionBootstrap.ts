@@ -27,14 +27,14 @@ export async function mintWorkspaceBootstrapHandoffUrl(input: {
   tenantSlug: string;
   userId: string;
   userEmail?: string | null;
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
   nextPath?: string;
 }): Promise<string | null> {
-  const accessToken = input.accessToken.trim();
-  const refreshToken = input.refreshToken.trim();
-  const userId = input.userId.trim() || userIdFromAccessToken(accessToken);
-  if (!userId || !accessToken || !refreshToken) return null;
+  const accessToken = input.accessToken?.trim() ?? "";
+  const refreshToken = input.refreshToken?.trim() ?? "";
+  const userId = input.userId.trim() || (accessToken ? userIdFromAccessToken(accessToken) : "");
+  if (!userId) return null;
 
   const authorized = await authorizeWorkspaceBootstrapMint(
     userId,
@@ -48,8 +48,7 @@ export async function mintWorkspaceBootstrapHandoffUrl(input: {
     userEmail: input.userEmail,
     tenantSlug: authorized.tenantSlug,
     tenantUuid: authorized.tenantUuid,
-    accessToken,
-    refreshToken,
+    ...(accessToken && refreshToken ? { accessToken, refreshToken } : {}),
     nextPath: input.nextPath?.trim() || workspaceActivationNextParam(),
   });
 

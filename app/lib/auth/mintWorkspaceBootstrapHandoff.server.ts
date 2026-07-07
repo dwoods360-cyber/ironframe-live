@@ -116,7 +116,22 @@ export async function mintWorkspaceBootstrapFromRequest(
   }
 
   if (!accessToken || !refreshToken) {
-    return { ok: false, reason: "unauthenticated" };
+    const bootstrapUrl = await mintWorkspaceBootstrapHandoffUrl({
+      tenantSlug: slug,
+      userId: user.id.trim(),
+      userEmail: user.email,
+      nextPath,
+    });
+
+    if (!bootstrapUrl) {
+      return { ok: false, reason: "tenant_membership_required" };
+    }
+
+    if (!isTenantWorkspaceBootstrapUrl(bootstrapUrl, slug)) {
+      return { ok: false, reason: "invalid_bootstrap_target" };
+    }
+
+    return { ok: true, bootstrapUrl, cookieMutations };
   }
 
   const bootstrapUrl = await mintWorkspaceBootstrapHandoffUrl({

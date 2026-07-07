@@ -10,6 +10,7 @@ import {
   assertWorkspaceBootstrapMembership,
   consumeWorkspaceBootstrapTicket,
 } from "@/app/lib/auth/workspaceBootstrapTicket";
+import { resolveBootstrapSessionTokens } from "@/app/lib/auth/resolveBootstrapSessionTokens.server";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { buildTenantSubdomainOrigin, tenantSlugFromHost, tenantUuidFromSlug, isApexControlPlaneHost } from "@/app/lib/tenantSubdomain";
 
@@ -150,6 +151,11 @@ export async function GET(request: NextRequest) {
     return bootstrapUnauthorizedResponse(request, "auth_not_configured");
   }
 
+  const sessionTokens = await resolveBootstrapSessionTokens(ticket);
+  if (!sessionTokens) {
+    return bootstrapUnauthorizedResponse(request, "session_bootstrap_failed");
+  }
+
   let response = NextResponse.redirect(destination);
 
   const supabase = createServerClient(supabaseUrl, anonKey, {
@@ -171,8 +177,8 @@ export async function GET(request: NextRequest) {
   });
 
   const { error } = await supabase.auth.setSession({
-    access_token: ticket.accessToken,
-    refresh_token: ticket.refreshToken,
+    access_token: sessionTokens.accessToken,
+    refresh_token: sessionTokens.refreshToken,
   });
 
   if (error) {

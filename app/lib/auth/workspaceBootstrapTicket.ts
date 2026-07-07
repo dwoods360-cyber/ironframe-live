@@ -14,8 +14,9 @@ export type WorkspaceBootstrapTicket = {
   userEmail: string | null;
   tenantSlug: string;
   tenantUuid: string;
-  accessToken: string;
-  refreshToken: string;
+  /** Optional — omitted from short handoff tokens; redeemed via admin on tenant host. */
+  accessToken?: string;
+  refreshToken?: string;
   nextPath: string;
   exp: number;
 };
@@ -53,7 +54,21 @@ function bootstrapSigningSecret(): string {
 }
 
 function mintStatelessBootstrapToken(record: WorkspaceBootstrapTicket): string {
-  const body = Buffer.from(JSON.stringify(record)).toString("base64url");
+  const payload: Record<string, unknown> = {
+    userId: record.userId,
+    userEmail: record.userEmail,
+    tenantSlug: record.tenantSlug,
+    tenantUuid: record.tenantUuid,
+    nextPath: record.nextPath,
+    exp: record.exp,
+  };
+  const accessToken = record.accessToken?.trim();
+  const refreshToken = record.refreshToken?.trim();
+  if (accessToken && refreshToken) {
+    payload.accessToken = accessToken;
+    payload.refreshToken = refreshToken;
+  }
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const sig = createHmac("sha256", bootstrapSigningSecret()).update(body).digest("base64url");
   return `bt_${body}.${sig}`;
 }
@@ -175,8 +190,8 @@ export function mintWorkspaceBootstrapTicket(input: {
   userEmail?: string | null;
   tenantSlug: string;
   tenantUuid: string;
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
   nextPath: string;
   nowMs?: number;
 }): string {
@@ -190,11 +205,15 @@ export function mintWorkspaceBootstrapTicket(input: {
     userEmail: input.userEmail?.trim() || null,
     tenantSlug,
     tenantUuid: input.tenantUuid.trim(),
-    accessToken: input.accessToken.trim(),
-    refreshToken: input.refreshToken.trim(),
     nextPath: input.nextPath.trim() || "/",
     exp: nowMs + WORKSPACE_BOOTSTRAP_TTL_MS,
   };
+  const accessToken = input.accessToken?.trim();
+  const refreshToken = input.refreshToken?.trim();
+  if (accessToken && refreshToken) {
+    record.accessToken = accessToken;
+    record.refreshToken = refreshToken;
+  }
 
   const jti = randomBytes(32).toString("base64url");
   ticketStore().set(jti, record);

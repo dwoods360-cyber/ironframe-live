@@ -158,23 +158,19 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     expect(loginUrl.searchParams.get("fresh")).toBe("1");
   });
 
-  it("workspace-launch refreshes session when getSession is empty but getUser is valid", async () => {
+  it("workspace-launch mints bootstrap when getSession is empty but getUser is valid", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
     mockAuth.getUser.mockResolvedValue({
-      data: { user: WIL_USER },
+      data: { user: { ...WIL_USER, email: "wil@blackwoodscoffee.com" } },
       error: null,
     });
-    mockAuth.refreshSession.mockResolvedValue({
-      data: { session: WIL_SESSION },
-      error: null,
-    });
+    mockAuth.refreshSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const launchRequest = new NextRequest(
       "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
     );
     const launchResponse = await launchWorkspace(launchRequest);
     expect(launchResponse.status).toBe(307);
-    expect(mockAuth.refreshSession).toHaveBeenCalled();
 
     const location = launchResponse.headers.get("location");
     expect(location).toBeTruthy();
@@ -182,6 +178,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     expect(bootstrapUrl.hostname).toBe("bwc.lvh.me");
     expect(bootstrapUrl.pathname).toBe("/api/auth/session-bootstrap");
     expect(bootstrapUrl.searchParams.get("token")?.startsWith("bt_")).toBe(true);
+    expect((bootstrapUrl.searchParams.get("token") ?? "").length).toBeLessThan(800);
   });
 
   it("mints an opaque bt_ ticket for a tenant with active role assignment", async () => {

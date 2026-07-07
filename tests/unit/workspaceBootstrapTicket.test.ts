@@ -43,6 +43,24 @@ describe("workspace bootstrap ticket store", () => {
     vi.clearAllMocks();
   });
 
+  it("mints compact handoff tokens without embedding Supabase JWTs", () => {
+    const token = mintWorkspaceBootstrapTicket({
+      userId: "wil-user",
+      userEmail: "wil@example.com",
+      tenantSlug: "bwc",
+      tenantUuid: "tenant-bwc-uuid",
+      nextPath: "/",
+    });
+
+    expect(token.startsWith("bt_")).toBe(true);
+    expect(token.length).toBeLessThan(600);
+
+    const first = consumeWorkspaceBootstrapTicket(token, "bwc");
+    expect(first?.userId).toBe("wil-user");
+    expect(first?.accessToken).toBeUndefined();
+    expect(first?.refreshToken).toBeUndefined();
+  });
+
   it("redeems a ticket once for the bound tenant host", () => {
     const token = mintWorkspaceBootstrapTicket({
       userId: "wil-user",

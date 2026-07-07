@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { Suspense } from "react";
 
+import CommandPostWorkspaceShell from "@/app/components/CommandPostWorkspaceShell";
 import ConditionalAppShell from "@/app/components/ConditionalAppShell";
-import { CommandPostWorkspaceProvider } from "@/app/context/CommandPostWorkspaceContext";
 import { resolveServerCommandPostTarget } from "@/app/lib/auth/resolveCommandPostTarget.server";
 import {
   isDocsPathname,
@@ -12,7 +12,7 @@ import {
   PUBLIC_DARK_SHELL_CLASS,
   resolvePublicDarkShellSurface,
 } from "@/app/lib/publicFunnelShell";
-import { isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
+import { isDashboardRouteGroupPath, isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
 import { IRONFRAME_PATHNAME_HEADER } from "@/lib/supabase/middleware";
 
 function PublicDarkShell({
@@ -59,23 +59,28 @@ function ShellSuspenseFallback({
 export default async function AppShellRouter({ children }: { children: React.ReactNode }) {
   const pathname = (await headers()).get(IRONFRAME_PATHNAME_HEADER) ?? "";
   const isCommandPostRoot = pathname === "/" || pathname === "";
-  const commandPostTarget = await resolveServerCommandPostTarget();
+  const isPublicFunnel =
+    !isCommandPostRoot &&
+    (isDocsPathname(pathname) ||
+      isInviteTokenRegistrationPath(pathname) ||
+      isMarketingPathname(pathname) ||
+      isPublicDarkShellPath(pathname));
+  const needsCommandPostProvider = !isPublicFunnel && !isDashboardRouteGroupPath(pathname);
 
-  const shell = (
-    <CommandPostWorkspaceProvider initialTarget={commandPostTarget}>
-      {!isCommandPostRoot &&
-      (isDocsPathname(pathname) ||
-        isInviteTokenRegistrationPath(pathname) ||
-        isMarketingPathname(pathname) ||
-        isPublicDarkShellPath(pathname)) ? (
-        <PublicDarkShell surface={resolvePublicDarkShellSurface(pathname)}>{children}</PublicDarkShell>
-      ) : (
-        <Suspense fallback={<ShellSuspenseFallback pathname={pathname}>{children}</ShellSuspenseFallback>}>
-          <ConditionalAppShell>{children}</ConditionalAppShell>
-        </Suspense>
-      )}
-    </CommandPostWorkspaceProvider>
+  const inner = !isCommandPostRoot && isPublicFunnel ? (
+    <PublicDarkShell surface={resolvePublicDarkShellSurface(pathname)}>{children}</PublicDarkShell>
+  ) : (
+    <Suspense fallback={<ShellSuspenseFallback pathname={pathname}>{children}</ShellSuspenseFallback>}>
+      <ConditionalAppShell>{children}</ConditionalAppShell>
+    </Suspense>
   );
 
-  return shell;
+  if (!needsCommandPostProvider) {
+    return inner;
+  }
+
+  const commandPostTarget = await resolveServerCommandPostTarget();
+  return (
+    <CommandPostWorkspaceShell initialTarget={commandPostTarget}>{inner}</CommandPostWorkspaceShell>
+  );
 }

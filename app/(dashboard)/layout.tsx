@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import DashboardCommandCenterLayout from "@/app/(dashboard)/DashboardCommandCenterLayout";
 import DashboardGroupShell from "@/app/(dashboard)/DashboardGroupShell";
 import DashboardBillingGate from "@/app/components/billing/DashboardBillingGate";
-import { CommandPostWorkspaceProvider } from "@/app/context/CommandPostWorkspaceContext";
+import CommandPostWorkspaceShell from "@/app/components/CommandPostWorkspaceShell";
 import { TenantBillingGateProvider } from "@/app/context/TenantBillingGateContext";
 import {
   ensureDashboardTenantSession,
@@ -71,23 +71,23 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
   );
 
   return (
-    <CommandPostWorkspaceProvider initialTarget={commandPostTarget}>
+    <CommandPostWorkspaceShell initialTarget={commandPostTarget}>
       <TenantBillingGateProvider
-      billingBlocked={billingBlocked}
-      billingStatus={billing?.status ?? "UNTRACKED"}
-    >
-      <DashboardCommandCenterLayout>
-        <DashboardGroupShell initialTenantUuid={access.tenantUuid}>
-          <DashboardBillingGate
-            blocked={billingBlocked}
-            tenantSlug={tenantSlug}
-            billingStatus={billing?.status ?? "UNTRACKED"}
-          >
-            {children}
-          </DashboardBillingGate>
-        </DashboardGroupShell>
-      </DashboardCommandCenterLayout>
-    </TenantBillingGateProvider>
-    </CommandPostWorkspaceProvider>
+        billingBlocked={billingBlocked}
+        billingStatus={billing?.status ?? "UNTRACKED"}
+      >
+        <DashboardCommandCenterLayout>
+          <DashboardGroupShell initialTenantUuid={access.tenantUuid}>
+            <DashboardBillingGate
+              blocked={billingBlocked}
+              tenantSlug={tenantSlug}
+              billingStatus={billing?.status ?? "UNTRACKED"}
+            >
+              {children}
+            </DashboardBillingGate>
+          </DashboardGroupShell>
+        </DashboardCommandCenterLayout>
+      </TenantBillingGateProvider>
+    </CommandPostWorkspaceShell>
   );
 }

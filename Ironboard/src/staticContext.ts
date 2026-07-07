@@ -29,7 +29,33 @@ export const STRATEGIC_KNOWLEDGE_VAULT = [
   { title: "The Lean Startup", author: "Eric Ries", coreConcepts: ["Validated Learning", "Build-Measure-Learn", "Minimum Viable Product", "Pivot or Persevere"], strategicInvariants: "Drives rapid, atomic code deployments coupled with deterministic user telemetry to minimize wasted developmental energy." },
   { title: "Zero to One", author: "Peter Thiel", coreConcepts: ["Vertical Progress", "Proprietary Technology", "Network Effects", "Monopoly vs. Perfect Competition"], strategicInvariants: "Planning lens only — pursue 10x product bets and defensible architecture; never cite this book as proof Ironframe currently leads the GRC market or holds uncopyable moats." },
   { title: "Measure What Matters", author: "John Doerr", coreConcepts: ["Objectives and Key Results (OKRs)", "Radical Alignment", "Continuous Tracking", "Stretch Goals"], strategicInvariants: "Binds every agent workflow execution to quantifiable metrics to guarantee zero systemic drift across the organization." },
+  { title: "Building a StoryBrand", author: "Donald Miller", coreConcepts: ["SB7 Framework", "Customer as Hero", "Brand as Guide", "Clarity Over Cleverness", "One-Liner Formula"], strategicInvariants: "All GTM and operator-facing messaging leads with the buyer's problem, positions Ironframe as guide with empathy and authority, and drives a single clear call to action — never feature-first hero copy." },
+  { title: "Marketing Made Simple", author: "Donald Miller", coreConcepts: ["Five-Part Sales Funnel", "Lead Generator", "Nurture Email Series", "Website Wireframe", "StoryBrand Messaging"], strategicInvariants: "Maps Ironframe web and nurture assets to one-liner → lead magnet → email sequence → sales email → StoryBrand website sections." },
+  { title: "Influence", author: "Robert Cialdini", coreConcepts: ["Reciprocity", "Commitment", "Social Proof", "Authority", "Liking", "Scarcity"], strategicInvariants: "Ethical persuasion only — authority via TAS and release evidence, social proof via labeled design partners; never fabricated logos or false scarcity." },
+  { title: "Made to Stick", author: "Chip Heath & Dan Heath", coreConcepts: ["SUCCESs Framework", "Simple Core", "Concrete Details", "Credible Proof", "Stories"], strategicInvariants: "Training and technical docs use concrete routes, cent integers, and verifiable test gates — not abstract marketing superlatives." },
+  { title: "Obviously Awesome", author: "April Dunford", coreConcepts: ["Competitive Alternatives", "Unique Attributes", "Value Themes", "Market Category", "Segment Focus"], strategicInvariants: "Position against spreadsheets and heatmap GRC; tailor value themes per beachhead (BHC, NERC, MSSP, HIPAA)." },
+  { title: "Positioning", author: "Al Ries & Jack Trout", coreConcepts: ["Own a Word in the Mind", "Simplicity", "Category Entry", "Line Extension Risks"], strategicInvariants: "Own 'quantitative GRC command post' in prospect mindshare — repeat category phrase; avoid diluting with parallel taglines." },
+  { title: "They Ask, You Answer", author: "Marcus Sheridan", coreConcepts: ["Big Five Questions", "Honest Web Content", "Assignment Selling", "Trust Through Transparency"], strategicInvariants: "Docs hub and trust center answer buyer questions with Shipped/Pilot/Roadmap honesty — especially comparisons and certification scope." },
+  { title: "This Is Marketing", author: "Seth Godin", coreConcepts: ["Smallest Viable Audience", "Enrollment", "Tension and Change", "Permission"], strategicInvariants: "Design-partner enrollment for regulated mid-market; resist mass-market self-serve positioning until Phase 2 entitlements ship." },
+  { title: "Traction", author: "Gabriel Weinberg & Justin Mares", coreConcepts: ["Bullseye Framework", "Channel Testing", "Critical Path", "19 Traction Channels"], strategicInvariants: "Test OSINT triggers, executive roundtables, and MSSP referrals before paid social; measure SQL cost per channel quarterly." },
+  { title: "Contagious", author: "Jonah Berger", coreConcepts: ["STEPPS", "Social Currency", "Practical Value", "Stories"], strategicInvariants: "Educational ALE and Irongate primers outperform generic thought leadership on LinkedIn and technical blog." },
+  { title: "The Challenger Sale", author: "Matthew Dixon & Brent Adamson", coreConcepts: ["Teach", "Tailor", "Take Control", "Commercial Insight"], strategicInvariants: "Lead outbound and webinars with 'beyond the heatmap' insight that reframes board risk in dollars — methodology flags in CRM." },
+  { title: "Hooked", author: "Nir Eyal", coreConcepts: ["Trigger", "Action", "Variable Reward", "Investment"], strategicInvariants: "Operator habit loops inside Command Center workflows only — not consumer gamification or dark patterns." },
 ] as const;
+
+export const MARKETING_STRATEGY_KNOWLEDGE_BINDING = `
+MARKETING & MESSAGING KNOWLEDGE BASE (AUTHORITATIVE):
+- Master library: docs/marketing-strategy/marketing-strategy-library.md
+- StoryBrand SB7 + BrandScript: docs/marketing-strategy/storybrand-framework.md
+- Campaign plan: docs/marketing-strategy/marketing-plan.md
+- Brand voice: docs/marketing-strategy/brand-style-guide.md
+- Editorial calendar: docs/marketing-strategy/content-calendar.md
+- Social guidelines: docs/marketing-strategy/social-media-guidelines.md
+- board-marketing-mgr: full GTM application of vault books + matrix ingest (marketing-strategy category)
+- board-writer: narrative structure only — docs/training/level-2/13-narrative-frameworks-storybrand.md (no sales copy)
+- board-trainer: operator clarity — docs/training/level-1/13-clear-messaging-for-operators.md (no pipeline tactics)
+- Ironleads cross-corpus: Ironleads/src/knowledge/leadGenCorpus.ts (storybrand, influence, inbound pillars)
+`.trim();
 
 export type BoardPersona = {
   id: string;
@@ -52,9 +78,9 @@ export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
   { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding"], background: "Skilled infrastructure developer.", primaryBookAlignment: "Zero to One" },
   { id: "board-data-sci", role: "Data Scientist", team: "Product and Engineering", expertise: ["Data analysis", "Modeling"], background: "Experienced analytics expert.", primaryBookAlignment: "Measure What Matters" },
   { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth"], background: "Experienced enterprise sales professional.", primaryBookAlignment: "Crossing the Chasm" },
-  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management"], background: "Experienced campaign strategist.", primaryBookAlignment: "Play Bigger" },
-  { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation"], background: "Expert regulatory copywriter.", primaryBookAlignment: "The Discipline of Market Leaders" },
-  { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design"], background: "Seasoned training designer.", primaryBookAlignment: "The Lean Startup" },
+  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management", "StoryBrand messaging"], background: "Experienced campaign strategist grounded in category design and StoryBrand clarity.", primaryBookAlignment: "Building a StoryBrand" },
+  { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation", "Narrative structure"], background: "Expert regulatory copywriter applying StoryBrand structure to practitioner docs.", primaryBookAlignment: "Building a StoryBrand" },
+  { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design", "Plain-language messaging"], background: "Seasoned training designer using Made to Stick for operator clarity.", primaryBookAlignment: "Made to Stick" },
   { id: "board-legal", role: "Legal - Regulatory Counsel", team: "Other Essential Roles", expertise: ["Corporate law", "Policy auditing"], background: "Corporate compliance attorney.", primaryBookAlignment: "Crossing the Chasm" },
   { id: "board-hr", role: "HR Manager - Talent Expert", team: "Other Essential Roles", expertise: ["Human resources", "Talent management"], background: "Experienced talent strategist.", primaryBookAlignment: "Good to Great" },
   { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention"], background: "Experienced customer success professional.", primaryBookAlignment: "The Discipline of Market Leaders" },
@@ -160,6 +186,8 @@ export function buildStaticContextBundle(): string {
     '',
     DOCUMENTATION_CORPUS_BINDING,
     '',
+    MARKETING_STRATEGY_KNOWLEDGE_BINDING,
+    '',
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     '',
     PHASE1_MONETIZATION_BOARD_MANDATE,
@@ -170,7 +198,7 @@ export function buildStaticContextBundle(): string {
     '16-PERSONA EXECUTIVE ROSTER:',
     roster,
     '',
-    '8-BOOK STRATEGY VAULT:',
+    `${STRATEGIC_KNOWLEDGE_VAULT.length}-BOOK STRATEGY VAULT:`,
     vault,
     '',
     'PRODUCT REGISTRY:',

@@ -1,32 +1,63 @@
 ---
 Document Type: Marketing Strategy Documentation
-Status: STAGED / DRAFT
+Status: AUTHORITATIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
+Last Updated: 2026-07-07
 ---
 
-# Content Calendar
+# Content Calendar — Marketing
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
+Rolling 8-week editorial schedule. Adjust dates and owners per sprint. Align each asset to a pillar in [Marketing Plan](./marketing-plan.md).
 
-## Purpose
+## Week 1 — GA proof
 
-Editorial schedule template for owned and earned media.
+| Day | Channel | Asset | Owner |
+|-----|---------|-------|-------|
+| Mon | Blog | "Ironframe GA: Epic 17 telemetry + cloud integration" | Eng |
+| Tue | LinkedIn | Infographic: 19-agent roster | Marketing |
+| Thu | Email | Design-partner release notes summary | CS |
 
-## Scope
+## Week 2 — Financial integrity
 
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
+| Day | Channel | Asset |
+|-----|---------|-------|
+| Mon | Blog | "Why we banned float money math" |
+| Wed | LinkedIn | Carousel: BigInt ALE vs heatmaps |
+| Fri | Webinar | Command Center demo (CFO angle) |
 
-## Outline (to complete)
+## Week 3 — Sustainability
 
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
+| Day | Channel | Asset |
+|-----|---------|-------|
+| Mon | Blog | Carbon pulse + LKG resilience |
+| Tue | LinkedIn | Gridcore tenant story (anonymized) |
+| Thu | Docs | Update user guide highlight |
+
+## Week 4 — Security / zero-trust
+
+| Day | Channel | Asset |
+|-----|---------|-------|
+| Mon | Blog | Irongate DMZ ingest walkthrough |
+| Wed | LinkedIn | Ironwatch stale-data mode explainer |
+| Fri | Blog | Tenant isolation test matrix |
+
+## Weeks 5–8 (placeholders)
+
+- Epic 12 WORM launch content (hold until GA)
+- Ironquery export customer story
+- Role page launches (CISO, Board, Audit)
+- Competitive comparison PDF (see sales competitive analysis)
+
+## Production checklist per asset
+
+- [ ] StoryBrand one-liner or problem-first headline
+- [ ] Technical review (no TAS violations in claims)
+- [ ] Legal/compliance review for regulated statements
+- [ ] CTA to demo or docs hub (single primary CTA)
+- [ ] UTM tags for analytics
 
 ## Related documents
 
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+- [Marketing Plan](./marketing-plan.md)
+- [Social Media Guidelines](./social-media-guidelines.md)
+- [Marketing Strategy Library](./marketing-strategy-library.md)

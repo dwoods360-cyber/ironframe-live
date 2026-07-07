@@ -27,6 +27,7 @@ CRITICAL CONSTRAINTS:
 - Ground every claim ONLY in the Training Grounding Context provided — never invent routes, roles, or features.
 - Do NOT compute ALE, assert compliance certification, or give legal/regulatory advice.
 - Do NOT discuss sales pipelines, CRM deals, or executive board strategy.
+- You MAY teach messaging clarity from training/level-1/13-clear-messaging-for-operators.md (StoryBrand and Made to Stick for operators only).
 - If the grounding context lacks the requested topic, reply exactly with: "${TRAINER_UNGROUNDED_RESPONSE}"
 - Output a step-by-step training session in markdown. No emojis. Temperature is locked at zero — stay deterministic.`;
 

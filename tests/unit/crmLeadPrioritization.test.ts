@@ -63,4 +63,34 @@ describe('crmLeadPrioritization', () => {
     expect(signals.triggers).toEqual(expect.arrayContaining(['NEW_CISO', 'M_AND_A']));
     expect(signals.triggerScore).toBe(0.85);
   });
+
+  it('scores Ring-2 adjacent sector at partial market-fit when not a core beachhead', () => {
+    const unclassified = computeQualificationScores({
+      industrySector: 'UNCLASSIFIED',
+    });
+    const adjacent = computeQualificationScores({
+      industrySector: 'UNCLASSIFIED',
+      adjacentSector: 'CREDIT_UNION',
+    });
+    const core = computeQualificationScores({
+      industrySector: 'REGIONAL_BHC',
+    });
+
+    expect(unclassified.beachheadScore).toBe(0.3);
+    expect(adjacent.beachheadScore).toBe(0.55);
+    expect(adjacent.adjacentSector).toBe('CREDIT_UNION');
+    expect(core.beachheadScore).toBe(1);
+    expect(priorityScoreFromSignals(adjacent)).toBeGreaterThan(
+      priorityScoreFromSignals(unclassified),
+    );
+    expect(priorityScoreFromSignals(core)).toBeGreaterThan(priorityScoreFromSignals(adjacent));
+  });
+
+  it('prefers core beachhead score over adjacent tag when both are set', () => {
+    const signals = computeQualificationScores({
+      industrySector: 'HEALTH_HIPAA',
+      adjacentSector: 'HIGHER_ED',
+    });
+    expect(signals.beachheadScore).toBe(1);
+  });
 });

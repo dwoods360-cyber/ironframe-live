@@ -12,6 +12,7 @@ export const DOCS_MATRIX_CATEGORIES = [
   'operations-support',
   'sales-enablement',
   'marketing-strategy',
+  'customer-success',
   'training-academy',
 ] as const;
 

@@ -14,6 +14,7 @@ import {
   BOARDROOM_ISOLATED_AGENT_IDS,
   BOARDROOM_ISOLATED_AGENT_REDIRECTS,
   BOARDROOM_QUERY_ROSTER,
+  PERIMETER_WORKFORCE_APPS,
   STATIC_PRODUCTS,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
@@ -188,7 +189,10 @@ function buildDocsFederationMatrix(): string {
   const storybrandFramework = readDoc(
     path.join(docsRoot, 'marketing-strategy', 'storybrand-framework.md'),
   );
-  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework].filter(Boolean).length;
+  const customerSuccessLibrary = readDoc(
+    path.join(docsRoot, 'customer-success', 'customer-success-library.md'),
+  );
+  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework, customerSuccessLibrary].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -204,6 +208,9 @@ function buildDocsFederationMatrix(): string {
       : '',
     storybrandFramework
       ? `\n── STORYBRAND FRAMEWORK (SB7 + BRANDSCRIPT) ──\n${storybrandFramework}`
+      : '',
+    customerSuccessLibrary
+      ? `\n── CUSTOMER SUCCESS LIBRARY (RETENTION + EXPANSION) ──\n${customerSuccessLibrary}`
       : '',
     '═══ END FEDERATION ═══',
   ].join('\n');
@@ -818,6 +825,13 @@ function renderDashboard(): string {
     p => `<div class="product"><strong>${p.name}</strong><span>${p.priority}</span></div>`,
   ).join('');
 
+  const perimeterWorkers = PERIMETER_WORKFORCE_APPS.map(
+    w => `<div class="product workforce-app" title="${w.ingressNote ?? ''}">
+      <strong>${w.label}</strong><span>:${w.port}</span>
+      <div style="font-size:0.58rem;color:#64748b;margin-top:0.2rem;line-height:1.3">${w.role}</div>
+    </div>`,
+  ).join('');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -960,7 +974,9 @@ function renderDashboard(): string {
       </div>
     </section>
     <section>
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Product Matrix</p>
+      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
+      ${perimeterWorkers}
+      <p style="font-size:0.65rem;color:#64748b;margin:1rem 0 0.5rem;text-transform:uppercase;">Product Matrix</p>
       ${products}
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>
       <div class="baseline"><span>Demo seed (medshield)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.medshield}</span></div>

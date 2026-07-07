@@ -20,6 +20,7 @@ import type {
 } from '../../types/crm.js';
 import {
   centsToWire,
+  isAdjacentSector,
   isBeachheadSector,
   isLeadIngestionSource,
   isLeadStage,
@@ -34,6 +35,26 @@ import {
   type TriggerSignal,
 } from './leadPrioritization.js';
 import { requireTenantId, runIronboardCrmTransaction } from './crmTenantContext.js';
+import {
+  buildInitialPilotMetadata,
+  buildPartnerWeeklyGateEvaluations,
+  buildPilotEvent,
+  businessHoursBetween,
+  computeEvidenceCompletenessPct,
+  emitCrmPilotEvent,
+  inferFirstActionType,
+  isGrcAuditableFirstAction,
+  isIcpQualifiedProxy,
+  isOutcomeStage,
+  isoWeekKey,
+  mergePilotMetadata,
+  parsePilotMetadata,
+  pilotMetadataPatchForMilestone,
+  resolvePilotOperationalMode,
+  resolveQualificationLevel,
+  evaluateConsecutiveGateBPass,
+  type CrmPilotMilestone,
+} from './crmPilotTracking.js';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -66,6 +87,7 @@ function qualificationInputFromCreate(input: CreateContactInput): QualificationI
   const triggers = (input.triggers ?? []).filter(isTriggerSignalCore);
   return {
     industrySector: input.industrySector ?? null,
+    adjacentSector: input.adjacentSector ?? null,
     detectedTrigger: input.detectedTrigger ?? null,
     painMarkers: input.painMarkers,
     triggers,
@@ -82,6 +104,7 @@ function mapContact(row: {
   title: string;
   phone: string | null;
   industrySector?: string | null;
+  adjacentSector?: string | null;
   detectedTrigger?: string | null;
   ingestionSource?: string;
   priorityScore?: number;
@@ -100,6 +123,8 @@ function mapContact(row: {
     phone: row.phone,
     industrySector:
       row.industrySector && isBeachheadSector(row.industrySector) ? row.industrySector : null,
+    adjacentSector:
+      row.adjacentSector && isAdjacentSector(row.adjacentSector) ? row.adjacentSector : null,
     detectedTrigger: row.detectedTrigger ?? null,
     ingestionSource:
       row.ingestionSource && isLeadIngestionSource(row.ingestionSource)
@@ -224,11 +249,121 @@ function contactCreateData(tenantId: string, input: CreateContactInput) {
     title: sanitizeText(input.title ?? '', 200),
     phone: input.phone ? sanitizeText(input.phone, 40) : null,
     industrySector: input.industrySector ?? null,
+    adjacentSector: input.adjacentSector ?? null,
     detectedTrigger: input.detectedTrigger ? sanitizeText(input.detectedTrigger, 120) : null,
     ingestionSource,
     priorityScore,
     qualificationSignals: qualification,
+    metadata: buildInitialPilotMetadata({
+      ingestionSource,
+      industrySector: input.industrySector ?? null,
+      adjacentSector: input.adjacentSector ?? null,
+    }),
   };
+}
+
+type CrmTx = Prisma.TransactionClient;
+
+async function trackPilotMilestoneIfNew(
+  tx: CrmTx,
+  tenantId: string,
+  contactId: string,
+  milestone: CrmPilotMilestone,
+  options?: {
+    dealId?: string;
+    dealStage?: LeadStage;
+    channel?: string;
+    hasDeal?: boolean;
+    hasGrcFirstAction?: boolean;
+    forceQualified?: boolean;
+    icpConfirmed?: boolean;
+    firstActionType?: import('../../types/crm.js').GrcFirstActionType;
+    ingestedAt?: string;
+  },
+): Promise<void> {
+  const row = await tx.ironboardCrmContact.findFirst({ where: { id: contactId, tenantId } });
+  if (!row) return;
+
+  const pilot = parsePilotMetadata(row.metadata);
+  const skipKeys: Partial<Record<CrmPilotMilestone, keyof NonNullable<typeof pilot>>> = {
+    LEAD_QUALIFIED: 'qualifiedAt',
+    LEAD_QUALIFIED_CONFIRMED: 'icpConfirmedAt',
+    FIRST_ACTION: 'firstActionAt',
+    COVERAGE_STARTED: 'coverageStartedAt',
+    OUTCOME_MILESTONE: 'outcomeMilestoneAt',
+  };
+  const skipKey = skipKeys[milestone];
+  if (skipKey && pilot?.[skipKey]) return;
+
+  if (milestone === 'LEAD_QUALIFIED' && !options?.forceQualified) return;
+  if (milestone === 'LEAD_QUALIFIED_CONFIRMED' && !options?.icpConfirmed && !options?.forceQualified) {
+    return;
+  }
+
+  const contact = mapContact(row);
+  const at = nowIso();
+  const evidenceCompletenessPct = computeEvidenceCompletenessPct({
+    industrySector: contact.industrySector,
+    adjacentSector: contact.adjacentSector,
+    detectedTrigger: contact.detectedTrigger,
+    qualificationSignals: contact.qualificationSignals,
+    hasDeal: options?.hasDeal,
+    hasGrcFirstAction: options?.hasGrcFirstAction,
+  });
+
+  const firstActionBusinessHours =
+    milestone === 'FIRST_ACTION' && options?.ingestedAt
+      ? businessHoursBetween(options.ingestedAt, at)
+      : undefined;
+
+  await tx.ironboardCrmContact.update({
+    where: { id: contactId },
+    data: {
+      metadata: mergePilotMetadata(row.metadata, {
+        ...pilotMetadataPatchForMilestone(milestone, at, {
+          outcomeStage: options?.dealStage,
+          evidenceCompletenessPct,
+          qualificationLevel:
+            milestone === 'LEAD_QUALIFIED_CONFIRMED'
+              ? 'CONFIRMED'
+              : milestone === 'LEAD_QUALIFIED'
+                ? 'PROXY'
+                : undefined,
+          firstActionType: options?.firstActionType,
+          firstActionBusinessHours,
+          icpConfirmed: options?.icpConfirmed,
+        }),
+        lastEvidenceCompletenessPct: evidenceCompletenessPct,
+      }),
+    },
+  });
+
+  emitCrmPilotEvent(
+    buildPilotEvent({
+      milestone,
+      tenantId,
+      contact,
+      icpConfirmed: options?.icpConfirmed,
+      hasDeal: options?.hasDeal,
+      hasGrcFirstAction: options?.hasGrcFirstAction,
+      dealId: options?.dealId,
+      dealStage: options?.dealStage,
+      channel: options?.channel,
+      firstActionType: options?.firstActionType,
+      cohort: pilot?.cohort,
+      at,
+    }),
+  );
+}
+
+function emitLeadIngested(tenantId: string, contact: B2BContact): void {
+  emitCrmPilotEvent(
+    buildPilotEvent({
+      milestone: 'LEAD_INGESTED',
+      tenantId,
+      contact,
+    }),
+  );
 }
 
 export async function listPipeline(tenantIdRaw: unknown): Promise<DealPipelineWire> {
@@ -260,10 +395,43 @@ export async function listPrioritizedLeads(
       orderBy: [{ priorityScore: 'desc' }, { updatedAt: 'desc' }],
       take: limit,
     });
+
+    const partnerRows = await tx.ironboardCrmContact.findMany({
+      where: { tenantId, ingestionSource: 'PARTNER_REFERRAL' },
+      select: {
+        createdAt: true,
+        priorityScore: true,
+        industrySector: true,
+        adjacentSector: true,
+        detectedTrigger: true,
+        qualificationSignals: true,
+        metadata: true,
+      },
+    });
+
+    const weekKeys = [...new Set(partnerRows.map((r) => isoWeekKey(r.createdAt)))].sort();
+    const recentWeeks = weekKeys.slice(-4);
+    const weeklyEvals = buildPartnerWeeklyGateEvaluations(partnerRows, recentWeeks);
+    const { pass: gateBPass, consecutiveWeeks } = evaluateConsecutiveGateBPass(weeklyEvals);
+    const operationalMode = resolvePilotOperationalMode({
+      gateAReady: true,
+      consecutiveGateBPass: gateBPass,
+      totalPartnerLeads: partnerRows.length,
+    });
+
     return {
       tenantId,
       contacts: rows.map(mapContact),
       updatedAt: nowIso(),
+      pilot: {
+        operationalMode,
+        gateBPass,
+        gateBConsecutiveWeeks: consecutiveWeeks,
+        guidance:
+          operationalMode === 'OPERATIONAL_SCALE'
+            ? 'Ring-2 partner referrals may drive outreach prioritization and agent playbooks.'
+            : 'Ring-2 scoring is sort-only — prioritize in list_prioritized_leads without auto-outreach until Gate B passes 2 consecutive weeks.',
+      },
     };
   });
 }
@@ -302,7 +470,9 @@ export async function createContact(
     const row = await tx.ironboardCrmContact.create({
       data: contactCreateData(tenantId, input),
     });
-    return mapContact(row);
+    const contact = mapContact(row);
+    emitLeadIngested(tenantId, contact);
+    return contact;
   });
 }
 
@@ -318,13 +488,22 @@ export async function updateContactQualification(
     if (!existing) throw new Error(`Contact not found: ${contactId}`);
 
     const triggers = (input.triggers ?? []).filter(isTriggerSignalCore);
+    const resolvedIndustrySector =
+      input.industrySector !== undefined
+        ? input.industrySector
+        : existing.industrySector && isBeachheadSector(existing.industrySector)
+          ? existing.industrySector
+          : null;
+    const resolvedAdjacentSector =
+      input.adjacentSector !== undefined
+        ? input.adjacentSector
+        : existing.adjacentSector && isAdjacentSector(existing.adjacentSector)
+          ? existing.adjacentSector
+          : null;
+
     const qualification = computeQualificationScores({
-      industrySector:
-        input.industrySector !== undefined
-          ? input.industrySector
-          : existing.industrySector && isBeachheadSector(existing.industrySector)
-            ? existing.industrySector
-            : null,
+      industrySector: resolvedIndustrySector,
+      adjacentSector: resolvedAdjacentSector,
       detectedTrigger:
         input.detectedTrigger !== undefined ? input.detectedTrigger : existing.detectedTrigger,
       painMarkers: input.painMarkers,
@@ -332,11 +511,16 @@ export async function updateContactQualification(
       methodology: input.methodology,
     });
 
+    const wasQualifiedProxy = isIcpQualifiedProxy(existing.priorityScore);
+    const priorPilot = parsePilotMetadata(existing.metadata);
+
     const row = await tx.ironboardCrmContact.update({
       where: { id: contactId },
       data: {
         industrySector:
           input.industrySector !== undefined ? input.industrySector : existing.industrySector,
+        adjacentSector:
+          input.adjacentSector !== undefined ? input.adjacentSector : existing.adjacentSector,
         detectedTrigger:
           input.detectedTrigger !== undefined
             ? input.detectedTrigger
@@ -345,9 +529,52 @@ export async function updateContactQualification(
             : existing.detectedTrigger,
         priorityScore: priorityScoreFromSignals(qualification),
         qualificationSignals: qualification,
+        metadata: mergePilotMetadata(existing.metadata, {
+          lastEvidenceCompletenessPct: computeEvidenceCompletenessPct({
+            industrySector:
+              input.industrySector !== undefined
+                ? input.industrySector
+                : existing.industrySector && isBeachheadSector(existing.industrySector)
+                  ? existing.industrySector
+                  : null,
+            adjacentSector: resolvedAdjacentSector,
+            detectedTrigger:
+              input.detectedTrigger !== undefined
+                ? input.detectedTrigger
+                : existing.detectedTrigger,
+            qualificationSignals: qualification,
+          }),
+          ...(input.icpConfirmed ? { qualificationLevel: 'CONFIRMED' as const } : {}),
+        }),
       },
     });
-    return mapContact(assertTenantRecord(row, tenantId));
+    const contact = mapContact(assertTenantRecord(row, tenantId));
+    const qualLevel = resolveQualificationLevel({
+      priorityScore: contact.priorityScore,
+      industrySector: contact.industrySector,
+      adjacentSector: contact.adjacentSector,
+      detectedTrigger: contact.detectedTrigger,
+      qualificationSignals: contact.qualificationSignals,
+      icpConfirmed: input.icpConfirmed,
+    });
+
+    const nowQualifiedProxy = isIcpQualifiedProxy(contact.priorityScore);
+    if (nowQualifiedProxy && !wasQualifiedProxy) {
+      await trackPilotMilestoneIfNew(tx, tenantId, contactId, 'LEAD_QUALIFIED', {
+        forceQualified: true,
+      });
+    }
+    if (
+      qualLevel === 'CONFIRMED' &&
+      priorPilot?.qualificationLevel !== 'CONFIRMED' &&
+      !priorPilot?.icpConfirmedAt
+    ) {
+      await trackPilotMilestoneIfNew(tx, tenantId, contactId, 'LEAD_QUALIFIED_CONFIRMED', {
+        forceQualified: true,
+        icpConfirmed: input.icpConfirmed ?? true,
+      });
+    }
+    return contact;
   });
 }
 
@@ -380,6 +607,18 @@ export async function createDeal(
         notes: String(input.notes ?? '').trim(),
       },
     });
+    await trackPilotMilestoneIfNew(tx, tenantId, primaryContactId, 'COVERAGE_STARTED', {
+      dealId: row.id,
+      dealStage: stage,
+      hasDeal: true,
+    });
+    if (isOutcomeStage(stage)) {
+      await trackPilotMilestoneIfNew(tx, tenantId, primaryContactId, 'OUTCOME_MILESTONE', {
+        dealId: row.id,
+        dealStage: stage,
+        hasDeal: true,
+      });
+    }
     return toDealWire(mapDeal(row));
   });
 }
@@ -402,7 +641,15 @@ export async function updateDealStage(
       where: { id: dealId },
       data: { stage },
     });
-    return toDealWire(assertTenantRecord(mapDeal(row), tenantId));
+    const deal = assertTenantRecord(mapDeal(row), tenantId);
+    if (isOutcomeStage(stage)) {
+      await trackPilotMilestoneIfNew(tx, tenantId, existing.primaryContactId, 'OUTCOME_MILESTONE', {
+        dealId: deal.id,
+        dealStage: stage,
+        hasDeal: true,
+      });
+    }
+    return toDealWire(deal);
   });
 }
 
@@ -469,6 +716,44 @@ export async function logInteraction(
         occurredAt: new Date(input.occurredAt?.trim() || stamp),
       },
     });
+
+    const resolvedContactId =
+      contactId ??
+      (dealId
+        ? (
+            await tx.ironboardCrmDeal.findFirst({
+              where: { id: dealId, tenantId },
+              select: { primaryContactId: true },
+            })
+          )?.primaryContactId
+        : null);
+
+    if (resolvedContactId) {
+      const contactRow = await tx.ironboardCrmContact.findFirst({
+        where: { id: resolvedContactId, tenantId },
+      });
+      const firstActionType = inferFirstActionType(
+        summary,
+        input.firstActionType ?? null,
+      );
+      const pilot = contactRow ? parsePilotMetadata(contactRow.metadata) : null;
+      if (isGrcAuditableFirstAction(firstActionType)) {
+        await trackPilotMilestoneIfNew(tx, tenantId, resolvedContactId, 'FIRST_ACTION', {
+          dealId: dealId ?? undefined,
+          channel: input.channel,
+          hasGrcFirstAction: true,
+          firstActionType,
+          ingestedAt: pilot?.ingestedAt ?? contactRow?.createdAt.toISOString(),
+        });
+        await trackPilotMilestoneIfNew(tx, tenantId, resolvedContactId, 'COVERAGE_STARTED', {
+          dealId: dealId ?? undefined,
+          channel: input.channel,
+          hasGrcFirstAction: true,
+          firstActionType,
+        });
+      }
+    }
+
     return mapInteraction(row);
   });
 }
@@ -509,8 +794,33 @@ export async function createLeadBundle(
       },
     });
 
+    const contact = mapContact(contactRow);
+    emitLeadIngested(tenantId, contact);
+    await trackPilotMilestoneIfNew(tx, tenantId, contactRow.id, 'COVERAGE_STARTED', {
+      dealId: dealRow.id,
+      dealStage: stage,
+      hasDeal: true,
+    });
+    if (isIcpQualifiedProxy(contact.priorityScore)) {
+      await trackPilotMilestoneIfNew(tx, tenantId, contactRow.id, 'LEAD_QUALIFIED', {
+        forceQualified: true,
+      });
+    }
+    const qualLevel = resolveQualificationLevel({
+      priorityScore: contact.priorityScore,
+      industrySector: contact.industrySector,
+      adjacentSector: contact.adjacentSector,
+      detectedTrigger: contact.detectedTrigger,
+      qualificationSignals: contact.qualificationSignals,
+    });
+    if (qualLevel === 'CONFIRMED') {
+      await trackPilotMilestoneIfNew(tx, tenantId, contactRow.id, 'LEAD_QUALIFIED_CONFIRMED', {
+        forceQualified: true,
+      });
+    }
+
     return {
-      contact: mapContact(contactRow),
+      contact,
       deal: toDealWire(mapDeal(dealRow)),
     };
   });

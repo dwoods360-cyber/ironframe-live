@@ -8,6 +8,13 @@ import {
   isPublicCloudIngressPath,
   isIronleadsIngressPath,
   isInfraHealthPath,
+  isSalesteamIngressPath,
+  isSalesteamOutreachIngressPath,
+  isSalesteamProspectsIngressPath,
+  isSuccessTeamAccountsIngressPath,
+  isSuccessTeamAdvisoryIngressPath,
+  isSuccessTeamHealthSnapshotIngressPath,
+  isSuccessTeamIngressPath,
   isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -63,6 +70,7 @@ describe("grcRouteMatch", () => {
     expect(isDashboardRouteGroupPath("/trust/dpa")).toBe(true);
     expect(isDashboardRouteGroupPath("/exports")).toBe(true);
     expect(isDashboardRouteGroupPath("/dashboard/support")).toBe(true);
+    expect(isDashboardRouteGroupPath("/dashboard/operations")).toBe(true);
     expect(isDashboardRouteGroupPath("/boardroom/admin/audit-logs")).toBe(true);
     expect(isDashboardRouteGroupPath("/dashboard")).toBe(false);
   });
@@ -88,6 +96,23 @@ describe("grcRouteMatch", () => {
   it("recognizes Ironleads signed perimeter ingress path", () => {
     expect(isIronleadsIngressPath("/api/v1/ingress/ironleads")).toBe(true);
     expect(isIronleadsIngressPath("/api/v1/ingress/ironleads/extra")).toBe(false);
+  });
+
+  it("recognizes SalesTeam signed perimeter ingress paths", () => {
+    expect(isSalesteamProspectsIngressPath("/api/v1/ingress/salesteam/prospects")).toBe(true);
+    expect(isSalesteamOutreachIngressPath("/api/v1/ingress/salesteam/outreach")).toBe(true);
+    expect(isSalesteamIngressPath("/api/v1/ingress/salesteam/prospects")).toBe(true);
+    expect(isSalesteamIngressPath("/api/v1/ingress/salesteam/other")).toBe(false);
+  });
+
+  it("recognizes SuccessTeam signed perimeter ingress paths", () => {
+    expect(isSuccessTeamAccountsIngressPath("/api/v1/ingress/success-team/accounts")).toBe(true);
+    expect(isSuccessTeamHealthSnapshotIngressPath("/api/v1/ingress/success-team/health-snapshot")).toBe(
+      true,
+    );
+    expect(isSuccessTeamAdvisoryIngressPath("/api/v1/ingress/success-team/advisory")).toBe(true);
+    expect(isSuccessTeamIngressPath("/api/v1/ingress/success-team/advisory")).toBe(true);
+    expect(isSuccessTeamIngressPath("/api/v1/ingress/success-team/other")).toBe(false);
   });
 
   it("recognizes infra health liveness path", () => {

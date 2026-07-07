@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SALESTEAM_DATABASE_URL")
+}
+
+enum OutreachChannel {
+  EMAIL
+  SMS
+}
+
+enum ProcessedDealStatus {
+  DRAFT_QUEUED
+  SKIPPED
+  FAILED
+}
+
+/// Local poll cursor — tracks which PROSPECT deals SalesTeam has already processed.
+model ProcessedDeal {
+  id            String              @id @default(uuid())
+  ironframeDealId String            @unique @map("ironframe_deal_id")
+  tenantId      String              @map("tenant_id")
+  contactId     String              @map("contact_id")
+  channel       OutreachChannel     @default(EMAIL)
+  status        ProcessedDealStatus @default(DRAFT_QUEUED)
+  interactionId String?             @map("interaction_id")
+  errorMessage  String?             @map("error_message")
+  processedAt   DateTime            @default(now()) @map("processed_at")
+
+  @@index([tenantId, processedAt])
+  @@map("processed_deals")
+}
+
+/// Audit trail for poll cycles.
+model PollRun {
+  id              String   @id @default(uuid())
+  startedAt       DateTime @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  prospectsSeen   Int      @default(0) @map("prospects_seen")
+  newProspects    Int      @default(0) @map("new_prospects")
+  draftsQueued    Int      @default(0) @map("drafts_queued")
+  skipped         Int      @default(0)
+  failed          Int      @default(0)
+  errorMessage    String?  @map("error_message")
+
+  @@index([startedAt])
+  @@map("poll_runs")
+}

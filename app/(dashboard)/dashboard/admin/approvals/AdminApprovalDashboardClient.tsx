@@ -10,7 +10,7 @@ interface PendingDraft {
   incomingQuery: string;
   proposedReply: string;
   tier: "Gridcore" | "Vaultbank" | "Medshield";
-  draftKind: "SUPPORT" | "SALES";
+  draftKind: "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
 }
 
 export default function AdminApprovalDashboard() {
@@ -154,10 +154,12 @@ export default function AdminApprovalDashboard() {
                           className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
                             draft.draftKind === "SALES"
                               ? "border-amber-800/40 bg-amber-950/40 text-amber-400"
-                              : "border-indigo-800/40 bg-indigo-950/40 text-indigo-400"
+                              : draft.draftKind === "CUSTOMER_SUCCESS"
+                                ? "border-violet-800/40 bg-violet-950/40 text-violet-400"
+                                : "border-indigo-800/40 bg-indigo-950/40 text-indigo-400"
                           }`}
                         >
-                          {draft.draftKind}
+                          {draft.draftKind === "CUSTOMER_SUCCESS" ? "CS" : draft.draftKind}
                         </span>
                         <span
                           className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${

@@ -127,6 +127,14 @@ jobs:
             --max-instances=2
             --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
+      - name: Allow public health probes
+        run: |
+          gcloud run services add-iam-policy-binding ${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --member=allUsers \
+            --role=roles/run.invoker \
+            --quiet
+
       - name: Print service URL
         run: |
           gcloud run services describe ${{ matrix.service }} \

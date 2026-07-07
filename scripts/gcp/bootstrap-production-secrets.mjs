@@ -12,6 +12,8 @@
  *   export SUPABASE_SERVICE_ROLE_KEY='eyJ...'
  *   export GOOGLE_API_KEY='...'
  *   export IRONLEADS_INGRESS_SECRET='...'
+ *   export SALESTEAM_INGRESS_SECRET='...'
+ *   export SUCCESS_TEAM_INGRESS_SECRET='...'
  *   node scripts/gcp/bootstrap-production-secrets.mjs
  */
 
@@ -30,6 +32,8 @@ const SECRET_ENV_KEYS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "GOOGLE_API_KEY",
   "IRONLEADS_INGRESS_SECRET",
+  "SALESTEAM_INGRESS_SECRET",
+  "SUCCESS_TEAM_INGRESS_SECRET",
 ];
 
 const gcloudShell = process.platform === "win32";

@@ -6,17 +6,15 @@ This guide walks you through activating your workspace and learning the main scr
 
 ---
 
-## 1. Receiving and processing your invitation
+## 1. Workspace activation (invite-only)
 
 Ironframe blocks public self-registration to protect infrastructure boundaries. Onboarding is **invite-only** through your sales or delivery team.
 
-1. **Locate your welcome message** — Check your corporate inbox for email from **delivery@ironframegrc.com**.
-2. **Open the secure workspace link** — Click the button labeled **Initialize Workspace** (or equivalent in your invite). This establishes a temporary security handshake through the authorization gate.
-3. **Configure your credentials** — Choose a strong password. This binds your identity to your organization's compliance profile.
+If you have not yet signed in, follow **`end-users/onboarding.md`** with your delivery contact for invite activation and credential binding.
 
 **Common workspaces:** `medshield`, `vaultbank`, `gridcore`, or design partner `pilot-corp`.
 
-If email delivery is delayed, provisioning may show `invitePending: true` while your tenant row is created — contact delivery to resend.
+Once you are authenticated, continue below for Command Post orientation.
 
 ---
 

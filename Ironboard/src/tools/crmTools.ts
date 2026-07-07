@@ -1,4 +1,13 @@
-import { LEAD_STAGES, BEACHHEAD_SECTORS, isLeadStage, isBeachheadSector } from '../types/crm.js';
+import {
+  ADJACENT_SECTORS,
+  BEACHHEAD_SECTORS,
+  LEAD_INGESTION_SOURCES,
+  LEAD_STAGES,
+  isAdjacentSector,
+  isLeadIngestionSource,
+  isLeadStage,
+  isBeachheadSector,
+} from '../types/crm.js';
 import type { CreateContactInput, InteractionChannel, LeadStage, LogInteractionInput } from '../types/crm.js';
 import { SALES_METHODOLOGY_IDS } from '../types/salesKnowledge.js';
 import {
@@ -85,14 +94,21 @@ export const MANAGE_CRM_PIPELINE_DECLARATION = {
         description: 'Beachhead vertical for GTM qualification scoring.',
         enum: [...BEACHHEAD_SECTORS],
       },
+      adjacentSector: {
+        type: 'STRING',
+        description:
+          'Ring-2 adjacent vertical when not a core beachhead (partial market-fit score ~0.55).',
+        enum: [...ADJACENT_SECTORS],
+      },
       detectedTrigger: {
         type: 'STRING',
         description: 'Comma-separated trigger tags (e.g. NEW_CISO, REG_FINE).',
       },
       ingestionSource: {
         type: 'STRING',
-        description: 'Lead lineage — MANUAL_INPUT, INBOUND_PORTAL, or AUTONOMOUS_CRAWLER.',
-        enum: ['MANUAL_INPUT', 'INBOUND_PORTAL', 'AUTONOMOUS_CRAWLER'],
+        description:
+          'Lead lineage — MANUAL_INPUT, INBOUND_PORTAL, AUTONOMOUS_CRAWLER, or PARTNER_REFERRAL.',
+        enum: [...LEAD_INGESTION_SOURCES],
       },
       painManualBoardReporting: {
         type: 'BOOLEAN',
@@ -109,6 +125,17 @@ export const MANAGE_CRM_PIPELINE_DECLARATION = {
       painMultiEntityGovernance: {
         type: 'BOOLEAN',
         description: 'Discovery: multi-entity isolation challenges.',
+      },
+      icpConfirmed: {
+        type: 'BOOLEAN',
+        description:
+          'Agent attests ICP-fit with actionable control context (Q-confirmed for Gate B). Use with update_qualification.',
+      },
+      firstActionType: {
+        type: 'STRING',
+        description:
+          'Typed GRC auditable work artifact for log_interaction (VENDOR_ASSESSMENT, CONTROL_MAPPING, QUESTIONNAIRE, REMEDIATION).',
+        enum: ['VENDOR_ASSESSMENT', 'CONTROL_MAPPING', 'QUESTIONNAIRE', 'REMEDIATION', 'OTHER'],
       },
       methodologyCommercialInsight: {
         type: 'BOOLEAN',
@@ -234,6 +261,7 @@ function methodologyFromArgs(raw: Record<string, unknown>) {
 
 function contactInputFromArgs(raw: Record<string, unknown>): CreateContactInput {
   const industrySectorRaw = String(raw.industrySector ?? '').trim();
+  const adjacentSectorRaw = String(raw.adjacentSector ?? '').trim();
   const ingestionSourceRaw = String(raw.ingestionSource ?? '').trim();
   return {
     fullName: String(raw.fullName ?? ''),
@@ -243,10 +271,12 @@ function contactInputFromArgs(raw: Record<string, unknown>): CreateContactInput 
     phone: raw.phone ? String(raw.phone) : null,
     industrySector:
       industrySectorRaw && isBeachheadSector(industrySectorRaw) ? industrySectorRaw : undefined,
+    adjacentSector:
+      adjacentSectorRaw && isAdjacentSector(adjacentSectorRaw) ? adjacentSectorRaw : undefined,
     detectedTrigger: raw.detectedTrigger ? String(raw.detectedTrigger) : undefined,
     ingestionSource:
-      ingestionSourceRaw && ['MANUAL_INPUT', 'INBOUND_PORTAL', 'AUTONOMOUS_CRAWLER'].includes(ingestionSourceRaw)
-        ? (ingestionSourceRaw as CreateContactInput['ingestionSource'])
+      ingestionSourceRaw && isLeadIngestionSource(ingestionSourceRaw)
+        ? ingestionSourceRaw
         : undefined,
     painMarkers: painMarkersFromArgs(raw),
     methodology: methodologyFromArgs(raw),
@@ -354,8 +384,17 @@ export async function executeManageCrmPipeline(
                 : isBeachheadSector(String(raw.industrySector))
                   ? (String(raw.industrySector) as (typeof BEACHHEAD_SECTORS)[number])
                   : undefined,
+            adjacentSector:
+              raw.adjacentSector == null
+                ? raw.adjacentSector === null
+                  ? null
+                  : undefined
+                : isAdjacentSector(String(raw.adjacentSector))
+                  ? (String(raw.adjacentSector) as (typeof ADJACENT_SECTORS)[number])
+                  : undefined,
             detectedTrigger:
               raw.detectedTrigger !== undefined ? String(raw.detectedTrigger) : undefined,
+            icpConfirmed: parseBool(raw.icpConfirmed),
             painMarkers: painMarkersFromArgs(raw),
             methodology: methodologyFromArgs(raw),
           }),
@@ -367,12 +406,18 @@ export async function executeManageCrmPipeline(
           deal: await promoteSuspectDeal(tenantId, raw.dealId),
         };
       case 'log_interaction': {
+        const firstActionTypeRaw = String(raw.firstActionType ?? '').trim();
         const input: LogInteractionInput = {
           dealId: raw.dealId ? String(raw.dealId) : null,
           contactId: raw.contactId ? String(raw.contactId) : null,
           channel: parseChannel(raw.channel),
           summary: String(raw.summary ?? ''),
           occurredAt: raw.occurredAt ? String(raw.occurredAt) : undefined,
+          ...(firstActionTypeRaw
+            ? {
+                firstActionType: firstActionTypeRaw as LogInteractionInput['firstActionType'],
+              }
+            : {}),
         };
         const interaction = await logInteraction(tenantId, input);
         if (hasStrategyPayload(raw)) {

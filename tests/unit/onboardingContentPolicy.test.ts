@@ -14,6 +14,7 @@ describe("onboardingContentPolicy", () => {
     expect(markdown).toContain("Command Post Dashboard");
     expect(markdown).toContain("Primary control areas");
     expect(markdown).toContain("Billing hold");
-    expect(markdown).toContain("Receiving and processing your invitation");
+    expect(markdown).toContain("Workspace activation (invite-only)");
+    expect(markdown).toContain("invite activation and credential binding");
   });
 });

@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SUCCESS_TEAM_DATABASE_URL")
+}
+
+enum AdvisoryType {
+  RETENTION
+  EXPANSION
+  QBR
+  ONBOARDING
+  CHECK_IN
+}
+
+enum ProcessedAccountStatus {
+  ADVISORY_QUEUED
+  SKIPPED
+  FAILED
+}
+
+/// Local poll cursor — tracks which CLOSED_WON accounts SuccessTeam has processed.
+model ProcessedAccount {
+  id              String                 @id @default(uuid())
+  ironframeDealId String                 @unique @map("ironframe_deal_id")
+  tenantId        String                 @map("tenant_id")
+  contactId       String                 @map("contact_id")
+  advisoryType    AdvisoryType           @default(CHECK_IN) @map("advisory_type")
+  healthBand      String                 @map("health_band")
+  status          ProcessedAccountStatus @default(ADVISORY_QUEUED)
+  interactionId   String?                @map("interaction_id")
+  errorMessage    String?                @map("error_message")
+  processedAt     DateTime               @default(now()) @map("processed_at")
+
+  @@index([tenantId, processedAt])
+  @@map("processed_accounts")
+}
+
+/// Audit trail for poll cycles.
+model PollRun {
+  id            String    @id @default(uuid())
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  accountsSeen  Int       @default(0) @map("accounts_seen")
+  newAccounts   Int       @default(0) @map("new_accounts")
+  advisoriesQueued Int    @default(0) @map("advisories_queued")
+  skipped       Int       @default(0)
+  failed        Int       @default(0)
+  errorMessage  String?   @map("error_message")
+
+  @@index([startedAt])
+  @@map("poll_runs")
+}

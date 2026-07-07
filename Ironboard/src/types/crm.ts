@@ -12,20 +12,36 @@ export const LEAD_STAGES = [
 
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
-export const BEACHHEAD_SECTORS = [
+/** Tier-1 GTM beachheads — full beachhead score (1.0) in priority vector. */
+export const CORE_BEACHHEAD_SECTORS = [
   'REGIONAL_BHC',
   'UTILITY_NERC',
   'MSSP_ENCLAVE',
   'HEALTH_HIPAA',
-  'UNCLASSIFIED',
 ] as const;
 
+export type CoreBeachheadSector = (typeof CORE_BEACHHEAD_SECTORS)[number];
+
+export const BEACHHEAD_SECTORS = [...CORE_BEACHHEAD_SECTORS, 'UNCLASSIFIED'] as const;
+
 export type BeachheadSector = (typeof BEACHHEAD_SECTORS)[number];
+
+/** Ring-2 adjacent regulated mid-market — partial market-fit score when not a core beachhead. */
+export const ADJACENT_SECTORS = [
+  'CREDIT_UNION',
+  'REGIONAL_INSURANCE',
+  'HIGHER_ED',
+  'PE_PORTFOLIO_OPS',
+  'CRITICAL_INFRA_ADJACENT',
+] as const;
+
+export type AdjacentSector = (typeof ADJACENT_SECTORS)[number];
 
 export const LEAD_INGESTION_SOURCES = [
   'MANUAL_INPUT',
   'INBOUND_PORTAL',
   'AUTONOMOUS_CRAWLER',
+  'PARTNER_REFERRAL',
 ] as const;
 
 export type LeadIngestionSource = (typeof LEAD_INGESTION_SOURCES)[number];
@@ -61,6 +77,7 @@ export type QualificationSignals = {
   triggerScore: number;
   methodologyScore: number;
   priorityWeight: number;
+  adjacentSector?: AdjacentSector | null;
   painMarkers?: PainMarkers;
   triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
@@ -76,6 +93,7 @@ export type B2BContact = {
   title: string;
   phone: string | null;
   industrySector: BeachheadSector | null;
+  adjacentSector: AdjacentSector | null;
   detectedTrigger: string | null;
   ingestionSource: LeadIngestionSource;
   priorityScore: number;
@@ -137,6 +155,7 @@ export type CreateContactInput = {
   title?: string;
   phone?: string | null;
   industrySector?: BeachheadSector | null;
+  adjacentSector?: AdjacentSector | null;
   detectedTrigger?: string | null;
   ingestionSource?: LeadIngestionSource;
   painMarkers?: PainMarkers;
@@ -147,10 +166,30 @@ export type CreateContactInput = {
 export type UpdateQualificationInput = {
   contactId: string;
   industrySector?: BeachheadSector | null;
+  adjacentSector?: AdjacentSector | null;
   detectedTrigger?: string | null;
+  /** Agent attests ICP-fit with enough control context for Gate B Q-confirmed. */
+  icpConfirmed?: boolean;
   painMarkers?: PainMarkers;
   triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
+};
+
+export type GrcFirstActionType =
+  | 'VENDOR_ASSESSMENT'
+  | 'CONTROL_MAPPING'
+  | 'QUESTIONNAIRE'
+  | 'REMEDIATION'
+  | 'OTHER';
+
+export type LogInteractionInput = {
+  dealId?: string | null;
+  contactId?: string | null;
+  channel: InteractionChannel;
+  summary: string;
+  occurredAt?: string;
+  /** Typed GRC auditable work artifact for Gate B first-action tracking. */
+  firstActionType?: GrcFirstActionType;
 };
 
 export type CreateDealInput = {
@@ -161,14 +200,6 @@ export type CreateDealInput = {
   accountDomain?: string | null;
   ownerAgentId?: string | null;
   notes?: string;
-};
-
-export type LogInteractionInput = {
-  dealId?: string | null;
-  contactId?: string | null;
-  channel: InteractionChannel;
-  summary: string;
-  occurredAt?: string;
 };
 
 export type IronleadsIngressInput = {
@@ -193,6 +224,12 @@ export type PrioritizedLeadsWire = {
   tenantId: string;
   contacts: B2BContact[];
   updatedAt: string;
+  pilot: {
+    operationalMode: 'SORT_ONLY' | 'OPERATIONAL_SCALE';
+    gateBPass: boolean;
+    gateBConsecutiveWeeks: number;
+    guidance: string;
+  };
 };
 
 export function parseCentsInput(raw: unknown): CentsBigInt {
@@ -220,6 +257,14 @@ export function isLeadStage(value: string): value is LeadStage {
 
 export function isBeachheadSector(value: string): value is BeachheadSector {
   return (BEACHHEAD_SECTORS as readonly string[]).includes(value);
+}
+
+export function isCoreBeachheadSector(value: string): value is CoreBeachheadSector {
+  return (CORE_BEACHHEAD_SECTORS as readonly string[]).includes(value);
+}
+
+export function isAdjacentSector(value: string): value is AdjacentSector {
+  return (ADJACENT_SECTORS as readonly string[]).includes(value);
 }
 
 export function isLeadIngestionSource(value: string): value is LeadIngestionSource {

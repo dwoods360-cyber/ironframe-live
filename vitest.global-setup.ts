@@ -33,7 +33,50 @@ function ensureIronleadsSqliteSchema(): void {
   });
 }
 
+/** SalesTeam poll worker scratchpad — bootstrap when package present. */
+function ensureSalesTeamSqliteSchema(): void {
+  const salesTeamRoot = join(process.cwd(), "SalesTeam");
+  const salesTeamSchema = join(salesTeamRoot, "prisma", "schema.prisma");
+  if (!existsSync(salesTeamSchema)) return;
+
+  const dataDir = join(salesTeamRoot, "data");
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  const dbPath = join(dataDir, "salesteam.db").replace(/\\/g, "/");
+  if (!process.env.SALESTEAM_DATABASE_URL?.trim()) {
+    process.env.SALESTEAM_DATABASE_URL = `file:${dbPath}`;
+  }
+
+  execSync("npm run db:generate", { cwd: salesTeamRoot, stdio: "inherit", env: process.env });
+  execSync("npx prisma db push --schema prisma/schema.prisma --skip-generate", {
+    cwd: salesTeamRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+}
+
+function ensureSuccessTeamSqliteSchema(): void {
+  const successTeamRoot = join(process.cwd(), "SuccessTeam");
+  const successTeamSchema = join(successTeamRoot, "prisma", "schema.prisma");
+  if (!existsSync(successTeamSchema)) return;
+
+  const dataDir = join(successTeamRoot, "data");
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  const dbPath = join(dataDir, "successteam.db").replace(/\\/g, "/");
+  if (!process.env.SUCCESS_TEAM_DATABASE_URL?.trim()) {
+    process.env.SUCCESS_TEAM_DATABASE_URL = `file:${dbPath}`;
+  }
+
+  execSync("npm run db:generate", { cwd: successTeamRoot, stdio: "inherit", env: process.env });
+  execSync("npx prisma db push --schema prisma/schema.prisma --skip-generate", {
+    cwd: successTeamRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+}
+
 export default function globalSetup(): void {
   ensureRootPrismaClient();
   ensureIronleadsSqliteSchema();
+  ensureSalesTeamSqliteSchema();
+  ensureSuccessTeamSqliteSchema();
 }

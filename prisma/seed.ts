@@ -40,6 +40,9 @@ async function seedDevGlobalAdminAssignments(prisma: PrismaClient): Promise<void
   );
 }
 
+/** Design-partner tenants preserved across baseline seed (production smoke / Wil sign-off). */
+const PRESERVED_TENANT_SLUGS = ['bwc'] as const;
+
 async function main() {
   console.log('🧹 Purging legacy data...');
   // Wipe the slate clean in the correct relational order (respect FKs: company -> tenant)
@@ -50,8 +53,12 @@ async function main() {
   await prisma.activeRisk.deleteMany();
   await prisma.policy.deleteMany();
   await prisma.department.deleteMany();
-  await prisma.company.deleteMany();
-  await prisma.tenant.deleteMany();
+  await prisma.company.deleteMany({
+    where: { tenant: { slug: { notIn: [...PRESERVED_TENANT_SLUGS] } } },
+  });
+  await prisma.tenant.deleteMany({
+    where: { slug: { notIn: [...PRESERVED_TENANT_SLUGS] } },
+  });
 
   console.log('🚀 Initiating Ironframe Baseline Seed (v1.1 TPRM)...');
 

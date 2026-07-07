@@ -17,7 +17,7 @@ describe("GetStarted orientation guide", () => {
     const exportStep = GET_STARTED_STEPS.find((step) => step.id === "export-path");
     expect(exportStep?.href).toBe("/exports");
     expect(GET_STARTED_STEP_VISUALS["export-path"].screenshotSrc).toContain(
-      "get-started-dashboard-exports-stack",
+      "level-2-05-audit-trail-exports",
     );
   });
 });

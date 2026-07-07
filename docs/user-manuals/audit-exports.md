@@ -6,7 +6,7 @@ Preview the analyst export console and auditor handoff path at `/dashboard/expor
 
 ## Reference screenshot
 
-![Analyst Export Console stack at /dashboard/exports](/docs/training/assets/get-started-dashboard-exports-stack.png)
+![Audit trail reports and forensic exports](/docs/training/assets/level-2-05-audit-trail-exports.png)
 
 *Captured at `/dashboard/exports` — CSV, PDF, and sealed ledger export controls for the active tenant.*
 

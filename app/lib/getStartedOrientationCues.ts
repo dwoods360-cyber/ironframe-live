@@ -2,6 +2,10 @@
  * Screenshot cues for the full orientation overview MP3.
  * Timestamps align with `docs/user-manuals/get-started-orientation-audio-script.md` — tune after re-synthesis.
  */
+import {
+  GET_STARTED_COMMAND_POST_SCREENSHOT,
+  GET_STARTED_EXPORT_SCREENSHOT,
+} from "@/app/lib/getStartedTrainingAssets";
 export type OrientationAudioCue = {
   startSeconds: number;
   label: string;
@@ -13,14 +17,14 @@ export const GET_STARTED_ORIENTATION_CUES: OrientationAudioCue[] = [
   {
     startSeconds: 0,
     label: "Welcome",
-    screenshotSrc: "/docs/training/assets/get-started-command-post-orientation.png",
+    screenshotSrc: GET_STARTED_COMMAND_POST_SCREENSHOT,
     screenshotAlt:
-      "Command Post control room with numbered orientation callouts for tripane navigation",
+      "Command Post dashboard navigation with tripane layout and TopNav command paths",
   },
   {
     startSeconds: 20,
     label: "Command Post layout",
-    screenshotSrc: "/docs/training/assets/get-started-command-post-orientation.png",
+    screenshotSrc: GET_STARTED_COMMAND_POST_SCREENSHOT,
     screenshotAlt: "Command Post tripane layout with primary control-area callouts",
   },
   {
@@ -38,7 +42,7 @@ export const GET_STARTED_ORIENTATION_CUES: OrientationAudioCue[] = [
   {
     startSeconds: 110,
     label: "Command Post orientation",
-    screenshotSrc: "/docs/training/assets/get-started-command-post-orientation.png",
+    screenshotSrc: GET_STARTED_COMMAND_POST_SCREENSHOT,
     screenshotAlt: "Command Post orientation map with numbered primary control areas",
   },
   {
@@ -62,8 +66,8 @@ export const GET_STARTED_ORIENTATION_CUES: OrientationAudioCue[] = [
   {
     startSeconds: 200,
     label: "Audit export path",
-    screenshotSrc: "/docs/training/assets/get-started-dashboard-exports-stack.png",
-    screenshotAlt: "Analyst Export Console stack at /dashboard/exports",
+    screenshotSrc: GET_STARTED_EXPORT_SCREENSHOT,
+    screenshotAlt: "Audit trail reports and tenant-scoped forensic export actions",
   },
   {
     startSeconds: 225,

@@ -215,6 +215,14 @@ export function resolveTenantSlugFromRequestHost(
   return null;
 }
 
+/** PaaS default hostnames — never treat the first label as a tenant slug (e.g. Cloud Run `*.run.app`). */
+const PAAS_HOST_SUFFIXES = [".run.app", ".cloudfunctions.net", ".vercel.app", ".now.sh"] as const;
+
+function isPaasManagedHost(hostname: string): boolean {
+  const host = hostname.trim().toLowerCase();
+  return PAAS_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+}
+
 /**
  * Extract tenant slug from Host header (any provisioned slug shape — DB validates existence).
  * Supports acmecorp.lvh.me, acmecorp.localhost, acmecorp.ironframegrc.com.
@@ -226,6 +234,8 @@ export function tenantSlugFromHost(host: string | null | undefined): string | nu
   if (!host?.trim() || process.env.NODE_ENV !== "production") return null;
 
   const hostname = host.split(":")[0]?.trim().toLowerCase() ?? "";
+  if (isPaasManagedHost(hostname)) return null;
+
   const parts = hostname.split(".").filter(Boolean);
   if (parts.length >= 3) {
     return acceptHostTenantLabel(parts[0]!);

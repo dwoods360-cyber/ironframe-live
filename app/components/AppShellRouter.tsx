@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 
 import ConditionalAppShell from "@/app/components/ConditionalAppShell";
+import { CommandPostWorkspaceProvider } from "@/app/context/CommandPostWorkspaceContext";
+import { resolveServerCommandPostTarget } from "@/app/lib/auth/resolveCommandPostTarget.server";
 import {
   isDocsPathname,
   isInviteTokenRegistrationPath,
@@ -57,22 +59,23 @@ function ShellSuspenseFallback({
 export default async function AppShellRouter({ children }: { children: React.ReactNode }) {
   const pathname = (await headers()).get(IRONFRAME_PATHNAME_HEADER) ?? "";
   const isCommandPostRoot = pathname === "/" || pathname === "";
+  const commandPostTarget = await resolveServerCommandPostTarget();
 
-  if (
-    !isCommandPostRoot &&
-    (isDocsPathname(pathname) ||
-      isInviteTokenRegistrationPath(pathname) ||
-      isMarketingPathname(pathname) ||
-      isPublicDarkShellPath(pathname))
-  ) {
-    return (
-      <PublicDarkShell surface={resolvePublicDarkShellSurface(pathname)}>{children}</PublicDarkShell>
-    );
-  }
-
-  return (
-    <Suspense fallback={<ShellSuspenseFallback pathname={pathname}>{children}</ShellSuspenseFallback>}>
-      <ConditionalAppShell>{children}</ConditionalAppShell>
-    </Suspense>
+  const shell = (
+    <CommandPostWorkspaceProvider initialTarget={commandPostTarget}>
+      {!isCommandPostRoot &&
+      (isDocsPathname(pathname) ||
+        isInviteTokenRegistrationPath(pathname) ||
+        isMarketingPathname(pathname) ||
+        isPublicDarkShellPath(pathname)) ? (
+        <PublicDarkShell surface={resolvePublicDarkShellSurface(pathname)}>{children}</PublicDarkShell>
+      ) : (
+        <Suspense fallback={<ShellSuspenseFallback pathname={pathname}>{children}</ShellSuspenseFallback>}>
+          <ConditionalAppShell>{children}</ConditionalAppShell>
+        </Suspense>
+      )}
+    </CommandPostWorkspaceProvider>
   );
+
+  return shell;
 }

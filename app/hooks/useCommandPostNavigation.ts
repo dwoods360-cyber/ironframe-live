@@ -36,16 +36,9 @@ function resolveReadyTarget(
 export function useCommandPostNavigation(): CommandPostNavigation {
   const hostTenantSlug = useHostTenantSlug();
   const serverTarget = useServerCommandPostTarget();
-  const [target, setTarget] = useState<CommandPostNavigation>(() => {
-    if (typeof window === "undefined") {
-      return serverTarget
-        ? resolveReadyTarget(serverTarget, null)
-        : PENDING_TARGET;
-    }
-    return serverTarget
-      ? resolveReadyTarget(serverTarget, window.location.host)
-      : PENDING_TARGET;
-  });
+  const [target, setTarget] = useState<CommandPostNavigation>(() =>
+    serverTarget ? resolveReadyTarget(serverTarget, null) : PENDING_TARGET,
+  );
 
   const refreshTarget = useCallback(async () => {
     const browserHost =

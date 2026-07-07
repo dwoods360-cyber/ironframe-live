@@ -39,6 +39,13 @@ describe("tenantSubdomain", () => {
     expect(tenantSlugFromHost("www.ironframegrc.com")).toBeNull();
   });
 
+  it("returns null for PaaS managed hosts (Cloud Run, Vercel)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("IRONFRAME_TENANT_APEX_DOMAIN", "ironframegrc.com");
+    expect(tenantSlugFromHost("sovereign-sentinel-433091252568.us-central1.run.app")).toBeNull();
+    expect(tenantSlugFromHost("ironframe-live.vercel.app")).toBeNull();
+  });
+
   it("detects path tenant prefixes", () => {
     expect(pathTenantSlugFromPathname("/medshield/vendors")).toBe("medshield");
     expect(pathTenantSlugFromPathname("/integrity")).toBeNull();

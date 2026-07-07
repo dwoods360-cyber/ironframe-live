@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { isIronleadsIngressPath } from "@/app/utils/grcRouteMatch";
+import { isInfraHealthPath, isIronleadsIngressPath } from "@/app/utils/grcRouteMatch";
 import { STRIPE_WEBHOOK_PATHS } from "@/config/stripe";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
 
@@ -57,6 +57,7 @@ export function isTokenGatedApiIngressPath(pathname: string): boolean {
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   if (isIronleadsIngressPath(pathname)) return true;
+  if (isInfraHealthPath(pathname)) return true;
   return false;
 }
 

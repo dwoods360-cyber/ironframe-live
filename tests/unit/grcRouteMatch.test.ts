@@ -7,6 +7,7 @@ import {
   isLegacyAuditTrailRedirectPath,
   isPublicCloudIngressPath,
   isIronleadsIngressPath,
+  isInfraHealthPath,
   isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -87,6 +88,11 @@ describe("grcRouteMatch", () => {
   it("recognizes Ironleads signed perimeter ingress path", () => {
     expect(isIronleadsIngressPath("/api/v1/ingress/ironleads")).toBe(true);
     expect(isIronleadsIngressPath("/api/v1/ingress/ironleads/extra")).toBe(false);
+  });
+
+  it("recognizes infra health liveness path", () => {
+    expect(isInfraHealthPath("/api/health")).toBe(true);
+    expect(isInfraHealthPath("/api/health/extra")).toBe(false);
   });
 
   it("keeps marketing public while gating product docs and pricing", () => {

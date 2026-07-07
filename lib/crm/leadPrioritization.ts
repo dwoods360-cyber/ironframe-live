@@ -3,15 +3,28 @@
  * P = (S_beachhead × 0.35) + (M_pain × 0.30) + (T_trigger × 0.20) + (C_methodology × 0.15)
  */
 
-export const BEACHHEAD_SECTORS = [
+export const CORE_BEACHHEAD_SECTORS = [
   "REGIONAL_BHC",
   "UTILITY_NERC",
   "MSSP_ENCLAVE",
   "HEALTH_HIPAA",
-  "UNCLASSIFIED",
 ] as const;
 
+export type CoreBeachheadSector = (typeof CORE_BEACHHEAD_SECTORS)[number];
+
+export const BEACHHEAD_SECTORS = [...CORE_BEACHHEAD_SECTORS, "UNCLASSIFIED"] as const;
+
 export type BeachheadSector = (typeof BEACHHEAD_SECTORS)[number];
+
+export const ADJACENT_SECTORS = [
+  "CREDIT_UNION",
+  "REGIONAL_INSURANCE",
+  "HIGHER_ED",
+  "PE_PORTFOLIO_OPS",
+  "CRITICAL_INFRA_ADJACENT",
+] as const;
+
+export type AdjacentSector = (typeof ADJACENT_SECTORS)[number];
 
 export const TRIGGER_SIGNALS = [
   "REG_FINE",
@@ -41,6 +54,7 @@ export type QualificationSignals = {
   triggerScore: number;
   methodologyScore: number;
   priorityWeight: number;
+  adjacentSector?: AdjacentSector | null;
   painMarkers?: PainMarkers;
   triggers?: TriggerSignal[];
   methodology?: MethodologyMarkers;
@@ -49,6 +63,7 @@ export type QualificationSignals = {
 
 export type QualificationInput = {
   industrySector?: BeachheadSector | null;
+  adjacentSector?: AdjacentSector | null;
   detectedTrigger?: string | null;
   painMarkers?: PainMarkers;
   triggers?: TriggerSignal[];
@@ -62,6 +77,8 @@ const BEACHHEAD_SCORE: Record<BeachheadSector, number> = {
   HEALTH_HIPAA: 1,
   UNCLASSIFIED: 0.3,
 };
+
+const ADJACENT_SECTOR_SCORE = 0.55;
 
 const TRIGGER_WEIGHT: Record<TriggerSignal, number> = {
   REG_FINE: 1,
@@ -82,6 +99,14 @@ export function isBeachheadSector(value: string): value is BeachheadSector {
   return (BEACHHEAD_SECTORS as readonly string[]).includes(value);
 }
 
+export function isCoreBeachheadSector(value: string): value is CoreBeachheadSector {
+  return (CORE_BEACHHEAD_SECTORS as readonly string[]).includes(value);
+}
+
+export function isAdjacentSector(value: string): value is AdjacentSector {
+  return (ADJACENT_SECTORS as readonly string[]).includes(value);
+}
+
 export function isTriggerSignal(value: string): value is TriggerSignal {
   return (TRIGGER_SIGNALS as readonly string[]).includes(value);
 }
@@ -91,9 +116,20 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
-function scoreBeachhead(sector?: BeachheadSector | null): number {
-  if (!sector) return 0;
-  return BEACHHEAD_SCORE[sector] ?? 0;
+function scoreMarketFit(
+  industrySector?: BeachheadSector | null,
+  adjacentSector?: AdjacentSector | null,
+): number {
+  if (industrySector && isCoreBeachheadSector(industrySector)) {
+    return BEACHHEAD_SCORE[industrySector];
+  }
+  if (adjacentSector && isAdjacentSector(adjacentSector)) {
+    return ADJACENT_SECTOR_SCORE;
+  }
+  if (industrySector === "UNCLASSIFIED") {
+    return BEACHHEAD_SCORE.UNCLASSIFIED;
+  }
+  return 0;
 }
 
 function scorePain(markers?: PainMarkers): number {
@@ -137,7 +173,7 @@ function scoreMethodology(markers?: MethodologyMarkers): number {
 }
 
 export function computeQualificationScores(input: QualificationInput): QualificationSignals {
-  const beachheadScore = clamp01(scoreBeachhead(input.industrySector));
+  const beachheadScore = clamp01(scoreMarketFit(input.industrySector, input.adjacentSector));
   const painScore = clamp01(scorePain(input.painMarkers));
   const triggerScore = clamp01(scoreTriggers(input.triggers, input.detectedTrigger));
   const methodologyScore = clamp01(scoreMethodology(input.methodology));
@@ -149,12 +185,16 @@ export function computeQualificationScores(input: QualificationInput): Qualifica
       methodologyScore * WEIGHTS.methodology,
   );
 
+  const resolvedAdjacent =
+    input.adjacentSector && isAdjacentSector(input.adjacentSector) ? input.adjacentSector : null;
+
   return {
     beachheadScore,
     painScore,
     triggerScore,
     methodologyScore,
     priorityWeight,
+    ...(resolvedAdjacent ? { adjacentSector: resolvedAdjacent } : {}),
     ...(input.painMarkers ? { painMarkers: input.painMarkers } : {}),
     triggers: [
       ...new Set([...(input.triggers ?? []), ...parseTriggersFromString(input.detectedTrigger)]),

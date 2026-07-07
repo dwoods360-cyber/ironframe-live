@@ -41,6 +41,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install workforce subpackages
+        run: |
+          npm run ironleads:install
+          npm run salesteam:install
+          npm run successteam:install
+          npm run supportteam:install
+
       # prisma.config.ts loads .env then .env.local (override). The repo .env points at
       # Supabase; write CI URLs before any Prisma CLI so push/seed hit ephemeral Postgres.
       - name: Configure CI database env

@@ -21,6 +21,12 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Install workforce subpackages
+        run: |
+          npm run ironleads:install
+          npm run salesteam:install
+          npm run successteam:install
+          npm run supportteam:install
       - name: Epic 12 unit + integration tests
         run: npm run test:integration:epic12
 

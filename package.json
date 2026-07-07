@@ -64,7 +64,21 @@
     "ironleads:install": "cd Ironleads && npm install",
     "ironleads:db": "cd Ironleads && npm run db:generate && npm run db:push",
     "ironleads:dev": "cd Ironleads && npm run dev",
-    "ironleads:harvest": "cd Ironleads && npm run harvest -- --fixtures-only --skip-ingress"
+    "ironleads:harvest": "cd Ironleads && npm run harvest -- --fixtures-only --skip-ingress",
+    "salesteam:install": "cd SalesTeam && npm install",
+    "salesteam:db": "cd SalesTeam && npm run db:generate && npm run db:push",
+    "salesteam:dev": "cd SalesTeam && npm run dev",
+    "salesteam:poll": "cd SalesTeam && npm run poll",
+    "successteam:install": "cd SuccessTeam && npm install",
+    "successteam:db": "cd SuccessTeam && npm run db:generate && npm run db:push",
+    "successteam:dev": "cd SuccessTeam && npm run dev",
+    "successteam:poll": "cd SuccessTeam && npm run poll",
+    "supportteam:install": "cd SupportTeam && npm install",
+    "supportteam:db": "cd SupportTeam && npm run db:generate && npm run db:push",
+    "supportteam:dev": "cd SupportTeam && npm run dev",
+    "supportteam:poll": "cd SupportTeam && npm run poll",
+    "fix:supabase-auth-urls": "npx tsx scripts/fix-supabase-auth-urls.ts",
+    "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

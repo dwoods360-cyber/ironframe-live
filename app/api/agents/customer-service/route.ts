@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   CUSTOMER_SERVICE_QUEUED_MESSAGE,
-  logPendingSupportConsoleDraft,
-  resolveCustomerServiceApiKey,
+  logSupportConsoleIntake,
   resolveSupportConsoleContact,
-  synthesizeCustomerServiceConsoleReply,
 } from "@/app/lib/server/customerServiceConsoleCore";
 import { buildInTenantSupportTelemetry } from "@/app/lib/server/inTenantSupportTelemetry";
 import { assertAuthenticatedIronguardTenantOr403 } from "@/app/lib/security/tenantMembershipGuard";
@@ -43,16 +41,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!resolveCustomerServiceApiKey()) {
-      console.error(
-        "Missing core Gemini orchestration credentials in environment container.",
-      );
-      return NextResponse.json(
-        { reply: "Support engine offline. Intelligence cluster keys unassigned." },
-        { status: 503 },
-      );
-    }
-
     const tenantUuid = guard.tenantUuid;
     if (!tenantUuid) {
       return NextResponse.json({ error: "Tenant context unresolved." }, { status: 403 });
@@ -69,13 +57,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const proposedReply = await synthesizeCustomerServiceConsoleReply(trimmedMessage);
     const contact = await resolveSupportConsoleContact(tenantUuid);
-    const interactionId = await logPendingSupportConsoleDraft({
+    const interactionId = await logSupportConsoleIntake({
       tenantId: tenantUuid,
       contactId: contact.id,
       inquiry: trimmedMessage,
-      proposedReply,
       telemetry,
     });
 

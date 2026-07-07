@@ -48,6 +48,15 @@ jobs:
       - name: Install Ironleads subpackage
         run: npm run ironleads:install
 
+      - name: Install SalesTeam subpackage
+        run: npm run salesteam:install
+
+      - name: Install SuccessTeam subpackage
+        run: npm run successteam:install
+
+      - name: Install SupportTeam subpackage
+        run: npm run supportteam:install
+
       # Committed .env points at Supabase; pin CI URLs before Prisma/Next read env files.
       - name: Configure CI database env
         run: |

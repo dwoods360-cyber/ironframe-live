@@ -1,6 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { isInfraHealthPath, isIronleadsIngressPath } from "@/app/utils/grcRouteMatch";
+import {
+  isInfraHealthPath,
+  isIronleadsIngressPath,
+  isPublicCloudIngressPath,
+  isSalesteamIngressPath,
+  isSuccessTeamIngressPath,
+  isSupportTeamIngressPath,
+} from "@/app/utils/grcRouteMatch";
 import { STRIPE_WEBHOOK_PATHS } from "@/config/stripe";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
 
@@ -57,13 +64,17 @@ export function isTokenGatedApiIngressPath(pathname: string): boolean {
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   if (isIronleadsIngressPath(pathname)) return true;
+  if (isSalesteamIngressPath(pathname)) return true;
+  if (isSuccessTeamIngressPath(pathname)) return true;
+  if (isSupportTeamIngressPath(pathname)) return true;
   if (isInfraHealthPath(pathname)) return true;
   return false;
 }
 
 /**
  * Returns true when the request must receive the 403 ingress block.
- * Stripe signed webhooks and token-gated API routes bypass quarantine; route handlers enforce secrets.
+ * Narrow public funnel (auth, marketing, docs, auth callback) stays reachable on cloud hosts
+ * until `IRONFRAME_ALLOW_PUBLIC_INGRESS` opens the full workspace.
  */
 export function shouldBlockProductionIngress(
   request: NextRequest,
@@ -73,6 +84,7 @@ export function shouldBlockProductionIngress(
   if (isLocalDevelopmentHost(hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
   if (isTokenGatedApiIngressPath(pathname)) return false;
+  if (isPublicCloudIngressPath(pathname)) return false;
   if (isPublicIngressAllowed()) return false;
   return true;
 }

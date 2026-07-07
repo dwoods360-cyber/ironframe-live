@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PROSPECT_POOL_TENANT_SLUG } from './lib/sectorTenantRouting.js';
+
 const IRONLEADS_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = join(IRONLEADS_ROOT, '..');
 
@@ -117,7 +119,7 @@ export function getIngressConfig(): {
   const targetTenantSlug =
     isolated.targetTenantSlug.trim() ||
     process.env.IRONLEADS_TARGET_TENANT_SLUG?.trim() ||
-    'medshield';
+    PROSPECT_POOL_TENANT_SLUG;
   return { baseUrl, secret, targetTenantSlug };
 }
 

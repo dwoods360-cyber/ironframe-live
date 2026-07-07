@@ -261,14 +261,24 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
               BOARD REPORT
             </TenantWorkspaceNavLink>
             {canUsePlatformAdminTools ? (
-            <TenantWorkspaceNavLink
-              href="/opsupport"
-              prefetch={NAV_LINK_PREFETCH}
-              className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
-              data-testid="header-opsupport-chip"
-            >
-              OP SUPPORT
-            </TenantWorkspaceNavLink>
+              <>
+                <TenantWorkspaceNavLink
+                  href="/dashboard/operations"
+                  prefetch={NAV_LINK_PREFETCH}
+                  className={`${CHIP_CLASS} border border-violet-700/60 bg-violet-950/50 px-4 text-violet-100 transition-all hover:border-violet-500 hover:bg-violet-900/50`}
+                  data-testid="header-operations-hub-chip"
+                >
+                  OPS HUB
+                </TenantWorkspaceNavLink>
+                <TenantWorkspaceNavLink
+                  href="/opsupport"
+                  prefetch={NAV_LINK_PREFETCH}
+                  className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
+                  data-testid="header-opsupport-chip"
+                >
+                  OP SUPPORT
+                </TenantWorkspaceNavLink>
+              </>
             ) : null}
             <TenantWorkspaceNavLink
               href="/admin/clearance"

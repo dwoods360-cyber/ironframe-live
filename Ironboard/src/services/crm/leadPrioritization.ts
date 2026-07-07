@@ -5,6 +5,7 @@
  */
 
 import type {
+  AdjacentSector,
   BeachheadSector,
   MethodologyMarkers,
   PainMarkers,
@@ -12,16 +13,34 @@ import type {
   TriggerSignal,
 } from '../../types/crm.js';
 import {
+  ADJACENT_SECTORS,
   BEACHHEAD_SECTORS,
+  isAdjacentSector,
   isBeachheadSector,
+  isCoreBeachheadSector,
   isTriggerSignal,
 } from '../../types/crm.js';
 
-export type { BeachheadSector, MethodologyMarkers, PainMarkers, QualificationSignals, TriggerSignal };
-export { BEACHHEAD_SECTORS, isBeachheadSector, isTriggerSignal };
+export type {
+  AdjacentSector,
+  BeachheadSector,
+  MethodologyMarkers,
+  PainMarkers,
+  QualificationSignals,
+  TriggerSignal,
+};
+export {
+  ADJACENT_SECTORS,
+  BEACHHEAD_SECTORS,
+  isAdjacentSector,
+  isBeachheadSector,
+  isCoreBeachheadSector,
+  isTriggerSignal,
+};
 
 export type QualificationInput = {
   industrySector?: BeachheadSector | null;
+  adjacentSector?: AdjacentSector | null;
   detectedTrigger?: string | null;
   painMarkers?: PainMarkers;
   triggers?: TriggerSignal[];
@@ -35,6 +54,9 @@ const BEACHHEAD_SCORE: Record<BeachheadSector, number> = {
   HEALTH_HIPAA: 1,
   UNCLASSIFIED: 0.3,
 };
+
+/** Ring-2 adjacent sectors — partial market-fit when not a core beachhead. */
+const ADJACENT_SECTOR_SCORE = 0.55;
 
 const TRIGGER_WEIGHT: Record<TriggerSignal, number> = {
   REG_FINE: 1,
@@ -56,9 +78,20 @@ function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
 }
 
-function scoreBeachhead(sector?: BeachheadSector | null): number {
-  if (!sector) return 0;
-  return BEACHHEAD_SCORE[sector] ?? 0;
+function scoreMarketFit(
+  industrySector?: BeachheadSector | null,
+  adjacentSector?: AdjacentSector | null,
+): number {
+  if (industrySector && isCoreBeachheadSector(industrySector)) {
+    return BEACHHEAD_SCORE[industrySector];
+  }
+  if (adjacentSector && isAdjacentSector(adjacentSector)) {
+    return ADJACENT_SECTOR_SCORE;
+  }
+  if (industrySector === 'UNCLASSIFIED') {
+    return BEACHHEAD_SCORE.UNCLASSIFIED;
+  }
+  return 0;
 }
 
 function scorePain(markers?: PainMarkers): number {
@@ -99,7 +132,7 @@ function scoreMethodology(markers?: MethodologyMarkers): number {
 }
 
 export function computeQualificationScores(input: QualificationInput): QualificationSignals {
-  const beachheadScore = clamp01(scoreBeachhead(input.industrySector));
+  const beachheadScore = clamp01(scoreMarketFit(input.industrySector, input.adjacentSector));
   const painScore = clamp01(scorePain(input.painMarkers));
   const triggerScore = clamp01(scoreTriggers(input.triggers, input.detectedTrigger));
   const methodologyScore = clamp01(scoreMethodology(input.methodology));
@@ -111,12 +144,16 @@ export function computeQualificationScores(input: QualificationInput): Qualifica
       methodologyScore * WEIGHTS.methodology,
   );
 
+  const resolvedAdjacent =
+    input.adjacentSector && isAdjacentSector(input.adjacentSector) ? input.adjacentSector : null;
+
   return {
     beachheadScore,
     painScore,
     triggerScore,
     methodologyScore,
     priorityWeight,
+    ...(resolvedAdjacent ? { adjacentSector: resolvedAdjacent } : {}),
     ...(input.painMarkers ? { painMarkers: input.painMarkers } : {}),
     triggers: [...new Set([...(input.triggers ?? []), ...parseTriggersFromString(input.detectedTrigger)])],
     ...(input.methodology ? { methodology: input.methodology } : {}),
@@ -137,6 +174,7 @@ export function classifyVulnerability(signals: QualificationSignals): 'HIGH' | '
 
 export function parseQualificationInputFromRecord(row: {
   industrySector?: string | null;
+  adjacentSector?: string | null;
   detectedTrigger?: string | null;
   qualificationSignals?: unknown;
 }): QualificationInput {
@@ -145,9 +183,17 @@ export function parseQualificationInputFromRecord(row: {
       ? (row.qualificationSignals as QualificationSignals)
       : null;
 
+  const adjacentFromRow =
+    row.adjacentSector && isAdjacentSector(row.adjacentSector) ? row.adjacentSector : null;
+  const adjacentFromSignals =
+    signals?.adjacentSector && isAdjacentSector(signals.adjacentSector)
+      ? signals.adjacentSector
+      : null;
+
   return {
     industrySector:
       row.industrySector && isBeachheadSector(row.industrySector) ? row.industrySector : null,
+    adjacentSector: adjacentFromRow ?? adjacentFromSignals,
     detectedTrigger: row.detectedTrigger ?? null,
     painMarkers: signals?.painMarkers,
     triggers: signals?.triggers,

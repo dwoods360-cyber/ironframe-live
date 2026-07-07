@@ -202,3 +202,12 @@ Nightly headless runs feed `daily_code_diff.txt` (24h git diff, `docs/` excluded
   }
 }
 ```
+
+---
+
+## 🪟 Windows Environment & Prisma Development Guardrails
+- **File Lock Identification:** When executing database migrations (`prisma migrate`), schema compilation (`prisma generate`), or seeding tasks (`seed-docs.ts`), proactively intercept any `EPERM` or access-denied operations matching `query_engine-windows.dll.node`.
+- **Automated Self-Healing Remediation:** If a file lock is detected, do not halt or panic. Proactively suggest or run the native PowerShell recovery sequence:
+  1. Terminate ghost compiler background processes: `Stop-Process -Name node -Force`
+  2. Regenerate the Prisma client state: `npx prisma generate`
+- **Cache Mismatch Interception:** If a Next.js layout compilation or application shell error (e.g., Root Layout shell failure) occurs immediately following a database schema adjustment, recognize that the `.next` compilation cache is dirty. Instruct the user to remove the folder or offer to execute a clean restart sequence (`rm -rf .next` followed by `npm run dev`).

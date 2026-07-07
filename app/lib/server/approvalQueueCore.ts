@@ -3,15 +3,17 @@ import "server-only";
 import prisma from "@/lib/prisma";
 
 export const PENDING_DRAFT_TAG = "[PENDING DRAFT APPROVAL]";
+export const PENDING_SUPPORT_INTAKE_TAG = "[PENDING SUPPORT INTAKE]";
 export const PENDING_SALES_DRAFT_TAG = "[PENDING SALES DRAFT APPROVAL]";
+export const PENDING_CS_ADVISORY_TAG = "[PENDING CS ADVISORY APPROVAL]";
 export const DISPATCHED_DRAFT_TAG = "[DISPATCHED SUPPORT COURIER]";
 export const DISPATCHED_SALES_DRAFT_TAG = "[DISPATCHED SALES COURIER]";
 export const PURGED_DRAFT_TAG = "[PURGED DRAFT]";
 
-export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG] as const;
+export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG, PENDING_CS_ADVISORY_TAG] as const;
 
 export type ApprovalTier = "Gridcore" | "Vaultbank" | "Medshield";
-export type DraftKind = "SUPPORT" | "SALES";
+export type DraftKind = "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
 
 export type PendingApprovalDraft = {
   id: string;
@@ -32,6 +34,7 @@ export function isPendingDraftSummary(summary: string): boolean {
 }
 
 export function inferDraftKind(summary: string): DraftKind {
+  if (summary.includes(PENDING_CS_ADVISORY_TAG)) return "CUSTOMER_SUCCESS";
   return summary.includes(PENDING_SALES_DRAFT_TAG) ? "SALES" : "SUPPORT";
 }
 
@@ -63,7 +66,9 @@ export function parsePendingDraftSummary(summary: string): {
     summary.match(/\[PENDING DRAFT APPROVAL\]\s*Re:\s*(.+)/i)?.[1]?.trim() ?? null;
   const salesSubject =
     summary.match(/\[PENDING SALES DRAFT APPROVAL\]\s*(.+)/i)?.[1]?.trim() ?? null;
-  const subjectLine = salesSubject ?? supportSubject ?? "Support inquiry";
+  const csSubject =
+    summary.match(/\[PENDING CS ADVISORY APPROVAL\]\s*(.+)/i)?.[1]?.trim() ?? null;
+  const subjectLine = csSubject ?? salesSubject ?? supportSubject ?? "Support inquiry";
 
   const replyMatch = summary.match(
     /--- Agent Proposed Reply Text ---\s*([\s\S]*?)\s*--- (?:Tracking Core|Prospect Context) ---/,
@@ -71,6 +76,7 @@ export function parsePendingDraftSummary(summary: string): {
   const proposedReply =
     replyMatch?.[1]?.trim() ??
     summary
+      .replace(PENDING_CS_ADVISORY_TAG, "")
       .replace(PENDING_SALES_DRAFT_TAG, "")
       .replace(PENDING_DRAFT_TAG, "")
       .trim();

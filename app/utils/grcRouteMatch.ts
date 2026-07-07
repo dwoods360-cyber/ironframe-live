@@ -132,6 +132,74 @@ export function isIronleadsIngressPath(pathname: string): boolean {
   return pathname === IRONLEADS_INGRESS_PATH;
 }
 
+/** Signed perimeter ingress for SalesTeam poll worker (Bearer SALESTEAM_INGRESS_SECRET). */
+export const SALESTEAM_PROSPECTS_INGRESS_PATH = "/api/v1/ingress/salesteam/prospects" as const;
+export const SALESTEAM_OUTREACH_INGRESS_PATH = "/api/v1/ingress/salesteam/outreach" as const;
+
+export function isSalesteamProspectsIngressPath(pathname: string): boolean {
+  return pathname === SALESTEAM_PROSPECTS_INGRESS_PATH;
+}
+
+export function isSalesteamOutreachIngressPath(pathname: string): boolean {
+  return pathname === SALESTEAM_OUTREACH_INGRESS_PATH;
+}
+
+export function isSalesteamIngressPath(pathname: string): boolean {
+  return isSalesteamProspectsIngressPath(pathname) || isSalesteamOutreachIngressPath(pathname);
+}
+
+/** Signed perimeter ingress for IronSuccessTeam poll worker (Bearer SUCCESS_TEAM_INGRESS_SECRET). */
+export const SUCCESS_TEAM_ACCOUNTS_INGRESS_PATH = "/api/v1/ingress/success-team/accounts" as const;
+export const SUCCESS_TEAM_HEALTH_SNAPSHOT_INGRESS_PATH =
+  "/api/v1/ingress/success-team/health-snapshot" as const;
+export const SUCCESS_TEAM_ADVISORY_INGRESS_PATH = "/api/v1/ingress/success-team/advisory" as const;
+
+export function isSuccessTeamAccountsIngressPath(pathname: string): boolean {
+  return pathname === SUCCESS_TEAM_ACCOUNTS_INGRESS_PATH;
+}
+
+export function isSuccessTeamHealthSnapshotIngressPath(pathname: string): boolean {
+  return pathname === SUCCESS_TEAM_HEALTH_SNAPSHOT_INGRESS_PATH;
+}
+
+export function isSuccessTeamAdvisoryIngressPath(pathname: string): boolean {
+  return pathname === SUCCESS_TEAM_ADVISORY_INGRESS_PATH;
+}
+
+export function isSuccessTeamIngressPath(pathname: string): boolean {
+  return (
+    isSuccessTeamAccountsIngressPath(pathname) ||
+    isSuccessTeamHealthSnapshotIngressPath(pathname) ||
+    isSuccessTeamAdvisoryIngressPath(pathname)
+  );
+}
+
+/** Signed perimeter ingress for IronSupportTeam poll worker (Bearer SUPPORT_TEAM_INGRESS_SECRET). */
+export const SUPPORT_TEAM_TICKETS_INGRESS_PATH = "/api/v1/ingress/support-team/tickets" as const;
+export const SUPPORT_TEAM_REPLY_INGRESS_PATH = "/api/v1/ingress/support-team/reply" as const;
+export const SUPPORT_TEAM_CONTEXT_SNAPSHOT_INGRESS_PATH =
+  "/api/v1/ingress/support-team/context-snapshot" as const;
+
+export function isSupportTeamTicketsIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_TICKETS_INGRESS_PATH;
+}
+
+export function isSupportTeamReplyIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_REPLY_INGRESS_PATH;
+}
+
+export function isSupportTeamContextSnapshotIngressPath(pathname: string): boolean {
+  return pathname === SUPPORT_TEAM_CONTEXT_SNAPSHOT_INGRESS_PATH;
+}
+
+export function isSupportTeamIngressPath(pathname: string): boolean {
+  return (
+    isSupportTeamTicketsIngressPath(pathname) ||
+    isSupportTeamReplyIngressPath(pathname) ||
+    isSupportTeamContextSnapshotIngressPath(pathname)
+  );
+}
+
 /** Infra liveness probe — no session or tenant context required. */
 export function isInfraHealthPath(pathname: string): boolean {
   return pathname === "/api/health";
@@ -200,6 +268,9 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/ironquery/export")) return false;
   if (pathname === "/api/webhooks/stripe" || pathname === "/api/billing/webhook") return false;
   if (isIronleadsIngressPath(pathname)) return false;
+  if (isSalesteamIngressPath(pathname)) return false;
+  if (isSuccessTeamIngressPath(pathname)) return false;
+  if (isSupportTeamIngressPath(pathname)) return false;
   if (isInfraHealthPath(pathname)) return false;
   if (isPublicConstitutionalSentinelPath(pathname)) return false;
   return true;
@@ -265,6 +336,7 @@ export function isDashboardRouteGroupPath(pathname: string): boolean {
     "/trust",
     "/dashboard/support",
     "/dashboard/admin",
+    "/dashboard/operations",
     "/boardroom",
   ] as const;
   return bases.some((base) => pathname === base || pathname.startsWith(`${base}/`));

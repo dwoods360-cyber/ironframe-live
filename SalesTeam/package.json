@@ -1,0 +1,30 @@
+{
+  "name": "salesteam",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --import tsx src/index.ts",
+    "dev": "node --import tsx src/index.ts",
+    "poll": "node --import tsx src/cli/poll.ts",
+    "test": "vitest run --config vitest.config.ts",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "node --import tsx scripts/db-push.ts",
+    "pretest": "npm run db:generate"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.39",
+    "@langchain/langgraph": "^1.1.5",
+    "@langchain/langgraph-checkpoint-sqlite": "^1.0.3",
+    "@prisma/client": "^6.19.2",
+    "express": "^5.2.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "prisma": "^6.19.2",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.18"
+  }
+}

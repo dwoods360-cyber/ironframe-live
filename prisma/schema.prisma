@@ -1438,10 +1438,19 @@ enum IronboardBeachheadSector {
   UNCLASSIFIED
 }
 
+enum IronboardAdjacentSector {
+  CREDIT_UNION
+  REGIONAL_INSURANCE
+  HIGHER_ED
+  PE_PORTFOLIO_OPS
+  CRITICAL_INFRA_ADJACENT
+}
+
 enum IronboardLeadIngestionSource {
   MANUAL_INPUT
   INBOUND_PORTAL
   AUTONOMOUS_CRAWLER
+  PARTNER_REFERRAL
 }
 
 enum IronboardInteractionChannel {
@@ -1463,6 +1472,7 @@ model IronboardCrmContact {
   title                String                       @default("")
   phone                String?
   industrySector       IronboardBeachheadSector?    @map("industry_sector")
+  adjacentSector       IronboardAdjacentSector?    @map("adjacent_sector")
   detectedTrigger      String?                      @map("detected_trigger")
   ingestionSource      IronboardLeadIngestionSource @default(MANUAL_INPUT) @map("ingestion_source")
   /// Deterministic priority vector 0–100 from beachhead + pain + trigger + methodology weights.
@@ -1479,6 +1489,7 @@ model IronboardCrmContact {
   @@index([tenantId, email])
   @@index([tenantId, priorityScore])
   @@index([tenantId, industrySector])
+  @@index([tenantId, adjacentSector])
   @@map("ironboard_crm_contacts")
 }
 

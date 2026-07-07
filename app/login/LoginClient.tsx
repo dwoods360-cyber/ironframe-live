@@ -6,7 +6,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseProjectRefFromUrl } from "@/lib/supabase/envPublic";
 import { completeWorkspaceInviteLoginAction } from "@/app/actions/register/completeWorkspaceInviteLogin";
-import { resolvePostAuthLandingPath } from "@/app/lib/tenantSubdomain";
+import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { buildTenantActivationLandingUrl } from "@/app/lib/auth/workspaceActivationLanding";
 import TenantCoBrandBadge from "@/app/components/brand/TenantCoBrandBadge";
 import TenantBrandAccent from "@/app/components/brand/TenantBrandAccent";
@@ -31,6 +31,8 @@ type Props = {
   inviteState?: InviteLookupState | null;
   inviteTenantSlug?: string | null;
   showApexPublicNav?: boolean;
+  /** Preserved from `/login?next=` — post-auth landing after password sign-in. */
+  authNextPath?: string | null;
 };
 
 export default function LoginClient({
@@ -38,6 +40,7 @@ export default function LoginClient({
   inviteState = null,
   inviteTenantSlug = null,
   showApexPublicNav = false,
+  authNextPath = null,
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const supabaseProjectRef = useMemo(
@@ -122,7 +125,7 @@ export default function LoginClient({
 
       const landing =
         typeof window !== "undefined"
-          ? resolvePostAuthLandingPath(window.location.host)
+          ? resolveAuthNextPathForHost(window.location.host, authNextPath)
           : "/integrity";
       window.location.assign(landing);
     } catch (signInFailure) {
@@ -292,7 +295,30 @@ export default function LoginClient({
             <Link href="/forgot-password" className="text-emerald-500 hover:text-emerald-400">
               Forgot password?
             </Link>
+            {isCoBranded && authNextPath ? (
+              <>
+                {" · "}
+                <span className="text-slate-500">
+                  After sign-in you will return to{" "}
+                  <span className="font-mono text-slate-400">{authNextPath}</span>
+                </span>
+              </>
+            ) : null}
           </p>
+          {isCoBranded ? (
+            <p className="text-center text-sm text-[var(--login-muted)]">
+              <Link
+                href="https://ironframegrc.com/marketing"
+                className="text-emerald-500 hover:text-emerald-400"
+              >
+                Platform overview
+              </Link>
+              {" · "}
+              <Link href="/register/contact" className="text-emerald-500 hover:text-emerald-400">
+                Contact sales
+              </Link>
+            </p>
+          ) : null}
         </div>
       </main>
     </>

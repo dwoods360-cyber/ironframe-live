@@ -70,6 +70,9 @@ describe("publicAppUrl", () => {
     expect(resolveAuthNextPathForHost("bwc.lvh.me:3000", null)).toBe("/");
     expect(resolveAuthNextPathForHost("localhost:3000", null)).toBe("/integrity");
     expect(resolveAuthNextPathForHost("bwc.lvh.me:3000", "/integrity")).toBe("/");
+    expect(resolveAuthNextPathForHost("bwc.ironframegrc.com", "/reports/audit-trail")).toBe(
+      "/reports/audit-trail",
+    );
   });
 
   it("resolveSupabasePasswordResetRedirectOrigin uses NEXT_PUBLIC_APP_URL", () => {

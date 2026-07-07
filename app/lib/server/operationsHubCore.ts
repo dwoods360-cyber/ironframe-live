@@ -23,6 +23,7 @@ import {
 } from "@/app/lib/governanceFrame/briefingDraftValidation";
 import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
 import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
+import { IRONBOARD_OPERATIONS_PORTAL_PATH } from "@/app/lib/ironboardConsolePaths";
 import prisma from "@/lib/prisma";
 
 export type WorkforceServiceId =
@@ -390,7 +391,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
   const newsletters = buildNewslettersSnapshot(publishedBriefings, docsRoot);
 
   const portalUrls: Record<WorkforceServiceId, string | null> = {
-    ironboard: workforce[0]?.consoleUrl ?? "/",
+    ironboard: IRONBOARD_OPERATIONS_PORTAL_PATH,
     ironleads: "/dashboard/operations/ironleads",
     salesteam: "/sales-agent-portal",
     "success-team": "/dashboard/operations/success-team",
@@ -428,7 +429,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     workforce: workforceWithPortals,
     quickLinks: [
       { label: "Operations hub", href: "/dashboard/operations" },
-      { label: "Ironboard console", href: workforce[0]?.consoleUrl ?? "http://127.0.0.1:8082/", external: true },
+      { label: "Ironboard console", href: IRONBOARD_OPERATIONS_PORTAL_PATH },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
       { label: "IronSupportTeam portal", href: "/dashboard/support" },
       { label: "Ironleads portal", href: "/dashboard/operations/ironleads" },

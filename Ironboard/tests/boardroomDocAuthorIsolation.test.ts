@@ -5,9 +5,18 @@ import {
   BOARDROOM_ISOLATED_AGENT_IDS,
   BOARDROOM_ISOLATED_AGENT_REDIRECTS,
   BOARDROOM_QUERY_ROSTER,
+  buildBoardroomRosterDisplayEntries,
 } from "../src/staticContext.js";
 
 describe("boardroom documentation author isolation", () => {
+  it("renders all 17 personas in the boardroom roster display", () => {
+    const display = buildBoardroomRosterDisplayEntries();
+    expect(display).toHaveLength(17);
+    expect(display.filter((entry) => entry.isolated)).toHaveLength(2);
+    expect(display.some((entry) => entry.id === "board-writer" && entry.isolated)).toBe(true);
+    expect(display.some((entry) => entry.id === "board-trainer" && entry.isolated)).toBe(true);
+  });
+
   it("excludes board-trainer and board-writer from the live query roster", () => {
     expect(BOARDROOM_ISOLATED_AGENT_IDS.has("board-trainer")).toBe(true);
     expect(BOARDROOM_ISOLATED_AGENT_IDS.has("board-writer")).toBe(true);

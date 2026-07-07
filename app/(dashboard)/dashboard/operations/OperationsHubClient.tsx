@@ -356,6 +356,12 @@ export default function OperationsHubClient() {
                 SalesTeam portal
               </Link>
               <Link
+                href="/dashboard/operations/ironboard"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                Ironboard boardroom
+              </Link>
+              <Link
                 href="/dashboard/operations/ironleads"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
@@ -419,9 +425,7 @@ export default function OperationsHubClient() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-white">Recent SUSPECT queue (Ironleads)</h2>
                 <a
-                  href="http://127.0.0.1:8082/"
-                  target="_blank"
-                  rel="noreferrer"
+                  href="/dashboard/operations/ironboard"
                   className="text-xs text-cyan-300 hover:underline"
                 >
                   Open Ironboard CRM tools →

@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+
+import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
 import {
   IRONBOARD_BOARDROOM_PLANE,
   X_CONVERSATION_PLANE,
@@ -15,6 +17,14 @@ export const dynamic = "force-dynamic";
  * Never synthesizes locally — streams from IronBoard discovery + tool loop.
  */
 export async function POST(request: NextRequest) {
+  const auth = await requirePlatformAdministrator();
+  if ("error" in auth) {
+    return new Response(JSON.stringify({ error: auth.error }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const bodyText = await request.text();
   let parsed: Record<string, unknown> = {};
   try {

@@ -173,4 +173,4 @@ Until this checklist passes **3× consecutively**, defer:
 | IronBoard GTM | `Ironboard/src/index.ts`, `Ironboard/src/services/boardroomQueryIntent.ts` |
 | API membership gate | `app/lib/security/tenantMembershipGuard.ts`, `tests/architecture/tenantMembershipGuard.test.ts` |
 | Operator revoke | `app/lib/server/revokeOperatorAccessCore.ts`, `app/lib/server/supabaseAuthAdminHelpers.ts` |
-| BWC partner smoke | [bwc-wil-production-smoke.md](bwc-wil-production-smoke.md), `tests/e2e/bwcWilSmoke.spec.ts` |
+| BWC partner smoke | [bwc-wil-production-smoke.md](bwc-wil-production-smoke.md), `tests/e2e/bwcWilSmoke.spec.ts`, scheduled [production-bwc-smoke.yml](../../.github/workflows/production-bwc-smoke.yml) |

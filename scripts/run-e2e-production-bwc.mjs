@@ -7,7 +7,9 @@ import { execSync } from "node:child_process";
 
 process.env.E2E_PRODUCTION = "1";
 
+const reporterFlag = process.env.CI ? " --reporter=github" : "";
+
 execSync(
-  "npx playwright test tests/e2e/reportsAuditTrailResponsiveness.spec.ts tests/e2e/bwcWilSmoke.spec.ts --project=chromium --workers=1",
+  `npx playwright test tests/e2e/reportsAuditTrailResponsiveness.spec.ts tests/e2e/bwcWilSmoke.spec.ts --project=chromium --workers=1${reporterFlag}`,
   { stdio: "inherit", env: process.env },
 );

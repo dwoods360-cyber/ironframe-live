@@ -1,5 +1,6 @@
 /** Canonical B2B pipeline stages for board CRM tracking. */
 export const LEAD_STAGES = [
+  'SUSPECT',
   'PROSPECT',
   'QUALIFIED',
   'DISCOVERY',
@@ -11,8 +12,50 @@ export const LEAD_STAGES = [
 
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
+export const BEACHHEAD_SECTORS = [
+  'REGIONAL_BHC',
+  'UTILITY_NERC',
+  'MSSP_ENCLAVE',
+  'HEALTH_HIPAA',
+  'UNCLASSIFIED',
+] as const;
+
+export type BeachheadSector = (typeof BEACHHEAD_SECTORS)[number];
+
+export const LEAD_INGESTION_SOURCES = [
+  'MANUAL_INPUT',
+  'INBOUND_PORTAL',
+  'AUTONOMOUS_CRAWLER',
+] as const;
+
+export type LeadIngestionSource = (typeof LEAD_INGESTION_SOURCES)[number];
+
 /** Monetary values are whole-cent BIGINT integers — never float dollars. */
 export type CentsBigInt = bigint;
+
+export type PainMarkers = {
+  manualBoardReporting?: boolean;
+  noDollarRiskQuant?: boolean;
+  fragmentedGrc?: boolean;
+  multiEntityGovernance?: boolean;
+};
+
+export type MethodologyMarkers = {
+  commercialInsightDelivered?: boolean;
+  spinSituationReduced?: boolean;
+};
+
+export type QualificationSignals = {
+  beachheadScore: number;
+  painScore: number;
+  triggerScore: number;
+  methodologyScore: number;
+  priorityWeight: number;
+  painMarkers?: PainMarkers;
+  triggers?: string[];
+  methodology?: MethodologyMarkers;
+  computedAt: string;
+};
 
 export type B2BContact = {
   id: string;
@@ -22,6 +65,12 @@ export type B2BContact = {
   company: string;
   title: string;
   phone: string | null;
+  industrySector: BeachheadSector | null;
+  detectedTrigger: string | null;
+  ingestionSource: LeadIngestionSource;
+  priorityScore: number;
+  qualificationSignals: QualificationSignals;
+  vulnerabilityClass: 'HIGH' | 'MEDIUM' | 'LOW';
   createdAt: string;
   updatedAt: string;
 };
@@ -41,7 +90,14 @@ export type DealRecord = {
   updatedAt: string;
 };
 
-export type InteractionChannel = 'EMAIL' | 'CALL' | 'MEETING' | 'LINKEDIN' | 'NOTE' | 'OTHER';
+export type InteractionChannel =
+  | 'EMAIL'
+  | 'CALL'
+  | 'MEETING'
+  | 'LINKEDIN'
+  | 'NOTE'
+  | 'SYSTEM_AGENT'
+  | 'OTHER';
 
 export type InteractionLog = {
   id: string;
@@ -70,6 +126,21 @@ export type CreateContactInput = {
   company: string;
   title?: string;
   phone?: string | null;
+  industrySector?: BeachheadSector | null;
+  detectedTrigger?: string | null;
+  ingestionSource?: LeadIngestionSource;
+  painMarkers?: PainMarkers;
+  triggers?: string[];
+  methodology?: MethodologyMarkers;
+};
+
+export type UpdateQualificationInput = {
+  contactId: string;
+  industrySector?: BeachheadSector | null;
+  detectedTrigger?: string | null;
+  painMarkers?: PainMarkers;
+  triggers?: string[];
+  methodology?: MethodologyMarkers;
 };
 
 export type CreateDealInput = {
@@ -90,12 +161,28 @@ export type LogInteractionInput = {
   occurredAt?: string;
 };
 
+export type IronleadsIngressInput = {
+  companyName: string;
+  industrySector: BeachheadSector;
+  detectedTrigger: string;
+  targetTenantSlug: string;
+  contactEmail?: string;
+  contactName?: string;
+  accountDomain?: string;
+};
+
 /** JSON-safe wire shape for Gemini tool responses (cents as decimal strings). */
 export type DealRecordWire = Omit<DealRecord, 'valueCents'> & { valueCents: string };
 
 export type DealPipelineWire = Omit<DealPipeline, 'forecastValueCents' | 'deals'> & {
   forecastValueCents: string;
   deals: DealRecordWire[];
+};
+
+export type PrioritizedLeadsWire = {
+  tenantId: string;
+  contacts: B2BContact[];
+  updatedAt: string;
 };
 
 export function parseCentsInput(raw: unknown): CentsBigInt {
@@ -119,4 +206,12 @@ export function centsToWire(value: CentsBigInt): string {
 
 export function isLeadStage(value: string): value is LeadStage {
   return (LEAD_STAGES as readonly string[]).includes(value);
+}
+
+export function isBeachheadSector(value: string): value is BeachheadSector {
+  return (BEACHHEAD_SECTORS as readonly string[]).includes(value);
+}
+
+export function isLeadIngestionSource(value: string): value is LeadIngestionSource {
+  return (LEAD_INGESTION_SOURCES as readonly string[]).includes(value);
 }

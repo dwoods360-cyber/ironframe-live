@@ -3,7 +3,11 @@ import { listProspects, listProspectsInRegions } from './marketIntelligence.js';
 import type { StoredProspect } from './marketIntelligence.js';
 import { formatProspectLineage } from './marketProspectAuthenticity.js';
 
-export type WorkspaceQueryType = 'active_prospects' | 'outreach_history' | 'flywheel_logs';
+export type WorkspaceQueryType =
+  | 'active_prospects'
+  | 'outreach_history'
+  | 'flywheel_logs'
+  | 'ironleads_knowledge';
 
 export const WORKSPACE_DATA_STATE = {
   POPULATED: 'POPULATED',
@@ -15,14 +19,41 @@ export type WorkspaceDataState = (typeof WORKSPACE_DATA_STATE)[keyof typeof WORK
 export const QUERY_LOCAL_WORKSPACE_DECLARATION = {
   name: 'queryLocalWorkspace',
   description:
-    'Fetch live IronBoard workspace data from the local Prisma database: qualified GTM prospects, outreach pitch history, or market flywheel diagnostic logs. Use before recommending account-level strategy. Region filters accept any market label (country, city, or campaign geography) — not limited to legacy hubs.',
+    'Fetch live IronBoard workspace data from the local Prisma database: qualified GTM prospects, outreach pitch history, market flywheel diagnostic logs, or the Ironleads lead-generation knowledge corpus (books, strategies, OSINT playbooks). Use before recommending account-level strategy. Region filters accept any market label (country, city, or campaign geography) — not limited to legacy hubs.',
   parameters: {
     type: 'OBJECT',
     properties: {
       queryType: {
         type: 'STRING',
         description:
-          'Which dataset to load: active_prospects, outreach_history, or flywheel_logs.',
+          'Which dataset to load: active_prospects, outreach_history, flywheel_logs, or ironleads_knowledge.',
+      },
+      category: {
+        type: 'STRING',
+        description:
+          'For ironleads_knowledge: filter by category (outbound_prospecting, trigger_intelligence, etc.).',
+      },
+      kind: {
+        type: 'STRING',
+        description: 'For ironleads_knowledge: filter by entry kind — book, strategy, or framework.',
+      },
+      beachheadSector: {
+        type: 'STRING',
+        description:
+          'For ironleads_knowledge: filter by beachhead (REGIONAL_BHC, UTILITY_NERC, MSSP_ENCLAVE, HEALTH_HIPAA).',
+      },
+      trigger: {
+        type: 'STRING',
+        description:
+          'For ironleads_knowledge: filter by trigger signal (REG_FINE, NEW_CISO, etc.).',
+      },
+      knowledgeId: {
+        type: 'STRING',
+        description: 'For ironleads_knowledge: return one full entry by id when set.',
+      },
+      searchQuery: {
+        type: 'STRING',
+        description: 'For ironleads_knowledge: full-text search across titles, tactics, and concepts.',
       },
       region: {
         type: 'STRING',
@@ -205,11 +236,50 @@ export async function executeQueryLocalWorkspace(
           logs,
         };
       }
+      case 'ironleads_knowledge': {
+        const {
+          filterLeadGenKnowledge,
+          getLeadGenEntry,
+          IRONLEADS_KNOWLEDGE_MANIFEST,
+          listLeadGenSummaries,
+        } = await import('../../../Ironleads/src/knowledge/index.js');
+
+        const knowledgeId = String(raw.knowledgeId ?? '').trim();
+        if (knowledgeId) {
+          const entry = getLeadGenEntry(knowledgeId);
+          return {
+            ok: true,
+            success: true,
+            queryType,
+            manifest: IRONLEADS_KNOWLEDGE_MANIFEST,
+            entry,
+          };
+        }
+
+        const entries = filterLeadGenKnowledge({
+          category: String(raw.category ?? '').trim() || undefined,
+          kind: String(raw.kind ?? '').trim() || undefined,
+          beachheadSector: String(raw.beachheadSector ?? '').trim() || undefined,
+          trigger: String(raw.trigger ?? '').trim() || undefined,
+          query: String(raw.searchQuery ?? raw.query ?? '').trim() || undefined,
+        }).slice(0, limit);
+
+        return {
+          ok: true,
+          success: true,
+          queryType,
+          count: entries.length,
+          manifest: IRONLEADS_KNOWLEDGE_MANIFEST,
+          summaries: listLeadGenSummaries().slice(0, limit),
+          entries,
+          dataState: WORKSPACE_DATA_STATE.POPULATED,
+        };
+      }
       default:
         return {
           ok: false,
           success: false,
-          error: `Unknown queryType "${queryType}". Use active_prospects, outreach_history, or flywheel_logs.`,
+          error: `Unknown queryType "${queryType}". Use active_prospects, outreach_history, flywheel_logs, or ironleads_knowledge.`,
         };
     }
   } catch (err) {

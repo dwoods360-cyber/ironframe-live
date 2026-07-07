@@ -102,11 +102,13 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   };
 
   const hasMultiAssignment = assignedTenantIds.length > 1;
-  const canSwitchAssignedWorkspaces = hasGlobalAdmin || hasMultiAssignment;
+  const canSwitchAssignedWorkspaces =
+    hasMultiAssignment || (hasGlobalAdmin && assignedTenantIds.length > 0);
 
   /** Subdomain host envelope — single-assignment operators stay locked; multi-assignment can hop subdomains. */
   if (hostTenantUuid) {
-    const allowed = assignments.some((row) => row.tenantId === hostTenantUuid);
+    const allowed =
+      isPlatformOwner || assignments.some((row) => row.tenantId === hostTenantUuid);
     if (!allowed) {
       return {
         tenants: [],

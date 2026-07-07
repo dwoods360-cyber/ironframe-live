@@ -37,6 +37,7 @@ import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 
 describe("resolveDashboardAccess", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
     const { getHostBoundTenantUuid, getScopedTenantUuidFromCookies } = await import(
       "@/app/utils/serverTenantContext"
     );

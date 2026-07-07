@@ -44,6 +44,16 @@ export function assignTenantWorkspaceNav(
   const sourcePath = currentPathname ? normalizePathname(currentPathname) : null;
   const targetPath = normalizePathname(target);
 
+  if (
+    browserHost &&
+    isApexControlPlaneHost(browserHost) &&
+    sourcePath &&
+    targetPath !== sourcePath
+  ) {
+    window.location.assign(target);
+    return true;
+  }
+
   if (sourcePath && isHeavySoftNavSourcePath(sourcePath) && targetPath !== sourcePath) {
     window.location.assign(target);
     return true;

@@ -24,6 +24,21 @@ export default function RouteNavigationProgress() {
   const [visible, setVisible] = useState(false);
   const [width, setWidth] = useState(0);
   const navigatingRef = useRef(false);
+  const stallTimerRef = useRef<number | null>(null);
+
+  const finish = useCallback(() => {
+    if (stallTimerRef.current) {
+      window.clearTimeout(stallTimerRef.current);
+      stallTimerRef.current = null;
+    }
+    if (!navigatingRef.current) return;
+    setWidth(100);
+    window.setTimeout(() => {
+      setVisible(false);
+      setWidth(0);
+      navigatingRef.current = false;
+    }, 240);
+  }, []);
 
   const start = useCallback(() => {
     if (navigatingRef.current) return;
@@ -33,17 +48,9 @@ export default function RouteNavigationProgress() {
     window.setTimeout(() => setWidth(36), 60);
     window.setTimeout(() => setWidth(64), 220);
     window.setTimeout(() => setWidth(88), 650);
-  }, []);
-
-  const finish = useCallback(() => {
-    if (!navigatingRef.current) return;
-    setWidth(100);
-    window.setTimeout(() => {
-      setVisible(false);
-      setWidth(0);
-      navigatingRef.current = false;
-    }, 240);
-  }, []);
+    if (stallTimerRef.current) window.clearTimeout(stallTimerRef.current);
+    stallTimerRef.current = window.setTimeout(() => finish(), 10_000);
+  }, [finish]);
 
   useEffect(() => {
     finish();

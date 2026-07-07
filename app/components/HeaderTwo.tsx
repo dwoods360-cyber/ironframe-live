@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { Folder, ShieldCheck, UserRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import StagedNavLink from "@/app/components/nav/StagedNavLink";
 import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
+import TenantWorkspaceNavLink from "@/app/components/nav/TenantWorkspaceNavLink";
 import { usePilotStubExportGate } from "@/app/hooks/usePilotStubExportGate";
 import { useAuditConsoleAccess } from "@/app/hooks/useAuditConsoleAccess";
 import { useBoardroomSecurityAuditAccess } from "@/app/hooks/useBoardroomSecurityAuditAccess";
@@ -139,13 +139,13 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               COMMAND POST
             </CommandPostNavLink>
-            <Link
+            <TenantWorkspaceNavLink
               href="/integrity"
               data-testid="header-integrity-hub-chip"
               className={integrityHubChipClass}
             >
               INTEGRITY HUB
-            </Link>
+            </TenantWorkspaceNavLink>
             {isVendorsRoute ? (
               <>
                 <button
@@ -197,14 +197,14 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               SUPPLY CHAIN GRAPH
             </StagedNavLink>
-            <Link
+            <TenantWorkspaceNavLink
               href="/config"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} bg-blue-600 px-4 text-white transition-all hover:bg-blue-500`}
             >
               SYSTEM CONFIG
-            </Link>
-            <Link
+            </TenantWorkspaceNavLink>
+            <TenantWorkspaceNavLink
               href="/profile"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} border border-emerald-600/50 bg-emerald-950/35 text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/45`}
@@ -213,8 +213,8 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               <UserRound className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
               SECURITY PROFILE
-            </Link>
-            <Link
+            </TenantWorkspaceNavLink>
+            <TenantWorkspaceNavLink
               href="/vault"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} border border-teal-600/60 bg-teal-950/40 text-teal-100 transition-all hover:border-teal-400 hover:bg-teal-900/45`}
@@ -222,27 +222,27 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             >
               <Folder className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
               EVIDENCE VAULT
-            </Link>
-            <Link
+            </TenantWorkspaceNavLink>
+            <TenantWorkspaceNavLink
               href="/reports/audit-trail"
               prefetch={NAV_LINK_PREFETCH}
               data-testid="header-audit-trail-chip"
               className={`${CHIP_CLASS} bg-blue-600 px-4 text-white transition-all hover:bg-blue-500`}
             >
               AUDIT TRAIL
-            </Link>
+            </TenantWorkspaceNavLink>
             {canViewAudit ? (
-              <Link
+              <TenantWorkspaceNavLink
                 href="/audit"
                 prefetch={NAV_LINK_PREFETCH}
                 className={`${CHIP_CLASS} border border-emerald-600/70 bg-emerald-950/45 px-4 font-black text-emerald-100 transition-all hover:border-emerald-400 hover:bg-emerald-900/50`}
               >
                 <span aria-hidden>🛡️</span>
                 INTEGRITY & AUDIT
-              </Link>
+              </TenantWorkspaceNavLink>
             ) : null}
             {canViewSecurityAuditLogs ? (
-              <Link
+              <TenantWorkspaceNavLink
                 href={securityAuditLogsHref}
                 prefetch={NAV_LINK_PREFETCH}
                 data-testid="header-security-audit-logs-chip"
@@ -251,40 +251,40 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
               >
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden />
                 SECURITY AUDIT LOGS
-              </Link>
+              </TenantWorkspaceNavLink>
             ) : null}
-            <Link
+            <TenantWorkspaceNavLink
               href="/board-report"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} border border-violet-600/50 bg-violet-950/40 px-4 text-violet-100 transition-all hover:border-violet-400 hover:bg-violet-900/50`}
             >
               BOARD REPORT
-            </Link>
+            </TenantWorkspaceNavLink>
             {canUsePlatformAdminTools ? (
-            <Link
+            <TenantWorkspaceNavLink
               href="/opsupport"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
               data-testid="header-opsupport-chip"
             >
               OP SUPPORT
-            </Link>
+            </TenantWorkspaceNavLink>
             ) : null}
-            <Link
+            <TenantWorkspaceNavLink
               href="/admin/clearance"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} bg-red-600 px-4 font-medium text-white transition-all hover:bg-red-700`}
               data-testid="header-dmz-quarantine-chip"
             >
               🚨 DMZ QUARANTINE
-            </Link>
-            <Link
+            </TenantWorkspaceNavLink>
+            <TenantWorkspaceNavLink
               href="/reports"
               prefetch={NAV_LINK_PREFETCH}
               className={`${CHIP_CLASS} bg-blue-600 px-4 text-white transition-all hover:bg-blue-500`}
             >
               QUICK REPORTS
-            </Link>
+            </TenantWorkspaceNavLink>
             {isConfigRoute ? (
               <CommandPostNavLink
                 prefetch={NAV_LINK_PREFETCH}

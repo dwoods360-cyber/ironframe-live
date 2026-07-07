@@ -4,7 +4,9 @@ import type { MouseEvent, ReactNode } from "react";
 import Link, { type LinkProps } from "next/link";
 import NavMaturityBadge from "@/app/components/nav/NavMaturityBadge";
 import { getStagedNavSurface } from "@/app/config/stagedNavSurfaces";
+import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { usePermissions } from "@/app/hooks/usePermissions";
+import { assignTenantWorkspaceNav } from "@/app/lib/nav/tenantWorkspaceNav";
 
 type StagedNavLinkProps = LinkProps & {
   className?: string;
@@ -28,6 +30,8 @@ export default function StagedNavLink({
   const hrefStr = typeof href === "string" ? href : (href.pathname ?? "/");
   const staged = getStagedNavSurface(hrefStr);
   const { role } = usePermissions();
+  const hostTenantSlug = useHostTenantSlug();
+  const browserHost = typeof window !== "undefined" ? window.location.host : null;
   const blocked =
     staged != null && staged.blockRoles.includes(role);
 
@@ -38,6 +42,11 @@ export default function StagedNavLink({
       return;
     }
     onClick?.(event);
+    if (event.defaultPrevented) return;
+    if (assignTenantWorkspaceNav(href, browserHost, hostTenantSlug)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
   };
 
   const blockedTitle =

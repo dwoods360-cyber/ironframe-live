@@ -76,6 +76,11 @@ export function loadSuccessTeamEnv(): void {
 }
 
 export function getSuccessTeamPort(): number {
+  const cloudRun = process.env.PORT?.trim();
+  if (cloudRun) {
+    const cloud = Number.parseInt(cloudRun, 10);
+    if (Number.isFinite(cloud) && cloud > 0) return cloud;
+  }
   const raw = isolated.port.trim() || process.env.SUCCESS_TEAM_PORT?.trim() || '8085';
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 8085;

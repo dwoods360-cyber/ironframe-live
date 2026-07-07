@@ -2290,8 +2290,8 @@ app.use((_req, res) => {
   res.status(404).json({ status: 'NOT_FOUND' });
 });
 
-const server = app.listen(PORT, "127.0.0.1", () => {
-  console.log(`[IRONBOARD ENGINE] Live at http://127.0.0.1:${PORT}/`);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log(`[IRONBOARD ENGINE] Live at http://0.0.0.0:${PORT}/`);
   console.log(`[IRONBOARD ENGINE] 17-agent boardroom online · Gemini: ${getIronboardApiKey() ? 'ready' : 'offline'}`);
   console.log(`[IRONBOARD ENGINE] Stop: Ctrl+C (or npm run stop if port 8082 sticks)`);
   const published = scanPublishedBriefings(resolveDocsRoot());

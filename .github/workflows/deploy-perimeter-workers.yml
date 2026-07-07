@@ -1,0 +1,130 @@
+name: Perimeter Workers Deploy (GCP)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "Ironboard/**"
+      - "Ironleads/**"
+      - "SalesTeam/**"
+      - "SuccessTeam/**"
+      - "SupportTeam/**"
+      - ".github/workflows/deploy-perimeter-workers.yml"
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  REPO: sentinel-repo
+
+jobs:
+  deploy-workers:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: ironboard
+            context: Ironboard
+            service: ironframe-ironboard
+            memory: 1Gi
+          - id: ironleads
+            context: Ironleads
+            service: ironframe-ironleads
+            memory: 512Mi
+          - id: salesteam
+            context: SalesTeam
+            service: ironframe-salesteam
+            memory: 512Mi
+          - id: success-team
+            context: SuccessTeam
+            service: ironframe-success-team
+            memory: 512Mi
+          - id: support-team
+            context: SupportTeam
+            service: ironframe-support-team
+            memory: 512Mi
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Build and push ${{ matrix.id }}
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ matrix.service }}:${{ github.sha }}"
+          docker build -t "$IMAGE" "${{ matrix.context }}"
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Compose worker env vars
+        id: env
+        run: |
+          case "${{ matrix.id }}" in
+            ironboard)
+              printf '%s\n' \
+                "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+                "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+                "DIRECT_URL=${{ secrets.DIRECT_URL }}" \
+                > worker.env
+              ;;
+            ironleads)
+              printf '%s\n' \
+                "IRONLEADS_INGRESS_SECRET=${{ secrets.IRONLEADS_INGRESS_SECRET }}" \
+                "IRONLEADS_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+                > worker.env
+              ;;
+            salesteam)
+              printf '%s\n' \
+                "SALESTEAM_INGRESS_SECRET=${{ secrets.SALESTEAM_INGRESS_SECRET }}" \
+                "SALESTEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+                > worker.env
+              ;;
+            success-team)
+              printf '%s\n' \
+                "SUCCESS_TEAM_INGRESS_SECRET=${{ secrets.SUCCESS_TEAM_INGRESS_SECRET }}" \
+                "SUCCESS_TEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+                > worker.env
+              ;;
+            support-team)
+              printf '%s\n' \
+                "SUPPORT_TEAM_INGRESS_SECRET=${{ secrets.SUPPORT_TEAM_INGRESS_SECRET }}" \
+                "SUPPORT_TEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
+                > worker.env
+              ;;
+          esac
+          {
+            echo "env_vars<<EOF"
+            cat worker.env
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy ${{ matrix.service }} to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ matrix.service }}
+          image: ${{ env.IMAGE }}
+          region: ${{ env.REGION }}
+          env_vars: ${{ steps.env.outputs.env_vars }}
+          flags: >-
+            --allow-unauthenticated
+            --memory=${{ matrix.memory }}
+            --cpu=1
+            --min-instances=0
+            --max-instances=2
+            --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Print service URL
+        run: |
+          gcloud run services describe ${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)'

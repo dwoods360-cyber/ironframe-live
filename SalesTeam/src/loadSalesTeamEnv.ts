@@ -80,6 +80,11 @@ export function loadSalesTeamEnv(): void {
 }
 
 export function getSalesTeamPort(): number {
+  const cloudRun = process.env.PORT?.trim();
+  if (cloudRun) {
+    const cloud = Number.parseInt(cloudRun, 10);
+    if (Number.isFinite(cloud) && cloud > 0) return cloud;
+  }
   const raw = isolated.port.trim() || process.env.SALESTEAM_PORT?.trim() || '8084';
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : 8084;

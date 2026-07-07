@@ -2,6 +2,9 @@ import Link from "next/link";
 
 import SalesAgentPortalContent from "@/app/components/marketing/SalesAgentPortalContent";
 import PublicApexNav from "@/app/components/marketing/PublicApexNav";
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Sales Agent Portal | Ironframe GRC",
@@ -10,13 +13,15 @@ export const metadata = {
 };
 
 /** Public full-page sales intake — centered layout with site navigation (no slide-over frame). */
-export default function SalesAgentPortalPage() {
+export default async function SalesAgentPortalPage() {
+  const sessionUser = await getSupabaseSessionUser();
+
   return (
     <main
       className="ironframe-public-landing min-h-screen bg-[#020617] text-slate-100"
       data-ironframe-surface="public-funnel"
     >
-      <PublicApexNav />
+      <PublicApexNav isAuthenticated={Boolean(sessionUser)} />
 
       <div className="mx-auto flex min-h-[calc(100dvh-2.75rem)] w-full max-w-xl flex-col items-center justify-center px-4 py-10 sm:px-6">
         <header className="w-full text-center">

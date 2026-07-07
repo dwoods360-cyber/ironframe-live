@@ -3,9 +3,14 @@ import Link from "next/link";
 type PublicApexNavProps = {
   /** When true, the operator is already on the sign-in surface. */
   loginActive?: boolean;
+  /** Hide the Log in affordance when a Supabase session is already present. */
+  isAuthenticated?: boolean;
 };
 
-export default function PublicApexNav({ loginActive = false }: PublicApexNavProps) {
+export default function PublicApexNav({
+  loginActive = false,
+  isAuthenticated = false,
+}: PublicApexNavProps) {
   return (
     <nav
       className="sticky top-0 z-20 flex h-11 w-full items-center justify-between border-b border-slate-800 bg-slate-950 px-4 sm:px-6"
@@ -24,7 +29,14 @@ export default function PublicApexNav({ loginActive = false }: PublicApexNavProp
         >
           Product overview
         </Link>
-        {loginActive ? (
+        {isAuthenticated ? (
+          <Link
+            href="/cockpit"
+            className="inline-flex h-11 items-center rounded border border-slate-700 bg-slate-900/60 px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-slate-200 transition-colors hover:border-teal-600 hover:text-white"
+          >
+            Command post
+          </Link>
+        ) : loginActive ? (
           <span
             aria-current="page"
             className="inline-flex h-11 items-center rounded border border-teal-900/50 bg-teal-950/40 px-4 font-mono text-[10px] font-bold uppercase tracking-widest text-teal-300"

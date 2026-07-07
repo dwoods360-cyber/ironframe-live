@@ -41,3 +41,6 @@ secrets-replacements.txt
 
 # Google Cloud Platform IAM Keys
 ironframe-prod-907f1402c60c.json
+
+# Ironleads local SQLite scratchpad (vitest + dev harvest)
+Ironleads/data/

@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { ironleadsApp, invokeIronleadsPipeline } from '@/Ironleads/src/graph/pipeline';
+import { resetIronleadsScratchpad } from '../helpers/ironleadsTestHarness';
 
 describe('ironleadsPipeline graph', () => {
+  beforeEach(async () => {
+    await resetIronleadsScratchpad();
+  });
   it('compiles the linear scout → marshal micro-graph', () => {
     expect(ironleadsApp).toBeDefined();
     const graph = ironleadsApp.getGraph();

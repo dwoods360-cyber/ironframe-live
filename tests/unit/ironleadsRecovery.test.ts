@@ -1,15 +1,19 @@
 import { randomUUID } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { fingerprintParserSuccess, LKG_PARSER_SUCCESS } from '@/Ironleads/src/graph/lkg';
 import { findLastKnownGoodSnapshot } from '@/Ironleads/src/graph/recovery';
 import { ironleadsApp, invokeIronleadsPipeline } from '@/Ironleads/src/graph/pipeline';
 import { getIronleadsPrisma } from '@/Ironleads/src/lib/prisma';
 import { loadIronleadsEnv } from '@/Ironleads/src/loadIronleadsEnv';
+import { resetIronleadsScratchpad } from '../helpers/ironleadsTestHarness';
 
 loadIronleadsEnv();
 
 describe('ironleads LKG recovery', () => {
+  beforeEach(async () => {
+    await resetIronleadsScratchpad();
+  });
   it('fingerprints parser-clean state deterministically', () => {
     const state = {
       runId: 'run-1',

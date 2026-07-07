@@ -21,18 +21,37 @@ export function resolveOperationsCrmScopeSlug(): string {
   return "bwc";
 }
 
+export type RedactedWorkforceServiceStatus = Omit<
+  WorkforceServiceStatus,
+  "healthUrl" | "consoleUrl"
+>;
+
+export type RedactedOperationsHubSnapshot = Omit<
+  OperationsHubSnapshot,
+  "briefings" | "workforce"
+> & {
+  briefings: Omit<OperationsHubSnapshot["briefings"], "published"> & {
+    published: Array<
+      Omit<OperationsHubSnapshot["briefings"]["published"][number], "tenantId">
+    >;
+  };
+  workforce: RedactedWorkforceServiceStatus[];
+};
+
 function stripTenantUuidTokens(value: string): string {
   return value.replace(UUID_RE, "[workspace]");
 }
 
 export function redactWorkforceServiceStatus(
   service: WorkforceServiceStatus,
-): Omit<WorkforceServiceStatus, "healthUrl" | "consoleUrl"> {
+): RedactedWorkforceServiceStatus {
   const { healthUrl: _healthUrl, consoleUrl: _consoleUrl, ...rest } = service;
   return rest;
 }
 
-export function redactOperationsHubSnapshot(snapshot: OperationsHubSnapshot): OperationsHubSnapshot {
+export function redactOperationsHubSnapshot(
+  snapshot: OperationsHubSnapshot,
+): RedactedOperationsHubSnapshot {
   return {
     ...snapshot,
     briefings: {

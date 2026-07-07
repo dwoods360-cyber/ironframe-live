@@ -1,4 +1,4 @@
-import { LEAD_STAGES, isLeadStage } from '../types/crm.js';
+import { LEAD_STAGES, BEACHHEAD_SECTORS, isLeadStage, isBeachheadSector } from '../types/crm.js';
 import type { CreateContactInput, InteractionChannel, LeadStage, LogInteractionInput } from '../types/crm.js';
 import { SALES_METHODOLOGY_IDS } from '../types/salesKnowledge.js';
 import {
@@ -8,7 +8,10 @@ import {
   getDeal,
   listContacts,
   listPipeline,
+  listPrioritizedLeads,
   logInteraction,
+  promoteSuspectDeal,
+  updateContactQualification,
   updateDealStage,
   updateDealValue,
 } from '../services/crm/crmService.js';
@@ -19,21 +22,27 @@ import {
   parseOutreachStrategyDraft,
   validateOutreachStrategy,
 } from '../services/crm/knowledge/methodologyValidation.js';
+import { executeLeadGenKnowledgeTool } from '../services/crm/knowledge/leadGenKnowledgeBridge.js';
 
 export const CRM_TOOL_ACTIONS = [
   'list_pipeline',
   'get_deal',
   'list_contacts',
+  'list_prioritized_leads',
   'create_contact',
   'create_deal',
   'create_lead',
   'update_deal_stage',
   'update_deal_value',
+  'update_qualification',
+  'promote_suspect_deal',
   'log_interaction',
   'list_sales_playbooks',
   'get_sales_playbook',
   'validate_outreach_strategy',
   'evaluate_deal_stage',
+  'list_leadgen_knowledge',
+  'get_leadgen_entry',
 ] as const;
 
 export type CrmToolAction = (typeof CRM_TOOL_ACTIONS)[number];
@@ -71,13 +80,51 @@ export const MANAGE_CRM_PIPELINE_DECLARATION = {
       company: { type: 'STRING', description: 'Contact company for create_contact / create_lead.' },
       contactTitle: { type: 'STRING', description: 'Contact job title.' },
       phone: { type: 'STRING', description: 'Optional contact phone.' },
+      industrySector: {
+        type: 'STRING',
+        description: 'Beachhead vertical for GTM qualification scoring.',
+        enum: [...BEACHHEAD_SECTORS],
+      },
+      detectedTrigger: {
+        type: 'STRING',
+        description: 'Comma-separated trigger tags (e.g. NEW_CISO, REG_FINE).',
+      },
+      ingestionSource: {
+        type: 'STRING',
+        description: 'Lead lineage — MANUAL_INPUT, INBOUND_PORTAL, or AUTONOMOUS_CRAWLER.',
+        enum: ['MANUAL_INPUT', 'INBOUND_PORTAL', 'AUTONOMOUS_CRAWLER'],
+      },
+      painManualBoardReporting: {
+        type: 'BOOLEAN',
+        description: 'Discovery: stale/manual board cyber reporting.',
+      },
+      painNoDollarRiskQuant: {
+        type: 'BOOLEAN',
+        description: 'Discovery: cannot quantify cyber risk in dollars.',
+      },
+      painFragmentedGrc: {
+        type: 'BOOLEAN',
+        description: 'Discovery: spreadsheets / fragmented GRC tools.',
+      },
+      painMultiEntityGovernance: {
+        type: 'BOOLEAN',
+        description: 'Discovery: multi-entity isolation challenges.',
+      },
+      methodologyCommercialInsight: {
+        type: 'BOOLEAN',
+        description: 'Challenger: commercial insight delivered (not feature dump).',
+      },
+      methodologySpinReduced: {
+        type: 'BOOLEAN',
+        description: 'SPIN: reduced basic Situation questioning via pre-call intel.',
+      },
       accountDomain: { type: 'STRING', description: 'Optional account domain for the deal.' },
       ownerAgentId: { type: 'STRING', description: 'Optional board agent id owning the deal.' },
       notes: { type: 'STRING', description: 'Freeform deal notes.' },
       channel: {
         type: 'STRING',
         description: 'Interaction channel for log_interaction.',
-        enum: ['EMAIL', 'CALL', 'MEETING', 'LINKEDIN', 'NOTE', 'OTHER'],
+        enum: ['EMAIL', 'CALL', 'MEETING', 'LINKEDIN', 'NOTE', 'SYSTEM_AGENT', 'OTHER'],
       },
       summary: { type: 'STRING', description: 'Interaction summary for log_interaction.' },
       occurredAt: { type: 'STRING', description: 'ISO timestamp for log_interaction (defaults to now).' },
@@ -96,12 +143,40 @@ export const MANAGE_CRM_PIPELINE_DECLARATION = {
         type: 'STRING',
         description: 'Pipe-delimited next actions for validate_outreach_strategy, or array in JSON.',
       },
+      knowledgeId: {
+        type: 'STRING',
+        description: 'Ironleads knowledge entry id for get_leadgen_entry.',
+      },
+      searchQuery: {
+        type: 'STRING',
+        description: 'Search Ironleads lead-gen corpus (list_leadgen_knowledge).',
+      },
+      kind: {
+        type: 'STRING',
+        description: 'Filter lead-gen entries: book, strategy, or framework.',
+      },
+      category: {
+        type: 'STRING',
+        description: 'Filter lead-gen entries by category (e.g. trigger_intelligence).',
+      },
+      trigger: {
+        type: 'STRING',
+        description: 'Filter lead-gen entries by trigger signal (e.g. REG_FINE).',
+      },
     },
     required: ['action', 'tenantId'],
   },
 };
 
-const INTERACTION_CHANNELS = new Set<string>(['EMAIL', 'CALL', 'MEETING', 'LINKEDIN', 'NOTE', 'OTHER']);
+const INTERACTION_CHANNELS = new Set<string>([
+  'EMAIL',
+  'CALL',
+  'MEETING',
+  'LINKEDIN',
+  'NOTE',
+  'SYSTEM_AGENT',
+  'OTHER',
+]);
 
 function parseChannel(raw: unknown): InteractionChannel {
   const channel = String(raw ?? 'NOTE').trim().toUpperCase();
@@ -118,13 +193,63 @@ function parseStage(raw: unknown): LeadStage | undefined {
   return stage;
 }
 
+function parseBool(raw: unknown): boolean | undefined {
+  if (raw === true || raw === 'true' || raw === 1 || raw === '1') return true;
+  if (raw === false || raw === 'false' || raw === 0 || raw === '0') return false;
+  return undefined;
+}
+
+function painMarkersFromArgs(raw: Record<string, unknown>) {
+  const manualBoardReporting = parseBool(raw.painManualBoardReporting);
+  const noDollarRiskQuant = parseBool(raw.painNoDollarRiskQuant);
+  const fragmentedGrc = parseBool(raw.painFragmentedGrc);
+  const multiEntityGovernance = parseBool(raw.painMultiEntityGovernance);
+  if (
+    manualBoardReporting === undefined &&
+    noDollarRiskQuant === undefined &&
+    fragmentedGrc === undefined &&
+    multiEntityGovernance === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    ...(manualBoardReporting !== undefined ? { manualBoardReporting } : {}),
+    ...(noDollarRiskQuant !== undefined ? { noDollarRiskQuant } : {}),
+    ...(fragmentedGrc !== undefined ? { fragmentedGrc } : {}),
+    ...(multiEntityGovernance !== undefined ? { multiEntityGovernance } : {}),
+  };
+}
+
+function methodologyFromArgs(raw: Record<string, unknown>) {
+  const commercialInsightDelivered = parseBool(raw.methodologyCommercialInsight);
+  const spinSituationReduced = parseBool(raw.methodologySpinReduced);
+  if (commercialInsightDelivered === undefined && spinSituationReduced === undefined) {
+    return undefined;
+  }
+  return {
+    ...(commercialInsightDelivered !== undefined ? { commercialInsightDelivered } : {}),
+    ...(spinSituationReduced !== undefined ? { spinSituationReduced } : {}),
+  };
+}
+
 function contactInputFromArgs(raw: Record<string, unknown>): CreateContactInput {
+  const industrySectorRaw = String(raw.industrySector ?? '').trim();
+  const ingestionSourceRaw = String(raw.ingestionSource ?? '').trim();
   return {
     fullName: String(raw.fullName ?? ''),
     email: String(raw.email ?? ''),
     company: String(raw.company ?? ''),
     title: raw.contactTitle ? String(raw.contactTitle) : undefined,
     phone: raw.phone ? String(raw.phone) : null,
+    industrySector:
+      industrySectorRaw && isBeachheadSector(industrySectorRaw) ? industrySectorRaw : undefined,
+    detectedTrigger: raw.detectedTrigger ? String(raw.detectedTrigger) : undefined,
+    ingestionSource:
+      ingestionSourceRaw && ['MANUAL_INPUT', 'INBOUND_PORTAL', 'AUTONOMOUS_CRAWLER'].includes(ingestionSourceRaw)
+        ? (ingestionSourceRaw as CreateContactInput['ingestionSource'])
+        : undefined,
+    painMarkers: painMarkersFromArgs(raw),
+    methodology: methodologyFromArgs(raw),
   };
 }
 
@@ -162,6 +287,12 @@ export async function executeManageCrmPipeline(
         return { ok: true, action, deal: await getDeal(tenantId, raw.dealId) };
       case 'list_contacts':
         return { ok: true, action, contacts: await listContacts(tenantId) };
+      case 'list_prioritized_leads':
+        return {
+          ok: true,
+          action,
+          prioritized: await listPrioritizedLeads(tenantId, raw.limit),
+        };
       case 'create_contact':
         return { ok: true, action, contact: await createContact(tenantId, contactInputFromArgs(raw)) };
       case 'create_deal':
@@ -209,6 +340,32 @@ export async function executeManageCrmPipeline(
           action,
           deal: await updateDealValue(tenantId, raw.dealId, raw.valueCents),
         };
+      case 'update_qualification':
+        return {
+          ok: true,
+          action,
+          contact: await updateContactQualification(tenantId, {
+            contactId: String(raw.contactId ?? ''),
+            industrySector:
+              raw.industrySector == null
+                ? raw.industrySector === null
+                  ? null
+                  : undefined
+                : isBeachheadSector(String(raw.industrySector))
+                  ? (String(raw.industrySector) as (typeof BEACHHEAD_SECTORS)[number])
+                  : undefined,
+            detectedTrigger:
+              raw.detectedTrigger !== undefined ? String(raw.detectedTrigger) : undefined,
+            painMarkers: painMarkersFromArgs(raw),
+            methodology: methodologyFromArgs(raw),
+          }),
+        };
+      case 'promote_suspect_deal':
+        return {
+          ok: true,
+          action,
+          deal: await promoteSuspectDeal(tenantId, raw.dealId),
+        };
       case 'log_interaction': {
         const input: LogInteractionInput = {
           dealId: raw.dealId ? String(raw.dealId) : null,
@@ -241,6 +398,9 @@ export async function executeManageCrmPipeline(
         const evaluation = evaluateDealStageAlignment(raw.methodologyId, raw.stage ?? raw.dealStage);
         return { ok: evaluation.ok, action, evaluation };
       }
+      case 'list_leadgen_knowledge':
+      case 'get_leadgen_entry':
+        return executeLeadGenKnowledgeTool(raw);
       default:
         return {
           ok: false,

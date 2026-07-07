@@ -15,6 +15,7 @@ import type {
 const CONTEXT = 'https://ironframe.ai/schemas/sales-playbook/v1';
 
 const STAGE_ALL: readonly LeadStage[] = [
+  'SUSPECT',
   'PROSPECT',
   'QUALIFIED',
   'DISCOVERY',
@@ -34,6 +35,7 @@ function stageGuidance(map: Partial<Record<LeadStage, readonly string[]>>): Read
 > {
   const empty: readonly string[] = [];
   return {
+    SUSPECT: map.SUSPECT ?? empty,
     PROSPECT: map.PROSPECT ?? empty,
     QUALIFIED: map.QUALIFIED ?? empty,
     DISCOVERY: map.DISCOVERY ?? empty,
@@ -304,6 +306,7 @@ export const SALES_PLAYBOOK_BLUEPRINTS: Readonly<Record<SalesMethodologyId, Sale
       'Quantify status-quo risk in business terms.',
     ],
     stageGuidance: stageGuidance({
+      SUSPECT: ['OSINT or inbound signal only — no product pitch until promoted to PROSPECT.'],
       QUALIFIED: ['Prepare 1–2 teachable insights tied to buyer industry.'],
       DISCOVERY: ['Reframe buyer assumptions before presenting Ironframe capabilities.'],
       PROPOSAL: ['Anchor proposal to insight-led business case, not feature parity.'],
@@ -399,6 +402,7 @@ export const SALES_PLAYBOOK_BLUEPRINTS: Readonly<Record<SalesMethodologyId, Sale
       'Review lagging pipeline cents weekly.',
     ],
     stageGuidance: stageGuidance({
+      SUSPECT: ['Log trigger signal and beachhead fit before human promote.'],
       PROSPECT: ['Track source channel and time-to-first-touch.'],
       QUALIFIED: ['Confirm leading indicators before advancing stage.'],
       CLOSED_WON: ['Capture lagging win metrics for playbook tuning.'],
@@ -466,6 +470,7 @@ export const SALES_PLAYBOOK_BLUEPRINTS: Readonly<Record<SalesMethodologyId, Sale
       'Scarcity claims must be factual and verifiable.',
     ],
     stageGuidance: stageGuidance({
+      SUSPECT: ['Authority via regulatory insight — no fabricated social proof.'],
       PROSPECT: ['Reciprocity + social proof in first touch.'],
       QUALIFIED: ['Commitment micro-yes before deep discovery.'],
       PROPOSAL: ['Authority + scarcity tied to buyer timeline only.'],

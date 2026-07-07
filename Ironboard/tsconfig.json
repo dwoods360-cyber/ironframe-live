@@ -7,14 +7,19 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "rootDir": "src",
+    "rootDir": "..",
     "baseUrl": ".",
     "paths": {
       "@prisma/client": ["../node_modules/@prisma/client"],
       "@prisma/client/*": ["../node_modules/@prisma/client/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": [
+    "src/**/*",
+    "../Ironleads/src/knowledge/**/*",
+    "../Ironleads/src/types/**/*",
+    "../Ironleads/src/tools/leadGenKnowledgeTools.ts"
+  ],
   "exclude": [
     "node_modules",
     "**/*.test.ts",

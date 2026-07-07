@@ -60,7 +60,11 @@
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
     "test:e2e": "playwright test",
-    "test:e2e:production:bwc": "node scripts/run-e2e-production-bwc.mjs"
+    "test:e2e:production:bwc": "node scripts/run-e2e-production-bwc.mjs",
+    "ironleads:install": "cd Ironleads && npm install",
+    "ironleads:db": "cd Ironleads && npm run db:generate && npm run db:push",
+    "ironleads:dev": "cd Ironleads && npm run dev",
+    "ironleads:harvest": "cd Ironleads && npm run harvest -- --fixtures-only --skip-ingress"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

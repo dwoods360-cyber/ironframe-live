@@ -1420,6 +1420,7 @@ model MarketIntelligenceFlywheelLog {
 
 /// IronBoard tenant-isolated B2B CRM persistence (boardroom subpackage; whole-cent BigInt values).
 enum IronboardLeadStage {
+  SUSPECT
   PROSPECT
   QUALIFIED
   DISCOVERY
@@ -1427,6 +1428,20 @@ enum IronboardLeadStage {
   NEGOTIATION
   CLOSED_WON
   CLOSED_LOST
+}
+
+enum IronboardBeachheadSector {
+  REGIONAL_BHC
+  UTILITY_NERC
+  MSSP_ENCLAVE
+  HEALTH_HIPAA
+  UNCLASSIFIED
+}
+
+enum IronboardLeadIngestionSource {
+  MANUAL_INPUT
+  INBOUND_PORTAL
+  AUTONOMOUS_CRAWLER
 }
 
 enum IronboardInteractionChannel {
@@ -1440,22 +1455,30 @@ enum IronboardInteractionChannel {
 }
 
 model IronboardCrmContact {
-  id           String                    @id @default(uuid()) @db.Uuid
-  tenantId     String                    @map("tenant_id") @db.Uuid
-  fullName     String                    @map("full_name")
-  email        String
-  company      String
-  title        String                    @default("")
-  phone        String?
-  metadata     Json                      @default("{}")
-  createdAt    DateTime                  @default(now()) @map("created_at")
-  updatedAt    DateTime                  @updatedAt @map("updated_at")
-  tenant       Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  primaryDeals IronboardCrmDeal[]        @relation("IronboardCrmPrimaryContact")
-  interactions IronboardCrmInteraction[]
+  id                   String                       @id @default(uuid()) @db.Uuid
+  tenantId             String                       @map("tenant_id") @db.Uuid
+  fullName             String                       @map("full_name")
+  email                String
+  company              String
+  title                String                       @default("")
+  phone                String?
+  industrySector       IronboardBeachheadSector?    @map("industry_sector")
+  detectedTrigger      String?                      @map("detected_trigger")
+  ingestionSource      IronboardLeadIngestionSource @default(MANUAL_INPUT) @map("ingestion_source")
+  /// Deterministic priority vector 0–100 from beachhead + pain + trigger + methodology weights.
+  priorityScore        Int                          @default(0) @map("priority_score")
+  qualificationSignals Json                         @default("{}") @map("qualification_signals")
+  metadata             Json                         @default("{}")
+  createdAt            DateTime                     @default(now()) @map("created_at")
+  updatedAt            DateTime                     @updatedAt @map("updated_at")
+  tenant               Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryDeals         IronboardCrmDeal[]           @relation("IronboardCrmPrimaryContact")
+  interactions         IronboardCrmInteraction[]
 
   @@index([tenantId])
   @@index([tenantId, email])
+  @@index([tenantId, priorityScore])
+  @@index([tenantId, industrySector])
   @@map("ironboard_crm_contacts")
 }
 

@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("IRONLEADS_DATABASE_URL")
+}
+
+enum SignalProcessingStatus {
+  UNPROCESSED
+  QUALIFIED
+  SHIPPED
+  DROPPED
+}
+
+/// Volatile scratchpad — raw OSINT before SignalFilter qualification.
+model RawScrapedSignal {
+  id               String                 @id @default(uuid())
+  sourceId         String                 @map("source_id")
+  targetUrl        String                 @map("target_url")
+  rawTextPayload   String                 @map("raw_text_payload")
+  contentHash      String                 @map("content_hash")
+  processingStatus SignalProcessingStatus @default(UNPROCESSED) @map("processing_status")
+  dropReason       String?                @map("drop_reason")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  qualifiedLead    QualifiedLead?
+
+  @@unique([contentHash])
+  @@index([processingStatus, createdAt])
+  @@map("raw_scraped_signals")
+}
+
+/// SignalFilter output — staged for LeadGatekeeper ingress.
+model QualifiedLead {
+  id               String                 @id @default(uuid())
+  signalId         String                 @unique @map("signal_id")
+  companyName      String                 @map("company_name")
+  industrySector   String                 @map("industry_sector")
+  detectedTrigger  String                 @map("detected_trigger")
+  contactEmail     String?                @map("contact_email")
+  accountDomain    String?                @map("account_domain")
+  confidenceScore  Int                    @default(0) @map("confidence_score")
+  processingStatus SignalProcessingStatus @default(QUALIFIED) @map("processing_status")
+  shippedAt        DateTime?              @map("shipped_at")
+  ironframeContactId String?              @map("ironframe_contact_id")
+  ironframeDealId    String?              @map("ironframe_deal_id")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  updatedAt        DateTime               @updatedAt @map("updated_at")
+  signal           RawScrapedSignal       @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([processingStatus, confidenceScore])
+  @@map("qualified_leads")
+}
+
+/// Dead-letter queue — parser-clean leads isolated after downstream failure.
+model QuarantineLead {
+  id               String   @id @default(uuid())
+  threadId         String   @map("thread_id")
+  runId            String?  @map("run_id")
+  failedNode       String   @map("failed_node")
+  errorMessage     String   @map("error_message")
+  stateFingerprint String?  @map("state_fingerprint")
+  payloadJson      String   @map("payload_json")
+  companyName      String   @map("company_name")
+  signalId         String   @map("signal_id")
+  qualifiedLeadId  String   @map("qualified_lead_id")
+  reviewedAt       DateTime? @map("reviewed_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([threadId, createdAt])
+  @@index([reviewedAt])
+  @@map("quarantine_leads")
+}
+
+/// Audit trail for harvest cron cycles.
+model HarvestRun {
+  id            String   @id @default(uuid())
+  startedAt     DateTime @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  signalsFetched Int     @default(0) @map("signals_fetched")
+  qualified     Int      @default(0)
+  shipped       Int      @default(0)
+  dropped       Int      @default(0)
+  errorMessage  String?  @map("error_message")
+
+  @@index([startedAt])
+  @@map("harvest_runs")
+}

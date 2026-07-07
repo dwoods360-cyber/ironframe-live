@@ -1,0 +1,69 @@
+{
+  "manifestVersion": "1.0.0",
+  "corpusId": "ironleads-lead-gen-knowledge-v1",
+  "title": "Ironleads Lead Generation Knowledge Base",
+  "description": "Proven B2B lead-generation books, strategies, and OSINT frameworks for Ironframe beachhead GTM. Consumed by LeadScout, SignalFilter, and IronBoard manageCrmPipeline.",
+  "generatedAt": "2026-07-07T02:00:00.000Z",
+  "entryCount": 38,
+  "categories": [
+    "outbound_prospecting",
+    "inbound_demand_gen",
+    "account_based_marketing",
+    "trigger_intelligence",
+    "social_selling",
+    "positioning_messaging",
+    "sales_development",
+    "partner_channel",
+    "executive_selling"
+  ],
+  "beachheadAlignment": [
+    "REGIONAL_BHC",
+    "UTILITY_NERC",
+    "MSSP_ENCLAVE",
+    "HEALTH_HIPAA"
+  ],
+  "ironboardCrossReferences": [
+    "challenger_sale",
+    "spin_selling",
+    "gap_selling",
+    "sales_acceleration_formula",
+    "never_split_the_difference",
+    "influence_persuasion",
+    "sales_machine",
+    "sales_enablement_board"
+  ],
+  "operationalAgents": {
+    "LeadScout": "Cron-bound fetch from allowlisted OSINT vectors defined per strategy entry.",
+    "SignalFilter": "Temperature-0 extraction maps raw text to beachhead sector + triggerSignals enum.",
+    "LeadGatekeeper": "Packages sanitized payload for POST /api/v1/ingress/ironleads → SUSPECT CRM queue."
+  },
+  "documents": [
+    {
+      "documentId": "lead-gen-corpus-master",
+      "title": "Ironleads Lead Generation Corpus",
+      "sourceModule": "Ironleads/src/knowledge/leadGenCorpus.ts",
+      "entryKinds": ["book", "strategy", "framework"],
+      "highlightedBooks": [
+        "Predictable Revenue",
+        "Fanatical Prospecting",
+        "The Sales Development Playbook",
+        "Crossing the Chasm",
+        "Obviously Awesome",
+        "Building a StoryBrand",
+        "Marketing Made Simple",
+        "Made to Stick",
+        "Influence",
+        "The Jolt Effect",
+        "ABM Is B2B",
+        "The Mom Test"
+      ],
+      "highlightedStrategies": [
+        "Trigger Event Selling",
+        "Regulatory OSINT Harvesting",
+        "Dream 100 Account Concentration",
+        "Board Cyber Slide Discovery Opener",
+        "MSSP / vCISO Partner Flywheel"
+      ]
+    }
+  ]
+}

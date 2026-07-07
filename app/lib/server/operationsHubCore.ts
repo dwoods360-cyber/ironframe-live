@@ -32,6 +32,15 @@ export type WorkforceServiceId =
   | "success-team"
   | "support-team";
 
+/** Authoritative operations-hub workforce probe order (must match buildOperationsHubSnapshot). */
+export const OPERATIONS_HUB_WORKFORCE_IDS: readonly WorkforceServiceId[] = [
+  "ironboard",
+  "ironleads",
+  "salesteam",
+  "success-team",
+  "support-team",
+] as const;
+
 export type WorkforceServiceStatus = {
   id: WorkforceServiceId;
   label: string;
@@ -421,9 +430,9 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       { label: "Operations hub", href: "/dashboard/operations" },
       { label: "Ironboard console", href: workforce[0]?.consoleUrl ?? "http://127.0.0.1:8082/", external: true },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
-      { label: "Support ticket ingestion", href: "/dashboard/support" },
+      { label: "IronSupportTeam portal", href: "/dashboard/support" },
       { label: "Ironleads portal", href: "/dashboard/operations/ironleads" },
-      { label: "Sales agent portal", href: "/sales-agent-portal" },
+      { label: "SalesTeam portal", href: "/sales-agent-portal" },
       { label: "IronSuccessTeam portal", href: "/dashboard/operations/success-team" },
       { label: "Governance Frame (public)", href: "/governance-frame" },
       { label: "Governance Frame RSS", href: "/rss.xml" },

@@ -27,6 +27,43 @@ function StatusDot({ ok }: { ok: boolean }) {
   );
 }
 
+function WorkforceFleetList({ workforce }: { workforce: WorkforceServiceStatus[] }) {
+  return (
+    <ul className="space-y-3 text-sm">
+      {workforce.map((service) => (
+        <li key={service.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2 font-medium text-slate-100">
+              <StatusDot ok={service.reachable} />
+              {service.label}
+            </span>
+            <span
+              className={`text-xs font-semibold ${service.reachable ? "text-emerald-400" : "text-rose-400"}`}
+            >
+              :{service.port} {service.reachable ? "● up" : "○ down"}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">{service.role}</p>
+          {service.portalUrl ? (
+            <Link href={service.portalUrl} className="mt-2 inline-block text-xs text-cyan-300 hover:underline">
+              Open portal →
+            </Link>
+          ) : null}
+        </li>
+      ))}
+      <li className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-slate-100">Ironframe Control Plane</span>
+          <span className="text-xs font-semibold text-cyan-400">:3000 ingress host</span>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Signed /api/v1/ingress/* routes · approvals desk · in-tenant support console
+        </p>
+      </li>
+    </ul>
+  );
+}
+
 function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -310,7 +347,13 @@ export default function OperationsHubClient() {
                 href="/dashboard/support"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
-                Support ticket ingestion
+                IronSupportTeam portal
+              </Link>
+              <Link
+                href="/sales-agent-portal"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                SalesTeam portal
               </Link>
               <Link
                 href="/dashboard/operations/ironleads"
@@ -324,6 +367,26 @@ export default function OperationsHubClient() {
               >
                 IronSuccessTeam portal
               </Link>
+            </div>
+          </section>
+          <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Perimeter workforce apps</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Poll workers and boardroom consoles — including IronSupportTeam (:8086).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab("workforce")}
+                className="text-xs text-cyan-300 hover:underline"
+              >
+                Full fleet telemetry →
+              </button>
+            </div>
+            <div className="mt-4">
+              <WorkforceFleetList workforce={snapshot.workforce} />
             </div>
           </section>
           </>
@@ -610,30 +673,9 @@ export default function OperationsHubClient() {
                 Isolated LangGraph poll workers — read-only ingress into Ironframe :3000; operator HITL before
                 dispatch.
               </p>
-              <ul className="mt-4 space-y-3 text-sm">
-                {snapshot.workforce.map((service) => (
-                  <li key={service.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-slate-100">{service.label}</span>
-                      <span
-                        className={`text-xs font-semibold ${service.reachable ? "text-emerald-400" : "text-rose-400"}`}
-                      >
-                        :{service.port} {service.reachable ? "● up" : "○ down"}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">{service.role}</p>
-                  </li>
-                ))}
-                <li className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-slate-100">Ironframe Control Plane</span>
-                    <span className="text-xs font-semibold text-cyan-400">:3000 ingress host</span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Signed /api/v1/ingress/* routes · approvals desk · in-tenant support console
-                  </p>
-                </li>
-              </ul>
+              <div className="mt-4">
+                <WorkforceFleetList workforce={snapshot.workforce} />
+              </div>
             </section>
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">Human-in-the-loop teams</h2>
@@ -646,7 +688,7 @@ export default function OperationsHubClient() {
                 </li>
                 <li>
                   <Link href="/dashboard/support" className="text-cyan-300 hover:underline">
-                    Support ticket ingestion portal
+                    IronSupportTeam interaction portal
                   </Link>
                   <p className="text-slate-500">
                     In-tenant intake → IronSupportTeam poll worker (:8086) → SUPPORT approval queue.

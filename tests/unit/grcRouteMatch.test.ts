@@ -6,6 +6,7 @@ import {
   isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
   isPublicCloudIngressPath,
+  isIronleadsIngressPath,
   isPublicRoute,
   isReportsAuditTrailPath,
   isReportsAuditTrailPathWithTenant,
@@ -81,6 +82,11 @@ describe("grcRouteMatch", () => {
   it("allows robots.txt through public cloud ingress", () => {
     expect(isPublicCloudIngressPath("/robots.txt")).toBe(true);
     expect(isPublicCloudIngressPath("/sitemap.xml")).toBe(true);
+  });
+
+  it("recognizes Ironleads signed perimeter ingress path", () => {
+    expect(isIronleadsIngressPath("/api/v1/ingress/ironleads")).toBe(true);
+    expect(isIronleadsIngressPath("/api/v1/ingress/ironleads/extra")).toBe(false);
   });
 
   it("keeps marketing public while gating product docs and pricing", () => {

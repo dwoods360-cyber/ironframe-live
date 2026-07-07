@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run db:generate && npm run db:push
+ENV IRONLEADS_DATABASE_URL=file:./data/ironleads.db
+ENV IRONLEADS_CHECKPOINT_DATABASE_URL=file:./data/ironleads-checkpoints.db
+RUN mkdir -p data && npm run db:generate && npm run db:push
 ENV NODE_ENV=production
 EXPOSE 8080
 CMD ["npm", "start"]

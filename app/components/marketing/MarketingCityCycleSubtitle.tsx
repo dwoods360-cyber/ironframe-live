@@ -5,7 +5,7 @@ const CITY_CYCLES = [
   "TOKYO — TORONTO — MONTRÉAL",
 ] as const;
 
-/** CSS keyframe carousel — no client JS; cycles even when prefers-reduced-motion is on. */
+/** CSS keyframe carousel with crossfade between city sets — no client JS required. */
 export default function MarketingCityCycleSubtitle() {
   return (
     <p

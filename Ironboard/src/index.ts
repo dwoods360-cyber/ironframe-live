@@ -14,6 +14,7 @@ import {
   BOARDROOM_ISOLATED_AGENT_IDS,
   BOARDROOM_ISOLATED_AGENT_REDIRECTS,
   BOARDROOM_QUERY_ROSTER,
+  PERIMETER_WORKFORCE_APPS,
   PRODUCT_MATRIX,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
@@ -831,6 +832,13 @@ function renderDashboard(): string {
     </div>`,
   ).join('');
 
+  const perimeterWorkers = PERIMETER_WORKFORCE_APPS.map(
+    w => `<div class="product workforce-app" title="${w.ingressNote ?? ''}">
+      <strong>${w.label}</strong><span>:${w.port}</span>
+      <div style="font-size:0.58rem;color:#64748b;margin-top:0.2rem;line-height:1.3">${w.role}</div>
+    </div>`,
+  ).join('');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -912,6 +920,7 @@ function renderDashboard(): string {
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    .workforce-app { flex-wrap: wrap; align-items: flex-start; }
     .product-matrix-row .product-main { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
     .product-matrix-row strong { font-size: 0.68rem; line-height: 1.25; }
     .product-meta { font-size: 0.58rem; font-weight: 800; color: #94a3b8; white-space: nowrap; flex-shrink: 0; }
@@ -982,7 +991,9 @@ function renderDashboard(): string {
       </div>
     </section>
     <section>
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Product Matrix</p>
+      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
+      ${perimeterWorkers}
+      <p style="font-size:0.65rem;color:#64748b;margin:1rem 0 0.35rem;text-transform:uppercase;">Product Matrix</p>
       <div id="product-matrix-status">Probing local fleet…</div>
       <div id="product-matrix-list">${productMatrixRows}</div>
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
 
 import { useCommandPostNavigation } from "@/app/hooks/useCommandPostNavigation";
@@ -49,11 +48,14 @@ export default function CommandPostNavLink({
     })();
   };
 
+  // Tenant workspace hosts: use a native document navigation to `/`.
+  // Next.js soft `<Link>` transitions from standalone `/reports/*` surfaces can stall without
+  // updating the route — full navigation matches browser-back-then-click behavior operators expect.
   if (!onApex && hostTenantSlug) {
     return (
-      <Link href="/" prefetch={prefetch} data-testid={testId} className={className}>
+      <a href="/" data-testid={testId} className={className}>
         {children}
-      </Link>
+      </a>
     );
   }
 

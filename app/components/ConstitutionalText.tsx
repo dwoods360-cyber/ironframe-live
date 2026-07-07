@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { ConstitutionalTooltipPanel, type ConstitutionalTooltipTheme } from "@/app/components/ConstitutionalTooltip";
+import { LAYOUT_SUBNAV_HEADER_Z_CLASS } from "@/app/config/layoutConstants";
 import { directiveLabelForId, segmentConstitutionalText } from "@/app/config/constitutionalDirectives";
 import { getTasFingerprintThrottled } from "@/app/utils/tasFingerprintClient";
 
@@ -71,13 +72,20 @@ export function ConstitutionalText({
     return () => window.removeEventListener("scroll", clear, true);
   }, [tip]);
 
+  useEffect(() => {
+    if (!tip) return;
+    const dismiss = () => setTip(null);
+    window.addEventListener("click", dismiss, true);
+    return () => window.removeEventListener("click", dismiss, true);
+  }, [tip]);
+
   useEffect(() => () => clearLeaveTimer(), []);
 
   const portal =
     tip && typeof document !== "undefined"
       ? createPortal(
           <div
-            className="fixed z-[400]"
+            className={`fixed ${LAYOUT_SUBNAV_HEADER_Z_CLASS}`}
             style={{
               left: Math.max(8, Math.min(tip.x + 12, typeof window !== "undefined" ? window.innerWidth - 300 : 8)),
               top: Math.max(8, tip.y + 14),

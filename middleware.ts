@@ -10,7 +10,7 @@ import {
   isStripeWebhookIngressPath,
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
-import { isAuthPublicPath, isPublicCloudIngressPath, isPublicRoute } from "@/app/utils/grcRouteMatch";
+import { isAuthPublicPath, isIronleadsIngressPath, isPublicCloudIngressPath, isPublicRoute } from "@/app/utils/grcRouteMatch";
 import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
 import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
@@ -58,6 +58,7 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   if (isStripeWebhookIngressPath(pathname)) return true;
+  if (isIronleadsIngressPath(pathname)) return true;
   return false;
 }
 

@@ -24,6 +24,15 @@ export default async function SalesAgentPortalPage() {
       <PublicApexNav isAuthenticated={Boolean(sessionUser)} />
 
       <div className="mx-auto flex min-h-[calc(100dvh-2.75rem)] w-full max-w-xl flex-col items-center justify-center px-4 py-10 sm:px-6">
+        <div className="mb-6 w-full">
+          <Link
+            href="/dashboard/operations"
+            className="inline-flex rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 transition-colors hover:border-cyan-600 hover:text-white"
+          >
+            ← Operations hub
+          </Link>
+        </div>
+
         <header className="w-full text-center">
           <p className="font-mono text-[10px] tracking-[0.2em] text-cyan-400 uppercase">
             PRE-FLIGHT LEAD CONVERSION GATES
@@ -46,12 +55,9 @@ export default async function SalesAgentPortalPage() {
           <span>SYSTEM STATE: DETERMINISTIC</span>
         </footer>
 
-        <p className="mt-6 flex flex-col items-center gap-2 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-500">
           <Link href="/" className="text-cyan-400 hover:text-cyan-300">
             ← Return to homepage
-          </Link>
-          <Link href="/dashboard/operations" className="text-slate-500 hover:text-cyan-400">
-            Operations hub (GLOBAL_ADMIN)
           </Link>
         </p>
       </div>

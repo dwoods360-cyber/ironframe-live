@@ -263,6 +263,7 @@ export async function middleware(request: NextRequest) {
 
   const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
   const isSessionBootstrapRoute = pathname.startsWith("/api/auth/session-bootstrap");
+  const isWorkspaceLaunchRoute = pathname.startsWith("/api/auth/workspace-launch");
 
   // Workspace activation: never exchange auth codes or session tokens on apex localhost.
   if (isAuthCallbackRoute && request.nextUrl.searchParams.get("code")) {
@@ -298,7 +299,9 @@ export async function middleware(request: NextRequest) {
     isForgotPasswordRoute ||
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
-    isAuthCallbackRoute;
+    isAuthCallbackRoute ||
+    isSessionBootstrapRoute ||
+    isWorkspaceLaunchRoute;
   /** IronBoard (:8082) server bridge ? tenant cookie / host header scoped; no browser session required. */
   const isBoardSharedContextRoute = pathname === "/api/board/shared-context";
 

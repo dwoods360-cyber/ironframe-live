@@ -46,6 +46,13 @@ vi.mock("@/app/lib/auth/corporateInviteProvisioning", () => ({
   ensureCorporateInviteRoleAssignment: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/app/lib/auth/resolveBootstrapSessionTokens.server", () => ({
+  resolveBootstrapSessionTokens: vi.fn(async () => ({
+    accessToken: "supabase-access-token",
+    refreshToken: "supabase-refresh-token",
+  })),
+}));
+
 const WIL_USER = {
   id: "wil-user-id",
   email: "wil@blackwoodscoffee.com",

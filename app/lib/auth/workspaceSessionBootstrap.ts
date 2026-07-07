@@ -48,7 +48,6 @@ export async function mintWorkspaceBootstrapHandoffUrl(input: {
     userEmail: input.userEmail,
     tenantSlug: authorized.tenantSlug,
     tenantUuid: authorized.tenantUuid,
-    ...(accessToken && refreshToken ? { accessToken, refreshToken } : {}),
     nextPath: input.nextPath?.trim() || workspaceActivationNextParam(),
   });
 

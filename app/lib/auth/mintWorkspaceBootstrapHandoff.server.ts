@@ -92,54 +92,10 @@ export async function mintWorkspaceBootstrapFromRequest(
     return { ok: false, reason: "unauthenticated" };
   }
 
-  let accessToken = "";
-  let refreshToken = "";
-
-  const {
-    data: { session: initialSession },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  if (!sessionError && initialSession?.access_token && initialSession.refresh_token) {
-    accessToken = initialSession.access_token;
-    refreshToken = initialSession.refresh_token;
-  } else {
-    const {
-      data: { session: refreshedSession },
-      error: refreshError,
-    } = await supabase.auth.refreshSession();
-
-    if (!refreshError && refreshedSession?.access_token && refreshedSession.refresh_token) {
-      accessToken = refreshedSession.access_token;
-      refreshToken = refreshedSession.refresh_token;
-    }
-  }
-
-  if (!accessToken || !refreshToken) {
-    const bootstrapUrl = await mintWorkspaceBootstrapHandoffUrl({
-      tenantSlug: slug,
-      userId: user.id.trim(),
-      userEmail: user.email,
-      nextPath,
-    });
-
-    if (!bootstrapUrl) {
-      return { ok: false, reason: "tenant_membership_required" };
-    }
-
-    if (!isTenantWorkspaceBootstrapUrl(bootstrapUrl, slug)) {
-      return { ok: false, reason: "invalid_bootstrap_target" };
-    }
-
-    return { ok: true, bootstrapUrl, cookieMutations };
-  }
-
   const bootstrapUrl = await mintWorkspaceBootstrapHandoffUrl({
     tenantSlug: slug,
     userId: user.id.trim(),
     userEmail: user.email,
-    accessToken,
-    refreshToken,
     nextPath,
   });
 

@@ -10,9 +10,9 @@ Source scripts:
   docs/user-manuals/get-started-welcome-audio-script.md
   docs/user-manuals/get-started-orientation-audio-script.md
 
-Pause handling:
-  - Script "Pause N seconds." production notes must never be spoken.
-  - <break time="Ns"/> is SSML silence only (requires <speak> wrapper).
+TTS rules:
+  - edge-tts escapes all input as plain text — never pass SSML/XML (it will be spoken aloud).
+  - Pauses are implemented by synthesizing plain-text segments separately and concatenating MP3s.
   - source-file / ref / code fences must never reach TTS input.
 """
 
@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -28,21 +29,23 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 import edge_tts
 
-from spoken_narration import assert_spoken_narration_safe, extract_spoken_narration
+from spoken_narration import (
+    NarrationSegment,
+    assert_spoken_narration_safe,
+    extract_narration_segments,
+    parse_inline_break_segments,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "public" / "training-audio"
 STEPS_DIR = OUT_DIR / "steps"
 VOICE = "en-US-AriaNeural"
 RATE = "-5%"
-SSML_NS = "http://www.w3.org/2001/10/synthesis"
 
 WELCOME_SCRIPT = ROOT / "docs/user-manuals/get-started-welcome-audio-script.md"
 ORIENTATION_SCRIPT = ROOT / "docs/user-manuals/get-started-orientation-audio-script.md"
 
-_BREAK_TAG = re.compile(r"<break\s+time=\"\d+s\"\s*/>", re.IGNORECASE)
-
-# Step clips — spoken copy only; pauses via SSML <break>, never "Pause N seconds." prose.
+# Step clips — plain text only; inline <break> markers are split before synthesis.
 STEP_TEXT: dict[str, str] = {
     "quickstart": """
 Welcome to the Ironframe Command Post. You are signed in to your assigned workspace.
@@ -78,46 +81,59 @@ Exports are scoped to your active workspace and named for your tenant key.
 """.strip(),
 }
 
+_BREAK_TAG = re.compile(r"<break\s+time=", re.IGNORECASE)
 
-def load_spoken_from_script(path: Path) -> str:
+
+def load_segments_from_script(path: Path) -> list[NarrationSegment]:
     markdown = path.read_text(encoding="utf-8")
-    spoken = extract_spoken_narration(markdown)
-    if not spoken:
+    segments = extract_narration_segments(markdown)
+    if not segments:
         raise ValueError(f"No spoken narration extracted from {path.relative_to(ROOT)}")
-    assert_spoken_narration_safe(spoken)
-    return spoken
+    for text, _pause in segments:
+        assert_spoken_narration_safe(text)
+    return segments
 
 
-def to_ssml(spoken: str) -> str:
-    """Wrap narration in SSML so <break> renders as silence, not spoken text."""
-    body = spoken.strip()
-    if body.startswith("<speak"):
-        return body
-    return (
-        f'<speak version="1.0" xmlns="{SSML_NS}" xml:lang="en-US">'
-        f"{body}</speak>"
+def load_segments_from_inline_text(text: str) -> list[NarrationSegment]:
+    segments = (
+        parse_inline_break_segments(text)
+        if _BREAK_TAG.search(text)
+        else [(re.sub(r"\s+", " ", text).strip(), 0.0)]
     )
+    for chunk, _pause in segments:
+        assert_spoken_narration_safe(chunk)
+    return segments
 
 
-async def synthesize(text: str, output: Path) -> None:
-    assert_spoken_narration_safe(text)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    payload = to_ssml(text) if _BREAK_TAG.search(text) or "<break" in text.lower() else text.strip()
-    communicate = edge_tts.Communicate(payload, VOICE, rate=RATE)
+async def synthesize_plain_segment(text: str, output: Path) -> None:
+    communicate = edge_tts.Communicate(text, VOICE, rate=RATE)
     await communicate.save(str(output))
+
+
+async def synthesize_segments(segments: list[NarrationSegment], output: Path) -> None:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    mp3_parts: list[bytes] = []
+
+    with tempfile.TemporaryDirectory(prefix="ironframe-tts-") as tmp_dir:
+        tmp = Path(tmp_dir)
+        for index, (text, _pause) in enumerate(segments):
+            part_path = tmp / f"part-{index:03d}.mp3"
+            await synthesize_plain_segment(text, part_path)
+            mp3_parts.append(part_path.read_bytes())
+
+    output.write_bytes(b"".join(mp3_parts))
     size = output.stat().st_size
-    print(f"wrote {output.relative_to(ROOT)} ({size:,} bytes)")
+    print(f"wrote {output.relative_to(ROOT)} ({size:,} bytes, {len(segments)} segment(s))")
 
 
 async def main() -> int:
-    welcome = load_spoken_from_script(WELCOME_SCRIPT)
-    orientation = load_spoken_from_script(ORIENTATION_SCRIPT)
+    welcome_segments = load_segments_from_script(WELCOME_SCRIPT)
+    orientation_segments = load_segments_from_script(ORIENTATION_SCRIPT)
 
-    await synthesize(welcome, OUT_DIR / "get-started-welcome.mp3")
-    await synthesize(orientation, OUT_DIR / "get-started-orientation.mp3")
+    await synthesize_segments(welcome_segments, OUT_DIR / "get-started-welcome.mp3")
+    await synthesize_segments(orientation_segments, OUT_DIR / "get-started-orientation.mp3")
     for step_id, text in STEP_TEXT.items():
-        assert_spoken_narration_safe(text)
-        await synthesize(text, STEPS_DIR / f"{step_id}.mp3")
+        await synthesize_segments(load_segments_from_inline_text(text), STEPS_DIR / f"{step_id}.mp3")
     return 0
 
 

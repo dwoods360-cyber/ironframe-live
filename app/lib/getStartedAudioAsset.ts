@@ -1,5 +1,5 @@
 /** Bump when training MP3 bytes change so browsers drop stale cached narration. */
-export const GET_STARTED_AUDIO_ASSET_VERSION = "3";
+export const GET_STARTED_AUDIO_ASSET_VERSION = "4";
 
 export function withGetStartedAudioCacheBust(url: string): string {
   const trimmed = url.trim();

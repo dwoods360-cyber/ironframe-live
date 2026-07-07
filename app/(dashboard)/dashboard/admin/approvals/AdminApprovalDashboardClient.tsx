@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 interface PendingDraft {
@@ -105,8 +106,14 @@ export default function AdminApprovalDashboard() {
               Agent Messaging Approvals
             </h1>
           </div>
-          <div className="flex gap-2 font-mono">
-            <div className="rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2 text-center">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/dashboard/operations"
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
+            >
+              ← Operations hub
+            </Link>
+            <div className="rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2 text-center font-mono">
               <div className="text-[10px] uppercase text-slate-500">Pending Queue</div>
               <div className="text-lg font-bold text-cyan-400">{drafts.length}</div>
             </div>

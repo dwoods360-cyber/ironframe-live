@@ -1,11 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
 
 type HubTab = "overview" | "workforce" | "crm" | "briefings" | "newsletters" | "teams";
+
+const HUB_TAB_IDS: HubTab[] = [
+  "overview",
+  "workforce",
+  "crm",
+  "briefings",
+  "newsletters",
+  "teams",
+];
+
+function parseHubTab(raw: string | null): HubTab {
+  if (raw && HUB_TAB_IDS.includes(raw as HubTab)) return raw as HubTab;
+  return "overview";
+}
+
+function operationsTabHref(tab: HubTab): string {
+  return tab === "overview" ? "/dashboard/operations" : `/dashboard/operations?tab=${tab}`;
+}
 
 const STAGE_LABELS: Record<string, string> = {
   SUSPECT: "Suspect",
@@ -116,7 +135,8 @@ function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
 }
 
 export default function OperationsHubClient() {
-  const [tab, setTab] = useState<HubTab>("overview");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<HubTab>(() => parseHubTab(searchParams.get("tab")));
   const [snapshot, setSnapshot] = useState<OperationsHubSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,6 +148,10 @@ export default function OperationsHubClient() {
   const [syndicateBusy, setSyndicateBusy] = useState(false);
   const [syndicateMessage, setSyndicateMessage] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
+
+  useEffect(() => {
+    setTab(parseHubTab(searchParams.get("tab")));
+  }, [searchParams]);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -250,10 +274,9 @@ export default function OperationsHubClient() {
 
         <nav className="flex flex-wrap gap-2">
           {tabs.map((item) => (
-            <button
+            <Link
               key={item.id}
-              type="button"
-              onClick={() => setTab(item.id)}
+              href={operationsTabHref(item.id)}
               className={`rounded-lg px-3 py-2 text-sm font-medium ${
                 tab === item.id
                   ? "bg-cyan-900/50 text-cyan-100 ring-1 ring-cyan-700"
@@ -261,9 +284,20 @@ export default function OperationsHubClient() {
               }`}
             >
               {item.label}
-            </button>
+            </Link>
           ))}
         </nav>
+
+        {tab !== "overview" ? (
+          <div>
+            <Link
+              href="/dashboard/operations"
+              className="inline-block rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
+            >
+              ← Operations hub
+            </Link>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-4 text-sm text-rose-200">
@@ -322,27 +356,24 @@ export default function OperationsHubClient() {
               >
                 Review approval queue ({snapshot.approvals.total})
               </Link>
-              <button
-                type="button"
-                onClick={() => setTab("briefings")}
+              <Link
+                href="/dashboard/operations?tab=briefings"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 Promote briefing draft
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("newsletters")}
+              </Link>
+              <Link
+                href="/dashboard/operations?tab=newsletters"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 Ironcast newsletters
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("workforce")}
+              </Link>
+              <Link
+                href="/dashboard/operations?tab=workforce"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 Check worker fleet
-              </button>
+              </Link>
               <Link
                 href="/dashboard/support"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
@@ -383,13 +414,12 @@ export default function OperationsHubClient() {
                   Poll workers and boardroom consoles — including IronSupportTeam (:8086).
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setTab("workforce")}
+              <Link
+                href="/dashboard/operations?tab=workforce"
                 className="text-xs text-cyan-300 hover:underline"
               >
                 Full fleet telemetry →
-              </button>
+              </Link>
             </div>
             <div className="mt-4">
               <WorkforceFleetList workforce={snapshot.workforce} />

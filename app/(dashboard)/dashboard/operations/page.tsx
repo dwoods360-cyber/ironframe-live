@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 
 import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
@@ -18,5 +19,15 @@ export default async function OperationsHubPage() {
     redirect("/unauthorized");
   }
 
-  return <OperationsHubClient />;
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#020617] p-8 text-slate-400">
+          Loading operations command center…
+        </div>
+      }
+    >
+      <OperationsHubClient />
+    </Suspense>
+  );
 }

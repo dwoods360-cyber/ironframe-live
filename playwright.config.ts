@@ -4,6 +4,10 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
 
+const productionTarget =
+  process.env.E2E_PRODUCTION === '1' ||
+  process.env.PLAYWRIGHT_TARGET?.trim().toLowerCase() === 'production';
+
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: '**/*.spec.ts',
@@ -21,7 +25,7 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: productionTarget ? 'https://bwc.ironframegrc.com' : 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
     actionTimeout: 15_000, // 15s for click/fill — slower than default 10s
   },
@@ -34,13 +38,17 @@ export default defineConfig({
       ]
     : [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
-  webServer: {
-    command: process.env.CI
-      ? 'npm run build && npm run start -- -p 3000'
-      : 'npm run dev -- -p 3000',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: process.env.CI ? 240 * 1000 : 120 * 1000,
-  },
+  ...(productionTarget
+    ? {}
+    : {
+        webServer: {
+          command: process.env.CI
+            ? 'npm run build && npm run start -- -p 3000'
+            : 'npm run dev -- -p 3000',
+          url: 'http://127.0.0.1:3000',
+          reuseExistingServer: !process.env.CI,
+          timeout: process.env.CI ? 240 * 1000 : 120 * 1000,
+        },
+      }),
 });
 

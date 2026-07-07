@@ -54,8 +54,27 @@ export function hasSupabaseAdmin(): boolean {
   );
 }
 
+export function isE2eProductionTarget(): boolean {
+  return (
+    process.env.E2E_PRODUCTION === "1" ||
+    process.env.PLAYWRIGHT_TARGET?.trim().toLowerCase() === "production"
+  );
+}
+
 export function tenantSubdomainOrigin(slug: string): string {
+  const explicit = process.env.E2E_TENANT_ORIGIN?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  if (isE2eProductionTarget()) {
+    const apex = process.env.E2E_TENANT_APEX_DOMAIN?.trim() || "ironframegrc.com";
+    return `https://${slug.toLowerCase()}.${apex}`;
+  }
+
   return `http://${slug}.lvh.me:3000`;
+}
+
+function tenantCookieDomain(tenantSlug: string): string {
+  return new URL(tenantSubdomainOrigin(tenantSlug)).hostname;
 }
 
 function tenantAuthCallbackUrl(tenantSlug: string): string {
@@ -171,6 +190,8 @@ async function bootstrapImplicitTenantSession(
   const userId = userIdFromAccessToken(accessToken);
   const tenantUuid = await ensureTenantRoleAssignment(userId, tenantSlug);
   const tenantOrigin = tenantSubdomainOrigin(tenantSlug);
+  const cookieDomain = tenantCookieDomain(tenantSlug);
+  const cookieSecure = tenantOrigin.startsWith("https:");
   const authCookies = await materializeSupabaseAuthCookies(accessToken, refreshToken);
 
   const normalizeSameSite = (value: unknown): "Lax" | "Strict" | "None" => {
@@ -183,19 +204,19 @@ async function bootstrapImplicitTenantSession(
     ...authCookies.map((cookie) => ({
       name: cookie.name,
       value: cookie.value,
-      domain: `${tenantSlug}.lvh.me`,
+      domain: cookieDomain,
       path: typeof cookie.options.path === "string" ? cookie.options.path : "/",
       httpOnly: Boolean(cookie.options.httpOnly),
-      secure: false,
+      secure: cookieSecure,
       sameSite: normalizeSameSite(cookie.options.sameSite),
     })),
     {
       name: "ironframe-tenant",
       value: tenantUuid,
-      domain: `${tenantSlug}.lvh.me`,
+      domain: cookieDomain,
       path: "/",
       httpOnly: false,
-      secure: false,
+      secure: cookieSecure,
       sameSite: "Lax",
     },
   ]);

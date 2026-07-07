@@ -58,7 +58,9 @@
     "dev:stripe:listen": "stripe listen --forward-to http://127.0.0.1:4242",
     "smoke:pilot-corp:provision": "npx tsx scripts/dev/fire-pilot-corp-provision.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
-    "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py"
+    "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
+    "test:e2e": "playwright test",
+    "test:e2e:production:bwc": "node scripts/run-e2e-production-bwc.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

@@ -5,6 +5,7 @@ import {
   disconnectE2ePrisma,
   hasDatabaseUrl,
   hasSupabaseAdmin,
+  isE2eProductionTarget,
   redeemInviteOnTenantSubdomain,
   tenantSubdomainOrigin,
 } from "./helpers/ingestionPipeline";
@@ -152,8 +153,12 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     console.log(JSON.stringify(report, null, 2));
     console.log("=== END BWC WIL SMOKE ===\n");
 
+    const tenantHostPattern = isE2eProductionTarget()
+      ? /bwc\.ironframegrc\.com/i
+      : /bwc\.lvh\.me/i;
+
     const root = pathReports.find((row) => row.path === "/");
-    expect(root?.finalUrl, "must stay on bwc tenant host").toMatch(/bwc\.lvh\.me/i);
+    expect(root?.finalUrl, "must stay on bwc tenant host").toMatch(tenantHostPattern);
     expect(root?.mode, "Command Post must load on /").toBe("command_post");
     expect(root?.billingHold, "ACTIVE billing must not show hold panel").toBe(false);
     await expect(page.getByText(/FETCH BLOCKED: NO TENANT CONTEXT/i)).toHaveCount(0);
@@ -165,7 +170,9 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     const exports = pathReports.find((row) => row.path === "/exports");
     expect(exports?.mode, "exports must not require re-login").not.toBe("signin");
     expect(exports?.finalUrl, "exports must stay on tenant host /exports route").toMatch(
-      /bwc\.lvh\.me:3000\/exports/i,
+      isE2eProductionTarget()
+        ? /bwc\.ironframegrc\.com\/exports/i
+        : /bwc\.lvh\.me:3000\/exports/i,
     );
 
     expect(

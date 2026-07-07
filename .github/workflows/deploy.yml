@@ -102,4 +102,6 @@ jobs:
           service: ${{ env.SERVICE_NAME }}
           image: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/sentinel-repo/${{ env.SERVICE_NAME }}:${{ github.sha }}
           region: ${{ env.REGION }}
+          # Run as the deploy SA so GHA does not need actAs on the default compute SA.
+          service_account: ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
           flags: '--allow-unauthenticated --memory=1Gi --cpu=1'

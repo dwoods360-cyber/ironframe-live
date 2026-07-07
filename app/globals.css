@@ -366,6 +366,92 @@ body {
   animation: regulatory-slide 0.35s ease-out;
 }
 
+@keyframes marketing-city-cycle-0 {
+  0%,
+  23% {
+    opacity: 1;
+  }
+  24%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes marketing-city-cycle-1 {
+  0%,
+  24% {
+    opacity: 0;
+  }
+  25%,
+  48% {
+    opacity: 1;
+  }
+  49%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes marketing-city-cycle-2 {
+  0%,
+  49% {
+    opacity: 0;
+  }
+  50%,
+  73% {
+    opacity: 1;
+  }
+  74%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes marketing-city-cycle-3 {
+  0%,
+  74% {
+    opacity: 0;
+  }
+  75%,
+  98% {
+    opacity: 1;
+  }
+  99%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.marketing-city-cycle-line {
+  opacity: 0;
+  animation-duration: 16s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.marketing-city-cycle-line-0 {
+  animation-name: marketing-city-cycle-0;
+}
+
+.marketing-city-cycle-line-1 {
+  animation-name: marketing-city-cycle-1;
+}
+
+.marketing-city-cycle-line-2 {
+  animation-name: marketing-city-cycle-2;
+}
+
+.marketing-city-cycle-line-3 {
+  animation-name: marketing-city-cycle-3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marketing-city-cycle-line {
+    animation-duration: 24s;
+    animation-timing-function: linear;
+  }
+}
+
 .command-center-surface {
   position: relative;
   isolation: isolate;

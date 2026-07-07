@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { isDevConstitutionalAuthorityUser } from "@/app/lib/grc/devConstitutionalElevation";
 import { readTenantSlugFromUserMetadata } from "@/app/lib/auth/tenantInviteMetadata";
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
@@ -130,6 +131,26 @@ export async function resolveDashboardAccess(): Promise<DashboardAccessResult> {
     const cookieTenantUuid =
       scopedRaw && isValidTenantUuid(scopedRaw) ? scopedRaw.trim() : null;
     const inviteTenantSlug = readTenantSlugFromUserMetadata(user?.user_metadata ?? null);
+
+    if (isPlatformGlobalAdminEmail(user.email)) {
+      if (hostBoundTenantUuid) {
+        return allowedFromAssignment(
+          userId,
+          hostBoundTenantUuid,
+          cookieTenantUuid !== hostBoundTenantUuid,
+        );
+      }
+      if (cookieTenantUuid) {
+        const cookieTenant = await prisma.tenant.findUnique({
+          where: { id: cookieTenantUuid },
+          select: { id: true },
+        });
+        if (cookieTenant) {
+          return allowedFromAssignment(userId, cookieTenantUuid, false);
+        }
+      }
+      return allowedFromAssignment(userId, TENANT_UUIDS.medshield, true);
+    }
 
     if (isDevConstitutionalAuthorityUser(user)) {
       if (cookieTenantUuid) {

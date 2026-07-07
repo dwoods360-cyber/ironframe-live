@@ -2,6 +2,7 @@ import "server-only";
 
 import { UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { filterHiddenStagingTenants, isHiddenStagingTenantSlug } from "@/app/lib/stagingTenantGate";
 import { getHostBoundTenantUuid } from "@/app/utils/serverTenantContext";
@@ -65,7 +66,9 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     orderBy: [{ grantedAt: "desc" }, { tenantId: "asc" }],
   });
 
-  if (assignments.length === 0) {
+  const isPlatformOwner = isPlatformGlobalAdminEmail(user?.email);
+
+  if (assignments.length === 0 && !isPlatformOwner) {
     return {
       tenants: [],
       canAccessGlobal: false,
@@ -74,7 +77,8 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     };
   }
 
-  const hasGlobalAdmin = assignments.some((row) => row.role === UserRole.GLOBAL_ADMIN);
+  const hasGlobalAdmin =
+    isPlatformOwner || assignments.some((row) => row.role === UserRole.GLOBAL_ADMIN);
   const assignedTenantIds = [
     ...new Map(
       assignments
@@ -98,11 +102,13 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   };
 
   const hasMultiAssignment = assignedTenantIds.length > 1;
-  const canSwitchAssignedWorkspaces = hasGlobalAdmin || hasMultiAssignment;
+  const canSwitchAssignedWorkspaces =
+    hasMultiAssignment || (hasGlobalAdmin && assignedTenantIds.length > 0);
 
   /** Subdomain host envelope — single-assignment operators stay locked; multi-assignment can hop subdomains. */
   if (hostTenantUuid) {
-    const allowed = assignments.some((row) => row.tenantId === hostTenantUuid);
+    const allowed =
+      isPlatformOwner || assignments.some((row) => row.tenantId === hostTenantUuid);
     if (!allowed) {
       return {
         tenants: [],

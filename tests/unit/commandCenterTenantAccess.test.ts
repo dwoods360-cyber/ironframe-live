@@ -48,6 +48,29 @@ describe("resolveCommandCenterTenantScope", () => {
     });
   });
 
+  it("grants global lane for platform GLOBAL_ADMIN email without RBAC rows", async () => {
+    vi.mocked(getSupabaseSessionUser).mockResolvedValue({
+      id: "owner-1",
+      email: "dwoods360@gmail.com",
+    } as never);
+    vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+      {
+        id: MED,
+        name: "Medshield",
+        slug: "medshield",
+        industry: "HEALTH",
+        ale_baseline: 100n,
+      },
+    ] as never);
+
+    const scope = await resolveCommandCenterTenantScope();
+    expect(scope.canAccessGlobal).toBe(true);
+    expect(scope.hostTenantSlug).toBeNull();
+    expect(scope.tenants).toHaveLength(1);
+    expect(scope.tenants[0]?.slug).toBe("medshield");
+  });
+
   it("returns only assigned tenants for scoped CISO", async () => {
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
       { tenantId: VAULT, role: "CISO" },

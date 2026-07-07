@@ -23,6 +23,7 @@ const USER_ID = "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b";
 
 describe("resolveApexWorkspaceLandingSlug", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(lookupTenantBySlug).mockResolvedValue(null);
     vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue(null);
@@ -36,8 +37,20 @@ describe("resolveApexWorkspaceLandingSlug", () => {
     });
     vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValueOnce({ id: "assignment-1" });
 
-    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2");
+    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2", "operator@example.com");
     expect(slug).toBe("run2");
+  });
+
+  it("allows platform GLOBAL_ADMIN email to land on metadata slug without assignment", async () => {
+    vi.mocked(lookupTenantBySlug).mockResolvedValue({
+      id: "tenant-bwc",
+      slug: "bwc",
+      name: "BWC",
+    });
+
+    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "bwc", "dwoods360@gmail.com");
+    expect(slug).toBe("bwc");
+    expect(prisma.userRoleAssignment.findFirst).not.toHaveBeenCalled();
   });
 
   it("ignores stale metadata slug and falls back to the primary assignment", async () => {
@@ -51,7 +64,7 @@ describe("resolveApexWorkspaceLandingSlug", () => {
       .mockResolvedValueOnce({ tenantId: "tenant-bwc" });
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" });
 
-    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2");
+    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2", "operator@example.com");
     expect(slug).toBe("bwc");
   });
 
@@ -65,7 +78,7 @@ describe("resolveApexWorkspaceLandingSlug", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null);
 
-    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2");
+    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2", "operator@example.com");
     expect(slug).toBeNull();
   });
 

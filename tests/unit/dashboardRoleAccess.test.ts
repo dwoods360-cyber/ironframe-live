@@ -10,6 +10,9 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(),
       findMany: vi.fn(),
     },
+    tenant: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -33,13 +36,20 @@ import prisma from "@/lib/prisma";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 
 describe("resolveDashboardAccess", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { getHostBoundTenantUuid, getScopedTenantUuidFromCookies } = await import(
+      "@/app/utils/serverTenantContext"
+    );
+    vi.mocked(getHostBoundTenantUuid).mockResolvedValue(null);
+    vi.mocked(getScopedTenantUuidFromCookies).mockResolvedValue(null);
     vi.mocked(getSupabaseSessionUser).mockResolvedValue({
       id: "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b",
       email: "operator@example.com",
     } as never);
     vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue(null);
   });
 
   it("returns pending when authenticated user has no role rows", async () => {
@@ -105,6 +115,39 @@ describe("resolveDashboardAccess", () => {
       status: "pending",
       userId: "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b",
       tenantUuid: VAULT,
+    });
+  });
+
+  it("allows platform GLOBAL_ADMIN email on apex without RBAC rows", async () => {
+    vi.mocked(getSupabaseSessionUser).mockResolvedValue({
+      id: "owner-uuid",
+      email: "dwoods360@gmail.com",
+    } as never);
+
+    const result = await resolveDashboardAccess();
+    expect(result).toEqual({
+      status: "allowed",
+      userId: "owner-uuid",
+      tenantUuid: MED,
+      tenantFallbackApplied: true,
+    });
+    expect(prisma.userRoleAssignment.findMany).not.toHaveBeenCalled();
+  });
+
+  it("allows platform GLOBAL_ADMIN email on host-bound subdomain without RBAC rows", async () => {
+    const { getHostBoundTenantUuid } = await import("@/app/utils/serverTenantContext");
+    vi.mocked(getHostBoundTenantUuid).mockResolvedValue(VAULT);
+    vi.mocked(getSupabaseSessionUser).mockResolvedValue({
+      id: "owner-uuid",
+      email: "dwoods360@gmail.com",
+    } as never);
+
+    const result = await resolveDashboardAccess();
+    expect(result).toEqual({
+      status: "allowed",
+      userId: "owner-uuid",
+      tenantUuid: VAULT,
+      tenantFallbackApplied: true,
     });
   });
 });

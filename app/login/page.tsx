@@ -130,6 +130,7 @@ export default async function LoginPage({
       inviteState={inviteState}
       inviteTenantSlug={inviteTenantSlug}
       showApexPublicNav={!hostSlug}
+      authNextPath={params.next?.trim() || null}
     />
   );
 }

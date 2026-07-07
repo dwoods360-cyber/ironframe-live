@@ -1573,6 +1573,31 @@ export default function AuditIntelligence({
   }, [pathname]);
 
   useEffect(() => {
+    const dismissOverlaysForInternalNav = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const anchor = (event.target as Element | null)?.closest("a");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) {
+        return;
+      }
+      try {
+        const url = new URL(href, window.location.href);
+        if (url.origin !== window.location.origin) return;
+      } catch {
+        return;
+      }
+      setSelectedEntry(null);
+      setMetadataModal(null);
+      setPostMortemOpen(false);
+    };
+    document.addEventListener("click", dismissOverlaysForInternalNav, true);
+    return () => document.removeEventListener("click", dismissOverlaysForInternalNav, true);
+  }, []);
+
+  useEffect(() => {
     if (!selectedEntry || !isStandaloneLayout) return;
     auditDetailInlineRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedEntry?.id, isStandaloneLayout]);
@@ -2102,7 +2127,7 @@ export default function AuditIntelligence({
                 : "System Nominal. Awaiting audit events..."}
             </div>
           ) : (
-            <div className="relative w-full" style={{ height: Math.max(auditLogVirtual.totalHeight, 1) }}>
+            <div className="pointer-events-none relative w-full" style={{ height: Math.max(auditLogVirtual.totalHeight, 1) }}>
               {auditLogVirtual.slice.map((item, vi) => {
                 const index = auditLogVirtual.startIndex + vi;
                 const status = entryStatus(item.entry);
@@ -2155,7 +2180,7 @@ export default function AuditIntelligence({
                       right: 0,
                       minHeight: AUDIT_LOG_ROW_EST_PX,
                     }}
-                    className={`group relative cursor-pointer border-l pl-3 pr-1 transition-colors ${auditRowForensicBorderClass(item.entry)} ${kindSurface}`}
+                    className={`group pointer-events-auto relative cursor-pointer border-l pl-3 pr-1 transition-colors ${auditRowForensicBorderClass(item.entry)} ${kindSurface}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">

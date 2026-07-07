@@ -106,4 +106,18 @@ test.describe("Reports audit trail responsiveness", () => {
     await page.getByTestId("header-integrity-hub-chip").click();
     await expect(page).toHaveURL(`${origin}/integrity`, { timeout: 20_000 });
   });
+
+  test("header vendor chip navigates off /reports/audit-trail", async ({ page }) => {
+    const origin = tenantSubdomainOrigin(BWC_SLUG);
+
+    await page.goto(`${origin}/reports/audit-trail`, {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
+
+    await expect(page.getByTestId("reports-audit-trail-page")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByTestId("header-vendor-list-chip").click();
+    await expect(page).toHaveURL(new RegExp(`${origin}/vendors`), { timeout: 20_000 });
+  });
 });

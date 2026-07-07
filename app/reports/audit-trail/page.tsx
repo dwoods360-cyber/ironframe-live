@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useEffect } from "react";
 import AuditIntelligence from "@/app/components/AuditIntelligence";
+import CommandPostNavLink from "@/app/components/nav/CommandPostNavLink";
 import { getAuditLogs } from "@/app/utils/auditLogger";
 import {
   getFilteredAuditLogsForReport,
@@ -74,12 +74,11 @@ export default function ReportsAuditTrailPage() {
       <section className="rounded border border-slate-800 bg-slate-900/40 p-4">
         <div className="mb-3 flex items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <Link
-              href="/"
+            <CommandPostNavLink
               className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-[9px] font-bold uppercase text-slate-200 hover:border-blue-500 hover:text-blue-300"
             >
               Back
-            </Link>
+            </CommandPostNavLink>
             <h1 className="text-[11px] font-bold uppercase tracking-wide text-white">Reports // Audit Trail Intelligence</h1>
             {isVendorChangesScope ? (
               <span className="rounded border border-blue-500/70 bg-blue-500/10 px-2 py-1 text-[9px] font-bold uppercase text-blue-200">

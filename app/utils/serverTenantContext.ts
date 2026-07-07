@@ -63,8 +63,12 @@ export async function getHostBoundTenantUuid(): Promise<string | null> {
     null;
   if (!slug) return null;
 
-  const tenant = await lookupTenantBySlug(slug);
-  return tenant?.id ?? null;
+  try {
+    const tenant = await lookupTenantBySlug(slug);
+    return tenant?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

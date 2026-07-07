@@ -132,6 +132,11 @@ export function isIronleadsIngressPath(pathname: string): boolean {
   return pathname === IRONLEADS_INGRESS_PATH;
 }
 
+/** Infra liveness probe — no session or tenant context required. */
+export function isInfraHealthPath(pathname: string): boolean {
+  return pathname === "/api/health";
+}
+
 /** Product documentation, pricing, and strategic briefings — authenticated operators only. */
 export function isAuthenticatedProductSurfacePath(pathname: string): boolean {
   if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
@@ -195,6 +200,7 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/ironquery/export")) return false;
   if (pathname === "/api/webhooks/stripe" || pathname === "/api/billing/webhook") return false;
   if (isIronleadsIngressPath(pathname)) return false;
+  if (isInfraHealthPath(pathname)) return false;
   if (isPublicConstitutionalSentinelPath(pathname)) return false;
   return true;
 }

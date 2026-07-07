@@ -124,6 +124,7 @@ jobs:
             IRONLEADS_INGRESS_SECRET=${{ secrets.IRONLEADS_INGRESS_SECRET }}
             SALESTEAM_INGRESS_SECRET=${{ secrets.SALESTEAM_INGRESS_SECRET }}
             SUCCESS_TEAM_INGRESS_SECRET=${{ secrets.SUCCESS_TEAM_INGRESS_SECRET }}
+            SUPPORT_TEAM_INGRESS_SECRET=${{ secrets.SUPPORT_TEAM_INGRESS_SECRET }}
           flags: >-
             --allow-unauthenticated
             --memory=1Gi

@@ -28,7 +28,8 @@ export type WorkforceServiceId =
   | "ironboard"
   | "ironleads"
   | "salesteam"
-  | "success-team";
+  | "success-team"
+  | "support-team";
 
 export type WorkforceServiceStatus = {
   id: WorkforceServiceId;
@@ -239,6 +240,14 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
           8085,
           "OPERATIONS_SUCCESS_TEAM_URL",
           "CLOSED_WON health advisories → CS approval queue",
+          null,
+        ),
+        probeWorkerHealth(
+          "support-team",
+          "IronSupportTeam",
+          8086,
+          "OPERATIONS_SUPPORT_TEAM_URL",
+          "Support intake reply drafts → SUPPORT approval queue",
           null,
         ),
       ]),

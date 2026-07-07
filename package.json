@@ -73,6 +73,11 @@
     "successteam:db": "cd SuccessTeam && npm run db:generate && npm run db:push",
     "successteam:dev": "cd SuccessTeam && npm run dev",
     "successteam:poll": "cd SuccessTeam && npm run poll",
+    "supportteam:install": "cd SupportTeam && npm install",
+    "supportteam:db": "cd SupportTeam && npm run db:generate && npm run db:push",
+    "supportteam:dev": "cd SupportTeam && npm run dev",
+    "supportteam:poll": "cd SupportTeam && npm run poll",
+    "fix:supabase-auth-urls": "npx tsx scripts/fix-supabase-auth-urls.ts",
     "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts"
   },
   "dependencies": {

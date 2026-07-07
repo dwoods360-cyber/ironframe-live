@@ -10,7 +10,7 @@ import {
   isStripeWebhookIngressPath,
   shouldBlockProductionIngress,
 } from "@/app/lib/security/deploymentQuarantine";
-import { isAuthPublicPath, isInfraHealthPath, isIronleadsIngressPath, isPublicCloudIngressPath, isPublicRoute, isSalesteamIngressPath, isSuccessTeamIngressPath } from "@/app/utils/grcRouteMatch";
+import { isAuthPublicPath, isInfraHealthPath, isIronleadsIngressPath, isPublicCloudIngressPath, isPublicRoute, isSalesteamIngressPath, isSuccessTeamIngressPath, isSupportTeamIngressPath } from "@/app/utils/grcRouteMatch";
 import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { isAdminOnboardingPath } from "@/app/lib/auth/adminOnboardingRoute";
 import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
@@ -61,6 +61,7 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (isIronleadsIngressPath(pathname)) return true;
   if (isSalesteamIngressPath(pathname)) return true;
   if (isSuccessTeamIngressPath(pathname)) return true;
+  if (isSupportTeamIngressPath(pathname)) return true;
   if (isInfraHealthPath(pathname)) return true;
   return false;
 }

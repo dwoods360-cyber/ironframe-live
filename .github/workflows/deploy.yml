@@ -54,6 +54,9 @@ jobs:
       - name: Install SuccessTeam subpackage
         run: npm run successteam:install
 
+      - name: Install SupportTeam subpackage
+        run: npm run supportteam:install
+
       - name: Configure CI database env
         run: |
           {

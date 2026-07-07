@@ -5,6 +5,7 @@ import {
   buildStaticContextBundle,
   PERIMETER_WORKFORCE_APPS,
   PERIMETER_WORKFORCE_BINDING,
+  PRODUCT_MATRIX,
 } from "../../Ironboard/src/staticContext.ts";
 
 describe("perimeter workforce board awareness", () => {
@@ -15,10 +16,20 @@ describe("perimeter workforce board awareness", () => {
     expect(ids).toContain("ironleads");
     expect(ids).toContain("salesteam");
     expect(ids).toContain("success-team");
+    expect(ids).toContain("support-team");
     expect(PERIMETER_WORKFORCE_APPS.find((a) => a.id === "salesteam")?.port).toBe(8084);
     expect(PERIMETER_WORKFORCE_APPS.find((a) => a.id === "success-team")?.crmStage).toBe(
       "CLOSED_WON",
     );
+    expect(PERIMETER_WORKFORCE_APPS.find((a) => a.id === "support-team")?.port).toBe(8086);
+  });
+
+  it("lists perimeter workers in the product matrix panel", () => {
+    const keys = PRODUCT_MATRIX.map((row) => row.key);
+    expect(keys).toContain("ironleads");
+    expect(keys).toContain("salesteam");
+    expect(keys).toContain("success-team");
+    expect(keys).toContain("support-team");
   });
 
   it("injects perimeter workforce binding into board static context", () => {
@@ -26,8 +37,10 @@ describe("perimeter workforce board awareness", () => {
     expect(bundle).toContain("PERIMETER WORKFORCE APP REGISTRY");
     expect(bundle).toContain("Ironleads :8083");
     expect(bundle).toContain("IronSuccessTeam :8085");
+    expect(bundle).toContain("IronSupportTeam :8086");
     expect(PERIMETER_WORKFORCE_BINDING).toContain("SUSPECT → Ironleads");
     expect(PERIMETER_WORKFORCE_BINDING).toContain("PROSPECT → SalesTeam");
+    expect(PERIMETER_WORKFORCE_BINDING).toContain("IronSupportTeam");
   });
 
   it("assigns board owners for each perimeter app", () => {

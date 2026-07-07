@@ -74,9 +74,31 @@ function ensureSuccessTeamSqliteSchema(): void {
   });
 }
 
+/** SupportTeam poll worker scratchpad — bootstrap when package present. */
+function ensureSupportTeamSqliteSchema(): void {
+  const supportTeamRoot = join(process.cwd(), "SupportTeam");
+  const supportTeamSchema = join(supportTeamRoot, "prisma", "schema.prisma");
+  if (!existsSync(supportTeamSchema)) return;
+
+  const dataDir = join(supportTeamRoot, "data");
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  const dbPath = join(dataDir, "supportteam.db").replace(/\\/g, "/");
+  if (!process.env.SUPPORT_TEAM_DATABASE_URL?.trim()) {
+    process.env.SUPPORT_TEAM_DATABASE_URL = `file:${dbPath}`;
+  }
+
+  execSync("npm run db:generate", { cwd: supportTeamRoot, stdio: "inherit", env: process.env });
+  execSync("npx prisma db push --schema prisma/schema.prisma --skip-generate", {
+    cwd: supportTeamRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+}
+
 export default function globalSetup(): void {
   ensureRootPrismaClient();
   ensureIronleadsSqliteSchema();
   ensureSalesTeamSqliteSchema();
   ensureSuccessTeamSqliteSchema();
+  ensureSupportTeamSqliteSchema();
 }

@@ -21,6 +21,7 @@ import {
   type BoardPersona,
 } from './staticContext.js';
 import { buildProductMatrixHealthSnapshot } from './services/productMatrixHealth.js';
+import { DYNAMIC_DISCOVERY_MANDATE } from './boardRouter.js';
 import {
   BOARD_CONVERSATIONAL_BOUNDARY,
   BOARD_CRM_TOOL_MANDATE,

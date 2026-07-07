@@ -1,5 +1,6 @@
 import OrientationWalkthroughPlayer from "@/app/components/onboarding/OrientationWalkthroughPlayer";
 import OrientationVideoPopoutPlayer from "@/app/components/onboarding/OrientationVideoPopoutPlayer";
+import { withGetStartedAudioCacheBust } from "@/app/lib/getStartedAudioAsset";
 
 export const dynamic = "force-dynamic";
 
@@ -29,5 +30,5 @@ export default function OrientationWalkthroughPage() {
     return <OrientationVideoPopoutPlayer src={mediaUrl} />;
   }
 
-  return <OrientationWalkthroughPlayer audioSrc={mediaUrl} autoStart />;
+  return <OrientationWalkthroughPlayer audioSrc={withGetStartedAudioCacheBust(mediaUrl)} autoStart />;
 }

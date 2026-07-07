@@ -368,13 +368,13 @@ body {
 
 @keyframes marketing-city-cycle-0 {
   0%,
-  21% {
+  17% {
     opacity: 1;
   }
   25% {
     opacity: 0;
   }
-  96% {
+  92% {
     opacity: 0;
   }
   100% {
@@ -384,13 +384,13 @@ body {
 
 @keyframes marketing-city-cycle-1 {
   0%,
-  21% {
+  17% {
     opacity: 0;
   }
   25% {
     opacity: 1;
   }
-  46% {
+  42% {
     opacity: 1;
   }
   50% {
@@ -403,13 +403,13 @@ body {
 
 @keyframes marketing-city-cycle-2 {
   0%,
-  46% {
+  42% {
     opacity: 0;
   }
   50% {
     opacity: 1;
   }
-  71% {
+  67% {
     opacity: 1;
   }
   75% {
@@ -422,13 +422,13 @@ body {
 
 @keyframes marketing-city-cycle-3 {
   0%,
-  71% {
+  67% {
     opacity: 0;
   }
   75% {
     opacity: 1;
   }
-  96% {
+  92% {
     opacity: 1;
   }
   100% {

@@ -429,6 +429,48 @@
         "Submit practitioner attestation with route manifest citation"
       ],
       "sourceAnchors": ["docs/training/LEVEL2-PRACTITIONER-INDEX.md", "docs/qa/manual-testing-protocol.md"]
+    },
+    {
+      "slug": "training/level-1/13-clear-messaging-for-operators",
+      "title": "Chapter 13 — Clear Messaging for Operators",
+      "track": "LEVEL_1",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/docs",
+      "captureRoute": "/docs",
+      "screenshotFile": "level-1-13-clear-messaging-for-operators.png",
+      "featureIds": ["DOCS-001"],
+      "navigationPath": [
+        "Open /docs from authenticated session",
+        "Review quickstart problem-first orientation pattern",
+        "Identify illustrative demo tenant labels on /integrity",
+        "Complete SUCCESs lab journal exercise"
+      ],
+      "sourceAnchors": [
+        "docs/marketing-strategy/storybrand-framework.md",
+        "docs/marketing-strategy/marketing-strategy-library.md",
+        "docs/user-manuals/quickstart.md"
+      ]
+    },
+    {
+      "slug": "training/level-2/13-narrative-frameworks-storybrand",
+      "title": "Chapter 13 — Narrative Frameworks for Technical Documentation",
+      "track": "LEVEL_2",
+      "authorAgent": "board-writer",
+      "primaryRoute": "/docs/training/level2-practitioner-index",
+      "captureRoute": "/docs/training/level2-practitioner-index",
+      "screenshotFile": "level-2-13-narrative-frameworks-storybrand.png",
+      "featureIds": ["DOCS-001"],
+      "navigationPath": [
+        "Open Level 2 practitioner index",
+        "Apply StoryBrand section template to a draft chapter",
+        "Run marketing-boundary check on practitioner prose",
+        "Verify citations against sourceAnchors only"
+      ],
+      "sourceAnchors": [
+        "docs/marketing-strategy/storybrand-framework.md",
+        "docs/marketing-strategy/marketing-strategy-library.md",
+        "app/lib/server/writerAgentConsoleCore.ts"
+      ]
     }
   ]
 }

@@ -14,7 +14,7 @@ import {
   BOARDROOM_ISOLATED_AGENT_IDS,
   BOARDROOM_ISOLATED_AGENT_REDIRECTS,
   BOARDROOM_QUERY_ROSTER,
-  PERIMETER_WORKFORCE_APPS,
+  buildBoardroomRosterDisplayEntries,
   PRODUCT_MATRIX,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
@@ -816,26 +816,32 @@ function lastUserTurnText(history: HistoryTurn[]): string {
 
 // ─── Dashboard HTML ────────────────────────────────────────────────────────────
 function renderDashboard(): string {
-  const rosterButtons = BOARDROOM_QUERY_ROSTER.map(a =>
-    `<button type="button" class="roster-btn" data-id="${a.id}" data-role="${a.role.replace(/"/g, '&quot;')}">
-      <span class="role">${a.role}</span><span class="team">${a.team}</span>
-    </button>`,
-  ).join('');
+  const rosterButtons = buildBoardroomRosterDisplayEntries()
+    .map((a) => {
+      const isolatedAttrs = a.isolated
+        ? ` class="roster-btn roster-isolated" data-isolated="true" data-ironframe-route="${a.ironframeRoute ?? ''}"`
+        : ` class="roster-btn"`;
+      const teamLine = a.isolated
+        ? `<span class="team">${a.team} · app docs on Ironframe :3000</span>`
+        : `<span class="team">${a.team}</span>`;
+      return `<button type="button"${isolatedAttrs} data-id="${a.id}" data-role="${a.role.replace(/"/g, '&quot;')}">
+      <span class="role">${a.role}</span>${teamLine}
+    </button>`;
+    })
+    .join('');
 
-  const productMatrixRows = PRODUCT_MATRIX.map(
-    p => `<div class="product product-matrix-row" data-matrix-key="${p.key}" title=":${p.port}${p.crmStage ? ` · ${p.crmStage}` : ''}">
-      <span class="product-main">
-        <span class="status-dot status-unknown" data-status-dot aria-hidden="true"></span>
-        <strong>${p.name}</strong>
-      </span>
-      <span class="product-meta">${p.priority}</span>
-    </div>`,
-  ).join('');
-
-  const perimeterWorkers = PERIMETER_WORKFORCE_APPS.map(
-    w => `<div class="product workforce-app" title="${w.ingressNote ?? ''}">
-      <strong>${w.label}</strong><span>:${w.port}</span>
-      <div style="font-size:0.58rem;color:#64748b;margin-top:0.2rem;line-height:1.3">${w.role}</div>
+  const fleetPanelRows = PRODUCT_MATRIX.map(
+    (entry) => `<div class="product product-matrix-row workforce-app" data-matrix-key="${entry.key}" title="${entry.ingressNote ?? ''}">
+      <div class="fleet-row-header">
+        <span class="product-main">
+          <span class="status-dot status-unknown" data-status-dot aria-hidden="true"></span>
+          <strong>${entry.name}</strong>
+          <span class="product-meta">:${entry.port}</span>
+        </span>
+        <span class="product-meta">${entry.priority}</span>
+      </div>
+      <div class="fleet-row-role">${entry.role}</div>
+      ${entry.crmStage ? `<div class="fleet-row-crm">CRM · ${entry.crmStage}</div>` : ''}
     </div>`,
   ).join('');
 
@@ -890,6 +896,9 @@ function renderDashboard(): string {
     .roster-btn { width: 100%; text-align: left; padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; cursor: pointer; }
     .roster-btn.roster-auto { grid-column: 1 / -1; }
     .roster-btn.active { border-color: #f59e0b; background: #451a03; }
+    .roster-btn.roster-isolated { border-style: dashed; border-color: #6366f1; }
+    .roster-btn.roster-isolated.active { border-color: #a78bfa; background: #1e1b4b; }
+    .roster-btn.roster-isolated .team { color: #a78bfa; }
     .roster-btn .role { display: block; font-weight: 700; font-size: 0.68rem; line-height: 1.25; }
     .roster-btn .team { display: block; font-size: 0.6rem; color: #64748b; margin-top: 0.15rem; }
     section#chat-panel { overflow: hidden; display: flex; flex-direction: column; border-right: none; min-height: 0; max-height: 100%; padding: 1rem; overscroll-behavior: none; }
@@ -921,8 +930,11 @@ function renderDashboard(): string {
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .workforce-app { flex-wrap: wrap; align-items: flex-start; }
-    .product-matrix-row .product-main { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+    .product-matrix-row .product-main { display: flex; align-items: center; gap: 0.4rem; min-width: 0; flex-wrap: wrap; }
     .product-matrix-row strong { font-size: 0.68rem; line-height: 1.25; }
+    .fleet-row-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; width: 100%; }
+    .fleet-row-role { font-size: 0.58rem; color: #64748b; margin-top: 0.2rem; line-height: 1.3; padding-left: 1.1rem; }
+    .fleet-row-crm { font-size: 0.56rem; color: #475569; margin-top: 0.12rem; padding-left: 1.1rem; }
     .product-meta { font-size: 0.58rem; font-weight: 800; color: #94a3b8; white-space: nowrap; flex-shrink: 0; }
     .status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; background: #64748b; }
     .status-dot.status-up { background: #34d399; box-shadow: 0 0 0.35rem #34d399; animation: matrix-pulse 2s ease-in-out infinite; }
@@ -957,7 +969,7 @@ function renderDashboard(): string {
         <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Board Roster (17)</p>
         <div class="roster-grid">
           <button type="button" class="roster-btn roster-auto active" data-id="auto" data-role="Auto-Routing">
-            <span class="role">✨ Auto Panel Router</span><span class="team">Routes across 17 agents</span>
+            <span class="role">✨ Auto Panel Router</span><span class="team">Routes across 15 live chat agents</span>
           </button>
           ${rosterButtons}
         </div>
@@ -991,11 +1003,9 @@ function renderDashboard(): string {
       </div>
     </section>
     <section>
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
-      ${perimeterWorkers}
-      <p style="font-size:0.65rem;color:#64748b;margin:1rem 0 0.35rem;text-transform:uppercase;">Product Matrix</p>
+      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.35rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
       <div id="product-matrix-status">Probing local fleet…</div>
-      <div id="product-matrix-list">${productMatrixRows}</div>
+      <div id="product-matrix-list">${fleetPanelRows}</div>
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>
       <div class="baseline"><span>Demo seed (medshield)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.medshield}</span></div>
       <div class="baseline"><span>Demo seed (vaultbank)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}</span></div>
@@ -1171,6 +1181,25 @@ function renderDashboard(): string {
     bindVoiceSliders();
     refreshSpeechVoices();
 
+    function syncQueryComposeForAgent(btn) {
+      var isolated = btn && btn.getAttribute('data-isolated') === 'true';
+      var ironframeRoute = btn ? btn.getAttribute('data-ironframe-route') || '' : '';
+      var prompt = document.getElementById('user-prompt');
+      var submitBtn = document.getElementById('submit-btn');
+      if (prompt) {
+        prompt.disabled = !!isolated;
+        prompt.placeholder = isolated
+          ? 'Doc author — use Ironframe ' + ironframeRoute + ' (:3000)'
+          : 'Ask the board…';
+      }
+      if (submitBtn) submitBtn.disabled = !!isolated;
+      if (isolated) {
+        setStatus('Documentation author — isolated from live boardroom chat. Use POST ' + ironframeRoute + ' on Ironframe (:3000).');
+      } else if (document.getElementById('status').textContent.indexOf('Documentation author') === 0) {
+        setStatus('');
+      }
+    }
+
     document.getElementById('roster').addEventListener('click', function(ev) {
       var btn = ev.target.closest('.roster-btn');
       if (!btn) return;
@@ -1179,6 +1208,7 @@ function renderDashboard(): string {
       activeAgentId = btn.getAttribute('data-id') || 'auto';
       activeAgentRole = btn.getAttribute('data-role') || 'Auto-Routing';
       document.getElementById('active-label').textContent = 'Active: ' + activeAgentRole;
+      syncQueryComposeForAgent(btn);
       streamingText = '';
       streamingGrounding = null;
       streamingToolHint = '';

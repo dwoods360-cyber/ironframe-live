@@ -24,12 +24,22 @@ describe("perimeter workforce board awareness", () => {
     expect(PERIMETER_WORKFORCE_APPS.find((a) => a.id === "support-team")?.port).toBe(8086);
   });
 
-  it("lists perimeter workers in the product matrix panel", () => {
+  it("lists each perimeter worker once in the consolidated fleet panel", () => {
     const keys = PRODUCT_MATRIX.map((row) => row.key);
-    expect(keys).toContain("ironleads");
-    expect(keys).toContain("salesteam");
-    expect(keys).toContain("success-team");
-    expect(keys).toContain("support-team");
+    expect(keys).toEqual([
+      "ironframe-core",
+      "ironboard-exec",
+      "ironleads",
+      "salesteam",
+      "success-team",
+      "support-team",
+      "docs-hub-accessibility",
+    ]);
+    for (const app of PERIMETER_WORKFORCE_APPS) {
+      const row = PRODUCT_MATRIX.find((entry) => entry.name === app.label);
+      expect(row?.role).toBe(app.role);
+      expect(row?.port).toBe(app.port);
+    }
   });
 
   it("injects perimeter workforce binding into board static context", () => {

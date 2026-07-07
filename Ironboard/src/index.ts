@@ -182,7 +182,13 @@ function buildDocsFederationMatrix(): string {
   const monetizationBlueprint = readDoc(
     path.join(docsRoot, 'stakeholder-deck', 'ironframe-monetization-market-blueprint-2026-q2.md'),
   );
-  const loaded = [tas, trd, hub, monetizationBlueprint].filter(Boolean).length;
+  const marketingLibrary = readDoc(
+    path.join(docsRoot, 'marketing-strategy', 'marketing-strategy-library.md'),
+  );
+  const storybrandFramework = readDoc(
+    path.join(docsRoot, 'marketing-strategy', 'storybrand-framework.md'),
+  );
+  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -192,6 +198,12 @@ function buildDocsFederationMatrix(): string {
     hub ? `\n── hub.md ──\n${hub}` : '',
     monetizationBlueprint
       ? `\n── MONETIZATION & MARKET BLUEPRINT (Q2 2026 — BOARD PRIORITY) ──\n${monetizationBlueprint}`
+      : '',
+    marketingLibrary
+      ? `\n── MARKETING STRATEGY LIBRARY (GTM + STORYBRAND) ──\n${marketingLibrary}`
+      : '',
+    storybrandFramework
+      ? `\n── STORYBRAND FRAMEWORK (SB7 + BRANDSCRIPT) ──\n${storybrandFramework}`
       : '',
     '═══ END FEDERATION ═══',
   ].join('\n');

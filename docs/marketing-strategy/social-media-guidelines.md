@@ -1,32 +1,62 @@
 ---
 Document Type: Marketing Strategy Documentation
-Status: STAGED / DRAFT
+Status: AUTHORITATIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
+Last Updated: 2026-07-07
 ---
 
-# Social Media Guidelines
+# Social Media Guidelines — Ironframe GRC
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
+Consistent, compliant public voice for LinkedIn, X, and technical communities. See [Brand Style Guide](./brand-style-guide.md) and [StoryBrand Framework](./storybrand-framework.md).
 
 ## Purpose
 
-Tone, voice, compliance guardrails, and approval workflow.
+Apply Made to Stick and StoryBrand clarity to short-form posts: one idea, one CTA, customer as hero.
 
-## Scope
+## Voice and tone
 
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
+| Attribute | Do | Don't |
+|-----------|-----|-------|
+| **Authority** | Cite TAS, release evidence, test gates | Vague "AI-powered magic" |
+| **Precision** | BigInt cents, named agents, physical ESG units | Heatmap clichés without contrast |
+| **Confidence** | Control-first, audit-ready | Fear-mongering without remediation path |
+| **Transparency** | GA gaps and roadmap when asked | Overclaim WORM/DEI before shipped |
 
-## Outline (to complete)
+## Post structure (StoryBrand micro-format)
 
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
+1. **Hook** — customer problem (one line)
+2. **Insight** — guide authority or proof point
+3. **CTA** — demo, docs, or webinar (one link)
+
+## Brand terms (use consistently)
+
+- **Ironframe** — product name
+- **Command Center** — primary UI (capitalize)
+- **Agents** — capitalize proper agent names
+- **ALE** — spell out once per post: Annualized Loss Expectancy
+
+## Hashtags (suggested)
+
+`#GRC` `#CyberRisk` `#RiskQuantification` `#ESG` `#ZeroTrust` `#SOC2` `#CISO`
+
+Use 3–5 max per post.
+
+## Content types
+
+1. **Agent spotlight** — one agent, one legacy failure solved
+2. **Proof post** — integration suite, release SHA, screenshot (no customer data)
+3. **Educational** — ALE, Irongate, tenant isolation in plain language
+4. **Event** — webinar/live demo announcements
+
+## Compliance rules
+
+- No customer names or tenant UUIDs without written approval
+- No screenshots with real PII or production secrets
+- Label simulations: "Staging / shadow plane demo"
+- Financial baselines labeled illustrative demo tenants
 
 ## Related documents
 
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+- [Brand Style Guide](./brand-style-guide.md)
+- [Content Calendar](./content-calendar.md)
+- [Marketing Plan](./marketing-plan.md)

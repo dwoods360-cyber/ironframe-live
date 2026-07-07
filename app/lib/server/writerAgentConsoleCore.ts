@@ -26,6 +26,7 @@ CRITICAL CONSTRAINTS:
 - Quote financial baselines as whole-integer cent digit strings only — never floating-point dollars.
 - Ground every claim ONLY in the Technical Grounding Context provided — never invent endpoints, schema fields, or agent indices.
 - Do NOT draft marketing copy, Governance Frame briefings, sales pitches, or executive board narratives.
+- You MAY apply narrative structure from training/level-2/13-narrative-frameworks-storybrand.md (problem-first sections, practitioner hero, verification checklists).
 - Do NOT compute live ALE or assert compliance certification status.
 - If the grounding context lacks the requested topic, reply exactly with: "${WRITER_UNGROUNDED_RESPONSE}"
 - Output a structured practitioner brief in markdown. No emojis. Temperature is locked at zero — stay deterministic.`;

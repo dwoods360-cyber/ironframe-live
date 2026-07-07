@@ -1573,7 +1573,7 @@ export default function AuditIntelligence({
   }, [pathname]);
 
   useEffect(() => {
-    const dismissOverlaysForInternalNav = (event: MouseEvent) => {
+    const dismissOverlaysForInternalNav = (event: globalThis.MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0) return;
       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element | null)?.closest("a");

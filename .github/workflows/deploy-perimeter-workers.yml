@@ -58,7 +58,11 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ matrix.service }}:${{ github.sha }}"
-          docker build -t "$IMAGE" "${{ matrix.context }}"
+          if [ "${{ matrix.id }}" = "ironboard" ]; then
+            docker build -f Ironboard/Dockerfile -t "$IMAGE" .
+          else
+            docker build -t "$IMAGE" "${{ matrix.context }}"
+          fi
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 

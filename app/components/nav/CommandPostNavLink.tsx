@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { MouseEvent, ReactNode } from "react";
 
 import { useCommandPostNavigation } from "@/app/hooks/useCommandPostNavigation";
@@ -34,7 +35,6 @@ export default function CommandPostNavLink({
 }: Props) {
   const hostTenantSlug = useHostTenantSlug();
   const browserHost = typeof window !== "undefined" ? window.location.host : null;
-  const onApex = browserHost ? isApexControlPlaneHost(browserHost) : !hostTenantSlug;
   const nav = useCommandPostNavigation();
   const cookieSlug = typeof window !== "undefined" ? readIronframeTenantSlugFromCookie() : null;
   const workspaceSlug = resolveApexWorkspaceSlug(nav.workspaceSlug, cookieSlug);
@@ -48,14 +48,28 @@ export default function CommandPostNavLink({
     })();
   };
 
-  // Tenant workspace hosts: use a native document navigation to `/`.
+  const handleTenantHomeClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.location.assign("/");
+  };
+
+  const onTenantHost = browserHost ? !isApexControlPlaneHost(browserHost) : Boolean(hostTenantSlug);
+
+  // Tenant workspace hosts: full document navigation to `/`.
   // Next.js soft `<Link>` transitions from standalone `/reports/*` surfaces can stall without
-  // updating the route — full navigation matches browser-back-then-click behavior operators expect.
-  if (!onApex && hostTenantSlug) {
+  // updating the route — matches browser-back-then-click behavior operators expect.
+  if (onTenantHost) {
     return (
-      <a href="/" data-testid={testId} className={className}>
+      <Link
+        href="/"
+        prefetch={false}
+        data-testid={testId}
+        className={className}
+        onClick={handleTenantHomeClick}
+      >
         {children}
-      </a>
+      </Link>
     );
   }
 

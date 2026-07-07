@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { Suspense } from "react";
 
-import CommandPostWorkspaceShell from "@/app/components/CommandPostWorkspaceShell";
 import ConditionalAppShell from "@/app/components/ConditionalAppShell";
+import { CommandPostWorkspaceProvider } from "@/app/context/CommandPostWorkspaceContext";
 import { resolveServerCommandPostTarget } from "@/app/lib/auth/resolveCommandPostTarget.server";
 import {
   isDocsPathname,
@@ -12,7 +12,7 @@ import {
   PUBLIC_DARK_SHELL_CLASS,
   resolvePublicDarkShellSurface,
 } from "@/app/lib/publicFunnelShell";
-import { isDashboardRouteGroupPath, isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
+import { isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
 import { IRONFRAME_PATHNAME_HEADER } from "@/lib/supabase/middleware";
 
 function PublicDarkShell({
@@ -65,7 +65,7 @@ export default async function AppShellRouter({ children }: { children: React.Rea
       isInviteTokenRegistrationPath(pathname) ||
       isMarketingPathname(pathname) ||
       isPublicDarkShellPath(pathname));
-  const needsCommandPostProvider = !isPublicFunnel && !isDashboardRouteGroupPath(pathname);
+  const needsCommandPostProvider = !isPublicFunnel;
 
   const inner = !isCommandPostRoot && isPublicFunnel ? (
     <PublicDarkShell surface={resolvePublicDarkShellSurface(pathname)}>{children}</PublicDarkShell>
@@ -81,6 +81,6 @@ export default async function AppShellRouter({ children }: { children: React.Rea
 
   const commandPostTarget = await resolveServerCommandPostTarget();
   return (
-    <CommandPostWorkspaceShell initialTarget={commandPostTarget}>{inner}</CommandPostWorkspaceShell>
+    <CommandPostWorkspaceProvider initialTarget={commandPostTarget}>{inner}</CommandPostWorkspaceProvider>
   );
 }

@@ -19,5 +19,6 @@ describe("GetStarted orientation guide", () => {
     expect(GET_STARTED_STEP_VISUALS["export-path"].screenshotSrc).toContain(
       "level-2-05-audit-trail-exports",
     );
+    expect(GET_STARTED_STEP_VISUALS["export-path"].screenshotSrc).toContain("?v=1");
   });
 });

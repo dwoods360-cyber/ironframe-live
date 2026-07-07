@@ -8,7 +8,10 @@ import { GET_STARTED_STEP_VISUALS } from "@/app/lib/getStartedStepVisuals";
 import {
   GET_STARTED_COMMAND_POST_SCREENSHOT,
   GET_STARTED_EXPORT_SCREENSHOT,
+  GET_STARTED_COMMAND_POST_SCREENSHOT_LEGACY,
+  GET_STARTED_EXPORT_SCREENSHOT_LEGACY,
   TRAINING_SCREENSHOT_BASE,
+  withGetStartedTrainingScreenshot,
 } from "@/app/lib/getStartedTrainingAssets";
 
 const PUBLIC_ROOT = path.join(process.cwd(), "public");
@@ -22,6 +25,8 @@ describe("getStartedTrainingAssets", () => {
   it("references git-tracked command post and export screenshots", () => {
     expect(publicFileExists(GET_STARTED_COMMAND_POST_SCREENSHOT)).toBe(true);
     expect(publicFileExists(GET_STARTED_EXPORT_SCREENSHOT)).toBe(true);
+    expect(publicFileExists(GET_STARTED_COMMAND_POST_SCREENSHOT_LEGACY)).toBe(true);
+    expect(publicFileExists(GET_STARTED_EXPORT_SCREENSHOT_LEGACY)).toBe(true);
   });
 
   it("maps every Get Started step visual to an on-disk PNG", () => {
@@ -36,5 +41,11 @@ describe("getStartedTrainingAssets", () => {
       expect(cue.screenshotSrc.startsWith(TRAINING_SCREENSHOT_BASE)).toBe(true);
       expect(publicFileExists(cue.screenshotSrc)).toBe(true);
     }
+  });
+
+  it("cache-busts training screenshot URLs", () => {
+    expect(withGetStartedTrainingScreenshot("/docs/training/assets/foo.png")).toBe(
+      "/docs/training/assets/foo.png?v=1",
+    );
   });
 });

@@ -14,12 +14,14 @@ import {
   BOARDROOM_ISOLATED_AGENT_IDS,
   BOARDROOM_ISOLATED_AGENT_REDIRECTS,
   BOARDROOM_QUERY_ROSTER,
-  STATIC_PRODUCTS,
+  PERIMETER_WORKFORCE_APPS,
+  PRODUCT_MATRIX,
   SOVEREIGN_POOL_BASELINES_CENTS,
   buildStaticContextBundle,
   WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
   type BoardPersona,
 } from './staticContext.js';
+import { buildProductMatrixHealthSnapshot } from './services/productMatrixHealth.js';
 import { DYNAMIC_DISCOVERY_MANDATE } from './boardRouter.js';
 import {
   BOARD_CONVERSATIONAL_BOUNDARY,
@@ -188,7 +190,10 @@ function buildDocsFederationMatrix(): string {
   const storybrandFramework = readDoc(
     path.join(docsRoot, 'marketing-strategy', 'storybrand-framework.md'),
   );
-  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework].filter(Boolean).length;
+  const customerSuccessLibrary = readDoc(
+    path.join(docsRoot, 'customer-success', 'customer-success-library.md'),
+  );
+  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework, customerSuccessLibrary].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -204,6 +209,9 @@ function buildDocsFederationMatrix(): string {
       : '',
     storybrandFramework
       ? `\n── STORYBRAND FRAMEWORK (SB7 + BRANDSCRIPT) ──\n${storybrandFramework}`
+      : '',
+    customerSuccessLibrary
+      ? `\n── CUSTOMER SUCCESS LIBRARY (RETENTION + EXPANSION) ──\n${customerSuccessLibrary}`
       : '',
     '═══ END FEDERATION ═══',
   ].join('\n');
@@ -814,8 +822,21 @@ function renderDashboard(): string {
     </button>`,
   ).join('');
 
-  const products = STATIC_PRODUCTS.map(
-    p => `<div class="product"><strong>${p.name}</strong><span>${p.priority}</span></div>`,
+  const productMatrixRows = PRODUCT_MATRIX.map(
+    p => `<div class="product product-matrix-row" data-matrix-key="${p.key}" title=":${p.port}${p.crmStage ? ` · ${p.crmStage}` : ''}">
+      <span class="product-main">
+        <span class="status-dot status-unknown" data-status-dot aria-hidden="true"></span>
+        <strong>${p.name}</strong>
+      </span>
+      <span class="product-meta">${p.priority}</span>
+    </div>`,
+  ).join('');
+
+  const perimeterWorkers = PERIMETER_WORKFORCE_APPS.map(
+    w => `<div class="product workforce-app" title="${w.ingressNote ?? ''}">
+      <strong>${w.label}</strong><span>:${w.port}</span>
+      <div style="font-size:0.58rem;color:#64748b;margin-top:0.2rem;line-height:1.3">${w.role}</div>
+    </div>`,
   ).join('');
 
   return `<!DOCTYPE html>
@@ -898,7 +919,17 @@ function renderDashboard(): string {
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
-    .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; }
+    .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+    .workforce-app { flex-wrap: wrap; align-items: flex-start; }
+    .product-matrix-row .product-main { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+    .product-matrix-row strong { font-size: 0.68rem; line-height: 1.25; }
+    .product-meta { font-size: 0.58rem; font-weight: 800; color: #94a3b8; white-space: nowrap; flex-shrink: 0; }
+    .status-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; background: #64748b; }
+    .status-dot.status-up { background: #34d399; box-shadow: 0 0 0.35rem #34d399; animation: matrix-pulse 2s ease-in-out infinite; }
+    .status-dot.status-down { background: #f87171; box-shadow: 0 0 0.25rem #f87171; }
+    .status-dot.status-unknown { background: #64748b; }
+    @keyframes matrix-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+    #product-matrix-status { font-size: 0.56rem; color: #64748b; margin-bottom: 0.35rem; min-height: 0.85rem; }
     .baseline { font-size: 0.68rem; display: flex; justify-content: space-between; padding: 0.2rem 0; color: #94a3b8; }
     .baseline span:last-child { color: #34d399; }
   </style>
@@ -960,8 +991,11 @@ function renderDashboard(): string {
       </div>
     </section>
     <section>
-      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Product Matrix</p>
-      ${products}
+      <p style="font-size:0.65rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Perimeter Workforce Apps</p>
+      ${perimeterWorkers}
+      <p style="font-size:0.65rem;color:#64748b;margin:1rem 0 0.35rem;text-transform:uppercase;">Product Matrix</p>
+      <div id="product-matrix-status">Probing local fleet…</div>
+      <div id="product-matrix-list">${productMatrixRows}</div>
       <div style="margin-top:1rem;font-size:0.65rem;color:#64748b;text-transform:uppercase;">Baselines (¢)</div>
       <div class="baseline"><span>Demo seed (medshield)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.medshield}</span></div>
       <div class="baseline"><span>Demo seed (vaultbank)</span><span>${SOVEREIGN_POOL_BASELINES_CENTS.vaultbank}</span></div>
@@ -1663,6 +1697,45 @@ function renderDashboard(): string {
       }
     });
 
+    function applyProductMatrixHealth(payload) {
+      var statusEl = document.getElementById('product-matrix-status');
+      if (!payload || !payload.services) return;
+      var up = 0;
+      payload.services.forEach(function(row) {
+        var card = document.querySelector('[data-matrix-key="' + row.key + '"]');
+        if (!card) return;
+        var dot = card.querySelector('[data-status-dot]');
+        if (!dot) return;
+        dot.classList.remove('status-unknown', 'status-up', 'status-down');
+        if (row.reachable) {
+          dot.classList.add('status-up');
+          up += 1;
+        } else {
+          dot.classList.add('status-down');
+        }
+        var latency = row.latencyMs != null ? row.latencyMs + 'ms' : 'offline';
+        var stage = row.crmStage ? ' · ' + row.crmStage : '';
+        card.title = ':' + row.port + stage + ' · ' + (row.status || 'unreachable') + ' · ' + latency;
+      });
+      if (statusEl) {
+        statusEl.textContent = up + '/' + payload.services.length + ' online · checked ' + (payload.checkedAt || '').replace('T', ' ').slice(0, 19);
+      }
+    }
+
+    async function refreshProductMatrixHealth() {
+      try {
+        var response = await fetch('/api/product-matrix/health', { cache: 'no-store' });
+        if (!response.ok) return;
+        var payload = await response.json();
+        applyProductMatrixHealth(payload);
+      } catch (err) {
+        console.warn('[IRONBOARD] Product matrix health probe failed:', err);
+      }
+    }
+
+    refreshProductMatrixHealth();
+    setInterval(refreshProductMatrixHealth, 20000);
+
     hydrateChatHistory();
     renderChat();
     scrollChatToBottom();
@@ -1682,6 +1755,20 @@ app.post(
 );
 
 app.use(express.json({ limit: '12mb' }));
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'HEALTHY', service: 'ironboard', port: PORT });
+});
+
+app.get('/api/product-matrix/health', async (_req, res) => {
+  try {
+    const snapshot = await buildProductMatrixHealthSnapshot();
+    res.json(snapshot);
+  } catch (err) {
+    console.error('[IRONBOARD] product-matrix health failed', err);
+    res.status(500).json({ error: 'PRODUCT_MATRIX_HEALTH_FAILED' });
+  }
+});
 
 app.get('/', (_req, res) => {
   res.set('Cache-Control', 'no-cache, must-revalidate');

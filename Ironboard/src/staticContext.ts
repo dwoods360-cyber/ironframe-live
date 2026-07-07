@@ -41,6 +41,10 @@ export const STRATEGIC_KNOWLEDGE_VAULT = [
   { title: "Contagious", author: "Jonah Berger", coreConcepts: ["STEPPS", "Social Currency", "Practical Value", "Stories"], strategicInvariants: "Educational ALE and Irongate primers outperform generic thought leadership on LinkedIn and technical blog." },
   { title: "The Challenger Sale", author: "Matthew Dixon & Brent Adamson", coreConcepts: ["Teach", "Tailor", "Take Control", "Commercial Insight"], strategicInvariants: "Lead outbound and webinars with 'beyond the heatmap' insight that reframes board risk in dollars — methodology flags in CRM." },
   { title: "Hooked", author: "Nir Eyal", coreConcepts: ["Trigger", "Action", "Variable Reward", "Investment"], strategicInvariants: "Operator habit loops inside Command Center workflows only — not consumer gamification or dark patterns." },
+  { title: "Customer Success", author: "Nick Mehta, Lincoln Murphy, Dan Steinman", coreConcepts: ["Outcome-Based Success", "Success Plans", "Churn Early Warning", "Land and Expand"], strategicInvariants: "Post-sale motions measure audit-ready outcomes and whole-cent ROI — CSM drafts advisories; operators co-sign before client send." },
+  { title: "The Customer Success Economy", author: "Nick Mehta, David Cannan, Mikael Blaisdell", coreConcepts: ["Net Retention", "CS-Led Growth", "Digital CS", "Outcome Metrics"], strategicInvariants: "IronSuccessTeam health scores and expansion flags feed operator review — never auto-dispatch CISO-facing email." },
+  { title: "Subscribed", author: "Tien Tzuo", coreConcepts: ["Subscription Mindset", "Recurring Value", "Outcome Billing"], strategicInvariants: "Renewal narrative emphasizes continuous attestation and evidence exports — not one-time implementation shelfware." },
+  { title: "The Effortless Experience", author: "Matthew Dixon, Nick Toman, Rick DeLisi", coreConcepts: ["Customer Effort Score", "Root Cause Fix", "Loyalty Through Ease"], strategicInvariants: "Reduce analyst swivel-chair work — Ironscribe hashes and Ironguard scope — before delight campaigns." },
 ] as const;
 
 export const MARKETING_STRATEGY_KNOWLEDGE_BINDING = `
@@ -57,6 +61,120 @@ MARKETING & MESSAGING KNOWLEDGE BASE (AUTHORITATIVE):
 - Ironleads cross-corpus: Ironleads/src/knowledge/leadGenCorpus.ts (storybrand, influence, inbound pillars)
 `.trim();
 
+export const CUSTOMER_SUCCESS_KNOWLEDGE_BINDING = `
+CUSTOMER SUCCESS KNOWLEDGE BASE (AUTHORITATIVE):
+- Master library: docs/customer-success/customer-success-library.md
+- Retention playbook: docs/customer-success/retention-playbook.md
+- Health score framework: docs/customer-success/health-score-framework.md
+- QBR & expansion: docs/customer-success/qbr-expansion-framework.md
+- Onboarding success: docs/customer-success/onboarding-success-playbook.md
+- board-customer-success: full post-sale application of vault CS books + matrix ingest (customer-success category)
+- IronSuccessTeam cross-corpus: SuccessTeam/src/knowledge/customerSuccessCorpus.ts (Mehta, Gainsight, land-adopt-expand, beachhead plays)
+- SalesTeam boundary: PROSPECT outbound only — SuccessTeam owns CLOSED_WON retention/expansion advisories
+`.trim();
+
+export type PerimeterWorkforceApp = {
+  id: string;
+  label: string;
+  port: number;
+  packageDir: string;
+  role: string;
+  crmStage: string | null;
+  hitlDraftKind: string | null;
+  ingressNote: string | null;
+  boardOwnerIds: readonly string[];
+};
+
+/** Isolated poll workers + control plane — board must know boundaries vs 19-agent production workforce. */
+export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
+  {
+    id: "ironframe",
+    label: "Ironframe Control Plane",
+    port: 3000,
+    packageDir: "app/ (Next.js)",
+    role: "Tenancy · Ironguard RLS · signed ingress APIs · HITL approval desk · support intake console",
+    crmStage: null,
+    hitlDraftKind: "SUPPORT | SALES | CUSTOMER_SUCCESS (dispatch surface)",
+    ingressNote: "Hosts all /api/v1/ingress/* routes; never runs poll graphs directly",
+    boardOwnerIds: ["board-bot", "board-cto", "board-engineer"],
+  },
+  {
+    id: "ironboard",
+    label: "Ironboard",
+    port: 8082,
+    packageDir: "Ironboard/",
+    role: "17-agent boardroom · CRM tools · market flywheel · docs federation",
+    crmStage: "CRM read/write (operator)",
+    hitlDraftKind: null,
+    ingressNote: "SSE board chat; CRM discovery — not perimeter poll worker",
+    boardOwnerIds: ["board-bot", "board-ceo", "board-sales-lead"],
+  },
+  {
+    id: "ironleads",
+    label: "Ironleads",
+    port: 8083,
+    packageDir: "Ironleads/",
+    role: "OSINT harvest → SUSPECT CRM ingress (LangGraph + SqliteSaver)",
+    crmStage: "SUSPECT",
+    hitlDraftKind: null,
+    ingressNote: "POST /api/v1/ingress/ironleads (Bearer IRONLEADS_INGRESS_SECRET)",
+    boardOwnerIds: ["board-marketing-mgr", "board-sales-lead"],
+  },
+  {
+    id: "salesteam",
+    label: "SalesTeam",
+    port: 8084,
+    packageDir: "SalesTeam/",
+    role: "PROSPECT outbound StoryBrand drafts → operator approval queue",
+    crmStage: "PROSPECT",
+    hitlDraftKind: "SALES",
+    ingressNote: "GET prospects + POST outreach (Bearer SALESTEAM_INGRESS_SECRET); poll ~120s",
+    boardOwnerIds: ["board-sales-lead", "board-marketing-mgr"],
+  },
+  {
+    id: "success-team",
+    label: "IronSuccessTeam",
+    port: 8085,
+    packageDir: "SuccessTeam/",
+    role: "CLOSED_WON health audit · ROI · expansion advisories → CS approval queue",
+    crmStage: "CLOSED_WON",
+    hitlDraftKind: "CUSTOMER_SUCCESS",
+    ingressNote: "GET accounts/health-snapshot + POST advisory (Bearer SUCCESS_TEAM_INGRESS_SECRET); poll ~hourly",
+    boardOwnerIds: ["board-customer-success", "board-cfo"],
+  },
+  {
+    id: "support-team",
+    label: "IronSupportTeam",
+    port: 8086,
+    packageDir: "SupportTeam/",
+    role: "Support intake poll · corpus-grounded reply drafts → SUPPORT approval queue",
+    crmStage: "SUPPORT_INTAKE",
+    hitlDraftKind: "SUPPORT",
+    ingressNote: "GET tickets/context-snapshot + POST reply (Bearer SUPPORT_TEAM_INGRESS_SECRET); poll ~90s",
+    boardOwnerIds: ["board-engineer", "board-cto", "board-bot"],
+  },
+] as const;
+
+export const PERIMETER_WORKFORCE_BINDING = `
+PERIMETER WORKFORCE APPS (AUTHORITATIVE — isolated packages; NOT the 19-agent Irontech production roster):
+- Ironframe :3000 — control plane, ingress host, HITL approvals (/dashboard/admin/approvals), in-tenant support console
+- Ironboard :8082 — this boardroom, CRM flywheel, executive personas (17 live query agents + 2 isolated doc authors)
+- Ironleads :8083 — OSINT → SUSPECT (Ironleads/src/knowledge/leadGenCorpus.ts)
+- SalesTeam :8084 — PROSPECT outbound drafts only (never auto-send)
+- IronSuccessTeam :8085 — CLOSED_WON retention/expansion advisories only (never auto-send)
+- IronSupportTeam :8086 — support intake reply drafts only (never auto-send)
+
+CRM pipeline ownership (do not blur roles):
+  SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support intake → IronSupportTeam (SUPPORT drafts)
+
+Operator console: /dashboard/operations (workforce health probes + approvals + CRM snapshot)
+
+Architectural invariants for ALL perimeter workers:
+- Read-only CRM poll via signed Bearer ingress into Ironframe — no direct production Prisma write authority in worker packages
+- LangGraph SqliteSaver checkpointing per worker (local data/ scratchpad)
+- Human-in-the-loop: workers queue CRM interaction summaries; operator co-signs before client dispatch
+`.trim();
+
 export type BoardPersona = {
   id: string;
   role: string;
@@ -67,23 +185,23 @@ export type BoardPersona = {
 };
 
 export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
-  { id: "board-bot", role: "Strategic Chief of Staff (Bot)", team: "Executive Suite", expertise: ["Dynamic coordination", "Workflow synthesis", "Context aggregation"], background: "Advanced strategic alignment orchestrator built for Ironframe.", primaryBookAlignment: "Measure What Matters" },
+  { id: "board-bot", role: "Strategic Chief of Staff (Bot)", team: "Executive Suite", expertise: ["Dynamic coordination", "Workflow synthesis", "Context aggregation", "Perimeter worker orchestration"], background: "Advanced strategic alignment orchestrator built for Ironframe; coordinates Ironboard, Ironleads, SalesTeam, and IronSuccessTeam boundaries.", primaryBookAlignment: "Measure What Matters" },
   { id: "board-ceo", role: "CEO - Visionary Leader", team: "Executive Suite", expertise: ["Strategic planning", "Leadership"], background: "Experienced entrepreneur in GRC fields.", primaryBookAlignment: "The Discipline of Market Leaders" },
-  { id: "board-cto", role: "CTO - Technical Innovator", team: "Executive Suite", expertise: ["Technology strategy", "Architecture"], background: "Seasoned software technologist.", primaryBookAlignment: "Zero to One" },
+  { id: "board-cto", role: "CTO - Technical Innovator", team: "Executive Suite", expertise: ["Technology strategy", "Architecture", "Perimeter ingress APIs"], background: "Seasoned software technologist overseeing Ironframe :3000 ingress and isolated LangGraph workers.", primaryBookAlignment: "Zero to One" },
   { id: "board-cfo", role: "CFO - Financial Strategist", team: "Executive Suite", expertise: ["Financial planning", "Budgeting"], background: "Experienced finance professional.", primaryBookAlignment: "Good to Great" },
   { id: "board-evangelist", role: "GRC Evangelist", team: "GRC Domain Experts", expertise: ["GRC domain knowledge", "Regulatory trends"], background: "Seasoned compliance professional.", primaryBookAlignment: "Play Bigger" },
   { id: "board-risk-spec", role: "Risk Management Specialist", team: "GRC Domain Experts", expertise: ["Risk assessment", "Mitigation"], background: "Experienced risk management professional.", primaryBookAlignment: "Blue Ocean Strategy" },
   { id: "board-compliance", role: "Compliance Officer", team: "GRC Domain Experts", expertise: ["Regulatory compliance"], background: "Experienced compliance expert.", primaryBookAlignment: "Measure What Matters" },
   { id: "board-pm", role: "Product Manager", team: "Product and Engineering", expertise: ["Product development", "Roadmap planning"], background: "Experienced software product visionary.", primaryBookAlignment: "The Lean Startup" },
-  { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding"], background: "Skilled infrastructure developer.", primaryBookAlignment: "Zero to One" },
+  { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding", "Poll worker packages"], background: "Skilled infrastructure developer for Ironleads, SalesTeam, and SuccessTeam LangGraph pipelines.", primaryBookAlignment: "Zero to One" },
   { id: "board-data-sci", role: "Data Scientist", team: "Product and Engineering", expertise: ["Data analysis", "Modeling"], background: "Experienced analytics expert.", primaryBookAlignment: "Measure What Matters" },
-  { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth"], background: "Experienced enterprise sales professional.", primaryBookAlignment: "Crossing the Chasm" },
-  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management", "StoryBrand messaging"], background: "Experienced campaign strategist grounded in category design and StoryBrand clarity.", primaryBookAlignment: "Building a StoryBrand" },
+  { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth", "SalesTeam PROSPECT pipeline"], background: "Experienced enterprise sales professional; owns SalesTeam outbound draft review with operators.", primaryBookAlignment: "Crossing the Chasm" },
+  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management", "StoryBrand messaging", "Ironleads OSINT flywheel"], background: "Experienced campaign strategist grounded in category design, StoryBrand clarity, and Ironleads SUSPECT harvest.", primaryBookAlignment: "Building a StoryBrand" },
   { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation", "Narrative structure"], background: "Expert regulatory copywriter applying StoryBrand structure to practitioner docs.", primaryBookAlignment: "Building a StoryBrand" },
   { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design", "Plain-language messaging"], background: "Seasoned training designer using Made to Stick for operator clarity.", primaryBookAlignment: "Made to Stick" },
   { id: "board-legal", role: "Legal - Regulatory Counsel", team: "Other Essential Roles", expertise: ["Corporate law", "Policy auditing"], background: "Corporate compliance attorney.", primaryBookAlignment: "Crossing the Chasm" },
   { id: "board-hr", role: "HR Manager - Talent Expert", team: "Other Essential Roles", expertise: ["Human resources", "Talent management"], background: "Experienced talent strategist.", primaryBookAlignment: "Good to Great" },
-  { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention"], background: "Experienced customer success professional.", primaryBookAlignment: "The Discipline of Market Leaders" },
+  { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention", "Expansion", "QBR facilitation", "IronSuccessTeam advisories"], background: "Experienced customer success professional grounded in outcome-based retention, IronSuccessTeam health scores, and whole-cent ROI proof.", primaryBookAlignment: "Customer Success" },
 ];
 
 /** Personas isolated from live POST /api/query — use dedicated Ironframe agent workers. */
@@ -104,6 +222,81 @@ export const STATIC_PRODUCTS = [
   { name: "Ironframe Control Center", key: "ironframe-core", priority: "CRITICAL", frameworks: ["SOC2", "ISO27001"] },
   { name: "IronBoard Executive Cockpit", key: "ironboard-exec", priority: "HIGH", frameworks: ["CSRD"] },
   { name: "Docs Hub Accessibility Engine", key: "docs-hub-accessibility", priority: "MEDIUM", frameworks: ["GRI"] },
+] as const;
+
+/** Right-panel Product Matrix — core surfaces + perimeter poll workers with live health probes. */
+export type ProductMatrixEntry = {
+  key: string;
+  name: string;
+  priority: "CRITICAL" | "HIGH" | "MEDIUM";
+  port: number;
+  healthPath: string;
+  /** Env override for base URL (falls back to http://127.0.0.1:{port}). */
+  envUrlKey: string;
+  crmStage?: string | null;
+};
+
+export const PRODUCT_MATRIX: readonly ProductMatrixEntry[] = [
+  {
+    key: "ironframe-core",
+    name: "Ironframe Control Center",
+    priority: "CRITICAL",
+    port: 3000,
+    healthPath: "/api/health",
+    envUrlKey: "OPERATIONS_IRONFRAME_URL",
+  },
+  {
+    key: "ironboard-exec",
+    name: "IronBoard Executive Cockpit",
+    priority: "HIGH",
+    port: 8082,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_IRONBOARD_URL",
+  },
+  {
+    key: "docs-hub-accessibility",
+    name: "Docs Hub Accessibility Engine",
+    priority: "MEDIUM",
+    port: 3000,
+    healthPath: "/docs",
+    envUrlKey: "OPERATIONS_IRONFRAME_URL",
+  },
+  {
+    key: "ironleads",
+    name: "Ironleads",
+    priority: "HIGH",
+    port: 8083,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_IRONLEADS_URL",
+    crmStage: "SUSPECT",
+  },
+  {
+    key: "salesteam",
+    name: "SalesTeam",
+    priority: "HIGH",
+    port: 8084,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SALESTEAM_URL",
+    crmStage: "PROSPECT",
+  },
+  {
+    key: "success-team",
+    name: "IronSuccessTeam",
+    priority: "HIGH",
+    port: 8085,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUCCESS_TEAM_URL",
+    crmStage: "CLOSED_WON",
+  },
+  {
+    key: "support-team",
+    name: "IronSupportTeam",
+    priority: "HIGH",
+    port: 8086,
+    healthPath: "/health",
+    envUrlKey: "OPERATIONS_SUPPORT_TEAM_URL",
+    crmStage: "SUPPORT_INTAKE",
+  },
 ] as const;
 
 export const SOVEREIGN_POOL_BASELINES_CENTS = {
@@ -181,12 +374,20 @@ export function buildStaticContextBundle(): string {
   const products = STATIC_PRODUCTS.map(
     p => `- ${p.name} key=${p.key} priority=${p.priority} frameworks=${p.frameworks.join('/')}`,
   ).join('\n');
+  const perimeterWorkers = PERIMETER_WORKFORCE_APPS.map(
+    w =>
+      `- ${w.label} :${w.port} (${w.id}) | CRM=${w.crmStage ?? 'n/a'} | HITL=${w.hitlDraftKind ?? 'n/a'} | ${w.role}`,
+  ).join('\n');
   return [
     '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
+    '',
+    PERIMETER_WORKFORCE_BINDING,
     '',
     DOCUMENTATION_CORPUS_BINDING,
     '',
     MARKETING_STRATEGY_KNOWLEDGE_BINDING,
+    '',
+    CUSTOMER_SUCCESS_KNOWLEDGE_BINDING,
     '',
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     '',
@@ -203,6 +404,9 @@ export function buildStaticContextBundle(): string {
     '',
     'PRODUCT REGISTRY:',
     products,
+    '',
+    'PERIMETER WORKFORCE APP REGISTRY:',
+    perimeterWorkers,
     '',
     'SYNTHETIC DEMO SEED BASELINES (BigInt cents — NOT real companies; do not invent other values):',
     `- slug medshield (SYNTHETIC_DEMO_SEED): ${SOVEREIGN_POOL_BASELINES_CENTS.medshield}¢`,

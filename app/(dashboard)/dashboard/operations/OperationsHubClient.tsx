@@ -265,6 +265,18 @@ export default function OperationsHubClient() {
           ))}
         </nav>
 
+        {tab !== "overview" ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setTab("overview")}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
+            >
+              ← Operations hub
+            </button>
+          </div>
+        ) : null}
+
         {error ? (
           <div className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-4 text-sm text-rose-200">
             {error}

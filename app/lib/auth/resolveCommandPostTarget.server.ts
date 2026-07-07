@@ -33,6 +33,7 @@ export async function resolveServerCommandPostTarget(): Promise<CommandPostWorks
     ? await resolveApexWorkspaceLandingSlug(
         user.id,
         readTenantSlugFromUserMetadata(user.user_metadata ?? null),
+        user.email,
       )
     : null;
 

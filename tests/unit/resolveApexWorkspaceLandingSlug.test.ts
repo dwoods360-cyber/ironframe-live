@@ -23,6 +23,7 @@ const USER_ID = "c3c6bbd4-603b-4d14-b4fd-9ed07fd3e70b";
 
 describe("resolveApexWorkspaceLandingSlug", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(lookupTenantBySlug).mockResolvedValue(null);
     vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue(null);

@@ -12,6 +12,10 @@ import {
 import { triggerSentinelHunch } from "@/app/actions/sentinelActions";
 import { useRiskStore } from "@/app/store/riskStore";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
+import {
+  buildControlStressCaseHref,
+  controlStressOpenedMessage,
+} from "@/app/utils/controlStressTestNavigation";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { getSectorRegulatoryProfile } from "@/app/utils/sectorRegulatoryProfile";
 
@@ -170,7 +174,6 @@ export default function EvidenceGapsPanel({
       setBusyControl(gap.controlId);
       setFlash(null);
       setLastThreatId(null);
-      const suggested = frameworkHintControl(framework);
       const targetAsset = "Control Stress Test :: " + gap.controlId;
       const call = await triggerSentinelHunch({
         targetAsset,
@@ -185,13 +188,8 @@ export default function EvidenceGapsPanel({
       }
       setLastThreatId(call.threatId);
       onStressTestTriggered?.(gap.controlId, call.threatId);
-      setFlash(
-        "Control validation opened for " +
-          gap.controlId +
-          " with " +
-          suggested +
-          " mapping. Resolve the Sentinel case in Integrity Hub to update readiness.",
-      );
+      void useRiskStore.getState().pulseThreatBoardsFromDb();
+      setFlash(controlStressOpenedMessage(gap.controlId, call.threatId));
       await load();
       onRemediationComplete?.();
     },
@@ -314,10 +312,10 @@ export default function EvidenceGapsPanel({
             {lastThreatId ? (
               <p className="mt-2 flex flex-wrap items-center gap-2">
                 <Link
-                  href="/integrity"
+                  href={buildControlStressCaseHref(lastThreatId)}
                   className="rounded border border-teal-600/70 bg-teal-900/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-teal-100 hover:border-teal-400"
                 >
-                  Resolve in Integrity Hub
+                  Open in Command Post
                 </Link>
                 <span className="font-mono text-[9px] text-slate-500">Case {lastThreatId.slice(0, 12)}…</span>
               </p>

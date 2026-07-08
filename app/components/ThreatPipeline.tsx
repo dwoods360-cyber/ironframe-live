@@ -1211,6 +1211,7 @@ export default function ThreatPipeline({
       src.includes("SIMULATION") ||
       src === GRC_SOURCE ||
       src === KIMBOT_THREAT_SOURCE_AGENT ||
+      src === "HUMAN_SENTINEL" ||
       src === "IRONBLOOM" ||
       src === "ATTACK_BOT" ||
       src === "ATTBOT_SIMULATION" ||
@@ -1220,6 +1221,7 @@ export default function ThreatPipeline({
       SIMULATION_SOURCE_AGENTS.has(agentUpper) ||
       agentUpper === KIMBOT_THREAT_SOURCE_AGENT ||
       agentUpper === GRC_SOURCE ||
+      agentUpper === "HUMAN_SENTINEL" ||
       agentUpper === "ATTACK_BOT" ||
       agentUpper === "INFILBOT_SIMULATION" ||
       agentUpper === "PHISHBOT_SIMULATION" ||
@@ -1641,7 +1643,10 @@ export default function ThreatPipeline({
   }, [runSyncImpl]);
 
   return (
-    <section className="border-b border-slate-800 bg-slate-900/50 px-4 py-6 font-sans">
+    <section
+      id="threat-pipeline"
+      className="border-b border-slate-800 bg-slate-900/50 px-4 py-6 font-sans"
+    >
       <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
         <h2 className="text-[11px] font-bold uppercase tracking-wide text-white font-sans">RISK INGESTION</h2>
       </div>

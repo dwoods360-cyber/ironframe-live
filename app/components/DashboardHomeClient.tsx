@@ -368,6 +368,18 @@ export default function DashboardHomeClient({
   }, [clearHandshakeTimers]);
 
   useEffect(() => {
+    if (!hasMounted || typeof window === "undefined") return;
+    const caseId = new URLSearchParams(window.location.search).get("case")?.trim();
+    if (!caseId) return;
+    setSelectedThreatId(caseId);
+    useRiskStore.getState().setSelectedThreatId(caseId);
+    void pulseThreatBoardsFromDb();
+    window.requestAnimationFrame(() => {
+      document.getElementById("threat-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [hasMounted, pulseThreatBoardsFromDb]);
+
+  useEffect(() => {
     const onChaosL6Freeze = (event: Event) => {
       const active = (event as CustomEvent<{ active?: boolean }>).detail?.active === true;
       setHandshakePhase(active ? "frozen" : "idle");

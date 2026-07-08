@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState, SimThreatSource, ComplianceFramework } from "@prisma/client";
@@ -135,6 +136,11 @@ export async function triggerSentinelHunch(
     return { ok: false, error: "Missing tenant boundary for Sentinel hypothesis." };
   }
 
+  const orchestrationThreadId = randomUUID();
+  const controlStressTestControlId = targetAsset.includes("::")
+    ? targetAsset.split("::").slice(1).join("::").trim() || targetAsset
+    : targetAsset;
+
   const threat = await prisma.riskEvent.create({
     data: {
       title: `Sentinel Hypothesis: ${targetAsset}`,
@@ -152,6 +158,11 @@ export async function triggerSentinelHunch(
       mappedControls,
       monitoringExpiry: null,
       ingestionDetails: {
+        sourcePlane: "MANUAL",
+        threadId: orchestrationThreadId,
+        orchestrationThreadId,
+        controlStressTest: true,
+        controlStressTestControlId,
         sentinelIntake: {
           observedSymptom: input.observedSymptom,
           confidenceLevel: confidence,
@@ -166,6 +177,7 @@ export async function triggerSentinelHunch(
   });
 
   revalidatePath("/");
+  revalidatePath("/vault");
   return { ok: true, threatId: threat.id };
 }
 

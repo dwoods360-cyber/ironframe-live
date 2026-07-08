@@ -28,6 +28,9 @@ import {
   symptomForAle,
 } from "@/app/(dashboard)/evidence/EvidenceGapsPanel";
 import { triggerSentinelHunch } from "@/app/actions/sentinelActions";
+import {
+  controlStressOpenedMessage,
+} from "@/app/utils/controlStressTestNavigation";
 
 type RangePreset = "CY2025" | "FY2025" | "LAST90" | "CUSTOM";
 type CoverageFramework = "SOC2" | "ISO27001" | "NIST";
@@ -250,9 +253,8 @@ export default function EvidenceVaultClient() {
 
   const handleStressTestTriggered = useCallback((controlId: string, threatId: string) => {
     writeVaultReadinessSnapshot(readinessBeforeRef.current ?? readinessPct);
-    setIroncastToast(
-      `Stress test opened for ${controlId} — resolve in Integrity Hub to update readiness. Case ${threatId.slice(0, 8)}…`,
-    );
+    void useRiskStore.getState().pulseThreatBoardsFromDb();
+    setIroncastToast(controlStressOpenedMessage(controlId, threatId));
   }, [readinessPct]);
 
   const triggerGapStressTest = useCallback(

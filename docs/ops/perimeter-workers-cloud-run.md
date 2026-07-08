@@ -53,6 +53,18 @@ npm run dev:fleet    # :8082–:8086 workers
 
 ## Notes
 
-- Workers use SQLite for local poll state; Cloud Run containers are ephemeral — poll checkpoint DBs reset on cold start until persistent storage is added.
+- Poll workers mount GCS bucket `${GCP_PROJECT_ID}-perimeter-worker-data` at `/mnt/worker-data` (gen2, `min-instances=1`, `max-instances=1` for SQLite safety).
+- Workers use SQLite for local poll state; GCS FUSE is pilot-grade — for production hardening prefer Cloud Filestore NFS or Postgres-backed worker state.
 - Ironboard requires `DATABASE_URL` / `GOOGLE_API_KEY` on Cloud Run for CRM + Gemini.
 - All workers honor Cloud Run `PORT` and bind `0.0.0.0`.
+
+### Production poll env (set by deploy workflow)
+
+| Worker | Key vars |
+|--------|----------|
+| Ironleads | `IRONLEADS_HARVEST_CRON_ENABLED=true`, `IRONLEADS_TARGET_TENANT_SLUG=prospect-pool` |
+| SalesTeam | `SALESTEAM_POLL_ENABLED=true`, `SALESTEAM_TARGET_TENANT_SLUG=prospect-pool` |
+| IronSuccessTeam | `SUCCESS_TEAM_POLL_ENABLED=true`, `SUCCESS_TEAM_TARGET_TENANT_SLUG` = `IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG` |
+| IronSupportTeam | `SUPPORT_TEAM_POLL_ENABLED=true`, `SUPPORT_TEAM_TARGET_TENANT_SLUG` = `IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG` |
+
+All poll workers also receive `PERIMETER_WORKER_DATA_DIR=/mnt/worker-data` and run `db:push` on container start when the mount is empty.

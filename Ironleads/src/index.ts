@@ -3,6 +3,7 @@
  * Agents (LangGraph): scout → parser → scorer → strategist → marshal
  */
 import express from 'express';
+import { execSync } from 'node:child_process';
 
 import { IRONLEADS_KNOWLEDGE_MANIFEST } from './knowledge/index.js';
 import { ironleadsApp } from './graph/pipeline.js';
@@ -12,6 +13,12 @@ import { runHarvestCycle } from './pipeline/runHarvestCycle.js';
 import { executeLeadGenKnowledgeTool } from './tools/leadGenKnowledgeTools.js';
 
 loadIronleadsEnv();
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
+}
+
+ensureSqliteSchema();
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
@@ -113,6 +120,7 @@ app.listen(port, () => {
   console.log(`[Ironleads] listening on http://127.0.0.1:${port}`);
   if (isHarvestCronEnabled()) {
     console.log('[Ironleads] harvest cron enabled — hourly fixture cycle');
+    void scheduledHarvest();
     setInterval(() => {
       void scheduledHarvest();
     }, HARVEST_INTERVAL_MS);

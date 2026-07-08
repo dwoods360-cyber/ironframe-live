@@ -54,10 +54,15 @@ function absorbEnvFile(absolutePath: string): void {
   }
 }
 
-function defaultDatabaseUrl(): string {
-  const dataDir = join(SALESTEAM_ROOT, 'data');
+function resolveWorkerDataDir(root: string): string {
+  const configured = process.env.PERIMETER_WORKER_DATA_DIR?.trim();
+  const dataDir = configured || join(root, 'data');
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
-  const dbPath = join(dataDir, 'salesteam.db').replace(/\\/g, '/');
+  return dataDir;
+}
+
+function defaultDatabaseUrl(): string {
+  const dbPath = join(resolveWorkerDataDir(SALESTEAM_ROOT), 'salesteam.db').replace(/\\/g, '/');
   return `file:${dbPath}`;
 }
 

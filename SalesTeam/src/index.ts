@@ -1,4 +1,5 @@
 import express from 'express';
+import { execSync } from 'node:child_process';
 
 import {
   getPollIntervalMs,
@@ -10,6 +11,12 @@ import { disconnectSalesTeamPrisma } from './lib/prisma.js';
 import { runPollCycle } from './pipeline/runPollCycle.js';
 
 loadSalesTeamEnv();
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
+}
+
+ensureSqliteSchema();
 
 const app = express();
 app.use(express.json());

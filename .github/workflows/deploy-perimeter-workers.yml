@@ -16,6 +16,9 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
   REPO: sentinel-repo
+  WORKER_DATA_BUCKET: ${{ secrets.GCP_PROJECT_ID }}-perimeter-worker-data
+  CRM_SCOPE: ${{ secrets.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG }}
+  CONTROL_PLANE_URL: ${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}
 
 jobs:
   deploy-workers:
@@ -28,22 +31,27 @@ jobs:
             context: Ironboard
             service: ironframe-ironboard
             memory: 1Gi
+            poll_worker: false
           - id: ironleads
             context: Ironleads
             service: ironframe-ironleads
             memory: 512Mi
+            poll_worker: true
           - id: salesteam
             context: SalesTeam
             service: ironframe-salesteam
             memory: 512Mi
+            poll_worker: true
           - id: success-team
             context: SuccessTeam
             service: ironframe-success-team
             memory: 512Mi
+            poll_worker: true
           - id: support-team
             context: SupportTeam
             service: ironframe-support-team
             memory: 512Mi
+            poll_worker: true
 
     steps:
       - name: Checkout Code
@@ -53,6 +61,19 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Ensure worker data bucket
+        if: matrix.poll_worker
+        run: |
+          if ! gcloud storage buckets describe "gs://${{ env.WORKER_DATA_BUCKET }}" >/dev/null 2>&1; then
+            gcloud storage buckets create "gs://${{ env.WORKER_DATA_BUCKET }}" \
+              --location="${{ env.REGION }}" \
+              --uniform-bucket-level-access
+          fi
+          gcloud storage buckets add-iam-policy-binding "gs://${{ env.WORKER_DATA_BUCKET }}" \
+            --member="serviceAccount:ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
+            --role="roles/storage.objectAdmin" \
+            --quiet
 
       - name: Build and push ${{ matrix.id }}
         run: |
@@ -69,6 +90,8 @@ jobs:
       - name: Compose worker env vars
         id: env
         run: |
+          CRM_SCOPE="${{ env.CRM_SCOPE }}"
+          if [ -z "$CRM_SCOPE" ]; then CRM_SCOPE="bwc"; fi
           case "${{ matrix.id }}" in
             ironboard)
               printf '%s\n' \
@@ -80,28 +103,47 @@ jobs:
             ironleads)
               printf '%s\n' \
                 "IRONLEADS_INGRESS_SECRET=${{ secrets.IRONLEADS_INGRESS_SECRET }}" \
-                "IRONLEADS_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "IRONLEADS_INGRESS_BASE_URL=${{ env.CONTROL_PLANE_URL }}" \
+                "IRONLEADS_TARGET_TENANT_SLUG=prospect-pool" \
+                "IRONLEADS_HARVEST_CRON_ENABLED=true" \
+                "IRONLEADS_FAILURE_POLICY=quarantine" \
+                "PERIMETER_WORKER_DATA_DIR=/mnt/worker-data" \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 > worker.env
               ;;
             salesteam)
               printf '%s\n' \
                 "SALESTEAM_INGRESS_SECRET=${{ secrets.SALESTEAM_INGRESS_SECRET }}" \
-                "SALESTEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "SALESTEAM_INGRESS_BASE_URL=${{ env.CONTROL_PLANE_URL }}" \
+                "SALESTEAM_TARGET_TENANT_SLUG=prospect-pool" \
+                "SALESTEAM_POLL_ENABLED=true" \
+                "SALESTEAM_POLL_INTERVAL_MS=120000" \
+                "SALESTEAM_DEFAULT_CHANNEL=EMAIL" \
+                "PERIMETER_WORKER_DATA_DIR=/mnt/worker-data" \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 > worker.env
               ;;
             success-team)
               printf '%s\n' \
                 "SUCCESS_TEAM_INGRESS_SECRET=${{ secrets.SUCCESS_TEAM_INGRESS_SECRET }}" \
-                "SUCCESS_TEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "SUCCESS_TEAM_INGRESS_BASE_URL=${{ env.CONTROL_PLANE_URL }}" \
+                "SUCCESS_TEAM_TARGET_TENANT_SLUG=${CRM_SCOPE}" \
+                "SUCCESS_TEAM_POLL_ENABLED=true" \
+                "SUCCESS_TEAM_POLL_INTERVAL_MS=3600000" \
+                "SUCCESS_TEAM_AI_ENABLED=false" \
+                "PERIMETER_WORKER_DATA_DIR=/mnt/worker-data" \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 > worker.env
               ;;
             support-team)
               printf '%s\n' \
                 "SUPPORT_TEAM_INGRESS_SECRET=${{ secrets.SUPPORT_TEAM_INGRESS_SECRET }}" \
-                "SUPPORT_TEAM_INGRESS_BASE_URL=${{ secrets.IRONFRAME_CONTROL_PLANE_URL }}" \
+                "SUPPORT_TEAM_INGRESS_BASE_URL=${{ env.CONTROL_PLANE_URL }}" \
+                "SUPPORT_TEAM_TARGET_TENANT_SLUG=${CRM_SCOPE}" \
+                "SUPPORT_TEAM_POLL_ENABLED=true" \
+                "SUPPORT_TEAM_POLL_INTERVAL_MS=90000" \
+                "SUPPORT_TEAM_AI_ENABLED=false" \
+                "PERIMETER_WORKER_DATA_DIR=/mnt/worker-data" \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 > worker.env
               ;;
@@ -112,6 +154,21 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Compose deploy flags
+        id: deploy
+        run: |
+          FLAGS="--allow-unauthenticated --memory=${{ matrix.memory }} --cpu=1 --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          if [ "${{ matrix.poll_worker }}" = "true" ]; then
+            FLAGS="$FLAGS --execution-environment=gen2 --min-instances=1 --max-instances=1 --add-volume=name=worker-data,type=cloud-storage,bucket=${{ env.WORKER_DATA_BUCKET }} --add-volume-mount=volume=worker-data,mount-path=/mnt/worker-data"
+          else
+            FLAGS="$FLAGS --min-instances=0 --max-instances=2"
+          fi
+          {
+            echo "flags<<EOF"
+            echo "$FLAGS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Deploy ${{ matrix.service }} to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -119,13 +176,7 @@ jobs:
           image: ${{ env.IMAGE }}
           region: ${{ env.REGION }}
           env_vars: ${{ steps.env.outputs.env_vars }}
-          flags: >-
-            --allow-unauthenticated
-            --memory=${{ matrix.memory }}
-            --cpu=1
-            --min-instances=0
-            --max-instances=2
-            --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
+          flags: ${{ steps.deploy.outputs.flags }}
 
       - name: Allow public health probes
         run: |

@@ -53,10 +53,15 @@ function absorbEnvFile(absolutePath: string): void {
   }
 }
 
-function defaultDatabaseUrl(): string {
-  const dataDir = join(IRONLEADS_ROOT, 'data');
+function resolveWorkerDataDir(root: string): string {
+  const configured = process.env.PERIMETER_WORKER_DATA_DIR?.trim();
+  const dataDir = configured || join(root, 'data');
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
-  const dbPath = join(dataDir, 'ironleads.db').replace(/\\/g, '/');
+  return dataDir;
+}
+
+function defaultDatabaseUrl(): string {
+  const dbPath = join(resolveWorkerDataDir(IRONLEADS_ROOT), 'ironleads.db').replace(/\\/g, '/');
   return `file:${dbPath}`;
 }
 
@@ -94,9 +99,7 @@ export function getIronleadsDatabaseUrl(): string {
 }
 
 function defaultCheckpointPath(): string {
-  const dataDir = join(IRONLEADS_ROOT, 'data');
-  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
-  return join(dataDir, 'ironleads-checkpoints.db');
+  return join(resolveWorkerDataDir(IRONLEADS_ROOT), 'ironleads-checkpoints.db');
 }
 
 export function getIronleadsCheckpointPath(): string {

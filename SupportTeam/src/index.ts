@@ -1,4 +1,5 @@
 import express from 'express';
+import { execSync } from 'node:child_process';
 
 import {
   getPollIntervalMs,
@@ -9,6 +10,12 @@ import {
 import { runPollCycle } from './pipeline/runPollCycle.js';
 
 loadSupportTeamEnv();
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
+}
+
+ensureSqliteSchema();
 
 const app = express();
 app.use(express.json());

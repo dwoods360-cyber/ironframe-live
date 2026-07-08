@@ -1,9 +1,16 @@
 import express from 'express';
+import { execSync } from 'node:child_process';
 
 import { loadSuccessTeamEnv, getSuccessTeamPort, getPollIntervalMs, isPollEnabled } from './loadSuccessTeamEnv.js';
 import { runPollCycle } from './pipeline/runPollCycle.js';
 
 loadSuccessTeamEnv();
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
+}
+
+ensureSqliteSchema();
 
 const app = express();
 app.use(express.json());

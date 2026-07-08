@@ -5,7 +5,7 @@ import {
   isBlockedThreatEventWormAction,
   runWithThreatEventWormBypassScope,
   threatEventWormGuardActive,
-} from "@/app/lib/evidence/threatEventWormGuard";
+} from "@/app/lib/evidence/threatEventWormGuard.server";
 import { getLiveDoraReadinessScore } from "@/app/lib/board/sharedBoardContext";
 
 describe("threatEventWormGuard", () => {

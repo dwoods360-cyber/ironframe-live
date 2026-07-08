@@ -4,11 +4,11 @@
  * `prisma/migrations/20260507200000_ironguard_session_tenant_guc`). Table-level ENABLE RLS + POLICY
  * rollout is phased — until then, never omit tenant predicates on tenant-scoped models.
  */
+import "server-only";
+
 import { PrismaClient } from "@prisma/client";
-import {
-  assertThreatEventWormMutationPermitted,
-  threatEventWormGuardActive,
-} from "@/app/lib/evidence/threatEventWormGuard";
+import { assertThreatEventWormMutationPermitted } from "@/app/lib/evidence/threatEventWormGuard.server";
+import { threatEventWormGuardActive } from "@/app/lib/evidence/threatEventWormGuardPolicy";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 
 let threatEventWormDbEnforced = false;

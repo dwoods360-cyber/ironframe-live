@@ -1,8 +1,8 @@
+import "server-only";
+
 import type { Prisma } from "@prisma/client";
-import {
-  buildWormAuditedBypassLabel,
-  runWithThreatEventWormBypassScope,
-} from "@/app/lib/evidence/threatEventWormGuard";
+import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormGuardPolicy";
+import { runWithThreatEventWormBypassScope } from "@/app/lib/evidence/threatEventWormGuardScope.server";
 import prisma from "@/lib/prisma";
 
 export type AuditedThreatEventWormBypassRequest<T> = {

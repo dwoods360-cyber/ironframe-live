@@ -12,7 +12,7 @@ import { PrismaClient, ThreatState, type Prisma } from "@prisma/client";
 import {
   assertThreatEventWormMutationPermitted,
   EPIC_12_THREAT_EVENT_WORM_VIOLATION_MESSAGE,
-} from "@/app/lib/evidence/threatEventWormGuard";
+} from "@/app/lib/evidence/threatEventWormGuard.server";
 
 config({ path: resolve(process.cwd(), ".env.local") });
 config({ path: resolve(process.cwd(), ".env"), override: true });

@@ -211,6 +211,20 @@ async function bootstrapApexOperatorSessionInner(page: Page, email: string): Pro
   }
 }
 
+/** Navigate from apex session to tenant Command Post (tripane dashboard). */
+export async function openWorkspaceCommandPost(
+  page: Page,
+  tenantSlug: "medshield" | "vaultbank" | "gridcore" = "medshield",
+): Promise<void> {
+  await page
+    .goto(`/api/auth/workspace-launch?tenant=${tenantSlug}&next=%2F`, {
+      waitUntil: "commit",
+      timeout: 90_000,
+    })
+    .catch(() => undefined);
+  await page.waitForURL(new RegExp(`${tenantSlug}\\.lvh\\.me`, "i"), { timeout: 90_000 });
+}
+
 export async function readCommandPostDomSnapshot(page: Page): Promise<CommandPostDomSnapshot> {
   return page.evaluate(() => {
     const el = document.querySelector('[data-testid="header-command-post-chip"]');

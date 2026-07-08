@@ -770,6 +770,26 @@ function shouldClaimAssigneeOnAcknowledge(assigneeId: string | null | undefined)
 /** Execution-board owner shown after first-touch acknowledge (work notes / audit still use session `operatorId`). */
 const ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID = "User_00";
 
+/** Align shadow `RiskEvent` txs with prod `runThreatTransaction` — default Prisma 5s is too low on remote Postgres. */
+const THREAT_INTERACTIVE_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
+
+/** Pre-stamp partition/FK fields so `auditLog` extension skips extra lookups inside an open transaction. */
+function shadowSimAuditLogData(
+  tenantUuid: string,
+  simThreatId: string,
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  const tid = tenantUuid.trim();
+  return {
+    ...payload,
+    threatId: null,
+    isSimulation: true,
+    simThreatId,
+    tenantId: tid,
+    simThreatTenantId: tid,
+  };
+}
+
 /** Validate production ThreatEvent exists, then run update + audit create in one transaction. (Always uses threatEvent — never SimThreatEvent.) */
 async function runThreatTransaction<T>(
   id: string,
@@ -809,7 +829,7 @@ async function runThreatTransaction<T>(
     }
     return run(client);
     },
-    { maxWait: 10_000, timeout: 15_000 },
+    { maxWait: THREAT_INTERACTIVE_TX_OPTIONS.maxWait, timeout: THREAT_INTERACTIVE_TX_OPTIONS.timeout },
   );
 }
 
@@ -999,7 +1019,8 @@ export async function acknowledgeThreatAction(
     const savedWorkNoteText = parsedJustification.data.text;
 
     if (isShadowAck) {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(
+        async (tx) => {
         const detailsRow = await tx.riskEvent.findFirst({
           where: { id },
           select: { ingestionDetails: true, assigneeId: true },
@@ -1032,18 +1053,18 @@ export async function acknowledgeThreatAction(
           },
         });
         await auditLogCreateLooseTx(tx, {
-          data: {
+          data: shadowSimAuditLogData(tenantId, id, {
             action: 'THREAT_ACKNOWLEDGED',
             justification: JSON.stringify({
               ...shadowReceiptAuditStub(id),
               text: savedWorkNoteText,
             }),
             operatorId,
-            threatId: null,
-            isSimulation: true,
-          },
+          }),
         });
-      });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidatePath('/');
       return { success: true as const };
     } else {
@@ -1155,10 +1176,11 @@ export async function confirmThreatAction(
 
   try {
     if (isShadow) {
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(
+        async (tx) => {
         const row = await tx.riskEvent.findFirst({
           where: { id },
-          select: { id: true },
+          select: { id: true, tenantId: true },
         });
         if (row == null) {
           console.warn(`[Confirm Phase 2] SimThreatEvent missing inside TX after resolve: ${id}`);
@@ -1171,15 +1193,15 @@ export async function confirmThreatAction(
           data: { status: ThreatState.CONFIRMED },
         });
         await auditLogCreateLooseTx(tx, {
-          data: {
+          data: shadowSimAuditLogData(row.tenantId, id, {
             action: 'THREAT_CONFIRMED',
             justification: JSON.stringify(shadowReceiptAuditStub(id)),
             operatorId,
-            threatId: null,
-            isSimulation: true,
-          },
+          }),
         });
-      });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidatePath('/');
       await logThreatActivity(null, 'STATUS_UPDATED', `Threat status changed to CONFIRMED (shadow). simThreatId:${id}`, {
         isSimulation: true,

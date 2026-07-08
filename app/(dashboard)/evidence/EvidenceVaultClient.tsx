@@ -21,9 +21,36 @@ import { useShallow } from "zustand/react/shallow";
 import { CARRIER_EXPORT_OPTIONS, type CarrierKey } from "@/app/utils/carrierTemplates";
 import type { BulkEvidenceBundle } from "@/app/types/bulkEvidenceBundle";
 import { useEvidenceStore } from "@/app/store/evidenceStore";
+import EvidenceGapsDrawer from "@/app/(dashboard)/evidence/EvidenceGapsDrawer";
+import EvidenceGapsSummary from "@/app/(dashboard)/evidence/EvidenceGapsSummary";
+import {
+  type GapRow,
+  symptomForAle,
+} from "@/app/(dashboard)/evidence/EvidenceGapsPanel";
+import { triggerSentinelHunch } from "@/app/actions/sentinelActions";
 
 type RangePreset = "CY2025" | "FY2025" | "LAST90" | "CUSTOM";
 type CoverageFramework = "SOC2" | "ISO27001" | "NIST";
+
+const VAULT_READINESS_SNAPSHOT_KEY = "ironframe-vault-readiness-snapshot";
+
+function readVaultReadinessSnapshot(): number | null {
+  if (typeof window === "undefined") return null;
+  const raw = sessionStorage.getItem(VAULT_READINESS_SNAPSHOT_KEY);
+  if (!raw) return null;
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function writeVaultReadinessSnapshot(pct: number | null) {
+  if (typeof window === "undefined" || pct == null) return;
+  sessionStorage.setItem(VAULT_READINESS_SNAPSHOT_KEY, String(pct));
+}
+
+function clearVaultReadinessSnapshot() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(VAULT_READINESS_SNAPSHOT_KEY);
+}
 
 function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -50,6 +77,7 @@ export default function EvidenceVaultClient() {
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter");
   const contextParam = searchParams.get("context");
+  const sectionParam = searchParams.get("section");
   const itarVaultDeepLink = filterParam?.trim().toUpperCase() === "ITAR";
   const vaultContextRiskId = contextParam?.trim() ?? "";
 
@@ -101,6 +129,10 @@ export default function EvidenceVaultClient() {
   } | null>(null);
   const [ironcastToast, setIroncastToast] = useState<string | null>(null);
   const [shredReceipts, setShredReceipts] = useState<AuditReceiptRow[]>([]);
+  const [gapRows, setGapRows] = useState<GapRow[]>([]);
+  const [gapBusyControl, setGapBusyControl] = useState<string | null>(null);
+  const [gapsDrawerOpen, setGapsDrawerOpen] = useState(false);
+  const readinessBeforeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -126,11 +158,11 @@ export default function EvidenceVaultClient() {
     return Math.max(0, Math.min(360, (pct / 100) * 360));
   }, [readinessPct]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<number | null> => {
     if (!dashboardTenantUuid) {
       setLoadError("Tenant context required.");
       setLoading(false);
-      return;
+      return null;
     }
     setLoading(true);
     setLoadError(null);
@@ -138,6 +170,7 @@ export default function EvidenceVaultClient() {
       getBulkEvidenceBundle(dashboardTenantUuid, range),
       getFrameworkCoverage(dashboardTenantUuid, coverageFramework),
     ]);
+    let nextReadiness: number | null = null;
     let hasReadinessFromCoverage = false;
     if (!res.ok) {
       setLoadError(res.error);
@@ -148,14 +181,17 @@ export default function EvidenceVaultClient() {
     if (!coverageRes.ok) {
       setReadinessPct(null);
       setReadinessInfo(null);
+      setGapRows([]);
       setLoadError((prev) => prev ?? coverageRes.error);
     } else {
       hasReadinessFromCoverage = true;
-      setReadinessPct(coverageRes.coverage.readinessPercent);
+      nextReadiness = coverageRes.coverage.readinessPercent;
+      setReadinessPct(nextReadiness);
       setReadinessInfo({
         validated: coverageRes.coverage.totals.validatedControls,
         required: coverageRes.coverage.totals.requiredControls,
       });
+      setGapRows(coverageRes.coverage.gaps);
     }
     const shredList = await listAuditReceiptsForTenant();
     setShredReceipts(shredList.ok ? shredList.receipts : []);
@@ -166,14 +202,78 @@ export default function EvidenceVaultClient() {
       setPeerAvgPct(peerRes.payload.industryAvgPct);
       setPeerBucket(peerRes.payload.percentileBucket);
       setPeerInsight(peerRes.payload.insight);
-      if (!hasReadinessFromCoverage) setReadinessPct(peerRes.payload.yourScorePct);
+      if (!hasReadinessFromCoverage) {
+        nextReadiness = peerRes.payload.yourScorePct;
+        setReadinessPct(nextReadiness);
+      }
     }
     setLoading(false);
+    if (nextReadiness != null) {
+      const snapshotBefore = readVaultReadinessSnapshot();
+      if (
+        snapshotBefore != null &&
+        Math.round(snapshotBefore) !== Math.round(nextReadiness)
+      ) {
+        setIroncastToast(
+          `Readiness updated: ${snapshotBefore.toFixed(0)}% → ${nextReadiness.toFixed(0)}%`,
+        );
+        clearVaultReadinessSnapshot();
+      }
+      readinessBeforeRef.current = nextReadiness;
+    }
+    return nextReadiness;
   }, [dashboardTenantUuid, range, coverageFramework]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const onOperationalRefresh = () => {
+      const before = readinessBeforeRef.current;
+      void (async () => {
+        const after = await load();
+        if (before != null && after != null && Math.round(before) !== Math.round(after)) {
+          setIroncastToast(`Readiness updated: ${before.toFixed(0)}% → ${after.toFixed(0)}%`);
+        }
+      })();
+    };
+    window.addEventListener("ironframe-operational-refresh", onOperationalRefresh);
+    return () => window.removeEventListener("ironframe-operational-refresh", onOperationalRefresh);
+  }, [load]);
+
+  useEffect(() => {
+    if (sectionParam === "gaps") {
+      setGapsDrawerOpen(true);
+    }
+  }, [sectionParam]);
+
+  const handleStressTestTriggered = useCallback((controlId: string, threatId: string) => {
+    writeVaultReadinessSnapshot(readinessBeforeRef.current ?? readinessPct);
+    setIroncastToast(
+      `Stress test opened for ${controlId} — resolve in Integrity Hub to update readiness. Case ${threatId.slice(0, 8)}…`,
+    );
+  }, [readinessPct]);
+
+  const triggerGapStressTest = useCallback(
+    async (gap: GapRow) => {
+      setGapBusyControl(gap.controlId);
+      const call = await triggerSentinelHunch({
+        targetAsset: "Control Stress Test :: " + gap.controlId,
+        observedSymptom: symptomForAle(gap.potentialAleExposureCents),
+        confidenceLevel: 88,
+        complianceFramework: coverageFramework,
+      });
+      setGapBusyControl(null);
+      if (!call.ok) {
+        setIroncastToast(`Stress test failed for ${gap.controlId}: ${call.error}`);
+        return;
+      }
+      handleStressTestTriggered(gap.controlId, call.threatId);
+      await load();
+    },
+    [coverageFramework, handleStressTestTriggered, load],
+  );
 
   const onBulkExport = useCallback(async () => {
     if (!dashboardTenantUuid) return;
@@ -296,8 +396,14 @@ export default function EvidenceVaultClient() {
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-wide text-emerald-300/90">Underwriter Readiness</p>
-            <p className="text-[11px] text-emerald-100">
-              {readinessPct == null ? "Unavailable" : `${readinessPct.toFixed(2)}%`}
+            <p className="flex flex-wrap items-center gap-2 text-[11px] text-emerald-100">
+              <span>{readinessPct == null ? "Unavailable" : `${readinessPct.toFixed(2)}%`}</span>
+              {!loading && readinessPct != null ? (
+                <span className="inline-flex items-center gap-1 rounded border border-emerald-700/50 bg-emerald-950/50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-emerald-300/90">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" aria-hidden />
+                  Auto-synced
+                </span>
+              ) : null}
             </p>
             {readinessInfo ? (
               <p className="text-[9px] text-slate-500">
@@ -335,6 +441,28 @@ export default function EvidenceVaultClient() {
           </div>
         </div>
       </div>
+
+      <EvidenceGapsSummary
+        framework={coverageFramework}
+        gaps={gapRows}
+        gapCount={gapRows.length}
+        validatedControls={readinessInfo?.validated ?? 0}
+        requiredControls={readinessInfo?.required ?? 0}
+        loading={loading}
+        busyControl={gapBusyControl}
+        onOpenDrawer={() => setGapsDrawerOpen(true)}
+        onTriggerGap={(gap) => void triggerGapStressTest(gap)}
+      />
+
+      <EvidenceGapsDrawer
+        open={gapsDrawerOpen}
+        onClose={() => setGapsDrawerOpen(false)}
+        tenantUuid={dashboardTenantUuid}
+        framework={coverageFramework}
+        onFrameworkChange={setCoverageFramework}
+        onRemediationComplete={() => void load()}
+        onStressTestTriggered={handleStressTestTriggered}
+      />
 
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -451,12 +579,13 @@ export default function EvidenceVaultClient() {
         >
           {mockBusy ? "Submitting…" : "Bulk export (simulated)"}
         </button>
-        <Link
-          href="/evidence/gaps"
+        <button
+          type="button"
+          onClick={() => setGapsDrawerOpen(true)}
           className="rounded border border-amber-700/70 bg-amber-950/35 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-amber-100 hover:border-amber-500"
         >
-          Internal health check
-        </Link>
+          Control gaps
+        </button>
         <Link
           href="/evidence/sectors"
           className="rounded border border-violet-700/70 bg-violet-950/35 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-violet-100 hover:border-violet-500"

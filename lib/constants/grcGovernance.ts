@@ -26,7 +26,7 @@ export const IRONWATCH_HISTORICAL_MEMORY_KEYWORDS = [
 ] as const;
 
 /** Deep link for Ironwatch intelligence match sidebar (evidence gap index). */
-export const IRONWATCH_HISTORICAL_CHAPTER_HREF = "/evidence/gaps";
+export const IRONWATCH_HISTORICAL_CHAPTER_HREF = "/vault?section=gaps";
 
 /** Center pane / board report when tenant record name is not yet resolved. */
 export const GRC_GOLD_TENANT_DISPLAY_FALLBACK = "Defense Logistics";

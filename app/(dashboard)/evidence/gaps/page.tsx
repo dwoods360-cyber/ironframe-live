@@ -1,5 +1,5 @@
 import { unstable_noStore as noStore } from "next/cache";
-import GapsHealthCheckClient from "./GapsHealthCheckClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -9,11 +9,8 @@ export const metadata = {
   description: "Internal-only pre-submission audit and proactive remediation workflow.",
 };
 
+/** Legacy deep link — control gaps now live inline on Evidence Vault. */
 export default function EvidenceGapsPage() {
   noStore();
-  return (
-    <div className="min-h-0 overflow-y-auto bg-slate-950">
-      <GapsHealthCheckClient />
-    </div>
-  );
+  redirect("/vault?section=gaps");
 }

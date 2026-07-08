@@ -62,7 +62,7 @@ import {
   isRemoteSupportChaosThreat,
   REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS,
 } from "@/app/utils/chaosDiscoveryHold";
-import { isControlStressTestIngestion } from "@/app/utils/controlStressTestBoardBridge";
+import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
 import { toThreatSourceLabel } from "@/app/utils/threatSourceLabels";
 

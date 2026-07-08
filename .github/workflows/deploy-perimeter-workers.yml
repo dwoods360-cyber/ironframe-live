@@ -66,14 +66,14 @@ jobs:
         if: matrix.poll_worker
         run: |
           if ! gcloud storage buckets describe "gs://${{ env.WORKER_DATA_BUCKET }}" >/dev/null 2>&1; then
-            gcloud storage buckets create "gs://${{ env.WORKER_DATA_BUCKET }}" \
-              --location="${{ env.REGION }}" \
-              --uniform-bucket-level-access
+            echo "Bucket gs://${{ env.WORKER_DATA_BUCKET }} missing — create it once with project-owner credentials."
+            echo "See docs/ops/perimeter-workers-cloud-run.md#worker-data-bucket"
+            exit 1
           fi
           gcloud storage buckets add-iam-policy-binding "gs://${{ env.WORKER_DATA_BUCKET }}" \
             --member="serviceAccount:ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com" \
             --role="roles/storage.objectAdmin" \
-            --quiet
+            --quiet || true
 
       - name: Build and push ${{ matrix.id }}
         run: |
@@ -179,6 +179,7 @@ jobs:
           flags: ${{ steps.deploy.outputs.flags }}
 
       - name: Allow public health probes
+        continue-on-error: true
         run: |
           gcloud run services add-iam-policy-binding ${{ matrix.service }} \
             --region=${{ env.REGION }} \

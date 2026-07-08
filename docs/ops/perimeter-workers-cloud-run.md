@@ -44,6 +44,22 @@ Triggers: push to `main` (worker paths) or **workflow_dispatch** (manual).
 3. Set `OPERATIONS_*_URL` secrets in GitHub to those URLs.
 4. Re-run **Sovereign Deploy** so control plane picks up worker URLs.
 
+## Worker data bucket (one-time)
+
+Poll workers persist SQLite under `gs://${GCP_PROJECT_ID}-perimeter-worker-data` mounted at `/mnt/worker-data`.
+
+Create once with project-owner credentials (the deploy SA cannot create buckets):
+
+```bash
+gcloud storage buckets create gs://ironframe-prod-perimeter-worker-data \
+  --location=us-central1 \
+  --uniform-bucket-level-access
+
+gcloud storage buckets add-iam-policy-binding gs://ironframe-prod-perimeter-worker-data \
+  --member="serviceAccount:ironframe-gcp-sa-key@ironframe-prod.iam.gserviceaccount.com" \
+  --role="roles/storage.objectAdmin"
+```
+
 ## Local dev (unchanged)
 
 ```bash

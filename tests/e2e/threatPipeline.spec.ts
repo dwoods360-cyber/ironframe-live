@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
+import { bootstrapApexOperatorSession, openWorkspaceCommandPost } from './helpers/commandPostDiagnostic';
+
+const OPERATOR_EMAIL =
+  process.env.IRONFRAME_E2E_OPERATOR_EMAIL?.trim() || 'dwoods360@gmail.com';
 
 /**
  * E2E: Threat Pipeline & GRC Gates (GATEKEEPER PROTOCOL).
@@ -28,10 +32,25 @@ async function waitForPipelineSection(page: import('@playwright/test').Page) {
 }
 
 test.describe('Threat Pipeline & GRC Gates', () => {
+  test.setTimeout(120_000);
+
+  test.beforeEach(async ({ page }) => {
+    test.skip(
+      !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+      'SUPABASE_SERVICE_ROLE_KEY required to mint apex session',
+    );
+    await bootstrapApexOperatorSession(page, OPERATOR_EMAIL);
+    await openWorkspaceCommandPost(page, "medshield");
+  });
+
+  async function gotoCommandPostHome(page: import('@playwright/test').Page) {
+    await page.goto(new URL('/', page.url()).href, { waitUntil: 'domcontentloaded', timeout: 90_000 });
+  }
+
   test('Test 1: Zero-Trust UI Rendering — pipeline loads for active tenant; Kimbot tags with tenantId', async ({
     page,
   }) => {
-    await page.goto('/');
+    await gotoCommandPostHome(page);
     const mode = await waitForDashboardReady(page);
     skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
@@ -52,7 +71,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
   test('Test 2: High-Velocity UI Condensation — 5 threats render as Lead Card + badge only', async ({
     page,
   }) => {
-    await page.goto('/');
+    await gotoCommandPostHome(page);
     const mode = await waitForDashboardReady(page);
     skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
@@ -93,7 +112,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
   test('Test 3: The $10M GRC Gate — Acknowledge blocked without 50-character justification', async ({
     page,
   }) => {
-    await page.goto('/');
+    await gotoCommandPostHome(page);
     const mode = await waitForDashboardReady(page);
     skipUnlessDashboard(mode);
     await waitForPipelineSection(page);
@@ -133,7 +152,56 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await expect(ackBtn).toBeEnabled({ timeout: 5000 });
   });
 
-  test.skip('Test 4: Structured Triage Workflow — DISMISS/REVERT open inline form; dropdown + text required before submit', async ({
+  test('Test 4: Acknowledge transitions pipeline card to Active Risks within 3 seconds', async ({
+    page,
+  }) => {
+    await gotoCommandPostHome(page);
+    const mode = await waitForDashboardReady(page);
+    skipUnlessDashboard(mode);
+    await waitForPipelineSection(page);
+    await page.waitForTimeout(2000);
+
+    const triageTitle = `E2E Ack Transition ${Date.now()}`;
+    const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
+    await expect(manualBtn).toBeVisible({ timeout: 8000 });
+    await manualBtn.click();
+
+    await page.getByPlaceholder(/Risk title/i).fill(triageTitle);
+    await page.getByPlaceholder(/Source agent/i).fill('E2E Test');
+    await page.getByPlaceholder(/Target sector/i).fill('Healthcare');
+    await page.getByPlaceholder(/Inherent risk/i).fill('2.0');
+    await page.getByRole('button', { name: /^Register$/i }).click();
+
+    await waitForPipelineSection(page);
+    await attackVelocityLocator(page).scrollIntoViewIfNeeded().catch(() => {});
+
+    const threatCard = page
+      .locator('[data-testid="pipeline-threat-card"]')
+      .filter({ hasText: triageTitle })
+      .first();
+    await expect(threatCard).toBeVisible({ timeout: 12_000 });
+
+    const justification = threatCard.locator('[data-testid="grc-justification"]');
+    await justification.fill(
+      'E2E acknowledge transition test with sufficient GRC justification for gate compliance.',
+    );
+
+    const ackBtn = threatCard.locator('[data-testid="pipeline-acknowledge-btn"]');
+    await expect(ackBtn).toBeEnabled({ timeout: 5000 });
+
+    const startedAt = Date.now();
+    await ackBtn.click();
+
+    const activeBoard = page.locator('[data-testid="active-risks-board"]');
+    await activeBoard.scrollIntoViewIfNeeded();
+    await expect(activeBoard.getByText(triageTitle).first()).toBeVisible({ timeout: 3000 });
+    await expect(threatCard).not.toBeVisible({ timeout: 3000 });
+
+    const elapsedMs = Date.now() - startedAt;
+    expect(elapsedMs).toBeLessThan(3000);
+  });
+
+  test.skip('Test 5: Structured Triage Workflow — DISMISS/REVERT open inline form; dropdown + text required before submit', async ({
     page,
   }) => {
     await page.goto('/');

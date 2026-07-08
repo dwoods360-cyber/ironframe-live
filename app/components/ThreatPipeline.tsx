@@ -237,6 +237,8 @@ function PipelineThreatCard({
   }, [tttStopped]);
 
   const acknowledgeThreat = useRiskStore((s) => s.acknowledgeThreat);
+  const acceptPipelineThreat = useRiskStore((s) => s.acceptPipelineThreat);
+  const revertAcceptedPipelineThreat = useRiskStore((s) => s.revertAcceptedPipelineThreat);
   const resolveThreat = useRiskStore((s) => s.resolveThreat);
   const chaosFlight = useRiskStore((s) => s.chaosFlightRecorderByThreatId[threat.id]);
   const updatePipelineThreat = useRiskStore((s) => s.updatePipelineThreat);
@@ -434,6 +436,7 @@ function PipelineThreatCard({
       // fallback stays admin-user-01
     }
 
+    acceptPipelineThreat(threat.id);
     updatePipelineThreat(threat.id, {
       lastTriageAction: "ACKNOWLEDGE",
       lifecycleState: "active",
@@ -452,6 +455,7 @@ function PipelineThreatCard({
         tenantUuidForActions,
       );
       if (!outcome.success) {
+        revertAcceptedPipelineThreat(threat.id);
         updatePipelineThreat(threat.id, {
           lifecycleState: "pipeline",
           lastTriageAction: undefined,
@@ -476,6 +480,7 @@ function PipelineThreatCard({
       setGrcJustification("");
       onActionSuccess?.();
     } catch (error) {
+      revertAcceptedPipelineThreat(threat.id);
       updatePipelineThreat(threat.id, {
         lifecycleState: "pipeline",
         lastTriageAction: undefined,
@@ -1196,6 +1201,7 @@ export default function ThreatPipeline({
   const filteredRisks = pipelineThreats.filter((t) => {
     /** Chaos / all lanes: once a card is on Active Risks, it must not remain in Risk Ingestion / Attack Velocity. */
     if (activeThreatIdSet.has(t.id)) return false;
+    if (t.lifecycleState === "active") return false;
     if (!belongsOnAttackVelocityPipeline(t)) return false;
     const st = (t.threatStatus ?? "").trim().toUpperCase();
     if (st === "RESOLVED" || st === "CLOSED_ARCHIVED") return false;

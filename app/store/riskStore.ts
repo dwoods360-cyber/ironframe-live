@@ -260,6 +260,7 @@ interface RiskState {
     }
   ) => void;
   acceptPipelineThreat: (id: string) => void;
+  revertAcceptedPipelineThreat: (id: string) => void;
 
   // GRC lifecycle actions (server-backed)
   acknowledgeThreat: (
@@ -665,6 +666,29 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           : state.activeThreats,
     };
   }),
+  /** Undo optimistic `acceptPipelineThreat` when server acknowledge fails. */
+  revertAcceptedPipelineThreat: (id) =>
+    set((state) => {
+      const threat = state.activeThreats.find((t) => t.id === id);
+      if (!threat) return state;
+      const pipelineThreats = [
+        { ...threat, lifecycleState: "pipeline" as const, lastTriageAction: undefined },
+        ...state.pipelineThreats.filter((t) => t.id !== id),
+      ];
+      const activeThreats = state.activeThreats.filter((t) => t.id !== id);
+      const nextImpacts = { ...state.acceptedThreatImpacts };
+      delete nextImpacts[id];
+      const nextIndustries = { ...state.acceptedThreatIndustries };
+      delete nextIndustries[id];
+      return {
+        pipelineThreats,
+        activeThreats,
+        activeSidebarThreats: state.activeSidebarThreats.filter((sid) => sid !== id),
+        acceptedThreatImpacts: nextImpacts,
+        acceptedThreatIndustries: nextIndustries,
+        threatIndexById: buildThreatIndexById(pipelineThreats, activeThreats),
+      };
+    }),
   acknowledgeThreat: async (id, operatorId, justification, tenantId) => {
     set({ threatActionError: { active: false, message: "" } });
     if (get().ackInFlightThreatIds[id]) {
@@ -696,23 +720,6 @@ export const useRiskStore = create<RiskState>((set, get) => ({
         const w = (result as { warning?: string }).warning;
         if (w) console.warn("[STORE] acknowledgeThreatAction server warning:", w);
       }
-
-      // State lock / handoff: load authoritative boards from DB before mutating local lists.
-      // Avoids a frame where the id is absent from both pipeline and active (split-brain / Kimbot paradox).
-      await get().pulseThreatBoardsFromDb().catch(() => undefined);
-
-      const stateAtAck = get();
-      const ackedThreat =
-        stateAtAck.threatIndexById[id] ??
-        stateAtAck.pipelineThreats.find((t) => t.id === id) ??
-        stateAtAck.activeThreats.find((t) => t.id === id);
-      appendAuditLog({
-        action_type: "GRC_ACKNOWLEDGE_CLICK",
-        log_type: "GRC",
-        description: `Threat acknowledged: ${ackedThreat?.name ?? id}`,
-        user_id: operatorId,
-        metadata_tag: `industry:${ackedThreat?.industry ?? stateAtAck.selectedIndustry}|tenant:${stateAtAck.selectedTenantName ?? "GLOBAL"}|threatId:${id}`,
-      });
 
       const j = (justification ?? "").trim();
       set((state) => {
@@ -753,11 +760,17 @@ export const useRiskStore = create<RiskState>((set, get) => ({
               ? { ...state.acceptedThreatIndustries, [id]: merged.industry ?? "Healthcare" }
               : state.acceptedThreatIndustries,
             activeSidebarThreats: newSidebar,
-            threatIndexById: buildThreatIndexById(state.pipelineThreats, activeThreats),
+            pipelineThreats: state.pipelineThreats.filter((t) => t.id !== id),
+            threatIndexById: buildThreatIndexById(
+              state.pipelineThreats.filter((t) => t.id !== id),
+              activeThreats,
+            ),
           };
         }
 
-        const threat = state.pipelineThreats.find((t) => t.id === id);
+        const threat =
+          state.pipelineThreats.find((t) => t.id === id) ??
+          state.threatIndexById[id];
         const toActive =
           threat && !state.activeThreats.some((t) => t.id === id)
             ? {
@@ -777,30 +790,45 @@ export const useRiskStore = create<RiskState>((set, get) => ({
 
         const impactM = threat ? (threat.loss ?? threat.score) : 0;
         const impactRounded = typeof impactM === "number" ? Number(impactM.toFixed(1)) : 0;
-        const newActiveSidebar = threat && !state.activeSidebarThreats.includes(id)
-          ? [...state.activeSidebarThreats, id]
-          : state.activeSidebarThreats;
+        const newActiveSidebar =
+          threat && !state.activeSidebarThreats.includes(id)
+            ? [...state.activeSidebarThreats, id]
+            : state.activeSidebarThreats;
         const newImpacts = threat
           ? { ...state.acceptedThreatImpacts, [id]: impactRounded }
           : state.acceptedThreatImpacts;
         const newIndustries = threat
           ? { ...state.acceptedThreatIndustries, [id]: threat.industry ?? "Healthcare" }
           : state.acceptedThreatIndustries;
+        const pipelineThreats = state.pipelineThreats.filter((t) => t.id !== id);
+        const activeThreats = toActive ? [...state.activeThreats, toActive] : state.activeThreats;
         return {
           threatActionError: { active: false, message: "" },
           selectedThreatId: null,
           activeRiskId: null,
-          threatIndexById: buildThreatIndexById(
-            state.pipelineThreats.filter((t) => t.id !== id),
-            toActive ? [...state.activeThreats, toActive] : state.activeThreats,
-          ),
+          threatIndexById: buildThreatIndexById(pipelineThreats, activeThreats),
           activeSidebarThreats: newActiveSidebar,
-          pipelineThreats: state.pipelineThreats.filter((t) => t.id !== id),
+          pipelineThreats,
           acceptedThreatImpacts: newImpacts,
           acceptedThreatIndustries: newIndustries,
-          activeThreats: toActive ? [...state.activeThreats, toActive] : state.activeThreats,
+          activeThreats,
         };
       });
+
+      const stateAtAck = get();
+      const ackedThreat =
+        stateAtAck.threatIndexById[id] ??
+        stateAtAck.pipelineThreats.find((t) => t.id === id) ??
+        stateAtAck.activeThreats.find((t) => t.id === id);
+      appendAuditLog({
+        action_type: "GRC_ACKNOWLEDGE_CLICK",
+        log_type: "GRC",
+        description: `Threat acknowledged: ${ackedThreat?.name ?? id}`,
+        user_id: operatorId,
+        metadata_tag: `industry:${ackedThreat?.industry ?? stateAtAck.selectedIndustry}|tenant:${stateAtAck.selectedTenantName ?? "GLOBAL"}|threatId:${id}`,
+      });
+
+      void get().pulseThreatBoardsFromDb().catch(() => undefined);
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("clear-threat-modals"));

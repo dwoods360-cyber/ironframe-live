@@ -15,6 +15,10 @@ import {
   parseIngestionDetailsForMerge,
 } from "@/app/utils/ingestionDetailsMerge";
 import { parseAgentIngressFromIngestion } from "@/app/utils/agentIngressJustification";
+import {
+  listControlStressRiskEventsForTenant,
+  mergeBoardRowsById,
+} from "@/app/utils/controlStressTestBoardBridge";
 import { Prisma, ThreatState } from "@prisma/client";
 
 const CENTS_PER_MILLION = 100_000_000;
@@ -466,7 +470,7 @@ export async function findActiveThreatEventRowsForBoard(
   const tenantUuid = tenantUuidRaw.trim();
   if (!tenantUuid) return [];
   if (useRiskEventTable) {
-    return prisma.riskEvent.findMany({
+    const rows = await prisma.riskEvent.findMany({
       where: {
         AND: [
           { tenantId: tenantUuid },
@@ -478,6 +482,11 @@ export async function findActiveThreatEventRowsForBoard(
       select: simActiveThreatBoardSelect,
       orderBy: { updatedAt: "desc" },
     });
+    const stressBridge = await listControlStressRiskEventsForTenant(tenantUuid, [
+      ThreatState.CONFIRMED,
+      ThreatState.MITIGATED,
+    ]);
+    return mergeBoardRowsById(rows, stressBridge) as ActiveBoardUnionRow[];
   }
   const companies = await prisma.company.findMany({
     where: { tenantId: tenantUuid },
@@ -485,7 +494,7 @@ export async function findActiveThreatEventRowsForBoard(
   });
   const companyIds = companies.map((c) => c.id);
   if (companyIds.length === 0) return [];
-  return prisma.threatEvent.findMany({
+  const rows = await prisma.threatEvent.findMany({
     where: {
       AND: [
         { tenantCompanyId: { in: companyIds } },
@@ -497,6 +506,11 @@ export async function findActiveThreatEventRowsForBoard(
     select: activeThreatBoardSelect,
     orderBy: { updatedAt: "desc" },
   });
+  const stressBridge = await listControlStressRiskEventsForTenant(tenantUuid, [
+    ThreatState.CONFIRMED,
+    ThreatState.MITIGATED,
+  ]);
+  return mergeBoardRowsById(rows, stressBridge) as ActiveBoardUnionRow[];
 }
 
 /** Map Prisma rows (ThreatEvent with relations, or SimThreatEvent scalars) → `PipelineThreatFromDb`. */

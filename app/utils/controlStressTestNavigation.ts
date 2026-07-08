@@ -9,7 +9,7 @@ export function buildControlStressCaseHref(threatId: string): string {
 }
 
 export const CONTROL_STRESS_RESOLVE_STEPS =
-  "Command Post → Threat Pipeline (Attack Velocity): acknowledge the Sentinel case, then Active Risks: resolve with a 50+ character attestation.";
+  "Command Post → scroll to Risk Ingestion / Attack Velocity → acknowledge Sentinel Hypothesis: Control Stress Test, then Active Risks → resolve (50+ chars).";
 
 export function controlStressOpenedMessage(controlId: string, threatId: string): string {
   return `Control stress case opened for ${controlId}. ${CONTROL_STRESS_RESOLVE_STEPS} Case ${threatId.slice(0, 8)}…`;

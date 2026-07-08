@@ -62,6 +62,7 @@ import {
   isRemoteSupportChaosThreat,
   REMOTE_SUPPORT_L4_PIPELINE_VISIBLE_MS,
 } from "@/app/utils/chaosDiscoveryHold";
+import { isControlStressTestIngestion } from "@/app/utils/controlStressTestBoardBridge";
 import { isChaosForensicGavelClosed } from "@/app/utils/chaosForensicClosure";
 import { toThreatSourceLabel } from "@/app/utils/threatSourceLabels";
 
@@ -1205,8 +1206,12 @@ export default function ThreatPipeline({
     const chaosLabLane =
       (t.industry ?? "").trim().toUpperCase() === "CHAOSLAB" ||
       ((t as { target?: string }).target ?? "").trim().toUpperCase() === "CHAOSLAB";
+    const isControlStressLane =
+      isControlStressTestIngestion(t.ingestionDetails ?? null) ||
+      (t.name ?? "").includes("Control Stress Test");
     /** Shadow bots + chaos — visible even when Command Center has no tenant chip selected (Global / Unassigned lane). */
     const isSimulationLaneThreat =
+      isControlStressLane ||
       chaosLabLane ||
       src.includes("SIMULATION") ||
       src === GRC_SOURCE ||

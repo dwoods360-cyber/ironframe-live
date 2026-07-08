@@ -26,6 +26,11 @@ import {
   type PipelineThreatFromDb as PipelineThreatFromDbImported,
 } from "@/app/utils/activeThreatsBoardQuery";
 import {
+  listControlStressRiskEventsForPipeline,
+  mergeBoardRowsById,
+  type PipelineControlStressBridgeRow,
+} from "@/app/utils/controlStressTestBoardBridge";
+import {
   normalizeIngestionDetailsToString,
   parseIngestionDetailsForMerge,
 } from "@/app/utils/ingestionDetailsMerge";
@@ -279,39 +284,13 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
     },
   } satisfies Prisma.ThreatEventSelect;
 
-  const rows = sim
-    ? await prisma.riskEvent.findMany({
-        where: {
-          AND: [
-            { tenantId: tenantUuid },
-            statusClause,
-            ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
-          ],
-        },
-        orderBy: { createdAt: "desc" },
-        select: pipelineScalarsSim,
-      })
-    : await (async () => {
-        const companies = await prisma.company.findMany({
-          where: { tenantId: tenantUuid },
-          select: { id: true },
-        });
-        const companyIds = companies.map((c) => c.id);
-        if (companyIds.length === 0) return [];
-        return prisma.threatEvent.findMany({
-          where: {
-            AND: [
-              { tenantCompanyId: { in: companyIds } },
-              statusClause,
-              ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
-            ],
-          },
-          orderBy: { createdAt: "desc" },
-          select: pipelineProdSelect,
-        });
-      })();
+  type PipelineProdRow = Prisma.ThreatEventGetPayload<{ select: typeof pipelineProdSelect }>;
+  type PipelineSimRow = Prisma.RiskEventGetPayload<{ select: typeof pipelineScalarsSim }>;
 
-  return rows.map((r) => {
+  const mapPipelineRow = (
+    r: PipelineProdRow | PipelineSimRow | PipelineControlStressBridgeRow,
+    planeSim: boolean,
+  ): PipelineThreatFromDb => {
     const agentReasonings =
       "agentReasonings" in r && Array.isArray(r.agentReasonings)
         ? r.agentReasonings.map((a) => ({
@@ -322,17 +301,24 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
             createdAt: a.createdAt.toISOString(),
           }))
         : undefined;
-    const shadow = sim ? parseShadowCisoHandshakeFromIngestion(r.ingestionDetails) : null;
-    const resolutionApprovalId = sim
-      ? shadow?.resolutionApprovalId ?? null
-      : (r as { resolutionApprovalId?: string | null; resolutionApproval?: { id: string; status: string } | null })
-          .resolutionApprovalId ??
-        (r as { resolutionApproval?: { id: string; status: string } | null }).resolutionApproval?.id ??
-        null;
-    const resolutionApprovalStatus = sim
-      ? shadow?.resolutionApprovalStatus ?? null
-      : (((r as { resolutionApproval?: { status: string } | null }).resolutionApproval?.status ??
-          null) as "PENDING" | "APPROVED" | "REJECTED" | null);
+    const shadowHandshake = parseShadowCisoHandshakeFromIngestion(r.ingestionDetails);
+    const prodResolutionId =
+      !planeSim && "resolutionApprovalId" in r
+        ? (r.resolutionApprovalId ??
+          r.resolutionApproval?.id ??
+          null)
+        : null;
+    const prodResolutionStatus =
+      !planeSim && "resolutionApproval" in r
+        ? (r.resolutionApproval?.status as "PENDING" | "APPROVED" | "REJECTED" | undefined) ??
+          null
+        : null;
+    const resolutionApprovalId = planeSim
+      ? shadowHandshake.resolutionApprovalId ?? null
+      : prodResolutionId ?? shadowHandshake.resolutionApprovalId ?? null;
+    const resolutionApprovalStatus = planeSim
+      ? shadowHandshake.resolutionApprovalStatus ?? null
+      : prodResolutionStatus ?? shadowHandshake.resolutionApprovalStatus ?? null;
     return {
       id: r.id,
       name: r.title,
@@ -348,14 +334,56 @@ export async function fetchPipelineThreatsFromDb(): Promise<PipelineThreatFromDb
       dispositionStatus: r.dispositionStatus ?? undefined,
       isFalsePositive: r.isFalsePositive,
       receiptHash: r.receiptHash ?? undefined,
-      governanceHash: sim
-        ? ((r as { governanceHash?: string | null }).governanceHash ?? undefined)
+      governanceHash: planeSim
+        ? ("governanceHash" in r ? r.governanceHash ?? undefined : undefined)
         : undefined,
       agentReasonings,
       resolutionApprovalId,
       resolutionApprovalStatus,
     };
+  };
+
+  if (sim) {
+    const rows = await prisma.riskEvent.findMany({
+      where: {
+        AND: [
+          { tenantId: tenantUuid },
+          statusClause,
+          ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeRiskEvent()] : []),
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      select: pipelineScalarsSim,
+    });
+    return rows.map((r) => mapPipelineRow(r, true));
+  }
+
+  const companies = await prisma.company.findMany({
+    where: { tenantId: tenantUuid },
+    select: { id: true },
   });
+  const companyIds = companies.map((c) => c.id);
+  if (companyIds.length === 0) return [];
+
+  const rows = await prisma.threatEvent.findMany({
+    where: {
+      AND: [
+        { tenantCompanyId: { in: companyIds } },
+        statusClause,
+        ...(shadowChaosVelocityDedupe ? [pipelineShadowChaosVelocityDedupeThreatEvent()] : []),
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    select: pipelineProdSelect,
+  });
+  const stressBridge = tenantUuid
+    ? await listControlStressRiskEventsForPipeline(tenantUuid, [
+        ThreatState.IDENTIFIED,
+        ThreatState.MITIGATED,
+      ])
+    : [];
+  const mergedRows = mergeBoardRowsById(rows, stressBridge);
+  return mergedRows.map((r) => mapPipelineRow(r, false));
 }
 
 /**

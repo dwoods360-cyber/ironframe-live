@@ -28,5 +28,22 @@ export function hasVerifiedActiveCanvasProvenance(
   ingestionDetails: string | null | undefined,
 ): boolean {
   const { sourcePlane, threadId } = parseActiveCanvasProvenance(ingestionDetails);
-  return sourcePlane != null && Boolean(threadId);
+  if (sourcePlane != null && Boolean(threadId)) return true;
+  try {
+    const j = parseIngestionDetailsForMerge(ingestionDetails ?? null) as Record<string, unknown>;
+    if (j.controlStressTest === true) {
+      const tid =
+        (typeof j.threadId === "string" ? j.threadId.trim() : "") ||
+        (typeof j.orchestrationThreadId === "string" ? j.orchestrationThreadId.trim() : "");
+      return tid.length > 0;
+    }
+    const intake = j.sentinelIntake;
+    if (intake && typeof intake === "object" && !Array.isArray(intake)) {
+      const verification = (intake as Record<string, unknown>).verificationPhaseRequired;
+      if (verification === true) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
 }

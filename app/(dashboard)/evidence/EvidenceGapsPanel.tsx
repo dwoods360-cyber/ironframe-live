@@ -338,13 +338,15 @@ export default function EvidenceGapsPanel({
           <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gaps identified</h3>
         </div>
 
-        <div className="overflow-x-auto rounded border border-slate-800">
-          <table className="w-full min-w-[700px] border-collapse text-left text-[10px]">
+        <div className={inDrawer ? "overflow-x-hidden rounded border border-slate-800" : "overflow-x-auto rounded border border-slate-800"}>
+          <table
+            className={`w-full border-collapse text-left text-[10px] ${inDrawer ? "table-fixed" : "min-w-[700px]"}`}
+          >
             <thead>
               <tr className="border-b border-slate-800 bg-slate-900/80 text-[9px] font-black uppercase tracking-wide text-slate-400">
-                <th className="px-3 py-2">Priority</th>
-                <th className="px-3 py-2">Gap control</th>
-                <th className="px-3 py-2 text-right">
+                <th className={`px-3 py-2 ${inDrawer ? "w-[11%]" : ""}`}>Priority</th>
+                <th className={`px-3 py-2 ${inDrawer ? "w-[38%]" : ""}`}>Gap control</th>
+                <th className={`px-3 py-2 text-right ${inDrawer ? "w-[22%]" : ""}`}>
                   <span className="inline-flex flex-wrap items-center justify-end gap-2">
                     <span>Potential impact</span>
                     {selectedIndustry === "Defense" ? (
@@ -357,7 +359,7 @@ export default function EvidenceGapsPanel({
                     ) : null}
                   </span>
                 </th>
-                <th className="px-3 py-2">Action</th>
+                <th className={`px-3 py-2 ${inDrawer ? "w-[29%]" : ""}`}>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -380,8 +382,10 @@ export default function EvidenceGapsPanel({
                     <tr key={gap.controlId} className="border-b border-slate-800/80 hover:bg-slate-900/45">
                       <td className="px-3 py-2 text-slate-300">#{ranked?.rank ?? idx + 1}</td>
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-slate-200">{gap.controlId}</span>
+                        <div className={`flex flex-wrap items-center gap-2 ${inDrawer ? "min-w-0" : ""}`}>
+                          <span className={`font-mono text-slate-200 ${inDrawer ? "break-all text-[9px]" : ""}`}>
+                            {gap.controlId}
+                          </span>
                           {ranked ? (
                             <span className="rounded border border-emerald-800/80 bg-emerald-950/50 px-1.5 py-0.5 font-mono text-[9px] text-emerald-200">
                               Weight: {ranked.financialWeightLabel}
@@ -396,16 +400,26 @@ export default function EvidenceGapsPanel({
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono text-amber-200">
-                        {formatCentsToUSD(String(gap.potentialAleExposureCents))}
+                        <span className={inDrawer ? "text-[9px] leading-tight" : undefined}>
+                          {formatCentsToUSD(String(gap.potentialAleExposureCents))}
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         <button
                           type="button"
                           disabled={busyControl === gap.controlId}
                           onClick={() => void triggerFix(gap)}
-                          className="rounded border border-amber-700/70 bg-amber-950/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-amber-100 hover:border-amber-500 disabled:opacity-50"
+                          className={`rounded border border-amber-700/70 bg-amber-950/40 font-bold uppercase tracking-wide text-amber-100 hover:border-amber-500 disabled:opacity-50 ${
+                            inDrawer
+                              ? "w-full px-1.5 py-1 text-[8px] leading-tight"
+                              : "px-2 py-1 text-[9px]"
+                          }`}
                         >
-                          {busyControl === gap.controlId ? "Triggering..." : "Trigger Control Stress Test"}
+                          {busyControl === gap.controlId
+                            ? "Triggering..."
+                            : inDrawer
+                              ? "Stress test"
+                              : "Trigger Control Stress Test"}
                         </button>
                       </td>
                     </tr>

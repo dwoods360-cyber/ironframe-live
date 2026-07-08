@@ -92,7 +92,7 @@ export default function EvidenceGapsDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="evidence-gaps-drawer-title"
-        className={`fixed right-0 ${topOffset} bottom-0 grid w-[min(100vw,520px)] grid-rows-[auto_minmax(0,1fr)] border-l border-slate-800 bg-[#070e20] shadow-[-12px_0_40px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out ${LAYOUT_DRAWER_PANEL_Z_CLASS} ${
+        className={`fixed right-0 ${topOffset} bottom-0 grid w-[min(100vw,676px)] grid-rows-[auto_minmax(0,1fr)] border-l border-slate-800 bg-[#070e20] shadow-[-12px_0_40px_rgba(0,0,0,0.35)] transition-transform duration-300 ease-out ${LAYOUT_DRAWER_PANEL_Z_CLASS} ${
           panelEntered ? "translate-x-0" : "translate-x-full"
         }`}
       >

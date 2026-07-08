@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { CreditCard, ExternalLink, FlaskConical } from "lucide-react";
 
 import {
@@ -45,26 +45,34 @@ export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }:
     text: "",
   });
   const [busySlug, setBusySlug] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isBusy, setIsBusy] = useState(false);
 
-  function runMutation(
+  async function runMutation(
     slug: string,
     action: () => Promise<{ ok: true; message: string } | { ok: false; error: string }>,
   ) {
-    if (isPending) return;
+    if (isBusy) return;
+    setIsBusy(true);
     setBusySlug(slug);
     setFeedback({ status: "idle", text: "" });
 
-    startTransition(async () => {
+    try {
       const result = await action();
-      setBusySlug(null);
       if (result.ok) {
         setFeedback({ status: "success", text: result.message });
         router.refresh();
       } else {
         setFeedback({ status: "error", text: result.error });
       }
-    });
+    } catch (error) {
+      setFeedback({
+        status: "error",
+        text: error instanceof Error ? error.message : "Billing update failed.",
+      });
+    } finally {
+      setIsBusy(false);
+      setBusySlug(null);
+    }
   }
 
   return (
@@ -146,7 +154,7 @@ export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }:
 
           <ul className="divide-y divide-slate-800/80">
             {tenants.map((tenant) => {
-              const rowBusy = isPending && busySlug === tenant.slug;
+              const rowBusy = isBusy && busySlug === tenant.slug;
               const holdUrl = billingHoldPreviewUrl(tenant.slug, tenant.billingStatus);
 
               return (
@@ -198,7 +206,7 @@ export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }:
                         }
                         className="h-9 rounded border border-amber-600/50 bg-amber-950/30 px-3 font-mono text-[10px] font-bold uppercase tracking-wide text-amber-200 disabled:opacity-40"
                       >
-                        Test hold
+                        {rowBusy ? "Updating…" : "Test hold"}
                       </button>
                       <button
                         type="button"

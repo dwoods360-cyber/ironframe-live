@@ -117,7 +117,7 @@ export async function ensureTenantBillingPending(slug: string): Promise<void> {
       stripeCustomerId: manualStripeCustomerIdForSlug(tenantSlug),
       status: TENANT_BILLING_STATUS.PENDING,
     },
-    update: {},
+    update: { status: TENANT_BILLING_STATUS.PENDING },
   });
 }
 

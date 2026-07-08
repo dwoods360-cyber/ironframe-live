@@ -8,7 +8,6 @@ import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 
 const mockRequirePerimeter = vi.hoisted(() => vi.fn());
 const mockSetTenantBillingStatus = vi.hoisted(() => vi.fn());
-const mockEnsureTenantBillingPending = vi.hoisted(() => vi.fn());
 const mockAuditLogCreateLoose = vi.hoisted(() => vi.fn());
 const mockRevalidatePath = vi.hoisted(() => vi.fn());
 
@@ -18,7 +17,6 @@ vi.mock("@/app/lib/auth/perimeterWorkforceAccess", () => ({
 
 vi.mock("@/app/lib/billing/tenantBillingEntitlement", () => ({
   setTenantBillingStatus: mockSetTenantBillingStatus,
-  ensureTenantBillingPending: mockEnsureTenantBillingPending,
 }));
 
 vi.mock("@/lib/auditLogLoose", () => ({
@@ -34,7 +32,6 @@ describe("tenantBillingAdminActions", () => {
     vi.clearAllMocks();
     mockRequirePerimeter.mockResolvedValue({ userId: "admin-user" });
     mockSetTenantBillingStatus.mockResolvedValue(undefined);
-    mockEnsureTenantBillingPending.mockResolvedValue(undefined);
     mockAuditLogCreateLoose.mockResolvedValue(undefined);
   });
 
@@ -62,6 +59,9 @@ describe("tenantBillingAdminActions", () => {
   it("seeds a tenant into PENDING hold for gate testing", async () => {
     const result = await seedTenantBillingPendingAction("gridcore");
     expect(result.ok).toBe(true);
-    expect(mockEnsureTenantBillingPending).toHaveBeenCalledWith("gridcore");
+    expect(mockSetTenantBillingStatus).toHaveBeenCalledWith(
+      "gridcore",
+      TENANT_BILLING_STATUS.PENDING,
+    );
   });
 });

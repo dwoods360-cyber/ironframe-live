@@ -9,7 +9,6 @@ import {
   type TenantBillingStatus,
 } from "@/app/lib/billing/constants";
 import {
-  ensureTenantBillingPending,
   setTenantBillingStatus,
 } from "@/app/lib/billing/tenantBillingEntitlement";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
@@ -55,41 +54,57 @@ export async function updateTenantBillingStatusAction(
   tenantSlug: string,
   status: string,
 ): Promise<TenantBillingAdminActionResult> {
-  const gate = await requirePerimeterWorkforceOperator();
-  if ("error" in gate) {
-    return { ok: false, error: gate.error };
+  try {
+    const gate = await requirePerimeterWorkforceOperator();
+    if ("error" in gate) {
+      return { ok: false, error: gate.error };
+    }
+
+    const slug = tenantSlug.trim().toLowerCase();
+    const normalized = normalizeBillingStatus(status);
+    if (!slug || !normalized) {
+      return { ok: false, error: "Invalid tenant slug or billing status." };
+    }
+
+    await setTenantBillingStatus(slug, normalized);
+    await logBillingAdminMutation(gate.userId, slug, `status=${normalized}`);
+    revalidateBillingSurfaces();
+
+    return { ok: true, message: `Workspace "${slug}" billing set to ${normalized}.` };
+  } catch (error) {
+    console.error("[updateTenantBillingStatusAction]", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not update tenant billing status.",
+    };
   }
-
-  const slug = tenantSlug.trim().toLowerCase();
-  const normalized = normalizeBillingStatus(status);
-  if (!slug || !normalized) {
-    return { ok: false, error: "Invalid tenant slug or billing status." };
-  }
-
-  await setTenantBillingStatus(slug, normalized);
-  await logBillingAdminMutation(gate.userId, slug, `status=${normalized}`);
-  revalidateBillingSurfaces();
-
-  return { ok: true, message: `Workspace "${slug}" billing set to ${normalized}.` };
 }
 
 /** Seed or reset a tenant into the PENDING hold state for gate testing. */
 export async function seedTenantBillingPendingAction(
   tenantSlug: string,
 ): Promise<TenantBillingAdminActionResult> {
-  const gate = await requirePerimeterWorkforceOperator();
-  if ("error" in gate) {
-    return { ok: false, error: gate.error };
+  try {
+    const gate = await requirePerimeterWorkforceOperator();
+    if ("error" in gate) {
+      return { ok: false, error: gate.error };
+    }
+
+    const slug = tenantSlug.trim().toLowerCase();
+    if (!slug) {
+      return { ok: false, error: "Tenant slug is required." };
+    }
+
+    await setTenantBillingStatus(slug, TENANT_BILLING_STATUS.PENDING);
+    await logBillingAdminMutation(gate.userId, slug, "seeded=PENDING");
+    revalidateBillingSurfaces();
+
+    return { ok: true, message: `Workspace "${slug}" placed on PENDING billing hold.` };
+  } catch (error) {
+    console.error("[seedTenantBillingPendingAction]", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Could not seed billing hold.",
+    };
   }
-
-  const slug = tenantSlug.trim().toLowerCase();
-  if (!slug) {
-    return { ok: false, error: "Tenant slug is required." };
-  }
-
-  await ensureTenantBillingPending(slug);
-  await logBillingAdminMutation(gate.userId, slug, "seeded=PENDING");
-  revalidateBillingSurfaces();
-
-  return { ok: true, message: `Workspace "${slug}" placed on PENDING billing hold.` };
 }

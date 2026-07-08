@@ -7,6 +7,7 @@ import BillingSuspensionNotice from "@/app/components/billing/BillingSuspensionN
 
 const BILLING_EXEMPT_PREFIXES = [
   "/admin/onboarding",
+  "/admin/billing",
   "/account/billing-hold",
   "/get-started",
   "/integrity",

@@ -331,6 +331,7 @@ export function isDashboardRouteGroupPath(pathname: string): boolean {
     "/admin/governance/comparison",
     "/admin/clearance/vault",
     "/admin/onboarding",
+    "/admin/billing",
     "/get-started",
     "/exports",
     "/trust",

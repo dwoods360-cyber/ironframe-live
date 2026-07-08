@@ -446,6 +446,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       { label: "Governance Frame RSS", href: "/rss.xml" },
       { label: "Op Support", href: "/opsupport" },
       { label: "Tenant onboarding", href: "/admin/onboarding" },
+      { label: "Tenant billing console", href: "/admin/billing" },
       { label: "Published briefings folder", href: `/docs/${PUBLISHED_BRIEFINGS_DIR}` },
     ],
   };

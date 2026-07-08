@@ -41,6 +41,10 @@ export default async function AdminOnboardingDashboardPage() {
           <Link href="/admin/onboarding/test-assets" className="text-cyan-400 hover:underline">
             Acme Corp ingestion test PDF suite →
           </Link>
+          <span className="mx-2 text-slate-700">·</span>
+          <Link href="/admin/billing" className="text-cyan-400 hover:underline">
+            Tenant billing console →
+          </Link>
         </p>
 
         <AdminOnboardingDashboardHeader deploymentCount={deployments.length} />

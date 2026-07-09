@@ -2,10 +2,13 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { assigneeKeyToDisplayName } from "@/app/utils/assignmentChainOfCustody";
 import {
+  LEGACY_HUMAN_ASSIGNEE_OPTIONS,
   sanitizeAssigneeSelectValue,
   type AssigneeSelectOption,
 } from "@/app/utils/assigneeSelectValue";
+import { isOpenThreatAssignee } from "@/app/utils/threatAssigneeGate";
 
 export type TenantAssigneeRosterEntry = AssigneeSelectOption & {
   userId: string;
@@ -55,7 +58,98 @@ async function loadSupabaseAuthProfileIndex(): Promise<Map<string, AuthProfile>>
 function resolveOperatorLabel(userId: string, profile: AuthProfile | undefined): string {
   if (profile?.displayName?.trim()) return profile.displayName.trim();
   if (profile?.email?.trim()) return profile.email.trim();
-  return userId;
+  return assigneeKeyToDisplayName(userId);
+}
+
+function parseEnvAssigneeSupplement(tenantUuid: string): AssigneeSelectOption[] {
+  const raw = process.env.IRONFRAME_TENANT_ASSIGNEE_SUPPLEMENT_JSON?.trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as Record<string, AssigneeSelectOption[]>;
+    const rows = parsed[tenantUuid];
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => ({
+        value: typeof row.value === "string" ? row.value.trim() : "",
+        label: typeof row.label === "string" ? row.label.trim() : "",
+      }))
+      .filter((row) => row.value.length > 0 && row.label.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Distinct human assignee keys already used on threats for this tenant (prod + shadow). */
+async function fetchHistoricalHumanAssigneeKeys(
+  tenantUuid: string,
+  tenantCompanyIds: bigint[],
+): Promise<string[]> {
+  const keys = new Set<string>();
+
+  if (tenantCompanyIds.length > 0) {
+    const prodRows = await prisma.threatEvent.findMany({
+      where: {
+        tenantCompanyId: { in: tenantCompanyIds },
+        assigneeId: { not: null },
+      },
+      select: { assigneeId: true },
+      distinct: ["assigneeId"],
+    });
+    for (const row of prodRows) {
+      const key = row.assigneeId?.trim();
+      if (key && !isOpenThreatAssignee(key)) keys.add(key);
+    }
+  }
+
+  const simRows = await prisma.riskEvent.findMany({
+    where: {
+      tenantId: tenantUuid,
+      assigneeId: { not: null },
+    },
+    select: { assigneeId: true },
+    distinct: ["assigneeId"],
+  });
+  for (const row of simRows) {
+    const key = row.assigneeId?.trim();
+    if (key && !isOpenThreatAssignee(key)) keys.add(key);
+  }
+
+  return [...keys];
+}
+
+function mergeRosterEntries(
+  membershipRows: TenantAssigneeRosterEntry[],
+  extraKeys: Array<{ rawKey: string; label?: string; userId?: string }>,
+  profileByUserId: Map<string, AuthProfile>,
+): TenantAssigneeRosterEntry[] {
+  const merged: TenantAssigneeRosterEntry[] = [];
+  const seen = new Set<string>();
+
+  const push = (entry: TenantAssigneeRosterEntry) => {
+    const value = entry.value.trim();
+    if (!value || seen.has(value)) return;
+    seen.add(value);
+    merged.push(entry);
+  };
+
+  for (const row of membershipRows) {
+    push(row);
+  }
+
+  for (const extra of extraKeys) {
+    const rawKey = extra.rawKey.trim();
+    if (!rawKey || isOpenThreatAssignee(rawKey)) continue;
+    const userId = (extra.userId ?? rawKey).trim();
+    const value = sanitizeAssigneeSelectValue(rawKey);
+    const profile = profileByUserId.get(userId) ?? profileByUserId.get(rawKey);
+    const label =
+      extra.label?.trim() ||
+      resolveOperatorLabel(userId, profile) ||
+      assigneeKeyToDisplayName(rawKey);
+    push({ userId, value, label });
+  }
+
+  return merged.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
 }
 
 /** Operators with `user_role_assignments` for the tenant — excludes platform admins without membership. */
@@ -66,6 +160,12 @@ export async function fetchTenantAssigneeRoster(
   if (!tid) return [];
 
   try {
+    const tenantCompanyRows = await prisma.company.findMany({
+      where: { tenantId: tid },
+      select: { id: true },
+    });
+    const tenantCompanyIds = tenantCompanyRows.map((c) => c.id);
+
     const assignments = await prisma.userRoleAssignment.findMany({
       where: { tenantId: tid },
       select: { userId: true },
@@ -73,25 +173,33 @@ export async function fetchTenantAssigneeRoster(
     });
 
     const uniqueUserIds = [...new Set(assignments.map((row) => row.userId.trim()).filter(Boolean))];
-    if (uniqueUserIds.length === 0) return [];
 
     const profileByUserId = await loadSupabaseAuthProfileIndex();
 
-    const roster: TenantAssigneeRosterEntry[] = [];
-    const seenValues = new Set<string>();
+    const membershipRoster: TenantAssigneeRosterEntry[] = [];
+    const seenMembershipValues = new Set<string>();
 
     for (const userId of uniqueUserIds) {
       const value = sanitizeAssigneeSelectValue(userId);
-      if (seenValues.has(value)) continue;
-      seenValues.add(value);
-      roster.push({
+      if (seenMembershipValues.has(value)) continue;
+      seenMembershipValues.add(value);
+      membershipRoster.push({
         userId,
         value,
         label: resolveOperatorLabel(userId, profileByUserId.get(userId)),
       });
     }
 
-    return roster.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+    const historicalKeys = await fetchHistoricalHumanAssigneeKeys(tid, tenantCompanyIds);
+    const envSupplement = parseEnvAssigneeSupplement(tid);
+    const legacySupplement = [...LEGACY_HUMAN_ASSIGNEE_OPTIONS];
+    const extraKeys = [
+      ...historicalKeys.map((rawKey) => ({ rawKey })),
+      ...legacySupplement.map((opt) => ({ rawKey: opt.value, label: opt.label })),
+      ...envSupplement.map((opt) => ({ rawKey: opt.value, label: opt.label })),
+    ];
+
+    return mergeRosterEntries(membershipRoster, extraKeys, profileByUserId);
   } catch (error) {
     console.warn(
       "[tenantAssigneeRoster] roster query failed:",

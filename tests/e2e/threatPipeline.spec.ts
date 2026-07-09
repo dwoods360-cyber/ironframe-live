@@ -304,7 +304,7 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     expect(optionLabels.length).toBeGreaterThan(1);
     expect(optionLabels.some((l) => /unassigned/i.test(l))).toBeTruthy();
     expect(
-      optionLabels.some((l) => /dwoods360|@ironframe\.local/i.test(l)),
+      optionLabels.some((l) => /dwoods360|@ironframe\.local|dereck|user_01/i.test(l)),
     ).toBeTruthy();
 
     const ackBtn = cardRoot.getByRole('button', { name: /^ACKNOWLEDGE$/i });

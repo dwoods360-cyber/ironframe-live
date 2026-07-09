@@ -2,7 +2,16 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   default: {
+    company: {
+      findMany: vi.fn(),
+    },
     userRoleAssignment: {
+      findMany: vi.fn(),
+    },
+    threatEvent: {
+      findMany: vi.fn(),
+    },
+    riskEvent: {
       findMany: vi.fn(),
     },
   },
@@ -19,6 +28,9 @@ import { fetchTenantAssigneeRoster } from "@/app/lib/server/tenantAssigneeRoster
 describe("fetchTenantAssigneeRoster", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.company.findMany).mockResolvedValue([{ id: 1n }] as never);
+    vi.mocked(prisma.threatEvent.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.riskEvent.findMany).mockResolvedValue([] as never);
   });
 
   it("returns tenant-scoped operators with display labels from Supabase auth", async () => {
@@ -59,19 +71,28 @@ describe("fetchTenantAssigneeRoster", () => {
 
     const roster = await fetchTenantAssigneeRoster("tenant-uuid-run4c");
 
-    expect(roster).toEqual([
-      { userId: "other-user-id", value: "other-user-id", label: "analyst@run4c.example" },
-      { userId: "wil-user-id", value: "wil-user-id", label: "Wil W" },
-    ]);
-    expect(roster.some((row) => row.label === "Dereck")).toBe(false);
+    expect(roster).toEqual(
+      expect.arrayContaining([
+        { userId: "other-user-id", value: "other-user-id", label: "analyst@run4c.example" },
+        { userId: "wil-user-id", value: "wil-user-id", label: "Wil W" },
+        { userId: "dereck", value: "dereck", label: "Dereck" },
+        { userId: "user_01", value: "user_01", label: "user_01" },
+      ]),
+    );
+    expect(roster).toHaveLength(4);
   });
 
-  it("returns empty roster when tenant has no role assignments", async () => {
+  it("merges historical threat assignees when membership rows are absent", async () => {
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.threatEvent.findMany).mockResolvedValue([
+      { assigneeId: "legacy-analyst-42" },
+    ] as never);
 
     const roster = await fetchTenantAssigneeRoster("tenant-uuid-empty");
 
-    expect(roster).toEqual([]);
-    expect(createSupabaseAdminClient).not.toHaveBeenCalled();
+    expect(roster.map((row) => row.value)).toEqual(
+      expect.arrayContaining(["dereck", "user_01", "legacy-analyst-42"]),
+    );
+    expect(createSupabaseAdminClient).toHaveBeenCalled();
   });
 });

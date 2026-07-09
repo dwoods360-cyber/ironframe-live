@@ -33,6 +33,8 @@ import { useShadowHandshakeRoleStore } from '@/app/store/shadowHandshakeRoleStor
 import { useGrcBotStore } from '@/app/store/grcBotStore';
 import { useSystemConfigStore } from '@/app/store/systemConfigStore';
 import { resolveEffectiveTenantUuidForActions } from "@/app/utils/resolveEffectiveTenantUuidForActions";
+import { useUser } from "@/app/hooks/useUser";
+import ThreatAssigneeSelect from "@/app/components/ThreatAssigneeSelect";
 import { appendAuditLog } from '@/app/utils/auditLogger';
 import {
   formatAssignmentHistoryNarrative,
@@ -165,17 +167,6 @@ function readIngestionDiscoveryHoldMarkers(ingestionDetails?: string | null): bo
  * This board passes the same attribution into `grantRemoteAccessAction` (Scenario 4 JIT). We hydrate the
  * browser session on mount so `getUser` / `getSession` resolve after login redirects.
  */
-
-/** UI session operator id → display label (matches assignee dropdown naming). */
-const SESSION_OPERATOR_LABEL: Record<string, string> = {
-  dereck: 'Dereck',
-  User_00: 'User_00',
-  user_00: 'User_00',
-  user_01: 'user_01',
-  secops: 'SecOps Team',
-  grc: 'GRC Team',
-  netsec: 'NetSec',
-};
 
 /** Chaos flight-recorder step 3: auto-ack handoff line (client-only). */
 function ChaosFlightSelfHealedBanner({ threatId }: { threatId: string }) {
@@ -1732,8 +1723,12 @@ export default function ActiveRisksClient({
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   /** After master purge, dashboard `risks` props can lag `router.refresh()` — hide prop-sourced rows until parent sends []. */
   const [purgePropRisksHidden, setPurgePropRisksHidden] = useState(false);
-  const currentUser = 'dereck';
-  const actorDisplayLabel = SESSION_OPERATOR_LABEL[currentUser] ?? currentUser;
+  const {
+    assigneeSelectValue: currentUser,
+    displayName: operatorDisplayName,
+    userId: sessionUserId,
+  } = useUser();
+  const actorDisplayLabel = operatorDisplayName;
 
   useEffect(() => {
     if (purgePropRisksHidden && risks.length === 0) {
@@ -1812,8 +1807,8 @@ export default function ActiveRisksClient({
       threatEventId,
       value === 'unassigned' ? null : value,
       tenantForAction,
-      currentUser,
-      SESSION_OPERATOR_LABEL[currentUser] ?? currentUser,
+      sessionUserId || currentUser,
+      operatorDisplayName,
     );
     if (res && typeof res === 'object' && 'success' in res && res.success === false) {
       setThreatActionError({ active: true, message: res.error });
@@ -1825,7 +1820,7 @@ export default function ActiveRisksClient({
       appendAuditLog({
         action_type: "GRC_PROCESS_THREAT",
         log_type: "GRC",
-        user_id: SESSION_OPERATOR_LABEL[currentUser] ?? currentUser,
+        user_id: operatorDisplayName,
         metadata_tag: `threatId:${threatEventId}|tenant:${tenantForAction}|ASSIGNEE_CHANGE|plane:shadow`,
         description: `Irongate assignment sealed for threat ${threatEventId.slice(0, 12)}… — Audit Intelligence synced.`,
       });
@@ -2156,7 +2151,7 @@ export default function ActiveRisksClient({
     const noteUser =
       assigneeValue === 'User_00' || assigneeValue.toLowerCase() === 'user_00'
         ? 'User_00'
-        : SESSION_OPERATOR_LABEL[currentUser] ?? currentUser;
+        : operatorDisplayName;
     const note: WorkNote = {
       timestamp: new Date().toISOString(),
       text: draft,
@@ -3306,19 +3301,13 @@ export default function ActiveRisksClient({
                             ? '🖐️ Claim'
                             : '🖐️ Claim & Assign'}
                       </button>
-                      <select
+                      <ThreatAssigneeSelect
+                        tenantUuid={effectiveTenantUuid}
                         value={assigneeValue}
-                        onChange={(e) => void persistThreatAssignee(threat.id, threat.id, e.target.value)}
-                        className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
-                      >
-                        <option value="unassigned">Unassigned</option>
-                        <option value="dereck">Dereck</option>
-                        <option value="User_00">User_00</option>
-                        <option value="user_01">user_01</option>
-                        <option value="secops">SecOps Team</option>
-                        <option value="grc">GRC Team</option>
-                        <option value="netsec">NetSec</option>
-                      </select>
+                        currentUserValue={currentUser}
+                        currentUserLabel={operatorDisplayName}
+                        onChange={(next) => void persistThreatAssignee(threat.id, threat.id, next)}
+                      />
                     </div>
                   )}
                   <span className={`text-xs font-bold ${(threat.calculatedRiskScore ?? 0) > 70 ? 'text-red-400' : 'text-amber-400'}`}>
@@ -4050,19 +4039,13 @@ export default function ActiveRisksClient({
                           ? '🖐️ Claim'
                           : '🖐️ Claim & Assign'}
                     </button>
-                    <select
+                    <ThreatAssigneeSelect
+                      tenantUuid={effectiveTenantUuid}
                       value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
-                      onChange={(e) => void persistThreatAssignee(risk.id, risk.threatId, e.target.value)}
-                      className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
-                    >
-                      <option value="unassigned">Unassigned</option>
-                      <option value="dereck">Dereck</option>
-                      <option value="User_00">User_00</option>
-                      <option value="user_01">user_01</option>
-                      <option value="secops">SecOps Team</option>
-                      <option value="grc">GRC Team</option>
-                      <option value="netsec">NetSec</option>
-                    </select>
+                      currentUserValue={currentUser}
+                      currentUserLabel={operatorDisplayName}
+                      onChange={(next) => void persistThreatAssignee(risk.id, risk.threatId, next)}
+                    />
                   </div>
                   <span className={`text-xs font-bold ${risk.score_cents > 80 ? 'text-red-400' : 'text-amber-400'}`}>
                     Score: {risk.score_cents}

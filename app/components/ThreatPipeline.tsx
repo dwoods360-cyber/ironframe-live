@@ -25,6 +25,7 @@ import { useKimbotStore } from "@/app/store/kimbotStore";
 import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from "@/app/config/stakeholderAlert";
 import IngestionPanel from "@/app/components/IngestionPanel";
+import ThreatAssigneeSelect from "@/app/components/ThreatAssigneeSelect";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { toBigIntCents } from "@/app/utils/riskStoreBigIntMath";
 import {
@@ -916,19 +917,13 @@ function PipelineThreatCard({
           >
             {assignedTo === currentUser ? "✔️ Claimed" : "🖐️ Claim"}
           </button>
-          <select
+          <ThreatAssigneeSelect
+            tenantUuid={tenantUuidForActions}
             value={assignedTo}
-            onChange={(e) => setAssignedTo(e.target.value)}
-            className="px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"
-          >
-            <option value="unassigned">Unassigned</option>
-            <option value={currentUser}>{operatorDisplayName} (you)</option>
-            <option value="User_00">User_00</option>
-            <option value="user_01">user_01</option>
-            <option value="secops">SecOps Team</option>
-            <option value="grc">GRC Team</option>
-            <option value="netsec">NetSec</option>
-          </select>
+            currentUserValue={currentUser}
+            currentUserLabel={operatorDisplayName}
+            onChange={setAssignedTo}
+          />
         </div>
 
         {/* GRC JUSTIFICATION — min 50 chars unless Top Sector verified intel (see ackRequirementsMet). */}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { GRC_ROLE_LABELS } from "@/app/lib/grcRoles";
+import { sanitizeAssigneeSelectValue } from "@/app/utils/assigneeSelectValue";
 
 export type UseUserResult = {
   user: User | null;
@@ -21,12 +22,6 @@ export type UseUserResult = {
    */
   assigneeSelectValue: string;
 };
-
-function sanitizeAssigneeValue(raw: string): string {
-  const t = raw.trim().toLowerCase();
-  if (!t) return "jr-grc-analyst";
-  return t.replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "jr-grc-analyst";
-}
 
 export function useUser(): UseUserResult {
   const supabase = useMemo(() => createClient(), []);
@@ -67,7 +62,7 @@ export function useUser(): UseUserResult {
       ? GRC_ROLE_LABELS.JR_GRC_ANALYST
       : normalizedMetaRole;
 
-  const assigneeSelectValue = sanitizeAssigneeValue(
+  const assigneeSelectValue = sanitizeAssigneeSelectValue(
     userId || (email ? email.split("@")[0] ?? "" : ""),
   );
 

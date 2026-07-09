@@ -2051,55 +2051,64 @@ export async function executeAgentAction(
           at: new Date().toISOString(),
         });
 
+  const agentTenantUuid =
+    (
+      await prisma.company.findUnique({
+        where: { id: args.tenantCompanyId },
+        select: { tenantId: true },
+      })
+    )?.tenantId?.trim() ?? "";
+
   try {
-    await prisma.$transaction(async (tx) => {
-      if (args.plane === 'prod') {
-        if (!args.prodChanges) {
-          throw new Error('executeAgentAction: prodChanges required for prod plane.');
-        }
-        await updateThreatWithIntegrity({
-          threatId: args.threatId,
-          changes: args.prodChanges,
-          actorUserId: args.operatorId,
-          eventType: args.integrityEventType,
-          tx,
-        });
-        await auditLogCreateLooseTx(tx, {
-          data: {
-            action: args.auditAction,
-            justification: auditJustification,
-            operatorId: args.operatorId,
+    await prisma.$transaction(
+      async (tx) => {
+        if (args.plane === 'prod') {
+          if (!args.prodChanges) {
+            throw new Error('executeAgentAction: prodChanges required for prod plane.');
+          }
+          await updateThreatWithIntegrity({
             threatId: args.threatId,
-            isSimulation: false,
-          },
-        });
-        await tx.workNote.create({
-          data: {
-            threatId: args.threatId,
-            text: narrative,
-            operatorId: args.operatorId,
-          },
-        });
-      } else {
-        if (!args.shadowChanges) {
-          throw new Error('executeAgentAction: shadowChanges required for shadow plane.');
+            changes: args.prodChanges,
+            actorUserId: args.operatorId,
+            eventType: args.integrityEventType,
+            tx,
+          });
+          await auditLogCreateLooseTx(tx, {
+            data: {
+              action: args.auditAction,
+              justification: auditJustification,
+              operatorId: args.operatorId,
+              threatId: args.threatId,
+              isSimulation: false,
+              ...(agentTenantUuid ? { tenantId: agentTenantUuid } : {}),
+            },
+          });
+          await tx.workNote.create({
+            data: {
+              threatId: args.threatId,
+              text: narrative,
+              operatorId: args.operatorId,
+            },
+          });
+        } else {
+          if (!args.shadowChanges) {
+            throw new Error('executeAgentAction: shadowChanges required for shadow plane.');
+          }
+          await tx.riskEvent.updateMany({
+            where: { id: args.threatId },
+            data: args.shadowChanges,
+          });
+          await auditLogCreateLooseTx(tx, {
+            data: shadowSimAuditLogData(agentTenantUuid, args.threatId, {
+              action: args.auditAction,
+              justification: auditJustification,
+              operatorId: args.operatorId,
+            }),
+          });
         }
-        await tx.riskEvent.updateMany({
-          where: { id: args.threatId },
-          data: args.shadowChanges,
-        });
-        await auditLogCreateLooseTx(tx, {
-          data: {
-            action: args.auditAction,
-            justification: auditJustification,
-            operatorId: args.operatorId,
-            threatId: null,
-            simThreatId: args.threatId,
-            isSimulation: true,
-          },
-        });
-      }
-    });
+      },
+      THREAT_INTERACTIVE_TX_OPTIONS,
+    );
 
     revalidateThreatAssigneeSurfaces();
     revalidatePath('/control-room');
@@ -2288,28 +2297,28 @@ export async function setThreatAssigneeAction(
       return { success: true, newLog: null };
     }
     try {
-      const created = await prisma.$transaction(async (tx) => {
-        const row = await tx.riskEvent.findFirst({
-          where: { id: threatEntityId, tenantId: tenantUuid },
-          select: { assigneeId: true },
-        });
-        if (!row) return null;
-        if ((row.assigneeId ?? null) === value) return null;
-        await tx.riskEvent.updateMany({
-          where: { id: threatEntityId, tenantId: tenantUuid },
-          data: { assigneeId: value },
-        });
-        return auditLogCreateLooseTx(tx, {
-          data: {
-            action: 'ASSIGNEE_CHANGE',
-            justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
-            operatorId: effectiveOperatorId,
-            threatId: null,
-            isSimulation: true,
-            simThreatId: threatEntityId,
-          },
-        });
-      });
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const row = await tx.riskEvent.findFirst({
+            where: { id: threatEntityId, tenantId: tenantUuid },
+            select: { assigneeId: true },
+          });
+          if (!row) return null;
+          if ((row.assigneeId ?? null) === value) return null;
+          await tx.riskEvent.updateMany({
+            where: { id: threatEntityId, tenantId: tenantUuid },
+            data: { assigneeId: value },
+          });
+          return auditLogCreateLooseTx(tx, {
+            data: shadowSimAuditLogData(tenantUuid, threatEntityId, {
+              action: 'ASSIGNEE_CHANGE',
+              justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
+              operatorId: effectiveOperatorId,
+            }),
+          });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidateThreatAssigneeSurfaces();
       if (!created) {
         return { success: true, newLog: null };
@@ -2344,31 +2353,35 @@ export async function setThreatAssigneeAction(
       return { success: true, newLog: null };
     }
     try {
-      const created = await prisma.$transaction(async (tx) => {
-        const existing = await tx.threatEvent.findUnique({
-          where: { id: threatEntityId },
-          select: { assigneeId: true },
-        });
-        if (!existing) return null;
-        if ((existing.assigneeId ?? null) === value) return null;
-        await updateThreatWithIntegrity({
-          threatId: threatEntityId,
-          changes: { assigneeId: value },
-          actorUserId: effectiveOperatorId,
-          eventType: "THREAT_ASSIGNEE_CHANGED",
-          tx,
-          select: { id: true },
-        });
-        return auditLogCreateLooseTx(tx, {
-          data: {
-            action: 'ASSIGNEE_CHANGE',
-            justification: buildAssigneeChangeJustification(threatEntityId, false, existing.assigneeId ?? null),
-            operatorId: effectiveOperatorId,
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.threatEvent.findUnique({
+            where: { id: threatEntityId },
+            select: { assigneeId: true },
+          });
+          if (!existing) return null;
+          if ((existing.assigneeId ?? null) === value) return null;
+          await updateThreatWithIntegrity({
             threatId: threatEntityId,
-            isSimulation: false,
-          },
-        });
-      });
+            changes: { assigneeId: value },
+            actorUserId: effectiveOperatorId,
+            eventType: "THREAT_ASSIGNEE_CHANGED",
+            tx,
+            select: { id: true },
+          });
+          return auditLogCreateLooseTx(tx, {
+            data: {
+              action: 'ASSIGNEE_CHANGE',
+              justification: buildAssigneeChangeJustification(threatEntityId, false, existing.assigneeId ?? null),
+              operatorId: effectiveOperatorId,
+              threatId: threatEntityId,
+              isSimulation: false,
+              tenantId: tenantUuid,
+            },
+          });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidateThreatAssigneeSurfaces();
       if (!created) {
         return { success: true, newLog: null };
@@ -2399,28 +2412,28 @@ export async function setThreatAssigneeAction(
       return { success: true, newLog: null };
     }
     try {
-      const created = await prisma.$transaction(async (tx) => {
-        const row = await tx.riskEvent.findFirst({
-          where: { id: threatEntityId, tenantId: tenantUuid },
-          select: { assigneeId: true },
-        });
-        if (!row) return null;
-        if ((row.assigneeId ?? null) === value) return null;
-        await tx.riskEvent.updateMany({
-          where: { id: threatEntityId, tenantId: tenantUuid },
-          data: { assigneeId: value },
-        });
-        return auditLogCreateLooseTx(tx, {
-          data: {
-            action: 'ASSIGNEE_CHANGE',
-            justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
-            operatorId: effectiveOperatorId,
-            threatId: null,
-            isSimulation: true,
-            simThreatId: threatEntityId,
-          },
-        });
-      });
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const row = await tx.riskEvent.findFirst({
+            where: { id: threatEntityId, tenantId: tenantUuid },
+            select: { assigneeId: true },
+          });
+          if (!row) return null;
+          if ((row.assigneeId ?? null) === value) return null;
+          await tx.riskEvent.updateMany({
+            where: { id: threatEntityId, tenantId: tenantUuid },
+            data: { assigneeId: value },
+          });
+          return auditLogCreateLooseTx(tx, {
+            data: shadowSimAuditLogData(tenantUuid, threatEntityId, {
+              action: 'ASSIGNEE_CHANGE',
+              justification: buildAssigneeChangeJustification(threatEntityId, true, row.assigneeId ?? null),
+              operatorId: effectiveOperatorId,
+            }),
+          });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidateThreatAssigneeSurfaces();
       if (!created) {
         return { success: true, newLog: null };

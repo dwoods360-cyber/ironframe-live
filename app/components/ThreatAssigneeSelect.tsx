@@ -16,6 +16,8 @@ type ThreatAssigneeSelectProps = {
   disabled?: boolean;
   /** When false, omit shared team buckets (SecOps / GRC / NetSec). */
   includeTeamBuckets?: boolean;
+  /** E2E / diagnostics hook */
+  "data-testid"?: string;
 };
 
 function mergeOperatorOptions(
@@ -50,6 +52,7 @@ export default function ThreatAssigneeSelect({
   className,
   disabled = false,
   includeTeamBuckets = true,
+  "data-testid": dataTestId,
 }: ThreatAssigneeSelectProps) {
   const { options: rosterOptions } = useTenantAssigneeRosterContext();
 
@@ -67,6 +70,7 @@ export default function ThreatAssigneeSelect({
         onChange(nextValue, optionLabel);
       }}
       disabled={disabled}
+      data-testid={dataTestId}
       className={
         className ??
         "px-2 py-1 bg-black border border-ironcore-border text-ironcore-text rounded focus:outline-none focus:border-ironcore-accent"

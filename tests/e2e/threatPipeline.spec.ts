@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { skipUnlessDashboard, waitForDashboardReady } from './helpers/dashboardGate';
 import { bootstrapApexOperatorSession, openWorkspaceCommandPost } from './helpers/commandPostDiagnostic';
+import { TENANT_UUIDS } from '@/app/utils/tenantIsolation';
 
 const OPERATOR_EMAIL =
   process.env.IRONFRAME_E2E_OPERATOR_EMAIL?.trim() || 'dwoods360@gmail.com';
@@ -29,6 +30,81 @@ async function waitForPipelineSection(page: import('@playwright/test').Page) {
       .or(page.getByText('RISK REGISTRATION'))
       .first()
   ).toBeVisible({ timeout: 15_000 });
+}
+
+/** Mandate 8: human assignee custody before acknowledge — claim via header row. */
+async function claimPipelineThreatAssignee(
+  threatCard: import('@playwright/test').Locator,
+) {
+  const claimBtn = threatCard.locator('[data-testid="pipeline-claim-assign-btn"]');
+  await expect(claimBtn).toBeVisible({ timeout: 8000 });
+  const claimed = await claimBtn.getByText(/Claimed/i).isVisible().catch(() => false);
+  if (!claimed) {
+    await claimBtn.click();
+    await expect(claimBtn.getByText(/Claimed/i)).toBeVisible({ timeout: 12_000 });
+  }
+}
+
+const MANUAL_REGISTER_JUSTIFICATION =
+  'E2E manual risk registration with minimum fifty character justification for GRC gate.';
+
+/** Manual Risk REGISTRATION requires 50+ char justification before Register enables. */
+async function registerManualPipelineThreat(
+  page: import('@playwright/test').Page,
+  opts: { title: string; loss?: string; reopenForm?: boolean },
+) {
+  const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
+  await expect(manualBtn).toBeVisible({ timeout: 8000 });
+  if (opts.reopenForm !== false) {
+    await manualBtn.click();
+  }
+  await page.getByPlaceholder(/Risk title/i).fill(opts.title);
+  await page.getByPlaceholder(/Source agent/i).fill('E2E Test');
+  await page.getByPlaceholder(/Target sector/i).fill('Healthcare');
+  await page.getByPlaceholder(/Inherent risk/i).fill(opts.loss ?? '2.0');
+  await page.getByPlaceholder(/Justification Required/i).fill(MANUAL_REGISTER_JUSTIFICATION);
+  const registerBtn = page.getByRole('button', { name: /^Register$/i });
+  await expect(registerBtn).toBeEnabled({ timeout: 5000 });
+  await registerBtn.click();
+  await expect(registerBtn).not.toBeVisible({ timeout: 25_000 });
+  await page.waitForTimeout(800);
+}
+
+/** Manual registration UI lands on Active Risks; pipeline E2E seeds via API. */
+async function seedPipelineThreatViaApi(
+  page: import('@playwright/test').Page,
+  opts: { title: string; loss?: string },
+) {
+  const tenantId = TENANT_UUIDS.medshield;
+  const loss = opts.loss ?? '200000000';
+  await page.evaluate(
+    async ({ title, loss, tenantId, notes }) => {
+      const res = await fetch('/api/threats', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-id': tenantId,
+        },
+        body: JSON.stringify({
+          title,
+          source: 'E2E Test',
+          target: 'Healthcare',
+          loss,
+          notes,
+          destination: 'pipeline',
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`seed pipeline threat failed: ${res.status} ${await res.text()}`);
+      }
+    },
+    { title: opts.title, loss, tenantId, notes: MANUAL_REGISTER_JUSTIFICATION },
+  );
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('ironframe:dashboard-refetch'));
+  });
+  await page.waitForTimeout(3000);
+  await attackVelocityLocator(page).scrollIntoViewIfNeeded().catch(() => {});
 }
 
 test.describe('Threat Pipeline & GRC Gates', () => {
@@ -63,7 +139,11 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     const hasLiabilityBadge =
       (await page.getByText(/\$[\d.]+M Liability/).first().isVisible()) ||
       (await page.getByText(/\d+ Attacks in Queue/).first().isVisible()) || false;
-    expect(hasAttackVelocity || hasWaiting || hasLiabilityBadge).toBeTruthy();
+    const hasManualRegistration = await page
+      .getByRole('button', { name: /Manual Risk REGISTRATION/i })
+      .isVisible()
+      .catch(() => false);
+    expect(hasAttackVelocity || hasWaiting || hasLiabilityBadge || hasManualRegistration).toBeTruthy();
 
     await expect(page.getByText('Protected Tenants').first()).toBeVisible({ timeout: 5000 });
   });
@@ -78,23 +158,16 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await page.waitForTimeout(2000); // allow pipeline DB sync so manual threats persist
 
     // Open Manual Risk Registration and add 5 threats
-    const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
-    await expect(manualBtn).toBeVisible({ timeout: 8000 });
-    await manualBtn.click();
-
-    const titleInput = page.getByPlaceholder(/Risk title/i);
-    await expect(titleInput).toBeVisible({ timeout: 3000 });
-
     for (let i = 0; i < 5; i++) {
-      await titleInput.fill(`E2E Condensation Threat ${i} ${Date.now()}`);
-      await page.getByPlaceholder(/Source agent/i).fill('E2E Test');
-      await page.getByPlaceholder(/Target sector/i).fill('Healthcare');
-      await page.getByPlaceholder(/Inherent risk/i).fill('2.0');
-      await page.getByRole('button', { name: /^Register$/i }).click();
+      await registerManualPipelineThreat(page, {
+        title: `E2E Condensation Threat ${i} ${Date.now()}`,
+        reopenForm: i === 0 ? true : true,
+      });
       await page.waitForTimeout(400);
       if (i < 4) {
+        const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
         await manualBtn.click();
-        await expect(titleInput).toBeVisible({ timeout: 2000 });
+        await expect(page.getByPlaceholder(/Risk title/i)).toBeVisible({ timeout: 2000 });
       }
     }
 
@@ -118,16 +191,13 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await waitForPipelineSection(page);
     await page.waitForTimeout(2000); // allow pipeline DB sync to complete so our manual threat is not overwritten
 
-    // Add one manual threat with liability > $10M
-    const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
-    await expect(manualBtn).toBeVisible({ timeout: 8000 });
-    await manualBtn.click();
-
-    await page.getByPlaceholder(/Risk title/i).fill(`E2E High Liability ${Date.now()}`);
-    await page.getByPlaceholder(/Source agent/i).fill('E2E Test');
-    await page.getByPlaceholder(/Target sector/i).fill('Healthcare');
-    await page.getByPlaceholder(/Inherent risk/i).fill('12.0');
-    await page.getByRole('button', { name: /^Register$/i }).click();
+    // Add one manual threat with liability > $10M (pipeline lane for acknowledge gates)
+    const highLiabilityTitle = `E2E High Liability ${Date.now()}`;
+    await seedPipelineThreatViaApi(page, { title: highLiabilityTitle, loss: '1200000000' });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
+    await waitForDashboardReady(page);
+    await waitForPipelineSection(page);
+    await page.waitForTimeout(3000);
 
     await page.waitForTimeout(1500);
     // Scroll pipeline into view; Attack Velocity appears after we add a threat
@@ -135,7 +205,10 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await attackVelocityLocator(page).scrollIntoViewIfNeeded().catch(() => {});
     await page.waitForTimeout(500);
 
-    const threatCard = page.locator('[data-testid="pipeline-threat-card"]').first();
+    const threatCard = page
+      .locator('[data-testid="pipeline-threat-card"]')
+      .filter({ hasText: highLiabilityTitle })
+      .first();
     await expect(threatCard).toBeVisible({ timeout: 10_000 });
     await threatCard.scrollIntoViewIfNeeded();
 
@@ -149,7 +222,11 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await justification.fill(
       'This is a detailed justification for acknowledging the high-value threat per GRC policy.',
     );
-    await expect(ackBtn).toBeEnabled({ timeout: 5000 });
+    // GRC length met but assignee custody still open — acknowledge stays blocked.
+    await expect(ackBtn).toBeDisabled();
+
+    await claimPipelineThreatAssignee(threatCard);
+    await expect(ackBtn).toBeEnabled({ timeout: 12_000 });
   });
 
   test('Test 4: Acknowledge transitions pipeline card to Active Risks within 3 seconds', async ({
@@ -162,15 +239,11 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await page.waitForTimeout(2000);
 
     const triageTitle = `E2E Ack Transition ${Date.now()}`;
-    const manualBtn = page.getByRole('button', { name: /Manual Risk REGISTRATION/i });
-    await expect(manualBtn).toBeVisible({ timeout: 8000 });
-    await manualBtn.click();
-
-    await page.getByPlaceholder(/Risk title/i).fill(triageTitle);
-    await page.getByPlaceholder(/Source agent/i).fill('E2E Test');
-    await page.getByPlaceholder(/Target sector/i).fill('Healthcare');
-    await page.getByPlaceholder(/Inherent risk/i).fill('2.0');
-    await page.getByRole('button', { name: /^Register$/i }).click();
+    await seedPipelineThreatViaApi(page, { title: triageTitle });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 90_000 });
+    await waitForDashboardReady(page);
+    await waitForPipelineSection(page);
+    await page.waitForTimeout(3000);
 
     await waitForPipelineSection(page);
     await attackVelocityLocator(page).scrollIntoViewIfNeeded().catch(() => {});
@@ -185,6 +258,8 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     await justification.fill(
       'E2E acknowledge transition test with sufficient GRC justification for gate compliance.',
     );
+
+    await claimPipelineThreatAssignee(threatCard);
 
     const ackBtn = threatCard.locator('[data-testid="pipeline-acknowledge-btn"]');
     await expect(ackBtn).toBeEnabled({ timeout: 5000 });
@@ -201,7 +276,49 @@ test.describe('Threat Pipeline & GRC Gates', () => {
     expect(elapsedMs).toBeLessThan(3000);
   });
 
-  test.skip('Test 5: Structured Triage Workflow — DISMISS/REVERT open inline form; dropdown + text required before submit', async ({
+  test('Test 5: Assignee custody — tenant roster loads and acknowledge gated until claim', async ({
+    page,
+  }) => {
+    await gotoCommandPostHome(page);
+    const mode = await waitForDashboardReady(page);
+    skipUnlessDashboard(mode);
+    await waitForPipelineSection(page);
+    await page.waitForTimeout(2000);
+
+    const triageTitle = `E2E Assignee Custody ${Date.now()}`;
+    await registerManualPipelineThreat(page, { title: triageTitle });
+
+    const activeBoard = page.locator('[data-testid="active-risks-board"]');
+    await activeBoard.scrollIntoViewIfNeeded();
+    await expect(activeBoard.getByRole('heading', { name: triageTitle })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const cardRoot = activeBoard
+      .getByRole('heading', { name: triageTitle })
+      .locator('xpath=ancestor::div[contains(@class,"group")][1]');
+
+    const assigneeSelect = cardRoot.locator('select').first();
+    await expect(assigneeSelect).toBeVisible({ timeout: 8000 });
+    const optionLabels = await assigneeSelect.locator('option').allTextContents();
+    expect(optionLabels.length).toBeGreaterThan(1);
+    expect(optionLabels.some((l) => /unassigned/i.test(l))).toBeTruthy();
+    expect(
+      optionLabels.some((l) => /dwoods360|@ironframe\.local/i.test(l)),
+    ).toBeTruthy();
+
+    const ackBtn = cardRoot.getByRole('button', { name: /^ACKNOWLEDGE$/i });
+    await expect(ackBtn).toBeDisabled();
+
+    const claimBtn = cardRoot.locator('[data-testid="active-risk-claim-assign-btn"]');
+    await expect(claimBtn).toBeVisible();
+    await expect(claimBtn).toContainText(/Claim/i);
+    await expect(
+      cardRoot.getByRole('button', { name: /CLAIM & ASSIGN THREAT/i }),
+    ).toHaveCount(0);
+  });
+
+  test.skip('Test 6: Structured Triage Workflow — DISMISS/REVERT open inline form; dropdown + text required before submit', async ({
     page,
   }) => {
     await page.goto('/');

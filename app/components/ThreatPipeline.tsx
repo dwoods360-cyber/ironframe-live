@@ -217,6 +217,7 @@ function PipelineThreatCard({
   );
   const [ackPending, setAckPending] = useState(false);
   const [assignedTo, setAssignedTo] = useState("unassigned");
+  const assigneeSyncPauseRef = useRef(false);
   const [likelihood, setLikelihood] = useState(threat.likelihood ?? 8);
   const [impact, setImpact] = useState(threat.impact ?? 9);
   const { displayName: operatorDisplayName, assigneeSelectValue: currentUser, userId } = useUser();
@@ -265,6 +266,7 @@ function PipelineThreatCard({
   }, [threat.likelihood, threat.impact]);
 
   useEffect(() => {
+    if (assigneeSyncPauseRef.current) return;
     const serverAssignee = (threat.assigneeId ?? threat.assignedTo ?? "").trim();
     setAssignedTo(serverAssignee || "unassigned");
   }, [threat.id, threat.assigneeId, threat.assignedTo]);
@@ -288,16 +290,31 @@ function PipelineThreatCard({
       operatorDisplayName,
       optionLabel,
     );
+    if (!res || typeof res !== "object" || !("success" in res)) {
+      setThreatActionError({
+        active: true,
+        message: "Assignee not persisted: unexpected server response.",
+      });
+      return;
+    }
     if (!res.success) {
       setThreatActionError({ active: true, message: res.error });
       return;
     }
+    assigneeSyncPauseRef.current = true;
     setAssignedTo(value);
     updatePipelineThreat(threat.id, {
       assigneeId: value === "unassigned" ? undefined : value,
       assignedTo: value === "unassigned" ? undefined : value,
     });
     setThreatActionError({ active: false, message: "" });
+    void useRiskStore
+      .getState()
+      .pulseThreatBoardsFromDb()
+      .catch(() => undefined)
+      .finally(() => {
+        assigneeSyncPauseRef.current = false;
+      });
   };
 
   useEffect(() => {
@@ -958,6 +975,7 @@ function PipelineThreatCard({
             type="button"
             onClick={() => void persistPipelineAssignee(currentUser, operatorDisplayName)}
             disabled={hasClaimedAssignee && assignedTo === currentUser}
+            data-testid="pipeline-claim-assign-btn"
             className={`px-2 py-1 border rounded transition-colors ${
               hasClaimedAssignee && assignedTo === currentUser
                 ? "bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default"
@@ -971,6 +989,7 @@ function PipelineThreatCard({
             currentUserValue={currentUser}
             currentUserLabel={operatorDisplayName}
             includeTeamBuckets={false}
+            data-testid="pipeline-assignee-select"
             onChange={(next, label) => void persistPipelineAssignee(next, label)}
           />
         </div>

@@ -97,8 +97,12 @@ import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
 import { extractRawAuditMarkdown } from '@/app/utils/riskCardEnrichment';
 import { toThreatSourceLabel } from '@/app/utils/threatSourceLabels';
 import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from '@/app/config/stakeholderAlert';
+import {
+  mergeWorkNotesWithPipelineTriage,
+  readPipelineGrcJustificationFromThreat,
+} from '@/app/utils/pipelineTriageWorkNotes';
 
-type WorkNote = { timestamp: string; text: string; user: string };
+type WorkNote = { timestamp: string; text: string; user: string; pipelineTriage?: boolean };
 
 /** Active Risks lifecycle registry: 4s IDENTIFIED chaos ingestion shell, 4s RESOLVED victory lap (any operator). */
 const ACTIVE_THREAT_LIFECYCLE_MS = ACTIVE_THREAT_VICTORY_LAP_MS;
@@ -146,10 +150,10 @@ function mergedWorkNotesForThreat(
   threatId: string,
   threat: PipelineThreat,
   localWorkNotes: Record<string, WorkNote[]>,
+  localNotesKey?: string,
 ): WorkNote[] {
-  const fromDb = threat.workNotes ?? [];
-  const local = localWorkNotes[threatId] ?? [];
-  return [...fromDb, ...local];
+  const local = localWorkNotes[localNotesKey ?? threatId] ?? [];
+  return mergeWorkNotesWithPipelineTriage(threat, local);
 }
 
 function readIngestionDiscoveryHoldMarkers(ingestionDetails?: string | null): boolean {
@@ -336,39 +340,6 @@ function asNonEmptyStringList(value: unknown): string[] {
 
 function dedupeLabels(labels: string[]): string[] {
   return [...new Set(labels.map((s) => s.trim()).filter(Boolean))];
-}
-
-/**
- * Pipeline triage justification: `ingestionDetails.grcJustification` (merged on acknowledge),
- * else newest work note text (same string as acknowledge WorkNote), else client `justification`.
- */
-function readPipelineGrcJustificationFromThreat(threat: {
-  justification?: string;
-  ingestionDetails?: string | null;
-  workNotes?: { text: string }[];
-}): string {
-  const raw = threat.ingestionDetails;
-  if (typeof raw === 'string' && raw.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const g = (parsed as Record<string, unknown>).grcJustification;
-        if (typeof g === 'string' && g.trim().length > 0) {
-          return g.trim();
-        }
-      }
-    } catch {
-      /* not JSON */
-    }
-  }
-  const wn = threat.workNotes;
-  if (Array.isArray(wn) && wn.length > 0) {
-    const t0 = wn[0]?.text;
-    if (typeof t0 === 'string' && t0.trim().length > 0) {
-      return t0.trim();
-    }
-  }
-  return (threat.justification ?? '').trim();
 }
 
 const STRATEGIC_INTEL_GRC_FALLBACK =
@@ -1827,11 +1798,18 @@ export default function ActiveRisksClient({
       operatorDisplayName,
       optionLabel,
     );
-    if (res && typeof res === 'object' && 'success' in res && res.success === false) {
+    if (!res || typeof res !== "object" || !("success" in res)) {
+      setThreatActionError({
+        active: true,
+        message: "Assignee not persisted: unexpected server response.",
+      });
+      return;
+    }
+    if (res.success === false) {
       setThreatActionError({ active: true, message: res.error });
       return;
     }
-    if (res && typeof res === "object" && "success" in res && res.success === true) {
+    if (res.success === true) {
       setAssignments((prev) => ({ ...prev, [cardKey]: value }));
       const sealedThreatId = threatEventId.trim();
       useRiskStore.getState().setActiveRiskId(sealedThreatId);
@@ -1961,8 +1939,14 @@ export default function ActiveRisksClient({
       })
     : visibleActiveThreats;
 
+  const activeThreatIdSet = useMemo(
+    () => new Set(visibleActiveThreats.map((t) => t.id)),
+    [visibleActiveThreats],
+  );
+
   const searchedRisks = searchLower
     ? visibleRisks.filter((r) => {
+        if (r.threatId && activeThreatIdSet.has(r.threatId)) return false;
         const id = r.id?.toLowerCase() ?? '';
         const title = r.title?.toLowerCase() ?? '';
         const source = r.source?.toLowerCase() ?? '';
@@ -1976,7 +1960,7 @@ export default function ActiveRisksClient({
           sector.includes(searchLower)
         );
       })
-    : visibleRisks;
+    : visibleRisks.filter((r) => !(r.threatId && activeThreatIdSet.has(r.threatId)));
 
   const sortedActiveThreats = [...searchedActiveThreats].sort(
     (a, b) =>
@@ -2765,7 +2749,7 @@ export default function ActiveRisksClient({
           } catch {
             infiltrationCriticalFlash = false;
           }
-          const notes = workNotes[threat.id] ?? (threat.workNotes ?? []);
+          const notes = mergedWorkNotesForThreat(threat.id, threat, workNotes);
           const grcDisplayText = displayGrcJustificationForActiveThreat({
             justification: threat.justification,
             ingestionDetails: threat.ingestionDetails,
@@ -3003,10 +2987,7 @@ export default function ActiveRisksClient({
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
           let onPrimaryClick: (() => void | Promise<void>) | undefined = defaultConfirmResolve;
 
-          if (needsResolutionClaim) {
-            buttonLabel = 'CLAIM & ASSIGN THREAT';
-            onPrimaryClick = () => void persistThreatAssignee(threat.id, threat.id, currentUser, operatorDisplayName);
-          } else if (isDualKeyDrill && lifecycle === 'confirmed') {
+          if (isDualKeyDrill && lifecycle === 'confirmed') {
             if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
               buttonLabel = getCisoDualKeyHandshakeButtonLabel(dualKeySimBot);
               onPrimaryClick = async () => {
@@ -3052,7 +3033,6 @@ export default function ActiveRisksClient({
 
           const dualKeyPrimaryLocked = (() => {
             if (!isDualKeyDrill) return false;
-            if (needsResolutionClaim) return false; // only enabled control is claim primary
             if (lifecycle !== 'confirmed') return false;
             if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
               return !resolutionLenOk;
@@ -3068,8 +3048,7 @@ export default function ActiveRisksClient({
 
           const defaultPrimaryDisabled =
             lifecycle === 'confirmed' &&
-            !isDualKeyDrill &&
-            (!resolutionLenOk || !hasClaimedAssignee);
+            (!hasClaimedAssignee || (!isDualKeyDrill && !resolutionLenOk));
           const primaryActionDisabled =
             !onPrimaryClick || defaultPrimaryDisabled || dualKeyPrimaryLocked;
           const dualKeyResolutionFooterTitle = needsResolutionClaim
@@ -3330,15 +3309,16 @@ export default function ActiveRisksClient({
                     <div className="flex items-center gap-2 text-xs">
                       <button
                         type="button"
+                        data-testid="active-risk-claim-assign-btn"
                         onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser, operatorDisplayName)}
-                        disabled={assigneeValue === currentUser}
+                        disabled={hasClaimedAssignee && assigneeValue === currentUser}
                         className={`px-2 py-1 border rounded transition-colors ${
-                          assigneeValue === currentUser
+                          hasClaimedAssignee && assigneeValue === currentUser
                             ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
                             : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                         }`}
                       >
-                        {assigneeValue === currentUser
+                        {hasClaimedAssignee && assigneeValue === currentUser
                           ? '✔️ Claimed'
                           : isSimulationMode
                             ? '🖐️ Claim'
@@ -3602,11 +3582,14 @@ export default function ActiveRisksClient({
                         <div className="text-[10px] text-slate-500">No work notes recorded yet.</div>
                       )}
                       {notes.map((note) => (
-                        <div key={note.timestamp + note.text} className="text-[10px] text-slate-300">
+                        <div
+                          key={`${note.timestamp}-${note.user}-${note.text}`}
+                          className="text-[10px] text-slate-300"
+                        >
                           <span className="font-mono text-slate-500">
                             {new Date(note.timestamp).toLocaleTimeString()} · {note.user}:
                           </span>{' '}
-                          <span>{note.text}</span>
+                          <span className="whitespace-pre-wrap">{note.text}</span>
                         </div>
                       ))}
                     </div>
@@ -3892,16 +3875,6 @@ export default function ActiveRisksClient({
                             </button>
                           </div>
                         </div>
-                      ) : needsResolutionClaim ? (
-                        <button
-                          type="button"
-                          disabled={primaryActionDisabled}
-                          title={dualKeyResolutionFooterTitle}
-                          onClick={() => void onPrimaryClick?.()}
-                          className="w-full rounded px-3 py-1.5 text-[10px] font-black uppercase tracking-wide shadow sm:w-auto bg-amber-500 text-black hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {primaryCtaDisplayLabel}
-                        </button>
                       ) : (
                         <>
                           {lifecycle === 'active' && (
@@ -4040,7 +4013,16 @@ export default function ActiveRisksClient({
           const isUnassigned = !riskHasClaimedAssignee;
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
-          const notes = workNotes[risk.id] ?? [];
+          const notes = riskThreatRow
+            ? mergedWorkNotesForThreat(riskThreatRow.id, riskThreatRow, workNotes, risk.id)
+            : mergeWorkNotesWithPipelineTriage(
+                {
+                  id: risk.id,
+                  ingestionDetails: risk.ingestionDetails ?? null,
+                  createdAt: risk.threatCreatedAt ?? null,
+                },
+                workNotes[risk.id] ?? [],
+              );
           const riskAssigneeHistory = mergeAssignmentHistoryEntries(
             [
               ...(riskThreatRow?.assignmentHistory ?? []),
@@ -4131,14 +4113,14 @@ export default function ActiveRisksClient({
                     <button
                       type="button"
                       onClick={() => void persistThreatAssignee(risk.id, risk.threatId, currentUser, operatorDisplayName)}
-                      disabled={assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser}
+                      disabled={riskHasClaimedAssignee && assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser}
                       className={`px-2 py-1 border rounded transition-colors ${
-                        assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
+                        riskHasClaimedAssignee && assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
                           ? 'bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default'
                           : 'bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight'
                       }`}
                     >
-                      {assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
+                      {riskHasClaimedAssignee && assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
                         ? '✔️ Claimed'
                         : isSimulationMode
                           ? '🖐️ Claim'
@@ -4231,16 +4213,17 @@ export default function ActiveRisksClient({
                     {notes.length === 0 && (
                       <div className="text-[10px] text-slate-500">No work notes recorded yet.</div>
                     )}
-                    {notes.map((note) => {
-                      return (
-                        <div key={note.timestamp + note.text} className="text-[10px] text-slate-300">
-                          <span className="font-mono text-slate-500">
-                            {new Date(note.timestamp).toLocaleTimeString()} · {note.user}:
-                          </span>{' '}
-                          <span>{note.text}</span>
-                        </div>
-                      );
-                    })}
+                    {notes.map((note) => (
+                      <div
+                        key={`${note.timestamp}-${note.user}-${note.text}`}
+                        className="text-[10px] text-slate-300"
+                      >
+                        <span className="font-mono text-slate-500">
+                          {new Date(note.timestamp).toLocaleTimeString()} · {note.user}:
+                        </span>{' '}
+                        <span className="whitespace-pre-wrap">{note.text}</span>
+                      </div>
+                    ))}
                   </div>
 
                   <div className="space-y-1">

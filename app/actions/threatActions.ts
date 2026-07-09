@@ -69,7 +69,7 @@ import { transitionThreatStatus, updateThreatWithIntegrity } from "@/src/service
 import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormGuard";
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
-import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { ingressUsesRiskEventTable, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 import { assertHumanThreatAssigneeForResolution } from "@/app/utils/threatAssigneeGate";
 import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
@@ -2219,13 +2219,27 @@ export async function setThreatAssigneeAction(
   /** Commit guard: allow shadow-plane `riskEvent.create` / ingress to finish before assignee read-after-write. */
   await new Promise((r) => setTimeout(r, 500));
 
-  const tenantUuid = await resolveTenantUuidForThreatScope(tenantId);
+  const scopedTenantUuid = await getScopedTenantUuidFromCookies();
+  const clientTenantUuid = tenantId?.trim()
+    ? await resolveTenantUuidForThreatScope(tenantId)
+    : null;
+  const tenantUuid = scopedTenantUuid ?? clientTenantUuid;
   if (!tenantUuid) {
     return {
       success: false,
       error:
         'Irongate Rejection: Tenant context did not resolve to a workspace UUID (check tenant slug vs `tenants.id`).',
     };
+  }
+  if (
+    scopedTenantUuid &&
+    clientTenantUuid &&
+    scopedTenantUuid !== clientTenantUuid
+  ) {
+    console.warn(
+      "[setThreatAssigneeAction] Client tenant scope mismatch — using host/cookie scope.",
+      { scopedTenantUuid, clientTenantUuid, threatId: threatId.trim() },
+    );
   }
 
   /** `RiskEvent.id` / `ThreatEvent.id` are Prisma cuids (`cm…`); `tenant_id` on SimThreatEvent is UUID. Lookup is `(id, tenantId)` only — **not** `governanceHash`. Ingress seals use the same bps as `getTenantGovernanceMultiplierBps` via `resolveGovernanceMultiplierBpsForTenantUuid`; a seal mismatch does not affect this query. */
@@ -2303,12 +2317,46 @@ export async function setThreatAssigneeAction(
   });
   const tenantCompanyIds = tenantCompanyRows.map((c) => c.id);
 
-  const simulationPlaneEnabled = await readSimulationPlaneEnabled();
-  /** Shadow ledger first when the ingress cookie selects the simulation plane (matches SimThreatEvent reads). */
+  const useRiskEventTable = await ingressUsesRiskEventTable();
+  /** Align assignee writes with active-board reads (`findActiveThreatEventRowsForBoard`). */
   const prioritizeSimThreatRow =
-    simulationPlaneEnabled || threatEntityId.startsWith("shadow_sim_");
+    useRiskEventTable || threatEntityId.startsWith("shadow_sim_");
 
   /** Resolve prod vs shadow row under the active tenant UUID (cookie-aligned). Retry briefly for write-after-simulation races. */
+  const findProdThreatForAssignee = async (): Promise<{
+    id: string;
+    assigneeId: string | null;
+  } | null> => {
+    if (tenantCompanyIds.length > 0) {
+      const scoped = await prisma.threatEvent.findFirst({
+        where: {
+          id: threatEntityId,
+          tenantCompanyId: { in: tenantCompanyIds },
+        },
+        select: { id: true, assigneeId: true },
+      });
+      if (scoped) return scoped;
+    }
+    const byId = await prisma.threatEvent.findFirst({
+      where: { id: threatEntityId },
+      select: {
+        id: true,
+        assigneeId: true,
+        tenantCompanyId: true,
+      },
+    });
+    if (!byId) return null;
+    if (byId.tenantCompanyId != null) {
+      const company = await prisma.company.findUnique({
+        where: { id: byId.tenantCompanyId },
+        select: { tenantId: true },
+      });
+      const rowTenantId = company?.tenantId?.trim();
+      if (rowTenantId && rowTenantId !== tenantUuid) return null;
+    }
+    return { id: byId.id, assigneeId: byId.assigneeId };
+  };
+
   let prod: { id: string; assigneeId: string | null } | null = null;
   let sim: { id: string; tenantCompanyId: bigint | null; assigneeId: string | null } | null = null;
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -2316,16 +2364,7 @@ export async function setThreatAssigneeAction(
       where: { id: threatEntityId, tenantId: tenantUuid },
       select: { id: true, tenantCompanyId: true, assigneeId: true },
     });
-    const prodRow =
-      tenantCompanyIds.length > 0
-        ? await prisma.threatEvent.findFirst({
-            where: {
-              id: threatEntityId,
-              tenantCompanyId: { in: tenantCompanyIds },
-            },
-            select: { id: true, assigneeId: true },
-          })
-        : null;
+    const prodRow = await findProdThreatForAssignee();
     if (simRow || prodRow) {
       if (prioritizeSimThreatRow && simRow) {
         prod = null;
@@ -2420,22 +2459,30 @@ export async function setThreatAssigneeAction(
         async (tx) => {
           const existing = await tx.threatEvent.findUnique({
             where: { id: threatEntityId },
-            select: { assigneeId: true },
+            select: { assigneeId: true, tenantCompanyId: true },
           });
           if (!existing) return null;
-          if ((existing.assigneeId ?? null) === value) return null;
-          await updateThreatWithIntegrity({
-            threatId: threatEntityId,
-            changes: { assigneeId: value },
-            actorUserId: effectiveOperatorId,
-            eventType: "THREAT_ASSIGNEE_CHANGED",
-            tx,
-            select: { id: true },
-          });
+          const prevAssignee = existing.assigneeId ?? null;
+          if (prevAssignee === value) return null;
+          if (existing.tenantCompanyId != null) {
+            await updateThreatWithIntegrity({
+              threatId: threatEntityId,
+              changes: { assigneeId: value },
+              actorUserId: effectiveOperatorId,
+              eventType: "THREAT_ASSIGNEE_CHANGED",
+              tx,
+              select: { id: true },
+            });
+          } else {
+            await tx.threatEvent.update({
+              where: { id: threatEntityId },
+              data: { assigneeId: value },
+            });
+          }
           return auditLogCreateLooseTx(tx, {
             data: {
               action: 'ASSIGNEE_CHANGE',
-              justification: buildAssigneeChangeJustification(threatEntityId, false, existing.assigneeId ?? null),
+              justification: buildAssigneeChangeJustification(threatEntityId, false, prevAssignee),
               operatorId: effectiveOperatorId,
               threatId: threatEntityId,
               isSimulation: false,

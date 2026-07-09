@@ -18,3 +18,13 @@ export function isControlStressTestIngestion(
     return false;
   }
 }
+
+/**
+ * Cards that feed Evidence Vault readiness / examiner-grade closure use the forensic
+ * Neutralize lane only — not the amber RESOLVE THREAT administrative shortcut.
+ */
+export function requiresForensicNeutralizeClosure(
+  ingestionDetails: string | Prisma.JsonValue | null | undefined,
+): boolean {
+  return isControlStressTestIngestion(ingestionDetails);
+}

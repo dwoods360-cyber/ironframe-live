@@ -90,6 +90,7 @@ import {
   hasHumanThreatAssignee,
   THREAT_ASSIGNMENT_REQUIRED_MSG,
 } from '@/app/utils/threatAssigneeGate';
+import { requiresForensicNeutralizeClosure } from '@/app/utils/controlStressTestIngestion';
 import { InlineAuditAccordion } from '@/app/components/InlineAuditAccordion';
 import { ForensicAuditModal } from '@/app/components/ForensicAuditModal';
 import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
@@ -3073,11 +3074,21 @@ export default function ActiveRisksClient({
             hasMountedClient && selectedIndustry === "Defense" ? DEFENSE_REGULATORY_SHIELD_BADGE_LABEL : null;
           const threatComplianceMeta = threatEventComplianceById.get(threat.id);
 
+          const needsForensicNeutralize = requiresForensicNeutralizeClosure(
+            threat.ingestionDetails ?? null,
+          );
           const showNeutralizeAttestation =
             lifecycle === 'confirmed' &&
             !isActuallyResolved &&
             !isArchived &&
-            !isDualKeyDrill;
+            !isDualKeyDrill &&
+            needsForensicNeutralize;
+          const showAmberResolutionBlock =
+            lifecycle === 'confirmed' &&
+            !suppressOpsTechnicalPanels &&
+            !needsForensicNeutralize;
+          const showAmberResolveFooter =
+            lifecycle !== 'active' && !(needsForensicNeutralize && lifecycle === 'confirmed');
 
           const threatRowKey = threat.id?.trim() || `threat-row-${threat.name ?? 'unknown'}`;
 
@@ -3625,7 +3636,7 @@ export default function ActiveRisksClient({
                   </div>
 
                   <div className="mt-1 w-full max-w-full space-y-4">
-                    {lifecycle === 'confirmed' && !suppressOpsTechnicalPanels && (
+                    {showAmberResolutionBlock && (
                       <div className="w-full min-w-0 max-w-full">
                         {resolutionJustificationBlock(threat.id, {
                           sopLabel: (() => {
@@ -3910,7 +3921,7 @@ export default function ActiveRisksClient({
                               </button>
                             </>
                           )}
-                          {lifecycle !== 'active' && (
+                          {lifecycle !== 'active' && showAmberResolveFooter && (
                             <button
                               type="button"
                               disabled={primaryActionDisabled}
@@ -3957,6 +3968,9 @@ export default function ActiveRisksClient({
             : undefined;
           const riskForensicMarkdown = extractRawAuditMarkdown(
             risk.ingestionDetails ?? riskThreatRow?.ingestionDetails ?? null,
+          );
+          const riskNeedsForensicNeutralize = requiresForensicNeutralizeClosure(
+            riskThreatRow?.ingestionDetails ?? risk.ingestionDetails ?? null,
           );
           const riskAssigneeValue = assignedFor(risk.id, risk.assigneeId, risk.threatId);
           const riskHasClaimedAssignee = hasHumanThreatAssignee(
@@ -4190,6 +4204,7 @@ export default function ActiveRisksClient({
                   </div>
 
                   {lifecycle === 'confirmed' &&
+                    !riskNeedsForensicNeutralize &&
                     resolutionJustificationBlock(risk.id, {
                       agentPlaybook: (() => {
                         const tid = risk.threatId?.trim();
@@ -4328,7 +4343,7 @@ export default function ActiveRisksClient({
                           {isSimulationMode ? 'CONFIRM THREAT' : 'ACKNOWLEDGE'}
                         </button>
                       ) : null}
-                      {lifecycle !== 'active' && (
+                      {lifecycle !== 'active' && !(riskNeedsForensicNeutralize && lifecycle === 'confirmed') && (
                         <button
                           type="button"
                           disabled={

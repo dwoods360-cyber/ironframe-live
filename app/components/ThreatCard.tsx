@@ -56,6 +56,7 @@ import {
   extractIrontechHowFromIngestion,
   gatherAuditHowSnippetsForThreat,
 } from "@/app/utils/neutralizeDraftingAssistant";
+import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 
 /** Parent registry drives ingestion / victory timing — card is a dumb visual shell. */
 
@@ -245,6 +246,7 @@ export function ThreatCard({
 
   const [lexiconPopoverKey, setLexiconPopoverKey] = useState<string | null>(null);
   const lexiconPreviewRef = useRef<HTMLDivElement | null>(null);
+  const clerkAutoPrimedForThreatRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (lexiconPopoverKey == null) return;
@@ -302,6 +304,7 @@ export function ThreatCard({
       nonsenseZoneEntryCountRef.current = 0;
       evasionAuditLoggedRef.current = false;
       wasInNonsenseZoneRef.current = false;
+      clerkAutoPrimedForThreatRef.current = null;
     }
   }, [cardThreatId]);
 
@@ -362,6 +365,27 @@ export function ThreatCard({
       setDraftAssistantBusy(false);
     }
   }, [cardThreatId, ingestionDetailsRaw, neutralizeAttestationContext, onNeutralizeAttestationDraftChange]);
+
+  /** PA-R4.5 Stop 5: control-gap stress cards prime the constitutional clerk (score gate unchanged). */
+  useEffect(() => {
+    if (!showNeutralizeAttestation || !cardThreatId?.trim()) return;
+    if (!isControlStressTestIngestion(ingestionDetailsRaw)) return;
+    const tid = cardThreatId.trim();
+    if (clerkAutoPrimedForThreatRef.current === tid) return;
+    if (machineAttestationCore?.trim()) {
+      clerkAutoPrimedForThreatRef.current = tid;
+      return;
+    }
+    clerkAutoPrimedForThreatRef.current = tid;
+    void applyConstitutionalDraft();
+  }, [
+    showNeutralizeAttestation,
+    cardThreatId,
+    ingestionDetailsRaw,
+    machineAttestationCore,
+    applyConstitutionalDraft,
+  ]);
+
   const ingestionBootstrapOn = useIngestionBootstrapVisual(
     ingestionBootstrapFromIso,
     ingestionBootstrapEnabled,

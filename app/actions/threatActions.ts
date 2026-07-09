@@ -70,6 +70,7 @@ import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormG
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
+import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
 import {
   assertForensicAttestationLengthForContext,
@@ -595,6 +596,10 @@ function simShadowPassesResolutionProtocol(
   if (approved) return true;
 
   if (ingestionIsChaosSimulationTest(ingestionDetails)) {
+    return true;
+  }
+
+  if (isControlStressTestIngestion(ingestionDetails)) {
     return true;
   }
 
@@ -1395,18 +1400,21 @@ export async function resolveThreatAction(
   }
 
   const sessionCompanyIdForResolve = await getCompanyIdForActiveTenant();
-  if (sessionCompanyIdForResolve != null && (await readSimulationPlaneEnabled())) {
+  const simPlaneEnabled = await readSimulationPlaneEnabled();
+  if (sessionCompanyIdForResolve != null) {
     const simRow = await prisma.riskEvent.findFirst({
       where: { id, tenantCompanyId: sessionCompanyIdForResolve },
       select: {
         id: true,
+        tenantId: true,
         title: true,
         ingestionDetails: true,
         financialRisk_cents: true,
         status: true,
       },
     });
-    if (simRow) {
+    const controlStressRow = isControlStressTestIngestion(simRow?.ingestionDetails);
+    if (simRow && (simPlaneEnabled || controlStressRow)) {
       if (simRow.status === ThreatState.RESOLVED) {
         return {
           success: true,
@@ -1430,24 +1438,25 @@ export async function resolveThreatAction(
       const mergedIngestion = mergeIngestionDetailsPatchJson(simRow.ingestionDetails ?? null, {
         resolutionJustification: trimmed,
       });
-      await prisma.$transaction(async (tx) => {
-        await tx.riskEvent.updateMany({
-          where: { id: simRow.id },
-          data: {
-            status: ThreatState.RESOLVED,
-            ingestionDetails: mergedIngestion,
-          },
-        });
-        await auditLogCreateLooseTx(tx, {
-          data: {
-            action: "THREAT_RESOLVED",
-            justification: justificationPayload,
-            operatorId,
-            threatId: null,
-            isSimulation: true,
-          },
-        });
-      });
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.riskEvent.updateMany({
+            where: { id: simRow.id },
+            data: {
+              status: ThreatState.RESOLVED,
+              ingestionDetails: mergedIngestion,
+            },
+          });
+          await auditLogCreateLooseTx(tx, {
+            data: shadowSimAuditLogData(simRow.tenantId, simRow.id, {
+              action: "THREAT_RESOLVED",
+              justification: justificationPayload,
+              operatorId,
+            }),
+          });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
+      );
       revalidatePath("/");
       await logThreatActivity(null, "STATUS_UPDATED", `Threat status changed to RESOLVED (shadow). simThreatId:${id}`, {
         isSimulation: true,
@@ -1459,7 +1468,7 @@ export async function resolveThreatAction(
       };
     }
 
-    /** Shadow-plane Chaos on `ThreatEvent`: same cleared lifecycle as sim `RiskEvent` (no prod resolution-approval gate). */
+    if (simPlaneEnabled) {
     const chaosThreat = await prisma.threatEvent.findFirst({
       where: { id, tenantCompanyId: sessionCompanyIdForResolve },
       select: {
@@ -1545,6 +1554,7 @@ export async function resolveThreatAction(
           constitutionalHash,
         };
       }
+    }
     }
   }
 
@@ -1752,14 +1762,8 @@ export async function deAcknowledgeThreatAction(
   operatorId: string,
 ): Promise<{ success: true } | MissingRecordResponse | ActionFailureResponse | void> {
   if (!tenantId) throw new Error("Irongate Rejection: Missing Tenant Context. Zero-Trust violation.");
-  if (
-    !prismaDelegates.threatEvent?.update ||
-    !prismaDelegates.auditLog?.create ||
-    !prismaDelegates.workNote?.create
-  ) {
-    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+  if (!prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');
-    if (!prismaDelegates.workNote) warnMissingDelegate('workNote');
     return;
   }
 
@@ -1769,11 +1773,13 @@ export async function deAcknowledgeThreatAction(
     return { success: false, error: 'De-acknowledgement requires a selected reason.' };
   }
 
-  const existing = await prisma.threatEvent.findUnique({
-    where: { id },
-    select: { financialRisk_cents: true },
-  });
-  if (!existing) {
+  const sessionCompanyId = await getCompanyIdForActiveTenant();
+  if (sessionCompanyId == null) {
+    throw new Error('Irongate Rejection: Missing company context for tenant isolation.');
+  }
+
+  const resolved = await resolveThreatForAcknowledge(id, sessionCompanyId);
+  if (!resolved) {
     return {
       success: false,
       error: `[deAcknowledgeThreatAction] threatEvent.findUnique: no row for id ${id}`,
@@ -1781,7 +1787,7 @@ export async function deAcknowledgeThreatAction(
   }
 
   const threshold = getGrcThresholdCents();
-  const cents = BigInt(existing.financialRisk_cents ?? 0);
+  const cents = BigInt(resolved.row.financialRisk_cents ?? 0);
   const requiredLen = cents >= threshold ? 50 : 10;
   if (trimmedJustification.length < requiredLen) {
     return {
@@ -1799,10 +1805,65 @@ export async function deAcknowledgeThreatAction(
     };
   }
   const savedDeAckWorkNoteText = parsedDeAckNote.data.text;
+  const mappedReason = normalizeDeAckReason(trimmedReason);
+  const tenantUuid = tenantId.trim();
+
+  if (resolved.plane === 'shadow') {
+    await prisma.$transaction(
+      async (tx) => {
+        const row = await tx.riskEvent.findFirst({
+          where: { id, tenantCompanyId: sessionCompanyId },
+          select: { id: true, tenantId: true, ingestionDetails: true },
+        });
+        if (row == null) {
+          throw new Error(
+            `[deAcknowledgeThreatAction] riskEvent missing inside TX after resolve: ${id}`,
+          );
+        }
+        const nextIngestionDetails = mergeIngestionDetailsPatchJson(row.ingestionDetails ?? null, {
+          deAckWorkNote: savedDeAckWorkNoteText,
+          deAckReason: mappedReason,
+        });
+        await tx.riskEvent.updateMany({
+          where: { id },
+          data: {
+            status: ThreatState.RESOLVED,
+            deAckReason: mappedReason,
+            ingestionDetails: nextIngestionDetails,
+            assigneeId: null,
+          },
+        });
+        await auditLogCreateLooseTx(tx, {
+          data: shadowSimAuditLogData(tenantUuid, id, {
+            action: 'THREAT_DE_ACKNOWLEDGED',
+            justification: trimmedJustification,
+            operatorId,
+          }),
+        });
+        await auditLogCreateLooseTx(tx, {
+          data: shadowSimAuditLogData(tenantUuid, id, {
+            action: 'STATE_REGRESSION',
+            justification: 'User reversed acknowledgment of risk.',
+            operatorId,
+          }),
+        });
+      },
+      THREAT_INTERACTIVE_TX_OPTIONS,
+    );
+    revalidatePath('/');
+    return { success: true };
+  }
+
+  if (!prismaDelegates.threatEvent?.update || !prismaDelegates.workNote?.create) {
+    if (!prismaDelegates.threatEvent) warnMissingDelegate('threatEvent');
+    if (!prismaDelegates.workNote) warnMissingDelegate('workNote');
+    return;
+  }
+
   const tenantCompanyIdForDeAck =
     (
       await prisma.company.findFirst({
-        where: { tenantId: tenantId.trim() },
+        where: { tenantId: tenantUuid },
         select: { id: true },
       })
     )?.id ?? null;
@@ -1815,7 +1876,6 @@ export async function deAcknowledgeThreatAction(
         threatId: id,
       },
     });
-    const mappedReason = normalizeDeAckReason(trimmedReason);
     await transitionThreatStatus({
       threatId: id,
       newStatus: ThreatState.RESOLVED,

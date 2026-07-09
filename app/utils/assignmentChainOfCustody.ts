@@ -44,12 +44,20 @@ const OPERATOR_ID_LABELS: Record<string, string> = {
 export function assigneeKeyToDisplayName(key: string | null | undefined): string {
   if (key == null || String(key).trim() === '') return 'Unassigned';
   const raw = String(key).trim();
+  if (raw.toLowerCase() === 'unassigned') return 'Unassigned';
   const chaos = CHAOS_WORKFORCE_ASSIGNEE_LABELS[raw.toUpperCase()];
   if (chaos) return chaos;
   const expert = displayForExpertAssigneeKey(raw);
   if (expert) return expert;
   const k = raw.toLowerCase();
   return ASSIGNEE_KEY_LABELS[k] ?? raw;
+}
+
+/** Strip UI suffixes like "(you)" from dropdown labels before persisting to audit JSON. */
+export function normalizeAssigneeOptionLabel(label: string | null | undefined): string {
+  const t = (label ?? '').trim();
+  if (!t) return '';
+  return t.replace(/\s*\(you\)\s*$/i, '').trim();
 }
 
 export function operatorIdToDisplayName(operatorId: string): string {
@@ -68,6 +76,11 @@ export type AssignmentJustificationPayload = {
   /** Legacy keys from earlier ASSIGNMENT_CHANGED rows */
   newAssigneeId?: string | null;
   previousAssigneeId?: string | null;
+  metadata?: {
+    from?: string;
+    to?: string;
+    plane?: string;
+  };
 };
 
 /** Standard `ASSIGNEE_CHANGE` JSON — append-only custody (matches `setThreatAssigneeAction`). */
@@ -198,12 +211,25 @@ export function formatAssignmentHistoryNarrative(entry: {
     return `${operatorIdToDisplayName(entry.operatorId)} · ${when}`;
   }
 
+  const narrator = parsed.actor?.trim() || operatorIdToDisplayName(entry.operatorId);
+  const phaseSuffix =
+    typeof parsed.phase === 'string' && parsed.phase.trim()
+      ? ` · ${parsed.phase.trim()}`
+      : '';
+  const fromLabel = parsed.metadata?.from?.trim();
+  const toLabel = parsed.metadata?.to?.trim();
+
+  if (fromLabel && toLabel) {
+    if (toLabel.toLowerCase() === 'unassigned') {
+      return `${narrator} moved assignee from ${fromLabel} to Unassigned at ${when}${phaseSuffix}`;
+    }
+    if (fromLabel.toLowerCase() === 'unassigned') {
+      return `${narrator} claimed from Unassigned → ${toLabel} at ${when}${phaseSuffix}`;
+    }
+    return `${narrator} moved assignee from ${fromLabel} to ${toLabel} at ${when}${phaseSuffix}`;
+  }
+
   if ('newAssignee' in parsed) {
-    const narrator = parsed.actor?.trim() || operatorIdToDisplayName(entry.operatorId);
-    const phaseSuffix =
-      typeof parsed.phase === 'string' && parsed.phase.trim()
-        ? ` · ${parsed.phase.trim()}`
-        : '';
     const a = parsed.newAssignee;
     if (a == null || String(a).trim() === '' || String(a).trim().toLowerCase() === 'unassigned') {
       return `${narrator} cleared the assignment at ${when}${phaseSuffix}`;
@@ -221,16 +247,15 @@ export function formatAssignmentHistoryNarrative(entry: {
   }
 
   if ('newAssigneeId' in parsed) {
-    const narrator = operatorIdToDisplayName(entry.operatorId);
     const id = parsed.newAssigneeId;
     if (id == null) {
-      return `${narrator} cleared the assignment at ${when}`;
+      return `${narrator} cleared the assignment at ${when}${phaseSuffix}`;
     }
     const assigneeName = assigneeKeyToDisplayName(id);
     if (assigneeName === 'Unassigned') {
-      return `${narrator} cleared the assignment at ${when}`;
+      return `${narrator} cleared the assignment at ${when}${phaseSuffix}`;
     }
-    return `${narrator} assigned this to ${assigneeName} at ${when}`;
+    return `${narrator} assigned this to ${assigneeName} at ${when}${phaseSuffix}`;
   }
 
   return `${operatorIdToDisplayName(entry.operatorId)} · ${when}`;

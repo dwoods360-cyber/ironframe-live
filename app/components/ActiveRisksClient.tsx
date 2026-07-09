@@ -1040,10 +1040,13 @@ function computeSupplyChainImpact(input: {
 function AssigneeHistorySection({
   entries,
   historyThreatEventId,
+  currentAssigneeValue,
 }: {
   entries: AssignmentChangedLogEntry[];
   /** Dev-only: logs when history is empty so `entityId` can be checked against AuditLog. */
   historyThreatEventId?: string | null;
+  /** Current dropdown assignee — surfaces Unassigned when no audit rows exist yet. */
+  currentAssigneeValue?: string;
 }) {
   useEffect(() => {
     if (
@@ -1059,10 +1062,18 @@ function AssigneeHistorySection({
   }, [entries, historyThreatEventId]);
 
   if (entries.length === 0) {
+    const isUnassigned =
+      !currentAssigneeValue ||
+      currentAssigneeValue.trim() === '' ||
+      currentAssigneeValue.trim().toLowerCase() === 'unassigned';
     return (
       <div className="rounded border border-slate-700/80 bg-slate-950/50 p-2">
         <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">ASSIGNEE HISTORY</p>
-        <p className="mt-1 text-[10px] text-slate-500">No assignment changes recorded yet.</p>
+        <p className="mt-1 text-[10px] text-slate-500">
+          {isUnassigned
+            ? 'Current state: Unassigned — awaiting operator claim.'
+            : 'No assignment changes recorded yet.'}
+        </p>
       </div>
     );
   }
@@ -1780,6 +1791,7 @@ export default function ActiveRisksClient({
     cardKey: string,
     threatEventId: string | null | undefined,
     value: string,
+    optionLabel: string,
   ) => {
     setAssignments((prev) => ({ ...prev, [cardKey]: value }));
     if (!threatEventId) {
@@ -1809,6 +1821,7 @@ export default function ActiveRisksClient({
       tenantForAction,
       sessionUserId || currentUser,
       operatorDisplayName,
+      optionLabel,
     );
     if (res && typeof res === 'object' && 'success' in res && res.success === false) {
       setThreatActionError({ active: true, message: res.error });
@@ -2977,7 +2990,7 @@ export default function ActiveRisksClient({
 
           if (needsDualKeyClaim) {
             buttonLabel = 'CLAIM & ASSIGN THREAT';
-            onPrimaryClick = () => void persistThreatAssignee(threat.id, threat.id, currentUser);
+            onPrimaryClick = () => void persistThreatAssignee(threat.id, threat.id, currentUser, operatorDisplayName);
           } else if (isDualKeyDrill && lifecycle === 'confirmed') {
             if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
               buttonLabel = getCisoDualKeyHandshakeButtonLabel(dualKeySimBot);
@@ -3287,7 +3300,7 @@ export default function ActiveRisksClient({
                     <div className="flex items-center gap-2 text-xs">
                       <button
                         type="button"
-                        onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser)}
+                        onClick={() => void persistThreatAssignee(threat.id, threat.id, currentUser, operatorDisplayName)}
                         disabled={assigneeValue === currentUser}
                         className={`px-2 py-1 border rounded transition-colors ${
                           assigneeValue === currentUser
@@ -3305,7 +3318,7 @@ export default function ActiveRisksClient({
                         value={assigneeValue}
                         currentUserValue={currentUser}
                         currentUserLabel={operatorDisplayName}
-                        onChange={(next) => void persistThreatAssignee(threat.id, threat.id, next)}
+                        onChange={(next, label) => void persistThreatAssignee(threat.id, threat.id, next, label)}
                       />
                     </div>
                   )}
@@ -3362,6 +3375,7 @@ export default function ActiveRisksClient({
                     <AssigneeHistorySection
                       entries={assigneeHistoryForCard}
                       historyThreatEventId={threat.id}
+                      currentAssigneeValue={assigneeValue}
                     />
                     {threatForensicMarkdown ? (
                       <div
@@ -4024,7 +4038,7 @@ export default function ActiveRisksClient({
                   <div className="flex items-center gap-2 text-xs">
                     <button
                       type="button"
-                      onClick={() => void persistThreatAssignee(risk.id, risk.threatId, currentUser)}
+                      onClick={() => void persistThreatAssignee(risk.id, risk.threatId, currentUser, operatorDisplayName)}
                       disabled={assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser}
                       className={`px-2 py-1 border rounded transition-colors ${
                         assignedFor(risk.id, risk.assigneeId, risk.threatId) === currentUser
@@ -4042,7 +4056,7 @@ export default function ActiveRisksClient({
                       value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
                       currentUserValue={currentUser}
                       currentUserLabel={operatorDisplayName}
-                      onChange={(next) => void persistThreatAssignee(risk.id, risk.threatId, next)}
+                      onChange={(next, label) => void persistThreatAssignee(risk.id, risk.threatId, next, label)}
                     />
                   </div>
                   <span className={`text-xs font-bold ${risk.score_cents > 80 ? 'text-red-400' : 'text-amber-400'}`}>
@@ -4087,6 +4101,7 @@ export default function ActiveRisksClient({
                   <AssigneeHistorySection
                     entries={riskAssigneeHistory}
                     historyThreatEventId={risk.threatId ?? undefined}
+                    currentAssigneeValue={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
                   />
                   {riskForensicMarkdown ? (
                     <div

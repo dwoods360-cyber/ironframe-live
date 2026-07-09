@@ -921,7 +921,7 @@ function PipelineThreatCard({
             value={assignedTo}
             currentUserValue={currentUser}
             currentUserLabel={operatorDisplayName}
-            onChange={setAssignedTo}
+            onChange={(next) => setAssignedTo(next)}
           />
         </div>
 

@@ -37,6 +37,7 @@ import { shadowReceiptAuditStub } from '@/app/lib/grc/threatReceipt';
 import { workNoteSchema } from '@/app/utils/irongateSchema';
 import {
   assigneeKeyToDisplayName,
+  normalizeAssigneeOptionLabel,
   operatorIdToDisplayName,
 } from '@/app/utils/assignmentChainOfCustody';
 import { getCompanyIdForActiveTenant } from '@/app/lib/grc/clearanceThreatResolve';
@@ -2066,6 +2067,8 @@ export async function setThreatAssigneeAction(
   operatorId: string = 'admin-user-01',
   /** Human-readable operator label from UI session (e.g. "Dereck"); stored in audit JSON as `actor`. */
   actorDisplayName?: string,
+  /** Human-readable assignee label from dropdown (e.g. "Wil W", "Unassigned"). */
+  assigneeDisplayLabel?: string,
 ): Promise<
   | { success: true; newLog: AssignmentChangedLogEntry | null }
   | ActionFailureResponse
@@ -2137,8 +2140,12 @@ export async function setThreatAssigneeAction(
     const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(effectiveOperatorId)).trim();
     const fromDisplay =
       prevAssigneeKey == null ? 'Unassigned' : assigneeKeyToDisplayName(prevAssigneeKey);
-    const newAssigneeDisplay = value == null ? null : assigneeKeyToDisplayName(value);
-    const toMetadata = value == null ? 'Unassigned' : assigneeKeyToDisplayName(value);
+    const resolvedAssigneeLabel =
+      value == null
+        ? null
+        : normalizeAssigneeOptionLabel(assigneeDisplayLabel) || assigneeKeyToDisplayName(value);
+    const newAssigneeDisplay = resolvedAssigneeLabel;
+    const toMetadata = value == null ? 'Unassigned' : resolvedAssigneeLabel ?? 'Unassigned';
     return JSON.stringify({
       entityType: 'THREAT',
       entityId,
@@ -2154,7 +2161,7 @@ export async function setThreatAssigneeAction(
       isSimulation,
     });
   };
-  const assignedDisplayName = value == null ? "Unassigned" : assigneeKeyToDisplayName(value);
+  const assignedDisplayName = value == null ? "Unassigned" : (normalizeAssigneeOptionLabel(assigneeDisplayLabel) || assigneeKeyToDisplayName(value));
   const assignmentTelemetryLine = `> [IRONGATE] Identity verified. Ownership assigned to ${assignedDisplayName}. Forensic gate sealed.`;
 
   /** All companies under this tenant UUID (prod threats key off `tenantCompanyId`, not tenant UUID). */

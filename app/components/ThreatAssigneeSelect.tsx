@@ -9,7 +9,7 @@ import { useTenantAssigneeRosterContext } from "@/app/context/TenantAssigneeRost
 
 type ThreatAssigneeSelectProps = {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, optionLabel: string) => void;
   currentUserValue: string;
   currentUserLabel: string;
   className?: string;
@@ -61,7 +61,11 @@ export default function ThreatAssigneeSelect({
   return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => {
+        const nextValue = e.target.value;
+        const optionLabel = e.target.options[e.target.selectedIndex]?.text ?? nextValue;
+        onChange(nextValue, optionLabel);
+      }}
       disabled={disabled}
       className={
         className ??

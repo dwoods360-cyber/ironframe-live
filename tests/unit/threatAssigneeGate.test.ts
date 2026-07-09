@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertHumanThreatAssigneeForResolution,
+  assertHumanThreatAssigneeForTriage,
   hasHumanThreatAssignee,
   isOpenThreatAssignee,
   THREAT_ASSIGNMENT_REQUIRED_MSG,
@@ -37,5 +38,12 @@ describe("threatAssigneeGate", () => {
       THREAT_ASSIGNMENT_REQUIRED_MSG,
     );
     expect(() => assertHumanThreatAssigneeForResolution("wil-w-uuid")).not.toThrow();
+  });
+
+  it("assertHumanThreatAssigneeForTriage mirrors resolution custody gate", () => {
+    expect(() => assertHumanThreatAssigneeForTriage("secops")).toThrow(
+      THREAT_ASSIGNMENT_REQUIRED_MSG,
+    );
+    expect(() => assertHumanThreatAssigneeForTriage("wil-w-uuid")).not.toThrow();
   });
 });

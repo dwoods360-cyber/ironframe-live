@@ -428,7 +428,7 @@ function PipelineThreatCard({
     (isTopSectorThreat && grcTrimmed === TOP_SECTOR_JUSTIFICATION_TEXT);
 
   const { isLocked: constitutionalLock, isConstitutionalEmergency } = useConstitutionalLockFlags();
-  const ackEnabled = !constitutionalLock;
+  const ackEnabled = !constitutionalLock && hasClaimedAssignee;
   const chaosFlightLocksAck =
     chaosFlight != null &&
     (chaosFlight.step === 1 ||
@@ -448,6 +448,10 @@ function PipelineThreatCard({
 
   const handleAcknowledgeClick = async () => {
     if (!ackEnabled || ackPending || chaosFlightLocksAck) return;
+    if (!hasClaimedAssignee) {
+      setThreatActionError({ active: true, message: THREAT_ASSIGNMENT_REQUIRED_MSG });
+      return;
+    }
     if (!ackRequirementsMet) {
       const msg =
         isConstitutionalEmergency && grcAckLen < forensicMin
@@ -1068,7 +1072,13 @@ function PipelineThreatCard({
                   : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
               }`}
             >
-              {ackPending ? "Acknowledging…" : chaosFlightLocksAck ? "Acknowledge (flight recorder)" : "Acknowledge"}
+              {ackPending
+                ? "Acknowledging…"
+                : chaosFlightLocksAck
+                  ? "Acknowledge (flight recorder)"
+                  : !hasClaimedAssignee
+                    ? "Acknowledge (Claim assignee first)"
+                    : "Acknowledge"}
             </button>
           )}
           {showResolve ? (

@@ -163,6 +163,7 @@ type AcknowledgeThreatGateResolved =
         createdAt: Date;
         ingestionDetails: string | null;
         targetEntity: string;
+        assigneeId: string | null;
       };
     }
   | {
@@ -174,6 +175,7 @@ type AcknowledgeThreatGateResolved =
         createdAt: Date;
         ingestionDetails: Prisma.JsonValue | null;
         targetEntity: string;
+        assigneeId: string | null;
       };
     };
 
@@ -202,6 +204,33 @@ async function resolveThreatForAcknowledge(
   if (sim) return { plane: 'shadow', row: sim };
   return null;
 }
+
+async function assertHumanAssigneeForThreatScope(
+  threatId: string,
+  companyId: bigint | null,
+): Promise<void> {
+  if (companyId == null) {
+    throw new Error("Irongate Rejection: Missing company context for tenant isolation.");
+  }
+  const prod = await prisma.threatEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: { assigneeId: true },
+  });
+  if (prod) {
+    assertHumanThreatAssigneeForResolution(prod.assigneeId);
+    return;
+  }
+  const sim = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: { assigneeId: true },
+  });
+  if (sim) {
+    assertHumanThreatAssigneeForResolution(sim.assigneeId);
+    return;
+  }
+  throw new Error(`Threat not found or access denied. (ID: ${threatId})`);
+}
+
 const prismaDelegates = prisma as unknown as {
   threatEvent?: {
     findUnique: (args: unknown) => Promise<{ id: string } | null>;
@@ -941,6 +970,7 @@ export async function acknowledgeThreatAction(
     createdAt: true,
     ingestionDetails: true,
     targetEntity: true,
+    assigneeId: true,
   } as const;
 
   const prodRow = await prisma.threatEvent.findFirst({
@@ -968,6 +998,10 @@ export async function acknowledgeThreatAction(
       return idem;
     }
     throw new Error(`Threat not found or access denied. (ID: ${id})`);
+  }
+
+  if (!shadowPlaneIngestBot) {
+    assertHumanThreatAssigneeForResolution(resolved.row.assigneeId);
   }
 
   const hold = chaosAcknowledgeBlockedByDiscoveryHold({
@@ -1167,6 +1201,15 @@ export async function confirmThreatAction(
       success: false,
       error:
         '[Confirm Phase 0] No ThreatEvent or SimThreatEvent for this id and tenant scope.',
+    };
+  }
+
+  try {
+    await assertHumanAssigneeForThreatScope(id, sessionCompanyId);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 
@@ -1791,6 +1834,15 @@ export async function deAcknowledgeThreatAction(
     };
   }
 
+  try {
+    await assertHumanAssigneeForThreatScope(id, sessionCompanyId);
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
   const threshold = getGrcThresholdCents();
   const cents = BigInt(resolved.row.financialRisk_cents ?? 0);
   const requiredLen = cents >= threshold ? 50 : 10;
@@ -1942,6 +1994,12 @@ export async function revertThreatToPipelineAction(
         select: { id: true },
       })
     )?.id ?? null;
+
+  try {
+    await assertHumanAssigneeForThreatScope(id, tenantCompanyIdForRevert);
+  } catch (error) {
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 
   const result = await runThreatTransaction(id, tenantCompanyIdForRevert, async (tx) => {
     await transitionThreatStatus({

@@ -34,3 +34,10 @@ export function assertHumanThreatAssigneeForResolution(
     throw new Error(THREAT_ASSIGNMENT_REQUIRED_MSG);
   }
 }
+
+/** Client + server triage actions (acknowledge, de-ack, revert) share the same custody gate. */
+export function assertHumanThreatAssigneeForTriage(
+  assigneeId: string | null | undefined,
+): void {
+  assertHumanThreatAssigneeForResolution(assigneeId);
+}

@@ -3047,6 +3047,8 @@ export default function ActiveRisksClient({
           const primaryCtaDisplayLabel = displayPrimaryCtaLabel(isSimulationMode, buttonLabel);
 
           const resolutionAssignmentBlocked = needsResolutionClaim;
+          const triageCustodyBlocked = !hasClaimedAssignee;
+          const triageCustodyTitle = triageCustodyBlocked ? THREAT_ASSIGNMENT_REQUIRED_MSG : undefined;
 
           const dualKeyPrimaryLocked = (() => {
             if (!isDualKeyDrill) return false;
@@ -3799,6 +3801,18 @@ export default function ActiveRisksClient({
                                 const reason = selectedReason.trim();
                                 const justification = customJustification.trim();
                                 if (!reason || justification.length < 50) return;
+                                if (
+                                  triageCustodyBlocked &&
+                                  (activeAction === "DISMISS" ||
+                                    activeAction === "REVERT" ||
+                                    activeAction === "CONFIRM")
+                                ) {
+                                  setThreatActionError({
+                                    active: true,
+                                    message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                                  });
+                                  return;
+                                }
                                 const tenantId = effectiveTenantUuid;
                                 if (!tenantId) {
                                   appendAuditLog({
@@ -3850,10 +3864,19 @@ export default function ActiveRisksClient({
                               disabled={
                                 !selectedReason.trim() ||
                                 customJustification.trim().length < 50 ||
-                                resolutionAssignmentBlocked
+                                resolutionAssignmentBlocked ||
+                                (triageCustodyBlocked &&
+                                  (activeAction === "DISMISS" ||
+                                    activeAction === "REVERT" ||
+                                    activeAction === "CONFIRM"))
                               }
                               className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
-                                customJustification.trim().length < 50 || resolutionAssignmentBlocked
+                                customJustification.trim().length < 50 ||
+                                resolutionAssignmentBlocked ||
+                                (triageCustodyBlocked &&
+                                  (activeAction === "DISMISS" ||
+                                    activeAction === "REVERT" ||
+                                    activeAction === "CONFIRM"))
                                   ? 'opacity-50 cursor-not-allowed grayscale'
                                   : 'opacity-100 cursor-pointer hover:bg-opacity-80'
                               }`}
@@ -3885,42 +3908,75 @@ export default function ActiveRisksClient({
                             <>
                               <button
                                 type="button"
+                                disabled={triageCustodyBlocked}
+                                title={triageCustodyTitle}
                                 onClick={() => {
+                                  if (triageCustodyBlocked) {
+                                    setThreatActionError({
+                                      active: true,
+                                      message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                                    });
+                                    return;
+                                  }
                                   setActiveAction('DISMISS');
                                   setActiveActionCardId(threat.id);
                                   setActiveActionThreatId(threat.id);
                                   setSelectedReason('');
                                   setCustomJustification('');
                                 }}
-                                className="rounded border border-red-500/70 bg-red-950/40 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-300 shadow hover:border-red-400/70 hover:bg-red-500/10 hover:text-red-200"
+                                className={`rounded border border-red-500/70 bg-red-950/40 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-red-300 shadow hover:border-red-400/70 hover:bg-red-500/10 hover:text-red-200 ${
+                                  triageCustodyBlocked ? "cursor-not-allowed opacity-50 grayscale" : ""
+                                }`}
                               >
                                 De-Acknowledgment
                               </button>
                               {canRevertToPipeline ? (
                                 <button
                                   type="button"
+                                  disabled={triageCustodyBlocked}
+                                  title={triageCustodyTitle}
                                   onClick={() => {
+                                    if (triageCustodyBlocked) {
+                                      setThreatActionError({
+                                        active: true,
+                                        message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                                      });
+                                      return;
+                                    }
                                     setActiveAction('REVERT');
                                     setActiveActionCardId(threat.id);
                                     setActiveActionThreatId(threat.id);
                                     setSelectedReason('');
                                     setCustomJustification('');
                                   }}
-                                  className="rounded border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 shadow hover:bg-amber-500/20"
+                                  className={`rounded border border-amber-500/70 bg-amber-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-amber-300 shadow hover:bg-amber-500/20 ${
+                                    triageCustodyBlocked ? "cursor-not-allowed opacity-50 grayscale" : ""
+                                  }`}
                                 >
                                   REVERT TO PIPELINE
                                 </button>
                               ) : null}
                               <button
                                 type="button"
+                                disabled={triageCustodyBlocked}
+                                title={triageCustodyTitle}
                                 onClick={() => {
+                                  if (triageCustodyBlocked) {
+                                    setThreatActionError({
+                                      active: true,
+                                      message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                                    });
+                                    return;
+                                  }
                                   setActiveAction('CONFIRM');
                                   setActiveActionCardId(threat.id);
                                   setActiveActionThreatId(threat.id);
                                   setSelectedReason('');
                                   setCustomJustification('');
                                 }}
-                                className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
+                                className={`rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20 ${
+                                  triageCustodyBlocked ? "cursor-not-allowed opacity-50 grayscale" : ""
+                                }`}
                               >
                                 {isSimulationMode ? 'CONFIRM THREAT' : 'ACKNOWLEDGE'}
                               </button>
@@ -4292,6 +4348,13 @@ export default function ActiveRisksClient({
                                 const reason = selectedReason.trim();
                                 const justification = customJustification.trim();
                                 if (!reason || justification.length < 50) return;
+                                if (!riskHasClaimedAssignee) {
+                                  setThreatActionError({
+                                    active: true,
+                                    message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                                  });
+                                  return;
+                                }
                                 const operatorId = 'admin-user-01';
                                 const threatId = activeActionThreatId ?? risk.threatId ?? risk.id;
                                 try {
@@ -4316,9 +4379,13 @@ export default function ActiveRisksClient({
                                   // Store logs; form stays open for retry
                                 }
                               }}
-                              disabled={!selectedReason.trim() || customJustification.trim().length < 50}
+                              disabled={
+                                !selectedReason.trim() ||
+                                customJustification.trim().length < 50 ||
+                                !riskHasClaimedAssignee
+                              }
                               className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
-                                customJustification.trim().length < 50
+                                customJustification.trim().length < 50 || !riskHasClaimedAssignee
                                   ? 'opacity-50 cursor-not-allowed grayscale'
                                   : 'opacity-100 cursor-pointer hover:bg-opacity-80'
                               }`}
@@ -4337,14 +4404,25 @@ export default function ActiveRisksClient({
                       ) : lifecycle === 'active' ? (
                         <button
                           type="button"
+                          disabled={!riskHasClaimedAssignee}
+                          title={!riskHasClaimedAssignee ? THREAT_ASSIGNMENT_REQUIRED_MSG : undefined}
                           onClick={() => {
+                            if (!riskHasClaimedAssignee) {
+                              setThreatActionError({
+                                active: true,
+                                message: THREAT_ASSIGNMENT_REQUIRED_MSG,
+                              });
+                              return;
+                            }
                             setActiveAction('CONFIRM');
                             setActiveActionCardId(risk.id);
                             setActiveActionThreatId(risk.threatId ?? risk.id);
                             setSelectedReason('');
                             setCustomJustification('');
                           }}
-                          className="rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20"
+                          className={`rounded border border-emerald-500/70 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-300 shadow hover:bg-emerald-500/20 ${
+                            !riskHasClaimedAssignee ? "cursor-not-allowed opacity-50 grayscale" : ""
+                          }`}
                         >
                           {isSimulationMode ? 'CONFIRM THREAT' : 'ACKNOWLEDGE'}
                         </button>

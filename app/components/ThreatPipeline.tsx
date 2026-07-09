@@ -26,6 +26,11 @@ import { useGrcBotStore } from "@/app/store/grcBotStore";
 import { STAKEHOLDER_ALERT_RECIPIENT_LABEL } from "@/app/config/stakeholderAlert";
 import IngestionPanel from "@/app/components/IngestionPanel";
 import ThreatAssigneeSelect from "@/app/components/ThreatAssigneeSelect";
+import { setThreatAssigneeAction } from "@/app/actions/threatActions";
+import {
+  hasHumanThreatAssignee,
+  THREAT_ASSIGNMENT_REQUIRED_MSG,
+} from "@/app/utils/threatAssigneeGate";
 import { syncThreatBoardsClient } from "@/app/utils/syncThreatBoardsClient";
 import { toBigIntCents } from "@/app/utils/riskStoreBigIntMath";
 import {
@@ -258,6 +263,42 @@ function PipelineThreatCard({
     setLikelihood(threat.likelihood ?? 8);
     setImpact(threat.impact ?? 9);
   }, [threat.likelihood, threat.impact]);
+
+  useEffect(() => {
+    const serverAssignee = (threat.assigneeId ?? threat.assignedTo ?? "").trim();
+    setAssignedTo(serverAssignee || "unassigned");
+  }, [threat.id, threat.assigneeId, threat.assignedTo]);
+
+  const assigneeKeyForGate = assignedTo === "unassigned" ? null : assignedTo;
+  const hasClaimedAssignee = hasHumanThreatAssignee(assigneeKeyForGate);
+
+  const persistPipelineAssignee = async (value: string, optionLabel: string) => {
+    if (!tenantUuidForActions) {
+      setThreatActionError({
+        active: true,
+        message: "Assignee not persisted: no active tenant scope (set cookie or tenant route).",
+      });
+      return;
+    }
+    const res = await setThreatAssigneeAction(
+      threat.id,
+      value === "unassigned" ? null : value,
+      tenantUuidForActions,
+      userId || currentUser,
+      operatorDisplayName,
+      optionLabel,
+    );
+    if (!res.success) {
+      setThreatActionError({ active: true, message: res.error });
+      return;
+    }
+    setAssignedTo(value);
+    updatePipelineThreat(threat.id, {
+      assigneeId: value === "unassigned" ? undefined : value,
+      assignedTo: value === "unassigned" ? undefined : value,
+    });
+    setThreatActionError({ active: false, message: "" });
+  };
 
   useEffect(() => {
     setAuditReasonExpanded(false);
@@ -505,6 +546,10 @@ function PipelineThreatCard({
 
   const handleResolveClick = async () => {
     if (!resolutionReady || resolvePending) return;
+    if (!hasClaimedAssignee) {
+      setThreatActionError({ active: true, message: THREAT_ASSIGNMENT_REQUIRED_MSG });
+      return;
+    }
     setResolvePending(true);
     try {
       const effectiveOperatorId = userId.trim() || currentUser || "admin-user-01";
@@ -907,21 +952,22 @@ function PipelineThreatCard({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <button
             type="button"
-            onClick={() => setAssignedTo(currentUser)}
-            disabled={assignedTo === currentUser}
+            onClick={() => void persistPipelineAssignee(currentUser, operatorDisplayName)}
+            disabled={hasClaimedAssignee && assignedTo === currentUser}
             className={`px-2 py-1 border rounded transition-colors ${
-              assignedTo === currentUser
+              hasClaimedAssignee && assignedTo === currentUser
                 ? "bg-ironcore-accent/20 border-ironcore-accent text-ironcore-accent cursor-default"
                 : "bg-ironcore-bg border-ironcore-border text-ironcore-text hover:bg-ironcore-highlight"
             }`}
           >
-            {assignedTo === currentUser ? "✔️ Claimed" : "🖐️ Claim"}
+            {hasClaimedAssignee && assignedTo === currentUser ? "✔️ Claimed" : "🖐️ Claim"}
           </button>
           <ThreatAssigneeSelect
             value={assignedTo}
             currentUserValue={currentUser}
             currentUserLabel={operatorDisplayName}
-            onChange={(next) => setAssignedTo(next)}
+            includeTeamBuckets={false}
+            onChange={(next, label) => void persistPipelineAssignee(next, label)}
           />
         </div>
 
@@ -1028,16 +1074,18 @@ function PipelineThreatCard({
           {showResolve ? (
             <button
               type="button"
-              disabled={constitutionalLock || !resolutionReady || resolvePending}
+              disabled={constitutionalLock || !resolutionReady || resolvePending || !hasClaimedAssignee}
               onClick={handleResolveClick}
               className={`rounded-md px-4 py-2 text-[11px] font-bold uppercase tracking-wide border transition-colors ${
-                resolutionReady && !resolvePending
+                resolutionReady && !resolvePending && hasClaimedAssignee
                   ? "border-emerald-500/70 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25"
                   : "border-slate-700 bg-slate-800/80 text-slate-500 opacity-60 cursor-not-allowed grayscale"
               }`}
             >
               {resolvePending
                 ? "Resolving…"
+                : !hasClaimedAssignee
+                  ? "Resolve (Claim assignee first)"
                 : resolutionReady
                   ? "Resolve"
                   : "Resolve (Awaiting approval)"}

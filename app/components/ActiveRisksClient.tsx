@@ -1798,7 +1798,6 @@ export default function ActiveRisksClient({
     value: string,
     optionLabel: string,
   ) => {
-    setAssignments((prev) => ({ ...prev, [cardKey]: value }));
     if (!threatEventId) {
       appendAuditLog({
         action_type: 'SYSTEM_WARNING',
@@ -1833,6 +1832,7 @@ export default function ActiveRisksClient({
       return;
     }
     if (res && typeof res === "object" && "success" in res && res.success === true) {
+      setAssignments((prev) => ({ ...prev, [cardKey]: value }));
       const sealedThreatId = threatEventId.trim();
       useRiskStore.getState().setActiveRiskId(sealedThreatId);
       appendAuditLog({
@@ -2944,6 +2944,10 @@ export default function ActiveRisksClient({
                 }
               : lifecycle === 'confirmed'
                 ? async () => {
+                    if (!hasClaimedAssignee) {
+                      setThreatActionError({ active: true, message: THREAT_ASSIGNMENT_REQUIRED_MSG });
+                      return;
+                    }
                     try {
                       setResolvingThreatIds((prev) => ({ ...prev, [threat.id]: true }));
                       await resolveThreat(threat.id, 'admin-user-01', resolutionText.trim(), actorDisplayLabel);
@@ -3342,6 +3346,7 @@ export default function ActiveRisksClient({
                         value={assigneeValue}
                         currentUserValue={currentUser}
                         currentUserLabel={operatorDisplayName}
+                        includeTeamBuckets={false}
                         onChange={(next, label) => void persistThreatAssignee(threat.id, threat.id, next, label)}
                       />
                     </div>
@@ -4087,6 +4092,7 @@ export default function ActiveRisksClient({
                       value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
                       currentUserValue={currentUser}
                       currentUserLabel={operatorDisplayName}
+                      includeTeamBuckets={false}
                       onChange={(next, label) => void persistThreatAssignee(risk.id, risk.threatId, next, label)}
                     />
                   </div>

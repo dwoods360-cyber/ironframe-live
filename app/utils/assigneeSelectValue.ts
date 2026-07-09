@@ -21,3 +21,8 @@ export const SHARED_TEAM_ASSIGNEE_OPTIONS: readonly AssigneeSelectOption[] = [
   { value: "grc", label: "GRC Team" },
   { value: "netsec", label: "NetSec" },
 ] as const;
+
+/** Team routing keys are not human forensic custody — resolution must block these. */
+export const TEAM_ROUTING_ASSIGNEE_VALUES = new Set(
+  SHARED_TEAM_ASSIGNEE_OPTIONS.map((opt) => opt.value.toLowerCase()),
+);

@@ -7,13 +7,17 @@ import {
 } from "@/app/utils/threatAssigneeGate";
 
 describe("threatAssigneeGate", () => {
-  it("treats null, empty, unassigned, and User_00 as open", () => {
+  it("treats null, empty, unassigned, User_00, and team routing buckets as open", () => {
     expect(isOpenThreatAssignee(null)).toBe(true);
     expect(isOpenThreatAssignee("")).toBe(true);
     expect(isOpenThreatAssignee("unassigned")).toBe(true);
     expect(isOpenThreatAssignee("User_00")).toBe(true);
     expect(isOpenThreatAssignee("user_00")).toBe(true);
+    expect(isOpenThreatAssignee("secops")).toBe(true);
+    expect(isOpenThreatAssignee("grc")).toBe(true);
+    expect(isOpenThreatAssignee("netsec")).toBe(true);
     expect(hasHumanThreatAssignee("User_00")).toBe(false);
+    expect(hasHumanThreatAssignee("secops")).toBe(false);
   });
 
   it("accepts roster / agent assignee keys as claimed", () => {
@@ -27,6 +31,9 @@ describe("threatAssigneeGate", () => {
       THREAT_ASSIGNMENT_REQUIRED_MSG,
     );
     expect(() => assertHumanThreatAssigneeForResolution("user_00")).toThrow(
+      THREAT_ASSIGNMENT_REQUIRED_MSG,
+    );
+    expect(() => assertHumanThreatAssigneeForResolution("grc")).toThrow(
       THREAT_ASSIGNMENT_REQUIRED_MSG,
     );
     expect(() => assertHumanThreatAssigneeForResolution("wil-w-uuid")).not.toThrow();

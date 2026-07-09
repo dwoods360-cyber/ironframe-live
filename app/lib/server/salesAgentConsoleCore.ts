@@ -13,6 +13,7 @@ import {
   type BeachheadSegment,
   type GRCPlaybookTier,
 } from "@/Ironboard/src/agents/sales/playbook";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import prisma from "@/lib/prisma";
 
 const MAX_DRAFT_SUMMARY_CHARS = 12_000;
@@ -233,7 +234,7 @@ function resolveApiKey(): string {
 }
 
 function resolveModel(): string {
-  return process.env.IRONBOARD_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return resolveGeminiFlashModel(process.env.IRONBOARD_GEMINI_MODEL);
 }
 
 export async function synthesizeSalesAgentPitch(

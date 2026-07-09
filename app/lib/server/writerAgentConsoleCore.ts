@@ -5,6 +5,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 
 import { sanitizeAppDocumentContent } from "@/lib/appDocumentSanitizer";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import prisma from "@/lib/prisma";
 
 const MAX_TOPIC_CHARS = 500;
@@ -113,7 +114,7 @@ export function resolveWriterApiKey(): string {
 }
 
 export function resolveWriterModel(): string {
-  return process.env.IRONBOARD_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return resolveGeminiFlashModel(process.env.IRONBOARD_GEMINI_MODEL);
 }
 
 export type WriterSessionInput = {

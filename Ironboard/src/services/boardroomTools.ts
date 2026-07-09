@@ -20,7 +20,7 @@ export const WORKSPACE_QUERY_TYPES = [
 export type BoardroomToolMode = 'combined' | 'web' | 'workspace';
 
 function modelSupportsGoogleSearch(model: string): boolean {
-  return /gemini-(2\.[05]|3)/i.test(model);
+  return /gemini-(2\.[05]|3(?:\.\d+)?)/i.test(model);
 }
 
 /**

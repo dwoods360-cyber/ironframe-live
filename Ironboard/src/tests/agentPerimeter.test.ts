@@ -26,7 +26,7 @@ vi.mock('../services/crm/crmService.js', () => ({
 vi.mock('../loadIronboardEnv.js', () => ({
   loadIronboardEnv: vi.fn(),
   getIronboardApiKey: vi.fn(() => 'mock_ironboard_worker_key'),
-  getIronboardGeminiModel: vi.fn(() => 'gemini-2.5-flash'),
+  getIronboardGeminiModel: vi.fn(() => 'gemini-3.5-flash'),
 }));
 
 vi.mock('@google/genai', () => {

@@ -4,8 +4,9 @@ import { createHash } from "crypto";
 import { generateText } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { RequirementBlock } from "@/app/types/regulatoryIngestion";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 
-const OCR_MODEL = process.env.GEMINI_IRONSIGHT_MODEL?.trim() || "gemini-2.5-flash";
+const OCR_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
 
 export type ForensicIngestInput = {
   buffer: Buffer;

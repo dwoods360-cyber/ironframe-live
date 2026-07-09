@@ -12,10 +12,10 @@ import {
   mergeIngestionDetailsPatchJson,
   parseIngestionDetailsForMerge,
 } from '@/app/utils/ingestionDetailsMerge';
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import { updateThreatWithIntegrity } from '@/src/services/threatStateService';
 
-const IRONSIGHT_TRACE_MODEL =
-  process.env.GEMINI_IRONSIGHT_MODEL?.trim() || 'gemini-2.5-flash';
+const IRONSIGHT_TRACE_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
 
 /** Strict GRC blast-radius output for Active Risk UI (human-in-the-loop actions only). */
 const ironsightAiTraceSchema = z.object({

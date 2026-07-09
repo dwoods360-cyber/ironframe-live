@@ -152,7 +152,7 @@ const { prospectStore, flywheelLogs, prismaMock } = vi.hoisted(() => {
 vi.mock('../loadIronboardEnv.js', () => ({
   loadIronboardEnv: vi.fn(),
   getIronboardApiKey: vi.fn(),
-  getIronboardGeminiModel: vi.fn(() => 'gemini-2.5-flash'),
+  getIronboardGeminiModel: vi.fn(() => 'gemini-3.5-flash'),
 }));
 
 vi.mock('./prisma.js', () => ({

@@ -12,8 +12,9 @@ import { hashAmendmentDraftId } from "@/app/services/irontallyGapAnalysis";
 import { runIronsightRegulatoryPoll } from "@/app/services/ironsightMonitor";
 import { recalculateSystemMaturityScore } from "@/app/services/governanceScoring";
 import { GOVERNANCE_EXPOSURE_ENVELOPE_BILLIONS } from "@/app/utils/financialRisk";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 
-const AMENDMENT_MODEL = process.env.GEMINI_IRONSIGHT_MODEL?.trim() || "gemini-2.5-flash";
+const AMENDMENT_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
 
 function readTasMdExcerpt(maxChars = 12_000): string {
   try {

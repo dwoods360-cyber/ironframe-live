@@ -19,7 +19,7 @@ vi.mock('../../services/prisma.js', () => ({
 vi.mock('../../loadIronboardEnv.js', () => ({
   loadIronboardEnv: vi.fn(),
   getIronboardApiKey: vi.fn(() => 'test-key'),
-  getIronboardGeminiModel: vi.fn(() => 'gemini-2.5-flash'),
+  getIronboardGeminiModel: vi.fn(() => 'gemini-3.5-flash'),
 }));
 
 vi.mock('@google/genai', () => ({

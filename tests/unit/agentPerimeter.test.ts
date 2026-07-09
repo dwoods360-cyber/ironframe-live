@@ -113,7 +113,7 @@ describe("Phase 2 Agent Perimeter & Ingress Isolation Suite", () => {
     });
     process.env.GOOGLE_API_KEY = "mock_test_key_abc_123";
     process.env.GEMINI_API_KEY = "mock_test_key_abc_123";
-    process.env.IRONBOARD_GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.IRONBOARD_GEMINI_MODEL = "gemini-3.5-flash";
     process.env.IRONFRAME_PROSPECT_POOL_TENANT_UUID = PROSPECT_POOL_TENANT_ID;
 
     vi.mocked(assertAuthenticatedIronguardTenantOr403).mockResolvedValue({

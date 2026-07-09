@@ -25,8 +25,9 @@ import type {
   RequirementBlock,
   RegulatoryComparisonSnapshot,
 } from "@/app/types/regulatoryIngestion";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 
-const AMENDMENT_MODEL = process.env.GEMINI_IRONSIGHT_MODEL?.trim() || "gemini-2.5-flash";
+const AMENDMENT_MODEL = resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL);
 
 export type IngestRegulationInput = {
   source: IngestedRegulationRecord["source"];

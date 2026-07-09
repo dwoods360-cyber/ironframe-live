@@ -141,7 +141,7 @@ Vercel sends `Authorization: Bearer <IRONFRAME_CRON_SECRET>` automatically when 
 | `DATABASE_URL` | **Yes** | Upsert `GovernanceFrameTriadSnapshot` |
 | `IRONFRAME_CORE_ORIGIN` | Local wrapper only | Default `http://127.0.0.1:3000` (`bin\cron_narrate.ps1`) |
 | `SHADOW_PLANE_INGEST_TENANT_UUID` | Optional | Default tenant if header/query omitted |
-| `GEMINI_NARRATE_MODEL` | Optional | Override model (default `gemini-2.5-flash`) |
+| `GEMINI_NARRATE_MODEL` | Optional | Override model (default `gemini-3.5-flash`) |
 
 Default tenant UUID: Medshield (`5c420f5a-8f1f-4bbf-b42d-7f8dd4bb6a01`) unless `x-tenant-id` header or `?tenantId=` is set.
 

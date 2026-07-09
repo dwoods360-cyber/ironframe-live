@@ -70,7 +70,7 @@ describe('discoverRegionalProspects', () => {
       return null;
     }),
     getApiKey: () => 'test-key',
-    getModel: () => 'gemini-2.5-flash',
+    getModel: () => 'gemini-3.5-flash',
     isSemiAutonomous: () => false,
     generateContent: mockGenerateContent,
   };

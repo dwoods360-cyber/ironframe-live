@@ -20,11 +20,12 @@ import { appendPublicBriefingCitationsToMarkdown } from "@/app/lib/governanceFra
 import { writeBriefingQueueDraftFromNarrate } from "@/app/lib/governanceFrame/briefingQueueDraftWriter";
 import { dispatchInternalExposureAlert } from "@/app/lib/governanceFrame/dispatchInternalExposureAlert";
 import prisma from "@/lib/prisma";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 
-const NARRATE_MODEL =
-  process.env.GEMINI_NARRATE_MODEL?.trim() ||
-  process.env.GEMINI_IRONSIGHT_MODEL?.trim() ||
-  "gemini-2.5-flash";
+const NARRATE_MODEL = resolveGeminiFlashModel(
+  process.env.GEMINI_NARRATE_MODEL,
+  process.env.GEMINI_IRONSIGHT_MODEL,
+);
 
 function utcCalendarDate(input = new Date()): Date {
   return new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()));

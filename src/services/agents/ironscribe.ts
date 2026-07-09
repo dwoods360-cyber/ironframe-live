@@ -1,5 +1,6 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import { SovereignGraphState } from '../orchestration/state';
 
 // SOVEREIGN EXTRACTION SCHEMA
@@ -13,10 +14,10 @@ const ExtractionSchema = z.object({
  * AGENT 5 (IRONSCRIBE) - LIVE GEMINI EXTRACTION
  * Mandate: Absolute schema enforcement using Gemini 1.5 Pro.
  */
-const IRONSCRIBE_MODEL =
-  process.env.GEMINI_IRONSCRIBE_MODEL?.trim() ||
-  process.env.GEMINI_IRONSIGHT_MODEL?.trim() ||
-  "gemini-2.5-flash";
+const IRONSCRIBE_MODEL = resolveGeminiFlashModel(
+  process.env.GEMINI_IRONSCRIBE_MODEL,
+  process.env.GEMINI_IRONSIGHT_MODEL,
+);
 
 export class IronScribe {
   private static model = new ChatGoogleGenerativeAI({

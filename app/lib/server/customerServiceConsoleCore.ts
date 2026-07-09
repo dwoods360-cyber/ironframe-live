@@ -16,6 +16,7 @@ import type {
   InTenantSupportUrgency,
 } from "@/app/types/inTenantSupportTelemetry";
 import { sanitizeAppDocumentContent } from "@/lib/appDocumentSanitizer";
+import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
 import prisma from "@/lib/prisma";
 
 const MAX_MESSAGE_CHARS = 4_000;
@@ -60,7 +61,7 @@ export function resolveCustomerServiceApiKey(): string {
 }
 
 export function resolveCustomerServiceModel(): string {
-  return process.env.IRONBOARD_GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+  return resolveGeminiFlashModel(process.env.IRONBOARD_GEMINI_MODEL);
 }
 
 /** Execute grounded Gemini synthesis for the authenticated support console. */

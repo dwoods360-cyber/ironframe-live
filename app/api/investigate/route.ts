@@ -4,6 +4,7 @@ import {
   ingressSanitizerFailureResponse,
   sanitizeIngressPayload,
 } from '@/app/lib/ironethic/ingressSanitizer';
+import { resolveGeminiFlashModel } from '@/app/config/geminiModels';
 
 function resolveGeminiApiKey(): string {
   return process.env.GOOGLE_API_KEY?.trim() || process.env.GEMINI_API_KEY?.trim() || '';
@@ -65,7 +66,7 @@ Research areas requested: ${paramList.join(', ') || 'general analysis'}
 Generate the full GRC briefing using the required structure above. Start with "### EXECUTIVE BOARD SUMMARY" and the 3-sentence CEO summary (financial risk, regulation at stake, one critical decision). Then include the "### Regulatory & Control Mapping" section and all other sections. Use ### for each section header and bullet points throughout.`;
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: resolveGeminiFlashModel(process.env.GEMINI_IRONSIGHT_MODEL),
       systemInstruction,
     });
     const result = await model.generateContent(prompt);

@@ -2,6 +2,9 @@ import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+/** gemini-2.5-flash was retired — see https://ai.google.dev/gemini-api/docs/deprecations */
+export const DEFAULT_IRONBOARD_GEMINI_MODEL = 'gemini-3.5-flash';
+
 /** IronBoard package root (Ironboard/), never the monorepo root. */
 const IRONBOARD_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = join(IRONBOARD_ROOT, '..');
@@ -94,7 +97,7 @@ export function getIronboardPort(): number {
 }
 
 export function getIronboardGeminiModel(): string {
-  return isolated.geminiModel.trim() || 'gemini-2.5-flash';
+  return isolated.geminiModel.trim() || DEFAULT_IRONBOARD_GEMINI_MODEL;
 }
 
 /** When false, live regional discovery runs only on explicit operator triggers. */

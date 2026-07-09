@@ -918,7 +918,6 @@ function PipelineThreatCard({
             {assignedTo === currentUser ? "✔️ Claimed" : "🖐️ Claim"}
           </button>
           <ThreatAssigneeSelect
-            tenantUuid={tenantUuidForActions}
             value={assignedTo}
             currentUserValue={currentUser}
             currentUserLabel={operatorDisplayName}

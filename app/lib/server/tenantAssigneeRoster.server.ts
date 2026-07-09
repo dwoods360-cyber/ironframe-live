@@ -65,30 +65,38 @@ export async function fetchTenantAssigneeRoster(
   const tid = tenantUuid.trim();
   if (!tid) return [];
 
-  const assignments = await prisma.userRoleAssignment.findMany({
-    where: { tenantId: tid },
-    select: { userId: true },
-    orderBy: { grantedAt: "asc" },
-  });
-
-  const uniqueUserIds = [...new Set(assignments.map((row) => row.userId.trim()).filter(Boolean))];
-  if (uniqueUserIds.length === 0) return [];
-
-  const profileByUserId = await loadSupabaseAuthProfileIndex();
-
-  const roster: TenantAssigneeRosterEntry[] = [];
-  const seenValues = new Set<string>();
-
-  for (const userId of uniqueUserIds) {
-    const value = sanitizeAssigneeSelectValue(userId);
-    if (seenValues.has(value)) continue;
-    seenValues.add(value);
-    roster.push({
-      userId,
-      value,
-      label: resolveOperatorLabel(userId, profileByUserId.get(userId)),
+  try {
+    const assignments = await prisma.userRoleAssignment.findMany({
+      where: { tenantId: tid },
+      select: { userId: true },
+      orderBy: { grantedAt: "asc" },
     });
-  }
 
-  return roster.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+    const uniqueUserIds = [...new Set(assignments.map((row) => row.userId.trim()).filter(Boolean))];
+    if (uniqueUserIds.length === 0) return [];
+
+    const profileByUserId = await loadSupabaseAuthProfileIndex();
+
+    const roster: TenantAssigneeRosterEntry[] = [];
+    const seenValues = new Set<string>();
+
+    for (const userId of uniqueUserIds) {
+      const value = sanitizeAssigneeSelectValue(userId);
+      if (seenValues.has(value)) continue;
+      seenValues.add(value);
+      roster.push({
+        userId,
+        value,
+        label: resolveOperatorLabel(userId, profileByUserId.get(userId)),
+      });
+    }
+
+    return roster.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }));
+  } catch (error) {
+    console.warn(
+      "[tenantAssigneeRoster] roster query failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return [];
+  }
 }

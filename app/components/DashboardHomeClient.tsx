@@ -7,6 +7,7 @@ import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
 import StrategicIntel from './StrategicIntel';
 import ThreatPipeline from './ThreatPipeline';
+import { TenantAssigneeRosterProvider } from '@/app/context/TenantAssigneeRosterContext';
 import DashboardAlertBanners from './DashboardAlertBanners';
 import Header from './Header';
 import LiabilityAlertToast from './LiabilityAlertToast';
@@ -1389,25 +1390,25 @@ export default function DashboardHomeClient({
           ) : null}
 
           {!auditorViewEnabled ? (
-            <ThreatPipeline
-              supplyChainThreat={null}
-              showSocStream={true}
-              incomingAgentAlerts={liveAlerts}
-              setSelectedThreatId={setSelectedThreatId}
-            />
-          ) : null}
-          {!auditorViewEnabled ? (
-            <section
-              className={DASHBOARD_CENTER_RISK_STACK}
-              aria-label="Active risks — four-stage lifecycle"
-              data-testid="active-risks-focal-section"
-            >
-              <ActiveRisksClient
-                risks={effectiveData.risks}
-                threatEvents={effectiveData.threatEvents ?? []}
+            <TenantAssigneeRosterProvider tenantUuid={dashboardTenantUuid}>
+              <ThreatPipeline
+                supplyChainThreat={null}
+                showSocStream={true}
+                incomingAgentAlerts={liveAlerts}
                 setSelectedThreatId={setSelectedThreatId}
               />
-            </section>
+              <section
+                className={DASHBOARD_CENTER_RISK_STACK}
+                aria-label="Active risks — four-stage lifecycle"
+                data-testid="active-risks-focal-section"
+              >
+                <ActiveRisksClient
+                  risks={effectiveData.risks}
+                  threatEvents={effectiveData.threatEvents ?? []}
+                  setSelectedThreatId={setSelectedThreatId}
+                />
+              </section>
+            </TenantAssigneeRosterProvider>
           ) : null}
           {!auditorViewEnabled ? (
             <div className={`${DASHBOARD_CENTER_PAD_X} pb-2`}>

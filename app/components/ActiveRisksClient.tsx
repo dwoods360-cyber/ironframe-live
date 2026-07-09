@@ -3302,7 +3302,6 @@ export default function ActiveRisksClient({
                             : '🖐️ Claim & Assign'}
                       </button>
                       <ThreatAssigneeSelect
-                        tenantUuid={effectiveTenantUuid}
                         value={assigneeValue}
                         currentUserValue={currentUser}
                         currentUserLabel={operatorDisplayName}
@@ -4040,7 +4039,6 @@ export default function ActiveRisksClient({
                           : '🖐️ Claim & Assign'}
                     </button>
                     <ThreatAssigneeSelect
-                      tenantUuid={effectiveTenantUuid}
                       value={assignedFor(risk.id, risk.assigneeId, risk.threatId)}
                       currentUserValue={currentUser}
                       currentUserLabel={operatorDisplayName}

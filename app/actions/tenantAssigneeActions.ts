@@ -13,25 +13,33 @@ export type TenantAssigneeRosterResult =
 export async function getTenantAssigneeRosterAction(
   tenantUuid: string,
 ): Promise<TenantAssigneeRosterResult> {
-  const tid = tenantUuid.trim();
-  if (!tid) {
-    return { ok: false, error: "Missing tenant scope.", options: [] };
-  }
+  try {
+    const tid = tenantUuid.trim();
+    if (!tid) {
+      return { ok: false, error: "Missing tenant scope.", options: [] };
+    }
 
-  const user = await getSupabaseSessionUser();
-  if (!user?.id?.trim()) {
-    return { ok: false, error: "Unauthorized.", options: [] };
-  }
+    const user = await getSupabaseSessionUser();
+    if (!user?.id?.trim()) {
+      return { ok: false, error: "Unauthorized.", options: [] };
+    }
 
-  const userId = user.id.trim();
-  const platformAdmin = await isPlatformAdministratorIdentity(userId, user.email);
-  if (!platformAdmin && !(await userHasTenantRoleAssignment(userId, tid))) {
-    return { ok: false, error: "Forbidden for this workspace.", options: [] };
-  }
+    const userId = user.id.trim();
+    const platformAdmin = await isPlatformAdministratorIdentity(userId, user.email);
+    if (!platformAdmin && !(await userHasTenantRoleAssignment(userId, tid))) {
+      return { ok: false, error: "Forbidden for this workspace.", options: [] };
+    }
 
-  const roster = await fetchTenantAssigneeRoster(tid);
-  return {
-    ok: true,
-    options: roster.map(({ value, label }) => ({ value, label })),
-  };
+    const roster = await fetchTenantAssigneeRoster(tid);
+    return {
+      ok: true,
+      options: roster.map(({ value, label }) => ({ value, label })),
+    };
+  } catch (error) {
+    console.error(
+      "[getTenantAssigneeRosterAction] failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return { ok: false, error: "Assignee roster unavailable.", options: [] };
+  }
 }

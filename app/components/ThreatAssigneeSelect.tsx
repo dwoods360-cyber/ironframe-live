@@ -5,10 +5,9 @@ import {
   SHARED_TEAM_ASSIGNEE_OPTIONS,
   type AssigneeSelectOption,
 } from "@/app/utils/assigneeSelectValue";
-import { useTenantAssigneeRoster } from "@/app/hooks/useTenantAssigneeRoster";
+import { useTenantAssigneeRosterContext } from "@/app/context/TenantAssigneeRosterContext";
 
 type ThreatAssigneeSelectProps = {
-  tenantUuid: string | null | undefined;
   value: string;
   onChange: (value: string) => void;
   currentUserValue: string;
@@ -44,7 +43,6 @@ function mergeOperatorOptions(
 }
 
 export default function ThreatAssigneeSelect({
-  tenantUuid,
   value,
   onChange,
   currentUserValue,
@@ -53,7 +51,7 @@ export default function ThreatAssigneeSelect({
   disabled = false,
   includeTeamBuckets = true,
 }: ThreatAssigneeSelectProps) {
-  const { options: rosterOptions } = useTenantAssigneeRoster(tenantUuid);
+  const { options: rosterOptions } = useTenantAssigneeRosterContext();
 
   const operatorOptions = useMemo(
     () => mergeOperatorOptions(rosterOptions, currentUserValue, currentUserLabel),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getTenantAssigneeRosterAction } from "@/app/actions/tenantAssigneeActions";
+import { ironguardFetch } from "@/app/utils/apiClient";
 import type { AssigneeSelectOption } from "@/app/utils/assigneeSelectValue";
 
 export function useTenantAssigneeRoster(tenantUuid: string | null | undefined): {
@@ -21,10 +21,20 @@ export function useTenantAssigneeRoster(tenantUuid: string | null | undefined): 
 
     let active = true;
     setLoading(true);
-    void getTenantAssigneeRosterAction(tid)
-      .then((res) => {
+    void ironguardFetch("/api/tenant/assignee-roster", {
+      headers: {
+        "x-tenant-id": tid,
+        "x-target-tenant-id": tid,
+      },
+    })
+      .then(async (res) => {
+        if (!active || !res.ok) return [];
+        const payload = (await res.json()) as { options?: AssigneeSelectOption[] };
+        return Array.isArray(payload.options) ? payload.options : [];
+      })
+      .then((rows) => {
         if (!active) return;
-        setOptions(res.ok ? res.options : []);
+        setOptions(rows);
       })
       .catch(() => {
         if (!active) return;

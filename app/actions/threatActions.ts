@@ -71,6 +71,7 @@ import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWor
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
 import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
+import { assertHumanThreatAssigneeForResolution } from "@/app/utils/threatAssigneeGate";
 import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
 import {
   assertForensicAttestationLengthForContext,
@@ -1411,10 +1412,12 @@ export async function resolveThreatAction(
         ingestionDetails: true,
         financialRisk_cents: true,
         status: true,
+        assigneeId: true,
       },
     });
     const controlStressRow = isControlStressTestIngestion(simRow?.ingestionDetails);
     if (simRow && (simPlaneEnabled || controlStressRow)) {
+      assertHumanThreatAssigneeForResolution(simRow.assigneeId);
       if (simRow.status === ThreatState.RESOLVED) {
         return {
           success: true,
@@ -1583,11 +1586,13 @@ export async function resolveThreatAction(
       resolutionApprovalId: true,
       ingestionDetails: true,
       title: true,
+      assigneeId: true,
     },
   });
   if (!threatForGate?.tenantCompanyId || !threatForGate.resolutionApprovalId) {
     throw new Error(GRC_PROTOCOL_VIOLATION);
   }
+  assertHumanThreatAssigneeForResolution(threatForGate.assigneeId);
   const company = await prisma.company.findUnique({
     where: { id: threatForGate.tenantCompanyId },
     select: { tenantId: true },

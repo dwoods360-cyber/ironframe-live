@@ -86,6 +86,10 @@ import {
 } from '@/app/utils/riskRegistryResolvedPurge';
 import { appendForensicScoreToMetadataTag } from '@/app/utils/grcLexicon';
 import { allThreatDraftsPassJustificationQuality } from '@/app/utils/validateJustification';
+import {
+  hasHumanThreatAssignee,
+  THREAT_ASSIGNMENT_REQUIRED_MSG,
+} from '@/app/utils/threatAssigneeGate';
 import { InlineAuditAccordion } from '@/app/components/InlineAuditAccordion';
 import { ForensicAuditModal } from '@/app/components/ForensicAuditModal';
 import { VerifyArtifactButton } from '@/app/components/VerifyArtifactButton';
@@ -2241,6 +2245,11 @@ export default function ActiveRisksClient({
       manualJustificationPrimedByCardKey,
     });
     if (!resolutionReady) return;
+    const assigneeVal = assignedFor(risk.id, risk.assigneeId, risk.threatId);
+    if (!hasHumanThreatAssignee(assigneeVal === 'unassigned' ? null : assigneeVal)) {
+      setThreatActionError({ active: true, message: THREAT_ASSIGNMENT_REQUIRED_MSG });
+      return;
+    }
     try {
       await resolveThreat(tid, 'admin-user-01', text, actorDisplayLabel);
       setStates((prev) => ({ ...prev, [risk.id]: 'resolved' }));
@@ -2734,8 +2743,9 @@ export default function ActiveRisksClient({
                 ((threat.lifecycleState as LifecycleState | undefined) ?? 'active');
           const threatServerAssignee = (threat.assigneeId ?? threat.assignedTo ?? null) as string | null;
           const assigneeValue = assignedFor(threat.id, threatServerAssignee, threat.id);
-          /** Canonical `User_00` / legacy `user_00` — non-empty assignees are treated as assigned (not unassigned). */
-          const isUnassigned = assigneeValue === 'unassigned';
+          const assigneeKeyForGate = assigneeValue === 'unassigned' ? null : assigneeValue;
+          const hasClaimedAssignee = hasHumanThreatAssignee(assigneeKeyForGate);
+          const isUnassigned = !hasClaimedAssignee;
           const isActive =
             !isActuallyResolved &&
             !isArchived &&
@@ -2978,17 +2988,17 @@ export default function ActiveRisksClient({
                   }
                 : undefined;
 
-          /** Full Spectrum (KIM/GRC/ATT): `!threat.assigneeId` (and assignedTo alias) means unclaimed — log + CISO/Admin stay locked. */
-          const hasPersistedAssignee = Boolean(
-            String((threat.assigneeId ?? (threat as { assignedTo?: string }).assignedTo ?? "").trim())
-          );
-          const needsDualKeyClaim = isDualKeyDrill && !hasPersistedAssignee; // i.e. !threat.assigneeId for dual-key cards
+          /** Full Spectrum (KIM/GRC/ATT) and production cards: open assignee blocks resolution until claim. */
+          const needsResolutionClaim =
+            !hasClaimedAssignee &&
+            (isDualKeyDrill ||
+              (lifecycle === 'confirmed' && !isActuallyResolved && !isArchived));
 
           let buttonLabel =
             lifecycle === 'active' ? 'CONFIRM THREAT' : lifecycle === 'confirmed' ? 'RESOLVE THREAT' : 'RESOLVED';
           let onPrimaryClick: (() => void | Promise<void>) | undefined = defaultConfirmResolve;
 
-          if (needsDualKeyClaim) {
+          if (needsResolutionClaim) {
             buttonLabel = 'CLAIM & ASSIGN THREAT';
             onPrimaryClick = () => void persistThreatAssignee(threat.id, threat.id, currentUser, operatorDisplayName);
           } else if (isDualKeyDrill && lifecycle === 'confirmed') {
@@ -3031,11 +3041,11 @@ export default function ActiveRisksClient({
 
           const primaryCtaDisplayLabel = displayPrimaryCtaLabel(isSimulationMode, buttonLabel);
 
-          const dualKeyAssignmentBlocked = needsDualKeyClaim;
+          const resolutionAssignmentBlocked = needsResolutionClaim;
 
           const dualKeyPrimaryLocked = (() => {
             if (!isDualKeyDrill) return false;
-            if (needsDualKeyClaim) return false; // only enabled control is claim primary
+            if (needsResolutionClaim) return false; // only enabled control is claim primary
             if (lifecycle !== 'confirmed') return false;
             if (handshakeRole === 'CISO' && !hasDualKeyResolutionApproval) {
               return !resolutionLenOk;
@@ -3049,11 +3059,13 @@ export default function ActiveRisksClient({
             return true;
           })();
 
-          const defaultPrimaryDisabled = lifecycle === 'confirmed' && !isDualKeyDrill && !resolutionLenOk;
+          const defaultPrimaryDisabled =
+            lifecycle === 'confirmed' &&
+            !isDualKeyDrill &&
+            (!resolutionLenOk || !hasClaimedAssignee);
           const primaryActionDisabled =
             !onPrimaryClick || defaultPrimaryDisabled || dualKeyPrimaryLocked;
-          // For KIM/GRC/ATT, `needsDualKeyClaim` (no assigneeId) drives the single CLAIM & ASSIGN CTA; otherwise dualKeyPrimaryLocked enforces CISO/justification rules once assigned.
-          const dualKeyResolutionFooterTitle = needsDualKeyClaim
+          const dualKeyResolutionFooterTitle = needsResolutionClaim
             ? 'Assign this threat to yourself, then the remediation log and CISO/Admin actions unlock.'
             : undefined;
 
@@ -3121,6 +3133,7 @@ export default function ActiveRisksClient({
               }
               actorDisplayNameForNeutralize={actorDisplayLabel}
               registryNeutralizeAttestationOk={validateBulkNeutralizeAttestation([threat.id])}
+              neutralizeAssigneeOk={hasClaimedAssignee}
               neutralizeAttestationContext={{
                 threatName: threat.name,
                 target: threat.target,
@@ -3624,10 +3637,10 @@ export default function ActiveRisksClient({
                             }
                             return null;
                           })(),
-                          claimLocked: dualKeyAssignmentBlocked,
+                          claimLocked: resolutionAssignmentBlocked,
                           attbotBreach: isDualKeyDrill && dualKeySimBot === "ATTBOT",
                           threatAssigneeId: threat.assigneeId ?? null,
-                          unlockedSop: dualKeyAssignmentBlocked
+                          unlockedSop: resolutionAssignmentBlocked
                             ? "generic"
                             : isDualKeyDrill && dualKeySimBot === "ATTBOT"
                               ? "att"
@@ -3646,7 +3659,7 @@ export default function ActiveRisksClient({
                             };
                           })(),
                         })}
-                        {dualKeyAssignmentBlocked ? (
+                        {resolutionAssignmentBlocked ? (
                           <p
                             className="mt-2 text-[9px] font-semibold leading-snug text-amber-300/95"
                             role="note"
@@ -3655,7 +3668,7 @@ export default function ActiveRisksClient({
                             Claim and assign this threat before entering justification or authorization.
                           </p>
                         ) : null}
-                        {isDualKeyDrill && !dualKeyAssignmentBlocked && lifecycle === 'confirmed' ? (
+                        {isDualKeyDrill && !resolutionAssignmentBlocked && lifecycle === 'confirmed' ? (
                           <>
                             {resolutionLenOk && handshakeRole === 'ADMIN' && !hasDualKeyResolutionApproval ? (
                               <p className="mt-2 text-[9px] font-medium leading-relaxed text-sky-300/95" role="status">
@@ -3821,10 +3834,10 @@ export default function ActiveRisksClient({
                               disabled={
                                 !selectedReason.trim() ||
                                 customJustification.trim().length < 50 ||
-                                dualKeyAssignmentBlocked
+                                resolutionAssignmentBlocked
                               }
                               className={`rounded bg-emerald-600 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white shadow ${
-                                customJustification.trim().length < 50 || dualKeyAssignmentBlocked
+                                customJustification.trim().length < 50 || resolutionAssignmentBlocked
                                   ? 'opacity-50 cursor-not-allowed grayscale'
                                   : 'opacity-100 cursor-pointer hover:bg-opacity-80'
                               }`}
@@ -3840,7 +3853,7 @@ export default function ActiveRisksClient({
                             </button>
                           </div>
                         </div>
-                      ) : needsDualKeyClaim ? (
+                      ) : needsResolutionClaim ? (
                         <button
                           type="button"
                           disabled={primaryActionDisabled}
@@ -3945,7 +3958,11 @@ export default function ActiveRisksClient({
           const riskForensicMarkdown = extractRawAuditMarkdown(
             risk.ingestionDetails ?? riskThreatRow?.ingestionDetails ?? null,
           );
-          const isUnassigned = assignedFor(risk.id, risk.assigneeId, risk.threatId) === 'unassigned';
+          const riskAssigneeValue = assignedFor(risk.id, risk.assigneeId, risk.threatId);
+          const riskHasClaimedAssignee = hasHumanThreatAssignee(
+            riskAssigneeValue === 'unassigned' ? null : riskAssigneeValue,
+          );
+          const isUnassigned = !riskHasClaimedAssignee;
           const isActive = lifecycle === 'active';
           const shouldFlash = isUnassigned && isActive;
           const notes = workNotes[risk.id] ?? [];
@@ -4314,7 +4331,10 @@ export default function ActiveRisksClient({
                       {lifecycle !== 'active' && (
                         <button
                           type="button"
-                          disabled={!onPrimaryClick || (lifecycle === 'confirmed' && !resolutionLenOk)}
+                          disabled={
+                            !onPrimaryClick ||
+                            (lifecycle === 'confirmed' && (!resolutionLenOk || !riskHasClaimedAssignee))
+                          }
                           onClick={(e) => {
                             e.stopPropagation();
                             void onPrimaryClick?.();

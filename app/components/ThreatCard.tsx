@@ -150,6 +150,8 @@ type Props = {
   onNeutralizeAttestationDraftChange?: (text: string) => void;
   /** Registry / bulk sync: parent registry attestation gate (multi-select neutralize). */
   registryNeutralizeAttestationOk?: boolean;
+  /** When false, Neutralize stays locked until operator claims the threat on the execution board. */
+  neutralizeAssigneeOk?: boolean;
   actorDisplayNameForNeutralize?: string;
   /** Card + tenant facts for drafting assistant (TAS §4 chip — roster only, no invented $). */
   neutralizeAttestationContext?: {
@@ -196,6 +198,7 @@ export function ThreatCard({
   showNeutralizeAttestation = false,
   onNeutralizeAttestationDraftChange,
   registryNeutralizeAttestationOk = true,
+  neutralizeAssigneeOk = true,
   actorDisplayNameForNeutralize,
   neutralizeAttestationContext = null,
 }: Props) {
@@ -229,7 +232,8 @@ export function ThreatCard({
     justificationQualityOk &&
     forensicScore.meetsVerifiedThreshold &&
     !lexiconToneLockViolation &&
-    !constitutionalLock;
+    !constitutionalLock &&
+    neutralizeAssigneeOk;
   const forensicGateNeedsReset =
     combinedLenOk &&
     humanRequiredOk &&
@@ -918,6 +922,11 @@ export function ThreatCard({
               Forensic work note (required to neutralize)
             </label>
           </div>
+          {!neutralizeAssigneeOk ? (
+            <p className="mt-1 text-[9px] font-semibold leading-snug text-amber-300/95" role="note">
+              Claim and assign this threat before entering attestation or neutralize.
+            </p>
+          ) : null}
 
           {machineAttestationCore ? (
             <div
@@ -1134,7 +1143,9 @@ export function ThreatCard({
           <button
             type="button"
             title={
-              lexiconToneLockViolation
+              !neutralizeAssigneeOk
+                ? "Claim and assign this threat before neutralize."
+                : lexiconToneLockViolation
                 ? "AUDIT RISK: More than two weak terms — replace with authoritative lexicon."
                 : lexiconWeakViolation
                   ? "LEXICON VIOLATION: Remove weak or hedging language before neutralize."

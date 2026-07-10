@@ -4,11 +4,9 @@ import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import { recordIronguardViolation } from "@/app/lib/security/recordIronguardViolation";
 import {
-  IRONFRAME_HOST_TENANT_SLUG_HEADER,
   IRONFRAME_HOST_TENANT_UUID_HEADER,
   tenantSlugFromHost,
 } from "@/app/lib/tenantSubdomain";
-import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { isPublicConstitutionalSentinelPath } from "@/app/utils/grcRouteMatch";
 const SIMULATION_MODE_COOKIE = "ironframe-simulation-mode";
 
@@ -89,7 +87,7 @@ export async function getIronframeSessionTenantUuidFromCookies(): Promise<string
   return null;
 }
 
-async function resolveHostBoundTenantUuid(request: NextRequest): Promise<string | null> {
+function resolveHostBoundTenantUuid(request: NextRequest): string | null {
   const fromMiddleware = request.headers.get(IRONFRAME_HOST_TENANT_UUID_HEADER)?.trim();
   if (fromMiddleware && UUID_RE.test(normalizeUuid(fromMiddleware))) {
     return normalizeUuid(fromMiddleware);
@@ -99,30 +97,11 @@ async function resolveHostBoundTenantUuid(request: NextRequest): Promise<string 
     request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
     request.headers.get("host")?.trim() ||
     "";
-  const slug =
-    request.headers.get(IRONFRAME_HOST_TENANT_SLUG_HEADER)?.trim() ||
-    tenantSlugFromHost(host);
-  if (!slug) return null;
-
-  if (SLUGS.has(slug as TenantKey)) {
+  const slug = tenantSlugFromHost(host);
+  if (slug && SLUGS.has(slug as TenantKey)) {
     return TENANT_UUIDS[slug as TenantKey];
   }
-
-  try {
-    const tenant = await lookupTenantBySlug(slug);
-    const id = tenant?.id?.trim();
-    return id && UUID_RE.test(normalizeUuid(id)) ? normalizeUuid(id) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Client-declared workspace scope — both headers must agree before realigning a stale session cookie. */
-function declaredTenantScopeMatches(request: NextRequest, headerNorm: string): boolean {
-  const targetRaw = request.headers.get("x-target-tenant-id")?.trim();
-  if (!targetRaw) return false;
-  const targetNorm = normalizeUuid(targetRaw);
-  return UUID_RE.test(targetNorm) && targetNorm === headerNorm;
+  return null;
 }
 
 /**
@@ -201,13 +180,8 @@ export async function assertIronguardApiTenantOr403(request: NextRequest): Promi
       return { ok: true, tenantUuid: headerNorm };
     }
 
-    const hostBoundUuid = await resolveHostBoundTenantUuid(request);
+    const hostBoundUuid = resolveHostBoundTenantUuid(request);
     if (hostBoundUuid && hostBoundUuid === headerNorm) {
-      await persistShadowPlaneTenantCookie(headerNorm, request);
-      return { ok: true, tenantUuid: headerNorm };
-    }
-
-    if (declaredTenantScopeMatches(request, headerNorm)) {
       await persistShadowPlaneTenantCookie(headerNorm, request);
       return { ok: true, tenantUuid: headerNorm };
     }

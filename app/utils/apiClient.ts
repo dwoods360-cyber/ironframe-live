@@ -156,22 +156,7 @@ export function applyIronguardToFetch(
     input.headers.forEach((value, key) => headers.set(key, value));
   }
   new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
-
-  const declaredTenant = normalizeUuidHeader(headers.get("x-tenant-id"));
-  const declaredTarget = normalizeUuidHeader(headers.get("x-target-tenant-id"));
-  const alignedDeclaredScope =
-    declaredTenant && declaredTarget && declaredTenant === declaredTarget ? declaredTenant : null;
-  const scopeTenant = alignedDeclaredScope ?? effective;
-
-  if (scopeTenant) {
-    headers.set("x-tenant-id", scopeTenant);
-    if (!headers.get("x-target-tenant-id")?.trim()) {
-      headers.set("x-target-tenant-id", scopeTenant);
-    }
-    if (alignedDeclaredScope && alignedDeclaredScope !== getIronguardEffectiveTenant()) {
-      setIronguardEffectiveTenant(alignedDeclaredScope);
-    }
-  }
+  headers.set("x-tenant-id", effective);
 
   if (typeof Request !== "undefined" && input instanceof Request) {
     const next = new Request(input, {

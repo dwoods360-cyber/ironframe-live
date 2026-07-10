@@ -18,7 +18,7 @@ export type AuditedThreatEventWormBypassRequest<T> = {
 export async function withThreatEventWormBypass<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  return runWithThreatEventWormBypassScope(async () =>
+  return runWithThreatEventWormBypassScope(() =>
     prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.worm_threat_event_bypass', '1', true)`;
       return fn(tx);

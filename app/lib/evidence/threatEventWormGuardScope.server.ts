@@ -10,5 +10,5 @@ export function threatEventWormBypassInScope(): boolean {
 }
 
 export async function runWithThreatEventWormBypassScope<T>(fn: () => Promise<T>): Promise<T> {
-  return threatEventWormBypassScope.run(true, async () => fn());
+  return threatEventWormBypassScope.run(true, fn);
 }

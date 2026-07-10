@@ -7,29 +7,17 @@
 import "server-only";
 
 import { PrismaClient } from "@prisma/client";
+import { assertThreatEventWormMutationPermitted } from "@/app/lib/evidence/threatEventWormGuard.server";
 import { threatEventWormGuardActive } from "@/app/lib/evidence/threatEventWormGuardPolicy";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { isServerlessRuntime, resolveServerlessDatabaseUrl } from "@/lib/prismaServerless";
 
 let threatEventWormDbEnforced = false;
-let threatEventWormEnforceInit: Promise<void> | null = null;
 
-/** Session-level WORM enforcement flag — must run outside an open interactive transaction (pool limit: 1). */
-export async function primeThreatEventWormEnforcement(client?: PrismaClient): Promise<void> {
+async function ensureThreatEventWormDbEnforced(client: PrismaClient): Promise<void> {
   if (!threatEventWormGuardActive() || threatEventWormDbEnforced) return;
-  if (!threatEventWormEnforceInit) {
-    const db = client ?? (prismaExtended as unknown as PrismaClient);
-    threatEventWormEnforceInit = db
-      .$executeRaw`SELECT set_config('app.worm_threat_event_enforced', '1', false)`
-      .then(() => {
-        threatEventWormDbEnforced = true;
-      })
-      .catch((err) => {
-        threatEventWormEnforceInit = null;
-        throw err;
-      });
-  }
-  await threatEventWormEnforceInit;
+  await client.$executeRaw`SELECT set_config('app.worm_threat_event_enforced', '1', false)`;
+  threatEventWormDbEnforced = true;
 }
 
 if (!(BigInt.prototype as any).toJSON) {
@@ -151,9 +139,10 @@ const prismaClientSingleton = () => {
       },
       threatEvent: {
         async $allOperations({ operation, args, query }) {
-          // WORM enforcement is authoritative in Postgres (`epic12_threat_event_worm_guard` trigger).
-          // Call `primeThreatEventWormEnforcement()` before interactive transactions — never stamp
-          // session GUCs from here while a transaction holds the sole serverless pool connection.
+          if (threatEventWormGuardActive()) {
+            await ensureThreatEventWormDbEnforced(base);
+          }
+          assertThreatEventWormMutationPermitted(operation);
           return query(args);
         },
       },

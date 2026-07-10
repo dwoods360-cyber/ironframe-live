@@ -4,7 +4,7 @@ import { createHash, createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
 import { scheduleDashboardRevalidation } from '@/app/lib/scheduleDashboardRevalidation';
 import { cookies } from "next/headers";
-import prisma, { primeThreatEventWormEnforcement } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import type { Prisma } from "@prisma/client";
 import {
@@ -71,11 +71,7 @@ import { buildWormAuditedBypassLabel } from "@/app/lib/evidence/threatEventWormG
 import { runAuditedThreatEventWormBypass } from "@/app/lib/prisma/threatEventWormBypass";
 import { attachEvidenceToThreat } from "@/app/actions/evidenceActions";
 import { ingressUsesRiskEventTable, readSimulationPlaneEnabled } from "@/app/lib/security/ingressGateway";
-import {
-  isControlStressTestIngestion,
-  isControlStressThreatRecord,
-} from "@/app/utils/controlStressTestIngestion";
-import { runWithThreatEventWormBypassScope } from "@/app/lib/evidence/threatEventWormGuardScope.server";
+import { isControlStressTestIngestion } from "@/app/utils/controlStressTestIngestion";
 import { assertHumanThreatAssigneeForResolution } from "@/app/utils/threatAssigneeGate";
 import { computeTasMdSha256HexFromDiskSync } from "@/app/lib/tasMdIntegrity";
 import {
@@ -217,18 +213,12 @@ async function resolveThreatForDeAck(
 ): Promise<AcknowledgeResolvedThreat | null> {
   if (companyId == null) return null;
 
-  const grcSelect = {
-    financialRisk_cents: true,
-    sourceAgent: true,
-    ingestionDetails: true,
-    title: true,
-    targetEntity: true,
-  } as const;
+  const grcSelect = { financialRisk_cents: true, sourceAgent: true, ingestionDetails: true } as const;
   const simRow = await prisma.riskEvent.findFirst({
     where: { id: threatId, tenantCompanyId: companyId },
     select: grcSelect,
   });
-  if (simRow && isControlStressThreatRecord(simRow)) {
+  if (simRow && isControlStressTestIngestion(simRow.ingestionDetails)) {
     return { plane: "shadow", row: simRow };
   }
 
@@ -844,8 +834,8 @@ function shouldClaimAssigneeOnAcknowledge(assigneeId: string | null | undefined)
 /** Execution-board owner shown after first-touch acknowledge (work notes / audit still use session `operatorId`). */
 const ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID = "User_00";
 
-/** Align shadow `RiskEvent` txs with prod `runThreatTransaction` — remote Postgres + pool wait on Vercel. */
-const THREAT_INTERACTIVE_TX_OPTIONS = { maxWait: 15_000, timeout: 45_000 } as const;
+/** Align shadow `RiskEvent` txs with prod `runThreatTransaction` — default Prisma 5s is too low on remote Postgres. */
+const THREAT_INTERACTIVE_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
 
 /** Pre-stamp partition/FK fields so `auditLog` extension skips extra lookups inside an open transaction. */
 function shadowSimAuditLogData(
@@ -873,41 +863,37 @@ async function runThreatTransaction<T>(
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
-  await primeThreatEventWormEnforcement();
-  return runWithThreatEventWormBypassScope(async () =>
-    prisma.$transaction(
-      async (tx) => {
-        const client = tx as unknown as TransactionClient;
-        // Audited lifecycle writes (ack / de-ack / resolve) — Postgres WORM trigger bypass (transaction-local).
-        await client.$executeRaw`SELECT set_config('app.worm_threat_event_bypass', '1', true)`;
-        // Bridge Next.js transaction context to Postgres RLS.
-        if (sessionTenantUuid) {
-          try {
-            await client.$executeRaw`SELECT ironguard_set_session_tenant(${sessionTenantUuid}::uuid);`;
-          } catch {
-            await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${sessionTenantUuid}, true);`;
-          }
-        } else if (tenantCompanyId != null) {
-          await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
-        }
-        const exists =
-          tenantCompanyId != null
-            ? await client.threatEvent.findFirst({
-                where: { id, tenantCompanyId },
-                select: { id: true },
-              })
-            : await client.threatEvent.findFirst({
-                where: { id },
-                select: { id: true },
-              });
-        if (exists == null) {
-          console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id} (${missingErr})`);
-          return { success: false, error: missingErr } as unknown as T;
-        }
-        return run(client);
-      },
-      { maxWait: THREAT_INTERACTIVE_TX_OPTIONS.maxWait, timeout: THREAT_INTERACTIVE_TX_OPTIONS.timeout },
-    ),
+  return prisma.$transaction(
+    async (tx) => {
+    const client = tx as unknown as TransactionClient;
+    // Bridge Next.js transaction context to Postgres RLS.
+    // Must be the first operation in the transaction block.
+    if (sessionTenantUuid) {
+      try {
+        await client.$executeRaw`SELECT ironguard_set_session_tenant(${sessionTenantUuid}::uuid);`;
+      } catch {
+        await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${sessionTenantUuid}, true);`;
+      }
+    } else if (tenantCompanyId != null) {
+      await client.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantCompanyId.toString()}, true);`;
+    }
+    const exists =
+      tenantCompanyId != null
+        ? await client.threatEvent.findFirst({
+            where: { id, tenantCompanyId },
+            select: { id: true },
+          })
+        : await client.threatEvent.findFirst({
+            where: { id },
+            select: { id: true },
+          });
+    if (exists == null) {
+      console.warn(`[GRC Guard] Prevented action on missing Threat ID: ${id} (${missingErr})`);
+      return { success: false, error: missingErr } as unknown as T;
+    }
+    return run(client);
+    },
+    { maxWait: THREAT_INTERACTIVE_TX_OPTIONS.maxWait, timeout: THREAT_INTERACTIVE_TX_OPTIONS.timeout },
   );
 }
 
@@ -1015,23 +1001,22 @@ export async function acknowledgeThreatAction(
     assigneeId: true,
   } as const;
 
-  await primeThreatEventWormEnforcement();
   const prodRow = await prisma.threatEvent.findFirst({
-    where: { id, tenantCompanyId: sessionCompanyId },
-    select: grcAckSelect,
-  });
-  const simRow = await prisma.riskEvent.findFirst({
     where: { id, tenantCompanyId: sessionCompanyId },
     select: grcAckSelect,
   });
 
   let resolved: AcknowledgeThreatGateResolved | null = null;
-  if (simRow && isControlStressThreatRecord(simRow)) {
-    resolved = { plane: "shadow", row: simRow };
-  } else if (prodRow) {
-    resolved = { plane: "prod", row: prodRow };
-  } else if (simRow) {
-    resolved = { plane: "shadow", row: simRow };
+  if (prodRow) {
+    resolved = { plane: 'prod', row: prodRow };
+  } else {
+    const simRow = await prisma.riskEvent.findFirst({
+      where: { id, tenantCompanyId: sessionCompanyId },
+      select: grcAckSelect,
+    });
+    if (simRow) {
+      resolved = { plane: 'shadow', row: simRow };
+    }
   }
 
   if (!resolved) {
@@ -1136,19 +1121,19 @@ export async function acknowledgeThreatAction(
             ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
           },
         });
+        await auditLogCreateLooseTx(tx, {
+          data: shadowSimAuditLogData(tenantId, id, {
+            action: 'THREAT_ACKNOWLEDGED',
+            justification: JSON.stringify({
+              ...shadowReceiptAuditStub(id),
+              text: savedWorkNoteText,
+            }),
+            operatorId,
+          }),
+        });
         },
         THREAT_INTERACTIVE_TX_OPTIONS,
       );
-      await auditLogCreateLoose({
-        data: shadowSimAuditLogData(tenantId, id, {
-          action: 'THREAT_ACKNOWLEDGED',
-          justification: JSON.stringify({
-            ...shadowReceiptAuditStub(id),
-            text: savedWorkNoteText,
-          }),
-          operatorId,
-        }),
-      });
       revalidatePath('/');
       return { success: true as const };
     } else {
@@ -1178,6 +1163,7 @@ export async function acknowledgeThreatAction(
               threatId: id,
             },
           });
+          // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
           await transitionThreatStatus({
             threatId: id,
             newStatus: ackStatus,
@@ -1192,6 +1178,15 @@ export async function acknowledgeThreatAction(
               ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
             },
             select: { id: true },
+          });
+          await auditLogCreateLooseTx(tx, {
+            data: {
+              action: 'THREAT_ACKNOWLEDGED',
+              justification: savedWorkNoteText,
+              operatorId,
+              threatId: id,
+              tenantId: tenantId.trim(),
+            },
           });
         },
         {
@@ -1208,16 +1203,6 @@ export async function acknowledgeThreatAction(
       if (maybeFailure?.success === false) {
         return maybeFailure;
       }
-
-      await auditLogCreateLoose({
-        data: {
-          action: 'THREAT_ACKNOWLEDGED',
-          justification: savedWorkNoteText,
-          operatorId,
-          threatId: id,
-          tenantId: tenantId.trim(),
-        },
-      });
 
       revalidatePath('/');
       return { success: true as const };
@@ -1501,7 +1486,7 @@ export async function resolveThreatAction(
         assigneeId: true,
       },
     });
-    const controlStressRow = simRow && isControlStressThreatRecord(simRow);
+    const controlStressRow = isControlStressTestIngestion(simRow?.ingestionDetails);
     if (simRow && (simPlaneEnabled || controlStressRow)) {
       assertHumanThreatAssigneeForResolution(simRow.assigneeId);
       if (simRow.status === ThreatState.RESOLVED) {
@@ -1909,7 +1894,6 @@ export async function deAcknowledgeThreatAction(
   const tenantUuid = tenantId.trim();
 
   try {
-  await primeThreatEventWormEnforcement();
   if (resolved.plane === 'shadow') {
     await prisma.$transaction(
       async (tx) => {
@@ -1935,23 +1919,23 @@ export async function deAcknowledgeThreatAction(
             assigneeId: null,
           },
         });
+        await auditLogCreateLooseTx(tx, {
+          data: shadowSimAuditLogData(tenantUuid, id, {
+            action: 'THREAT_DE_ACKNOWLEDGED',
+            justification: trimmedJustification,
+            operatorId,
+          }),
+        });
+        await auditLogCreateLooseTx(tx, {
+          data: shadowSimAuditLogData(tenantUuid, id, {
+            action: 'STATE_REGRESSION',
+            justification: 'User reversed acknowledgment of risk.',
+            operatorId,
+          }),
+        });
       },
       THREAT_INTERACTIVE_TX_OPTIONS,
     );
-    await auditLogCreateLoose({
-      data: shadowSimAuditLogData(tenantUuid, id, {
-        action: 'THREAT_DE_ACKNOWLEDGED',
-        justification: trimmedJustification,
-        operatorId,
-      }),
-    });
-    await auditLogCreateLoose({
-      data: shadowSimAuditLogData(tenantUuid, id, {
-        action: 'STATE_REGRESSION',
-        justification: 'User reversed acknowledgment of risk.',
-        operatorId,
-      }),
-    });
     scheduleDashboardRevalidation('/');
     return { success: true };
   }
@@ -1989,31 +1973,29 @@ export async function deAcknowledgeThreatAction(
       },
       select: { id: true },
     });
+    await auditLogCreateLooseTx(tx, {
+      data: {
+        action: 'THREAT_DE_ACKNOWLEDGED',
+        justification: trimmedJustification,
+        operatorId,
+        threatId: id,
+      },
+    });
+    // # GRC_ACTION_CHIPS / audit directive — De-Ack must log STATE_REGRESSION
+    await auditLogCreateLooseTx(tx, {
+      data: {
+        action: 'STATE_REGRESSION',
+        justification: 'User reversed acknowledgment of risk.',
+        operatorId,
+        threatId: id,
+      },
+    });
   });
 
   const maybeMissing = result as unknown as MissingRecordResponse | undefined;
   if (maybeMissing?.success === false) {
     return maybeMissing;
   }
-
-  await auditLogCreateLoose({
-    data: {
-      action: 'THREAT_DE_ACKNOWLEDGED',
-      justification: trimmedJustification,
-      operatorId,
-      threatId: id,
-      tenantId: tenantUuid,
-    },
-  });
-  await auditLogCreateLoose({
-    data: {
-      action: 'STATE_REGRESSION',
-      justification: 'User reversed acknowledgment of risk.',
-      operatorId,
-      threatId: id,
-      tenantId: tenantUuid,
-    },
-  });
 
   scheduleDashboardRevalidation('/');
   return { success: true };
@@ -2506,17 +2488,16 @@ export async function setThreatAssigneeAction(
       return { success: true, newLog: null };
     }
     try {
-      const created = await runWithThreatEventWormBypassScope(async () =>
-        prisma.$transaction(
-          async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.worm_threat_event_bypass', '1', true)`;
-            const existing = await tx.threatEvent.findUnique({
-              where: { id: threatEntityId },
-              select: { assigneeId: true, tenantCompanyId: true },
-            });
-            if (!existing) return null;
-            const prevAssignee = existing.assigneeId ?? null;
-            if (prevAssignee === value) return null;
+      const created = await prisma.$transaction(
+        async (tx) => {
+          const existing = await tx.threatEvent.findUnique({
+            where: { id: threatEntityId },
+            select: { assigneeId: true, tenantCompanyId: true },
+          });
+          if (!existing) return null;
+          const prevAssignee = existing.assigneeId ?? null;
+          if (prevAssignee === value) return null;
+          if (existing.tenantCompanyId != null) {
             await updateThreatWithIntegrity({
               threatId: threatEntityId,
               changes: { assigneeId: value },
@@ -2525,19 +2506,24 @@ export async function setThreatAssigneeAction(
               tx,
               select: { id: true },
             });
-            return auditLogCreateLooseTx(tx, {
-              data: {
-                action: 'ASSIGNEE_CHANGE',
-                justification: buildAssigneeChangeJustification(threatEntityId, false, prevAssignee),
-                operatorId: effectiveOperatorId,
-                threatId: threatEntityId,
-                isSimulation: false,
-                tenantId: tenantUuid,
-              },
+          } else {
+            await tx.threatEvent.update({
+              where: { id: threatEntityId },
+              data: { assigneeId: value },
             });
-          },
-          THREAT_INTERACTIVE_TX_OPTIONS,
-        ),
+          }
+          return auditLogCreateLooseTx(tx, {
+            data: {
+              action: 'ASSIGNEE_CHANGE',
+              justification: buildAssigneeChangeJustification(threatEntityId, false, prevAssignee),
+              operatorId: effectiveOperatorId,
+              threatId: threatEntityId,
+              isSimulation: false,
+              tenantId: tenantUuid,
+            },
+          });
+        },
+        THREAT_INTERACTIVE_TX_OPTIONS,
       );
       revalidateThreatAssigneeSurfaces();
       if (!created) {

@@ -19,20 +19,6 @@ export function isControlStressTestIngestion(
   }
 }
 
-/** Row-level control stress signal (ingestion JSON or Sentinel / Control Stress Test title). */
-export function isControlStressThreatRecord(row: {
-  ingestionDetails?: string | Prisma.JsonValue | null;
-  title?: string | null;
-  targetEntity?: string | null;
-  sourceAgent?: string | null;
-}): boolean {
-  if (isControlStressTestIngestion(row.ingestionDetails)) return true;
-  if ((row.sourceAgent ?? "").trim().toUpperCase() !== "HUMAN_SENTINEL") return false;
-  const title = (row.title ?? "").trim();
-  const target = (row.targetEntity ?? "").trim();
-  return title.includes("Control Stress Test") || target.includes("Control Stress Test");
-}
-
 /**
  * Cards that feed Evidence Vault readiness / examiner-grade closure use the forensic
  * Neutralize lane only — not the amber RESOLVE THREAT administrative shortcut.

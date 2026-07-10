@@ -873,11 +873,11 @@ async function runThreatTransaction<T>(
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
-  return runWithThreatEventWormBypassScope(() =>
+  return runWithThreatEventWormBypassScope(async () =>
     prisma.$transaction(
       async (tx) => {
         const client = tx as unknown as TransactionClient;
-        // Audited lifecycle writes (ack / de-ack / resolve) — Postgres WORM trigger + Prisma guard.
+        // Audited lifecycle writes (ack / de-ack / resolve) — Postgres WORM trigger bypass (transaction-local).
         await client.$executeRaw`SELECT set_config('app.worm_threat_event_bypass', '1', true)`;
         // Bridge Next.js transaction context to Postgres RLS.
         if (sessionTenantUuid) {
@@ -1499,7 +1499,7 @@ export async function resolveThreatAction(
         assigneeId: true,
       },
     });
-    const controlStressRow = isControlStressTestIngestion(simRow?.ingestionDetails);
+    const controlStressRow = simRow && isControlStressThreatRecord(simRow);
     if (simRow && (simPlaneEnabled || controlStressRow)) {
       assertHumanThreatAssigneeForResolution(simRow.assigneeId);
       if (simRow.status === ThreatState.RESOLVED) {
@@ -2501,7 +2501,7 @@ export async function setThreatAssigneeAction(
       return { success: true, newLog: null };
     }
     try {
-      const created = await runWithThreatEventWormBypassScope(() =>
+      const created = await runWithThreatEventWormBypassScope(async () =>
         prisma.$transaction(
           async (tx) => {
             await tx.$executeRaw`SELECT set_config('app.worm_threat_event_bypass', '1', true)`;

@@ -7,7 +7,6 @@
 import "server-only";
 
 import { PrismaClient } from "@prisma/client";
-import { assertThreatEventWormMutationPermitted } from "@/app/lib/evidence/threatEventWormGuard.server";
 import { threatEventWormGuardActive } from "@/app/lib/evidence/threatEventWormGuardPolicy";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
 import { isServerlessRuntime, resolveServerlessDatabaseUrl } from "@/lib/prismaServerless";
@@ -142,7 +141,9 @@ const prismaClientSingleton = () => {
           if (threatEventWormGuardActive()) {
             await ensureThreatEventWormDbEnforced(base);
           }
-          assertThreatEventWormMutationPermitted(operation);
+          // WORM enforcement is authoritative in Postgres (`epic12_threat_event_worm_guard` trigger).
+          // Audited lifecycle writes set `app.worm_threat_event_bypass` via `threatEventWormBypass.ts`.
+          // Do not duplicate block here — AsyncLocalStorage scope can drop across Prisma transaction continuations.
           return query(args);
         },
       },

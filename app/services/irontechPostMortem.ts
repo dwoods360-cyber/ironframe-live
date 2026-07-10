@@ -76,14 +76,33 @@ export type IrontechPostMortemReport = {
   signedSeal: string;
 };
 
-const REPORT_DIR = join(process.cwd(), "storage", "constitutional", "irontech-post-mortem");
+function resolveReportDir(): string {
+  const override = process.env.IRONTECH_POST_MORTEM_DIR?.trim();
+  if (override) return override;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return join("/tmp", "ironframe", "constitutional", "irontech-post-mortem");
+  }
+  return join(process.cwd(), "storage", "constitutional", "irontech-post-mortem");
+}
 
-function ensureReportDir(): void {
-  if (!existsSync(REPORT_DIR)) mkdirSync(REPORT_DIR, { recursive: true });
+function getReportDir(): string {
+  return resolveReportDir();
+}
+
+/** Best-effort mkdir — returns false on read-only serverless filesystems. */
+function ensureReportDir(): boolean {
+  const dir = getReportDir();
+  if (existsSync(dir)) return true;
+  try {
+    mkdirSync(dir, { recursive: true });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function reportPath(tenantId: string, reportId: string): string {
-  return join(REPORT_DIR, `${tenantId.trim().toLowerCase()}-${reportId}.json`);
+  return join(getReportDir(), `${tenantId.trim().toLowerCase()}-${reportId}.json`);
 }
 
 export function readStoredIrontechPostMortem(
@@ -100,17 +119,16 @@ export function readStoredIrontechPostMortem(
 }
 
 export function readLatestIrontechPostMortemForTenant(tenantId: string): IrontechPostMortemReport | null {
-  ensureReportDir();
+  const reportDir = getReportDir();
+  if (!existsSync(reportDir)) return null;
   const tid = tenantId.trim().toLowerCase();
   const prefix = `${tid}-`;
-  const files = existsSync(REPORT_DIR)
-    ? readdirSync(REPORT_DIR).filter((f) => f.startsWith(prefix) && f.endsWith(".json"))
-    : [];
+  const files = readdirSync(reportDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
   let latest: IrontechPostMortemReport | null = null;
   for (const file of files) {
     try {
       const rec = JSON.parse(
-        readFileSync(join(REPORT_DIR, file), "utf8"),
+        readFileSync(join(reportDir, file), "utf8"),
       ) as IrontechPostMortemReport;
       if (!latest || Date.parse(rec.generatedAt) > Date.parse(latest.generatedAt)) {
         latest = rec;
@@ -123,8 +141,12 @@ export function readLatestIrontechPostMortemForTenant(tenantId: string): Irontec
 }
 
 function storeReport(report: IrontechPostMortemReport): void {
-  ensureReportDir();
-  writeFileSync(reportPath(report.tenantId, report.reportId), JSON.stringify(report, null, 2), "utf8");
+  if (!ensureReportDir()) return;
+  try {
+    writeFileSync(reportPath(report.tenantId, report.reportId), JSON.stringify(report, null, 2), "utf8");
+  } catch {
+    /* best-effort on serverless */
+  }
 }
 
 function msBetween(a: number | null, b: number | null): number | null {
@@ -482,5 +504,5 @@ export async function generateIrontechPostMortemReport(params: {
 }
 
 export function getPostMortemPdfStoragePath(tenantId: string, reportId: string): string {
-  return join(REPORT_DIR, `${tenantId.trim().toLowerCase()}-${reportId}.pdf`);
+  return join(getReportDir(), `${tenantId.trim().toLowerCase()}-${reportId}.pdf`);
 }

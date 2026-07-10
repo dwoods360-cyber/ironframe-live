@@ -22,33 +22,39 @@ export async function GET(request: NextRequest) {
   const tenantId = guard.tenantUuid;
   const recalc = request.nextUrl.searchParams.get("recalc") === "1";
 
-  let state = recalc
-    ? await recalculateSystemMaturityScore({
-        tenantId: tenantId ?? undefined,
-        trigger: "API_POLL",
-      })
-    : await readGovernanceMaturityState();
+  let state;
+  try {
+    state = recalc
+      ? await recalculateSystemMaturityScore({
+          tenantId: tenantId ?? undefined,
+          trigger: "API_POLL",
+        })
+      : await readGovernanceMaturityState();
 
-  if (!recalc) {
-    const cfg = await prisma.systemConfig.findUnique({
-      where: { id: "global" },
-      select: {
-        sustainabilityLiveApiDegraded: true,
-        sustainabilityApiDegradedSince: true,
-        sustainabilityStaleLockdownWaived: true,
-      },
-    });
-    const dbDegraded = cfg?.sustainabilityLiveApiDegraded === true;
-    const snapDegraded = state.current.apiOutagePenaltyActive === true;
-    const lock = computeSustainabilityStaleLockdown(cfg);
-    const dbFrozen = lock.staleDataLockdownWindow && cfg?.sustainabilityStaleLockdownWaived !== true;
-    const fileFrozen = state.current.sustainabilityStaleLockdownFrozen === true;
-    if (dbDegraded !== snapDegraded || dbFrozen !== fileFrozen) {
-      state = await recalculateSystemMaturityScore({
-        tenantId: tenantId ?? undefined,
-        trigger: "IRONWATCH_STATE_SYNC",
+    if (!recalc) {
+      const cfg = await prisma.systemConfig.findUnique({
+        where: { id: "global" },
+        select: {
+          sustainabilityLiveApiDegraded: true,
+          sustainabilityApiDegradedSince: true,
+          sustainabilityStaleLockdownWaived: true,
+        },
       });
+      const dbDegraded = cfg?.sustainabilityLiveApiDegraded === true;
+      const snapDegraded = state.current.apiOutagePenaltyActive === true;
+      const lock = computeSustainabilityStaleLockdown(cfg);
+      const dbFrozen = lock.staleDataLockdownWindow && cfg?.sustainabilityStaleLockdownWaived !== true;
+      const fileFrozen = state.current.sustainabilityStaleLockdownFrozen === true;
+      if (dbDegraded !== snapDegraded || dbFrozen !== fileFrozen) {
+        state = await recalculateSystemMaturityScore({
+          tenantId: tenantId ?? undefined,
+          trigger: "IRONWATCH_STATE_SYNC",
+        });
+      }
     }
+  } catch (err) {
+    console.error("[governance-maturity] maturity calculation failed", err);
+    state = await readGovernanceMaturityState();
   }
 
   const tenantKey = tenantKeyFromUuid(tenantId);

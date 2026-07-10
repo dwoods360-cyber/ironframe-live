@@ -250,7 +250,12 @@ export async function computeAttestationQualityScore(tenantId?: string): Promise
 export function computeChaosResilienceScoreFromPostMortem(
   tenantId: string,
 ): { score: number; available: boolean } {
-  const report = readLatestIrontechPostMortemForTenant(tenantId);
+  let report: ReturnType<typeof readLatestIrontechPostMortemForTenant>;
+  try {
+    report = readLatestIrontechPostMortemForTenant(tenantId);
+  } catch {
+    return { score: 6, available: false };
+  }
   if (!report || report.scenario !== "CONSTITUTIONAL_COLLAPSE") {
     return { score: 6, available: false };
   }

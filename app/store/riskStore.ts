@@ -26,6 +26,11 @@ import {
   supersedeActiveThreatsBoardFetch,
 } from "@/app/utils/activeThreatsBoardFetchCoop";
 import { belongsOnAttackVelocityPipeline } from "@/app/utils/chaosDiscoveryHold";
+import {
+  mergePipelineWithPendingControlStressHandoffs,
+  readControlStressHandoffSession,
+  clearControlStressHandoffSession,
+} from "@/app/utils/controlStressPipelineHandoff";
 import { isChaosForensicClosureLingerActive } from "@/app/utils/chaosForensicClosure";
 import { threatBelongsToTenantScope } from "@/app/utils/chaosTenantScope";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
@@ -1033,7 +1038,9 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           message: display,
         },
       });
-      throw error;
+      if (!msg.includes("GRC_PROTOCOL_VIOLATION")) {
+        throw error;
+      }
     }
   },
   deAcknowledgeThreat: async (id, tenantId, reason, justification, operatorId) => {
@@ -1599,7 +1606,15 @@ export const useRiskStore = create<RiskState>((set, get) => ({
             createdAt: row.createdAt,
           }),
         );
-      get().replacePipelineThreats(asPipeline);
+      const merged = mergePipelineWithPendingControlStressHandoffs(
+        asPipeline,
+        get().pipelineThreats,
+      );
+      const handoff = readControlStressHandoffSession();
+      if (handoff && asPipeline.some((t) => t.id === handoff.threatId)) {
+        clearControlStressHandoffSession();
+      }
+      get().replacePipelineThreats(merged);
     } catch {
       // Non-fatal: polling / other sync paths may recover.
     }

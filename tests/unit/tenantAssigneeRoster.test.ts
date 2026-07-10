@@ -95,4 +95,57 @@ describe("fetchTenantAssigneeRoster", () => {
     );
     expect(createSupabaseAdminClient).toHaveBeenCalled();
   });
+
+  it("expands roster to all platform operators and auth users for GLOBAL_ADMIN", async () => {
+    vi.mocked(prisma.userRoleAssignment.findMany).mockImplementation(async (args) => {
+      if (args?.where && "tenantId" in (args.where as object)) {
+        return [{ userId: "tenant-only-user" }] as never;
+      }
+      return [
+        { userId: "tenant-only-user" },
+        { userId: "bwc-wil-user" },
+        { userId: "other-tenant-user" },
+      ] as never;
+    });
+
+    vi.mocked(createSupabaseAdminClient).mockReturnValue({
+      auth: {
+        admin: {
+          listUsers: vi.fn().mockResolvedValue({
+            data: {
+              users: [
+                {
+                  id: "bwc-wil-user",
+                  email: "wil@blackwoodscoffee.com",
+                  user_metadata: {},
+                },
+                {
+                  id: "auth-only-user",
+                  email: "invite-pending@ironframe.test",
+                  user_metadata: {},
+                },
+              ],
+            },
+            error: null,
+          }),
+        },
+      },
+    } as never);
+
+    const roster = await fetchTenantAssigneeRoster("tenant-uuid-medshield", {
+      expandForPlatformAdmin: true,
+    });
+
+    expect(roster.map((row) => row.value)).toEqual(
+      expect.arrayContaining([
+        "tenant-only-user",
+        "bwc-wil-user",
+        "other-tenant-user",
+        "auth-only-user",
+        "dereck",
+        "user_01",
+      ]),
+    );
+    expect(roster.length).toBeGreaterThanOrEqual(6);
+  });
 });

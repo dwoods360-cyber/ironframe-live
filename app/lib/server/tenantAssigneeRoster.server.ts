@@ -153,8 +153,27 @@ function mergeRosterEntries(
 }
 
 /** Operators with `user_role_assignments` for the tenant — excludes platform admins without membership. */
+export type FetchTenantAssigneeRosterOptions = {
+  /**
+   * Pre-launch: platform GLOBAL_ADMIN sees every workspace operator (any tenant) plus
+   * all Supabase auth identities so follow-up assignment is not tenant-scoped.
+   */
+  expandForPlatformAdmin?: boolean;
+};
+
+async function fetchDistinctAssignmentUserIds(tenantUuid?: string): Promise<string[]> {
+  const rows = await prisma.userRoleAssignment.findMany({
+    where: tenantUuid ? { tenantId: tenantUuid.trim() } : undefined,
+    select: { userId: true },
+    distinct: ["userId"],
+    orderBy: { grantedAt: "asc" },
+  });
+  return [...new Set(rows.map((row) => row.userId.trim()).filter(Boolean))];
+}
+
 export async function fetchTenantAssigneeRoster(
   tenantUuid: string,
+  options: FetchTenantAssigneeRosterOptions = {},
 ): Promise<TenantAssigneeRosterEntry[]> {
   const tid = tenantUuid.trim();
   if (!tid) return [];
@@ -172,9 +191,20 @@ export async function fetchTenantAssigneeRoster(
       orderBy: { grantedAt: "asc" },
     });
 
-    const uniqueUserIds = [...new Set(assignments.map((row) => row.userId.trim()).filter(Boolean))];
-
     const profileByUserId = await loadSupabaseAuthProfileIndex();
+
+    const uniqueUserIds = new Set(
+      assignments.map((row) => row.userId.trim()).filter(Boolean),
+    );
+
+    if (options.expandForPlatformAdmin) {
+      for (const userId of await fetchDistinctAssignmentUserIds()) {
+        uniqueUserIds.add(userId);
+      }
+      for (const userId of profileByUserId.keys()) {
+        uniqueUserIds.add(userId);
+      }
+    }
 
     const membershipRoster: TenantAssigneeRosterEntry[] = [];
     const seenMembershipValues = new Set<string>();

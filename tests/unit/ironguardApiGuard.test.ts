@@ -20,6 +20,17 @@ vi.mock("@/app/lib/security/recordIronguardViolation", () => ({
   recordIronguardViolation: vi.fn(async () => undefined),
 }));
 
+const BWC_TENANT_UUID = "487b37d0-7942-4b6f-a637-274115b06476";
+
+vi.mock("@/app/lib/tenantSlugRegistry", () => ({
+  lookupTenantBySlug: vi.fn(async (slug: string) => {
+    if (slug.toLowerCase() === "bwc") {
+      return { id: BWC_TENANT_UUID, slug: "bwc", name: "BWC" };
+    }
+    return null;
+  }),
+}));
+
 describe("assertIronguardApiTenantOr403 host envelope", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,6 +60,47 @@ describe("assertIronguardApiTenantOr403 host envelope", () => {
         "x-tenant-id": TENANT_UUIDS.vaultbank,
         "x-ironframe-host-tenant-uuid": TENANT_UUIDS.vaultbank,
         host: "vaultbank.lvh.me:3000",
+      },
+    });
+
+    const result = await assertIronguardApiTenantOr403(request);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.tenantUuid).toBe(TENANT_UUIDS.vaultbank);
+    }
+  });
+
+  it("allows dynamic subdomain tenant when cookie is stale (bwc)", async () => {
+    mockCookiesGet.mockReturnValue({ value: TENANT_UUIDS.medshield });
+
+    const { assertIronguardApiTenantOr403 } = await import("@/app/lib/security/ironguardApiGuard");
+
+    const request = new NextRequest("http://bwc.ironframegrc.com/api/dashboard", {
+      headers: {
+        "x-tenant-id": BWC_TENANT_UUID,
+        "x-target-tenant-id": BWC_TENANT_UUID,
+        "x-ironframe-host-tenant-slug": "bwc",
+        host: "bwc.ironframegrc.com",
+      },
+    });
+
+    const result = await assertIronguardApiTenantOr403(request);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.tenantUuid).toBe(BWC_TENANT_UUID);
+    }
+  });
+
+  it("realigns stale cookie when x-tenant-id and x-target-tenant-id agree", async () => {
+    mockCookiesGet.mockReturnValue({ value: TENANT_UUIDS.medshield });
+
+    const { assertIronguardApiTenantOr403 } = await import("@/app/lib/security/ironguardApiGuard");
+
+    const request = new NextRequest("http://ironframegrc.com/api/dashboard", {
+      headers: {
+        "x-tenant-id": TENANT_UUIDS.vaultbank,
+        "x-target-tenant-id": TENANT_UUIDS.vaultbank,
+        host: "ironframegrc.com",
       },
     });
 

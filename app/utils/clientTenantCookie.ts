@@ -50,11 +50,16 @@ export function readIronframeTenantSlugFromCookie(): TenantKey | null {
   if (raw === "defense-logistics") return "defense";
   if (SLUGS.has(raw as TenantKey)) return raw as TenantKey;
 
-  if (UUID_RE.test(raw)) {
-    for (const [key, uuid] of Object.entries(TENANT_UUIDS) as Array<[TenantKey, string]>) {
-      if (uuid.toLowerCase() === raw) return key;
-    }
-  }
-
   return null;
+}
+
+const IRONFRAME_TENANT_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 180;
+
+/** Keep browser `ironframe-tenant` aligned with Ironguard session memory (subdomain / workspace switches). */
+export function writeIronframeTenantCookieToDocument(raw: string): void {
+  if (typeof document === "undefined") return;
+  const token = raw.trim();
+  if (!token) return;
+  document.cookie = `ironframe-tenant=${encodeURIComponent(token)}; path=/; max-age=${IRONFRAME_TENANT_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+  window.dispatchEvent(new Event("ironframe-tenant-changed"));
 }

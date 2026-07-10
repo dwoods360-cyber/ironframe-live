@@ -1,7 +1,6 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
-import { unstable_after as after } from "next/server";
 import { isServerlessRuntime } from "@/lib/prismaServerless";
 
 /** Defer path revalidation on serverless so open Prisma transactions can release the pool connection first. */
@@ -16,7 +15,7 @@ export function scheduleDashboardRevalidation(...paths: string[]): void {
   };
 
   if (isServerlessRuntime()) {
-    after(run);
+    setTimeout(run, 0);
     return;
   }
   run();

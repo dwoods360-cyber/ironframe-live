@@ -118,6 +118,9 @@ Object.assign(prismaMock, {
           id: threat.id,
           tenantCompanyId: threat.tenantCompanyId,
           resolutionApprovalId: threat.resolutionApprovalId,
+          ...(args?.select?.assigneeId ? { assigneeId: threat.assigneeId } : {}),
+          ...(args?.select?.ingestionDetails ? { ingestionDetails: threat.ingestionDetails } : {}),
+          ...(args?.select?.title ? { title: threat.title } : {}),
         };
       }
       if (args?.select?.id && args?.select?.tenantCompanyId) {
@@ -170,6 +173,9 @@ Object.assign(prismaMock, {
       }
       return { id: updatedThreat.id };
     }),
+  },
+  riskEvent: {
+    findFirst: vi.fn(async () => null),
   },
   tenant: {
     findUnique: vi.fn(async (args: { where?: { id?: string; slug?: string } }) => {
@@ -356,7 +362,7 @@ describe("Epic 11 bank vault positive chain", () => {
       financialRisk_cents: 920_000_000n,
       title: "Vault chain success threat",
       sourceAgent: "IRONCORE",
-      assigneeId: null,
+      assigneeId: "user-ciso-001",
       aiReport: null,
       ttlSeconds: 259200,
       remoteTechId: null,

@@ -39,6 +39,9 @@ const { prismaMock } = vi.hoisted(() => ({
     evidenceAttachment: {
       findFirst: vi.fn(),
     },
+    riskEvent: {
+      findFirst: vi.fn(async () => null),
+    },
     auditLog: {
       create: vi.fn(),
     },
@@ -66,6 +69,7 @@ describe("Epic 11 bank vault rejection gate", () => {
       id: "threat-bank-vault-001",
       tenantCompanyId: 100n,
       resolutionApprovalId: "random-approval-id-not-approved",
+      assigneeId: "operator-001",
     });
     prismaMock.company.findUnique.mockResolvedValue({
       tenantId: "tenant-medshield-uuid",

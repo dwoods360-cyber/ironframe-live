@@ -8,6 +8,7 @@ import {
 } from "@/app/lib/auth/dashboardRoleAccess";
 import { canEditWorkspaceProfile } from "@/app/lib/auth/workspaceProfileEditorAccess";
 import { syncCompanyProfileAction } from "@/app/actions/getStarted/syncCompanyProfile";
+import { syncTenantContactProfileAction } from "@/app/actions/getStarted/syncTenantContactProfile";
 import { updateWorkspaceAleBaselineAction } from "@/app/actions/getStarted/updateWorkspaceAleBaseline";
 import { logWorkspaceProfileAudit } from "@/app/lib/server/logWorkspaceProfileAudit";
 import { getScopedTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
@@ -67,6 +68,34 @@ export async function syncCompanyProfileSettingsAction(input: {
     operatorId: ctx.access.userId,
     action: "WORKSPACE_COMPANY_PROFILE_UPDATED",
     summary: `company_id=${result.companyId}; departments_synced=${result.departmentsSynced}; created=${result.created}`,
+  });
+
+  revalidatePath("/settings/workspace");
+  revalidatePath("/get-started");
+  return result;
+}
+
+export async function syncTenantContactProfileSettingsAction(input: {
+  corporatePhone?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  addressCountry?: string;
+  billingContactEmail?: string;
+  taxId?: string;
+}) {
+  const ctx = await resolveSettingsTenantContext();
+  if (!ctx.ok) return ctx;
+
+  const result = await syncTenantContactProfileAction(input);
+  if (!result.ok) return result;
+
+  await logWorkspaceProfileAudit({
+    tenantUuid: ctx.tenantUuid,
+    operatorId: ctx.access.userId,
+    action: "WORKSPACE_CONTACT_PROFILE_UPDATED",
+    summary: `created=${result.created}`,
   });
 
   revalidatePath("/settings/workspace");

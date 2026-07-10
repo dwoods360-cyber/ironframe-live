@@ -30,6 +30,13 @@ export type SecurityProfileIntegrityRow = {
   source: string;
 };
 
+export type SecurityProfileOperatorProfile = {
+  title: string;
+  phone: string;
+  avatarUrl: string;
+  hasRecord: boolean;
+};
+
 export async function getSecurityProfileServerData(): Promise<{
   userId: string | null;
   email: string | null;
@@ -37,6 +44,7 @@ export async function getSecurityProfileServerData(): Promise<{
   assignments: SecurityProfileAssignment[];
   integrityEvents: SecurityProfileIntegrityRow[];
   cookieDevRole: string | null;
+  operatorProfile: SecurityProfileOperatorProfile;
 }> {
   const user = await getSupabaseSessionUser();
   const cookieHeader = (await headers()).get("cookie");
@@ -50,6 +58,7 @@ export async function getSecurityProfileServerData(): Promise<{
       assignments: [],
       integrityEvents: [],
       cookieDevRole,
+      operatorProfile: { title: "", phone: "", avatarUrl: "", hasRecord: false },
     };
   }
 
@@ -67,7 +76,7 @@ export async function getSecurityProfileServerData(): Promise<{
   actorCandidates.add("Dereck");
   actorCandidates.add("dereck");
 
-  const [assignments, integrityEvents] = await Promise.all([
+  const [assignments, integrityEvents, operatorProfileRow] = await Promise.all([
     uid
       ? prisma.userRoleAssignment.findMany({
           where: { userId: uid },
@@ -79,6 +88,12 @@ export async function getSecurityProfileServerData(): Promise<{
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    uid
+      ? prisma.operatorProfile.findUnique({
+          where: { id: uid },
+          select: { title: true, phone: true, avatarUrl: true },
+        })
+      : null,
   ]);
 
   return {
@@ -100,6 +115,12 @@ export async function getSecurityProfileServerData(): Promise<{
       createdAt: e.createdAt.toISOString(),
       source: e.source,
     })),
+    operatorProfile: {
+      title: operatorProfileRow?.title ?? "",
+      phone: operatorProfileRow?.phone ?? "",
+      avatarUrl: operatorProfileRow?.avatarUrl ?? "",
+      hasRecord: Boolean(operatorProfileRow),
+    },
     cookieDevRole,
   };
 }

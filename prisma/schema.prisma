@@ -43,8 +43,39 @@ model Tenant {
   ironboardCrmInteractions     IronboardCrmInteraction[]
   governanceFrameTriadSnapshots GovernanceFrameTriadSnapshot[]
   publishedBriefings           PublishedBriefing[]
+  contactProfile               TenantContactProfile?
 
   @@map("tenants")
+}
+
+/// Corporate contact and billing metadata for a tenant workspace (1:1 with Tenant).
+model TenantContactProfile {
+  tenantId            String   @id @map("tenant_id") @db.Uuid
+  corporatePhone      String?  @map("corporate_phone")
+  addressStreet       String?  @map("address_street")
+  addressCity         String?  @map("address_city")
+  addressState        String?  @map("address_state")
+  addressZip          String?  @map("address_zip")
+  addressCountry      String?  @map("address_country")
+  billingContactEmail String?  @map("billing_contact_email")
+  taxId               String?  @map("tax_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_contact_profiles")
+}
+
+/// Operator identity extensions keyed to Supabase auth.users.id (1:1).
+model OperatorProfile {
+  id        String   @id @db.Uuid
+  title     String?
+  phone     String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("operator_profiles")
 }
 
 /// Stripe subscription state keyed by tenant slug (Phase 1 design-partner billing rail).

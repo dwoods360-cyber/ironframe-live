@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import {
   syncCompanyProfileSettingsAction,
+  syncTenantContactProfileSettingsAction,
   updateWorkspaceAleBaselineSettingsAction,
 } from "@/app/actions/settings/workspaceProfileSettings";
 import { formatCentsToAccountingUSD } from "@/app/utils/formatCentsToUSD";
@@ -19,6 +20,15 @@ type WorkspaceSettingsClientProps = {
   departmentsRaw: string;
   hasPrimaryCompany: boolean;
   canEdit: boolean;
+  corporatePhone: string;
+  addressStreet: string;
+  addressCity: string;
+  addressState: string;
+  addressZip: string;
+  addressCountry: string;
+  billingContactEmail: string;
+  taxId: string;
+  hasContactProfile: boolean;
 };
 
 export default function WorkspaceSettingsClient({
@@ -30,6 +40,15 @@ export default function WorkspaceSettingsClient({
   departmentsRaw: initialDepartmentsRaw,
   hasPrimaryCompany,
   canEdit,
+  corporatePhone: initialCorporatePhone,
+  addressStreet: initialAddressStreet,
+  addressCity: initialAddressCity,
+  addressState: initialAddressState,
+  addressZip: initialAddressZip,
+  addressCountry: initialAddressCountry,
+  billingContactEmail: initialBillingContactEmail,
+  taxId: initialTaxId,
+  hasContactProfile,
 }: WorkspaceSettingsClientProps) {
   const [aleBaseline, setAleBaseline] = useState(aleBaselineCents);
   const [aleDraftDollars, setAleDraftDollars] = useState(initialAleDraftDollars);
@@ -43,6 +62,20 @@ export default function WorkspaceSettingsClient({
   const [companySaveBusy, setCompanySaveBusy] = useState(false);
   const [companySaveError, setCompanySaveError] = useState<string | null>(null);
   const [companySaveMessage, setCompanySaveMessage] = useState<string | null>(null);
+
+  const [corporatePhoneDraft, setCorporatePhoneDraft] = useState(initialCorporatePhone);
+  const [addressStreetDraft, setAddressStreetDraft] = useState(initialAddressStreet);
+  const [addressCityDraft, setAddressCityDraft] = useState(initialAddressCity);
+  const [addressStateDraft, setAddressStateDraft] = useState(initialAddressState);
+  const [addressZipDraft, setAddressZipDraft] = useState(initialAddressZip);
+  const [addressCountryDraft, setAddressCountryDraft] = useState(initialAddressCountry);
+  const [billingContactEmailDraft, setBillingContactEmailDraft] = useState(
+    initialBillingContactEmail,
+  );
+  const [taxIdDraft, setTaxIdDraft] = useState(initialTaxId);
+  const [contactSaveBusy, setContactSaveBusy] = useState(false);
+  const [contactSaveError, setContactSaveError] = useState<string | null>(null);
+  const [contactSaveMessage, setContactSaveMessage] = useState<string | null>(null);
 
   const saveAleBaseline = useCallback(async () => {
     if (aleSaveBusy || !canEdit) return;
@@ -104,6 +137,53 @@ export default function WorkspaceSettingsClient({
       setCompanySaveBusy(false);
     }
   }, [canEdit, companyNameDraft, companySaveBusy, departmentsDraft, sectorDraft]);
+
+  const saveContactProfile = useCallback(async () => {
+    if (contactSaveBusy || !canEdit) return;
+    setContactSaveBusy(true);
+    setContactSaveError(null);
+    setContactSaveMessage(null);
+    try {
+      const result = await syncTenantContactProfileSettingsAction({
+        corporatePhone: corporatePhoneDraft,
+        addressStreet: addressStreetDraft,
+        addressCity: addressCityDraft,
+        addressState: addressStateDraft,
+        addressZip: addressZipDraft,
+        addressCountry: addressCountryDraft,
+        billingContactEmail: billingContactEmailDraft,
+        taxId: taxIdDraft,
+      });
+      if (!result.ok) {
+        setContactSaveError(result.error);
+        return;
+      }
+      setContactSaveMessage(
+        result.created ? "Corporate contact profile saved." : "Corporate contact profile updated.",
+      );
+    } catch (error) {
+      if (isBenignRuntimeEmissionError(error)) return;
+      setContactSaveError(
+        resolveClientFacingError(error, "Could not save corporate contact details.", {
+          surface: "WorkspaceSettingsClient",
+          method: "POST",
+        }) ?? "Could not save corporate contact details.",
+      );
+    } finally {
+      setContactSaveBusy(false);
+    }
+  }, [
+    addressCityDraft,
+    addressCountryDraft,
+    addressStateDraft,
+    addressStreetDraft,
+    addressZipDraft,
+    billingContactEmailDraft,
+    canEdit,
+    contactSaveBusy,
+    corporatePhoneDraft,
+    taxIdDraft,
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
@@ -225,6 +305,117 @@ export default function WorkspaceSettingsClient({
         {companySaveMessage ? (
           <p className="mt-2 text-xs text-emerald-300" role="status">
             {companySaveMessage}
+          </p>
+        ) : null}
+      </section>
+
+      <section className="rounded-xl border border-violet-500/30 bg-violet-950/15 px-4 py-4">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-violet-300">
+          Corporate contact
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-violet-100/90">
+          {hasContactProfile
+            ? "Update billing and headquarters contact details for this workspace."
+            : "No corporate contact record yet — save details for billing and compliance correspondence."}
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block text-[10px] text-violet-200/80">
+            Corporate phone
+            <input
+              type="tel"
+              value={corporatePhoneDraft}
+              onChange={(event) => setCorporatePhoneDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80">
+            Billing contact email
+            <input
+              type="email"
+              value={billingContactEmailDraft}
+              onChange={(event) => setBillingContactEmailDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80 sm:col-span-2">
+            Street address
+            <input
+              type="text"
+              value={addressStreetDraft}
+              onChange={(event) => setAddressStreetDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80">
+            City
+            <input
+              type="text"
+              value={addressCityDraft}
+              onChange={(event) => setAddressCityDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80">
+            State / province
+            <input
+              type="text"
+              value={addressStateDraft}
+              onChange={(event) => setAddressStateDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80">
+            Postal code
+            <input
+              type="text"
+              value={addressZipDraft}
+              onChange={(event) => setAddressZipDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80">
+            Country
+            <input
+              type="text"
+              value={addressCountryDraft}
+              onChange={(event) => setAddressCountryDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-violet-200/80 sm:col-span-2">
+            Tax ID (optional)
+            <input
+              type="text"
+              value={taxIdDraft}
+              onChange={(event) => setTaxIdDraft(event.target.value)}
+              disabled={!canEdit}
+              className="mt-1 h-11 w-full rounded-lg border border-violet-700/40 bg-[#0f051a]/40 px-3 font-mono text-sm text-violet-50 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={contactSaveBusy || !canEdit}
+          onClick={() => void saveContactProfile()}
+          className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-violet-500/50 bg-violet-950/50 px-5 font-mono text-[10px] font-bold uppercase tracking-wide text-violet-100 transition hover:bg-violet-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {contactSaveBusy ? "Saving…" : "Save corporate contact"}
+        </button>
+        {contactSaveError ? (
+          <p className="mt-2 text-xs text-rose-300" role="alert">
+            {contactSaveError}
+          </p>
+        ) : null}
+        {contactSaveMessage ? (
+          <p className="mt-2 text-xs text-emerald-300" role="status">
+            {contactSaveMessage}
           </p>
         ) : null}
       </section>

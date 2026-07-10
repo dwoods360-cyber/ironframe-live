@@ -28,7 +28,7 @@ export default async function WorkspaceSettingsPage() {
   const tenantUuid = access.tenantUuid;
   const canEdit = await canEditWorkspaceProfile(access.userId, tenantUuid);
 
-  const [tenant, primaryCompany] = await Promise.all([
+  const [tenant, primaryCompany, contactProfile] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantUuid },
       select: { name: true, ale_baseline: true, industry: true },
@@ -40,6 +40,19 @@ export default async function WorkspaceSettingsPage() {
         name: true,
         sector: true,
         departments: { select: { name: true }, orderBy: { name: "asc" } },
+      },
+    }),
+    prisma.tenantContactProfile.findUnique({
+      where: { tenantId: tenantUuid },
+      select: {
+        corporatePhone: true,
+        addressStreet: true,
+        addressCity: true,
+        addressState: true,
+        addressZip: true,
+        addressCountry: true,
+        billingContactEmail: true,
+        taxId: true,
       },
     }),
   ]);
@@ -58,6 +71,15 @@ export default async function WorkspaceSettingsPage() {
       departmentsRaw={departmentsRaw}
       hasPrimaryCompany={Boolean(primaryCompany)}
       canEdit={canEdit}
+      corporatePhone={contactProfile?.corporatePhone ?? ""}
+      addressStreet={contactProfile?.addressStreet ?? ""}
+      addressCity={contactProfile?.addressCity ?? ""}
+      addressState={contactProfile?.addressState ?? ""}
+      addressZip={contactProfile?.addressZip ?? ""}
+      addressCountry={contactProfile?.addressCountry ?? ""}
+      billingContactEmail={contactProfile?.billingContactEmail ?? ""}
+      taxId={contactProfile?.taxId ?? ""}
+      hasContactProfile={Boolean(contactProfile)}
     />
   );
 }

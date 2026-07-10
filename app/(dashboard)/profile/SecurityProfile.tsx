@@ -16,7 +16,10 @@ import { computeMaturationProgress } from "@/app/utils/analystMaturation";
 import type {
   SecurityProfileAssignment,
   SecurityProfileIntegrityRow,
+  SecurityProfileOperatorProfile,
 } from "@/app/actions/profileActions";
+import { syncOperatorProfileAction } from "@/app/actions/profile/syncOperatorProfile";
+import { isBenignRuntimeEmissionError, resolveClientFacingError } from "@/app/utils/safeRuntimeEmission";
 
 type Props = {
   initial: {
@@ -26,6 +29,7 @@ type Props = {
     assignments: SecurityProfileAssignment[];
     integrityEvents: SecurityProfileIntegrityRow[];
     cookieDevRole: string | null;
+    operatorProfile: SecurityProfileOperatorProfile;
   };
 };
 
@@ -102,6 +106,45 @@ export default function SecurityProfile({ initial }: Props) {
     ? formatUserRoleLabel(activePrismaRole)
     : `${GRC_ROLE_LABELS.JR_GRC_ANALYST} (unprovisioned)`;
 
+  const [titleDraft, setTitleDraft] = useState(initial.operatorProfile.title);
+  const [phoneDraft, setPhoneDraft] = useState(initial.operatorProfile.phone);
+  const [avatarUrlDraft, setAvatarUrlDraft] = useState(initial.operatorProfile.avatarUrl);
+  const [operatorSaveBusy, setOperatorSaveBusy] = useState(false);
+  const [operatorSaveError, setOperatorSaveError] = useState<string | null>(null);
+  const [operatorSaveMessage, setOperatorSaveMessage] = useState<string | null>(null);
+
+  const saveOperatorProfile = async () => {
+    if (operatorSaveBusy || !initial.userId) return;
+    setOperatorSaveBusy(true);
+    setOperatorSaveError(null);
+    setOperatorSaveMessage(null);
+    try {
+      const result = await syncOperatorProfileAction({
+        title: titleDraft,
+        phone: phoneDraft,
+        avatarUrl: avatarUrlDraft,
+      });
+      if (!result.ok) {
+        setOperatorSaveError(result.error);
+        return;
+      }
+      setOperatorSaveMessage(
+        result.created ? "Operator profile saved." : "Operator profile updated.",
+      );
+      router.refresh();
+    } catch (error) {
+      if (isBenignRuntimeEmissionError(error)) return;
+      setOperatorSaveError(
+        resolveClientFacingError(error, "Could not save operator profile.", {
+          surface: "SecurityProfile",
+          method: "POST",
+        }) ?? "Could not save operator profile.",
+      );
+    } finally {
+      setOperatorSaveBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-8 px-4 py-8 text-slate-200 sm:px-6">
       {/* Page chrome */}
@@ -162,6 +205,76 @@ export default function SecurityProfile({ initial }: Props) {
             </div>
           </dl>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-800/90 bg-slate-950/50 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sky-400">
+            <UserCircle2 className="h-4 w-4" aria-hidden />
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-sky-300/90">
+              Operator profile
+            </h2>
+          </div>
+          <span className="rounded border border-slate-700/80 bg-slate-900/60 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+            operator_profiles
+          </span>
+        </div>
+        <p className="text-xs leading-relaxed text-slate-500">
+          {initial.operatorProfile.hasRecord
+            ? "Update your practitioner contact details. Display name and email remain in Supabase auth."
+            : "Add title and phone for roster and correspondence. Display name and email remain in Supabase auth."}
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="block text-[10px] text-slate-400">
+            Job title
+            <input
+              type="text"
+              value={titleDraft}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              disabled={!initial.userId}
+              className="mt-1 h-11 w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 font-mono text-sm text-slate-100 outline-none focus:border-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-slate-400">
+            Phone
+            <input
+              type="tel"
+              value={phoneDraft}
+              onChange={(event) => setPhoneDraft(event.target.value)}
+              disabled={!initial.userId}
+              className="mt-1 h-11 w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 font-mono text-sm text-slate-100 outline-none focus:border-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+          <label className="block text-[10px] text-slate-400 sm:col-span-2">
+            Avatar URL (optional)
+            <input
+              type="url"
+              value={avatarUrlDraft}
+              onChange={(event) => setAvatarUrlDraft(event.target.value)}
+              disabled={!initial.userId}
+              placeholder="https://"
+              className="mt-1 h-11 w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 font-mono text-sm text-slate-100 outline-none focus:border-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          disabled={operatorSaveBusy || !initial.userId}
+          onClick={() => void saveOperatorProfile()}
+          className="mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-sky-500/40 bg-sky-950/40 px-4 font-mono text-[10px] font-bold uppercase tracking-wide text-sky-100 transition hover:bg-sky-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {operatorSaveBusy ? "Saving…" : "Save operator profile"}
+        </button>
+        {operatorSaveError ? (
+          <p className="mt-2 text-xs text-rose-300" role="alert">
+            {operatorSaveError}
+          </p>
+        ) : null}
+        {operatorSaveMessage ? (
+          <p className="mt-2 text-xs text-emerald-300" role="status">
+            {operatorSaveMessage}
+          </p>
+        ) : null}
       </section>
 
       {/* Access level — Prisma UserRole high-visibility */}

@@ -31,11 +31,9 @@ export default async function GlobalHealthSummaryCard({
   if (tenantUuid == null) {
     redirect("/select-company");
   }
-  const [telemetryData, sustainabilityImpact, rawCompanies] = await Promise.all([
-    getTelemetryForTenant(tenantUuid),
-    getGlobalSustainabilityImpact(),
-    getCompaniesForTenant(tenantUuid),
-  ]);
+  const telemetryData = await getTelemetryForTenant(tenantUuid);
+  const sustainabilityImpact = await getGlobalSustainabilityImpact();
+  const rawCompanies = await getCompaniesForTenant(tenantUuid);
 
   const companies: SerializedCompany[] = rawCompanies.map((c) => ({
     name: c.name,

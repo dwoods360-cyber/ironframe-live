@@ -90,52 +90,41 @@ export async function getGlobalTelemetry(tenantUuidOverride?: string): Promise<G
   const slaThreshold = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
   try {
-    const [
-      activeAgg,
-      pipelineAgg,
-      mitigatedAgg,
-      activeCount,
-      pipelineCount,
-      slaBreachCount,
-      oldestThreat,
-    ] = await Promise.all([
-      prisma.threatEvent.aggregate({
-        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
-        _sum: { financialRisk_cents: true },
-      }),
-      prisma.threatEvent.aggregate({
-        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-        _sum: { financialRisk_cents: true },
-      }),
-      prisma.threatEvent.aggregate({
-        where: {
-          ...tenantWhere,
-          status: {
-            in: MITIGATED_STATUSES.filter((s): s is ThreatState => s != null),
-          },
+    const activeAgg = await prisma.threatEvent.aggregate({
+      where: { ...tenantWhere, status: ThreatState.CONFIRMED },
+      _sum: { financialRisk_cents: true },
+    });
+    const pipelineAgg = await prisma.threatEvent.aggregate({
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+      _sum: { financialRisk_cents: true },
+    });
+    const mitigatedAgg = await prisma.threatEvent.aggregate({
+      where: {
+        ...tenantWhere,
+        status: {
+          in: MITIGATED_STATUSES.filter((s): s is ThreatState => s != null),
         },
-        _sum: { financialRisk_cents: true },
-      }),
-      prisma.threatEvent.count({
-        where: { ...tenantWhere, status: ThreatState.CONFIRMED },
-      }),
-      prisma.threatEvent.count({
-        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-      }),
-      prisma.threatEvent.count({
-        where: {
-          ...tenantWhere,
-          status: { in: validClearanceStatuses },
-          createdAt: { lt: slaThreshold },
-        },
-      }),
-      // PIPELINE queue head for tenant company (`tenantCompanyId` — Prisma field for active-tenant company id).
-      prisma.threatEvent.findFirst({
-        where: { ...tenantWhere, status: { in: validClearanceStatuses } },
-        orderBy: { createdAt: "asc" },
-        select: { createdAt: true },
-      }),
-    ]);
+      },
+      _sum: { financialRisk_cents: true },
+    });
+    const activeCount = await prisma.threatEvent.count({
+      where: { ...tenantWhere, status: ThreatState.CONFIRMED },
+    });
+    const pipelineCount = await prisma.threatEvent.count({
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+    });
+    const slaBreachCount = await prisma.threatEvent.count({
+      where: {
+        ...tenantWhere,
+        status: { in: validClearanceStatuses },
+        createdAt: { lt: slaThreshold },
+      },
+    });
+    const oldestThreat = await prisma.threatEvent.findFirst({
+      where: { ...tenantWhere, status: { in: validClearanceStatuses } },
+      orderBy: { createdAt: "asc" },
+      select: { createdAt: true },
+    });
 
     return {
       activeExposureUsd: centsBigIntToUsd(activeAgg._sum.financialRisk_cents),

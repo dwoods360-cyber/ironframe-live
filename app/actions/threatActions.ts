@@ -2,6 +2,7 @@
 
 import { createHash, createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
+import { scheduleDashboardRevalidation } from '@/app/lib/scheduleDashboardRevalidation';
 import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
@@ -1935,7 +1936,7 @@ export async function deAcknowledgeThreatAction(
       },
       THREAT_INTERACTIVE_TX_OPTIONS,
     );
-    revalidatePath('/');
+    scheduleDashboardRevalidation('/');
     return { success: true };
   }
 
@@ -1996,7 +1997,7 @@ export async function deAcknowledgeThreatAction(
     return maybeMissing;
   }
 
-  revalidatePath('/');
+  scheduleDashboardRevalidation('/');
   return { success: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

@@ -10,6 +10,7 @@ import { PrismaClient } from "@prisma/client";
 import { assertThreatEventWormMutationPermitted } from "@/app/lib/evidence/threatEventWormGuard.server";
 import { threatEventWormGuardActive } from "@/app/lib/evidence/threatEventWormGuardPolicy";
 import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext";
+import { isServerlessRuntime, resolveServerlessDatabaseUrl } from "@/lib/prismaServerless";
 
 let threatEventWormDbEnforced = false;
 
@@ -28,7 +29,16 @@ if (!(BigInt.prototype as any).toJSON) {
 /** Side effect: `BigInt` serializes as a string in JSON (see root `instrumentation.ts` preload). */
 
 const prismaClientSingleton = () => {
-  const base = new PrismaClient();
+  const datasourceUrl = resolveServerlessDatabaseUrl(process.env.DATABASE_URL);
+  const base = new PrismaClient(
+    datasourceUrl
+      ? {
+          datasources: {
+            db: { url: datasourceUrl },
+          },
+        }
+      : undefined,
+  );
 
   async function resolveAuditTenantId(data: Record<string, unknown>): Promise<string> {
     const g = data.governance_tenant_uuid;
@@ -144,9 +154,13 @@ declare global {
   var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
 }
 
-const prismaExtended = globalThis.prisma ?? prismaClientSingleton();
-if (process.env.NODE_ENV !== "production") {
-  globalThis.prisma = prismaExtended;
+const globalForPrisma = globalThis as typeof globalThis & {
+  prisma?: ReturnType<typeof prismaClientSingleton>;
+};
+
+const prismaExtended = globalForPrisma.prisma ?? prismaClientSingleton();
+if (isServerlessRuntime() || process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prismaExtended;
 }
 
 /** Extended client (audit/reasoning partition-key hydration); cast for call sites typed against base `PrismaClient`. */

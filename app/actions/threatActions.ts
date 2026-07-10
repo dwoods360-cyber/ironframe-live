@@ -4,7 +4,7 @@ import { createHash, createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
 import { scheduleDashboardRevalidation } from '@/app/lib/scheduleDashboardRevalidation';
 import { cookies } from "next/headers";
-import prisma from "@/lib/prisma";
+import prisma, { primeThreatEventWormEnforcement } from "@/lib/prisma";
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import type { Prisma } from "@prisma/client";
 import {
@@ -873,6 +873,7 @@ async function runThreatTransaction<T>(
 ): Promise<T> {
   const missingErr = options?.missingRecordError ?? DEFAULT_THREAT_TX_GUARD_ERROR;
   const sessionTenantUuid = options?.sessionTenantUuid?.trim() || null;
+  await primeThreatEventWormEnforcement();
   return runWithThreatEventWormBypassScope(async () =>
     prisma.$transaction(
       async (tx) => {
@@ -1014,6 +1015,7 @@ export async function acknowledgeThreatAction(
     assigneeId: true,
   } as const;
 
+  await primeThreatEventWormEnforcement();
   const prodRow = await prisma.threatEvent.findFirst({
     where: { id, tenantCompanyId: sessionCompanyId },
     select: grcAckSelect,
@@ -1134,19 +1136,19 @@ export async function acknowledgeThreatAction(
             ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
           },
         });
-        await auditLogCreateLooseTx(tx, {
-          data: shadowSimAuditLogData(tenantId, id, {
-            action: 'THREAT_ACKNOWLEDGED',
-            justification: JSON.stringify({
-              ...shadowReceiptAuditStub(id),
-              text: savedWorkNoteText,
-            }),
-            operatorId,
-          }),
-        });
         },
         THREAT_INTERACTIVE_TX_OPTIONS,
       );
+      await auditLogCreateLoose({
+        data: shadowSimAuditLogData(tenantId, id, {
+          action: 'THREAT_ACKNOWLEDGED',
+          justification: JSON.stringify({
+            ...shadowReceiptAuditStub(id),
+            text: savedWorkNoteText,
+          }),
+          operatorId,
+        }),
+      });
       revalidatePath('/');
       return { success: true as const };
     } else {
@@ -1176,7 +1178,6 @@ export async function acknowledgeThreatAction(
               threatId: id,
             },
           });
-          // ingestionDetails is @db.Text: store merged JSON as string (never a Prisma Json/metadata column).
           await transitionThreatStatus({
             threatId: id,
             newStatus: ackStatus,
@@ -1191,15 +1192,6 @@ export async function acknowledgeThreatAction(
               ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
             },
             select: { id: true },
-          });
-          await auditLogCreateLooseTx(tx, {
-            data: {
-              action: 'THREAT_ACKNOWLEDGED',
-              justification: savedWorkNoteText,
-              operatorId,
-              threatId: id,
-              tenantId: tenantId.trim(),
-            },
           });
         },
         {
@@ -1216,6 +1208,16 @@ export async function acknowledgeThreatAction(
       if (maybeFailure?.success === false) {
         return maybeFailure;
       }
+
+      await auditLogCreateLoose({
+        data: {
+          action: 'THREAT_ACKNOWLEDGED',
+          justification: savedWorkNoteText,
+          operatorId,
+          threatId: id,
+          tenantId: tenantId.trim(),
+        },
+      });
 
       revalidatePath('/');
       return { success: true as const };
@@ -1907,6 +1909,7 @@ export async function deAcknowledgeThreatAction(
   const tenantUuid = tenantId.trim();
 
   try {
+  await primeThreatEventWormEnforcement();
   if (resolved.plane === 'shadow') {
     await prisma.$transaction(
       async (tx) => {

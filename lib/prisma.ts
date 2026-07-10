@@ -12,11 +12,24 @@ import { getActiveTenantUuidFromCookies } from "@/app/utils/serverTenantContext"
 import { isServerlessRuntime, resolveServerlessDatabaseUrl } from "@/lib/prismaServerless";
 
 let threatEventWormDbEnforced = false;
+let threatEventWormEnforceInit: Promise<void> | null = null;
 
-async function ensureThreatEventWormDbEnforced(client: PrismaClient): Promise<void> {
+/** Session-level WORM enforcement flag — must run outside an open interactive transaction (pool limit: 1). */
+export async function primeThreatEventWormEnforcement(client?: PrismaClient): Promise<void> {
   if (!threatEventWormGuardActive() || threatEventWormDbEnforced) return;
-  await client.$executeRaw`SELECT set_config('app.worm_threat_event_enforced', '1', false)`;
-  threatEventWormDbEnforced = true;
+  if (!threatEventWormEnforceInit) {
+    const db = client ?? (prismaExtended as unknown as PrismaClient);
+    threatEventWormEnforceInit = db
+      .$executeRaw`SELECT set_config('app.worm_threat_event_enforced', '1', false)`
+      .then(() => {
+        threatEventWormDbEnforced = true;
+      })
+      .catch((err) => {
+        threatEventWormEnforceInit = null;
+        throw err;
+      });
+  }
+  await threatEventWormEnforceInit;
 }
 
 if (!(BigInt.prototype as any).toJSON) {
@@ -138,12 +151,9 @@ const prismaClientSingleton = () => {
       },
       threatEvent: {
         async $allOperations({ operation, args, query }) {
-          if (threatEventWormGuardActive()) {
-            await ensureThreatEventWormDbEnforced(base);
-          }
           // WORM enforcement is authoritative in Postgres (`epic12_threat_event_worm_guard` trigger).
-          // Audited lifecycle writes set `app.worm_threat_event_bypass` via `threatEventWormBypass.ts`.
-          // Do not duplicate block here — AsyncLocalStorage scope can drop across Prisma transaction continuations.
+          // Call `primeThreatEventWormEnforcement()` before interactive transactions — never stamp
+          // session GUCs from here while a transaction holds the sole serverless pool connection.
           return query(args);
         },
       },

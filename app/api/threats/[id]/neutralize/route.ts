@@ -55,10 +55,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     );
   }
   if (!result.success) {
-    return NextResponse.json(
-      { ok: false, error: "Neutralization rejected or validation failed." },
-      { status: 400 },
-    );
+    const detail =
+      "error" in result && typeof result.error === "string" && result.error.trim()
+        ? result.error.trim()
+        : "Neutralization rejected or validation failed.";
+    return NextResponse.json({ ok: false, error: detail }, { status: 400 });
   }
 
   return NextResponse.json(

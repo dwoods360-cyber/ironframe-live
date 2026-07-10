@@ -989,17 +989,18 @@ export const useRiskStore = create<RiskState>((set, get) => ({
     try {
       const result = await resolveThreatAction(id, operatorId, trimmed, actorDisplayName);
       if (!result.success) {
-        logThreatActionErrorActivation(
-          "Threat record not found or could not be resolved.",
-          "resolveThreat:serverFailure",
-        );
+        const rejectionMessage =
+          "error" in result && typeof result.error === "string" && result.error.trim()
+            ? result.error.trim()
+            : "Resolution rejected: threat record not found or could not be resolved.";
+        logThreatActionErrorActivation(rejectionMessage, "resolveThreat:serverFailure");
         set({
           threatActionError: {
             active: true,
-            message: "Resolution rejected: threat record not found or could not be resolved.",
+            message: rejectionMessage,
           },
         });
-        throw new Error("Resolve failed");
+        return;
       }
       const maturationTenant = resolveDashboardTenantUuid(null);
       if (maturationTenant) {
@@ -1038,9 +1039,6 @@ export const useRiskStore = create<RiskState>((set, get) => ({
           message: display,
         },
       });
-      if (!msg.includes("GRC_PROTOCOL_VIOLATION")) {
-        throw error;
-      }
     }
   },
   deAcknowledgeThreat: async (id, tenantId, reason, justification, operatorId) => {

@@ -64,7 +64,7 @@ describe("Epic 11 bank vault rejection gate", () => {
     prismaMock.evidenceAttachment.findFirst.mockReset();
   });
 
-  it("throws protocol violation when resolution approval id is random/unapproved", async () => {
+  it("rejects protocol violation when resolution approval id is random/unapproved", async () => {
     prismaMock.threatEvent.findUnique.mockResolvedValue({
       id: "threat-bank-vault-001",
       tenantCompanyId: 100n,
@@ -79,15 +79,17 @@ describe("Epic 11 bank vault rejection gate", () => {
     });
     prismaMock.threatApproval.findUnique.mockResolvedValue(null);
 
-    await expect(
-      resolveThreatAction(
-        "threat-bank-vault-001",
-        "operator-001",
-        "This resolution attempt includes sufficient text but must fail strict vault gating.",
-        "Operator",
-      ),
-    ).rejects.toThrow(
-      "GRC_PROTOCOL_VIOLATION: Missing approved attestation or evidence artifact.",
+    const result = await resolveThreatAction(
+      "threat-bank-vault-001",
+      "operator-001",
+      "This resolution attempt includes sufficient text but must fail strict vault gating.",
+      "Operator",
     );
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBe(
+        "GRC_PROTOCOL_VIOLATION: Missing approved attestation or evidence artifact.",
+      );
+    }
   });
 });

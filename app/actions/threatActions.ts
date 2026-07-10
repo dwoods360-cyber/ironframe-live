@@ -249,6 +249,14 @@ const AUDIT_LOG_FAILURE =
 const GRC_PROTOCOL_VIOLATION =
   "GRC_PROTOCOL_VIOLATION: Missing approved attestation or evidence artifact.";
 
+function rejectGrcProtocolResolution(): {
+  success: false;
+  financialRisk_cents: 0;
+  error: string;
+} {
+  return { success: false, financialRisk_cents: 0, error: GRC_PROTOCOL_VIOLATION };
+}
+
 /** Kimbot System Integrity drill: vault manifest satisfies evidence gate when no DMZ attachment exists. */
 const SIM_MANIFEST_EVIDENCE_URL = "https://vault.internal/sim-manifest.pdf";
 
@@ -1420,7 +1428,7 @@ export async function resolveThreatAction(
   actorDisplayName?: string,
 ): Promise<
   | { success: true; financialRisk_cents: number; constitutionalHash: string }
-  | { success: false; financialRisk_cents: 0 }
+  | { success: false; financialRisk_cents: 0; error?: string }
 > {
   assertTasMdIntegrityOrThrow();
 
@@ -1469,7 +1477,7 @@ export async function resolveThreatAction(
         };
       }
       if (!simShadowPassesResolutionProtocol(simRow.title, simRow.ingestionDetails)) {
-        throw new Error(GRC_PROTOCOL_VIOLATION);
+        return rejectGrcProtocolResolution();
       }
       const ts = new Date().toISOString();
       const actor = (actorDisplayName?.trim() || operatorIdToDisplayName(operatorId)).trim();
@@ -1633,7 +1641,7 @@ export async function resolveThreatAction(
     },
   });
   if (!threatForGate?.tenantCompanyId || !threatForGate.resolutionApprovalId) {
-    throw new Error(GRC_PROTOCOL_VIOLATION);
+    return rejectGrcProtocolResolution();
   }
   assertHumanThreatAssigneeForResolution(threatForGate.assigneeId);
   const company = await prisma.company.findUnique({
@@ -1641,7 +1649,7 @@ export async function resolveThreatAction(
     select: { tenantId: true },
   });
   if (!company?.tenantId) {
-    throw new Error(GRC_PROTOCOL_VIOLATION);
+    return rejectGrcProtocolResolution();
   }
   const approval = await prisma.threatApproval.findUnique({
     where: { id: threatForGate.resolutionApprovalId },
@@ -1653,7 +1661,7 @@ export async function resolveThreatAction(
     approval.threatId !== id ||
     approval.tenantId !== company.tenantId
   ) {
-    throw new Error(GRC_PROTOCOL_VIOLATION);
+    return rejectGrcProtocolResolution();
   }
   const linkedEvidence = await prisma.evidenceAttachment.findFirst({
     where: {
@@ -1673,7 +1681,7 @@ export async function resolveThreatAction(
     !allowSimKimbotManifest &&
     !ingestionAllowsPlaybookEvidenceBypass(threatForGate.ingestionDetails)
   ) {
-    throw new Error(GRC_PROTOCOL_VIOLATION);
+    return rejectGrcProtocolResolution();
   }
 
   const updated = await runThreatTransaction(id, threatForGate.tenantCompanyId, async (tx) => {

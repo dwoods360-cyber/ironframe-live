@@ -1,7 +1,10 @@
 import { getSystemConfigSnapshot } from "@/app/store/systemConfigStore";
 import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
-import { getIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import {
+  getDashboardWorkspaceFallbackTenant,
+  getIronguardEffectiveTenant,
+} from "@/app/utils/ironguardSession";
 import { isShadowPlaneUiActive } from "@/app/utils/shadowPlaneActive";
 
 function shadowPlaneAllowsSimulationTenantFallback(): boolean {
@@ -21,15 +24,21 @@ function simulationModeClientActive(): boolean {
 }
 
 /**
- * Path/cookie tenant first (Ironguard session), then legacy UI label hints.
- * Shadow-plane / simulation mode may use Medshield when Global Command Center has no cookie
- * (matches server {@link getRedTeamSimulationTenantUuid} + Ironguard fetch bypass).
+ * Tenant UUID for server actions (assignee, acknowledge, resolve).
+ * Host-bound / TenantProvider context must win over a stale `ironframe-tenant` cookie
+ * (see c22d978c + DashboardGroupShell realignment for subdomain workspaces like run4c).
  */
 export function resolveEffectiveTenantUuidForActions(
   activeTenantUuidFromContext: string | null,
   selectedTenantName: string | null,
 ): string | null {
-  const fromPathOrCookie = resolveDashboardTenantUuid(activeTenantUuidFromContext);
+  const fromContext = activeTenantUuidFromContext?.trim();
+  if (fromContext) return fromContext.toLowerCase();
+
+  const fromDashboardFallback = getDashboardWorkspaceFallbackTenant();
+  if (fromDashboardFallback) return fromDashboardFallback;
+
+  const fromPathOrCookie = resolveDashboardTenantUuid(null);
   if (fromPathOrCookie) return fromPathOrCookie;
 
   const fromIronguard = getIronguardEffectiveTenant();
@@ -45,6 +54,5 @@ export function resolveEffectiveTenantUuidForActions(
     return TENANT_UUIDS.medshield;
   }
 
-  /** Global Command Center aggregate lane — bind constitutional default when cookie/Ironguard lag after client nav. */
-  return TENANT_UUIDS.medshield;
+  return null;
 }

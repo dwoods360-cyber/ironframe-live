@@ -43,6 +43,16 @@ export default function DashboardGroupShell({ children, initialTenantUuid }: Pro
     setDashboardWorkspaceFallbackTenant(resolvedInitial);
 
     const cookieScope = resolveDashboardTenantUuid(null);
+
+    /** Host-bound / server-resolved workspace wins over a stale cross-tenant cookie. */
+    if (resolvedInitial && cookieScope && cookieScope !== resolvedInitial) {
+      const token = tenantKeyFromUuid(resolvedInitial) ?? resolvedInitial;
+      writeIronframeTenantCookie(token);
+      window.dispatchEvent(new Event("ironframe-tenant-changed"));
+      setIronguardEffectiveTenant(resolvedInitial);
+      return;
+    }
+
     if (cookieScope) {
       setIronguardEffectiveTenant(cookieScope);
       return;

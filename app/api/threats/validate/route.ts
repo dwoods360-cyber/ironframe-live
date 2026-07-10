@@ -31,7 +31,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ validIds: [] });
     }
 
-    const body = (await request.json()) as { ids?: string[] };
+    let body: { ids?: string[] } = {};
+    try {
+      const raw = await request.text();
+      if (raw.trim()) {
+        body = JSON.parse(raw) as { ids?: string[] };
+      }
+    } catch {
+      return NextResponse.json({ validIds: [] });
+    }
     const ids = Array.isArray(body?.ids) ? body.ids : [];
     if (ids.length === 0) {
       return NextResponse.json({ validIds: [] });

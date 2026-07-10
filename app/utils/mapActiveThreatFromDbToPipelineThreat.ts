@@ -19,6 +19,7 @@ export function mapActiveThreatFromDbToPipelineThreat(r: PipelineThreatFromDb): 
     workNotes: r.workNotes ?? [],
     assignmentHistory: r.assignmentHistory ?? [],
     assignedTo: r.assignedTo,
+    assigneeId: r.assignedTo,
     createdAt: r.createdAt,
     ttlSeconds: r.ttlSeconds ?? undefined,
     ingestionDetails: r.ingestionDetails ?? undefined,

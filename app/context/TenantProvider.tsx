@@ -20,12 +20,19 @@ import {
   TenantKey,
 } from "@/app/utils/tenantIsolation";
 import { resolveDashboardTenantUuid } from "@/app/utils/clientTenantCookie";
-import { setIronguardEffectiveTenant } from "@/app/utils/ironguardSession";
+import {
+  getDashboardWorkspaceFallbackTenant,
+  getIronguardEffectiveTenant,
+  setIronguardEffectiveTenant,
+} from "@/app/utils/ironguardSession";
 import { ironguardFetch } from "@/app/utils/apiClient";
 import { appendAuditLog } from "@/app/utils/auditLogger";
 import { purgeClientTenantScopeAfterSwitch } from "@/app/utils/purgeClientTenantScope";
 import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
-import { useHostTenantUuidServerSnapshot } from "@/app/context/HostTenantSlugContext";
+import {
+  useHostTenantSlugServerSnapshot,
+  useHostTenantUuidServerSnapshot,
+} from "@/app/context/HostTenantSlugContext";
 import { devTenantHandshakeAle, devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
 
 type TenantContextValue = {
@@ -75,6 +82,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   const routeTenantKey = detectTenantFromPath(pathname);
   const hostUuid =
     hostTenantUuidFromServer ??
+    getDashboardWorkspaceFallbackTenant() ??
     (hostTenantSlug ? TENANT_UUIDS[hostTenantSlug as TenantKey] : null) ??
     null;
   const routeUuid = routeTenantKey ? TENANT_UUIDS[routeTenantKey] : null;
@@ -193,6 +201,38 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   }, [activeTenantKey, activeTenantUuid, routeTenantKey, hostTenantSlug, setDevTenantOverride, switchDevTenantColdBoot]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
+}
+
+/** Same tenant resolution as `TenantProvider`, without throwing when context is missing (Integrity Hub / SSR edge). */
+export function useActiveTenantScope(): {
+  activeTenantUuid: string | null;
+  activeTenantKey: TenantKey | null;
+} {
+  const ctx = useContext(TenantContext);
+  const hostUuid = useHostTenantUuidServerSnapshot();
+  const hostSlug = useHostTenantSlugServerSnapshot();
+  const cookieTenantUuid = useSyncExternalStore(
+    subscribeIronframeTenantCookie,
+    snapshotIronframeTenantUuid,
+    () => null,
+  );
+
+  if (ctx) {
+    return { activeTenantUuid: ctx.activeTenantUuid, activeTenantKey: ctx.activeTenantKey };
+  }
+
+  const activeTenantUuid =
+    hostUuid ??
+    (hostSlug ? TENANT_UUIDS[hostSlug as TenantKey] : null) ??
+    cookieTenantUuid ??
+    getIronguardEffectiveTenant() ??
+    getDashboardWorkspaceFallbackTenant();
+
+  const activeTenantKey = (
+    hostSlug ?? tenantKeyFromUuid(cookieTenantUuid ?? activeTenantUuid)
+  ) as TenantKey | null;
+
+  return { activeTenantUuid, activeTenantKey };
 }
 
 export function useTenantContext() {

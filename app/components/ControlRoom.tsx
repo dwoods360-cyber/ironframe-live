@@ -54,7 +54,7 @@ import AgentStatusPulseList from "@/app/components/grc/AgentStatusPulseList";
 import AgentStatusPulse, { AgentKillsInlineTag } from "@/app/components/grc/AgentStatusPulse";
 import AgentLogs from "@/app/components/panes/AgentLogs";
 import { isBenignRuntimeEmissionError, safeRuntimeAsyncEmission } from "@/app/utils/safeRuntimeEmission";
-import { useTenantContext } from "@/app/context/TenantProvider";
+import { useActiveTenantScope } from "@/app/context/TenantProvider";
 import { devTenantHandshakeLabel } from "@/app/constants/devTenantRoster";
 import { maturationHitlReviewEventId } from "@/app/utils/analystMaturation";
 import {
@@ -141,7 +141,7 @@ export default function ControlRoom({ children }: { children?: ReactNode }) {
   /** Armed = bot channel ON; each click while armed fires another attack wave (stack on Attack Velocity). */
   const [simulationBotsArmed, setSimulationBotsArmed] = useState(INITIAL_SIMULATION_BOT_ARMED);
   const isSimulationActive = useSystemConfigStore().isSimulationMode;
-  const { activeTenantUuid, activeTenantKey } = useTenantContext();
+  const { activeTenantUuid, activeTenantKey } = useActiveTenantScope();
   const pipelineThreats = useRiskStore((s) => s.pipelineThreats);
   const activeThreats = useRiskStore((s) => s.activeThreats);
   const intelligenceStream = useAgentStore((s) => s.intelligenceStream);

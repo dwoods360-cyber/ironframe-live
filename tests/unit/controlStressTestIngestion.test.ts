@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isControlStressTestIngestion, requiresForensicNeutralizeClosure } from "@/app/utils/controlStressTestIngestion";
+import {
+  isControlStressTestIngestion,
+  isControlStressThreatRecord,
+  requiresForensicNeutralizeClosure,
+} from "@/app/utils/controlStressTestIngestion";
 
 describe("isControlStressTestIngestion", () => {
   it("detects controlStressTest flag on ingestionDetails", () => {
@@ -42,5 +46,27 @@ describe("requiresForensicNeutralizeClosure", () => {
       ),
     ).toBe(true);
     expect(requiresForensicNeutralizeClosure(JSON.stringify({ source: "scout" }))).toBe(false);
+  });
+});
+
+describe("isControlStressThreatRecord", () => {
+  it("matches HUMAN_SENTINEL Control Stress Test titles", () => {
+    expect(
+      isControlStressThreatRecord({
+        title: "Sentinel Hypothesis: Control Stress Test :: SOC2 CC6.2",
+        sourceAgent: "HUMAN_SENTINEL",
+        ingestionDetails: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not match unrelated HUMAN_SENTINEL rows", () => {
+    expect(
+      isControlStressThreatRecord({
+        title: "Sentinel Hypothesis: payroll drift",
+        sourceAgent: "HUMAN_SENTINEL",
+        ingestionDetails: null,
+      }),
+    ).toBe(false);
   });
 });

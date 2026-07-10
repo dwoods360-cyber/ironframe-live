@@ -844,8 +844,8 @@ function shouldClaimAssigneeOnAcknowledge(assigneeId: string | null | undefined)
 /** Execution-board owner shown after first-touch acknowledge (work notes / audit still use session `operatorId`). */
 const ACKNOWLEDGE_FIRST_TOUCH_ASSIGNEE_ID = "User_00";
 
-/** Align shadow `RiskEvent` txs with prod `runThreatTransaction` — default Prisma 5s is too low on remote Postgres. */
-const THREAT_INTERACTIVE_TX_OPTIONS = { maxWait: 10_000, timeout: 15_000 } as const;
+/** Align shadow `RiskEvent` txs with prod `runThreatTransaction` — remote Postgres + pool wait on Vercel. */
+const THREAT_INTERACTIVE_TX_OPTIONS = { maxWait: 15_000, timeout: 45_000 } as const;
 
 /** Pre-stamp partition/FK fields so `auditLog` extension skips extra lookups inside an open transaction. */
 function shadowSimAuditLogData(
@@ -1932,23 +1932,23 @@ export async function deAcknowledgeThreatAction(
             assigneeId: null,
           },
         });
-        await auditLogCreateLooseTx(tx, {
-          data: shadowSimAuditLogData(tenantUuid, id, {
-            action: 'THREAT_DE_ACKNOWLEDGED',
-            justification: trimmedJustification,
-            operatorId,
-          }),
-        });
-        await auditLogCreateLooseTx(tx, {
-          data: shadowSimAuditLogData(tenantUuid, id, {
-            action: 'STATE_REGRESSION',
-            justification: 'User reversed acknowledgment of risk.',
-            operatorId,
-          }),
-        });
       },
       THREAT_INTERACTIVE_TX_OPTIONS,
     );
+    await auditLogCreateLoose({
+      data: shadowSimAuditLogData(tenantUuid, id, {
+        action: 'THREAT_DE_ACKNOWLEDGED',
+        justification: trimmedJustification,
+        operatorId,
+      }),
+    });
+    await auditLogCreateLoose({
+      data: shadowSimAuditLogData(tenantUuid, id, {
+        action: 'STATE_REGRESSION',
+        justification: 'User reversed acknowledgment of risk.',
+        operatorId,
+      }),
+    });
     scheduleDashboardRevalidation('/');
     return { success: true };
   }
@@ -1986,29 +1986,31 @@ export async function deAcknowledgeThreatAction(
       },
       select: { id: true },
     });
-    await auditLogCreateLooseTx(tx, {
-      data: {
-        action: 'THREAT_DE_ACKNOWLEDGED',
-        justification: trimmedJustification,
-        operatorId,
-        threatId: id,
-      },
-    });
-    // # GRC_ACTION_CHIPS / audit directive — De-Ack must log STATE_REGRESSION
-    await auditLogCreateLooseTx(tx, {
-      data: {
-        action: 'STATE_REGRESSION',
-        justification: 'User reversed acknowledgment of risk.',
-        operatorId,
-        threatId: id,
-      },
-    });
   });
 
   const maybeMissing = result as unknown as MissingRecordResponse | undefined;
   if (maybeMissing?.success === false) {
     return maybeMissing;
   }
+
+  await auditLogCreateLoose({
+    data: {
+      action: 'THREAT_DE_ACKNOWLEDGED',
+      justification: trimmedJustification,
+      operatorId,
+      threatId: id,
+      tenantId: tenantUuid,
+    },
+  });
+  await auditLogCreateLoose({
+    data: {
+      action: 'STATE_REGRESSION',
+      justification: 'User reversed acknowledgment of risk.',
+      operatorId,
+      threatId: id,
+      tenantId: tenantUuid,
+    },
+  });
 
   scheduleDashboardRevalidation('/');
   return { success: true };

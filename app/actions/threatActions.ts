@@ -205,6 +205,25 @@ async function resolveThreatForAcknowledge(
   return null;
 }
 
+/** De-ack: control-gap stress tests always live on `RiskEvent` — prefer shadow plane even if a prod row exists. */
+async function resolveThreatForDeAck(
+  threatId: string,
+  companyId: bigint | null,
+): Promise<AcknowledgeResolvedThreat | null> {
+  if (companyId == null) return null;
+
+  const grcSelect = { financialRisk_cents: true, sourceAgent: true, ingestionDetails: true } as const;
+  const simRow = await prisma.riskEvent.findFirst({
+    where: { id: threatId, tenantCompanyId: companyId },
+    select: grcSelect,
+  });
+  if (simRow && isControlStressTestIngestion(simRow.ingestionDetails)) {
+    return { plane: "shadow", row: simRow };
+  }
+
+  return resolveThreatForAcknowledge(threatId, companyId);
+}
+
 async function assertHumanAssigneeForThreatScope(
   threatId: string,
   companyId: bigint | null,
@@ -1834,7 +1853,7 @@ export async function deAcknowledgeThreatAction(
     throw new Error('Irongate Rejection: Missing company context for tenant isolation.');
   }
 
-  const resolved = await resolveThreatForAcknowledge(id, sessionCompanyId);
+  const resolved = await resolveThreatForDeAck(id, sessionCompanyId);
   if (!resolved) {
     return {
       success: false,
@@ -1873,6 +1892,7 @@ export async function deAcknowledgeThreatAction(
   const mappedReason = normalizeDeAckReason(trimmedReason);
   const tenantUuid = tenantId.trim();
 
+  try {
   if (resolved.plane === 'shadow') {
     await prisma.$transaction(
       async (tx) => {
@@ -1978,6 +1998,10 @@ export async function deAcknowledgeThreatAction(
 
   revalidatePath('/');
   return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { success: false, error: msg };
+  }
 }
 
 /** Re-escalate: move threat from ACTIVE back to PIPELINE so it reappears in Attack Velocity. Enforces tenantId (Irongate). */

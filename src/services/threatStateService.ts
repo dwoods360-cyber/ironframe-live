@@ -109,12 +109,19 @@ export async function transitionThreatStatus<T>(args: {
   if (args.newStatus === ThreatState.RESOLVED) {
     const adminPurgeBypass =
       args.reason === MANUAL_BOARD_PURGE_FOR_TEST_BASELINE_REASON;
+    const deAckDismissBypass = args.eventType === "THREAT_DE_ACKNOWLEDGED";
 
     if (adminPurgeBypass) {
       ledgerPayloadExtras = {
         grcResolutionGateBypassed: true,
         grcResolutionGateBypassDetail: GRC_RESOLUTION_GATE_ADMIN_BYPASS_DETAIL,
         grcResolutionBypassReason: args.reason,
+      };
+    } else if (deAckDismissBypass) {
+      ledgerPayloadExtras = {
+        grcResolutionGateBypassed: true,
+        grcResolutionGateBypassDetail: "De-acknowledgement dismiss — not threat resolution",
+        grcResolutionBypassReason: "THREAT_DE_ACKNOWLEDGED",
       };
     } else {
       const gateThreat = await client.threatEvent.findUnique({

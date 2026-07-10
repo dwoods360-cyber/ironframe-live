@@ -66,6 +66,22 @@ describe("transitionThreatStatus RESOLVED admin purge bypass", () => {
     expect(prismaMock.threatApproval.findUnique).not.toHaveBeenCalled();
   });
 
+  it("skips approval gate for de-acknowledgement dismiss (not resolution)", async () => {
+    await transitionThreatStatus({
+      threatId: "t1",
+      newStatus: ThreatState.RESOLVED,
+      actorUserId: "operator-001",
+      eventType: "THREAT_DE_ACKNOWLEDGED",
+    });
+
+    expect(prismaMock.threatApproval.findUnique).not.toHaveBeenCalled();
+    expect(threatUpdate).toHaveBeenCalled();
+    const firstCall = logEvent.mock.calls[0] as unknown[] | undefined;
+    const payload = (firstCall![1] as { payload: Record<string, unknown> }).payload;
+    expect(payload.grcResolutionGateBypassed).toBe(true);
+    expect(payload.grcResolutionBypassReason).toBe("THREAT_DE_ACKNOWLEDGED");
+  });
+
   it("skips approval gate when reason matches manual board purge and logs bypass fields", async () => {
     await transitionThreatStatus({
       threatId: "t1",

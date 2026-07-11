@@ -1122,19 +1122,19 @@ export async function acknowledgeThreatAction(
             ...(ackStatus === ThreatState.RESOLVED ? { assigneeId: null } : {}),
           },
         });
-        await auditLogCreateLooseTx(tx, {
-          data: shadowSimAuditLogData(tenantId, id, {
-            action: 'THREAT_ACKNOWLEDGED',
-            justification: JSON.stringify({
-              ...shadowReceiptAuditStub(id),
-              text: savedWorkNoteText,
-            }),
-            operatorId,
-          }),
-        });
         },
         THREAT_INTERACTIVE_TX_OPTIONS,
       );
+      await auditLogCreateLoose({
+        data: shadowSimAuditLogData(tenantId, id, {
+          action: 'THREAT_ACKNOWLEDGED',
+          justification: JSON.stringify({
+            ...shadowReceiptAuditStub(id),
+            text: savedWorkNoteText,
+          }),
+          operatorId,
+        }),
+      });
       revalidatePath('/');
       return { success: true as const };
     } else {
@@ -1180,15 +1180,6 @@ export async function acknowledgeThreatAction(
             },
             select: { id: true },
           });
-          await auditLogCreateLooseTx(tx, {
-            data: {
-              action: 'THREAT_ACKNOWLEDGED',
-              justification: savedWorkNoteText,
-              operatorId,
-              threatId: id,
-              tenantId: tenantId.trim(),
-            },
-          });
         },
         {
           missingRecordError:
@@ -1204,6 +1195,16 @@ export async function acknowledgeThreatAction(
       if (maybeFailure?.success === false) {
         return maybeFailure;
       }
+
+      await auditLogCreateLoose({
+        data: {
+          action: 'THREAT_ACKNOWLEDGED',
+          justification: savedWorkNoteText,
+          operatorId,
+          threatId: id,
+          tenantId: tenantId.trim(),
+        },
+      });
 
       revalidatePath('/');
       return { success: true as const };
@@ -1255,6 +1256,7 @@ export async function confirmThreatAction(
 
   try {
     if (isShadow) {
+      let shadowTenantId = "";
       await prisma.$transaction(
         async (tx) => {
         const row = await tx.riskEvent.findFirst({
@@ -1267,20 +1269,21 @@ export async function confirmThreatAction(
             '[Confirm Phase 2 – Shadow TX] simThreatEvent row missing before update (race delete or ID mismatch).',
           );
         }
+        shadowTenantId = row.tenantId;
         await tx.riskEvent.updateMany({
           where: { id },
           data: { status: ThreatState.CONFIRMED },
         });
-        await auditLogCreateLooseTx(tx, {
-          data: shadowSimAuditLogData(row.tenantId, id, {
-            action: 'THREAT_CONFIRMED',
-            justification: JSON.stringify(shadowReceiptAuditStub(id)),
-            operatorId,
-          }),
-        });
         },
         THREAT_INTERACTIVE_TX_OPTIONS,
       );
+      await auditLogCreateLoose({
+        data: shadowSimAuditLogData(shadowTenantId, id, {
+          action: 'THREAT_CONFIRMED',
+          justification: JSON.stringify(shadowReceiptAuditStub(id)),
+          operatorId,
+        }),
+      });
       revalidatePath('/');
       await logThreatActivity(null, 'STATUS_UPDATED', `Threat status changed to CONFIRMED (shadow). simThreatId:${id}`, {
         isSimulation: true,
@@ -1352,14 +1355,6 @@ export async function confirmThreatAction(
           tx,
           select: { id: true },
         });
-        await auditLogCreateLooseTx(tx, {
-          data: {
-            action: 'THREAT_CONFIRMED',
-            justification: null,
-            operatorId,
-            threatId: id,
-          },
-        });
       },
       {
         missingRecordError:
@@ -1374,6 +1369,15 @@ export async function confirmThreatAction(
     if (maybeFailure?.success === false) {
       return maybeFailure;
     }
+
+    await auditLogCreateLoose({
+      data: {
+        action: 'THREAT_CONFIRMED',
+        justification: null,
+        operatorId,
+        threatId: id,
+      },
+    });
 
     revalidatePath('/');
 
@@ -2043,7 +2047,10 @@ export async function revertThreatToPipelineAction(
     throw error instanceof Error ? error : new Error(String(error));
   }
 
-  const result = await runThreatTransaction(id, tenantCompanyIdForRevert, async (tx) => {
+  const result = await runThreatTransaction(
+    id,
+    tenantCompanyIdForRevert,
+    async (tx) => {
     await transitionThreatStatus({
       threatId: id,
       newStatus: ThreatState.IDENTIFIED,
@@ -2053,18 +2060,23 @@ export async function revertThreatToPipelineAction(
       extraChanges: { deAckReason: null },
       select: { id: true },
     });
-    await auditLogCreateLooseTx(tx, {
-      data: {
-        action: 'REVERT_TO_PIPELINE',
-        justification: 'Re-escalated from Active Risks to Attack Velocity pipeline.',
-        operatorId,
-        threatId: id,
-      },
-    });
-  });
+    },
+    { sessionTenantUuid: tenantId.trim() },
+  );
 
   const maybeMissing = result as unknown as MissingRecordResponse | undefined;
   if (maybeMissing?.success === false) return maybeMissing;
+
+  await auditLogCreateLoose({
+    data: {
+      action: 'REVERT_TO_PIPELINE',
+      justification: 'Re-escalated from Active Risks to Attack Velocity pipeline.',
+      operatorId,
+      threatId: id,
+      tenantId: tenantId.trim(),
+    },
+  });
+
   revalidatePath('/');
   return { success: true };
 }

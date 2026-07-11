@@ -224,5 +224,73 @@ test.describe("De-ack dismiss lifecycle", () => {
 
     expect(outcome.errors).toHaveLength(0);
     expect(outcome.toastError).toBeNull();
+  test("production BWC: acknowledge active/pipeline card when E2E_THREAT_ID set", async ({ page }) => {
+    test.skip(!isE2eProductionTarget(), "Production-only spot check.");
+    test.skip(process.env.E2E_ALLOW_PROD_MUTATIONS !== "1", "Set E2E_ALLOW_PROD_MUTATIONS=1.");
+    test.skip(!hasDatabaseUrl() || !hasSupabaseAdmin(), "DB + Supabase required.");
+
+    const threatId = process.env.E2E_THREAT_ID?.trim();
+    test.skip(!threatId, "Set E2E_THREAT_ID to a pipeline or active-board threat uuid.");
+
+    const TX_TIMEOUT_RE = /Transaction already closed|interactive transaction timeout|pool timeout/i;
+    const justification =
+      "Inspect the top boundary header area of the Control Room panel element. " +
+      "Verify visual presentation of the status indicator dot and header titles.";
+
+    await assertTenantBillingActive("bwc");
+    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, "bwc");
+    await page.goto(`${tenantSubdomainOrigin("bwc")}/`, {
+      waitUntil: "commit",
+      timeout: 120_000,
+    });
+    await waitForLeftRailReady(page);
+
+    const pipelineCard = page
+      .locator('[data-testid="pipeline-threat-card"]')
+      .filter({ has: page.locator(`a[href*="${threatId}"]`) })
+      .first();
+    const activeLink = page
+      .locator('[data-testid="active-risks-board"]')
+      .locator(`a[href*="${threatId}"]`)
+      .first();
+
+    const onPipeline = await pipelineCard.isVisible({ timeout: 15_000 }).catch(() => false);
+    const onActive = !onPipeline && (await activeLink.isVisible({ timeout: 15_000 }).catch(() => false));
+    test.skip(!onPipeline && !onActive, `Threat ${threatId} not on pipeline or active board.`);
+
+    const errors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(msg.text());
+    });
+
+    if (onPipeline) {
+      const claimBtn = pipelineCard.locator('[data-testid="pipeline-claim-assign-btn"]');
+      if (await claimBtn.isVisible().catch(() => false)) {
+        const claimed = await claimBtn.getByText(/Claimed/i).isVisible().catch(() => false);
+        if (!claimed) await claimBtn.click();
+      }
+      await pipelineCard.locator('[data-testid="grc-justification"]').fill(justification);
+      const ackBtn = pipelineCard.locator('[data-testid="pipeline-acknowledge-btn"]');
+      await expect(ackBtn).toBeEnabled({ timeout: 20_000 });
+      await ackBtn.click();
+    } else {
+      const cardRoot = activeLink.locator('xpath=ancestor::div[contains(@class,"group")][1]');
+      const claimBtn = cardRoot.locator('[data-testid="active-risk-claim-assign-btn"]');
+      if (await claimBtn.isVisible().catch(() => false)) {
+        const claimed = await claimBtn.getByText(/Claimed/i).isVisible().catch(() => false);
+        if (!claimed) await claimBtn.click();
+      }
+      const ackBtn = cardRoot.getByRole("button", { name: /^ACKNOWLEDGE$/i });
+      await expect(ackBtn).toBeEnabled({ timeout: 20_000 });
+      await ackBtn.click();
+    }
+
+    await page.waitForTimeout(4_000);
+    const visibleError = await page.getByText(TX_TIMEOUT_RE).first().textContent().catch(() => null);
+
+    console.log("\n=== PRODUCTION ACK SPOT ===", JSON.stringify({ threatId, errors, visibleError }, null, 2));
+
+    expect(errors.filter((t) => TX_TIMEOUT_RE.test(t))).toHaveLength(0);
+    expect(visibleError).toBeNull();
   });
 });

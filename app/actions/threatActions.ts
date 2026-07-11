@@ -4,7 +4,7 @@ import { createHash, createHmac, randomUUID } from "crypto";
 import { revalidatePath } from 'next/cache';
 import { scheduleDashboardRevalidation } from '@/app/lib/scheduleDashboardRevalidation';
 import { cookies } from "next/headers";
-import prisma from "@/lib/prisma";
+import prisma, { primeThreatEventWormEnforcement } from "@/lib/prisma";
 import { auditLogCreateLoose, auditLogCreateLooseTx } from "@/lib/auditLogLoose";
 import type { Prisma } from "@prisma/client";
 import {
@@ -931,6 +931,7 @@ export async function acknowledgeThreatAction(
   ingestOptions?: AcknowledgeThreatIngestOptions,
 ): Promise<AcknowledgeThreatActionResult> {
   assertTasMdIntegrityOrThrow();
+  await primeThreatEventWormEnforcement();
 
   if (tenantId == null || tenantId === undefined || tenantId === '') {
     throw new Error('Irongate Rejection: Missing Tenant Context. Zero-Trust violation.');
@@ -1837,6 +1838,7 @@ export async function deAcknowledgeThreatAction(
   justification: string,
   operatorId: string,
 ): Promise<{ success: true } | MissingRecordResponse | ActionFailureResponse | void> {
+  await primeThreatEventWormEnforcement();
   if (!tenantId) throw new Error("Irongate Rejection: Missing Tenant Context. Zero-Trust violation.");
   if (!prismaDelegates.auditLog?.create) {
     if (!prismaDelegates.auditLog) warnMissingDelegate('auditLog');

@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/prisma";
+import prisma, { primeThreatEventWormEnforcement } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { ThreatState } from "@prisma/client";
 import { subHours } from "date-fns";
@@ -328,6 +328,7 @@ function complianceDriftSortScore(
  * Used by `GET /api/dashboard` — keeps Prisma off client bundles (`DashboardHomeClient` only fetches the API).
  */
 export async function getDashboardPayloadForTenant(activeTenantUuid: string): Promise<DashboardPayload> {
+  await primeThreatEventWormEnforcement();
   const simPlane = await readSimulationPlaneEnabled();
   /** Bots + Chaos drills write `ThreatEvent` whenever env shadow is on (`ingressUsesRiskEventTable`); else cookie-sim alone uses `RiskEvent`. */
   const envShadowPlane = isShadowPlaneActiveFromEnv();
@@ -411,8 +412,8 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
     ],
   };
 
-  const [serverAuditLogs, risks, threatEvents] = await Promise.all([
-    prisma.auditLog.findMany({
+  const [serverAuditLogs, risks, threatEvents] = await (async () => {
+    const serverAuditLogs = await prisma.auditLog.findMany({
       where: { tenantId: activeTenantUuid },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -425,8 +426,8 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         simThreatId: true,
         justification: true,
       },
-    }),
-    prisma.activeRisk.findMany({
+    });
+    const risks = await prisma.activeRisk.findMany({
       where: {
         company: { tenantId: activeTenantUuid },
         /** Active canvas: simulation-flagged ingress only — excludes GRC program baselines. */
@@ -445,23 +446,24 @@ export async function getDashboardPayloadForTenant(activeTenantUuid: string): Pr
         company: { select: { name: true, sector: true } },
       },
       orderBy: { score_cents: "desc" },
-    }),
-    dashboardThreatsFromRiskTable
-      ? prisma.riskEvent.findMany({
+    });
+    const threatEvents = dashboardThreatsFromRiskTable
+      ? await prisma.riskEvent.findMany({
           where: openRiskWhere,
           select: riskEventSelect,
           orderBy: { updatedAt: "desc" },
         })
       : tenantCompanyIdsEarly.length === 0
-        ? Promise.resolve([])
-        : prisma.threatEvent.findMany({
+        ? []
+        : await prisma.threatEvent.findMany({
             where: {
               AND: [{ tenantCompanyId: { in: tenantCompanyIdsEarly } }, openWhere],
             },
             select: threatEventSelect,
             orderBy: { updatedAt: "desc" },
-          }),
-  ]);
+          });
+    return [serverAuditLogs, risks, threatEvents] as const;
+  })();
 
   /**
    * Shadow + simulation cookie: dashboard reads `ThreatEvent`; legacy Chaos rows may still live on `RiskEvent`.

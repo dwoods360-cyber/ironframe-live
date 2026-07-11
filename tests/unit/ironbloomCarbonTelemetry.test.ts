@@ -71,7 +71,7 @@ describe("ironbloom carbon telemetry", () => {
       mitigatedValueCents: 11500n,
       tenantKey: "medshield",
       unitsKwh: 2500,
-      zone: "US-NEIS",
+      zone: "US-NE-ISNE",
       carbonIntensityGco2PerKwh: 400,
     });
     expect(sealed.mitigatedValueCents).toBe(11500n);
@@ -146,7 +146,7 @@ describe("ironbloom carbon telemetry", () => {
       }),
     );
     try {
-      const q = await fetchLiveCarbonIntensity("US-NEIS", "medshield");
+      const q = await fetchLiveCarbonIntensity("US-NE-ISNE", "medshield");
       expect(q.source).toBe("FORENSIC_FALLBACK");
       expect(q.carbonIntensityGco2PerKwh).toBeGreaterThan(0);
     } finally {

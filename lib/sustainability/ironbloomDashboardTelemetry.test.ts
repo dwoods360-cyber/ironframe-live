@@ -43,7 +43,7 @@ describe("ironbloomDashboardTelemetry", () => {
     ).toBe(5000n);
     expect(
       energyKwhForLedgerZone({
-        zone: "US-NEIS",
+        zone: "US-NE-ISNE",
         tenantKey: "gridcore",
         aggregateKwhAverted: 5000n,
       }),

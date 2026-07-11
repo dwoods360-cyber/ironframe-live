@@ -18,7 +18,7 @@ export function getTenantCarbonIntensityThresholdGco2(tenantKey: TenantKey): num
 
 /** Electricity Maps zone keys for live carbon intensity (gCO₂/kWh). */
 export const TENANT_ELECTRICITY_MAP_ZONES: Record<TenantKey, string> = {
-  medshield: "US-NEIS",
+  medshield: "US-NE-ISNE",
   vaultbank: "US-NY",
   gridcore: "US-CO",
   defense: "US-MIDA-PJM",
@@ -30,6 +30,8 @@ export const TENANT_ELECTRICITY_MAP_ZONES: Record<TenantKey, string> = {
  */
 export const ELECTRICITY_MAP_ZONE_ALIASES: Record<string, string> = {
   "US-GD": "US-CO",
+  /** Legacy typo — Electricity Maps canonical key is US-NE-ISNE (ISO New England). */
+  "US-NEIS": "US-NE-ISNE",
 };
 
 /**

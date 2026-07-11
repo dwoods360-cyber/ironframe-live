@@ -208,11 +208,16 @@ test.describe("De-ack dismiss lifecycle", () => {
     });
     await waitForLeftRailReady(page);
 
-    const card = page.locator('[data-testid="active-risks-board"]').locator(`[data-threat-id="${threatId}"]`).first();
+    const card = page
+      .locator('[data-testid="active-risks-board"]')
+      .locator(`a[href*="${threatId}"]`)
+      .first();
     const hasCard = await card.isVisible({ timeout: 30_000 }).catch(() => false);
     test.skip(!hasCard, `Active card ${threatId} not visible — ack it first or pick another id.`);
 
-    const title = (await card.getByRole("heading").first().textContent())?.trim() ?? threatId;
+    const title =
+      (await card.locator("xpath=ancestor::div[contains(@class,'group')][1]").getByRole("heading").first().textContent())?.trim() ??
+      threatId;
     const outcome = await submitActiveDismiss(page, title, "FALSE_POSITIVE");
 
     console.log("\n=== PRODUCTION SPOT DE-ACK ===", JSON.stringify({ threatId, title, outcome }, null, 2));

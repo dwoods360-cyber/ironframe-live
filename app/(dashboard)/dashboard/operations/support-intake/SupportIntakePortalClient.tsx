@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
+
 type RedactedSupportIntakeSnapshot = {
   generatedAt: string;
   crmScope: string;
@@ -38,8 +40,16 @@ export default function SupportIntakePortalClient() {
     setError(null);
     try {
       const response = await fetch("/api/admin/operations-hub/support-intake", { cache: "no-store" });
-      const data = (await response.json()) as RedactedSupportIntakeSnapshot & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load support intake portal.");
+      const parsed = await parseJsonResponse<
+        RedactedSupportIntakeSnapshot & { error?: string; hint?: string }
+      >(response);
+      if (!parsed.ok) throw new Error(parsed.error);
+      const data = parsed.data;
+      if (!response.ok) {
+        throw new Error(
+          [data.error, data.hint].filter(Boolean).join(" ") || "Failed to load support intake portal.",
+        );
+      }
       setSnapshot(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -60,12 +70,19 @@ export default function SupportIntakePortalClient() {
     setError(null);
     try {
       const response = await fetch("/api/admin/operations-hub/support-intake", { method: "POST" });
-      const data = (await response.json()) as {
+      const parsed = await parseJsonResponse<{
         ok?: boolean;
         error?: string;
+        hint?: string;
         snapshot?: RedactedSupportIntakeSnapshot;
-      };
-      if (!response.ok) throw new Error(data.error ?? "Poll failed.");
+      }>(response);
+      if (!parsed.ok) throw new Error(parsed.error);
+      const data = parsed.data;
+      if (!response.ok) {
+        throw new Error(
+          [data.error, data.hint].filter(Boolean).join(" ") || "Poll failed.",
+        );
+      }
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Poll cycle completed. Review intake queue and SUPPORT approval queue.");
     } catch (err) {

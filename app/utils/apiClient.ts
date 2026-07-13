@@ -28,7 +28,15 @@ export { setIronguardEffectiveTenant, getIronguardEffectiveTenant };
 /** Paths that remain callable without a resolved tenant session (infra probes only). */
 const TENANT_OPTIONAL_API_PATHS = ["/api/health", PUBLIC_LEAD_API_PATH];
 
+/** Perimeter ops consoles — platform-scoped; must not require tenant cookie on apex GLOBAL_ADMIN lane. */
+function isPerimeterOperationsHubApiPath(pathname: string): boolean {
+  return (
+    pathname === "/api/admin/operations-hub" || pathname.startsWith("/api/admin/operations-hub/")
+  );
+}
+
 function isTenantOptionalApiPath(pathname: string): boolean {
+  if (isPerimeterOperationsHubApiPath(pathname)) return true;
   if (isPublicRegistrationApiPath(pathname)) return true;
   if (isPublicConstitutionalSentinelPath(pathname)) return true;
   if (pathname.startsWith("/api/auth/callback")) return true;

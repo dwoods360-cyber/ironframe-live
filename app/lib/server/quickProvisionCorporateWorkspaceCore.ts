@@ -4,6 +4,7 @@ import { createWorkspaceInvitation } from "@/app/lib/auth/workspaceInvitationCor
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { provisionCorporateTenantCore } from "@/app/lib/server/corporateTenantProvisionCore";
+import prisma from "@/lib/prisma";
 import {
   buildRegisterInvitationUrl,
   buildWorkspaceInviteLoginUrl,
@@ -26,6 +27,7 @@ export type QuickProvisionCorporateWorkspaceResult =
       email: string;
       workspaceUrl: string;
       registerUrl: string;
+      activationCheckoutUrl: string | null;
       token: string;
       invitationId: string;
       expiresAt: string;
@@ -73,13 +75,25 @@ export async function quickProvisionCorporateWorkspaceCore(
 
   let tenantAlreadyExisted = false;
   let workspaceUrl: string;
+  let activationCheckoutUrl: string | null = null;
 
   if (provision.ok) {
     workspaceUrl = provision.workspaceUrl;
+    activationCheckoutUrl = provision.activationCheckoutUrl;
   } else if (provision.error.includes("already provisioned")) {
     tenantAlreadyExisted = true;
     const port = Number(process.env.PORT?.trim() || "3000") || 3000;
     workspaceUrl = buildTenantSubdomainOrigin(slug, port);
+    const { resolveTenantActivationCheckoutUrlForUuid } = await import(
+      "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server"
+    );
+    const existingTenant = await prisma.tenant.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    activationCheckoutUrl = existingTenant
+      ? await resolveTenantActivationCheckoutUrlForUuid(existingTenant.id)
+      : null;
   } else {
     return { ok: false, error: provision.error };
   }
@@ -110,6 +124,7 @@ export async function quickProvisionCorporateWorkspaceCore(
     email,
     workspaceUrl,
     registerUrl,
+    activationCheckoutUrl,
     token: invitation.token,
     invitationId: invitation.invitationId,
     expiresAt: invitation.expiresAt,

@@ -4,7 +4,6 @@ import { UserRole } from "@prisma/client";
 import { auditLogCreateLoose } from "@/lib/auditLogLoose";
 import prisma from "@/lib/prisma";
 import {
-  buildAuthCallbackUrl,
   resolveTenantAuthRedirectOrigin,
 } from "@/app/lib/auth/publicAppUrl";
 import { normalizeCorporateTenantSlug } from "@/app/lib/auth/tenantInviteMetadata";
@@ -16,14 +15,12 @@ import {
 import {
   buildTenantLoginRedirectUrl,
   buildTenantSubdomainOrigin,
-  resolvePostAuthLandingPath,
 } from "@/app/lib/tenantSubdomain";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseInviteDeliveryDeferrable } from "@/app/lib/server/corporateTenantInviteDelivery";
 import { createWorkspaceInvitation } from "@/app/lib/auth/workspaceInvitationCore";
 import {
   findSupabaseAuthUserByEmail,
-  isSupabaseExistingUserError,
 } from "@/app/lib/server/supabaseAuthAdminHelpers";
 import {
   buildWorkspaceInviteLoginUrl,
@@ -55,6 +52,8 @@ export type ProvisionCorporateTenantCoreResult =
       name: string;
       workspaceUrl: string;
       redirectUrl: string;
+      /** Path B payment link — metadata tenant_slug matches this provisioned slug. */
+      activationCheckoutUrl: string | null;
     }
   | { ok: false; error: string };
 
@@ -123,8 +122,14 @@ export async function provisionCorporateTenantCore(
 
     invalidateTenantSlugCache(slug);
 
-    const { ensureTenantBillingPending } = await import("@/app/lib/billing/tenantBillingEntitlement");
-    await ensureTenantBillingPending(tenant.slug);
+    const { ensureTenantCommercialBillingAtProvision } = await import(
+      "@/app/lib/billing/tenantStripeCustomer.server"
+    );
+    await ensureTenantCommercialBillingAtProvision({
+      tenantUuid: tenant.id,
+      tenantSlug: tenant.slug,
+      companyName: tenant.name,
+    });
 
     await auditLogCreateLoose({
       data: {
@@ -138,6 +143,12 @@ export async function provisionCorporateTenantCore(
     const port = Number(process.env.PORT?.trim() || "3000") || 3000;
     const workspaceUrl = buildTenantSubdomainOrigin(tenant.slug, port);
     const redirectUrl = buildTenantLoginRedirectUrl(tenant.slug);
+
+    const { resolveTenantActivationCheckoutUrlForUuid } = await import(
+      "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server"
+    );
+    const activationCheckoutUrl = await resolveTenantActivationCheckoutUrlForUuid(tenant.id);
+
     return {
       ok: true,
       success: true,
@@ -146,6 +157,7 @@ export async function provisionCorporateTenantCore(
       name: tenant.name,
       workspaceUrl,
       redirectUrl,
+      activationCheckoutUrl,
     };
   } catch (e) {
     console.error("[provisionCorporateTenantCore]", e);
@@ -182,38 +194,31 @@ export type InviteCorporateTenantUserCoreResult =
     }
   | { ok: false; error: string; deferrable?: boolean };
 
-function serializeSupabaseInvitePayload(value: unknown): Record<string, unknown> | null {
-  if (value === null || value === undefined) return null;
-  try {
-    return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
-  } catch {
-    return { note: "Supabase invite payload was not JSON-serializable." };
-  }
-}
-
 async function issueWorkspaceInvitationForOperator(input: {
   email: string;
   tenant: { id: string; slug: string; name: string };
   operatorId: string;
   role: UserRole;
-  userId: string;
+  userId?: string;
   auditAction?: string;
 }): Promise<InviteCorporateTenantUserCoreResult> {
-  const existingRole = await prisma.userRoleAssignment.findFirst({
-    where: {
-      userId: input.userId,
-      tenantId: input.tenant.id,
-    },
-    select: { id: true },
-  });
-  if (!existingRole) {
-    await prisma.userRoleAssignment.create({
-      data: {
+  if (input.userId) {
+    const existingRole = await prisma.userRoleAssignment.findFirst({
+      where: {
         userId: input.userId,
         tenantId: input.tenant.id,
-        role: input.role,
       },
+      select: { id: true },
     });
+    if (!existingRole) {
+      await prisma.userRoleAssignment.create({
+        data: {
+          userId: input.userId,
+          tenantId: input.tenant.id,
+          role: input.role,
+        },
+      });
+    }
   }
 
   const invitation = await createWorkspaceInvitation({
@@ -235,12 +240,16 @@ async function issueWorkspaceInvitationForOperator(input: {
     inviteExpiresAt: invitation.expiresAt,
   });
 
+  const justification = input.userId
+    ? `Workspace invitation issued for existing operator ${input.email} → tenant ${input.tenant.slug} (supabaseUserId=${input.userId}).`
+    : `Workspace invitation issued for new operator ${input.email} → tenant ${input.tenant.slug} (account created on /register).`;
+
   await auditLogCreateLoose({
     data: {
       action: input.auditAction ?? "CORPORATE_USER_INVITED",
       operatorId: input.operatorId,
       tenantId: input.tenant.id,
-      justification: `Workspace invitation issued for existing operator ${input.email} → tenant ${input.tenant.slug} (supabaseUserId=${input.userId}).`,
+      justification,
     },
   });
 
@@ -283,9 +292,6 @@ export async function inviteCorporateTenantUserCore(
 
   try {
     const supabaseAdmin = createSupabaseAdminClient();
-    const tenantOrigin = resolveTenantAuthRedirectOrigin(tenant.slug);
-    const landing = resolvePostAuthLandingPath(new URL(tenantOrigin).host);
-    const redirectTo = buildAuthCallbackUrl(tenantOrigin, landing);
 
     const existingUser = await findSupabaseAuthUserByEmail(supabaseAdmin, email);
     if (existingUser?.id) {
@@ -299,81 +305,15 @@ export async function inviteCorporateTenantUserCore(
       });
     }
 
-    const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-      data: { tenant_slug: tenant.slug },
-      redirectTo,
-    });
-
-    if (error) {
-      if (isSupabaseExistingUserError(error.message)) {
-        const recoveredUser = await findSupabaseAuthUserByEmail(supabaseAdmin, email);
-        if (recoveredUser?.id) {
-          return issueWorkspaceInvitationForOperator({
-            email,
-            tenant,
-            operatorId: input.operatorId,
-            role: inviteRole,
-            userId: recoveredUser.id,
-            auditAction: input.auditAction,
-          });
-        }
-      }
-
-      console.error("[inviteCorporateTenantUserCore]", error.message);
-      const deferrable = isSupabaseInviteDeliveryDeferrable(error.message);
-      if (deferrable) {
-        console.warn(
-          `[inviteCorporateTenantUserCore] invite delivery deferred for ${email} → ${tenant.slug}: ${error.message}`,
-        );
-      }
-      return {
-        ok: false,
-        error: error.message || "Invitation failed.",
-        deferrable,
-      };
-    }
-
-    const invitedUserId = data.user?.id?.trim();
-    if (invitedUserId) {
-      const existingRole = await prisma.userRoleAssignment.findFirst({
-        where: {
-          userId: invitedUserId,
-          tenantId: tenant.id,
-        },
-        select: { id: true },
-      });
-      if (!existingRole) {
-        await prisma.userRoleAssignment.create({
-          data: {
-            userId: invitedUserId,
-            tenantId: tenant.id,
-            role: inviteRole,
-          },
-        });
-      }
-    }
-
-    await auditLogCreateLoose({
-      data: {
-        action: input.auditAction ?? "CORPORATE_USER_INVITED",
-        operatorId: input.operatorId,
-        tenantId: tenant.id,
-        justification: `B2B invite issued for ${email} → tenant ${tenant.slug} (supabaseUserId=${invitedUserId ?? "pending"}).`,
-      },
-    });
-
-    return {
-      ok: true,
+    // New operators: Ironframe Resend invite (/register/{token}) — not Supabase inviteUserByEmail
+    // (native Supabase emails link to /auth/v1/verify without apikey and fail in the browser).
+    return issueWorkspaceInvitationForOperator({
       email,
-      tenantSlug: tenant.slug,
-      workspaceUrl: tenantOrigin,
-      deliveryPath: "supabase-invite",
-      supabaseInvite: {
-        user: serializeSupabaseInvitePayload(data.user),
-        rawData: serializeSupabaseInvitePayload(data),
-        redirectTo,
-      },
-    };
+      tenant,
+      operatorId: input.operatorId,
+      role: inviteRole,
+      auditAction: input.auditAction,
+    });
   } catch (e) {
     console.error("[inviteCorporateTenantUserCore]", e);
     const message = e instanceof Error ? e.message : "Invitation failed. Verify SUPABASE_SERVICE_ROLE_KEY.";

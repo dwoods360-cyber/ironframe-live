@@ -19,7 +19,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 export const LOCAL_APP_ORIGIN = "http://127.0.0.1:3000";
-export const PILOT_CORP_SLUG = "pilot-corp";
+export const STRIPE_E2E_PROVISION_SLUG = "stripe-e2e-corp";
 
 let prismaSingleton: PrismaClient | null = null;
 
@@ -229,7 +229,7 @@ export function uniquePilotBuyerEmail(): string {
   return `pilotbuyer.e2e.${Date.now()}@gmail.com`;
 }
 
-export async function seedPilotCorpInvitationToken(slug: string): Promise<string> {
+export async function seedStripeE2eInvitationToken(slug: string): Promise<string> {
   const token = generateWorkspaceInvitationToken();
   const db = getE2ePrisma();
   await db.tenantWorkspaceInvitation.deleteMany({
@@ -247,11 +247,13 @@ export async function seedPilotCorpInvitationToken(slug: string): Promise<string
   return token;
 }
 
-export async function cleanupPilotCorpFixture(): Promise<void> {
+export async function cleanupStripeE2eProvisionFixture(): Promise<void> {
   const db = getE2ePrisma();
-  await db.tenantWorkspaceInvitation.deleteMany({ where: { tenantSlug: PILOT_CORP_SLUG } });
+  await db.tenantWorkspaceInvitation.deleteMany({
+    where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
+  });
   const tenant = await db.tenant.findUnique({
-    where: { slug: PILOT_CORP_SLUG },
+    where: { slug: STRIPE_E2E_PROVISION_SLUG },
     select: { id: true },
   });
 
@@ -260,8 +262,8 @@ export async function cleanupPilotCorpFixture(): Promise<void> {
     await db.tenant.delete({ where: { id: tenant.id } });
   }
 
-  await db.tenantBilling.deleteMany({ where: { tenantSlug: PILOT_CORP_SLUG } });
-  await db.prospect.deleteMany({ where: { slug: PILOT_CORP_SLUG } });
+  await db.tenantBilling.deleteMany({ where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG } });
+  await db.prospect.deleteMany({ where: { slug: STRIPE_E2E_PROVISION_SLUG } });
 }
 
 export function buildCheckoutSessionCompletedEvent(input: {

@@ -12,6 +12,7 @@ import {
 } from "@/app/lib/auth/dashboardRoleAccess";
 import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
 import { resolveTenantBillingEntitlementByUuid } from "@/app/lib/billing/tenantBillingEntitlement";
+import { resolveTenantActivationCheckoutUrlForUuid } from "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server";
 import prisma from "@/lib/prisma";
 import { IRONFRAME_PATHNAME_HEADER } from "@/lib/supabase/middleware";
 
@@ -44,10 +45,13 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
   const billing = await resolveTenantBillingEntitlementByUuid(access.tenantUuid);
   const tenant = await prisma.tenant.findUnique({
     where: { id: access.tenantUuid },
-    select: { slug: true },
+    select: { slug: true, name: true },
   });
   const tenantSlug = tenant?.slug ?? "workspace";
   const billingBlocked = Boolean(billing?.blocked && !platformAdmin);
+  const billingCheckoutUrl = billingBlocked
+    ? await resolveTenantActivationCheckoutUrlForUuid(access.tenantUuid)
+    : null;
 
   return (
     <TenantBillingGateProvider
@@ -60,6 +64,7 @@ export default async function DashboardGroupLayout({ children }: { children: Rea
             blocked={billingBlocked}
             tenantSlug={tenantSlug}
             billingStatus={billing?.status ?? "UNTRACKED"}
+            checkoutUrl={billingCheckoutUrl}
           >
             {children}
           </DashboardBillingGate>

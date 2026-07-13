@@ -7,7 +7,8 @@ import { POST } from "@/app/api/billing/webhook/route";
 describe("/api/billing/webhook", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+    process.env.STRIPE_BILLING_WEBHOOK_SECRET = "whsec_billing_test";
   });
 
   it("ignores non payment_intent.succeeded events", async () => {

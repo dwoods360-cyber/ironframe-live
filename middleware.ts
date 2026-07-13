@@ -57,7 +57,6 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname === "/api/documentation/execute") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
-  if (pathname === "/api/internal/pki-health") return true;
   if (isStripeWebhookIngressPath(pathname)) return true;
   if (isIronleadsIngressPath(pathname)) return true;
   if (isSalesteamIngressPath(pathname)) return true;

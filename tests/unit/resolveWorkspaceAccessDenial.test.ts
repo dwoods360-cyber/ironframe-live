@@ -47,8 +47,8 @@ describe("resolveWorkspaceAccessDenial", () => {
           name: "Run #3 — execution sequence",
         };
       }
-      if (where.slug === "bwc") {
-        return { id: "ba130f7c-453e-4c79-a611-0d69c1904a10", slug: "bwc", name: "The Blackwoods Coffee Co." };
+      if (where.slug === "acorp") {
+        return { id: "ba130f7c-453e-4c79-a611-0d69c1904a10", slug: "acorp", name: "Design Partner Co." };
       }
       return null;
     });
@@ -67,14 +67,14 @@ describe("resolveWorkspaceAccessDenial", () => {
     findInvitations.mockResolvedValue([{ status: "CONSUMED" }]);
     findManyConsumedInvites.mockResolvedValue([
       { tenantSlug: "run3" },
-      { tenantSlug: "bwc" },
+      { tenantSlug: "acorp" },
     ]);
     findManyAudit.mockImplementation(async ({ where }: { where: { tenantId?: string } }) => {
       if (where.tenantId === "ef58739c-ada9-4d2e-89f1-ec8ca625506a") {
         return [
           {
             justification:
-              "Revoked wil@blackwoodscoffee.com from run3. assignmentsRemoved=1 invitationsRevoked=0 sessionsRevoked=true authUserDeleted=false metadataCleared=false remainingAssignments=0.",
+              "Revoked operator@design-partner.test from run3. assignmentsRemoved=1 invitationsRevoked=0 sessionsRevoked=true authUserDeleted=false metadataCleared=false remainingAssignments=0.",
           },
         ];
       }
@@ -90,7 +90,7 @@ describe("resolveWorkspaceAccessDenial", () => {
       },
     );
     findManyTenants.mockResolvedValue([
-      { slug: "bwc", name: "The Blackwoods Coffee Co." },
+      { slug: "acorp", name: "Design Partner Co." },
     ]);
 
     const { resolveWorkspaceAccessDenial } = await import(
@@ -99,7 +99,7 @@ describe("resolveWorkspaceAccessDenial", () => {
 
     const result = await resolveWorkspaceAccessDenial({
       userId: "user-1",
-      email: "wil@blackwoodscoffee.com",
+      email: "operator@design-partner.test",
       tenantUuid: "ef58739c-ada9-4d2e-89f1-ec8ca625506a",
     });
 
@@ -114,19 +114,19 @@ describe("resolveWorkspaceAccessDenial", () => {
     expect(result.tenantSlug).toBe("run3");
     expect(result.assignedWorkspaces).toEqual([
       {
-        slug: "bwc",
-        name: "The Blackwoods Coffee Co.",
-        loginUrl: "http://bwc.lvh.me:3000/login",
+        slug: "acorp",
+        name: "Design Partner Co.",
+        loginUrl: "http://acorp.lvh.me:3000/login",
       },
     ]);
   });
 
   it("does not restore RBAC for consumed workspaces with a revoke audit", async () => {
     findInvitations.mockResolvedValue([{ status: "CONSUMED" }]);
-    findManyConsumedInvites.mockResolvedValue([{ tenantSlug: "bwc" }]);
+    findManyConsumedInvites.mockResolvedValue([{ tenantSlug: "acorp" }]);
     findManyAudit.mockImplementation(async ({ where }: { where: { tenantId?: string } }) => {
       if (where.tenantId === "ba130f7c-453e-4c79-a611-0d69c1904a10") {
-        return [{ justification: "Revoked wil@blackwoodscoffee.com from bwc." }];
+        return [{ justification: "Revoked operator@design-partner.test from acorp." }];
       }
       return [];
     });
@@ -137,7 +137,7 @@ describe("resolveWorkspaceAccessDenial", () => {
 
     await resolveWorkspaceAccessDenial({
       userId: "user-1",
-      email: "wil@blackwoodscoffee.com",
+      email: "operator@design-partner.test",
       tenantUuid: "ba130f7c-453e-4c79-a611-0d69c1904a10",
     });
 

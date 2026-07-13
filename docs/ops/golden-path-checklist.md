@@ -6,7 +6,7 @@
 
 **GTM context:** [Market Entrance Playbook](../sales/market-entrance-playbook.md) — beachhead, 4-agent rhythm, 90-day milestones.
 
-**Partner validation (post–3× bar):** [BWC Wil production smoke](bwc-wil-production-smoke.md) — live operator sign-off on tenant host `bwc` (**PASS** 2026-07-05).
+**Partner validation (post–3× bar):** [Design partner production smoke](design-partner-production-smoke.md) — live operator sign-off on a provisioned tenant host (**PASS** when `E2E_PRODUCTION_TENANT_SLUG` is configured).
 
 ---
 
@@ -37,7 +37,7 @@ Record date, operator, and pass/fail per run in the table at the bottom.
 
 Use this sequence after revocation / API membership hardening landed in code:
 
-1. **Purge or abandon** prior test slugs (`abc co`, `bwc` if re-testing) — `npx tsx scripts/purge-onboarding-test-records.ts --slug {slug} --execute` when needed.
+1. **Purge or abandon** prior test slugs before re-testing — `npx tsx scripts/purge-onboarding-test-records.ts --slug {slug} --execute` when needed.
 2. **Stop 0** — `npm run dev` at repo root (`:3000`). IronBoard only if running Stop 6 (`cd Ironboard && npm run dev` → `:8082`).
 3. **Stop 1** — Quick provision a **new** workspace slug at `/admin/onboarding`.
 4. **Stop 2** — Incognito activation at `http://{slug}.lvh.me:3000/login?invite={token}` (existing operators) or `/register/{token}` (first-time password setup).
@@ -156,7 +156,7 @@ Until this checklist passes **3× consecutively**, defer:
 | 1 | 2026-06-29 | Dereck | FAIL | — | Stops 1–4 partial: `abc co` provisioned, ALE + profile saved, Integrity Hub OK. Stop 5 false positive: `feature8_tabular_ledger_export_*` from home-page client stub after `?exportScope=required` redirect; billing `PENDING`. Perimeter hardened post-run. |
 | 2 | 2026-07-01 | Dereck | ☑ | ☑ | Stops 1–5 operator-verified; Stop 6 `golden-path-stop6-gtm.ts` PASS. |
 | 3 | 2026-07-03 | Dereck | ☑ | — | Slug `run3b`; operator `tall360will@gmail.com`; incognito Stop 2 on tenant host; billing ACTIVE pre–Stop 5; Integrity Hub + Ironquery export verified. |
-| 4 | — | Dereck | ☐ | ☐ | Fresh slug (e.g. `run4b`); incognito Stop 2; billing ACTIVE pre–Stop 5 — completes 3× consecutive pass bar with Runs 2–3. |
+| 4 | 2026-07-10 | Dereck | ☑ | ☑ | Slug `run4b` (local dev); Stops 1–5b + 4b; billing ACTIVE; Ironquery export + IronBoard GTM — 3× consecutive bar with Runs 2–3. |
 
 ---
 
@@ -173,4 +173,4 @@ Until this checklist passes **3× consecutively**, defer:
 | IronBoard GTM | `Ironboard/src/index.ts`, `Ironboard/src/services/boardroomQueryIntent.ts` |
 | API membership gate | `app/lib/security/tenantMembershipGuard.ts`, `tests/architecture/tenantMembershipGuard.test.ts` |
 | Operator revoke | `app/lib/server/revokeOperatorAccessCore.ts`, `app/lib/server/supabaseAuthAdminHelpers.ts` |
-| BWC partner smoke | [bwc-wil-production-smoke.md](bwc-wil-production-smoke.md), `tests/e2e/bwcWilSmoke.spec.ts`, scheduled [production-bwc-smoke.yml](../../.github/workflows/production-bwc-smoke.yml) |
+| Design partner smoke | [design-partner-production-smoke.md](design-partner-production-smoke.md), `tests/e2e/designPartnerProductionSmoke.spec.ts`, [production-smoke.yml](../../.github/workflows/production-smoke.yml) |

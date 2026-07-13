@@ -17,7 +17,7 @@ vi.mock("@/app/lib/tenantSubdomain", () => ({
 
 describe("resolveCommandPostWorkspaceTarget", () => {
   const tenants = [
-    { id: "uuid-bwc", slug: "bwc", name: "BWC" },
+    { id: "uuid-acorp", slug: "acorp", name: "acorp" },
     { id: "uuid-med", slug: "medshield", name: "Medshield" },
   ];
 
@@ -30,18 +30,18 @@ describe("resolveCommandPostWorkspaceTarget", () => {
   });
 
   it("routes apex operators to cookie-selected workspace", () => {
-    expect(resolveCommandPostWorkspaceTarget(null, tenants, "bwc")).toEqual({
-      href: "http://bwc.lvh.me:3000",
+    expect(resolveCommandPostWorkspaceTarget(null, tenants, "acorp")).toEqual({
+      href: "http://acorp.lvh.me:3000",
       usesWorkspaceOrigin: true,
-      workspaceSlug: "bwc",
+      workspaceSlug: "acorp",
     });
   });
 
   it("falls back to first assigned tenant on apex for scoped operators", () => {
     expect(resolveCommandPostWorkspaceTarget(null, tenants, null)).toEqual({
-      href: "http://bwc.lvh.me:3000",
+      href: "http://acorp.lvh.me:3000",
       usesWorkspaceOrigin: true,
-      workspaceSlug: "bwc",
+      workspaceSlug: "acorp",
     });
   });
 
@@ -71,9 +71,9 @@ describe("resolveCommandPostWorkspaceTarget", () => {
 
   it("falls back to first scoped tenant when landing slug is missing on apex", () => {
     expect(resolveApexCommandPostWorkspaceTarget(tenants, null, null, true)).toEqual({
-      href: "http://bwc.lvh.me:3000",
+      href: "http://acorp.lvh.me:3000",
       usesWorkspaceOrigin: true,
-      workspaceSlug: "bwc",
+      workspaceSlug: "acorp",
     });
   });
 
@@ -88,9 +88,9 @@ describe("resolveCommandPostWorkspaceTarget", () => {
   it("marks apex workspace targets ready only when a slug is bound", () => {
     expect(
       isCommandPostNavigationReady({
-        href: "http://bwc.lvh.me:3000",
+        href: "http://acorp.lvh.me:3000",
         usesWorkspaceOrigin: true,
-        workspaceSlug: "bwc",
+        workspaceSlug: "acorp",
       }, "localhost:3000"),
     ).toBe(true);
     expect(

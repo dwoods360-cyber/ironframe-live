@@ -25,7 +25,14 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    baseURL: productionTarget ? 'https://bwc.ironframegrc.com' : 'http://127.0.0.1:3000',
+    baseURL: productionTarget
+      ? (
+          process.env.E2E_PRODUCTION_BASE_URL?.trim().replace(/\/+$/, "") ||
+          (process.env.E2E_PRODUCTION_TENANT_SLUG?.trim()
+            ? `https://${process.env.E2E_PRODUCTION_TENANT_SLUG.trim().toLowerCase()}.${process.env.E2E_TENANT_APEX_DOMAIN?.trim() || "ironframegrc.com"}`
+            : "https://ironframegrc.com")
+        )
+      : "http://127.0.0.1:3000",
     trace: 'on-first-retry',
     actionTimeout: 15_000, // 15s for click/fill — slower than default 10s
   },

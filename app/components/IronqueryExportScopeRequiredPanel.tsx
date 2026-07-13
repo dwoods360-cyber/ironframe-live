@@ -16,7 +16,7 @@ export default function ExportScopeRequiredPanel({ message }: Props) {
         <p className="mt-3 text-sm leading-relaxed text-slate-300">{message}</p>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-slate-400">
           <li>
-            On a tenant subdomain (for example <code className="text-cyan-300">bwc.lvh.me</code>), stay on
+            On a tenant subdomain (for example <code className="text-cyan-300">acorp.lvh.me</code>), stay on
             that workspace host while you configure exports.
           </li>
           <li>

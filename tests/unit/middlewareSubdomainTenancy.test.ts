@@ -6,7 +6,7 @@ vi.mock("@/app/lib/tenantSubdomain", async (importOriginal) => {
   return {
     ...actual,
     isSubdomainTenancyEnabled: () => true,
-    resolveTenantSlugFromRequestHost: () => "bwc",
+    resolveTenantSlugFromRequestHost: () => "acorp",
     tenantUuidFromSlug: () => null,
   };
 });
@@ -14,12 +14,12 @@ vi.mock("@/app/lib/tenantSubdomain", async (importOriginal) => {
 describe("applySubdomainTenancy", () => {
   it("does not throw when resolving host tenant uuid on tenant-bound hosts", async () => {
     const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
-    const request = new NextRequest("http://bwc.lvh.me:3000/register/sample-token");
+    const request = new NextRequest("http://acorp.lvh.me:3000/register/sample-token");
     const base = NextResponse.next();
 
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true, tenant: { id: "tenant-bwc-uuid" } }),
+      json: async () => ({ ok: true, tenant: { id: "tenant-acorp-uuid" } }),
     }) as unknown as typeof fetch;
 
     await expect(applySubdomainTenancy(request, base)).resolves.toBeInstanceOf(NextResponse);
@@ -44,11 +44,11 @@ describe("applySubdomainTenancy", () => {
 
   it("preserves auth redirect on tenant subdomain hosts", async () => {
     const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
-    const request = new NextRequest("http://bwc.ironframegrc.com/reports/audit-trail", {
-      headers: { host: "bwc.ironframegrc.com" },
+    const request = new NextRequest("http://acorp.ironframegrc.com/reports/audit-trail", {
+      headers: { host: "acorp.ironframegrc.com" },
     });
     const loginUrl = new URL(
-      "http://bwc.ironframegrc.com/login?next=%2Freports%2Faudit-trail",
+      "http://acorp.ironframegrc.com/login?next=%2Freports%2Faudit-trail",
     );
     const base = NextResponse.redirect(loginUrl);
 
@@ -64,8 +64,8 @@ describe("applySubdomainTenancy", () => {
 
   it("does not stamp ironframe-tenant on /login when the cookie is absent (post-logout)", async () => {
     const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
-    const request = new NextRequest("http://bwc.lvh.me:3000/login", {
-      headers: { host: "bwc.lvh.me:3000" },
+    const request = new NextRequest("http://acorp.lvh.me:3000/login", {
+      headers: { host: "acorp.lvh.me:3000" },
     });
     const base = NextResponse.next();
 
@@ -81,8 +81,8 @@ describe("applySubdomainTenancy", () => {
   it("does not strip /boardroom namespace paths on tenant subdomain hosts", async () => {
     const { applySubdomainTenancy } = await import("@/app/lib/middlewareSubdomainTenancy");
     const request = new NextRequest(
-      "http://bwc.ironframegrc.com/boardroom/admin/audit-logs?tenant=bwc",
-      { headers: { host: "bwc.ironframegrc.com" } },
+      "http://acorp.ironframegrc.com/boardroom/admin/audit-logs?tenant=acorp",
+      { headers: { host: "acorp.ironframegrc.com" } },
     );
     const base = NextResponse.next();
 

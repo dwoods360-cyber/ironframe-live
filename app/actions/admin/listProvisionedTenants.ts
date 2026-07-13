@@ -1,7 +1,10 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import {
+  requirePartnerProvisioner,
+} from "@/app/lib/auth/partnerProvisionerAccess";
+import { tenantIdsFromPartnerScope } from "@/app/lib/auth/partnerProvisionerScopeFilter";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 
 export type ProvisionedTenantAdminRow = {
@@ -17,13 +20,15 @@ export type ProvisionedTenantAdminRow = {
 export async function listProvisionedTenantsForAdminAction(): Promise<
   { ok: true; tenants: ProvisionedTenantAdminRow[] } | { ok: false; error: string }
 > {
-  const admin = await requirePlatformAdministrator();
-  if ("error" in admin) {
-    return { ok: false, error: admin.error };
+  const gate = await requirePartnerProvisioner();
+  if ("error" in gate) {
+    return { ok: false, error: gate.error };
   }
 
+  const scopedTenantIds = tenantIdsFromPartnerScope(gate.scope);
   const port = Number(process.env.PORT?.trim() || "3000") || 3000;
   const rows = await prisma.tenant.findMany({
+    where: scopedTenantIds ? { id: { in: scopedTenantIds } } : undefined,
     select: {
       id: true,
       name: true,

@@ -18,6 +18,7 @@ type Props = {
   blocked: boolean;
   tenantSlug: string;
   billingStatus: string;
+  checkoutUrl?: string | null;
   children: ReactNode;
 };
 
@@ -25,6 +26,7 @@ export default function DashboardBillingGate({
   blocked,
   tenantSlug,
   billingStatus,
+  checkoutUrl = null,
   children,
 }: Props) {
   const pathname = usePathname() ?? "";
@@ -40,5 +42,11 @@ export default function DashboardBillingGate({
     return <>{children}</>;
   }
 
-  return <BillingSuspensionNotice tenantSlug={tenantSlug} status={billingStatus} />;
+  return (
+    <BillingSuspensionNotice
+      tenantSlug={tenantSlug}
+      status={billingStatus}
+      checkoutUrl={checkoutUrl}
+    />
+  );
 }

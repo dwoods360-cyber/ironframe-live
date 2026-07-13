@@ -3,13 +3,13 @@ import { NextResponse } from "next/server";
 import { parseCheckoutSessionCompleted } from "@/app/lib/billing/parseCheckoutSession";
 import { verifyStripeWebhookEvent } from "@/app/lib/billing/stripeClient";
 import { fulfillStripeInstantCheckout } from "@/app/lib/server/stripeInstantProvisionCore";
-import { resolveStripeWebhookSecret } from "@/config/stripe";
+import { resolveStripeInstantCheckoutWebhookSecret } from "@/config/stripe";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const webhookSecret = resolveStripeWebhookSecret();
+  const webhookSecret = resolveStripeInstantCheckoutWebhookSecret();
   if (!webhookSecret) {
     return NextResponse.json({ ok: false, error: "Webhook not configured." }, { status: 503 });
   }

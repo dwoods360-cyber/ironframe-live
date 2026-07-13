@@ -37,4 +37,19 @@ describe("parsePaymentIntentSucceeded", () => {
     );
     expect(parsed.ok).toBe(false);
   });
+
+  it("accepts tenant_uuid without slug (GRC canonical)", () => {
+    const parsed = parsePaymentIntentSucceeded(
+      mockPaymentIntent({
+        metadata: {
+          tenant_uuid: "a1b2c3d4-e5f6-4789-a012-3456789abcde",
+          email: "buyer@acmecorp.com",
+        },
+      }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.data.tenantUuid).toBe("a1b2c3d4-e5f6-4789-a012-3456789abcde");
+    expect(parsed.data.tenantSlug).toBe("");
+  });
 });

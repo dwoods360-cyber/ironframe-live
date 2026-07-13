@@ -76,5 +76,6 @@ export async function buildSessionLogoutResponse(
 
   stampWorkspaceCookieClears(response);
   clearSupabaseAuthCookiesFromRequest(request, response);
+  response.headers.set("Cache-Control", "no-store, must-revalidate");
   return response;
 }

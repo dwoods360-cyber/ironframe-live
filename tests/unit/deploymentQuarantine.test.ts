@@ -94,7 +94,7 @@ describe("deploymentQuarantine", () => {
         "/api/billing/webhook",
       ),
     ).toBe(false);
-    expect(shouldBlockProductionIngress(mockRequest("/pricing"), "/pricing")).toBe(true);
+    expect(shouldBlockProductionIngress(mockRequest("/pricing"), "/pricing")).toBe(false);
   });
 
   it("allows token-gated API ingress on cloud while UI stays quarantined", () => {

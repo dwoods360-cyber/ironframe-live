@@ -1,6 +1,6 @@
 import "server-only";
 
-import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
+import { TENANT_BILLING_STATUS, isPlaceholderStripeCustomerId } from "@/app/lib/billing/constants";
 import type { ParsedPaymentIntentSucceeded } from "@/app/lib/billing/parsePaymentIntent";
 import {
   findTenantBillingByStripeCustomerId,
@@ -17,27 +17,82 @@ export type StripePaymentIntentFulfillResult =
 export async function fulfillStripePaymentIntentSucceeded(
   parsed: ParsedPaymentIntentSucceeded,
 ): Promise<StripePaymentIntentFulfillResult> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { slug: parsed.tenantSlug },
-    select: { id: true, slug: true },
-  });
+  let tenant: { id: string; slug: string } | null = null;
 
-  if (!tenant) {
+  if (parsed.tenantUuid) {
+    tenant = await prisma.tenant.findUnique({
+      where: { id: parsed.tenantUuid },
+      select: { id: true, slug: true },
+    });
+    if (!tenant) {
+      return {
+        ok: false,
+        error: `Tenant UUID "${parsed.tenantUuid}" is not provisioned.`,
+        retryable: false,
+      };
+    }
+    if (parsed.tenantSlug && tenant.slug !== parsed.tenantSlug) {
+      return {
+        ok: false,
+        error: `Payment metadata slug "${parsed.tenantSlug}" does not match tenant UUID (${tenant.slug}).`,
+        retryable: false,
+      };
+    }
+  } else {
+    tenant = await prisma.tenant.findUnique({
+      where: { slug: parsed.tenantSlug },
+      select: { id: true, slug: true },
+    });
+    if (!tenant) {
+      return {
+        ok: false,
+        error: `Tenant "${parsed.tenantSlug}" is not provisioned.`,
+        retryable: false,
+      };
+    }
+  }
+
+  const tenantSlug = tenant.slug;
+
+  const billingRow = await prisma.tenantBilling.findUnique({
+    where: { tenantSlug },
+    select: { tenantSlug: true, status: true, stripeCustomerId: true },
+  });
+  if (!billingRow) {
     return {
       ok: false,
-      error: `Tenant "${parsed.tenantSlug}" is not provisioned.`,
+      error: `Tenant "${tenantSlug}" has no billing row — provision the workspace before activation payment.`,
+      retryable: false,
+    };
+  }
+
+  if (
+    !isPlaceholderStripeCustomerId(billingRow.stripeCustomerId) &&
+    billingRow.stripeCustomerId !== parsed.stripeCustomerId
+  ) {
+    return {
+      ok: false,
+      error: `Stripe customer on payment does not match the workspace billing record. Use the checkout link issued at provision for "${tenantSlug}".`,
       retryable: false,
     };
   }
 
   const existingBilling = await findTenantBillingByStripeCustomerId(parsed.stripeCustomerId);
+  if (existingBilling && existingBilling.tenantSlug !== tenantSlug) {
+    return {
+      ok: false,
+      error: `Stripe customer is bound to "${existingBilling.tenantSlug}", not "${tenantSlug}". Use the tenant-scoped activation checkout for this workspace.`,
+      retryable: false,
+    };
+  }
+
   if (
     existingBilling?.status === TENANT_BILLING_STATUS.ACTIVE &&
-    existingBilling.tenantSlug === parsed.tenantSlug
+    existingBilling.tenantSlug === tenantSlug
   ) {
     return {
       ok: true,
-      tenantSlug: parsed.tenantSlug,
+      tenantSlug,
       idempotent: true,
       amountReceivedCents: parsed.amountReceivedCents.toString(),
     };
@@ -45,7 +100,7 @@ export async function fulfillStripePaymentIntentSucceeded(
 
   try {
     await upsertTenantBillingFromStripe({
-      tenantSlug: parsed.tenantSlug,
+      tenantSlug,
       stripeCustomerId: parsed.stripeCustomerId,
       status: TENANT_BILLING_STATUS.ACTIVE,
     });
@@ -55,13 +110,13 @@ export async function fulfillStripePaymentIntentSucceeded(
         action: "STRIPE_PAYMENT_INTENT_BILLING_ACTIVE",
         operatorId: STRIPE_PAYMENT_INTENT_OPERATOR_ID,
         tenantId: tenant.id,
-        justification: `Stripe payment_intent.succeeded (${parsed.paymentIntentId}) activated billing for ${parsed.tenantSlug}; amount_received_cents=${parsed.amountReceivedCents.toString()}.`,
+        justification: `Stripe payment_intent.succeeded (${parsed.paymentIntentId}) activated billing for ${tenantSlug} (tenant_uuid=${tenant.id}); amount_received_cents=${parsed.amountReceivedCents.toString()}.`,
       },
     });
 
     return {
       ok: true,
-      tenantSlug: parsed.tenantSlug,
+      tenantSlug,
       idempotent: false,
       amountReceivedCents: parsed.amountReceivedCents.toString(),
     };

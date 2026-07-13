@@ -1,7 +1,11 @@
 "use server";
 
 import { UserRole } from "@prisma/client";
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+
+import {
+  assertTenantSlugInPartnerScope,
+  requirePartnerProvisioner,
+} from "@/app/lib/auth/partnerProvisionerAccess";
 import {
   inviteCorporateTenantUserCore,
   type InviteCorporateTenantUserCoreResult,
@@ -12,9 +16,15 @@ export type InviteCorporateTenantUserResult = InviteCorporateTenantUserCoreResul
 export async function inviteCorporateTenantUserAction(
   formData: FormData,
 ): Promise<InviteCorporateTenantUserResult> {
-  const admin = await requirePlatformAdministrator();
-  if ("error" in admin) {
-    return { ok: false, error: admin.error };
+  const gate = await requirePartnerProvisioner();
+  if ("error" in gate) {
+    return { ok: false, error: gate.error };
+  }
+
+  const tenantSlugRaw = String(formData.get("tenantSlug") ?? "");
+  const scopeCheck = await assertTenantSlugInPartnerScope(gate, tenantSlugRaw);
+  if (!scopeCheck.ok) {
+    return { ok: false, error: scopeCheck.error };
   }
 
   const inviteRoleRaw = String(formData.get("role") ?? "GRC_MANAGER").trim().toUpperCase();
@@ -29,8 +39,8 @@ export async function inviteCorporateTenantUserAction(
 
   return inviteCorporateTenantUserCore({
     email: String(formData.get("email") ?? ""),
-    tenantSlugRaw: String(formData.get("tenantSlug") ?? ""),
-    operatorId: admin.userId,
+    tenantSlugRaw,
+    operatorId: gate.userId,
     role: inviteRole,
   });
 }

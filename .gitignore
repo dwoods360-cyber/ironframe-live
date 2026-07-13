@@ -25,6 +25,7 @@ test-results/
 # Ironframe Local Runtime Noise
 .pki-provision/
 .env.production.local
+.env.production.vercel
 storage/constitutional/**/*.json
 tsconfig.tsbuildinfo
 .env
@@ -36,6 +37,8 @@ tsconfig.tsbuildinfo
 .vscode/
 debug.zip
 scripts/vercel-env-preview-pki.mjs
+scripts/dev/stripe-catalog-artifact.json
+scripts/dev/stripe-client-links.json
 secrets-replacements.txt
 .env*
 

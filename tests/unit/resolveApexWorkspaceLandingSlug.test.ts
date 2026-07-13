@@ -43,13 +43,13 @@ describe("resolveApexWorkspaceLandingSlug", () => {
 
   it("allows platform GLOBAL_ADMIN email to land on metadata slug without assignment", async () => {
     vi.mocked(lookupTenantBySlug).mockResolvedValue({
-      id: "tenant-bwc",
-      slug: "bwc",
-      name: "BWC",
+      id: "tenant-acorp",
+      slug: "acorp",
+      name: "acorp",
     });
 
-    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "bwc", "dwoods360@gmail.com");
-    expect(slug).toBe("bwc");
+    const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "acorp", "dwoods360@gmail.com");
+    expect(slug).toBe("acorp");
     expect(prisma.userRoleAssignment.findFirst).not.toHaveBeenCalled();
   });
 
@@ -61,11 +61,11 @@ describe("resolveApexWorkspaceLandingSlug", () => {
     });
     vi.mocked(prisma.userRoleAssignment.findFirst)
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ tenantId: "tenant-bwc" });
-    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" });
+      .mockResolvedValueOnce({ tenantId: "tenant-acorp" });
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "acorp" });
 
     const slug = await resolveApexWorkspaceLandingSlug(USER_ID, "run2", "operator@example.com");
-    expect(slug).toBe("bwc");
+    expect(slug).toBe("acorp");
   });
 
   it("returns null when metadata is stale and no assignments remain", async () => {
@@ -83,10 +83,10 @@ describe("resolveApexWorkspaceLandingSlug", () => {
   });
 
   it("uses primary assignment when metadata slug is absent", async () => {
-    vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValueOnce({ tenantId: "tenant-bwc" });
-    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" });
+    vi.mocked(prisma.userRoleAssignment.findFirst).mockResolvedValueOnce({ tenantId: "tenant-acorp" });
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "acorp" });
 
     const slug = await resolveApexWorkspaceLandingSlug(USER_ID, null);
-    expect(slug).toBe("bwc");
+    expect(slug).toBe("acorp");
   });
 });

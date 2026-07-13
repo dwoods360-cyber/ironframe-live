@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { parsePaymentIntentSucceeded } from "@/app/lib/billing/parsePaymentIntent";
 import { verifyStripeWebhookEvent } from "@/app/lib/billing/stripeClient";
 import { fulfillStripePaymentIntentSucceeded } from "@/app/lib/server/stripePaymentIntentCore";
-import { resolveStripeWebhookSecret } from "@/config/stripe";
+import { resolveStripeBillingWebhookSecret } from "@/config/stripe";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export const runtime = "nodejs";
  * Activates TenantBilling on payment_intent.succeeded (BigInt amount_received cents in audit trail).
  */
 export async function POST(request: Request) {
-  const webhookSecret = resolveStripeWebhookSecret();
+  const webhookSecret = resolveStripeBillingWebhookSecret();
   if (!webhookSecret) {
     return NextResponse.json({ ok: false, error: "Webhook not configured." }, { status: 503 });
   }

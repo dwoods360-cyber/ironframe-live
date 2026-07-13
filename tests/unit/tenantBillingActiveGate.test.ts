@@ -21,7 +21,7 @@ import prisma from "@/lib/prisma";
 describe("assertTenantBillingActive", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" } as never);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "acorp" } as never);
     vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
   });
 
@@ -67,7 +67,7 @@ describe("assertTenantBillingActive", () => {
 describe("assertTenantBillingActiveForCompanyProfileIngress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "bwc" } as never);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({ slug: "acorp" } as never);
     vi.mocked(prisma.company.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.tenantBilling.findUnique).mockResolvedValue({
       status: TENANT_BILLING_STATUS.PENDING,

@@ -10,11 +10,10 @@ import {
   tenantSubdomainOrigin,
 } from "./helpers/ingestionPipeline";
 import { readIronframeTenantCookie, waitForLeftRailReady } from "./helpers/dashboardCoreFlows";
-
-const BWC_SLUG = "bwc";
-const BWC_OPERATOR_EMAIL =
-  process.env.E2E_BWC_OPERATOR_EMAIL?.trim().toLowerCase() ||
-  "wil@blackwoodscoffee.com";
+import {
+  resolveE2EProductionOperatorEmail,
+  resolveE2EProductionTenantSlug,
+} from "./helpers/designPartnerE2eEnv";
 
 type SmokeReport = {
   email: string;
@@ -33,16 +32,21 @@ type SmokeReport = {
 
 test.describe.configure({ mode: "serial", timeout: 180_000 });
 
-test.describe("BWC Wil smoke — design partner Command Post", () => {
+test.describe("Design partner production smoke — Command Post", () => {
+  const tenantSlug = resolveE2EProductionTenantSlug();
+  const operatorEmail = resolveE2EProductionOperatorEmail();
+
   test.afterAll(async () => {
     await disconnectE2ePrisma();
   });
 
   test("lands Command Post on tenant host without billing hold or login loop", async ({ page }) => {
+    test.skip(!tenantSlug, "Set E2E_PRODUCTION_TENANT_SLUG for production smoke.");
+    test.skip(!operatorEmail, "Set E2E_PRODUCTION_OPERATOR_EMAIL for production smoke.");
     test.skip(!hasDatabaseUrl(), "DATABASE_URL required.");
     test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required.");
 
-    await assertTenantBillingActive(BWC_SLUG);
+    await assertTenantBillingActive(tenantSlug);
 
     const loginNavigationLog: string[] = [];
     page.on("framenavigated", (frame) => {
@@ -53,7 +57,7 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
       }
     });
 
-    await redeemInviteOnTenantSubdomain(page, BWC_OPERATOR_EMAIL, BWC_SLUG);
+    await redeemInviteOnTenantSubdomain(page, operatorEmail, tenantSlug);
 
     const paths = ["/", "/integrity", "/get-started", "/exports"];
     const pathReports: SmokeReport["paths"] = [];
@@ -104,7 +108,7 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
 
     for (const path of paths) {
       const loginHitsBefore = loginNavigationLog.length;
-      await page.goto(`${tenantSubdomainOrigin(BWC_SLUG)}${path}`, {
+      await page.goto(`${tenantSubdomainOrigin(tenantSlug)}${path}`, {
         waitUntil: path === "/" || path === "/integrity" ? "commit" : "domcontentloaded",
         timeout: path === "/" || path === "/integrity" ? 120_000 : 60_000,
       });
@@ -142,23 +146,23 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     }
 
     const report: SmokeReport = {
-      email: BWC_OPERATOR_EMAIL,
+      email: operatorEmail,
       billingStatus: "ACTIVE",
       paths: pathReports,
       tenantCookie: await readIronframeTenantCookie(page),
       loginNavigationLog,
     };
 
-    console.log("\n=== BWC WIL SMOKE DIAGNOSTIC ===");
+    console.log("\n=== DESIGN PARTNER PRODUCTION SMOKE ===");
     console.log(JSON.stringify(report, null, 2));
-    console.log("=== END BWC WIL SMOKE ===\n");
+    console.log("=== END DESIGN PARTNER PRODUCTION SMOKE ===\n");
 
     const tenantHostPattern = isE2eProductionTarget()
-      ? /bwc\.ironframegrc\.com/i
-      : /bwc\.lvh\.me/i;
+      ? new RegExp(`${tenantSlug}\\.ironframegrc\\.com`, "i")
+      : new RegExp(`${tenantSlug}\\.lvh\\.me`, "i");
 
     const root = pathReports.find((row) => row.path === "/");
-    expect(root?.finalUrl, "must stay on bwc tenant host").toMatch(tenantHostPattern);
+    expect(root?.finalUrl, "must stay on tenant host").toMatch(tenantHostPattern);
     expect(root?.mode, "Command Post must load on /").toBe("command_post");
     expect(root?.billingHold, "ACTIVE billing must not show hold panel").toBe(false);
     await expect(page.getByText(/FETCH BLOCKED: NO TENANT CONTEXT/i)).toHaveCount(0);
@@ -171,8 +175,8 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     expect(exports?.mode, "exports must not require re-login").not.toBe("signin");
     expect(exports?.finalUrl, "exports must stay on tenant host /exports route").toMatch(
       isE2eProductionTarget()
-        ? /bwc\.ironframegrc\.com\/exports/i
-        : /bwc\.lvh\.me:3000\/exports/i,
+        ? new RegExp(`${tenantSlug}\\.ironframegrc\\.com\\/exports`, "i")
+        : new RegExp(`${tenantSlug}\\.lvh\\.me:3000\\/exports`, "i"),
     );
 
     expect(
@@ -181,7 +185,7 @@ test.describe("BWC Wil smoke — design partner Command Post", () => {
     ).toBeLessThanOrEqual(1);
 
     if (root?.dashboardMain) {
-      await page.goto(`${tenantSubdomainOrigin(BWC_SLUG)}/`, {
+      await page.goto(`${tenantSubdomainOrigin(tenantSlug)}/`, {
         waitUntil: "domcontentloaded",
         timeout: 60_000,
       });

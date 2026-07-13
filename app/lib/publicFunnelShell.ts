@@ -11,6 +11,9 @@ export function isPublicDarkShellPath(pathname: string): boolean {
   if (isAuthPublicPath(normalized)) return true;
   if (isPublicProspectOnboardingPath(normalized)) return true;
   if (normalized === "/legal/accept") return true;
+  if (normalized === "/pricing" || normalized.startsWith("/pricing/")) return true;
+  if (normalized === "/terms" || normalized.startsWith("/terms/")) return true;
+  if (normalized === "/privacy" || normalized.startsWith("/privacy/")) return true;
   if (
     normalized === "/register/contact" ||
     normalized === "/register/setup" ||

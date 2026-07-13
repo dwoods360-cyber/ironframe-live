@@ -12,18 +12,18 @@ describe("e2e tenant origin", () => {
 
   it("defaults to local lvh.me workspace", () => {
     vi.stubEnv("E2E_PRODUCTION", "");
-    expect(tenantSubdomainOrigin("bwc")).toBe("http://bwc.lvh.me:3000");
+    expect(tenantSubdomainOrigin("acorp")).toBe("http://acorp.lvh.me:3000");
     expect(isE2eProductionTarget()).toBe(false);
   });
 
   it("targets production apex when E2E_PRODUCTION=1", () => {
     vi.stubEnv("E2E_PRODUCTION", "1");
-    expect(tenantSubdomainOrigin("bwc")).toBe("https://bwc.ironframegrc.com");
+    expect(tenantSubdomainOrigin("acorp")).toBe("https://acorp.ironframegrc.com");
     expect(isE2eProductionTarget()).toBe(true);
   });
 
   it("honors explicit E2E_TENANT_ORIGIN override", () => {
-    vi.stubEnv("E2E_TENANT_ORIGIN", "https://bwc.ironframegrc.com");
-    expect(tenantSubdomainOrigin("bwc")).toBe("https://bwc.ironframegrc.com");
+    vi.stubEnv("E2E_TENANT_ORIGIN", "https://acorp.ironframegrc.com");
+    expect(tenantSubdomainOrigin("acorp")).toBe("https://acorp.ironframegrc.com");
   });
 });

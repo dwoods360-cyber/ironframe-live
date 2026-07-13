@@ -3,7 +3,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import TenantBillingAdminClient from "@/app/(dashboard)/admin/billing/TenantBillingAdminClient";
-import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
+import {
+  canUsePartnerProvisionerFromSession,
+  requirePartnerProvisioner,
+} from "@/app/lib/auth/partnerProvisionerAccess";
+import { tenantIdsFromPartnerScope } from "@/app/lib/auth/partnerProvisionerScopeFilter";
 import { fetchTenantDeploymentRows } from "@/app/lib/server/adminOnboardingDeployments";
 import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
 
@@ -19,14 +24,21 @@ export const metadata = {
 export default async function AdminBillingPage() {
   noStore();
 
-  const allowed = await canUsePerimeterWorkforceFromSession();
+  const allowed = await canUsePartnerProvisionerFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }
 
-  const [tenants, stripeCheckoutUrl] = await Promise.all([
-    fetchTenantDeploymentRows(),
+  const partnerGate = await requirePartnerProvisioner();
+  const scopedTenantIds =
+    "error" in partnerGate ? undefined : tenantIdsFromPartnerScope(partnerGate.scope);
+
+  const [tenants, stripeCheckoutUrl, platformAdmin] = await Promise.all([
+    fetchTenantDeploymentRows(
+      scopedTenantIds ? { tenantIds: scopedTenantIds } : undefined,
+    ),
     Promise.resolve(resolveStripeCommandTierCheckoutUrl()),
+    canUsePlatformAdminTools(),
   ]);
 
   return (
@@ -40,11 +52,15 @@ export default async function AdminBillingPage() {
           </Link>
           <span className="mx-2 text-slate-700">·</span>
           <Link href="/admin/onboarding" className="text-cyan-400 hover:underline">
-            Tenant onboarding
+            Client workspaces
           </Link>
         </p>
 
-        <TenantBillingAdminClient tenants={tenants} stripeCheckoutUrl={stripeCheckoutUrl} />
+        <TenantBillingAdminClient
+          tenants={tenants}
+          stripeCheckoutUrl={stripeCheckoutUrl}
+          canManualActivateBilling={platformAdmin}
+        />
       </main>
     </div>
   );

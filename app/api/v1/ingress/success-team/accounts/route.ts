@@ -20,7 +20,7 @@ function authorizeSuccessTeamIngress(request: NextRequest): NextResponse | null 
 }
 
 /**
- * GET /api/v1/ingress/success-team/accounts?tenantSlug=bwc&limit=50
+ * GET /api/v1/ingress/success-team/accounts?tenantSlug=acorp&limit=50
  * Read-only poll queue for IronSuccessTeam — CLOSED_WON accounts.
  */
 export async function GET(request: NextRequest) {

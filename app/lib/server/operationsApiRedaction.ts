@@ -18,7 +18,7 @@ export function resolveOperationsCrmScopeSlug(): string {
   if (configured && /^[a-z0-9-]+$/.test(configured)) {
     return configured;
   }
-  return "bwc";
+  return "medshield";
 }
 
 export type RedactedWorkforceServiceStatus = Omit<

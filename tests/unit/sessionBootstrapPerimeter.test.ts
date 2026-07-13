@@ -22,8 +22,8 @@ vi.mock("@supabase/ssr", () => ({
 
 vi.mock("@/app/lib/tenantSlugRegistry", () => ({
   lookupTenantBySlug: vi.fn(async (slug: string) => {
-    if (slug === "bwc") {
-      return { id: "tenant-bwc-uuid", slug: "bwc", name: "Blackwoods Coffee" };
+    if (slug === "acorp") {
+      return { id: "tenant-acorp-uuid", slug: "acorp", name: "Design Partner" };
     }
     if (slug === "run3") {
       return { id: "tenant-run3-uuid", slug: "run3", name: "Run 3" };
@@ -34,7 +34,7 @@ vi.mock("@/app/lib/tenantSlugRegistry", () => ({
 
 vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({
   userHasTenantRoleAssignment: vi.fn(async (userId: string, tenantUuid: string) => {
-    return userId === "wil-user-id" && tenantUuid === "tenant-bwc-uuid";
+    return userId === "wil-user-id" && tenantUuid === "tenant-acorp-uuid";
   }),
 }));
 
@@ -55,8 +55,8 @@ vi.mock("@/app/lib/auth/resolveBootstrapSessionTokens.server", () => ({
 
 const WIL_USER = {
   id: "wil-user-id",
-  email: "wil@blackwoodscoffee.com",
-  user_metadata: { tenant_slug: "bwc" },
+  email: "operator@design-partner.test",
+  user_metadata: { tenant_slug: "acorp" },
 };
 
 const WIL_SESSION = {
@@ -133,7 +133,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
 
   it("workspace-launch redirects to tenant bootstrap in one server hop", async () => {
     const launchRequest = new NextRequest(
-      "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
+      "http://localhost:3000/api/auth/workspace-launch?tenant=acorp&next=/",
     );
     const launchResponse = await launchWorkspace(launchRequest);
     expect(launchResponse.status).toBe(307);
@@ -141,7 +141,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     const location = launchResponse.headers.get("location");
     expect(location).toBeTruthy();
     const bootstrapUrl = new URL(location!);
-    expect(bootstrapUrl.hostname).toBe("bwc.lvh.me");
+    expect(bootstrapUrl.hostname).toBe("acorp.lvh.me");
     expect(bootstrapUrl.pathname).toBe("/api/auth/session-bootstrap");
     expect(bootstrapUrl.searchParams.get("token")?.startsWith("bt_")).toBe(true);
   });
@@ -152,7 +152,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     mockAuth.refreshSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const launchRequest = new NextRequest(
-      "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
+      "http://localhost:3000/api/auth/workspace-launch?tenant=acorp&next=/",
     );
     const launchResponse = await launchWorkspace(launchRequest);
     expect(launchResponse.status).toBe(307);
@@ -160,7 +160,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     const location = launchResponse.headers.get("location");
     expect(location).toBeTruthy();
     const loginUrl = new URL(location!);
-    expect(loginUrl.hostname).toBe("bwc.lvh.me");
+    expect(loginUrl.hostname).toBe("acorp.lvh.me");
     expect(loginUrl.pathname).toBe("/login");
     expect(loginUrl.searchParams.get("fresh")).toBe("1");
   });
@@ -168,13 +168,13 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   it("workspace-launch mints bootstrap when getSession is empty but getUser is valid", async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
     mockAuth.getUser.mockResolvedValue({
-      data: { user: { ...WIL_USER, email: "wil@blackwoodscoffee.com" } },
+      data: { user: { ...WIL_USER, email: "operator@design-partner.test" } },
       error: null,
     });
     mockAuth.refreshSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const launchRequest = new NextRequest(
-      "http://localhost:3000/api/auth/workspace-launch?tenant=bwc&next=/",
+      "http://localhost:3000/api/auth/workspace-launch?tenant=acorp&next=/",
     );
     const launchResponse = await launchWorkspace(launchRequest);
     expect(launchResponse.status).toBe(307);
@@ -182,21 +182,21 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
     const location = launchResponse.headers.get("location");
     expect(location).toBeTruthy();
     const bootstrapUrl = new URL(location!);
-    expect(bootstrapUrl.hostname).toBe("bwc.lvh.me");
+    expect(bootstrapUrl.hostname).toBe("acorp.lvh.me");
     expect(bootstrapUrl.pathname).toBe("/api/auth/session-bootstrap");
     expect(bootstrapUrl.searchParams.get("token")?.startsWith("bt_")).toBe(true);
     expect((bootstrapUrl.searchParams.get("token") ?? "").length).toBeLessThan(800);
   });
 
   it("mints an opaque bt_ ticket for a tenant with active role assignment", async () => {
-    const mintResponse = await mintSessionBootstrap(buildMintRequest("bwc", "/integrity"));
+    const mintResponse = await mintSessionBootstrap(buildMintRequest("acorp", "/integrity"));
     expect(mintResponse.status).toBe(200);
 
     const mintPayload = (await mintResponse.json()) as { bootstrapUrl?: string };
     expect(mintPayload.bootstrapUrl).toBeTruthy();
 
     const bootstrapUrl = new URL(mintPayload.bootstrapUrl!);
-    expect(bootstrapUrl.hostname).toBe("bwc.lvh.me");
+    expect(bootstrapUrl.hostname).toBe("acorp.lvh.me");
     expect(bootstrapUrl.pathname).toBe("/api/auth/session-bootstrap");
 
     const token = bootstrapUrl.searchParams.get("token");
@@ -215,16 +215,16 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   });
 
   it("redeems a valid ticket, establishes session cookies, and purges the cache entry", async () => {
-    const mintResponse = await mintSessionBootstrap(buildMintRequest("bwc"));
+    const mintResponse = await mintSessionBootstrap(buildMintRequest("acorp"));
     const { bootstrapUrl } = (await mintResponse.json()) as { bootstrapUrl: string };
     const token = new URL(bootstrapUrl).searchParams.get("token")!;
 
-    const redeemResponse = await redeemSessionBootstrap(buildRedeemRequest("bwc", token));
+    const redeemResponse = await redeemSessionBootstrap(buildRedeemRequest("acorp", token));
     expect(redeemResponse.status).toBeGreaterThanOrEqual(300);
     expect(redeemResponse.status).toBeLessThan(400);
     const location = redeemResponse.headers.get("location");
     expect(location).toBeTruthy();
-    expect(new URL(location!).hostname).toBe("bwc.lvh.me");
+    expect(new URL(location!).hostname).toBe("acorp.lvh.me");
     expect(new URL(location!).pathname).toBe("/");
     expect(mockAuth.setSession).toHaveBeenCalledWith({
       access_token: WIL_SESSION.access_token,
@@ -234,16 +234,16 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   });
 
   it("returns 401 on an immediate second redeem attempt with the identical token", async () => {
-    const mintResponse = await mintSessionBootstrap(buildMintRequest("bwc"));
+    const mintResponse = await mintSessionBootstrap(buildMintRequest("acorp"));
     const { bootstrapUrl } = (await mintResponse.json()) as { bootstrapUrl: string };
     const token = new URL(bootstrapUrl).searchParams.get("token")!;
 
-    const firstRedeem = await redeemSessionBootstrap(buildRedeemRequest("bwc", token));
+    const firstRedeem = await redeemSessionBootstrap(buildRedeemRequest("acorp", token));
     expect(firstRedeem.status).toBeGreaterThanOrEqual(300);
     expect(firstRedeem.status).toBeLessThan(400);
 
     const secondRedeem = await redeemSessionBootstrap(
-      buildRedeemRequest("bwc", token, { acceptJson: true }),
+      buildRedeemRequest("acorp", token, { acceptJson: true }),
     );
     expect(secondRedeem.status).toBe(401);
 
@@ -252,7 +252,7 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   });
 
   it("rejects cross-tenant host binding before session initialization", async () => {
-    const mintResponse = await mintSessionBootstrap(buildMintRequest("bwc"));
+    const mintResponse = await mintSessionBootstrap(buildMintRequest("acorp"));
     const { bootstrapUrl } = (await mintResponse.json()) as { bootstrapUrl: string };
     const token = new URL(bootstrapUrl).searchParams.get("token")!;
 
@@ -267,13 +267,13 @@ describe("session bootstrap perimeter (mint → redeem → reuse rejection)", ()
   });
 
   it("rejects retired legacy access_token query bootstrap attempts", async () => {
-    const legacyUrl = new URL("http://bwc.lvh.me:3000/api/auth/session-bootstrap");
+    const legacyUrl = new URL("http://acorp.lvh.me:3000/api/auth/session-bootstrap");
     legacyUrl.searchParams.set("access_token", "leaked-access");
     legacyUrl.searchParams.set("refresh_token", "leaked-refresh");
 
     const legacyRequest = new NextRequest(legacyUrl.toString(), {
       headers: {
-        host: "bwc.lvh.me:3000",
+        host: "acorp.lvh.me:3000",
         accept: "application/json",
       },
     });

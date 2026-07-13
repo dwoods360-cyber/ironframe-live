@@ -5,7 +5,8 @@ import {
   IRONFRAME_TENANT_COOKIE,
   SESSION_LOGOUT_PATH,
 } from "@/app/lib/auth/workspaceSessionCookies";
-import { resetAllStoresAndTenantScopeCache } from "@/app/utils/purgeClientTenantScope";
+
+export const LOGOUT_IN_FLIGHT_SESSION_KEY = "ironframe-logout-in-flight";
 
 const WORKSPACE_SCOPE_COOKIES = [IRONFRAME_TENANT_COOKIE, IRONFRAME_SIMULATION_MODE_COOKIE] as const;
 
@@ -18,12 +19,23 @@ function clearWorkspaceScopeCookiesClient(): void {
   }
 }
 
+function markLogoutInFlight(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LOGOUT_IN_FLIGHT_SESSION_KEY, "1");
+  } catch {
+    /* private mode */
+  }
+}
+
 /**
  * Terminate the browser session via server logout redirect (Set-Cookie on navigation).
  * Uses `location.replace` so protected dashboard routes cannot be restored via Back.
+ * Store purge is deferred to `/login` mount — wiping Zustand before navigation caused
+ * Integrity Hub `router.refresh()` races that rendered a blank unstyled shell.
  */
 export function performClientSessionLogout(): void {
-  resetAllStoresAndTenantScopeCache();
+  markLogoutInFlight();
   clearWorkspaceScopeCookiesClient();
   const next = encodeURIComponent("/login");
   window.location.replace(`${SESSION_LOGOUT_PATH}?next=${next}`);

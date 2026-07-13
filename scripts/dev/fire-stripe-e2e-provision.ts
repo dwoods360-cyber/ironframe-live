@@ -1,8 +1,8 @@
 /**
- * Seeds a fresh pilot-corp invitation and fires a signed checkout.session.completed
- * webhook against the local provision route.
+ * Seeds a fresh stripe-e2e-corp invitation and fires a signed checkout.session.completed
+ * webhook against the local provision route (Path A smoke fixture).
  *
- * Usage: npm run smoke:pilot-corp:provision
+ * Usage: npm run smoke:stripe-e2e:provision [-- --reset]
  */
 import { createHash, randomBytes } from "node:crypto";
 import { resolve } from "node:path";
@@ -11,10 +11,12 @@ import { config } from "dotenv";
 import { PrismaClient } from "@prisma/client";
 import Stripe from "stripe";
 
+import { loadStripeSmokeEnv, resolveInstantWebhookSecret } from "./stripeSmokeEnv";
+
 config({ path: resolve(process.cwd(), ".env") });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
-const PILOT_CORP_SLUG = "pilot-corp";
+export const STRIPE_E2E_PROVISION_SLUG = "stripe-e2e-corp";
 const LOCAL_APP_ORIGIN = (process.env.LOCAL_APP_ORIGIN ?? "http://127.0.0.1:3000").replace(
   /\/$/,
   "",
@@ -52,7 +54,7 @@ function buildCheckoutSessionCompletedEvent(input: {
   } as Stripe.Checkout.Session;
 
   return {
-    id: `evt_pilot_provision_${Date.now()}`,
+    id: `evt_stripe_e2e_provision_${Date.now()}`,
     object: "event",
     api_version: "2024-11-20.acacia",
     created: Math.floor(Date.now() / 1000),
@@ -64,12 +66,12 @@ function buildCheckoutSessionCompletedEvent(input: {
   } as Stripe.Event;
 }
 
-async function cleanupPilotCorpFixture(prisma: PrismaClient): Promise<void> {
+async function cleanupStripeE2eProvisionFixture(prisma: PrismaClient): Promise<void> {
   await prisma.tenantWorkspaceInvitation.deleteMany({
-    where: { tenantSlug: PILOT_CORP_SLUG },
+    where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
   });
   const tenant = await prisma.tenant.findUnique({
-    where: { slug: PILOT_CORP_SLUG },
+    where: { slug: STRIPE_E2E_PROVISION_SLUG },
     select: { id: true },
   });
   if (tenant) {
@@ -77,63 +79,66 @@ async function cleanupPilotCorpFixture(prisma: PrismaClient): Promise<void> {
     await prisma.userRoleAssignment.deleteMany({ where: { tenantId: tenant.id } });
     await prisma.tenant.delete({ where: { id: tenant.id } });
   }
-  await prisma.tenantBilling.deleteMany({ where: { tenantSlug: PILOT_CORP_SLUG } });
-  await prisma.prospect.deleteMany({ where: { slug: PILOT_CORP_SLUG } });
+  await prisma.tenantBilling.deleteMany({ where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG } });
+  await prisma.prospect.deleteMany({ where: { slug: STRIPE_E2E_PROVISION_SLUG } });
 }
 
-async function seedPilotCorpInvitation(prisma: PrismaClient): Promise<string> {
+async function seedStripeE2eProvisionInvitation(prisma: PrismaClient): Promise<string> {
   const token = generateWorkspaceInvitationToken();
   await prisma.tenantWorkspaceInvitation.deleteMany({
-    where: { tenantSlug: PILOT_CORP_SLUG },
+    where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
   });
   await prisma.tenantWorkspaceInvitation.create({
     data: {
       tokenHash: hashWorkspaceInvitationToken(token),
-      tenantSlug: PILOT_CORP_SLUG,
+      tenantSlug: STRIPE_E2E_PROVISION_SLUG,
       status: WORKSPACE_INVITATION_STATUS_ACTIVE,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      createdByOperator: "PILOT_CORP_SMOKE",
+      createdByOperator: "STRIPE_E2E_PROVISION_SMOKE",
     },
   });
   return token;
 }
 
 async function main(): Promise<void> {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  loadStripeSmokeEnv();
+  const webhookSecret = resolveInstantWebhookSecret();
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!webhookSecret || !stripeSecretKey) {
-    throw new Error("STRIPE_WEBHOOK_SECRET and STRIPE_SECRET_KEY are required in .env.local");
+    throw new Error(
+      "STRIPE_INSTANT_CHECKOUT_WEBHOOK_SECRET (or STRIPE_WEBHOOK_SECRET) and STRIPE_SECRET_KEY are required in .env.local",
+    );
   }
 
   const prisma = new PrismaClient();
   try {
     const resetFixture = process.argv.includes("--reset");
     if (resetFixture) {
-      console.log(`Resetting prior "${PILOT_CORP_SLUG}" fixture rows...`);
-      await cleanupPilotCorpFixture(prisma);
+      console.log(`Resetting prior "${STRIPE_E2E_PROVISION_SLUG}" fixture rows...`);
+      await cleanupStripeE2eProvisionFixture(prisma);
     }
 
     const existingTenant = await prisma.tenant.findUnique({
-      where: { slug: PILOT_CORP_SLUG },
+      where: { slug: STRIPE_E2E_PROVISION_SLUG },
       select: { id: true },
     });
     if (existingTenant) {
       throw new Error(
-        `Tenant "${PILOT_CORP_SLUG}" already exists. Re-run with --reset to replace the dev fixture.`,
+        `Tenant "${STRIPE_E2E_PROVISION_SLUG}" already exists. Re-run with --reset to replace the dev fixture.`,
       );
     }
 
-    const invitationToken = await seedPilotCorpInvitation(prisma);
+    const invitationToken = await seedStripeE2eProvisionInvitation(prisma);
     const email =
-      process.env.PILOT_CORP_BUYER_EMAIL?.trim() ||
-      `pilotbuyer${Date.now()}@gmail.com`;
+      process.env.STRIPE_E2E_BUYER_EMAIL?.trim() ||
+      `stripee2ebuyer${Date.now()}@gmail.com`;
     const event = buildCheckoutSessionCompletedEvent({
       email,
-      slug: PILOT_CORP_SLUG,
-      companyName: "Pilot Corp",
+      slug: STRIPE_E2E_PROVISION_SLUG,
+      companyName: "Stripe E2E Corp",
       amountTotalCents: 50_000,
-      stripeCustomerId: `cus_pilot_corp_${Date.now()}`,
-      checkoutSessionId: `cs_pilot_corp_${Date.now()}`,
+      stripeCustomerId: `cus_stripe_e2e_${Date.now()}`,
+      checkoutSessionId: `cs_stripe_e2e_${Date.now()}`,
       invitationToken,
     });
 
@@ -155,15 +160,15 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(body, null, 2));
 
     const tenant = await prisma.tenant.findUnique({
-      where: { slug: PILOT_CORP_SLUG },
+      where: { slug: STRIPE_E2E_PROVISION_SLUG },
       select: { id: true, slug: true, ale_baseline: true },
     });
     const invite = await prisma.tenantWorkspaceInvitation.findFirst({
-      where: { tenantSlug: PILOT_CORP_SLUG },
+      where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
       select: { status: true, consumedAt: true },
     });
     const billing = await prisma.tenantBilling.findUnique({
-      where: { tenantSlug: PILOT_CORP_SLUG },
+      where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
     });
     const audit = await prisma.auditLog.findMany({
       where: { tenantId: tenant?.id },
@@ -203,11 +208,11 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     } else {
-      console.log("\nPilot Corp provision smoke PASSED.");
+      console.log("\nStripe E2E provision smoke PASSED.");
     }
 
     console.log(
-      `Audit UI: ${LOCAL_APP_ORIGIN}/boardroom/admin/audit-logs?tenant=${PILOT_CORP_SLUG}`,
+      `Audit UI: ${LOCAL_APP_ORIGIN}/boardroom/admin/audit-logs?tenant=${STRIPE_E2E_PROVISION_SLUG}`,
     );
   } finally {
     await prisma.$disconnect();

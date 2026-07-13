@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { resolveTenantActivationCheckoutUrl } from "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server";
 import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
 
 type SearchParams = Promise<{ tenant?: string; status?: string }>;
@@ -10,9 +11,14 @@ export default async function BillingHoldPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const tenantSlug = params.tenant?.trim() || "your workspace";
+  const tenantParam = params.tenant?.trim() || "";
+  const tenantSlug = tenantParam || "your workspace";
   const billingStatus = params.status?.trim() || "PENDING";
-  const checkoutUrl = resolveStripeCommandTierCheckoutUrl();
+  const checkoutUrl =
+    tenantParam.length >= 2
+      ? (await resolveTenantActivationCheckoutUrl({ tenantSlug: tenantParam })) ??
+        resolveStripeCommandTierCheckoutUrl()
+      : resolveStripeCommandTierCheckoutUrl();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#050509] px-6 py-16 text-slate-200">

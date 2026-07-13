@@ -84,7 +84,7 @@ describe("grcRouteMatch", () => {
     expect(isIronframeSaaSAppPath("/login")).toBe(false);
     expect(isIronframeSaaSAppPath("/marketing")).toBe(false);
     expect(isIronframeSaaSAppPath("/register/setup")).toBe(false);
-    expect(isIronframeSaaSAppPath("/", { hostTenantSlug: "bwc" })).toBe(true);
+    expect(isIronframeSaaSAppPath("/", { hostTenantSlug: "acorp" })).toBe(true);
     expect(isIronframeSaaSAppPath("/", { authenticated: true })).toBe(true);
     expect(isIronframeSaaSAppPath("/docs/training/quickstart", { authenticated: true })).toBe(true);
     expect(isIronframeSaaSAppPath("/docs/training/quickstart")).toBe(true);
@@ -128,16 +128,17 @@ describe("grcRouteMatch", () => {
     expect(isInfraHealthPath("/api/health/extra")).toBe(false);
   });
 
-  it("keeps marketing public while gating product docs and pricing", () => {
+  it("keeps marketing and pricing public while gating product docs", () => {
     expect(isPublicRoute("/marketing")).toBe(true);
+    expect(isPublicRoute("/pricing")).toBe(true);
+    expect(isPublicRoute("/terms")).toBe(true);
     expect(isPublicRoute("/docs/TAS.md")).toBe(false);
-    expect(isPublicRoute("/pricing")).toBe(false);
     expect(isPublicRoute("/governance-frame/briefing")).toBe(false);
   });
 
   it("marks authenticated product surfaces for middleware and audits", () => {
     expect(isAuthenticatedProductSurfacePath("/docs/competitive-landscape.md")).toBe(true);
-    expect(isAuthenticatedProductSurfacePath("/pricing")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/pricing")).toBe(false);
     expect(isAuthenticatedProductSurfacePath("/governance-frame/q1")).toBe(true);
     expect(isAuthenticatedProductSurfacePath("/api/docs/download-protocol")).toBe(true);
     expect(isAuthenticatedProductSurfacePath("/api/docs/hub-asset/product/foo.html")).toBe(true);

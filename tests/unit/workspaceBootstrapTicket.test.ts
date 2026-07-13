@@ -14,7 +14,7 @@ import {
 
 vi.mock("@/app/lib/tenantSlugRegistry", () => ({
   lookupTenantBySlug: vi.fn(async (slug: string) => {
-    if (slug === "bwc") return { id: "tenant-bwc-uuid", slug: "bwc", name: "BWC" };
+    if (slug === "acorp") return { id: "tenant-acorp-uuid", slug: "acorp", name: "acorp" };
     if (slug === "run3") return { id: "tenant-run3-uuid", slug: "run3", name: "Run 3" };
     return null;
   }),
@@ -22,7 +22,7 @@ vi.mock("@/app/lib/tenantSlugRegistry", () => ({
 
 vi.mock("@/app/lib/security/tenantMembershipGuard", () => ({
   userHasTenantRoleAssignment: vi.fn(async (userId: string, tenantUuid: string) => {
-    return userId === "wil-user" && tenantUuid === "tenant-bwc-uuid";
+    return userId === "wil-user" && tenantUuid === "tenant-acorp-uuid";
   }),
 }));
 
@@ -47,15 +47,15 @@ describe("workspace bootstrap ticket store", () => {
     const token = mintWorkspaceBootstrapTicket({
       userId: "wil-user",
       userEmail: "wil@example.com",
-      tenantSlug: "bwc",
-      tenantUuid: "tenant-bwc-uuid",
+      tenantSlug: "acorp",
+      tenantUuid: "tenant-acorp-uuid",
       nextPath: "/",
     });
 
     expect(token.startsWith("bt_")).toBe(true);
     expect(token.length).toBeLessThan(600);
 
-    const first = consumeWorkspaceBootstrapTicket(token, "bwc");
+    const first = consumeWorkspaceBootstrapTicket(token, "acorp");
     expect(first?.userId).toBe("wil-user");
     expect(first?.accessToken).toBeUndefined();
     expect(first?.refreshToken).toBeUndefined();
@@ -65,8 +65,8 @@ describe("workspace bootstrap ticket store", () => {
     const token = mintWorkspaceBootstrapTicket({
       userId: "wil-user",
       userEmail: "wil@example.com",
-      tenantSlug: "bwc",
-      tenantUuid: "tenant-bwc-uuid",
+      tenantSlug: "acorp",
+      tenantUuid: "tenant-acorp-uuid",
       accessToken: "access",
       refreshToken: "refresh",
       nextPath: "/",
@@ -74,11 +74,11 @@ describe("workspace bootstrap ticket store", () => {
 
     expect(token.startsWith("bt_")).toBe(true);
 
-    const first = consumeWorkspaceBootstrapTicket(token, "bwc");
+    const first = consumeWorkspaceBootstrapTicket(token, "acorp");
     expect(first?.userId).toBe("wil-user");
-    expect(first?.tenantSlug).toBe("bwc");
+    expect(first?.tenantSlug).toBe("acorp");
 
-    const second = consumeWorkspaceBootstrapTicket(token, "bwc");
+    const second = consumeWorkspaceBootstrapTicket(token, "acorp");
     expect(second).toBeNull();
   });
 
@@ -92,22 +92,22 @@ describe("workspace bootstrap ticket store", () => {
       nextPath: "/",
     });
 
-    expect(consumeWorkspaceBootstrapTicket(token, "bwc")).toBeNull();
+    expect(consumeWorkspaceBootstrapTicket(token, "acorp")).toBeNull();
     expect(consumeWorkspaceBootstrapTicket(token, "run3")).toBeNull();
   });
 
   it("expires tickets after the GRC TTL window", () => {
     const token = mintWorkspaceBootstrapTicket({
       userId: "wil-user",
-      tenantSlug: "bwc",
-      tenantUuid: "tenant-bwc-uuid",
+      tenantSlug: "acorp",
+      tenantUuid: "tenant-acorp-uuid",
       accessToken: "access",
       refreshToken: "refresh",
       nextPath: "/",
     });
 
     vi.advanceTimersByTime(WORKSPACE_BOOTSTRAP_TTL_MS + 1);
-    expect(consumeWorkspaceBootstrapTicket(token, "bwc")).toBeNull();
+    expect(consumeWorkspaceBootstrapTicket(token, "acorp")).toBeNull();
   });
 });
 
@@ -123,7 +123,7 @@ describe("mintWorkspaceBootstrapHandoffUrl", () => {
 
   it("returns a tenant bootstrap URL with opaque token only", async () => {
     const url = await mintWorkspaceBootstrapHandoffUrl({
-      tenantSlug: "bwc",
+      tenantSlug: "acorp",
       userId: "wil-user",
       userEmail: "wil@example.com",
       accessToken: "access-token",
@@ -133,7 +133,7 @@ describe("mintWorkspaceBootstrapHandoffUrl", () => {
 
     expect(url).toBeTruthy();
     const parsed = new URL(url!);
-    expect(parsed.hostname).toBe("bwc.lvh.me");
+    expect(parsed.hostname).toBe("acorp.lvh.me");
     expect(parsed.pathname).toBe("/api/auth/session-bootstrap");
     expect(parsed.searchParams.get("token")?.startsWith("bt_")).toBe(true);
     expect(parsed.searchParams.get("access_token")).toBeNull();
@@ -154,8 +154,8 @@ describe("mintWorkspaceBootstrapHandoffUrl", () => {
 
 describe("authorizeWorkspaceBootstrapMint", () => {
   it("resolves tenant uuid for assigned operators", async () => {
-    const result = await authorizeWorkspaceBootstrapMint("wil-user", "wil@example.com", "bwc");
-    expect(result).toEqual({ tenantUuid: "tenant-bwc-uuid", tenantSlug: "bwc" });
+    const result = await authorizeWorkspaceBootstrapMint("wil-user", "wil@example.com", "acorp");
+    expect(result).toEqual({ tenantUuid: "tenant-acorp-uuid", tenantSlug: "acorp" });
   });
 });
 

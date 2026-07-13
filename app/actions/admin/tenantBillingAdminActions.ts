@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { ADMIN_BILLING_PATH } from "@/app/lib/auth/adminBillingRoute";
-import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
+import {
+  assertTenantSlugInPartnerScope,
+  requirePartnerProvisioner,
+} from "@/app/lib/auth/partnerProvisionerAccess";
+import { requireManualBillingActivationAuthority } from "@/app/lib/auth/billingManualOverrideAccess";
 import {
   TENANT_BILLING_STATUS,
   type TenantBillingStatus,
@@ -55,7 +59,7 @@ export async function updateTenantBillingStatusAction(
   status: string,
 ): Promise<TenantBillingAdminActionResult> {
   try {
-    const gate = await requirePerimeterWorkforceOperator();
+    const gate = await requirePartnerProvisioner();
     if ("error" in gate) {
       return { ok: false, error: gate.error };
     }
@@ -64,6 +68,18 @@ export async function updateTenantBillingStatusAction(
     const normalized = normalizeBillingStatus(status);
     if (!slug || !normalized) {
       return { ok: false, error: "Invalid tenant slug or billing status." };
+    }
+
+    const scopeCheck = await assertTenantSlugInPartnerScope(gate, slug);
+    if (!scopeCheck.ok) {
+      return { ok: false, error: scopeCheck.error };
+    }
+
+    if (normalized === TENANT_BILLING_STATUS.ACTIVE) {
+      const manualGate = await requireManualBillingActivationAuthority();
+      if ("error" in manualGate) {
+        return { ok: false, error: manualGate.error };
+      }
     }
 
     await setTenantBillingStatus(slug, normalized);
@@ -85,7 +101,7 @@ export async function seedTenantBillingPendingAction(
   tenantSlug: string,
 ): Promise<TenantBillingAdminActionResult> {
   try {
-    const gate = await requirePerimeterWorkforceOperator();
+    const gate = await requirePartnerProvisioner();
     if ("error" in gate) {
       return { ok: false, error: gate.error };
     }
@@ -93,6 +109,11 @@ export async function seedTenantBillingPendingAction(
     const slug = tenantSlug.trim().toLowerCase();
     if (!slug) {
       return { ok: false, error: "Tenant slug is required." };
+    }
+
+    const scopeCheck = await assertTenantSlugInPartnerScope(gate, slug);
+    if (!scopeCheck.ok) {
+      return { ok: false, error: scopeCheck.error };
     }
 
     await setTenantBillingStatus(slug, TENANT_BILLING_STATUS.PENDING);

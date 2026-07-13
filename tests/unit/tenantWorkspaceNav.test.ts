@@ -13,16 +13,16 @@ describe("tenantWorkspaceNav", () => {
   });
 
   it("detects tenant workspace hosts", () => {
-    expect(isTenantWorkspaceHost("bwc.ironframegrc.com", null)).toBe(true);
+    expect(isTenantWorkspaceHost("acorp.ironframegrc.com", null)).toBe(true);
     expect(isTenantWorkspaceHost("ironframegrc.com", null)).toBe(false);
-    expect(isTenantWorkspaceHost(null, "bwc")).toBe(true);
+    expect(isTenantWorkspaceHost(null, "acorp")).toBe(true);
   });
 
   it("assigns full navigation on tenant hosts", () => {
     const assign = vi.fn();
     vi.stubGlobal("window", { location: { assign } });
 
-    const didAssign = assignTenantWorkspaceNav("/integrity", "bwc.ironframegrc.com", "bwc");
+    const didAssign = assignTenantWorkspaceNav("/integrity", "acorp.ironframegrc.com", "acorp");
 
     expect(didAssign).toBe(true);
     expect(assign).toHaveBeenCalledWith("/integrity");

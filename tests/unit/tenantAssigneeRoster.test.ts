@@ -103,7 +103,7 @@ describe("fetchTenantAssigneeRoster", () => {
       }
       return [
         { userId: "tenant-only-user" },
-        { userId: "bwc-wil-user" },
+        { userId: "acorp-wil-user" },
         { userId: "other-tenant-user" },
       ] as never;
     });
@@ -115,8 +115,8 @@ describe("fetchTenantAssigneeRoster", () => {
             data: {
               users: [
                 {
-                  id: "bwc-wil-user",
-                  email: "wil@blackwoodscoffee.com",
+                  id: "acorp-wil-user",
+                  email: "operator@design-partner.test",
                   user_metadata: {},
                 },
                 {
@@ -139,7 +139,7 @@ describe("fetchTenantAssigneeRoster", () => {
     expect(roster.map((row) => row.value)).toEqual(
       expect.arrayContaining([
         "tenant-only-user",
-        "bwc-wil-user",
+        "acorp-wil-user",
         "other-tenant-user",
         "auth-only-user",
         "dereck",

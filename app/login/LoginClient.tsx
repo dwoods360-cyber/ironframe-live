@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { supabaseProjectRefFromUrl } from "@/lib/supabase/envPublic";
 import { completeWorkspaceInviteLoginAction } from "@/app/actions/register/completeWorkspaceInviteLogin";
+import { LOGOUT_IN_FLIGHT_SESSION_KEY } from "@/app/lib/auth/performClientSessionLogout";
 import { resolveAuthNextPathForHost } from "@/app/lib/auth/publicAppUrl";
 import { buildTenantActivationLandingUrl } from "@/app/lib/auth/workspaceActivationLanding";
 import TenantCoBrandBadge from "@/app/components/brand/TenantCoBrandBadge";
 import TenantBrandAccent from "@/app/components/brand/TenantBrandAccent";
 import PublicApexNav from "@/app/components/marketing/PublicApexNav";
 import type { TenantBrand } from "@/app/lib/brand/tenantBrandTypes";
+import { resetAllStoresAndTenantScopeCache } from "@/app/utils/purgeClientTenantScope";
 
 type InviteLookupState =
   | {
@@ -47,6 +49,16 @@ export default function LoginClient({
     () => supabaseProjectRefFromUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""),
     [],
   );
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(LOGOUT_IN_FLIGHT_SESSION_KEY) !== "1") return;
+      sessionStorage.removeItem(LOGOUT_IN_FLIGHT_SESSION_KEY);
+    } catch {
+      return;
+    }
+    resetAllStoresAndTenantScopeCache();
+  }, []);
 
   const inviteMode = inviteState?.ok === true;
   const inviteToken = inviteState?.ok ? inviteState.inviteToken : "";

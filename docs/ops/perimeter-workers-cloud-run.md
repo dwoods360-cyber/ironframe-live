@@ -32,7 +32,7 @@ Triggers: push to `main` (worker paths) or **workflow_dispatch** (manual).
 | `OPERATIONS_SALESTEAM_URL` | `https://ironframe-salesteam-….run.app` | Ops Hub health probe |
 | `OPERATIONS_SUCCESS_TEAM_URL` | `https://ironframe-success-team-….run.app` | Ops Hub health probe |
 | `OPERATIONS_SUPPORT_TEAM_URL` | `https://ironframe-support-team-….run.app` | Ops Hub health probe |
-| `IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG` | `bwc` | Server-side CRM scope for ops portals |
+| `IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG` | `medshield` | Server-side CRM scope for ops portals |
 
 ## First-time bootstrap
 

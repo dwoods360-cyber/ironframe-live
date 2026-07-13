@@ -240,7 +240,9 @@ export default function CorporateOnboardingClient() {
           </div>
           <p className="mb-4 text-[10px] leading-relaxed text-slate-400">
             One-shot design-partner path: creates the tenant, mints a register token, and sends the
-            welcome email. Operator completes ALE + company profile on Get Started after activation.
+            welcome email. The workspace slug becomes the subdomain host (e.g.{" "}
+            <code className="text-slate-300">{"{slug}"}.lvh.me:3000</code>). Stripe billing must use
+            the tenant-scoped activation link returned below — not the generic /pricing checkout.
           </p>
 
           {quickProgress ? (
@@ -267,7 +269,7 @@ export default function CorporateOnboardingClient() {
               />
             </label>
             <label className="block text-[10px] text-slate-400">
-              Workspace slug
+              Workspace subdomain (slug)
               <input
                 name="slug"
                 required
@@ -311,11 +313,47 @@ export default function CorporateOnboardingClient() {
               <p className="font-bold uppercase tracking-wide">
                 {quickResult.tenantAlreadyExisted ? "Invitation minted" : "Workspace provisioned"}
               </p>
-              <p className="mt-1 font-mono text-[9px] text-cyan-200/90">{quickResult.workspaceUrl}</p>
-              <p className="mt-2 text-slate-400">Secure activation URL:</p>
+              <p className="mt-2 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                Workspace subdomain
+              </p>
+              <p className="mt-0.5 font-mono text-[9px] text-cyan-200/90">
+                <span className="text-white">{quickResult.slug}</span>
+                <span className="text-slate-500"> · </span>
+                {quickResult.workspaceUrl}
+              </p>
+              <p className="mt-3 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                Invite token (operator activation URL)
+              </p>
               <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
                 {quickResult.registerUrl}
               </code>
+              {quickResult.activationCheckoutUrl ? (
+                <>
+                  <p className="mt-3 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                    Path B activation link (tenant-scoped Stripe — not /pricing)
+                  </p>
+                  <p className="mt-1 text-[9px] text-slate-500">
+                    metadata{" "}
+                    <code className="text-slate-300">tenant_slug={quickResult.slug}</code>
+                  </p>
+                  <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-emerald-200">
+                    {quickResult.activationCheckoutUrl}
+                  </code>
+                  <a
+                    href={quickResult.activationCheckoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex text-[9px] font-bold uppercase tracking-wide text-emerald-300 hover:text-emerald-200"
+                  >
+                    Open Stripe checkout for this slug →
+                  </a>
+                </>
+              ) : (
+                <p className="mt-3 text-amber-200" role="alert">
+                  Stripe activation link not minted — configure STRIPE_SECRET_KEY and run{" "}
+                  <code className="text-amber-100">npm run stripe:provision-catalog</code>.
+                </p>
+              )}
               {quickResult.inviteEmail && !quickResult.inviteEmail.sent ? (
                 <p className="mt-2 text-amber-200" role="alert">
                   Email not sent: {quickResult.inviteEmail.error ?? "delivery failed"}
@@ -398,9 +436,28 @@ export default function CorporateOnboardingClient() {
               role="status"
             >
               <p className="font-bold uppercase tracking-wide">Workspace ready</p>
-              <p className="mt-1 font-mono text-[9px] text-emerald-200/90">
+              <p className="mt-2 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                Workspace subdomain
+              </p>
+              <p className="mt-0.5 font-mono text-[9px] text-emerald-200/90">
+                <span className="text-white">{provisionResult.slug}</span>
+                <span className="text-slate-500"> · </span>
                 {provisionResult.workspaceUrl}
               </p>
+              {provisionResult.activationCheckoutUrl ? (
+                <>
+                  <p className="mt-3 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                    Path B activation link (tenant-scoped Stripe — not /pricing)
+                  </p>
+                  <p className="mt-1 text-[9px] text-slate-500">
+                    metadata{" "}
+                    <code className="text-slate-300">tenant_slug={provisionResult.slug}</code>
+                  </p>
+                  <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-emerald-200">
+                    {provisionResult.activationCheckoutUrl}
+                  </code>
+                </>
+              ) : null}
               <p className="mt-2 text-slate-400">
                 Add to Supabase Auth → URL Configuration → Redirect URLs:
               </p>

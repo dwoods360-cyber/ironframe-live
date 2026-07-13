@@ -1,6 +1,11 @@
 "use server";
 
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import {
+  assertTenantSlugInPartnerScope,
+  requirePartnerProvisioner,
+} from "@/app/lib/auth/partnerProvisionerAccess";
+import { linkPartnerProvisionerToClientTenant } from "@/app/lib/server/partnerProvisionerTenantLink";
 import {
   quickProvisionCorporateWorkspaceCore,
   type QuickProvisionCorporateWorkspaceResult,
@@ -11,15 +16,26 @@ export type QuickProvisionCorporateWorkspaceActionResult = QuickProvisionCorpora
 export async function quickProvisionCorporateWorkspaceAction(
   formData: FormData,
 ): Promise<QuickProvisionCorporateWorkspaceActionResult> {
-  const admin = await requirePlatformAdministrator();
-  if ("error" in admin) {
-    return { ok: false, error: admin.error };
+  const gate = await requirePartnerProvisioner();
+  if ("error" in gate) {
+    return { ok: false, error: gate.error };
   }
 
-  return quickProvisionCorporateWorkspaceCore({
-    operatorId: admin.userId,
+  const user = await getSupabaseSessionUser();
+  const result = await quickProvisionCorporateWorkspaceCore({
+    operatorId: gate.userId,
     email: String(formData.get("email") ?? ""),
     name: String(formData.get("name") ?? ""),
     slugRaw: String(formData.get("slug") ?? ""),
   });
+
+  if (result.ok) {
+    await linkPartnerProvisionerToClientTenant({
+      operatorId: gate.userId,
+      operatorEmail: user?.email,
+      tenantSlug: result.slug,
+    });
+  }
+
+  return result;
 }

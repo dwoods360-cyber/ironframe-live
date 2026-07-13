@@ -264,6 +264,16 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
             </TenantWorkspaceNavLink>
             {canUsePerimeterWorkforce ? (
               <TenantWorkspaceNavLink
+                href="/admin/onboarding"
+                prefetch={NAV_LINK_PREFETCH}
+                className={`${CHIP_CLASS} border border-cyan-700/60 bg-cyan-950/50 px-4 text-cyan-100 transition-all hover:border-cyan-500 hover:bg-cyan-900/50`}
+                data-testid="header-client-workspaces-chip"
+              >
+                CLIENTS
+              </TenantWorkspaceNavLink>
+            ) : null}
+            {canUsePerimeterWorkforce ? (
+              <TenantWorkspaceNavLink
                 href="/dashboard/operations"
                 prefetch={NAV_LINK_PREFETCH}
                 className={`${CHIP_CLASS} border border-violet-700/60 bg-violet-950/50 px-4 text-violet-100 transition-all hover:border-violet-500 hover:bg-violet-900/50`}

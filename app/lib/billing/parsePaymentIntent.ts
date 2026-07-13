@@ -1,9 +1,11 @@
 import type Stripe from "stripe";
 
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
+import { TENANT_UUID_REGEX } from "@/app/utils/tenantGovernanceBps";
 
 export type ParsedPaymentIntentSucceeded = {
   tenantSlug: string;
+  tenantUuid: string | null;
   stripeCustomerId: string;
   paymentIntentId: string;
   amountReceivedCents: bigint;
@@ -30,13 +32,19 @@ export function parsePaymentIntentSucceeded(
     return { ok: false, error: "PaymentIntent id missing." };
   }
 
+  const tenantUuidRaw = readMetadataString(paymentIntent.metadata, "tenant_uuid");
+  const tenantUuid = TENANT_UUID_REGEX.test(tenantUuidRaw) ? tenantUuidRaw : null;
+
   const slugRaw =
     readMetadataString(paymentIntent.metadata, "tenant_slug") ||
     readMetadataString(paymentIntent.metadata, "slug");
 
   const tenantSlug = normalizeProvisionedTenantSlug(slugRaw);
-  if (!tenantSlug) {
-    return { ok: false, error: "PaymentIntent metadata.tenant_slug is missing or invalid." };
+  if (!tenantSlug && !tenantUuid) {
+    return {
+      ok: false,
+      error: "PaymentIntent metadata must include tenant_uuid or tenant_slug.",
+    };
   }
 
   const customerRef = paymentIntent.customer;
@@ -61,7 +69,8 @@ export function parsePaymentIntentSucceeded(
   return {
     ok: true,
     data: {
-      tenantSlug,
+      tenantSlug: tenantSlug ?? "",
+      tenantUuid,
       stripeCustomerId,
       paymentIntentId,
       amountReceivedCents,

@@ -14,11 +14,17 @@ import { readIronframeTenantCookie, waitForLeftRailReady } from "./helpers/dashb
 import { waitForDashboardReady } from "./helpers/dashboardGate";
 import { bootstrapApexOperatorSession, openWorkspaceCommandPost } from "./helpers/commandPostDiagnostic";
 
-const BWC_SLUG = "bwc";
+import {
+  resolveE2EDesignPartnerSlug,
+  resolveE2EProductionOperatorEmail,
+} from "./helpers/designPartnerE2eEnv";
+
+const PARTNER_SLUG = resolveE2EDesignPartnerSlug();
 const OPERATOR_EMAIL =
+  resolveE2EProductionOperatorEmail() ||
   process.env.E2E_OPERATOR_EMAIL?.trim().toLowerCase() ||
   process.env.IRONFRAME_E2E_OPERATOR_EMAIL?.trim().toLowerCase() ||
-  "dwoods360@gmail.com";
+  "";
 
 const STALE_COOKIE_TENANT = TENANT_UUIDS.medshield;
 
@@ -29,13 +35,15 @@ test.describe("Threat lifecycle diagnostic", () => {
     await disconnectE2ePrisma();
   });
 
-  test("BWC Command Post: dashboard API must not 403 with stale ironframe-tenant cookie", async ({
+  test("tenant Command Post: dashboard API must not 403 with stale ironframe-tenant cookie", async ({
     page,
   }) => {
+    test.skip(!PARTNER_SLUG, "Set E2E_DESIGN_PARTNER_SLUG or E2E_PRODUCTION_TENANT_SLUG.");
+    test.skip(!OPERATOR_EMAIL, "Set E2E_PRODUCTION_OPERATOR_EMAIL or E2E_OPERATOR_EMAIL.");
     test.skip(!hasDatabaseUrl(), "DATABASE_URL required.");
     test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required.");
 
-    await assertTenantBillingActive(BWC_SLUG);
+    await assertTenantBillingActive(PARTNER_SLUG);
 
     const dashboardLog: Array<{ status: number; body: string }> = [];
 
@@ -50,23 +58,23 @@ test.describe("Threat lifecycle diagnostic", () => {
       dashboardLog.push({ status: response.status(), body });
     });
 
-    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, BWC_SLUG);
+    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, PARTNER_SLUG);
 
-    const bwcOrigin = tenantSubdomainOrigin(BWC_SLUG);
-    const bwcHost = new URL(bwcOrigin).hostname;
+    const partnerOrigin = tenantSubdomainOrigin(PARTNER_SLUG);
+    const partnerHost = new URL(partnerOrigin).hostname;
 
     // Simulate stale cookie from a prior workspace (root cause of production 403).
     await page.context().addCookies([
       {
         name: "ironframe-tenant",
         value: STALE_COOKIE_TENANT,
-        domain: bwcHost,
+        domain: partnerHost,
         path: "/",
         sameSite: "Lax",
       },
     ]);
 
-    await page.goto(`${bwcOrigin}/`, { waitUntil: "commit", timeout: 120_000 });
+    await page.goto(`${partnerOrigin}/`, { waitUntil: "commit", timeout: 120_000 });
 
     await page
       .getByText(/Synchronizing workspace ledger/i)

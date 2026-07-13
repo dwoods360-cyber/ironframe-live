@@ -1,5 +1,5 @@
 /**
- * Live multiplexer verification — acorp billing + pilot-corp provision via :4242 fan-out.
+ * Live multiplexer verification — acorp billing + stripe-e2e-corp provision via :4242 fan-out.
  *
  * Prerequisites: npm run dev, dev:stripe:multiplexer, dev:stripe:listen
  *
@@ -11,10 +11,11 @@ import { spawnSync } from "node:child_process";
 import { config } from "dotenv";
 import { PrismaClient } from "@prisma/client";
 
+import { STRIPE_E2E_PROVISION_SLUG } from "./fire-stripe-e2e-provision";
+
 config({ path: resolve(process.cwd(), ".env") });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
 
-const PILOT_CORP_SLUG = "pilot-corp";
 const ACORP_SLUG = "acorp";
 
 function run(command: string, args: string[]): void {
@@ -73,14 +74,16 @@ async function main(): Promise<void> {
     ]);
     await assertAuditAction(prisma, ACORP_SLUG, "STRIPE_PAYMENT_INTENT_BILLING_ACTIVE");
 
-    run("npm", ["run", "smoke:pilot-corp:provision", "--", "--reset"]);
-    await assertAuditAction(prisma, PILOT_CORP_SLUG, "STRIPE_CHECKOUT_TENANT_PROVISIONED");
+    run("npm", ["run", "smoke:stripe-e2e:provision", "--", "--reset"]);
+    await assertAuditAction(prisma, STRIPE_E2E_PROVISION_SLUG, "STRIPE_CHECKOUT_TENANT_PROVISIONED");
 
-    const billing = await prisma.tenantBilling.findUnique({ where: { tenantSlug: PILOT_CORP_SLUG } });
+    const billing = await prisma.tenantBilling.findUnique({
+      where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
+    });
     if (!billing || billing.status !== "ACTIVE") {
-      throw new Error(`Expected ACTIVE billing for ${PILOT_CORP_SLUG}.`);
+      throw new Error(`Expected ACTIVE billing for ${STRIPE_E2E_PROVISION_SLUG}.`);
     }
-    console.log(`  ✓ tenant_billing ACTIVE for ${PILOT_CORP_SLUG}`);
+    console.log(`  ✓ tenant_billing ACTIVE for ${STRIPE_E2E_PROVISION_SLUG}`);
 
     console.log("\nMultiplexer verification PASSED.");
   } finally {

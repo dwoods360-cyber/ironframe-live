@@ -16,6 +16,7 @@ import {
   buildControlStressCaseHref,
   controlStressOpenedMessage,
 } from "@/app/utils/controlStressTestNavigation";
+import { stageControlStressPipelineHandoff } from "@/app/utils/controlStressPipelineHandoff";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
 import { getSectorRegulatoryProfile } from "@/app/utils/sectorRegulatoryProfile";
 
@@ -86,6 +87,7 @@ export default function EvidenceGapsPanel({
   const [busyControl, setBusyControl] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [lastThreatId, setLastThreatId] = useState<string | null>(null);
+  const [lastControlId, setLastControlId] = useState<string | null>(null);
   const [peerAlert, setPeerAlert] = useState<string | null>(null);
   const [remediation, setRemediation] = useState<RankedRemediationPayload | null>(null);
 
@@ -187,6 +189,9 @@ export default function EvidenceGapsPanel({
         return;
       }
       setLastThreatId(call.threatId);
+      setLastControlId(gap.controlId);
+      const optimistic = stageControlStressPipelineHandoff(gap.controlId, call.threatId);
+      useRiskStore.getState().upsertPipelineThreat(optimistic);
       onStressTestTriggered?.(gap.controlId, call.threatId);
       void useRiskStore.getState().pulseThreatBoardsFromDb();
       setFlash(controlStressOpenedMessage(gap.controlId, call.threatId));
@@ -313,6 +318,15 @@ export default function EvidenceGapsPanel({
               <p className="mt-2 flex flex-wrap items-center gap-2">
                 <Link
                   href={buildControlStressCaseHref(lastThreatId)}
+                  onClick={() => {
+                    if (lastControlId && lastThreatId) {
+                      const optimistic = stageControlStressPipelineHandoff(
+                        lastControlId,
+                        lastThreatId,
+                      );
+                      useRiskStore.getState().upsertPipelineThreat(optimistic);
+                    }
+                  }}
                   className="rounded border border-teal-600/70 bg-teal-900/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-teal-100 hover:border-teal-400"
                 >
                   Open in Command Post

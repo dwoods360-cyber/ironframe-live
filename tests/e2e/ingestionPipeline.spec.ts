@@ -4,11 +4,11 @@ import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
 import { waitForDashboardReady } from "./helpers/dashboardGate";
 import {
   LOCAL_APP_ORIGIN,
-  PILOT_CORP_SLUG,
+  STRIPE_E2E_PROVISION_SLUG,
   assertTenantBillingActive,
   isSupabaseInviteRateLimitError,
   buildCheckoutSessionCompletedEvent,
-  cleanupPilotCorpFixture,
+  cleanupStripeE2eProvisionFixture,
   disconnectE2ePrisma,
   getE2ePrisma,
   hasDatabaseUrl,
@@ -16,7 +16,7 @@ import {
   hasSupabaseAdmin,
   postSignedStripeWebhook,
   redeemInviteOnTenantSubdomain,
-  seedPilotCorpInvitationToken,
+  seedStripeE2eInvitationToken,
   tenantSubdomainOrigin,
   uniquePilotBuyerEmail,
 } from "./helpers/ingestionPipeline";
@@ -37,12 +37,12 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
   const leadAleDollars = "11,100,000";
   const expectedLeadAleCents = 1_110_000_000n;
 
-  let pilotBuyerEmail = "";
-  let pilotTenantUuid = "";
+  let stripeE2eBuyerEmail = "";
+  let stripeE2eTenantUuid = "";
 
   test.beforeAll(async () => {
     test.skip(!hasDatabaseUrl(), "DATABASE_URL is required for ingestion pipeline E2E.");
-    await cleanupPilotCorpFixture();
+    await cleanupStripeE2eProvisionFixture();
   });
 
   test.afterAll(async () => {
@@ -89,15 +89,15 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     test.skip(!hasStripeWebhookSecrets(), "STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET required.");
     test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required for invite provisioning.");
 
-    pilotBuyerEmail = uniquePilotBuyerEmail();
+    stripeE2eBuyerEmail = uniquePilotBuyerEmail();
     const stripeCustomerId = `cus_e2e_${leadRunId}`;
     const checkoutSessionId = `cs_e2e_${leadRunId}`;
-    const invitationToken = await seedPilotCorpInvitationToken(PILOT_CORP_SLUG);
+    const invitationToken = await seedStripeE2eInvitationToken(STRIPE_E2E_PROVISION_SLUG);
 
     const event = buildCheckoutSessionCompletedEvent({
-      email: pilotBuyerEmail,
-      slug: PILOT_CORP_SLUG,
-      companyName: "Pilot Corporation",
+      email: stripeE2eBuyerEmail,
+      slug: STRIPE_E2E_PROVISION_SLUG,
+      companyName: "Stripe E2E Corp",
       amountTotalCents: 4_999_00,
       stripeCustomerId,
       checkoutSessionId,
@@ -112,8 +112,8 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     if (!inviteEmailRateLimited && !inviteDeferredSuccess) {
       expect(status, JSON.stringify(body)).toBe(200);
       expect(body.ok).toBe(true);
-      expect(body.tenantSlug).toBe(PILOT_CORP_SLUG);
-      expect(body.email).toBe(pilotBuyerEmail);
+      expect(body.tenantSlug).toBe(STRIPE_E2E_PROVISION_SLUG);
+      expect(body.email).toBe(stripeE2eBuyerEmail);
     }
 
     if (inviteDeferredSuccess) {
@@ -121,35 +121,35 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     }
 
     const tenant = await getE2ePrisma().tenant.findUnique({
-      where: { slug: PILOT_CORP_SLUG },
+      where: { slug: STRIPE_E2E_PROVISION_SLUG },
     });
     expect(tenant, JSON.stringify(body)).not.toBeNull();
-    expect(tenant!.name).toBe("Pilot Corporation");
-    pilotTenantUuid = tenant!.id;
+    expect(tenant!.name).toBe("Stripe E2E Corp");
+    stripeE2eTenantUuid = tenant!.id;
 
-    await assertTenantBillingActive(PILOT_CORP_SLUG);
+    await assertTenantBillingActive(STRIPE_E2E_PROVISION_SLUG);
 
     const invitation = await getE2ePrisma().tenantWorkspaceInvitation.findFirst({
-      where: { tenantSlug: PILOT_CORP_SLUG },
+      where: { tenantSlug: STRIPE_E2E_PROVISION_SLUG },
       orderBy: { createdAt: "desc" },
       select: { consumedAt: true },
     });
     expect(invitation?.consumedAt, "invitation gate must be consumed after provision").toBeTruthy();
 
     const prospect = await getE2ePrisma().prospect.findUnique({
-      where: { slug: PILOT_CORP_SLUG },
+      where: { slug: STRIPE_E2E_PROVISION_SLUG },
     });
     expect(prospect).not.toBeNull();
     expect(prospect!.reportedAle).toBe(499_900n);
   });
 
   test("Block 3 — invite redemption lands on tenant subdomain Command Post", async ({ page }) => {
-    test.skip(!pilotBuyerEmail, "Block 2 must provision pilot-corp first.");
+    test.skip(!stripeE2eBuyerEmail, "Block 2 must provision stripe-e2e-corp first.");
     test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required.");
 
-    await redeemInviteOnTenantSubdomain(page, pilotBuyerEmail, PILOT_CORP_SLUG);
+    await redeemInviteOnTenantSubdomain(page, stripeE2eBuyerEmail, STRIPE_E2E_PROVISION_SLUG);
 
-    await expect(page).toHaveURL(new RegExp(`${PILOT_CORP_SLUG}\\.lvh\\.me:3000`), {
+    await expect(page).toHaveURL(new RegExp(`${STRIPE_E2E_PROVISION_SLUG}\\.lvh\\.me:3000`), {
       timeout: 30_000,
     });
 
@@ -167,18 +167,18 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
       }
     });
 
-    expect(cookieTenant?.toLowerCase()).toBe(pilotTenantUuid.toLowerCase());
+    expect(cookieTenant?.toLowerCase()).toBe(stripeE2eTenantUuid.toLowerCase());
   });
 
   test("Block 4 — cross-tenant API fetch is rejected with 403", async ({ page }) => {
-    test.skip(!pilotTenantUuid, "Authenticated pilot-corp session required.");
-    test.skip(!pilotBuyerEmail, "Pilot buyer email required.");
+    test.skip(!stripeE2eTenantUuid, "Authenticated stripe-e2e-corp session required.");
+    test.skip(!stripeE2eBuyerEmail, "Stripe E2E buyer email required.");
 
-    await redeemInviteOnTenantSubdomain(page, pilotBuyerEmail, PILOT_CORP_SLUG);
-    await page.goto(tenantSubdomainOrigin(PILOT_CORP_SLUG));
+    await redeemInviteOnTenantSubdomain(page, stripeE2eBuyerEmail, STRIPE_E2E_PROVISION_SLUG);
+    await page.goto(tenantSubdomainOrigin(STRIPE_E2E_PROVISION_SLUG));
 
     const foreignTenantUuid = TENANT_UUIDS.vaultbank;
-    expect(foreignTenantUuid.toLowerCase()).not.toBe(pilotTenantUuid.toLowerCase());
+    expect(foreignTenantUuid.toLowerCase()).not.toBe(stripeE2eTenantUuid.toLowerCase());
 
     const result = await page.evaluate(
       async ({ foreignUuid, activeUuid }) => {
@@ -197,7 +197,7 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
         }
         return { status: res.status, error: String(body.error ?? "") };
       },
-      { foreignUuid: foreignTenantUuid, activeUuid: pilotTenantUuid },
+      { foreignUuid: foreignTenantUuid, activeUuid: stripeE2eTenantUuid },
     );
 
     expect(result.status).toBe(403);

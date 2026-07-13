@@ -10,11 +10,11 @@ import {
 describe("middlewareRequestOrigin", () => {
   it("preserves tenant host when request.url is normalized to localhost", () => {
     const request = new NextRequest("http://localhost:3000/exports", {
-      headers: { host: "bwc.lvh.me:3000" },
+      headers: { host: "acorp.lvh.me:3000" },
     });
 
-    expect(browserFacingRequestOrigin(request)).toBe("http://bwc.lvh.me:3000");
-    expect(browserFacingUrl(request, "/login").toString()).toBe("http://bwc.lvh.me:3000/login");
+    expect(browserFacingRequestOrigin(request)).toBe("http://acorp.lvh.me:3000");
+    expect(browserFacingUrl(request, "/login").toString()).toBe("http://acorp.lvh.me:3000/login");
   });
 
   it("builds login redirect origin from forwarded headers in RSC layouts", () => {

@@ -8,6 +8,7 @@ import { useTenantContext } from "@/app/context/TenantProvider";
 import DocsMarkdown from "@/app/docs/[[...slug]]/DocsMarkdown";
 import { syncCompanyProfileAction } from "@/app/actions/getStarted/syncCompanyProfile";
 import { updateWorkspaceAleBaselineAction } from "@/app/actions/getStarted/updateWorkspaceAleBaseline";
+import { getSessionBillingGateSnapshot } from "@/app/actions/billing/getSessionBillingGateSnapshot";
 import { getStartedStepAudioSrc } from "@/app/lib/getStartedStepAudio";
 import {
   hasPlayedGetStartedWelcome,
@@ -47,6 +48,18 @@ import {
 import { dbKeyToSlugSegments } from "@/lib/appDocumentSlug";
 import { resolveAbsoluteDocPath } from "@/lib/docsLinkNormalization";
 import { formatCentsToUSD } from "@/app/utils/formatCentsToUSD";
+import {
+  COMPANY_PROFILE_DEPARTMENTS,
+  COMPANY_PROFILE_DEPARTMENT_OTHER,
+  COMPANY_PROFILE_MULTISELECT_CLASS,
+  COMPANY_PROFILE_SECTORS,
+  COMPANY_PROFILE_SECTOR_OTHER,
+  COMPANY_PROFILE_SELECT_CLASS,
+  initializeSectorPicklist,
+  isSectorPicklistReady,
+  resolveDepartmentsFromPicklist,
+  resolveSectorFromPicklist,
+} from "@/app/lib/companyProfileOptions";
 
 const STORAGE_KEY = "ironframe-get-started-v1";
 const DISMISS_KEY = "ironframe-get-started-dismissed";
@@ -95,6 +108,7 @@ type GetStartedPortalClientProps = {
   initialTenantIndustry?: string;
   billingBlocked?: boolean;
   billingStatus?: string;
+  billingCheckoutUrl?: string | null;
 };
 
 export default function GetStartedPortalClient({
@@ -104,6 +118,7 @@ export default function GetStartedPortalClient({
   initialTenantIndustry = "",
   billingBlocked = false,
   billingStatus = "PENDING",
+  billingCheckoutUrl = null,
 }: GetStartedPortalClientProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -130,12 +145,20 @@ export default function GetStartedPortalClient({
   const [aleSaveError, setAleSaveError] = useState<string | null>(null);
   const [aleSaveMessage, setAleSaveMessage] = useState<string | null>(null);
   const [hasPrimaryCompany, setHasPrimaryCompany] = useState(initialHasPrimaryCompany);
+  const initialSectorPicklist = useMemo(
+    () => initializeSectorPicklist(initialTenantIndustry),
+    [initialTenantIndustry],
+  );
   const [companyNameDraft, setCompanyNameDraft] = useState(initialTenantName);
-  const [sectorDraft, setSectorDraft] = useState(initialTenantIndustry);
-  const [departmentsDraft, setDepartmentsDraft] = useState("");
+  const [sectorSelect, setSectorSelect] = useState(initialSectorPicklist.select);
+  const [sectorOtherDraft, setSectorOtherDraft] = useState(initialSectorPicklist.other);
+  const [departmentSelections, setDepartmentSelections] = useState<string[]>([]);
+  const [departmentOtherDraft, setDepartmentOtherDraft] = useState("");
   const [companySaveBusy, setCompanySaveBusy] = useState(false);
   const [companySaveError, setCompanySaveError] = useState<string | null>(null);
   const [companySaveMessage, setCompanySaveMessage] = useState<string | null>(null);
+  const [billingBlockedLive, setBillingBlockedLive] = useState(billingBlocked);
+  const [billingStatusLive, setBillingStatusLive] = useState(billingStatus);
   const stepAudioRef = useRef<HTMLAudioElement>(null);
   const welcomeAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -195,6 +218,40 @@ export default function GetStartedPortalClient({
 
   const onboardingProfileComplete = !aleBaselineUnset && !companyProfileUnset;
 
+  const syncBillingGate = useCallback(async () => {
+    const snapshot = await getSessionBillingGateSnapshot();
+    setBillingBlockedLive(snapshot.billingBlocked);
+    setBillingStatusLive(snapshot.billingStatus);
+    return snapshot;
+  }, []);
+
+  useEffect(() => {
+    void syncBillingGate().catch(() => {
+      // Keep SSR props when snapshot fails.
+    });
+  }, [syncBillingGate]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void syncBillingGate().catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [syncBillingGate]);
+
+  const handleBillingRefresh = useCallback(async () => {
+    await syncBillingGate();
+  }, [syncBillingGate]);
+
+  useEffect(() => {
+    if (searchParams.get("billingRefresh") !== "1") return;
+    void handleBillingRefresh().finally(() => {
+      window.location.replace("/get-started");
+    });
+  }, [searchParams, handleBillingRefresh]);
+
   const saveAleBaseline = useCallback(async () => {
     if (aleSaveBusy) return;
     setAleSaveBusy(true);
@@ -248,10 +305,15 @@ export default function GetStartedPortalClient({
     setCompanySaveMessage(null);
 
     try {
+      const sector = resolveSectorFromPicklist(sectorSelect, sectorOtherDraft);
+      const departments = resolveDepartmentsFromPicklist(
+        departmentSelections,
+        departmentOtherDraft,
+      );
       const result = await syncCompanyProfileAction({
         companyName: companyNameDraft,
-        sector: sectorDraft,
-        departmentsRaw: departmentsDraft.trim() || undefined,
+        sector,
+        departmentsRaw: departments.length > 0 ? departments.join(", ") : undefined,
       });
       if (!result.ok) {
         setCompanySaveError(result.error);
@@ -272,7 +334,18 @@ export default function GetStartedPortalClient({
     } finally {
       setCompanySaveBusy(false);
     }
-  }, [companyNameDraft, companySaveBusy, departmentsDraft, sectorDraft]);
+  }, [
+    companyNameDraft,
+    companySaveBusy,
+    departmentOtherDraft,
+    departmentSelections,
+    sectorOtherDraft,
+    sectorSelect,
+  ]);
+
+  const sectorPicklistReady = isSectorPicklistReady(sectorSelect, sectorOtherDraft);
+  const showSectorOther = sectorSelect === COMPANY_PROFILE_SECTOR_OTHER;
+  const showDepartmentOther = departmentSelections.includes(COMPANY_PROFILE_DEPARTMENT_OTHER);
 
   useEffect(() => {
     setProgress(readProgress());
@@ -352,13 +425,13 @@ export default function GetStartedPortalClient({
   );
 
   useEffect(() => {
-    if (billingBlocked || !onboardingProfileComplete) return;
+    if (billingBlockedLive || !onboardingProfileComplete) return;
     const rawHash = window.location.hash.replace(/^#/, "");
     const hashRoot = rawHash.split(":")[0] ?? "";
     if (hashRoot === GET_STARTED_ORIENTATION_HASH || hashRoot === "quickstart") {
       openInlineGuide(GET_STARTED_QUICKSTART_GUIDE_HREF, "quickstart");
     }
-  }, [billingBlocked, onboardingProfileComplete, openInlineGuide]);
+  }, [billingBlockedLive, onboardingProfileComplete, openInlineGuide]);
 
   const playStepAudio = useCallback(async (stepId: GetStartedStepId) => {
     const audio = stepAudioRef.current;
@@ -374,7 +447,7 @@ export default function GetStartedPortalClient({
   }, []);
 
   useEffect(() => {
-    if (billingBlocked || !onboardingProfileComplete) {
+    if (billingBlockedLive || !onboardingProfileComplete) {
       clearInlineDoc();
       return;
     }
@@ -424,7 +497,7 @@ export default function GetStartedPortalClient({
       });
       controller.abort(ABORT_REASONS.inlineDocUnmount);
     };
-  }, [billingBlocked, clearInlineDoc, inlineDocHref, onboardingProfileComplete, tenantFetch]);
+  }, [billingBlockedLive, clearInlineDoc, inlineDocHref, onboardingProfileComplete, tenantFetch]);
 
   useEffect(() => {
     if (!inlineDoc || !inlineDocHref) return;
@@ -602,7 +675,7 @@ export default function GetStartedPortalClient({
             <h1 className="text-2xl font-bold tracking-tight text-white">Get Started Portal</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
               Post-activation onboarding — Command Post layout, Level 1 curriculum, and Trainer sandbox.
-              {billingBlocked
+              {billingBlockedLive
                 ? " Training modules unlock when your design-partner subscription is confirmed."
                 : " Invite and credential steps are in your workspace email only."}
             </p>
@@ -620,6 +693,26 @@ export default function GetStartedPortalClient({
         </header>
 
         <OperatorActivationBanner />
+
+        {companyProfileUnset ? (
+          <section
+            id="workspace-grc-company-intro"
+            className="rounded-xl border border-cyan-500/40 bg-cyan-950/20 px-4 py-4"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+              {aleBaselineUnset
+                ? "Step 2 of workspace setup (after ALE baseline)"
+                : "Step 2 of workspace setup"}
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-white">
+              Define your primary GRC company
+            </h2>
+            <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-300">
+              This initializes in-tenant risk registers and compliance scope inside your workspace
+              boundary. It does not update the sales CRM, create a new tenant, or change billing.
+            </p>
+          </section>
+        ) : null}
 
         {aleBaselineUnset ? (
           <section
@@ -675,16 +768,15 @@ export default function GetStartedPortalClient({
             {companyProfileUnset ? (
               <section className="mt-4 rounded-xl border border-cyan-500/30 bg-cyan-950/15 px-4 py-4">
                 <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">
-                  Company profile required
+                  GRC company profile
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-cyan-100/90">
-                  Provision creates your workspace tenant only. Name your organization and sector so
-                  Integrity Hub, risk registers, and board reporting have a primary company record.
-                  ALE baseline is applied automatically from your saved workspace value.
+                  Name your organization and sector for Integrity Hub, risk registers, and board
+                  reporting. ALE baseline is applied from your saved workspace value.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <label className="block text-[10px] text-cyan-200/80">
-                    Company name
+                    GRC company name
                     <input
                       type="text"
                       value={companyNameDraft}
@@ -695,29 +787,77 @@ export default function GetStartedPortalClient({
                   </label>
                   <label className="block text-[10px] text-cyan-200/80">
                     Sector
-                    <input
-                      type="text"
-                      value={sectorDraft}
-                      onChange={(event) => setSectorDraft(event.target.value)}
-                      placeholder={initialTenantIndustry || "Financial Services"}
-                      className="mt-1 h-11 w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
-                    />
+                    <select
+                      value={sectorSelect}
+                      onChange={(event) => setSectorSelect(event.target.value)}
+                      className={COMPANY_PROFILE_SELECT_CLASS}
+                    >
+                      <option value="">Select industry sector…</option>
+                      {COMPANY_PROFILE_SECTORS.map((sector) => (
+                        <option key={sector} value={sector}>
+                          {sector}
+                        </option>
+                      ))}
+                    </select>
                   </label>
+                  {showSectorOther ? (
+                    <label className="block text-[10px] text-cyan-200/80 sm:col-span-2">
+                      Other sector
+                      <input
+                        type="text"
+                        value={sectorOtherDraft}
+                        onChange={(event) => setSectorOtherDraft(event.target.value)}
+                        placeholder="Describe your industry sector"
+                        className="mt-1 h-11 w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
+                      />
+                    </label>
+                  ) : null}
                   <label className="block text-[10px] text-cyan-200/80 sm:col-span-2">
-                    Departments (optional, comma or newline separated)
-                    <textarea
-                      value={departmentsDraft}
-                      onChange={(event) => setDepartmentsDraft(event.target.value)}
-                      placeholder="Finance, IT, Legal"
-                      rows={2}
-                      className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 py-2 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
-                    />
+                    Departments (optional)
+                    <select
+                      multiple
+                      value={departmentSelections}
+                      onChange={(event) => {
+                        const next = Array.from(event.target.selectedOptions).map(
+                          (option) => option.value,
+                        );
+                        setDepartmentSelections(next);
+                      }}
+                      className={COMPANY_PROFILE_MULTISELECT_CLASS}
+                      aria-describedby="get-started-departments-hint"
+                    >
+                      {COMPANY_PROFILE_DEPARTMENTS.map((department) => (
+                        <option key={department} value={department}>
+                          {department}
+                        </option>
+                      ))}
+                    </select>
+                    <span
+                      id="get-started-departments-hint"
+                      className="mt-1 block text-[10px] text-slate-500"
+                    >
+                      Hold Ctrl (Windows) or Cmd (Mac) to select multiple departments.
+                    </span>
                   </label>
+                  {showDepartmentOther ? (
+                    <label className="block text-[10px] text-cyan-200/80 sm:col-span-2">
+                      Other departments
+                      <input
+                        type="text"
+                        value={departmentOtherDraft}
+                        onChange={(event) => setDepartmentOtherDraft(event.target.value)}
+                        placeholder="e.g. Flight Operations, Vendor Management"
+                        className="mt-1 h-11 w-full rounded-lg border border-cyan-700/40 bg-[#020617]/40 px-3 font-mono text-sm text-cyan-50 outline-none focus:border-cyan-500"
+                      />
+                    </label>
+                  ) : null}
                 </div>
                 <button
                   type="button"
                   disabled={
-                    companySaveBusy || !companyNameDraft.trim() || !sectorDraft.trim()
+                    companySaveBusy ||
+                    !companyNameDraft.trim() ||
+                    !sectorPicklistReady
                   }
                   onClick={() => void saveCompanyProfile()}
                   className="mt-4 inline-flex h-11 items-center justify-center rounded-lg border border-cyan-500/50 bg-cyan-950/50 px-5 font-mono text-[10px] font-bold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-900/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -739,8 +879,13 @@ export default function GetStartedPortalClient({
           </>
         )}
 
-        {billingBlocked ? (
-          <CommercialEntitlementHoldPanel billingStatus={billingStatus} compact />
+        {billingBlockedLive ? (
+          <CommercialEntitlementHoldPanel
+            billingStatus={billingStatusLive}
+            checkoutUrl={billingCheckoutUrl}
+            onBillingRefresh={handleBillingRefresh}
+            compact
+          />
         ) : onboardingProfileComplete ? (
           <>
         {welcomeAudioSrc ? (
@@ -1067,10 +1212,21 @@ export default function GetStartedPortalClient({
           </div>
         </footer>
           </>
-        ) : null}
+        ) : (
+          <section className="rounded-xl border border-emerald-500/25 bg-emerald-950/15 px-4 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-emerald-300">
+              Subscription active
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-300">
+              {companyProfileUnset
+                ? "Complete the company profile section above to unlock the guided training checklist."
+                : "Finish any remaining setup steps above, then use the mission checklist when it appears."}
+            </p>
+          </section>
+        )}
       </div>
 
-      {!billingBlocked && onboardingProfileComplete && inlineDocHref ? (
+      {!billingBlockedLive && onboardingProfileComplete && inlineDocHref ? (
         <div
           className={`ironframe-orientation-surface fixed inset-x-0 bottom-0 z-[35] flex flex-col border-t border-[var(--login-border)] bg-[#020617] ${inlineReaderTopClass}`}
           role="dialog"

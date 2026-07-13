@@ -6,6 +6,7 @@ const LINKS = [
   { label: "SYSTEM CONFIG", path: "/config", expect: /SYSTEM CONFIGURATION|config/i },
   { label: "SECURITY PROFILE", path: "/profile", expect: /Security Profile|security profile|MFA/i },
   { label: "EVIDENCE VAULT", path: "/vault", expect: /Evidence Vault|evidence vault|Bulk export/i },
+  { label: "CONTROL MAPPING", path: "/compliance/frameworks", expect: /CONTROL MAPPING|crosswalk|HIPAA/i },
   { label: "AUDIT TRAIL", path: "/reports/audit-trail", expect: /Audit Trail|audit trail|AUDIT/i },
   { label: "INTEGRITY HUB", path: "/integrity", expect: /Integrity Hub|integrity hub|INTEGRITY/i },
   { label: "INTEGRITY & AUDIT", path: "/audit", expect: /Integrity & Audit|Meta.?Audit|integrity ledger/i },

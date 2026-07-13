@@ -71,7 +71,7 @@ describe("resolveCommercialCorpusGate", () => {
   it("returns billing_hold for pending tenants", async () => {
     vi.mocked(getSupabaseSessionUser).mockResolvedValue({ id: "user-1" } as never);
     vi.mocked(resolveTenantBillingEntitlementByUuid).mockResolvedValue({
-      tenantSlug: "bwc",
+      tenantSlug: "acorp",
       status: "PENDING",
       blocked: true,
     });

@@ -22,8 +22,11 @@ test.describe("Documentation auth gate", () => {
     await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 20_000 });
   });
 
-  test("guest is redirected to login from pricing", async ({ page }) => {
+  test("guest can view public pricing page", async ({ page }) => {
     await page.goto("/pricing");
-    await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/pricing(\?|$)/, { timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: /one premium tier/i })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

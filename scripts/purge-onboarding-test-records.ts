@@ -368,6 +368,20 @@ async function main() {
     const orphanMeta = await deleteOrphanRolesForMatchedAuthUsers(terms);
     const orphanDangling = await deleteDanglingRoleAssignments();
     const orphanInvites = await deleteOrphanInvitationsBySlug(terms);
+    const billingDelete = await prisma.tenantBilling.deleteMany({
+      where: {
+        OR: terms.map((term) => ({
+          tenantSlug: { equals: term, mode: "insensitive" as const },
+        })),
+      },
+    });
+    const prospectDelete = await prisma.prospect.deleteMany({
+      where: {
+        OR: terms.map((term) => ({
+          slug: { equals: term, mode: "insensitive" as const },
+        })),
+      },
+    });
     if (orphanMeta.count > 0) {
       console.log(`\nOrphan role rows removed (auth tenant_slug match): ${orphanMeta.count}`);
     }
@@ -377,7 +391,19 @@ async function main() {
     if (orphanInvites.count > 0) {
       console.log(`Orphan workspace invitations removed: ${orphanInvites.count}`);
     }
-    if (orphanMeta.count === 0 && orphanDangling.count === 0 && orphanInvites.count === 0) {
+    if (billingDelete.count > 0) {
+      console.log(`Orphan tenant_billing rows removed: ${billingDelete.count}`);
+    }
+    if (prospectDelete.count > 0) {
+      console.log(`Orphan prospect rows removed: ${prospectDelete.count}`);
+    }
+    if (
+      orphanMeta.count === 0 &&
+      orphanDangling.count === 0 &&
+      orphanInvites.count === 0 &&
+      billingDelete.count === 0 &&
+      prospectDelete.count === 0
+    ) {
       console.log("\nNo tenants matched kim/dwoods; no dangling roles to remove.");
     } else {
       console.log("\n[OK] Orphan RBAC cleanup complete.");
@@ -403,6 +429,28 @@ async function main() {
 
   const tenantDelete = await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
   console.log(`Tenants deleted (FK cascade to companies, RiskEvent, vendors, …): ${tenantDelete.count}`);
+
+  const billingDelete = await prisma.tenantBilling.deleteMany({
+    where: {
+      OR: terms.map((term) => ({
+        tenantSlug: { equals: term, mode: "insensitive" as const },
+      })),
+    },
+  });
+  if (billingDelete.count > 0) {
+    console.log(`tenant_billing rows deleted: ${billingDelete.count}`);
+  }
+
+  const prospectDelete = await prisma.prospect.deleteMany({
+    where: {
+      OR: terms.map((term) => ({
+        slug: { equals: term, mode: "insensitive" as const },
+      })),
+    },
+  });
+  if (prospectDelete.count > 0) {
+    console.log(`prospect rows deleted: ${prospectDelete.count}`);
+  }
 
   const orphanDangling = await deleteDanglingRoleAssignments();
   if (orphanDangling.count > 0) {

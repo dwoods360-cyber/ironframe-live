@@ -63,6 +63,7 @@ export function isTokenGatedApiIngressPath(pathname: string): boolean {
   if (pathname === "/api/cron/narrate") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
+  if (pathname === "/api/internal/pki-health") return true;
   if (isIronleadsIngressPath(pathname)) return true;
   if (isSalesteamIngressPath(pathname)) return true;
   if (isSuccessTeamIngressPath(pathname)) return true;

@@ -64,8 +64,8 @@ describe("applyIronguardToFetch host binding", () => {
       configurable: true,
       value: {
         ...window.location,
-        host: "bwc.lvh.me:3000",
-        origin: "http://bwc.lvh.me:3000",
+        host: "acorp.lvh.me:3000",
+        origin: "http://acorp.lvh.me:3000",
       },
     });
 

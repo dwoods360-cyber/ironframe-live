@@ -76,7 +76,7 @@ describe("operationsApiRedaction", () => {
   it("redactSuccessTeamPortalSnapshot removes tenant slug and tenant ids", () => {
     const redacted = redactSuccessTeamPortalSnapshot({
       generatedAt: "2026-07-07T00:00:00.000Z",
-      tenantSlug: "bwc",
+      tenantSlug: "medshield",
       worker: { reachable: true, healthUrl: "http://127.0.0.1:8085/health", status: "OK" },
       accounts: [
         {

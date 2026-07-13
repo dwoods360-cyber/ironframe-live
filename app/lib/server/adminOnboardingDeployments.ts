@@ -137,10 +137,16 @@ function resolveLegalSignoff(input: {
   return "AWAITING_INITIALIZATION";
 }
 
-export async function fetchTenantDeploymentRows(): Promise<TenantDeploymentRow[]> {
+export async function fetchTenantDeploymentRows(options?: {
+  tenantIds?: string[];
+}): Promise<TenantDeploymentRow[]> {
   const port = Number(process.env.PORT?.trim() || "3000") || 3000;
+  const tenantIdFilter = options?.tenantIds?.length
+    ? { id: { in: options.tenantIds } }
+    : undefined;
 
   const tenants = await prisma.tenant.findMany({
+    where: tenantIdFilter,
     orderBy: { name: "asc" },
     select: {
       id: true,

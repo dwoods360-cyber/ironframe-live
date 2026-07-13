@@ -1,30 +1,29 @@
-name: Production BWC Smoke
+name: Production Design Partner Smoke
 
-# Live operator smoke against https://bwc.ironframegrc.com — same suite as
-# `npm run test:e2e:production:bwc` (Wil / Blackwoods Coffee tenant).
+# Live operator smoke against https://{E2E_PRODUCTION_TENANT_SLUG}.ironframegrc.com
 #
-# Enable: Repository variable PRODUCTION_BWC_SMOKE_ENABLED=true
+# Enable: Repository variable PRODUCTION_SMOKE_ENABLED=true
+# Variables: E2E_PRODUCTION_TENANT_SLUG (provisioned design-partner slug)
 # Secrets: DATABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_URL,
-#          NEXT_PUBLIC_SUPABASE_ANON_KEY (optional DIRECT_URL, E2E_BWC_OPERATOR_EMAIL,
+#          NEXT_PUBLIC_SUPABASE_ANON_KEY (optional DIRECT_URL, E2E_PRODUCTION_OPERATOR_EMAIL,
 #          PRODUCTION_SMOKE_ALERT_WEBHOOK for Slack/Discord on failure)
 
 on:
   schedule:
-    # 06:00 America/Chicago (CDT). GitHub cron is UTC-only; 11:00 UTC ≈ 6 AM CDT / 5 AM CST.
     - cron: "0 11 * * *"
   workflow_dispatch:
 
 concurrency:
-  group: production-bwc-smoke
+  group: production-smoke
   cancel-in-progress: true
 
 jobs:
-  production-bwc-smoke:
-    name: BWC production smoke (live tenant)
+  production-smoke:
+    name: Design partner production smoke (live tenant)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: >-
-      vars.PRODUCTION_BWC_SMOKE_ENABLED == 'true' ||
+      vars.PRODUCTION_SMOKE_ENABLED == 'true' ||
       github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout repository
@@ -42,24 +41,25 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
-      - name: Run BWC production smoke
-        run: npm run test:e2e:production:bwc
+      - name: Run production smoke
+        run: npm run test:e2e:production:smoke
         env:
           CI: true
           E2E_PRODUCTION: "1"
           E2E_TENANT_APEX_DOMAIN: ironframegrc.com
+          E2E_PRODUCTION_TENANT_SLUG: ${{ vars.E2E_PRODUCTION_TENANT_SLUG }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL || secrets.DATABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
-          E2E_BWC_OPERATOR_EMAIL: ${{ secrets.E2E_BWC_OPERATOR_EMAIL }}
+          E2E_PRODUCTION_OPERATOR_EMAIL: ${{ secrets.E2E_PRODUCTION_OPERATOR_EMAIL }}
 
       - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: production-bwc-smoke-debug
+          name: production-smoke-debug
           path: |
             playwright-report/
             test-results/

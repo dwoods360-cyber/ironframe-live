@@ -9,6 +9,11 @@ import {
   groupAppDocsNavigation,
 } from "@/app/lib/server/appDocsNavigation";
 import { enforceCommercialCorpusGateOrRedirect } from "@/app/lib/server/commercialCorpusAccess";
+import { resolveTenantActivationCheckoutUrlForUuid } from "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server";
+import {
+  getHostBoundTenantUuid,
+  getScopedTenantUuidFromCookies,
+} from "@/app/utils/serverTenantContext";
 import { dbKeyToSlugSegments, inferReadingLevelFromSlug } from "@/lib/appDocumentSlug";
 import {
   formatOperatorDocTitle,
@@ -67,6 +72,13 @@ function resolveTargetSlug(slugArray: string[]): string {
     return "readme";
   }
   return joined.toLowerCase();
+}
+
+async function resolveDocsBillingCheckoutUrl(): Promise<string | null> {
+  const tenantUuid =
+    (await getHostBoundTenantUuid()) ?? (await getScopedTenantUuidFromCookies());
+  if (!tenantUuid) return null;
+  return resolveTenantActivationCheckoutUrlForUuid(tenantUuid);
 }
 
 export default async function DocsCatchAllPage({ params, searchParams }: DocsPageProps) {
@@ -131,6 +143,8 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
       inferReadingLevelFromSlug(targetSlug),
       loginNextPath,
     );
+    const billingCheckoutUrl =
+      corpusGate.status === "billing_hold" ? await resolveDocsBillingCheckoutUrl() : null;
     return (
       <DocsChrome
         currentSlug={currentSlug}
@@ -139,7 +153,10 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
         embedded={embedded}
       >
         {corpusGate.status === "billing_hold" ? (
-          <CommercialEntitlementHoldPanel billingStatus={corpusGate.billingStatus} />
+          <CommercialEntitlementHoldPanel
+            billingStatus={corpusGate.billingStatus}
+            checkoutUrl={billingCheckoutUrl}
+          />
         ) : (
           <CompilationIngressPortal targetSlug={targetSlug} />
         )}
@@ -152,6 +169,8 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
     docRecord.readingLevel,
     loginNextPath,
   );
+  const billingCheckoutUrl =
+    corpusGate.status === "billing_hold" ? await resolveDocsBillingCheckoutUrl() : null;
   const documentContent = prepareDocContentForDisplay(docRecord.content, {
     readingLevel: docRecord.readingLevel,
     title: docRecord.title,
@@ -168,7 +187,10 @@ export default async function DocsCatchAllPage({ params, searchParams }: DocsPag
       embedded={embedded}
     >
       {corpusGate.status === "billing_hold" ? (
-        <CommercialEntitlementHoldPanel billingStatus={corpusGate.billingStatus} />
+        <CommercialEntitlementHoldPanel
+          billingStatus={corpusGate.billingStatus}
+          checkoutUrl={billingCheckoutUrl}
+        />
       ) : (
       <div className="relative mx-auto max-w-4xl overflow-hidden rounded-xl border border-slate-800/80 bg-[#070e20]/40 p-8 shadow-2xl backdrop-blur-md">
         <div className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30 [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />

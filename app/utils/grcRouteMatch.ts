@@ -119,9 +119,12 @@ export function buildHeaderRouteMatrix(
   };
 }
 
-/** Guest-readable marketing surfaces (no session required). Product docs and pricing require login. */
+/** Guest-readable marketing + Stripe commerce funnel (no session required). Product docs require login. */
 export function isPublicRoute(pathname: string): boolean {
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) return true;
+  if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
+  if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
+  if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
   return false;
 }
 
@@ -205,10 +208,9 @@ export function isInfraHealthPath(pathname: string): boolean {
   return pathname === "/api/health";
 }
 
-/** Product documentation, pricing, and strategic briefings — authenticated operators only. */
+/** Product documentation and strategic briefings — authenticated operators only. */
 export function isAuthenticatedProductSurfacePath(pathname: string): boolean {
   if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
-  if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
   if (pathname === "/api/docs/download-protocol") return true;
   if (pathname === "/api/docs/download-matrix") return true;
@@ -307,6 +309,8 @@ export function isAuthPublicPath(pathname: string): boolean {
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
+    pathname === "/auth/confirm" ||
+    pathname.startsWith("/auth/confirm/") ||
     pathname === "/unauthorized"
   );
 }
@@ -388,6 +392,8 @@ export function isConstitutionalOverlaySuppressedPath(pathname: string): boolean
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
+    pathname === "/auth/confirm" ||
+    pathname.startsWith("/auth/confirm/") ||
     pathname === "/register/setup" ||
     pathname === "/register/demo" ||
     pathname === "/register/contact" ||

@@ -3,7 +3,7 @@
  *
  * Usage:
  *   npm run crm:pilot-report
- *   npm run crm:pilot-report -- --tenant-slug=blackwoodscoffee --weeks=4
+ *   npm run crm:pilot-report -- --tenant-slug=medshield --weeks=4
  */
 import { PrismaClient } from "@prisma/client";
 import { existsSync, readFileSync } from "node:fs";

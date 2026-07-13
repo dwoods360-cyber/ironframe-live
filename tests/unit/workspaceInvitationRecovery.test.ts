@@ -16,7 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/app/lib/tenantSlugRegistry", () => ({
-  lookupTenantBySlug: vi.fn().mockResolvedValue({ id: "tenant-bwc", slug: "bwc", name: "BWC" }),
+  lookupTenantBySlug: vi.fn().mockResolvedValue({ id: "tenant-acorp", slug: "acorp", name: "acorp" }),
 }));
 
 vi.mock("@/app/utils/serverAuth", () => ({
@@ -47,8 +47,8 @@ describe("resolveConsumedWorkspaceInviteRedirect", () => {
   it("returns null for active invitations", async () => {
     prismaMock.tenantWorkspaceInvitation.findUnique.mockResolvedValue({
       status: WORKSPACE_INVITATION_STATUS.ACTIVE,
-      email: "wil@blackwoodscoffee.com",
-      tenantSlug: "bwc",
+      email: "operator@design-partner.test",
+      tenantSlug: "acorp",
     });
 
     await expect(resolveConsumedWorkspaceInviteRedirect("token-1")).resolves.toBeNull();
@@ -57,17 +57,17 @@ describe("resolveConsumedWorkspaceInviteRedirect", () => {
   it("redirects activated operators with a live session to get-started", async () => {
     prismaMock.tenantWorkspaceInvitation.findUnique.mockResolvedValue({
       status: WORKSPACE_INVITATION_STATUS.CONSUMED,
-      email: "wil@blackwoodscoffee.com",
-      tenantSlug: "bwc",
+      email: "operator@design-partner.test",
+      tenantSlug: "acorp",
     });
     vi.mocked(getSupabaseSessionUser).mockResolvedValue({
       id: "user-1",
-      email: "wil@blackwoodscoffee.com",
+      email: "operator@design-partner.test",
     } as never);
     prismaMock.userRoleAssignment.findFirst.mockResolvedValue({ id: "role-1" });
 
     await expect(resolveConsumedWorkspaceInviteRedirect("token-1")).resolves.toEqual({
-      redirectTo: "http://bwc.lvh.me:3000/get-started?activation=1",
+      redirectTo: "http://acorp.lvh.me:3000/get-started?activation=1",
       reason: "active-session",
     });
   });
@@ -75,14 +75,14 @@ describe("resolveConsumedWorkspaceInviteRedirect", () => {
   it("redirects activated operators without a session to tenant login", async () => {
     prismaMock.tenantWorkspaceInvitation.findUnique.mockResolvedValue({
       status: WORKSPACE_INVITATION_STATUS.CONSUMED,
-      email: "wil@blackwoodscoffee.com",
-      tenantSlug: "bwc",
+      email: "operator@design-partner.test",
+      tenantSlug: "acorp",
     });
     vi.mocked(getSupabaseSessionUser).mockResolvedValue(null);
     vi.mocked(operatorSupabaseAccountExists).mockResolvedValue(true);
 
     await expect(resolveConsumedWorkspaceInviteRedirect("token-1")).resolves.toEqual({
-      redirectTo: "http://bwc.lvh.me:3000/login",
+      redirectTo: "http://acorp.lvh.me:3000/login",
       reason: "sign-in-required",
     });
   });

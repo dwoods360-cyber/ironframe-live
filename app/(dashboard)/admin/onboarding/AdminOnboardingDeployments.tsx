@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import type { TenantDeploymentRow } from "@/app/lib/server/adminOnboardingDeployments";
 
+import OnboardingActivatePilotButton from "./OnboardingActivatePilotButton";
+
 function infrastructureBadgeClass(status: TenantDeploymentRow["infrastructureStatus"]): string {
   if (status === "PROVISIONED") {
     return "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
@@ -28,33 +30,52 @@ function formatOperatorEmails(emails: string[]): string {
   return `${emails[0]} +${emails.length - 1}`;
 }
 
-function DeploymentRowActions({ tenant }: { tenant: TenantDeploymentRow }) {
+function DeploymentRowActions({
+  tenant,
+  canManualActivateBilling,
+}: {
+  tenant: TenantDeploymentRow;
+  canManualActivateBilling: boolean;
+}) {
   return (
-    <div className="flex gap-3 pt-2">
-      <Link
-        href="#onboarding-controls"
-        className="flex h-11 flex-1 touch-manipulation items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 font-sans text-xs font-semibold uppercase tracking-wide text-slate-300 transition-colors hover:bg-slate-900 active:scale-[0.98]"
-      >
-        View Token
-      </Link>
-      <a
-        href={tenant.workspaceUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`Open ${tenant.company} workspace`}
-        className="flex h-11 touch-manipulation items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 px-4 font-mono text-sm text-slate-400 transition-colors hover:text-white active:scale-[0.98]"
-      >
-        ⚙️
-      </a>
+    <div className="space-y-2 pt-2">
+      {canManualActivateBilling ? (
+        <OnboardingActivatePilotButton
+          tenantSlug={tenant.slug}
+          billingStatus={tenant.billingStatus}
+          compact
+        />
+      ) : null}
+      <div className="flex gap-3">
+        <Link
+          href="#onboarding-controls"
+          className="flex h-11 flex-1 touch-manipulation items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 font-sans text-xs font-semibold uppercase tracking-wide text-slate-300 transition-colors hover:bg-slate-900 active:scale-[0.98]"
+        >
+          View Token
+        </Link>
+        <a
+          href={tenant.workspaceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open ${tenant.company} workspace`}
+          className="flex h-11 touch-manipulation items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 px-4 font-mono text-sm text-slate-400 transition-colors hover:text-white active:scale-[0.98]"
+        >
+          ⚙️
+        </a>
+      </div>
     </div>
   );
 }
 
 interface AdminOnboardingDeploymentsProps {
   deployments: TenantDeploymentRow[];
+  canManualActivateBilling?: boolean;
 }
 
-export default function AdminOnboardingDeployments({ deployments }: AdminOnboardingDeploymentsProps) {
+export default function AdminOnboardingDeployments({
+  deployments,
+  canManualActivateBilling = false,
+}: AdminOnboardingDeploymentsProps) {
   if (deployments.length === 0) {
     return (
       <div className="rounded-xl border border-slate-800/80 bg-[#070e20]/40 p-8 text-center shadow-2xl backdrop-blur-md">
@@ -127,7 +148,13 @@ export default function AdminOnboardingDeployments({ deployments }: AdminOnboard
                 </span>
               </div>
               <div className="col-span-1 text-center text-[10px] text-slate-400">{tenant.legalSignoff}</div>
-              <div className="col-span-1 flex justify-end">
+              <div className="col-span-1 flex flex-col items-end gap-1.5">
+                {canManualActivateBilling ? (
+                  <OnboardingActivatePilotButton
+                    tenantSlug={tenant.slug}
+                    billingStatus={tenant.billingStatus}
+                  />
+                ) : null}
                 <Link
                   href="#onboarding-controls"
                   title={`Invite ref ${tenant.tokenLabel}`}
@@ -181,7 +208,10 @@ export default function AdminOnboardingDeployments({ deployments }: AdminOnboard
               <div className="text-right text-cyan-400">{tenant.tokenLabel}</div>
             </div>
 
-            <DeploymentRowActions tenant={tenant} />
+            <DeploymentRowActions
+              tenant={tenant}
+              canManualActivateBilling={canManualActivateBilling}
+            />
           </div>
         ))}
       </div>

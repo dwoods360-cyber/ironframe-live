@@ -20,7 +20,7 @@ function authorizeSuccessTeamIngress(request: NextRequest): NextResponse | null 
 }
 
 /**
- * GET /api/v1/ingress/success-team/health-snapshot?tenantSlug=bwc&dealId=...
+ * GET /api/v1/ingress/success-team/health-snapshot?tenantSlug=acorp&dealId=...
  * Deterministic health snapshot for a CLOSED_WON account.
  */
 export async function GET(request: NextRequest) {

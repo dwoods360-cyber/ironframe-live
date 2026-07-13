@@ -15,6 +15,7 @@ import type { TenantDeploymentRow } from "@/app/lib/server/adminOnboardingDeploy
 type Props = {
   tenants: TenantDeploymentRow[];
   stripeCheckoutUrl: string | null;
+  canManualActivateBilling?: boolean;
 };
 
 function billingBadgeClass(status: TenantDeploymentRow["billingStatus"]): string {
@@ -38,7 +39,11 @@ function billingHoldPreviewUrl(slug: string, status: TenantBillingStatus | null)
   return `/account/billing-hold?${params.toString()}`;
 }
 
-export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }: Props) {
+export default function TenantBillingAdminClient({
+  tenants,
+  stripeCheckoutUrl,
+  canManualActivateBilling = false,
+}: Props) {
   const router = useRouter();
   const [feedback, setFeedback] = useState<{ status: "idle" | "success" | "error"; text: string }>({
     status: "idle",
@@ -83,8 +88,9 @@ export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }:
         </p>
         <h1 className="text-2xl font-semibold text-slate-50">Tenant billing & upgrade testing</h1>
         <p className="max-w-3xl text-sm leading-relaxed text-slate-400">
-          Mark design-partner workspaces as paid, simulate billing holds, and preview the operator
-          checkout surfaces. Restricted to GLOBAL_ADMIN and designated BUSINESS_ADMIN operators.
+          Simulate billing holds, preview operator checkout surfaces, and (GLOBAL_ADMIN only) mark
+          workspaces paid without Stripe. MSSP partners provision clients via Client Workspaces;
+          billing activation must clear through Stripe webhooks.
         </p>
       </header>
 
@@ -183,21 +189,23 @@ export default function TenantBillingAdminClient({ tenants, stripeCheckoutUrl }:
                     </div>
 
                     <div className="flex flex-wrap gap-2 md:col-span-7">
-                      <button
-                        type="button"
-                        disabled={rowBusy}
-                        onClick={() =>
-                          runMutation(tenant.slug, () =>
-                            updateTenantBillingStatusAction(
-                              tenant.slug,
-                              TENANT_BILLING_STATUS.ACTIVE,
-                            ),
-                          )
-                        }
-                        className="h-9 rounded border border-emerald-600/50 bg-emerald-950/30 px-3 font-mono text-[10px] font-bold uppercase tracking-wide text-emerald-200 disabled:opacity-40"
-                      >
-                        Mark paid
-                      </button>
+                      {canManualActivateBilling ? (
+                        <button
+                          type="button"
+                          disabled={rowBusy}
+                          onClick={() =>
+                            runMutation(tenant.slug, () =>
+                              updateTenantBillingStatusAction(
+                                tenant.slug,
+                                TENANT_BILLING_STATUS.ACTIVE,
+                              ),
+                            )
+                          }
+                          className="h-9 rounded border border-emerald-600/50 bg-emerald-950/30 px-3 font-mono text-[10px] font-bold uppercase tracking-wide text-emerald-200 disabled:opacity-40"
+                        >
+                          Mark paid
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         disabled={rowBusy}

@@ -1,6 +1,8 @@
 "use server";
 
-import { requirePlatformAdministrator } from "@/app/lib/auth/platformAdminAccess";
+import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { requirePartnerProvisioner } from "@/app/lib/auth/partnerProvisionerAccess";
+import { linkPartnerProvisionerToClientTenant } from "@/app/lib/server/partnerProvisionerTenantLink";
 import {
   provisionCorporateTenantCore,
   type ProvisionCorporateTenantCoreResult,
@@ -11,17 +13,29 @@ export type ProvisionCorporateTenantResult = ProvisionCorporateTenantCoreResult;
 export async function provisionCorporateTenantAction(
   formData: FormData,
 ): Promise<ProvisionCorporateTenantResult> {
-  const admin = await requirePlatformAdministrator();
-  if ("error" in admin) {
-    return { ok: false, error: admin.error };
+  const gate = await requirePartnerProvisioner();
+  if ("error" in gate) {
+    return { ok: false, error: gate.error };
   }
 
-  return provisionCorporateTenantCore({
+  const user = await getSupabaseSessionUser();
+  const slugRaw = String(formData.get("slug") ?? "");
+  const result = await provisionCorporateTenantCore({
     name: String(formData.get("name") ?? ""),
-    slugRaw: String(formData.get("slug") ?? ""),
+    slugRaw,
     industry: String(formData.get("industry") ?? "") || null,
     aleBaselineCentsRaw: String(formData.get("aleBaselineCents") ?? "0"),
-    operatorId: admin.userId,
+    operatorId: gate.userId,
     skipInvitationGate: true,
   });
+
+  if (result.ok) {
+    await linkPartnerProvisionerToClientTenant({
+      operatorId: gate.userId,
+      operatorEmail: user?.email,
+      tenantSlug: result.slug,
+    });
+  }
+
+  return result;
 }

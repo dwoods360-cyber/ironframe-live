@@ -6,13 +6,20 @@ import {
 } from "@/app/actions/admin/tenantBillingAdminActions";
 import { TENANT_BILLING_STATUS } from "@/app/lib/billing/constants";
 
-const mockRequirePerimeter = vi.hoisted(() => vi.fn());
+const mockRequirePartner = vi.hoisted(() => vi.fn());
+const mockAssertScope = vi.hoisted(() => vi.fn());
+const mockRequireManualActive = vi.hoisted(() => vi.fn());
 const mockSetTenantBillingStatus = vi.hoisted(() => vi.fn());
 const mockAuditLogCreateLoose = vi.hoisted(() => vi.fn());
 const mockRevalidatePath = vi.hoisted(() => vi.fn());
 
-vi.mock("@/app/lib/auth/perimeterWorkforceAccess", () => ({
-  requirePerimeterWorkforceOperator: mockRequirePerimeter,
+vi.mock("@/app/lib/auth/partnerProvisionerAccess", () => ({
+  requirePartnerProvisioner: mockRequirePartner,
+  assertTenantSlugInPartnerScope: mockAssertScope,
+}));
+
+vi.mock("@/app/lib/auth/billingManualOverrideAccess", () => ({
+  requireManualBillingActivationAuthority: mockRequireManualActive,
 }));
 
 vi.mock("@/app/lib/billing/tenantBillingEntitlement", () => ({
@@ -30,30 +37,51 @@ vi.mock("next/cache", () => ({
 describe("tenantBillingAdminActions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequirePerimeter.mockResolvedValue({ userId: "admin-user" });
+    mockRequirePartner.mockResolvedValue({
+      userId: "admin-user",
+      scope: { kind: "all" },
+    });
+    mockAssertScope.mockResolvedValue({ ok: true });
+    mockRequireManualActive.mockResolvedValue({ userId: "admin-user" });
     mockSetTenantBillingStatus.mockResolvedValue(undefined);
     mockAuditLogCreateLoose.mockResolvedValue(undefined);
   });
 
-  it("denies operators without perimeter workforce access", async () => {
-    mockRequirePerimeter.mockResolvedValue({
-      error: "GLOBAL_ADMIN or designated BUSINESS_ADMIN role required for perimeter workforce access.",
+  it("denies operators without partner provisioner access", async () => {
+    mockRequirePartner.mockResolvedValue({
+      error:
+        "GLOBAL_ADMIN or designated BUSINESS_ADMIN role required to manage client workspaces.",
     });
 
-    const result = await updateTenantBillingStatusAction("bwc", TENANT_BILLING_STATUS.ACTIVE);
+    const result = await updateTenantBillingStatusAction("acorp", TENANT_BILLING_STATUS.ACTIVE);
     expect(result).toEqual({
       ok: false,
       error:
-        "GLOBAL_ADMIN or designated BUSINESS_ADMIN role required for perimeter workforce access.",
+        "GLOBAL_ADMIN or designated BUSINESS_ADMIN role required to manage client workspaces.",
     });
     expect(mockSetTenantBillingStatus).not.toHaveBeenCalled();
   });
 
   it("marks a tenant billing row as ACTIVE", async () => {
-    const result = await updateTenantBillingStatusAction("bwc", TENANT_BILLING_STATUS.ACTIVE);
+    const result = await updateTenantBillingStatusAction("acorp", TENANT_BILLING_STATUS.ACTIVE);
     expect(result.ok).toBe(true);
-    expect(mockSetTenantBillingStatus).toHaveBeenCalledWith("bwc", TENANT_BILLING_STATUS.ACTIVE);
+    expect(mockRequireManualActive).toHaveBeenCalled();
+    expect(mockSetTenantBillingStatus).toHaveBeenCalledWith("acorp", TENANT_BILLING_STATUS.ACTIVE);
     expect(mockRevalidatePath).toHaveBeenCalledWith("/admin/billing");
+  });
+
+  it("denies manual ACTIVE activation for non-platform operators", async () => {
+    mockRequireManualActive.mockResolvedValue({
+      error: "GLOBAL_ADMIN role required to manually activate billing without a verified Stripe payment.",
+    });
+
+    const result = await updateTenantBillingStatusAction("acorp", TENANT_BILLING_STATUS.ACTIVE);
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "GLOBAL_ADMIN role required to manually activate billing without a verified Stripe payment.",
+    });
+    expect(mockSetTenantBillingStatus).not.toHaveBeenCalled();
   });
 
   it("seeds a tenant into PENDING hold for gate testing", async () => {

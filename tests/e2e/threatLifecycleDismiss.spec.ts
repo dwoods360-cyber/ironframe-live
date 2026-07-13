@@ -13,11 +13,15 @@ import {
 import { waitForLeftRailReady } from "./helpers/dashboardCoreFlows";
 import { waitForDashboardReady } from "./helpers/dashboardGate";
 import { bootstrapApexOperatorSession, openWorkspaceCommandPost } from "./helpers/commandPostDiagnostic";
+import { resolveE2EDesignPartnerSlug } from "./helpers/designPartnerE2eEnv";
+
+const PARTNER_SLUG = resolveE2EDesignPartnerSlug();
 
 const OPERATOR_EMAIL =
+  process.env.E2E_PRODUCTION_OPERATOR_EMAIL?.trim().toLowerCase() ||
   process.env.E2E_OPERATOR_EMAIL?.trim().toLowerCase() ||
   process.env.IRONFRAME_E2E_OPERATOR_EMAIL?.trim().toLowerCase() ||
-  "dwoods360@gmail.com";
+  "";
 
 const DISMISS_REASONS = [
   { value: "FALSE_POSITIVE", label: "False Positive" },
@@ -138,10 +142,12 @@ test.describe("De-ack dismiss lifecycle", () => {
 
     if (production) {
       test.skip(!allowProdMutations, "Set E2E_ALLOW_PROD_MUTATIONS=1 to mutate production.");
+      test.skip(!PARTNER_SLUG, "Set E2E_DESIGN_PARTNER_SLUG or E2E_PRODUCTION_TENANT_SLUG.");
+      test.skip(!OPERATOR_EMAIL, "Set E2E_PRODUCTION_OPERATOR_EMAIL or E2E_OPERATOR_EMAIL.");
       test.skip(!hasDatabaseUrl() || !hasSupabaseAdmin(), "DB + Supabase required.");
-      await assertTenantBillingActive("bwc");
-      await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, "bwc");
-      await page.goto(`${tenantSubdomainOrigin("bwc")}/`, {
+      await assertTenantBillingActive(PARTNER_SLUG);
+      await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, PARTNER_SLUG);
+      await page.goto(`${tenantSubdomainOrigin(PARTNER_SLUG)}/`, {
         waitUntil: "commit",
         timeout: 120_000,
       });
@@ -192,17 +198,19 @@ test.describe("De-ack dismiss lifecycle", () => {
     }
   });
 
-  test("production BWC: de-ack on active card when E2E_THREAT_ID set", async ({ page }) => {
+  test("production design partner: de-ack on active card when E2E_THREAT_ID set", async ({ page }) => {
     test.skip(!isE2eProductionTarget(), "Production-only spot check.");
     test.skip(process.env.E2E_ALLOW_PROD_MUTATIONS !== "1", "Set E2E_ALLOW_PROD_MUTATIONS=1.");
+    test.skip(!PARTNER_SLUG, "Set E2E_DESIGN_PARTNER_SLUG or E2E_PRODUCTION_TENANT_SLUG.");
+    test.skip(!OPERATOR_EMAIL, "Set E2E_PRODUCTION_OPERATOR_EMAIL or E2E_OPERATOR_EMAIL.");
     test.skip(!hasDatabaseUrl() || !hasSupabaseAdmin(), "DB + Supabase required.");
 
     const threatId = process.env.E2E_THREAT_ID?.trim();
     test.skip(!threatId, "Set E2E_THREAT_ID to an active-board threat uuid.");
 
-    await assertTenantBillingActive("bwc");
-    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, "bwc");
-    await page.goto(`${tenantSubdomainOrigin("bwc")}/`, {
+    await assertTenantBillingActive(PARTNER_SLUG);
+    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, PARTNER_SLUG);
+    await page.goto(`${tenantSubdomainOrigin(PARTNER_SLUG)}/`, {
       waitUntil: "commit",
       timeout: 120_000,
     });
@@ -224,9 +232,13 @@ test.describe("De-ack dismiss lifecycle", () => {
 
     expect(outcome.errors).toHaveLength(0);
     expect(outcome.toastError).toBeNull();
-  test("production BWC: acknowledge active/pipeline card when E2E_THREAT_ID set", async ({ page }) => {
+  });
+
+  test("production design partner: acknowledge active/pipeline card when E2E_THREAT_ID set", async ({ page }) => {
     test.skip(!isE2eProductionTarget(), "Production-only spot check.");
     test.skip(process.env.E2E_ALLOW_PROD_MUTATIONS !== "1", "Set E2E_ALLOW_PROD_MUTATIONS=1.");
+    test.skip(!PARTNER_SLUG, "Set E2E_DESIGN_PARTNER_SLUG or E2E_PRODUCTION_TENANT_SLUG.");
+    test.skip(!OPERATOR_EMAIL, "Set E2E_PRODUCTION_OPERATOR_EMAIL or E2E_OPERATOR_EMAIL.");
     test.skip(!hasDatabaseUrl() || !hasSupabaseAdmin(), "DB + Supabase required.");
 
     const threatId = process.env.E2E_THREAT_ID?.trim();
@@ -237,9 +249,9 @@ test.describe("De-ack dismiss lifecycle", () => {
       "Inspect the top boundary header area of the Control Room panel element. " +
       "Verify visual presentation of the status indicator dot and header titles.";
 
-    await assertTenantBillingActive("bwc");
-    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, "bwc");
-    await page.goto(`${tenantSubdomainOrigin("bwc")}/`, {
+    await assertTenantBillingActive(PARTNER_SLUG);
+    await redeemInviteOnTenantSubdomain(page, OPERATOR_EMAIL, PARTNER_SLUG);
+    await page.goto(`${tenantSubdomainOrigin(PARTNER_SLUG)}/`, {
       waitUntil: "commit",
       timeout: 120_000,
     });

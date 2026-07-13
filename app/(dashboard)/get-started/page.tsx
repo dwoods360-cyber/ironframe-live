@@ -6,6 +6,7 @@ import {
 } from "@/app/lib/auth/dashboardRoleAccess";
 import { canUsePlatformAdminTools } from "@/app/lib/auth/platformAdminAccess";
 import { resolveTenantBillingEntitlementByUuid } from "@/app/lib/billing/tenantBillingEntitlement";
+import { resolveTenantActivationCheckoutUrlForUuid } from "@/app/lib/billing/resolveTenantActivationCheckoutUrl.server";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function GetStartedPage() {
   let initialTenantIndustry = "";
   let billingBlocked = false;
   let billingStatus = "UNTRACKED";
+  let billingCheckoutUrl: string | null = null;
 
   if (access.status === "allowed") {
     const platformAdmin = await canUsePlatformAdminTools();
@@ -34,7 +36,7 @@ export default async function GetStartedPage() {
     const [tenant, primaryCompany] = await Promise.all([
       prisma.tenant.findUnique({
         where: { id: access.tenantUuid },
-        select: { ale_baseline: true, name: true, industry: true },
+        select: { ale_baseline: true, name: true, industry: true, slug: true },
       }),
       prisma.company.findFirst({
         where: { tenantId: access.tenantUuid, isTestRecord: false },
@@ -45,6 +47,10 @@ export default async function GetStartedPage() {
     initialHasPrimaryCompany = Boolean(primaryCompany);
     initialTenantName = tenant?.name ?? "";
     initialTenantIndustry = tenant?.industry ?? "";
+
+    if (billingBlocked) {
+      billingCheckoutUrl = await resolveTenantActivationCheckoutUrlForUuid(access.tenantUuid);
+    }
   }
 
   return (
@@ -56,6 +62,7 @@ export default async function GetStartedPage() {
         initialTenantIndustry={initialTenantIndustry}
         billingBlocked={billingBlocked}
         billingStatus={billingStatus}
+        billingCheckoutUrl={billingCheckoutUrl}
       />
     </Suspense>
   );

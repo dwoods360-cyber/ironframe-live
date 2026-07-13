@@ -173,7 +173,7 @@ function mergeSupabaseCookies(source: NextResponse, target: NextResponse): NextR
   return target;
 }
 
-async function assertGlobalAdminForOnboarding(
+async function assertPartnerProvisionerForOnboarding(
   request: NextRequest,
   user: { id: string; email?: string | null },
   supabaseResponse: NextResponse,
@@ -186,7 +186,7 @@ async function assertGlobalAdminForOnboarding(
     return mergeSupabaseCookies(supabaseResponse, denied);
   }
 
-  const gateUrl = new URL("/api/internal/platform-admin-gate", request.url);
+  const gateUrl = new URL("/api/internal/partner-provisioner-gate", request.url);
   gateUrl.searchParams.set("userId", user.id);
   if (user.email?.trim()) gateUrl.searchParams.set("email", user.email.trim());
 
@@ -294,11 +294,13 @@ export async function middleware(request: NextRequest) {
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isUnauthorizedRoute = pathname === "/unauthorized";
   const isResetPasswordRoute = pathname === "/reset-password";
+  const isAuthConfirmRoute = pathname === "/auth/confirm" || pathname.startsWith("/auth/confirm/");
   const isAuthPublicRoute =
     isLoginRoute ||
     isForgotPasswordRoute ||
     isUnauthorizedRoute ||
     isResetPasswordRoute ||
+    isAuthConfirmRoute ||
     isAuthCallbackRoute ||
     isSessionBootstrapRoute ||
     isWorkspaceLaunchRoute;
@@ -519,6 +521,15 @@ export async function middleware(request: NextRequest) {
       return await finalizeMiddlewareResponse(request, supabaseResponse, user);
     }
 
+    /** Admin JSON APIs: never redirect to /login HTML — client fetch().json() would fail opaquely. */
+    if (pathname.startsWith("/api/admin/")) {
+      const denied = NextResponse.json({ error: "Authentication required." }, { status: 401 });
+      supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
+        denied.cookies.set(name, value);
+      });
+      return await finalizeMiddlewareResponse(request, denied, user);
+    }
+
     /** Shadow plane / simulation secret: allow local API live-fire without a browser session. */
     if (pathname.startsWith("/api/") && middlewareSimulationBypass(request)) {
       return await finalizeMiddlewareResponse(request, supabaseResponse, user);
@@ -544,9 +555,9 @@ export async function middleware(request: NextRequest) {
     return await finalizeMiddlewareResponse(request, supabaseResponse, user);
   }
 
-  // RULE A0: GLOBAL_ADMIN gate for internal onboarding console
+  // RULE A0: Partner provisioner gate (GLOBAL_ADMIN or BUSINESS_ADMIN) for client onboarding
   if (user && isAdminOnboardingPath(pathname)) {
-    const denied = await assertGlobalAdminForOnboarding(request, user, supabaseResponse);
+    const denied = await assertPartnerProvisionerForOnboarding(request, user, supabaseResponse);
     if (denied) return denied;
   }
 

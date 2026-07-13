@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Optional webhook alert when scheduled BWC production smoke fails.
+ * Optional webhook alert when scheduled acorp production smoke fails.
  * Set GitHub secret PRODUCTION_SMOKE_ALERT_WEBHOOK (Slack incoming webhook,
  * Discord webhook, or any JSON POST endpoint accepting `text` / `content`).
  */
@@ -18,7 +18,7 @@ const runUrl =
     : "https://github.com";
 
 const branch = process.env.GITHUB_REF_NAME?.trim() || "main";
-const message = `BWC production smoke FAILED on ${branch} — audit-trail + Command Post checks against bwc.ironframegrc.com. Run: ${runUrl}`;
+const message = `acorp production smoke FAILED on ${branch} — audit-trail + Command Post checks against acorp.ironframegrc.com. Run: ${runUrl}`;
 
 const payload = {
   text: message,

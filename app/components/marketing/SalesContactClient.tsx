@@ -55,9 +55,13 @@ export default function SalesContactClient() {
       <h1 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">
         Request a secure enterprise enclave
       </h1>
+      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
+        Request evaluation — no workspace created yet.
+      </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
-        Ironframe provisions multi-tenant GRC workspaces through a vetted, invite-only pathway. Share
-        your details and our team will coordinate a scoped evaluation and operator invitation.
+        This form records a sales lead only. Ironframe provisions multi-tenant GRC workspaces through
+        a separate, vetted invite-only pathway. Share your details and our team will coordinate a
+        scoped evaluation and operator invitation.
       </p>
 
       {submitted ? (

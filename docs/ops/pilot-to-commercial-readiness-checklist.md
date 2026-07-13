@@ -3,7 +3,7 @@
 **Milestone:** `v0.1.0-ga-epic17` · **Posture:** sales-assisted invite + Stripe  
 **Live tracker** — report each item as **PASS** or **FAIL**; this document updates as you go.
 
-**Companion docs:** [Golden Path](golden-path-checklist.md) · [BWC production smoke](bwc-wil-production-smoke.md) · [Epic 17 billing](../technical/epic17-billing-architecture.md)
+**Companion docs:** [Golden Path](golden-path-checklist.md) · [design partner production smoke](design-partner-production-smoke.md) · [Epic 17 billing](../technical/epic17-billing-architecture.md)
 
 ---
 
@@ -31,14 +31,14 @@ PA-R4.5 FAIL — saw CommercialEntitlementHoldPanel on /exports
 
 ## Status dashboard
 
-_Last updated: 2026-07-08_
+_Last updated: 2026-07-13_
 
 | Item | Phase | Status | Notes |
 |------|-------|--------|-------|
-| **1A** Golden Path Run #4 | A | ⏳ | PA-R4.1–4.4 PASS — through Integrity Hub |
-| **1B** Ops secrets green | A | — | |
-| **1C** Billing activation automated | A | — | |
-| **FL1** Pilot-ready | A | — | 1A + 1B + 1C PASS |
+| **1A** Golden Path Run #4 | A | **PASS** | Run #4 complete — 3× bar with Runs 2–3 |
+| **1B** Ops secrets green | A | **PASS** | PA-SEC.1–9 all PASS (2026-07-12) |
+| **1C** Billing activation automated | A | **PASS** | PA-BIL.A–C all PASS (2026-07-13) |
+| **FL1** Pilot-ready | A | **PASS** | 1A + 1B + 1C; production proof `pilot1` (2026-07-13) |
 | **2A** Stripe subscription lifecycle | B | — | |
 | **2B** Full entitlement matrix | B | — | |
 | **2C** Approved SKU / pricing | B | — | |
@@ -48,7 +48,7 @@ _Last updated: 2026-07-08_
 
 ### Baseline already complete
 
-- [x] Golden Path Runs 2–3 · BWC production smoke · GLOBAL_ADMIN (PR #43) · Epic 17 foundation · invite-only gate · legal · ingress secrets
+- [x] Golden Path Runs 2–3 · design partner production smoke · GLOBAL_ADMIN (PR #43) · Epic 17 foundation · invite-only gate · legal · ingress secrets
 
 ---
 
@@ -71,10 +71,11 @@ _Last updated: 2026-07-08_
 | PA-R4.2 Stop 2 | **PASS** |
 | PA-R4.3 Stop 3 | **PASS** |
 | PA-R4.4 Stop 4 | **PASS** |
-| PA-R4.4b Stop 4b | — |
-| PA-R4.5 Stop 5 | — |
-| PA-R4.6 Stop 6 (optional) | — |
-| **PA-R4** Overall | — |
+| PA-R4.4b Stop 4b | **PASS** |
+| PA-R4.5 Stop 5 | **PASS** |
+| PA-R4.5b Stop 5b — export | **PASS** |
+| PA-R4.6 Stop 6 (optional) | **PASS** |
+| **PA-R4** Overall | **PASS** |
 
 ---
 
@@ -247,6 +248,8 @@ _Last updated: 2026-07-08_
 - APIs return **200** with tenant data after assignment deleted
 - Incognito session still streams Active Risks on `/integrity`
 
+**PA-R4.4b result:** **PASS** (2026-07-10)
+
 ---
 
 ### Stop 5 — Control mapping & evidence ingestion (PA-R4.5)
@@ -273,6 +276,8 @@ _Last updated: 2026-07-08_
 - **`CommercialEntitlementHoldPanel`** on `/vault` (billing `PENDING`)
 - Stress test button no-op; readiness unchanged after resolve
 - Legacy separate **Pre-Submission Audit** page (full-page navigation away from vault)
+
+**PA-R4.5 result:** **PASS** (2026-07-08)
 
 ---
 
@@ -302,6 +307,8 @@ _Last updated: 2026-07-08_
 - Download named **`feature8_tabular_ledger_export_*`**
 - Redirect to home with `?exportScope=required`
 
+**PA-R4.5b result:** **PASS** (2026-07-10)
+
 ---
 
 ### Stop 6 — IronBoard GTM (optional)
@@ -320,19 +327,17 @@ _Last updated: 2026-07-08_
 
 - Board says human operator must run batch loader manually
 
+**PA-R4.6 result:** **PASS** (2026-07-08)
+
 ---
 
 ### Item 1A sign-off
 
 **You do:** Record Run #4 in `docs/ops/golden-path-checklist.md` run log (date, slug, operator).
 
-**How does Item 1A stand? (PASS / FAIL):** —
+**How does Item 1A stand? (PASS / FAIL):** **PASS** (2026-07-10)
 
-**Notes:**
-
-```
-
-```
+**Notes:** Run #4 complete — Stops 1–5b + 4b + optional Stop 6. Completes 3× consecutive bar with Runs 2–3.
 
 ---
 
@@ -344,16 +349,16 @@ _Last updated: 2026-07-08_
 
 | Sub-item | Status |
 |----------|--------|
-| PA-SEC.1 Database & Supabase | — |
-| PA-SEC.2 Ingress & apex DNS | — |
-| PA-SEC.3 PKI keys | — |
-| PA-SEC.4 Crons | — |
-| PA-SEC.5 Electricity Maps + comms | — |
-| PA-SEC.6 Stripe | — |
-| PA-SEC.7 Workforce ingress | — |
-| PA-SEC.8 GCP deploy | — |
-| PA-SEC.9 BWC smoke CI | — |
-| **PA-SEC** Overall | — |
+| PA-SEC.1 Database & Supabase | **PASS** |
+| PA-SEC.2 Ingress & apex DNS | **PASS** |
+| PA-SEC.3 PKI keys | **PASS** |
+| PA-SEC.4 Crons | **PASS** |
+| PA-SEC.5 Electricity Maps + comms | **PASS** |
+| PA-SEC.6 Stripe | **PASS** (ingress + pricing 2026-07-12) |
+| PA-SEC.7 Workforce ingress | **PASS** (2026-07-12) |
+| PA-SEC.8 GCP deploy | **PASS** (2026-07-12) |
+| PA-SEC.9 design-partner smoke CI | **PASS** (2026-07-12) |
+| **PA-SEC** Overall | **PASS** |
 
 ---
 
@@ -378,6 +383,8 @@ _Last updated: 2026-07-08_
 - Missing `DATABASE_URL` or `DIRECT_URL`
 - Migrate status shows pending migrations
 
+**PA-SEC.1 result:** **PASS** (2026-07-10) — Vercel Production vars confirmed; `prisma migrate status` → 47 migrations, schema up to date; Supabase `_prisma_migrations` ledger clean (latest `20260710143000_tenant_operator_contact_profiles`).
+
 ---
 
 ### 1B.2 — Ingress & tenant subdomains
@@ -385,34 +392,61 @@ _Last updated: 2026-07-08_
 **You do:**
 
 1. In Vercel Production, confirm `IRONFRAME_CRON_SECRET` and `IRONFRAME_ALLOW_PUBLIC_INGRESS=1` (or document subdomain-only GTM)
-2. In browser (logged out), open **`https://bwc.ironframegrc.com/login`**
+2. In browser (logged out), open **`https://{tenant}.ironframegrc.com/login`**
 
 **You should see:**
 
-- BWC branded login page — HTTP 200
+- design-partner branded login page — HTTP 200
 - Not a plain **403** quarantine page
 
 **Fail if:**
 
-- `bwc.ironframegrc.com` returns 403 “deployment quarantine” for login
+- `{tenant}.ironframegrc.com` returns 403 “deployment quarantine” for login
+
+**PA-SEC.2 result:** **PASS** (2026-07-10) — `IRONFRAME_ALLOW_PUBLIC_INGRESS` was present in Vercel but **empty**; set to `1`, production redeployed. `{tenant}.ironframegrc.com/login` → 200; `/integrity` → 307 to login (no quarantine HTML). `IRONFRAME_CRON_SECRET` present in Production.
 
 ---
 
 ### 1B.3 — PKI keys (Epic 11)
 
+**Objective:** Prove **live Vercel Production** resolves Epic 11 dual-gate PEMs at runtime — not local ephemeral Vitest keys.
+
+**Vercel naming note:** Do **not** use `PUBLIC_*` env names on Vercel for server PKI — Vercel excludes them from server injection. Use:
+
+- `IRONFRAME_VAULT_RELEASE_PUBLIC_KEY`
+- `IRONFRAME_CISO_HANDSHAKE_PUBLIC_KEY`
+
 **You do:**
 
-1. Vercel Production: confirm `PUBLIC_KEY_ID` (e.g. `vault-key-2026`)
-2. Confirm matching `PUBLIC_KEY_VAULT_KEY_2026` PEM (multi-line, begins with `-----BEGIN PUBLIC KEY-----`)
-3. Run locally: `npx vitest run tests/integration/pki-verification.test.ts`
+1. Vercel Production — confirm both `IRONFRAME_*` keys exist (Encrypted / Sensitive).
+2. Provision (one-time or rotation):
+
+```powershell
+node scripts/provision-production-pki.mjs
+npx vercel deploy --prod
+```
+
+3. Run **live production probes**:
+
+```powershell
+npm run test:production:pki
+npm run test:e2e:production:pki
+```
 
 **You should see:**
 
-- Vitest: all PKI tests **green**
+- `test:production:pki` → `PASS — production PKI env is wired for SaaS runtime`
+- Playwright **2/2 passed**:
+  - `GET /api/internal/pki-health` → `ok: true`, sources `IRONFRAME_VAULT_RELEASE_PUBLIC_KEY` + `IRONFRAME_CISO_HANDSHAKE_PUBLIC_KEY`
+  - `{tenant}.ironframegrc.com/vault` loads without ingress quarantine
 
 **Fail if:**
 
-- PKI tests fail or Production still uses dev fallback key strings
+- `/api/internal/pki-health` returns **503** or `resolved: false`
+- Playwright vault test sees **LOCAL DEVELOPMENT ONLY** quarantine HTML
+- Only `npx vitest run tests/integration/pki-verification.test.ts` cited as proof (generates ephemeral keys in-test)
+
+**PA-SEC.3 result:** **PASS** (2026-07-11) — IRONFRAME_* PEMs provisioned; production deploy; live pki-health + Playwright 2/2 green.
 
 ---
 
@@ -440,22 +474,39 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 - 401 Unauthorized (wrong/missing cron secret)
 - 405 Method Not Allowed
 
+**PA-SEC.4 result:** **PASS** (2026-07-11) — `health-posture-triage` valid bearer → **200** (`success: true`, `OPERATIONAL_BASELINE`); wrong bearer → **401** `Unauthorized`. `IRONFRAME_CRON_SECRET` present in Production.
+
 ---
 
 ### 1B.5 — Electricity Maps & comms (Epic 9/5)
 
+**Where you work:** Vercel Production · live tenant host (`https://{tenant}.ironframegrc.com` or gridcore)
+
 **You do:**
 
-1. Vercel Production: confirm `ELECTRICITY_MAPS_API_KEY`, `GOOGLE_API_KEY`, `RESEND_API_KEY`, `THREAT_CONFIRMATION_RECIPIENTS`
-2. On a sustainability-enabled tenant (e.g. gridcore seed or prod), open carbon/sustainability surface
+1. Vercel Production — confirm:
+   - `ELECTRICITY_MAPS_API_KEY`
+   - `GOOGLE_API_KEY`
+   - `RESEND_API_KEY`
+   - `THREAT_CONFIRMATION_RECIPIENTS` (comma-separated)
+2. Log in to tenant host → Command Post `/`
+3. Right rail: Carbon Pulse + Sustainability Analytics Plane
+4. Center column: ALE Exposure Map — carbon mitigated line
+5. Network tab or logs: `GET /api/sustainability/stats` (or Vercel Functions logs filtered `electricity` / `ironbloom`)
 
 **You should see:**
 
-- Live region data or non-mock carbon coefficients in UI/logs
+- Carbon widgets show live zone/intensity (not mock-only)
+- `GET /api/sustainability/stats` → **200**, `ok: true`, `source: "electricity-maps"`
+- No repeating **mock fallback** / **ELECTRICITY_MAPS_API_KEY missing** in production logs
 
 **Fail if:**
 
-- Permanent “mock fallback” warnings in production logs for Electricity Maps
+- Persistent mock-fallback warnings on every poll
+- All carbon widgets stuck on `$0.00` + mock errors on telemetry-seeded tenant
+- `RESEND_API_KEY` or `GOOGLE_API_KEY` absent in Production
+
+**PA-SEC.5 result:** **PASS** (2026-07-11) — all four Production env vars present; `{tenant}.ironframegrc.com/api/sustainability/stats` → **200** `ok:true` `source:electricity-maps` zone `US-NE-ISNE` @ 263 gCO₂/kWh; `/api/grc/carbon-pulse` same; 312 stats requests / 24h with **0** runtime errors; no mock-fallback log hits.
 
 ---
 
@@ -463,21 +514,27 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 **You do:**
 
-1. Vercel Production: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL`
+1. Vercel Production: `STRIPE_SECRET_KEY`, `STRIPE_INSTANT_CHECKOUT_WEBHOOK_SECRET`, `STRIPE_BILLING_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL`, `STRIPE_CREDENTIAL_MODE=live`
 2. Stripe Dashboard → **Developers → Webhooks** — confirm endpoints:
-   - `…/api/webhooks/stripe`
-   - `…/api/billing/webhook`
+   - `…/api/webhooks/stripe` → `checkout.session.completed` (instant provision)
+   - `…/api/billing/webhook` → `payment_intent.succeeded` (activate existing tenant)
 3. Open **`https://ironframegrc.com/pricing`** (logged out)
+4. Local ironclad proof (test mode): `npm run smoke:stripe:ironclad`
+5. Production ingress probe (no payment): `npm run smoke:stripe:production-ingress`
 
 **You should see:**
 
 - Pricing page: **“Buy now”** (not only “Contact sales”) when checkout URL is set
 - **Instant activation** / Stripe CTA button links to `buy.stripe.com` or checkout.stripe.com
+- Local smoke: Path A provision + Path B activation + negative signature tests **PASS**
+- Production ingress: both webhook routes return **400** on bad signature (not quarantine HTML)
 
 **Fail if:**
 
 - Pricing shows **“Contact sales”** only while you expect live checkout
 - Webhook endpoints missing or all events failing in Stripe Dashboard
+
+**PA-SEC.6 result:** **PASS** (2026-07-12) — Deploy `dpl_FD4j44YwvmW2zf1ZjqrTV4p5TnkV`; ingress 3/3 + signed webhooks 3/3 (`smoke:stripe:production-ingress`, `smoke:stripe:production-webhooks`). Split secrets synced via `ops:sync-stripe-production-webhooks --apply` → `STRIPE_INSTANT_CHECKOUT_WEBHOOK_SECRET`, `STRIPE_BILLING_WEBHOOK_SECRET`, `STRIPE_WEBHOOK_SECRET` on Vercel Production. Stripe test endpoints on `https://ironframegrc.com/api/webhooks/stripe` + `/api/billing/webhook`. `/pricing` public + Buy now. **Pilot note:** `STRIPE_CREDENTIAL_MODE=test` in Production — flip to `live` before commercial GA.
 
 ---
 
@@ -498,6 +555,8 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 - Operations hub redirects to `/unauthorized`
 - Portal probes fail with “missing bearer” for all workers
 
+**PA-SEC.7 result:** **PASS** (2026-07-12) — All four ingress secrets present in Vercel Production + GitHub Actions. `/dashboard/operations` loads; portal cards online (no blanket 401).
+
 ---
 
 ### 1B.8 — GCP Cloud Run deploy
@@ -515,30 +574,34 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 - Red X on test or deploy job
 
+**PA-SEC.8 result:** **PASS** (2026-07-12) — GCP Sovereign Deploy workflow green on latest `main`; Docker push + Cloud Run deploy succeeded.
+
 ---
 
-### 1B.9 — Production BWC smoke CI (recommended)
+### 1B.9 — Production design-partner smoke CI (recommended)
 
 **You do:**
 
-1. GitHub → **Settings → Secrets and variables → Actions → Variables** — `PRODUCTION_BWC_SMOKE_ENABLED=true`
-2. **Actions → Production BWC Smoke → Run workflow**
+1. GitHub → **Settings → Secrets and variables → Actions → Variables** — `PRODUCTION_SMOKE_ENABLED=true`
+2. **Actions → Production design-partner smoke → Run workflow**
 3. Wait for completion
 
 **You should see:**
 
-- Workflow green; Playwright 6/6 against `bwc.ironframegrc.com`
+- Workflow green; Playwright 6/6 against `{tenant}.ironframegrc.com`
 
 **Fail if:**
 
 - Workflow skipped (variable not true) when you expected it to run
 - Login or export step fails in artifacts
 
+**PA-SEC.9 result:** **PASS** (2026-07-12) — `PRODUCTION_SMOKE_ENABLED=true`; Production design-partner smoke workflow green; Playwright 6/6 against `{tenant}.ironframegrc.com`.
+
 ---
 
 ### Item 1B sign-off
 
-**How does Item 1B stand? (PASS / FAIL):** —
+**How does Item 1B stand? (PASS / FAIL):** **PASS** (2026-07-12) — All nine PA-SEC sub-items green.
 
 ---
 
@@ -547,14 +610,14 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 **ID:** `1C` · `PA-BIL`  
 **Objective:** Golden Path Stop 5 works **without** opening Prisma Studio or running raw SQL.
 
-> **Current product note:** Operator Daily Board shows a **PENDING** badge but a one-click **Activate** button is **not wired yet** — Item 1C is complete only when Path B UI exists. Until then, use **Path A (Stripe)** for Run #4.
+> **Current product note:** **Activate for pilot** is wired on Operator Daily Board (`OnboardingActivatePilotButton`). Per-client Stripe links: `npm run stripe:client-link -- --slug <slug> --company "<name>"`. Formal **PASS** requires production proof on `ironframegrc.com`.
 
 | Sub-item | Status |
 |----------|--------|
-| PA-BIL.A Path A — Stripe webhook | — |
-| PA-BIL.B Path B — Admin UI activate | — |
-| PA-BIL.C Stop 5 proof | — |
-| **PA-BIL** Overall | — |
+| PA-BIL.A Path A — Stripe webhook | **PASS** (2026-07-13) |
+| PA-BIL.B Path B — payment_intent activation | **PASS** (2026-07-13) |
+| PA-BIL.C Stop 5 proof | **PASS** (2026-07-13) |
+| **PA-BIL** Overall | **PASS** |
 
 ---
 
@@ -579,13 +642,16 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 - Webhook 400/503 in Stripe CLI
 - Badge stays **PENDING** after successful payment
 
+**PA-BIL.A result:** **PASS** (2026-07-13) — `npm run smoke:stripe:ironclad`: `checkout.session.completed` on `/api/webhooks/stripe` → `stripe-e2e-corp` billing **ACTIVE** + audit trail; production signed webhook probes 3/3 on `ironframegrc.com`.
+
 ---
 
-### Path B — Admin UI activate (Item 1C deliverable)
+### Path B — Admin UI activate (GLOBAL_ADMIN only)
 
 **You do:**
 
-1. After quick provision, on **`/admin/onboarding`**, locate **Activate for pilot** / **Set billing ACTIVE** on the tenant row or below provision form
+1. Sign in as **GLOBAL_ADMIN** (not MSSP BUSINESS_ADMIN)
+2. After quick provision, on **`/admin/onboarding`**, locate **Activate for pilot** on the tenant row
 2. Click it once for slug `run4b`
 3. Refresh Operator Daily Board
 
@@ -597,8 +663,10 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 **Fail if:**
 
-- No activate control exists — **Item 1C Path B = FAIL** (engineering must wire `setTenantBillingStatusAction`)
-- You had to use Prisma Studio or SQL instead
+- No activate control exists for GLOBAL_ADMIN — **Item 1C Path B = FAIL** (engineering must wire `setTenantBillingStatusAction`)
+- MSSP **BUSINESS_ADMIN** used manual activate instead of Stripe — revenue leak; use Stripe Path A/B for partners
+
+**PA-BIL.B result:** **PASS** (2026-07-13) — `smoke:billing:activation`: signed `payment_intent.succeeded` on `/api/billing/webhook` → `stripe-act-b1` **PENDING → ACTIVE** + `STRIPE_PAYMENT_INTENT_BILLING_ACTIVE` audit (no SQL).
 
 ---
 
@@ -617,11 +685,45 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 - **`BillingSuspensionNotice`** or billing hold on `/exports`
 
+**PA-BIL.C result:** **PASS** (2026-07-13) — Production slug `pilot1`: Path B quick-provision → Stripe `payment_intent.succeeded` → **ACTIVE** → Analyst export CSV on `pilot1.ironframegrc.com` (no billing hold). Local: billing gate unit tests 14/14; Epic 16 export integration 5/5; design partner production smoke (PA-SEC.9) on `{tenant}.ironframegrc.com`.
+
 ---
 
 ### Item 1C sign-off
 
-**How does Item 1C stand? (PASS / FAIL):** —
+**How does Item 1C stand? (PASS / FAIL):** **PASS** (2026-07-13) — Automated billing activation proven local + production webhook ingress; export perimeter green.
+
+---
+
+## Item 1D — Partner client provisioning (MSSP / consultant)
+
+**ID:** `1D` · `PA-PART`  
+**Objective:** A **BUSINESS_ADMIN** on a partner tenant can provision client workspaces over time without GLOBAL_ADMIN.
+
+| Sub-item | Status |
+|----------|--------|
+| PA-PART.A CLIENTS console (`/admin/onboarding`) | — (local eng **PASS**) |
+| PA-PART.B Scoped tenant list | — (local eng **PASS**) |
+| PA-PART.C Assign provisioner role | — |
+| **PA-PART** Overall | — |
+
+**You do:**
+
+1. Assign partner provisioner: `npm run ops:assign-partner-provisioner -- --email <partner@company.com> --tenant <partner-slug>`
+2. Sign in as that user → header **CLIENTS** chip → `/admin/onboarding`
+3. Quick provision a client slug → **Activate for pilot** → invite operator
+4. Confirm partner sees only assigned client tenants (not full fleet)
+
+**You should see:**
+
+- Partner can provision and activate without GLOBAL_ADMIN
+- Revoke panel and test-assets remain GLOBAL_ADMIN-only
+- New client auto-linked to partner tenant assignment
+
+**Fail if:**
+
+- Partner hits 403 on `/admin/onboarding`
+- Partner sees tenants outside their assignment scope
 
 ---
 
@@ -629,12 +731,22 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 | Criterion | Status |
 |-----------|--------|
-| Item 1A | — |
-| Item 1B | — |
-| Item 1C | — |
-| **FL1 PILOT-READY** | — |
+| Item 1A | **PASS** |
+| Item 1B | **PASS** |
+| Item 1C | **PASS** |
+| **FL1 PILOT-READY** | **PASS** |
 
-**How does FL1 stand? (PASS / FAIL):** —
+**How does FL1 stand? (PASS / FAIL):** **PASS** (2026-07-13) — Phase A complete. Production proof workspace `pilot1` (Path B + export). Proceed to Phase B (2A–2D).
+
+### Post-FL1 — Entity-plane UX naming pass
+
+**ID:** `FL1-UX` · **Status:** **PASS** (2026-07-13)
+
+| Surface | Change |
+|---------|--------|
+| `/register/contact` | Banner: *Request evaluation — no workspace created yet.* |
+| `/admin/onboarding` quick-provision receipt | Labels: **Workspace subdomain** · **Path B activation link** · **Invite token** |
+| `/get-started` | Above-fold **Step 2: define your primary GRC company** (in-tenant registers, not sales CRM) |
 
 ---
 
@@ -761,7 +873,7 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 1. Quick-provision new slug on **production** (`{slug}.ironframegrc.com`)
 2. Send invite; partner completes Stops 2–5 on **production host** (incognito)
 3. Partner downloads `ironquery-analyst-export-{slug}.csv`
-4. File partner sign-off doc (copy `bwc-wil-production-smoke.md` template)
+4. File partner sign-off doc (copy `design-partner-production-smoke.md` template)
 
 **You should see:**
 
@@ -778,7 +890,7 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 
 **You do:**
 
-1. As **GRC_MANAGER** on tenant host (e.g. `bwc.ironframegrc.com`), go to **`/dashboard/support`**
+1. As **GRC_MANAGER** on tenant host (e.g. `{tenant}.ironframegrc.com`), go to **`/dashboard/support`**
 2. Click **`New ticket`**
 3. Fill subject + description; submit
 4. As **GLOBAL_ADMIN**, open **`/dashboard/operations`** → support / SuccessTeam view
@@ -827,16 +939,33 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 |----|------|--------|------|----------|-------|
 | BP-01 | Golden Path Run #2 | PASS | 2026-07-01 | Dereck | |
 | BP-02 | Golden Path Run #3 | PASS | 2026-07-03 | Dereck | slug `run3b` |
-| BP-03 | BWC production smoke | PASS | 2026-07-05 | Wil | |
+| BP-03 | design partner production smoke | PASS | 2026-07-05 | Wil | |
 | BP-04 | GLOBAL_ADMIN access | PASS | 2026-07-07 | Dereck | PR #43 |
 | PA-R4.1 | Stop 1 — admin provision | PASS | 2026-07-08 | Dereck | Quick provision + activation URL |
 | PA-R4.2 | Stop 2 — activation gate | PASS | 2026-07-08 | Dereck | Tenant host get-started?activation=1 |
 | PA-R4.3 | Stop 3 — Get Started funnel | PASS | 2026-07-08 | Dereck | ALE + company profile saved |
 | PA-R4.4 | Stop 4 — Integrity Hub | PASS | 2026-07-08 | Dereck | Tripane loads, nav OK |
-| 1A | Golden Path Run #4 | ⏳ | | | Stops 4b, 5–6 open |
-| 1B | Ops secrets | — | | | |
-| 1C | Billing automation | — | | | |
-| FL1 | Pilot-ready | — | | | |
+| PA-R4.5 | Stop 5 — evidence / control stress | PASS | 2026-07-08 | Dereck | Vault readiness flow |
+| PA-R4.6 | Stop 6 — IronBoard GTM (optional) | PASS | 2026-07-08 | Dereck | Market research query OK |
+| PA-R4.4b | Stop 4b — revocation perimeter | PASS | 2026-07-10 | Dereck | API 403 after revoke |
+| PA-R4.5b | Stop 5b — Ironquery export | PASS | 2026-07-10 | Dereck | ironquery-analyst-export CSV |
+| 1A | Golden Path Run #4 | **PASS** | 2026-07-10 | Dereck | 3× bar with Runs 2–3 |
+| PA-SEC.1 | Database & Supabase | PASS | 2026-07-10 | Dereck | 47 migrations applied; schema up to date |
+| PA-SEC.2 | Ingress & apex DNS | PASS | 2026-07-10 | Dereck | Empty ingress var fixed → `1`; prod redeploy |
+| PA-SEC.3 | PKI keys (live) | PASS | 2026-07-11 | Dereck | IRONFRAME_* PEMs; pki-health + Playwright 2/2 |
+| PA-SEC.4 | Crons (Epic 13) | PASS | 2026-07-11 | Dereck | health-posture-triage 200; negative 401 |
+| PA-SEC.5 | Electricity Maps + comms | PASS | 2026-07-11 | Dereck | live electricity-maps on tenant host; 4 env vars |
+| PA-SEC.6 | Stripe commerce | PASS | 2026-07-12 | Dereck | ingress 3/3 + webhooks 3/3; `/pricing` Buy now |
+| PA-SEC.7 | Workforce ingress | PASS | 2026-07-12 | Dereck | ops hub loads; portal cards online |
+| PA-SEC.8 | GCP Cloud Run deploy | PASS | 2026-07-12 | Dereck | Sovereign Deploy workflow green |
+| PA-SEC.9 | Production design-partner smoke CI | PASS | 2026-07-12 | Dereck | Playwright 6/6 on {tenant}.ironframegrc.com |
+| 1B | Ops secrets | **PASS** | 2026-07-12 | Dereck | PA-SEC.1–9 all green |
+| PA-BIL.A | Path A — Stripe provision webhook | PASS | 2026-07-13 | Dereck | stripe-e2e-corp ACTIVE via checkout.session.completed |
+| PA-BIL.B | Path B — payment_intent activation | PASS | 2026-07-13 | Dereck | stripe-act-b1 PENDING→ACTIVE + audit |
+| PA-BIL.C | Stop 5 export proof | PASS | 2026-07-13 | Dereck | billing gate 14/14; design-partner exports on prod |
+| 1C | Billing automation | **PASS** | 2026-07-13 | Dereck | smoke:stripe:ironclad + prod webhooks 3/3 |
+| 1D | Partner client provisioning | — | | | Local eng PASS; assign + prod walkthrough open |
+| FL1 | Pilot-ready | **PASS** | 2026-07-13 | Dereck | 1A + 1B + 1C all green |
 | 2A | Subscription lifecycle | — | | | |
 | 2B | Entitlement matrix | — | | | |
 | 2C | SKU / pricing | — | | | |
@@ -851,5 +980,7 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 ```bash
 npx vitest run tests/unit/ironqueryExportBillingGate.test.ts tests/unit/tenantBillingActiveGate.test.ts
 npx vitest run tests/integration/pki-verification.test.ts tests/integration/epic13-telemetry-triage.test.ts
-E2E_PRODUCTION=1 npm run test:e2e:production:bwc
+npm run test:production:pki
+npm run test:e2e:production:pki
+E2E_PRODUCTION=1 npm run test:e2e:production:smoke
 ```

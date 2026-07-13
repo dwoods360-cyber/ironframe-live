@@ -16,3 +16,7 @@ export function isBillingGateActiveStatus(status: string): boolean {
 export function manualStripeCustomerIdForSlug(slug: string): string {
   return `manual_pending_${slug.trim().toLowerCase()}`;
 }
+
+export function isPlaceholderStripeCustomerId(stripeCustomerId: string): boolean {
+  return stripeCustomerId.trim().startsWith("manual_pending_");
+}

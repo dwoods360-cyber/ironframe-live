@@ -50,6 +50,6 @@ describe("vendorEvidenceRequirements", () => {
 
   it("maps tenant slugs to registry entity labels", () => {
     expect(tenantEntityLabelFromSlug("medshield")).toBe("MEDSHIELD");
-    expect(tenantEntityLabelFromSlug("acorp")).toBe("acorp");
+    expect(tenantEntityLabelFromSlug("acorp")).toBe("ACORP");
   });
 });

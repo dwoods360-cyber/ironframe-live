@@ -8,30 +8,34 @@ import {
   redeemInviteOnTenantSubdomain,
   tenantSubdomainOrigin,
 } from "./helpers/ingestionPipeline";
-
-const BWC_SLUG = "bwc";
-const BWC_OPERATOR_EMAIL =
-  process.env.E2E_BWC_OPERATOR_EMAIL?.trim().toLowerCase() ||
-  "wil@blackwoodscoffee.com";
+import {
+  resolveE2EProductionOperatorEmail,
+  resolveE2EProductionTenantSlug,
+} from "./helpers/designPartnerE2eEnv";
 
 const AUDIT_LOG_STORAGE_KEY = "ironframe-audit-intelligence-log-v1";
 
 test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 test.describe("Reports audit trail responsiveness", () => {
+  const tenantSlug = resolveE2EProductionTenantSlug();
+  const operatorEmail = resolveE2EProductionOperatorEmail();
+
   test.afterAll(async () => {
     await disconnectE2ePrisma();
   });
 
   test.beforeEach(async ({ page }) => {
+    test.skip(!tenantSlug, "Set E2E_PRODUCTION_TENANT_SLUG.");
+    test.skip(!operatorEmail, "Set E2E_PRODUCTION_OPERATOR_EMAIL.");
     test.skip(!hasDatabaseUrl(), "DATABASE_URL required.");
     test.skip(!hasSupabaseAdmin(), "SUPABASE_SERVICE_ROLE_KEY required.");
-    await assertTenantBillingActive(BWC_SLUG);
-    await redeemInviteOnTenantSubdomain(page, BWC_OPERATOR_EMAIL, BWC_SLUG);
+    await assertTenantBillingActive(tenantSlug);
+    await redeemInviteOnTenantSubdomain(page, operatorEmail, tenantSlug);
   });
 
   test("loads /reports/audit-trail without freezing the main thread", async ({ page }) => {
-    const origin = tenantSubdomainOrigin(BWC_SLUG);
+    const origin = tenantSubdomainOrigin(tenantSlug);
 
     await page.goto(`${origin}/reports/audit-trail`, {
       waitUntil: "domcontentloaded",
@@ -59,7 +63,7 @@ test.describe("Reports audit trail responsiveness", () => {
   });
 
   test("remains interactive with a large client-side audit ledger", async ({ page }) => {
-    const origin = tenantSubdomainOrigin(BWC_SLUG);
+    const origin = tenantSubdomainOrigin(tenantSlug);
 
     await page.addInitScript((storageKey) => {
       const rows = Array.from({ length: 2_000 }, (_, i) => ({
@@ -94,7 +98,7 @@ test.describe("Reports audit trail responsiveness", () => {
   });
 
   test("header nav leaves /reports/audit-trail without opening a ledger row", async ({ page }) => {
-    const origin = tenantSubdomainOrigin(BWC_SLUG);
+    const origin = tenantSubdomainOrigin(tenantSlug);
 
     await page.goto(`${origin}/reports/audit-trail`, {
       waitUntil: "domcontentloaded",
@@ -108,7 +112,7 @@ test.describe("Reports audit trail responsiveness", () => {
   });
 
   test("header command post chip navigates to tenant command post from audit trail", async ({ page }) => {
-    const origin = tenantSubdomainOrigin(BWC_SLUG);
+    const origin = tenantSubdomainOrigin(tenantSlug);
 
     await page.goto(`${origin}/reports/audit-trail`, {
       waitUntil: "domcontentloaded",
@@ -123,7 +127,7 @@ test.describe("Reports audit trail responsiveness", () => {
   });
 
   test("header vendor chip navigates off /reports/audit-trail", async ({ page }) => {
-    const origin = tenantSubdomainOrigin(BWC_SLUG);
+    const origin = tenantSubdomainOrigin(tenantSlug);
 
     await page.goto(`${origin}/reports/audit-trail`, {
       waitUntil: "domcontentloaded",

@@ -42,7 +42,9 @@ Triggers: push to `main` (worker paths) or **workflow_dispatch** (manual).
    gcloud run services describe ironframe-ironboard --region=us-central1 --format='value(status.url)'
    ```
 3. Set `OPERATIONS_*_URL` secrets in GitHub to those URLs.
-4. Re-run **Sovereign Deploy** so control plane picks up worker URLs.
+4. Mirror the same URLs into **Vercel Production** (`OPERATIONS_IRONBOARD_URL`, `IRONBOARD_URL`, and peer `OPERATIONS_*_URL` keys). GitHub secrets alone do **not** update the Vercel ops portal — empty Vercel values fall back to `127.0.0.1` and the Ironboard page stays offline.
+5. Redeploy the Vercel production app (env changes do not hot-reload serverless).
+6. Re-run **Sovereign Deploy** only if the GCP `sovereign-sentinel` Cloud Run control plane is still in use and needs the same worker URLs.
 
 ## Worker data bucket (one-time)
 

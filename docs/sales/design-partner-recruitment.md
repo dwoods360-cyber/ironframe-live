@@ -77,10 +77,13 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 
 | Asset | Path |
 |-------|------|
+| Workforce briefing (RACI) | [design-partner-workforce-briefing.md](./design-partner-workforce-briefing.md) |
 | Offer sheet | [design-partner-offer-sheet.md](./design-partner-offer-sheet.md) |
 | Outreach sequence | [design-partner-outreach-sequence.md](./design-partner-outreach-sequence.md) |
 | Order form | [design-partner-order-form.md](./design-partner-order-form.md) |
 | Operator launch checklist | [design-partner-operator-launch-checklist.md](./design-partner-operator-launch-checklist.md) |
+| Partner operator packet (in-app) | [`/docs/user-manuals/design-partner-operator-packet`](../user-manuals/design-partner-operator-packet.md) |
+| Partner training index | [`/docs/training/LEVEL1-PARTNER-INDEX`](../training/LEVEL1-PARTNER-INDEX.md) |
 | ICP shortlist | [design-partner-icp-shortlist.md](./design-partner-icp-shortlist.md) |
 | Target market | [target-market-research.md](./target-market-research.md) |
 | Battlecard | [battlecard-ironframe-vs-vanta-drata.md](./battlecard-ironframe-vs-vanta-drata.md) |
@@ -91,4 +94,7 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 - Lead form (no workspace): `/register/contact`  
 - Provision + Path B: `/admin/onboarding`  
 - Partner day-1: `/get-started`  
+- Partner packet: `/docs/user-manuals/design-partner-operator-packet`  
+- Partner training: `/docs/training/LEVEL1-PARTNER-INDEX`  
+- Docs sync (ops): [design-partner-docs-sync.md](../ops/design-partner-docs-sync.md)  
 - HITL send: `/dashboard/admin/approvals`

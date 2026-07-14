@@ -39,7 +39,7 @@ export function findExpansionMotion(
       advisoryType: 'CHECK_IN',
       expansionEligible: false,
       recommendedModule: profile.expansionModule,
-      corpusPlayIds: ['customer_success', 'onboarding_playbook_90'],
+      corpusPlayIds: ['customer_success', 'onboarding_playbook_90', 'design_partner_path_b_onboarding'],
       rationale: `Watch band — proactive check-in before expansion. ${value.outcomeProofLine}`,
     };
   }

@@ -1,4 +1,5 @@
 import { buildStrategicIntelResearchBinding } from './context/strategicIntelResearchBinding.js';
+import { DESIGN_PARTNER_LAUNCH_BRIEFING } from './config/designPartnerLaunchBriefing.js';
 
 export const CODESPACE_FOUR_PILLARS_BLUEPRINT = `
 EXECUTIVE DETERMINATION: THE 4 PILLARS OF IRONFRAME OPERATIONS
@@ -55,10 +56,11 @@ MARKETING & MESSAGING KNOWLEDGE BASE (AUTHORITATIVE):
 - Brand voice: docs/marketing-strategy/brand-style-guide.md
 - Editorial calendar: docs/marketing-strategy/content-calendar.md
 - Social guidelines: docs/marketing-strategy/social-media-guidelines.md
-- board-marketing-mgr: full GTM application of vault books + matrix ingest (marketing-strategy category)
-- board-writer: narrative structure only — docs/training/level-2/13-narrative-frameworks-storybrand.md (no sales copy)
-- board-trainer: operator clarity — docs/training/level-1/13-clear-messaging-for-operators.md (no pipeline tactics)
-- Ironleads cross-corpus: Ironleads/src/knowledge/leadGenCorpus.ts (storybrand, influence, inbound pillars)
+- Design-partner launch RACI + message lock: docs/sales/design-partner-workforce-briefing.md
+- board-marketing-mgr: full GTM application of vault books + matrix ingest (marketing-strategy category); own warm/auditor intro blurbs with board-sales-lead
+- board-writer: narrative structure + partner packet / offer clarity — docs/training/level-2/13-narrative-frameworks-storybrand.md (no live cold DISPATCH)
+- board-trainer: operator clarity — docs/training/level-1/13-clear-messaging-for-operators.md · LEVEL1-PARTNER-INDEX (no pipeline tactics)
+- Ironleads cross-corpus: Ironleads/src/knowledge/leadGenCorpus.ts (storybrand, influence, inbound pillars, design_partner_launch)
 `.trim();
 
 export const CUSTOMER_SUCCESS_KNOWLEDGE_BINDING = `
@@ -67,9 +69,10 @@ CUSTOMER SUCCESS KNOWLEDGE BASE (AUTHORITATIVE):
 - Retention playbook: docs/customer-success/retention-playbook.md
 - Health score framework: docs/customer-success/health-score-framework.md
 - QBR & expansion: docs/customer-success/qbr-expansion-framework.md
-- Onboarding success: docs/customer-success/onboarding-success-playbook.md
-- board-customer-success: full post-sale application of vault CS books + matrix ingest (customer-success category)
-- IronSuccessTeam cross-corpus: SuccessTeam/src/knowledge/customerSuccessCorpus.ts (Mehta, Gainsight, land-adopt-expand, beachhead plays)
+- Onboarding success: docs/customer-success/onboarding-success-playbook.md (Path B design-partner first 90 days)
+- Design-partner handoff: docs/sales/design-partner-workforce-briefing.md · order-form success criteria become the CS plan
+- board-customer-success: full post-sale application of vault CS books + matrix ingest (customer-success category); collaborate with Sales only at CLOSED_WON / ACTIVE handoff
+- IronSuccessTeam cross-corpus: SuccessTeam/src/knowledge/customerSuccessCorpus.ts (includes design_partner_path_b_onboarding)
 - SalesTeam boundary: PROSPECT outbound only — SuccessTeam owns CLOSED_WON retention/expansion advisories
 `.trim();
 
@@ -169,6 +172,10 @@ INTERNAL USE ONLY — Ironframe platform operators: GLOBAL_ADMIN or designated B
 CRM pipeline ownership (do not blur roles):
   SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support intake → IronSupportTeam (SUPPORT drafts)
 
+Design-partner rollout collaboration (ACTIVE):
+  Leadgen harvest → Marketing + Sales Lead message → SalesTeam draft → Operator DISPATCH → Path B provision → Success plan on ACTIVE → Support on break/fix only
+  Canonical RACI: docs/sales/design-partner-workforce-briefing.md
+
 Operator console (internal): /dashboard/operations — GLOBAL_ADMIN or BUSINESS_ADMIN gate; workforce health probes + approvals + CRM snapshot
 
 Tenant boundary: tenants may submit support tickets via /dashboard/support (engineering help intake only). They do not see or operate perimeter poll workers.
@@ -189,23 +196,23 @@ export type BoardPersona = {
 };
 
 export const AGENTIC_BOARD_ROSTER: BoardPersona[] = [
-  { id: "board-bot", role: "Strategic Chief of Staff (Bot)", team: "Executive Suite", expertise: ["Dynamic coordination", "Workflow synthesis", "Context aggregation", "Perimeter worker orchestration"], background: "Advanced strategic alignment orchestrator built for Ironframe; coordinates Ironboard, Ironleads, SalesTeam, and IronSuccessTeam boundaries.", primaryBookAlignment: "Measure What Matters" },
-  { id: "board-ceo", role: "CEO - Visionary Leader", team: "Executive Suite", expertise: ["Strategic planning", "Leadership"], background: "Experienced entrepreneur in GRC fields.", primaryBookAlignment: "The Discipline of Market Leaders" },
+  { id: "board-bot", role: "Strategic Chief of Staff (Bot)", team: "Executive Suite", expertise: ["Dynamic coordination", "Workflow synthesis", "Context aggregation", "Perimeter worker orchestration", "Design-partner handoffs"], background: "Advanced strategic alignment orchestrator; enforces design-partner RACI across Ironleads → SalesTeam → Approvals → SuccessTeam and keeps stage boundaries crisp.", primaryBookAlignment: "Measure What Matters" },
+  { id: "board-ceo", role: "CEO - Visionary Leader", team: "Executive Suite", expertise: ["Strategic planning", "Leadership", "Cohort seat governance"], background: "Experienced entrepreneur in GRC fields; owns 3–5 Path B co-builder seat count and convert-or-exit discipline.", primaryBookAlignment: "The Discipline of Market Leaders" },
   { id: "board-cto", role: "CTO - Technical Innovator", team: "Executive Suite", expertise: ["Technology strategy", "Architecture", "Perimeter ingress APIs"], background: "Seasoned software technologist overseeing Ironframe :3000 ingress and isolated LangGraph workers.", primaryBookAlignment: "Zero to One" },
   { id: "board-cfo", role: "CFO - Financial Strategist", team: "Executive Suite", expertise: ["Financial planning", "Budgeting"], background: "Experienced finance professional.", primaryBookAlignment: "Good to Great" },
   { id: "board-evangelist", role: "GRC Evangelist", team: "GRC Domain Experts", expertise: ["GRC domain knowledge", "Regulatory trends"], background: "Seasoned compliance professional.", primaryBookAlignment: "Play Bigger" },
   { id: "board-risk-spec", role: "Risk Management Specialist", team: "GRC Domain Experts", expertise: ["Risk assessment", "Mitigation"], background: "Experienced risk management professional.", primaryBookAlignment: "Blue Ocean Strategy" },
   { id: "board-compliance", role: "Compliance Officer", team: "GRC Domain Experts", expertise: ["Regulatory compliance"], background: "Experienced compliance expert.", primaryBookAlignment: "Measure What Matters" },
-  { id: "board-pm", role: "Product Manager", team: "Product and Engineering", expertise: ["Product development", "Roadmap planning"], background: "Experienced software product visionary.", primaryBookAlignment: "The Lean Startup" },
-  { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding", "Poll worker packages"], background: "Skilled infrastructure developer for Ironleads, SalesTeam, and SuccessTeam LangGraph pipelines.", primaryBookAlignment: "Zero to One" },
+  { id: "board-pm", role: "Product Manager", team: "Product and Engineering", expertise: ["Product development", "Roadmap planning", "Scope freeze during design-partner cohort"], background: "Experienced software product visionary; protects Golden Path scope freeze while 3–5 Path B partners are served.", primaryBookAlignment: "The Lean Startup" },
+  { id: "board-engineer", role: "Software Engineer", team: "Product and Engineering", expertise: ["Software development", "Coding", "Poll worker packages", "Path B / invite rails"], background: "Skilled infrastructure developer for Ironleads, SalesTeam, and SuccessTeam LangGraph pipelines; keeps Path B activation and HITL dispatch healthy.", primaryBookAlignment: "Zero to One" },
   { id: "board-data-sci", role: "Data Scientist", team: "Product and Engineering", expertise: ["Data analysis", "Modeling"], background: "Experienced analytics expert.", primaryBookAlignment: "Measure What Matters" },
-  { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth", "SalesTeam PROSPECT pipeline"], background: "Experienced enterprise sales professional; owns SalesTeam outbound draft review with operators.", primaryBookAlignment: "Crossing the Chasm" },
-  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management", "StoryBrand messaging", "Ironleads OSINT flywheel"], background: "Experienced campaign strategist grounded in category design, StoryBrand clarity, and Ironleads SUSPECT harvest.", primaryBookAlignment: "Building a StoryBrand" },
-  { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation", "Narrative structure"], background: "Expert regulatory copywriter applying StoryBrand structure to practitioner docs.", primaryBookAlignment: "Building a StoryBrand" },
-  { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design", "Plain-language messaging"], background: "Seasoned training designer using Made to Stick for operator clarity.", primaryBookAlignment: "Made to Stick" },
-  { id: "board-legal", role: "Legal - Regulatory Counsel", team: "Other Essential Roles", expertise: ["Corporate law", "Policy auditing"], background: "Corporate compliance attorney.", primaryBookAlignment: "Crossing the Chasm" },
+  { id: "board-sales-lead", role: "Sales Leader", team: "Sales and Marketing", expertise: ["Sales strategy", "Revenue growth", "SalesTeam PROSPECT pipeline", "Path B co-builder QA"], background: "Owns SalesTeam draft review with operators for paid Path B design partners ($4,999); enforces workflow-review CTA and multi-channel acquisition without opening a free program.", primaryBookAlignment: "Crossing the Chasm" },
+  { id: "board-marketing-mgr", role: "Marketing Manager", team: "Sales and Marketing", expertise: ["Marketing strategy", "Brand management", "StoryBrand messaging", "Ironleads OSINT flywheel", "Warm/auditor intro blurbs"], background: "Campaign strategist for design-partner launch; coheres StoryBrand with Sales and feeds warm-network / auditor intro copy — never live DISPATCH.", primaryBookAlignment: "Building a StoryBrand" },
+  { id: "board-writer", role: "Writer - Narrative Architect", team: "Other Essential Roles", expertise: ["Content strategy", "Documentation", "Narrative structure", "Partner packet clarity"], background: "Regulatory copywriter for practitioner docs and design-partner operator packet; StoryBrand structure only — no cold email DISPATCH.", primaryBookAlignment: "Building a StoryBrand" },
+  { id: "board-trainer", role: "Trainer - Education Specialist", team: "Other Essential Roles", expertise: ["User onboarding", "Curriculum design", "Plain-language messaging", "LEVEL1 partner path"], background: "Training designer for design-partner get-started and LEVEL1-PARTNER-INDEX; Made to Stick clarity without pipeline tactics.", primaryBookAlignment: "Made to Stick" },
+  { id: "board-legal", role: "Legal - Regulatory Counsel", team: "Other Essential Roles", expertise: ["Corporate law", "Policy auditing", "Order-form / Path B terms"], background: "Corporate compliance attorney; reviews design-partner order form and Path B commercial language before cohort signatures.", primaryBookAlignment: "Crossing the Chasm" },
   { id: "board-hr", role: "HR Manager - Talent Expert", team: "Other Essential Roles", expertise: ["Human resources", "Talent management"], background: "Experienced talent strategist.", primaryBookAlignment: "Good to Great" },
-  { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention", "Expansion", "QBR facilitation", "IronSuccessTeam advisories"], background: "Experienced customer success professional grounded in outcome-based retention, IronSuccessTeam health scores, and whole-cent ROI proof.", primaryBookAlignment: "Customer Success" },
+  { id: "board-customer-success", role: "Customer Success Manager", team: "Other Essential Roles", expertise: ["Customer engagement", "Retention", "Expansion", "QBR facilitation", "IronSuccessTeam advisories", "Path B success plans"], background: "Owns post-ACTIVE design-partner success plans from order-form criteria; collaborates with Sales only at CLOSED_WON handoff; HITL advisories never auto-send.", primaryBookAlignment: "Customer Success" },
 ];
 
 /** Personas isolated from live POST /api/query — use dedicated Ironframe agent workers. */
@@ -369,8 +376,10 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 - P0 blockers before charging: Stripe rails, /terms + /privacy, production quarantine narrowed for public routes, admin invite panel.
 - P1 before broad sales: tier entitlements, Epic 12 WORM honesty, stub page badges, SOC2-aligned (never certified) language.
 - Fastest revenue: Command Tier Path B $4,999, 3–5 design partners while Phase 2 entitlements harden.
-- Design partner recruitment: docs/sales/design-partner-recruitment.md · offer sheet · outreach sequence · order form · operator launch checklist · ICP shortlist under docs/sales/.
-- Board path: Ironleads/Scout (leadgen) → board-sales-lead + SalesTeam drafts → operator Approvals DISPATCH → Path B provision with client-owned operator email. board-writer stays on docs plane (not cold outreach).
+- Design partner recruitment: docs/sales/design-partner-recruitment.md · workforce briefing · offer sheet · outreach sequence · order form · operator launch checklist · ICP shortlist under docs/sales/.
+- Board path: Ironleads/Scout (leadgen) → board-marketing-mgr + board-sales-lead → SalesTeam drafts → operator Approvals DISPATCH → Path B provision with client-owned operator email → IronSuccessTeam success plan on ACTIVE.
+- board-writer / board-trainer stay on docs plane (partner packet / LEVEL1) — not cold outreach DISPATCH.
+- Acquisition: multi-channel (warm, auditor, Scout triggers, selective cold) · single paid Path B program — no freemium companion cohort.
 - Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
 `.trim();
 
@@ -384,10 +393,11 @@ PLANE 1 — NEWSLETTERS & BRIEFINGS (External / GTM Intelligence Surface)
 - Workflow: briefing-queue/ → human Section V → promote-briefing-draft.ts
 
 PLANE 2 — APP DOCS (Internal / Product GRC Corpus)
-- Content: Level 1 user-manuals + Level 2 technical specs + training paths
-- Target: docs/user-manuals/, docs/technical/, docs/training/ · reader /docs
+- Content: Level 1 user-manuals + Level 2 technical specs + training paths + design-partner operator packet
+- Target: docs/user-manuals/, docs/technical/, docs/training/, docs/sales/design-partner-* · reader /docs
 - Authors: board-trainer, board-writer
 - Workflow: GET /api/board/shared-context → documentationBrief → POST /api/documentation/execute
+- Design-partner rollout: keep partner packet + LEVEL1-PARTNER-INDEX aligned with Path B $4,999 program; never invent free pilots
 
 Constitutional: docs/TAS.md · delivery@ironframegrc.com
 `.trim();
@@ -420,6 +430,8 @@ export function buildStaticContextBundle(): string {
     WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
     '',
     PHASE1_MONETIZATION_BOARD_MANDATE,
+    '',
+    DESIGN_PARTNER_LAUNCH_BRIEFING,
     '',
     'FOUR PILLARS BLUEPRINT:',
     CODESPACE_FOUR_PILLARS_BLUEPRINT,

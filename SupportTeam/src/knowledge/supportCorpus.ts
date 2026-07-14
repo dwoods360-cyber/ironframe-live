@@ -34,11 +34,25 @@ export const SUPPORT_KNOWLEDGE_CORPUS: Record<string, SupportPlayEntry> = {
     id: 'billing-hold',
     title: 'Billing hold / Stripe webhook lag',
     tier: 'T2_ELEVATED',
-    triggers: ['billing', 'stripe', 'hold', 'subscription'],
+    triggers: ['billing', 'stripe', 'hold', 'subscription', 'path b', 'pathb', 'pending'],
     resolutionSteps: [
       'Check /account/billing-hold for tenant billing state.',
+      'Design partners on Path B: confirm they used the tenant-scoped activation link — not generic /pricing.',
       'Verify Stripe webhook delivery in operator logs.',
       'Escalate to GLOBAL_ADMIN if hold persists after successful payment.',
+      'Do not upsell or rewrite sales copy — queue SuccessTeam only after ACTIVE.',
+    ],
+  },
+  'design-partner-onboarding': {
+    id: 'design-partner-onboarding',
+    title: 'Design-partner invite / get-started blockers',
+    tier: 'T2_ELEVATED',
+    triggers: ['invite', 'get-started', 'design partner', 'path b', 'operator packet', 'activation'],
+    resolutionSteps: [
+      'Confirm workspace invite used a client-owned email (not @ironframegrc.com).',
+      'Point partner to /docs/user-manuals/design-partner-operator-packet after billing ACTIVE.',
+      'If still PENDING, escalate to operator for Path B link — Support does not mint checkouts.',
+      'Login/session issues: follow auth-session-drift play; avoid sales-demo language.',
     ],
   },
   'routine-docs': {

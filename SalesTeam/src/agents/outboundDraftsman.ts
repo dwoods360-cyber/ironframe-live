@@ -1,4 +1,8 @@
 import { resolveBeachheadPrompt, type BeachheadSector } from '../config/beachheadPrompts.js';
+import {
+  DESIGN_PARTNER_PATH_B_USD,
+  PLANNED_GA_COMMAND_USD,
+} from '../config/designPartnerLaunchMandate.js';
 import { validateStoryBrandDraft } from '../config/storybrandGuidelines.js';
 import type { ProspectRecord } from '../lib/crmPollClient.js';
 import type { OutreachChannel } from '../loadSalesTeamEnv.js';
@@ -12,9 +16,7 @@ export type OutboundDraft = {
   storyBrandOk: boolean;
 };
 
-/** Path B / Command Tier design-partner on-ramp (BigInt cents display elsewhere). */
-export const DESIGN_PARTNER_PATH_B_USD = 4999;
-export const PLANNED_GA_COMMAND_USD = 35_000;
+export { DESIGN_PARTNER_PATH_B_USD, PLANNED_GA_COMMAND_USD };
 
 function formatCentsDisplay(valueCents: string): string {
   try {
@@ -42,13 +44,13 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
     '',
     `You're leading ${prompt.heroRole} work at ${prospect.company} — that makes you the decision-maker in this story, not us.`,
     '',
-    `We noticed ${trigger}. Ironframe acts as the guide: we help you ${prompt.guidePlan}.`,
+    `We noticed ${trigger}. Quick question on how your team handles ${prompt.complianceHook} evidence today — especially where heatmaps or spreadsheets still feed the board.`,
     '',
-    `Our wedge: ${prompt.wedgeCentsNarrative}. For your profile we model ${lossDisplay} in governed loss exposure (whole cents only).`,
+    `Ironframe is the guide: we help you ${prompt.guidePlan}. Wedge: ${prompt.wedgeCentsNarrative}. For your profile we model ${lossDisplay} in governed loss exposure (whole cents only).`,
     '',
-    `We're filling a small paid co-builder cohort — Command Tier / Path B on-ramp $${DESIGN_PARTNER_PATH_B_USD}, 60-90 days, 2-3 success criteria you set, weekly eng syncs capped then async. Planned GA Ironframe Command ~$${PLANNED_GA_COMMAND_USD}/yr.`,
+    `We're recruiting a small paid co-builder cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, 60-90 days, 2-3 success criteria you set, weekly eng syncs capped then async. Planned GA Ironframe Command ~$${PLANNED_GA_COMMAND_USD}/yr.`,
     '',
-    'Proposed next step: a 10-15 minute workflow review on your evidence / board-report pain — not a product preview.',
+    'If the pain is real on your side, proposed next step is a 10-15 minute workflow review on evidence / board-report friction — not a product preview.',
     '',
     '— Ironframe Governance Frame (pending your operator approval before send)',
   ].join('\n');
@@ -70,7 +72,7 @@ export function draftOutboundMessage(
   const prompt = resolveBeachheadPrompt(sector);
   const lossExposureCents = prospect.valueCents && prospect.valueCents !== '0' ? prospect.valueCents : '0';
 
-  const subject = `Co-builder seat for ${prospect.company} — Command Tier ($${DESIGN_PARTNER_PATH_B_USD})`;
+  const subject = `Question about ${prompt.complianceHook} workflow at ${prospect.company}`;
   const body = channel === 'SMS' ? draftSmsBody(prospect) : draftEmailBody(prospect, prompt);
   const storyBrand = validateStoryBrandDraft(body);
 

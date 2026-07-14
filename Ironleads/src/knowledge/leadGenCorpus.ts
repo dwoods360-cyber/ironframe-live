@@ -863,6 +863,44 @@ export const LEAD_GEN_KNOWLEDGE_CORPUS: Record<string, LeadGenKnowledgeEntry> = 
     ],
     complementaryIronboardPlaybooks: ['challenger_sale', 'gap_selling'],
   },
+
+  design_partner_launch: {
+    id: 'design_partner_launch',
+    kind: 'strategy',
+    title: 'Design Partner Launch — Multi-Channel Path B Cohort',
+    authors: ['Ironframe GTM'],
+    publicationYear: 2026,
+    category: 'sales_development',
+    coreConcept:
+      'Cold-start design partners need volume selectivity (≈30 conversations → 3 signed) via multiple acquisition channels, but a single paid Path B program — never freemium beside cohort seats.',
+    ironframeApplication:
+      'Ironleads harvests SUSPECT on triggers (funding, NEW_CISO, AUDIT_FINDING, REG_FINE, compliance job posts) for regional BHC / NERC / MSSP / HIPAA beachheads; handoff to SalesTeam PROSPECT only with score + trigger. Warm and auditor intros outrank cold. Collaborate with board-marketing-mgr on blurbs; never invent company names; never mint workspaces.',
+    beachheadSectors: ALL,
+    keyTactics: [
+      'Prioritize trigger-tagged SUSPECTs for design-partner ICP shortlist before broad spray.',
+      'Pass to SalesTeam with beachhead sector + trigger + email or phone for HITL drafts.',
+      'Support warm-network and auditor channel lists as RESEARCH stage accounts in CRM notes.',
+      'Target pipeline math for 3–5 Path B seats at $4,999 — not free pilots.',
+    ],
+    discoveryQuestions: [
+      'Who owns spreadsheet or heatmap GRC evidence that still reaches the board?',
+      'Is there an active audit, questionnaire surge, or first dedicated GRC hire?',
+    ],
+    triggerSignals: [
+      'FUNDING_ROUND',
+      'NEW_CISO',
+      'COMPLIANCE_JOB_POST',
+      'AUDIT_FINDING',
+      'REG_FINE',
+      'BOARD_MANDATE_DOLLAR_RISK',
+    ],
+    antiPatterns: [
+      'Promoting free forever design partners',
+      'Citing medshield/vaultbank/gridcore as live prospects',
+      'Auto-sending outreach from Ironleads',
+    ],
+    complementaryIronboardPlaybooks: ['challenger_sale', 'gap_selling', 'sales_enablement_board'],
+  },
 };
 
 export const LEAD_GEN_KNOWLEDGE_CATALOG = Object.values(LEAD_GEN_KNOWLEDGE_CORPUS);

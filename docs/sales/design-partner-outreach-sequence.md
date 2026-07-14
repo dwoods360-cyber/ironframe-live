@@ -10,21 +10,23 @@ SalesTeam `outboundDraftsman` generates Touch 1–shaped first drafts. Use this 
 
 ## Touch 1 — Open (day 0)
 
-**Subject:** Co-builder seat for {{company}} — quantified GRC, not heatmap theater
+**Subject:** Question about {{compliance-or-evidence}} workflow at {{company}}
 
 ```
 Hi {{firstName}},
 
-You’re leading {{role-or-compliance-work}} at {{company}} — that makes you the decision-maker in this story, not us.
+You're leading {{role-or-compliance-work}} at {{company}} — that makes you the decision-maker in this story, not us.
 
-We noticed {{trigger}}. Ironframe is a quantitative GRC command post (BigInt dollar risk, isolated enclaves, auditor-ready exports). We’re filling a small paid co-builder cohort:
+We noticed {{trigger}}. Quick question on how your team handles evidence today — especially where heatmaps or spreadsheets still feed the board.
+
+Ironframe is a quantitative GRC command post (BigInt dollar risk, isolated enclaves, auditor-ready exports). We're recruiting a small paid co-builder cohort:
 
 • Command Tier / Path B on-ramp: $4,999
 • 60–90 day window, 2–3 success criteria you set
 • Weekly eng syncs capped (first 4–6 weeks), then async
-• Planned GA Ironframe Command ~$35k/yr (say “planned” until GA flag)
+• Planned GA Ironframe Command ~$35k/yr (say "planned" until GA flag)
 
-Next step: a 10–15 minute workflow review on your evidence / board-report pain — not a product preview.
+If the pain is real on your side: a 10–15 minute workflow review — not a product preview.
 
 — Ironframe (pending operator approval before send)
 ```
@@ -32,7 +34,7 @@ Next step: a 10–15 minute workflow review on your evidence / board-report pain
 **SMS (≤320 chars):**
 
 ```
-{{firstName}} — Ironframe paid co-builder (Command Tier $4,999, 60–90 days). Quantified GRC, not heatmaps. 10–15 min workflow review on your evidence pain? Reply YES or stop.
+{{firstName}} — Ironframe paid co-builder (Command Tier $4,999, 60-90 days). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or stop.
 ```
 
 ---

@@ -66,7 +66,8 @@ IronBoard queries: **only** when making GTM or pricing decisions — not daily c
 
 **Banned until 3 paying design partners** — preserves engineering throughput per [Golden Path scope freeze](../ops/golden-path-checklist.md#scope-freeze-mandate).
 
-**Recruitment runbook:** [Design partner recruitment](./design-partner-recruitment.md) — channels, 30-min pre-outreach checklist, board leadgen → sales → approvals path.
+**Recruitment runbook:** [Design partner recruitment](./design-partner-recruitment.md) — channels, 30-min pre-outreach checklist, board leadgen → sales → approvals path.  
+**Workforce RACI:** [Design-partner workforce briefing](./design-partner-workforce-briefing.md) — Sales, Success, Writer, Leadgen, Support collaboration.
 
 | Category | Do not build | Why |
 |----------|--------------|-----|

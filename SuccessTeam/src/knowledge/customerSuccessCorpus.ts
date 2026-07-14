@@ -615,6 +615,35 @@ export const CUSTOMER_SUCCESS_KNOWLEDGE_CORPUS: Record<string, CustomerSuccessKn
     ],
     antiPatterns: ['Consumer gamification', 'Fake notification badges'],
   },
+
+  design_partner_path_b_onboarding: {
+    id: 'design_partner_path_b_onboarding',
+    kind: 'playbook',
+    title: 'Design Partner Path B — First 90 Days',
+    authors: ['Ironframe Customer Success'],
+    publicationYear: 2026,
+    category: 'onboarding_adoption',
+    coreConcept:
+      'Paying co-builders convert when order-form success criteria become the success plan, syncs stay capped, and convert-or-exit is explicit at day 60–90.',
+    ironframeApplication:
+      'After TenantBilling ACTIVE: bind CS plan to the 2–3 Path B order-form criteria; hand partner the operator packet; weekly syncs only for first 4–6 weeks then async; queue HITL advisories — never auto-send; expansion deferred until criteria hit or day-90 review. Collaborate with Sales only at CLOSED_WON handoff; Support owns billing-hold/login breaks.',
+    beachheadSectors: ALL,
+    keyTactics: [
+      'Day 0: confirm Path B payment ACTIVE + client-owned operator on /get-started.',
+      'Clone order-form success criteria into CRM success plan (cents-grade outcomes where applicable).',
+      'Cap eng syncs; protect Golden Path scope freeze outside criteria.',
+      'Day 60–90: convert at locked discount or clean exit — advocacy only after documented export/outcome.',
+    ],
+    healthSignals: ['MISSED_PILOT_GATE', 'STALE_ENGAGEMENT', 'LOW_EVIDENCE_COMPLETENESS'],
+    retentionPlays: ['Success-plan reset against order-form criteria', 'Executive sponsor alignment on convert-or-exit'],
+    expansionPlays: ['Module add-on only after criteria met and health ≥ 80'],
+    antiPatterns: [
+      'Treating Path B partners as free betas',
+      'Open-ended weekly eng forever',
+      'Using demo tenant names as customer references',
+    ],
+    complementaryCorpusIds: ['customer_success', 'land_adopt_expand', 'impossible_to_inevitable'],
+  },
 };
 
 export const CUSTOMER_SUCCESS_CORPUS_MANIFEST = {
@@ -652,7 +681,7 @@ export function listCorpusEntriesForSector(
 
 export function resolveRetentionPlayIds(healthBand: 'healthy' | 'watch' | 'at_risk' | 'critical'): string[] {
   if (healthBand === 'healthy') return ['qbr_expansion_framework'];
-  if (healthBand === 'watch') return ['customer_success', 'onboarding_playbook_90'];
+  if (healthBand === 'watch') return ['customer_success', 'onboarding_playbook_90', 'design_partner_path_b_onboarding'];
   if (healthBand === 'at_risk') return ['retention_save_plays', 'effortless_experience'];
   return ['retention_save_plays', 'chief_customer_officer'];
 }

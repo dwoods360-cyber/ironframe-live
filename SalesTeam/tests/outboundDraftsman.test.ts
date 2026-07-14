@@ -25,15 +25,15 @@ const SAMPLE_PROSPECT: ProspectRecord = {
 };
 
 describe('outboundDraftsman', () => {
-  it('sells paid co-builder Path B with workflow-review CTA', () => {
+  it('opens problem-led then sells paid Path B with workflow-review CTA', () => {
     const draft = draftOutboundMessage(SAMPLE_PROSPECT, 'EMAIL');
     expect(draft.storyBrandOk).toBe(true);
     expect(draft.body.toLowerCase()).toContain('decision-maker');
+    expect(draft.body.toLowerCase()).toContain('quick question');
     expect(draft.body).toContain('$5900000.00');
     expect(draft.body).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
     expect(draft.body.toLowerCase()).toContain('workflow review');
-    expect(draft.body.toLowerCase()).not.toContain('20-minute operator walkthrough');
-    expect(draft.subject).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
+    expect(draft.subject.toLowerCase()).toContain('workflow');
     expect(draft.industrySector).toBe('REGIONAL_BHC');
   });
 

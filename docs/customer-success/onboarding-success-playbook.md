@@ -1,39 +1,54 @@
 # Onboarding Success Playbook — First 90 Days
 
-**Classification:** `customer-success` · Time-to-value for new `CLOSED_WON` accounts
+**Classification:** `customer-success` · Time-to-value for Path B design partners and `CLOSED_WON` accounts  
+**Launch RACI:** [Design-partner workforce briefing](../sales/design-partner-workforce-briefing.md)
 
-## Day 0–14: Launch
+## Design-partner Path B (primary for rollout)
 
-- Operator assigns baseline alignment tier (Gridcore / Vaultbank / Medshield).
-- Welcome advisory queued — not auto-sent.
-- Tenant workspace provisioned; ironframe-tenant cookie parity verified.
-- Success plan documented in CRM with three measurable outcomes.
+Commercial: Command Tier Path B **$4,999** · 60–90 day window · **2–3** order-form success criteria = the CS plan.
 
-## Day 15–45: First value
+### Day 0–14: Launch
 
-- Target: `FIRST_ACTION` pilot milestone (GRC-auditable action type).
-- Training academy paths assigned per role (analyst vs board).
-- Evidence locker first export with Ironscribe hash captured.
-- Weekly 15-minute standup for first month.
+- Confirm Stripe Path B → `TenantBilling` **ACTIVE** (not PENDING).
+- Operator email is **client-owned** (never `@ironframegrc.com`).
+- Welcome advisory queued via SuccessTeam — **HITL only**, never auto-send.
+- Hand partner [Operator Packet](../user-manuals/design-partner-operator-packet.md) + LEVEL1 partner index.
+- Success plan in CRM = order-form criteria (not generic “explore product”).
 
-## Day 46–90: Habit & proof
+### Day 15–45: First value
 
-- Target: `COVERAGE_STARTED` and evidence completeness ≥ 80%.
-- Board-report dry run using LP-10 / LP-16 widgets.
-- Health score should reach **Watch (60+)** band by day 90.
-- Expansion conversation deferred until day 90 review unless health ≥ 80 early.
+- Target: at least one success criterion in motion (e.g. first analyst export, ALE baseline for primary entity).
+- Weekly eng syncs **capped** (first 4–6 weeks), then async.
+- Evidence locker / Ironscribe path exercised on partner tenant only.
+- Do **not** cite demo seeds (`medshield`, `vaultbank`, `gridcore`) as peer references.
+
+### Day 46–90: Habit & convert-or-exit
+
+- Target: order-form criteria complete or explicitly waived with reason.
+- Health toward **Watch (60+)**; expansion deferred unless health ≥ 80 early.
+- Structured conversion: locked discount / GA path **or** clean exit — no indefinite free lingering.
 
 ## Milestone mapping (crmPilotTracking)
 
 | Milestone | CS meaning |
 |-----------|------------|
-| `LEAD_QUALIFIED_CONFIRMED` | ICP fit validated — onboarding plan approved |
-| `FIRST_ACTION` | Time-to-value clock starts |
-| `COVERAGE_STARTED` | Sustained control monitoring |
-| `OUTCOME_MILESTONE` | Ready for QBR and expansion qualification |
+| `LEAD_QUALIFIED_CONFIRMED` | ICP fit + Path B interest validated |
+| `FIRST_ACTION` | Time-to-value clock starts on partner tenant |
+| `COVERAGE_STARTED` | Sustained control / evidence monitoring |
+| `OUTCOME_MILESTONE` | Ready for convert conversation or reference ask |
+
+## Collaboration boundaries
+
+| Team | Role |
+|------|------|
+| SalesTeam | Stops at DISPATCH / CLOSED_WON handoff |
+| SuccessTeam | Owns post-ACTIVE plan + HITL advisories |
+| SupportTeam | Billing-hold, login, export break/fix only |
+| board-writer / trainer | Packet + curriculum clarity |
 
 ## References
 
-- *Customer Success* — success plan templates
-- *Subscribed* — recurring value and subscription mindset
-- *Hooked* — ethical operator habit loops inside Command Center only
+- *Customer Success* — success plan templates  
+- *Subscribed* — recurring value (planned GA ~$35k)  
+- *Hooked* — ethical operator habit loops inside Command Center only  
+- Path B order form: [design-partner-order-form.md](../sales/design-partner-order-form.md)

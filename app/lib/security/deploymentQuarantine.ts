@@ -61,6 +61,7 @@ export function isStripeWebhookIngressPath(pathname: string): boolean {
 export function isTokenGatedApiIngressPath(pathname: string): boolean {
   if (pathname.startsWith("/api/internal/cron/")) return true;
   if (pathname === "/api/cron/narrate") return true;
+  if (pathname === "/api/cron/gtm-briefing-queue") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
   if (pathname === "/api/internal/pki-health") return true;

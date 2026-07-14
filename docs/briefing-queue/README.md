@@ -2,6 +2,23 @@
 
 Drafts in `docs/briefing-queue/` are **never** compiled to the public Governance Frame surface (`brief.ironframegrc.com`, `/governance-frame`, Ironcast email, or RSS). Only `docs/published-briefings/*.md` enters the publication pipeline.
 
+## Autonomous authorship (quarantine only)
+
+Weekday cron stages **one public briefing + one Ironcast newsletter** into this queue without publishing:
+
+| Trigger | Schedule | Entry |
+|---------|----------|--------|
+| Windows | **04:00** Mon–Fri local | `scripts/cron_gtm_briefing_queue_scheduled.ps1` → `POST /api/cron/gtm-briefing-queue` |
+| Vercel | **04:00** UTC Mon–Fri | `vercel.json` → same route |
+
+- Filenames: `YYYY-MM-DD-draft-auto-briefing-{topic}.md` / `…-auto-newsletter-{topic}.md`
+- Rotating topics (heatmap vs dollars, tenant sovereignty, design-partner cohort, evidence pain, category split)
+- Skip if today’s files already exist
+- Disable: `GTM_BRIEFING_QUEUE_CRON_ENABLED=false`
+- Prefer **local Core** (`http://127.0.0.1:3000`) so queue files persist in this repo (Vercel FS is ephemeral)
+
+**Operator gate:** Ops Hub → Briefings → **Promote** (approve / publish) or **Deny** (move to `briefing-queue/denied/`).
+
 ## What quarantine guarantees
 
 - Queue files trigger `[SECURITY AUDIT] Unauthorized compilation attempt blocked for unvetted draft:` warnings at scan time.
@@ -10,18 +27,19 @@ Drafts in `docs/briefing-queue/` are **never** compiled to the public Governance
 
 ## Human-in-the-loop promotion
 
-1. **Author** — Ops Hub **Request series** (`POST /api/admin/operations-hub/briefings/request`) or stage paste (`POST /api/admin/operations-hub/briefings/stage`), nightly narrate cron, or a human file using `template.md`.  
+1. **Author** — Autonomous GTM cron, Ops Hub **Request series** (Briefings or Newsletters), stage paste, nightly narrate (telemetry triad), or a human file using `template.md`.  
    **Not** IronBoard chat alone (read-only) and **not** board-writer (APP_DOCS plane only).
 2. **Filename convention:** `YYYY-MM-DD-draft-{slug}.md` (e.g. `2026-07-14-draft-market-grc-2000-2008.md`).
 3. **Section V required:** Every draft must end with `### V. Sources & Citations` so reviewers can trace claims to approved sources.
 4. **Review** — Ops Hub → Briefings → verify citations. Reject drafts containing raw CVEs, UUIDs in body copy, or unsanitized claims.
-5. **Promote** — Ops Hub Promote & syndicate, or:
+5. **Approve** — Ops Hub Promote & syndicate, or:
 
 ```bash
 npx tsx scripts/promote-briefing-draft.ts --file 2026-07-14-draft-market-grc-2000-2008.md --slug 2026-07-14-market-grc-2000-2008
 ```
 
-6. **Publish compile** — after promotion, run Ironcast / RSS compile against `published-briefings/` only.
+6. **Deny** — Ops Hub Deny (Postgres denial receipt + remove from active queue).
+7. **Publish compile** — after promotion, run Ironcast / RSS compile against `published-briefings/` only.
 
 ## Draft validation rules
 

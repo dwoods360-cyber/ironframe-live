@@ -387,10 +387,14 @@ export const DOCUMENTATION_CORPUS_BINDING = `
 DUAL-LOCATION OUTPUT MATRIX (AUTHORITATIVE — see lib/documentationCorpusPlanes.ts):
 
 PLANE 1 — NEWSLETTERS & BRIEFINGS (External / GTM Intelligence Surface)
-- Content: Market analysis, regulatory narratives, flywheel briefing logs
+- Content: Market analysis, regulatory narratives, flywheel briefing logs, Ironcast newsletter series
 - Target: /governance-frame/[slug] · PublishedBriefing DB · Substack / Ironcast staging
-- Authors: board-bot, board-cfo, flywheel agents, narrate cron — NOT board-trainer/writer
-- Workflow: briefing-queue/ → human Section V → promote-briefing-draft.ts
+- Authors: board-bot, board-cfo, flywheel agents, narrate cron, Ops Hub briefing/newsletter request — NOT board-trainer/writer
+- Workflow: Ops Hub Briefings or Newsletters request/stage OR autonomous weekday GTM cron OR narrate → briefing-queue/ → human Promote (approve) / Deny → Ironcast syndicate
+- Operator submit URLs:
+  · /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/request
+  · /dashboard/operations?tab=newsletters · POST /api/admin/operations-hub/newsletters/request
+- IronBoard chat remains read-only advisory — paste is not a filesystem write
 
 PLANE 2 — APP DOCS (Internal / Product GRC Corpus)
 - Content: Level 1 user-manuals + Level 2 technical specs + training paths + design-partner operator packet

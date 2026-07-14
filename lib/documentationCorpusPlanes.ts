@@ -82,9 +82,12 @@ export const DUAL_LOCATION_OUTPUT_MATRIX: Record<
       "board-compliance",
       "GTM flywheel agents",
       "Irontally narrate cron",
+      "Ops Hub briefings/request",
+      "Ops Hub newsletters/request",
+      "autonomous GTM briefing-queue cron",
     ],
     trigger:
-      "Flywheel execution cycles → briefing-queue draft → human review → promote-briefing-draft.ts → PublishedBriefing row",
+      "Autonomous weekday GTM cron (/api/cron/gtm-briefing-queue) or Ops Hub briefings/newsletters request (or flywheel/narrate) → briefing-queue draft → human Approve (promote) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate",
   },
   [DOCUMENTATION_PLANE_APP_DOCS]: {
     plane: DOCUMENTATION_PLANE_APP_DOCS,

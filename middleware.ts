@@ -54,6 +54,7 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname === "/api/internal/platform-admin-gate") return true;
   if (pathname === "/api/internal/tenant-slug-resolve") return true;
   if (pathname === "/api/cron/narrate") return true;
+  if (pathname === "/api/cron/gtm-briefing-queue") return true;
   if (pathname === "/api/documentation/execute") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;

@@ -10,7 +10,8 @@
 |----------------------|-------------------|-----|--------|
 | **03:00** | **03:00** | Documentation sync + OSINT + governance memo | `scripts\cron_narrate_scheduled.ps1` |
 | *(30 min settle)* | *(30 min settle)* | Filesystem, glossary, and DB state finalize | — |
-| **03:30** | **03:30** | GRC triad narrate + briefing-queue draft + exposure alerts | `scripts\cron_narrate_api_scheduled.ps1` → `bin\cron_narrate.ps1` or Vercel `/api/cron/narrate` |
+| **03:30** | **03:30** | GRC triad narrate + optional telemetry queue draft | `scripts\cron_narrate_api_scheduled.ps1` → `bin\cron_narrate.ps1` or Vercel `/api/cron/narrate` |
+| **04:00 Mon–Fri** | **04:00 Mon–Fri UTC** | Autonomous public briefing + newsletter → quarantine only | `scripts\cron_gtm_briefing_queue_scheduled.ps1` → `/api/cron/gtm-briefing-queue` |
 
 **Why stagger:** When both jobs coincided at 03:00, narrate could evaluate `INTERNAL_ALERT_EXPOSURE_THRESHOLD_CENTS` against telemetry while the doc engine was still mutating docs and related state. Shifting API narrate to **03:30** guarantees a finalized post-update environment.
 

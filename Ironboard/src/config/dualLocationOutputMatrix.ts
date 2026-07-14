@@ -8,8 +8,12 @@ export const BOARD_DUAL_LOCATION_OUTPUT_MATRIX = `
 1. Newsletters & Briefings (EXTERNAL_GTM_INTELLIGENCE)
    Content: Real-world market analysis, regulatory change narratives, and institutional briefing logs compiled by board agents during flywheel execution cycles.
    Target: primary: /governance-frame/[slug] · staging: docs/briefing-queue/ · database: PublishedBriefing · repository: published-briefings/ · external: corporate Substack stream, Ironcast newsletter compile
-   Trigger: Flywheel execution cycles → briefing-queue draft → human review → promote-briefing-draft.ts → PublishedBriefing row
-   Authors: board-bot, board-cfo, board-compliance, GTM flywheel agents, Irontally narrate cron
+   Trigger: Ops Hub briefings/request or newsletters/request, autonomous weekday GTM cron (/api/cron/gtm-briefing-queue), or narrate → briefing-queue draft → human Promote (approve) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate
+   Authors: board-bot, board-cfo, board-compliance, GTM flywheel agents, Irontally narrate cron, autonomous GTM briefing-queue cron, Ops Hub briefings/request, Ops Hub newsletters/request
+   Operator submit:
+  - /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/request
+  - /dashboard/operations?tab=newsletters · POST /api/admin/operations-hub/newsletters/request
+  - Approve: briefings/promote · Deny: briefings/deny
    Rules:
   - Dynamic, narrative-driven, and completely decoupled from internal system code.
   - Communicates outward to prospects and design partners to showcase active intelligence posture.

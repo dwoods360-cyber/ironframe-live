@@ -1106,7 +1106,8 @@ function renderDashboard(): string {
 
     /** Resolve API paths against <base href> so ops-portal iframe proxy works (root-absolute /api ignores base). */
     function boardApiUrl(path) {
-      var clean = String(path || '').replace(/^\//, '');
+      // Use RegExp ctor — a /^\\// literal is corrupted inside this HTML template string.
+      var clean = String(path || '').replace(new RegExp('^/'), '');
       try {
         return new URL(clean, document.baseURI).href;
       } catch (err) {

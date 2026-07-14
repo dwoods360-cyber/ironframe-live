@@ -1000,6 +1000,9 @@ function renderDashboard(): string {
     textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; max-height: 5.5rem; font-family: inherit; }
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
+    #ptt-btn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.35rem; padding: 0 0.85rem; font-weight: 800; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; flex-shrink: 0; }
+    #ptt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #ptt-btn[data-recording="1"] { border-color: #f87171; color: #fca5a5; box-shadow: 0 0 0.45rem rgba(248, 113, 113, 0.35); }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .workforce-app { flex-wrap: wrap; align-items: flex-start; }
@@ -1070,6 +1073,7 @@ function renderDashboard(): string {
       <div id="chat-compose">
         <form id="query-form">
           <textarea id="user-prompt" placeholder="Ask the board…" rows="2"></textarea>
+          <button type="button" id="ptt-btn" title="Push-to-talk: click to record, click again to transcribe and Query. Gemini STT — no wake listening.">PTT</button>
           <button type="submit" id="submit-btn">Query</button>
         </form>
         <div id="status"></div>
@@ -1330,6 +1334,7 @@ function renderDashboard(): string {
       var ironframeRoute = btn ? btn.getAttribute('data-ironframe-route') || '' : '';
       var prompt = document.getElementById('user-prompt');
       var submitBtn = document.getElementById('submit-btn');
+      var pttBtn = document.getElementById('ptt-btn');
       if (prompt) {
         prompt.disabled = !!isolated;
         prompt.placeholder = isolated
@@ -1337,6 +1342,7 @@ function renderDashboard(): string {
           : 'Ask the board…';
       }
       if (submitBtn) submitBtn.disabled = !!isolated;
+      if (pttBtn) pttBtn.disabled = !!isolated;
       if (isolated) {
         setStatus('Documentation author — isolated from live boardroom chat. Use POST ' + ironframeRoute + ' on Ironframe (:3000).');
       } else if (document.getElementById('status').textContent.indexOf('Documentation author') === 0) {
@@ -1801,6 +1807,8 @@ function renderDashboard(): string {
       renderChat();
 
       submitBtn.disabled = true;
+      var pttBtnStream = document.getElementById('ptt-btn');
+      if (pttBtnStream) pttBtnStream.disabled = true;
       setStatus('Streaming…');
 
       async function runQueryStream(attempt) {
@@ -1903,8 +1911,189 @@ function renderDashboard(): string {
         setStatus(err && err.message ? err.message : 'Stream failed.');
       } finally {
         submitBtn.disabled = false;
+        var pttBtnDone = document.getElementById('ptt-btn');
+        if (pttBtnDone) pttBtnDone.disabled = false;
       }
     });
+
+    /**
+     * Push-to-talk (PTT): click to record, click again to Gemini-transcribe and auto-Query.
+     * Bound AFTER Query listeners and wrapped so mic/STT faults cannot unbind the board.
+     * No wake-word / always-on listening.
+     */
+    (function bindBoardPtt() {
+      try {
+        var pttBtn = document.getElementById('ptt-btn');
+        if (!pttBtn) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          pttBtn.disabled = true;
+          pttBtn.title = 'Microphone API unavailable in this browser';
+          return;
+        }
+        if (typeof MediaRecorder === 'undefined') {
+          pttBtn.disabled = true;
+          pttBtn.title = 'MediaRecorder unavailable in this browser';
+          return;
+        }
+
+        var pttRecorder = null;
+        var pttChunks = [];
+        var pttActive = false;
+        var pttBusy = false;
+
+        function pickRecorderMime() {
+          var candidates = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/mp4',
+            'audio/ogg;codecs=opus'
+          ];
+          for (var i = 0; i < candidates.length; i++) {
+            try {
+              if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(candidates[i])) {
+                return candidates[i];
+              }
+            } catch (err) {}
+          }
+          return '';
+        }
+
+        function blobToBase64(blob) {
+          return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onloadend = function() {
+              var result = String(reader.result || '');
+              var comma = result.indexOf(',');
+              resolve(comma >= 0 ? result.slice(comma + 1) : result);
+            };
+            reader.onerror = function() { reject(reader.error || new Error('FileReader failed')); };
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        async function stopPttAndSubmit() {
+          if (!pttRecorder || !pttActive) return;
+          pttBusy = true;
+          pttActive = false;
+          pttBtn.dataset.recording = '0';
+          pttBtn.textContent = 'PTT';
+          setStatus('PTT: transcribing…');
+
+          var blob = await new Promise(function(resolve) {
+            var finished = false;
+            pttRecorder.onstop = function() {
+              if (finished) return;
+              finished = true;
+              resolve(new Blob(pttChunks, { type: pttRecorder.mimeType || 'audio/webm' }));
+            };
+            try {
+              pttRecorder.stop();
+            } catch (err) {
+              if (!finished) {
+                finished = true;
+                resolve(new Blob(pttChunks, { type: 'audio/webm' }));
+              }
+            }
+          });
+
+          try {
+            var streamRef = pttRecorder && pttRecorder._stream;
+            if (streamRef) {
+              streamRef.getTracks().forEach(function(t) {
+                try { t.stop(); } catch (err) {}
+              });
+            }
+          } catch (err) {}
+
+          pttRecorder = null;
+          pttChunks = [];
+
+          if (!blob || blob.size < 256) {
+            setStatus('PTT: no audio captured — try again.');
+            pttBusy = false;
+            return;
+          }
+
+          try {
+            var audioBase64 = await blobToBase64(blob);
+            var response = await fetch(boardApiUrl('/api/voice/transcribe'), {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                audioBase64: audioBase64,
+                mimeType: blob.type || 'audio/webm'
+              })
+            });
+            var payload = null;
+            try {
+              payload = await response.json();
+            } catch (parseErr) {
+              payload = null;
+            }
+            if (!response.ok) {
+              setStatus(
+                'PTT: transcribe failed' +
+                  (payload && payload.error ? ' (' + payload.error + ')' : ' HTTP ' + response.status)
+              );
+              pttBusy = false;
+              return;
+            }
+            var transcript = payload && typeof payload.transcript === 'string'
+              ? payload.transcript.trim()
+              : '';
+            if (!transcript) {
+              setStatus('PTT: heard nothing — try again.');
+              pttBusy = false;
+              return;
+            }
+            var input = document.getElementById('user-prompt');
+            if (input) input.value = transcript;
+            setStatus('PTT: “' + (transcript.length > 80 ? transcript.slice(0, 80) + '…' : transcript) + '”');
+            document.getElementById('query-form').requestSubmit();
+          } catch (err) {
+            setStatus('PTT failed: ' + (err && err.message ? err.message : String(err)));
+          } finally {
+            pttBusy = false;
+          }
+        }
+
+        async function startPtt() {
+          if (pttBusy || isStreamingActive) return;
+          try {
+            var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            var mime = pickRecorderMime();
+            pttChunks = [];
+            pttRecorder = mime
+              ? new MediaRecorder(stream, { mimeType: mime })
+              : new MediaRecorder(stream);
+            pttRecorder._stream = stream;
+            pttRecorder.ondataavailable = function(ev) {
+              if (ev.data && ev.data.size > 0) pttChunks.push(ev.data);
+            };
+            pttRecorder.start(250);
+            pttActive = true;
+            pttBtn.dataset.recording = '1';
+            pttBtn.textContent = 'REC';
+            setStatus('PTT recording… click again to finish.');
+          } catch (err) {
+            setStatus('PTT mic denied — allow microphone, then retry.');
+            console.warn('[IRONBOARD] PTT getUserMedia failed:', err);
+          }
+        }
+
+        pttBtn.addEventListener('click', function() {
+          if (pttBusy) return;
+          if (pttActive) {
+            stopPttAndSubmit();
+            return;
+          }
+          startPtt();
+        });
+      } catch (err) {
+        console.warn('[IRONBOARD] PTT bind skipped:', err);
+      }
+    })();
 
     function applyProductMatrixHealth(payload) {
       var statusEl = document.getElementById('product-matrix-status');

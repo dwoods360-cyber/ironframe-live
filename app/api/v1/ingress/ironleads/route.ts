@@ -55,15 +55,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        message: 'PERIMETER_INGRESS_COMPLETE',
+        message: result.deduped ? 'PERIMETER_INGRESS_DEDUPE' : 'PERIMETER_INGRESS_COMPLETE',
         tenantId: result.tenantId,
         contactId: result.contact.id,
         dealId: result.deal.id,
         priorityScore: result.contact.priorityScore,
         vulnerabilityClass: result.contact.vulnerabilityClass,
         stage: result.deal.stage,
+        deduped: result.deduped,
       },
-      { status: 201 },
+      { status: result.deduped ? 200 : 201 },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'INTERNAL_INGRESS_FAULT';

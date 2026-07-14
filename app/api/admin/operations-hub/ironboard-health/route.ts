@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { resolveBoardroomEmbedUrl } from "@/app/lib/ironboardConsolePaths";
 import { redactIronboardEngineHealthSnapshot } from "@/app/lib/server/operationsApiRedaction";
 import { probeIronboardEngineHealth } from "@/app/lib/server/ironboardEngineHealth";
 
@@ -12,9 +13,15 @@ export async function GET() {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const snapshot = probeIronboardEngineHealth();
-  const redacted = redactIronboardEngineHealthSnapshot(await snapshot);
-  return NextResponse.json(redacted, {
-    status: redacted.reachable ? 200 : 503,
-  });
+  const snapshot = await probeIronboardEngineHealth();
+  const redacted = redactIronboardEngineHealthSnapshot(snapshot);
+  return NextResponse.json(
+    {
+      ...redacted,
+      boardroomEmbedUrl: resolveBoardroomEmbedUrl(snapshot.upstreamBase, snapshot.reachable),
+    },
+    {
+      status: redacted.reachable ? 200 : 503,
+    },
+  );
 }

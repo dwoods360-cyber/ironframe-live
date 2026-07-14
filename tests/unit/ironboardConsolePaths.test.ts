@@ -5,6 +5,7 @@ import {
   IRONBOARD_OPERATIONS_PORTAL_PATH,
   ironboardConsoleBaseHref,
   ironboardConsoleProxyPath,
+  resolveBoardroomEmbedUrl,
 } from "@/app/lib/ironboardConsolePaths";
 import { injectIronboardConsoleBaseHref } from "@/app/lib/server/ironboardConsoleProxy";
 
@@ -25,6 +26,9 @@ describe("ironboard console paths", () => {
       ironboardConsoleBaseHref(),
     );
     expect(html).toContain('<base href="/api/admin/operations-hub/ironboard-console/" />');
+    expect(html).toContain(
+      'window.__IRONBOARD_API_ROOT__="/api/admin/operations-hub/ironboard-console/"',
+    );
   });
 
   it("resolves board API paths under the console when baseURI lacks a trailing slash", () => {
@@ -36,6 +40,18 @@ describe("ironboard console paths", () => {
     const fixedBase = bare.endsWith("/") ? bare : `${bare}/`;
     expect(new URL("api/query", fixedBase).href).toBe(
       "https://ironframegrc.com/api/admin/operations-hub/ironboard-console/api/query",
+    );
+  });
+
+  it("embeds public HTTPS upstream engines directly and falls back to the console proxy", () => {
+    expect(
+      resolveBoardroomEmbedUrl("https://ironframe-ironboard-4qpposvc7q-uc.a.run.app", true),
+    ).toBe("https://ironframe-ironboard-4qpposvc7q-uc.a.run.app/");
+    expect(resolveBoardroomEmbedUrl("http://127.0.0.1:8082", true)).toBe(
+      IRONBOARD_CONSOLE_PROXY_PREFIX,
+    );
+    expect(resolveBoardroomEmbedUrl("https://example.run.app", false)).toBe(
+      IRONBOARD_CONSOLE_PROXY_PREFIX,
     );
   });
 });

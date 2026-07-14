@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import type { SuccessTeamPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type RedactedSuccessTeamSnapshot = Omit<SuccessTeamPortalSnapshot, "tenantSlug" | "accounts" | "healthByDealId"> & {
   crmScope: string;
@@ -32,11 +33,11 @@ export default function SuccessTeamPortalClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/success-team", {
-        cache: "no-store",
-      });
-      const data = (await response.json()) as RedactedSuccessTeamSnapshot & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load IronSuccessTeam portal.");
+      const data = await fetchOpsPortalJson<RedactedSuccessTeamSnapshot>(
+        "/api/admin/operations-hub/success-team",
+        { cache: "no-store" },
+        "Failed to load IronSuccessTeam portal.",
+      );
       setSnapshot(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -56,15 +57,10 @@ export default function SuccessTeamPortalClient() {
     setMessage(null);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/success-team", {
-        method: "POST",
-      });
-      const data = (await response.json()) as {
+      const data = await fetchOpsPortalJson<{
         ok?: boolean;
-        error?: string;
         snapshot?: RedactedSuccessTeamSnapshot;
-      };
-      if (!response.ok) throw new Error(data.error ?? "Poll failed.");
+      }>("/api/admin/operations-hub/success-team", { method: "POST" }, "Poll failed.");
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Poll cycle completed. Review CLOSED_WON accounts and CS approval queue.");
     } catch (err) {

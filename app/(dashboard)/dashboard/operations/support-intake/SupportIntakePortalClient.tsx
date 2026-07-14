@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type RedactedSupportIntakeSnapshot = {
   generatedAt: string;
@@ -39,17 +39,11 @@ export default function SupportIntakePortalClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/support-intake", { cache: "no-store" });
-      const parsed = await parseJsonResponse<
-        RedactedSupportIntakeSnapshot & { error?: string; hint?: string }
-      >(response);
-      if (!parsed.ok) throw new Error(parsed.error);
-      const data = parsed.data;
-      if (!response.ok) {
-        throw new Error(
-          [data.error, data.hint].filter(Boolean).join(" ") || "Failed to load support intake portal.",
-        );
-      }
+      const data = await fetchOpsPortalJson<RedactedSupportIntakeSnapshot>(
+        "/api/admin/operations-hub/support-intake",
+        { cache: "no-store" },
+        "Failed to load support intake portal.",
+      );
       setSnapshot(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -69,20 +63,10 @@ export default function SupportIntakePortalClient() {
     setMessage(null);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/support-intake", { method: "POST" });
-      const parsed = await parseJsonResponse<{
+      const data = await fetchOpsPortalJson<{
         ok?: boolean;
-        error?: string;
-        hint?: string;
         snapshot?: RedactedSupportIntakeSnapshot;
-      }>(response);
-      if (!parsed.ok) throw new Error(parsed.error);
-      const data = parsed.data;
-      if (!response.ok) {
-        throw new Error(
-          [data.error, data.hint].filter(Boolean).join(" ") || "Poll failed.",
-        );
-      }
+      }>("/api/admin/operations-hub/support-intake", { method: "POST" }, "Poll failed.");
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Poll cycle completed. Review intake queue and SUPPORT approval queue.");
     } catch (err) {

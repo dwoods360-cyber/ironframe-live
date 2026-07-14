@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
+
 type RedactedSalesTeamSnapshot = {
   generatedAt: string;
   crmScope: string;
@@ -36,9 +38,11 @@ export default function SalesteamPortalClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/salesteam", { cache: "no-store" });
-      const data = (await response.json()) as RedactedSalesTeamSnapshot & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load SalesTeam portal.");
+      const data = await fetchOpsPortalJson<RedactedSalesTeamSnapshot>(
+        "/api/admin/operations-hub/salesteam",
+        { cache: "no-store" },
+        "Failed to load SalesTeam portal.",
+      );
       setSnapshot(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -58,13 +62,10 @@ export default function SalesteamPortalClient() {
     setMessage(null);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/salesteam", { method: "POST" });
-      const data = (await response.json()) as {
+      const data = await fetchOpsPortalJson<{
         ok?: boolean;
-        error?: string;
         snapshot?: RedactedSalesTeamSnapshot;
-      };
-      if (!response.ok) throw new Error(data.error ?? "Poll failed.");
+      }>("/api/admin/operations-hub/salesteam", { method: "POST" }, "Poll failed.");
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Poll cycle completed. Review PROSPECT queue and SALES approval queue.");
     } catch (err) {

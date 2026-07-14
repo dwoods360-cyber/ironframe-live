@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type HubTab = "overview" | "workforce" | "crm" | "briefings" | "newsletters" | "teams";
 
@@ -139,9 +140,11 @@ export default function OperationsHubClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub", { cache: "no-store" });
-      const data = (await response.json()) as OperationsHubSnapshot & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load operations hub.");
+      const data = await fetchOpsPortalJson<OperationsHubSnapshot>(
+        "/api/admin/operations-hub",
+        { cache: "no-store" },
+        "Failed to load operations hub.",
+      );
       setSnapshot(data);
       if (!promoteDefaultsSet.current && data.briefings.queueDrafts[0]?.filename) {
         promoteDefaultsSet.current = true;
@@ -177,13 +180,15 @@ export default function OperationsHubClient() {
     setPromoteBusy(true);
     setPromoteMessage(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/briefings/promote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filename: promoteFile.trim(), slug: promoteSlug.trim() }),
-      });
-      const data = (await response.json()) as { ok?: boolean; error?: string; slug?: string };
-      if (!response.ok) throw new Error(data.error ?? "Promotion failed.");
+      const data = await fetchOpsPortalJson<{ ok?: boolean; slug?: string }>(
+        "/api/admin/operations-hub/briefings/promote",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: promoteFile.trim(), slug: promoteSlug.trim() }),
+        },
+        "Promotion failed.",
+      );
       setPromoteMessage(`Promoted to /governance-frame/${data.slug ?? promoteSlug}`);
       await loadSnapshot();
     } catch (err) {
@@ -198,17 +203,18 @@ export default function OperationsHubClient() {
     setSyndicateBusy(true);
     setSyndicateMessage(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/newsletters/syndicate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug: slug.trim() }),
-      });
-      const data = (await response.json()) as {
+      const data = await fetchOpsPortalJson<{
         ok?: boolean;
-        error?: string;
         newsletterHtmlPath?: string | null;
-      };
-      if (!response.ok) throw new Error(data.error ?? "Syndication failed.");
+      }>(
+        "/api/admin/operations-hub/newsletters/syndicate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: slug.trim() }),
+        },
+        "Syndication failed.",
+      );
       setSyndicateMessage(
         data.newsletterHtmlPath
           ? `Ironcast HTML compiled: ${data.newsletterHtmlPath}`

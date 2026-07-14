@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import type { IronleadsPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 export default function IronleadsPortalClient() {
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
@@ -16,9 +17,11 @@ export default function IronleadsPortalClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/ironleads", { cache: "no-store" });
-      const data = (await response.json()) as IronleadsPortalSnapshot & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Failed to load Ironleads portal.");
+      const data = await fetchOpsPortalJson<IronleadsPortalSnapshot>(
+        "/api/admin/operations-hub/ironleads",
+        { cache: "no-store" },
+        "Failed to load Ironleads portal.",
+      );
       setSnapshot(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -38,17 +41,18 @@ export default function IronleadsPortalClient() {
     setMessage(null);
     setError(null);
     try {
-      const response = await fetch("/api/admin/operations-hub/ironleads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = (await response.json()) as {
+      const data = await fetchOpsPortalJson<{
         ok?: boolean;
-        error?: string;
         snapshot?: IronleadsPortalSnapshot;
-      };
-      if (!response.ok) throw new Error(data.error ?? "Harvest failed.");
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+        "Harvest failed.",
+      );
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Harvest cycle completed. Review SUSPECT queue below.");
     } catch (err) {

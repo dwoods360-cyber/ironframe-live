@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatElapsedDowntime } from "@/app/lib/formatDowntime";
 import { ironboardConsoleProxyPath } from "@/app/lib/ironboardConsolePaths";
+import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type IronboardEngineHealthSnapshot = {
   checkedAt: string;
@@ -82,10 +83,11 @@ export default function IronboardPortalClient() {
   const runHealthCheck = useCallback(async () => {
     setChecking(true);
     try {
-      const response = await fetch("/api/admin/operations-hub/ironboard-health", {
-        cache: "no-store",
-      });
-      const data = (await response.json()) as IronboardEngineHealthSnapshot & { error?: string };
+      const data = await fetchOpsPortalJson<IronboardEngineHealthSnapshot>(
+        "/api/admin/operations-hub/ironboard-health",
+        { cache: "no-store" },
+        "Health check request failed",
+      );
       if (data.checkedAt) {
         applyHealth(data);
       }

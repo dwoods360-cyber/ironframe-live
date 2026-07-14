@@ -20,6 +20,11 @@ export type ProductMatrixHealthSnapshot = {
 function serviceBaseUrl(entry: ProductMatrixEntry): string {
   const raw = process.env[entry.envUrlKey]?.trim();
   if (raw) return raw.replace(/\/$/, "");
+  // Cloud Run listens on $PORT (8080); boardroom local default is still entry.port (8082).
+  if (entry.key === "ironboard-exec") {
+    const port = Number(process.env.PORT) || entry.port;
+    return `http://127.0.0.1:${port}`;
+  }
   return `http://127.0.0.1:${entry.port}`;
 }
 

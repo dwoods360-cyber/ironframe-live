@@ -83,11 +83,24 @@ jobs:
             ironboard)
               CORE_ORIGIN="${{ env.CONTROL_PLANE_URL }}"
               if [ -z "$CORE_ORIGIN" ]; then CORE_ORIGIN="https://ironframegrc.com"; fi
+              resolve_peer() {
+                gcloud run services describe "$1" --region="${{ env.REGION }}" --format='value(status.url)' 2>/dev/null || true
+              }
+              LEADS_URL="$(resolve_peer ironframe-ironleads)"
+              SALES_URL="$(resolve_peer ironframe-salesteam)"
+              SUCCESS_URL="$(resolve_peer ironframe-success-team)"
+              SUPPORT_URL="$(resolve_peer ironframe-support-team)"
               printf '%s\n' \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
                 "DIRECT_URL=${{ secrets.DIRECT_URL }}" \
                 "IRONFRAME_CORE_ORIGIN=${CORE_ORIGIN}" \
+                "OPERATIONS_IRONFRAME_URL=${CORE_ORIGIN}" \
+                "OPERATIONS_IRONBOARD_URL=http://127.0.0.1:8080" \
+                "OPERATIONS_IRONLEADS_URL=${LEADS_URL}" \
+                "OPERATIONS_SALESTEAM_URL=${SALES_URL}" \
+                "OPERATIONS_SUCCESS_TEAM_URL=${SUCCESS_URL}" \
+                "OPERATIONS_SUPPORT_TEAM_URL=${SUPPORT_URL}" \
                 > worker.env
               ;;
             ironleads)

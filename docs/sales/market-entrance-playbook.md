@@ -66,6 +66,8 @@ IronBoard queries: **only** when making GTM or pricing decisions — not daily c
 
 **Banned until 3 paying design partners** — preserves engineering throughput per [Golden Path scope freeze](../ops/golden-path-checklist.md#scope-freeze-mandate).
 
+**Recruitment runbook:** [Design partner recruitment](./design-partner-recruitment.md) — channels, 30-min pre-outreach checklist, board leadgen → sales → approvals path.
+
 | Category | Do not build | Why |
 |----------|--------------|-----|
 | **Integration marketplace** | 400+ SaaS connector arms | Wedge is Irongate zero-trust ingress, not connector catalog |

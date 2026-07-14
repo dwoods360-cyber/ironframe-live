@@ -367,6 +367,8 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 - P0 blockers before charging: Stripe rails, /terms + /privacy, production quarantine narrowed for public routes, admin invite panel.
 - P1 before broad sales: tier entitlements, Epic 12 WORM honesty, stub page badges, SOC2-aligned (never certified) language.
 - Fastest revenue: Command tier, one price, 2–3 design partners while Phase 2 entitlements harden.
+- Design partner recruitment (channels + board path + pre-outreach checklist): docs/sales/design-partner-recruitment.md
+- Board path: Ironleads/Scout (leadgen) → board-sales-lead + SalesTeam drafts → operator Approvals DISPATCH → Path B provision with client-owned operator email. board-writer stays on docs plane (not cold outreach).
 - Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
 `.trim();
 

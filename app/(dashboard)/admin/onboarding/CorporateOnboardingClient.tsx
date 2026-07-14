@@ -281,6 +281,9 @@ export default function CorporateOnboardingClient() {
             </label>
             <label className="block text-[10px] text-slate-400">
               Operator email
+              <span className="mt-0.5 block font-normal normal-case tracking-normal text-slate-500">
+                Client-owned domain only (e.g. ciso@acme.com) — not @ironframegrc.com
+              </span>
               <input
                 name="email"
                 type="email"

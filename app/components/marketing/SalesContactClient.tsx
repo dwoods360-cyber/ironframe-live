@@ -59,9 +59,7 @@ export default function SalesContactClient() {
         Request evaluation — no workspace created yet.
       </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
-        This form records a sales lead only. Ironframe provisions multi-tenant GRC workspaces through
-        a separate, vetted invite-only pathway. Share your details and our team will coordinate a
-        scoped evaluation and operator invitation.
+        This form records a <strong className="font-medium text-[var(--text-main)]">sales lead / design-partner inquiry</strong> only — no tenant workspace is created. Live enclaves are minted later via sales-assisted invite (Path B activation), never from this page. Share your details and our team will coordinate a scoped evaluation.
       </p>
 
       {submitted ? (

@@ -38,6 +38,15 @@ describe('boardroomQueryIntent', () => {
     expect(shouldPrefetchWeb('List our London prospects')).toBe(false);
   });
 
+  it('does not piggy-back GRC Google Search on ordinary pipeline / CRM asks', async () => {
+    const { shouldPrefetchGrcEnvironment, requiresCrmDiscovery } = await import('./boardroomQueryIntent.js');
+    expect(requiresCrmDiscovery('What is our CRM pipeline status?')).toBe(true);
+    expect(shouldPrefetchProspects('What is our CRM pipeline status?')).toBe(true);
+    expect(shouldPrefetchGrcEnvironment('What is our CRM pipeline status?')).toBe(false);
+    expect(shouldPrefetchWeb('What is our CRM pipeline status?')).toBe(false);
+    expect(shouldPrefetchGrcEnvironment('What NERC CIP rules apply in Germany?')).toBe(true);
+  });
+
   it('prefetches both when CRM and external signals appear together', () => {
     const q = 'What time is it in London and list our prospects there';
     expect(shouldPrefetchProspects(q)).toBe(true);

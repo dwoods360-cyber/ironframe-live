@@ -102,7 +102,22 @@ const EXTERNAL_INFO_TERMS = [
 
 export function needsExternalInfo(query: string): boolean {
   const q = query.toLowerCase();
-  return EXTERNAL_INFO_TERMS.some(term => q.includes(term));
+  const stemsOnly = new Set([
+    'what is',
+    "what's",
+    'who is',
+    'where is',
+    'when is',
+    'how much',
+  ]);
+  // Internal CRM/pipeline asks often include "what is …" — that must not force Google Search
+  // prefetch (previously blocked the board on Streaming… for minutes).
+  if (requiresCrmDiscovery(query) || shouldPrefetchProspects(query)) {
+    return EXTERNAL_INFO_TERMS.filter((term) => !stemsOnly.has(term)).some((term) =>
+      q.includes(term),
+    );
+  }
+  return EXTERNAL_INFO_TERMS.some((term) => q.includes(term));
 }
 
 export function matchCountriesInQuery(query: string): string[] {
@@ -177,10 +192,13 @@ export function isGrcEnvironmentQuery(query: string): boolean {
   return GRC_ENVIRONMENT_SIGNAL.test(query.trim());
 }
 
+/**
+ * GRC environment Google-Search prefetch is expensive (one Gemini web call per region).
+ * Only run it for explicit GRC/regulatory questions — never piggy-back on every
+ * pipeline/prospect board query (that made CRM "Query" hang for minutes with no tokens).
+ */
 export function shouldPrefetchGrcEnvironment(query: string): boolean {
-  if (isGrcEnvironmentQuery(query)) return true;
-  if (shouldPrefetchProspects(query)) return true;
-  return false;
+  return isGrcEnvironmentQuery(query);
 }
 
 export function shouldPrefetchProspects(query: string): boolean {

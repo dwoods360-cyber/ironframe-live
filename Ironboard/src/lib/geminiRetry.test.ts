@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  classifyGeminiStreamFault,
+  isGeminiAuthError,
   isGeminiRateLimitError,
   parseGeminiRetryDelayMs,
   withGeminiRateLimitRetry,
@@ -19,6 +21,12 @@ describe("geminiRetry", () => {
     expect(isGeminiRateLimitError({ status: 429, message: "Too Many Requests" })).toBe(true);
     expect(isGeminiRateLimitError(new Error("RESOURCE_EXHAUSTED quota exceeded"))).toBe(true);
     expect(isGeminiRateLimitError(new Error("invalid API key"))).toBe(false);
+  });
+
+  it("detects auth failures", () => {
+    expect(isGeminiAuthError({ status: 401, message: "Unauthorized" })).toBe(true);
+    expect(isGeminiAuthError(new Error("API_KEY_INVALID"))).toBe(true);
+    expect(isGeminiAuthError(new Error("quota exceeded"))).toBe(false);
   });
 
   it("parses server retry hints from error payloads", () => {
@@ -42,5 +50,15 @@ describe("geminiRetry", () => {
     const operation = vi.fn().mockRejectedValue(new Error("bad request"));
     await expect(withGeminiRateLimitRetry(operation)).rejects.toThrow("bad request");
     expect(operation).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies stream faults into actionable operator copy", () => {
+    expect(classifyGeminiStreamFault(new Error("API_KEY_INVALID")).kind).toBe("auth");
+    expect(classifyGeminiStreamFault(new Error("RESOURCE_EXHAUSTED")).kind).toBe("quota");
+    expect(classifyGeminiStreamFault(new Error("model xyz is not found")).kind).toBe("model");
+    expect(classifyGeminiStreamFault(new Error("fetch failed")).kind).toBe("network");
+    expect(classifyGeminiStreamFault(new Error("weird failure")).operatorMessage).toMatch(
+      /Live stream faulted:/,
+    );
   });
 });

@@ -1160,11 +1160,30 @@ function renderDashboard(): string {
       }
     }
 
-    function persistChatHistory() {
+    /**
+     * Third-party iframe embeds (ops portal → Cloud Run) may throw SecurityError on
+     * localStorage access. Never let storage faults abort board boot / Query binding.
+     */
+    function safeStorageGet(key) {
       try {
-        localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(historiesByAgent));
+        return localStorage.getItem(key);
       } catch (err) {
-        console.warn('[IRONBOARD] Chat history persist failed:', err);
+        return null;
+      }
+    }
+
+    function safeStorageSet(key, value) {
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function persistChatHistory() {
+      if (!safeStorageSet(CHAT_HISTORY_KEY, JSON.stringify(historiesByAgent))) {
+        console.warn('[IRONBOARD] Chat history persist failed (storage blocked).');
       }
     }
 
@@ -1189,7 +1208,7 @@ function renderDashboard(): string {
 
     function hydrateChatHistory() {
       try {
-        var raw = localStorage.getItem(CHAT_HISTORY_KEY);
+        var raw = safeStorageGet(CHAT_HISTORY_KEY);
         if (!raw) return;
         var parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -1210,8 +1229,8 @@ function renderDashboard(): string {
       var pitchInput = document.getElementById('voice-pitch-slider');
       var speedDisplay = document.getElementById('speed-val-display');
       var pitchDisplay = document.getElementById('pitch-val-display');
-      var savedSpeed = localStorage.getItem(VOICE_SPEED_KEY);
-      var savedPitch = localStorage.getItem(VOICE_PITCH_KEY);
+      var savedSpeed = safeStorageGet(VOICE_SPEED_KEY);
+      var savedPitch = safeStorageGet(VOICE_PITCH_KEY);
       if (savedSpeed && speedInput) {
         speedInput.value = savedSpeed;
         if (speedDisplay) speedDisplay.textContent = savedSpeed + 'x';
@@ -1229,13 +1248,13 @@ function renderDashboard(): string {
       var pitchDisplay = document.getElementById('pitch-val-display');
       if (speedInput) {
         speedInput.addEventListener('input', function() {
-          localStorage.setItem(VOICE_SPEED_KEY, speedInput.value);
+          safeStorageSet(VOICE_SPEED_KEY, speedInput.value);
           if (speedDisplay) speedDisplay.textContent = speedInput.value + 'x';
         });
       }
       if (pitchInput) {
         pitchInput.addEventListener('input', function() {
-          localStorage.setItem(VOICE_PITCH_KEY, pitchInput.value);
+          safeStorageSet(VOICE_PITCH_KEY, pitchInput.value);
           if (pitchDisplay) pitchDisplay.textContent = pitchInput.value;
         });
       }
@@ -1243,13 +1262,17 @@ function renderDashboard(): string {
 
     function getVoiceRate() {
       var speedInput = document.getElementById('voice-speed-slider');
-      var rate = speedInput ? parseFloat(speedInput.value) : parseFloat(localStorage.getItem(VOICE_SPEED_KEY) || '1');
+      var rate = speedInput
+        ? parseFloat(speedInput.value)
+        : parseFloat(safeStorageGet(VOICE_SPEED_KEY) || '1');
       return Math.min(Math.max(rate, 0.5), 2.5);
     }
 
     function getVoicePitch() {
       var pitchInput = document.getElementById('voice-pitch-slider');
-      var pitch = pitchInput ? parseFloat(pitchInput.value) : parseFloat(localStorage.getItem(VOICE_PITCH_KEY) || '1');
+      var pitch = pitchInput
+        ? parseFloat(pitchInput.value)
+        : parseFloat(safeStorageGet(VOICE_PITCH_KEY) || '1');
       return Math.min(Math.max(pitch, 0.5), 1.5);
     }
 
@@ -1336,8 +1359,13 @@ function renderDashboard(): string {
     if (window.speechSynthesis) {
       window.speechSynthesis.onvoiceschanged = refreshSpeechVoices;
     }
-    hydrateVoiceSettings();
-    bindVoiceSliders();
+    // Guard boot: uncaught localStorage SecurityError used to abort before Query listeners bound.
+    try {
+      hydrateVoiceSettings();
+      bindVoiceSliders();
+    } catch (bootErr) {
+      console.warn('[IRONBOARD] Voice settings boot skipped:', bootErr);
+    }
     refreshSpeechVoices();
 
     function normalizeWakeTranscript(text) {
@@ -1572,7 +1600,7 @@ function renderDashboard(): string {
       if (!SpeechRecognitionCtor) {
         setStatus('Wake listening needs Chrome/Edge Web Speech API.');
         boardEarsEnabled = false;
-        try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+        try { safeStorageSet(BOARD_EARS_KEY, '0'); } catch (err) {}
         updateBoardEarsUi();
         return;
       }
@@ -1621,7 +1649,7 @@ function renderDashboard(): string {
           if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
             setStatus('Microphone blocked — allow mic for Ironboard wake listening.');
             boardEarsEnabled = false;
-            try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+            try { safeStorageSet(BOARD_EARS_KEY, '0'); } catch (err) {}
             stopBoardEarsRecognition();
             return;
           }
@@ -1661,7 +1689,7 @@ function renderDashboard(): string {
         }).catch(function(err) {
           setStatus('Microphone permission denied — allow mic, then click Ears again.');
           boardEarsEnabled = false;
-          try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (e) {}
+          try { safeStorageSet(BOARD_EARS_KEY, '0'); } catch (e) {}
           stopBoardEarsRecognition();
           console.warn('[IRONBOARD] getUserMedia failed:', err);
         });
@@ -1673,12 +1701,12 @@ function renderDashboard(): string {
     function toggleBoardEars() {
       if (boardEarsEnabled) {
         boardEarsEnabled = false;
-        try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+        try { safeStorageSet(BOARD_EARS_KEY, '0'); } catch (err) {}
         stopBoardEarsRecognition();
         setStatus('Board ears off.');
         return;
       }
-      try { localStorage.setItem(BOARD_EARS_KEY, '1'); } catch (err) {}
+      try { safeStorageSet(BOARD_EARS_KEY, '1'); } catch (err) {}
       startBoardEarsRecognition();
     }
 
@@ -1686,7 +1714,7 @@ function renderDashboard(): string {
       var btn = document.getElementById('board-ears-toggle');
       if (btn) btn.addEventListener('click', toggleBoardEars);
       var preferOn = false;
-      try { preferOn = localStorage.getItem(BOARD_EARS_KEY) === '1'; } catch (err) {}
+      try { preferOn = safeStorageGet(BOARD_EARS_KEY) === '1'; } catch (err) {}
       updateBoardEarsUi();
       if (preferOn) {
         setStatus('Board ears were on last session — click Ears to resume wake listening.');
@@ -1807,7 +1835,7 @@ function renderDashboard(): string {
       var input = document.getElementById('target-countries-input');
       if (!input) return;
       var saved = '';
-      try { saved = localStorage.getItem(TARGET_COUNTRIES_KEY) || ''; } catch (e) { saved = ''; }
+      try { saved = safeStorageGet(TARGET_COUNTRIES_KEY) || ''; } catch (e) { saved = ''; }
       input.value = (saved && saved.trim()) ? saved.trim() : DEFAULT_TARGET_COUNTRIES;
       updateTargetCountriesPayload();
     }
@@ -1880,7 +1908,7 @@ function renderDashboard(): string {
         setMarketStatus('Enter at least one target country or region.');
         return;
       }
-      try { localStorage.setItem(TARGET_COUNTRIES_KEY, input ? input.value : ''); } catch (e) {}
+      try { safeStorageSet(TARGET_COUNTRIES_KEY, input ? input.value : ''); } catch (e) {}
       updateTargetCountriesPayload();
       if (btn) btn.disabled = true;
       selectedProspectDomain = '';
@@ -1995,7 +2023,7 @@ function renderDashboard(): string {
     var targetCountriesInput = document.getElementById('target-countries-input');
     if (targetCountriesInput) {
       targetCountriesInput.addEventListener('input', function() {
-        try { localStorage.setItem(TARGET_COUNTRIES_KEY, targetCountriesInput.value); } catch (e) {}
+        try { safeStorageSet(TARGET_COUNTRIES_KEY, targetCountriesInput.value); } catch (e) {}
         updateTargetCountriesPayload();
       });
     }

@@ -1,52 +1,43 @@
 # Marketing One-Pager — Ironframe GRC
 
-*Single-page summary for brochures, PDF export, and partner decks.*
+*Single-page summary for design-partner outreach and partner decks. Send-safe: no demo tenant names.*
 
 ---
 
 ## Headline
 
-**Quantified risk. Zero-trust ingestion. One Command Center.**
+**Quantified risk. Isolated enclaves. One Command Tier.**
 
 ## The problem
 
-Spreadsheet GRC and legacy heatmaps cannot survive modern audit scrutiny or board-level financial questions.
+Spreadsheet GRC and heatmap tools cannot answer board-level **dollar** questions or keep multi-entity evidence cleanly separated.
 
 ## The solution
 
-**Ironframe** — multi-tenant GRC with:
+**Ironframe** — quantitative GRC command post:
 
-- **BigInt ALE** — defensible financial risk, not colors
-- **19-agent workforce** — specialized AI with LangGraph memory and human attestation
-- **Irongate DMZ** — every external payload sanitized before persistence
-- **Sustainability truth** — kWh and gCO₂eq/kWh; reject monetary-only greenwashing
-- **Tenant sovereignty** — RLS + Ironguard; no cross-tenant bleed
+- **BigInt ALE** — defensible financial risk, not colors  
+- **Irongate DMZ** — external payloads sanitized before persistence  
+- **Tenant sovereignty** — hard isolation for entities and MSSP clients  
+- **Auditor-ready exports** — tenant-scoped analyst CSV/PDF paths  
+- **Flat packaging** — no per-seat float billing
 
-## Proof points
+## Design-partner offer
 
-| Claim | Evidence |
-|-------|----------|
-| GA release | v0.1.0-ga-epic17 (June 2026) |
-| Cloud integration | 21/21 cron smoke; Epic 17 telemetry stream |
-| Resilience | Tenant-switch hardening; LKG carbon pulse |
-| Audit-ready | Ironquery exports; TAS constitutional spec |
-
-## Tenant profiles (demo)
-
-| Tenant | ALE baseline (indicative) | Focus |
-|--------|---------------------------|-------|
-| Medshield | $11.1M | Healthcare compliance |
-| Vaultbank | $5.9M | Financial vault / PKI |
-| Gridcore | $4.7M | Grid carbon + utility rates |
-| Defense | — | Regulated defense controls |
+| | |
+|--|--|
+| **Command Tier / Path B** | **$4,999** on-ramp |
+| **Window** | 60–90 days · 2–3 success criteria |
+| **Eng syncs** | Capped weekly, then async |
+| **Planned GA** | Ironframe Command **~$35,000/yr** |
+| **CTA** | 10–15 min **workflow review** (not a product preview) |
 
 ## Call to action
 
-Schedule a **Command Center walkthrough**: threat ingest → Active Risk → carbon pulse → analyst export.
+Inquire via [sales contact](/register/contact) or request a Path B seat after operator DISPATCH. Pricing: [Command Tier $4,999](/pricing).
 
-**Contact:** Product owner / `[your sales contact]`  
-**Docs:** [docs/hub.md](../hub.md)
+**Docs:** [docs hub](../hub.md) · [Offer sheet](../sales/design-partner-offer-sheet.md)
 
 ---
 
-*Ironframe — Control-first GRC for the sovereign enterprise.*
+*Ironframe — Control-first GRC for operators who outgrew heatmaps.*

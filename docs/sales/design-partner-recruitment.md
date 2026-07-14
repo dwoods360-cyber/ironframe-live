@@ -17,7 +17,7 @@ Complete before the first outreach batch:
 |---|------|----------------|
 | 1 | **UX naming hygiene** | Already shipped (FL1-UX): `/register/contact` = lead only; `/admin/onboarding` labels **Path B activation link**; `/get-started` Step 2 = in-tenant GRC company ≠ sales CRM. Re-spot-check live before a campaign. |
 | 2 | **Stripe Path B** | Confirm tenant-scoped activation checkout is live. Never send existing PENDING partners to generic `/pricing` (duplicate workspace risk). |
-| 3 | **Operator email** | Quick-provision uses a **client-owned** mailbox (`ciso@acme.com`), never `@ironframegrc.com`. |
+| 3 | **Operator email** | Quick-provision uses a **client-owned** mailbox (`ciso@acme.com`), never `@ironframegrc.com` — **enforced in** `quickProvisionCorporateWorkspaceCore` (rejects `@ironframegrc.com`). |
 
 **Agree:** Yes — this checklist is the right gate. Item 1 is verify-not-rebuild; items 2–3 are hard blockers before paid cohort outreach.
 
@@ -72,6 +72,19 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 3. **60–90 day** fixed window → convert or exit at locked discount.
 
 ---
+
+## GTM package (use these)
+
+| Asset | Path |
+|-------|------|
+| Offer sheet | [design-partner-offer-sheet.md](./design-partner-offer-sheet.md) |
+| Outreach sequence | [design-partner-outreach-sequence.md](./design-partner-outreach-sequence.md) |
+| Order form | [design-partner-order-form.md](./design-partner-order-form.md) |
+| Operator launch checklist | [design-partner-operator-launch-checklist.md](./design-partner-operator-launch-checklist.md) |
+| ICP shortlist | [design-partner-icp-shortlist.md](./design-partner-icp-shortlist.md) |
+| Target market | [target-market-research.md](./target-market-research.md) |
+| Battlecard | [battlecard-ironframe-vs-vanta-drata.md](./battlecard-ironframe-vs-vanta-drata.md) |
+| Pricing | [pricing-and-packaging.md](./pricing-and-packaging.md) · live `/pricing` shows **$4,999** |
 
 ## Related surfaces
 

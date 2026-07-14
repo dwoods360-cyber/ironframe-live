@@ -1,32 +1,43 @@
+# Marketing One-Pager — Ironframe GRC
+
+*Single-page summary for design-partner outreach and partner decks. Send-safe: no demo tenant names.*
+
 ---
-Document Type: External Relations Documentation
-Status: STAGED / DRAFT
-Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
+
+## Headline
+
+**Quantified risk. Isolated enclaves. One Command Tier.**
+
+## The problem
+
+Spreadsheet GRC and heatmap tools cannot answer board-level **dollar** questions or keep multi-entity evidence cleanly separated.
+
+## The solution
+
+**Ironframe** — quantitative GRC command post:
+
+- **BigInt ALE** — defensible financial risk, not colors  
+- **Irongate DMZ** — external payloads sanitized before persistence  
+- **Tenant sovereignty** — hard isolation for entities and MSSP clients  
+- **Auditor-ready exports** — tenant-scoped analyst CSV/PDF paths  
+- **Flat packaging** — no per-seat float billing
+
+## Design-partner offer
+
+| | |
+|--|--|
+| **Command Tier / Path B** | **$4,999** on-ramp |
+| **Window** | 60–90 days · 2–3 success criteria |
+| **Eng syncs** | Capped weekly, then async |
+| **Planned GA** | Ironframe Command **~$35,000/yr** |
+| **CTA** | 10–15 min **workflow review** (not a product preview) |
+
+## Call to action
+
+Inquire via [sales contact](/register/contact) or request a Path B seat after operator DISPATCH. Pricing: [Command Tier $4,999](/pricing).
+
+**Docs:** [docs hub](../hub.md) · [Offer sheet](../sales/design-partner-offer-sheet.md)
+
 ---
 
-# Marketing One-Pager
-
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
-
-## Purpose
-
-Single-page collateral summary for external distribution.
-
-## Scope
-
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
-
-## Outline (to complete)
-
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
-
-## Related documents
-
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+*Ironframe — Control-first GRC for operators who outgrew heatmaps.*

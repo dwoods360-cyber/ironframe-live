@@ -110,7 +110,9 @@ IronBoard queries: **only** when making GTM or pricing decisions — not daily c
 
 ## Related documents
 
-- [Target Market Research](./target-market-research.md) — real categories, named public examples, ICP scoring
+- [Design partner recruitment](./design-partner-recruitment.md) — channels, checklist, board path  
+- [Offer sheet](./design-partner-offer-sheet.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md)
+- [Target Market Research](./target-market-research.md) — beachheads, ICP scoring
 - [Battlecard: Ironframe vs. Vanta / Drata](./battlecard-ironframe-vs-vanta-drata.md)
 - [Golden Path Checklist](../ops/golden-path-checklist.md)
 - [Sales Enablement](./sales-enablement.md)

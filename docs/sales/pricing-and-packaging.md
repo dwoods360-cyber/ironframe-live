@@ -1,51 +1,51 @@
 # Pricing & Packaging — Ironframe GRC
 
-*Framework for sales and product—adjust numbers before external publication.*
+*Authoritative for sales + `/pricing` during design-partner phase.*
 
-## Packaging tiers (proposed)
+## Phase 1 — Design-partner / Command Tier
 
-| Tier | Audience | Includes |
-|------|----------|----------|
-| **Command** | Single tenant | Dashboard, Active Risks, pipeline, basic exports |
-| **Governance+** | Regulated enterprise | + Irontally mapping, maturity scoring, Ironquery PDF/CSV |
-| **Sustainability** | Energy / ESG add-on | Carbon pulse, Ironbloom, dirty grid, utility rate poll |
-| **Vault** | Financial services add-on | Bank Vault dual-gate, PKI clearance UI |
-| **MSSP Platform** | Multi-tenant operators | Global Command Center, unlimited scoped tenants, API access |
+| SKU | Audience | Price | How they pay |
+|-----|----------|-------|--------------|
+| **Command Tier — Path B on-ramp** | Co-builder cohort (3–5) | **$4,999** (499900¢) flat | Tenant-scoped Stripe activation after sales-assisted provision |
+| **Command Tier — public checkout** | New buyers on `/pricing` | **$4,999** | `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` when set |
 
-## Billing dimensions
+**Rules**
 
-| Dimension | Notes |
-|-----------|-------|
-| Base platform fee | Per organization / month |
-| Tenant seats | Per named tenant profile beyond included count |
-| Agent orchestration | Optional meter on sovereign bus cycles (Epic 10+) |
-| Export volume | CSV/PDF beyond included monthly quota |
-| WORM storage | GB-month for sealed evidence (Epic 12) |
+- No per-seat / per-month licensing.  
+- Existing **PENDING** workspaces: Path B link from `/admin/onboarding` only — **never** generic `/pricing` (duplicate workspace risk).  
+- Planned GA **Ironframe Command ~$35,000/yr** (`FINTECH_SEED`) — label “planned GA” until commercial GA flag is on.
 
-## Indicative list pricing (placeholder)
+## Planned GA tiers (Phase 2+)
 
-| Tier | Starting at (USD/mo) | Notes |
-|------|----------------------|-------|
-| Command | Contact sales | Design-partner pricing during GA |
-| Governance+ | Contact sales | Includes analyst exports |
-| Sustainability add-on | Contact sales | Requires Electricity Maps or fallback SLA |
-| MSSP Platform | Contact sales | Volume tenant discount |
+| Tier | Audience | List (USD/yr) |
+|------|----------|---------------|
+| Command / Fintech Seed | 5–25 emp, SOC 2 / ISO pressure | ~$35,000 |
+| Series A Growth Shield | 26–50 emp + Ironbloom path | ~$75,000 |
+| Governance+ / Sustainability / Vault / MSSP | Add-ons | Quote |
 
-*Replace with approved SKU table before website publish.*
+## Packaging modules (capabilities)
+
+| Module | Includes |
+|--------|----------|
+| **Command** | Dashboard, Active Risks, pipeline, basic exports, multi-tenant isolation |
+| **Governance+** | + mapping, maturity, Ironquery PDF/CSV |
+| **Sustainability** | Carbon pulse, Ironbloom physical units |
+| **Vault** | Dual-gate / PKI clearance UI |
+| **MSSP Platform** | Multi-client enclaves, scoped tenants, API |
 
 ## Promotions (internal)
 
-- **GA pilot:** 90-day shadow-plane tenant + integration report
-- **Audit season:** Bundled Ironquery export hours with Governance+
-- **Energy vertical:** Gridcore template + carbon pulse setup waived
+- **Design partner:** $4,999 Path B · 60–90 day window · capped eng syncs · convert-or-exit  
+- **Not offered:** free 30-day pilots (they rarely log in)
 
 ## Procurement notes
 
-- SOC 2 / ISO mapping documentation: [Security & Compliance](../technical/security-and-compliance.md)
-- Data residency: Supabase region selection at contract
-- SLA: tied to Vercel/Supabase enterprise agreements when applicable
+- SOC 2 / ISO mapping: [Security & Compliance](../technical/security-and-compliance.md)  
+- Order form: [design-partner-order-form.md](./design-partner-order-form.md)  
+- Offer sheet: [design-partner-offer-sheet.md](./design-partner-offer-sheet.md)
 
 ## Related documents
 
-- [Business Plan](../stakeholders/business-plan.md)
 - [Sales Enablement](./sales-enablement.md)
+- [Design partner recruitment](./design-partner-recruitment.md)
+- [Market entrance playbook](./market-entrance-playbook.md)

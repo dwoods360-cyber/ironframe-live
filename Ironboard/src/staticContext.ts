@@ -341,9 +341,11 @@ NAMING LOCK (AUTHORITATIVE — overrides any conflicting markdown in federation 
 
 PRICING MODEL CONSTITUTIONAL STANDARD:
 - Our platform completely rejects per-user, per-month seat licensing to eliminate fractional float billing calculations.
-- All pricing models are flat annual platform fees denominated strictly in BigInt integer cents.
-- Tier 1: 'Fintech Seed Gate' - For 5-25 employee startups under SOC2/ISO27001 pressure. Price: 3,500,000 cents ($35,000 USD).
+- All pricing models are flat platform fees denominated strictly in BigInt integer cents.
+- Design-partner on-ramp (Phase 1 Path B / Command Tier): 499,900 cents ($4,999 USD) — sales-assisted invite; tenant-scoped Stripe activation for PENDING workspaces (never send PENDING partners to generic /pricing).
+- Planned GA Tier 1: 'Fintech Seed Gate' / Ironframe Command — For 5-25 employee startups under SOC2/ISO27001 pressure. Price: 3,500,000 cents ($35,000 USD/yr). Always label as "planned GA" until IRONFRAME_COMMERCIAL_GA is on.
 - Tier 2: 'Series A Growth Shield' - For 26-50 employee startups requiring Ironbloom sustainability tracking. Price: 7,500,000 cents ($75,000 USD).
+- Outreach CTA for design partners: 10–15 minute workflow review (not a free pilot or 20-minute product demo).
 - Heavily penalize and short-circuit any model generation that attempts to propose seat-based metrics, decimals, or enterprise enterprise pricing tiers over $100k.
 
 OPERATIONAL COST VS. CLIENT BASELINE DISTINCTION:
@@ -366,8 +368,8 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 - Wire: inviteCorporateTenantUserAction + admin tenant UI + Stripe webhook → TenantBilling.status ACTIVE.
 - P0 blockers before charging: Stripe rails, /terms + /privacy, production quarantine narrowed for public routes, admin invite panel.
 - P1 before broad sales: tier entitlements, Epic 12 WORM honesty, stub page badges, SOC2-aligned (never certified) language.
-- Fastest revenue: Command tier, one price, 2–3 design partners while Phase 2 entitlements harden.
-- Design partner recruitment (channels + board path + pre-outreach checklist): docs/sales/design-partner-recruitment.md
+- Fastest revenue: Command Tier Path B $4,999, 3–5 design partners while Phase 2 entitlements harden.
+- Design partner recruitment: docs/sales/design-partner-recruitment.md · offer sheet · outreach sequence · order form · operator launch checklist · ICP shortlist under docs/sales/.
 - Board path: Ironleads/Scout (leadgen) → board-sales-lead + SalesTeam drafts → operator Approvals DISPATCH → Path B provision with client-owned operator email. board-writer stays on docs plane (not cold outreach).
 - Full market/competitor/regulatory backlog: docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md (federated at board startup).
 `.trim();

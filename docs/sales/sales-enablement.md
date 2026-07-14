@@ -1,6 +1,6 @@
 # Sales Enablement — Ironframe GRC
 
-Resources for discovery, demo, and close.
+Resources for discovery, co-builder close, and Path B provision. **Design-partner phase:** charge **$4,999** — do not offer free pilots.
 
 ## Positioning statement
 
@@ -8,10 +8,10 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 
 ## Ideal customer profile (ICP)
 
-- 500–10,000 employees; regulated industry (finance, healthcare, energy, defense supply chain)
-- Replacing ServiceNow GRC modules, Archer, or spreadsheet programs
-- CISO reports to board on cyber risk in **dollar terms**
-- ESG pressure with need for **physical-unit** sustainability data
+- Multi-entity, MSSP, utility, or regulated mid-market under audit / board dollar pressure  
+- Replacing spreadsheets, Archer-lite, or checkbox tools that cannot isolate tenants  
+- CISO / partner reports cyber risk in **dollar terms**  
+- See [Target market research](./target-market-research.md) + [ICP shortlist](./design-partner-icp-shortlist.md)
 
 ## Discovery questions
 
@@ -19,43 +19,51 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 2. Where does external threat intel enter your environment—sanitized or direct?
 3. Do you operate multiple entities or clients needing **tenant isolation**?
 4. How do auditors receive evidence—PDF exports, immutable storage?
-5. Is grid carbon or utility cost part of your operational risk model?
+5. What would a **60–90 day success criterion** look like if you paid a co-builder seat?
 
-## Demo script (20 minutes)
+## Co-builder close (not a free demo)
+
+| Step | Talk track |
+|------|------------|
+| Offer | Paid Command Tier Path B **$4,999**; planned GA ~**$35k/yr** |
+| Window | 60–90 days; 2–3 written success criteria |
+| Syncs | Weekly capped 4–6 weeks, then async |
+| CTA | **10–15 min workflow review** on evidence pain — not a product circus |
+| Next | Order form → provision → Path B link → ACTIVE → `/get-started` |
+
+Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md) · [Battlecard vs Vanta/Drata](./battlecard-ironframe-vs-vanta-drata.md)
+
+## Demo script (only after workflow review / paid interest)
 
 | Min | Scene | Talk track |
 |-----|-------|------------|
-| 0–2 | Login + tenant switcher | “One Command Center, strict tenant boundaries—Ironguard enforced.” |
-| 2–7 | Dashboard heat map + Active Risk | “ALE in cents—same math Irontrust uses for Medshield $11.1M baseline.” |
-| 7–11 | Threat pipeline → confirm | “Irongate sanitized ingest—nothing raw hits the database.” |
-| 11–15 | Carbon pulse + dirty grid | “Live grid intensity; LKG keeps UI up if Electricity Maps drops.” |
-| 15–18 | `/dashboard/exports` | “Auditor-ready CSV/PDF, tenant-scoped.” |
-| 18–20 | Q&A + next steps | Pilot tenant, integration smoke on their staging URL |
+| 0–2 | Login + tenant switcher | “One Command Center, strict tenant boundaries.” |
+| 2–7 | Dashboard + Active Risk | “ALE in cents — board-defendable math.” |
+| 7–11 | Threat pipeline | “Irongate sanitized ingest — nothing raw hits the database.” |
+| 11–15 | Exports | “Auditor-ready CSV, tenant-scoped.” |
+| 15–20 | Close | Path B $4,999 + success criteria — no free pilot |
+
+**Ban in external talk tracks:** demo tenant names (`medshield`, `vaultbank`, `gridcore`) as if they were customers.
 
 ## Objection handling
 
 | Objection | Response |
 |-----------|----------|
-| “We already have GRC.” | “We quantify in dollars and sanitize ingest—legacy tools rarely do both with multi-tenant isolation.” |
-| “AI is risky.” | “Agents are scoped by TAS; scoring math is frozen; LLM is narrative/RAG—not ALE.” |
-| “Cloud-only concern.” | “Supabase RLS, WORM evidence path, PKI vault; TAS documents every boundary.” |
-| “ESG is marketing.” | “Ironbloom (Agent 17) rejects monetary-only proxies; kWh and gCO₂eq required at gate. Kimbot is Bot B — Red Team Adversary Simulation for drills only.” |
+| “We already have GRC.” | “We quantify in dollars and isolate tenants — legacy tools rarely do both.” |
+| “We use Vanta/Drata.” | See battlecard — different buying job (speed-to-cert vs financial defensibility). |
+| “Can we pilot free?” | “Cohort is paid $4,999 so partners actually run criteria. Convert or exit at 60–90 days.” |
+| “AI is risky.” | “Agents are scoped; scoring math is frozen; LLM is narrative — not ALE.” |
 
 ## Collateral
 
 - [Elevator Pitch](../external/elevator-pitch.md)
-- [Product Overview](../external/product-overview.md)
 - [Marketing One-Pager](../external/marketing-one-pager.md)
+- [Order form](./design-partner-order-form.md)
+- [Operator launch checklist](./design-partner-operator-launch-checklist.md)
 - [Competitive Analysis](./competitive-analysis.md)
-- [Release Evidence GA](../RELEASE_EVIDENCE_2026-06-02.md) — proof for technical buyers
-
-## Proof-of-value offer
-
-- 30-day pilot tenant with shadow plane
-- Cloud integration report (`test:vercel-integration:cloud`)
-- Executive readout: ALE exposure + export sample
 
 ## Related documents
 
 - [Pricing & Packaging](./pricing-and-packaging.md)
-- [competitive-landscape.md](../competitive-landscape.md)
+- [Design partner recruitment](./design-partner-recruitment.md)
+- [Market entrance playbook](./market-entrance-playbook.md)

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { draftOutboundMessage } from '../src/agents/outboundDraftsman.js';
+import {
+  DESIGN_PARTNER_PATH_B_USD,
+  draftOutboundMessage,
+} from '../src/agents/outboundDraftsman.js';
 import { resolveBeachheadPrompt } from '../src/config/beachheadPrompts.js';
 import type { ProspectRecord } from '../src/lib/crmPollClient.js';
 
@@ -22,12 +25,23 @@ const SAMPLE_PROSPECT: ProspectRecord = {
 };
 
 describe('outboundDraftsman', () => {
-  it('positions operator as hero and uses BigInt cents narrative', () => {
+  it('sells paid co-builder Path B with workflow-review CTA', () => {
     const draft = draftOutboundMessage(SAMPLE_PROSPECT, 'EMAIL');
     expect(draft.storyBrandOk).toBe(true);
-    expect(draft.body.toLowerCase()).toContain('you the hero');
+    expect(draft.body.toLowerCase()).toContain('decision-maker');
     expect(draft.body).toContain('$5900000.00');
+    expect(draft.body).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
+    expect(draft.body.toLowerCase()).toContain('workflow review');
+    expect(draft.body.toLowerCase()).not.toContain('20-minute operator walkthrough');
+    expect(draft.subject).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
     expect(draft.industrySector).toBe('REGIONAL_BHC');
+  });
+
+  it('keeps SMS drafts short and commercial', () => {
+    const draft = draftOutboundMessage(SAMPLE_PROSPECT, 'SMS');
+    expect(draft.channel).toBe('SMS');
+    expect(draft.body).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
+    expect(draft.body.length).toBeLessThan(320);
   });
 
   it('resolves all Core 4 beachhead prompts', () => {

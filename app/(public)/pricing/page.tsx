@@ -50,12 +50,18 @@ export default function PricingPage() {
               exports. Payment clears → tenant enclave queues → secure email invite within seconds.
             </p>
             <p className="mt-8 font-mono text-3xl font-bold tracking-tight text-[var(--text-main)]">
-              {checkoutUrl ? "Buy now" : "Contact sales"}
+              $4,999
             </p>
             <p className="mt-1 text-xs text-[var(--login-muted)]">
+              Command Tier / Path B on-ramp · flat platform fee (no per-seat licensing)
               {checkoutUrl
-                ? "Stripe-hosted checkout · metadata-driven async provisioning"
-                : "Set NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL for instant buy"}
+                ? " · Stripe-hosted checkout"
+                : " · contact sales if checkout URL is unset"}
+            </p>
+            <p className="mt-3 text-xs leading-relaxed text-[var(--login-muted)]">
+              Design-partner cohort: 60–90 day co-builder window. Planned GA Ironframe Command
+              ~$35,000/yr. Existing PENDING workspaces activate via tenant-scoped Path B link from
+              onboarding — not a second generic checkout.
             </p>
             <ul className="mt-8 space-y-3 border-t border-[var(--login-border)] pt-8">
               {COMMAND_FEATURES.map((feature) => (
@@ -75,14 +81,14 @@ export default function PricingPage() {
                   rel="noopener noreferrer"
                   className="rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition hover:opacity-90"
                 >
-                  Buy now — Stripe Checkout
+                  Activate Command Tier — Stripe
                 </a>
               ) : null}
               <Link
                 href={SALES_CONTACT_PATH}
                 className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"
               >
-                Contact sales
+                Design-partner inquiry
               </Link>
               <Link
                 href="/docs"

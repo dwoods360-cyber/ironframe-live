@@ -70,6 +70,7 @@
     "smoke:stripe:production-ingress": "npx tsx scripts/ops/smoke-stripe-production-ingress.ts",
     "smoke:stripe:production-webhooks": "npx tsx scripts/ops/smoke-stripe-production-webhooks.ts",
     "ops:sync-stripe-production-webhooks": "npx tsx scripts/ops/sync-stripe-production-webhooks.ts",
+    "ops:assign-partner-provisioner": "npx tsx scripts/ops/assign-partner-provisioner.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
     "test:e2e": "playwright test",

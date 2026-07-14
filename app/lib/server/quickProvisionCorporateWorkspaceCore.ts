@@ -11,6 +11,7 @@ import {
   sendWorkspaceInviteEmailCore,
   summarizeWorkspaceInviteEmailDelivery,
 } from "@/app/lib/server/workspaceInviteEmailDelivery";
+import { validateClientOwnedOperatorEmail } from "@/app/lib/server/clientOwnedOperatorEmail";
 
 export type QuickProvisionCorporateWorkspaceInput = {
   operatorId: string;
@@ -47,8 +48,9 @@ export async function quickProvisionCorporateWorkspaceCore(
   const name = input.name.trim();
   const slug = normalizeProvisionedTenantSlug(input.slugRaw.trim());
 
-  if (!email || !email.includes("@")) {
-    return { ok: false, error: "Enter a valid operator email address." };
+  const emailError = validateClientOwnedOperatorEmail(email);
+  if (emailError) {
+    return { ok: false, error: emailError };
   }
 
   if (!name || name.length < 2) {

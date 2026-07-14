@@ -1,32 +1,17 @@
----
-Document Type: External Relations Documentation
-Status: STAGED / DRAFT
-Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
----
+# Elevator Pitch — Ironframe GRC
 
-# Elevator Pitch
+**One line:** Ironframe turns governance and cyber risk into **defensible dollars**—not heatmap colors—inside a tenant-isolated command post.
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
+**30 seconds:**  
+Most GRC tools ask leaders to trust red-yellow-green charts and spreadsheets. Ironframe quantifies risk as **Annualized Loss Expectancy in exact cents**, ingests threats through a **sanitization DMZ**, and keeps entities isolated for auditors and MSSPs. CISOs get a Command Center; boards get numbers they can defend.
 
-## Purpose
+**60 seconds:**  
+Legacy GRC failed finance and security the same way: opaque math and trusted APIs. Ironframe is **control-first**: Irongate sanitizes every external payload; ALE math stays BigInt whole cents; exports stay tenant-scoped. We are in a **paid design-partner phase** — Command Tier Path B **$4,999**, 60–90 days, capped eng syncs, planned GA Command **~$35k/yr**. Next step is a **10–15 minute workflow review** on evidence pain, not a free pilot carnival.
 
-60-second value proposition for investors, partners, and press.
-
-## Scope
-
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
-
-## Outline (to complete)
-
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
+**Ask:** Co-builder seat on Command Tier ($4,999) with your success criteria written up front.
 
 ## Related documents
 
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+- [Product Overview](./product-overview.md)
+- [Marketing One-Pager](./marketing-one-pager.md)
+- [Design-partner offer sheet](../sales/design-partner-offer-sheet.md)

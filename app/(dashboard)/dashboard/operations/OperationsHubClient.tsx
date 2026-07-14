@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
+import OpsWorkerChatPanel from "@/app/components/operations/OpsWorkerChatPanel";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type HubTab = "overview" | "workforce" | "crm" | "briefings" | "newsletters" | "teams";
@@ -468,6 +469,8 @@ export default function OperationsHubClient() {
             {error}
           </div>
         ) : null}
+
+        <OpsWorkerChatPanel />
 
         {loading && !snapshot ? (
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">

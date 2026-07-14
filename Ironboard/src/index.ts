@@ -381,6 +381,9 @@ function buildBoardroomStreamConfig(
   return config;
 }
 
+/** Gemini 3 / 2.5 thinking models require this on synthetic (non-API) functionCall parts. */
+const SKIP_THOUGHT_SIGNATURE = 'skip_thought_signature_validator';
+
 function buildSyntheticToolExchange(
   toolResult: Record<string, unknown>,
   args: Record<string, unknown>,
@@ -389,7 +392,12 @@ function buildSyntheticToolExchange(
   return [
     {
       role: 'model',
-      parts: [{ functionCall: { name: 'queryLocalWorkspace', id: callId, args } }],
+      parts: [
+        {
+          functionCall: { name: 'queryLocalWorkspace', id: callId, args },
+          thoughtSignature: SKIP_THOUGHT_SIGNATURE,
+        },
+      ],
     },
     {
       role: 'user',
@@ -697,11 +705,12 @@ async function streamBoardroomGeminiRound(params: {
 }): Promise<{
   accumulatedText: string;
   functionCalls: FunctionCall[] | undefined;
+  modelParts: GeminiPart[];
   grounding: GroundingMetadata | null;
 }> {
   const { ai, res, abort, model, contents, config, emitTokens, sanitizeDenials } = params;
   let accumulatedText = '';
-  let functionCalls: FunctionCall[] | undefined;
+  const modelParts: GeminiPart[] = [];
   let grounding: GroundingMetadata | null = null;
 
   const stream = await withGeminiRateLimitRetry(
@@ -736,11 +745,46 @@ async function streamBoardroomGeminiRound(params: {
       if (clientGrounding) writeSseGrounding(res, clientGrounding);
     }
 
-    const chunkCalls = chunk.functionCalls;
-    if (chunkCalls?.length) functionCalls = chunkCalls;
+    // Preserve full model parts (incl. thoughtSignature) — chunk.functionCalls strips them.
+    const chunkParts = chunk.candidates?.[0]?.content?.parts;
+    if (chunkParts?.length) {
+      for (const part of chunkParts) {
+        modelParts.push({ ...(part as GeminiPart) });
+      }
+    }
   }
 
-  return { accumulatedText, functionCalls, grounding };
+  const functionCalls = modelParts
+    .map(part => part.functionCall as FunctionCall | undefined)
+    .filter((call): call is FunctionCall => !!call && typeof call.name === 'string');
+
+  return {
+    accumulatedText,
+    functionCalls: functionCalls.length ? functionCalls : undefined,
+    modelParts,
+    grounding,
+  };
+}
+
+/** First functionCall in a model turn must carry thoughtSignature for Gemini 3 / 2.5 tools. */
+function ensureFunctionCallThoughtSignatures(parts: GeminiPart[]): GeminiPart[] {
+  let attached = false;
+  return parts.map(part => {
+    if (!part.functionCall) return part;
+    if (attached) return part;
+    attached = true;
+    if (typeof part.thoughtSignature === 'string' && part.thoughtSignature.length > 0) {
+      return part;
+    }
+    return { ...part, thoughtSignature: SKIP_THOUGHT_SIGNATURE };
+  });
+}
+
+function modelPartsForToolHistory(modelParts: GeminiPart[], functionCalls: FunctionCall[]): GeminiPart[] {
+  const withCalls = modelParts.some(part => !!part.functionCall)
+    ? modelParts
+    : functionCalls.map(call => ({ functionCall: call } as GeminiPart));
+  return ensureFunctionCallThoughtSignatures(withCalls);
 }
 
 async function resolveBoardroomToolCall(
@@ -810,7 +854,7 @@ async function runBoardroomToolStream(params: {
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const emitTokens = round > 0 || skipFirstRoundTokens;
 
-    const { accumulatedText, functionCalls } = await streamBoardroomGeminiRound({
+    const { accumulatedText, functionCalls, modelParts } = await streamBoardroomGeminiRound({
       ai,
       res,
       abort,
@@ -838,9 +882,11 @@ async function runBoardroomToolStream(params: {
       return;
     }
 
-    // Tool round: discard streamed preamble; persist model function calls before resolving tools.
-    const modelParts: GeminiPart[] = functionCalls.map(call => ({ functionCall: call }));
-    contents.push({ role: 'model', parts: modelParts });
+    // Echo model parts verbatim (thoughtSignature must survive) before tool responses.
+    contents.push({
+      role: 'model',
+      parts: modelPartsForToolHistory(modelParts, functionCalls),
+    });
 
     const boardroomCalls = functionCalls.filter(call => isBoardroomToolName(call.name));
     const responseParts: GeminiPart[] = [];
@@ -996,13 +1042,16 @@ function renderDashboard(): string {
     .grounding-sources a { color: #38bdf8; text-decoration: none; }
     .grounding-sources a:hover { text-decoration: underline; }
     .tool-call-hint { font-size: 0.58rem; color: #34d399; font-style: italic; margin-top: 0.35rem; }
-    form { display: flex; gap: 0.5rem; flex-shrink: 0; }
+    form#query-form { display: flex; gap: 0.5rem; flex-shrink: 0; }
     textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; max-height: 5.5rem; font-family: inherit; }
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
-    #ptt-btn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.35rem; padding: 0 0.85rem; font-weight: 800; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; flex-shrink: 0; }
+    #ptt-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-shrink: 0; }
+    #ptt-btn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.35rem; padding: 0 0.85rem; font-weight: 800; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; flex-shrink: 0; height: 2rem; }
     #ptt-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     #ptt-btn[data-recording="1"] { border-color: #f87171; color: #fca5a5; box-shadow: 0 0 0.45rem rgba(248, 113, 113, 0.35); }
+    #ptt-mic { flex: 1; max-width: 16rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #cbd5e1; padding: 0.35rem 0.5rem; font-size: 0.7rem; height: 2rem; }
+    #ptt-mic:disabled { opacity: 0.5; }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .workforce-app { flex-wrap: wrap; align-items: flex-start; }
@@ -1073,9 +1122,14 @@ function renderDashboard(): string {
       <div id="chat-compose">
         <form id="query-form">
           <textarea id="user-prompt" placeholder="Ask the board…" rows="2"></textarea>
-          <button type="button" id="ptt-btn" title="Push-to-talk: click to record, click again to transcribe and Query. Gemini STT — no wake listening.">PTT</button>
           <button type="submit" id="submit-btn">Query</button>
         </form>
+        <div id="ptt-row">
+          <select id="ptt-mic" title="PTT microphone" aria-label="PTT microphone">
+            <option value="">Windows default</option>
+          </select>
+          <button type="button" id="ptt-btn" title="Push-to-talk: click to record, click again to transcribe and Query. Gemini STT — no wake listening.">PTT</button>
+        </div>
         <div id="status"></div>
       </div>
     </section>
@@ -1947,6 +2001,8 @@ function renderDashboard(): string {
         var pttPeak = 0;
         var pttMeterTimer = null;
         var pttMeterArmed = false;
+        var PTT_MIC_KEY = 'ironboard-ptt-mic-device-id';
+        var pttMicSelect = document.getElementById('ptt-mic');
 
         function pickRecorderMime() {
           var candidates = [
@@ -1965,23 +2021,44 @@ function renderDashboard(): string {
           return '';
         }
 
-        function scoreMicLabel(label) {
-          var s = String(label || '').toLowerCase();
-          var score = 0;
-          // Hard preference: operator desk mic.
-          if (/fifine\\s*sc3/i.test(s)) score += 1000;
-          else if (/fifine/i.test(s)) score += 500;
-          // Virtual / loopback devices often have zero spoken audio.
-          if (/vb-audio|virtual cable|cable (in|input|output)|stereo mix|what u hear|boom audio|voicemeeter/i.test(s)) {
-            score -= 80;
-          }
-          if (/microphone|headset mic|array|usb audio/i.test(s)) score += 30;
-          if (/headset microphone|bose flex/i.test(s)) score += 10;
-          return score;
+        function setMicSelectDisabled(disabled) {
+          if (pttMicSelect) pttMicSelect.disabled = !!disabled;
         }
 
-        async function resolvePreferredMic() {
-          // Need a permission grant before device labels populate.
+        function getSelectedMicDeviceId() {
+          if (pttMicSelect && pttMicSelect.value) return String(pttMicSelect.value);
+          return safeStorageGet(PTT_MIC_KEY) || '';
+        }
+
+        function fillMicSelect(inputs, preferredId) {
+          if (!pttMicSelect) return;
+          var keep = preferredId || pttMicSelect.value || safeStorageGet(PTT_MIC_KEY) || '';
+          pttMicSelect.innerHTML = '';
+          var def = document.createElement('option');
+          def.value = '';
+          def.textContent = 'Windows default';
+          pttMicSelect.appendChild(def);
+          for (var i = 0; i < inputs.length; i++) {
+            var d = inputs[i];
+            if (d.deviceId === 'default' || d.deviceId === 'communications') continue;
+            var opt = document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || ('Microphone ' + (i + 1));
+            pttMicSelect.appendChild(opt);
+          }
+          if (keep) {
+            var found = false;
+            for (var j = 0; j < pttMicSelect.options.length; j++) {
+              if (pttMicSelect.options[j].value === keep) {
+                found = true;
+                break;
+              }
+            }
+            pttMicSelect.value = found ? keep : '';
+          }
+        }
+
+        async function ensureMicList() {
           var probe = await navigator.mediaDevices.getUserMedia({
             audio: {
               echoCancellation: true,
@@ -1992,45 +2069,45 @@ function renderDashboard(): string {
           try {
             probe.getTracks().forEach(function(t) { t.stop(); });
           } catch (err) {}
-
           var devices = await navigator.mediaDevices.enumerateDevices();
           var inputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
-          if (!inputs.length) {
-            return { deviceId: undefined, label: '(default)', exact: false };
-          }
-
-          // Absolute pin when fifine SC3 is present.
-          var fifine = null;
-          for (var i = 0; i < inputs.length; i++) {
-            var lab = String(inputs[i].label || '');
-            if (/fifine\\s*sc3/i.test(lab)) {
-              fifine = inputs[i];
-              break;
-            }
-          }
-          if (!fifine) {
-            for (var j = 0; j < inputs.length; j++) {
-              if (/fifine/i.test(String(inputs[j].label || ''))) {
-                fifine = inputs[j];
-                break;
-              }
-            }
-          }
-          if (fifine) {
-            return {
-              deviceId: fifine.deviceId,
-              label: fifine.label || 'Microphone (fifine SC3)',
-              exact: true
-            };
-          }
-
-          var ranked = inputs
-            .map(function(d) {
-              return { deviceId: d.deviceId, label: d.label || '(unnamed mic)', score: scoreMicLabel(d.label) };
-            })
-            .sort(function(a, b) { return b.score - a.score; });
-          return { deviceId: ranked[0].deviceId, label: ranked[0].label, exact: false };
+          fillMicSelect(inputs, getSelectedMicDeviceId());
+          return inputs;
         }
+
+        async function resolvePreferredMic() {
+          var inputs = await ensureMicList();
+          var selectedId = getSelectedMicDeviceId();
+          if (!selectedId) {
+            return { deviceId: undefined, label: 'Windows default', exact: false };
+          }
+          for (var i = 0; i < inputs.length; i++) {
+            if (inputs[i].deviceId === selectedId) {
+              return {
+                deviceId: inputs[i].deviceId,
+                label: inputs[i].label || '(selected mic)',
+                exact: true
+              };
+            }
+          }
+          return { deviceId: undefined, label: 'Windows default', exact: false };
+        }
+
+        if (pttMicSelect) {
+          pttMicSelect.addEventListener('change', function() {
+            var id = pttMicSelect.value || '';
+            if (id) safeStorageSet(PTT_MIC_KEY, id);
+            else {
+              try { localStorage.removeItem(PTT_MIC_KEY); } catch (e) {}
+            }
+          });
+        }
+        if (navigator.mediaDevices.addEventListener) {
+          navigator.mediaDevices.addEventListener('devicechange', function() {
+            ensureMicList().catch(function() {});
+          });
+        }
+        ensureMicList().catch(function() {});
 
         function blobToBase64(blob) {
           return new Promise(function(resolve, reject) {
@@ -2100,6 +2177,7 @@ function renderDashboard(): string {
           pttActive = false;
           pttBtn.dataset.recording = '0';
           pttBtn.textContent = 'PTT';
+          if (pttMicSelect) setMicSelectDisabled(false);
           stopMeter();
 
           var elapsedMs = Date.now() - pttStartedAt;
@@ -2159,7 +2237,7 @@ function renderDashboard(): string {
           if (pttMeterArmed && pttPeak < 3) {
             setStatus(
               'PTT: mic stayed silent (' + (pttDeviceLabel || 'device') +
-                '). Windows Sound → Input: pick Headset/fifine mic, not VB-Audio Cable. Then retry.'
+                '). Pick another mic in the dropdown, then retry.'
             );
             pttBusy = false;
             return;
@@ -2196,7 +2274,7 @@ function renderDashboard(): string {
             if (!transcript) {
               setStatus(
                 'PTT: Gemini heard silence from ' + (pttDeviceLabel || 'mic') +
-                  '. Switch Windows default input away from VB-Audio Cable / Boom, then retry.'
+                  '. Try a different mic in the dropdown, then retry.'
               );
               pttBusy = false;
               return;
@@ -2225,13 +2303,6 @@ function renderDashboard(): string {
                 noiseSuppression: true,
                 autoGainControl: true
               };
-            } else if (preferred.deviceId) {
-              audioConstraint = {
-                deviceId: { ideal: preferred.deviceId },
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true
-              };
             } else {
               audioConstraint = {
                 echoCancellation: true,
@@ -2242,8 +2313,9 @@ function renderDashboard(): string {
             var stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
             var track = stream.getAudioTracks()[0];
             if (track && track.label) pttDeviceLabel = track.label;
-            if (preferred.exact && !/fifine/i.test(pttDeviceLabel)) {
-              setStatus('PTT: could not lock fifine SC3 (got ' + pttDeviceLabel + '). Check USB mic + browser permission.');
+            if (preferred.deviceId && preferred.exact) {
+              safeStorageSet(PTT_MIC_KEY, preferred.deviceId);
+              if (pttMicSelect) pttMicSelect.value = preferred.deviceId;
             }
 
             var mime = pickRecorderMime();
@@ -2260,6 +2332,7 @@ function renderDashboard(): string {
             pttActive = true;
             pttBtn.dataset.recording = '1';
             pttBtn.textContent = 'REC';
+            setMicSelectDisabled(true);
             startMeter(stream);
             setStatus('PTT recording via ' + pttDeviceLabel + ' — speak, then click PTT again.');
           } catch (err) {

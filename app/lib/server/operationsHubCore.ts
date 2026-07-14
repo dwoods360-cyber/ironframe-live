@@ -16,6 +16,10 @@ import {
   type DraftKind,
 } from "@/app/lib/server/approvalQueueCore";
 import {
+  collapseSuspectRowsByCompany,
+  purgeDuplicateSuspectContacts,
+} from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import {
   BRIEFING_QUEUE_DIR,
   PUBLISHED_BRIEFINGS_DIR,
   resolveDocsRoot,
@@ -311,7 +315,9 @@ export async function syndicateNewsletterForSlug(
 }
 
 export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapshot> {
-  const [drafts, dealGroups, contactCount, recentSuspects, publishedRows, workforce] =
+  await purgeDuplicateSuspectContacts();
+
+  const [drafts, dealGroups, contactCount, recentSuspectsRaw, publishedRows, workforce] =
     await Promise.all([
       fetchPendingApprovalDrafts(),
       prisma.ironboardCrmDeal.groupBy({
@@ -321,8 +327,8 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       prisma.ironboardCrmContact.count(),
       prisma.ironboardCrmContact.findMany({
         where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-        orderBy: { createdAt: "desc" },
-        take: 8,
+        orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
+        take: 40,
         select: {
           id: true,
           company: true,
@@ -412,6 +418,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     tenantId: row.tenantId,
   }));
   const newsletters = buildNewslettersSnapshot(publishedBriefings, docsRoot);
+  const recentSuspects = collapseSuspectRowsByCompany(recentSuspectsRaw).slice(0, 8);
 
   const portalUrls: Record<WorkforceServiceId, string | null> = {
     ironboard: IRONBOARD_OPERATIONS_PORTAL_PATH,

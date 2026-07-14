@@ -6,6 +6,10 @@ import {
 import type { SalesteamProspectWire } from "@/app/lib/server/salesteamIngressCore";
 import { listSalesteamProspectQueue } from "@/app/lib/server/salesteamIngressCore";
 import {
+  collapseSuspectRowsByCompany,
+  purgeDuplicateSuspectContacts,
+} from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import {
   getSuccessTeamHealthSnapshot,
   listSuccessTeamAccounts,
   type SuccessTeamAccountWire,
@@ -85,10 +89,13 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     }
   }
 
-  const suspects = await prisma.ironboardCrmContact.findMany({
+  // Collapse harvest clones before listing (also clears DB duplexes from older races).
+  await purgeDuplicateSuspectContacts();
+
+  const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    orderBy: { createdAt: "desc" },
-    take: 20,
+    orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
+    take: 80,
     select: {
       id: true,
       company: true,
@@ -97,6 +104,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       createdAt: true,
     },
   });
+
+  const suspects = collapseSuspectRowsByCompany(suspectsRaw).slice(0, 20);
 
   return {
     generatedAt: new Date().toISOString(),

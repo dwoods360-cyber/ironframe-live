@@ -25,10 +25,7 @@ const nextConfig: NextConfig = {
      * Dynamic path.join(docsRoot, …) is not auto-traced on Vercel.
      */
     "/api/admin/operations-hub": [
-      "./docs/TAS.md",
-      "./docs/briefing-queue/**/*",
-      "./docs/published-briefings/**/*",
-      "./docs/newsletters/**/*",
+      "./docs/**/*",
       "./public/rss.xml",
     ],
     "/api/admin/operations-hub/briefings/promote": [

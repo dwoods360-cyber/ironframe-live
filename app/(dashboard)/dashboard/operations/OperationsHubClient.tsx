@@ -189,6 +189,34 @@ export default function OperationsHubClient() {
     ];
   }, [snapshot]);
 
+  /** Strict Ironcast/newsletter filenames (autonomous or requested). */
+  const isStrictNewsletterQueueDraft = (filename: string) =>
+    /newsletter/i.test(filename) || /ironcast/i.test(filename);
+
+  /**
+   * Newsletters approve/deny desk: Ironcast drafts plus market series that syndicate
+   * as newsletter editions after Approve (e.g. *-draft-market-grc-*).
+   */
+  const isNewslettersDeskDraft = (filename: string) =>
+    isStrictNewsletterQueueDraft(filename) ||
+    /market-grc/i.test(filename) ||
+    /-draft-market-/i.test(filename);
+
+  const newsletterQueueDrafts = useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.briefings.queueDrafts.filter(
+      (draft) => draft.promotable && isNewslettersDeskDraft(draft.filename),
+    );
+  }, [snapshot]);
+
+  /** Briefings desk keeps governance drafts that are not strict Ironcast newsletter names. */
+  const briefingQueueDrafts = useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.briefings.queueDrafts.filter(
+      (draft) => !isStrictNewsletterQueueDraft(draft.filename),
+    );
+  }, [snapshot]);
+
   const handlePromote = async (filenameOverride?: string, slugOverride?: string) => {
     const file = (filenameOverride ?? promoteFile).trim();
     const slug = (slugOverride ?? promoteSlug).trim();
@@ -222,56 +250,41 @@ export default function OperationsHubClient() {
   };
 
   const handleDenyDraft = async (filename: string) => {
-    if (!filename || decisionBusyFile) return;
+    const file = filename.trim();
+    if (!file || decisionBusyFile || denyBusy) return;
     const confirmed = window.confirm(
-      `Deny ${filename}?\n\nIt will leave the approval queue and will not be published.`,
+      `Deny ${file}?\n\nIt will leave the approval queue and will not be published.`,
     );
     if (!confirmed) return;
-    setDecisionBusyFile(filename);
+    setDecisionBusyFile(file);
+    setDenyBusy(true);
     setDecisionMessage(null);
+    setPromoteMessage(null);
     try {
       const data = await fetchOpsPortalJson<{ ok?: boolean; message?: string }>(
         "/api/admin/operations-hub/briefings/deny",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename }),
+          body: JSON.stringify({ filename: file }),
         },
         "Deny failed.",
       );
-      setDecisionMessage(data.message ?? `Denied ${filename}.`);
-      await loadSnapshot();
-    } catch (err) {
-      setDecisionMessage(err instanceof Error ? err.message : "Deny failed.");
-    } finally {
-      setDecisionBusyFile(null);
-    }
-  };
-
-  const handleDeny = async (filename: string) => {
-    if (!filename.trim() || denyBusy) return;
-    setDenyBusy(true);
-    setPromoteMessage(null);
-    try {
-      await fetchOpsPortalJson<{ ok?: boolean; message?: string }>(
-        "/api/admin/operations-hub/briefings/deny",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: filename.trim() }),
-        },
-        "Deny failed.",
-      );
-      setPromoteMessage(`Denied ${filename} — removed from active queue.`);
-      if (promoteFile === filename) {
+      const okMsg = data.message ?? `Denied ${file} — removed from active queue.`;
+      setDecisionMessage(okMsg);
+      setPromoteMessage(okMsg);
+      if (promoteFile === file) {
         setPromoteFile("");
         setPromoteSlug("");
         promoteDefaultsSet.current = false;
       }
       await loadSnapshot();
     } catch (err) {
-      setPromoteMessage(err instanceof Error ? err.message : "Deny failed.");
+      const fail = err instanceof Error ? err.message : "Deny failed.";
+      setDecisionMessage(fail);
+      setPromoteMessage(fail);
     } finally {
+      setDecisionBusyFile(null);
       setDenyBusy(false);
     }
   };
@@ -487,7 +500,7 @@ export default function OperationsHubClient() {
                 {snapshot.briefings.queueDrafts.length}
               </div>
               <div className="mt-1 text-xs text-slate-400">
-                {snapshot.briefings.published.length} published visible
+                Quarantine only · {snapshot.briefings.published.length} published
               </div>
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -645,41 +658,80 @@ export default function OperationsHubClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">Quarantined drafts</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review Section V citations, then promote to public Governance Frame + newsletter syndication.
+                Weekday autonomous GTM cron and manual requests stage here only. Nothing publishes until you
+                Approve (promote) or Deny.
               </p>
+              {decisionMessage ? (
+                <p className="mt-2 text-sm text-slate-300">{decisionMessage}</p>
+              ) : null}
               <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-                {snapshot.briefings.queueDrafts.map((draft) => (
-                  <li
-                    key={draft.filename}
-                    className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-medium text-slate-100">{draft.title}</div>
-                        <div className="font-mono text-[10px] text-slate-500">{draft.filename}</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPromoteFile(draft.filename);
-                          setPromoteSlug(slugFromQueueFilename(draft.filename));
-                        }}
-                        className="shrink-0 text-xs text-cyan-300 hover:underline"
-                      >
-                        Select
-                      </button>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
-                      <span className={draft.validationOk ? "text-emerald-400" : "text-amber-400"}>
-                        {draft.validationOk ? "validation ok" : "needs review"}
-                      </span>
-                      {draft.requiresImmediatePromotion ? (
-                        <span className="text-rose-400">urgent exposure</span>
-                      ) : null}
-                      {!draft.promotable ? <span className="text-slate-500">non-promotable</span> : null}
-                    </div>
+                {briefingQueueDrafts.length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    No briefing drafts awaiting review. Autonomous weekday runs land as{" "}
+                    <span className="font-mono text-slate-400">*-draft-auto-briefing-*</span>.
                   </li>
-                ))}
+                ) : (
+                  briefingQueueDrafts.map((draft) => {
+                    const busy = decisionBusyFile === draft.filename;
+                    const slug = slugFromQueueFilename(draft.filename);
+                    return (
+                      <li
+                        key={draft.filename}
+                        className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-medium text-slate-100">{draft.title}</div>
+                            <div className="font-mono text-[10px] text-slate-500">{draft.filename}</div>
+                            {draft.summary ? (
+                              <p className="mt-1 text-xs text-slate-400 line-clamp-2">{draft.summary}</p>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPromoteFile(draft.filename);
+                              setPromoteSlug(slug);
+                            }}
+                            className="shrink-0 text-xs text-cyan-300 hover:underline"
+                          >
+                            Select
+                          </button>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+                          <span className={draft.validationOk ? "text-emerald-400" : "text-amber-400"}>
+                            {draft.validationOk ? "validation ok" : "needs review"}
+                          </span>
+                          {/auto-briefing/i.test(draft.filename) ? (
+                            <span className="text-violet-300">autonomous</span>
+                          ) : null}
+                          {draft.requiresImmediatePromotion ? (
+                            <span className="text-rose-400">urgent exposure</span>
+                          ) : null}
+                          {!draft.promotable ? <span className="text-slate-500">non-promotable</span> : null}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy || !draft.promotable || promoteBusy || denyBusy}
+                            onClick={() => void handlePromote(draft.filename, slug)}
+                            className="rounded-md bg-cyan-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+                          >
+                            {busy ? "Working…" : "Approve"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || promoteBusy || denyBusy}
+                            onClick={() => void handleDenyDraft(draft.filename)}
+                            className="rounded-md border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:border-rose-600 disabled:opacity-50"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
               </ul>
             </section>
             <section className="space-y-6">
@@ -716,7 +768,8 @@ export default function OperationsHubClient() {
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Promote (approve) or deny</h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Promote publishes to Governance Frame. Deny hides the draft from the approval desk (does not publish).
+                  Approve publishes to Governance Frame (+ optional syndication). Deny removes the draft from
+                  the desk and records a denial — it never publishes.
                 </p>
                 <div className="mt-4 space-y-3">
                   <label className="block text-xs text-slate-400">
@@ -735,14 +788,24 @@ export default function OperationsHubClient() {
                       className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                     />
                   </label>
-                  <button
-                    type="button"
-                    disabled={promoteBusy || !promoteFile || !promoteSlug}
-                    onClick={() => void handlePromote()}
-                    className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
-                  >
-                    {promoteBusy ? "Promoting…" : "Approve / promote & syndicate"}
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={promoteBusy || denyBusy || !promoteFile || !promoteSlug}
+                      onClick={() => void handlePromote()}
+                      className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+                    >
+                      {promoteBusy ? "Promoting…" : "Approve / promote & syndicate"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={promoteBusy || denyBusy || !promoteFile}
+                      onClick={() => void handleDenyDraft(promoteFile)}
+                      className="rounded-lg border border-rose-800/80 bg-rose-950/50 px-4 py-2 text-sm font-medium text-rose-100 hover:border-rose-600 disabled:opacity-50"
+                    >
+                      {denyBusy ? "Denying…" : "Deny"}
+                    </button>
+                  </div>
                   {promoteMessage ? (
                     <p className="text-sm text-slate-300">{promoteMessage}</p>
                   ) : null}
@@ -772,12 +835,78 @@ export default function OperationsHubClient() {
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="space-y-6">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Drafts awaiting Approve / Deny</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Ironcast newsletter drafts and market series (e.g. Control-first GRC Parts 1–3) wait here.
+                  Approve promotes to Governance Frame; Deny discards without publishing. Syndicate compiled
+                  HTML only after Approve.
+                </p>
+                {decisionMessage ? (
+                  <p className="mt-2 text-sm text-slate-300">{decisionMessage}</p>
+                ) : null}
+                <ul className="mt-4 max-h-[22rem] space-y-3 overflow-y-auto pr-1">
+                  {newsletterQueueDrafts.length === 0 ? (
+                    <li className="text-sm text-slate-500">
+                      No newsletter drafts awaiting review. Look for{" "}
+                      <span className="font-mono text-slate-400">*-draft-market-grc-*</span> or{" "}
+                      <span className="font-mono text-slate-400">*-draft-auto-newsletter-*</span>.
+                    </li>
+                  ) : (
+                    newsletterQueueDrafts.map((draft) => {
+                      const busy = decisionBusyFile === draft.filename;
+                      const slug = slugFromQueueFilename(draft.filename);
+                      return (
+                        <li
+                          key={draft.filename}
+                          className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
+                        >
+                          <div className="font-medium text-slate-100">{draft.title}</div>
+                          <div className="font-mono text-[10px] text-slate-500">{draft.filename}</div>
+                          {draft.summary ? (
+                            <p className="mt-2 text-xs text-slate-400">{draft.summary}</p>
+                          ) : null}
+                          <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
+                            <span className={draft.validationOk ? "text-emerald-400" : "text-amber-400"}>
+                              {draft.validationOk ? "validation ok" : "needs review"}
+                            </span>
+                            {/auto-newsletter/i.test(draft.filename) ? (
+                              <span className="text-violet-300">autonomous</span>
+                            ) : null}
+                            {/market-grc|draft-market/i.test(draft.filename) ? (
+                              <span className="text-cyan-300">market series</span>
+                            ) : null}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={busy || !draft.promotable || promoteBusy || denyBusy}
+                              onClick={() => void handlePromote(draft.filename, slug)}
+                              className="rounded-md bg-cyan-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+                            >
+                              {busy ? "Working…" : "Approve"}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busy || promoteBusy || denyBusy}
+                              onClick={() => void handleDenyDraft(draft.filename)}
+                              className="rounded-md border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:border-rose-600 disabled:opacity-50"
+                            >
+                              Deny
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Request series (queue only)</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   Submit an Ironcast newsletter series prompt. Authorship stages drafts into{" "}
                   <span className="font-mono text-slate-300">docs/briefing-queue/</span> for your
-                  review — this does not promote or compile email HTML. Promote from Briefings, then
-                  syndicate here.
+                  review — this does not promote or compile email HTML. Approve from this tab or Briefings,
+                  then syndicate here.
                 </p>
                 <label className="mt-4 block text-xs text-slate-400">
                   Newsletter series request

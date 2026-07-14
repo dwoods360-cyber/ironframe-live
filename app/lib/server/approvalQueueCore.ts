@@ -1,6 +1,9 @@
 import "server-only";
 
 import prisma from "@/lib/prisma";
+import { isSalesSmsDraft } from "@/app/lib/approvalDraftChannel";
+
+export { isSalesSmsDraft };
 
 export const PENDING_DRAFT_TAG = "[PENDING DRAFT APPROVAL]";
 export const PENDING_SUPPORT_INTAKE_TAG = "[PENDING SUPPORT INTAKE]";

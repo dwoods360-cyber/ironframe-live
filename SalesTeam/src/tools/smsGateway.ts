@@ -14,26 +14,30 @@ export type SmsDispatchResult = {
 };
 
 /**
- * SMS gateway for 216-234-1806 — Twilio/GHL integration stub; poll cycle never auto-sends.
+ * SalesTeam poll cycle never auto-sends. Live Twilio send happens only after
+ * operator DISPATCH on Ironframe approvals (`sendOutboundSms`).
+ *
+ * Configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and SALESTEAM_SMS_FROM
+ * (Twilio E.164 number — not Google Voice).
  */
 export async function dispatchSms(request: SmsDispatchRequest): Promise<SmsDispatchResult> {
   const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const token = process.env.TWILIO_AUTH_TOKEN?.trim();
   const from =
-    request.from?.trim() || process.env.SALESTEAM_SMS_FROM?.trim() || '+12162341806';
+    request.from?.trim() || process.env.SALESTEAM_SMS_FROM?.trim() || process.env.TWILIO_SMS_FROM_NUMBER?.trim() || '';
 
-  if (!sid || !token) {
+  if (!sid || !token || !from) {
     return {
       ok: true,
       queued: true,
-      message: `Twilio not configured — SMS draft held (from ${from})`,
+      message: `Twilio not configured — SMS draft held for approval (to ${request.to})`,
     };
   }
 
   return {
     ok: true,
     queued: true,
-    message: 'SMS dispatch gated — awaiting operator approval in dashboard',
+    message: `SMS draft gated — awaiting operator DISPATCH (from ${from} → ${request.to})`,
   };
 }
 

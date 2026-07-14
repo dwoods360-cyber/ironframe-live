@@ -5,11 +5,16 @@ import {
   DISPATCHED_SALES_DRAFT_TAG,
   inferDraftKind,
   isPendingDraftSummary,
+  isSalesSmsDraft,
   parsePendingDraftSummary,
 } from "@/app/lib/server/approvalQueueCore";
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
 import { sendOutboundEmail } from "@/app/lib/server/sendOutboundEmail";
+import {
+  normalizeE164Phone,
+  sendOutboundSms,
+} from "@/app/lib/server/sendOutboundSms";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -64,14 +69,8 @@ export async function POST(
     }
 
     const draftKind = inferDraftKind(pendingInteraction.summary);
-
     const contact = pendingInteraction.contact;
-    if (!contact?.email) {
-      return NextResponse.json(
-        { error: "Target contact configuration has no valid email mapping." },
-        { status: 422 },
-      );
-    }
+    const smsDraft = isSalesSmsDraft(pendingInteraction.summary, pendingInteraction.channel);
 
     if (action === "DISPATCH") {
       if (!adjustedText || adjustedText.trim().length === 0) {
@@ -86,6 +85,81 @@ export async function POST(
           : subject.startsWith("Re:")
             ? subject
             : `Re: ${subject}`;
+
+      if (smsDraft) {
+        const toPhone = normalizeE164Phone(contact?.phone);
+        if (!toPhone) {
+          return NextResponse.json(
+            {
+              error:
+                "SMS draft requires a valid contact phone (E.164). Email fallback is disabled for SMS drafts.",
+            },
+            { status: 422 },
+          );
+        }
+        if (!contact?.id) {
+          return NextResponse.json(
+            { error: "Target contact configuration is missing." },
+            { status: 422 },
+          );
+        }
+
+        const sendResult = await sendOutboundSms({
+          tenantId: pendingInteraction.tenantId,
+          contactId: contact.id,
+          to: toPhone,
+          body: trimmedText,
+        });
+
+        if (!sendResult.success) {
+          return NextResponse.json(
+            {
+              error: "SMS transport rejected the outbound payload.",
+              details: sendResult.error ?? "Unknown provider failure.",
+            },
+            { status: 502 },
+          );
+        }
+
+        const dispatchedTag = DISPATCHED_SALES_DRAFT_TAG;
+        const updatedSummary = [
+          `${dispatchedTag} ${subject}`,
+          "--- Authorized Text Dispatched ---",
+          trimmedText,
+          "--- Trace Matrix ---",
+          `Channel: SMS | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+          sendResult.messageSid
+            ? `${sendResult.provider === "textbelt" ? "Textbelt textId" : "Twilio Message SID"}: ${sendResult.messageSid}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        await prisma.ironboardCrmInteraction.update({
+          where: { id: interactionId },
+          data: {
+            summary: updatedSummary.slice(0, 12_000),
+            occurredAt: new Date(),
+          },
+        });
+
+        console.log(
+          `SMS dispatch complete. Interaction [${interactionId}] closed via ${sendResult.provider ?? "sms"}.`,
+        );
+        return NextResponse.json({
+          status: "SUCCESS_DISPATCHED",
+          channel: "SMS",
+          provider: sendResult.provider ?? "unknown",
+          messageSid: sendResult.messageSid,
+        });
+      }
+
+      if (!contact?.email) {
+        return NextResponse.json(
+          { error: "Target contact configuration has no valid email mapping." },
+          { status: 422 },
+        );
+      }
 
       const sendResult = await sendOutboundEmail({
         tenantId: pendingInteraction.tenantId,
@@ -113,7 +187,7 @@ export async function POST(
         "--- Authorized Text Dispatched ---",
         trimmedText,
         "--- Trace Matrix ---",
-        `Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+        `Channel: EMAIL | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
         sendResult.emailId ? `Resend Message ID: ${sendResult.emailId}` : "",
       ]
         .filter(Boolean)
@@ -130,7 +204,11 @@ export async function POST(
       console.log(
         `Dispatch complete. Interaction [${interactionId}] closed and verified on wire.`,
       );
-      return NextResponse.json({ status: "SUCCESS_DISPATCHED", emailId: sendResult.emailId });
+      return NextResponse.json({
+        status: "SUCCESS_DISPATCHED",
+        channel: "EMAIL",
+        emailId: sendResult.emailId,
+      });
     }
 
     const purgedSummary = [

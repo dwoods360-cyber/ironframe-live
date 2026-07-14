@@ -8,6 +8,7 @@ import path from 'path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type GroundingMetadata } from '@google/genai';
+import { classifyGeminiStreamFault, withGeminiRateLimitRetry } from './lib/geminiRetry.js';
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
 import {
   AGENTIC_BOARD_ROSTER,
@@ -641,11 +642,15 @@ async function streamBoardroomGeminiRound(params: {
   let functionCalls: FunctionCall[] | undefined;
   let grounding: GroundingMetadata | null = null;
 
-  const stream = await ai.models.generateContentStream({
-    model,
-    contents,
-    config,
-  });
+  const stream = await withGeminiRateLimitRetry(
+    () =>
+      ai.models.generateContentStream({
+        model,
+        contents,
+        config,
+      }),
+    { label: 'boardroom-stream', maxAttempts: 4 },
+  );
 
   for await (const chunk of stream) {
     if (abort.closed || res.writableEnded) break;
@@ -2100,9 +2105,10 @@ app.post('/api/query', async (req, res) => {
       competitivePositioningQuery,
     });
   } catch (err) {
-    console.error('[IRONBOARD STREAM]', err);
+    const fault = classifyGeminiStreamFault(err);
+    console.error(`[IRONBOARD STREAM] kind=${fault.kind}`, fault.logDetail, err);
     if (!res.writableEnded) {
-      writeSseToken(res, 'Live stream faulted. Retry or verify GOOGLE_API_KEY.');
+      writeSseToken(res, fault.operatorMessage);
     }
   } finally {
     if (!res.writableEnded) res.end();

@@ -311,7 +311,11 @@ function resolveBoardroomToolMode(
   query: string,
   options: { hasWorkspacePrefetch?: boolean } = {},
 ): BoardroomToolMode {
-  if (/gemini-3/i.test(model)) return 'combined';
+  const needsWeb = shouldPrefetchWeb(query) && !options.hasWorkspacePrefetch;
+  // Gemini 3 can combine googleSearch + functions, but forcing it on every turn
+  // stalls synthesis after workspace prefetch. Prefer workspace-only when we already
+  // have tool receipts; use combined only when live web grounding is still required.
+  if (/gemini-3/i.test(model) && needsWeb) return 'combined';
   if (
     requiresWorkspaceTools(query) ||
     shouldPrefetchProspects(query) ||
@@ -321,6 +325,25 @@ function resolveBoardroomToolMode(
   }
   if (shouldPrefetchWeb(query)) return 'web';
   return 'workspace';
+}
+
+/** Soft ceiling so a stuck Gemini stream cannot leave the boardroom UI on Streaming… forever. */
+const BOARDROOM_STREAM_ROUND_TIMEOUT_MS = 55_000;
+const BOARDROOM_WEB_PREFETCH_TIMEOUT_MS = 25_000;
+const BOARDROOM_GRC_PREFETCH_TIMEOUT_MS = 25_000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function buildBoardroomStreamConfig(
@@ -384,24 +407,28 @@ async function prefetchWebGrounding(
   query: string,
 ): Promise<{ enrichment: string; grounding: GroundingMetadata | null }> {
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: `Board intelligence request — answer using live web search:\n${query}\n\nRetrieve current factual information worldwide (local time, news, regulations, market data, geography, events). Cite sources when available.`,
-            },
-          ],
+    const response = await withTimeout(
+      ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `Board intelligence request — answer using live web search:\n${query}\n\nRetrieve current factual information worldwide (local time, news, regulations, market data, geography, events). Cite sources when available.`,
+              },
+            ],
+          },
+        ],
+        config: {
+          tools: [{ googleSearch: {} }],
+          temperature: 0,
+          topP: 0,
         },
-      ],
-      config: {
-        tools: [{ googleSearch: {} }],
-        temperature: 0,
-        topP: 0,
-      },
-    });
+      }),
+      BOARDROOM_WEB_PREFETCH_TIMEOUT_MS,
+      'web-prefetch',
+    );
     const grounding = response.candidates?.[0]?.groundingMetadata ?? null;
     const text = response.text?.trim() ?? '';
     const enrichment = text
@@ -549,9 +576,14 @@ async function prefetchBoardroomGroundTruth(params: {
   if (shouldPrefetchGrcEnvironment(query)) {
     const grcRegions = inferRegionsFromQuery(query, activeHub);
     const grcTargets = grcRegions.length > 0 ? grcRegions : resolveFlywheelTargetRegions(activeHub);
-    for (const region of grcTargets) {
+    // Cap regions so a bad hub string cannot enqueue unbounded Google Search calls.
+    for (const region of grcTargets.slice(0, 2)) {
       try {
-        const grcResult = await discoverGrcEnvironmentIntel(region);
+        const grcResult = await withTimeout(
+          discoverGrcEnvironmentIntel(region),
+          BOARDROOM_GRC_PREFETCH_TIMEOUT_MS,
+          `grc-environment-${region}`,
+        );
         const grcEnrichment = formatGrcEnvironmentEnrichment(grcResult);
         if (grcEnrichment) enrichmentBlocks.push(grcEnrichment);
       } catch (err) {
@@ -682,8 +714,14 @@ async function streamBoardroomGeminiRound(params: {
     { label: 'boardroom-stream', maxAttempts: 4 },
   );
 
+  const deadline = Date.now() + BOARDROOM_STREAM_ROUND_TIMEOUT_MS;
   for await (const chunk of stream) {
     if (abort.closed || res.writableEnded) break;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `boardroom-stream round timed out after ${BOARDROOM_STREAM_ROUND_TIMEOUT_MS}ms`,
+      );
+    }
 
     const chunkText = chunk.text ?? '';
     if (chunkText) {

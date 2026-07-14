@@ -30,6 +30,7 @@ import {
 import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
 import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
 import { IRONBOARD_OPERATIONS_PORTAL_PATH } from "@/app/lib/ironboardConsolePaths";
+import { listDeniedBriefingFilenames } from "@/app/lib/server/denyBriefingQueueDraftCore";
 import prisma from "@/lib/prisma";
 
 export type WorkforceServiceId =
@@ -65,6 +66,8 @@ export type WorkforceServiceStatus = {
 export type BriefingQueueDraftSummary = {
   filename: string;
   title: string;
+  /** Short body preview for Ops Hub approve/deny desks. */
+  summary: string;
   modifiedAt: string;
   promotable: boolean;
   requiresImmediatePromotion: boolean;
@@ -188,14 +191,27 @@ async function probeWorkerHealth(
   }
 }
 
-function listBriefingQueueDrafts(docsRoot: string): BriefingQueueDraftSummary[] {
+function extractDraftSummary(markdown: string): string {
+  const withoutFrontmatter = markdown.replace(/^---[\s\S]*?---\s*/m, "").trim();
+  const summaryMatch = withoutFrontmatter.match(
+    /(?:\*\*)?Executive Summary:?\*?\*?\s*:?\s*([\s\S]*?)(?=\n#{1,3}\s|\n###|\n##|\n\*\*I\.|\nI\.\s|$)/i,
+  );
+  const raw = (summaryMatch?.[1] ?? withoutFrontmatter).replace(/\s+/g, " ").trim();
+  if (raw.length <= 280) return raw;
+  return `${raw.slice(0, 277).trimEnd()}…`;
+}
+
+async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueDraftSummary[]> {
   const queueDir = path.join(docsRoot, BRIEFING_QUEUE_DIR);
   if (!fs.existsSync(queueDir)) return [];
+
+  const denied = await listDeniedBriefingFilenames();
 
   return fs
     .readdirSync(queueDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .filter((entry) => !QUARANTINE_ALLOWLIST.has(entry.name.toLowerCase()))
+    .filter((entry) => !denied.has(entry.name))
     .map((entry) => {
       const filePath = path.join(queueDir, entry.name);
       const markdown = fs.readFileSync(filePath, "utf-8");
@@ -205,6 +221,7 @@ function listBriefingQueueDrafts(docsRoot: string): BriefingQueueDraftSummary[] 
       return {
         filename: entry.name,
         title: parseTitleFromMarkdown(markdown, entry.name),
+        summary: extractDraftSummary(markdown),
         modifiedAt: stat.mtime.toISOString(),
         promotable: !isNonPromotableBriefingDraft(entry.name),
         requiresImmediatePromotion: alertFlags.requiresImmediatePromotion,
@@ -387,7 +404,7 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
   }
 
   const docsRoot = resolveDocsRoot();
-  const queueDrafts = listBriefingQueueDrafts(docsRoot);
+  const queueDrafts = await listBriefingQueueDrafts(docsRoot);
   const publishedBriefings = publishedRows.map((row) => ({
     slug: row.slug,
     title: row.title,

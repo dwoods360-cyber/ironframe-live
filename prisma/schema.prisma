@@ -1582,6 +1582,16 @@ model PublishedBriefing {
   @@map("published_briefings")
 }
 
+/// Ops Hub approve/deny desk — denials hide quarantined drafts from Briefings/Newsletters.
+model BriefingQueueDenial {
+  filename  String   @id
+  reason    String?  @db.Text
+  deniedBy  String   @map("denied_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("briefing_queue_denials")
+}
+
 /// In-app documentation corpus (APP_DOCS plane) — Level 1, Level 2, and training markdown streams.
 model AppDocument {
   id           String   @id @default(uuid()) @db.Uuid

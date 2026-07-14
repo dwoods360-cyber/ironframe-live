@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
       "./docs/TAS.md",
       "./docs/briefing-queue/**/*",
     ],
+    "/api/admin/operations-hub/briefings/deny": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
     "/api/admin/operations-hub/briefings/request": [
       "./docs/TAS.md",
       "./docs/briefing-queue/**/*",

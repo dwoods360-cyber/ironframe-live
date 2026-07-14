@@ -127,13 +127,23 @@ export default function OperationsHubClient() {
   const [promoteSlug, setPromoteSlug] = useState("");
   const [promoteBusy, setPromoteBusy] = useState(false);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [denyBusy, setDenyBusy] = useState(false);
   const [requestPrompt, setRequestPrompt] = useState("");
   const [requestBusy, setRequestBusy] = useState(false);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
+  const [newsletterRequestPrompt, setNewsletterRequestPrompt] = useState("");
+  const [newsletterRequestBusy, setNewsletterRequestBusy] = useState(false);
+  const [newsletterRequestMessage, setNewsletterRequestMessage] = useState<string | null>(null);
   const [syndicateSlug, setSyndicateSlug] = useState("");
   const [syndicateBusy, setSyndicateBusy] = useState(false);
   const [syndicateMessage, setSyndicateMessage] = useState<string | null>(null);
+  const [decisionBusyFile, setDecisionBusyFile] = useState<string | null>(null);
+  const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
+  const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
+
+  const slugFromQueueFilename = (filename: string) =>
+    filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase();
 
   useEffect(() => {
     setTab(parseHubTab(searchParams.get("tab")));
@@ -149,6 +159,7 @@ export default function OperationsHubClient() {
         "Failed to load operations hub.",
       );
       setSnapshot(data);
+      setRefreshedAt(new Date().toLocaleTimeString());
       if (!promoteDefaultsSet.current && data.briefings.queueDrafts[0]?.filename) {
         promoteDefaultsSet.current = true;
         const first = data.briefings.queueDrafts[0];
@@ -178,26 +189,90 @@ export default function OperationsHubClient() {
     ];
   }, [snapshot]);
 
-  const handlePromote = async () => {
-    if (!promoteFile.trim() || !promoteSlug.trim() || promoteBusy) return;
-    setPromoteBusy(true);
+  const handlePromote = async (filenameOverride?: string, slugOverride?: string) => {
+    const file = (filenameOverride ?? promoteFile).trim();
+    const slug = (slugOverride ?? promoteSlug).trim();
+    if (!file || !slug || promoteBusy || decisionBusyFile) return;
+    if (filenameOverride) setDecisionBusyFile(file);
+    else setPromoteBusy(true);
     setPromoteMessage(null);
+    setDecisionMessage(null);
     try {
       const data = await fetchOpsPortalJson<{ ok?: boolean; slug?: string }>(
         "/api/admin/operations-hub/briefings/promote",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: promoteFile.trim(), slug: promoteSlug.trim() }),
+          body: JSON.stringify({ filename: file, slug }),
         },
         "Promotion failed.",
       );
-      setPromoteMessage(`Promoted to /governance-frame/${data.slug ?? promoteSlug}`);
+      const okMsg = `Approved & promoted to /governance-frame/${data.slug ?? slug}`;
+      setPromoteMessage(okMsg);
+      setDecisionMessage(okMsg);
       await loadSnapshot();
     } catch (err) {
-      setPromoteMessage(err instanceof Error ? err.message : "Promotion failed.");
+      const fail = err instanceof Error ? err.message : "Promotion failed.";
+      setPromoteMessage(fail);
+      setDecisionMessage(fail);
     } finally {
       setPromoteBusy(false);
+      setDecisionBusyFile(null);
+    }
+  };
+
+  const handleDenyDraft = async (filename: string) => {
+    if (!filename || decisionBusyFile) return;
+    const confirmed = window.confirm(
+      `Deny ${filename}?\n\nIt will leave the approval queue and will not be published.`,
+    );
+    if (!confirmed) return;
+    setDecisionBusyFile(filename);
+    setDecisionMessage(null);
+    try {
+      const data = await fetchOpsPortalJson<{ ok?: boolean; message?: string }>(
+        "/api/admin/operations-hub/briefings/deny",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename }),
+        },
+        "Deny failed.",
+      );
+      setDecisionMessage(data.message ?? `Denied ${filename}.`);
+      await loadSnapshot();
+    } catch (err) {
+      setDecisionMessage(err instanceof Error ? err.message : "Deny failed.");
+    } finally {
+      setDecisionBusyFile(null);
+    }
+  };
+
+  const handleDeny = async (filename: string) => {
+    if (!filename.trim() || denyBusy) return;
+    setDenyBusy(true);
+    setPromoteMessage(null);
+    try {
+      await fetchOpsPortalJson<{ ok?: boolean; message?: string }>(
+        "/api/admin/operations-hub/briefings/deny",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: filename.trim() }),
+        },
+        "Deny failed.",
+      );
+      setPromoteMessage(`Denied ${filename} — removed from active queue.`);
+      if (promoteFile === filename) {
+        setPromoteFile("");
+        setPromoteSlug("");
+        promoteDefaultsSet.current = false;
+      }
+      await loadSnapshot();
+    } catch (err) {
+      setPromoteMessage(err instanceof Error ? err.message : "Deny failed.");
+    } finally {
+      setDenyBusy(false);
     }
   };
 
@@ -237,6 +312,45 @@ export default function OperationsHubClient() {
       setRequestMessage(err instanceof Error ? err.message : "Briefing request failed.");
     } finally {
       setRequestBusy(false);
+    }
+  };
+
+  const handleNewsletterRequest = async () => {
+    if (!newsletterRequestPrompt.trim() || newsletterRequestBusy) return;
+    setNewsletterRequestBusy(true);
+    setNewsletterRequestMessage(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        message?: string;
+        staged?: Array<{ filename: string }>;
+        failed?: Array<{ filename: string; error: string }>;
+      }>(
+        "/api/admin/operations-hub/newsletters/request",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestPrompt: newsletterRequestPrompt.trim(),
+            overwrite: true,
+            tenantSlug: "ironframe-sandbox",
+          }),
+        },
+        "Newsletter request failed.",
+      );
+      const stagedNames = (data.staged ?? []).map((row) => row.filename).join(", ");
+      const failedNote =
+        data.failed && data.failed.length > 0
+          ? ` Failures: ${data.failed.map((row) => `${row.filename}: ${row.error}`).join("; ")}`
+          : "";
+      setNewsletterRequestMessage(
+        `${data.message ?? "Request complete."}${stagedNames ? ` Files: ${stagedNames}.` : ""}${failedNote}`,
+      );
+      await loadSnapshot();
+    } catch (err) {
+      setNewsletterRequestMessage(err instanceof Error ? err.message : "Newsletter request failed.");
+    } finally {
+      setNewsletterRequestBusy(false);
     }
   };
 
@@ -294,13 +408,19 @@ export default function OperationsHubClient() {
               briefing promotion. Tenant workspaces never mount these apps.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadSnapshot()}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
-          >
-            Refresh telemetry
-          </button>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => void loadSnapshot()}
+              className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600 disabled:cursor-wait disabled:opacity-60"
+            >
+              {loading ? "Refreshing…" : "Refresh telemetry"}
+            </button>
+            {refreshedAt ? (
+              <p className="font-mono text-[10px] text-slate-500">Updated {refreshedAt}</p>
+            ) : null}
+          </div>
         </header>
 
         <nav className="flex flex-wrap gap-2">
@@ -397,7 +517,7 @@ export default function OperationsHubClient() {
                 href="/dashboard/operations?tab=newsletters"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
-                Ironcast newsletters
+                Request / syndicate newsletters
               </Link>
               <Link
                 href="/dashboard/operations?tab=workforce"
@@ -542,9 +662,7 @@ export default function OperationsHubClient() {
                         type="button"
                         onClick={() => {
                           setPromoteFile(draft.filename);
-                          setPromoteSlug(
-                            draft.filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase(),
-                          );
+                          setPromoteSlug(slugFromQueueFilename(draft.filename));
                         }}
                         className="shrink-0 text-xs text-cyan-300 hover:underline"
                       >
@@ -596,7 +714,10 @@ export default function OperationsHubClient() {
                 ) : null}
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-                <h2 className="text-lg font-semibold text-white">Promote to public</h2>
+                <h2 className="text-lg font-semibold text-white">Promote (approve) or deny</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Promote publishes to Governance Frame. Deny hides the draft from the approval desk (does not publish).
+                </p>
                 <div className="mt-4 space-y-3">
                   <label className="block text-xs text-slate-400">
                     Queue filename
@@ -620,7 +741,7 @@ export default function OperationsHubClient() {
                     onClick={() => void handlePromote()}
                     className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
                   >
-                    {promoteBusy ? "Promoting…" : "Promote & syndicate"}
+                    {promoteBusy ? "Promoting…" : "Approve / promote & syndicate"}
                   </button>
                   {promoteMessage ? (
                     <p className="text-sm text-slate-300">{promoteMessage}</p>
@@ -649,63 +770,98 @@ export default function OperationsHubClient() {
 
         {snapshot && tab === "newsletters" ? (
           <div className="grid gap-6 lg:grid-cols-2">
-            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">Ironcast syndication</h2>
-              <p className="mt-1 text-sm text-slate-400">
-                Compile published Governance Frame briefings into presentation-safe HTML for corporate
-                Substack / Ironcast routing, and refresh the public RSS feed.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-slate-500">Compiled HTML</div>
-                  <div className="mt-1 text-2xl font-bold text-cyan-300">
-                    {snapshot.newsletters.compiledCount}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
-                  <div className="text-[10px] uppercase tracking-widest text-slate-500">Pending syndication</div>
-                  <div className="mt-1 text-2xl font-bold text-amber-300">
-                    {snapshot.newsletters.pendingSyndicationCount}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                <a
-                  href={snapshot.newsletters.rssFeedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-cyan-300 hover:underline"
-                >
-                  Public RSS feed
-                  {snapshot.newsletters.rssItemCount != null
-                    ? ` (${snapshot.newsletters.rssItemCount} items)`
-                    : ""}
-                </a>
-                <Link href="/governance-frame" className="text-cyan-300 hover:underline">
-                  Governance Frame reader
-                </Link>
-              </div>
-              <div className="mt-5 space-y-3">
-                <label className="block text-xs text-slate-400">
-                  Re-syndicate published slug
-                  <input
-                    value={syndicateSlug}
-                    onChange={(e) => setSyndicateSlug(e.target.value)}
-                    placeholder="e.g. 2026-06-07-staging-boundary-check"
+            <section className="space-y-6">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Request series (queue only)</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Submit an Ironcast newsletter series prompt. Authorship stages drafts into{" "}
+                  <span className="font-mono text-slate-300">docs/briefing-queue/</span> for your
+                  review — this does not promote or compile email HTML. Promote from Briefings, then
+                  syndicate here.
+                </p>
+                <label className="mt-4 block text-xs text-slate-400">
+                  Newsletter series request
+                  <textarea
+                    value={newsletterRequestPrompt}
+                    onChange={(e) => setNewsletterRequestPrompt(e.target.value)}
+                    rows={8}
+                    placeholder="Draft a public Ironcast newsletter series (quarantine only) telling the Ironframe creation story by pillar—value and intent, no implementation…"
                     className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
                   />
                 </label>
                 <button
                   type="button"
-                  disabled={syndicateBusy || !syndicateSlug.trim()}
-                  onClick={() => void handleSyndicate(syndicateSlug)}
-                  className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+                  disabled={newsletterRequestBusy || newsletterRequestPrompt.trim().length < 40}
+                  onClick={() => void handleNewsletterRequest()}
+                  className="mt-3 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50"
                 >
-                  {syndicateBusy ? "Compiling…" : "Compile RSS + newsletter HTML"}
+                  {newsletterRequestBusy ? "Generating & staging…" : "Generate & stage for review"}
                 </button>
-                {syndicateMessage ? (
-                  <p className="text-sm text-slate-300">{syndicateMessage}</p>
+                {newsletterRequestMessage ? (
+                  <p className="mt-3 text-sm text-slate-300">{newsletterRequestMessage}</p>
                 ) : null}
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Ironcast syndication</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Compile published Governance Frame briefings into presentation-safe HTML for corporate
+                  Substack / Ironcast routing, and refresh the public RSS feed.
+                </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Compiled HTML</div>
+                    <div className="mt-1 text-2xl font-bold text-cyan-300">
+                      {snapshot.newsletters.compiledCount}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Pending syndication</div>
+                    <div className="mt-1 text-2xl font-bold text-amber-300">
+                      {snapshot.newsletters.pendingSyndicationCount}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                  <a
+                    href={snapshot.newsletters.rssFeedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-cyan-300 hover:underline"
+                  >
+                    Public RSS feed
+                    {snapshot.newsletters.rssItemCount != null
+                      ? ` (${snapshot.newsletters.rssItemCount} items)`
+                      : ""}
+                  </a>
+                  <Link href="/governance-frame" className="text-cyan-300 hover:underline">
+                    Governance Frame reader
+                  </Link>
+                  <Link href="/dashboard/operations?tab=briefings" className="text-cyan-300 hover:underline">
+                    Review / promote queue
+                  </Link>
+                </div>
+                <div className="mt-5 space-y-3">
+                  <label className="block text-xs text-slate-400">
+                    Re-syndicate published slug
+                    <input
+                      value={syndicateSlug}
+                      onChange={(e) => setSyndicateSlug(e.target.value)}
+                      placeholder="e.g. 2026-06-07-staging-boundary-check"
+                      className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={syndicateBusy || !syndicateSlug.trim()}
+                    onClick={() => void handleSyndicate(syndicateSlug)}
+                    className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+                  >
+                    {syndicateBusy ? "Compiling…" : "Compile RSS + newsletter HTML"}
+                  </button>
+                  {syndicateMessage ? (
+                    <p className="text-sm text-slate-300">{syndicateMessage}</p>
+                  ) : null}
+                </div>
               </div>
             </section>
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
@@ -713,7 +869,8 @@ export default function OperationsHubClient() {
               <ul className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto pr-1">
                 {snapshot.newsletters.editions.length === 0 ? (
                   <li className="text-sm text-slate-500">
-                    No published briefings yet — promote a draft from the Briefings tab first.
+                    No published editions yet — request a newsletter series above, promote from Briefings,
+                    then syndicate.
                   </li>
                 ) : (
                   snapshot.newsletters.editions.map((edition) => (

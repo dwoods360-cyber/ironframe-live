@@ -20,6 +20,42 @@ const nextConfig: NextConfig = {
     "/api/docs/download-protocol": ["./docs/**/*"],
     "/api/docs/download-matrix": ["./docs/**/*"],
     "/api/docs/hub-asset/[[...path]]": ["./docs/**/*.html"],
+    /**
+     * Ops Hub Briefings/Newsletters read quarantine + published mirrors via fs.
+     * Dynamic path.join(docsRoot, …) is not auto-traced on Vercel.
+     */
+    "/api/admin/operations-hub": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+      "./docs/published-briefings/**/*",
+      "./docs/newsletters/**/*",
+      "./public/rss.xml",
+    ],
+    "/api/admin/operations-hub/briefings/promote": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+      "./docs/published-briefings/**/*",
+      "./docs/newsletters/**/*",
+      "./public/rss.xml",
+    ],
+    "/api/admin/operations-hub/briefings/stage": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
+    "/api/admin/operations-hub/briefings/request": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
+    "/api/admin/operations-hub/newsletters/syndicate": [
+      "./docs/TAS.md",
+      "./docs/published-briefings/**/*",
+      "./docs/newsletters/**/*",
+      "./public/rss.xml",
+    ],
+    "/api/admin/operations-hub/newsletters/request": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+    ],
     /** GRC constitutional sentinel — dynamic fs reads are not auto-traced on Vercel. */
     "/api/grc/tas-fingerprint": ["./docs/TAS.md"],
     "/api/grc/tas-integrity": ["./docs/TAS.md"],

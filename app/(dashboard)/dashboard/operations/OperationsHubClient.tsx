@@ -127,6 +127,9 @@ export default function OperationsHubClient() {
   const [promoteSlug, setPromoteSlug] = useState("");
   const [promoteBusy, setPromoteBusy] = useState(false);
   const [promoteMessage, setPromoteMessage] = useState<string | null>(null);
+  const [requestPrompt, setRequestPrompt] = useState("");
+  const [requestBusy, setRequestBusy] = useState(false);
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
   const [syndicateSlug, setSyndicateSlug] = useState("");
   const [syndicateBusy, setSyndicateBusy] = useState(false);
   const [syndicateMessage, setSyndicateMessage] = useState<string | null>(null);
@@ -195,6 +198,45 @@ export default function OperationsHubClient() {
       setPromoteMessage(err instanceof Error ? err.message : "Promotion failed.");
     } finally {
       setPromoteBusy(false);
+    }
+  };
+
+  const handleBriefingRequest = async () => {
+    if (!requestPrompt.trim() || requestBusy) return;
+    setRequestBusy(true);
+    setRequestMessage(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        message?: string;
+        staged?: Array<{ filename: string }>;
+        failed?: Array<{ filename: string; error: string }>;
+      }>(
+        "/api/admin/operations-hub/briefings/request",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            requestPrompt: requestPrompt.trim(),
+            overwrite: true,
+            tenantSlug: "ironframe-sandbox",
+          }),
+        },
+        "Briefing request failed.",
+      );
+      const stagedNames = (data.staged ?? []).map((row) => row.filename).join(", ");
+      const failedNote =
+        data.failed && data.failed.length > 0
+          ? ` Failures: ${data.failed.map((row) => `${row.filename}: ${row.error}`).join("; ")}`
+          : "";
+      setRequestMessage(
+        `${data.message ?? "Request complete."}${stagedNames ? ` Files: ${stagedNames}.` : ""}${failedNote}`,
+      );
+      await loadSnapshot();
+    } catch (err) {
+      setRequestMessage(err instanceof Error ? err.message : "Briefing request failed.");
+    } finally {
+      setRequestBusy(false);
     }
   };
 
@@ -523,6 +565,36 @@ export default function OperationsHubClient() {
               </ul>
             </section>
             <section className="space-y-6">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">Request series (queue only)</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Submit a Governance Frame series prompt. Authorship stages drafts into{" "}
+                  <span className="font-mono text-slate-300">docs/briefing-queue/</span> for your
+                  review — this does not promote or syndicate. Use board-bot/CFO-style narrative
+                  (not the Level 2 Writer).
+                </p>
+                <label className="mt-4 block text-xs text-slate-400">
+                  Series request
+                  <textarea
+                    value={requestPrompt}
+                    onChange={(e) => setRequestPrompt(e.target.value)}
+                    rows={8}
+                    placeholder="Draft a public Governance Frame briefing series (quarantine only) titled…"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={requestBusy || requestPrompt.trim().length < 40}
+                  onClick={() => void handleBriefingRequest()}
+                  className="mt-3 rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600 disabled:opacity-50"
+                >
+                  {requestBusy ? "Generating & staging…" : "Generate & stage for review"}
+                </button>
+                {requestMessage ? (
+                  <p className="mt-3 text-sm text-slate-300">{requestMessage}</p>
+                ) : null}
+              </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Promote to public</h2>
                 <div className="mt-4 space-y-3">

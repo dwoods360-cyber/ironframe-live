@@ -10,14 +10,15 @@ Drafts in `docs/briefing-queue/` are **never** compiled to the public Governance
 
 ## Human-in-the-loop promotion
 
-1. **Author** (board operator or narrate cron) produces a draft in `briefing-queue/` using `template.md`.
-2. **Filename convention:** `YYYY-MM-DD-draft-{tenant-slug}.md` (e.g. `2026-06-17-draft-medshield.md`).
-3. **Section V required:** Every draft must end with `### V. Sources & Citations` so reviewers can trace claims to `GET /api/board/shared-context` JSON paths, `docs/TAS.md`, or approved external URLs.
-4. **Review** — verify each citation locator against live telemetry or source documents. Reject drafts containing raw CVEs, UUIDs, or unsanitized cent integers.
-5. **Promote** — run the promotion script (never copy/rename manually without validation):
+1. **Author** — Ops Hub **Request series** (`POST /api/admin/operations-hub/briefings/request`) or stage paste (`POST /api/admin/operations-hub/briefings/stage`), nightly narrate cron, or a human file using `template.md`.  
+   **Not** IronBoard chat alone (read-only) and **not** board-writer (APP_DOCS plane only).
+2. **Filename convention:** `YYYY-MM-DD-draft-{slug}.md` (e.g. `2026-07-14-draft-market-grc-2000-2008.md`).
+3. **Section V required:** Every draft must end with `### V. Sources & Citations` so reviewers can trace claims to approved sources.
+4. **Review** — Ops Hub → Briefings → verify citations. Reject drafts containing raw CVEs, UUIDs in body copy, or unsanitized claims.
+5. **Promote** — Ops Hub Promote & syndicate, or:
 
 ```bash
-npx tsx scripts/promote-briefing-draft.ts --file 2026-06-17-draft-medshield.md --slug 2026-06-17-medshield-perimeter-review
+npx tsx scripts/promote-briefing-draft.ts --file 2026-07-14-draft-market-grc-2000-2008.md --slug 2026-07-14-market-grc-2000-2008
 ```
 
 6. **Publish compile** — after promotion, run Ironcast / RSS compile against `published-briefings/` only.

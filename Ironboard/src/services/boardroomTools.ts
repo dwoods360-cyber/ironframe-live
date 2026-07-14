@@ -24,7 +24,8 @@ function modelSupportsGoogleSearch(model: string): boolean {
 }
 
 /**
- * Gemini 3 allows googleSearch + function calling in one stream.
+ * Gemini 3 allows googleSearch + function calling in one stream when
+ * toolConfig.includeServerSideToolInvocations is true (VALIDATED mode).
  * Gemini 2.5 rejects that combination — use web-only or workspace-only per turn.
  */
 export function buildBoardroomTools(model: string, mode: BoardroomToolMode = 'workspace') {

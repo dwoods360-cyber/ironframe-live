@@ -12,6 +12,7 @@ export type GeminiStreamFaultKind =
   | "model"
   | "network"
   | "abort"
+  | "tool_config"
   | "unknown";
 
 export type GeminiStreamFault = {
@@ -71,6 +72,12 @@ export function isGeminiNetworkError(error: unknown): boolean {
   );
 }
 
+export function isGeminiToolConfigError(error: unknown): boolean {
+  return /include_server_side_tool_invocations|Built-in tools with Function calling|tool combination/i.test(
+    errorMessage(error),
+  );
+}
+
 /**
  * Map Gemini / stream failures into operator-safe board copy.
  * Avoids the opaque "verify GOOGLE_API_KEY" catch-all when the real cause is quota, model, or network.
@@ -118,6 +125,15 @@ export function classifyGeminiStreamFault(error: unknown): GeminiStreamFault {
       kind: "model",
       operatorMessage:
         "Gemini model unavailable. Confirm IRONBOARD_GEMINI_MODEL (default gemini-3.5-flash) is enabled for this API key.",
+      logDetail,
+    };
+  }
+
+  if (isGeminiToolConfigError(error)) {
+    return {
+      kind: "tool_config",
+      operatorMessage:
+        "Gemini rejected the boardroom tool configuration (search + function calling). Ironboard needs includeServerSideToolInvocations enabled — redeploy the latest Ironboard worker.",
       logDetail,
     };
   }

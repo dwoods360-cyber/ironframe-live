@@ -27,6 +27,9 @@ async function proxyIronboardConsole(request: NextRequest, pathSegments: string[
   if (contentType) headers.set("content-type", contentType);
   headers.set(X_CONVERSATION_PLANE, IRONBOARD_BOARDROOM_PLANE);
   headers.set("accept", request.headers.get("accept") ?? "*/*");
+  // Forward operator session cookies so boardroom core-telemetry inherits tenant scope.
+  const cookie = request.headers.get("cookie");
+  if (cookie) headers.set("cookie", cookie);
 
   const init: RequestInit = {
     method: request.method,

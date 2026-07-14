@@ -57,6 +57,11 @@ describe("geminiRetry", () => {
     expect(classifyGeminiStreamFault(new Error("RESOURCE_EXHAUSTED")).kind).toBe("quota");
     expect(classifyGeminiStreamFault(new Error("model xyz is not found")).kind).toBe("model");
     expect(classifyGeminiStreamFault(new Error("fetch failed")).kind).toBe("network");
+    expect(
+      classifyGeminiStreamFault(
+        new Error("Please enable tool_config.include_server_side_tool_invocations"),
+      ).kind,
+    ).toBe("tool_config");
     expect(classifyGeminiStreamFault(new Error("weird failure")).operatorMessage).toMatch(
       /Live stream faulted:/,
     );

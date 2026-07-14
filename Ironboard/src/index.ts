@@ -1968,12 +1968,15 @@ function renderDashboard(): string {
         function scoreMicLabel(label) {
           var s = String(label || '').toLowerCase();
           var score = 0;
+          // Hard preference: operator desk mic.
+          if (/fifine\\s*sc3/i.test(s)) score += 1000;
+          else if (/fifine/i.test(s)) score += 500;
           // Virtual / loopback devices often have zero spoken audio.
-          if (/vb-audio|virtual cable|cable (in|input|output)|stereo mix|what u hear|boom audio|Voicemeeter/i.test(s)) {
+          if (/vb-audio|virtual cable|cable (in|input|output)|stereo mix|what u hear|boom audio|voicemeeter/i.test(s)) {
             score -= 80;
           }
-          if (/microphone|headset mic|fifine|bose|array|usb audio/i.test(s)) score += 30;
-          if (/headset microphone|fifine|bose flex/i.test(s)) score += 20;
+          if (/microphone|headset mic|array|usb audio/i.test(s)) score += 30;
+          if (/headset microphone|bose flex/i.test(s)) score += 10;
           return score;
         }
 
@@ -1993,14 +1996,40 @@ function renderDashboard(): string {
           var devices = await navigator.mediaDevices.enumerateDevices();
           var inputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
           if (!inputs.length) {
-            return { deviceId: undefined, label: '(default)' };
+            return { deviceId: undefined, label: '(default)', exact: false };
           }
+
+          // Absolute pin when fifine SC3 is present.
+          var fifine = null;
+          for (var i = 0; i < inputs.length; i++) {
+            var lab = String(inputs[i].label || '');
+            if (/fifine\\s*sc3/i.test(lab)) {
+              fifine = inputs[i];
+              break;
+            }
+          }
+          if (!fifine) {
+            for (var j = 0; j < inputs.length; j++) {
+              if (/fifine/i.test(String(inputs[j].label || ''))) {
+                fifine = inputs[j];
+                break;
+              }
+            }
+          }
+          if (fifine) {
+            return {
+              deviceId: fifine.deviceId,
+              label: fifine.label || 'Microphone (fifine SC3)',
+              exact: true
+            };
+          }
+
           var ranked = inputs
             .map(function(d) {
               return { deviceId: d.deviceId, label: d.label || '(unnamed mic)', score: scoreMicLabel(d.label) };
             })
             .sort(function(a, b) { return b.score - a.score; });
-          return ranked[0];
+          return { deviceId: ranked[0].deviceId, label: ranked[0].label, exact: false };
         }
 
         function blobToBase64(blob) {
@@ -2188,23 +2217,34 @@ function renderDashboard(): string {
           try {
             var preferred = await resolvePreferredMic();
             pttDeviceLabel = preferred.label || '(default)';
-            var constraints = {
-              audio: preferred.deviceId
-                ? {
-                    deviceId: { ideal: preferred.deviceId },
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                  }
-                : {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl: true
-                  }
-            };
-            var stream = await navigator.mediaDevices.getUserMedia(constraints);
+            var audioConstraint;
+            if (preferred.deviceId && preferred.exact) {
+              audioConstraint = {
+                deviceId: { exact: preferred.deviceId },
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              };
+            } else if (preferred.deviceId) {
+              audioConstraint = {
+                deviceId: { ideal: preferred.deviceId },
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              };
+            } else {
+              audioConstraint = {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+              };
+            }
+            var stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraint });
             var track = stream.getAudioTracks()[0];
             if (track && track.label) pttDeviceLabel = track.label;
+            if (preferred.exact && !/fifine/i.test(pttDeviceLabel)) {
+              setStatus('PTT: could not lock fifine SC3 (got ' + pttDeviceLabel + '). Check USB mic + browser permission.');
+            }
 
             var mime = pickRecorderMime();
             pttChunks = [];

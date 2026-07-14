@@ -16,6 +16,8 @@ type IronboardEngineHealthSnapshot = {
   upstreamBase: string;
   error: string | null;
   retryIntervalSec: number;
+  /** Public HTTPS engine URL when available; otherwise same-origin console proxy path. */
+  boardroomEmbedUrl?: string;
 };
 
 const RUNBOOK_STEPS = [
@@ -244,10 +246,11 @@ export default function IronboardPortalClient() {
 
       {isOnline ? (
         <iframe
-          key={health?.checkedAt ?? "online"}
+          key={health?.boardroomEmbedUrl ?? health?.checkedAt ?? "online"}
           title="IronBoard 17-Agent Boardroom"
-          src={ironboardConsoleProxyPath()}
+          src={health?.boardroomEmbedUrl || ironboardConsoleProxyPath()}
           className="min-h-0 w-full flex-1 border-0 bg-[#020617]"
+          referrerPolicy="strict-origin-when-cross-origin"
         />
       ) : null}
     </div>

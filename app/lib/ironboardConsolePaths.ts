@@ -20,3 +20,15 @@ export function ironboardConsoleProxyPath(subpath = ""): string {
 export function ironboardConsoleBaseHref(): string {
   return `${IRONBOARD_CONSOLE_PROXY_PREFIX}/`;
 }
+
+/**
+ * Prefer a public HTTPS engine URL for the ops iframe so Query SSE hits Cloud Run
+ * directly (avoids Vercel proxy buffering / trailing-slash baseURI traps).
+ * Fall back to the same-origin console proxy for local/private upstreams.
+ */
+export function resolveBoardroomEmbedUrl(upstreamBase: string, reachable: boolean): string {
+  if (reachable && /^https:\/\//i.test(upstreamBase.trim())) {
+    return `${upstreamBase.trim().replace(/\/$/, "")}/`;
+  }
+  return ironboardConsoleProxyPath();
+}

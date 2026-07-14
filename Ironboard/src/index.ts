@@ -1146,12 +1146,15 @@ function renderDashboard(): string {
     function boardApiUrl(path) {
       // Use RegExp ctor — a /^\\// literal is corrupted inside this HTML template string.
       var clean = String(path || '').replace(new RegExp('^/'), '');
-      var base = document.baseURI || '/';
+      var root =
+        (typeof window !== 'undefined' && window.__IRONBOARD_API_ROOT__) ||
+        document.baseURI ||
+        '/';
       // Without a trailing slash, URL() treats the last segment as a file and drops it —
       // e.g. .../ironboard-console + api/query → .../operations-hub/api/query (breaks Query).
-      if (base.charAt(base.length - 1) !== '/') base = base + '/';
+      if (root.charAt(root.length - 1) !== '/') root = root + '/';
       try {
-        return new URL(clean, base).href;
+        return new URL(clean, root).href;
       } catch (err) {
         return '/' + clean;
       }

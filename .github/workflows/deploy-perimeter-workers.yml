@@ -135,6 +135,17 @@ jobs:
                 > worker.env
               ;;
           esac
+          # Fail deploy if Gemini key was mangled (e.g. service-account email glued on).
+          if grep -q '^GOOGLE_API_KEY=' worker.env; then
+            GAK="$(grep '^GOOGLE_API_KEY=' worker.env | head -n1 | cut -d= -f2-)"
+            if [ -z "$GAK" ] || [ "${#GAK}" -lt 30 ] || [ "${#GAK}" -gt 64 ] || [[ "$GAK" == *"@"* ]]; then
+              echo "::error::GOOGLE_API_KEY failed shape check (empty, wrong length, or email-like). Refusing deploy."
+              exit 1
+            fi
+            if [[ "$GAK" != AIza* ]]; then
+              echo "::warning::GOOGLE_API_KEY does not start with AIza — confirm this is a Google AI Studio key."
+            fi
+          fi
           {
             echo "env_vars<<EOF"
             cat worker.env
@@ -162,7 +173,7 @@ jobs:
           service: ${{ matrix.service }}
           image: ${{ env.IMAGE }}
           region: ${{ env.REGION }}
-          env_vars: ${{ steps.env.outputs.env_vars }}
+          env_vars_file: worker.env
           flags: ${{ steps.deploy.outputs.flags }}
 
       - name: Allow public health probes

@@ -5,29 +5,8 @@
     <link>https://brief.ironframegrc.com</link>
     <description>Immutable Executive GRC Intelligence from the Ironframe System.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 14 Jul 2026 18:49:40 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 14 Jul 2026 19:05:28 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
-    <item>
-      <title>Control-first GRC: Part 3 — The Rise of Quantitative GRC and Continuous Enforcement (2019–Today)</title>
-      <link>https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2019-today</link>
-      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2019-today</guid>
-      <pubDate>Tue, 14 Jul 2026 18:49:39 GMT</pubDate>
-      <description>The modern GRC landscape is defined by the limits of point-in-time checklists and the rise of continuous, telemetry-driven, quantitative control. This briefing analyzes how regimes such as DORA and disclosure enforcement actions raise the bar for operational resilience — and why organizations need defensible dollar risk and workspace isolation, not merely faster certification theater.</description>
-    </item>
-    <item>
-      <title>Control-first GRC: Part 2 — The Cloud Migration and the Checklist Industrial Complex (2009–2018)</title>
-      <link>https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2009-2018</link>
-      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2009-2018</guid>
-      <pubDate>Tue, 14 Jul 2026 18:49:33 GMT</pubDate>
-      <description>The rapid migration of enterprise infrastructure to the cloud between 2009 and 2018, and the subsequent rise of the checklist industrial complex. This briefing examines how SOC 2 (2011) amplified demand for compliance tracking — and how first-generation automation often optimized for check-the-box certification without transparent validation logic or hard workspace isolation.</description>
-    </item>
-    <item>
-      <title>Control-first GRC: Part 1 — The Sarbanes-Oxley Era and Checklist Foundations (2000–2008)</title>
-      <link>https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2000-2008</link>
-      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-07-14-market-grc-2000-2008</guid>
-      <pubDate>Tue, 14 Jul 2026 18:49:15 GMT</pubDate>
-      <description>The transition from unregulated financial reporting to the rigid, manual compliance frameworks of the early 2000s. This briefing analyzes how the Sarbanes-Oxley Act of 2002 established the foundation of checklist-based GRC, and why manual spreadsheet-based controls introduced systemic vulnerabilities that still challenge modern enterprises.</description>
-    </item>
     <item>
       <title>[Issue #1] Staging Boundary Check — Governance Frame Local Sandbox</title>
       <link>https://brief.ironframegrc.com/governance-frame/2026-06-07-staging-boundary-check</link>

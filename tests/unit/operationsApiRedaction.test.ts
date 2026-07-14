@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   redactOperationsHubSnapshot,
@@ -8,9 +8,37 @@ import {
 import type { OperationsHubSnapshot } from "@/app/lib/server/operationsHubCore";
 
 describe("operationsApiRedaction", () => {
+  const originalCrmScope = process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
+  const originalVercelEnv = process.env.VERCEL_ENV;
+  const originalRequireScope = process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE;
+
+  afterEach(() => {
+    if (originalCrmScope === undefined) delete process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
+    else process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = originalCrmScope;
+    if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = originalVercelEnv;
+    if (originalRequireScope === undefined) delete process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE;
+    else process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE = originalRequireScope;
+  });
+
   it("resolveOperationsCrmScopeSlug rejects malformed client-style slugs via env validation", () => {
+    delete process.env.VERCEL_ENV;
+    delete process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE;
+    delete process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
     const slug = resolveOperationsCrmScopeSlug();
     expect(slug).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it("resolveOperationsCrmScopeSlug requires env in production", () => {
+    process.env.VERCEL_ENV = "production";
+    delete process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
+    expect(() => resolveOperationsCrmScopeSlug()).toThrow(/IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG/);
+  });
+
+  it("resolveOperationsCrmScopeSlug uses configured production slug", () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = "pilot1";
+    expect(resolveOperationsCrmScopeSlug()).toBe("pilot1");
   });
 
   it("redactOperationsHubSnapshot strips tenant ids and worker infra urls", () => {

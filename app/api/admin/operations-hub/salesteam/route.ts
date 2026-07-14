@@ -5,6 +5,7 @@ import {
   redactSalesTeamPortalSnapshot,
   resolveOperationsCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
+import { operationsPortalErrorResponse } from "@/app/lib/server/operationsPortalHttp";
 import {
   buildSalesTeamPortalSnapshot,
   triggerSalesTeamPoll,
@@ -18,8 +19,12 @@ export async function GET() {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
-  return NextResponse.json(redactSalesTeamPortalSnapshot(snapshot));
+  try {
+    const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    return NextResponse.json(redactSalesTeamPortalSnapshot(snapshot));
+  } catch (err) {
+    return operationsPortalErrorResponse(err, "Sales team snapshot");
+  }
 }
 
 export async function POST() {
@@ -33,10 +38,14 @@ export async function POST() {
     return NextResponse.json({ error: result.error ?? "Poll failed" }, { status: 502 });
   }
 
-  const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
-  return NextResponse.json({
-    ok: true,
-    poll: result.result,
-    snapshot: redactSalesTeamPortalSnapshot(snapshot),
-  });
+  try {
+    const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    return NextResponse.json({
+      ok: true,
+      poll: result.result,
+      snapshot: redactSalesTeamPortalSnapshot(snapshot),
+    });
+  } catch (err) {
+    return operationsPortalErrorResponse(err, "Sales team snapshot");
+  }
 }

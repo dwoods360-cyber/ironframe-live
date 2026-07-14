@@ -12,11 +12,22 @@ import type {
 const UUID_RE =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 
-/** Server-resolved CRM scope for perimeter ops portals — never accept tenant slug/id from clients. */
+/**
+ * Server-resolved CRM scope for perimeter ops portals — never accept tenant slug/id from clients.
+ * Production (VERCEL_ENV=production) requires IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG — no silent medshield fallback.
+ */
 export function resolveOperationsCrmScopeSlug(): string {
   const configured = process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG?.trim().toLowerCase();
   if (configured && /^[a-z0-9-]+$/.test(configured)) {
     return configured;
+  }
+  if (
+    process.env.VERCEL_ENV === "production" ||
+    process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE === "1"
+  ) {
+    throw new Error(
+      "IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG is not set. Set it to an existing tenant slug (e.g. pilot1) in Vercel Production.",
+    );
   }
   return "medshield";
 }

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import {
   redactSuccessTeamPortalSnapshot,
   resolveOperationsCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
+import { operationsPortalErrorResponse } from "@/app/lib/server/operationsPortalHttp";
 import {
   buildSuccessTeamPortalSnapshot,
   triggerSuccessTeamPoll,
@@ -18,12 +19,15 @@ export async function GET() {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  const crmScopeSlug = resolveOperationsCrmScopeSlug();
-  const snapshot = await buildSuccessTeamPortalSnapshot(crmScopeSlug);
-  return NextResponse.json(redactSuccessTeamPortalSnapshot(snapshot));
+  try {
+    const snapshot = await buildSuccessTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    return NextResponse.json(redactSuccessTeamPortalSnapshot(snapshot));
+  } catch (err) {
+    return operationsPortalErrorResponse(err, "Success team snapshot");
+  }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
@@ -34,11 +38,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error ?? "Poll failed" }, { status: 502 });
   }
 
-  const crmScopeSlug = resolveOperationsCrmScopeSlug();
-  const snapshot = await buildSuccessTeamPortalSnapshot(crmScopeSlug);
-  return NextResponse.json({
-    ok: true,
-    poll: result.result,
-    snapshot: redactSuccessTeamPortalSnapshot(snapshot),
-  });
+  try {
+    const snapshot = await buildSuccessTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    return NextResponse.json({
+      ok: true,
+      poll: result.result,
+      snapshot: redactSuccessTeamPortalSnapshot(snapshot),
+    });
+  } catch (err) {
+    return operationsPortalErrorResponse(err, "Success team snapshot");
+  }
 }

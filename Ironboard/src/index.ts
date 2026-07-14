@@ -9,6 +9,7 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type GroundingMetadata } from '@google/genai';
 import { classifyGeminiStreamFault, withGeminiRateLimitRetry } from './lib/geminiRetry.js';
+import { buildIronboardReadiness } from './lib/geminiCredentialHealth.js';
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
 import {
   AGENTIC_BOARD_ROSTER,
@@ -306,10 +307,17 @@ function buildBoardroomStreamConfig(
   toolMode: BoardroomToolMode,
   videoTimelineActive: boolean,
 ): Record<string, unknown> {
+  // Gemini 3 combined (googleSearch + functionDeclarations) requires tool-context
+  // circulation; AUTO mode is rejected when includeServerSideToolInvocations is set.
   const toolConfig: Record<string, unknown> =
-    toolMode === 'workspace' || toolMode === 'combined'
-      ? { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } }
-      : {};
+    toolMode === 'combined'
+      ? {
+          includeServerSideToolInvocations: true,
+          functionCallingConfig: { mode: FunctionCallingConfigMode.VALIDATED },
+        }
+      : toolMode === 'workspace'
+        ? { functionCallingConfig: { mode: FunctionCallingConfigMode.AUTO } }
+        : {};
 
   const config: Record<string, unknown> = {
     systemInstruction: prependVideoIntelligenceSystemOverride(
@@ -1038,13 +1046,37 @@ function renderDashboard(): string {
       }
     }
 
+    function isLegacyOrOpsFaultText(text) {
+      if (!text || typeof text !== 'string') return false;
+      return /Live stream faulted|verify GOOGLE_API_KEY|CORE_TELEMETRY_DISCONNECTED|Gemini rate limit|Gemini rejected the API key|could not reach Gemini|tool configuration/i.test(text);
+    }
+
+    function scrubLegacyFaultTurns(history) {
+      if (!Array.isArray(history)) return history;
+      return history.filter(function(turn) {
+        if (!turn || turn.role !== 'model') return true;
+        return !isLegacyOrOpsFaultText(turn.text);
+      });
+    }
+
+    function isTransientStreamFault(text) {
+      if (!text || typeof text !== 'string') return false;
+      return /rate limit|quota hit|could not reach Gemini|Retry in a moment|network/i.test(text) &&
+        !/GOOGLE_API_KEY|rejected the API key|tool configuration|CORE_TELEMETRY/i.test(text);
+    }
+
     function hydrateChatHistory() {
       try {
         var raw = localStorage.getItem(CHAT_HISTORY_KEY);
         if (!raw) return;
         var parsed = JSON.parse(raw);
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          historiesByAgent = parsed;
+          var scrubbed = {};
+          Object.keys(parsed).forEach(function(agentKey) {
+            scrubbed[agentKey] = scrubLegacyFaultTurns(parsed[agentKey]);
+          });
+          historiesByAgent = scrubbed;
+          persistChatHistory();
         }
       } catch (err) {
         console.warn('[IRONBOARD] Chat history hydrate failed:', err);
@@ -1661,7 +1693,10 @@ function renderDashboard(): string {
       submitBtn.disabled = true;
       setStatus('Streaming…');
 
-      try {
+      async function runQueryStream(attempt) {
+        streamingText = '';
+        streamingGrounding = null;
+        streamingToolHint = '';
         var response = await fetch('/api/query', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
@@ -1681,7 +1716,14 @@ function renderDashboard(): string {
             errBody = null;
           }
           if (response.status === 502 && errBody && errBody.error === 'CORE_TELEMETRY_DISCONNECTED') {
-            throw new Error(errBody.error + (errBody.detail ? ': ' + errBody.detail : ''));
+            throw new Error(
+              'Ironframe core telemetry unreachable from this board worker. Confirm IRONFRAME_CORE_ORIGIN points at the live control plane (e.g. https://ironframegrc.com), then redeploy Ironboard.'
+            );
+          }
+          if (attempt < 1 && (response.status === 429 || response.status >= 500)) {
+            setStatus('Transient fault — retrying once…');
+            await new Promise(function(resolve) { setTimeout(resolve, 1200); });
+            return runQueryStream(attempt + 1);
           }
           throw new Error('Request failed: ' + response.status);
         }
@@ -1701,12 +1743,24 @@ function renderDashboard(): string {
           processSseBuffer(sseBuffer + '\\n\\n');
         }
 
-        var assistantReply = streamingText;
-        if (assistantReply) {
+        if (attempt < 1 && isTransientStreamFault(streamingText)) {
+          setStatus('Transient Gemini fault — retrying once…');
+          await new Promise(function(resolve) { setTimeout(resolve, 1200); });
+          return runQueryStream(attempt + 1);
+        }
+
+        return streamingText;
+      }
+
+      try {
+        var assistantReply = await runQueryStream(0);
+        if (assistantReply && !isLegacyOrOpsFaultText(assistantReply)) {
           var modelTurn = { role: 'model', text: assistantReply };
           if (streamingGrounding) modelTurn.grounding = streamingGrounding;
           conversationHistory.push(modelTurn);
           persistChatHistory();
+        } else if (assistantReply && isLegacyOrOpsFaultText(assistantReply)) {
+          setStatus(assistantReply);
         }
         streamingText = '';
         streamingGrounding = null;
@@ -1715,9 +1769,13 @@ function renderDashboard(): string {
         renderChat();
         scrollChatToBottom();
 
-        setStatus('Complete.');
-        input.value = '';
-        speakPanelText(assistantReply, activeAgentRole);
+        if (assistantReply && !isLegacyOrOpsFaultText(assistantReply)) {
+          setStatus('Complete.');
+          input.value = '';
+          speakPanelText(assistantReply, activeAgentRole);
+        } else if (!assistantReply) {
+          setStatus('Stream ended with no tokens.');
+        }
       } catch (err) {
         console.error(err);
         streamingText = '';
@@ -1792,7 +1850,30 @@ app.post(
 app.use(express.json({ limit: '12mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'HEALTHY', service: 'ironboard', port: PORT });
+  const key = getIronboardApiKey();
+  res.json({
+    status: 'HEALTHY',
+    service: 'ironboard',
+    port: PORT,
+    geminiKeyPresent: Boolean(key?.trim()),
+    geminiModel: getIronboardGeminiModel(),
+    coreOriginConfigured: Boolean(
+      process.env.IRONFRAME_CORE_ORIGIN?.trim() || process.env.IRONFRAME_MARKETING_ORIGIN?.trim(),
+    ),
+  });
+});
+
+app.get('/ready', async (_req, res) => {
+  try {
+    const snapshot = await buildIronboardReadiness({ probeGemini: true });
+    res.status(snapshot.ready ? 200 : 503).json(snapshot);
+  } catch (err) {
+    console.error('[IRONBOARD] readiness probe failed', err);
+    res.status(503).json({
+      ready: false,
+      error: err instanceof Error ? err.message : 'readiness probe failed',
+    });
+  }
 });
 
 app.get('/api/product-matrix/health', async (_req, res) => {

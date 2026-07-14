@@ -81,10 +81,13 @@ jobs:
           if [ -z "$CRM_SCOPE" ]; then CRM_SCOPE="bwc"; fi
           case "${{ matrix.id }}" in
             ironboard)
+              CORE_ORIGIN="${{ env.CONTROL_PLANE_URL }}"
+              if [ -z "$CORE_ORIGIN" ]; then CORE_ORIGIN="https://ironframegrc.com"; fi
               printf '%s\n' \
                 "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
                 "DATABASE_URL=${{ secrets.DATABASE_URL }}" \
                 "DIRECT_URL=${{ secrets.DIRECT_URL }}" \
+                "IRONFRAME_CORE_ORIGIN=${CORE_ORIGIN}" \
                 > worker.env
               ;;
             ironleads)

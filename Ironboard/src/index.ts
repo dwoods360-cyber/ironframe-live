@@ -1940,6 +1940,13 @@ function renderDashboard(): string {
         var pttChunks = [];
         var pttActive = false;
         var pttBusy = false;
+        var pttStartedAt = 0;
+        var pttDeviceLabel = '';
+        var pttAudioCtx = null;
+        var pttAnalyser = null;
+        var pttPeak = 0;
+        var pttMeterTimer = null;
+        var pttMeterArmed = false;
 
         function pickRecorderMime() {
           var candidates = [
@@ -1958,6 +1965,44 @@ function renderDashboard(): string {
           return '';
         }
 
+        function scoreMicLabel(label) {
+          var s = String(label || '').toLowerCase();
+          var score = 0;
+          // Virtual / loopback devices often have zero spoken audio.
+          if (/vb-audio|virtual cable|cable (in|input|output)|stereo mix|what u hear|boom audio|Voicemeeter/i.test(s)) {
+            score -= 80;
+          }
+          if (/microphone|headset mic|fifine|bose|array|usb audio/i.test(s)) score += 30;
+          if (/headset microphone|fifine|bose flex/i.test(s)) score += 20;
+          return score;
+        }
+
+        async function resolvePreferredMic() {
+          // Need a permission grant before device labels populate.
+          var probe = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+          try {
+            probe.getTracks().forEach(function(t) { t.stop(); });
+          } catch (err) {}
+
+          var devices = await navigator.mediaDevices.enumerateDevices();
+          var inputs = devices.filter(function(d) { return d.kind === 'audioinput'; });
+          if (!inputs.length) {
+            return { deviceId: undefined, label: '(default)' };
+          }
+          var ranked = inputs
+            .map(function(d) {
+              return { deviceId: d.deviceId, label: d.label || '(unnamed mic)', score: scoreMicLabel(d.label) };
+            })
+            .sort(function(a, b) { return b.score - a.score; });
+          return ranked[0];
+        }
+
         function blobToBase64(blob) {
           return new Promise(function(resolve, reject) {
             var reader = new FileReader();
@@ -1971,29 +2016,97 @@ function renderDashboard(): string {
           });
         }
 
+        function stopMeter() {
+          if (pttMeterTimer) {
+            clearInterval(pttMeterTimer);
+            pttMeterTimer = null;
+          }
+          try {
+            if (pttAudioCtx) pttAudioCtx.close();
+          } catch (err) {}
+          pttAudioCtx = null;
+          pttAnalyser = null;
+          pttMeterArmed = false;
+        }
+
+        function startMeter(stream) {
+          stopMeter();
+          pttPeak = 0;
+          try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            pttAudioCtx = new Ctx();
+            var source = pttAudioCtx.createMediaStreamSource(stream);
+            pttAnalyser = pttAudioCtx.createAnalyser();
+            pttAnalyser.fftSize = 256;
+            source.connect(pttAnalyser);
+            pttMeterArmed = true;
+            var data = new Uint8Array(pttAnalyser.frequencyBinCount);
+            pttMeterTimer = setInterval(function() {
+              if (!pttAnalyser) return;
+              pttAnalyser.getByteTimeDomainData(data);
+              var peak = 0;
+              for (var i = 0; i < data.length; i++) {
+                var v = Math.abs(data[i] - 128);
+                if (v > peak) peak = v;
+              }
+              if (peak > pttPeak) pttPeak = peak;
+              if (pttActive) {
+                var level = peak < 3 ? 'silent' : peak < 12 ? 'quiet' : 'hot';
+                setStatus(
+                  'PTT recording (' + level + ') via ' + (pttDeviceLabel || 'mic') +
+                    ' — click PTT again to finish.'
+                );
+              }
+            }, 200);
+          } catch (err) {
+            console.warn('[IRONBOARD] PTT meter unavailable:', err);
+            pttMeterArmed = false;
+          }
+        }
+
         async function stopPttAndSubmit() {
           if (!pttRecorder || !pttActive) return;
           pttBusy = true;
           pttActive = false;
           pttBtn.dataset.recording = '0';
           pttBtn.textContent = 'PTT';
-          setStatus('PTT: transcribing…');
+          stopMeter();
+
+          var elapsedMs = Date.now() - pttStartedAt;
+          if (elapsedMs < 700) {
+            try { pttRecorder.requestData(); } catch (err) {}
+            try { pttRecorder.stop(); } catch (err) {}
+            try {
+              var earlyStream = pttRecorder._stream;
+              if (earlyStream) earlyStream.getTracks().forEach(function(t) { try { t.stop(); } catch (e) {} });
+            } catch (err) {}
+            pttRecorder = null;
+            pttChunks = [];
+            setStatus('PTT: hold at least ~1s while speaking, then click again.');
+            pttBusy = false;
+            return;
+          }
+
+          setStatus('PTT: transcribing via ' + (pttDeviceLabel || 'mic') + '…');
 
           var blob = await new Promise(function(resolve) {
             var finished = false;
-            pttRecorder.onstop = function() {
+            var done = function() {
               if (finished) return;
               finished = true;
-              resolve(new Blob(pttChunks, { type: pttRecorder.mimeType || 'audio/webm' }));
+              resolve(new Blob(pttChunks, { type: (pttRecorder && pttRecorder.mimeType) || 'audio/webm' }));
             };
+            pttRecorder.onstop = done;
+            try {
+              pttRecorder.requestData();
+            } catch (err) {}
             try {
               pttRecorder.stop();
             } catch (err) {
-              if (!finished) {
-                finished = true;
-                resolve(new Blob(pttChunks, { type: 'audio/webm' }));
-              }
+              done();
             }
+            setTimeout(done, 1500);
           });
 
           try {
@@ -2009,7 +2122,16 @@ function renderDashboard(): string {
           pttChunks = [];
 
           if (!blob || blob.size < 256) {
-            setStatus('PTT: no audio captured — try again.');
+            setStatus('PTT: no audio captured — check mic permission and Windows input device.');
+            pttBusy = false;
+            return;
+          }
+
+          if (pttMeterArmed && pttPeak < 3) {
+            setStatus(
+              'PTT: mic stayed silent (' + (pttDeviceLabel || 'device') +
+                '). Windows Sound → Input: pick Headset/fifine mic, not VB-Audio Cable. Then retry.'
+            );
             pttBusy = false;
             return;
           }
@@ -2043,7 +2165,10 @@ function renderDashboard(): string {
               ? payload.transcript.trim()
               : '';
             if (!transcript) {
-              setStatus('PTT: heard nothing — try again.');
+              setStatus(
+                'PTT: Gemini heard silence from ' + (pttDeviceLabel || 'mic') +
+                  '. Switch Windows default input away from VB-Audio Cable / Boom, then retry.'
+              );
               pttBusy = false;
               return;
             }
@@ -2061,7 +2186,26 @@ function renderDashboard(): string {
         async function startPtt() {
           if (pttBusy || isStreamingActive) return;
           try {
-            var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            var preferred = await resolvePreferredMic();
+            pttDeviceLabel = preferred.label || '(default)';
+            var constraints = {
+              audio: preferred.deviceId
+                ? {
+                    deviceId: { ideal: preferred.deviceId },
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                  }
+                : {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                  }
+            };
+            var stream = await navigator.mediaDevices.getUserMedia(constraints);
+            var track = stream.getAudioTracks()[0];
+            if (track && track.label) pttDeviceLabel = track.label;
+
             var mime = pickRecorderMime();
             pttChunks = [];
             pttRecorder = mime
@@ -2071,13 +2215,15 @@ function renderDashboard(): string {
             pttRecorder.ondataavailable = function(ev) {
               if (ev.data && ev.data.size > 0) pttChunks.push(ev.data);
             };
-            pttRecorder.start(250);
+            pttRecorder.start(200);
+            pttStartedAt = Date.now();
             pttActive = true;
             pttBtn.dataset.recording = '1';
             pttBtn.textContent = 'REC';
-            setStatus('PTT recording… click again to finish.');
+            startMeter(stream);
+            setStatus('PTT recording via ' + pttDeviceLabel + ' — speak, then click PTT again.');
           } catch (err) {
-            setStatus('PTT mic denied — allow microphone, then retry.');
+            setStatus('PTT mic denied — click the lock icon in the address bar → allow Microphone for this site.');
             console.warn('[IRONBOARD] PTT getUserMedia failed:', err);
           }
         }

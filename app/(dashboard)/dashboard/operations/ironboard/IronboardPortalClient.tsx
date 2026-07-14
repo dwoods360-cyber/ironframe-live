@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { formatElapsedDowntime } from "@/app/lib/formatDowntime";
 import { ironboardConsoleProxyPath } from "@/app/lib/ironboardConsolePaths";
-import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type IronboardEngineHealthSnapshot = {
   checkedAt: string;
@@ -85,14 +84,28 @@ export default function IronboardPortalClient() {
   const runHealthCheck = useCallback(async () => {
     setChecking(true);
     try {
-      const data = await fetchOpsPortalJson<IronboardEngineHealthSnapshot>(
-        "/api/admin/operations-hub/ironboard-health",
-        { cache: "no-store" },
-        "Health check request failed",
-      );
-      if (data.checkedAt) {
+      const response = await fetch("/api/admin/operations-hub/ironboard-health", {
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as
+        | (IronboardEngineHealthSnapshot & { error?: string })
+        | null;
+      if (data?.checkedAt) {
         applyHealth(data);
+        return;
       }
+      applyHealth({
+        checkedAt: new Date().toISOString(),
+        reachable: false,
+        status: null,
+        latencyMs: null,
+        healthUrl: "—",
+        upstreamBase: "—",
+        error:
+          data?.error ||
+          (response.ok ? "Health check returned an empty payload" : `Health check HTTP ${response.status}`),
+        retryIntervalSec: 20,
+      });
     } catch {
       applyHealth({
         checkedAt: new Date().toISOString(),
@@ -158,6 +171,14 @@ export default function IronboardPortalClient() {
           >
             {checking ? "Checking…" : "Probe now"}
           </button>
+          <a
+            href={health?.boardroomEmbedUrl || "https://ironframe-ironboard-4qpposvc7q-uc.a.run.app/"}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-cyan-800/60 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-500"
+          >
+            Open board in new tab
+          </a>
           <Link
             href="/dashboard/operations"
             className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"

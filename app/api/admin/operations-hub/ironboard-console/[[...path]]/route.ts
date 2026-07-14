@@ -4,12 +4,14 @@ import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkf
 import { IRONBOARD_BOARDROOM_PLANE, X_CONVERSATION_PLANE } from "@/app/lib/conversationPlaneGateway";
 import {
   injectIronboardConsoleBaseHref,
-  ironboardConsoleProxyPath,
+  ironboardConsoleBaseHref,
   resolveIronboardUpstreamUrl,
 } from "@/app/lib/server/ironboardConsoleProxy";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+/** Boardroom SSE can run 30–90s (telemetry + Gemini). Default Vercel limit cuts the stream mid-flight. */
+export const maxDuration = 300;
 
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
@@ -47,7 +49,7 @@ async function proxyIronboardConsole(request: NextRequest, pathSegments: string[
   if (responseContentType.includes("text/html") && subpath === "/") {
     const html = injectIronboardConsoleBaseHref(
       await upstream.text(),
-      ironboardConsoleProxyPath(),
+      ironboardConsoleBaseHref(),
     );
     return new NextResponse(html, {
       status: upstream.status,
@@ -65,6 +67,7 @@ async function proxyIronboardConsole(request: NextRequest, pathSegments: string[
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   }

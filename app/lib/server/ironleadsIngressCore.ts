@@ -117,28 +117,30 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
         })
       : null;
 
-    const existingContact =
-      existingByDomain?.primaryContact ??
-      (await tx.ironboardCrmContact.findFirst({
-        where: {
-          tenantId: tenant.id,
-          company: { equals: companyName, mode: "insensitive" },
-          primaryDeals: { some: { stage: "SUSPECT" } },
-        },
-        include: {
-          primaryDeals: {
-            where: { stage: "SUSPECT" },
-            orderBy: { updatedAt: "desc" },
-            take: 1,
+    const existingByCompany = existingByDomain?.primaryContact
+      ? null
+      : await tx.ironboardCrmContact.findFirst({
+          where: {
+            tenantId: tenant.id,
+            company: { equals: companyName, mode: "insensitive" },
+            primaryDeals: { some: { stage: "SUSPECT" } },
           },
-        },
-        orderBy: { updatedAt: "desc" },
-      }));
+          include: {
+            primaryDeals: {
+              where: { stage: "SUSPECT" },
+              orderBy: { updatedAt: "desc" },
+              take: 1,
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        });
+
+    const existingContact = existingByDomain?.primaryContact ?? existingByCompany;
 
     if (existingContact) {
       const existingDeal =
         existingByDomain ??
-        ("primaryDeals" in existingContact ? existingContact.primaryDeals[0] : null) ??
+        existingByCompany?.primaryDeals[0] ??
         (await tx.ironboardCrmDeal.findFirst({
           where: {
             tenantId: tenant.id,

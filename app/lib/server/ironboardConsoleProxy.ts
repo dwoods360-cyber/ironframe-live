@@ -4,10 +4,16 @@ import { resolveIronboardBaseUrl } from "@/app/lib/conversationPlaneGateway";
 import {
   IRONBOARD_CONSOLE_PROXY_PREFIX,
   IRONBOARD_OPERATIONS_PORTAL_PATH,
+  ironboardConsoleBaseHref,
   ironboardConsoleProxyPath,
 } from "@/app/lib/ironboardConsolePaths";
 
-export { IRONBOARD_CONSOLE_PROXY_PREFIX, IRONBOARD_OPERATIONS_PORTAL_PATH, ironboardConsoleProxyPath };
+export {
+  IRONBOARD_CONSOLE_PROXY_PREFIX,
+  IRONBOARD_OPERATIONS_PORTAL_PATH,
+  ironboardConsoleBaseHref,
+  ironboardConsoleProxyPath,
+};
 
 export function resolveIronboardUpstreamUrl(pathname: string, search: string): string {
   const base = resolveIronboardBaseUrl();

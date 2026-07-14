@@ -1108,8 +1108,12 @@ function renderDashboard(): string {
     function boardApiUrl(path) {
       // Use RegExp ctor — a /^\\// literal is corrupted inside this HTML template string.
       var clean = String(path || '').replace(new RegExp('^/'), '');
+      var base = document.baseURI || '/';
+      // Without a trailing slash, URL() treats the last segment as a file and drops it —
+      // e.g. .../ironboard-console + api/query → .../operations-hub/api/query (breaks Query).
+      if (base.charAt(base.length - 1) !== '/') base = base + '/';
       try {
-        return new URL(clean, document.baseURI).href;
+        return new URL(clean, base).href;
       } catch (err) {
         return '/' + clean;
       }
@@ -1847,6 +1851,7 @@ function renderDashboard(): string {
       try {
         var response = await fetch(boardApiUrl('/api/prospects/trigger'), {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ targetCountries: countries })
         });
@@ -1876,6 +1881,7 @@ function renderDashboard(): string {
       try {
         var response = await fetch(boardApiUrl('/api/market/pitch'), {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain: domain })
         });
@@ -1903,6 +1909,7 @@ function renderDashboard(): string {
       try {
         var response = await fetch(boardApiUrl('/api/prospects/signal'), {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             domain: selectedProspectDomain,
@@ -2129,6 +2136,7 @@ function renderDashboard(): string {
         streamingToolHint = '';
         var response = await fetch(boardApiUrl('/api/query'), {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
           body: JSON.stringify({
             agentId: activeAgentId,
@@ -2148,6 +2156,11 @@ function renderDashboard(): string {
           if (response.status === 502 && errBody && errBody.error === 'CORE_TELEMETRY_DISCONNECTED') {
             throw new Error(
               'Ironframe core telemetry unreachable from this board worker. Confirm IRONFRAME_CORE_ORIGIN points at the live control plane (e.g. https://ironframegrc.com), then redeploy Ironboard.'
+            );
+          }
+          if (response.status === 401 || response.status === 403) {
+            throw new Error(
+              'Ops session expired or unauthorized for the boardroom proxy — refresh the operations portal and sign in again.'
             );
           }
           if (attempt < 1 && (response.status === 429 || response.status >= 500)) {
@@ -2247,7 +2260,10 @@ function renderDashboard(): string {
 
     async function refreshProductMatrixHealth() {
       try {
-        var response = await fetch(boardApiUrl('/api/product-matrix/health'), { cache: 'no-store' });
+        var response = await fetch(boardApiUrl('/api/product-matrix/health'), {
+          cache: 'no-store',
+          credentials: 'include',
+        });
         if (!response.ok) {
           var statusEl = document.getElementById('product-matrix-status');
           if (statusEl) {

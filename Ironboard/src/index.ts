@@ -195,7 +195,23 @@ function buildDocsFederationMatrix(): string {
   const customerSuccessLibrary = readDoc(
     path.join(docsRoot, 'customer-success', 'customer-success-library.md'),
   );
-  const loaded = [tas, trd, hub, monetizationBlueprint, marketingLibrary, storybrandFramework, customerSuccessLibrary].filter(Boolean).length;
+  const pricingPackaging = readDoc(
+    path.join(docsRoot, 'sales-enablement', 'pricing-and-packaging.md'),
+  );
+  const competitivePricingMap = readDoc(
+    path.join(docsRoot, 'sales-enablement', 'competitive-pricing-map.md'),
+  );
+  const loaded = [
+    tas,
+    trd,
+    hub,
+    monetizationBlueprint,
+    marketingLibrary,
+    storybrandFramework,
+    customerSuccessLibrary,
+    pricingPackaging,
+    competitivePricingMap,
+  ].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
   return [
@@ -205,6 +221,12 @@ function buildDocsFederationMatrix(): string {
     hub ? `\n── hub.md ──\n${hub}` : '',
     monetizationBlueprint
       ? `\n── MONETIZATION & MARKET BLUEPRINT (Q2 2026 — BOARD PRIORITY) ──\n${monetizationBlueprint}`
+      : '',
+    pricingPackaging
+      ? `\n── PRICING & PACKAGING (SALES-ENABLEMENT) ──\n${pricingPackaging}`
+      : '',
+    competitivePricingMap
+      ? `\n── COMPETITIVE PRICING MAP (SALES-ENABLEMENT) ──\n${competitivePricingMap}`
       : '',
     marketingLibrary
       ? `\n── MARKETING STRATEGY LIBRARY (GTM + STORYBRAND) ──\n${marketingLibrary}`
@@ -876,6 +898,15 @@ function renderDashboard(): string {
     .voice-controls .slider-row { display: flex; align-items: center; gap: 0.35rem; }
     .voice-controls input[type=range] { width: 4rem; accent-color: #f59e0b; cursor: pointer; }
     .voice-controls .val { font-size: 0.6rem; font-weight: 700; color: #fbbf24; min-width: 2rem; }
+    .ears-toggle { display: flex; align-items: center; gap: 0.4rem; border-left: 1px solid #334155; padding-left: 0.75rem; }
+    .ears-toggle button {
+      border: 1px solid #334155; background: #1e293b; color: #cbd5e1; border-radius: 999px;
+      padding: 0.25rem 0.7rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; cursor: pointer;
+    }
+    .ears-toggle button[data-active="1"] { border-color: #34d399; color: #34d399; box-shadow: 0 0 0.45rem rgba(52, 211, 153, 0.35); }
+    .ears-toggle button[data-mode="command"] { border-color: #f59e0b; color: #fbbf24; animation: matrix-pulse 1.2s ease-in-out infinite; }
+    .ears-hint { font-size: 0.55rem; color: #64748b; max-width: 9rem; line-height: 1.25; }
+    .ears-live { font-size: 0.55rem; color: #34d399; max-width: 18rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     header span { font-size: 0.65rem; color: #64748b; white-space: nowrap; }
     main { flex: 1 1 auto; display: grid; grid-template-columns: 32vw 1fr 22vw; min-height: 0; overflow: hidden; }
     section { border-right: 1px solid #1e293b; overflow-y: auto; overflow-x: hidden; padding: 1rem; min-height: 0; overscroll-behavior: contain; }
@@ -940,6 +971,8 @@ function renderDashboard(): string {
     textarea { flex: 1; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; color: #e2e8f0; padding: 0.65rem; resize: vertical; min-height: 2.75rem; max-height: 5.5rem; font-family: inherit; }
     button[type=submit] { background: #d97706; color: #020617; border: none; border-radius: 0.35rem; padding: 0 1.25rem; font-weight: 800; cursor: pointer; }
     button[type=submit]:disabled { opacity: 0.5; cursor: not-allowed; }
+    #dictate-btn { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.35rem; padding: 0 0.85rem; font-weight: 800; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; }
+    #dictate-btn[data-recording="1"] { border-color: #f87171; color: #fca5a5; box-shadow: 0 0 0.45rem rgba(248, 113, 113, 0.35); }
     #status { font-size: 0.65rem; color: #fbbf24; margin-top: 0.5rem; min-height: 1rem; flex-shrink: 0; }
     .product { padding: 0.5rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.35rem; margin-bottom: 0.4rem; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
     .workforce-app { flex-wrap: wrap; align-items: flex-start; }
@@ -972,6 +1005,11 @@ function renderDashboard(): string {
         <label for="voice-pitch-slider">Pitch</label>
         <input type="range" id="voice-pitch-slider" min="0.5" max="1.5" step="0.05" value="1.00" />
         <span id="pitch-val-display" class="val">1.00</span>
+      </div>
+      <div class="ears-toggle">
+        <button type="button" id="board-ears-toggle" data-active="0" title="Opt-in wake listening. Say Hey Board, then your question.">Ears off</button>
+        <span id="board-ears-hint" class="ears-hint">Wake: “Hey Board”</span>
+        <span id="board-ears-live" class="ears-live" aria-live="polite"></span>
       </div>
     </div>
     <span>Gemini · ${getIronboardGeminiModel()} · port ${PORT}</span>
@@ -1010,6 +1048,7 @@ function renderDashboard(): string {
       <div id="chat-compose">
         <form id="query-form">
           <textarea id="user-prompt" placeholder="Ask the board…" rows="2"></textarea>
+          <button type="button" id="dictate-btn" title="Click to dictate a question (Gemini STT)">Dictate</button>
           <button type="submit" id="submit-btn">Query</button>
         </form>
         <div id="status"></div>
@@ -1037,6 +1076,43 @@ function renderDashboard(): string {
     var VOICE_SPEED_KEY = 'ironboard_voice_speed';
     var VOICE_PITCH_KEY = 'ironboard_voice_pitch';
     var CHAT_HISTORY_KEY = 'ironboard_chat_history';
+    var BOARD_EARS_KEY = 'ironboard_ears_enabled';
+    var BOARD_WAKE_PHRASES = [
+      'hey board',
+      'hay board',
+      'hey bored',
+      'hay bored',
+      'hey ironboard',
+      'hay ironboard',
+      'hey iron board',
+      'hay iron board',
+      'attention board',
+      'a tension board',
+      'board listen',
+      'okay board',
+      'ok board',
+      'open board',
+      'yo board'
+    ];
+    var boardEarsEnabled = false;
+    var boardEarsMode = 'idle'; // idle | command
+    var boardEarsRecognition = null;
+    var boardEarsCommandBuffer = '';
+    var boardEarsCommandTimer = null;
+    var boardEarsRestartTimer = null;
+    var boardEarsCommitted = '';
+    var boardEarsInterim = '';
+    var boardEarsLastHeardAt = 0;
+
+    /** Resolve API paths against <base href> so ops-portal iframe proxy works (root-absolute /api ignores base). */
+    function boardApiUrl(path) {
+      var clean = String(path || '').replace(/^\//, '');
+      try {
+        return new URL(clean, document.baseURI).href;
+      } catch (err) {
+        return '/' + clean;
+      }
+    }
 
     function persistChatHistory() {
       try {
@@ -1217,6 +1293,359 @@ function renderDashboard(): string {
     hydrateVoiceSettings();
     bindVoiceSliders();
     refreshSpeechVoices();
+
+    function normalizeWakeTranscript(text) {
+      // IMPORTANT: this page is served from a TS template literal — use \\\\s so the browser gets \\s
+      return String(text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\\s]/g, ' ')
+        .replace(/\\s+/g, ' ')
+        .trim();
+    }
+
+    function boardEarsHeardText() {
+      return normalizeWakeTranscript((boardEarsCommitted + ' ' + boardEarsInterim).trim());
+    }
+
+    function applyBoardEarsChunk(chunk, isFinal) {
+      var next = normalizeWakeTranscript(chunk);
+      if (isFinal) {
+        if (next) {
+          boardEarsCommitted = normalizeWakeTranscript((boardEarsCommitted + ' ' + next).trim());
+          var words = boardEarsCommitted.split(' ');
+          if (words.length > 24) boardEarsCommitted = words.slice(-24).join(' ');
+        }
+        boardEarsInterim = '';
+      } else {
+        // Interim hypotheses replace (Chrome re-sends the whole current phrase).
+        boardEarsInterim = next;
+      }
+      boardEarsLastHeardAt = Date.now();
+      return boardEarsHeardText();
+    }
+
+    function findWakePhrase(normalized) {
+      var text = normalizeWakeTranscript(normalized);
+      if (!text) return null;
+      for (var i = 0; i < BOARD_WAKE_PHRASES.length; i++) {
+        var phrase = BOARD_WAKE_PHRASES[i];
+        var idx = text.indexOf(phrase);
+        if (idx >= 0) {
+          return {
+            phrase: phrase,
+            remainder: text.slice(idx + phrase.length).trim(),
+          };
+        }
+      }
+      // Fuzzy: opener word near "board" within a short window (handles STT splits).
+      var tokens = text.split(' ');
+      var openers = {
+        hey: true,
+        hay: true,
+        okay: true,
+        ok: true,
+        attention: true,
+        yo: true,
+        open: true
+      };
+      for (var t = 0; t < tokens.length; t++) {
+        if (!openers[tokens[t]]) continue;
+        for (var b = t + 1; b <= Math.min(tokens.length - 1, t + 3); b++) {
+          if (tokens[b] === 'board' || tokens[b] === 'ironboard' || tokens[b] === 'bored') {
+            return {
+              phrase: tokens.slice(t, b + 1).join(' '),
+              remainder: tokens.slice(b + 1).join(' ').trim(),
+            };
+          }
+        }
+      }
+      return null;
+    }
+
+    function updateBoardEarsUi() {
+      var btn = document.getElementById('board-ears-toggle');
+      var hint = document.getElementById('board-ears-hint');
+      if (!btn || !hint) return;
+      if (!boardEarsEnabled) {
+        btn.dataset.active = '0';
+        btn.dataset.mode = 'off';
+        btn.textContent = 'Ears off';
+        hint.textContent = 'Wake: “Hey Board”';
+        return;
+      }
+      btn.dataset.active = '1';
+      if (boardEarsMode === 'command') {
+        btn.dataset.mode = 'command';
+        btn.textContent = 'Listening…';
+        hint.textContent = 'Speak your question now';
+      } else {
+        btn.dataset.mode = 'idle';
+        btn.textContent = 'Ears on';
+        hint.textContent = 'Listening for wake phrase';
+      }
+    }
+
+    function showBoardEarsHeard(text) {
+      var shown = normalizeWakeTranscript(text);
+      var live = document.getElementById('board-ears-live');
+      if (!shown) {
+        if (live && boardEarsEnabled) live.textContent = 'mic live…';
+        return;
+      }
+      if (shown.length > 90) shown = '…' + shown.slice(-90);
+      if (live) live.textContent = 'Heard: ' + shown;
+      setStatus((boardEarsMode === 'command' ? 'Command mode · heard: ' : 'Ears · heard: ') + shown);
+    }
+
+    function speakBoardEarsAck(text) {
+      if (!window.speechSynthesis) return;
+      try {
+        // Cancel any prior speech so recognition is not starved by speaking-lock.
+        window.speechSynthesis.cancel();
+        var utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = Math.min(Math.max(getVoiceRate(), 0.75), 1.25);
+        utterance.pitch = Math.min(Math.max(getVoicePitch(), 0.85), 1.15);
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn('[IRONBOARD] Wake ack speech failed:', err);
+      }
+    }
+
+    function submitBoardEarsCommand(commandText) {
+      var cleaned = String(commandText || '').trim();
+      if (!cleaned) {
+        setStatus('Wake heard — no question captured. Say “Hey Board”, then your question.');
+        return;
+      }
+      var input = document.getElementById('user-prompt');
+      if (!input) return;
+      input.value = cleaned;
+      input.focus();
+      setStatus('Voice command → board: ' + cleaned);
+      var live = document.getElementById('board-ears-live');
+      if (live) live.textContent = 'Sent: ' + cleaned;
+      document.getElementById('query-form').requestSubmit();
+    }
+
+    function enterBoardEarsCommandMode(remainder) {
+      boardEarsMode = 'command';
+      boardEarsCommandBuffer = remainder || '';
+      boardEarsCommitted = '';
+      boardEarsInterim = '';
+      updateBoardEarsUi();
+      var input = document.getElementById('user-prompt');
+      if (input && !input.value.trim()) {
+        input.placeholder = 'Listening for your question…';
+      }
+      if (remainder && remainder.split(' ').length >= 2) {
+        // Wake + question arrived in one burst.
+        if (boardEarsCommandTimer) clearTimeout(boardEarsCommandTimer);
+        boardEarsMode = 'idle';
+        boardEarsCommandBuffer = '';
+        updateBoardEarsUi();
+        submitBoardEarsCommand(remainder);
+        return;
+      }
+      speakBoardEarsAck('Board listening.');
+      setStatus('Wake locked — ask the board now.');
+      if (boardEarsCommandTimer) clearTimeout(boardEarsCommandTimer);
+      boardEarsCommandTimer = setTimeout(function() {
+        if (boardEarsMode !== 'command') return;
+        var command = boardEarsCommandBuffer.trim();
+        boardEarsMode = 'idle';
+        boardEarsCommandBuffer = '';
+        updateBoardEarsUi();
+        if (command) submitBoardEarsCommand(command);
+        else setStatus('Wake timeout — say “Hey Board” again, then your question.');
+      }, 10000);
+    }
+
+    function handleBoardEarsTranscript(rawText, isFinal) {
+      var heard = applyBoardEarsChunk(rawText, isFinal);
+      showBoardEarsHeard(heard);
+      if (!heard) return;
+
+      if (boardEarsMode === 'idle') {
+        var hit = findWakePhrase(heard);
+        if (!hit) return;
+        // Prefer waking on finals (or strong interim with wake + question).
+        if (!isFinal && !(hit.remainder && hit.remainder.split(' ').length >= 2)) return;
+        enterBoardEarsCommandMode(hit.remainder);
+        return;
+      }
+
+      // Command capture window after wake — use remainder after wake words when present.
+      var withoutWake = heard;
+      var wakeHit = findWakePhrase(heard);
+      if (wakeHit) withoutWake = wakeHit.remainder;
+      if (withoutWake) boardEarsCommandBuffer = withoutWake;
+      showBoardEarsHeard(boardEarsCommandBuffer || heard);
+      if (isFinal && boardEarsCommandBuffer.trim()) {
+        if (boardEarsCommandTimer) clearTimeout(boardEarsCommandTimer);
+        var command = boardEarsCommandBuffer.trim();
+        boardEarsMode = 'idle';
+        boardEarsCommandBuffer = '';
+        boardEarsCommitted = '';
+        boardEarsInterim = '';
+        updateBoardEarsUi();
+        submitBoardEarsCommand(command);
+      }
+    }
+
+    function stopBoardEarsRecognition() {
+      if (boardEarsRestartTimer) {
+        clearTimeout(boardEarsRestartTimer);
+        boardEarsRestartTimer = null;
+      }
+      if (boardEarsCommandTimer) {
+        clearTimeout(boardEarsCommandTimer);
+        boardEarsCommandTimer = null;
+      }
+      boardEarsMode = 'idle';
+      boardEarsCommandBuffer = '';
+      boardEarsCommitted = '';
+      boardEarsInterim = '';
+      var live = document.getElementById('board-ears-live');
+      if (live) live.textContent = '';
+      if (boardEarsRecognition) {
+        try {
+          boardEarsRecognition.onresult = null;
+          boardEarsRecognition.onerror = null;
+          boardEarsRecognition.onend = null;
+          boardEarsRecognition.stop();
+        } catch (err) {
+          /* ignore stop races */
+        }
+        boardEarsRecognition = null;
+      }
+      updateBoardEarsUi();
+    }
+
+    function startBoardEarsRecognition() {
+      var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognitionCtor) {
+        setStatus('Wake listening needs Chrome/Edge Web Speech API.');
+        boardEarsEnabled = false;
+        try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+        updateBoardEarsUi();
+        return;
+      }
+
+      stopBoardEarsRecognition();
+      boardEarsEnabled = true;
+      updateBoardEarsUi();
+      showBoardEarsHeard('');
+
+      var beginRecognition = function() {
+        var recognition = new SpeechRecognitionCtor();
+        boardEarsRecognition = recognition;
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+        recognition.maxAlternatives = 3;
+
+        recognition.onstart = function() {
+          var live = document.getElementById('board-ears-live');
+          if (live) live.textContent = 'mic live…';
+          setStatus('Board ears on — say “Hey Board”, then your question.');
+        };
+
+        recognition.onresult = function(event) {
+          var interim = '';
+          var finalText = '';
+          for (var i = event.resultIndex; i < event.results.length; i++) {
+            var alt = event.results[i][0] ? event.results[i][0].transcript : '';
+            if (!event.results[i].isFinal && boardEarsMode === 'idle') {
+              for (var a = 1; a < event.results[i].length; a++) {
+                var other = event.results[i][a] && event.results[i][a].transcript;
+                if (other && findWakePhrase(normalizeWakeTranscript(other))) {
+                  alt = other;
+                  break;
+                }
+              }
+            }
+            if (event.results[i].isFinal) finalText += alt + ' ';
+            else interim += alt + ' ';
+          }
+          if (finalText.trim()) handleBoardEarsTranscript(finalText, true);
+          else if (interim.trim()) handleBoardEarsTranscript(interim, false);
+        };
+
+        recognition.onerror = function(event) {
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            setStatus('Microphone blocked — allow mic for Ironboard wake listening.');
+            boardEarsEnabled = false;
+            try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+            stopBoardEarsRecognition();
+            return;
+          }
+          if (event.error === 'no-speech' || event.error === 'aborted') return;
+          setStatus('Speech recognition: ' + event.error + (event.error === 'network' ? ' (Chrome STT needs network)' : ''));
+          console.warn('[IRONBOARD] SpeechRecognition error:', event.error);
+        };
+
+        recognition.onend = function() {
+          if (!boardEarsEnabled) return;
+          boardEarsRestartTimer = setTimeout(function() {
+            if (!boardEarsEnabled) return;
+            try {
+              recognition.start();
+            } catch (err) {
+              console.warn('[IRONBOARD] SpeechRecognition restart failed:', err);
+            }
+          }, 250);
+        };
+
+        try {
+          recognition.start();
+        } catch (err) {
+          setStatus('Could not start wake listening: ' + (err && err.message ? err.message : String(err)));
+          boardEarsEnabled = false;
+          stopBoardEarsRecognition();
+        }
+      };
+
+      // Explicit mic grant — SpeechRecognition alone often fails silently until permission exists.
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+          try {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+          } catch (err) {}
+          beginRecognition();
+        }).catch(function(err) {
+          setStatus('Microphone permission denied — allow mic, then click Ears again.');
+          boardEarsEnabled = false;
+          try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (e) {}
+          stopBoardEarsRecognition();
+          console.warn('[IRONBOARD] getUserMedia failed:', err);
+        });
+      } else {
+        beginRecognition();
+      }
+    }
+
+    function toggleBoardEars() {
+      if (boardEarsEnabled) {
+        boardEarsEnabled = false;
+        try { localStorage.setItem(BOARD_EARS_KEY, '0'); } catch (err) {}
+        stopBoardEarsRecognition();
+        setStatus('Board ears off.');
+        return;
+      }
+      try { localStorage.setItem(BOARD_EARS_KEY, '1'); } catch (err) {}
+      startBoardEarsRecognition();
+    }
+
+    (function bindBoardEars() {
+      var btn = document.getElementById('board-ears-toggle');
+      if (btn) btn.addEventListener('click', toggleBoardEars);
+      var preferOn = false;
+      try { preferOn = localStorage.getItem(BOARD_EARS_KEY) === '1'; } catch (err) {}
+      updateBoardEarsUi();
+      if (preferOn) {
+        setStatus('Board ears were on last session — click Ears to resume wake listening.');
+      }
+    })();
 
     function syncQueryComposeForAgent(btn) {
       var isolated = btn && btn.getAttribute('data-isolated') === 'true';
@@ -1415,7 +1844,7 @@ function renderDashboard(): string {
       var label = countries.join(', ');
       setMarketStatus('Running live web discovery for ' + label + '…');
       try {
-        var response = await fetch('/api/prospects/trigger', {
+        var response = await fetch(boardApiUrl('/api/prospects/trigger'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ targetCountries: countries })
@@ -1444,7 +1873,7 @@ function renderDashboard(): string {
       if (pitchPane) pitchPane.value = 'Generating grounded outreach…';
       setMarketStatus('Staging pitch for ' + domain + '…');
       try {
-        var response = await fetch('/api/market/pitch', {
+        var response = await fetch(boardApiUrl('/api/market/pitch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain: domain })
@@ -1471,7 +1900,7 @@ function renderDashboard(): string {
       if (neg) neg.disabled = true;
       setMarketStatus('Harvesting signal for ' + selectedProspectDomain + '…');
       try {
-        var response = await fetch('/api/prospects/signal', {
+        var response = await fetch(boardApiUrl('/api/prospects/signal'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1697,7 +2126,7 @@ function renderDashboard(): string {
         streamingText = '';
         streamingGrounding = null;
         streamingToolHint = '';
-        var response = await fetch('/api/query', {
+        var response = await fetch(boardApiUrl('/api/query'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
           body: JSON.stringify({
@@ -1817,12 +2246,20 @@ function renderDashboard(): string {
 
     async function refreshProductMatrixHealth() {
       try {
-        var response = await fetch('/api/product-matrix/health', { cache: 'no-store' });
-        if (!response.ok) return;
+        var response = await fetch(boardApiUrl('/api/product-matrix/health'), { cache: 'no-store' });
+        if (!response.ok) {
+          var statusEl = document.getElementById('product-matrix-status');
+          if (statusEl) {
+            statusEl.textContent = 'Fleet probe HTTP ' + response.status + ' — check ops console proxy / auth.';
+          }
+          return;
+        }
         var payload = await response.json();
         applyProductMatrixHealth(payload);
       } catch (err) {
         console.warn('[IRONBOARD] Product matrix health probe failed:', err);
+        var statusElFail = document.getElementById('product-matrix-status');
+        if (statusElFail) statusElFail.textContent = 'Fleet probe failed — retry in 20s.';
       }
     }
 
@@ -1848,6 +2285,58 @@ app.post(
 );
 
 app.use(express.json({ limit: '12mb' }));
+
+app.post('/api/voice/transcribe', async (req, res) => {
+  try {
+    const key = getIronboardApiKey();
+    if (!key?.trim()) {
+      res.status(503).json({ error: 'GOOGLE_API_KEY_MISSING', transcript: '' });
+      return;
+    }
+    const audioBase64 = String(req.body?.audioBase64 ?? '').trim();
+    const mimeTypeRaw = String(req.body?.mimeType ?? 'audio/webm');
+    const mimeType = mimeTypeRaw.split(';')[0].trim().toLowerCase() || 'audio/webm';
+    if (audioBase64.length < 64) {
+      res.status(400).json({ error: 'AUDIO_REQUIRED', transcript: '' });
+      return;
+    }
+    // Cap ~9MB base64 to stay under the express JSON limit with margin.
+    if (audioBase64.length > 9_000_000) {
+      res.status(413).json({ error: 'AUDIO_TOO_LARGE', transcript: '' });
+      return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: key });
+    const model = getIronboardGeminiModel();
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text:
+                'Transcribe the spoken audio. Return ONLY the words spoken with normal punctuation. ' +
+                'If nothing intelligible was said, return exactly EMPTY.',
+            },
+            { inlineData: { mimeType, data: audioBase64 } },
+          ],
+        },
+      ],
+      config: { temperature: 0, maxOutputTokens: 1024 },
+    });
+    let transcript = (response.text ?? '').trim();
+    if (!transcript || /^empty$/i.test(transcript)) transcript = '';
+    res.json({ transcript, model });
+  } catch (err) {
+    console.error('[IRONBOARD] voice transcribe failed', err);
+    res.status(502).json({
+      error: 'TRANSCRIBE_FAILED',
+      detail: err instanceof Error ? err.message : 'transcribe failed',
+      transcript: '',
+    });
+  }
+});
 
 app.get('/health', (_req, res) => {
   const key = getIronboardApiKey();

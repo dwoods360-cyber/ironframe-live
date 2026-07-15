@@ -14,7 +14,8 @@ type Props = {
 const DEFAULT_TITLE = "Pilot surface — seed data only";
 export const VENDORS_PILOT_SURFACE_DETAIL =
   "This module renders demonstration records from the platform seed corpus (MASTER_VENDORS / sovereign baselines), not your tenant database. CSV exports, ledger stubs, and ellipsis workflow menu items (RFI, map navigation, risk override) are disabled for active workspaces until billing is ACTIVE. Quarantine shields remain active for demonstrations. Tenant-scoped analyst exports live at";
-const DEFAULT_DETAIL =  "This module renders demonstration records from the platform seed corpus (MASTER_VENDORS / sovereign baselines), not your tenant database. CSV and ledger exports here are disabled for active workspaces until billing is ACTIVE. Tenant-scoped analyst exports live at /dashboard/exports.";
+const DEFAULT_DETAIL =
+  "This module renders demonstration records from the platform seed corpus (MASTER_VENDORS / sovereign baselines), not your tenant database. CSV and ledger exports here are disabled for active workspaces until billing is ACTIVE. Tenant-scoped analyst exports live at /exports.";
 
 /** Visible disclosure on stub routes so operators cannot confuse demo UI with production entitlement. */
 export default function PilotSurfaceBanner({

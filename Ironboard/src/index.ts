@@ -201,6 +201,9 @@ function buildDocsFederationMatrix(): string {
   const competitivePricingMap = readDoc(
     path.join(docsRoot, 'sales-enablement', 'competitive-pricing-map.md'),
   );
+  const messageConstitution = readDoc(
+    path.join(docsRoot, 'sales-enablement', 'message-constitution.md'),
+  );
   const loaded = [
     tas,
     trd,
@@ -211,6 +214,7 @@ function buildDocsFederationMatrix(): string {
     customerSuccessLibrary,
     pricingPackaging,
     competitivePricingMap,
+    messageConstitution,
   ].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
@@ -227,6 +231,9 @@ function buildDocsFederationMatrix(): string {
       : '',
     competitivePricingMap
       ? `\n── COMPETITIVE PRICING MAP (SALES-ENABLEMENT) ──\n${competitivePricingMap}`
+      : '',
+    messageConstitution
+      ? `\n── MESSAGE CONSTITUTION / BEACHHEAD DRAFTING AUTHORITY (SALES-ENABLEMENT) ──\n${messageConstitution}`
       : '',
     marketingLibrary
       ? `\n── MARKETING STRATEGY LIBRARY (GTM + STORYBRAND) ──\n${marketingLibrary}`
@@ -1337,10 +1344,10 @@ function renderDashboard(): string {
         return (v.lang || '').toLowerCase().indexOf('en') === 0;
       });
       var pool = english.length ? english : cachedSpeechVoices;
+      // Shared pack with Ops Hub workforce chat — one Ironframe voice.
+      // Persona/role still shows in the UI; do not flip to David/Mark for CFO/CTO/Technical.
       var prefs = ['Microsoft Jenny', 'Microsoft Aria', 'Google US English', 'Samantha', 'Daniel'];
-      if (agentRole && (agentRole.indexOf('CFO') !== -1 || agentRole.indexOf('CTO') !== -1 || agentRole.indexOf('Technical') !== -1)) {
-        prefs = ['Microsoft David', 'Microsoft Mark', 'Guy'];
-      }
+      void agentRole;
       for (var p = 0; p < prefs.length; p++) {
         var matched = pool.find(function(v) { return v.name.indexOf(prefs[p]) !== -1; });
         if (matched) return matched;

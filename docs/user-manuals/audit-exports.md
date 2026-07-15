@@ -1,6 +1,29 @@
 # Audit export path (Level 1)
 
-Preview the analyst export console and auditor handoff path at `/dashboard/exports`. Live exports open after your design-partner billing confirmation.
+**Live console:** `/exports`  
+**Reading level:** 11th grade · **Milestone:** v0.1.0-ga-epic17
+
+Download a CSV or PDF for your tenant. Use it for auditor handoff.
+
+Exports unlock when:
+
+1. Billing is **ACTIVE**
+2. Get Started workspace steps are done
+
+> Old links to `/dashboard/exports` send you to `/exports`. Always use **`/exports`**.
+
+---
+
+## Prerequisites
+
+| Gate | Where to fix it |
+|------|-----------------|
+| Billing **ACTIVE** | Path B Stripe Checkout on `/get-started` or the billing hold panel |
+| Workspace ALE baseline saved | `/get-started` → workspace ALE section |
+| Primary GRC company saved | `/get-started` → company profile |
+| Correct tenant | Stay on your design-partner slug (not Global Command) |
+
+If a banner blocks download, follow its link back to Get Started. Then return here.
 
 ---
 
@@ -8,26 +31,30 @@ Preview the analyst export console and auditor handoff path at `/dashboard/expor
 
 ![Audit trail reports and forensic exports](/docs/training/assets/level-2-05-audit-trail-exports.png)
 
-*Captured at `/dashboard/exports` — CSV, PDF, and sealed ledger export controls for the active tenant.*
+*Analyst export console — CSV, PDF, and sealed ledger controls for the active tenant.*
 
 ---
 
 ## Operator walkthrough
 
-1. Confirm tenant scope in the workspace switcher (not Global Command Center aggregate).
-2. Navigate to `/dashboard/exports`.
-3. Choose **CSV** or **PDF** for the active tenant.
-4. Archive downloads with timestamp and tenant UUID for auditor handoff.
+1. Confirm you are on your workspace (`https://{your-slug}.ironframegrc.com`).
+2. Open **`/exports`** (or choose Exports in the nav).
+3. Choose **CSV** or **PDF** for your tenant.
+4. Save the file with a timestamp and your tenant name for the auditor.
+
+Do **not** use PILOT vendor screens for auditor CSV. Those pages show demo data only. See [pilot vs preview](./pilot-vs-preview.md).
 
 ---
 
-## Billing and entitlement gate
+## Billing and access gate
 
-Until subscription confirmation completes, the live route may show a billing or export-entitlement notice instead of the full console. Use this guide and screenshot to complete Get Started orientation; `TRAINING_ONBOARDING` audit entries still record checklist completion for security-awareness exports.
+Until payment clears, `/exports` may show a billing notice instead of the full console. Finish Get Started and Path B first. Training checklist steps can still write audit entries where enabled.
 
 ---
 
 ## Related reading
 
-- [Master operator guide](./user-guide.md) — full lifecycle including exports (section 3.5)
-- [Evidence Locker lab](/docs/training/level-1/05-evidence-vault) — EXPORT-001 companion lab
+- [Design Partner Operator Packet](./design-partner-operator-packet.md)
+- [Get Started workspace setup](./get-started-workspace-setup.md)
+- [Master operator guide](./user-guide.md)
+- [Evidence Locker lab](/docs/training/level-1/05-evidence-vault)

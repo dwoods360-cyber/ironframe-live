@@ -11,10 +11,12 @@ describe("onboardingContentPolicy", () => {
 
   it("operator quickstart markdown includes activation and orientation sections", () => {
     const markdown = loadOperatorQuickstartMarkdown();
-    expect(markdown).toContain("Command Post Dashboard");
+    expect(markdown).toContain("Command Post");
     expect(markdown).toContain("Primary control areas");
     expect(markdown).toContain("Billing hold");
     expect(markdown).toContain("Workspace activation (invite-only)");
-    expect(markdown).toContain("invite activation and credential binding");
+    expect(markdown).toContain("Design Partner Operator Packet");
+    expect(markdown).toContain("/get-started");
+    expect(containsPreAuthOnboardingCopy(markdown)).toBe(false);
   });
 });

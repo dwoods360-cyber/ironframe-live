@@ -4,27 +4,33 @@
 
 | Term | Definition |
 |------|------------|
-| **Annualized Loss Expectancy (ALE)** | The calculated total money a business could lose in one year if specific software vulnerabilities are exploited. Stored internally as whole-integer cents. |
-| **Billing Gate** | A barrier that checks whether the monthly subscription paid successfully. Failed payment redirects you to a secure billing hold screen. |
-| **Compliance** | Meeting legal and regulatory rules (for example SOC 2 or ISO 27001) to prove data is handled securely. |
-| **Data Processing Addendum (DPA)** | A legal contract describing how the platform processes and protects corporate information. |
-| **Evidence Locker** | Secure vault for audit records. Epic 12 WORM rules prevent deletion after seal. |
-| **Fixed dollar precision** | Storing money as exact whole pennies instead of decimals, so financial reports never lose cents to rounding. |
-| **Hazard pipeline** | Dashboard view of live risks from entry through automatic mitigation. |
-| **Ingress** | Data entering the system from outside. Threat ingress passes Irongate sanitization. |
-| **Quarantine** | Temporarily locking a user or record until verification completes. |
-| **Telemetry** | Live operational measurements sent into monitoring dashboards. |
-| **Tenant isolation** | Security boundary ensuring one company's data is invisible to all other tenants on the platform. |
-| **WORM (Write-Once-Read-Many)** | Save a record once; no one can modify or delete it afterward — preserving audit trails. |
+| **Annualized Loss Expectancy (ALE)** | The money a business could lose in one year from software risk. Stored as whole cents. Set yours on `/get-started`. |
+| **Billing Gate** | A check that payment succeeded. Failed or overdue payment sends you to a billing hold screen. |
+| **Command Tier** | Design-partner pricing path (Path B). Flat platform fee for the pilot — not a per-seat catalog. |
+| **Compliance** | Meeting rules such as SOC 2 or ISO 27001 to show data is handled safely. |
+| **Data Processing Addendum (DPA)** | A legal contract on how the platform handles and protects company data. |
+| **Evidence Locker (Evidence Vault)** | Secure vault for audit records. After seal, WORM rules block deletion. Same module at `/evidence`. |
+| **Fixed dollar precision** | Money stored as exact pennies so reports never lose cents to rounding. |
+| **Get Started** | First-day portal at `/get-started` for ALE, company profile, and checklist. |
+| **Hazard pipeline** | Dashboard view of live risks from entry through fix. |
+| **Ingress** | Data coming into the system from outside. Threat ingress is cleaned by Irongate. |
+| **Irontrust** | Engine that turns threat and control facts into dollar risk figures. You read results in Integrity Hub and exports — you do not run CLI tools. |
+| **Path B** | Invite-based onboarding with a **tenant-scoped** Stripe link that moves billing from PENDING to ACTIVE. Prefer Path B over public `/pricing` when you already have a workspace. |
+| **PILOT (nav badge)** | Demo / seed data page — not your live tenant database. See [pilot vs preview](./pilot-vs-preview.md). |
+| **PREVIEW (nav badge)** | Incomplete module; some roles cannot open it during design-partner pilots. |
+| **Quarantine** | Temporary lock on a user or record until checks finish. |
+| **Telemetry** | Live ops numbers shown on monitoring dashboards. |
+| **Tenant isolation** | Security rule so one company's data stays invisible to other tenants. |
+| **WORM (Write-Once-Read-Many)** | Save a record once; no one can change or delete it later. |
 
-### Baseline tenant slugs (v0.1.0-ga-epic17)
+### Baseline tenant slugs (internal seeds vs partners)
 
 | Slug | Role |
 |------|------|
-| `medshield` | Healthcare GRC seed — ALE `1110000000` cents |
-| `vaultbank` | Fintech / SOC 2 seed — ALE `590000000` cents |
-| `gridcore` | Energy / NIST seed — ALE `470000000` cents |
-| `pilot-corp` | Sales-assisted design partner |
+| `medshield` | Healthcare GRC **engineering seed** — not a partner workspace |
+| `vaultbank` | Fintech / SOC 2 **engineering seed** |
+| `gridcore` | Energy / NIST **engineering seed** |
+| `{your-slug}` | Your design-partner workspace on `{slug}.ironframegrc.com` |
 
 ---
 
@@ -32,4 +38,4 @@
 
 - `docs/TAS.md`
 - `config/route-manifest.v0.1.0-ga-epic17.json`
-- `prisma/seed.ts`
+- Design Partner Operator Packet (`user-manuals/design-partner-operator-packet.md`)

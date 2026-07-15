@@ -4,6 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 import { OPS_CHAT_TARGETS, type OpsChatTarget } from "@/app/lib/operations/opsWorkerIds";
+import {
+  bindOpsWorkerSpeechVoices,
+  cancelOpsWorkerSpeech,
+  getOpsWorkerVoicePitch,
+  getOpsWorkerVoiceRate,
+  isOpsWorkerVoiceMuted,
+  setOpsWorkerVoiceMuted,
+  setOpsWorkerVoicePitch,
+  setOpsWorkerVoiceRate,
+  speakOpsWorkerReply,
+} from "@/app/lib/operations/opsWorkerSpeech";
 
 type ChatTurn = { role: "user" | "assistant"; text: string };
 
@@ -74,6 +85,9 @@ export default function OpsWorkerChatPanel({
   const [recording, setRecording] = useState(false);
   const [micDeviceId, setMicDeviceId] = useState("");
   const [micOptions, setMicOptions] = useState<Array<{ deviceId: string; label: string }>>([]);
+  const [voiceMuted, setVoiceMuted] = useState(false);
+  const [voiceRate, setVoiceRate] = useState(1);
+  const [voicePitch, setVoicePitch] = useState(1);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -91,10 +105,22 @@ export default function OpsWorkerChatPanel({
       if (saved && (OPS_CHAT_TARGETS as readonly string[]).includes(saved)) {
         setWorker(saved as OpsChatTarget);
       }
+      setVoiceMuted(isOpsWorkerVoiceMuted());
+      setVoiceRate(getOpsWorkerVoiceRate());
+      setVoicePitch(getOpsWorkerVoicePitch());
     } catch {
       /* ignore */
     }
+    const unbind = bindOpsWorkerSpeechVoices();
+    return () => {
+      unbind();
+      cancelOpsWorkerSpeech();
+    };
   }, []);
+
+  useEffect(() => {
+    cancelOpsWorkerSpeech();
+  }, [worker]);
 
   const refreshMics = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
@@ -160,6 +186,7 @@ export default function OpsWorkerChatPanel({
         ...prev,
         [activeWorker]: [...(prev[activeWorker] ?? []), { role: "assistant", text: reply }],
       }));
+      speakOpsWorkerReply(reply, activeWorker);
     } catch (err) {
       const fail = err instanceof Error ? err.message : "Worker chat failed.";
       setStatus(fail);
@@ -304,32 +331,98 @@ export default function OpsWorkerChatPanel({
         <div>
           <h2 className="text-lg font-semibold text-white">Conversation + PTT</h2>
           <p className="mt-1 text-sm text-slate-400">
-            One PTT / Ask box for IronBoard and the perimeter workers. Pick who you’re talking to —
-            portal buttons still run harvest/poll; Approvals still DISPATCH.
+            One PTT / Ask box for IronBoard and the perimeter workers. Replies use the same board
+            voice pipeline (shared Jenny/Aria pack + speed/pitch). Portal buttons still run
+            harvest/poll; Approvals still DISPATCH.
           </p>
         </div>
-        <label className="block text-xs text-slate-400 sm:min-w-[14rem]">
-          Talking to
-          <select
-            value={worker}
-            disabled={busy || recording}
-            onChange={(e) => {
-              const next = e.target.value as OpsChatTarget;
-              setWorker(next);
-              try {
-                localStorage.setItem(WORKER_KEY, next);
-              } catch {
-                /* ignore */
-              }
+        <div className="flex flex-col gap-2 sm:min-w-[14rem]">
+          <label className="block text-xs text-slate-400">
+            Talking to
+            <select
+              value={worker}
+              disabled={busy || recording}
+              onChange={(e) => {
+                const next = e.target.value as OpsChatTarget;
+                setWorker(next);
+                try {
+                  localStorage.setItem(WORKER_KEY, next);
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
+            >
+              {OPS_CHAT_TARGETS.map((id) => (
+                <option key={id} value={id}>
+                  {TARGET_LABEL[id]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !voiceMuted;
+              setVoiceMuted(next);
+              setOpsWorkerVoiceMuted(next);
+              if (next) cancelOpsWorkerSpeech();
             }}
-            className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+              voiceMuted
+                ? "border-slate-600 bg-slate-800 text-slate-300"
+                : "border-cyan-700/70 bg-cyan-950/40 text-cyan-200"
+            }`}
+            title={voiceMuted ? "Worker replies are muted" : "Worker replies are spoken aloud"}
           >
-            {OPS_CHAT_TARGETS.map((id) => (
-              <option key={id} value={id}>
-                {TARGET_LABEL[id]}
-              </option>
-            ))}
-          </select>
+            {voiceMuted ? "Voice muted" : "Voice on"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+        <p className="w-full text-[10px] font-bold uppercase tracking-widest text-slate-500 sm:w-auto">
+          Board voice (shared)
+        </p>
+        <label className="flex min-w-[10rem] flex-1 items-center gap-2 text-xs text-slate-400">
+          Speed
+          <input
+            type="range"
+            min={0.5}
+            max={2.5}
+            step={0.05}
+            value={voiceRate}
+            onChange={(e) => {
+              const next = parseFloat(e.target.value);
+              setVoiceRate(next);
+              setOpsWorkerVoiceRate(next);
+            }}
+            className="w-full accent-cyan-500"
+            aria-label="Voice speed (shared with Ironboard)"
+          />
+          <span className="w-12 shrink-0 font-mono text-[11px] text-slate-300">
+            {voiceRate.toFixed(2)}x
+          </span>
+        </label>
+        <label className="flex min-w-[10rem] flex-1 items-center gap-2 text-xs text-slate-400">
+          Pitch
+          <input
+            type="range"
+            min={0.5}
+            max={1.5}
+            step={0.05}
+            value={voicePitch}
+            onChange={(e) => {
+              const next = parseFloat(e.target.value);
+              setVoicePitch(next);
+              setOpsWorkerVoicePitch(next);
+            }}
+            className="w-full accent-cyan-500"
+            aria-label="Voice pitch (shared with Ironboard)"
+          />
+          <span className="w-10 shrink-0 font-mono text-[11px] text-slate-300">
+            {voicePitch.toFixed(2)}
+          </span>
         </label>
       </div>
 

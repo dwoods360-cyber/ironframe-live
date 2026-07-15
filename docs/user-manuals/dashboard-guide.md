@@ -29,6 +29,12 @@ Ironframe stores money as **exact whole pennies** (BigInt cents) so totals never
 
 **Daily goal:** Keep the **hazard pipeline** at zero active threats. When a hazard appears, your protection score updates automatically.
 
+**Design partners:** Your ALE comes from the value you saved on `/get-started`, not from the seed-tenant table above. Seed rows are reference examples for training screenshots.
+
+### Pilot vs preview nav items
+
+Links marked **PILOT** or **PREVIEW** are not contracted auditor deliverables. PILOT vendor screens use seed demonstration data. Use `/integrity`, `/evidence`, and `/exports` for live workspace work — details in [pilot vs preview](./pilot-vs-preview.md).
+
 ---
 
 ## 2. Logging energy data (Ironbloom)
@@ -52,7 +58,7 @@ The **Ironbloom** module records physical utility use for carbon tracking during
 
 1. The compliance manager opens the **Evidence Locker**.
 2. WORM rules mean each sealed report is **write-once** — no user can edit or delete it after attestation.
-3. Export the signed ledger proof for the auditor. The historical trace is verifiable and satisfies the compliance request.
+3. Export auditor proof from **`/exports`** (CSV/PDF) and keep sealed Evidence Locker records as supporting WORM artifacts.
 
 ---
 

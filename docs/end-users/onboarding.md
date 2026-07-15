@@ -1,62 +1,80 @@
-# Onboarding — Ironframe Command Center
+# Onboarding — Ironframe design partner (Day 0–3)
 
-Guided first session for new operators and tenant admins.
+**Audience:** Design-partner operators and tenant admins. **Reading level:** 11th grade. **Milestone:** v0.1.0-ga-epic17.  
+**Canonical packet:** [Design Partner Operator Packet](../user-manuals/design-partner-operator-packet.md)
+
+This is your first-session checklist. Ironframe uses sales-assisted invites only. Public signup is off.
+
+---
 
 ## Day 0 — Access
 
-- [ ] Receive Supabase invite or credentials from admin
-- [ ] Confirm your provisioned workspace URL with your sponsor
-- [ ] Verify environment access if you are an operator (not required for end-users)
+1. Open the Ironframe invite email. Do not use a generic marketing signup.
+2. Open `/register/{token}` from the invite and set your password.
+3. Confirm your workspace URL is `https://{your-slug}.ironframegrc.com`.
+4. Sign in at `/login` on that host.
+5. Accept the MSA and DPA. Type your full legal name.
+6. If billing shows PENDING, complete Path B Stripe Checkout from Get Started or the hold panel.
+7. Confirm billing status is ACTIVE before you rely on training unlock.
 
-## Day 1 — First login (15 minutes)
+---
 
-1. **Sign in** using the Login screen from your invitation
-2. **Select tenant** in switcher (start with your assigned profile—e.g. Vaultbank)
-3. **Wait for handshake** — shadow/sim modes may auto-verify; production shows idle → verified after scope binds
-4. **Scan dashboard** — heat map, Active Risks count, Sustainability Pulse widget
-5. **Open Audit Intelligence** — confirm ledger entries load
+## Day 1 — Workspace setup (20 minutes)
 
-## Day 2 — Core workflows (30 minutes)
+1. Open `/get-started`.
+2. Save your Workspace ALE baseline. Enter USD. The system stores whole cents.
+3. Save your primary GRC company profile. Include name and sector.
+4. Complete the Get Started checklist.
+5. Open `/integrity`. Confirm your ALE shows for your slug only.
+6. Skim [pilot vs preview](../user-manuals/pilot-vs-preview.md). Do not treat PILOT items as live data.
 
-- [ ] Open one **Active Risk** — review score, assignee, controls
-- [ ] View **Threat Pipeline** — understand intake vs confirmed
-- [ ] Check **Carbon Pulse** — note zone (e.g. US-NY for Vaultbank, US-CO for Gridcore)
-- [ ] Open **Dashboard → Exports** — download sample CSV (tenant-scoped)
+Do not switch into medshield, vaultbank, or gridcore. Those are engineering demo seeds.
 
-## Day 3 — Governance context (optional)
+---
 
-- [ ] Read [Product Overview](../external/product-overview.md) (10 min)
-- [ ] Review tenant ALE baseline with your sponsor
-- [ ] Identify your **Irontally** framework mapping (SOC 2, NIST, etc.) in GRC views
+## Day 2 — Core cockpit loop (30 minutes)
 
-## Role-specific paths
+1. Open Integrity Hub. Review protection and hazard posture.
+2. Open `/cockpit`. Compare intake threats with confirmed threats.
+3. Open `/evidence`. Note the WORM seal on locked records.
+4. Open `/exports`. Download CSV or PDF for your tenant after ACTIVE billing and ALE gates.
 
-| Role | Focus after Day 2 |
-|------|-------------------|
-| **CISO** | Ironwatch layout signal, quarantine, threat realtime |
-| **CFO** | Insurance posture, ALE exposure by asset, governance dividend |
-| **GRC** | Compliance drift, Irontally, analyst exports |
-| **ESG** | Ironbloom physical units, dirty grid, resilience streak |
-| **Simulation / QA** | Kimbot (Bot B — Red Team Adversary Simulation for drills), Attbot, GRCbot in Control Room shadow plane |
+---
 
-## Administrator checklist
+## Day 3 — Extra context (optional)
 
-- [ ] Provision Supabase users
-- [ ] Configure deployment environment per [Technical Requirements](../stakeholders/technical-requirements.md)
-- [ ] Enable sustainability fallback on staging if no Electricity Maps key
-- [ ] Run post-deploy smoke verification against your target environment
-- [ ] Seed tenants if fresh DB: `npm run db:seed`
+1. Read the [Design Partner Operator Packet](../user-manuals/design-partner-operator-packet.md) end to end.
+2. Review your ALE baseline with your sponsor.
+3. Open the [Partner training index](../training/LEVEL1-PARTNER-INDEX.md) if you want optional labs.
+
+---
+
+## Role-specific focus after Day 2
+
+| Role | Focus |
+|------|--------|
+| **CISO** | Cockpit hazards. Quarantine. Live threat flow. |
+| **CFO / risk** | ALE dollars. Integrity Hub. Board export story. |
+| **GRC** | Evidence Locker. Analyst exports. In-tenant framework maps. |
+| **Auditor (guest)** | `/exports` files and sealed Evidence entries only. |
+
+---
 
 ## Success criteria
 
-You are onboarded when you can:
+You are onboarded when you can do all of these:
 
-1. Switch tenants without blank dashboard panels
-2. Explain one Active Risk’s financial score in dollars (from cents)
-3. Export an audit CSV for your tenant
-4. Know who to escalate to for Ironwatch stale-data mode
+1. Sign in on your tenant host with no demo-tenant switching.
+2. State your workspace ALE in dollars.
+3. Export an audit CSV or PDF from `/exports`.
+4. Tell PILOT seed screens apart from live Integrity, Evidence, and Exports.
+5. Escalate invite or billing issues to delivery@ironframegrc.com.
+
+---
 
 ## Related documents
 
-- [User Guide](./user-guide.md)
+- [Quick-Start](../user-manuals/quickstart.md)
+- [Get Started workspace setup](../user-manuals/get-started-workspace-setup.md)
+- [Audit exports](../user-manuals/audit-exports.md)
 - [FAQ](./faq.md)

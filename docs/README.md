@@ -45,14 +45,19 @@ docs/
 ├── hub.md                              # Legacy HTML chapter registry
 ├── TAS.md                              # Constitutional specification
 ├── user-manuals/                       # LEVEL 1 — End-user & operational (11th-grade reading level)
+│   ├── design-partner-operator-packet.md  # Canonical design-partner handoff packet
 │   ├── user-guide.md                  # Complete beginner operator manual (canonical)
 │   ├── quickstart.md                  # Invitation, legal sign-off, dashboard layout
+│   ├── get-started-workspace-setup.md # ALE baseline + GRC company gates
+│   ├── audit-exports.md               # Analyst CSV/PDF at /exports
+│   ├── pilot-vs-preview.md            # PILOT / PREVIEW badge policy
 │   ├── dashboard-guide.md             # Integrity Hub, Ironbloom, audit scenarios
 │   └── glossary.md                    # Plain-English GRC terminology
 ├── technical/                          # LEVEL 2 — Advanced IT & developer documentation
 │   ├── architecture-and-api.md         # Topology, 19-agent matrix, API ingress
 │   └── deployment-and-ops.md           # Environment blueprint, validation, triage
 ├── training/                           # Training tracks (markdown chapters + indexes)
+│   ├── LEVEL1-PARTNER-INDEX.md        # Curated design-partner Level 1 chapters
 │   ├── LEVEL1-STUDENT-INDEX.md
 │   ├── LEVEL2-PRACTITIONER-INDEX.md
 │   ├── level-1/                       # 12 student chapters (board-trainer)
@@ -73,10 +78,16 @@ docs/
 
 | Document | Path | Summary |
 |----------|------|---------|
+| **Design Partner Operator Packet** | `user-manuals/design-partner-operator-packet.md` | Canonical invite → Path B → Get Started → cockpit → `/exports` handoff |
 | Quick-Start Activation Guide | `user-manuals/quickstart.md` | Sales-assisted invitation, legal sign-off, accessible dashboard layout |
+| Get Started workspace setup | `user-manuals/get-started-workspace-setup.md` | ALE baseline + primary GRC company gates |
+| Audit export path | `user-manuals/audit-exports.md` | Tenant-scoped CSV/PDF at `/exports` |
+| Pilot vs preview | `user-manuals/pilot-vs-preview.md` | PILOT seed data vs PREVIEW incomplete modules |
 | **Complete Beginner User Guide** | `user-manuals/user-guide.md` | Full operator manual — identify → assess → mitigate → monitor |
-| Dashboard Command Manual | `user-manuals/dashboard-guide.md` | Integrity Hub ALE, Ironbloom physical ingress, pilot-corp audit scenario |
-| Plain-English Glossary | `user-manuals/glossary.md` | ALE, billing gate, tenant isolation, WORM, fixed-dollar precision |
+| Dashboard Command Manual | `user-manuals/dashboard-guide.md` | Integrity Hub ALE, Ironbloom physical ingress, audit scenario |
+| Plain-English Glossary | `user-manuals/glossary.md` | ALE, Path B, Command Tier, Irontrust, billing gate, WORM |
+
+**Design-partner training index (curated):** `training/LEVEL1-PARTNER-INDEX.md` — use instead of the full classroom `LEVEL1-STUDENT-INDEX.md`.
 
 **Format:** Concise guides, step-by-step instructions, ASCII wireframes with alt-text descriptions, minimal jargon.
 
@@ -95,8 +106,11 @@ docs/
 
 | Track | Audience | Entry points |
 |-------|----------|--------------|
-| **Track 1 — Student** | High-school / classroom sandbox | `training/LEVEL1-STUDENT-INDEX.md`, `training/high-school/index.html` |
+| **Track 1 — Design partner (curated)** | Paying / invited design-partner operators | `training/LEVEL1-PARTNER-INDEX.md` |
+| **Track 1 — Student (classroom)** | High-school / internal trainer sandbox | `training/LEVEL1-STUDENT-INDEX.md`, `training/high-school/index.html` |
 | **Track 2 — Practitioner** | GRC professionals & IT power users | `training/LEVEL2-PRACTITIONER-INDEX.md`, `training/professional/index.html` |
+
+See also: [Design partner documentation — AppDocument sync](ops/design-partner-docs-sync.md).
 
 See `hub.md` for the full HTML chapter catalog and compliance export artifacts.
 
@@ -105,7 +119,7 @@ See `hub.md` for the full HTML chapter catalog and compliance export artifacts.
 | Document | Path |
 |----------|------|
 | User Guide (extended) | `user-manuals/user-guide.md` (canonical) · `end-users/user-guide.md` (legacy mirror) |
-| Onboarding checklist | `end-users/onboarding.md` |
+| Onboarding checklist | `end-users/onboarding.md` (Day 0–3 · matches Path B + Get Started) |
 | FAQ | `end-users/faq.md` |
 | Release notes | `end-users/release-notes.md` |
 

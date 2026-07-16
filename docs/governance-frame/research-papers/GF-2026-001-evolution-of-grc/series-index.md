@@ -11,14 +11,14 @@
 | # | Manuscript section | Status |
 |---|---|---|
 | 1 | Introduction | Complete (1.0-draft) |
-| 2 | The Emergence of Modern GRC, 2002–2008 | Editorial draft |
-| 3 | Cloud Governance and Compliance Automation, 2009–2018 | Editorial draft |
-| 4 | Continuous Governance and Executive Accountability, 2019–2026 | Editorial draft |
-| 5 | Persistent Structural Pain Points | Editorial draft |
-| 6 | Historical Lessons | Editorial draft |
-| 7 | Conclusion | Editorial draft |
-| 8 | References | Ledger (`references.md`) |
-| 9 | Appendices | Editorial draft |
+| 2 | The Emergence of Modern GRC, 2002–2008 | Complete (1.3-draft) |
+| 3 | Cloud Governance and Compliance Automation, 2009–2018 | Complete (1.3-draft) |
+| 4 | Continuous Governance and Executive Accountability, 2019–2026 | Complete (1.3-draft) |
+| 5 | Persistent Structural Pain Points | Complete (1.3-draft) |
+| 6 | Historical Lessons | Complete (1.3-draft) |
+| 7 | Conclusion | Complete (1.3-draft) |
+| 8 | References | Ledger (`references.md`) — 15 entries |
+| 9 | Appendices | Complete (1.3-draft) |
 
 ## Required package files
 

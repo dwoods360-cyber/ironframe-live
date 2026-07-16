@@ -15,4 +15,5 @@ publishedAt: "2026-07-16T16:20:21.511Z"
 canonicalRepositoryPath: "docs/governance-frame/briefings/series/control-first-grc/CF-GRC-2026-03/manuscript.md"
 operationalMirrorPath: "docs/published-briefings/2026-03-12-market-grc-2019-today.md"
 author: "Ironframe Governance Frame"
+quarantineDraftPath: "docs/briefing-queue/2026-03-12-draft-market-grc-2019-today.md"
 ---

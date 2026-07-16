@@ -32,6 +32,18 @@ Each installment package under `CF-GRC-2026-0N/` must include:
 
 Approved public markdown is mirrored at `docs/published-briefings/{slug}.md` for RSS, Governance Frame routes, and Ironcast compile. Repository packages in this directory remain the editorial source of truth.
 
+## Quarantined Drafts (Ops Hub)
+
+Operator-facing quarantine copies (not promoted by this staging step):
+
+| Installment | Quarantined Draft path |
+|---|---|
+| Part 1 | `docs/briefing-queue/2026-01-15-draft-market-grc-2000-2008.md` |
+| Part 2 | `docs/briefing-queue/2026-02-12-draft-market-grc-2009-2018.md` |
+| Part 3 | `docs/briefing-queue/2026-03-12-draft-market-grc-2019-today.md` |
+
+Each queue draft sets `status: QUARANTINED_DRAFT`, `publishState: QUARANTINED_AWAITING_OPERATOR`, and `requiresImmediatePromotion: false`.
+
 ## Related long-form research
 
 Institutional research paper **GF-2026-001** (`docs/governance-frame/research-papers/GF-2026-001-evolution-of-grc/`) synthesizes the same historical arc in long-form academic prose.

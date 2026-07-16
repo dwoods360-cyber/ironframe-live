@@ -45,5 +45,14 @@ secrets-replacements.txt
 # Google Cloud Platform IAM Keys
 ironframe-prod-907f1402c60c.json
 
+# Governance Frame Google Docs utility (OAuth + sync state)
+scripts/governance-frame/google-docs/.state/
+**/google-oauth-client*.json
+**/google-oauth-token*.json
+secrets/google-oauth*.json
+
 # Ironleads local SQLite scratchpad (vitest + dev harvest)
 Ironleads/data/
+
+# Product-knowledge operator latch (Ops Hub floating notice)
+lib/ironframeProductKnowledge/.drift-notice.json

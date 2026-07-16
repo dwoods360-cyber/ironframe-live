@@ -95,7 +95,12 @@
     "supportteam:dev": "cd SupportTeam && npm run dev",
     "supportteam:poll": "cd SupportTeam && npm run poll",
     "fix:supabase-auth-urls": "npx tsx scripts/fix-supabase-auth-urls.ts",
-    "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts"
+    "test:product-knowledge": "vitest run tests/unit/ironframeProductKnowledge.test.ts tests/unit/productKnowledgeSync.test.ts tests/unit/productKnowledgeOpsCore.test.ts",
+    "knowledge:check": "npx tsx scripts/sync-product-knowledge.ts",
+    "knowledge:sync": "npx tsx scripts/sync-product-knowledge.ts --apply",
+    "knowledge:sync:json": "npx tsx scripts/sync-product-knowledge.ts --apply --json",
+    "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts",
+    "governance-frame:google-docs": "npx tsx scripts/governance-frame/google-docs/create-research-paper.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",
@@ -117,6 +122,7 @@
     "ai": "^6.0.141",
     "dotenv": "^17.3.1",
     "framer-motion": "^11.18.2",
+    "googleapis": "^173.0.0",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",

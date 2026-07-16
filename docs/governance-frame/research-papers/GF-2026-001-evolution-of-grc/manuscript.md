@@ -7,7 +7,7 @@ status: "EDITORIAL_DRAFT"
 classification: "Institutional Governance"
 publisher: "Governance Frame Research"
 canonicalRepositoryPath: "docs/governance-frame/research-papers/GF-2026-001-evolution-of-grc/manuscript.md"
-googleDocId: ""
+googleDocId: "1tM-dgVObYSEsG2nDu-i299gWuz0xNRW4bhwGxGuOMoc"
 ---
 
 # The Evolution of Governance, Risk, and Compliance (GRC)

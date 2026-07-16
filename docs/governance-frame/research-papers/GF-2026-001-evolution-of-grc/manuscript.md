@@ -2,7 +2,7 @@
 researchId: "GF-2026-001"
 title: "The Evolution of Governance, Risk, and Compliance (GRC)"
 subtitle: "A Historical Analysis of Persistent Pain Points (2002–2026)"
-version: "1.2-draft"
+version: "1.3-draft"
 status: "EDITORIAL_DRAFT"
 classification: "Institutional Governance"
 publisher: "Governance Frame Research"
@@ -168,19 +168,69 @@ The cloud era improved collection speed and reach. Assurance still required vali
 
 # 4. Continuous Governance and Executive Accountability, 2019–2026
 
-Draft pending.
+## 4.1 Shorter timelines and board-visible cyber governance
+
+Regulatory and supervisory expectations increasingly treat cybersecurity and operational resilience as executive-governance topics rather than purely technical subsystems. Covered U.S. registrants face cybersecurity disclosure rules requiring material incident reporting on Form 8-K generally within four business days after determining materiality—not necessarily from the first moment of intrusion [GF001-REF-010].
+
+The EU Digital Operational Resilience Act (DORA) entered into application on **17 January 2025**, establishing ICT risk-management, incident, resilience-testing, and third-party requirements for **in-scope EU financial entities** [GF001-REF-011]. DORA is not a universal global requirement.
+
+NIST’s Artificial Intelligence Risk Management Framework provides **voluntary** guidance for AI risk management [GF001-REF-012]. The Generative AI Profile (NIST AI 600-1) identifies risks specific to or intensified by generative AI [GF001-REF-013]. Binding effect arises only where another authority incorporates such guidance.
+
+## 4.2 Quantification without false precision
+
+Color-coded risk dashboards and point-in-time questionnaires remain useful summaries but do not independently establish evidence integrity, materiality, control effectiveness, or decision provenance. **Analytical interpretation:** A dollar figure stored with exact arithmetic does not eliminate uncertainty; defensible quantitative records should preserve assumptions, ranges, scenarios, model versions, and accountable reviewers.
+
+## 4.3 Enforcement example: notification governance
+
+In 2024, the SEC announced that Intercontinental Exchange agreed to pay a **$10 million civil penalty** related to charges that nine wholly owned subsidiaries failed to timely notify the Commission of a cyber intrusion as required under Regulation Systems Compliance and Integrity [GF001-REF-014].
+
+**Documented fact:** The action concerned Regulation SCI notification obligations for covered market entities.
+
+**Analytical interpretation:** This matter should not be described as a penalty under the public-company Form 8-K cybersecurity-disclosure rule. It nonetheless demonstrates that cyber-incident notification governance can carry direct financial consequences.
+
+## 4.4 Governed automation and AI assistance
+
+Generative AI can accelerate drafting of remediation narratives, board language, and evidence summaries. **Architectural recommendation:** AI systems should not be treated as accountable control owners or final approvers. Governed environments should record model identity, instructions, inputs, outputs, human edits, and approval decisions sufficient to reconstruct publication under time pressure.
+
+## 4.5 Chapter summary
+
+The current era requires traceable evidence, quantified analysis without false precision, and bounded automation with human accountability. Continuous governance is not synonymous with continuous collection; it requires reconstructable decision processes.
 
 # 5. Persistent Structural Pain Points
 
-Draft pending.
+Across the three eras examined above, distinct tooling generations addressed symptoms while several structural pains recurred:
+
+1. **Evidence fragmentation** — Control owners re-key artifacts from multiple systems into spreadsheets and shared folders; audit confidence collapses when chains cannot be sealed and exported as governed artifacts [GF001-REF-004][GF001-REF-005].
+
+2. **Qualitative heatmaps** — High/Medium/Low scales fail CFO and board interrogation when public enforcement prices failures in currency [GF001-REF-014]. NIST CSF 2.0’s GOVERN function integrates cybersecurity into enterprise risk management strategy and oversight [GF001-REF-015].
+
+3. **Connector theater** — API integration counts proxy maturity while unverified ingest into shared schemas creates cross-contamination risk. **Architectural recommendation:** quarantine-before-persist for external evidence.
+
+4. **Cosmetic multi-entity isolation** — Metadata tags inside shared databases are not equivalent to query-time workspace isolation for holding companies, MSSPs, and healthcare networks.
+
+5. **Unbounded AI assistance** — Assistants that draft control narratives without human-in-the-loop publication gates introduce privilege drift and unattested content [GF001-REF-013].
+
+**Unresolved research question:** Comparative empirical measurement of multi-entity isolation failure rates across GRC platform architectures is beyond this paper’s current evidence base.
 
 # 6. Historical Lessons
 
-Draft pending.
+**Lesson 1 — Statutes establish accountability surfaces, not evidence architectures.** Sarbanes-Oxley Section 404 compelled ICFR assessment; it did not specify immutable evidence systems [GF001-REF-001].
+
+**Lesson 2 — Volume is not assurance.** Cloud-era automation increased retrieval speed; SOC 2 and connector programs still required validation, scope, and provenance [GF001-REF-006].
+
+**Lesson 3 — Currency beats color.** Public settlements and penalties demonstrate that boards and regulators reason in dollars; heatmaps alone are insufficient for materiality and capital discussions [GF001-REF-008][GF001-REF-014].
+
+**Lesson 4 — Continuous expectation demands reconstructability.** Modern disclosure and resilience regimes press organizations to reproduce evidence, calculations, AI contributions, and approvals after the fact [GF001-REF-010][GF001-REF-011].
+
+**Lesson 5 — Automation requires bounded authority.** AI can accelerate work; it cannot replace accountable human judgment on attestation and publication [GF001-REF-012][GF001-REF-013].
 
 # 7. Conclusion
 
-Draft pending.
+Governance, risk, and compliance evolved from post-crisis checklist mandates through cloud-scale evidence collection to continuous, executive-visible cyber governance and governed automation. Each transition solved operational problems while introducing new fragility when evidence remained mutable, unscoped, unprovenanced, or unattested.
+
+This paper does not rank commercial platforms or prescribe product selection. Its finding is narrower: durable GRC requires properties—scope, provenance, exact monetary registers where material, isolation, quarantine, and human approval—that recur across eras and remain incompletely satisfied by documentation alone.
+
+Further institutional editions, including the public **Control-First GRC** briefing series (`docs/governance-frame/briefings/series/control-first-grc/`), translate these historical lessons into industry-facing operational language. Research corrections will be published per Governance Frame corrections policy when primary sources supersede citations herein.
 
 # References
 
@@ -188,4 +238,20 @@ See `references.md`.
 
 # Appendices
 
-Draft pending.
+## Appendix A — Scope and limitations
+
+This paper synthesizes publicly available statutes, regulations, standards, regulatory guidance, enforcement actions, and selected academic literature from 2002 through 2026. It is not legal advice. Illustrative scenarios are hypothetical unless explicitly sourced. Monetary figures appear only where traceable to cited public materials.
+
+## Appendix B — Related Governance Frame publications
+
+| Publication | Identifier | Relationship |
+|---|---|---|
+| Control-First GRC Part 1 | CF-GRC-2026-01 | Public briefing — SOX era |
+| Control-First GRC Part 2 | CF-GRC-2026-02 | Public briefing — cloud era |
+| Control-First GRC Part 3 | CF-GRC-2026-03 | Public briefing — continuous governance era |
+
+Canonical packages reside under `docs/governance-frame/briefings/series/control-first-grc/`.
+
+## Appendix C — Terminology
+
+See `docs/governance-frame/style/canonical-terminology.md` and `docs/governance-frame/style/glossary.md` for Governance Frame preferred terms.

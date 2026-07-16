@@ -77,5 +77,52 @@ References must prioritize primary sources.
 - **URL:** https://ag.ny.gov/press-release/2017/ag-schneiderman-announces-185-million-multi-state-settlement-target-corporation
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (enforcement)
-- **Claims supported:** $18.5M; 47 states and DC
+- **Verification status:** Unverified
+
+### [GF001-REF-010] U.S. Securities and Exchange Commission — Cybersecurity disclosure rules (July 26, 2023)
+
+- **URL:** https://www.sec.gov/newsroom/press-releases/2023-139
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (regulatory)
+- **Claims supported:** Material incident Form 8-K disclosure; governance disclosures
+- **Verification status:** Unverified
+
+### [GF001-REF-011] EIOPA — Digital Operational Resilience Act (DORA)
+
+- **URL:** https://www.eiopa.europa.eu/digital-operational-resilience-act-dora_en
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (regulatory guidance)
+- **Claims supported:** Application date 17 January 2025; EU financial entities
+- **Verification status:** Unverified
+
+### [GF001-REF-012] NIST — Artificial Intelligence Risk Management Framework
+
+- **URL:** https://www.nist.gov/itl/ai-risk-management-framework
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (standards body)
+- **Claims supported:** Voluntary AI risk management guidance
+- **Verification status:** Unverified
+
+### [GF001-REF-013] NIST — Generative AI Profile (NIST AI 600-1, July 2024)
+
+- **URL:** https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (standards body)
+- **Claims supported:** Generative-AI-specific risks and actions
+- **Verification status:** Unverified
+
+### [GF001-REF-014] U.S. Securities and Exchange Commission — ICE enforcement (2024)
+
+- **URL:** https://www.sec.gov/newsroom/press-releases/2024-63
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (enforcement)
+- **Claims supported:** $10 million penalty; Regulation SCI notification
+- **Verification status:** Unverified
+
+### [GF001-REF-015] NIST — Cybersecurity Framework (CSF) 2.0 (NIST CSWP 29, February 2024)
+
+- **URL:** https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (standards body)
+- **Claims supported:** GOVERN function; ERM integration
 - **Verification status:** Unverified

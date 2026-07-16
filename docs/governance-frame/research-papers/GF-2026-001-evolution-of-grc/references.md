@@ -47,3 +47,35 @@ References must prioritize primary sources.
 - **Source type:** Secondary (practitioner research)
 - **Claims supported:** Spreadsheet auditability contact points for Section 404 programs
 - **Verification status:** Unverified
+
+### [GF001-REF-006] AICPA & CIMA — SOC Suite of Services
+
+- **URL:** https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (standards body)
+- **Claims supported:** SOC 2 examinations at service organizations
+- **Verification status:** Unverified
+
+### [GF001-REF-007] AICPA & CIMA — 2017 Trust Services Criteria
+
+- **URL:** https://www.aicpa-cima.com/resources/download/2017-trust-services-criteria-with-revised-points-of-focus-2022
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (standards body)
+- **Claims supported:** Trust Services Criteria domains
+- **Verification status:** Unverified
+
+### [GF001-REF-008] Federal Trade Commission — Equifax settlement (July 22, 2019)
+
+- **URL:** https://www.ftc.gov/news-events/news/press-releases/2019/07/equifax-pay-575-million-part-settlement-ftc-cfpb-states-related-2017-data-breach
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (enforcement)
+- **Claims supported:** $575M minimum; up to $700M structure
+- **Verification status:** Unverified
+
+### [GF001-REF-009] New York State Office of the Attorney General — Target settlement (May 23, 2017)
+
+- **URL:** https://ag.ny.gov/press-release/2017/ag-schneiderman-announces-185-million-multi-state-settlement-target-corporation
+- **Retrieved:** 2026-07-16
+- **Source type:** Primary (enforcement)
+- **Claims supported:** $18.5M; 47 states and DC
+- **Verification status:** Unverified

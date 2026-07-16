@@ -12,3 +12,7 @@ Research Paper: GF-2026-001
 | GF001-C006 | 2.3 | Mean 404 cost ~$2.87M before 2007 reforms | GF001-REF-002 | Primary | No | | | Survey mean, 404(a)+(b) subset |
 | GF001-C007 | 2.3 | Mean 404 cost ~$2.33M after 2007 reforms | GF001-REF-002 | Primary | No | | | Same constraints |
 | GF001-C008 | 2.4 | Cross-tier deficiency rates — unresolved | — | — | No | | | Marked unresolved in manuscript |
+| GF001-C009 | 3.1 | SOC 2 scope at service organizations | GF001-REF-006, GF001-REF-007 | Primary | No | | | |
+| GF001-C010 | 3.3 | Equifax settlement amounts | GF001-REF-008 | Primary | No | | | |
+| GF001-C011 | 3.3 | Target $18.5M multistate settlement | GF001-REF-009 | Primary | No | | | |
+| GF001-C012 | 3.4 | Shared-schema isolation risk | — | Analytical | N/A | | | Architectural interpretation |

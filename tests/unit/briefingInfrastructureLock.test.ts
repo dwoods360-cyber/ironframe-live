@@ -136,6 +136,41 @@ Engineering sandbox only.
     ).toBe(true);
   });
 
+  it("excludes internal / staging classifications from RSS scan", () => {
+    const docsRoot = makeTempDocsRoot();
+    tempRoots.push(docsRoot);
+
+    fs.writeFileSync(
+      path.join(docsRoot, "published-briefings", "public-brief.md"),
+      `---
+title: "Public Brief"
+classification: "Institutional Governance"
+publishedAt: "2026-07-16T12:00:00.000Z"
+summary: "Public only"
+---
+### I. Exposure Vector
+Public.
+`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(docsRoot, "published-briefings", "staging-brief.md"),
+      `---
+title: "Staging Brief"
+classification: "INTERNAL STAGING"
+publishedAt: "2026-06-07T10:00:00.000Z"
+summary: "Sandbox only"
+---
+### I. Exposure Vector
+Sandbox.
+`,
+      "utf8",
+    );
+
+    const rssItems = scanPublishedBriefingsForRss(docsRoot);
+    expect(rssItems.map((item) => item.slug)).toEqual(["public-brief"]);
+  });
+
   it("RSS compiler ignores briefing-queue drafts that were never promoted", () => {
     const docsRoot = makeTempDocsRoot();
     tempRoots.push(docsRoot);

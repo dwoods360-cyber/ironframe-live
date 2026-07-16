@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import BriefingFrameContent from "@/app/components/governanceFrame/BriefingFrameContent";
 import EarlyEnclaveCta from "@/app/components/governanceFrame/EarlyEnclaveCta";
 import { briefingBodyMarkdown, fetchBriefingBySlug } from "@/app/lib/governanceFrame/briefingLoader";
+import { PUBLISHED_BRIEFING_SLUG_REDIRECTS } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,12 @@ function formatPublishedDate(iso: string): string {
 
 export default async function GovernanceFrameBriefingPage({ params }: PageProps) {
   const { slug } = await params;
+  const normalized = slug.trim().toLowerCase();
+  const redirectTarget = PUBLISHED_BRIEFING_SLUG_REDIRECTS[normalized];
+  if (redirectTarget) {
+    permanentRedirect(`/governance-frame/${encodeURIComponent(redirectTarget)}`);
+  }
+
   const briefing = await fetchBriefingBySlug(slug);
   if (!briefing) notFound();
 

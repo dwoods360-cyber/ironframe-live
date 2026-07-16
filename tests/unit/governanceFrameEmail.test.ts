@@ -70,8 +70,9 @@ const LEDGER = "published-briefings";
     expect(result.compiled.length).toBeGreaterThan(0);
     expect(result.compiled[0]?.html).toContain("The Governance Frame");
 
-    const hit = compileGovernanceFrameNewsletterBySlug("2026-06-07-staging-boundary-check");
-    expect(hit?.slug).toBe("2026-06-07-staging-boundary-check");
+    const hit = compileGovernanceFrameNewsletterBySlug("2026-01-15-market-grc-2000-2008");
+    expect(hit?.slug).toBe("2026-01-15-market-grc-2000-2008");
+    expect(hit?.html).toMatch(/Sarbanes-Oxley|Checklist Compliance/i);
     assertNewsletterPresentationSafety(hit?.html ?? "");
   });
 });

@@ -27,7 +27,8 @@ Legacy GRC and IRM platforms (Archer, ServiceNow IRM, MetricStream, etc.) optimi
 | Ironwatch (13) | Undetected API / insider anomaly |
 | Ironguard (12) | Secret leakage, scope violations |
 | Ironlock (6) | Slow manual lockdown |
-| Kimbot (17) | Greenwashing / monetary ESG proxies |
+| Ironbloom (17) | Greenwashing / monetary ESG proxies |
+| Kimbot (Bot B) | Red-team drill antagonist (shadow plane; not Agent 17) |
 | Ironquery | Black-box AI reports → exportable analyst packs |
 
 ## Win themes by competitor type

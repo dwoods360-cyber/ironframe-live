@@ -5,14 +5,42 @@
     <link>https://brief.ironframegrc.com</link>
     <description>Immutable Executive GRC Intelligence from the Ironframe System.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 14 Jul 2026 19:05:28 GMT</lastBuildDate>
+    <lastBuildDate>Thu, 16 Jul 2026 19:01:26 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
     <item>
-      <title>[Issue #1] Staging Boundary Check — Governance Frame Local Sandbox</title>
-      <link>https://brief.ironframegrc.com/governance-frame/2026-06-07-staging-boundary-check</link>
-      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-06-07-staging-boundary-check</guid>
-      <pubDate>Sun, 07 Jun 2026 10:00:00 GMT</pubDate>
-      <description>Executive distillation of Governance Frame staging boundaries, published-ledger ingestion, and BigInt cent invariants for local developer sandboxes.</description>
+      <title>The Fallacy of the Connector Count: Why Multi-Entity Operators Require Sovereign Audit Enclaves</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-05-14-connector-count-sovereign-enclaves</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-05-14-connector-count-sovereign-enclaves</guid>
+      <pubDate>Thu, 16 Jul 2026 17:04:02 GMT</pubDate>
+      <description>A PE roll-up opens one GRC login for twelve legal entities and celebrates the connector count. Tonight an auditor for Clinic East can see more than Clinic East. This briefing keeps the connector-count thesis while anchoring public enforcement facts carefully—including a May 2023 NYDFS action against OneMain Financial Group that is not a multi-entity tenancy case—and the enclave disciplines that keep sticky labels from becoming the control system.</description>
+    </item>
+    <item>
+      <title>Healthcare Perimeter Watch — When Edge Signals Become Board Exposure</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-04-16-healthcare-perimeter-watch</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-04-16-healthcare-perimeter-watch</guid>
+      <pubDate>Thu, 16 Jul 2026 16:40:19 GMT</pubDate>
+      <description>A regional health system&apos;s perimeter monitoring produces eight validation signals before shift change. This briefing traces those signals from technical validation to executive governance, showing how boards can evaluate protected health information (PHI) custody risk without relying on raw technical alerts or unsupported financial estimates.</description>
+    </item>
+    <item>
+      <title>Control-First GRC: Part 3 — Quantitative Risk, Continuous Resilience, and Governed Automation (2019–Today)</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-03-12-market-grc-2019-today</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-03-12-market-grc-2019-today</guid>
+      <pubDate>Thu, 16 Jul 2026 16:20:21 GMT</pubDate>
+      <description>Modern governance operates under shorter reporting timelines, wider technology dependencies, operational-resilience requirements, and growing use of generative AI. Point-in-time questionnaires and color-coded dashboards remain useful summaries, but they cannot independently establish evidence integrity, materiality, control effectiveness, or decision provenance. The current era requires GRC systems that preserve traceable evidence, support quantified analysis without false precision, and govern automated assistance through bounded authority and human accountability.</description>
+    </item>
+    <item>
+      <title>Control-First GRC: Part 2 — Cloud Migration and the Checklist Industrial Complex (2009–2018)</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-02-12-market-grc-2009-2018</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-02-12-market-grc-2009-2018</guid>
+      <pubDate>Thu, 16 Jul 2026 16:17:49 GMT</pubDate>
+      <description>As infrastructure and business applications moved into hosted and cloud environments, compliance teams gained access to more machine-generated evidence. APIs and integrations reduced some manual collection work, while SOC reporting became increasingly important in technology-vendor assessments. Yet collection alone did not establish assurance. Evidence still required validation, correct legal-entity scope, durable provenance, access isolation, and human interpretation. The cloud era made evidence easier to gather; it did not make every collected record trustworthy.</description>
+    </item>
+    <item>
+      <title>Control-First GRC: Part 1 — The Sarbanes-Oxley Era and the Foundations of Checklist Compliance (2000–2008)</title>
+      <link>https://brief.ironframegrc.com/governance-frame/2026-01-15-market-grc-2000-2008</link>
+      <guid isPermaLink="true">https://brief.ironframegrc.com/governance-frame/2026-01-15-market-grc-2000-2008</guid>
+      <pubDate>Thu, 16 Jul 2026 15:29:57 GMT</pubDate>
+      <description>The Sarbanes-Oxley Act transformed internal-control reporting from a largely managerial concern into a formal legal and audit obligation. Organizations responded by documenting controls, assigning owners, collecting attestations, and preserving evidence. Much of that work, however, remained dependent on spreadsheets, shared folders, email approvals, and document repositories. SOX made control assurance mandatory; it did not automatically make the underlying evidence immutable, correctly scoped, or resistant to unauthorized revision.</description>
     </item>
   </channel>
 </rss>

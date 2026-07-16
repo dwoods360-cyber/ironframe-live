@@ -2,6 +2,10 @@ import { Router } from "express";
 
 import { scanPublishedBriefings } from "./briefingScanner.js";
 import {
+  PUBLISHED_BRIEFING_SLUG_REDIRECTS,
+  resolvePublishedBriefingSlug,
+} from "./publishedBriefingSlugRedirects.js";
+import {
   renderBriefingArticle,
   renderBriefingIndex,
   renderBriefingNotFound,
@@ -24,8 +28,15 @@ export function createGovernanceFrameRouter(): Router {
       return;
     }
 
+    const legacyTarget = PUBLISHED_BRIEFING_SLUG_REDIRECTS[slug.toLowerCase()];
+    if (legacyTarget) {
+      res.redirect(301, `/governance-frame/${encodeURIComponent(legacyTarget)}`);
+      return;
+    }
+
+    const resolved = resolvePublishedBriefingSlug(slug);
     const briefings = scanPublishedBriefings(resolveDocsRoot());
-    const hit = briefings.find((b) => b.slug === slug);
+    const hit = briefings.find((b) => b.slug === resolved);
     if (!hit) {
       res.status(404).type("html").send(renderBriefingNotFound(slug));
       return;

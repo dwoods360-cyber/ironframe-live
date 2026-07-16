@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-16T19:01:24.352Z",
+  "commercialSha256": "3bdbf4a9b9c76e450f3c0e13833b8f5fab88e4cafa4e634f58c5f8af0cad0d33",
+  "anchors": {
+    "pathBUsd": 4999,
+    "pathBCents": "499900",
+    "gaCommandUsd": 35000,
+    "gaCommandCents": "3500000",
+    "gaGrowthUsd": 75000,
+    "gaGrowthCents": "7500000"
+  }
+}

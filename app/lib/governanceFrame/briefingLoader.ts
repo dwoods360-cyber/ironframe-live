@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
 import { briefingBodyMarkdown } from "@/app/lib/governanceFrame/briefingMarkdown";
 import { stripFrontmatter } from "@/app/lib/governanceFrame/briefingDraftValidation";
+import { resolvePublishedBriefingSlug } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export {
   BRIEFING_QUEUE_DIR,
@@ -59,7 +60,7 @@ export async function fetchPublishedBriefings(): Promise<GovernanceBriefing[]> {
 }
 
 export async function fetchBriefingBySlug(slug: string): Promise<GovernanceBriefing | null> {
-  const normalized = slug.trim().toLowerCase();
+  const normalized = resolvePublishedBriefingSlug(slug);
   if (!normalized || normalized.includes("..") || normalized.includes("/")) return null;
 
   const record = await prisma.publishedBriefing.findUnique({

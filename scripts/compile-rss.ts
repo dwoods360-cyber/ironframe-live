@@ -10,6 +10,7 @@ import path from "path";
 import matter from "gray-matter";
 
 import { parseCentBigInt, parseCentBigIntSafe, quarantineAuditMessage } from "../app/lib/governanceFrame/parseCentBigInt";
+import { isPublicPublishedClassification } from "../app/lib/governanceFrame/publicPublishedBriefingEligibility";
 
 export const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
 export const BRIEFING_QUEUE_DIR = "briefing-queue";
@@ -147,7 +148,7 @@ export function validateCentIntegrity(
   }
 
   const impact = markdownBody.match(
-    /###\s+II\.\s*Calculated Quantitative Impact\s*\n+([\s\S]*?)(?=###\s+III\.|$)/i,
+    /#{2,3}\s+II\.\s*(?:Calculated Quantitative Impact|Quantitative Context|Quantitative Impact|Economic Context)\s*\n+([\s\S]*?)(?=#{2,3}\s+III\.|$)/i,
   );
   if (!impact?.[1]) return;
 
@@ -193,6 +194,11 @@ export function scanPublishedBriefingsForRss(docsRoot = resolveDocsRoot()): RssF
     const parsed = matter(raw);
     const frontmatter = parsed.data as RssBriefingFrontmatter;
     const body = parsed.content;
+
+    // INTERNAL / staging fixtures stay in the ledger for local QA but never enter RSS.
+    if (!isPublicPublishedClassification(frontmatter.classification)) {
+      continue;
+    }
 
     validateCentIntegrity(frontmatter, body);
 

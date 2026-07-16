@@ -11,6 +11,7 @@ import {
   parseFrontmatterField,
   parseTitleFromMarkdown,
 } from "@/app/lib/governanceFrame/briefingMarkdown";
+import { resolvePublishedBriefingSlug } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
 
 export const PUBLISHED_BRIEFINGS_DIR = "published-briefings";
 export const BRIEFING_QUEUE_DIR = "briefing-queue";
@@ -119,7 +120,7 @@ export function loadBriefingBySlugFromFilesystem(
   slug: string,
   docsRoot = resolveDocsRoot(),
 ): GovernanceBriefing | null {
-  const normalized = slug.trim().toLowerCase();
+  const normalized = resolvePublishedBriefingSlug(slug);
   if (!normalized || normalized.includes("..") || normalized.includes("/")) return null;
   return (
     loadPublishedBriefingsFromFilesystem(docsRoot).find((b) => b.slug.toLowerCase() === normalized) ??

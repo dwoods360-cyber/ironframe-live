@@ -48,7 +48,7 @@ const LEDGER = "published-briefings";
 
     expect(compiled.subject).toContain("Test Briefing");
     expect(compiled.feedUrl).toBe(
-      `${GOVERNANCE_FRAME_FEED_ORIGIN}/governance-frame/test-briefing`,
+      `${GOVERNANCE_FRAME_FEED_ORIGIN}/briefings/test-briefing`,
     );
     expect(compiled.html).toContain("IRONFRAME SYSTEM INTELLIGENCE");
     expect(compiled.html).toContain(IRONFRAME_LOGO_PUBLIC_URL);

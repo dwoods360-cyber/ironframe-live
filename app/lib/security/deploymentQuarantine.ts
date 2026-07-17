@@ -10,6 +10,7 @@ import {
 } from "@/app/utils/grcRouteMatch";
 import { STRIPE_WEBHOOK_PATHS } from "@/config/stripe";
 import { tenantSlugFromHost } from "@/app/lib/tenantSubdomain";
+import { isGovernanceFramePublicHost } from "@/config/governanceFramePublic";
 
 export const IRONFRAME_DEV_BYPASS_COOKIE = "ironframe_dev_bypass";
 
@@ -84,6 +85,7 @@ export function shouldBlockProductionIngress(
 ): boolean {
   const hostname = request.nextUrl.hostname;
   if (isLocalDevelopmentHost(hostname)) return false;
+  if (isGovernanceFramePublicHost(request.headers.get("host") ?? hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
   if (isTokenGatedApiIngressPath(pathname)) return false;
   if (isPublicCloudIngressPath(pathname)) return false;

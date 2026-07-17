@@ -6,6 +6,33 @@ Its purpose is to publish evidence-driven research concerning governance, risk, 
 
 Governance Frame research must remain editorially distinguishable from Ironframe product development and commercial operations.
 
+## Public destination
+
+Canonical public site:
+
+- `https://research.ironframegrc.com`
+
+Legacy alias (same publication surface):
+
+- `https://brief.ironframegrc.com`
+
+App Router preview (same content tree):
+
+- `/gf-research`
+
+Recommended public paths:
+
+```
+/research-papers/
+/briefings/
+/newsletters/
+/series/
+/methodology/
+/editorial-standards/
+/sources-and-corrections/
+/about/
+```
+
 ## Canonical Record
 
 This directory contains the canonical institutional record for:

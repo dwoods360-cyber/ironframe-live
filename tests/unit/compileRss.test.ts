@@ -38,7 +38,7 @@ Detail text.`;
       {
         slug: "alpha-brief",
         title: "[Issue #7] Alpha Brief",
-        link: "https://brief.ironframegrc.com/governance-frame/alpha-brief",
+        link: "https://research.ironframegrc.com/briefings/alpha-brief",
         pubDateRfc822: "Sun, 07 Jun 2026 10:00:00 GMT",
         description: "Summary text",
         sortKey: 1,
@@ -46,9 +46,11 @@ Detail text.`;
     ]);
 
     expect(xml).toContain("<title>The Governance Frame</title>");
-    expect(xml).toContain("<link>https://brief.ironframegrc.com</link>");
-    expect(xml).toContain("Immutable Executive GRC Intelligence from the Ironframe System.");
-    expect(xml).toContain("https://brief.ironframegrc.com/governance-frame/alpha-brief");
+    expect(xml).toContain("<link>https://research.ironframegrc.com</link>");
+    expect(xml).toContain(
+      "Independent Governance Frame research and industry briefings from Ironframe GRC.",
+    );
+    expect(xml).toContain("https://research.ironframegrc.com/briefings/alpha-brief");
     expect(escapeXml("<script>")).toBe("&lt;script&gt;");
   });
 

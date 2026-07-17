@@ -17,9 +17,9 @@ export const BRIEFING_QUEUE_DIR = "briefing-queue";
 export const RSS_OUTPUT_PATH = path.join(process.cwd(), "public", "rss.xml");
 
 export const RSS_CHANNEL_TITLE = "The Governance Frame";
-export const RSS_CHANNEL_LINK = "https://brief.ironframegrc.com";
+export const RSS_CHANNEL_LINK = "https://research.ironframegrc.com";
 export const RSS_CHANNEL_DESCRIPTION =
-  "Immutable Executive GRC Intelligence from the Ironframe System.";
+  "Independent Governance Frame research and industry briefings from Ironframe GRC.";
 export const RSS_ITEM_LINK_ORIGIN = RSS_CHANNEL_LINK;
 
 const QUARANTINE_ALLOWLIST = new Set(["template.md", ".gitkeep", "readme.md"]);
@@ -206,7 +206,7 @@ export function scanPublishedBriefingsForRss(docsRoot = resolveDocsRoot()): RssF
     const { iso, sortKey } = resolvePublicationDate(frontmatter, stat.mtimeMs);
     const rssTitle = formatRssItemTitle(title, frontmatter.issueNumber);
     const description = resolveSummary(body, frontmatter);
-    const link = `${RSS_ITEM_LINK_ORIGIN}/governance-frame/${encodeURIComponent(slug)}`;
+    const link = `${RSS_ITEM_LINK_ORIGIN}/briefings/${encodeURIComponent(slug)}`;
 
     items.push({
       slug,

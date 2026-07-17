@@ -20,6 +20,22 @@ const nextConfig: NextConfig = {
     "/api/docs/download-protocol": ["./docs/**/*"],
     "/api/docs/download-matrix": ["./docs/**/*"],
     "/api/docs/hub-asset/[[...path]]": ["./docs/**/*.html"],
+    /** Governance Frame research publication reads docs/governance-frame via fs. */
+    "/gf-research": ["./docs/governance-frame/**/*", "./docs/published-briefings/**/*"],
+    "/gf-research/research-papers": ["./docs/governance-frame/**/*"],
+    "/gf-research/research-papers/[slug]": ["./docs/governance-frame/**/*"],
+    "/gf-research/briefings": ["./docs/published-briefings/**/*"],
+    "/gf-research/briefings/[slug]": ["./docs/published-briefings/**/*"],
+    "/gf-research/newsletters": [
+      "./docs/governance-frame/**/*",
+      "./docs/published-briefings/**/*",
+    ],
+    "/gf-research/series": ["./docs/governance-frame/**/*"],
+    "/gf-research/series/[seriesId]": ["./docs/governance-frame/**/*"],
+    "/gf-research/methodology": ["./docs/governance-frame/**/*"],
+    "/gf-research/editorial-standards": ["./docs/governance-frame/**/*"],
+    "/gf-research/sources-and-corrections": ["./docs/governance-frame/**/*"],
+    "/gf-research/about": ["./docs/governance-frame/**/*"],
     /**
      * Ops Hub Briefings/Newsletters read quarantine + published mirrors via fs.
      * Dynamic path.join(docsRoot, …) is not auto-traced on Vercel.

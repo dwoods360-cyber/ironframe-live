@@ -128,18 +128,19 @@ describe("grcRouteMatch", () => {
     expect(isInfraHealthPath("/api/health/extra")).toBe(false);
   });
 
-  it("keeps marketing and pricing public while gating product docs", () => {
+  it("keeps marketing, pricing, and Governance Frame research public while gating product docs", () => {
     expect(isPublicRoute("/marketing")).toBe(true);
     expect(isPublicRoute("/pricing")).toBe(true);
     expect(isPublicRoute("/terms")).toBe(true);
     expect(isPublicRoute("/docs/TAS.md")).toBe(false);
-    expect(isPublicRoute("/governance-frame/briefing")).toBe(false);
+    expect(isPublicRoute("/governance-frame/briefing")).toBe(true);
+    expect(isPublicRoute("/gf-research/briefings")).toBe(true);
   });
 
   it("marks authenticated product surfaces for middleware and audits", () => {
     expect(isAuthenticatedProductSurfacePath("/docs/competitive-landscape.md")).toBe(true);
     expect(isAuthenticatedProductSurfacePath("/pricing")).toBe(false);
-    expect(isAuthenticatedProductSurfacePath("/governance-frame/q1")).toBe(true);
+    expect(isAuthenticatedProductSurfacePath("/governance-frame/q1")).toBe(false);
     expect(isAuthenticatedProductSurfacePath("/api/docs/download-protocol")).toBe(true);
     expect(isAuthenticatedProductSurfacePath("/api/docs/hub-asset/product/foo.html")).toBe(true);
     expect(isAuthenticatedProductSurfacePath("/marketing")).toBe(false);

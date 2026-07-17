@@ -5,10 +5,10 @@ import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/Governa
 export const metadata: Metadata = {
   title: "The Governance Frame",
   description:
-    "Chronological institutional governance briefings — published ledger in PostgreSQL.",
+    "Chronological institutional governance briefings — published ledger in PostgreSQL. Canonical public destination: research.ironframegrc.com.",
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
 };
 

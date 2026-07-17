@@ -122,9 +122,13 @@ export function buildHeaderRouteMatrix(
 /** Guest-readable marketing + Stripe commerce funnel (no session required). Product docs require login. */
 export function isPublicRoute(pathname: string): boolean {
   if (pathname === "/marketing" || pathname.startsWith("/marketing/")) return true;
+  if (pathname === "/resources" || pathname.startsWith("/resources/")) return true;
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
   if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
   if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
+  /** Governance Frame research publication (also served on research/brief hosts). */
+  if (pathname === "/gf-research" || pathname.startsWith("/gf-research/")) return true;
+  if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
   return false;
 }
 
@@ -208,10 +212,9 @@ export function isInfraHealthPath(pathname: string): boolean {
   return pathname === "/api/health";
 }
 
-/** Product documentation and strategic briefings — authenticated operators only. */
+/** Product documentation — authenticated operators only. */
 export function isAuthenticatedProductSurfacePath(pathname: string): boolean {
   if (pathname === "/docs" || pathname.startsWith("/docs/")) return true;
-  if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
   if (pathname === "/api/docs/download-protocol") return true;
   if (pathname === "/api/docs/download-matrix") return true;
   if (pathname.startsWith("/api/docs/hub-asset/")) return true;
@@ -282,6 +285,9 @@ export function isPrivateWorkspaceIngressPath(pathname: string): boolean {
 export function isPublicProspectOnboardingPath(pathname: string): boolean {
   if (
     pathname === "/marketing" ||
+    pathname.startsWith("/marketing/") ||
+    pathname === "/resources" ||
+    pathname.startsWith("/resources/") ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/sales-agent-portal"
@@ -389,6 +395,9 @@ export function isConstitutionalOverlaySuppressedPath(pathname: string): boolean
     pathname === "/docs" ||
     pathname.startsWith("/docs/") ||
     pathname === "/marketing" ||
+    pathname.startsWith("/marketing/") ||
+    pathname === "/resources" ||
+    pathname.startsWith("/resources/") ||
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||

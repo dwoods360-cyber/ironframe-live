@@ -17,6 +17,10 @@ import { tenantSlugFromHost, buildTenantSubdomainOrigin } from "@/app/lib/tenant
 import { browserFacingUrl } from "@/app/lib/middlewareRequestOrigin";
 import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
 import { stampWorkspaceCookieClears } from "@/app/lib/auth/workspaceSessionCookies";
+import {
+  GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX,
+  isGovernanceFramePublicHost,
+} from "@/config/governanceFramePublic";
 
 /** Read-only methods allowed on /api during Irontech State Freeze (Ironlock). */
 const STALE_LOCKDOWN_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -237,12 +241,60 @@ async function finalizeMiddlewareResponse(
 }
 
 /**
+ * research.ironframegrc.com / brief.ironframegrc.com → public research publication routes.
+ * Pretty paths rewrite into `/gf-research/*`; legacy `/governance-frame` redirects to `/briefings`.
+ */
+function governanceFrameResearchHostResponse(request: NextRequest): NextResponse | null {
+  if (!isGovernanceFramePublicHost(request.headers.get("host"))) return null;
+
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/assets") ||
+    pathname === "/rss.xml" ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml"
+  ) {
+    return null;
+  }
+
+  if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) {
+    const rest =
+      pathname === "/governance-frame" ? "" : pathname.slice("/governance-frame".length);
+    const target = request.nextUrl.clone();
+    target.pathname = `/briefings${rest}`;
+    return NextResponse.redirect(target, 308);
+  }
+
+  if (
+    pathname === GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX ||
+    pathname.startsWith(`${GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX}/`)
+  ) {
+    return NextResponse.next();
+  }
+
+  const rewriteUrl = request.nextUrl.clone();
+  rewriteUrl.pathname =
+    pathname === "/"
+      ? GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX
+      : `${GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX}${pathname}`;
+  return NextResponse.rewrite(rewriteUrl);
+}
+
+/**
  * Global: Supabase session refresh (`updateSession` on all matched routes).
  * API routes: same tenant cross-check as legacy `proxy.ts` (x-tenant-id / x-target-tenant-id / tenantUuid).
  */
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
+
+  const researchHostResponse = governanceFrameResearchHostResponse(request);
+  if (researchHostResponse) {
+    return researchHostResponse;
+  }
 
   // ==========================================
   // 1. PRODUCTION QUARANTINE PERIMETER

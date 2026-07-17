@@ -13,6 +13,8 @@ export const RESERVED_SUBDOMAINS = new Set([
   "preview",
   "docs",
   "login",
+  "brief",
+  "research",
 ]);
 
 /** Top-level app routes — never interpreted as path-prefix tenants. */
@@ -38,6 +40,16 @@ export const APP_ROUTE_ROOTS = new Set([
   "marketing",
   "pricing",
   "docs",
+  "gf-research",
+  "governance-frame",
+  "research-papers",
+  "briefings",
+  "newsletters",
+  "series",
+  "methodology",
+  "editorial-standards",
+  "sources-and-corrections",
+  "about",
   "dashboard",
   "account",
   "admin",

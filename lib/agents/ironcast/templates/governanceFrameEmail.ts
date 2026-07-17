@@ -19,7 +19,7 @@ import { stripDangerousMarkdown } from "@/app/lib/governanceFrame/sanitizeMarkdo
 
 export const GOVERNANCE_FRAME_FEED_ORIGIN =
   process.env.GOVERNANCE_FRAME_PUBLIC_FEED_ORIGIN?.trim().replace(/\/$/, "") ||
-  "https://brief.ironframegrc.com";
+  "https://research.ironframegrc.com";
 
 /** Static logo asset — absolute URL for email clients; no runtime DB coupling. */
 export const IRONFRAME_LOGO_PUBLIC_URL = `${GOVERNANCE_FRAME_FEED_ORIGIN}/assets/Ironframe_logo.svg`;
@@ -256,7 +256,7 @@ export function compileGovernanceFrameEmail(
   const body = briefingBodyMarkdown(safeMarkdown, input.title);
   const sections = parseBriefingSections(body);
   const sectionHtml = sections.map(renderSection).join("\n");
-  const feedUrl = `${GOVERNANCE_FRAME_FEED_ORIGIN}/governance-frame/${encodeURIComponent(input.slug)}`;
+  const feedUrl = `${GOVERNANCE_FRAME_FEED_ORIGIN}/briefings/${encodeURIComponent(input.slug)}`;
   const publishedLabel = formatPublishedLabel(input.publishedAt);
   const metaLine = [input.classification, input.author].filter(Boolean).join(" · ");
 

@@ -32,7 +32,7 @@ export function buildBoardFeedRssXml(items: BriefingFeedItem[]): string {
       <rss version="2.0">
         <channel>
           <title>Ironframe Governance Analytics Feed</title>
-          <link>https://brief.ironframegrc.com</link>
+          <link>https://research.ironframegrc.com</link>
           <description>Courtroom-grade production telemetry logs matching DORA Pillar 5 compliance.</description>
           <language>en-us</language>
           ${rssItems}

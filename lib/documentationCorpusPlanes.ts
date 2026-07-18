@@ -22,7 +22,9 @@ export const APP_DOCS_REPOSITORY_PREFIXES = [
 ] as const;
 
 export const APP_DOCS_READER_ROUTE = "/docs" as const;
-export const GOVERNANCE_FRAME_READER_ROUTE = "/governance-frame" as const;
+/** App-path legacy reader; canonical public origin is research.ironframegrc.com. */
+export const GOVERNANCE_FRAME_READER_ROUTE = "/briefings" as const;
+export const GOVERNANCE_FRAME_PUBLIC_SITE = "https://research.ironframegrc.com" as const;
 
 export const APP_DOCS_EXECUTE_ENDPOINT = "POST /api/documentation/execute" as const;
 
@@ -62,17 +64,23 @@ export const DUAL_LOCATION_OUTPUT_MATRIX: Record<
     content:
       "Real-world market analysis, regulatory change narratives, and institutional briefing logs compiled by board agents during flywheel execution cycles.",
     targetLocation: {
-      primary: `${GOVERNANCE_FRAME_READER_ROUTE}/[slug]`,
+      primary: `${GOVERNANCE_FRAME_PUBLIC_SITE}${GOVERNANCE_FRAME_READER_ROUTE}/[slug]`,
       staging: "docs/briefing-queue/",
-      repositoryPaths: ["published-briefings/"],
+      repositoryPaths: ["published-briefings/", "governance-frame/"],
       databaseTable: "PublishedBriefing",
-      externalChannels: ["corporate Substack stream", "Ironcast newsletter compile"],
+      externalChannels: [
+        "research.ironframegrc.com",
+        "brief.ironframegrc.com (legacy alias)",
+        "corporate Substack stream",
+        "Ironcast newsletter compile",
+      ],
     },
     operationalRules: [
       "Dynamic, narrative-driven, and completely decoupled from internal system code.",
       "Communicates outward to prospects and design partners to showcase active intelligence posture.",
-      "Drafts quarantined in briefing-queue/ — never compiled to /docs or public routes until promoted.",
-      "Published ledger lives in PostgreSQL and renders at /governance-frame/[slug].",
+      "Drafts quarantined in briefing-queue/ — never compiled to /docs, agent corpora, or public routes until promoted.",
+      "Published ledger lives in PostgreSQL + docs/published-briefings and renders at research.ironframegrc.com/briefings/[slug].",
+      "Agents MAY READ the published Governance Frame encyclopedia for citation; they must NEVER ingest briefing-queue drafts.",
       "Mandatory Section V citations before human promotion.",
       "board-trainer and board-writer must never write to this plane.",
     ],
@@ -85,9 +93,15 @@ export const DUAL_LOCATION_OUTPUT_MATRIX: Record<
       "Ops Hub briefings/request",
       "Ops Hub newsletters/request",
       "autonomous GTM briefing-queue cron",
+      "gf-researcher",
+      "gf-editor",
+      "gf-verifier",
+      "gf-regulatory-reviewer",
+      "gf-product-boundary",
+      "gf-operator",
     ],
     trigger:
-      "Autonomous weekday GTM cron (/api/cron/gtm-briefing-queue) or Ops Hub briefings/newsletters request (or flywheel/narrate) → briefing-queue draft → human Approve (promote) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate",
+      "GF publication desk (Ops Hub briefings/desk-run) or autonomous weekday GTM cron or Ops Hub briefings/newsletters request → briefing-queue draft + optional .desk-reviews sidecar → human Approve (promote) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate. Desk agents never promote.",
   },
   [DOCUMENTATION_PLANE_APP_DOCS]: {
     plane: DOCUMENTATION_PLANE_APP_DOCS,

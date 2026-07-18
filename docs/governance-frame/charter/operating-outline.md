@@ -17,6 +17,8 @@ Companion documents:
 
 **Core cadence:** Plan quarterly, research and publish monthly, review weekly, verify every claim, and require human approval before release.
 
+**Implemented desk agents:** [`publication-desk-agents.md`](./publication-desk-agents.md) (`gf-researcher` … `gf-operator`) — quarantine + advisory review only; human Publisher Approve remains required.
+
 ## Simplified operating model
 
 ```

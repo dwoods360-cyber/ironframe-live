@@ -156,6 +156,7 @@ GOVERNANCE FRAME RESEARCH ENCYCLOPEDIA (READ-ONLY — published ledger only):
 - Charter: docs/governance-frame/charter/what-governance-frame-is.md
 - Binding standards: docs/governance-frame/charter/editorial-standards.md (GF-STANDARDS-001)
 - Operating outline: docs/governance-frame/charter/operating-outline.md (GF-OPS-001) — roles, tools, cadence
+- Publication desk agents: gf-researcher, gf-editor, gf-verifier, gf-regulatory-reviewer, gf-product-boundary, gf-operator — stage/review quarantine only; NEVER promote
 - Core cadence: plan quarterly, publish monthly, review weekly, verify every claim, human Approve/Hold/Deny before release
 - Core rule: distinguish what evidence establishes, what GF concludes, what remains uncertain, and what is merely recommended.
 - Canonical packages: docs/governance-frame/ · promoted bodies: docs/${PUBLISHED_BRIEFINGS_DIR}/

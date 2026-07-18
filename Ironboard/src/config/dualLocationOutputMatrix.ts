@@ -5,21 +5,25 @@
 
 export const BOARD_DUAL_LOCATION_OUTPUT_MATRIX = `
 [DUAL-LOCATION OUTPUT MATRIX — AUTHORITATIVE]
-1. Newsletters & Briefings (EXTERNAL_GTM_INTELLIGENCE)
-   Content: Real-world market analysis, regulatory change narratives, and institutional briefing logs compiled by board agents during flywheel execution cycles.
-   Target: primary: /governance-frame/[slug] · staging: docs/briefing-queue/ · database: PublishedBriefing · repository: published-briefings/ · external: corporate Substack stream, Ironcast newsletter compile
-   Trigger: Ops Hub briefings/request or newsletters/request, autonomous weekday GTM cron (/api/cron/gtm-briefing-queue), or narrate → briefing-queue draft → human Promote (approve) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate
-   Authors: board-bot, board-cfo, board-compliance, GTM flywheel agents, Irontally narrate cron, autonomous GTM briefing-queue cron, Ops Hub briefings/request, Ops Hub newsletters/request
+1. Newsletters & Briefings / Governance Frame Research Encyclopedia (EXTERNAL_GTM_INTELLIGENCE)
+   Content: Real-world market analysis, regulatory change narratives, institutional briefing logs, and published GF research catalog.
+   Target: primary: https://research.ironframegrc.com/briefings/[slug] · staging: docs/briefing-queue/ · database: PublishedBriefing · repository: published-briefings/, governance-frame/ · external: research.ironframegrc.com, Ironcast
+   Trigger: GF publication desk (Ops Hub briefings/desk-run), Ops Hub briefings/request or newsletters/request, autonomous weekday GTM cron (/api/cron/gtm-briefing-queue), or narrate → briefing-queue draft → human Promote (approve) or Deny → PublishedBriefing → Ironcast newsletter/RSS syndicate
+   Authors (WRITE-to-queue): gf-researcher, gf-editor, gf-verifier, gf-regulatory-reviewer, gf-product-boundary, gf-operator (desk), board-bot, board-cfo, board-compliance, GTM flywheel agents, Irontally narrate cron, autonomous GTM briefing-queue cron, Ops Hub briefings/request, Ops Hub newsletters/request
+   READ access: all board personas + perimeter workers may cite the published encyclopedia (federated + product spine)
    Operator submit:
+  - /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/desk-run (GF desk)
   - /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/request
   - /dashboard/operations?tab=newsletters · POST /api/admin/operations-hub/newsletters/request
-  - Approve: briefings/promote · Deny: briefings/deny
+  - Approve: briefings/promote · Deny: briefings/deny (human Publisher only — desk agents never promote)
    Rules:
   - Dynamic, narrative-driven, and completely decoupled from internal system code.
   - Communicates outward to prospects and design partners to showcase active intelligence posture.
-  - Drafts quarantined in briefing-queue/ — never compiled to /docs or public routes until promoted.
-  - Published ledger lives in PostgreSQL and renders at /governance-frame/[slug].
+  - Drafts quarantined in briefing-queue/ — never compiled to /docs, agent corpora, or public routes until promoted.
+  - Published ledger lives in PostgreSQL and renders at research.ironframegrc.com/briefings/[slug].
+  - Agents MAY READ published GF research for citation; NEVER ingest briefing-queue drafts.
   - Mandatory Section V citations before human promotion.
+  - GF desk writes optional docs/briefing-queue/.desk-reviews/*.desk.json advisory checklists only.
   - board-trainer and board-writer must never write to this plane.
 
 2. App Docs (INTERNAL_PRODUCT_GRC_CORPUS)

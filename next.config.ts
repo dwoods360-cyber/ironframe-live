@@ -45,6 +45,11 @@ const nextConfig: NextConfig = {
       "./docs/**/*",
       "./public/rss.xml",
     ],
+    "/api/admin/operations-hub/briefings/desk-run": [
+      "./docs/TAS.md",
+      "./docs/briefing-queue/**/*",
+      "./docs/governance-frame/**/*",
+    ],
     "/api/admin/operations-hub/briefings/promote": [
       "./docs/TAS.md",
       "./docs/briefing-queue/**/*",

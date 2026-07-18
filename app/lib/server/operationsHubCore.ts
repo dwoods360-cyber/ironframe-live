@@ -35,6 +35,7 @@ import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdo
 import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
 import { IRONBOARD_OPERATIONS_PORTAL_PATH } from "@/app/lib/ironboardConsolePaths";
 import { listDeniedBriefingFilenames } from "@/app/lib/server/denyBriefingQueueDraftCore";
+import { readDeskReview, type DeskReviewChecklist } from "@/lib/governanceFrame/publicationDesk";
 import prisma from "@/lib/prisma";
 
 export type WorkforceServiceId =
@@ -77,6 +78,8 @@ export type BriefingQueueDraftSummary = {
   requiresImmediatePromotion: boolean;
   validationOk: boolean;
   issues: BriefingDraftValidationIssue[];
+  /** GF publication-desk sidecar (advisory — never auto-approves). */
+  deskReview: DeskReviewChecklist | null;
 };
 
 export type NewsletterEditionSummary = {
@@ -231,6 +234,7 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
         requiresImmediatePromotion: alertFlags.requiresImmediatePromotion,
         validationOk: validation.ok,
         issues: validation.issues,
+        deskReview: readDeskReview(docsRoot, entry.name),
       };
     })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));

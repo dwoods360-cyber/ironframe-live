@@ -204,6 +204,11 @@ export function listEditorialPolicyDocs(): PolicyDocListing[] {
       fallbackTitle: "Operating Outline",
     },
     {
+      id: "publication-desk-agents",
+      relativePath: "governance-frame/charter/publication-desk-agents.md",
+      fallbackTitle: "Publication Desk Agents",
+    },
+    {
       id: "editorial-charter",
       relativePath: "governance-frame/charter/editorial-charter.md",
       fallbackTitle: "Editorial Charter",

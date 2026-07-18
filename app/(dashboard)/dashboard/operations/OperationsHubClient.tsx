@@ -48,6 +48,42 @@ function StatusDot({ ok }: { ok: boolean }) {
   );
 }
 
+function DeskReviewBadges({
+  deskReview,
+}: {
+  deskReview: OperationsHubSnapshot["briefings"]["queueDrafts"][number]["deskReview"];
+}) {
+  if (!deskReview) {
+    return <span className="text-slate-600">no GF desk pass</span>;
+  }
+  return (
+    <>
+      <span
+        className={
+          deskReview.readyForHumanOperator ? "text-emerald-400" : "text-amber-300"
+        }
+      >
+        desk {deskReview.readyForHumanOperator ? "ready" : "revise"}
+      </span>
+      {deskReview.findings.map((finding) => (
+        <span
+          key={finding.agentId}
+          className={
+            finding.status === "pass" || finding.status === "advisory"
+              ? "text-slate-400"
+              : finding.status === "fail"
+                ? "text-rose-400"
+                : "text-amber-400"
+          }
+          title={finding.summary}
+        >
+          {finding.agentId.replace("gf-", "")}:{finding.status}
+        </span>
+      ))}
+    </>
+  );
+}
+
 function WorkforceFleetList({ workforce }: { workforce: WorkforceServiceStatus[] }) {
   return (
     <ul className="space-y-3 text-sm">
@@ -132,6 +168,11 @@ export default function OperationsHubClient() {
   const [requestPrompt, setRequestPrompt] = useState("");
   const [requestBusy, setRequestBusy] = useState(false);
   const [requestMessage, setRequestMessage] = useState<string | null>(null);
+  const [deskTitle, setDeskTitle] = useState("");
+  const [deskPrompt, setDeskPrompt] = useState("");
+  const [deskBusy, setDeskBusy] = useState(false);
+  const [deskMessage, setDeskMessage] = useState<string | null>(null);
+  const [deskReviewBusyFile, setDeskReviewBusyFile] = useState<string | null>(null);
   const [newsletterRequestPrompt, setNewsletterRequestPrompt] = useState("");
   const [newsletterRequestBusy, setNewsletterRequestBusy] = useState(false);
   const [newsletterRequestMessage, setNewsletterRequestMessage] = useState<string | null>(null);
@@ -287,6 +328,71 @@ export default function OperationsHubClient() {
     } finally {
       setDecisionBusyFile(null);
       setDenyBusy(false);
+    }
+  };
+
+  const handleGfDeskAuthor = async () => {
+    if (!deskPrompt.trim() || deskBusy) return;
+    setDeskBusy(true);
+    setDeskMessage(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        message?: string;
+        readyForHumanOperator?: boolean;
+      }>(
+        "/api/admin/operations-hub/briefings/desk-run",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "author",
+            title: deskTitle.trim() || undefined,
+            requestPrompt: deskPrompt.trim(),
+            overwrite: true,
+            tenantSlug: "ironframe-sandbox",
+          }),
+        },
+        "GF desk author failed.",
+      );
+      setDeskMessage(
+        `${data.message ?? "Desk run complete."}${
+          data.readyForHumanOperator ? " Checklist advisory-ready for human Approve." : ""
+        }`,
+      );
+      await loadSnapshot();
+    } catch (err) {
+      setDeskMessage(err instanceof Error ? err.message : "GF desk author failed.");
+    } finally {
+      setDeskBusy(false);
+    }
+  };
+
+  const handleGfDeskReview = async (filename: string) => {
+    const file = filename.trim();
+    if (!file || deskReviewBusyFile) return;
+    setDeskReviewBusyFile(file);
+    setDeskMessage(null);
+    try {
+      const data = await fetchOpsPortalJson<{ ok?: boolean; message?: string }>(
+        "/api/admin/operations-hub/briefings/desk-run",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "review",
+            filename: file,
+            tenantSlug: "ironframe-sandbox",
+          }),
+        },
+        "GF desk review failed.",
+      );
+      setDeskMessage(data.message ?? `Desk review recorded for ${file}.`);
+      await loadSnapshot();
+    } catch (err) {
+      setDeskMessage(err instanceof Error ? err.message : "GF desk review failed.");
+    } finally {
+      setDeskReviewBusyFile(null);
     }
   };
 
@@ -705,8 +811,12 @@ export default function OperationsHubClient() {
                           <span className={draft.validationOk ? "text-emerald-400" : "text-amber-400"}>
                             {draft.validationOk ? "validation ok" : "needs review"}
                           </span>
+                          <DeskReviewBadges deskReview={draft.deskReview} />
                           {/auto-briefing/i.test(draft.filename) ? (
                             <span className="text-violet-300">autonomous</span>
+                          ) : null}
+                          {/gf-desk/i.test(draft.filename) ? (
+                            <span className="text-cyan-300">gf desk</span>
                           ) : null}
                           {draft.requiresImmediatePromotion ? (
                             <span className="text-rose-400">urgent exposure</span>
@@ -724,6 +834,19 @@ export default function OperationsHubClient() {
                           </button>
                           <button
                             type="button"
+                            disabled={
+                              busy ||
+                              promoteBusy ||
+                              denyBusy ||
+                              deskReviewBusyFile === draft.filename
+                            }
+                            onClick={() => void handleGfDeskReview(draft.filename)}
+                            className="rounded-md border border-cyan-800/80 bg-cyan-950/40 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:border-cyan-500 disabled:opacity-50"
+                          >
+                            {deskReviewBusyFile === draft.filename ? "Desk…" : "Run GF desk"}
+                          </button>
+                          <button
+                            type="button"
                             disabled={busy || promoteBusy || denyBusy}
                             onClick={() => void handleDenyDraft(draft.filename)}
                             className="rounded-md border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:border-rose-600 disabled:opacity-50"
@@ -738,6 +861,47 @@ export default function OperationsHubClient() {
               </ul>
             </section>
             <section className="space-y-6">
+              <div className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
+                <h2 className="text-lg font-semibold text-white">
+                  Governance Frame publication desk
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Runs gf-researcher → editor → verifier → regulatory → product-boundary →
+                  gf-operator. Stages quarantine drafts and advisory{" "}
+                  <span className="font-mono text-slate-300">.desk-reviews</span> only. Human
+                  Approve remains required — desk agents never promote.
+                </p>
+                <label className="mt-4 block text-xs text-slate-400">
+                  Title
+                  <input
+                    value={deskTitle}
+                    onChange={(e) => setDeskTitle(e.target.value)}
+                    placeholder="e.g. Evidence defensibility after the AI Act"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <label className="mt-3 block text-xs text-slate-400">
+                  Research brief
+                  <textarea
+                    value={deskPrompt}
+                    onChange={(e) => setDeskPrompt(e.target.value)}
+                    rows={6}
+                    placeholder="Define the governance question, jurisdictions, and primary sources to pursue (quarantine only)…"
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={deskBusy || deskPrompt.trim().length < 40}
+                  onClick={() => void handleGfDeskAuthor()}
+                  className="mt-3 rounded-lg bg-cyan-800 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+                >
+                  {deskBusy ? "Desk running…" : "Author with GF desk & stage"}
+                </button>
+                {deskMessage ? (
+                  <p className="mt-3 text-sm text-slate-300">{deskMessage}</p>
+                ) : null}
+              </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Request series (queue only)</h2>
                 <p className="mt-1 text-sm text-slate-400">

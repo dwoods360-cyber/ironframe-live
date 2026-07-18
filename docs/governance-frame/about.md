@@ -5,16 +5,29 @@ classification: "Institutional Governance"
 
 # About Governance Frame
 
-Governance Frame is the independent research and editorial publication of Ironframe GRC.
+Governance Frame is **not** a software company. It is an independent governance research and executive education organization.
 
-Independent research on governance, risk, compliance, operational resilience, cybersecurity, and AI governance.
+**Authoritative public charter:** [`charter/what-governance-frame-is.md`](./charter/what-governance-frame-is.md)
 
-**Published by Ironframe GRC.**
+Independent research on governance, risk, compliance, operational resilience, evidence, executive accountability, quantitative risk, AI governance, board reporting, and audit integrity.
 
-## Publisher identity
+Publisher identity: **Governance Frame Research**
 
-Governance Frame Research
+Operating model (roles, tools, cadence): [`charter/operating-outline.md`](./charter/operating-outline.md)  
+Editorial standards: [`charter/editorial-standards.md`](./charter/editorial-standards.md)  
+Public site: https://research.ironframegrc.com
+
+## Relationship to Ironframe
+
+Governance Frame publishes research for industry. Ironframe demonstrates one implementation approach. Ironframe should almost never be the subject of Governance Frame articles. Product examples, when used, are labeled and are not regulatory requirements.
+
+## Content pillars
+
+- Industry research papers
+- Industry briefings
+- Executive storytelling
+- Newsletters (and, over time, video, training, and industry reports)
 
 ## Editorial boundary
 
-Governance Frame research is evidence-based institutional analysis. References to Ironframe products or architecture are clearly labeled and do not represent regulatory requirements.
+Evidence-based institutional analysis. Vendor-neutral by default. Corrections and verification ledgers are maintained. Quarantine drafts are never public.

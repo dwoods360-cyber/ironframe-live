@@ -62,6 +62,7 @@ export function isGovernanceFramePublicPath(pathname: string): boolean {
     "/series",
     "/methodology",
     "/editorial-standards",
+    "/operating-outline",
     "/sources-and-corrections",
     "/about",
   ] as const;

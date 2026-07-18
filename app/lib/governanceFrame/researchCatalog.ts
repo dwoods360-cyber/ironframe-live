@@ -189,6 +189,21 @@ export function listEditorialPolicyDocs(): PolicyDocListing[] {
   const docsRoot = resolveDocsRoot();
   const candidates: Array<{ id: string; relativePath: string; fallbackTitle: string }> = [
     {
+      id: "what-governance-frame-is",
+      relativePath: "governance-frame/charter/what-governance-frame-is.md",
+      fallbackTitle: "What Governance Frame Is",
+    },
+    {
+      id: "editorial-standards",
+      relativePath: "governance-frame/charter/editorial-standards.md",
+      fallbackTitle: "Editorial Standards",
+    },
+    {
+      id: "operating-outline",
+      relativePath: "governance-frame/charter/operating-outline.md",
+      fallbackTitle: "Operating Outline",
+    },
+    {
       id: "editorial-charter",
       relativePath: "governance-frame/charter/editorial-charter.md",
       fallbackTitle: "Editorial Charter",
@@ -244,6 +259,19 @@ export function listEditorialPolicyDocs(): PolicyDocListing[] {
       ready: Boolean(markdown && !isPlaceholderDoc(markdown)),
     };
   });
+}
+
+/** Load a published policy manuscript body for the public research site. */
+export function getEditorialPolicyMarkdown(id: string): {
+  listing: PolicyDocListing;
+  bodyMarkdown: string;
+} | null {
+  const listing = listEditorialPolicyDocs().find((doc) => doc.id === id);
+  if (!listing || !listing.ready) return null;
+  const absolute = path.join(resolveDocsRoot(), listing.relativePath);
+  const markdown = readUtf8IfExists(absolute);
+  if (!markdown) return null;
+  return { listing, bodyMarkdown: stripFrontmatter(markdown) };
 }
 
 export function listNewsletterPlaceholders(): string[] {

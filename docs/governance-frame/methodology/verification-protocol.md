@@ -1,10 +1,10 @@
 ---
-status: "PLACEHOLDER"
+status: "PUBLISHED"
 classification: "Institutional Governance"
 ---
 
 # Governance Frame Verification Protocol
 
-Draft pending.
+Authoritative detail: [`../charter/editorial-standards.md`](../charter/editorial-standards.md) §§3–4, §9, §18.
 
-This document must be reviewed and approved before being treated as Governance Frame policy.
+Sources must be inspected before verification. Ledger entries record claim, source, status, exact support, limitations, and reviewer notes. Automated validation does not equal editorial approval.

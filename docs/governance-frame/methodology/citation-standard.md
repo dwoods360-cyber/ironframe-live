@@ -1,10 +1,10 @@
 ---
-status: "PLACEHOLDER"
+status: "PUBLISHED"
 classification: "Institutional Governance"
 ---
 
 # Governance Frame Citation Standard
 
-Draft pending.
+Authoritative detail: [`../charter/editorial-standards.md`](../charter/editorial-standards.md) §§3–4, §8–9.
 
-This document must be reviewed and approved before being treated as Governance Frame policy.
+Primary sources preferred. Citations must support the exact claim. Never invent citations, quotations, statutes, dates, or statistics. Source ledgers map claims to verified authorities.

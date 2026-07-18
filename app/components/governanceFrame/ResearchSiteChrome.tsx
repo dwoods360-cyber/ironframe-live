@@ -11,6 +11,7 @@ const NAV = [
   { path: "/newsletters", label: "Newsletters" },
   { path: "/methodology", label: "Methodology" },
   { path: "/editorial-standards", label: "Editorial standards" },
+  { path: "/operating-outline", label: "Operating outline" },
   { path: "/sources-and-corrections", label: "Sources & corrections" },
   { path: "/about", label: "About" },
 ] as const;
@@ -43,11 +44,11 @@ export default function ResearchSiteChrome({
             {showIntro ? (
               <div className="max-w-2xl space-y-2">
                 <p className="font-sans text-sm leading-relaxed text-slate-300">
-                  Independent research on governance, risk, compliance, operational resilience,
-                  cybersecurity, and AI governance.
+                  Independent governance research and executive education — vendor-neutral,
+                  evidence-based, institutionally credible.
                 </p>
                 <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                  Published by Ironframe GRC
+                  Governance Frame Research · editorially independent
                 </p>
               </div>
             ) : null}

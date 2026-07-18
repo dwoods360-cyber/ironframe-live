@@ -1,10 +1,10 @@
 ---
-status: "PLACEHOLDER"
+status: "PUBLISHED"
 classification: "Institutional Governance"
 ---
 
 # Governance Frame Research Methodology
 
-Draft pending.
+Authoritative standards: [`../charter/editorial-standards.md`](../charter/editorial-standards.md) (especially §§5–7, §11–15).
 
-This document must be reviewed and approved before being treated as Governance Frame policy.
+Method: evidence before opinion; separate documented fact, interpretation, illustration, architectural recommendation, product relevance, and unresolved questions; maintain research packages with manuscript, references, source ledger, and revision history.

@@ -1,10 +1,14 @@
 # Governance Frame
 
-Governance Frame is the independent research and publication function associated with the broader Ironframe ecosystem.
+Governance Frame is **not** a software company. It is an independent governance research and executive education organization.
 
-Its purpose is to publish evidence-driven research concerning governance, risk, compliance, cybersecurity governance, evidence stewardship, quantitative risk, operational resilience, and accountable automation.
+Its mission is to explain why organizations repeatedly fail in the same ways — and how better governance architectures can reduce those failures. Tone: vendor-neutral, research-driven, evidence-based, institutionally credible.
 
-Governance Frame research must remain editorially distinguishable from Ironframe product development and commercial operations.
+**Charter:** [`charter/what-governance-frame-is.md`](./charter/what-governance-frame-is.md)  
+**Editorial standards:** [`charter/editorial-standards.md`](./charter/editorial-standards.md)  
+**Operating outline:** [`charter/operating-outline.md`](./charter/operating-outline.md) — roles, tools, cadence
+
+Ironframe should almost never be the subject of Governance Frame articles. Ironframe demonstrates one implementation approach of principles discussed in the research. Editorial independence from product marketing is non-negotiable.
 
 ## Public destination
 
@@ -29,6 +33,7 @@ Recommended public paths:
 /series/
 /methodology/
 /editorial-standards/
+/operating-outline/
 /sources-and-corrections/
 /about/
 ```
@@ -76,7 +81,9 @@ Governance Frame publications may include:
 
 ## Publication Lifecycle
 
-The expected publication lifecycle is:
+Authoritative roles, tools, and cadence: [`charter/operating-outline.md`](./charter/operating-outline.md).
+
+Status sequence (summary):
 
 1. IDEA
 2. OUTLINE
@@ -89,7 +96,7 @@ The expected publication lifecycle is:
 9. PUBLISHED
 10. REVISED, SUPERSEDED, or RETIRED
 
-Nothing should be published directly from an unreviewed draft.
+Nothing should be published directly from an unreviewed draft. Operator Approve / Hold / Deny is required; queue presence is not publication.
 
 ## Existing Operational Directories
 

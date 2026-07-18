@@ -13,6 +13,12 @@ describe("publicFunnelShell", () => {
     expect(isPublicDarkShellPath("/register/contact")).toBe(true);
     expect(isPublicDarkShellPath("/register/sample-token")).toBe(true);
     expect(isPublicDarkShellPath("/pricing")).toBe(true);
+    expect(isPublicDarkShellPath("/solutions")).toBe(true);
+    expect(isPublicDarkShellPath("/solutions/multi-entity-grc")).toBe(true);
+    expect(isPublicDarkShellPath("/tools")).toBe(true);
+    expect(isPublicDarkShellPath("/tools/third-party-criticality-questionnaire")).toBe(true);
+    expect(isPublicDarkShellPath("/product-demo")).toBe(true);
+    expect(isPublicDarkShellPath("/trust-center")).toBe(true);
   });
 
   it("does not treat dashboard routes as public dark shell paths", () => {

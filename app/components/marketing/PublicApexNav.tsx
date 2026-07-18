@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { SALES_CONTACT_PATH } from "@/config/registration";
+
 type PublicApexNavProps = {
   /** When true, the operator is already on the sign-in surface. */
   loginActive?: boolean;
@@ -17,17 +19,47 @@ export default function PublicApexNav({
       aria-label="Ironframe global navigation"
     >
       <Link
-        href="/login"
+        href="/marketing"
         className="font-mono text-sm font-black tracking-widest text-white transition-colors hover:text-teal-300"
       >
         IRONFRAME<span className="ml-1 text-[10px] font-bold text-teal-400">GRC</span>
       </Link>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         <Link
-          href="/marketing"
+          href="/solutions"
+          className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 sm:inline-flex"
+        >
+          Solutions
+        </Link>
+        <Link
+          href="/product-demo"
           className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
-          Product overview
+          Demo
+        </Link>
+        <Link
+          href="/trust-center"
+          className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
+        >
+          Trust
+        </Link>
+        <Link
+          href="/tools"
+          className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 lg:inline-flex"
+        >
+          Tools
+        </Link>
+        <Link
+          href="/pricing"
+          className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 sm:inline-flex"
+        >
+          Pricing
+        </Link>
+        <Link
+          href={SALES_CONTACT_PATH}
+          className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 md:inline-flex"
+        >
+          Workflow review
         </Link>
         {isAuthenticated ? (
           <Link

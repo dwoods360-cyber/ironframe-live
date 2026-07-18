@@ -15,19 +15,18 @@ export const SALES_INTAKE_API_PATH = "/api/register/sales-intake";
 export const PUBLIC_LEAD_API_PATH = "/api/register/public-lead";
 
 /**
- * REVERTIBLE: When public registration is off, also block `/demo/*` interactive sandbox routes.
- * Set to `false` to restore client-only demo dashboard without re-enabling self-serve provisioning.
+ * When public registration is off, keep self-serve workspace setup blocked.
+ * Client-only `/demo/*` sandbox and `/register/demo` entry remain available for public product demos
+ * (mock auth only — no tenant provisioning).
  */
-export const BLOCK_DEMO_SANDBOX_WHEN_REGISTRATION_DISABLED = true;
+export const BLOCK_DEMO_SANDBOX_WHEN_REGISTRATION_DISABLED = false;
 
 export function isPublicRegistrationEnabled(): boolean {
   return IRONFRAME_PUBLIC_REGISTRATION_ENABLED;
 }
 
 export function isBlockedProspectRegistrationPath(pathname: string): boolean {
-  return (
-    pathname === PUBLIC_REGISTRATION_SETUP_PATH || pathname === PUBLIC_DEMO_REGISTRATION_PATH
-  );
+  return pathname === PUBLIC_REGISTRATION_SETUP_PATH;
 }
 
 export function isPublicRegistrationIntakeApiPath(pathname: string): boolean {

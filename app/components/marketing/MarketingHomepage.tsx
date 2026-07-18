@@ -1,42 +1,52 @@
 import Link from "next/link";
 
-import { GOVERNANCE_FRAME_PUBLIC_ORIGIN } from "@/config/governanceFramePublic";
+import type { PublishedBriefingCard } from "@/app/lib/governanceFrame/publishedBriefingLedgerCards";
+import {
+  DESIGN_PARTNER_WINDOW_DAYS,
+  WORKFLOW_REVIEW_CTA_MINUTES,
+  formatPathBUsd,
+} from "@/lib/ironframeProductKnowledge/commercial";
+import { SALES_CONTACT_PATH } from "@/config/registration";
 
+import BriefingsArchive from "./BriefingsArchive";
 import MarketingAnimatedLogo from "./MarketingAnimatedLogo";
 import MarketingCityCycleSubtitle from "./MarketingCityCycleSubtitle";
-import MarketingSalesPortalTrigger from "./MarketingSalesPortalTrigger";
 import PublicApexNav from "./PublicApexNav";
+import { SOLUTION_PAGES } from "./SolutionsContent";
 
-const REGULATORY_BRIEFS = [
-  {
-    id: "dora-2026",
-    tag: "DORA",
-    title: "Financial Entity Operational Resilience Enforcement Phase II",
-    risk: "HIGH" as const,
-  },
-  {
-    id: "eu-ai-act",
-    tag: "EU AI Act",
-    title: "Prohibited Practices and Mandatory Documentation Cut-Offs",
-    risk: "CRITICAL" as const,
-  },
-  {
-    id: "nis2-compliance",
-    tag: "NIS2",
-    title: "Critical Infrastructure Supply-Chain Dependency Audits",
-    risk: "HIGH" as const,
-  },
-  {
-    id: "cmmc-rev2",
-    tag: "CMMC",
-    title: "Defense Industrial Base Level 3 Control Alignment and Evidence Cadence",
-    risk: "HIGH" as const,
-  },
-];
+const WORKFLOW_STEPS = [
+  "Risk identified",
+  "Financial exposure estimated",
+  "Controls linked",
+  "Evidence collected",
+  "Reviewed or quarantined",
+  "Remediation assigned",
+  "Board / audit report generated",
+] as const;
 
-const SECTOR_CUES = ["Finance", "Healthcare", "Utilities", "Defense"] as const;
+const OUTCOMES = [
+  {
+    title: "Quantitative risk, not color codes alone",
+    desc: "Documented financial exposure in integer cents — assumptions and baselines operators can defend.",
+  },
+  {
+    title: "Audit-ready evidence chain",
+    desc: "Controls, evidence, owners, review history, and remediation stay connected in one workspace.",
+  },
+  {
+    title: "Multi-entity separation with oversight",
+    desc: "Subsidiaries, clients, and departments governed in isolated enclaves without losing the command view.",
+  },
+] as const;
 
-export default function MarketingHomepage() {
+type MarketingHomepageProps = {
+  /** Live published-ledger teaser cards (never queue drafts). */
+  publishedBriefingCards?: PublishedBriefingCard[];
+};
+
+export default function MarketingHomepage({
+  publishedBriefingCards = [],
+}: MarketingHomepageProps) {
   return (
     <main
       className="ironframe-public-landing min-h-screen bg-[var(--bg-primary)] text-[var(--text-main)] transition-colors duration-200"
@@ -46,27 +56,30 @@ export default function MarketingHomepage() {
       <PublicApexNav />
 
       <nav
-        className="flex min-h-11 w-full items-center justify-center gap-6 border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--login-muted)] sm:gap-8 sm:px-6"
+        className="flex min-h-11 w-full items-center justify-center gap-5 overflow-x-auto border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--login-muted)] sm:gap-8 sm:px-6"
         aria-label="Product sections"
       >
-        <a href="#problem" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-          The Problem
+        <a href="#workflow" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Workflow
         </a>
-        <a href="#solution" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-          The Solution
+        <a href="#outcomes" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Outcomes
         </a>
-        <a href="#pulse" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-          GRC Pulse
-        </a>
-        <a href="#workforce" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[var(--text-main)]">
-          19-Agent Grid
-        </a>
+        <Link href="/product-demo" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Guided demo
+        </Link>
+        <Link href="/trust-center" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Trust Center
+        </Link>
+        <Link href="/pricing" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Pricing
+        </Link>
       </nav>
 
       <div className="flex flex-col items-center px-4 pt-8 sm:px-6">
         <MarketingAnimatedLogo className="h-28 w-28 sm:h-36 sm:w-36" />
         <p className="mt-3 font-mono text-sm font-black tracking-widest text-[var(--text-main)] sm:text-base">
-          IRONFRAME CORE
+          IRONFRAME
         </p>
         <MarketingCityCycleSubtitle />
       </div>
@@ -75,248 +88,258 @@ export default function MarketingHomepage() {
         <div
           className="inline-flex items-center space-x-2 rounded-full border border-[var(--login-accent)]/20 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-xs text-[var(--login-accent)]"
           role="status"
-          aria-live="polite"
         >
           <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--login-accent)]" aria-hidden="true" />
-          <span>One engine · isolated tenant enclaves · continuous integrity</span>
+          <span>Control-first GRC command post · design-partner phase</span>
         </div>
         <h1
           id="homepage-hero-title"
           className="mx-auto max-w-4xl text-4xl leading-tight font-bold tracking-tight text-[var(--text-main)] sm:text-5xl lg:text-6xl"
         >
-          Ironframe: The Immutable Standard for AI-Driven GRC
+          Ironframe
         </h1>
-        <p className="mx-auto max-w-3xl text-lg leading-relaxed text-[var(--login-muted)] sm:text-xl">
-          The multi-tenant command post for regulated enterprises and MSSP operators — deterministic
-          compliance from threat intake through audit ledger to board-ready reporting.
+        <p className="mx-auto max-w-2xl text-xl font-medium leading-snug text-[var(--text-main)] sm:text-2xl">
+          Replace spreadsheet risk-and-evidence work with an auditable, multi-entity workflow.
         </p>
-        <p className="mx-auto max-w-2xl font-mono text-xs tracking-wide text-[var(--login-muted)] sm:text-sm">
-          {SECTOR_CUES.join(" · ")} — each workspace ring-fenced at{" "}
-          <span className="text-[var(--login-accent)]">tenant.ironframegrc.com</span>
+        <p className="mx-auto max-w-2xl text-base leading-relaxed text-[var(--login-muted)] sm:text-lg">
+          See how a risk moves from intake to quantified exposure, evidence review, remediation, and
+          board-ready output — with tenant isolation enforced at every step.
         </p>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-          <MarketingSalesPortalTrigger className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase shadow-lg shadow-indigo-950/40 transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto">
-            Request Demo: Contact Sales
-          </MarketingSalesPortalTrigger>
-          <a
-            href={GOVERNANCE_FRAME_PUBLIC_ORIGIN}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href={SALES_CONTACT_PATH}
+            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
+          >
+            Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
+          </Link>
+          <Link
+            href="/product-demo"
             className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
           >
-            Explore the GRC Pulse
-            <span className="ml-1.5" aria-hidden="true">
-              →
-            </span>
-          </a>
+            Open guided demonstration
+          </Link>
         </div>
+        <p className="mx-auto max-w-xl font-mono text-xs text-[var(--login-muted)]">
+          Path B design-partner on-ramp {formatPathBUsd()} · {DESIGN_PARTNER_WINDOW_DAYS} day scoped engagement
+        </p>
       </header>
 
       <hr className="my-4 border-[var(--login-border)]" aria-hidden="true" />
 
       <section
-        id="problem"
+        id="workflow"
         className="mx-auto max-w-6xl px-6 py-16"
-        aria-labelledby="problem-heading"
+        aria-labelledby="workflow-heading"
       >
         <h2
-          id="problem-heading"
+          id="workflow-heading"
           className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
         >
-          The Structural Conflict
+          One complete workflow
         </h2>
         <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
-          Why Regulated Operators Still Lose the GRC Loop
+          From risk intake to board-ready output
         </h3>
         <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          Healthcare, finance, utilities, and defense teams run the same failure mode: threats arrive in
-          one console, controls live in another, audit evidence decays in spreadsheets, and the board
-          sees a snapshot — not a deterministic chain of custody.
+          The guided demo walks a sandbox company through seven steps. Every figure is labeled
+          demonstration data — not a live customer record.
         </p>
-        <div className="grid gap-8 md:grid-cols-3">
-          {[
-            {
-              title: "Broken Threat-to-Risk Chain",
-              desc: "Irongate-sanitized intake, Ironwatch telemetry, and quarantine playbooks sit disconnected from the active risk register — masking systemic exposure across tenant boundaries.",
-            },
-            {
-              title: "Manual Spreadsheet Labor",
-              desc: "Analysts re-key live logs into stale workbooks the moment an engineer saves them — eroding HITL attestations and BIGINT financial locks before auditors arrive.",
-            },
-            {
-              title: "Retroactive Board Narratives",
-              desc: "Critical assessments assembled after the fact instead of streaming maturity scores, ALE baselines, and Ironbloom ESG signals directly to executives.",
-            },
-          ].map((item, index) => (
-            <article
-              key={item.title}
-              className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-6"
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {WORKFLOW_STEPS.map((label, index) => (
+            <li
+              key={label}
+              className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-4"
             >
-              <p className="mb-3 font-mono text-xs text-[var(--login-muted)]">CRITICAL ERR_0{index + 1}</p>
-              <h4 className="mb-2 text-lg font-bold text-[var(--text-main)]">{item.title}</h4>
-              <p className="text-sm leading-relaxed text-[var(--login-muted)]">{item.desc}</p>
-            </article>
+              <p className="font-mono text-[10px] text-[var(--login-muted)]">STEP {index + 1}</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--text-main)]">{label}</p>
+            </li>
           ))}
+        </ol>
+        <div className="mt-8">
+          <Link
+            href="/product-demo"
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-cyan-600/50 bg-cyan-950/30 px-5 text-sm font-medium text-cyan-100 hover:bg-cyan-900/40"
+          >
+            Start the guided demo →
+          </Link>
         </div>
       </section>
 
       <section
-        id="workforce"
+        id="outcomes"
         className="border-y border-[var(--login-border)] bg-[var(--bg-secondary)] py-16"
-        aria-labelledby="workforce-heading"
+        aria-labelledby="outcomes-heading"
       >
         <div className="mx-auto max-w-6xl px-6">
           <h2
-            id="workforce-heading"
+            id="outcomes-heading"
             className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
           >
-            The Defensive Architecture
+            Business outcomes
           </h2>
-          <h3
-            id="solution"
-            className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl"
-          >
-            One Engine. Many Enclaves. Full GRC Loop.
+          <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
+            Administrative relief for regulated operators
           </h3>
           <p className="mb-10 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-            Ironframe runs a 19-agent workforce behind a single immutable core — each customer workspace
-            isolated by subdomain, row-level security, and tenant-scoped vaults from threat pipeline through
-            audit export.
+            Mid-market buyers do not buy feature lists — they buy fewer handoffs, fewer unsupported
+            risk assertions, and faster audit preparation.
           </p>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                core: "19-Agent Workforce",
-                highlight:
-                  "Ironwatch, Irongate, Ironlock, and Ironbloom orchestrate intake, quarantine, HITL gates, and ESG pulse — checkpointed, never silent.",
-              },
-              {
-                core: "Immutable Audit Ledger",
-                highlight:
-                  "Tamper-proof Audit Intelligence with cryptographic export hashes on every configuration and attestation change.",
-              },
-              {
-                core: "BIGINT Financial Lock",
-                highlight:
-                  "ALE exposure, insurance posture, and mitigation value in integer cents exclusively — zero float drift across tenants.",
-              },
-              {
-                core: "Tenant-Scoped Enclaves",
-                highlight:
-                  "Dedicated subdomains (e.g. vaultbank.ironframegrc.com) with strict RLS — no cross-company memory bleed at the edge.",
-              },
-            ].map((feature) => (
+          <div className="grid gap-6 md:grid-cols-3">
+            {OUTCOMES.map((item) => (
               <article
-                key={feature.core}
+                key={item.title}
                 className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-6"
               >
-                <h4 className="mb-2 font-mono text-base font-bold text-[var(--text-main)]">{feature.core}</h4>
-                <p className="text-xs leading-relaxed text-[var(--login-muted)]">{feature.highlight}</p>
+                <h4 className="mb-2 text-lg font-bold text-[var(--text-main)]">{item.title}</h4>
+                <p className="text-sm leading-relaxed text-[var(--login-muted)]">{item.desc}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="pulse" className="mx-auto max-w-6xl px-6 py-16" aria-labelledby="pulse-heading">
-        <div className="grid gap-12 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
+      <section className="mx-auto max-w-6xl px-6 py-12" aria-labelledby="solutions-heading">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
             <h2
-              id="pulse-heading"
+              id="solutions-heading"
               className="font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
             >
-              Live Global Framework Matrix
+              Focused solutions
             </h2>
-            <h3 className="text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
-              Active Regulatory Horizons
-            </h3>
-            <div role="region" aria-live="polite" aria-label="Regulatory updates" className="space-y-4">
-              {REGULATORY_BRIEFS.map((brief) => (
-                <article
-                  key={brief.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-4"
-                >
-                  <div>
-                    <span className="mb-1 inline-block rounded bg-[var(--bg-secondary)] px-2 py-0.5 font-mono text-[10px] text-[var(--login-muted)]">
-                      {brief.tag}
-                    </span>
-                    <h4 className="text-sm font-medium text-[var(--text-main)]">{brief.title}</h4>
-                  </div>
-                  <span
-                    className="rounded border px-2 py-0.5 font-mono text-[10px] font-bold"
-                    style={{
-                      color: brief.risk === "CRITICAL" ? "var(--login-error)" : "var(--login-warning)",
-                      borderColor:
-                        brief.risk === "CRITICAL"
-                          ? "color-mix(in srgb, var(--login-error) 20%, transparent)"
-                          : "color-mix(in srgb, var(--login-warning) 20%, transparent)",
-                      backgroundColor:
-                        brief.risk === "CRITICAL"
-                          ? "color-mix(in srgb, var(--login-error) 10%, transparent)"
-                          : "color-mix(in srgb, var(--login-warning) 10%, transparent)",
-                    }}
-                  >
-                    {brief.risk}
-                  </span>
-                </article>
-              ))}
-            </div>
+            <p className="mt-2 text-xl font-bold tracking-tight text-[var(--text-main)]">
+              Start with the workflow that needs attention.
+            </p>
           </div>
-
-          <aside
-            className="space-y-6 rounded-xl border border-[var(--login-border)] bg-[var(--bg-secondary)] p-6"
-            aria-labelledby="pulse-sidebar-heading"
-          >
-            <h4 id="pulse-sidebar-heading" className="sr-only">
-              Operational telemetry sidebar
-            </h4>
-            <div>
-              <h5 className="mb-3 font-mono text-xs tracking-wider text-[var(--login-muted)] uppercase">
-                System Synchronicity
-              </h5>
-              <dl className="space-y-2 font-mono text-xs">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[var(--login-muted)]">Global node base</dt>
-                  <dd className="font-medium text-[var(--text-main)]">UTC / ZULU</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[var(--login-muted)]">EU regulatory target</dt>
-                  <dd className="font-medium text-[var(--text-main)]">Brussels (CEST)</dd>
-                </div>
-              </dl>
-            </div>
-            <hr className="border-[var(--login-border)]" aria-hidden="true" />
-            <div>
-              <h5 className="mb-3 font-mono text-xs tracking-wider text-[var(--login-muted)] uppercase">
-                Operational Telemetry
-              </h5>
-              <dl className="space-y-2 font-mono text-xs text-[var(--text-main)]">
-                <div className="flex justify-between gap-4">
-                  <dt>Ironwatch integrity</dt>
-                  <dd className="font-bold text-[var(--login-accent)]">Live / checkpointed</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt>Ironbloom carbon pulse</dt>
-                  <dd className="font-bold text-[var(--login-accent)]">ESG differentiated</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt>Threat pipeline</dt>
-                  <dd className="font-bold text-[var(--login-accent)]">Intake → active risk</dd>
-                </div>
-              </dl>
-            </div>
-          </aside>
+          <Link href="/solutions" className="text-sm font-medium text-cyan-300 underline hover:opacity-90">
+            View all solutions →
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {SOLUTION_PAGES.map((solution) => (
+            <Link
+              key={solution.slug}
+              href={`/solutions/${solution.slug}`}
+              className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-4 transition hover:border-cyan-700/50"
+            >
+              <h3 className="text-sm font-semibold text-[var(--text-main)]">{solution.eyebrow}</h3>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--login-muted)]">{solution.summary}</p>
+            </Link>
+          ))}
         </div>
       </section>
+
+      <section className="mx-auto max-w-6xl px-6 py-16" aria-labelledby="proof-heading">
+        <h2
+          id="proof-heading"
+          className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
+        >
+          Proof surfaces
+        </h2>
+        <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
+          See the product, then talk scope
+        </h3>
+        <div className="mb-8 grid gap-4 sm:grid-cols-3">
+          <a href="/product-demo" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
+            <img
+              src="/marketing/proof/product-demo.png"
+              alt="Screenshot of the Ironframe guided product demonstration"
+              className="h-40 w-full object-cover object-top"
+            />
+            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demo (live capture)</p>
+          </a>
+          <a href="#workflow" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
+            <img
+              src="/marketing/proof/homepage.png"
+              alt="Screenshot of the Ironframe product homepage"
+              className="h-40 w-full object-cover object-top"
+            />
+            <p className="p-3 text-xs text-[var(--login-muted)]">Product homepage (live capture)</p>
+          </a>
+          <a href="/trust-center" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
+            <img
+              src="/marketing/proof/trust-center.png"
+              alt="Screenshot of the Ironframe public Trust Center"
+              className="h-40 w-full object-cover object-top"
+            />
+            <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (live capture)</p>
+          </a>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Link
+            href="/product-demo"
+            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
+          >
+            <h4 className="font-semibold text-[var(--text-main)]">Guided demonstration</h4>
+            <p className="mt-2 text-sm text-[var(--login-muted)]">
+              Seven-step sandbox walkthrough with labeled demo data.
+            </p>
+          </Link>
+          <Link
+            href="/tools"
+            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
+          >
+            <h4 className="font-semibold text-[var(--text-main)]">Free control tools</h4>
+            <p className="mt-2 text-sm text-[var(--login-muted)]">
+              Ungated worksheets and checklists — templates only, not certifications.
+            </p>
+          </Link>
+          <Link
+            href={SALES_CONTACT_PATH}
+            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
+          >
+            <h4 className="font-semibold text-[var(--text-main)]">Workflow review</h4>
+            <p className="mt-2 text-sm text-[var(--login-muted)]">
+              {WORKFLOW_REVIEW_CTA_MINUTES} minutes to map one spreadsheet workflow to Ironframe.
+            </p>
+          </Link>
+        </div>
+      </section>
+
+      {publishedBriefingCards.length > 0 ? (
+        <section id="research" className="mx-auto max-w-6xl px-6 pb-16" aria-labelledby="research-heading">
+          <h2
+            id="research-heading"
+            className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
+          >
+            Governance Frame research
+          </h2>
+          <h3 className="mb-3 text-xl font-bold tracking-tight text-[var(--text-main)]">
+            Authority lives here — product conversion lives above
+          </h3>
+          <p className="mb-6 max-w-2xl text-sm text-[var(--login-muted)]">
+            Institutional briefings are published separately from Ironframe product pages. Cards below
+            project the published ledger only.
+          </p>
+          <div role="region" aria-live="polite" aria-label="Published briefings">
+            <BriefingsArchive cards={publishedBriefingCards} variant="teaser" />
+          </div>
+          <Link
+            href="/resources/briefings"
+            className="mt-4 inline-flex text-sm text-cyan-300 underline hover:opacity-90"
+          >
+            Briefings archive →
+          </Link>
+        </section>
+      ) : null}
 
       <footer className="w-full border-t border-[var(--login-border)] bg-[var(--bg-primary)] px-6 py-8 text-center font-mono text-xs text-[var(--login-muted)]">
         <p>© 2026 IRONFRAME GRC SYSTEM INC. ALL RIGHTS RESERVED.</p>
         <p className="mt-2">
-          Operating under constitutional framework{" "}
-          <Link href="/docs/hub" className="text-[var(--login-accent)] underline hover:opacity-90">
-            TAS documentation
+          <Link href="/trust-center" className="text-[var(--login-accent)] underline hover:opacity-90">
+            Trust Center
           </Link>
-          . Adhering to zero-trust data ingress policy.
+          {" · "}
+          <Link href="/privacy" className="text-[var(--login-accent)] underline hover:opacity-90">
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" className="text-[var(--login-accent)] underline hover:opacity-90">
+            Terms
+          </Link>
         </p>
       </footer>
     </main>

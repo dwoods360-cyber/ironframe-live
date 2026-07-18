@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
+
 import MarketingHomepage from "@/app/components/marketing/MarketingHomepage";
+import { listPublishedBriefingCards } from "@/app/lib/governanceFrame/publishedBriefingLedgerCards";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Ironframe | The Immutable Standard for AI-Driven GRC",
+  title: "Ironframe | Control-first GRC for regulated operators",
   description:
-    "Multi-tenant GRC command post for regulated enterprises — finance, healthcare, utilities, and defense. Deterministic threat-to-board telemetry with tenant-scoped vaults.",
+    "Replace spreadsheet risk-and-evidence work with an auditable, multi-entity GRC workflow — quantified exposure, linked controls, evidence review, and board-ready output.",
 };
 
 /** Public marketing landing — always renders the guest homepage (even when signed in). */
 export default function MarketingPage() {
-  return <MarketingHomepage />;
+  const publishedBriefingCards = listPublishedBriefingCards(4);
+  return <MarketingHomepage publishedBriefingCards={publishedBriefingCards} />;
 }

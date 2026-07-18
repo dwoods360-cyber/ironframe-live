@@ -16,11 +16,11 @@ describe("config/registration", () => {
     expect(IRONFRAME_PUBLIC_REGISTRATION_ENABLED).toBe(false);
   });
 
-  it("blocks prospect surfaces when invite-only", () => {
+  it("blocks self-serve setup when invite-only; allows public demo sandbox", () => {
     expect(shouldBlockProspectIngress("/register/setup")).toBe(true);
-    expect(shouldBlockProspectIngress("/register/demo")).toBe(true);
     expect(shouldBlockProspectIngress("/api/register/public-intake")).toBe(true);
-    expect(shouldBlockProspectIngress("/demo/dashboard")).toBe(true);
+    expect(shouldBlockProspectIngress("/register/demo")).toBe(false);
+    expect(shouldBlockProspectIngress("/demo/dashboard")).toBe(false);
     expect(shouldBlockProspectIngress(SALES_CONTACT_PATH)).toBe(false);
     expect(shouldBlockProspectIngress("/login")).toBe(false);
   });

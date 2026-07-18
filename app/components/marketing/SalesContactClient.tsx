@@ -4,6 +4,10 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 
 import { PUBLIC_LEAD_API_PATH } from "@/config/registration";
+import {
+  WORKFLOW_REVIEW_CTA_MINUTES,
+  formatPathBUsd,
+} from "@/lib/ironframeProductKnowledge/commercial";
 
 export default function SalesContactClient() {
   const [submitted, setSubmitted] = useState(false);
@@ -50,16 +54,29 @@ export default function SalesContactClient() {
   return (
     <main className="ironframe-public-funnel mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-6 py-12">
       <p className="font-mono text-xs uppercase tracking-widest text-[var(--login-muted)]">
-        Sales-assisted onboarding
+        Design-partner workflow review
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">
-        Request a secure enterprise enclave
+        Request a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
       <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
-        Request evaluation — no workspace created yet.
+        No workspace is created from this form. Path B on-ramp is {formatPathBUsd()} after scoped agreement.
       </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
-        This form records a <strong className="font-medium text-[var(--text-main)]">sales lead / design-partner inquiry</strong> only — no tenant workspace is created. Live enclaves are minted later via sales-assisted invite (Path B activation), never from this page. Share your details and our team will coordinate a scoped evaluation.
+        This form records a{" "}
+        <strong className="font-medium text-[var(--text-main)]">
+          sales lead / design-partner inquiry
+        </strong>{" "}
+        only. Use it to schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute review of one spreadsheet-based
+        risk-and-evidence workflow. Live enclaves are minted later via sales-assisted invite — never
+        from this page.
+      </p>
+      <p className="mt-2 text-sm text-[var(--login-muted)]">
+        Prefer to see the product first?{" "}
+        <Link href="/product-demo" className="text-cyan-300 underline hover:opacity-90">
+          Open the guided demonstration
+        </Link>
+        .
       </p>
 
       {submitted ? (

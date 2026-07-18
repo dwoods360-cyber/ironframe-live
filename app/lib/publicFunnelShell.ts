@@ -12,6 +12,11 @@ export function isPublicDarkShellPath(pathname: string): boolean {
   if (isPublicProspectOnboardingPath(normalized)) return true;
   if (normalized === "/legal/accept") return true;
   if (normalized === "/pricing" || normalized.startsWith("/pricing/")) return true;
+  if (normalized === "/resources" || normalized.startsWith("/resources/")) return true;
+  if (normalized === "/solutions" || normalized.startsWith("/solutions/")) return true;
+  if (normalized === "/product-demo" || normalized.startsWith("/product-demo/")) return true;
+  if (normalized === "/trust-center" || normalized.startsWith("/trust-center/")) return true;
+  if (normalized === "/tools" || normalized.startsWith("/tools/")) return true;
   if (normalized === "/terms" || normalized.startsWith("/terms/")) return true;
   if (normalized === "/privacy" || normalized.startsWith("/privacy/")) return true;
   if (
@@ -38,7 +43,12 @@ export function isDocsPathname(pathname: string): boolean {
 }
 
 export function isMarketingPathname(pathname: string): boolean {
-  return pathname === "/marketing" || pathname.startsWith("/marketing/");
+  return (
+    pathname === "/marketing" ||
+    pathname.startsWith("/marketing/") ||
+    pathname === "/resources" ||
+    pathname.startsWith("/resources/")
+  );
 }
 
 export type PublicDarkShellSurface = "public-landing" | "docs-reader" | "invite-registration" | "public-funnel";

@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   buildHeaderRouteMatrix,
   isAuthenticatedProductSurfacePath,
+  isConstitutionalOverlaySuppressedPath,
   isDashboardRouteGroupPath,
   isIronframeSaaSAppPath,
   isLegacyAuditTrailRedirectPath,
   isPublicCloudIngressPath,
   isIronleadsIngressPath,
   isInfraHealthPath,
+  isPublicProspectOnboardingPath,
   isSalesteamIngressPath,
   isSalesteamOutreachIngressPath,
   isSalesteamProspectsIngressPath,
@@ -128,13 +130,33 @@ describe("grcRouteMatch", () => {
     expect(isInfraHealthPath("/api/health/extra")).toBe(false);
   });
 
-  it("keeps marketing, pricing, and Governance Frame research public while gating product docs", () => {
+  it("keeps marketing, tools, solutions, pricing, product demo, trust center, and Governance Frame research public while gating product docs", () => {
     expect(isPublicRoute("/marketing")).toBe(true);
+    expect(isPublicRoute("/tools")).toBe(true);
+    expect(isPublicRoute("/tools/ai-governance-inventory")).toBe(true);
     expect(isPublicRoute("/pricing")).toBe(true);
+    expect(isPublicRoute("/solutions")).toBe(true);
+    expect(isPublicRoute("/solutions/governed-ai")).toBe(true);
+    expect(isPublicRoute("/product-demo")).toBe(true);
+    expect(isPublicRoute("/trust-center")).toBe(true);
+    expect(isPublicRoute("/trust-center/dpa")).toBe(true);
     expect(isPublicRoute("/terms")).toBe(true);
     expect(isPublicRoute("/docs/TAS.md")).toBe(false);
     expect(isPublicRoute("/governance-frame/briefing")).toBe(true);
     expect(isPublicRoute("/gf-research/briefings")).toBe(true);
+  });
+
+  it("allows public solution pages through prospect and cloud ingress", () => {
+    expect(isPublicProspectOnboardingPath("/solutions")).toBe(true);
+    expect(isPublicProspectOnboardingPath("/solutions/audit-ready-evidence")).toBe(true);
+    expect(isPublicCloudIngressPath("/solutions/third-party-resilience")).toBe(true);
+    expect(isConstitutionalOverlaySuppressedPath("/solutions/governed-ai")).toBe(true);
+  });
+
+  it("allows public tools through prospect and cloud ingress", () => {
+    expect(isPublicProspectOnboardingPath("/tools")).toBe(true);
+    expect(isPublicProspectOnboardingPath("/tools/nist-csf-2-govern-assessment")).toBe(true);
+    expect(isPublicCloudIngressPath("/tools/evidence-readiness-assessment")).toBe(true);
   });
 
   it("marks authenticated product surfaces for middleware and audits", () => {

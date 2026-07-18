@@ -126,6 +126,10 @@ export function isPublicRoute(pathname: string): boolean {
   if (pathname === "/pricing" || pathname.startsWith("/pricing/")) return true;
   if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
   if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
+  if (pathname === "/solutions" || pathname.startsWith("/solutions/")) return true;
+  if (pathname === "/product-demo" || pathname.startsWith("/product-demo/")) return true;
+  if (pathname === "/trust-center" || pathname.startsWith("/trust-center/")) return true;
+  if (pathname === "/tools" || pathname.startsWith("/tools/")) return true;
   /** Governance Frame research publication (also served on research/brief hosts). */
   if (pathname === "/gf-research" || pathname.startsWith("/gf-research/")) return true;
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
@@ -288,12 +292,21 @@ export function isPublicProspectOnboardingPath(pathname: string): boolean {
     pathname.startsWith("/marketing/") ||
     pathname === "/resources" ||
     pathname.startsWith("/resources/") ||
+    pathname === "/solutions" ||
+    pathname.startsWith("/solutions/") ||
+    pathname === "/product-demo" ||
+    pathname.startsWith("/product-demo/") ||
+    pathname === "/trust-center" ||
+    pathname.startsWith("/trust-center/") ||
+    pathname === "/tools" ||
+    pathname.startsWith("/tools/") ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/sales-agent-portal"
   ) {
     return true;
   }
+  if (isDemoRouteGroupPath(pathname)) return true;
   if (
     pathname === "/api/register/public-lead" ||
     pathname === "/api/register/public-intake" ||
@@ -398,6 +411,14 @@ export function isConstitutionalOverlaySuppressedPath(pathname: string): boolean
     pathname.startsWith("/marketing/") ||
     pathname === "/resources" ||
     pathname.startsWith("/resources/") ||
+    pathname === "/solutions" ||
+    pathname.startsWith("/solutions/") ||
+    pathname === "/product-demo" ||
+    pathname.startsWith("/product-demo/") ||
+    pathname === "/trust-center" ||
+    pathname.startsWith("/trust-center/") ||
+    pathname === "/tools" ||
+    pathname.startsWith("/tools/") ||
     pathname === "/login" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||

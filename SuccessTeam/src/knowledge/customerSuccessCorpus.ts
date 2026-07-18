@@ -1,4 +1,5 @@
 import type { CustomerSuccessKnowledgeEntry } from '../types/customerSuccessKnowledge.js';
+import { DESIGN_PARTNER_PATH_B_USD } from '../../../lib/ironframeProductKnowledge/commercial.js';
 
 const ALL = 'ALL' as const;
 
@@ -624,15 +625,18 @@ export const CUSTOMER_SUCCESS_KNOWLEDGE_CORPUS: Record<string, CustomerSuccessKn
     publicationYear: 2026,
     category: 'onboarding_adoption',
     coreConcept:
-      'Paying co-builders convert when order-form success criteria become the success plan, syncs stay capped, and convert-or-exit is explicit at day 60–90.',
+      'Paying co-builders convert when order-form success criteria become the success plan, syncs stay capped, and convert-or-exit is explicit by day 90.',
     ironframeApplication:
-      'After TenantBilling ACTIVE: bind CS plan to the 2–3 Path B order-form criteria; hand partner the operator packet; weekly syncs only for first 4–6 weeks then async; queue HITL advisories — never auto-send; expansion deferred until criteria hit or day-90 review. Collaborate with Sales only at CLOSED_WON handoff; Support owns billing-hold/login breaks.',
+      'After TenantBilling ACTIVE (Path B $' +
+      DESIGN_PARTNER_PATH_B_USD +
+      '): bind CS plan to the 2–3 Path B order-form criteria; hand partner /docs/user-manuals/design-partner-operator-packet + /docs/training/LEVEL1-PARTNER-INDEX and drive /get-started; weekly syncs only for first 4–6 weeks then async; queue HITL advisories — never auto-send; Approvals is send-queue only (not a training store); expansion deferred until criteria hit or day-90 review. Collaborate with Sales only at CLOSED_WON handoff; Support owns billing-hold/login breaks.',
     beachheadSectors: ALL,
     keyTactics: [
       'Day 0: confirm Path B payment ACTIVE + client-owned operator on /get-started.',
-      'Clone order-form success criteria into CRM success plan (cents-grade outcomes where applicable).',
+      'Hand Operator Packet + LEVEL1-PARTNER-INDEX — never claim Success Portal/Approvals stores manuals.',
+      'Clone order-form success criteria into CRM success plan (exact-dollar outcomes where applicable).',
       'Cap eng syncs; protect Golden Path scope freeze outside criteria.',
-      'Day 60–90: convert at locked discount or clean exit — advocacy only after documented export/outcome.',
+      'By day 90: convert at locked discount or clean exit — advocacy only after documented export/outcome.',
     ],
     healthSignals: ['MISSED_PILOT_GATE', 'STALE_ENGAGEMENT', 'LOW_EVIDENCE_COMPLETENESS'],
     retentionPlays: ['Success-plan reset against order-form criteria', 'Executive sponsor alignment on convert-or-exit'],

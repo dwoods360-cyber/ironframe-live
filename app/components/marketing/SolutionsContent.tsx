@@ -1,13 +1,24 @@
 import Link from "next/link";
 
+import {
+  DEMO_ALE_BASELINE_CENTS,
+  DEMO_ALE_BASELINE_DISPLAY,
+} from "@/app/lib/demo/demoModeConstants";
 import { WORKFLOW_REVIEW_CTA_MINUTES } from "@/lib/ironframeProductKnowledge/commercial";
 
 export type SolutionSlug =
-  | "quantitative-cyber-risk"
-  | "audit-ready-evidence"
-  | "multi-entity-grc"
-  | "governed-ai"
-  | "third-party-resilience";
+  | "fintech"
+  | "healthcare"
+  | "infrastructure"
+  | "enterprise"
+  | "risk-engineering";
+
+export type SolutionDemoBaseline = {
+  /** Seed demo-tenant label — never a customer reference. */
+  demoTenant: "Vaultbank NA" | "Medshield Health" | "Gridcore Infrastructure";
+  aleCents: bigint;
+  aleDisplay: string;
+};
 
 export type SolutionPageContent = {
   slug: SolutionSlug;
@@ -17,102 +28,119 @@ export type SolutionPageContent = {
   problem: string;
   approach: readonly string[];
   audiences: readonly string[];
+  /** Illustrative Irontrust seed baseline only — labeled on the page. */
+  demoBaseline?: SolutionDemoBaseline;
 };
 
 export const SOLUTION_PAGES: readonly SolutionPageContent[] = [
   {
-    slug: "quantitative-cyber-risk",
-    eyebrow: "Quantitative cyber-risk governance",
-    title: "Give risk conversations a defensible financial basis.",
+    slug: "fintech",
+    eyebrow: "High-Velocity FinTech Containment",
+    title: "Contain subsidiary and product-line risk without shared-schema bleed.",
     summary:
-      "Connect cyber-risk work to loss exposure expressed in integer cents, with assumptions operators can review before it reaches the board.",
+      "Database-tier multi-tenancy (RLS + Ironguard), real-time API shielding via Irongate sanitize-before-persist, and BigInt ALE baselines — Vaultbank demo enclave ($5.9M illustrative ALE).",
     problem:
-      "Color-coded heatmaps can signal urgency, but they do not give a board a durable basis for comparing exposure, control investment, and risk decisions.",
+      "FinTech holding structures and product lines often share one GRC schema. A single exam or connector expansion can expose sibling entities when isolation is only a UI filter.",
     approach: [
-      "Model annualized loss exposure with BigInt arithmetic in whole cents.",
-      "Keep risk, linked controls, evidence, and remediation connected in one workflow.",
-      "Prepare board-facing outputs from documented assumptions rather than unsupported spreadsheet totals.",
+      "Enforce row-level security and Ironguard session bounds so each legal entity or product line stays in its own query-time enclave.",
+      "Real-time API shielding: Irongate sanitizes external intelligence and connector payloads before persist — no trusted-API shortcut into the risk register.",
+      "Persist ALE as whole-cent BigInt (Vaultbank demo baseline 590000000¢ / $5,900,000.00) — no float money fields.",
     ],
     audiences: [
-      "Regional banking CISO and compliance operators managing FFIEC supervision and board reporting.",
-      "Utility and OT security leaders who need NERC CIP evidence trails alongside operational attestations.",
-      "Boards and risk owners who need to ask “in dollars?” without losing the control context.",
+      "Regional bank holding company and fintech compliance operators under FFIEC-style supervision.",
+      "Product-line CISOs who need database-tier subsidiary isolation across legal entities.",
+      "Risk owners who reject float-rounded loss math on persisted ALE fields.",
+    ],
+    demoBaseline: {
+      demoTenant: "Vaultbank NA",
+      aleCents: DEMO_ALE_BASELINE_CENTS.vaultbank,
+      aleDisplay: DEMO_ALE_BASELINE_DISPLAY.vaultbank,
+    },
+  },
+  {
+    slug: "healthcare",
+    eyebrow: "Healthcare Perimeter Watch",
+    title: "Bind perimeter and vendor intake to attributable control records.",
+    summary:
+      "Real-time API shielding on edge/vendor intake (Irongate sanitize-before-persist), control↔evidence foreign-key lineage, and BigInt ALE — Medshield demo baseline ($11.1M illustrative ALE).",
+    problem:
+      "Healthcare perimeter tools produce validation signals and vendor noise that never become an attributable control, owner, or dollar-denominated exposure before the board or examiner asks.",
+    approach: [
+      "Persist perimeter and vendor signals as records linked to control, evidence, owner, and remediation IDs — not a disconnected ticket dump.",
+      "Real-time API shielding: Irongate sanitizes external and edge payloads before persistence so untrusted telemetry cannot become trusted evidence by accident.",
+      "Store material exposure as BigInt cents against the Medshield demo ALE baseline (1110000000¢ / $11,100,000.00) with persisted assumption fields.",
+    ],
+    audiences: [
+      "Health-system compliance and privacy operators handling HIPAA evidence and vendor oversight.",
+      "GRC leads who need perimeter signals bound to control and evidence record IDs.",
+      "Audit chairs who require attributable evidence objects before accepting an exposure total.",
+    ],
+    demoBaseline: {
+      demoTenant: "Medshield Health",
+      aleCents: DEMO_ALE_BASELINE_CENTS.medshield,
+      aleDisplay: DEMO_ALE_BASELINE_DISPLAY.medshield,
+    },
+  },
+  {
+    slug: "infrastructure",
+    eyebrow: "Critical Infrastructure & Energy Ops",
+    title: "Keep OT and CIP-style evidence inside a sovereign operational enclave.",
+    summary:
+      "Database-tier tenant scoping for OT/ingest paths, real-time API shielding (Irongate sanitize-before-persist), and BigInt resilience metrics — Gridcore demo model ($4.7M illustrative ALE).",
+    problem:
+      "Energy and critical-infrastructure programs often bolt OT signals onto enterprise GRC spreadsheets, losing isolation, evidence lineage, and integer-cent exposure totals when an operational event hits.",
+    approach: [
+      "Scope OT and third-party operational records to the Gridcore-style enclave with RLS — no shared evidence pool across unrelated assets.",
+      "Real-time API shielding: route external and telemetry intake through Irongate before persistence; keep remediation and exports tenant-scoped.",
+      "Persist operational and third-party exposure as BigInt cents against the Gridcore demo ALE baseline (470000000¢ / $4,700,000.00).",
+    ],
+    audiences: [
+      "Utility and OT security leaders responsible for NERC CIP-style attestations and evidence trails.",
+      "Operational resilience owners coordinating vendors without a disconnected spreadsheet register.",
+      "Operators who need continuity and cyber exposure stored as the same BigInt cents fields.",
+    ],
+    demoBaseline: {
+      demoTenant: "Gridcore Infrastructure",
+      aleCents: DEMO_ALE_BASELINE_CENTS.gridcore,
+      aleDisplay: DEMO_ALE_BASELINE_DISPLAY.gridcore,
+    },
+  },
+  {
+    slug: "enterprise",
+    eyebrow: "Multi-Entity Corporate Rollups",
+    title: "Stop segment data-bleed across fragmented legal structures.",
+    summary:
+      "Database-tier multi-tenancy: RLS + Ironguard query-time enclaves so subsidiaries, departments, and client programs never share an evidence pool.",
+    problem:
+      "PE roll-ups and multi-entity corporates open one GRC login for many legal entities. Metadata tags are not query-time isolation — auditors for Entity A can see Entity B.",
+    approach: [
+      "Use database-tier tenant isolation (RLS + Ironguard) so every risk, evidence object, and export is scoped to one enclave.",
+      "Provide cross-enclave program aggregation without collapsing entities into a shared evidence table.",
+      "Gate AI-assisted drafts behind human-in-the-loop acceptance — no auto-write or auto-export across entity boundaries.",
+    ],
+    audiences: [
+      "Multi-entity and regional operators with subsidiary-level governance boundaries.",
+      "MSSP and vCISO teams serving multiple regulated clients in separate enclaves.",
+      "Portfolio operators who need clean audit boundaries across two to five legal entities.",
     ],
   },
   {
-    slug: "audit-ready-evidence",
-    eyebrow: "Audit-ready control evidence",
-    title: "Keep the evidence behind each control ready to explain.",
+    slug: "risk-engineering",
+    eyebrow: "Deterministic Capital Allocation",
+    title: "Engineer risk monetization with BigInt cents — not color codes.",
     summary:
-      "Bring controls, evidence, owners, review history, and remediation into a connected workflow built for audit preparation.",
+      "BigInt ALE in whole United States cents, persisted assumption fields, and tenant-scoped export pipelines — no float money math, no heatmap-only registers.",
     problem:
-      "When evidence lives across folders and spreadsheets, teams spend audit season reconstructing ownership, review history, and the reason a control was considered effective.",
+      "Capital and control investment decisions stall when exposure is a heatmap or a float-rounded spreadsheet. Finance and security cannot reconcile the same number.",
     approach: [
-      "Link evidence and review history to the control and its responsible owner.",
-      "Use evidence and export surfaces to prepare a bounded, reviewable record for auditors.",
-      "Maintain remediation context so outstanding work is visible beside the supporting evidence.",
+      "Model ALE with BigInt arithmetic in whole cents — no float persistence on money fields.",
+      "Persist assumptions beside linked control, evidence, and remediation IDs so totals remain reconstructable under challenge.",
+      "Emit tenant-scoped exports from documented baseline integers rather than unsupported spreadsheet aggregates.",
     ],
     audiences: [
-      "Healthcare compliance operators and vendor-risk leads handling HIPAA privacy obligations.",
-      "Utility CIP program owners responsible for operational attestations and evidence trails.",
-      "Regional financial-services teams preparing recurring board and supervisory materials.",
-    ],
-  },
-  {
-    slug: "multi-entity-grc",
-    eyebrow: "Multi-entity GRC",
-    title: "Separate each entity’s governance work without losing oversight.",
-    summary:
-      "Operate subsidiaries, client programs, and departments in tenant-isolated enclaves while retaining a clear command view.",
-    problem:
-      "Shared workspaces create cross-entity evidence bleed and make it harder to establish who should see, review, and export a specific record.",
-    approach: [
-      "Use native multi-tenant isolation through row-level security and Ironguard.",
-      "Scope records and exports to the relevant tenant enclave.",
-      "Give program leaders a command view without treating every entity as one shared evidence pool.",
-    ],
-    audiences: [
-      "Multi-entity and regional banking organizations with subsidiary-level governance boundaries.",
-      "MSSP and vCISO teams serving multiple regulated clients.",
-      "Portfolio operators who need clean audit boundaries across two to five subsidiaries.",
-    ],
-  },
-  {
-    slug: "governed-ai",
-    eyebrow: "Governed AI assistance",
-    title: "Use AI assistance with a human accountable for the outcome.",
-    summary:
-      "Let AI help prepare governed work while human reviewers retain control over what is accepted, exported, or sent.",
-    problem:
-      "Unreviewed AI output can blur accountability in a GRC workflow, especially when it influences evidence narratives, risk context, or external communication.",
-    approach: [
-      "Route AI-assisted work through human-in-the-loop review instead of automatic action.",
-      "Keep drafts reviewable before they are used in a governed workflow.",
-      "Use Irongate to sanitize external intelligence before it is persisted.",
-    ],
-    audiences: [
-      "Healthcare and financial-services compliance teams working with sensitive operational context.",
-      "MSSP and vCISO teams that need repeatable, client-scoped review practices.",
-      "Governance leaders who want AI assistance without delegating accountable decisions.",
-    ],
-  },
-  {
-    slug: "third-party-resilience",
-    eyebrow: "Third-party and operational resilience",
-    title: "Bring vendor and operational risk into a reviewable resilience workflow.",
-    summary:
-      "Connect third-party risk context, controls, evidence, remediation, and board reporting without relying on a disconnected vendor spreadsheet.",
-    problem:
-      "Vendor dependencies and operational risk often reach leadership as fragmented updates, making it difficult to see the linked evidence, owners, and remaining exposure.",
-    approach: [
-      "Relate third-party and operational risk records to the controls and evidence that support a response.",
-      "Sanitize external intelligence with Irongate before it enters persisted governance records.",
-      "Use board-report and export surfaces to prepare a reviewable resilience narrative.",
-    ],
-    audiences: [
-      "Healthcare vendor-risk leads responsible for HIPAA privacy and vendor oversight.",
-      "Utility security leaders managing OT dependencies and operational attestations.",
-      "Regional financial-services and multi-entity operators coordinating vendor oversight.",
+      "CISOs and CROs who require whole-cent ALE beside linked control records.",
+      "Finance partners who reject float-rounded loss estimates on money columns.",
+      "Design-partner operators naming Path B success criteria around a tenant-scoped BigInt exposure export.",
     ],
   },
 ] as const;
@@ -141,10 +169,11 @@ export function SolutionsIndexContent() {
       <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24" aria-labelledby="solutions-title">
         <p className="font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase">Solutions</p>
         <h1 id="solutions-title" className="mt-3 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Focused GRC workflows for regulated operators.
+          Baseline-aligned GRC for regulated operators.
         </h1>
         <p className="mt-5 max-w-3xl text-base leading-relaxed text-[var(--login-muted)] sm:text-lg">
-          Explore the governance problem in front of your team, then map one workflow with Ironframe.
+          Five deep-dives mapped to operational baselines and demo enclaves. Demo ALE figures are
+          illustrative seed tenants — not customer references.
         </p>
 
         <div className="mt-10 grid gap-4 md:grid-cols-2">
@@ -157,6 +186,11 @@ export function SolutionsIndexContent() {
               <p className="font-mono text-xs text-[var(--login-accent)]">{solution.eyebrow}</p>
               <h2 className="mt-2 text-xl font-bold text-[var(--text-main)]">{solution.title}</h2>
               <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">{solution.summary}</p>
+              {solution.demoBaseline ? (
+                <p className="mt-3 font-mono text-[10px] tracking-wide text-[var(--login-muted)] uppercase">
+                  Demo baseline · {solution.demoBaseline.demoTenant} · {solution.demoBaseline.aleDisplay}
+                </p>
+              ) : null}
               <span className="mt-4 inline-flex text-sm font-medium text-cyan-300">Explore solution →</span>
             </Link>
           ))}
@@ -182,6 +216,14 @@ export function SolutionDetailContent({ solution }: { solution: SolutionPageCont
           </p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{solution.title}</h1>
           <p className="mt-5 max-w-3xl text-lg leading-relaxed text-[var(--login-muted)]">{solution.summary}</p>
+          {solution.demoBaseline ? (
+            <p className="mt-4 max-w-3xl rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
+              Illustrative demo-tenant ALE baseline only —{" "}
+              <strong className="font-medium">{solution.demoBaseline.demoTenant}</strong> at{" "}
+              <span className="font-mono">{solution.demoBaseline.aleCents.toString()}¢</span> (
+              {solution.demoBaseline.aleDisplay}). Not a live customer, pilot result, or certification claim.
+            </p>
+          ) : null}
           <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <WorkflowReviewCta />
             <Link href="/product-demo" className="text-sm font-medium text-cyan-300 underline hover:text-cyan-200">
@@ -201,7 +243,10 @@ export function SolutionDetailContent({ solution }: { solution: SolutionPageCont
             </p>
             <ul className="mt-4 space-y-3">
               {solution.approach.map((item) => (
-                <li key={item} className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed text-[var(--login-muted)]">
+                <li
+                  key={item}
+                  className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed text-[var(--login-muted)]"
+                >
                   {item}
                 </li>
               ))}

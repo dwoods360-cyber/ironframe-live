@@ -19,14 +19,14 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 2. Where does external threat intel enter your environment—sanitized or direct?
 3. Do you operate multiple entities or clients needing **tenant isolation**?
 4. How do auditors receive evidence—PDF exports, immutable storage?
-5. What would a **60–90 day success criterion** look like if you paid a co-builder seat?
+5. What would a **90-day success criterion** look like if you paid a co-builder seat?
 
 ## Co-builder close (not a free demo)
 
 | Step | Talk track |
 |------|------------|
 | Offer | Paid Command Tier Path B **$4,999**; planned GA ~**$35k/yr** |
-| Window | 60–90 days; 2–3 written success criteria |
+| Window | 90-day default (floor 60 if scoped in writing); 2–3 written success criteria |
 | Syncs | Weekly capped 4–6 weeks, then async |
 | CTA | **10–15 min workflow review** on evidence pain — not a product circus |
 | Next | Order form → provision → Path B link → ACTIVE → `/get-started` |
@@ -51,7 +51,7 @@ Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence]
 |-----------|----------|
 | “We already have GRC.” | “We quantify in dollars and isolate tenants — legacy tools rarely do both.” |
 | “We use Vanta/Drata.” | See battlecard — different buying job (speed-to-cert vs financial defensibility). |
-| “Can we pilot free?” | “Cohort is paid $4,999 so partners actually run criteria. Convert or exit at 60–90 days.” |
+| “Can we pilot free?” | “Cohort is paid $4,999 so partners actually run criteria. Convert or exit at day 90.” |
 | “AI is risky.” | “Agents are scoped; scoring math is frozen; LLM is narrative — not ALE.” |
 
 ## Collateral

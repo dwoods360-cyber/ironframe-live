@@ -22,7 +22,7 @@ We noticed {{trigger}}. Quick question on how your team handles evidence today �
 Ironframe is a quantitative GRC command post (BigInt dollar risk, isolated enclaves, auditor-ready exports). We're recruiting a small paid co-builder cohort:
 
 • Command Tier / Path B on-ramp: $4,999
-• 60–90 day window, 2–3 success criteria you set
+• 90-day window (default), 2–3 success criteria you set
 • Weekly eng syncs capped (first 4–6 weeks), then async
 • Planned GA Ironframe Command ~$35k/yr (say "planned" until GA flag)
 
@@ -34,7 +34,7 @@ If the pain is real on your side: a 10–15 minute workflow review — not a pro
 **SMS (≤320 chars):**
 
 ```
-{{firstName}} — Ironframe paid co-builder (Command Tier $4,999, 60-90 days). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or stop.
+{{firstName}} — Ironframe paid co-builder (Command Tier $4,999, 90-day window). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or stop.
 ```
 
 ---
@@ -48,7 +48,7 @@ Hi {{firstName}},
 
 Short follow-up: cohort is capped at 3–5 seats so we can honor roadmap influence without scope sprawl.
 
-If SOC 2 / ISO / ESG pressure is real but tools still force color charts, the paid Path B seat ($4,999) is the on-ramp — convert or exit at day 60–90 with criteria you named.
+If SOC 2 / ISO / ESG pressure is real but tools still force color charts, the paid Path B seat ($4,999) is the on-ramp — convert or exit at day 90 with criteria you named.
 
 Worth a 10–15 min workflow review this week?
 

@@ -6,7 +6,7 @@ import { SolutionsIndexContent } from "@/app/components/marketing/SolutionsConte
 export const metadata: Metadata = {
   title: "GRC solutions | Ironframe",
   description:
-    "Focused Ironframe GRC workflows for quantitative cyber risk, audit evidence, multi-entity governance, governed AI, and operational resilience.",
+    "Baseline-aligned Ironframe deep-dives: fintech containment, healthcare perimeter, critical infrastructure, multi-entity rollups, and BigInt risk engineering — with illustrative demo ALE baselines labeled as non-customer fixtures.",
 };
 
 export default function SolutionsIndexPage() {

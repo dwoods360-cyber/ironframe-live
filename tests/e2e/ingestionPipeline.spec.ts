@@ -55,7 +55,6 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     await page.getByLabel(/Work email/i).fill(leadEmail);
     await page.getByLabel(/Organization/i).fill(leadOrgName);
     await page.getByLabel(/Estimated annual loss exposure/i).fill(leadAleDollars);
-    await page.getByLabel(/Full name/i).fill("E2E Lead Tester");
 
     const [leadResponse] = await Promise.all([
       page.waitForResponse(
@@ -64,13 +63,13 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
           res.request().method() === "POST",
         { timeout: 30_000 },
       ),
-      page.getByRole("button", { name: /Contact sales/i }).click(),
+      page.getByRole("button", { name: /workflow review/i }).click(),
     ]);
 
     expect(leadResponse.ok(), await leadResponse.text()).toBe(true);
 
     await expect(
-      page.getByText(/request has been recorded in the executive lead ledger/i),
+      page.getByText(/inquiry is recorded in the executive lead ledger/i),
     ).toBeVisible({ timeout: 10_000 });
 
     const prospect = await getE2ePrisma().prospect.findFirst({

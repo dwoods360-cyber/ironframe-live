@@ -50,7 +50,7 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
     title: "Financial exposure is estimated",
     summary:
       "Exposure is expressed in whole-dollar cents, not only High / Medium / Low labels.",
-    outcome: "Board and finance stakeholders can see quantified ALE baselines for the demo enclaves.",
+    outcome: "Demo enclaves show quantified ALE baselines in whole cents beside the risk context.",
     evidence: [
       `Medshield healthcare ALE baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.medshield}`,
       `Vaultbank finance ALE baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.vaultbank}`,
@@ -114,7 +114,7 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
     title: "Board or audit report is generated",
     summary:
       "Executives receive a clean package from the same governed chain — not a rebuilt narrative after the fact.",
-    outcome: "A board-ready or audit-oriented export can be produced from workspace records.",
+    outcome: "A tenant-scoped export can be produced from the same governed workspace records.",
     evidence: [
       "Product surfaces include board-report and export paths in the authenticated command post.",
       "Demo home projects governance maturity and company risk summaries for executive-style review.",

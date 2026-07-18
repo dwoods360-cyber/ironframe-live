@@ -66,12 +66,12 @@ export default function BriefingsArchive({ cards, variant = "archive" }: Briefin
         </li>
       ))}
       {variant === "teaser" ? (
-        <li className="pt-2">
+        <li className="pt-1">
           <Link
             href="/resources/briefings"
-            className="inline-flex min-h-11 items-center font-mono text-xs font-bold tracking-wide text-[var(--login-accent)] hover:underline"
+            className="inline-flex min-h-11 items-center text-xs text-[var(--login-muted)] underline hover:text-[var(--login-accent)]"
           >
-            View full briefings archive →
+            More briefings →
           </Link>
         </li>
       ) : null}

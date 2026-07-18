@@ -87,6 +87,36 @@ const nextConfig: NextConfig = {
       "./storage/constitutional/TAS.md.gold",
     ],
   },
+  async redirects() {
+    return [
+      /** Item 4 — workflow solution slugs → baseline vertical deep-dives */
+      {
+        source: "/solutions/quantitative-cyber-risk",
+        destination: "/solutions/risk-engineering",
+        permanent: true,
+      },
+      {
+        source: "/solutions/audit-ready-evidence",
+        destination: "/solutions/healthcare",
+        permanent: true,
+      },
+      {
+        source: "/solutions/multi-entity-grc",
+        destination: "/solutions/enterprise",
+        permanent: true,
+      },
+      {
+        source: "/solutions/governed-ai",
+        destination: "/solutions/enterprise",
+        permanent: true,
+      },
+      {
+        source: "/solutions/third-party-resilience",
+        destination: "/solutions/infrastructure",
+        permanent: true,
+      },
+    ];
+  },
   async rewrites() {
     return [
       /** Legacy hub HTML only — markdown slugs under /docs/* stay on the reader route. */

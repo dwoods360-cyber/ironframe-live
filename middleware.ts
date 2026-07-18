@@ -59,6 +59,7 @@ function internalTokenGatedApiPath(pathname: string): boolean {
   if (pathname === "/api/internal/tenant-slug-resolve") return true;
   if (pathname === "/api/cron/narrate") return true;
   if (pathname === "/api/cron/gtm-briefing-queue") return true;
+  if (pathname === "/api/cron/ops-schedule-reminders") return true;
   if (pathname === "/api/documentation/execute") return true;
   if (pathname === "/api/board/feed") return true;
   if (pathname.startsWith("/api/internal/ironquery/export")) return true;
@@ -294,6 +295,13 @@ export async function middleware(request: NextRequest) {
   const researchHostResponse = governanceFrameResearchHostResponse(request);
   if (researchHostResponse) {
     return researchHostResponse;
+  }
+
+  /** Common URL typo — `/markiting` is not a registered App Router path. */
+  if (/^\/markiting(\/|$)/i.test(pathname)) {
+    const fixed = request.nextUrl.clone();
+    fixed.pathname = pathname.replace(/^\/markiting/i, "/marketing");
+    return NextResponse.redirect(fixed, 308);
   }
 
   // ==========================================

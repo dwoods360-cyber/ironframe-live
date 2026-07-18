@@ -32,7 +32,16 @@ export const COMMERCIAL_SKUS = {
   VAULT_SHIELD: 'VAULT_SHIELD',
 } as const;
 
+/**
+ * Internal commercial band (order forms / CS timelines).
+ * Buyer-facing surfaces (site, LinkedIn, cold email/SMS) must say DEFAULT, not this band —
+ * mismatched windows are a known reason buyers stall or leave.
+ */
 export const DESIGN_PARTNER_WINDOW_DAYS = '60-90' as const;
+/** Default Path B length for public hero, pricing, outreach, and order-form default. */
+export const DESIGN_PARTNER_DEFAULT_WINDOW_DAYS = 90 as const;
+/** Floor when a faster scoped engagement is agreed in writing (not public default). */
+export const DESIGN_PARTNER_MIN_WINDOW_DAYS = 60 as const;
 export const DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT = '2-3' as const;
 export const DESIGN_PARTNER_COHORT_SEATS = '3-5' as const;
 export const WORKFLOW_REVIEW_CTA_MINUTES = '10-15' as const;

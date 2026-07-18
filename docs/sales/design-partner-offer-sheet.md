@@ -13,7 +13,7 @@ Ironframe is recruiting a **small paid co-builder cohort** for the **Command Tie
 |------|------|
 | **Commercial** | Path B / Command Tier on-ramp **$4,999** (one price, sales-assisted) |
 | **Planned GA** | Ironframe Command **~$35,000/yr** (`FINTECH_SEED`) — say “planned GA” until commercial GA flag is on |
-| **Window** | **60–90 days** fixed → convert at locked discount or exit cleanly |
+| **Window** | **90-day** default (floor 60 if scoped in writing) → convert at locked discount or exit cleanly |
 | **Eng syncs** | Weekly **capped** (first 4–6 weeks), then async — protects scope freeze |
 | **Success criteria** | Agree **2–3** up front (examples below) |
 | **CTA** | **10–15 min workflow review** on their evidence / board-report pain — not a product preview |
@@ -29,7 +29,7 @@ Ironframe is recruiting a **small paid co-builder cohort** for the **Command Tie
 
 ### Warm network / advisor ask
 
-> Who do you know standing up SOC 2, ISO, or ESG ops who is stuck in spreadsheets or heatmap GRC — and would value a **paid co-builder seat** on a quantitative command post ($4,999 Path B, 60–90 days, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
+> Who do you know standing up SOC 2, ISO, or ESG ops who is stuck in spreadsheets or heatmap GRC — and would value a **paid co-builder seat** on a quantitative command post ($4,999 Path B, 90-day window, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
 
 ### Auditor / consultant intro
 
@@ -38,7 +38,7 @@ Ironframe is recruiting a **small paid co-builder cohort** for the **Command Tie
 ### Cold co-builder open (subject options)
 
 - Co-builder seat: Command Tier ($4,999) — workflow review, not a demo  
-- Locked pilot for quantified GRC — 60–90 days, roadmap influence  
+- Locked pilot for quantified GRC — 90-day default window, roadmap influence  
 
 ## Path after “yes”
 

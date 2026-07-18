@@ -14,7 +14,7 @@ describe("publicFunnelShell", () => {
     expect(isPublicDarkShellPath("/register/sample-token")).toBe(true);
     expect(isPublicDarkShellPath("/pricing")).toBe(true);
     expect(isPublicDarkShellPath("/solutions")).toBe(true);
-    expect(isPublicDarkShellPath("/solutions/multi-entity-grc")).toBe(true);
+    expect(isPublicDarkShellPath("/solutions/enterprise")).toBe(true);
     expect(isPublicDarkShellPath("/tools")).toBe(true);
     expect(isPublicDarkShellPath("/tools/third-party-criticality-questionnaire")).toBe(true);
     expect(isPublicDarkShellPath("/product-demo")).toBe(true);

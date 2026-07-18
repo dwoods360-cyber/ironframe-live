@@ -2,7 +2,7 @@
 
 **Status:** Active rollout · paid Path B cohort  
 **Audience:** All Ironboard personas + perimeter workers (Ironleads, SalesTeam, SuccessTeam, SupportTeam) + human operator  
-**Commercial lock:** Command Tier / Path B **$4,999** · planned GA **~$35k/yr** · **3–5** co-builders · **60–90** days · **2–3** success criteria  
+**Commercial lock:** Command Tier / Path B **$4,999** · planned GA **~$35k/yr** · **3–5** co-builders · **90-day** default window (floor 60 if scoped in writing) · **2–3** success criteria  
 **GTM rule:** **Multiple acquisition channels · one partner program** (never a free forever cohort beside Path B)
 
 Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer sheet](./design-partner-offer-sheet.md) · [outreach sequence](./design-partner-outreach-sequence.md) · [order form](./design-partner-order-form.md) · [launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md)
@@ -47,19 +47,23 @@ Writer / Trainer → docs & operator packet (never cold email)
 
 ## Message constitution (all drafters)
 
+**Where it lives:** code + this briefing — **not** a SalesTeam `:8084` admin UI.  
+Canonical board ingest: [`docs/sales-enablement/message-constitution.md`](../sales-enablement/message-constitution.md).  
+Beachhead scaffolding: `SalesTeam/src/config/beachheadPrompts.ts` (`REGIONAL_BHC` · `UTILITY_NERC` · `MSSP_ENCLAVE` · `HEALTH_HIPAA`).  
+SalesTeam HTTP surface is `GET /health` + `POST /poll` only — no GTM Settings / Message Constitution / Save & Lock portal.
+
 - CTA = **10–15 min workflow review** (not “Request Demo” / free pilot).  
 - Cold open: pain + trigger + collaboration; include **$4,999** Path B once relevance is established (Touch 1 body OK; subject can stay problem-led).  
 - Never cite `medshield` / `vaultbank` / `gridcore` as customers.  
 - PENDING partners: tenant-scoped Path B link — never generic `/pricing`.  
 - Operator email: client-owned only (not `@ironframegrc.com`).
-
 ---
 
 ## Success handoff (after ACTIVE)
 
 1. Success plan = the **2–3** order-form criteria.  
 2. Cadence: capped weekly eng syncs **4–6 weeks**, then async.  
-3. Day 60–90: convert at locked discount or clean exit.  
+3. By day 90: convert at locked discount or clean exit.  
 4. Advocacy only after a documented outcome (export / board pack).
 
 ---

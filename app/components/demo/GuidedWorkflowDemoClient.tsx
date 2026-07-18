@@ -8,6 +8,7 @@ import {
   GUIDED_WORKFLOW_STEPS,
 } from "@/app/lib/demo/guidedWorkflowSteps";
 import {
+  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
@@ -35,6 +36,11 @@ export default function GuidedWorkflowDemoClient() {
       </h1>
       <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
         {GUIDED_DEMO_COMPANY.disclaimer}
+      </p>
+      <p className="mt-2 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-300">
+        Notice: Sandbox entry uses mock authentication and a client-side fixture layer (local storage /
+        cookies + in-browser state). It does not request production credentials, does not provision a
+        tenant, and demo mode blocks ordinary API write paths. Figures are demonstration data only.
       </p>
       <p className="mt-3 text-sm text-[var(--login-muted)]">
         Fictional workspace{" "}
@@ -138,7 +144,8 @@ export default function GuidedWorkflowDemoClient() {
             href={SALES_CONTACT_PATH}
             className="inline-flex h-10 items-center rounded bg-indigo-600 px-4 text-sm font-semibold text-white"
           >
-            Continue to workflow review · {formatPathBUsd()} Path B
+            Continue to workflow review · {formatPathBUsd()} Path B ·{" "}
+            {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window
           </Link>
         )}
       </div>
@@ -148,7 +155,8 @@ export default function GuidedWorkflowDemoClient() {
         <Link href="/register/demo" className="text-cyan-300 underline hover:opacity-90">
           Enter evaluation sandbox
         </Link>
-        . Research and institutional briefings live on Governance Frame — this tour is product-only.
+        . This page is product demonstration only — not a Path B workspace and not Governance Frame
+        research.
       </p>
     </main>
   );

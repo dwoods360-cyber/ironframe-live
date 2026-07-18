@@ -40,8 +40,8 @@ export const CONTROL_TOOLS = [
       "Use this worksheet to make a risk discussion specific enough to review. It does not calculate loss from live data or replace a risk model.",
     useWhen: "A risk has been raised, but the business impact, assumptions, or decision owner are still unclear.",
     output: "A reviewable scenario record with assumptions, evidence requests, and a named next action.",
-    solutionHref: "/solutions/quantitative-cyber-risk",
-    solutionLabel: "Explore quantitative cyber risk",
+    solutionHref: "/solutions/risk-engineering",
+    solutionLabel: "Explore deterministic capital allocation",
     sections: [
       {
         title: "Scenario definition",
@@ -81,8 +81,8 @@ export const CONTROL_TOOLS = [
       "Use this checklist to prepare for an internal review, customer diligence request, or audit planning. It is not an audit opinion or certification assessment.",
     useWhen: "A team needs to organize proof for a control without claiming that the control has been independently validated.",
     output: "An evidence register with owners, freshness expectations, gaps, and review status.",
-    solutionHref: "/solutions/audit-ready-evidence",
-    solutionLabel: "Explore audit-ready evidence",
+    solutionHref: "/solutions/healthcare",
+    solutionLabel: "Explore healthcare perimeter watch",
     sections: [
       {
         title: "Control and claim",
@@ -122,8 +122,8 @@ export const CONTROL_TOOLS = [
       "Use this questionnaire before tiering a vendor or setting review expectations. It does not score a supplier automatically or determine contractual obligations.",
     useWhen: "A vendor is new, materially changing, renewing, or supporting a business-critical service.",
     output: "A documented criticality rationale, review owner, and proportionate follow-up plan.",
-    solutionHref: "/solutions/third-party-resilience",
-    solutionLabel: "Explore third-party resilience",
+    solutionHref: "/solutions/infrastructure",
+    solutionLabel: "Explore critical infrastructure & energy ops",
     sections: [
       {
         title: "Service dependency",
@@ -163,8 +163,8 @@ export const CONTROL_TOOLS = [
       "Use this checklist to structure an internal discussion of governance. It is not a NIST assessment, an official NIST tool, or a certification mapping.",
     useWhen: "Leadership needs a shared view of cybersecurity governance, accountability, and oversight before selecting detailed controls.",
     output: "A prioritized governance action list with evidence requests and accountable leaders.",
-    solutionHref: "/solutions/multi-entity-grc",
-    solutionLabel: "Explore multi-entity GRC",
+    solutionHref: "/solutions/enterprise",
+    solutionLabel: "Explore multi-entity corporate rollups",
     source: {
       label: "NIST Cybersecurity Framework (CSF) 2.0",
       href: "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf",
@@ -210,8 +210,8 @@ export const CONTROL_TOOLS = [
       "Use this inventory to document AI-enabled workflows and decide what follow-up they need. It does not test model performance, certify compliance, or assess live systems.",
     useWhen: "A team is introducing, renewing, or materially changing an AI-assisted workflow, vendor, or model.",
     output: "A use-case inventory with risk owners, decision records, and review triggers.",
-    solutionHref: "/solutions/governed-ai",
-    solutionLabel: "Explore governed AI assistance",
+    solutionHref: "/solutions/enterprise",
+    solutionLabel: "Explore multi-entity corporate rollups",
     sections: [
       {
         title: "Use case and ownership",

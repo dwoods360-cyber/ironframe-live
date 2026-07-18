@@ -69,7 +69,7 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 
 1. **Charge the pilot** ($4,999) — free partners rarely log in.  
 2. **2–3 success criteria** up front (e.g. SOC 2 evidence export; vendor questionnaire time).  
-3. **60–90 day** fixed window → convert or exit at locked discount.
+3. **90-day** default window (floor 60 if scoped in writing) → convert or exit at locked discount.
 
 ---
 

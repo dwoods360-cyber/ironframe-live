@@ -27,7 +27,7 @@ Spreadsheet GRC and heatmap tools cannot answer board-level **dollar** questions
 | | |
 |--|--|
 | **Command Tier / Path B** | **$4,999** on-ramp |
-| **Window** | 60–90 days · 2–3 success criteria |
+| **Window** | 90-day default · 2–3 success criteria |
 | **Eng syncs** | Capped weekly, then async |
 | **Planned GA** | Ironframe Command **~$35,000/yr** |
 | **CTA** | 10–15 min **workflow review** (not a product preview) |

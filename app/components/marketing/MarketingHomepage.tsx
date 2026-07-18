@@ -2,9 +2,11 @@ import Link from "next/link";
 
 import type { PublishedBriefingCard } from "@/app/lib/governanceFrame/publishedBriefingLedgerCards";
 import {
-  DESIGN_PARTNER_WINDOW_DAYS,
+  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
+  formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 
@@ -24,19 +26,30 @@ const WORKFLOW_STEPS = [
   "Board / audit report generated",
 ] as const;
 
-const OUTCOMES = [
+/** Committee-forwardable truths a champion can defend — not a feature list. */
+const COMMITTEE_DEFENSIBLES = [
   {
-    title: "Quantitative risk, not color codes alone",
-    desc: "Documented financial exposure in integer cents — assumptions and baselines operators can defend.",
+    title: "Exposure in integer cents",
+    desc: "Documented financial exposure with assumptions and baselines operators can defend — not color codes alone.",
   },
   {
-    title: "Audit-ready evidence chain",
-    desc: "Controls, evidence, owners, review history, and remediation stay connected in one workspace.",
+    title: "Connected evidence chain",
+    desc: "Controls, evidence, owners, review history, and remediation stay linked in one workspace.",
   },
   {
-    title: "Multi-entity separation with oversight",
-    desc: "Subsidiaries, clients, and departments governed in isolated enclaves without losing the command view.",
+    title: "Multi-entity separation",
+    desc: "Subsidiaries, clients, and departments stay isolated without losing the command view.",
   },
+] as const;
+
+/**
+ * Illustrative Path B criteria only — partners write their own at kickoff.
+ * Never present as promised deliverables or measured customer results.
+ */
+const ILLUSTRATIVE_SUCCESS_CRITERIA = [
+  "Produce one board-ready exposure export from a live risk with assumptions visible.",
+  "Link controls and evidence for one priority control family end-to-end in the workspace.",
+  "Run a multi-entity (or multi-client) review without cross-tenant evidence bleed.",
 ] as const;
 
 type MarketingHomepageProps = {
@@ -63,16 +76,16 @@ export default function MarketingHomepage({
           Workflow
         </a>
         <a href="#outcomes" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
-          Outcomes
+          Path B
+        </a>
+        <a href="#solutions" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Solutions
+        </a>
+        <a href="#proof" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+          Proof
         </a>
         <Link href="/product-demo" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
           Guided demo
-        </Link>
-        <Link href="/trust-center" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
-          Trust Center
-        </Link>
-        <Link href="/pricing" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
-          Pricing
         </Link>
       </nav>
 
@@ -120,7 +133,8 @@ export default function MarketingHomepage({
           </Link>
         </div>
         <p className="mx-auto max-w-xl font-mono text-xs text-[var(--login-muted)]">
-          Path B design-partner on-ramp {formatPathBUsd()} · {DESIGN_PARTNER_WINDOW_DAYS} day scoped engagement
+          Path B design-partner on-ramp {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped
+          engagement
         </p>
       </header>
 
@@ -128,7 +142,7 @@ export default function MarketingHomepage({
 
       <section
         id="workflow"
-        className="mx-auto max-w-6xl px-6 py-16"
+        className="mx-auto max-w-6xl scroll-mt-24 px-6 py-16"
         aria-labelledby="workflow-heading"
       >
         <h2
@@ -142,7 +156,8 @@ export default function MarketingHomepage({
         </h3>
         <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
           The guided demo walks a sandbox company through seven steps. Every figure is labeled
-          demonstration data — not a live customer record.
+          demonstration data — not a live customer record. Opening the sandbox uses mock auth and
+          client-side fixtures only — it does not provision a tenant or write to production databases.
         </p>
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {WORKFLOW_STEPS.map((label, index) => (
@@ -167,7 +182,7 @@ export default function MarketingHomepage({
 
       <section
         id="outcomes"
-        className="border-y border-[var(--login-border)] bg-[var(--bg-secondary)] py-16"
+        className="scroll-mt-24 border-y border-[var(--login-border)] bg-[var(--bg-secondary)] py-16"
         aria-labelledby="outcomes-heading"
       >
         <div className="mx-auto max-w-6xl px-6">
@@ -175,40 +190,127 @@ export default function MarketingHomepage({
             id="outcomes-heading"
             className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
           >
-            Business outcomes
+            Path B package
           </h2>
           <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
-            Administrative relief for regulated operators
+            What a committee can approve — before a longer sales cycle
           </h3>
-          <p className="mb-10 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-            Mid-market buyers do not buy feature lists — they buy fewer handoffs, fewer unsupported
-            risk assertions, and faster audit preparation.
+          <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
+            Forward this block to finance, audit, or the GRC owner. Same commercial truth as pricing
+            and outreach — no open-ended free pilot.
           </p>
-          <div className="grid gap-6 md:grid-cols-3">
-            {OUTCOMES.map((item) => (
+
+          <dl className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
+              <dt className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase">
+                On-ramp
+              </dt>
+              <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">{formatPathBUsd()}</dd>
+              <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
+                Path B / Command Tier design-partner seat
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
+              <dt className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase">
+                Window
+              </dt>
+              <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">
+                {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days
+              </dd>
+              <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
+                Convert or exit — not an indefinite trial
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
+              <dt className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase">
+                Success bar
+              </dt>
+              <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">
+                {DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} criteria
+              </dd>
+              <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
+                You name them in writing at kickoff
+              </dd>
+            </div>
+            <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
+              <dt className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase">
+                Planned GA
+              </dt>
+              <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">
+                ~{formatPlannedGaCommandUsd()}/yr
+              </dd>
+              <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
+                Ironframe Command — labeled planned until GA
+              </dd>
+            </div>
+          </dl>
+
+          <div className="mb-10 rounded-lg border border-dashed border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
+            <p className="font-mono text-[10px] tracking-widest text-[var(--login-accent)] uppercase">
+              Illustrative only — not promised deliverables
+            </p>
+            <p className="mt-2 text-sm text-[var(--login-muted)]">
+              Partners write their own {DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} criteria. Examples of
+              the shape (not results we claim):
+            </p>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-[var(--text-main)]">
+              {ILLUSTRATIVE_SUCCESS_CRITERIA.map((criterion) => (
+                <li key={criterion}>{criterion}</li>
+              ))}
+            </ol>
+          </div>
+
+          <h4 className="mb-4 text-sm font-semibold tracking-tight text-[var(--text-main)]">
+            What the workspace is built to help you defend
+          </h4>
+          <div className="mb-10 grid gap-4 md:grid-cols-3">
+            {COMMITTEE_DEFENSIBLES.map((item) => (
               <article
                 key={item.title}
-                className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-6"
+                className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5"
               >
-                <h4 className="mb-2 text-lg font-bold text-[var(--text-main)]">{item.title}</h4>
+                <h5 className="mb-2 text-base font-bold text-[var(--text-main)]">{item.title}</h5>
                 <p className="text-sm leading-relaxed text-[var(--login-muted)]">{item.desc}</p>
               </article>
             ))}
           </div>
+
+          <div className="flex w-full flex-col items-stretch gap-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <Link
+              href={SALES_CONTACT_PATH}
+              className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
+            >
+              Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
+            </Link>
+            <Link
+              href="/product-demo"
+              className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
+            >
+              Open guided demonstration
+            </Link>
+          </div>
+          <p className="mt-4 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
+            Self-serve the sandbox first if you want product proof; use the workflow review to align
+            scope and success criteria with your buying group — not a product preview.
+          </p>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-12" aria-labelledby="solutions-heading">
+      <section
+        id="solutions"
+        className="mx-auto max-w-6xl px-6 py-12 scroll-mt-24"
+        aria-labelledby="solutions-heading"
+      >
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2
               id="solutions-heading"
               className="font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
             >
-              Focused solutions
+              Baseline solutions
             </h2>
             <p className="mt-2 text-xl font-bold tracking-tight text-[var(--text-main)]">
-              Start with the workflow that needs attention.
+              Five deep-dives aligned to operational demo baselines.
             </p>
           </div>
           <Link href="/solutions" className="text-sm font-medium text-cyan-300 underline hover:opacity-90">
@@ -229,7 +331,11 @@ export default function MarketingHomepage({
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-16" aria-labelledby="proof-heading">
+      <section
+        id="proof"
+        className="mx-auto max-w-6xl scroll-mt-24 px-6 py-16"
+        aria-labelledby="proof-heading"
+      >
         <h2
           id="proof-heading"
           className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
@@ -247,16 +353,16 @@ export default function MarketingHomepage({
               alt="Screenshot of the Ironframe guided product demonstration"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demo (live capture)</p>
+            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demo (UI capture)</p>
           </a>
-          <a href="#workflow" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          <a href="/marketing" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/homepage.png"
-              alt="Screenshot of the Ironframe product homepage"
+              alt="Screenshot of the Ironframe marketing homepage"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Product homepage (live capture)</p>
+            <p className="p-3 text-xs text-[var(--login-muted)]">Marketing homepage (UI capture)</p>
           </a>
           <a href="/trust-center" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
@@ -265,7 +371,7 @@ export default function MarketingHomepage({
               alt="Screenshot of the Ironframe public Trust Center"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (live capture)</p>
+            <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (UI capture)</p>
           </a>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -300,30 +406,27 @@ export default function MarketingHomepage({
       </section>
 
       {publishedBriefingCards.length > 0 ? (
-        <section id="research" className="mx-auto max-w-6xl px-6 pb-16" aria-labelledby="research-heading">
-          <h2
-            id="research-heading"
-            className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
-          >
-            Governance Frame research
-          </h2>
-          <h3 className="mb-3 text-xl font-bold tracking-tight text-[var(--text-main)]">
-            Authority lives here — product conversion lives above
-          </h3>
-          <p className="mb-6 max-w-2xl text-sm text-[var(--login-muted)]">
-            Institutional briefings are published separately from Ironframe product pages. Cards below
-            project the published ledger only.
-          </p>
-          <div role="region" aria-live="polite" aria-label="Published briefings">
-            <BriefingsArchive cards={publishedBriefingCards} variant="teaser" />
+        <aside
+          id="further-reading"
+          className="border-t border-[var(--login-border)] bg-[var(--bg-secondary)]/40"
+          aria-labelledby="further-reading-heading"
+        >
+          <div className="mx-auto max-w-6xl px-6 py-10">
+            <p
+              id="further-reading-heading"
+              className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase"
+            >
+              Further reading
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-[var(--login-muted)]">
+              Optional context from Governance Frame — separate from this product page. Full archive
+              on research.ironframegrc.com.
+            </p>
+            <div className="mt-5" role="region" aria-label="Further reading briefings">
+              <BriefingsArchive cards={publishedBriefingCards} variant="teaser" />
+            </div>
           </div>
-          <Link
-            href="/resources/briefings"
-            className="mt-4 inline-flex text-sm text-cyan-300 underline hover:opacity-90"
-          >
-            Briefings archive →
-          </Link>
-        </section>
+        </aside>
       ) : null}
 
       <footer className="w-full border-t border-[var(--login-border)] bg-[var(--bg-primary)] px-6 py-8 text-center font-mono text-xs text-[var(--login-muted)]">
@@ -331,6 +434,14 @@ export default function MarketingHomepage({
         <p className="mt-2">
           <Link href="/trust-center" className="text-[var(--login-accent)] underline hover:opacity-90">
             Trust Center
+          </Link>
+          {" · "}
+          <Link href="/pricing" className="text-[var(--login-accent)] underline hover:opacity-90">
+            Pricing
+          </Link>
+          {" · "}
+          <Link href="/resources/briefings" className="text-[var(--login-accent)] underline hover:opacity-90">
+            Briefings
           </Link>
           {" · "}
           <Link href="/privacy" className="text-[var(--login-accent)] underline hover:opacity-90">

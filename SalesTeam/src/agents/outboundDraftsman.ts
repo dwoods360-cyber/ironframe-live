@@ -3,6 +3,8 @@ import {
   DESIGN_PARTNER_PATH_B_USD,
   PLANNED_GA_COMMAND_USD,
 } from '../config/designPartnerLaunchMandate.js';
+import { DESIGN_PARTNER_DEFAULT_WINDOW_DAYS } from '../../../lib/ironframeProductKnowledge/commercial.js';
+import { buildProductFactsBlurb } from '../../../lib/ironframeProductKnowledge/productFacts.js';
 import { validateStoryBrandDraft } from '../config/storybrandGuidelines.js';
 import type { ProspectRecord } from '../lib/crmPollClient.js';
 import type { OutreachChannel } from '../loadSalesTeamEnv.js';
@@ -48,7 +50,9 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
     '',
     `Ironframe is the guide: we help you ${prompt.guidePlan}. Wedge: ${prompt.wedgeCentsNarrative}. For your profile we model ${lossDisplay} in governed loss exposure (whole cents only).`,
     '',
-    `We're recruiting a small paid co-builder cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, 60-90 days, 2-3 success criteria you set, weekly eng syncs capped then async. Planned GA Ironframe Command ~$${PLANNED_GA_COMMAND_USD}/yr.`,
+    buildProductFactsBlurb(),
+    '',
+    `We're recruiting a small paid co-builder cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, 2-3 success criteria you set, weekly eng syncs capped then async. Planned GA Ironframe Command ~$${PLANNED_GA_COMMAND_USD}/yr.`,
     '',
     'If the pain is real on your side, proposed next step is a 10-15 minute workflow review on evidence / board-report friction — not a product preview.',
     '',
@@ -58,7 +62,7 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
 
 function draftSmsBody(prospect: ProspectRecord): string {
   return [
-    `${firstName(prospect.fullName)} — Ironframe paid co-builder (Command Tier $${DESIGN_PARTNER_PATH_B_USD}, 60-90 days).`,
+    `${firstName(prospect.fullName)} — Ironframe paid co-builder (Command Tier $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window).`,
     'Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain?',
     'Reply YES or stop.',
   ].join(' ');

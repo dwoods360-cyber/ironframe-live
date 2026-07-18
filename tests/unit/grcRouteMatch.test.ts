@@ -136,7 +136,7 @@ describe("grcRouteMatch", () => {
     expect(isPublicRoute("/tools/ai-governance-inventory")).toBe(true);
     expect(isPublicRoute("/pricing")).toBe(true);
     expect(isPublicRoute("/solutions")).toBe(true);
-    expect(isPublicRoute("/solutions/governed-ai")).toBe(true);
+    expect(isPublicRoute("/solutions/fintech")).toBe(true);
     expect(isPublicRoute("/product-demo")).toBe(true);
     expect(isPublicRoute("/trust-center")).toBe(true);
     expect(isPublicRoute("/trust-center/dpa")).toBe(true);
@@ -148,9 +148,9 @@ describe("grcRouteMatch", () => {
 
   it("allows public solution pages through prospect and cloud ingress", () => {
     expect(isPublicProspectOnboardingPath("/solutions")).toBe(true);
-    expect(isPublicProspectOnboardingPath("/solutions/audit-ready-evidence")).toBe(true);
-    expect(isPublicCloudIngressPath("/solutions/third-party-resilience")).toBe(true);
-    expect(isConstitutionalOverlaySuppressedPath("/solutions/governed-ai")).toBe(true);
+    expect(isPublicProspectOnboardingPath("/solutions/healthcare")).toBe(true);
+    expect(isPublicCloudIngressPath("/solutions/infrastructure")).toBe(true);
+    expect(isConstitutionalOverlaySuppressedPath("/solutions/enterprise")).toBe(true);
   });
 
   it("allows public tools through prospect and cloud ingress", () => {

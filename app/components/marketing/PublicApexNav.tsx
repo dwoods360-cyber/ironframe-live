@@ -35,7 +35,7 @@ export default function PublicApexNav({
           href="/product-demo"
           className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
-          Demo
+          Guided demo
         </Link>
         <Link
           href="/trust-center"
@@ -57,7 +57,7 @@ export default function PublicApexNav({
         </Link>
         <Link
           href={SALES_CONTACT_PATH}
-          className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 md:inline-flex"
+          className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
           Workflow review
         </Link>

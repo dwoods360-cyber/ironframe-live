@@ -35,7 +35,7 @@
 
 ## Promotions (internal)
 
-- **Design partner:** $4,999 Path B · 60–90 day window · capped eng syncs · convert-or-exit  
+- **Design partner:** $4,999 Path B · 90-day default window · capped eng syncs · convert-or-exit  
 - **Not offered:** free 30-day pilots (they rarely log in)
 
 ## Procurement notes
@@ -46,6 +46,6 @@
 
 ## Related documents
 
-- [Sales Enablement](./sales-enablement.md)
+- [Sales Enablement](../sales-enablement/sales-enablement.md)
 - [Design partner recruitment](./design-partner-recruitment.md)
 - [Market entrance playbook](./market-entrance-playbook.md)

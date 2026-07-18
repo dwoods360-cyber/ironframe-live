@@ -3,9 +3,14 @@ import type { Metadata } from "next";
 
 import { SALES_CONTACT_PATH } from "@/config/registration";
 import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
+import {
+  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  formatPathBUsd,
+} from "@/lib/ironframeProductKnowledge/commercial";
 
 export const metadata: Metadata = {
   title: "Pricing | Ironframe",
+  description: `Ironframe Command Tier / Path B design-partner on-ramp ${formatPathBUsd()} for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day convert-or-exit window. Planned GA Command pricing labeled separately — not a free pilot.`,
   robots: {
     index: false,
     follow: false,
@@ -59,7 +64,7 @@ export default function PricingPage() {
                 : " · contact sales if checkout URL is unset"}
             </p>
             <p className="mt-3 text-xs leading-relaxed text-[var(--login-muted)]">
-              Design-partner cohort: 60–90 day co-builder window. Planned GA Ironframe Command
+              Design-partner cohort: 90-day co-builder window. Planned GA Ironframe Command
               ~$35,000/yr. Existing PENDING workspaces activate via tenant-scoped Path B link from
               onboarding — not a second generic checkout.
             </p>

@@ -31,7 +31,7 @@
 
 - Path B activation (tenant-scoped Stripe) → ACTIVE  
 - Analyst export CSV from partner tenant  
-- Order form success criteria (2–3) checked at 60–90 days  
+- Order form success criteria (2–3) checked by day 90  
 
 ## Banned claims
 

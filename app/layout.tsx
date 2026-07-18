@@ -38,7 +38,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Ironframe — Control-First GRC",
-  description: "Autonomous governance telemetry and cyber insurance optimization platform.",
+  description:
+    "Control-first GRC command post for regulated operators — database-tier multi-tenancy, Irongate API shielding, and BigInt-cent risk exposure.",
 };
 
 export default async function RootLayout({

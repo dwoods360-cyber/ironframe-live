@@ -1,32 +1,62 @@
 ---
 Document Type: Sales Enablement Documentation
-Status: STAGED / DRAFT
+Status: ACTIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
+Last Updated: 2026-07-16
+GeneratedBy: scripts/sync-product-knowledge.ts
 ---
 
 # Pricing and Packaging
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
+> Board docs-matrix ingest path (`sales-enablement`). Canonical narrative mirrors [`docs/sales/pricing-and-packaging.md`](../sales/pricing-and-packaging.md).  
+> Code truth: `lib/ironframeProductKnowledge/commercial.ts` (Path B $4,999 / 499900¢ · planned GA Command $35,000/yr).
 
-## Purpose
+*Authoritative for sales + `/pricing` during design-partner phase.*
 
-Tier definitions, packaging framework, and whole-cent pricing invariants.
+## Phase 1 — Design-partner / Command Tier
 
-## Scope
+| SKU | Audience | Price | How they pay |
+|-----|----------|-------|--------------|
+| **Command Tier — Path B on-ramp** | Co-builder cohort (3–5) | **$4,999** (499900¢) flat | Tenant-scoped Stripe activation after sales-assisted provision |
+| **Command Tier — public checkout** | New buyers on `/pricing` | **$4,999** | `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` when set |
 
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
+**Rules**
 
-## Outline (to complete)
+- No per-seat / per-month licensing.  
+- Existing **PENDING** workspaces: Path B link from `/admin/onboarding` only — **never** generic `/pricing` (duplicate workspace risk).  
+- Planned GA **Ironframe Command ~$35,000/yr** (`FINTECH_SEED`) — label “planned GA” until commercial GA flag is on.
 
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
+## Planned GA tiers (Phase 2+)
+
+| Tier | Audience | List (USD/yr) |
+|------|----------|---------------|
+| Command / Fintech Seed | 5–25 emp, SOC 2 / ISO pressure | ~$35,000 |
+| Series A Growth Shield | 26–50 emp + Ironbloom path | ~$75,000 |
+| Governance+ / Sustainability / Vault / MSSP | Add-ons | Quote |
+
+## Packaging modules (capabilities)
+
+| Module | Includes |
+|--------|----------|
+| **Command** | Dashboard, Active Risks, pipeline, basic exports, multi-tenant isolation |
+| **Governance+** | + mapping, maturity, Ironquery PDF/CSV |
+| **Sustainability** | Carbon pulse, Ironbloom physical units |
+| **Vault** | Dual-gate / PKI clearance UI |
+| **MSSP Platform** | Multi-client enclaves, scoped tenants, API |
+
+## Promotions (internal)
+
+- **Design partner:** $4,999 Path B · 90-day default window · capped eng syncs · convert-or-exit  
+- **Not offered:** free 30-day pilots (they rarely log in)
+
+## Procurement notes
+
+- SOC 2 / ISO mapping: [Security & Compliance](../technical/security-and-compliance.md)  
+- Order form: [design-partner-order-form.md](../sales/design-partner-order-form.md)  
+- Offer sheet: [design-partner-offer-sheet.md](../sales/design-partner-offer-sheet.md)
 
 ## Related documents
 
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+- [Sales Enablement](../sales-enablement/sales-enablement.md)
+- [Design partner recruitment](../sales/design-partner-recruitment.md)
+- [Market entrance playbook](../sales/market-entrance-playbook.md)

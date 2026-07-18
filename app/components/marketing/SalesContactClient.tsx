@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { PUBLIC_LEAD_API_PATH } from "@/config/registration";
 import {
+  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
@@ -60,16 +61,18 @@ export default function SalesContactClient() {
         Request a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
       <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
-        No workspace is created from this form. Path B on-ramp is {formatPathBUsd()} after scoped agreement.
+        No workspace is created from this form. Path B on-ramp is {formatPathBUsd()} for a{" "}
+        {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement after agreement (convert-or-exit;
+        not a free pilot).
       </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
         This form records a{" "}
         <strong className="font-medium text-[var(--text-main)]">
           sales lead / design-partner inquiry
         </strong>{" "}
-        only. Use it to schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute review of one spreadsheet-based
-        risk-and-evidence workflow. Live enclaves are minted later via sales-assisted invite — never
-        from this page.
+        only — work email, organization, and optional estimated ALE. Use it to request a{" "}
+        {WORKFLOW_REVIEW_CTA_MINUTES} minute review of one spreadsheet-based risk-and-evidence
+        workflow. Live enclaves are minted later via sales-assisted invite — never from this page.
       </p>
       <p className="mt-2 text-sm text-[var(--login-muted)]">
         Prefer to see the product first?{" "}
@@ -84,15 +87,11 @@ export default function SalesContactClient() {
           className="mt-8 rounded-lg border border-emerald-500/40 bg-emerald-950/20 p-5 text-sm text-emerald-100"
           role="status"
         >
-          Thank you — your request has been recorded in the executive lead ledger. A sales engineer
-          will follow up to issue your administrative invite link.
+          Thank you — your inquiry is recorded in the executive lead ledger. We will follow up to
+          schedule the workflow review. No workspace was created.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
-          <label className="block text-[11px] text-[var(--login-muted)]">
-            Full name
-            <input name="name" required className={fieldClass} autoComplete="name" />
-          </label>
           <label className="block text-[11px] text-[var(--login-muted)]">
             Work email
             <input
@@ -116,15 +115,6 @@ export default function SalesContactClient() {
               placeholder="e.g. 11,100,000"
             />
           </label>
-          <label className="block text-[11px] text-[var(--login-muted)]">
-            What are you evaluating?
-            <textarea
-              name="message"
-              rows={4}
-              className={fieldClass}
-              placeholder="Regulatory scope, tenant isolation requirements, timeline…"
-            />
-          </label>
           {error ? (
             <p className="text-sm text-rose-400" role="alert">
               {error}
@@ -135,7 +125,7 @@ export default function SalesContactClient() {
             disabled={busy}
             className="w-full rounded-md bg-[var(--login-accent)] py-3 font-mono text-sm font-bold text-[var(--bg-primary)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Submitting…" : "Contact sales"}
+            {busy ? "Submitting…" : `Request ${WORKFLOW_REVIEW_CTA_MINUTES} min workflow review`}
           </button>
         </form>
       )}

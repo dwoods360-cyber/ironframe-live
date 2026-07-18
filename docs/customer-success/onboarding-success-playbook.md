@@ -5,14 +5,14 @@
 
 ## Design-partner Path B (primary for rollout)
 
-Commercial: Command Tier Path B **$4,999** · 60–90 day window · **2–3** order-form success criteria = the CS plan.
+Commercial: Command Tier Path B **$4,999** · 90-day default window · **2–3** order-form success criteria = the CS plan.
 
 ### Day 0–14: Launch
 
 - Confirm Stripe Path B → `TenantBilling` **ACTIVE** (not PENDING).
 - Operator email is **client-owned** (never `@ironframegrc.com`).
 - Welcome advisory queued via SuccessTeam — **HITL only**, never auto-send.
-- Hand partner [Operator Packet](../user-manuals/design-partner-operator-packet.md) + LEVEL1 partner index.
+- Hand partner [Operator Packet](../user-manuals/design-partner-operator-packet.md) + [LEVEL1 partner index](../training/LEVEL1-PARTNER-INDEX.md).
 - Success plan in CRM = order-form criteria (not generic “explore product”).
 
 ### Day 15–45: First value

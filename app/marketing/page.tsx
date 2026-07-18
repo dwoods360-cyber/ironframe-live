@@ -8,11 +8,12 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Ironframe | Control-first GRC for regulated operators",
   description:
-    "Replace spreadsheet risk-and-evidence work with an auditable, multi-entity GRC workflow — quantified exposure, linked controls, evidence review, and board-ready output.",
+    "Control-first GRC for regulated operators: database-tier multi-tenancy, Irongate API shielding, BigInt-cent exposure, and a paid Path B design-partner on-ramp — guided demo with labeled sandbox data.",
 };
 
 /** Public marketing landing — always renders the guest homepage (even when signed in). */
 export default function MarketingPage() {
-  const publishedBriefingCards = listPublishedBriefingCards(4);
+  /** Keep GF quiet on the product marketing page — two cards max, below the fold. */
+  const publishedBriefingCards = listPublishedBriefingCards(2);
   return <MarketingHomepage publishedBriefingCards={publishedBriefingCards} />;
 }

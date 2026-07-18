@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
     "/gf-research/series/[seriesId]": ["./docs/governance-frame/**/*"],
     "/gf-research/methodology": ["./docs/governance-frame/**/*"],
     "/gf-research/editorial-standards": ["./docs/governance-frame/**/*"],
+    "/gf-research/operating-outline": ["./docs/governance-frame/**/*"],
     "/gf-research/sources-and-corrections": ["./docs/governance-frame/**/*"],
     "/gf-research/about": ["./docs/governance-frame/**/*"],
     /**

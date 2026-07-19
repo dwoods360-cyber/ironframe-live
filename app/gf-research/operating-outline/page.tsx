@@ -16,13 +16,16 @@ export default function ResearchOperatingOutlinePage() {
   return (
     <section aria-labelledby="ops-heading" className="space-y-12">
       <div>
-        <h2
+        <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
+          Operations
+        </p>
+        <h1
           id="ops-heading"
-          className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+          className="mt-2 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl"
         >
           Operating outline
-        </h2>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-400">
+        </h1>
+        <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
           Roles, tools, and cadence for Governance Frame Research. Plan quarterly, research and
           publish monthly, review weekly, verify every claim, and require human approval before
           release.
@@ -30,13 +33,13 @@ export default function ResearchOperatingOutlinePage() {
         <p className="mt-3 flex flex-wrap gap-4">
           <ResearchLink
             href="/editorial-standards"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             Editorial standards →
           </ResearchLink>
           <ResearchLink
             href="/about"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             ← About
           </ResearchLink>
@@ -44,11 +47,13 @@ export default function ResearchOperatingOutlinePage() {
       </div>
 
       {outline ? (
-        <article className="prose-governance-frame border-t border-slate-800 pt-8">
-          <BriefingMarkdown markdown={outline.bodyMarkdown} />
+        <article className="border-t border-[var(--gf-line)] pt-8">
+          <BriefingMarkdown markdown={outline.bodyMarkdown} tone="institute" />
         </article>
       ) : (
-        <p className="text-sm text-slate-500">Operating outline manuscript is not public-ready.</p>
+        <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+          Operating outline manuscript is not public-ready.
+        </p>
       )}
     </section>
   );

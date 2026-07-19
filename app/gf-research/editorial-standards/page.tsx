@@ -33,13 +33,16 @@ export default function ResearchEditorialStandardsPage() {
   return (
     <section aria-labelledby="standards-heading" className="space-y-12">
       <div>
-        <h2
+        <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
+          Standards
+        </p>
+        <h1
           id="standards-heading"
-          className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+          className="mt-2 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl"
         >
           Editorial standards
-        </h2>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-400">
+        </h1>
+        <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
           Binding standards for Governance Frame Research. Readers should always be able to
           distinguish what the evidence establishes, what Governance Frame concludes, what remains
           uncertain, and what action is merely recommended.
@@ -47,7 +50,7 @@ export default function ResearchEditorialStandardsPage() {
         <p className="mt-3">
           <ResearchLink
             href="/about"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             ← About Governance Frame
           </ResearchLink>
@@ -55,28 +58,34 @@ export default function ResearchEditorialStandardsPage() {
       </div>
 
       {standards ? (
-        <article className="prose-governance-frame border-t border-slate-800 pt-8">
-          <BriefingMarkdown markdown={standards.bodyMarkdown} />
+        <article className="border-t border-[var(--gf-line)] pt-8">
+          <BriefingMarkdown markdown={standards.bodyMarkdown} tone="institute" />
         </article>
       ) : (
-        <p className="text-sm text-slate-500">Editorial standards manuscript is not public-ready.</p>
+        <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+          Editorial standards manuscript is not public-ready.
+        </p>
       )}
 
       <div>
-        <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+        <h2 className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
           Related policy notes
-        </h3>
+        </h2>
         <ul className="mt-4 space-y-3">
           {related.map((doc) => (
             <li
               key={doc.id}
-              className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4"
+              className="border-b border-[var(--gf-line)] px-1 py-4 last:border-0"
             >
-              <p className="font-mono text-sm font-bold text-slate-50">{doc.title}</p>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+              <p className="font-[family-name:var(--font-gf-serif)] text-base font-semibold text-[var(--gf-ink)]">
+                {doc.title}
+              </p>
+              <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs font-medium uppercase tracking-[0.12em] text-[var(--gf-muted)]">
                 {doc.ready ? "Public-ready" : "Under editorial review"}
               </p>
-              <p className="mt-2 font-mono text-[10px] text-slate-600">{doc.relativePath}</p>
+              <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                {doc.relativePath}
+              </p>
             </li>
           ))}
         </ul>

@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 
-import BriefingFrameContent from "@/app/components/governanceFrame/BriefingFrameContent";
+import BriefingMarkdown from "@/app/components/governanceFrame/BriefingMarkdown";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { briefingBodyMarkdown, fetchBriefingBySlug } from "@/app/lib/governanceFrame/briefingLoader";
 import { PUBLISHED_BRIEFING_SLUG_REDIRECTS } from "@/app/lib/governanceFrame/publishedBriefingSlugRedirects";
@@ -68,12 +68,10 @@ export default async function ResearchBriefingPage({ params }: PageProps) {
         )}
       </header>
 
-      {/* Specialized briefing triad layout remains dark for scanability on the light institute shell. */}
-      <div className="prose-governance-frame overflow-hidden rounded-xl border border-[var(--gf-line)] bg-slate-950 px-5 py-8 sm:px-8">
-        <BriefingFrameContent
-          markdown={briefingBodyMarkdown(briefing.markdown, briefing.title)}
-        />
-      </div>
+      <BriefingMarkdown
+        markdown={briefingBodyMarkdown(briefing.markdown, briefing.title)}
+        tone="institute"
+      />
     </article>
   );
 }

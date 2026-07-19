@@ -80,6 +80,7 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 | Workforce briefing (RACI) | [design-partner-workforce-briefing.md](./design-partner-workforce-briefing.md) |
 | Offer sheet | [design-partner-offer-sheet.md](./design-partner-offer-sheet.md) |
 | Outreach sequence | [design-partner-outreach-sequence.md](./design-partner-outreach-sequence.md) |
+| Workflow review protocol | [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md) |
 | Order form | [design-partner-order-form.md](./design-partner-order-form.md) |
 | Operator launch checklist | [design-partner-operator-launch-checklist.md](./design-partner-operator-launch-checklist.md) |
 | Partner operator packet (in-app) | [`/docs/user-manuals/design-partner-operator-packet`](../user-manuals/design-partner-operator-packet.md) |

@@ -5,7 +5,7 @@
 **Commercial lock:** Command Tier / Path B **$4,999** · planned GA **~$35k/yr** · **3–5** co-builders · **90-day** default window (floor 60 if scoped in writing) · **2–3** success criteria  
 **GTM rule:** **Multiple acquisition channels · one partner program** (never a free forever cohort beside Path B)
 
-Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer sheet](./design-partner-offer-sheet.md) · [outreach sequence](./design-partner-outreach-sequence.md) · [order form](./design-partner-order-form.md) · [launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md)
+Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer sheet](./design-partner-offer-sheet.md) · [outreach sequence](./design-partner-outreach-sequence.md) · [workflow review protocol](./design-partner-workflow-review-protocol.md) · [order form](./design-partner-order-form.md) · [launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md)
 
 ---
 
@@ -23,14 +23,14 @@ Writer / Trainer → docs & operator packet (never cold email)
 |------|------|----------------|
 | **board-bot / CEO** | Scope freeze, prioritization, cohort seat count | Spray outbound |
 | **board-marketing-mgr** | Category language, warm/auditor blurbs, StoryBrand coherence | Live DISPATCH |
-| **board-sales-lead** | Draft QA, beachhead fit, $4,999 / workflow-review CTA | Auto-send |
+| **board-sales-lead** | Draft QA, beachhead fit, $4,999 / workflow-review CTA; pre-call diligence brief | Auto-send; hosting the live workflow review |
 | **Ironleads** | SUSPECT harvest on triggers (funding, GRC hire, audit, fine) | Closing or Path B invite |
-| **SalesTeam** | PROSPECT EMAIL/SMS drafts (HITL) | CLOSED_WON advisories |
+| **SalesTeam** | PROSPECT EMAIL/SMS drafts (HITL) — peer/clinical tone | CLOSED_WON advisories; live calls |
 | **board-writer** | Partner docs, offer/one-pager clarity, StoryBrand structure | Cold outreach copy-as-send |
 | **board-trainer** | LEVEL1 partner index / get-started clarity | Pipeline tactics |
 | **SuccessTeam / board-CS** | Post-ACTIVE success plan against order-form criteria | Outbound prospecting |
 | **SupportTeam** | Path B billing-hold, invite/login, export blockers | Sales pitches |
-| **Operator (human)** | DISPATCH, provision, Path B link, order form | Letting agents auto-send |
+| **Operator (human)** | Host [workflow review](./design-partner-workflow-review-protocol.md); DISPATCH; provision; Path B; order form | Letting agents auto-send or run the live call |
 
 ---
 
@@ -53,8 +53,9 @@ Beachhead scaffolding: `SalesTeam/src/config/beachheadPrompts.ts` (`REGIONAL_BHC
 SalesTeam HTTP surface is `GET /health` + `POST /poll` only — no GTM Settings / Message Constitution / Save & Lock portal.
 
 - CTA = **10–15 min workflow review** (not “Request Demo” / free pilot).  
+- Workflow review = [peer-to-peer technical diligence](./design-partner-workflow-review-protocol.md) — human hosts; drafts use the same clinical tone.  
 - Cold open: pain + trigger + collaboration; include **$4,999** Path B once relevance is established (Touch 1 body OK; subject can stay problem-led).  
-- Never cite `medshield` / `vaultbank` / `gridcore` as customers.  
+- Never cite `medshield` / `vaultbank` / `gridcore` as customers or “hardened baselines.”  
 - PENDING partners: tenant-scoped Path B link — never generic `/pricing`.  
 - Operator email: client-owned only (not `@ironframegrc.com`).
 ---

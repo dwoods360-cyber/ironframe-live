@@ -16,7 +16,7 @@ Ironframe is recruiting a **small paid co-builder cohort** for the **Command Tie
 | **Window** | **90-day** default (floor 60 if scoped in writing) → convert at locked discount or exit cleanly |
 | **Eng syncs** | Weekly **capped** (first 4–6 weeks), then async — protects scope freeze |
 | **Success criteria** | Agree **2–3** up front (examples below) |
-| **CTA** | **10–15 min workflow review** on their evidence / board-report pain — not a product preview |
+| **CTA** | **10–15 min workflow review** on their evidence / board-report pain — not a product preview ([protocol](./design-partner-workflow-review-protocol.md)) |
 
 ## Example success criteria (pick 2–3)
 

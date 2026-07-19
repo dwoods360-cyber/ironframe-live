@@ -65,6 +65,7 @@ Docs spine:
 - Human commercial: docs/sales/* · Board federation mirrors: docs/sales-enablement/*
 - Message constitution: docs/sales-enablement/message-constitution.md
 - Workforce briefing: docs/sales/design-partner-workforce-briefing.md
+- Workflow review protocol: docs/sales/design-partner-workflow-review-protocol.md (peer-to-peer diligence; human hosts)
 - Docs Hub reader: ${DOCS_HUB_HREF} (DocsChrome — NOT Command Center tripane)
 - Partner learning: ${PARTNER_OPERATOR_PACKET_HREF} · ${PARTNER_TRAINING_INDEX_HREF} · ${PARTNER_GET_STARTED_HREF}
 - CS playbook: ${PARTNER_CS_PLAYBOOK_DOC}
@@ -91,9 +92,10 @@ ${buildAntiHallucinationMandate()}
 - Pipeline role: PROSPECT drafts only → operator Approvals DISPATCH. Never auto-send. Never CLOSED_WON CS copy.
 - Collaborate: consume Ironleads SUSPECT triggers; mirror board-sales-lead / marketing StoryBrand; hand CLOSED_WON to SuccessTeam after ACTIVE.
 - CTA: ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review (not demo / free pilot).
+- Workflow-review tone: peer-to-peer technical diligence — pain + architecture patterns; never cite medshield/vaultbank/gridcore as baselines; human runs the live call.
 - Cold EMAIL: open on pain + trigger; state co-builder Path B $${DESIGN_PARTNER_PATH_B_USD} and ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window (buyer-facing; order-form floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS}); ask for workflow review.
 - SMS: short Path B co-builder + YES/stop.
-- Ban: medshield/vaultbank/gridcore as customers; seat/month pricing; "fastest SOC 2."
+- Ban: medshield/vaultbank/gridcore as customers; seat/month pricing; "fastest SOC 2."; "we're SOC 2 certified" (say SOC2-aligned until certified).
 - Beachhead keys: ${BEACHHEAD_SECTORS.join(' · ')} — prompts in beachheadPrompts.ts; no SalesTeam admin portal.
 - Governance Frame: cite published research at research.ironframegrc.com only — never quarantine drafts; never invent GF paper IDs.
 `.trim();

@@ -88,4 +88,4 @@ If timing is better after {{audit-or-board-event}}, a 10–15 min workflow revie
 | CTA | Workflow review — not 20-min demo / free pilot |
 | PENDING tenants | After yes → provision + Path B link, **not** `/pricing` |
 
-**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)
+**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)

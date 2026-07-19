@@ -13,7 +13,14 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 - CISO / partner reports cyber risk in **dollar terms**  
 - See [Target market research](./target-market-research.md) + [ICP shortlist](./design-partner-icp-shortlist.md)
 
-## Discovery questions
+## Workflow review (authoritative)
+
+**Doctrine:** Peer-to-peer technical diligence — not a sales script.  
+**Talk track:** [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md)
+
+Human operator hosts. `board-sales-lead` preps a call brief and may sidecar Q&A. Agents do **not** conduct the live review.
+
+### Discovery questions (ingress)
 
 1. How do you quantify cyber risk for the board today?
 2. Where does external threat intel enter your environment—sanitized or direct?
@@ -31,7 +38,7 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 | CTA | **10–15 min workflow review** on evidence pain — not a product circus |
 | Next | Order form → provision → Path B link → ACTIVE → `/get-started` |
 
-Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md) · [Battlecard vs Vanta/Drata](./battlecard-ironframe-vs-vanta-drata.md)
+Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md) · [Battlecard vs Vanta/Drata](./battlecard-ironframe-vs-vanta-drata.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md)
 
 ## Demo script (only after workflow review / paid interest)
 

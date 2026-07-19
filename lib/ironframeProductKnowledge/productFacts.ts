@@ -35,8 +35,10 @@ export const DOCS_HUB_HREF = '/docs' as const;
 
 export const MESSAGE_CONSTITUTION_RULES = [
   'CTA = 10–15 minute workflow review on evidence / board-report pain — not Request Demo / free pilot',
+  'Workflow review doctrine: peer-to-peer technical diligence (docs/sales/design-partner-workflow-review-protocol.md) — clinical architect tone, not multi-stage sales script',
+  'Workflow review next step: order form → provision → Path B link — not NDA/schema review as the gate; human hosts the call',
   'PENDING partners: tenant-scoped Path B activation link only — never generic /pricing',
-  'Customer is hero; Ironframe is guide (StoryBrand)',
+  'Customer is hero; Ironframe is guide (StoryBrand for drafts; stripped diligence on the call)',
   'Beachhead scaffolding: SalesTeam/src/config/beachheadPrompts.ts — edit code, redeploy worker',
   'SalesTeam HTTP: GET /health + POST /poll only',
 ] as const;

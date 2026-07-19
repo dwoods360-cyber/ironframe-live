@@ -24,43 +24,40 @@ export default async function ResearchNewslettersPage() {
   const editions = briefings.filter((briefing) => isNewsletter(briefing.markdown, briefing.slug));
 
   return (
-    <section aria-labelledby="newsletters-heading">
-      <h2
+    <section aria-labelledby="newsletters-heading" className="max-w-3xl">
+      <h1
         id="newsletters-heading"
-        className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+        className="font-[family-name:var(--font-gf-serif)] text-3xl text-[var(--gf-ink)] sm:text-4xl"
       >
         Newsletters
-      </h2>
-      <p className="mt-4 max-w-2xl text-sm text-slate-400">
-        Periodic industry editions from the published ledger. Canonical newsletter packages under{" "}
-        <code className="text-slate-300">docs/governance-frame/newsletters/</code> appear here when
-        present.
+      </h1>
+      <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
+        Periodic industry editions from the published ledger. Quarantined drafts do not appear here.
       </p>
 
       {editions.length === 0 && placeholders.length === 0 ? (
-        <p className="mt-8 text-sm text-slate-500">
-          No newsletter editions are published yet. Quarantined drafts remain off this surface.
+        <p className="mt-8 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+          No newsletter editions are published yet.
         </p>
       ) : (
-        <ul className="mt-8 space-y-3">
+        <ul className="mt-8 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
           {editions.map((edition) => (
             <li key={edition.slug}>
               <ResearchLink
                 href={`/briefings/${edition.slug}`}
-                className="block rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4 hover:border-slate-600"
+                className="block py-5 no-underline transition hover:bg-white/40"
               >
-                <p className="font-mono text-sm font-bold text-slate-50">{edition.title}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                  {edition.title}
+                </p>
+                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                   {edition.slug}
                 </p>
               </ResearchLink>
             </li>
           ))}
           {placeholders.map((name) => (
-            <li
-              key={name}
-              className="rounded-xl border border-slate-800/80 px-5 py-4 font-mono text-sm text-slate-400"
-            >
+            <li key={name} className="py-5 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
               {name}
             </li>
           ))}

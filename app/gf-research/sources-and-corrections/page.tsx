@@ -12,57 +12,58 @@ export default function ResearchSourcesAndCorrectionsPage() {
   const papers = listResearchPapers();
 
   return (
-    <section aria-labelledby="sources-heading">
-      <h2
+    <section aria-labelledby="sources-heading" className="max-w-3xl">
+      <h1
         id="sources-heading"
-        className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+        className="font-[family-name:var(--font-gf-serif)] text-3xl text-[var(--gf-ink)] sm:text-4xl"
       >
         Sources and corrections
-      </h2>
-      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-400">
+      </h1>
+      <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
         Each research package maintains a source-verification ledger and reference list in the
         canonical repository. Corrections are published when primary sources supersede prior
         citations.
       </p>
 
-      <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4">
-        <p className="font-mono text-sm font-bold text-slate-50">
+      <div className="mt-8 border-y border-[var(--gf-line)] py-5">
+        <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
           {corrections?.title ?? "Corrections Policy"}
         </p>
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+        <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.12em] text-[var(--gf-muted)]">
           {corrections?.ready ? "Public-ready" : "Under editorial review"}
         </p>
         {corrections ? (
-          <p className="mt-2 font-mono text-[10px] text-slate-600">{corrections.relativePath}</p>
+          <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+            {corrections.relativePath}
+          </p>
         ) : null}
       </div>
 
-      <h3 className="mt-10 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500">
+      <h2 className="mt-10 font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
         Package ledgers
-      </h3>
-      <ul className="mt-4 space-y-3">
+      </h2>
+      <ul className="mt-4 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
         {papers.map((paper) => (
-          <li
-            key={paper.slug}
-            className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4"
-          >
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+          <li key={paper.slug} className="py-5">
+            <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
               {paper.researchId}
             </p>
-            <p className="mt-1 font-mono text-sm text-slate-200">{paper.title}</p>
-            <p className="mt-2 font-mono text-[10px] text-slate-600">
+            <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+              {paper.title}
+            </p>
+            <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
               {paper.packagePath}/source-ledger.md
             </p>
             {paper.isPublic ? (
               <ResearchLink
                 href={`/research-papers/${paper.slug}`}
-                className="mt-2 inline-block font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+                className="mt-2 inline-block font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
               >
                 Open paper →
               </ResearchLink>
             ) : (
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-slate-600">
-                Manuscript not yet public · ledger remains in repository
+              <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                Manuscript not yet approved · ledger remains in repository
               </p>
             )}
           </li>

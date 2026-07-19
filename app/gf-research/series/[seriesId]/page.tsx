@@ -24,45 +24,42 @@ export default async function ResearchSeriesPage({ params }: PageProps) {
   if (!series) notFound();
 
   return (
-    <section aria-labelledby="series-heading">
+    <section aria-labelledby="series-heading" className="max-w-3xl">
       <ResearchLink
         href="/series"
-        className="font-mono text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-300"
+        className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
       >
         ← All series
       </ResearchLink>
-      <h2
-        id="series-heading"
-        className="mt-6 font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
-      >
+      <p className="mt-6 font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
         {series.seriesId}
-      </h2>
-      <h1 className="mt-3 font-mono text-2xl font-bold tracking-tight text-slate-50">
+      </p>
+      <h1
+        id="series-heading"
+        className="mt-2 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl"
+      >
         {series.title}
       </h1>
 
-      <ol className="mt-8 space-y-3">
+      <ol className="mt-8 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
         {series.installments.map((installment) => (
-          <li
-            key={installment.packageId}
-            className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4"
-          >
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+          <li key={installment.packageId} className="py-5">
+            <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
               {installment.packageId}
               {installment.status ? ` · ${installment.status}` : ""}
             </p>
-            <p className="mt-1 text-sm text-slate-300">
+            <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-ink-soft)]">
               {[installment.era, installment.yearRange].filter(Boolean).join(" · ")}
             </p>
             {installment.publishedSlug ? (
               <ResearchLink
                 href={`/briefings/${installment.publishedSlug}`}
-                className="mt-2 inline-block font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+                className="mt-2 inline-block font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
               >
                 Read published briefing →
               </ResearchLink>
             ) : (
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-slate-600">
+              <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                 Not yet on the public ledger
               </p>
             )}

@@ -19,6 +19,7 @@ import { applySubdomainTenancy } from "@/app/lib/middlewareSubdomainTenancy";
 import { stampWorkspaceCookieClears } from "@/app/lib/auth/workspaceSessionCookies";
 import {
   GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX,
+  governanceFrameCharterRedirectPath,
   isGovernanceFramePublicHost,
 } from "@/config/governanceFramePublic";
 
@@ -259,6 +260,14 @@ function governanceFrameResearchHostResponse(request: NextRequest): NextResponse
     pathname === "/sitemap.xml"
   ) {
     return null;
+  }
+
+  // Charter .md / filesystem aliases before legacy /governance-frame → /briefings rewrite.
+  const charterPretty = governanceFrameCharterRedirectPath(pathname);
+  if (charterPretty) {
+    const target = request.nextUrl.clone();
+    target.pathname = charterPretty;
+    return NextResponse.redirect(target, 308);
   }
 
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) {

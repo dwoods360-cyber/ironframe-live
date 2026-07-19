@@ -72,22 +72,36 @@ export default function ResearchEditorialStandardsPage() {
           Related policy notes
         </h2>
         <ul className="mt-4 space-y-3">
-          {related.map((doc) => (
-            <li
-              key={doc.id}
-              className="border-b border-[var(--gf-line)] px-1 py-4 last:border-0"
-            >
-              <p className="font-[family-name:var(--font-gf-serif)] text-base font-semibold text-[var(--gf-ink)]">
-                {doc.title}
-              </p>
-              <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs font-medium uppercase tracking-[0.12em] text-[var(--gf-muted)]">
-                {doc.ready ? "Public-ready" : "Under editorial review"}
-              </p>
-              <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                {doc.relativePath}
-              </p>
-            </li>
-          ))}
+          {related.map((doc) => {
+            const publicHref =
+              doc.id === "what-governance-frame-is" || doc.id === "operating-outline"
+                ? `/${doc.id}`
+                : doc.id === "editorial-standards"
+                  ? "/editorial-standards"
+                  : null;
+            return (
+              <li
+                key={doc.id}
+                className="border-b border-[var(--gf-line)] px-1 py-4 last:border-0"
+              >
+                {publicHref && doc.ready ? (
+                  <ResearchLink
+                    href={publicHref}
+                    className="font-[family-name:var(--font-gf-serif)] text-base font-semibold text-[var(--gf-ink)] no-underline hover:text-[var(--gf-accent)]"
+                  >
+                    {doc.title}
+                  </ResearchLink>
+                ) : (
+                  <p className="font-[family-name:var(--font-gf-serif)] text-base font-semibold text-[var(--gf-ink)]">
+                    {doc.title}
+                  </p>
+                )}
+                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs font-medium uppercase tracking-[0.12em] text-[var(--gf-muted)]">
+                  {doc.ready ? "Public-ready" : "Under editorial review"}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>

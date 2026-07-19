@@ -49,6 +49,7 @@ export const APP_ROUTE_ROOTS = new Set([
   "methodology",
   "editorial-standards",
   "operating-outline",
+  "what-governance-frame-is",
   "sources-and-corrections",
   "about",
   "dashboard",

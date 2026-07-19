@@ -12,12 +12,12 @@ Preserved operating model for Governance Frame Research: roles, tools, and caden
 
 Companion documents:
 
-- [`what-governance-frame-is.md`](./what-governance-frame-is.md) — mission and identity
-- [`editorial-standards.md`](./editorial-standards.md) — binding editorial standards §§1–20
+- [What Governance Frame Is](/what-governance-frame-is) — mission and identity
+- [Editorial standards](/editorial-standards) — binding editorial standards §§1–20
 
 **Core cadence:** Plan quarterly, research and publish monthly, review weekly, verify every claim, and require human approval before release.
 
-**Implemented desk agents:** [`publication-desk-agents.md`](./publication-desk-agents.md) (`gf-researcher` … `gf-operator`) — quarantine + advisory review only; human Publisher Approve remains required.
+**Implemented desk agents:** `publication-desk-agents.md` (`gf-researcher` … `gf-operator`) — quarantine + advisory review only; human Publisher Approve remains required.
 
 ## Simplified operating model
 

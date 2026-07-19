@@ -63,9 +63,47 @@ export function isGovernanceFramePublicPath(pathname: string): boolean {
     "/methodology",
     "/editorial-standards",
     "/operating-outline",
+    "/what-governance-frame-is",
     "/sources-and-corrections",
     "/about",
   ] as const;
 
   return publicRoots.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}
+
+/** Charter docs with public pretty routes (not raw `.md` file paths). */
+const GOVERNANCE_FRAME_CHARTER_PRETTY: Readonly<Record<string, string>> = {
+  "what-governance-frame-is": "/what-governance-frame-is",
+  "editorial-standards": "/editorial-standards",
+  "operating-outline": "/operating-outline",
+};
+
+/**
+ * Map legacy `.md` / charter filesystem URLs onto research pretty paths.
+ * Returns null when the pathname is already canonical (or not a known alias).
+ */
+export function governanceFrameCharterRedirectPath(pathname: string): string | null {
+  const path = (pathname.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
+
+  const mdBare = path.match(/^\/([a-z0-9-]+)\.md$/i);
+  if (mdBare) {
+    const pretty = GOVERNANCE_FRAME_CHARTER_PRETTY[mdBare[1].toLowerCase()];
+    return pretty ?? null;
+  }
+
+  const internalMd = path.match(/^\/gf-research\/([a-z0-9-]+)\.md$/i);
+  if (internalMd) {
+    const pretty = GOVERNANCE_FRAME_CHARTER_PRETTY[internalMd[1].toLowerCase()];
+    return pretty ?? null;
+  }
+
+  const charterFs = path.match(
+    /^\/(?:docs\/)?governance-frame\/charter\/([a-z0-9-]+)(?:\.md)?$/i,
+  );
+  if (charterFs) {
+    const pretty = GOVERNANCE_FRAME_CHARTER_PRETTY[charterFs[1].toLowerCase()];
+    return pretty ?? null;
+  }
+
+  return null;
 }

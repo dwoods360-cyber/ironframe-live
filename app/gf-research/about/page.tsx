@@ -80,6 +80,13 @@ export default function ResearchAboutPage() {
         </ul>
         <p className="pt-2 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
           <ResearchLink
+            href="/what-governance-frame-is"
+            className="font-medium text-[var(--gf-accent)] no-underline hover:underline"
+          >
+            What Governance Frame is
+          </ResearchLink>
+          {" · "}
+          <ResearchLink
             href="/editorial-standards"
             className="font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >

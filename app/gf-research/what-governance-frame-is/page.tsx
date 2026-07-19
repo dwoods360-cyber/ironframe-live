@@ -5,43 +5,42 @@ import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath"
 import { getEditorialPolicyMarkdown } from "@/app/lib/governanceFrame/researchCatalog";
 
 export const metadata: Metadata = {
-  title: "Operating outline",
+  title: "What Governance Frame is",
   description:
-    "Governance Frame Operating Outline — roles, tools, and cadence for research, verification, and human-approved publication.",
+    "Governance Frame is an independent governance research and executive education organization — vendor-neutral, evidence-based, and editorially separate from Ironframe product marketing.",
 };
 
-export default function ResearchOperatingOutlinePage() {
-  const outline = getEditorialPolicyMarkdown("operating-outline");
+export default function ResearchWhatGovernanceFrameIsPage() {
+  const charter = getEditorialPolicyMarkdown("what-governance-frame-is");
 
   return (
-    <section aria-labelledby="ops-heading" className="space-y-12">
+    <section aria-labelledby="charter-heading" className="space-y-12">
       <div>
         <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
-          Operations
+          Charter
         </p>
         <h1
-          id="ops-heading"
+          id="charter-heading"
           className="mt-2 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl"
         >
-          Operating outline
+          What Governance Frame is
         </h1>
         <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
-          Roles, tools, and cadence for Governance Frame Research. Plan quarterly, research and
-          publish monthly, review weekly, verify every claim, and require human approval before
-          release.
+          Mission and identity for Governance Frame Research — independent of Ironframe product
+          marketing.
         </p>
         <p className="mt-3 flex flex-wrap gap-4">
-          <ResearchLink
-            href="/what-governance-frame-is"
-            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
-          >
-            What Governance Frame is →
-          </ResearchLink>
           <ResearchLink
             href="/editorial-standards"
             className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             Editorial standards →
+          </ResearchLink>
+          <ResearchLink
+            href="/operating-outline"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+          >
+            Operating outline →
           </ResearchLink>
           <ResearchLink
             href="/about"
@@ -52,13 +51,13 @@ export default function ResearchOperatingOutlinePage() {
         </p>
       </div>
 
-      {outline ? (
+      {charter ? (
         <article className="border-t border-[var(--gf-line)] pt-8">
-          <BriefingMarkdown markdown={outline.bodyMarkdown} tone="institute" />
+          <BriefingMarkdown markdown={charter.bodyMarkdown} tone="institute" />
         </article>
       ) : (
         <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
-          Operating outline manuscript is not public-ready.
+          Charter manuscript is not public-ready.
         </p>
       )}
     </section>

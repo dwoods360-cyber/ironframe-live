@@ -24,39 +24,40 @@ export default async function ResearchBriefingsIndexPage() {
   const briefings = await fetchPublishedBriefings();
 
   return (
-    <section aria-labelledby="briefings-index-heading">
-      <h2
+    <section aria-labelledby="briefings-index-heading" className="max-w-3xl">
+      <h1
         id="briefings-index-heading"
-        className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+        className="font-[family-name:var(--font-gf-serif)] text-3xl text-[var(--gf-ink)] sm:text-4xl"
       >
-        Industry briefings · published ledger
-      </h2>
-      <p className="mt-4 max-w-2xl text-sm text-slate-400">
-        Approved industry briefings promoted from the Governance Frame publication workflow. Draft
-        queue files remain quarantined from this reader.
+        Industry briefings
+      </h1>
+      <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
+        Approved briefings from the published ledger. Quarantined drafts do not appear here.
       </p>
 
       {briefings.length === 0 ? (
-        <p className="mt-8 text-sm text-slate-500">No published briefings yet.</p>
+        <p className="mt-8 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+          No published briefings yet.
+        </p>
       ) : (
-        <ul className="mt-8 grid gap-4">
+        <ul className="mt-8 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
           {[...briefings].reverse().map((briefing) => (
             <li key={briefing.slug}>
               <ResearchLink
                 href={`/briefings/${briefing.slug}`}
-                className="group block rounded-xl border border-slate-800 bg-slate-900/40 p-6 transition hover:border-slate-600 hover:bg-slate-900"
+                className="block py-5 no-underline transition hover:bg-white/40"
               >
                 <time
                   dateTime={briefing.publishedAt}
-                  className="font-mono text-[10px] uppercase tracking-widest text-slate-500"
+                  className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]"
                 >
                   {formatPublishedDate(briefing.publishedAt)}
                 </time>
-                <h3 className="mt-2 font-mono text-base font-bold tracking-tight text-slate-50 group-hover:text-white">
+                <h2 className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
                   {briefing.title}
-                </h3>
+                </h2>
                 {briefing.classification ? (
-                  <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                     {briefing.classification}
                   </p>
                 ) : null}

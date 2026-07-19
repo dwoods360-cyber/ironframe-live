@@ -31,7 +31,7 @@ export default function ResearchPapersIndexPage() {
             >
               <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
                 {paper.researchId}
-                {paper.isPublic ? "" : " · Forthcoming"}
+                {paper.isPublic ? "" : " · Not yet approved"}
               </p>
               <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
                 {paper.title}
@@ -44,7 +44,7 @@ export default function ResearchPapersIndexPage() {
               {!paper.isPublic ? (
                 <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                   Status: {paper.status}
-                  {paper.version ? ` · ${paper.version}` : ""}
+                  {paper.version ? ` · ${paper.version}` : ""} — full text withheld until Approve
                 </p>
               ) : null}
             </ResearchLink>

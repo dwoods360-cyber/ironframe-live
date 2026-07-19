@@ -95,16 +95,12 @@ export function listResearchPapers(): ResearchPaperListing[] {
   return listings.sort((a, b) => a.researchId.localeCompare(b.researchId));
 }
 
-export function getResearchPaperManuscript(
-  slug: string,
-  options?: { allowDraft?: boolean },
-): {
+export function getResearchPaperManuscript(slug: string): {
   listing: ResearchPaperListing;
   bodyMarkdown: string;
 } | null {
   const listing = listResearchPapers().find((paper) => paper.slug === slug);
-  if (!listing) return null;
-  if (!listing.isPublic && !options?.allowDraft) return null;
+  if (!listing || !listing.isPublic) return null;
 
   const manuscript = readUtf8IfExists(
     path.join(resolveDocsRoot(), listing.packagePath, "manuscript.md"),

@@ -21,12 +21,7 @@ export default async function GovernanceFrameResearchHomePage() {
       {/* First viewport: one composition — brand, one line, one sentence, CTAs */}
       <section
         aria-labelledby="gf-home-heading"
-        className="gf-rise relative overflow-hidden rounded-2xl border border-[var(--gf-line)]/80 px-6 py-10 sm:px-10 sm:py-12"
-        style={{
-          background:
-            "linear-gradient(135deg, color-mix(in srgb, var(--gf-paper-elevated) 88%, white) 0%, color-mix(in srgb, var(--gf-accent) 12%, white) 55%, color-mix(in srgb, var(--gf-brass) 10%, var(--gf-paper-elevated)) 100%)",
-          boxShadow: "0 18px 40px -24px var(--gf-accent-glow)",
-        }}
+        className="gf-rise relative overflow-hidden px-1 py-4 sm:py-6"
       >
         <div
           className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full opacity-40"
@@ -105,22 +100,17 @@ export default async function GovernanceFrameResearchHomePage() {
               </li>
             ))}
             {forthcomingPapers.map((paper) => (
-              <li key={paper.slug}>
-                <ResearchLink
-                  href={`/research-papers/${paper.slug}`}
-                  className="block py-5 no-underline transition hover:bg-white/40"
-                >
-                  <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
-                    {paper.researchId} · Editorial draft
-                  </p>
-                  <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                    {paper.title}
-                  </p>
-                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                    Status: {paper.status}
-                    {paper.version ? ` · ${paper.version}` : ""} — open for review
-                  </p>
-                </ResearchLink>
+              <li key={paper.slug} className="py-5">
+                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
+                  {paper.researchId} · Not yet approved
+                </p>
+                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                  {paper.title}
+                </p>
+                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                  Status: {paper.status}
+                  {paper.version ? ` · ${paper.version}` : ""} — full text withheld until Approve
+                </p>
               </li>
             ))}
           </ul>

@@ -105,17 +105,22 @@ export default async function GovernanceFrameResearchHomePage() {
               </li>
             ))}
             {forthcomingPapers.map((paper) => (
-              <li key={paper.slug} className="py-5">
-                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
-                  {paper.researchId} · Forthcoming
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink-soft)]">
-                  {paper.title}
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                  Status: {paper.status}
-                  {paper.version ? ` · ${paper.version}` : ""}
-                </p>
+              <li key={paper.slug}>
+                <ResearchLink
+                  href={`/research-papers/${paper.slug}`}
+                  className="block py-5 no-underline transition hover:bg-white/40"
+                >
+                  <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
+                    {paper.researchId} · Editorial draft
+                  </p>
+                  <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                    {paper.title}
+                  </p>
+                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                    Status: {paper.status}
+                    {paper.version ? ` · ${paper.version}` : ""} — open for review
+                  </p>
+                </ResearchLink>
               </li>
             ))}
           </ul>

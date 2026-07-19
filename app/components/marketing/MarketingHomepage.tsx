@@ -346,7 +346,7 @@ export default function MarketingHomepage({
           See the product, then talk scope
         </h3>
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          <a href="/product-demo" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          <Link href="/product-demo" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/product-demo.png"
@@ -354,8 +354,8 @@ export default function MarketingHomepage({
               className="h-40 w-full object-cover object-top"
             />
             <p className="p-3 text-xs text-[var(--login-muted)]">Guided demo (UI capture)</p>
-          </a>
-          <a href="/marketing" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          </Link>
+          <Link href="/marketing" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/homepage.png"
@@ -363,8 +363,8 @@ export default function MarketingHomepage({
               className="h-40 w-full object-cover object-top"
             />
             <p className="p-3 text-xs text-[var(--login-muted)]">Marketing homepage (UI capture)</p>
-          </a>
-          <a href="/trust-center" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          </Link>
+          <Link href="/trust-center" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/trust-center.png"
@@ -372,7 +372,7 @@ export default function MarketingHomepage({
               className="h-40 w-full object-cover object-top"
             />
             <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (UI capture)</p>
-          </a>
+          </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <Link

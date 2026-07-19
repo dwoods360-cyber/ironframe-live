@@ -12,30 +12,31 @@ export default function ResearchMethodologyPage() {
   );
 
   return (
-    <section aria-labelledby="methodology-heading">
-      <h2
+    <section aria-labelledby="methodology-heading" className="max-w-3xl">
+      <h1
         id="methodology-heading"
-        className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+        className="font-[family-name:var(--font-gf-serif)] text-3xl text-[var(--gf-ink)] sm:text-4xl"
       >
         Research methodology
-      </h2>
-      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-400">
+      </h1>
+      <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-muted)]">
         Governance Frame publishes evidence-based institutional analysis. Methodology and citation
         standards are maintained in the canonical repository and appear here once approved for public
         release.
       </p>
 
-      <ul className="mt-8 space-y-3">
+      <ul className="mt-8 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
         {docs.map((doc) => (
-          <li
-            key={doc.id}
-            className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4"
-          >
-            <p className="font-mono text-sm font-bold text-slate-50">{doc.title}</p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+          <li key={doc.id} className="py-5">
+            <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+              {doc.title}
+            </p>
+            <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.12em] text-[var(--gf-muted)]">
               {doc.ready ? "Public-ready" : "Under editorial review"}
             </p>
-            <p className="mt-2 font-mono text-[10px] text-slate-600">{doc.relativePath}</p>
+            <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+              {doc.relativePath}
+            </p>
           </li>
         ))}
       </ul>

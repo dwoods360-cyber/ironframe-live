@@ -273,15 +273,25 @@ function governanceFrameResearchHostResponse(request: NextRequest): NextResponse
     pathname === GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX ||
     pathname.startsWith(`${GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX}/`)
   ) {
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: withPathnameRequestHeaders(request.headers, pathname),
+      },
+    });
   }
 
-  const rewriteUrl = request.nextUrl.clone();
-  rewriteUrl.pathname =
+  const rewritePath =
     pathname === "/"
       ? GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX
       : `${GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX}${pathname}`;
-  return NextResponse.rewrite(rewriteUrl);
+  const rewriteUrl = request.nextUrl.clone();
+  rewriteUrl.pathname = rewritePath;
+  /** Stamp internal pathname so AppShellRouter never treats research `/` as Command Post. */
+  return NextResponse.rewrite(rewriteUrl, {
+    request: {
+      headers: withPathnameRequestHeaders(request.headers, rewritePath),
+    },
+  });
 }
 
 /**

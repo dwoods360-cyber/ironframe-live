@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import ResearchSiteChrome from "@/app/components/governanceFrame/ResearchSiteChrome";
+import { gfSans, gfSerif } from "@/app/gf-research/researchFonts";
 import {
   GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX,
   isGovernanceFramePublicHost,
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
     template: "%s · Governance Frame",
   },
   description:
-    "Independent research on governance, risk, compliance, operational resilience, cybersecurity, and AI governance. Published by Ironframe GRC.",
+    "Independent research on governance, risk, compliance, operational resilience, cybersecurity, and AI governance. Published by Governance Frame Research.",
   robots: {
     index: true,
     follow: true,
@@ -30,5 +31,9 @@ export default async function GovernanceFrameResearchLayout({
     ? ""
     : GOVERNANCE_FRAME_RESEARCH_INTERNAL_PREFIX;
 
-  return <ResearchSiteChrome basePath={basePath}>{children}</ResearchSiteChrome>;
+  return (
+    <div className={`${gfSans.variable} ${gfSerif.variable}`}>
+      <ResearchSiteChrome basePath={basePath}>{children}</ResearchSiteChrome>
+    </div>
+  );
 }

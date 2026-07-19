@@ -13,6 +13,10 @@ import {
   resolvePublicDarkShellSurface,
 } from "@/app/lib/publicFunnelShell";
 import { isViewportBoundedDashboardPath } from "@/app/utils/grcRouteMatch";
+import {
+  isGovernanceFramePublicHost,
+  isGovernanceFramePublicPath,
+} from "@/config/governanceFramePublic";
 import { IRONFRAME_PATHNAME_HEADER } from "@/lib/supabase/middleware";
 
 function PublicDarkShell({
@@ -55,9 +59,26 @@ function ShellSuspenseFallback({
  * Server-side shell router — public funnel routes bypass client ConditionalAppShell traps
  * and render with a pinned dark scroll surface (incognito / system-light safe).
  * Command Post (`/`) stays client-auth-aware in ConditionalAppShell.
+ * research.ironframegrc.com never mounts SaaS Command Post chrome.
  */
 export default async function AppShellRouter({ children }: { children: React.ReactNode }) {
-  const pathname = (await headers()).get(IRONFRAME_PATHNAME_HEADER) ?? "";
+  const requestHeaders = await headers();
+  const pathname = requestHeaders.get(IRONFRAME_PATHNAME_HEADER) ?? "";
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const isGovernanceFramePublication =
+    isGovernanceFramePublicHost(host) || isGovernanceFramePublicPath(pathname);
+
+  if (isGovernanceFramePublication) {
+    return (
+      <div
+        data-ironframe-surface="governance-frame-research"
+        className="relative z-0 min-h-[100dvh] w-full overflow-y-auto"
+      >
+        {children}
+      </div>
+    );
+  }
+
   const isCommandPostRoot = pathname === "/" || pathname === "";
   const isPublicFunnel =
     !isCommandPostRoot &&

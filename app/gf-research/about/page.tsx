@@ -11,26 +11,23 @@ export const metadata: Metadata = {
 export default function ResearchAboutPage() {
   return (
     <section aria-labelledby="about-heading" className="space-y-10">
-      <div>
-        <h2
+      <div className="max-w-2xl border-b border-[var(--gf-line)] pb-8">
+        <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.16em] text-[var(--gf-accent)]">
+          About the publication
+        </p>
+        <h1
           id="about-heading"
-          className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+          className="mt-3 font-[family-name:var(--font-gf-serif)] text-3xl text-[var(--gf-ink)] sm:text-4xl"
         >
-          About Governance Frame
-        </h2>
-        <h1 className="mt-3 font-mono text-2xl font-bold tracking-tight text-slate-50">
           Governance Frame
         </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
+        <p className="mt-4 font-[family-name:var(--font-gf-serif)] text-lg leading-snug text-[var(--gf-ink-soft)]">
           An independent governance research and executive education organization — not a software
           company.
         </p>
-        <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-          Publisher · Governance Frame Research
-        </p>
       </div>
 
-      <div className="max-w-2xl space-y-4 text-sm leading-relaxed text-slate-400">
+      <div className="max-w-2xl space-y-4 font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
         <p>
           Governance Frame improves how organizations understand governance, risk, compliance,
           operational resilience, evidence, and executive decision-making. Its mission is to explain
@@ -45,10 +42,10 @@ export default function ResearchAboutPage() {
       </div>
 
       <div className="max-w-2xl space-y-3">
-        <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+        <h2 className="font-[family-name:var(--font-gf-serif)] text-xl text-[var(--gf-ink)]">
           Relationship to Ironframe
-        </h3>
-        <p className="text-sm leading-relaxed text-slate-400">
+        </h2>
+        <p className="font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
           Governance Frame publishes research for industry. Ironframe demonstrates one implementation
           approach of principles discussed in that research. Ironframe should almost never be the
           subject of Governance Frame articles. When product architecture appears, it is labeled and
@@ -56,11 +53,11 @@ export default function ResearchAboutPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+      <div className="max-w-2xl border-y border-[var(--gf-line)] py-6">
+        <h2 className="font-[family-name:var(--font-gf-serif)] text-xl text-[var(--gf-ink)]">
           Content pillars
-        </p>
-        <ul className="mt-3 space-y-1 font-mono text-[11px] text-slate-400">
+        </h2>
+        <ul className="mt-3 space-y-1.5 font-[family-name:var(--font-gf-sans)] text-[15px] text-[var(--gf-ink-soft)]">
           <li>Industry research papers</li>
           <li>Industry briefings</li>
           <li>Executive storytelling</li>
@@ -70,10 +67,10 @@ export default function ResearchAboutPage() {
       </div>
 
       <div className="max-w-2xl space-y-3">
-        <h3 className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+        <h2 className="font-[family-name:var(--font-gf-serif)] text-xl text-[var(--gf-ink)]">
           Editorial principles
-        </h3>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-400">
+        </h2>
+        <ul className="list-disc space-y-1 pl-5 font-[family-name:var(--font-gf-sans)] text-[15px] text-[var(--gf-ink-soft)]">
           <li>Do not invent numbers</li>
           <li>Separate evidence from opinion</li>
           <li>Distinguish architecture from regulation</li>
@@ -81,20 +78,19 @@ export default function ResearchAboutPage() {
           <li>Prefer primary sources</li>
           <li>Maintain corrections and verification ledgers</li>
         </ul>
-        <p className="text-sm text-slate-500">
-          Full charter:{" "}
+        <p className="pt-2 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
           <ResearchLink
             href="/editorial-standards"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
-            Editorial standards →
+            Editorial standards
           </ResearchLink>
           {" · "}
           <ResearchLink
             href="/operating-outline"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
-            Operating outline →
+            Operating outline
           </ResearchLink>
         </p>
       </div>

@@ -33,23 +33,27 @@ export default async function ResearchPaperPage({ params }: PageProps) {
 
   if (!paper.isPublic) {
     return (
-      <article>
+      <article className="max-w-3xl">
         <ResearchLink
           href="/research-papers"
-          className="font-mono text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-300"
+          className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
         >
           ← Research papers
         </ResearchLink>
-        <header className="mt-6 mb-8 border-b border-slate-800 pb-8">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+        <header className="mt-6 mb-8 border-b border-[var(--gf-line)] pb-8">
+          <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
             {paper.researchId} · Forthcoming
           </p>
-          <h1 className="mt-3 font-mono text-3xl font-bold tracking-tight text-slate-50">
+          <h1 className="mt-3 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl">
             {paper.title}
           </h1>
-          {paper.subtitle ? <p className="mt-3 text-slate-400">{paper.subtitle}</p> : null}
+          {paper.subtitle ? (
+            <p className="mt-3 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink-soft)]">
+              {paper.subtitle}
+            </p>
+          ) : null}
         </header>
-        <p className="text-sm text-slate-400">
+        <p className="font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-muted)]">
           This manuscript is still in editorial review ({paper.status}
           {paper.version ? `, ${paper.version}` : ""}). The public reader publishes full text only
           after Governance Frame approval and publication.
@@ -62,29 +66,33 @@ export default async function ResearchPaperPage({ params }: PageProps) {
   if (!manuscript) notFound();
 
   return (
-    <article>
+    <article className="max-w-3xl">
       <ResearchLink
         href="/research-papers"
-        className="font-mono text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-300"
+        className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
       >
         ← Research papers
       </ResearchLink>
-      <header className="mt-6 mb-8 border-b border-slate-800 pb-8">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+      <header className="mt-6 mb-10 border-b border-[var(--gf-line)] pb-8">
+        <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
           {paper.researchId}
           {paper.version ? ` · ${paper.version}` : ""}
         </p>
-        <h1 className="mt-3 font-mono text-3xl font-bold tracking-tight text-slate-50">
+        <h1 className="mt-3 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl">
           {paper.title}
         </h1>
-        {paper.subtitle ? <p className="mt-3 text-slate-400">{paper.subtitle}</p> : null}
+        {paper.subtitle ? (
+          <p className="mt-3 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink-soft)]">
+            {paper.subtitle}
+          </p>
+        ) : null}
         {paper.publisher ? (
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+          <p className="mt-4 font-[family-name:var(--font-gf-sans)] text-xs uppercase tracking-[0.12em] text-[var(--gf-muted)]">
             {paper.publisher}
           </p>
         ) : null}
       </header>
-      <BriefingMarkdown markdown={manuscript.bodyMarkdown} />
+      <BriefingMarkdown markdown={manuscript.bodyMarkdown} tone="institute" />
     </article>
   );
 }

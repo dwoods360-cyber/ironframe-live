@@ -43,32 +43,33 @@ export default async function ResearchBriefingPage({ params }: PageProps) {
   if (!briefing) notFound();
 
   return (
-    <article>
+    <article className="max-w-3xl">
       <ResearchLink
         href="/briefings"
-        className="font-mono text-[10px] uppercase tracking-widest text-slate-500 hover:text-slate-300"
+        className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
       >
         ← All briefings
       </ResearchLink>
 
-      <header className="mt-6 mb-10 border-b border-slate-800 pb-8">
+      <header className="mt-6 mb-10 border-b border-[var(--gf-line)] pb-8">
         <time
           dateTime={briefing.publishedAt}
-          className="font-mono text-[10px] uppercase tracking-widest text-slate-500"
+          className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]"
         >
           {formatPublishedDate(briefing.publishedAt)}
         </time>
-        <h1 className="mt-3 font-mono text-3xl font-bold tracking-tight text-slate-50">
+        <h1 className="mt-3 font-[family-name:var(--font-gf-serif)] text-3xl font-semibold tracking-tight text-[var(--gf-ink)] sm:text-4xl">
           {briefing.title}
         </h1>
         {(briefing.author || briefing.classification) && (
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+          <p className="mt-3 font-[family-name:var(--font-gf-sans)] text-xs uppercase tracking-[0.12em] text-[var(--gf-muted)]">
             {[briefing.classification, briefing.author].filter(Boolean).join(" · ")}
           </p>
         )}
       </header>
 
-      <div className="prose-governance-frame">
+      {/* Specialized briefing triad layout remains dark for scanability on the light institute shell. */}
+      <div className="prose-governance-frame overflow-hidden rounded-xl border border-[var(--gf-line)] bg-slate-950 px-5 py-8 sm:px-8">
         <BriefingFrameContent
           markdown={briefingBodyMarkdown(briefing.markdown, briefing.title)}
         />

@@ -259,13 +259,19 @@ function CitationsPanel({ body }: { body: string }) {
   );
 }
 
-function renderSection(id: BriefingSectionId, title: string, body: string) {
+function renderSection(
+  id: BriefingSectionId,
+  title: string,
+  body: string,
+  reactKey: string,
+) {
   const trimmed = body.trim();
   if (!trimmed && !title) return null;
+  const labelledBy = `section-${reactKey}`;
 
   if (id === "impact") {
     return (
-      <section key={id} aria-labelledby={`section-${id}`}>
+      <section key={reactKey} aria-labelledby={labelledBy}>
         <SectionZoneHeading title={title} />
         <ImpactMetricsTable body={trimmed} />
       </section>
@@ -275,8 +281,8 @@ function renderSection(id: BriefingSectionId, title: string, body: string) {
   if (id === "machine-rule") {
     return (
       <section
-        key={id}
-        aria-labelledby={`section-${id}`}
+        key={reactKey}
+        aria-labelledby={labelledBy}
         className="rounded-xl border-2 border-slate-800 bg-slate-900/30 p-6"
       >
         <SectionZoneHeading title={title} />
@@ -287,7 +293,7 @@ function renderSection(id: BriefingSectionId, title: string, body: string) {
 
   if (id === "citations") {
     return (
-      <section key={id} aria-labelledby={`section-${id}`}>
+      <section key={reactKey} aria-labelledby={labelledBy}>
         <SectionZoneHeading title={title} />
         <CitationsPanel body={trimmed} />
       </section>
@@ -297,7 +303,7 @@ function renderSection(id: BriefingSectionId, title: string, body: string) {
   const components = id === "exposure" || id === "preamble" ? sansComponents : machineRuleComponents;
 
   return (
-    <section key={id} aria-labelledby={`section-${id}`}>
+    <section key={reactKey} aria-labelledby={labelledBy}>
       {title ? <SectionZoneHeading title={title} /> : null}
       <SafeMarkdown markdown={trimmed} components={components} />
     </section>
@@ -313,7 +319,15 @@ export default function BriefingFrameContent({ markdown }: BriefingFrameContentP
 
   return (
     <div className="text-slate-100">
-      {sections.map((section) => renderSection(section.id, section.title, section.body))}
+      {sections.map((section, index) =>
+        renderSection(
+          section.id,
+          section.title,
+          section.body,
+          // Zone ids like "other" can repeat; index keeps React keys unique.
+          `${section.id}-${index}`,
+        ),
+      )}
     </div>
   );
 }

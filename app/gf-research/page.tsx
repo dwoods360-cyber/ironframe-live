@@ -1,3 +1,4 @@
+import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/GovernanceFrameBrandLockup";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 import { listResearchPapers, listResearchSeries } from "@/app/lib/governanceFrame/researchCatalog";
@@ -13,65 +14,105 @@ export default async function GovernanceFrameResearchHomePage() {
 
   const publicPapers = papers.filter((paper) => paper.isPublic);
   const forthcomingPapers = papers.filter((paper) => !paper.isPublic);
+  const recentBriefings = briefings.slice(-5).reverse();
 
   return (
-    <div className="space-y-12">
-      <section aria-labelledby="gf-home-heading">
-        <h2
-          id="gf-home-heading"
-          className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
-        >
-          Publication home
+    <div className="space-y-16">
+      {/* First viewport: one composition — brand, one line, one sentence, CTAs */}
+      <section
+        aria-labelledby="gf-home-heading"
+        className="gf-rise relative overflow-hidden rounded-2xl border border-[var(--gf-line)]/80 px-6 py-10 sm:px-10 sm:py-12"
+        style={{
+          background:
+            "linear-gradient(135deg, color-mix(in srgb, var(--gf-paper-elevated) 88%, white) 0%, color-mix(in srgb, var(--gf-accent) 12%, white) 55%, color-mix(in srgb, var(--gf-brass) 10%, var(--gf-paper-elevated)) 100%)",
+          boxShadow: "0 18px 40px -24px var(--gf-accent-glow)",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full opacity-40"
+          style={{
+            background: "radial-gradient(circle, var(--gf-accent-glow), transparent 68%)",
+          }}
+          aria-hidden
+        />
+        <GovernanceFrameBrandLockup variant="research" size="hero" className="gf-rise relative" />
+        <h2 id="gf-home-heading" className="sr-only">
+          Governance Frame Research
         </h2>
-        <p className="mt-4 max-w-2xl font-sans text-sm leading-relaxed text-slate-300">
-          Institutional research papers, industry briefings, series, and editorial standards from
-          Governance Frame Research — the independent research and editorial publication of Ironframe
-          GRC.
+        <p className="gf-rise-delay relative mt-6 max-w-2xl font-[family-name:var(--font-gf-serif)] text-xl leading-snug text-[var(--gf-ink-soft)] sm:text-2xl">
+          Independent research on governance, risk, and compliance.
         </p>
+        <p className="gf-rise-delay-2 relative mt-3 max-w-xl font-[family-name:var(--font-gf-sans)] text-base leading-relaxed text-[var(--gf-muted)]">
+          Vendor-neutral analysis for executives and practitioners — evidence-led, corrected when
+          wrong, never a product brochure.
+        </p>
+        <div className="gf-rise-delay-2 relative mt-7 flex flex-wrap gap-3">
+          <ResearchLink
+            href="/research-papers"
+            className="inline-flex items-center rounded-md bg-[var(--gf-accent-deep)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-white no-underline transition hover:bg-[var(--gf-accent)]"
+          >
+            Research papers
+          </ResearchLink>
+          <ResearchLink
+            href="/briefings"
+            className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
+          >
+            Briefings
+          </ResearchLink>
+          <ResearchLink
+            href="/methodology"
+            className="inline-flex items-center px-2 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-brass)] no-underline hover:underline"
+          >
+            Methodology →
+          </ResearchLink>
+        </div>
       </section>
 
-      <section aria-labelledby="gf-papers-heading" className="space-y-4">
+      <section aria-labelledby="gf-papers-heading" className="space-y-5">
         <div className="flex items-baseline justify-between gap-4">
           <h3
             id="gf-papers-heading"
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
           >
             Research papers
           </h3>
           <ResearchLink
             href="/research-papers"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             View all
           </ResearchLink>
         </div>
         {publicPapers.length === 0 && forthcomingPapers.length === 0 ? (
-          <p className="text-sm text-slate-500">No research papers registered yet.</p>
+          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+            No research papers registered yet.
+          </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
             {publicPapers.map((paper) => (
               <li key={paper.slug}>
                 <ResearchLink
                   href={`/research-papers/${paper.slug}`}
-                  className="block rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4 hover:border-slate-600"
+                  className="block py-5 no-underline transition hover:bg-white/40"
                 >
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
                     {paper.researchId}
                   </p>
-                  <p className="mt-1 font-mono text-sm font-bold text-slate-50">{paper.title}</p>
+                  <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                    {paper.title}
+                  </p>
                 </ResearchLink>
               </li>
             ))}
             {forthcomingPapers.map((paper) => (
-              <li
-                key={paper.slug}
-                className="rounded-xl border border-slate-800/80 px-5 py-4 text-slate-400"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-widest text-slate-600">
+              <li key={paper.slug} className="py-5">
+                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
                   {paper.researchId} · Forthcoming
                 </p>
-                <p className="mt-1 font-mono text-sm text-slate-300">{paper.title}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-600">
+                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink-soft)]">
+                  {paper.title}
+                </p>
+                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                   Status: {paper.status}
                   {paper.version ? ` · ${paper.version}` : ""}
                 </p>
@@ -81,33 +122,37 @@ export default async function GovernanceFrameResearchHomePage() {
         )}
       </section>
 
-      <section aria-labelledby="gf-briefings-heading" className="space-y-4">
+      <section aria-labelledby="gf-briefings-heading" className="space-y-5">
         <div className="flex items-baseline justify-between gap-4">
           <h3
             id="gf-briefings-heading"
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
           >
-            Published briefings
+            Briefings
           </h3>
           <ResearchLink
             href="/briefings"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             View all
           </ResearchLink>
         </div>
-        {briefings.length === 0 ? (
-          <p className="text-sm text-slate-500">No published briefings yet.</p>
+        {recentBriefings.length === 0 ? (
+          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+            No published briefings yet.
+          </p>
         ) : (
-          <ul className="space-y-3">
-            {briefings.slice(-5).reverse().map((briefing) => (
+          <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+            {recentBriefings.map((briefing) => (
               <li key={briefing.slug}>
                 <ResearchLink
                   href={`/briefings/${briefing.slug}`}
-                  className="block rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4 hover:border-slate-600"
+                  className="block py-5 no-underline transition hover:bg-white/40"
                 >
-                  <p className="font-mono text-sm font-bold text-slate-50">{briefing.title}</p>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                    {briefing.title}
+                  </p>
+                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                     {briefing.slug}
                   </p>
                 </ResearchLink>
@@ -117,33 +162,35 @@ export default async function GovernanceFrameResearchHomePage() {
         )}
       </section>
 
-      <section aria-labelledby="gf-series-heading" className="space-y-4">
+      <section aria-labelledby="gf-series-heading" className="space-y-5">
         <div className="flex items-baseline justify-between gap-4">
           <h3
             id="gf-series-heading"
-            className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-slate-500"
+            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
           >
             Series
           </h3>
           <ResearchLink
             href="/series"
-            className="font-mono text-[10px] uppercase tracking-widest text-slate-400 hover:text-slate-200"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
           >
             View all
           </ResearchLink>
         </div>
-        <ul className="space-y-3">
+        <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
           {series.map((item) => (
             <li key={item.seriesId}>
               <ResearchLink
                 href={`/series/${item.seriesId}`}
-                className="block rounded-xl border border-slate-800 bg-slate-900/40 px-5 py-4 hover:border-slate-600"
+                className="block py-5 no-underline transition hover:bg-white/40"
               >
-                <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
                   {item.seriesId}
                 </p>
-                <p className="mt-1 font-mono text-sm font-bold text-slate-50">{item.title}</p>
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-slate-600">
+                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                  {item.title}
+                </p>
+                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                   {item.installments.length} installment
                   {item.installments.length === 1 ? "" : "s"}
                 </p>

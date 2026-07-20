@@ -754,12 +754,12 @@ export default function WorkflowReviewCallClient() {
 
           <div className="flex flex-wrap gap-2">
             {teamsStatus?.configured && !teamsStatus.connected ? (
-              <a
+              <Link
                 href="/api/admin/operations-hub/teams/connect"
                 className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-600"
               >
                 Connect Microsoft Teams
-              </a>
+              </Link>
             ) : null}
             {teamsStatus?.connected ? (
               <>

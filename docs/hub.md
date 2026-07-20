@@ -1,8 +1,10 @@
 # Ironframe Documentation Hub
 
-> **Canonical index:** [README.md](README.md) — v0.1.0-ga-epic17 documentation center (Level 1 + Level 2). This hub page retains HTML chapter portals and legacy export links.
+> **Live reader:** open **`/docs`** in Core (hub index = `/docs/README`). `/docs/hub` redirects there.  
+> **Canonical index:** [README.md](README.md) — v0.1.0-ga-epic17 documentation center (Level 1 + Level 2).  
+> This `hub.md` file is a **legacy filesystem registry** (HTML chapter portals + export links) — not a separate documentation app.
 
-Central file-system registry for the Ironframe GRC documentation architecture. This index maps every Documentation Hub chapter (Track 1 classroom HTML portals, Track 2 practitioner specifications), compliance export endpoints, and legacy markdown manuals.
+Central file-system registry for the Ironframe GRC documentation architecture. This index maps Documentation Hub chapters (Track 1 classroom HTML portals, Track 2 practitioner specifications), compliance export endpoints, and legacy markdown manuals.
 
 **Product:** Ironframe GRC — multi-tenant governance, risk, and compliance platform with a 19-agent autonomous workforce, BigInt financial integrity, and zero-trust ingestion.
 
@@ -38,7 +40,7 @@ These labels and values are verified against the live Command Center UI and must
 
 Source: `prisma/seed.ts`, `docs/TAS.md`, `src/services/irontrust/mathEngine.ts`. No JavaScript float or decimal types on monetary paths.
 
-### Sustainability ingress (Ironbloom / Agent 18)
+### Sustainability ingress (Ironbloom / Agent 17)
 
 The **Ironbloom** agent throws runtime exceptions when a payload contains **monetary-only** values. Valid physical indicators are exclusively:
 
@@ -112,7 +114,12 @@ Interactive HTML chapters are stored on disk under `docs/` (product, support, te
 
 | Document | Purpose |
 |----------|---------|
+| [Design Partner Operator Packet](./user-manuals/design-partner-operator-packet.md) | Canonical partner handoff — invite → Path B → cockpit → `/exports` |
+| [Partner training index](./training/LEVEL1-PARTNER-INDEX.md) | Curated Level 1 chapters (excludes classroom seed labs) |
 | [User Guide](./user-manuals/user-guide.md) | Command Center, tenants, workflows (canonical) |
+| [Get Started setup](./user-manuals/get-started-workspace-setup.md) | ALE baseline + GRC company gates |
+| [Audit exports](./user-manuals/audit-exports.md) | Analyst CSV/PDF at `/exports` |
+| [Pilot vs preview](./user-manuals/pilot-vs-preview.md) | PILOT/PREVIEW badge policy |
 | [Release Notes](./end-users/release-notes.md) | Recent features and fixes |
 | [FAQ](./end-users/faq.md) | Common questions |
 | [Onboarding](./end-users/onboarding.md) | First-session checklist |
@@ -130,9 +137,23 @@ Interactive HTML chapters are stored on disk under `docs/` (product, support, te
 
 | Document | Purpose |
 |----------|---------|
+| **In-app Operator library** | `/dashboard/operations/library` — directory of GTM playbooks + tools (auth: Ops Hub) |
+| [Pre-outreach dry-run (run order)](./sales/design-partner-pre-outreach-run-order.md) | R1–R8 gate before first partner DISPATCH |
+| [GTM operator glossary](./sales/design-partner-gtm-operator-glossary.md) | SUSPECT → Path B, DISPATCH, LIVE sidecar, message locks |
+| [Workflow review protocol](./sales/design-partner-workflow-review-protocol.md) | 15-min peer-to-peer diligence talk track |
+| Printable talk track | `/operator/workflow-review-protocol.html` |
+| LIVE call assist (tool) | `/dashboard/operations/workflow-review` — mic STT, recap, calendar push |
+| [Operator launch checklist](./sales/design-partner-operator-launch-checklist.md) | Batch send + close/provision cadence after dry-run GO |
 | [Sales Enablement](./sales/sales-enablement.md) | Demo script, talk tracks, objections |
 | [Competitive Analysis](./sales/competitive-analysis.md) | Differentiation vs legacy GRC |
 | [Pricing & Packaging](./sales/pricing-and-packaging.md) | Plans and packaging framework |
+| [Message Constitution](./sales-enablement/message-constitution.md) | Beachhead drafting authority — code path, not SalesTeam portal |
+| [Pricing & Packaging (board ingest)](./sales-enablement/pricing-and-packaging.md) | Path B + planned GA mirrors for IronBoard federation |
+| [Competitive pricing map](./sales-enablement/competitive-pricing-map.md) | Peer ACV bands (internal) |
+| [Design-partner workforce briefing](./sales/design-partner-workforce-briefing.md) | RACI + message lock for board + perimeter workers |
+| [Recruitment runbook](./sales/design-partner-recruitment.md) | How to recruit 3–5 Path B co-builders |
+| Product knowledge sync | `npm run knowledge:check` · `npm run knowledge:sync` (diff + mirror apply + blast radius) |
+| Product knowledge gates | Local: `npm run install-hooks` (path-filtered pre-commit hard block) · CI: `knowledge:check` + `test:product-knowledge` · Ops Hub: **Sync product knowledge** button (`/dashboard/operations`) |
 
 ## Marketing
 

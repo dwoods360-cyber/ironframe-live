@@ -1,7 +1,7 @@
 # Solo-Operator Market Entrance Playbook
 
 **Category:** Quantitative GRC Command Post  
-**Status:** Active · design-partner phase (Run #3+)  
+**Status:** Active · design-partner phase (Run #3+) — paid Path B / Command Tier **$4,999** (499900¢); planned GA Ironframe Command ~**$35,000**/yr  
 **Audience:** Solo founder + automated workforce · complements [Golden Path Checklist](../ops/golden-path-checklist.md)
 
 ---
@@ -64,10 +64,10 @@ IronBoard queries: **only** when making GTM or pricing decisions — not daily c
 
 ## 3. Anti-roadmap (scope freeze)
 
-**Banned until 3 paying design partners** — preserves engineering throughput per [Golden Path scope freeze](../ops/golden-path-checklist.md#scope-freeze-mandate).
+**Banned until 3 paying design partners** (Path B **$4,999** / 499900¢ co-builder seats — not free pilots) — preserves engineering throughput per [Golden Path scope freeze](../ops/golden-path-checklist.md#scope-freeze-mandate).
 
-**Recruitment runbook:** [Design partner recruitment](./design-partner-recruitment.md) — channels, 30-min pre-outreach checklist, board leadgen → sales → approvals path.  
-**Workforce RACI:** [Design-partner workforce briefing](./design-partner-workforce-briefing.md) — Sales, Success, Writer, Leadgen, Support collaboration.
+**Recruitment runbook:** [Design partner recruitment](./design-partner-recruitment.md) — channels, [pre-outreach dry-run R1–R8](./design-partner-pre-outreach-run-order.md), board leadgen → sales → approvals path. Ops Hub: `/dashboard/operations/library`.  
+**Workforce RACI:** [Design-partner workforce briefing](./design-partner-workforce-briefing.md) — Sales, Success, Writer, Leadgen, Support collaboration. Commercial spine: `lib/ironframeProductKnowledge` · `npm run knowledge:check`.
 
 | Category | Do not build | Why |
 |----------|--------------|-----|

@@ -9,17 +9,20 @@ Finding design partners is not a volume game. Recruit **3–5 referenceable co-b
 
 ---
 
-## 30-minute pre-outreach checklist
+## Pre-outreach gate (do this first)
 
-Complete before the first outreach batch:
+**Authoritative run order (R1–R8, ~30–45 min):**  
+[design-partner-pre-outreach-run-order.md](./design-partner-pre-outreach-run-order.md) · in-app `/dashboard/operations/library/pre-outreach-run-order`
+
+Hard gates: DISPATCH dry-run to yourself · LIVE call assist · Push to calendar. Do not start cold partner DISPATCH until sign-off is **GO**.
+
+### Spot-checks still required
 
 | # | Task | Status / how |
 |---|------|----------------|
 | 1 | **UX naming hygiene** | Already shipped (FL1-UX): `/register/contact` = lead only; `/admin/onboarding` labels **Path B activation link**; `/get-started` Step 2 = in-tenant GRC company ≠ sales CRM. Re-spot-check live before a campaign. |
 | 2 | **Stripe Path B** | Confirm tenant-scoped activation checkout is live. Never send existing PENDING partners to generic `/pricing` (duplicate workspace risk). |
 | 3 | **Operator email** | Quick-provision uses a **client-owned** mailbox (`ciso@acme.com`), never `@ironframegrc.com` — **enforced in** `quickProvisionCorporateWorkspaceCore` (rejects `@ironframegrc.com`). |
-
-**Agree:** Yes — this checklist is the right gate. Item 1 is verify-not-rebuild; items 2–3 are hard blockers before paid cohort outreach.
 
 ---
 
@@ -77,10 +80,14 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 
 | Asset | Path |
 |-------|------|
+| **Operator library (in-app directory)** | `/dashboard/operations/library` |
+| Pre-outreach dry-run | [design-partner-pre-outreach-run-order.md](./design-partner-pre-outreach-run-order.md) |
+| GTM operator glossary | [design-partner-gtm-operator-glossary.md](./design-partner-gtm-operator-glossary.md) |
 | Workforce briefing (RACI) | [design-partner-workforce-briefing.md](./design-partner-workforce-briefing.md) |
 | Offer sheet | [design-partner-offer-sheet.md](./design-partner-offer-sheet.md) |
 | Outreach sequence | [design-partner-outreach-sequence.md](./design-partner-outreach-sequence.md) |
 | Workflow review protocol | [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md) |
+| LIVE call assist | `/dashboard/operations/workflow-review` |
 | Order form | [design-partner-order-form.md](./design-partner-order-form.md) |
 | Operator launch checklist | [design-partner-operator-launch-checklist.md](./design-partner-operator-launch-checklist.md) |
 | Partner operator packet (in-app) | [`/docs/user-manuals/design-partner-operator-packet`](../user-manuals/design-partner-operator-packet.md) |
@@ -92,6 +99,8 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 
 ## Related surfaces
 
+- Operator library: `/dashboard/operations/library`  
+- LIVE workflow-review assist: `/dashboard/operations/workflow-review`  
 - Lead form (no workspace): `/register/contact`  
 - Provision + Path B: `/admin/onboarding`  
 - Partner day-1: `/get-started`  

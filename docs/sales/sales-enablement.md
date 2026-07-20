@@ -16,7 +16,10 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 ## Workflow review (authoritative)
 
 **Doctrine:** Peer-to-peer technical diligence — not a sales script.  
-**Talk track:** [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md)
+**Talk track:** [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md)  
+**Printable:** `/operator/workflow-review-protocol.html`  
+**LIVE sidecar (Ops Hub):** `/dashboard/operations/workflow-review` — mic STT, Pocket Q&A, End LIVE → recap, Push to calendar  
+**Operator library:** `/dashboard/operations/library` · [GTM glossary](./design-partner-gtm-operator-glossary.md) · [pre-outreach dry-run](./design-partner-pre-outreach-run-order.md)
 
 Human operator hosts. `board-sales-lead` preps a call brief and may sidecar Q&A. Agents do **not** conduct the live review.
 
@@ -38,7 +41,7 @@ Human operator hosts. `board-sales-lead` preps a call brief and may sidecar Q&A.
 | CTA | **10–15 min workflow review** on evidence pain — not a product circus |
 | Next | Order form → provision → Path B link → ACTIVE → `/get-started` |
 
-Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md) · [Battlecard vs Vanta/Drata](./battlecard-ironframe-vs-vanta-drata.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md)
+Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md) · [Battlecard vs Vanta/Drata](./battlecard-ironframe-vs-vanta-drata.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Pre-outreach run order](./design-partner-pre-outreach-run-order.md)
 
 ## Demo script (only after workflow review / paid interest)
 
@@ -67,6 +70,7 @@ Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence]
 - [Marketing One-Pager](../external/marketing-one-pager.md)
 - [Order form](./design-partner-order-form.md)
 - [Operator launch checklist](./design-partner-operator-launch-checklist.md)
+- [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
 - [Competitive Analysis](./competitive-analysis.md)
 
 ## Related documents
@@ -74,3 +78,4 @@ Full copy: [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence]
 - [Pricing & Packaging](./pricing-and-packaging.md)
 - [Design partner recruitment](./design-partner-recruitment.md)
 - [Market entrance playbook](./market-entrance-playbook.md)
+- In-app Operator library: `/dashboard/operations/library`

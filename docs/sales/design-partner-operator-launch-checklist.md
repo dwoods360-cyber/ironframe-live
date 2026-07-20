@@ -2,6 +2,11 @@
 
 Print or keep beside Approvals. Aim: ≤15 min/day rhythm after rails are green.
 
+**Before first real DISPATCH:** run the timed dry-run  
+→ [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) (R1–R8, ~30–45 min).  
+In-app: Ops Hub → **Operator library** → `/dashboard/operations/library/pre-outreach-run-order`.  
+This checklist is the batch/send cadence after that run order is GO.
+
 ## A. Pre-outreach gate (once)
 
 | # | Task | Done |
@@ -44,8 +49,14 @@ Print or keep beside Approvals. Aim: ≤15 min/day rhythm after rails are green.
 
 | Step | URL / tool |
 |------|------------|
+| Operator library | `/dashboard/operations/library` |
+| Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
+| GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
 | Workflow review talk track | `/operator/workflow-review-protocol.html` (also buttons on Approvals · Ops Hub · SalesTeam portal) |
+| LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |
+| Ops Hub Calendar | `/dashboard/operations?tab=calendar` |
+| Teams Graph (optional) | Ops Hub **Teams** tab |
 | Provision | `/admin/onboarding` |
 | Contact (inbound) | `/register/contact` |
 | Pricing (new buyers only) | `/pricing` shows Command Tier **$4,999** |

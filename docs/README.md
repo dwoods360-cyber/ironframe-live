@@ -114,7 +114,9 @@ See also: [Design partner documentation — AppDocument sync](ops/design-partner
 
 See `hub.md` for the full HTML chapter catalog and compliance export artifacts.
 
-### Extended operator library
+### Extended operator library (partner / end-user manuals)
+
+These are **in-app `/docs` manuals** for tenants and trainers — not the Ops Hub GTM directory.
 
 | Document | Path |
 |----------|------|
@@ -122,6 +124,10 @@ See `hub.md` for the full HTML chapter catalog and compliance export artifacts.
 | Onboarding checklist | `end-users/onboarding.md` (Day 0–3 · matches Path B + Get Started) |
 | FAQ | `end-users/faq.md` |
 | Release notes | `end-users/release-notes.md` |
+
+### Ops Hub Operator library (design-partner GTM)
+
+Authenticated Ops Hub directory at **`/dashboard/operations/library`** — curated `docs/sales/*` playbooks (pre-outreach run order, GTM glossary, offer sheet, workflow-review protocol) plus LIVE tools. Catalog: `app/lib/operations/operatorLibraryCatalog.ts`. Index of sales docs: [hub.md § Sales](./hub.md#sales).
 
 ---
 

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workflow review — Peer-to-Peer Technical Diligence</title>
+    <style>
+      :root {
+        --ink: #0f172a;
+        --ink-soft: #334155;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --paper: #f8fafc;
+        --accent: #0f766e;
+        --amber: #b45309;
+        --ban: #b91c1c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, #ecfeff 0%, var(--paper) 28%, #fff 100%);
+        line-height: 1.55;
+      }
+      .wrap {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .eyebrow {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      h1 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(1.6rem, 3vw, 2.15rem);
+        font-weight: 600;
+        margin: 0.4rem 0 0.75rem;
+        line-height: 1.2;
+      }
+      .lede {
+        color: var(--ink-soft);
+        max-width: 40rem;
+      }
+      .meta {
+        margin-top: 1rem;
+        padding: 0.85rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: #fff;
+        font-size: 0.9rem;
+        color: var(--ink-soft);
+      }
+      .meta strong {
+        color: var(--ink);
+      }
+      h2 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 1.25rem;
+        margin: 2.25rem 0 0.75rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--line);
+      }
+      p,
+      li {
+        color: var(--ink-soft);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        background: #f1f5f9;
+        color: var(--ink);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      .ban {
+        color: var(--ban);
+        font-weight: 600;
+      }
+      .callout {
+        margin: 1rem 0;
+        padding: 0.85rem 1rem;
+        border-left: 3px solid var(--amber);
+        background: #fffbeb;
+        color: var(--ink-soft);
+        font-size: 0.92rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+      }
+      .nav a {
+        display: inline-block;
+        padding: 0.45rem 0.8rem;
+        border-radius: 0.4rem;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .nav a:hover {
+        border-color: var(--accent);
+      }
+      .src {
+        margin-top: 2.5rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      code {
+        font-size: 0.85em;
+        background: #f1f5f9;
+        padding: 0.1em 0.35em;
+        border-radius: 0.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <p class="eyebrow">Operator talk track · Path B</p>
+      <h1>Peer-to-Peer Technical Diligence Protocol</h1>
+      <p class="lede">
+        Authoritative 10–15 minute workflow review. Collaborative, direct, slightly clinical —
+        diagnose architectural pain. Not a demo. Not a free pilot. Not an agent-led sales call.
+      </p>
+
+      <div class="meta">
+        <div><strong>Host on the wire:</strong> Human operator</div>
+        <div><strong>Prep / Q&amp;A sidecar:</strong> <code>board-sales-lead</code></div>
+        <div><strong>Draft tone only:</strong> SalesTeam (HITL DISPATCH)</div>
+        <div><strong>Commercial lock:</strong> Path B $4,999 · 90-day · 2–3 written metrics</div>
+      </div>
+
+      <div class="nav">
+        <a href="/dashboard/admin/approvals?kind=SALES">Sales Approvals</a>
+        <a href="/dashboard/operations/salesteam">SalesTeam portal</a>
+        <a href="/admin/onboarding">Path B provision</a>
+        <a href="/dashboard/operations">Ops Hub</a>
+      </div>
+
+      <h2>Doctrine</h2>
+      <p>
+        CISOs and infra leads tune out polished multi-stage sales scripts. This call is peer-to-peer
+        technical diligence: you are a senior systems architect diagnosing a complex system, not
+        selling a dream.
+      </p>
+      <p>
+        <strong>StoryBrand (stripped):</strong> Prospect = hero. Ironframe = engineering guide. Plan
+        = Path B window + written criteria + capped syncs. Climax = defendable cents math + tenant
+        walls + auditor-ready exports — not a marketing arc on the call.
+      </p>
+
+      <h2>15-minute micro-agenda</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Phase</th>
+            <th>Objective</th>
+            <th>Conversational pivot</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>0:00–3:00</td>
+            <td><strong>Ingress diagnosis</strong></td>
+            <td>They name the pain</td>
+            <td>
+              “Skip the high-level pitch — where does evidence collection debt, board-dollar opacity,
+              or multi-entity bleed show up in your stack today?”
+            </td>
+          </tr>
+          <tr>
+            <td>3:00–8:00</td>
+            <td><strong>Structural mapping</strong></td>
+            <td>Map pain → patterns</td>
+            <td>
+              “Here’s how we handle that structurally: containment at the database / tenant boundary
+              (PostgreSQL RLS + Ironguard), Irongate before persist, ALE in integer cents — not color
+              charts.”
+            </td>
+          </tr>
+          <tr>
+            <td>8:00–12:00</td>
+            <td><strong>Path B invariant</strong></td>
+            <td>Hard commercial frame</td>
+            <td>
+              “We don’t run endless discovery. Fixed <strong>90-day</strong> paid co-builder seat at
+              <strong>$4,999</strong>. We prove <strong>2–3 written success metrics</strong> or we
+              part ways.”
+            </td>
+          </tr>
+          <tr>
+            <td>12:00–15:00</td>
+            <td><strong>Engineering gate</strong></td>
+            <td>Lock next step</td>
+            <td>
+              “If this fits: order form with your 2–3 criteria → provision with your operator email →
+              tenant-scoped Path B activation link. Not a pitch deck. Not generic
+              <code>/pricing</code>.”
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="callout">
+        Use booking context / Scout trigger / role. Do <strong>not</strong> invent “architecture
+        notes from the form” unless they actually submitted them.
+      </p>
+
+      <h2>Structural mapping — allowed patterns</h2>
+      <ul>
+        <li>Multi-entity / affiliate walls → RLS + tenant isolation</li>
+        <li>MSSP client enclaves → hard per-client boundaries</li>
+        <li>Board pack → BigInt ALE in whole cents</li>
+        <li>External intel → Irongate sanitize-before-persist</li>
+        <li>Auditor path → tenant-scoped exports</li>
+      </ul>
+      <p class="ban">
+        Banned: citing medshield / vaultbank / gridcore as customers or “hardened baselines”
+        (synthetic demo seeds only).
+      </p>
+
+      <h2>Quick-fire Q&amp;A</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>They ask</th>
+            <th>You say</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>“Are you SOC 2 certified?”</td>
+            <td>
+              “We’re <strong>SOC2-aligned</strong> in architecture and controls; we are
+              <strong>not</strong> claiming a completed SOC 2 Type II logo today. Diligence is
+              migrations, RLS paths, gateway rules, and your Path B criteria — not paperwork
+              theater.”
+            </td>
+          </tr>
+          <tr>
+            <td>“Can we do a free trial / 30-day PoC?”</td>
+            <td>
+              “No free tier or loose trial. Entry is flat <strong>$4,999</strong> for a
+              <strong>90-day</strong> scoped engagement. Convert or exit on criteria you write.”
+            </td>
+          </tr>
+          <tr>
+            <td>“How do you handle risk financialization?”</td>
+            <td>
+              “No qualitative 5×5 heatmaps as the board truth. Reporting math is
+              <strong>integer cents</strong> (BigInt). Narrative agents don’t invent ALE.”
+            </td>
+          </tr>
+          <tr>
+            <td>“We’re already on Vanta/Drata.”</td>
+            <td>
+              “Keep them for checklist continuous control if that job is done. We quantify loss
+              exposure and isolate entities — different buying job.”
+            </td>
+          </tr>
+          <tr>
+            <td>“Show me a demo.”</td>
+            <td>
+              “This slot is workflow diligence. Product walk is after Path B interest / criteria —
+              not instead of them.”
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Pre-call brief (ask board-sales-lead)</h2>
+      <ol>
+        <li>Prospect / trigger / beachhead sector</li>
+        <li>Likely pain hypothesis (evidence, isolation, board $)</li>
+        <li>Path B language lock ($4,999 · 90-day · workflow-review CTA)</li>
+        <li>Bans for this account</li>
+        <li>Suggested 2–3 success-criteria starters (they still name the final ones)</li>
+      </ol>
+
+      <h2>After a yes</h2>
+      <ol>
+        <li>Order form (2–3 criteria)</li>
+        <li>Provision with <strong>client-owned</strong> operator email</li>
+        <li>Send <strong>tenant-scoped Path B link</strong> only</li>
+        <li>On ACTIVE → <code>/get-started</code> + partner packet → SuccessTeam owns the plan</li>
+      </ol>
+      <p class="callout">
+        Not the gate: mutual NDA + reviewing their schema as the immediate next step after this call.
+      </p>
+
+      <p class="src">
+        Canonical markdown:
+        <code>docs/sales/design-partner-workflow-review-protocol.md</code>
+      </p>
+    </div>
+  </body>
+</html>

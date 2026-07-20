@@ -44,7 +44,8 @@ Print or keep beside Approvals. Aim: ≤15 min/day rhythm after rails are green.
 
 | Step | URL / tool |
 |------|------------|
-| Approvals | `/dashboard/admin/approvals` |
+| Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
+| Workflow review talk track | `/operator/workflow-review-protocol.html` (also buttons on Approvals · Ops Hub · SalesTeam portal) |
 | Provision | `/admin/onboarding` |
 | Contact (inbound) | `/register/contact` |
 | Pricing (new buyers only) | `/pricing` shows Command Tier **$4,999** |

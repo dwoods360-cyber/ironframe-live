@@ -1,7 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+
+import {
+  APPROVAL_DRAFT_KINDS,
+  APPROVAL_KIND_META,
+  approvalsHref,
+  draftKindBadgeClass,
+  draftKindBannerClass,
+  draftKindCardClass,
+  parseApprovalKindFilter,
+  type ApprovalDraftKind,
+  type ApprovalKindFilter,
+} from "@/app/lib/approvalDraftKinds";
 
 interface PendingDraft {
   id: string;
@@ -11,10 +24,20 @@ interface PendingDraft {
   incomingQuery: string;
   proposedReply: string;
   tier: "Gridcore" | "Vaultbank" | "Medshield";
-  draftKind: "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
+  draftKind: ApprovalDraftKind;
 }
 
-export default function AdminApprovalDashboard() {
+function kindSortRank(kind: ApprovalDraftKind): number {
+  if (kind === "SALES") return 0;
+  if (kind === "SUPPORT") return 1;
+  return 2;
+}
+
+function AdminApprovalDashboardInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const kindFilter = parseApprovalKindFilter(searchParams.get("kind"));
+
   const [drafts, setDrafts] = useState<PendingDraft[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [isDispatching, setIsDispatching] = useState(false);
@@ -30,12 +53,10 @@ export default function AdminApprovalDashboard() {
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load approval queue.");
       }
-      const nextDrafts = data.drafts ?? [];
+      const nextDrafts = [...(data.drafts ?? [])].sort(
+        (a, b) => kindSortRank(a.draftKind) - kindSortRank(b.draftKind),
+      );
       setDrafts(nextDrafts);
-      setActiveDraftId((current) => {
-        if (current && nextDrafts.some((draft) => draft.id === current)) return current;
-        return nextDrafts[0]?.id ?? null;
-      });
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : "Queue load failure.");
       setDrafts([]);
@@ -49,7 +70,30 @@ export default function AdminApprovalDashboard() {
     void loadQueue();
   }, [loadQueue]);
 
-  const selectedDraft = drafts.find((draft) => draft.id === activeDraftId);
+  const counts = useMemo(() => {
+    const next = { SALES: 0, SUPPORT: 0, CUSTOMER_SUCCESS: 0, ALL: drafts.length };
+    for (const draft of drafts) next[draft.draftKind] += 1;
+    return next;
+  }, [drafts]);
+
+  const visibleDrafts = useMemo(() => {
+    if (kindFilter === "ALL") return drafts;
+    return drafts.filter((draft) => draft.draftKind === kindFilter);
+  }, [drafts, kindFilter]);
+
+  useEffect(() => {
+    setActiveDraftId((current) => {
+      if (current && visibleDrafts.some((draft) => draft.id === current)) return current;
+      return visibleDrafts[0]?.id ?? null;
+    });
+  }, [visibleDrafts]);
+
+  const selectedDraft = visibleDrafts.find((draft) => draft.id === activeDraftId);
+  const selectedMeta = selectedDraft ? APPROVAL_KIND_META[selectedDraft.draftKind] : null;
+
+  const setKindFilter = (next: ApprovalKindFilter) => {
+    router.replace(approvalsHref(next), { scroll: false });
+  };
 
   const handleUpdateDraftText = (newText: string) => {
     if (!activeDraftId) return;
@@ -82,15 +126,16 @@ export default function AdminApprovalDashboard() {
         throw new Error("Unexpected workflow completion state.");
       }
 
-      const remaining = drafts.filter((draft) => draft.id !== selectedDraft.id);
-      setDrafts(remaining);
-      setActiveDraftId(remaining[0]?.id ?? null);
+      setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
     } catch (err) {
       console.error("Workflow authorization error:", err);
     } finally {
       setIsDispatching(false);
     }
   };
+
+  const filterTitle =
+    kindFilter === "ALL" ? "All messaging tracks" : APPROVAL_KIND_META[kindFilter].title;
 
   return (
     <div className="relative min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -105,8 +150,21 @@ export default function AdminApprovalDashboard() {
             <h1 className="font-sans text-2xl font-bold tracking-tight text-white">
               Agent Messaging Approvals
             </h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-400">
+              One desk for every outbound that can reach a human. Filter by track — Sales outreach,
+              Support replies, and Customer Success advisories are different messages, not the same
+              workflow.
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/operator/workflow-review-protocol.html"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-teal-800/50 bg-teal-950/40 px-4 py-2 text-sm font-medium text-teal-100 hover:border-teal-500"
+            >
+              Workflow review talk track
+            </Link>
             <Link
               href="/dashboard/operations"
               className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
@@ -114,11 +172,96 @@ export default function AdminApprovalDashboard() {
               ← Operations hub
             </Link>
             <div className="rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-2 text-center font-mono">
-              <div className="text-[10px] uppercase text-slate-500">Pending Queue</div>
-              <div className="text-lg font-bold text-cyan-400">{drafts.length}</div>
+              <div className="text-[10px] uppercase text-slate-500">Showing</div>
+              <div className="text-lg font-bold text-cyan-400">{visibleDrafts.length}</div>
+              <div className="text-[9px] text-slate-500">of {drafts.length} total</div>
             </div>
           </div>
         </header>
+
+        <div
+          className="flex flex-wrap gap-2 rounded-xl border border-slate-800 bg-slate-950/50 p-2"
+          role="tablist"
+          aria-label="Approval track filter"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kindFilter === "ALL"}
+            onClick={() => setKindFilter("ALL")}
+            className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+              kindFilter === "ALL"
+                ? "bg-slate-800 text-white"
+                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+            }`}
+          >
+            <span className="font-medium">All tracks</span>
+            <span className="ml-2 font-mono text-xs text-slate-500">{counts.ALL}</span>
+          </button>
+          {APPROVAL_DRAFT_KINDS.map((kind) => {
+            const meta = APPROVAL_KIND_META[kind];
+            const active = kindFilter === kind;
+            const tone =
+              kind === "SALES"
+                ? active
+                  ? "bg-amber-900/50 text-amber-100 ring-1 ring-amber-600/50"
+                  : "text-amber-300/80 hover:bg-amber-950/40"
+                : kind === "SUPPORT"
+                  ? active
+                    ? "bg-emerald-900/50 text-emerald-100 ring-1 ring-emerald-600/50"
+                    : "text-emerald-300/80 hover:bg-emerald-950/40"
+                  : active
+                    ? "bg-violet-900/50 text-violet-100 ring-1 ring-violet-600/50"
+                    : "text-violet-300/80 hover:bg-violet-950/40";
+            return (
+              <button
+                key={kind}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setKindFilter(kind)}
+                className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${tone}`}
+              >
+                <span className="font-medium">{meta.tabLabel}</span>
+                <span className="ml-2 font-mono text-xs opacity-70">{counts[kind]}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {kindFilter !== "ALL" ? (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${draftKindBannerClass(kindFilter)}`}
+          >
+            <div className="font-semibold">
+              {APPROVAL_KIND_META[kindFilter].title} track
+            </div>
+            <div className="mt-1 text-xs opacity-90">
+              Source: {APPROVAL_KIND_META[kindFilter].source}.{" "}
+              {APPROVAL_KIND_META[kindFilter].dispatchMeans}
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {APPROVAL_DRAFT_KINDS.map((kind) => {
+              const meta = APPROVAL_KIND_META[kind];
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  onClick={() => setKindFilter(kind)}
+                  className={`rounded-xl border px-3 py-3 text-left text-xs transition-colors ${draftKindBannerClass(kind)} hover:opacity-95`}
+                >
+                  <div className="font-mono text-[10px] uppercase tracking-wider opacity-80">
+                    {meta.shortLabel} · {counts[kind]} pending
+                  </div>
+                  <div className="mt-1 font-semibold">{meta.title}</div>
+                  <div className="mt-1 opacity-80">{meta.source}</div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {loadError ? (
           <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-4 text-sm text-red-300">
@@ -134,78 +277,104 @@ export default function AdminApprovalDashboard() {
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <div className="space-y-3 lg:col-span-4">
               <div className="px-1 font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                Active Review Queue
+                {filterTitle} · review queue
               </div>
-              {drafts.length === 0 ? (
+              {visibleDrafts.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center font-sans text-xs text-slate-500">
-                  All message tracks cleared. Gatekeeper queue idle.
+                  No pending drafts in this track.
+                  {kindFilter !== "ALL" ? (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="text-cyan-400 hover:underline"
+                        onClick={() => setKindFilter("ALL")}
+                      >
+                        Show all tracks
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               ) : (
-                drafts.map((draft) => (
-                  <button
-                    key={draft.id}
-                    type="button"
-                    onClick={() => setActiveDraftId(draft.id)}
-                    className={`block w-full touch-manipulation rounded-xl border p-4 text-left transition-all active:scale-[0.99] ${
-                      draft.id === activeDraftId
-                        ? "border-indigo-500 bg-slate-900 shadow-md shadow-indigo-950/20"
-                        : "border-slate-800/80 bg-[#070e20]/40 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <span className="truncate font-sans text-xs font-bold text-white">
-                        {draft.company}
-                      </span>
-                      <div className="flex shrink-0 gap-1">
-                        <span
-                          className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
-                            draft.draftKind === "SALES"
-                              ? "border-amber-800/40 bg-amber-950/40 text-amber-400"
-                              : draft.draftKind === "CUSTOMER_SUCCESS"
-                                ? "border-violet-800/40 bg-violet-950/40 text-violet-400"
-                                : "border-indigo-800/40 bg-indigo-950/40 text-indigo-400"
-                          }`}
-                        >
-                          {draft.draftKind === "CUSTOMER_SUCCESS" ? "CS" : draft.draftKind}
+                visibleDrafts.map((draft) => {
+                  const meta = APPROVAL_KIND_META[draft.draftKind];
+                  const selected = draft.id === activeDraftId;
+                  return (
+                    <button
+                      key={draft.id}
+                      type="button"
+                      onClick={() => setActiveDraftId(draft.id)}
+                      className={`block w-full touch-manipulation rounded-xl border-l-4 border p-4 text-left transition-all active:scale-[0.99] ${draftKindCardClass(draft.draftKind, selected)}`}
+                    >
+                      <div className="mb-1.5 flex items-start justify-between gap-2">
+                        <span className="truncate font-sans text-xs font-bold text-white">
+                          {draft.company}
                         </span>
-                        <span
-                          className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
-                            draft.tier === "Medshield"
-                              ? "border-cyan-800/40 bg-cyan-950/40 text-cyan-400"
-                              : draft.tier === "Vaultbank"
-                                ? "border-purple-800/40 bg-purple-950/40 text-purple-400"
-                                : "border-slate-700 bg-slate-800 text-slate-400"
-                          }`}
-                        >
-                          {draft.tier}
-                        </span>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                          <span
+                            className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${draftKindBadgeClass(draft.draftKind)}`}
+                            title={meta.title}
+                          >
+                            {meta.shortLabel}
+                          </span>
+                          <span
+                            className={`rounded border px-2 py-0.5 font-mono text-[9px] uppercase ${
+                              draft.tier === "Medshield"
+                                ? "border-cyan-800/40 bg-cyan-950/40 text-cyan-400"
+                                : draft.tier === "Vaultbank"
+                                  ? "border-purple-800/40 bg-purple-950/40 text-purple-400"
+                                  : "border-slate-700 bg-slate-800 text-slate-400"
+                            }`}
+                          >
+                            {draft.tier}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mb-1 line-clamp-1 font-sans text-xs font-medium text-slate-300">
-                      {draft.subject}
-                    </div>
-                    <div className="truncate font-mono text-[10px] text-slate-500">
-                      Operator: {draft.contactName}
-                    </div>
-                  </button>
-                ))
+                      <div className="mb-1 font-mono text-[9px] uppercase tracking-wide text-slate-500">
+                        {meta.title}
+                      </div>
+                      <div className="mb-1 line-clamp-1 font-sans text-xs font-medium text-slate-300">
+                        {draft.subject}
+                      </div>
+                      <div className="truncate font-mono text-[10px] text-slate-500">
+                        Operator: {draft.contactName}
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
 
             <div className="lg:col-span-8">
-              {selectedDraft ? (
+              {selectedDraft && selectedMeta ? (
                 <div className="animate-fadeIn space-y-5 rounded-xl border border-slate-800/80 bg-[#070e20]/20 p-5 backdrop-blur-md sm:p-6">
+                  <div
+                    className={`rounded-xl border px-4 py-3 text-sm ${draftKindBannerClass(selectedDraft.draftKind)}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded border px-2 py-0.5 font-mono text-[10px] uppercase ${draftKindBadgeClass(selectedDraft.draftKind)}`}
+                      >
+                        {selectedMeta.shortLabel}
+                      </span>
+                      <strong>{selectedMeta.title}</strong>
+                    </div>
+                    <p className="mt-1 text-xs opacity-90">
+                      Queued by {selectedMeta.source}. {selectedMeta.dispatchMeans}
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-800/60 bg-slate-950/60 p-4 font-sans text-xs sm:grid-cols-2">
                     <div>
                       <span className="block font-mono text-[9px] uppercase text-slate-500">
-                        Recipient Entity
+                        Recipient
                       </span>
                       <strong className="text-sm text-white">{selectedDraft.contactName}</strong>
                       <span className="block text-[11px] text-slate-400">{selectedDraft.company}</span>
                     </div>
                     <div>
                       <span className="block font-mono text-[9px] uppercase text-slate-500">
-                        Transport Tracking Subject
+                        Subject
                       </span>
                       <span className="mt-1 block font-medium text-slate-200">
                         {selectedDraft.subject}
@@ -215,7 +384,7 @@ export default function AdminApprovalDashboard() {
 
                   <div className="space-y-1.5">
                     <span className="block font-mono text-[10px] uppercase text-slate-500">
-                      Inbound Context Payload
+                      Inbound / trigger context
                     </span>
                     <div className="rounded-lg border border-slate-900 bg-slate-950/20 p-3 font-sans text-xs italic leading-relaxed text-slate-400">
                       &ldquo;{selectedDraft.incomingQuery}&rdquo;
@@ -225,10 +394,10 @@ export default function AdminApprovalDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 font-mono text-[10px] font-semibold uppercase text-cyan-400">
-                        Proposed Resolution Content
+                        Proposed {selectedDraft.draftKind === "SALES" ? "outreach" : "reply"}
                       </span>
                       <span className="font-mono text-[9px] text-slate-500">
-                        {"// Editable Workspace Field"}
+                        Editable before DISPATCH
                       </span>
                     </div>
                     <textarea
@@ -245,24 +414,29 @@ export default function AdminApprovalDashboard() {
                       disabled={isDispatching}
                       className="h-11 w-full touch-manipulation rounded-lg border border-red-900/30 bg-red-950/10 px-5 font-sans text-xs font-bold uppercase tracking-wide text-red-400 transition-colors duration-150 hover:bg-red-950/30 active:scale-95 disabled:opacity-40 sm:w-auto"
                     >
-                      Purge Draft
+                      Purge draft
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleAction("DISPATCH")}
                       disabled={isDispatching}
-                      className="flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-8 font-sans text-xs font-bold uppercase tracking-wide text-white shadow-lg shadow-indigo-950/40 transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] disabled:bg-slate-900 disabled:text-slate-600 sm:w-auto"
+                      className={`flex h-11 w-full touch-manipulation items-center justify-center rounded-lg px-8 font-sans text-xs font-bold uppercase tracking-wide text-white shadow-lg transition-all duration-150 active:scale-[0.98] disabled:bg-slate-900 disabled:text-slate-600 sm:w-auto ${
+                        selectedDraft.draftKind === "SALES"
+                          ? "bg-amber-600 shadow-amber-950/40 hover:bg-amber-500"
+                          : selectedDraft.draftKind === "SUPPORT"
+                            ? "bg-emerald-600 shadow-emerald-950/40 hover:bg-emerald-500"
+                            : "bg-violet-600 shadow-violet-950/40 hover:bg-violet-500"
+                      }`}
                     >
                       {isDispatching
-                        ? "Authorizing Pipeline Delivery..."
-                        : "Approve & Dispatch"}
+                        ? "Authorizing delivery…"
+                        : `Approve & dispatch ${selectedMeta.shortLabel}`}
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-800 p-12 text-center font-sans text-sm text-slate-500">
-                  Select an engineering track item from the queue matrix to initialize verification
-                  steps.
+                  Select a draft from the {filterTitle.toLowerCase()} queue to edit and dispatch.
                 </div>
               )}
             </div>
@@ -270,5 +444,19 @@ export default function AdminApprovalDashboard() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminApprovalDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#020617] p-8 text-center text-sm text-slate-500">
+          Loading approvals desk…
+        </div>
+      }
+    >
+      <AdminApprovalDashboardInner />
+    </Suspense>
   );
 }

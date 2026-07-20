@@ -1,17 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
 import OpsWorkerChatPanel from "@/app/components/operations/OpsWorkerChatPanel";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
-type HubTab = "overview" | "workforce" | "crm" | "briefings" | "newsletters" | "teams";
+type HubTab =
+  | "overview"
+  | "calendar"
+  | "workforce"
+  | "crm"
+  | "briefings"
+  | "newsletters"
+  | "teams";
 
 const HUB_TAB_IDS: HubTab[] = [
   "overview",
+  "calendar",
   "workforce",
   "crm",
   "briefings",
@@ -20,6 +28,8 @@ const HUB_TAB_IDS: HubTab[] = [
 ];
 
 function parseHubTab(raw: string | null): HubTab {
+  // Alias for older bookmarks / links.
+  if (raw === "schedule") return "calendar";
   if (raw && HUB_TAB_IDS.includes(raw as HubTab)) return raw as HubTab;
   return "overview";
 }
@@ -155,6 +165,8 @@ function WorkforceCard({ service }: { service: WorkforceServiceStatus }) {
 }
 
 export default function OperationsHubClient() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<HubTab>(() => parseHubTab(searchParams.get("tab")));
   const [snapshot, setSnapshot] = useState<OperationsHubSnapshot | null>(null);
@@ -179,17 +191,58 @@ export default function OperationsHubClient() {
   const [syndicateSlug, setSyndicateSlug] = useState("");
   const [syndicateBusy, setSyndicateBusy] = useState(false);
   const [syndicateMessage, setSyndicateMessage] = useState<string | null>(null);
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [calendarSearch, setCalendarSearch] = useState("");
   const [decisionBusyFile, setDecisionBusyFile] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
+  const promotePanelRef = useRef<HTMLDivElement | null>(null);
 
-  const slugFromQueueFilename = (filename: string) =>
-    filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase();
+  const slugFromQueueFilename = useCallback(
+    (filename: string) =>
+      filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase(),
+    [],
+  );
+
+  const focusedDraft = searchParams.get("draft")?.trim() || null;
+
+  const selectQueueDraft = useCallback(
+    (filename: string, options?: { scrollPromote?: boolean }) => {
+      const file = filename.trim();
+      if (!file) return;
+      const slug = slugFromQueueFilename(file);
+      setPromoteFile(file);
+      setPromoteSlug(slug);
+      setPromoteMessage(`Selected ${file} for promote / deny.`);
+      setDecisionMessage(null);
+
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "briefings");
+      params.set("draft", file);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+
+      if (options?.scrollPromote !== false) {
+        window.requestAnimationFrame(() => {
+          promotePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        });
+      }
+    },
+    [pathname, router, searchParams, slugFromQueueFilename],
+  );
 
   useEffect(() => {
     setTab(parseHubTab(searchParams.get("tab")));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!focusedDraft || loading) return;
+    const el = document.getElementById(`queue-draft-${focusedDraft}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusedDraft, loading, tab, snapshot]);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -202,13 +255,15 @@ export default function OperationsHubClient() {
       );
       setSnapshot(data);
       setRefreshedAt(new Date().toLocaleTimeString());
-      if (!promoteDefaultsSet.current && data.briefings.queueDrafts[0]?.filename) {
+      if (!promoteDefaultsSet.current && data.briefings.queueDrafts.length > 0) {
         promoteDefaultsSet.current = true;
-        const first = data.briefings.queueDrafts[0];
-        setPromoteFile(first.filename);
-        setPromoteSlug(
-          first.filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase(),
-        );
+        const urlDraft = new URLSearchParams(window.location.search).get("draft")?.trim();
+        const fromUrl = urlDraft
+          ? data.briefings.queueDrafts.find((d) => d.filename === urlDraft)
+          : undefined;
+        const pick = fromUrl ?? data.briefings.queueDrafts[0];
+        setPromoteFile(pick.filename);
+        setPromoteSlug(slugFromQueueFilename(pick.filename));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Load failure.");
@@ -216,7 +271,7 @@ export default function OperationsHubClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [slugFromQueueFilename]);
 
   useEffect(() => {
     void loadSnapshot();
@@ -504,14 +559,137 @@ export default function OperationsHubClient() {
     }
   };
 
+  const seedSummerSchedule = async () => {
+    setScheduleBusy(true);
+    setScheduleMessage(null);
+    try {
+      const response = await fetch("/api/admin/operations-hub/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "seed-all-projects" }),
+        cache: "no-store",
+      });
+      const data = (await response.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Seed failed.");
+      setScheduleMessage(data.message || "Summer schedule seeded.");
+      await loadSnapshot();
+    } catch (err) {
+      setScheduleMessage(err instanceof Error ? err.message : "Seed failed.");
+    } finally {
+      setScheduleBusy(false);
+    }
+  };
+
+  const setChecklistItem = async (id: string, index: number, done: boolean) => {
+    setScheduleBusy(true);
+    setScheduleMessage(null);
+    try {
+      const response = await fetch("/api/admin/operations-hub/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-checklist-item", id, index, done }),
+        cache: "no-store",
+      });
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok) throw new Error(data.error || "Checklist update failed.");
+      await loadSnapshot();
+    } catch (err) {
+      setScheduleMessage(err instanceof Error ? err.message : "Checklist update failed.");
+    } finally {
+      setScheduleBusy(false);
+    }
+  };
+
+  const setScheduleStatus = async (id: string, status: string) => {
+    let outcome: string | undefined;
+    if (status === "DONE" || status === "CANCELLED") {
+      const entered = window.prompt(
+        status === "DONE"
+          ? "What was done? (required — saved for later review)"
+          : "Why cancelled? (required — saved for later review)",
+      );
+      if (entered === null) return;
+      outcome = entered.trim();
+      if (!outcome) {
+        setScheduleMessage("Outcome is required when marking Done or Cancelled.");
+        return;
+      }
+    }
+    setScheduleBusy(true);
+    setScheduleMessage(null);
+    try {
+      const response = await fetch("/api/admin/operations-hub/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "set-status", id, status, outcome }),
+        cache: "no-store",
+      });
+      const data = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok) throw new Error(data.error || "Status update failed.");
+      await loadSnapshot();
+    } catch (err) {
+      setScheduleMessage(err instanceof Error ? err.message : "Status update failed.");
+    } finally {
+      setScheduleBusy(false);
+    }
+  };
+
   const tabs: Array<{ id: HubTab; label: string }> = [
     { id: "overview", label: "Overview" },
+    { id: "calendar", label: "Calendar" },
     { id: "workforce", label: "Workforce" },
     { id: "crm", label: "CRM" },
     { id: "briefings", label: "Briefings" },
     { id: "newsletters", label: "Newsletters" },
     { id: "teams", label: "Teams" },
   ];
+
+  const scheduleByPriority = useMemo(() => {
+    const activities = snapshot?.schedule?.activities ?? [];
+    const q = calendarSearch.trim().toLowerCase();
+    /** P1 (highest) first — lower numeric rank wins. */
+    const byPriority = (a: (typeof activities)[number], b: (typeof activities)[number]) => {
+      const pa = typeof a.priority === "number" ? a.priority : 999;
+      const pb = typeof b.priority === "number" ? b.priority : 999;
+      if (pa !== pb) return pa - pb;
+      return (a.dueAt ?? "").localeCompare(b.dueAt ?? "");
+    };
+    const matches = (a: (typeof activities)[number]) => {
+      if (!q) return true;
+      const haystack = [
+        a.title,
+        a.synopsis,
+        a.notes,
+        a.outcome,
+        typeof a.priority === "number" ? `p${a.priority}` : "",
+        ...(a.nextActions ?? []).map((item) =>
+          typeof item === "string" ? item : `${item.text} ${item.done ? "done" : "todo"}`,
+        ),
+        a.kind,
+        a.status,
+        a.ownerLabel,
+        a.sourceRef,
+        a.href,
+        a.dueAt?.slice(0, 10),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    };
+    const filtered = [...activities.filter(matches)].sort(byPriority);
+    const open = filtered.filter((a) =>
+      ["PLANNED", "IN_PROGRESS", "IN_REVIEW"].includes(a.status),
+    );
+    const done = filtered.filter((a) => a.status === "DONE" || a.status === "CANCELLED");
+    return {
+      open,
+      done: calendarSearch.trim() ? done : done.slice(0, 12),
+      doneTotal: done.length,
+      matchCount: filtered.length,
+      totalCount: activities.length,
+    };
+  }, [snapshot, calendarSearch]);
 
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -586,7 +764,7 @@ export default function OperationsHubClient() {
 
         {snapshot && tab === "overview" ? (
           <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="text-[10px] uppercase tracking-widest text-slate-500">Approval queue</div>
               <div className="mt-2 text-3xl font-bold text-white">{snapshot.approvals.total}</div>
@@ -613,6 +791,22 @@ export default function OperationsHubClient() {
               </div>
             </div>
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+              <div className="text-[10px] uppercase tracking-widest text-slate-500">Calendar</div>
+              <div className="mt-2 text-3xl font-bold text-white">
+                {snapshot.schedule?.openCount ?? 0}
+              </div>
+              <div className="mt-1 text-xs text-slate-400">
+                {snapshot.schedule?.dueSoonCount ?? 0} due ≤3d · {snapshot.schedule?.overdueCount ?? 0}{" "}
+                overdue
+              </div>
+              <Link
+                href="/dashboard/operations?tab=calendar"
+                className="mt-2 inline-block text-xs text-cyan-300 hover:underline"
+              >
+                Open calendar →
+              </Link>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="text-[10px] uppercase tracking-widest text-slate-500">Workers online</div>
               <div className="mt-2 text-3xl font-bold text-white">
                 {snapshot.workforce.filter((w) => w.reachable).length}/{snapshot.workforce.length}
@@ -627,7 +821,19 @@ export default function OperationsHubClient() {
                 href="/dashboard/admin/approvals"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
-                Review approval queue ({snapshot.approvals.total})
+                All approvals ({snapshot.approvals.total})
+              </Link>
+              <Link
+                href="/dashboard/admin/approvals?kind=SALES"
+                className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-2 text-sm text-amber-200 hover:border-amber-600"
+              >
+                Sales outreach ({snapshot.approvals.byKind.SALES})
+              </Link>
+              <Link
+                href="/dashboard/operations?tab=calendar"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              >
+                Open calendar
               </Link>
               <Link
                 href="/dashboard/operations?tab=briefings"
@@ -648,16 +854,30 @@ export default function OperationsHubClient() {
                 Check worker fleet
               </Link>
               <Link
-                href="/dashboard/admin/approvals"
-                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+                href="/dashboard/admin/approvals?kind=SUPPORT"
+                className="rounded-lg border border-emerald-800/50 bg-emerald-950/30 px-4 py-2 text-sm text-emerald-200 hover:border-emerald-600"
               >
-                Support approvals (SUPPORT)
+                Support replies ({snapshot.approvals.byKind.SUPPORT})
+              </Link>
+              <Link
+                href="/dashboard/admin/approvals?kind=CUSTOMER_SUCCESS"
+                className="rounded-lg border border-violet-800/50 bg-violet-950/30 px-4 py-2 text-sm text-violet-200 hover:border-violet-600"
+              >
+                CS advisories ({snapshot.approvals.byKind.CUSTOMER_SUCCESS})
               </Link>
               <Link
                 href="/dashboard/operations/salesteam"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
               >
                 SalesTeam portal
+              </Link>
+              <Link
+                href="/operator/workflow-review-protocol.html"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-teal-800/50 bg-teal-950/30 px-4 py-2 text-sm text-teal-100 hover:border-teal-500"
+              >
+                Workflow review talk track
               </Link>
               <Link
                 href="/dashboard/operations/support-intake"
@@ -734,10 +954,10 @@ export default function OperationsHubClient() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold text-white">Recent SUSPECT queue (Ironleads)</h2>
                 <Link
-                  href="/dashboard/operations/ironboard"
+                  href="/dashboard/operations/ironleads"
                   className="text-xs text-cyan-300 hover:underline"
                 >
-                  Open Ironboard CRM tools →
+                  Open Ironleads SUSPECT portal →
                 </Link>
               </div>
               <ul className="mt-4 space-y-2">
@@ -749,16 +969,371 @@ export default function OperationsHubClient() {
                       key={row.id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm"
                     >
-                      <span className="font-medium text-slate-100">{row.company}</span>
-                      <span className="font-mono text-xs text-slate-400">
-                        score {row.priorityScore}
-                        {row.detectedTrigger ? ` · ${row.detectedTrigger}` : ""}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium text-slate-100">{row.company}</span>
+                        <div className="mt-0.5 font-mono text-xs text-slate-400">
+                          score {row.priorityScore}
+                          {row.detectedTrigger ? ` · ${row.detectedTrigger}` : ""}
+                        </div>
+                        <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                          <div>
+                            Website:{" "}
+                            {row.websiteUrl ? (
+                              <a
+                                href={row.websiteUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-cyan-300/90 hover:underline"
+                              >
+                                {row.websiteUrl}
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                          <div>Address: {row.addressLine ?? "—"}</div>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/dashboard/operations/ironleads/suspects/${row.id}`}
+                        className="shrink-0 text-xs text-cyan-300 hover:underline"
+                      >
+                        Why SUSPECT →
+                      </Link>
                     </li>
                   ))
                 )}
               </ul>
             </section>
+          </div>
+        ) : null}
+
+        {snapshot && tab === "calendar" ? (
+          <div className="space-y-6">
+            <section className="rounded-xl border border-cyan-900/50 bg-slate-900/60 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Ops Calendar</h2>
+                  <p className="mt-1 max-w-3xl text-sm text-slate-400">
+                    Listed by priority, highest first (
+                    <span className="text-slate-300">P1</span> → Pn). Daily cron sends T-3 / T-2 /
+                    T-1 / T-0 nudges to enabled Notification endpoints (and optional{" "}
+                    <span className="font-mono text-slate-300">OPS_SCHEDULE_NOTIFY_EMAIL</span>).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={scheduleBusy}
+                  onClick={() => void seedSummerSchedule()}
+                  className="rounded-lg border border-cyan-700 bg-cyan-950/50 px-4 py-2 text-sm text-cyan-100 hover:border-cyan-500 disabled:opacity-50"
+                >
+                  {scheduleBusy ? "Working…" : "Seed all projects"}
+                </button>
+              </div>
+              {scheduleMessage ? (
+                <p className="mt-3 rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200">
+                  {scheduleMessage}
+                </p>
+              ) : null}
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500">Open</div>
+                  <div className="mt-1 text-2xl font-semibold text-white">
+                    {snapshot.schedule?.openCount ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-amber-900/60 bg-amber-950/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-amber-400">
+                    Due in ≤3 days
+                  </div>
+                  <div className="mt-1 text-2xl font-semibold text-amber-100">
+                    {snapshot.schedule?.dueSoonCount ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-rose-900/60 bg-rose-950/20 p-3">
+                  <div className="text-[10px] uppercase tracking-widest text-rose-400">Overdue</div>
+                  <div className="mt-1 text-2xl font-semibold text-rose-100">
+                    {snapshot.schedule?.overdueCount ?? 0}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="ops-calendar-search" className="sr-only">
+                  Search calendar
+                </label>
+                <div className="relative">
+                  <input
+                    id="ops-calendar-search"
+                    type="search"
+                    value={calendarSearch}
+                    onChange={(e) => setCalendarSearch(e.target.value)}
+                    placeholder="Search title, synopsis, kind, owner, source…"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 pr-20 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                  />
+                  {calendarSearch.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setCalendarSearch("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </div>
+                {calendarSearch.trim() ? (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Showing {scheduleByPriority.matchCount} of {scheduleByPriority.totalCount}{" "}
+                    items
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <div className="space-y-4">
+              {(
+                [
+                  [
+                    "Open — by priority",
+                    "Highest priority first (P1 → Pn). Status shown on each card.",
+                    scheduleByPriority.open,
+                  ],
+                  [
+                    "Done",
+                    "Finished or closed — kept for history (not open work)",
+                    scheduleByPriority.done,
+                  ],
+                ] as const
+              ).map(([label, columnHint, items]) => (
+                <section
+                  key={label}
+                  className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"
+                >
+                  <h3 className="text-sm font-semibold text-slate-200">
+                    {label}{" "}
+                    <span className="font-normal text-slate-500">
+                      (
+                      {label === "Done" && !calendarSearch.trim()
+                        ? `${items.length}${
+                            scheduleByPriority.doneTotal > items.length
+                              ? ` of ${scheduleByPriority.doneTotal}`
+                              : ""
+                          }`
+                        : items.length}
+                      )
+                    </span>
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-snug text-slate-500">{columnHint}</p>
+                  <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {items.length === 0 ? (
+                      <li className="text-xs text-slate-500">None</li>
+                    ) : (
+                      items.map((activity) => {
+                        const isClosed =
+                          activity.status === "DONE" || activity.status === "CANCELLED";
+                        const statusLabel =
+                          activity.status === "PLANNED"
+                            ? "Planned"
+                            : activity.status === "IN_PROGRESS"
+                              ? "In progress"
+                              : activity.status === "IN_REVIEW"
+                                ? "In review"
+                                : activity.status === "CANCELLED"
+                                  ? "Cancelled"
+                                  : "Completed";
+                        return (
+                        <li
+                          key={activity.id}
+                          className={`rounded-lg border p-3 ${
+                            isClosed
+                              ? "border-slate-800/80 bg-slate-950/40 opacity-90"
+                              : "border-slate-800 bg-slate-950/70"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span
+                                className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${
+                                  (activity.priority ?? 99) <= 3
+                                    ? "border-rose-800 bg-rose-950/50 text-rose-200"
+                                    : (activity.priority ?? 99) <= 10
+                                      ? "border-amber-800 bg-amber-950/40 text-amber-200"
+                                      : isClosed
+                                        ? "border-slate-700 bg-slate-900 text-slate-400"
+                                        : "border-cyan-800 bg-cyan-950/40 text-cyan-200"
+                                }`}
+                                title="Calendar priority order (P1 = highest)"
+                              >
+                                P{activity.priority ?? "—"}
+                              </span>
+                              <div className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                                Title
+                              </div>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                isClosed
+                                  ? "border-emerald-900/60 bg-emerald-950/40 text-emerald-300"
+                                  : activity.status === "IN_PROGRESS"
+                                    ? "border-cyan-800 bg-cyan-950/40 text-cyan-200"
+                                    : activity.status === "IN_REVIEW"
+                                      ? "border-amber-800 bg-amber-950/40 text-amber-200"
+                                      : "border-slate-700 bg-slate-900 text-slate-300"
+                              }`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 text-sm font-medium text-white">{activity.title}</div>
+                          <div className="mt-2 text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                            What this is
+                          </div>
+                          <p className="mt-0.5 text-xs leading-snug text-slate-300">
+                            {activity.synopsis ||
+                              activity.notes ||
+                              "No synopsis — add a brief what/why."}
+                          </p>
+                          {!isClosed && (activity.nextActions?.length ?? 0) > 0 ? (
+                            <>
+                              <div className="mt-2 flex items-center justify-between gap-2">
+                                <div className="text-[10px] font-medium uppercase tracking-widest text-amber-400/90">
+                                  What needs to be done
+                                </div>
+                                <div className="text-[10px] text-slate-500">
+                                  {activity.nextActionsRemaining ??
+                                    activity.nextActions.filter((s) =>
+                                      typeof s === "string" ? true : !s.done,
+                                    ).length}
+                                  /
+                                  {activity.nextActions.length} left
+                                </div>
+                              </div>
+                              <ul className="mt-1.5 space-y-1.5">
+                                {activity.nextActions.map((step, index) => {
+                                  const text = typeof step === "string" ? step : step.text;
+                                  const done = typeof step === "string" ? false : step.done;
+                                  const inputId = `ops-check-${activity.id}-${index}`;
+                                  return (
+                                    <li key={`${activity.id}-${index}-${text}`}>
+                                      <label
+                                        htmlFor={inputId}
+                                        className={`flex cursor-pointer items-start gap-2 rounded border px-2 py-1.5 text-xs leading-snug ${
+                                          done
+                                            ? "border-emerald-900/50 bg-emerald-950/20 text-slate-400"
+                                            : "border-amber-900/40 bg-amber-950/20 text-amber-50/90"
+                                        }`}
+                                      >
+                                        <input
+                                          id={inputId}
+                                          type="checkbox"
+                                          checked={done}
+                                          disabled={scheduleBusy}
+                                          onChange={(e) =>
+                                            void setChecklistItem(
+                                              activity.id,
+                                              index,
+                                              e.target.checked,
+                                            )
+                                          }
+                                          className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-600"
+                                        />
+                                        <span className={done ? "line-through" : undefined}>
+                                          {text}
+                                        </span>
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </>
+                          ) : null}
+                          {isClosed ? (
+                            <>
+                              <div className="mt-2 text-[10px] font-medium uppercase tracking-widest text-emerald-500/80">
+                                What was done
+                              </div>
+                              <p className="mt-0.5 text-xs leading-snug text-emerald-100/90">
+                                {activity.outcome ||
+                                  "No outcome recorded — add what was completed for review."}
+                              </p>
+                            </>
+                          ) : null}
+                          {activity.href ? (
+                            <Link
+                              href={activity.href}
+                              className="mt-1.5 inline-block text-xs text-cyan-300 hover:underline"
+                            >
+                              Open linked work →
+                            </Link>
+                          ) : null}
+                          <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
+                            {activity.kind.replace(/_/g, " ")} · {activity.ownerLabel}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            {isClosed ? (
+                              <>
+                                Closed
+                                {activity.completedAt
+                                  ? ` ${activity.completedAt.slice(0, 10)}`
+                                  : ""}
+                                {" · "}
+                                was due {activity.dueAt.slice(0, 10)}
+                              </>
+                            ) : (
+                              <>
+                                Due {activity.dueAt.slice(0, 10)} ·{" "}
+                                {activity.daysUntilDue < 0
+                                  ? `${Math.abs(activity.daysUntilDue)}d overdue`
+                                  : activity.daysUntilDue === 0
+                                    ? "due today"
+                                    : `${activity.daysUntilDue}d left`}
+                              </>
+                            )}
+                          </div>
+                          {activity.sourceRef ? (
+                            <div className="mt-1 truncate font-mono text-[10px] text-slate-500">
+                              {activity.sourceRef}
+                            </div>
+                          ) : null}
+                          {!isClosed ? (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {activity.status !== "IN_PROGRESS" ? (
+                                <button
+                                  type="button"
+                                  disabled={scheduleBusy}
+                                  onClick={() => void setScheduleStatus(activity.id, "IN_PROGRESS")}
+                                  className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-cyan-600"
+                                >
+                                  Start
+                                </button>
+                              ) : null}
+                              {activity.status !== "IN_REVIEW" ? (
+                                <button
+                                  type="button"
+                                  disabled={scheduleBusy}
+                                  onClick={() => void setScheduleStatus(activity.id, "IN_REVIEW")}
+                                  className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-cyan-600"
+                                >
+                                  Review
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                disabled={scheduleBusy}
+                                onClick={() => void setScheduleStatus(activity.id, "DONE")}
+                                className="rounded border border-emerald-800 px-2 py-0.5 text-[10px] text-emerald-300 hover:border-emerald-500"
+                              >
+                                Done
+                              </button>
+                            </div>
+                          ) : null}
+                        </li>
+                        );
+                      })
+                    )}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </div>
         ) : null}
 
@@ -783,10 +1358,17 @@ export default function OperationsHubClient() {
                   briefingQueueDrafts.map((draft) => {
                     const busy = decisionBusyFile === draft.filename;
                     const slug = slugFromQueueFilename(draft.filename);
+                    const selected =
+                      promoteFile === draft.filename || focusedDraft === draft.filename;
                     return (
                       <li
+                        id={`queue-draft-${draft.filename}`}
                         key={draft.filename}
-                        className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
+                        className={`rounded-lg border p-3 text-sm ${
+                          selected
+                            ? "border-cyan-500 bg-cyan-950/30 ring-1 ring-cyan-500/40"
+                            : "border-slate-800 bg-slate-950/50"
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -798,13 +1380,13 @@ export default function OperationsHubClient() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => {
-                              setPromoteFile(draft.filename);
-                              setPromoteSlug(slug);
-                            }}
-                            className="shrink-0 text-xs text-cyan-300 hover:underline"
+                            onClick={() => selectQueueDraft(draft.filename)}
+                            className={`shrink-0 text-xs hover:underline ${
+                              selected ? "font-semibold text-cyan-200" : "text-cyan-300"
+                            }`}
+                            aria-pressed={selected}
                           >
-                            Select
+                            {selected ? "Selected" : "Select"}
                           </button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2 text-[10px] uppercase tracking-widest">
@@ -932,7 +1514,11 @@ export default function OperationsHubClient() {
                   <p className="mt-3 text-sm text-slate-300">{requestMessage}</p>
                 ) : null}
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <div
+                id="briefings-promote-panel"
+                ref={promotePanelRef}
+                className="rounded-xl border border-slate-800 bg-slate-900/60 p-5"
+              >
                 <h2 className="text-lg font-semibold text-white">Promote (approve) or deny</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   Approve publishes to Governance Frame (+ optional syndication). Deny removes the draft from
@@ -1022,10 +1608,16 @@ export default function OperationsHubClient() {
                     newsletterQueueDrafts.map((draft) => {
                       const busy = decisionBusyFile === draft.filename;
                       const slug = slugFromQueueFilename(draft.filename);
+                      const focused = focusedDraft === draft.filename;
                       return (
                         <li
+                          id={`queue-draft-${draft.filename}`}
                           key={draft.filename}
-                          className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-sm"
+                          className={`rounded-lg border p-3 text-sm ${
+                            focused
+                              ? "border-cyan-500 bg-cyan-950/30 ring-1 ring-cyan-500/40"
+                              : "border-slate-800 bg-slate-950/50"
+                          }`}
                         >
                           <div className="font-medium text-slate-100">{draft.title}</div>
                           <div className="font-mono text-[10px] text-slate-500">{draft.filename}</div>
@@ -1236,7 +1828,28 @@ export default function OperationsHubClient() {
               <ul className="mt-4 space-y-3 text-sm">
                 <li>
                   <Link href="/dashboard/admin/approvals" className="text-cyan-300 hover:underline">
-                    Agent messaging approvals
+                    All approval tracks
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="/dashboard/admin/approvals?kind=SALES"
+                    className="text-amber-300 hover:underline"
+                  >
+                    Sales
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="/dashboard/admin/approvals?kind=SUPPORT"
+                    className="text-emerald-300 hover:underline"
+                  >
+                    Support
+                  </Link>
+                  {" · "}
+                  <Link
+                    href="/dashboard/admin/approvals?kind=CUSTOMER_SUCCESS"
+                    className="text-violet-300 hover:underline"
+                  >
+                    CS
                   </Link>
                   <p className="text-slate-500">Support, Sales, and Customer Success draft dispatch.</p>
                 </li>

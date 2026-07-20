@@ -97,10 +97,18 @@ export default function SalesteamPortalClient() {
               ← Operations hub
             </Link>
             <Link
-              href="/dashboard/admin/approvals"
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              href="/dashboard/admin/approvals?kind=SALES"
+              className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-2 text-sm text-amber-200 hover:border-amber-600"
             >
-              SALES approvals
+              Sales outreach queue
+            </Link>
+            <Link
+              href="/operator/workflow-review-protocol.html"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-teal-800/50 bg-teal-950/30 px-4 py-2 text-sm font-medium text-teal-100 hover:border-teal-500"
+            >
+              Workflow review talk track
             </Link>
             <button
               type="button"

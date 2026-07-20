@@ -50,6 +50,7 @@ scripts/governance-frame/google-docs/.state/
 **/google-oauth-client*.json
 **/google-oauth-token*.json
 secrets/google-oauth*.json
+secrets/teams-graph*.json
 
 # Ironleads local SQLite scratchpad (vitest + dev harvest)
 Ironleads/data/

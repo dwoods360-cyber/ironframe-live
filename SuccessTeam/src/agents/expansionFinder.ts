@@ -13,7 +13,7 @@ export type ExpansionFinding = {
   rationale: string;
 };
 
-/** ST-03 — rules-based expansion vs retention routing from corpus. */
+/** ST-03 — rules-based onboarding / expansion / retention routing from corpus. */
 export function findExpansionMotion(
   audit: HealthAuditResult,
   value: ValueQuantification,
@@ -21,6 +21,18 @@ export function findExpansionMotion(
   const profile = resolveBeachheadSuccessProfile(audit.industrySector);
   const sectorEntries = listCorpusEntriesForSector(audit.industrySector);
   const beachheadPlay = sectorEntries.find((e) => e.kind === 'playbook')?.id ?? 'land_adopt_expand';
+
+  // Activation first: tenants cannot expand or "check in" meaningfully without FIRST_ACTION.
+  if (audit.signals.includes('MISSING_FIRST_ACTION')) {
+    return {
+      dealId: audit.dealId,
+      advisoryType: 'ONBOARDING',
+      expansionEligible: false,
+      recommendedModule: profile.expansionModule,
+      corpusPlayIds: ['design_partner_path_b_onboarding', 'onboarding_playbook_90', 'customer_success'],
+      rationale: `MISSING_FIRST_ACTION — run Path B onboarding before expansion/retention theater. ${value.outcomeProofLine}`,
+    };
+  }
 
   if (audit.healthBand === 'healthy') {
     return {

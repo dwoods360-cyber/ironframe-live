@@ -1,4 +1,5 @@
 import type { LeadGenKnowledgeEntry } from '../types/leadGenKnowledge.js';
+import { DESIGN_PARTNER_PATH_B_USD } from '../../../lib/ironframeProductKnowledge/commercial.js';
 
 const ALL = 'ALL' as const;
 
@@ -880,7 +881,9 @@ export const LEAD_GEN_KNOWLEDGE_CORPUS: Record<string, LeadGenKnowledgeEntry> = 
       'Prioritize trigger-tagged SUSPECTs for design-partner ICP shortlist before broad spray.',
       'Pass to SalesTeam with beachhead sector + trigger + email or phone for HITL drafts.',
       'Support warm-network and auditor channel lists as RESEARCH stage accounts in CRM notes.',
-      'Target pipeline math for 3–5 Path B seats at $4,999 — not free pilots.',
+      'Target pipeline math for 3–5 Path B seats at $' +
+        DESIGN_PARTNER_PATH_B_USD +
+        ' — not free pilots.',
     ],
     discoveryQuestions: [
       'Who owns spreadsheet or heatmap GRC evidence that still reaches the board?',

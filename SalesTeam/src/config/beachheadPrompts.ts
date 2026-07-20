@@ -1,8 +1,12 @@
-export type BeachheadSector =
-  | 'REGIONAL_BHC'
-  | 'UTILITY_NERC'
-  | 'MSSP_ENCLAVE'
-  | 'HEALTH_HIPAA';
+import {
+  BEACHHEAD_SECTORS,
+  BEACHHEAD_SUMMARIES,
+  resolveBeachheadSector,
+  type BeachheadSector,
+} from '../../../lib/ironframeProductKnowledge/beachheads.js';
+
+export type { BeachheadSector };
+export { BEACHHEAD_SECTORS, resolveBeachheadSector };
 
 export type BeachheadPrompt = {
   sector: BeachheadSector;
@@ -16,46 +20,43 @@ export type BeachheadPrompt = {
 export const BEACHHEAD_PROMPTS: Record<BeachheadSector, BeachheadPrompt> = {
   REGIONAL_BHC: {
     sector: 'REGIONAL_BHC',
-    heroRole: 'regional banking CISO or compliance operator',
+    heroRole: BEACHHEAD_SUMMARIES.REGIONAL_BHC.heroAngle,
     guidePlan:
       'map FFIEC board accountability to a single governed command post with Microsoft-ecosystem evidence exports',
     wedgeCentsNarrative:
       'quantify dollar-denominated loss exposure in whole cents, then push prioritized remediation into Jira and M365',
-    complianceHook: 'FFIEC supervision, board reporting cadence, and vendor oversight',
+    complianceHook: BEACHHEAD_SUMMARIES.REGIONAL_BHC.complianceHook,
   },
   UTILITY_NERC: {
     sector: 'UTILITY_NERC',
-    heroRole: 'utility CIP program owner or grid security lead',
+    heroRole: BEACHHEAD_SUMMARIES.UTILITY_NERC.heroAngle,
     guidePlan:
       'tie operational evidence tracking to NERC workflow checkpoints without spreadsheet drift',
     wedgeCentsNarrative:
       'express outage and compliance exposure as integer cents before any control task hits the field',
-    complianceHook: 'NERC CIP evidence trails and operational attestations',
+    complianceHook: BEACHHEAD_SUMMARIES.UTILITY_NERC.complianceHook,
   },
   HEALTH_HIPAA: {
     sector: 'HEALTH_HIPAA',
-    heroRole: 'healthcare compliance operator or vendor risk lead',
+    heroRole: BEACHHEAD_SUMMARIES.HEALTH_HIPAA.heroAngle,
     guidePlan:
       'unify vendor risk, patient privacy controls, and audit-ready evidence in one tenant-scoped workspace',
     wedgeCentsNarrative:
       'frame breach and vendor-risk exposure as pristine BigInt cents tied to remediation tasks',
-    complianceHook: 'HIPAA vendor risk, patient data privacy, and heavy compliance operations',
+    complianceHook: BEACHHEAD_SUMMARIES.HEALTH_HIPAA.complianceHook,
   },
   MSSP_ENCLAVE: {
     sector: 'MSSP_ENCLAVE',
-    heroRole: 'MSSP governance lead or partner program director',
+    heroRole: BEACHHEAD_SUMMARIES.MSSP_ENCLAVE.heroAngle,
     guidePlan:
       'deliver multi-client governance with strict tenant isolation and partner-ready reporting',
     wedgeCentsNarrative:
       'show each client enclave its own cents-grade loss model without cross-tenant bleed',
-    complianceHook: 'multi-client governance and partner-led distribution',
+    complianceHook: BEACHHEAD_SUMMARIES.MSSP_ENCLAVE.complianceHook,
   },
 };
 
 export function resolveBeachheadPrompt(sector: string | null | undefined): BeachheadPrompt {
-  const key = String(sector ?? 'REGIONAL_BHC').trim().toUpperCase();
-  if (key in BEACHHEAD_PROMPTS) {
-    return BEACHHEAD_PROMPTS[key as BeachheadSector];
-  }
-  return BEACHHEAD_PROMPTS.REGIONAL_BHC;
+  const key = resolveBeachheadSector(sector);
+  return BEACHHEAD_PROMPTS[key];
 }

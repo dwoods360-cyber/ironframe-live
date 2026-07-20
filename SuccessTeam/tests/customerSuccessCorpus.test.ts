@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { auditAccountHealth } from '../src/agents/healthAuditor.js';
 import { findExpansionMotion } from '../src/agents/expansionFinder.js';
+import { composeAdvisoryDraft } from '../src/agents/advisoryGatekeeper.js';
 import { quantifyAccountValue } from '../src/agents/valueQuantifier.js';
 import {
   CUSTOMER_SUCCESS_CORPUS_MANIFEST,
@@ -62,6 +63,13 @@ describe('customerSuccessCorpus', () => {
     const plays = resolveRetentionPlayIds('at_risk');
     expect(plays).toContain('retention_save_plays');
   });
+
+  it('Path B onboarding play cites partner learning hrefs', () => {
+    const play = CUSTOMER_SUCCESS_KNOWLEDGE_CORPUS.design_partner_path_b_onboarding;
+    expect(play.ironframeApplication).toContain('/docs/user-manuals/design-partner-operator-packet');
+    expect(play.ironframeApplication).toContain('/docs/training/LEVEL1-PARTNER-INDEX');
+    expect(play.keyTactics.some((t) => t.includes('LEVEL1-PARTNER-INDEX'))).toBe(true);
+  });
 });
 
 describe('healthAuditor', () => {
@@ -90,5 +98,42 @@ describe('expansionFinder', () => {
     const finding = findExpansionMotion(audit, value);
     expect(finding.advisoryType).toBe('EXPANSION');
     expect(finding.expansionEligible).toBe(true);
+  });
+
+  it('routes MISSING_FIRST_ACTION to ONBOARDING before expansion/retention', () => {
+    const audit = auditAccountHealth(
+      mockAccount(),
+      mockSnapshot({
+        healthScore: 85,
+        healthBand: 'healthy',
+        signals: ['MISSING_FIRST_ACTION'],
+      }),
+    );
+    const value = quantifyAccountValue(audit);
+    const finding = findExpansionMotion(audit, value);
+    expect(finding.advisoryType).toBe('ONBOARDING');
+    expect(finding.expansionEligible).toBe(false);
+    expect(finding.corpusPlayIds).toContain('design_partner_path_b_onboarding');
+  });
+});
+
+describe('advisoryGatekeeper', () => {
+  it('ONBOARDING draft includes Operator Packet, partner index, and get-started', async () => {
+    const audit = auditAccountHealth(
+      mockAccount(),
+      mockSnapshot({
+        healthScore: 40,
+        healthBand: 'watch',
+        signals: ['MISSING_FIRST_ACTION'],
+      }),
+    );
+    const value = quantifyAccountValue(audit);
+    const finding = findExpansionMotion(audit, value);
+    const draft = await composeAdvisoryDraft(audit, value, finding);
+    expect(draft.advisoryType).toBe('ONBOARDING');
+    expect(draft.body).toContain('/docs/user-manuals/design-partner-operator-packet');
+    expect(draft.body).toContain('/docs/training/LEVEL1-PARTNER-INDEX');
+    expect(draft.body).toContain('/get-started');
+    expect(draft.body).not.toMatch(/Approvals Console.*training/i);
   });
 });

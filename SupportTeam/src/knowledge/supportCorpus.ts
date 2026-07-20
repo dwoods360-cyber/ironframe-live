@@ -1,3 +1,5 @@
+import { formatPathBUsd } from '../../../lib/ironframeProductKnowledge/commercial.js';
+
 export type SupportPlayEntry = {
   id: string;
   title: string;
@@ -37,7 +39,7 @@ export const SUPPORT_KNOWLEDGE_CORPUS: Record<string, SupportPlayEntry> = {
     triggers: ['billing', 'stripe', 'hold', 'subscription', 'path b', 'pathb', 'pending'],
     resolutionSteps: [
       'Check /account/billing-hold for tenant billing state.',
-      'Design partners on Path B: confirm they used the tenant-scoped activation link — not generic /pricing.',
+      `Design partners on Path B (${formatPathBUsd()}): confirm they used the tenant-scoped activation link — not generic /pricing.`,
       'Verify Stripe webhook delivery in operator logs.',
       'Escalate to GLOBAL_ADMIN if hold persists after successful payment.',
       'Do not upsell or rewrite sales copy — queue SuccessTeam only after ACTIVE.',
@@ -53,6 +55,7 @@ export const SUPPORT_KNOWLEDGE_CORPUS: Record<string, SupportPlayEntry> = {
       'Point partner to /docs/user-manuals/design-partner-operator-packet after billing ACTIVE.',
       'If still PENDING, escalate to operator for Path B link — Support does not mint checkouts.',
       'Login/session issues: follow auth-session-drift play; avoid sales-demo language.',
+      'Product facts spine: lib/ironframeProductKnowledge — Support does not invent packaging.',
     ],
   },
   'routine-docs': {

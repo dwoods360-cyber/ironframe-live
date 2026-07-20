@@ -73,6 +73,12 @@ describe("operationsApiRedaction", () => {
           },
         ],
       },
+      schedule: {
+        activities: [],
+        dueSoonCount: 0,
+        overdueCount: 0,
+        openCount: 0,
+      },
       workforce: [
         {
           id: "ironboard",

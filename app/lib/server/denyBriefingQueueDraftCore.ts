@@ -11,6 +11,7 @@ import {
   BRIEFING_QUEUE_DIR,
   resolveDocsRoot,
 } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
+import { clearBriefingQueueHold } from "@/app/lib/server/holdBriefingQueueDraftCore";
 import prisma from "@/lib/prisma";
 
 export type DenyBriefingQueueDraftResult =
@@ -52,6 +53,8 @@ export async function denyBriefingQueueDraftCore(input: {
       "denied_by" = EXCLUDED."denied_by",
       "reason" = EXCLUDED."reason"
   `;
+
+  await clearBriefingQueueHold(filename);
 
   const docsRoot = resolveDocsRoot();
   const absolutePath = path.join(docsRoot, BRIEFING_QUEUE_DIR, filename);

@@ -1184,6 +1184,26 @@ enum NotificationChannelType {
   WEBHOOK
 }
 
+/// Ops Hub editorial / operations schedule — due-dated work with T-3/T-2/T-1 reminders.
+enum OpsActivityKind {
+  BRIEFING_OUTLINE
+  BRIEFING_DRAFT
+  BRIEFING_REVIEW
+  NEWSLETTER_DRAFT
+  NEWSLETTER_REVIEW
+  NEWSLETTER_SYNDICATE
+  RESEARCH_PAPER
+  OPS_GENERAL
+}
+
+enum OpsActivityStatus {
+  PLANNED
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
 enum SyntheticEmployeeStatus {
   PROTECTED
   BREACHED
@@ -1590,6 +1610,48 @@ model BriefingQueueDenial {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("briefing_queue_denials")
+}
+
+/// Ops Hub hold desk — operator parked a draft for later reading (neither approve nor deny).
+model BriefingQueueHold {
+  filename  String   @id
+  note      String?  @db.Text
+  heldBy    String   @map("held_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("briefing_queue_holds")
+}
+
+/// Ops Hub Schedule — due-dated editorial/ops activities with idempotent T-3/T-2/T-1 reminder ledger.
+model OpsActivity {
+  id            String            @id @default(cuid())
+  title         String
+  kind          OpsActivityKind
+  status        OpsActivityStatus @default(PLANNED)
+  dueAt         DateTime          @map("due_at")
+  ownerLabel    String            @default("Ops") @map("owner_label")
+  /// Global calendar priority rank (1 = highest). Drives P1/P2… badges.
+  priority      Int               @default(50)
+  /// Queue filename, publish slug, or other stable locator.
+  sourceRef     String?           @map("source_ref")
+  /// Clickable destination for the calendar card (app path or https URL).
+  href          String?
+  notes         String?           @db.Text
+  /// What was completed / denied / cancelled — required for DONE/CANCELLED review.
+  outcome       String?           @db.Text
+  /// Newline-separated checklist of what still needs to be done (open items).
+  nextActions   String?           @map("next_actions") @db.Text
+  /// Idempotent reminder ledger: { "t3"?: iso, "t2"?: iso, "t1"?: iso, "t0"?: iso }
+  remindersSent Json              @default("{}") @map("reminders_sent")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  completedAt   DateTime?         @map("completed_at")
+
+  @@index([dueAt, status])
+  @@index([sourceRef])
+  @@index([status])
+  @@index([priority])
+  @@map("ops_activities")
 }
 
 /// In-app documentation corpus (APP_DOCS plane) — Level 1, Level 2, and training markdown streams.

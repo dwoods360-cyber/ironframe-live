@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 
 import type { IronleadsIngressPayload } from "@/app/lib/ingress/ironleadsIngressSchema";
 import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
+import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   classifyVulnerability,
   computeQualificationScores,
@@ -15,6 +16,23 @@ import {
   type TriggerSignal,
 } from "@/lib/crm/leadPrioritization";
 import prisma from "@/lib/prisma";
+
+function mergeWebsiteIntoMetadata(
+  existing: unknown,
+  accountDomain: string | null,
+): Prisma.InputJsonValue {
+  const base =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+  const websiteUrl = websiteUrlFromDomainOrUrl(
+    typeof base.websiteUrl === "string" ? base.websiteUrl : accountDomain,
+  );
+  if (websiteUrl) {
+    base.websiteUrl = websiteUrl;
+  }
+  return base as Prisma.InputJsonValue;
+}
 
 export type IronleadsIngressResult = {
   tenantId: string;
@@ -159,6 +177,7 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
           priorityScore: Math.max(existingContact.priorityScore, priorityScore),
           qualificationSignals: qualification as unknown as Prisma.InputJsonValue,
           ingestionSource: "AUTONOMOUS_CRAWLER",
+          metadata: mergeWebsiteIntoMetadata(existingContact.metadata, accountDomain),
         },
       });
 
@@ -212,6 +231,7 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
         ingestionSource: "AUTONOMOUS_CRAWLER",
         priorityScore,
         qualificationSignals: qualification as unknown as Prisma.InputJsonValue,
+        metadata: mergeWebsiteIntoMetadata({}, accountDomain),
       },
     });
 

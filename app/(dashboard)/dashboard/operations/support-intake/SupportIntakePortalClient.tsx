@@ -99,10 +99,10 @@ export default function SupportIntakePortalClient() {
               ← Operations hub
             </Link>
             <Link
-              href="/dashboard/admin/approvals"
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+              href="/dashboard/admin/approvals?kind=SUPPORT"
+              className="rounded-lg border border-emerald-800/50 bg-emerald-950/30 px-4 py-2 text-sm text-emerald-200 hover:border-emerald-600"
             >
-              SUPPORT approvals ({snapshot?.approvalQueueDepth ?? "…"})
+              Support reply queue ({snapshot?.approvalQueueDepth ?? "…"})
             </Link>
             <button
               type="button"

@@ -30,8 +30,27 @@ export async function POST(request: NextRequest) {
   });
 
   if (!result.ok) {
-    return NextResponse.json(result, { status: 400 });
+    const issueText =
+      result.issues
+        ?.filter((issue) => issue.severity === "error")
+        .map((issue) => `${issue.code}: ${issue.message}`)
+        .join(" · ") ?? "";
+    return NextResponse.json(
+      {
+        ...result,
+        error: [result.error, issueText].filter(Boolean).join(" — "),
+      },
+      { status: 400 },
+    );
   }
 
-  return NextResponse.json(result, { status: 201 });
+  return NextResponse.json(
+    {
+      ...result,
+      message: `Approved & promoted to /governance-frame/${result.slug}${
+        result.removedFromQueue ? "" : " (queue file still on disk — remove manually if needed)"
+      }`,
+    },
+    { status: 201 },
+  );
 }

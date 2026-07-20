@@ -19,6 +19,7 @@ import {
   collapseSuspectRowsByCompany,
   purgeDuplicateSuspectContacts,
 } from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   BRIEFING_QUEUE_DIR,
   PUBLISHED_BRIEFINGS_DIR,
@@ -35,6 +36,10 @@ import { parseTitleFromMarkdown } from "@/app/lib/governanceFrame/briefingMarkdo
 import { syndicatePublishedBriefing } from "@/app/lib/governanceFrame/publishBriefingSyndication";
 import { IRONBOARD_OPERATIONS_PORTAL_PATH } from "@/app/lib/ironboardConsolePaths";
 import { listDeniedBriefingFilenames } from "@/app/lib/server/denyBriefingQueueDraftCore";
+import {
+  buildOpsScheduleSnapshot,
+  type OpsScheduleSnapshot,
+} from "@/app/lib/server/opsScheduleCore";
 import { readDeskReview, type DeskReviewChecklist } from "@/lib/governanceFrame/publicationDesk";
 import prisma from "@/lib/prisma";
 
@@ -106,6 +111,8 @@ export type OperationsHubSnapshot = {
       company: string;
       priorityScore: number;
       detectedTrigger: string | null;
+      websiteUrl: string | null;
+      addressLine: string | null;
       createdAt: string;
     }>;
   };
@@ -125,6 +132,8 @@ export type OperationsHubSnapshot = {
     pendingSyndicationCount: number;
     editions: NewsletterEditionSummary[];
   };
+  /** Due-dated editorial/ops activities with T-3/T-2/T-1 reminder ledger. */
+  schedule: OpsScheduleSnapshot;
   workforce: WorkforceServiceStatus[];
   quickLinks: Array<{ label: string; href: string; external?: boolean }>;
 };
@@ -338,7 +347,14 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
           company: true,
           priorityScore: true,
           detectedTrigger: true,
+          metadata: true,
           createdAt: true,
+          primaryDeals: {
+            where: { stage: "SUSPECT" },
+            orderBy: { updatedAt: "desc" },
+            take: 1,
+            select: { accountDomain: true },
+          },
         },
       }),
       prisma.publishedBriefing.findMany({
@@ -422,6 +438,17 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     tenantId: row.tenantId,
   }));
   const newsletters = buildNewslettersSnapshot(publishedBriefings, docsRoot);
+  let schedule: OpsScheduleSnapshot = {
+    activities: [],
+    dueSoonCount: 0,
+    overdueCount: 0,
+    openCount: 0,
+  };
+  try {
+    schedule = await buildOpsScheduleSnapshot();
+  } catch (err) {
+    console.warn("[operations-hub] schedule snapshot unavailable", err);
+  }
   const recentSuspects = collapseSuspectRowsByCompany(recentSuspectsRaw).slice(0, 8);
 
   const portalUrls: Record<WorkforceServiceId, string | null> = {
@@ -447,22 +474,32 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
       totalDeals,
       totalContacts: contactCount,
       byStage,
-      recentSuspects: recentSuspects.map((row) => ({
-        id: row.id,
-        company: row.company,
-        priorityScore: row.priorityScore,
-        detectedTrigger: row.detectedTrigger,
-        createdAt: row.createdAt.toISOString(),
-      })),
+      recentSuspects: recentSuspects.map((row) => {
+        const location = resolveSuspectLocationFields({
+          metadata: row.metadata,
+          accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
+        });
+        return {
+          id: row.id,
+          company: row.company,
+          priorityScore: row.priorityScore,
+          detectedTrigger: row.detectedTrigger,
+          websiteUrl: location.websiteUrl,
+          addressLine: location.addressLine,
+          createdAt: row.createdAt.toISOString(),
+        };
+      }),
     },
     briefings: {
       queueDrafts,
       published: publishedBriefings,
     },
     newsletters,
+    schedule,
     workforce: workforceWithPortals,
     quickLinks: [
       { label: "Operations hub", href: "/dashboard/operations" },
+      { label: "Ops Calendar", href: "/dashboard/operations?tab=calendar" },
       { label: "Ironboard console", href: IRONBOARD_OPERATIONS_PORTAL_PATH },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
       { label: "Support intake console", href: "/dashboard/operations/support-intake" },

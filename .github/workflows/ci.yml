@@ -71,6 +71,11 @@ jobs:
             echo "GOOGLE_API_KEY=${{ env.GOOGLE_API_KEY }}"
           } > .env.local
 
+      - name: Verify Product Knowledge Integrity
+        run: |
+          npm run knowledge:check
+          npm run test:product-knowledge
+
       - name: Bootstrap ephemeral Postgres schema
         env:
           PGPASSWORD: postgres_password

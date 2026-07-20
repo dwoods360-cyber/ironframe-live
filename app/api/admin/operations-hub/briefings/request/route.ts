@@ -12,17 +12,17 @@ const DEFAULT_SERIES_TITLE =
 
 const DEFAULT_ERAS = [
   {
-    filename: "2026-07-14-draft-market-grc-2000-2008.md",
+    filename: "2026-01-15-draft-market-grc-2000-2008.md",
     eraLabel: "Part 1 — Checklist foundations",
     yearRange: "2000–2008",
   },
   {
-    filename: "2026-07-14-draft-market-grc-2009-2018.md",
+    filename: "2026-02-12-draft-market-grc-2009-2018.md",
     eraLabel: "Part 2 — Cloud migration and the checklist industrial complex",
     yearRange: "2009–2018",
   },
   {
-    filename: "2026-07-14-draft-market-grc-2019-today.md",
+    filename: "2026-03-12-draft-market-grc-2019-today.md",
     eraLabel: "Part 3 — Quantitative GRC and agentic enforcement",
     yearRange: "2019–today",
   },

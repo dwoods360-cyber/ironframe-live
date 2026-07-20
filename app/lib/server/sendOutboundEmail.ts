@@ -2,8 +2,8 @@ import "server-only";
 
 import { Resend } from "resend";
 
-const DEFAULT_FROM_EMAIL = "delivery@ironframegrc.com";
-const DEFAULT_FROM_NAME = "Ironframe Delivery";
+const DEFAULT_FROM_EMAIL = "partners@ironframegrc.com";
+const DEFAULT_FROM_NAME = "Ironframe Partners";
 
 export type OutboundEmailPayload = {
   to: string[];
@@ -20,13 +20,15 @@ export type SendOutboundEmailResult = {
   error?: string;
 };
 
+/** HITL DISPATCH / sales outreach From — not invite mail (see WORKSPACE_INVITE_FROM_EMAIL). */
 function resolveFromAddress(): string {
   const name =
-    process.env.WORKSPACE_INVITE_FROM_NAME?.trim() ||
+    process.env.SALES_FROM_NAME?.trim() ||
     process.env.IRONCAST_FROM_NAME?.trim() ||
     DEFAULT_FROM_NAME;
   const email =
-    process.env.WORKSPACE_INVITE_FROM_EMAIL?.trim() ||
+    process.env.SALES_FROM_EMAIL?.trim() ||
+    process.env.PARTNERS_FROM_EMAIL?.trim() ||
     process.env.IRONCAST_FROM_EMAIL?.trim() ||
     DEFAULT_FROM_EMAIL;
   return `${name} <${email}>`;

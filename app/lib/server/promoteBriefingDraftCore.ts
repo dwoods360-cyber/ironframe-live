@@ -24,6 +24,7 @@ import {
   removePublishedFilesystemMirror,
   syndicatePublishedBriefing,
 } from "@/app/lib/governanceFrame/publishBriefingSyndication";
+import { clearBriefingQueueHold } from "@/app/lib/server/holdBriefingQueueDraftCore";
 import prisma from "@/lib/prisma";
 
 const TENANT_UUID_PATTERN =
@@ -45,12 +46,24 @@ export type PromoteBriefingDraftResult =
       mirrorPath?: string;
       rssPath?: string;
       newsletterHtmlPath?: string | null;
+      removedFromQueue: boolean;
     }
   | {
       ok: false;
       error: string;
+      hint?: string;
       issues?: BriefingDraftValidationIssue[];
     };
+
+function removeQueueDraftBestEffort(queuePath: string): boolean {
+  if (!fs.existsSync(queuePath)) return false;
+  try {
+    fs.unlinkSync(queuePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function promoteBriefingDraftCore(
   input: PromoteBriefingDraftInput,
@@ -86,6 +99,7 @@ export async function promoteBriefingDraftCore(
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Briefing data-test acknowledgement required.",
+      hint: "Set IRONFRAME_BRIEFING_DATA_TEST_ACK=1 in local Core .env and restart the Next.js server, then Approve again.",
     };
   }
 
@@ -139,8 +153,11 @@ export async function promoteBriefingDraftCore(
     },
   });
 
+  await clearBriefingQueueHold(file);
+
   if (input.skipSyndication) {
-    return { ok: true, publishedBriefingId: record.id, slug };
+    const removedFromQueue = removeQueueDraftBestEffort(queuePath);
+    return { ok: true, publishedBriefingId: record.id, slug, removedFromQueue };
   }
 
   try {
@@ -158,6 +175,7 @@ export async function promoteBriefingDraftCore(
       docsRoot,
     );
     const syndication = syndicatePublishedBriefing(slug, docsRoot);
+    const removedFromQueue = removeQueueDraftBestEffort(queuePath);
     return {
       ok: true,
       publishedBriefingId: record.id,
@@ -165,6 +183,7 @@ export async function promoteBriefingDraftCore(
       mirrorPath,
       rssPath: syndication.rssPath,
       newsletterHtmlPath: syndication.newsletterHtmlPath ?? null,
+      removedFromQueue,
     };
   } catch (err) {
     removePublishedFilesystemMirror(slug, docsRoot);
@@ -174,6 +193,7 @@ export async function promoteBriefingDraftCore(
         err instanceof Error
           ? `Syndication failed (DB record retained): ${err.message}`
           : "Syndication failed (DB record retained).",
+      hint: "Fix syndication, then re-Approve — or delete the published slug and retry.",
     };
   }
 }

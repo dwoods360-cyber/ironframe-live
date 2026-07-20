@@ -54,7 +54,7 @@ export const AUTONOMOUS_GTM_TOPICS: readonly AutonomousGtmTopic[] = [
     id: "design-partner-cohort",
     briefingTitle: "Paid design partners beat free pilots",
     briefingPrompt:
-      "Autonomous weekly briefing: why a small paid Path B co-builder cohort ($4,999, 60–90 days, 2–3 success criteria) produces referenceable outcomes while free pilots rarely log in. Quarantine draft only.",
+      "Autonomous weekly briefing: why a small paid Path B co-builder cohort ($4,999, 90-day window, 2–3 success criteria) produces referenceable outcomes while free pilots rarely log in. Quarantine draft only.",
     briefingEraLabel: "Design-partner commercial posture",
     briefingYearRange: "2025–2026",
     newsletterTitle: "Ironcast — co-builder seats, not free betas",
@@ -237,6 +237,17 @@ export async function runAutonomousGtmBriefingQueue(
     });
     staged.push(...newsletter.staged.map((row) => row.filename));
     failed.push(...newsletter.failed);
+  }
+
+  if (staged.length > 0) {
+    const { ensureQueueReviewActivity } = await import("@/app/lib/server/opsScheduleCore");
+    await Promise.all(
+      staged.map((filename) =>
+        ensureQueueReviewActivity({ filename }).catch((err) => {
+          console.warn("[gtm-briefing-queue] schedule activity skipped", filename, err);
+        }),
+      ),
+    );
   }
 
   const artifact = await prisma.cronJobArtifact.create({

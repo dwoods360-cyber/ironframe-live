@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Agent Messaging Approvals | Ironframe Admin",
-  description: "Human-in-the-loop gatekeeper queue for customer service draft dispatch.",
+  description:
+    "HITL gatekeeper for Sales outreach, Support replies, and Customer Success advisories — one desk, three tracks.",
 };
 
 export default async function AdminApprovalsPage() {

@@ -33,6 +33,11 @@ export type PendingApprovalDraft = {
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
+  // Purged rows archive the original body (which still contains PENDING tags) —
+  // treat soft-archived drafts as non-pending so Approvals does not re-list them.
+  if (summary.includes(PURGED_DRAFT_TAG) || summary.startsWith("[PURGED DRAFT]")) {
+    return false;
+  }
   return PENDING_DRAFT_TAGS.some((tag) => summary.includes(tag));
 }
 
@@ -131,6 +136,12 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
   const rows = await prisma.ironboardCrmInteraction.findMany({
     where: {
       OR: PENDING_DRAFT_TAGS.map((tag) => ({ summary: { contains: tag } })),
+      NOT: {
+        OR: [
+          { summary: { contains: PURGED_DRAFT_TAG } },
+          { summary: { startsWith: "[PURGED DRAFT]" } },
+        ],
+      },
       contactId: { not: null },
     },
     orderBy: { occurredAt: "desc" },

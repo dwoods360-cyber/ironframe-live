@@ -81,7 +81,10 @@ export default function SuccessTeamPortalClient() {
             <h1 className="text-2xl font-bold text-white">Customer success interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
               Monitor post-sale account health, trigger advisory poll cycles, and route drafts to the
-              CUSTOMER_SUCCESS approval queue. CRM scope is server-resolved — not tenant-selectable.
+              CUSTOMER_SUCCESS approval queue. Partner learning lives on Core{" "}
+              <code className="text-slate-300">/docs</code> +{" "}
+              <code className="text-slate-300">/get-started</code> — Approvals is HITL send only. CRM
+              scope is server-resolved — not tenant-selectable.
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-2">
@@ -142,10 +145,10 @@ export default function SuccessTeamPortalClient() {
                   <span className="text-slate-200">{snapshot.worker.status ?? "—"}</span>
                 </p>
                 <Link
-                  href="/dashboard/admin/approvals"
-                  className="text-cyan-300 hover:underline"
+                  href="/dashboard/admin/approvals?kind=CUSTOMER_SUCCESS"
+                  className="text-violet-300 hover:underline"
                 >
-                  Review CS approval queue →
+                  Customer success advisory queue →
                 </Link>
               </div>
             </section>

@@ -9,6 +9,7 @@ import {
   collapseSuspectRowsByCompany,
   purgeDuplicateSuspectContacts,
 } from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   getSuccessTeamHealthSnapshot,
   listSuccessTeamAccounts,
@@ -38,6 +39,8 @@ export type IronleadsPortalSnapshot = {
     company: string;
     priorityScore: number;
     detectedTrigger: string | null;
+    websiteUrl: string | null;
+    addressLine: string | null;
     createdAt: string;
   }>;
 };
@@ -101,7 +104,14 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       company: true,
       priorityScore: true,
       detectedTrigger: true,
+      metadata: true,
       createdAt: true,
+      primaryDeals: {
+        where: { stage: "SUSPECT" },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+        select: { accountDomain: true },
+      },
     },
   });
 
@@ -110,13 +120,21 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   return {
     generatedAt: new Date().toISOString(),
     worker: { reachable, healthUrl, status, pipeline },
-    suspects: suspects.map((row) => ({
-      id: row.id,
-      company: row.company,
-      priorityScore: row.priorityScore,
-      detectedTrigger: row.detectedTrigger,
-      createdAt: row.createdAt.toISOString(),
-    })),
+    suspects: suspects.map((row) => {
+      const location = resolveSuspectLocationFields({
+        metadata: row.metadata,
+        accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
+      });
+      return {
+        id: row.id,
+        company: row.company,
+        priorityScore: row.priorityScore,
+        detectedTrigger: row.detectedTrigger,
+        websiteUrl: location.websiteUrl,
+        addressLine: location.addressLine,
+        createdAt: row.createdAt.toISOString(),
+      };
+    }),
   };
 }
 

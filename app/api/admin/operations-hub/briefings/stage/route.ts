@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { ensureQueueReviewActivity } from "@/app/lib/server/opsScheduleCore";
 import {
   stageBriefingQueueDraftBatch,
   stageBriefingQueueDraftCore,
@@ -38,6 +39,15 @@ export async function POST(request: NextRequest) {
         overwrite: draft.overwrite === true || body.overwrite === true,
       })),
     );
+    if (result.ok) {
+      await Promise.all(
+        result.staged.map((draft) =>
+          ensureQueueReviewActivity({ filename: draft.filename }).catch((err) => {
+            console.warn("[briefings/stage] schedule activity skipped", draft.filename, err);
+          }),
+        ),
+      );
+    }
     return NextResponse.json(
       {
         ...result,
@@ -60,6 +70,10 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json(result, { status: 400 });
   }
+
+  await ensureQueueReviewActivity({ filename: result.filename }).catch((err) => {
+    console.warn("[briefings/stage] schedule activity skipped", result.filename, err);
+  });
 
   return NextResponse.json(
     {

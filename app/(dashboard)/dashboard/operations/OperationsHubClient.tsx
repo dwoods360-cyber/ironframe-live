@@ -872,10 +872,16 @@ export default function OperationsHubClient() {
                 SalesTeam portal
               </Link>
               <Link
+                href="/dashboard/operations/library"
+                className="rounded-lg border border-teal-800/50 bg-teal-950/30 px-4 py-2 text-sm text-teal-100 hover:border-teal-500"
+              >
+                Operator library
+              </Link>
+              <Link
                 href="/operator/workflow-review-protocol.html"
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-teal-800/50 bg-teal-950/30 px-4 py-2 text-sm text-teal-100 hover:border-teal-500"
+                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-teal-200 hover:border-teal-600"
               >
                 Workflow review talk track
               </Link>
@@ -1852,6 +1858,30 @@ export default function OperationsHubClient() {
                     CS
                   </Link>
                   <p className="text-slate-500">Support, Sales, and Customer Success draft dispatch.</p>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/operations/library"
+                    className="text-cyan-300 hover:underline"
+                  >
+                    Operator library
+                  </Link>
+                  <p className="text-slate-500">
+                    Directory of playbooks (pre-outreach run order, offer sheet, battlecards) and Ops
+                    tools.
+                  </p>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/operations/workflow-review"
+                    className="text-cyan-300 hover:underline"
+                  >
+                    Workflow review call assist
+                  </Link>
+                  <p className="text-slate-500">
+                    Mic LIVE in-call + Teams Graph connect/create/poll transcript, live Q&A sidecar,
+                    buying signs for Path B close.
+                  </p>
                 </li>
                 <li>
                   <Link href="/dashboard/operations/support-intake" className="text-cyan-300 hover:underline">

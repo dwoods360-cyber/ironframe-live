@@ -10,6 +10,7 @@ export default function IronleadsPortalClient() {
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [harvestBusy, setHarvestBusy] = useState(false);
+  const [researchBusy, setResearchBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +37,7 @@ export default function IronleadsPortalClient() {
   }, [loadSnapshot]);
 
   const runHarvest = async () => {
-    if (harvestBusy) return;
+    if (harvestBusy || researchBusy) return;
     setHarvestBusy(true);
     setMessage(null);
     setError(null);
@@ -62,6 +63,43 @@ export default function IronleadsPortalClient() {
     }
   };
 
+  const runBuyingCommitteeResearch = async () => {
+    if (harvestBusy || researchBusy) return;
+    setResearchBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        snapshot?: IronleadsPortalSnapshot;
+        research?: {
+          total: number;
+          researched: number;
+          skipped: number;
+        };
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "research_buying_committee" }),
+        },
+        "Buying-committee research failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const research = data.research;
+      setMessage(
+        research
+          ? `Buying-committee research done — ${research.researched}/${research.total} researched, ${research.skipped} skipped. Open each Why SUSPECT report for CEO/CFO/CISO + candidate emails/phones.`
+          : "Buying-committee research completed.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Buying-committee research failed.");
+    } finally {
+      setResearchBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -72,8 +110,8 @@ export default function IronleadsPortalClient() {
             </p>
             <h1 className="text-2xl font-bold text-white">Lead generation interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Trigger OSINT harvest cycles, monitor the LangGraph pipeline, and review SUSPECT-stage
-              contacts ingested into Ironboard CRM.
+              Trigger OSINT harvest cycles, research buying committee (CEO / CFO / CISO), and review
+              SUSPECT-stage contacts ingested into Ironboard CRM.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -92,7 +130,15 @@ export default function IronleadsPortalClient() {
             </button>
             <button
               type="button"
-              disabled={harvestBusy}
+              disabled={harvestBusy || researchBusy}
+              onClick={() => void runBuyingCommitteeResearch()}
+              className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/50 disabled:opacity-50"
+            >
+              {researchBusy ? "Researching…" : "Research buying committee"}
+            </button>
+            <button
+              type="button"
+              disabled={harvestBusy || researchBusy}
               onClick={() => void runHarvest()}
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
             >
@@ -158,11 +204,37 @@ export default function IronleadsPortalClient() {
                       key={row.id}
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm"
                     >
-                      <span className="font-medium text-slate-100">{row.company}</span>
-                      <span className="font-mono text-xs text-slate-400">
-                        score {row.priorityScore}
-                        {row.detectedTrigger ? ` · ${row.detectedTrigger}` : ""}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="font-medium text-slate-100">{row.company}</span>
+                        <div className="mt-0.5 font-mono text-xs text-slate-400">
+                          score {row.priorityScore}
+                          {row.detectedTrigger ? ` · ${row.detectedTrigger}` : ""}
+                        </div>
+                        <div className="mt-1 space-y-0.5 text-xs text-slate-500">
+                          <div>
+                            Website:{" "}
+                            {row.websiteUrl ? (
+                              <a
+                                href={row.websiteUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-cyan-300/90 hover:underline"
+                              >
+                                {row.websiteUrl}
+                              </a>
+                            ) : (
+                              "—"
+                            )}
+                          </div>
+                          <div>Address: {row.addressLine ?? "—"}</div>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/dashboard/operations/ironleads/suspects/${row.id}`}
+                        className="shrink-0 text-xs text-cyan-300 hover:underline"
+                      >
+                        Why SUSPECT →
+                      </Link>
                     </li>
                   ))
                 )}

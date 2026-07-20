@@ -68,4 +68,16 @@ describe("approvalQueueCore", () => {
     expect(DISPATCHED_DRAFT_TAG).toBe("[DISPATCHED SUPPORT COURIER]");
     expect(DISPATCHED_SALES_DRAFT_TAG).toBe("[DISPATCHED SALES COURIER]");
   });
+
+  it("treats purged drafts as non-pending even when discarded copy retains PENDING tags", () => {
+    const summary = [
+      "[PURGED DRAFT] This automated strategy suggestion was discarded by an operator.",
+      "--- Discarded Copy Text ---",
+      "[PENDING SALES DRAFT APPROVAL] Ironframe platform assessment — Acme Financial",
+      "--- Agent Proposed Reply Text ---",
+      "Discarded body.",
+    ].join("\n");
+
+    expect(isPendingDraftSummary(summary)).toBe(false);
+  });
 });

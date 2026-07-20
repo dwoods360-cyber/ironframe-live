@@ -90,13 +90,20 @@ export function validateOutboundContentQuality(body: string): {
   if (/\$0\.00/.test(body) && /loss exposure/i.test(body)) {
     violations.push('modeled $0.00 loss exposure in outbound body');
   }
-  if (/_[A-Z0-9]+_/.test(body) || /\b[A-Z]{3,}(?:_[A-Z0-9]+)+\b/.test(body)) {
-    // SCREAMING_SNAKE tokens (e.g. COMPLIANCE_JOB_POST) left unsubstituted
-    const matches = body.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g) || [];
-    for (const m of matches) {
-      if (!['PATH_B', 'HITL'].includes(m)) {
-        violations.push(`unsubstituted trigger token: ${m}`);
-      }
+  // SCREAMING_SNAKE tokens (e.g. COMPLIANCE_JOB_POST) left unsubstituted in customer copy.
+  // Allowlist beachhead sector labels that may appear in operator-only prospect context footers.
+  const allowSnake = new Set([
+    "PATH_B",
+    "HITL",
+    "REGIONAL_BHC",
+    "UTILITY_NERC",
+    "MSSP_ENCLAVE",
+    "HEALTH_HIPAA",
+  ]);
+  const matches = body.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/g) || [];
+  for (const m of matches) {
+    if (!allowSnake.has(m)) {
+      violations.push(`unsubstituted trigger token: ${m}`);
     }
   }
 

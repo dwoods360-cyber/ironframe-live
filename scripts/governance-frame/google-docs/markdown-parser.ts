@@ -188,14 +188,28 @@ export function parseGovernanceMarkdown(
     }
 
     if (/^```/.test(trimmed)) {
+      flushLists();
+      const codeLines: string[] = [];
+      i += 1;
+      while (i < lines.length && !/^```/.test((lines[i] ?? "").trim())) {
+        codeLines.push(lines[i] ?? "");
+        i += 1;
+      }
+      if (i < lines.length) i += 1; // closing fence
       unsupported.push({
         file,
         line: lineNo,
-        detail: "Fenced code blocks are not supported for Google Docs sync.",
+        detail:
+          "Fenced code block rendered as plain monospace paragraphs (no language styling).",
       });
-      i += 1;
-      while (i < lines.length && !/^```/.test((lines[i] ?? "").trim())) i += 1;
-      i += 1;
+      const codeText = codeLines.join("\n").trimEnd();
+      if (codeText) {
+        blocks.push({
+          type: "paragraph",
+          spans: [{ text: codeText }],
+          line: lineNo,
+        });
+      }
       continue;
     }
 
@@ -304,11 +318,30 @@ export function parseGovernanceMarkdown(
     }
 
     flushLists();
+
+    // Metadata-style field lines and Markdown hard breaks (two trailing spaces)
+    // must remain separate paragraphs — never join into one crowded line.
+    const isFieldLine = (s: string) =>
+      /^\*\*(Version|Status|Classification|Publisher|Research ID):\*\*/i.test(s) ||
+      /^(Version|Status|Classification|Publisher|Research ID):/i.test(s);
+    const hardBreak = / {2}$/.test(line);
+
+    if (isFieldLine(trimmed) || hardBreak) {
+      blocks.push({
+        type: "paragraph",
+        spans: parseInline(trimmed, file, lineNo, unsupported),
+        line: lineNo,
+      });
+      i += 1;
+      continue;
+    }
+
     // Collect paragraph until blank line
     const paraLines: string[] = [trimmed];
     i += 1;
     while (i < lines.length) {
-      const next = (lines[i] ?? "").trim();
+      const rawNext = lines[i] ?? "";
+      const next = rawNext.trim();
       if (!next) break;
       if (
         next.startsWith("#") ||
@@ -317,6 +350,8 @@ export function parseGovernanceMarkdown(
         /^\d+\.\s+/.test(next) ||
         PAGE_BREAK.test(next) ||
         /^```/.test(next) ||
+        isFieldLine(next) ||
+        / {2}$/.test(rawNext) ||
         (next.includes("|") && /^\|?[\s:-|]+\|?$/.test((lines[i + 1] ?? "").trim()))
       ) {
         break;
@@ -335,9 +370,7 @@ export function parseGovernanceMarkdown(
 
   // Hard failures that would cause content loss
   const fatal = unsupported.filter((u) =>
-    /images are not supported|Fenced code blocks are not supported for Google Docs sync|Malformed Markdown table/.test(
-      u.detail,
-    ),
+    /images are not supported|Malformed Markdown table/.test(u.detail),
   );
   if (fatal.length > 0) {
     const msg = fatal.map((u) => `${u.file}:${u.line} — ${u.detail}`).join("\n");

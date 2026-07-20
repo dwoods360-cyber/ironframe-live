@@ -2,7 +2,7 @@
 researchId: "GF-2026-001"
 title: "The Evolution of Governance, Risk, and Compliance (GRC)"
 subtitle: "A Historical Analysis of Persistent Pain Points (2002–2026)"
-version: "1.3-draft"
+version: "1.4-draft"
 status: "EDITORIAL_DRAFT"
 classification: "Institutional Governance"
 publisher: "Governance Frame Research"
@@ -122,7 +122,7 @@ The SEC’s 2009 study of Section 404 implementation reported that, among survey
 
 The era’s dominant proof model remained **point-in-time assertion**: evidence that a control was documented and tested as of an assessment date. That model reduced discovery chaos relative to pre-SOX practice but preserved fragility when evidence remained mutable, loosely scoped, or detached from accountable approval.
 
-**Unresolved research question:** Quantitative comparisons of spreadsheet-related ICFR deficiencies across issuer size tiers require systematic meta-analysis beyond this paper’s scope. Practitioner surveys cited here indicate persistence of end-user-computing control gaps but do not establish universal incidence rates [GF001-REF-004][GF001-REF-005].
+**Open research question (verification-closed, not quantified):** Quantitative comparisons of spreadsheet-related ICFR deficiencies across issuer size tiers require systematic meta-analysis beyond this paper’s scope. The cited literature indicates persistence of end-user-computing control gaps but does not establish universal or cross-tier incidence rates [GF001-REF-004][GF001-REF-005]. No rate is asserted here.
 
 ## 2.5 Chapter summary
 
@@ -210,7 +210,7 @@ Across the three eras examined above, distinct tooling generations addressed sym
 
 5. **Unbounded AI assistance** — Assistants that draft control narratives without human-in-the-loop publication gates introduce privilege drift and unattested content [GF001-REF-013].
 
-**Unresolved research question:** Comparative empirical measurement of multi-entity isolation failure rates across GRC platform architectures is beyond this paper’s current evidence base.
+**Open research question (verification-closed, not quantified):** Comparative empirical measurement of multi-entity isolation failure rates across GRC platform architectures is beyond this paper’s current evidence base. No isolation-failure rate is asserted here.
 
 # 6. Historical Lessons
 

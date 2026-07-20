@@ -1,6 +1,8 @@
 # 📋 Independent Student Training Manual & Lab Playbook
 ## Modern Cybersecurity, Data Analytics, and Sustainability Telemetry
 
+> **Classroom Core track:** Start at [`docs/training/student/README.md`](../training/student/README.md) and the [UI lab checklist](../training/student/manuals/ui-lab-checklist.md). Those pages are the student-section handbooks for **Ironframe Core** at 11th-grade reading level. This QA playbook is an instructor-depth supplement (some steps use browser DevTools). It is not a substitute for the student section.
+
 Welcome to your independent online learning track for Ironframe! This handbook acts as your self-paced guide to modern cloud software architecture, Quality Assurance (QA) data testing, and Governance, Risk, and Compliance (GRC).
 
 As an independent tester, your mission is to explore the dashboard layout, click through its interactive features, and verify that the system runs smoothly without data errors or visual glitches.

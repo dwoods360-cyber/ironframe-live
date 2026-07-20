@@ -28,13 +28,19 @@ Each installment package under `CF-GRC-2026-0N/` must include:
 5. `editorial-review-notes.md` — collaborative review notes
 6. `installment-metadata.md` — series position, published slug, lifecycle status
 
-## Operational mirror
+## Operational mirror vs authoritative publish store
 
-Approved public markdown is mirrored at `docs/published-briefings/{slug}.md` for RSS, Governance Frame routes, and Ironcast compile. Repository packages in this directory remain the editorial source of truth.
+- **Authoritative published ledger:** PostgreSQL `published_briefings` (Governance Frame reader).
+- **Filesystem operational mirror:** `docs/published-briefings/{slug}.md` (RSS / Ironcast compile helpers).
+- Repository packages in this directory remain the editorial source of truth for manuscripts and verification ledgers.
+
+**Publication status check (2026-07-16):** Parts 1–3 are **present in `published_briefings`** (not mirror-only). They were operator-promoted (`ops-hub-repair` / Ops Hub operator UUID), not auto-cron published. Classification on mirrors is `Institutional Governance` (public-eligible), not INTERNAL/STAGING.
 
 ## Quarantined Drafts (Ops Hub)
 
-Operator-facing quarantine copies (not promoted by this staging step):
+Quarantine is a **filesystem desk**, not a separate Postgres draft table. Ops Hub lists `docs/briefing-queue/*.md`; hold/deny overlays live in `briefing_queue_holds` / `briefing_queue_denials`.
+
+Operator-facing quarantine copies still on disk (hidden from Approve when the published slug already exists):
 
 | Installment | Quarantined Draft path |
 |---|---|
@@ -42,7 +48,7 @@ Operator-facing quarantine copies (not promoted by this staging step):
 | Part 2 | `docs/briefing-queue/2026-02-12-draft-market-grc-2009-2018.md` |
 | Part 3 | `docs/briefing-queue/2026-03-12-draft-market-grc-2019-today.md` |
 
-Each queue draft sets `status: QUARANTINED_DRAFT`, `publishState: QUARANTINED_AWAITING_OPERATOR`, and `requiresImmediatePromotion: false`.
+Each queue draft sets `status: QUARANTINED_DRAFT`, `publishState: QUARANTINED_AWAITING_OPERATOR`, and `requiresImmediatePromotion: false`. Staging into the queue does **not** by itself promote, expose, or mark approved.
 
 ## Related long-form research
 

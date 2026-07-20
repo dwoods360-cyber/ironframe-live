@@ -2,6 +2,10 @@
 
 Rolling 8-week editorial schedule. Adjust dates and owners per sprint.
 
+**Active video campaign (authoritative):**  
+[When Risk Enters the Room](../marketing-strategy/video-series/when-risk-enters-the-room.md) ·  
+[Marketing Strategy Content Calendar](../marketing-strategy/content-calendar.md)
+
 ## Week 1 — GA proof
 
 | Day | Channel | Asset | Owner |

@@ -13,7 +13,7 @@ This library codifies how Ironframe retains, expands, and proves value for regul
 1. **Outcomes over activity** — success is measured in audit readiness, dollar-denominated risk reduction, and board-ready evidence — not login counts alone.
 2. **Whole-cent economics** — ROI narratives use BigInt cents from CRM and Irontrust ALE; never float-based loss estimates in client-facing advisories.
 3. **Human-in-the-loop** — IronSuccessTeam drafts advisories; operators co-sign before any CISO or board-facing message ships.
-4. **Beachhead tailoring** — Medshield (HIPAA), Vaultbank (BHC), Gridcore (NERC), and MSSP enclaves each have distinct health gates and expansion plays.
+4. **Beachhead tailoring** — `HEALTH_HIPAA`, `REGIONAL_BHC`, `UTILITY_NERC`, and `MSSP_ENCLAVE` each have distinct health gates and expansion plays (never cite demo seed tenant names as customers).
 5. **Land → adopt → expand** — onboarding success precedes upsell; churn risk triggers retention plays before expansion outreach.
 
 ## Authoritative documents

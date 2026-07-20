@@ -13,6 +13,31 @@ import type {
 
 type Docs = docs_v1.Docs;
 
+type ParagraphStyleRange = {
+  start: number;
+  end: number;
+  namedStyleType: string;
+  fontSizePt?: number;
+  spaceAbovePt?: number;
+  spaceBelowPt?: number;
+};
+
+type TextStyleRange = {
+  start: number;
+  end: number;
+  bold?: boolean;
+  italic?: boolean;
+  fontSizePt?: number;
+};
+
+type DocsPayload = {
+  text: string;
+  paragraphStyles: ParagraphStyleRange[];
+  textStyles: TextStyleRange[];
+  tables: Array<{ startIndex: number; headers: string[]; rows: string[][] }>;
+  pageBreaks: number[];
+};
+
 function headingNamedStyle(
   level: 1 | 2 | 3,
 ): "HEADING_1" | "HEADING_2" | "HEADING_3" {
@@ -21,13 +46,41 @@ function headingNamedStyle(
   return "HEADING_3";
 }
 
-function appendSpans(spans: InlineSpan[]): string {
-  return spansToPlainText(spans);
+function humanizeStatus(raw: string): string {
+  return raw
+    .replace(/_/g, " ")
+    .replace(/\bDRAFT\b/gi, "Draft")
+    .replace(/\beditorial\b/gi, "Editorial")
+    .replace(/\b1\.0-draft\b/gi, "1.0 Draft");
+}
+
+function humanizeVersion(raw: string): string {
+  if (/^1\.0-draft$/i.test(raw.trim())) return "1.0 Draft";
+  return raw;
+}
+
+function isBodyCoverDuplicate(block: ContentBlock): boolean {
+  if (block.type === "title" || block.type === "subtitle") return true;
+  if (block.type !== "paragraph") return false;
+  const text = spansToPlainText(block.spans).trim();
+  return (
+    /^Governance Frame Research Paper\b/i.test(text) ||
+    /^Version:/i.test(text) ||
+    /^Status:/i.test(text) ||
+    /^Classification:/i.test(text) ||
+    /^\*\*Version:\*\*/i.test(text)
+  );
+}
+
+function isTocHeading(block: ContentBlock): boolean {
+  return (
+    (block.type === "heading" || block.type === "title") &&
+    /^Table of Contents$/i.test(spansToPlainText(block.spans).trim())
+  );
 }
 
 /**
- * Build plain-text body and style ranges for a Google Docs batchUpdate.
- * Insertion uses end-of-segment index 1 (after the implicit empty paragraph).
+ * Build plain-text body and style ranges for a Google Docs write.
  */
 export function buildDocsPayload(
   parsed: ParsedMarkdownDocument,
@@ -35,36 +88,17 @@ export function buildDocsPayload(
     includeCoverFromFrontmatter?: boolean;
     forcePageBreaksForManuscript?: boolean;
   },
-): {
-  text: string;
-  paragraphStyles: Array<{
-    start: number;
-    end: number;
-    namedStyleType: string;
-  }>;
-  textStyles: Array<{ start: number; end: number; bold?: boolean; italic?: boolean }>;
-  tables: Array<{ startIndex: number; headers: string[]; rows: string[][] }>;
-  pageBreaks: number[];
-} {
-  const fm = parsed.frontmatter;
-  const blocks = [...parsed.blocks];
-
-  if (options?.forcePageBreaksForManuscript) {
-    injectManuscriptPageBreaks(blocks, fm);
+): DocsPayload {
+  if (options?.forcePageBreaksForManuscript || options?.includeCoverFromFrontmatter) {
+    return buildManuscriptPayload(parsed);
   }
+  return buildGenericPayload(parsed);
+}
 
+function createBuffer() {
   let text = "";
-  const paragraphStyles: Array<{
-    start: number;
-    end: number;
-    namedStyleType: string;
-  }> = [];
-  const textStyles: Array<{
-    start: number;
-    end: number;
-    bold?: boolean;
-    italic?: boolean;
-  }> = [];
+  const paragraphStyles: ParagraphStyleRange[] = [];
+  const textStyles: TextStyleRange[] = [];
   const tables: Array<{ startIndex: number; headers: string[]; rows: string[][] }> =
     [];
   const pageBreaks: number[] = [];
@@ -72,207 +106,308 @@ export function buildDocsPayload(
   const pushParagraph = (
     spans: InlineSpan[],
     namedStyleType: string,
-    prefix = "",
-    suffix = "\n",
+    opts?: {
+      prefix?: string;
+      suffix?: string;
+      fontSizePt?: number;
+      spaceAbovePt?: number;
+      spaceBelowPt?: number;
+    },
   ) => {
+    const prefix = opts?.prefix ?? "";
+    const suffix = opts?.suffix ?? "\n";
     const start = text.length;
-    const plain = `${prefix}${appendSpans(spans)}`;
-    // Track inline styles relative to absolute indices in final string.
     let cursor = start + prefix.length;
     for (const span of spans) {
       const spanStart = cursor;
       const spanEnd = cursor + span.text.length;
-      if (span.bold || span.italic) {
+      if (span.bold || span.italic || opts?.fontSizePt) {
         textStyles.push({
           start: spanStart,
           end: spanEnd,
           bold: span.bold,
           italic: span.italic,
+          fontSizePt: opts?.fontSizePt,
         });
       }
       cursor = spanEnd;
     }
-    text += plain + suffix;
-    const end = text.length;
-    paragraphStyles.push({ start, end, namedStyleType });
+    text += `${prefix}${spansToPlainText(spans)}${suffix}`;
+    paragraphStyles.push({
+      start,
+      end: text.length,
+      namedStyleType,
+      fontSizePt: opts?.fontSizePt,
+      spaceAbovePt: opts?.spaceAbovePt,
+      spaceBelowPt: opts?.spaceBelowPt,
+    });
   };
 
-  if (options?.includeCoverFromFrontmatter) {
-    const title =
-      typeof fm.title === "string" && fm.title.trim()
-        ? fm.title.trim()
-        : spansToPlainText(
-            blocks.find((b) => b.type === "title")?.spans ?? [{ text: "Untitled" }],
-          );
-    const subtitle =
-      typeof fm.subtitle === "string" && fm.subtitle.trim()
-        ? fm.subtitle.trim()
-        : spansToPlainText(
-            blocks.find((b) => b.type === "subtitle")?.spans ?? [{ text: "" }],
-          );
-
-    pushParagraph([{ text: title, bold: true }], "TITLE");
-    if (subtitle) {
-      pushParagraph([{ text: subtitle, italic: true }], "SUBTITLE");
-    }
-    pushParagraph(
-      [{ text: `Research ID: ${String(fm.researchId ?? "GF-2026-001")}` }],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [{ text: `Version: ${String(fm.version ?? "")}` }],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [{ text: `Status: ${String(fm.status ?? "")}` }],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [{ text: `Classification: ${String(fm.classification ?? "")}` }],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [{ text: `Publisher: ${String(fm.publisher ?? "Governance Frame Research")}` }],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [
-        {
-          text: `Canonical repository path: ${String(
-            fm.canonicalRepositoryPath ?? "",
-          )}`,
-        },
-      ],
-      "NORMAL_TEXT",
-    );
-    pushParagraph(
-      [{ text: "Internal metadata — Governance Frame collaborative editorial copy." }],
-      "NORMAL_TEXT",
-    );
+  const pushPageBreak = () => {
+    // Record break at current end; do not insert blank spacer paragraphs
+    // that would become empty pages.
     pageBreaks.push(text.length);
-    text += "\n";
+  };
 
-    // Skip duplicate title/subtitle blocks from body when cover was built from FM.
-    // Keep other content.
-  }
-
-  let skipLeadingTitle = Boolean(options?.includeCoverFromFrontmatter);
-  let skipLeadingSubtitle = Boolean(options?.includeCoverFromFrontmatter);
-
-  for (const block of blocks) {
-    if (block.type === "title" && skipLeadingTitle) {
-      skipLeadingTitle = false;
-      continue;
-    }
-    if (block.type === "subtitle" && skipLeadingSubtitle) {
-      skipLeadingSubtitle = false;
-      continue;
-    }
-
-    switch (block.type) {
-      case "title":
-        pushParagraph(block.spans, "TITLE");
-        break;
-      case "subtitle":
-        pushParagraph(block.spans, "SUBTITLE");
-        break;
-      case "heading":
-        pushParagraph(block.spans, headingNamedStyle(block.level));
-        break;
-      case "paragraph":
-        pushParagraph(block.spans, "NORMAL_TEXT");
-        break;
-      case "blockquote":
-        pushParagraph(block.spans, "NORMAL_TEXT", "> ");
-        break;
-      case "unordered_list":
-        for (const item of block.items) {
-          pushParagraph(item, "NORMAL_TEXT", "• ");
-        }
-        break;
-      case "ordered_list":
-        block.items.forEach((item, idx) => {
-          pushParagraph(item, "NORMAL_TEXT", `${idx + 1}. `);
-        });
-        break;
-      case "toc_placeholder":
-        pushParagraph(
-          [
-            {
-              text: "Table of Contents — refresh in Google Docs after heading updates",
-              italic: true,
-            },
-          ],
-          "NORMAL_TEXT",
-        );
-        break;
-      case "page_break":
-        pageBreaks.push(text.length);
-        text += "\n";
-        break;
-      case "table": {
-        // Placeholder paragraph; table inserted at this index via insertTable.
-        const markerStart = text.length;
-        text += "\n";
-        tables.push({
-          startIndex: markerStart,
-          headers: block.headers,
-          rows: block.rows,
-        });
-        break;
-      }
-      default:
-        break;
-    }
-  }
-
-  if (!text.endsWith("\n")) {
-    text += "\n";
-  }
-
-  return { text, paragraphStyles, textStyles, tables, pageBreaks };
+  return {
+    get text() {
+      return text;
+    },
+    paragraphStyles,
+    textStyles,
+    tables,
+    pageBreaks,
+    pushParagraph,
+    pushPageBreak,
+    pushTableMarker(headers: string[], rows: string[][]) {
+      const markerStart = text.length;
+      text += "\n";
+      tables.push({ startIndex: markerStart, headers, rows });
+    },
+    ensureTrailingNewline() {
+      if (!text.endsWith("\n")) text += "\n";
+    },
+  };
 }
 
-function injectManuscriptPageBreaks(
-  blocks: ContentBlock[],
-  fm: ManuscriptFrontmatter,
-): void {
-  // Ensure TOC placeholder after cover (caller adds cover separately).
-  const hasToc = blocks.some((b) => b.type === "toc_placeholder");
-  if (!hasToc) {
-    // Insert after title/subtitle cluster
-    let insertAt = 0;
-    while (
-      insertAt < blocks.length &&
-      (blocks[insertAt]?.type === "title" || blocks[insertAt]?.type === "subtitle")
-    ) {
-      insertAt += 1;
+function buildManuscriptPayload(parsed: ParsedMarkdownDocument): DocsPayload {
+  const fm = parsed.frontmatter;
+  const buf = createBuffer();
+  const blocks = parsed.blocks.filter((b) => b.type !== "toc_placeholder");
+
+  const title =
+    typeof fm.title === "string" && fm.title.trim()
+      ? fm.title.trim()
+      : spansToPlainText(
+          blocks.find((b) => b.type === "title")?.spans ?? [{ text: "Untitled" }],
+        );
+  const subtitle =
+    typeof fm.subtitle === "string" && fm.subtitle.trim()
+      ? fm.subtitle.trim()
+      : spansToPlainText(
+          blocks.find((b) => b.type === "subtitle")?.spans ?? [{ text: "" }],
+        );
+
+  // --- Cover page ---
+  buf.pushParagraph([{ text: title, bold: true }], "TITLE", {
+    fontSizePt: 26,
+    spaceBelowPt: 6,
+  });
+  if (subtitle) {
+    buf.pushParagraph([{ text: subtitle, italic: true }], "SUBTITLE", {
+      fontSizePt: 14,
+      spaceBelowPt: 18,
+    });
+  }
+  buf.pushParagraph(
+    [{ text: `Governance Frame Research Paper ${String(fm.researchId ?? "GF-2026-001")}` }],
+    "NORMAL_TEXT",
+    { fontSizePt: 12, spaceBelowPt: 10 },
+  );
+  buf.pushParagraph(
+    [{ text: `Version: ${humanizeVersion(String(fm.version ?? ""))}` }],
+    "NORMAL_TEXT",
+    { fontSizePt: 11, spaceBelowPt: 2 },
+  );
+  buf.pushParagraph(
+    [{ text: `Status: ${humanizeStatus(String(fm.status ?? ""))}` }],
+    "NORMAL_TEXT",
+    { fontSizePt: 11, spaceBelowPt: 2 },
+  );
+  buf.pushParagraph(
+    [{ text: `Classification: ${String(fm.classification ?? "")}` }],
+    "NORMAL_TEXT",
+    { fontSizePt: 11, spaceBelowPt: 2 },
+  );
+  buf.pushParagraph(
+    [{ text: `Publisher: ${String(fm.publisher ?? "Governance Frame Research")}` }],
+    "NORMAL_TEXT",
+    { fontSizePt: 11, spaceBelowPt: 12 },
+  );
+  buf.pushParagraph(
+    [
+      {
+        text: `Canonical repository path: ${String(fm.canonicalRepositoryPath ?? "")}`,
+        italic: true,
+      },
+    ],
+    "NORMAL_TEXT",
+    { fontSizePt: 9, spaceBelowPt: 4 },
+  );
+
+  buf.pushPageBreak();
+
+  // --- Body (skip cover duplicates; keep TOC contiguous) ---
+  let skippingCoverDupes = true;
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i]!;
+
+    if (skippingCoverDupes && isBodyCoverDuplicate(block)) {
+      i += 1;
+      continue;
     }
-    blocks.splice(
-      insertAt,
-      0,
-      { type: "page_break", line: 0 },
-      { type: "toc_placeholder", line: 0 },
-      { type: "page_break", line: 0 },
-    );
+    skippingCoverDupes = false;
+
+    // Drop generator-injected page breaks; manuscript layout owns pagination.
+    if (block.type === "page_break") {
+      i += 1;
+      continue;
+    }
+
+    if (isTocHeading(block)) {
+      buf.pushParagraph([{ text: "Table of Contents" }], "HEADING_1", {
+        fontSizePt: 16,
+        spaceAbovePt: 0,
+        spaceBelowPt: 8,
+      });
+      i += 1;
+      // Keep following ordered list on the same page with the heading.
+      if (blocks[i]?.type === "ordered_list") {
+        const list = blocks[i]!;
+        if (list.type === "ordered_list") {
+          list.items.forEach((item, idx) => {
+            buf.pushParagraph(item, "NORMAL_TEXT", {
+              prefix: `${idx + 1}. `,
+              fontSizePt: 11,
+              spaceBelowPt: 2,
+            });
+          });
+          i += 1;
+        }
+      }
+      buf.pushParagraph(
+        [
+          {
+            text: "Refresh this table of contents in Google Docs after heading updates, if desired.",
+            italic: true,
+          },
+        ],
+        "NORMAL_TEXT",
+        { fontSizePt: 10, spaceAbovePt: 8, spaceBelowPt: 4 },
+      );
+      buf.pushPageBreak();
+      continue;
+    }
+
+    renderBlock(buf, block, {
+      bodyFontPt: 11,
+      h1FontPt: 16,
+      h2FontPt: 13,
+      h3FontPt: 12,
+    });
+    i += 1;
   }
 
-  const ensureBreakBeforeHeading = (matcher: RegExp) => {
-    const idx = blocks.findIndex(
-      (b) =>
-        b.type === "heading" &&
-        spansToPlainText(b.spans).trim().match(matcher),
-    );
-    if (idx > 0 && blocks[idx - 1]?.type !== "page_break") {
-      blocks.splice(idx, 0, { type: "page_break", line: 0 });
-    }
+  buf.ensureTrailingNewline();
+  return {
+    text: buf.text,
+    paragraphStyles: buf.paragraphStyles,
+    textStyles: buf.textStyles,
+    tables: buf.tables,
+    pageBreaks: buf.pageBreaks,
   };
+}
 
-  ensureBreakBeforeHeading(/^#?\s*8\.?\s*References|^References$/i);
-  ensureBreakBeforeHeading(/^#?\s*9\.?\s*Appendices|^Appendices$/i);
+function buildGenericPayload(parsed: ParsedMarkdownDocument): DocsPayload {
+  const buf = createBuffer();
+  for (const block of parsed.blocks) {
+    renderBlock(buf, block, {
+      bodyFontPt: 11,
+      h1FontPt: 16,
+      h2FontPt: 13,
+      h3FontPt: 12,
+    });
+  }
+  buf.ensureTrailingNewline();
+  return {
+    text: buf.text,
+    paragraphStyles: buf.paragraphStyles,
+    textStyles: buf.textStyles,
+    tables: buf.tables,
+    pageBreaks: buf.pageBreaks,
+  };
+}
 
-  // Also match manuscript scaffold headings "# References" / "# Appendices"
-  void fm;
+function renderBlock(
+  buf: ReturnType<typeof createBuffer>,
+  block: ContentBlock,
+  fonts: { bodyFontPt: number; h1FontPt: number; h2FontPt: number; h3FontPt: number },
+): void {
+  switch (block.type) {
+    case "title":
+      buf.pushParagraph(block.spans, "TITLE", { fontSizePt: 26 });
+      break;
+    case "subtitle":
+      buf.pushParagraph(block.spans, "SUBTITLE", { fontSizePt: 14 });
+      break;
+    case "heading": {
+      const named = headingNamedStyle(block.level);
+      const fontSizePt =
+        block.level === 1
+          ? fonts.h1FontPt
+          : block.level === 2
+            ? fonts.h2FontPt
+            : fonts.h3FontPt;
+      buf.pushParagraph(block.spans, named, {
+        fontSizePt,
+        spaceAbovePt: block.level === 1 ? 14 : 10,
+        spaceBelowPt: 6,
+      });
+      break;
+    }
+    case "paragraph":
+      buf.pushParagraph(block.spans, "NORMAL_TEXT", {
+        fontSizePt: fonts.bodyFontPt,
+        spaceBelowPt: 8,
+      });
+      break;
+    case "blockquote":
+      buf.pushParagraph(block.spans, "NORMAL_TEXT", {
+        prefix: "",
+        fontSizePt: fonts.bodyFontPt,
+        spaceBelowPt: 8,
+      });
+      break;
+    case "unordered_list":
+      for (const item of block.items) {
+        buf.pushParagraph(item, "NORMAL_TEXT", {
+          prefix: "• ",
+          fontSizePt: fonts.bodyFontPt,
+          spaceBelowPt: 2,
+        });
+      }
+      break;
+    case "ordered_list":
+      block.items.forEach((item, idx) => {
+        buf.pushParagraph(item, "NORMAL_TEXT", {
+          prefix: `${idx + 1}. `,
+          fontSizePt: fonts.bodyFontPt,
+          spaceBelowPt: 2,
+        });
+      });
+      break;
+    case "toc_placeholder":
+      buf.pushParagraph(
+        [
+          {
+            text: "Table of Contents — refresh in Google Docs after heading updates",
+            italic: true,
+          },
+        ],
+        "NORMAL_TEXT",
+        { fontSizePt: 10 },
+      );
+      break;
+    case "page_break":
+      buf.pushPageBreak();
+      break;
+    case "table":
+      buf.pushTableMarker(block.headers, block.rows);
+      break;
+    default:
+      break;
+  }
 }
 
 export async function clearDocumentBody(docs: Docs, documentId: string): Promise<void> {
@@ -329,8 +464,7 @@ export async function writeParsedDocument(
       includeCoverFromFrontmatter: false,
       forcePageBreaksForManuscript: false,
     });
-    const text = marker + payload.text;
-    await insertTextAndStyles(docs, documentId, text, payload, true);
+    await insertTextAndStyles(docs, documentId, marker + payload.text, payload, true);
     return;
   }
 
@@ -342,11 +476,15 @@ export async function writeParsedDocument(
   await insertTextAndStyles(docs, documentId, payload.text, payload, false);
 }
 
+/**
+ * Critical ordering: insert text → apply styles → insert page breaks.
+ * Page breaks shift indices; applying styles after breaks corrupts heading/body assignment.
+ */
 async function insertTextAndStyles(
   docs: Docs,
   documentId: string,
   text: string,
-  payload: ReturnType<typeof buildDocsPayload>,
+  payload: DocsPayload,
   append: boolean,
 ): Promise<void> {
   try {
@@ -357,63 +495,97 @@ async function insertTextAndStyles(
       insertAt = Math.max(1, endIndex - 1);
     }
 
-    const requests: docs_v1.Schema$Request[] = [
-      {
-        insertText: {
-          location: { index: insertAt },
-          text,
-        },
+    await docs.documents.batchUpdate({
+      documentId,
+      requestBody: {
+        requests: [
+          {
+            insertText: {
+              location: { index: insertAt },
+              text,
+            },
+          },
+        ],
       },
-    ];
+    });
 
-    // Page breaks (from highest index to lowest after insert — apply after text insert using absolute indices)
-    for (const breakAt of [...payload.pageBreaks].sort((a, b) => b - a)) {
-      requests.push({
-        insertPageBreak: {
-          location: { index: insertAt + breakAt },
-        },
-      });
-    }
+    const styleRequests: docs_v1.Schema$Request[] = [];
 
     for (const style of payload.paragraphStyles) {
       if (style.end <= style.start) continue;
-      requests.push({
+      const paragraphStyle: docs_v1.Schema$ParagraphStyle = {
+        namedStyleType: style.namedStyleType,
+      };
+      const fields = ["namedStyleType"];
+      if (style.spaceAbovePt != null) {
+        paragraphStyle.spaceAbove = { magnitude: style.spaceAbovePt, unit: "PT" };
+        fields.push("spaceAbove");
+      }
+      if (style.spaceBelowPt != null) {
+        paragraphStyle.spaceBelow = { magnitude: style.spaceBelowPt, unit: "PT" };
+        fields.push("spaceBelow");
+      }
+      styleRequests.push({
         updateParagraphStyle: {
           range: {
             startIndex: insertAt + style.start,
             endIndex: insertAt + style.end,
           },
-          paragraphStyle: {
-            namedStyleType: style.namedStyleType,
-          },
-          fields: "namedStyleType",
+          paragraphStyle,
+          fields: fields.join(","),
         },
       });
     }
 
     for (const style of payload.textStyles) {
       if (style.end <= style.start) continue;
-      requests.push({
+      const textStyle: docs_v1.Schema$TextStyle = {
+        bold: Boolean(style.bold),
+        italic: Boolean(style.italic),
+      };
+      const fields = ["bold", "italic"];
+      if (style.fontSizePt != null) {
+        textStyle.fontSize = { magnitude: style.fontSizePt, unit: "PT" };
+        fields.push("fontSize");
+      }
+      styleRequests.push({
         updateTextStyle: {
           range: {
             startIndex: insertAt + style.start,
             endIndex: insertAt + style.end,
           },
-          textStyle: {
-            bold: Boolean(style.bold),
-            italic: Boolean(style.italic),
-          },
-          fields: "bold,italic",
+          textStyle,
+          fields: fields.join(","),
         },
       });
     }
 
-    await docs.documents.batchUpdate({
-      documentId,
-      requestBody: { requests },
-    });
+    // Chunk style requests to stay under API limits.
+    const chunkSize = 80;
+    for (let i = 0; i < styleRequests.length; i += chunkSize) {
+      await docs.documents.batchUpdate({
+        documentId,
+        requestBody: { requests: styleRequests.slice(i, i + chunkSize) },
+      });
+    }
 
-    // Tables: insert after body text. Indices shift after page breaks — re-read doc and append tables at end.
+    // Page breaks last, high → low, so earlier breaks do not invalidate later indices.
+    const breaks = [...payload.pageBreaks].sort((a, b) => b - a);
+    for (const breakAt of breaks) {
+      await docs.documents.batchUpdate({
+        documentId,
+        requestBody: {
+          requests: [
+            {
+              insertPageBreak: {
+                location: { index: insertAt + breakAt },
+              },
+            },
+          ],
+        },
+      });
+    }
+
     if (payload.tables.length > 0) {
       await insertTablesAtEnd(docs, documentId, payload.tables);
     }
@@ -453,7 +625,6 @@ async function insertTablesAtEnd(
       },
     });
 
-    // Populate cells: fetch structure and write cell text from end to start.
     const withTable = await docs.documents.get({ documentId });
     const tableElement = [...(withTable.data.body?.content ?? [])]
       .reverse()
@@ -463,20 +634,17 @@ async function insertTablesAtEnd(
     }
 
     const cellValues: string[][] = [table.headers, ...table.rows];
-    const fillRequests: docs_v1.Schema$Request[] = [];
-
-    // Collect cell content start indices (write reverse to preserve indices).
     const cells: Array<{ index: number; text: string }> = [];
     tableElement.table.tableRows.forEach((row, rIdx) => {
       row.tableCells?.forEach((cell, cIdx) => {
         const value = cellValues[rIdx]?.[cIdx] ?? "";
         const cellStart = cell.startIndex;
         if (cellStart == null) return;
-        // Content typically starts at cellStart + 1
         cells.push({ index: cellStart + 1, text: value });
       });
     });
 
+    const fillRequests: docs_v1.Schema$Request[] = [];
     for (const cell of cells.sort((a, b) => b.index - a.index)) {
       if (!cell.text) continue;
       fillRequests.push({

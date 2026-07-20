@@ -19,7 +19,7 @@ Ironframe is a **multi-tenant Governance, Risk, and Compliance (GRC) platform** 
 
 ### Command Center dashboard
 - Enterprise heat map, predictive overlays, threat boards
-- Tenant switcher (Medshield, Vaultbank, Gridcore, Defense, Global aggregate)
+- Tenant switcher (demo seed baselines for engineering labs — Medshield, Vaultbank, Gridcore, Defense — plus Global aggregate). **Not real customers.**
 - Handshake / shadow-plane modes for staging and simulation
 
 ### Threat & risk pipeline
@@ -38,21 +38,22 @@ Ironframe is a **multi-tenant Governance, Risk, and Compliance (GRC) platform** 
 ### Governance & audit
 - Maturity scoring with Ironwatch stale-data penalties
 - Audit Intelligence feed with simulation filtering
-- Ironquery analyst exports (CSV/PDF) at `/dashboard/exports`
+- Ironquery analyst exports (CSV/PDF) at `/exports`
 
 ### Security & vault
 - Bank Vault dual-gate (Epic 11)
-- WORM evidence path (Epic 12, in progress)
+- WORM evidence path (Epic 12)
 - Constitutional override / restoration APIs for break-glass
 
 ## Deployment
 
 - **Production:** Vercel (`ironframe-live`)
-- **Auth:** Supabase login required for tenant-scoped routes
+- **Auth:** Invite-only / sales-assisted operator login for tenant-scoped routes
 - **Integration proof:** Cloud suite (`test:vercel-integration:cloud:epic17`)
 
 ## Related documents
 
-- [User Guide](../end-users/user-guide.md)
+- [Design Partner Operator Packet](../user-manuals/design-partner-operator-packet.md)
+- [User Guide](../user-manuals/user-guide.md)
 - [Competitive Analysis](../sales/competitive-analysis.md)
 - [TAS.md](../TAS.md)

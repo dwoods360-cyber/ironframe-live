@@ -1,32 +1,8 @@
----
-Document Type: End-User Manuals Documentation
-Status: STAGED / DRAFT
-Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
----
-
 # User Guide
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
-
-## Purpose
-
-Command Center navigation, tenant workflows, and daily operator tasks.
-
-## Scope
-
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
-
-## Outline (to complete)
-
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
-
-## Related documents
-
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+> **Not canonical.** Live end-user guidance is:
+>
+> - Partners: [Design Partner Operator Packet](../user-manuals/design-partner-operator-packet.md) · [LEVEL1-PARTNER-INDEX](../training/LEVEL1-PARTNER-INDEX.md)
+> - General: [user-manuals/user-guide.md](../user-manuals/user-guide.md) · [end-users/user-guide.md](../end-users/user-guide.md)
+>
+> Open in-app at `/docs` (hub = `/docs/README`). This `end-user-manuals/` folder is a retired scaffold — do not hydrate it.

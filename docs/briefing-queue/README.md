@@ -21,11 +21,14 @@ Weekday cron stages **one public briefing + one Ironcast newsletter** into this 
 
 **Operator gate:** Ops Hub → Briefings → **Promote** (approve / publish) or **Deny** (move to `briefing-queue/denied/`).
 
+**Ops Calendar:** Ops Hub → **Calendar** tab tracks due-dated review/publish work. Staging a queue draft auto-creates a REVIEW activity (next business day). Daily cron `POST /api/cron/ops-schedule-reminders` sends T-3 / T-2 / T-1 / T-0 nudges to enabled `NotificationEndpoint` webhooks and optional `OPS_SCHEDULE_NOTIFY_EMAIL`. Seed the summer slate with **Seed summer 2026 slate** on that tab. (`?tab=schedule` still redirects to Calendar.)
+
 ## What quarantine guarantees
 
 - Queue files trigger `[SECURITY AUDIT] Unauthorized compilation attempt blocked for unvetted draft:` warnings at scan time.
 - Ironcast, Governance Frame Hub, and RSS ingest **published** markdown only.
 - Draft markdown is not rendered on any public route.
+- Do **not** keep permanent fixture files in this directory. Scanner coverage lives in `tests/unit/governanceFrameBriefingScanner.test.ts`; notes in `docs/governance-frame/fixtures/quarantine-boot-warning.md`.
 
 ## Human-in-the-loop promotion
 

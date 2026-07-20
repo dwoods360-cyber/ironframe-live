@@ -1,32 +1,7 @@
----
-Document Type: End-User Manuals Documentation
-Status: STAGED / DRAFT
-Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-06-11
----
-
 # FAQ
 
-> **STAGED DRAFT** — Scaffold entry in the Ironframe `/docs/` corporate documentation matrix. Hydrate each section before publication.
-
-## Purpose
-
-Common questions and authoritative answers for platform users.
-
-## Scope
-
-- Tenant-bound operational guidance only; no cross-tenant examples without redaction.
-- Aligns with constitutional invariants in [`docs/hub.md`](../hub.md) and authoritative architecture in [`docs/TAS.md`](../TAS.md) (read-only reference).
-
-## Outline (to complete)
-
-1. Executive summary
-2. Primary audience and prerequisites
-3. Step-by-step procedures or narrative sections
-4. Verification checklist
-5. Escalation and related documents
-
-## Related documents
-
-- [Documentation Hub](../hub.md)
-- Legacy mirror paths under `docs/stakeholders/`, `docs/support/`, `docs/sales/`, and sibling folders remain authoritative until this matrix is promoted.
+> **Not canonical.** Live FAQ content is [end-users/faq.md](../end-users/faq.md) (`/docs/end-users/faq`).
+>
+> Partners with Path B questions: [Operator Packet](../user-manuals/design-partner-operator-packet.md) · commercial truth in `lib/ironframeProductKnowledge/commercial.ts` (**$4,999** Path B).
+>
+> This `end-user-manuals/` stub is retired — do not hydrate it.

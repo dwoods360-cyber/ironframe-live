@@ -15,9 +15,11 @@ Complements [Marketing Content Calendar](../marketing/content-calendar.md) with 
 | Month | Theme | Example posts |
 |-------|-------|---------------|
 | June 2026 | GA launch | Epic 17, integration suite, release evidence |
-| July 2026 | Tenant sovereignty | Isolation, Command Center switcher |
-| August 2026 | Audit season | Ironquery exports, forensic manifests |
-| September 2026 | Sustainability | Carbon pulse, dirty grid, Kimbot |
+| July 2026 | Tenant sovereignty + video style lock | Isolation; When Risk Enters the Room Phase 0 |
+| August 2026 | Video Episodes 1–3 | V1 Number · V2 Evidence · V3 Boundary (Wed demos) |
+| September 2026 | Video Episodes 4–6 | V4 Draft · V5 Intake · V6 Complete story (Wed 10/01) |
+
+Canonical video calendar: [../marketing-strategy/video-series/when-risk-enters-the-room.md](../marketing-strategy/video-series/when-risk-enters-the-room.md)
 
 ## Post backlog (ready to draft)
 

@@ -11,13 +11,21 @@
 - DORA status: COMPLIANT
 - Critical threats: 0
 
-## Baseline tenants (whole-integer USD cents)
+## Baseline tenants (whole-integer USD cents — SYNTHETIC_DEMO_SEED)
 
-- Medshield: 1110000000
+- Medshield: 1110000000 (engineering fixture — not a customer)
 - Vaultbank: 590000000
 - Gridcore: 470000000
 
 ## Trainer placement targets
+
+Partner Day-0 (primary):
+
+- `user-manuals/design-partner-operator-packet.md`
+- `training/LEVEL1-PARTNER-INDEX.md`
+- `user-manuals/get-started-workspace-setup.md`
+
+Classroom / instructor (not partner Day-0):
 
 - `user-manuals/quickstart.md`
 - `training/LEVEL1-STUDENT-INDEX.md`
@@ -31,7 +39,9 @@
 
 Expand cyber insurance underwriting module.
 
+source-file: docs/user-manuals/design-partner-operator-packet.md
+source-file: docs/training/LEVEL1-PARTNER-INDEX.md
 source-file: docs/user-manuals/quickstart.md
 source-file: docs/training/LEVEL1-STUDENT-INDEX.md
 source-file: docs/README.md
-ref: GET /api/board/shared-context · emittedAt=2026-06-17T12:00:00.000Z
+ref: GET /api/board/shared-context · emittedAt=2026-07-16T12:00:00.000Z

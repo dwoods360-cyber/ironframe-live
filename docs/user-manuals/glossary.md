@@ -1,6 +1,8 @@
 # Plain-English Platform Glossary (Level 1)
 
-**Reading level:** 11th grade · **Milestone:** v0.1.0-ga-epic17
+**Reading level:** 11th grade · **Milestone:** v0.1.0-ga-epic17  
+**Audience:** Design-partner and end-user operators.  
+**Classroom students:** use the Core glossary in the student section — [`docs/training/student/manuals/glossary.md`](../training/student/manuals/glossary.md).
 
 | Term | Definition |
 |------|------------|

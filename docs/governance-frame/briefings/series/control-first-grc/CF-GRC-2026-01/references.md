@@ -2,6 +2,8 @@
 
 Installment: CF-GRC-2026-01 — Control-First GRC Part 1
 
+Verification date for this pass: **2026-07-16**.
+
 ### [CF01-REF-001] U.S. Congress — Sarbanes-Oxley Act of 2002 (Public Law 107-204)
 
 - **Publication date:** 2002-07-30
@@ -9,7 +11,8 @@ Installment: CF-GRC-2026-01 — Control-First GRC Part 1
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (legislation)
 - **Claims supported:** Section 404(a) management assessment; Section 404(b) auditor attestation where applicable
-- **Verification status:** Unverified (repository editorial pass — URL not re-fetched this revision)
+- **Verification status:** Verified
+- **Verification notes:** Confirmed Sec. 404(a)–(b) in GovInfo PDF (P.L. 107-204). Statute does not prescribe evidence-architecture technology.
 
 ### [CF01-REF-002] U.S. Securities and Exchange Commission — Section 404 Study (September 2009)
 
@@ -18,7 +21,8 @@ Installment: CF-GRC-2026-01 — Control-First GRC Part 1
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (government study)
 - **Claims supported:** Mean Section 404 compliance costs before/after 2007 reforms among surveyed 404(b) companies
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** Study reports mean total Section 404 compliance cost among Section 404(b) companies declining from $2.87M pre-reform to $2.33M post-reform.
 
 ### [CF01-REF-003] U.S. Securities and Exchange Commission — Xerox Corporation, Litigation Release No. 17465
 
@@ -27,4 +31,5 @@ Installment: CF-GRC-2026-01 — Control-First GRC Part 1
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (enforcement record)
 - **Claims supported:** $10 million civil penalty; restatement; accounting control review
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** Corroborated via SEC press release 2002-52 and complaint page; $10M civil penalty, restatement, and accounting-controls review confirmed.

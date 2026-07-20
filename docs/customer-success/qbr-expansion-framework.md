@@ -16,7 +16,7 @@
 |--------|----------------|
 | Health ≥ 80 + MSSP profile | Additional enclave tenant or seat pack |
 | HEALTH_HIPAA + high evidence | Irontally framework pack add-on |
-| UTILITY_NERC + board exports | Gridcore sustainability / NERC module |
+| UTILITY_NERC + board exports | Utility / NERC sustainability module (sector play — not a demo tenant name) |
 | REGIONAL_BHC + CLOSED_WON &gt; 12 mo | Enterprise Ironguard RLS audit expansion |
 
 ## Land-and-expand sequence

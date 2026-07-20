@@ -2,13 +2,16 @@
 
 Installment: CF-GRC-2026-02 — Control-First GRC Part 2
 
+Verification date for this pass: **2026-07-16**.
+
 ### [CF02-REF-001] AICPA & CIMA — SOC Suite of Services
 
 - **URL:** https://www.aicpa-cima.com/resources/landing/system-and-organization-controls-soc-suite-of-services
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (standards body)
 - **Claims supported:** SOC 2 examinations of controls at service organizations
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** Landing page confirms SOC suite for system-level controls at service organizations, including SOC 2.
 
 ### [CF02-REF-002] AICPA & CIMA — 2017 Trust Services Criteria
 
@@ -16,7 +19,8 @@ Installment: CF-GRC-2026-02 — Control-First GRC Part 2
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (standards body)
 - **Claims supported:** Trust Services Criteria scope (security, availability, processing integrity, confidentiality, privacy)
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** Download page confirms 2017 TSC with 2022 revised points of focus.
 
 ### [CF02-REF-003] Federal Trade Commission — Equifax settlement press release (July 22, 2019)
 
@@ -24,7 +28,8 @@ Installment: CF-GRC-2026-02 — Control-First GRC Part 2
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (enforcement)
 - **Claims supported:** At least $575M; potentially up to $700M settlement structure
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** FTC press release and case summary confirm ≥$575M / up to $700M structure for the 2017 breach settlement.
 
 ### [CF02-REF-004] New York State Office of the Attorney General — Target multistate settlement (May 23, 2017)
 
@@ -32,4 +37,5 @@ Installment: CF-GRC-2026-02 — Control-First GRC Part 2
 - **Retrieved:** 2026-07-16
 - **Source type:** Primary (enforcement)
 - **Claims supported:** $18.5 million; 47 states and DC
-- **Verification status:** Unverified
+- **Verification status:** Verified
+- **Verification notes:** NY AG press release confirms $18.5M settlement with 47 states and D.C.

@@ -123,5 +123,6 @@ See [storybrand-framework.md](./storybrand-framework.md) for SB7, BrandScript, o
 - [Marketing Plan](./marketing-plan.md)
 - [Brand Style Guide](./brand-style-guide.md)
 - [Content Calendar](./content-calendar.md)
+- [Video series — When Risk Enters the Room](./video-series/when-risk-enters-the-room.md)
 - [Social Media Guidelines](./social-media-guidelines.md)
 - Monetization blueprint: `docs/stakeholder-deck/ironframe-monetization-market-blueprint-2026-q2.md`

@@ -167,6 +167,12 @@ async function main(): Promise<void> {
 
     if (skipSyndication) {
       console.log("[SYNDICATE] Skipped (--skip-syndication). Mirror RSS and newsletter manually.");
+      try {
+        fs.unlinkSync(queuePath);
+        console.log(`[QUEUE] Removed ${file} after promote.`);
+      } catch {
+        console.log(`[QUEUE] Could not remove ${file} — delete manually if still listed.`);
+      }
       return;
     }
 
@@ -205,6 +211,13 @@ async function main(): Promise<void> {
         console.log("[DEPLOY] brief.ironframegrc.com static sync complete.");
       } else {
         console.log("[DEPLOY] Skipped (pass --deploy to run sync:brief:gcs).");
+      }
+
+      try {
+        fs.unlinkSync(queuePath);
+        console.log(`[QUEUE] Removed ${file} after promote.`);
+      } catch {
+        console.log(`[QUEUE] Could not remove ${file} — delete manually if still listed.`);
       }
 
       console.log("[COMPLETE] Promotion + syndication finished.");

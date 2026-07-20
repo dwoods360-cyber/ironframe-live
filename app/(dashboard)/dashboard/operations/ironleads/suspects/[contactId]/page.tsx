@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import SuspectOperatorEditPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/SuspectOperatorEditPanel";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 
@@ -79,6 +80,8 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
             />
           </div>
         </header>
+
+        <SuspectOperatorEditPanel contactId={report.contactId} report={report} />
 
         {report.buyingCommittee ? (
           <section className="rounded-xl border border-violet-900/40 bg-violet-950/20 p-5">

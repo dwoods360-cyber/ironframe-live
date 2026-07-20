@@ -254,5 +254,13 @@ export function looksLikeOsintTitleNoise(company: string): boolean {
   if (/^(bod|cve|u\.?s\.?\s+department|department of)\b/i.test(name)) return true;
   if (/\b(prioritizing|remediation|advisory|bulletin)\b/i.test(name)) return true;
   if (/^chief information security$/i.test(name)) return true;
+  // Marketing / nav keyword piles mistaken for person names (e.g. "PRIVACY COMPLIANCE SECURE APPLICATIONS").
+  if (
+    /^[A-Z0-9][A-Z0-9\s/&-]{8,}$/.test(name) &&
+    /\b(privacy|compliance|secure|applications?|solutions?|services?|products?)\b/i.test(name) &&
+    !/\b(inc|llc|ltd|corp|security|bank|health|energy)\b/i.test(name)
+  ) {
+    return true;
+  }
   return false;
 }

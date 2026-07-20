@@ -8,9 +8,10 @@ import {
 describe("getStartedOrientationCues", () => {
   it("resolves cue index from playback time", () => {
     expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 0)).toBe(0);
-    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 19.9)).toBe(0);
-    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 20)).toBe(1);
-    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 140)).toBe(5);
+    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 27.9)).toBe(0);
+    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 28)).toBe(1);
+    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 150)).toBe(4);
+    expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 155)).toBe(5);
     expect(resolveOrientationCueIndex(GET_STARTED_ORIENTATION_CUES, 999)).toBe(
       GET_STARTED_ORIENTATION_CUES.length - 1,
     );

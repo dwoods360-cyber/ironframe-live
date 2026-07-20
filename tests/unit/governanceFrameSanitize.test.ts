@@ -36,6 +36,37 @@ describe("Governance Frame section parser", () => {
     expect(rows[0]?.cents).toBe("0");
     expect(rows[1]?.cents).toBe("499900");
   });
+
+  it("accepts editorial triad heading synonyms", () => {
+    const variants: Array<{ ii: string; iii: string }> = [
+      { ii: "Quantitative Context", iii: "What Modern GRC Must Enforce" },
+      { ii: "Economic Context", iii: "Architectural Implications" },
+      { ii: "Quantitative Impact", iii: "Control-System Requirements" },
+      {
+        ii: "Calculated Quantitative Impact",
+        iii: "Machine-Rule Technical Translation",
+      },
+    ];
+
+    for (const { ii, iii } of variants) {
+      const body = `## I. Exposure Vector
+
+## II. ${ii}
+
+## III. ${iii}
+
+## IV. Verification Protocol
+
+## V. Sources & Citations
+`;
+      const ids = new Set(parseBriefingSections(body).map((s) => s.id));
+      expect(ids.has("exposure"), `I missing for ${ii}/${iii}`).toBe(true);
+      expect(ids.has("impact"), `II missing for ${ii}`).toBe(true);
+      expect(ids.has("machine-rule"), `III missing for ${iii}`).toBe(true);
+      expect(ids.has("verification")).toBe(true);
+      expect(ids.has("citations")).toBe(true);
+    }
+  });
 });
 
 describe("Governance Frame sanitizeMarkdown", () => {

@@ -85,3 +85,32 @@ export async function buildProductMatrixHealthSnapshot(): Promise<ProductMatrixH
     services,
   };
 }
+
+/** Deterministic board answer for perimeter / product-matrix health (red ≠ labor market). */
+export function formatPerimeterWorkforceHealthAnswer(
+  snapshot: ProductMatrixHealthSnapshot,
+): string {
+  const perimeter = snapshot.services.filter((row) =>
+    /ironleads|salesteam|ironsuccess|ironsupport|ironboard-exec|ironframe/i.test(row.key + row.name),
+  );
+  const rows = (perimeter.length ? perimeter : snapshot.services).map((row) => {
+    const state = row.reachable
+      ? `green / reachable${row.latencyMs != null ? ` (${row.latencyMs}ms)` : ''}`
+      : "red / unreachable (health probe failed)";
+    return `- ${row.name} :${row.port} — ${state}; priority label ${row.priority} (static ops priority, not severity of being down)`;
+  });
+  const down = snapshot.services.filter((row) => !row.reachable);
+  const summary =
+    down.length === 0
+      ? "Live product-matrix probes currently report all listed services reachable; if a UI dot still looks red, refresh the panel — the last probe may be stale."
+      : `Live product-matrix probes mark ${down.length} service${down.length === 1 ? "" : "s"} unreachable: ${down
+          .map((row) => `${row.name} (:${row.port})`)
+          .join(", ")}.`;
+
+  return [
+    "Those red workforce indicators are the Ironboard product-matrix / Ops Hub perimeter fleet health dots — not U.S. labor-market statistics, and not CRM pipeline stage health.",
+    "Red means the board could not reach that worker's health endpoint from this host; HIGH on Ironleads, SalesTeam, IronSuccessTeam, and IronSupportTeam is the static operational priority on each matrix row and stays HIGH whether the service is up or down.",
+    `${summary} Probe checkedAt=${snapshot.checkedAt}.`,
+    rows.join("\n"),
+  ].join("\n\n");
+}

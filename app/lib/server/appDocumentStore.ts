@@ -80,3 +80,18 @@ export async function listAppDocumentSlugs(): Promise<string[]> {
   });
   return rows.map((row) => row.slug);
 }
+
+/** Lightweight nav rows — never load full markdown bodies. */
+export async function listAppDocumentsForNavigation(): Promise<
+  Array<{ slug: string; title: string; readingLevel: AppDocumentReadingLevel }>
+> {
+  const rows = await prisma.appDocument.findMany({
+    select: { slug: true, title: true, readingLevel: true },
+    orderBy: { slug: "asc" },
+  });
+  return rows.map((row) => ({
+    slug: row.slug,
+    title: row.title,
+    readingLevel: row.readingLevel as AppDocumentReadingLevel,
+  }));
+}

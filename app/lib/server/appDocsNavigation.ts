@@ -2,15 +2,10 @@ import "server-only";
 
 import {
   dbKeyToSlugSegments,
-  findAppDocumentBySlug,
-  listAppDocumentSlugs,
+  listAppDocumentsForNavigation,
   type AppDocumentReadingLevel,
 } from "@/app/lib/server/appDocumentStore";
-import {
-  groupDocsNavigation,
-  type DocNavItem,
-  type DocNavSection,
-} from "@/lib/docsNavigation";
+import type { DocNavItem, DocNavSection } from "@/lib/docsNavigation";
 
 const SECTION_LABELS: Record<string, string> = {
   "user-manuals": "Level 1 — End-user manuals",
@@ -20,6 +15,10 @@ const SECTION_LABELS: Record<string, string> = {
   support: "Support",
   qa: "QA",
   educators: "Educators",
+  sales: "Sales",
+  marketing: "Marketing",
+  external: "External",
+  stakeholders: "Stakeholders",
   root: "Engineering & operations",
   "root-hub": "Documentation Center",
 };
@@ -33,18 +32,19 @@ const SECTION_ORDER = [
   "support",
   "qa",
   "educators",
+  "sales",
+  "marketing",
+  "external",
+  "stakeholders",
   "root",
 ];
 
 function sectionKeyForSlug(slug: string[]): string {
   if (slug.length === 1 && slug[0]?.toUpperCase() === "README") return "root-hub";
   if (slug.length === 1) return "root";
-  if (slug[0] === "user-manuals") return "user-manuals";
-  if (slug[0] === "technical") return "technical";
-  if (slug[0] === "training") return "training";
-  if (slug[0] === "qa") return "qa";
-  if (slug[0] === "educators") return "educators";
-  return slug[0] ?? "root";
+  const top = slug[0] ?? "root";
+  if (SECTION_LABELS[top]) return top;
+  return top;
 }
 
 function readingLevelBadge(level: AppDocumentReadingLevel): string {
@@ -54,27 +54,21 @@ function readingLevelBadge(level: AppDocumentReadingLevel): string {
 }
 
 export async function buildAppDocsNavigation(): Promise<DocNavItem[]> {
-  const slugs = await listAppDocumentSlugs();
-  const items: DocNavItem[] = [];
-
-  for (const dbSlug of slugs) {
-    const doc = await findAppDocumentBySlug(dbSlug);
-    if (!doc) continue;
-    const slug = dbKeyToSlugSegments(dbSlug);
+  const rows = await listAppDocumentsForNavigation();
+  const items: DocNavItem[] = rows.map((doc) => {
+    const slug = dbKeyToSlugSegments(doc.slug);
     const section = sectionKeyForSlug(slug);
-    const label =
-      dbSlug === "readme"
-        ? "Documentation Center"
-        : `${doc.title} (${readingLevelBadge(doc.readingLevel)})`;
-
-    items.push({
+    const isHub = doc.slug === "readme";
+    return {
       slug,
-      href: `/docs/${slug.join("/")}`,
-      label: dbSlug === "readme" ? "Documentation Center" : label,
+      href: isHub ? "/docs/README" : `/docs/${slug.join("/")}`,
+      label: isHub
+        ? "Documentation Center"
+        : `${doc.title} (${readingLevelBadge(doc.readingLevel)})`,
       section,
       sectionLabel: SECTION_LABELS[section] ?? section,
-    });
-  }
+    };
+  });
 
   return items.sort((a, b) => {
     const orderA = SECTION_ORDER.indexOf(a.section);
@@ -87,10 +81,28 @@ export async function buildAppDocsNavigation(): Promise<DocNavItem[]> {
 }
 
 export async function groupAppDocsNavigation(items: DocNavItem[]): Promise<DocNavSection[]> {
-  const hubItem = items.find((item) => item.section === "root-hub");
-  const grouped = groupDocsNavigation(items);
-  if (hubItem) {
-    return [{ key: "root-hub", label: "Documentation Center", items: [hubItem] }, ...grouped];
+  const groups = new Map<string, DocNavItem[]>();
+  for (const item of items) {
+    if (item.section === "root-hub") continue;
+    const existing = groups.get(item.section) ?? [];
+    existing.push(item);
+    groups.set(item.section, existing);
   }
-  return grouped;
+
+  const orderedKeys = [
+    ...SECTION_ORDER.filter((key) => key !== "root-hub" && groups.has(key)),
+    ...[...groups.keys()].filter((key) => !SECTION_ORDER.includes(key)).sort(),
+  ];
+
+  const hubItem = items.find((item) => item.section === "root-hub");
+  const sections: DocNavSection[] = orderedKeys.map((key) => ({
+    key,
+    label: SECTION_LABELS[key] ?? key,
+    items: groups.get(key) ?? [],
+  }));
+
+  if (hubItem) {
+    return [{ key: "root-hub", label: "Documentation Center", items: [hubItem] }, ...sections];
+  }
+  return sections;
 }

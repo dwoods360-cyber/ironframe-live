@@ -159,6 +159,7 @@ export async function buildIronframeDocumentationBrief(
     },
     mandate:
       "Ironframe passes this brief one-way. board-trainer and board-writer author APP_DOCS only. " +
+      "All agents may READ the published Governance Frame research encyclopedia (docs/published-briefings + research.ironframegrc.com) for citation — never quarantine drafts. " +
       `Prospect company names: live discovery only. ${BOARD_LIVE_DISCOVERY_ONLY_MANDATE} ${BOARD_MARKET_TRUTH_MANDATE}`,
     fullAccess: await buildDocumentationFullAccessBundle({
       trainerPlacementTargets,

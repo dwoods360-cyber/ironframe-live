@@ -6,34 +6,58 @@ export type BriefingCitation = {
   note: string | null;
 };
 
+const URL_LINE = /^(https?:\/\/\S+|`[^`]+`)$/i;
+
 /**
- * Parse Section V bullets:
+ * Parse Section V bullets.
+ *
+ * Supported forms (publishing serves the writing):
  * - **[1] Label** — `locator` · retrieved 2026-06-17 · optional note
+ * - **[1] Label** — https://example.com/path
  * - **Label** | locator | 2026-06-17
+ * - multi-line research citations:
+ *   * **[1] Label**
+ *     https://example.com/path
+ *     Optional descriptive note
  */
 export function parseBriefingCitations(sectionBody: string): BriefingCitation[] {
   const citations: BriefingCitation[] = [];
   let autoIndex = 0;
+  const lines = sectionBody.split(/\r?\n/);
 
-  for (const rawLine of sectionBody.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line.startsWith("-")) continue;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]?.trim() ?? "";
+    if (!/^[-*]\s+/.test(line)) continue;
 
-    const indexed = line.match(
-      /^-\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*`([^`]+)`(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
+    const indexedBacktick = line.match(
+      /^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*`([^`]+)`(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
     );
-    if (indexed) {
+    if (indexedBacktick) {
       citations.push({
-        index: Number(indexed[1]),
-        label: indexed[2].trim(),
-        locator: indexed[3].trim(),
-        retrievedAt: indexed[4]?.trim() ?? null,
-        note: indexed[5]?.trim() ?? null,
+        index: Number(indexedBacktick[1]),
+        label: indexedBacktick[2].trim(),
+        locator: indexedBacktick[3].trim(),
+        retrievedAt: indexedBacktick[4]?.trim() ?? null,
+        note: indexedBacktick[5]?.trim() ?? null,
       });
       continue;
     }
 
-    const piped = line.match(/^-\s+\*\*(.+?)\*\*\s*\|\s*([^|]+)\|\s*([^|]+)(?:\|\s*(.+))?$/);
+    const indexedInline = line.match(
+      /^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*[—–-]\s*(.+?)(?:\s*·\s*retrieved\s+([^\s·]+))?(?:\s*·\s*(.+))?$/i,
+    );
+    if (indexedInline) {
+      citations.push({
+        index: Number(indexedInline[1]),
+        label: indexedInline[2].trim(),
+        locator: indexedInline[3].trim(),
+        retrievedAt: indexedInline[4]?.trim() ?? null,
+        note: indexedInline[5]?.trim() ?? null,
+      });
+      continue;
+    }
+
+    const piped = line.match(/^[-*]\s+\*\*(.+?)\*\*\s*\|\s*([^|]+)\|\s*([^|]+)(?:\|\s*(.+))?$/);
     if (piped) {
       autoIndex += 1;
       citations.push({
@@ -46,7 +70,7 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
       continue;
     }
 
-    const simple = line.match(/^-\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
+    const simple = line.match(/^[-*]\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
     if (simple) {
       autoIndex += 1;
       citations.push({
@@ -56,7 +80,45 @@ export function parseBriefingCitations(sectionBody: string): BriefingCitation[] 
         retrievedAt: null,
         note: null,
       });
+      continue;
     }
+
+    // Multi-line research form: bullet label, then URL / note on following lines.
+    const headingOnly = line.match(/^[-*]\s+\*\*\[(\d+)\]\s*(.+?)\*\*\s*$/);
+    if (!headingOnly) continue;
+
+    let locator = "";
+    const noteParts: string[] = [];
+    let j = i + 1;
+    for (; j < lines.length; j += 1) {
+      const next = lines[j] ?? "";
+      const trimmed = next.trim();
+      if (!trimmed) {
+        if (locator) break;
+        continue;
+      }
+      if (/^[-*]\s+/.test(trimmed) || /^#{2,3}\s+/.test(trimmed)) break;
+
+      const urlMatch = trimmed.match(URL_LINE);
+      if (urlMatch && !locator) {
+        locator = urlMatch[1].replace(/^`|`$/g, "").trim();
+        continue;
+      }
+      if (locator) {
+        noteParts.push(trimmed);
+      }
+    }
+    i = j - 1;
+
+    if (!locator) continue;
+
+    citations.push({
+      index: Number(headingOnly[1]),
+      label: headingOnly[2].trim(),
+      locator,
+      retrievedAt: null,
+      note: noteParts.length ? noteParts.join(" ") : null,
+    });
   }
 
   return citations.sort((a, b) => a.index - b.index);

@@ -13,7 +13,15 @@ const CATEGORY_KEYWORDS: Array<{ category: DocsMatrixCategory; patterns: RegExp[
   },
   {
     category: 'sales-enablement',
-    patterns: [/sales enablement/i, /pricing and packaging/i, /competitive analysis/i, /sales playbook/i],
+    patterns: [
+      /sales enablement/i,
+      /pricing and packaging/i,
+      /competitive analysis/i,
+      /sales playbook/i,
+      /message constitution/i,
+      /beachhead prompt/i,
+      /beachhead drafting/i,
+    ],
   },
   {
     category: 'customer-success',
@@ -87,6 +95,7 @@ const CORPORATE_DOCS_PATTERNS = [
   /business plan/i,
   /competitive analysis/i,
   /pricing and packaging/i,
+  /message constitution/i,
   /elevator pitch/i,
   /user guide/i,
   /support guide/i,

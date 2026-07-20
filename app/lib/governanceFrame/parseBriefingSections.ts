@@ -23,11 +23,30 @@ export type BriefingSection = {
 
 const SECTION_HEADING = /^#{2,3}\s+(.+)$/;
 
+/**
+ * Map H2/H3 titles to triad zones.
+ * Canonical machine headings remain accepted; editorial synonyms are first-class
+ * so public research prose is not forced into compiler-doc phrasing.
+ */
 function classifySection(title: string): BriefingSectionId {
   const t = title.replace(/\*\*/g, "").trim();
   if (/^I\.\s*Exposure Vector/i.test(t)) return "exposure";
-  if (/^II\.\s*Calculated Quantitative Impact/i.test(t)) return "impact";
-  if (/^III\.\s*Machine-Rule Technical Translation/i.test(t)) return "machine-rule";
+  // II — impact / quantitative or economic context
+  if (
+    /^II\.\s*(?:Calculated Quantitative Impact|Quantitative Context|Quantitative Impact|Economic Context)\b/i.test(
+      t,
+    )
+  ) {
+    return "impact";
+  }
+  // III — control requirements / architectural implications / machine-rule translation
+  if (
+    /^III\.\s*(?:Machine-Rule Technical Translation|What Modern GRC Must Enforce|Architectural Implications|Control-System Requirements)\b/i.test(
+      t,
+    )
+  ) {
+    return "machine-rule";
+  }
   if (/^IV\.\s*Verification Protocol/i.test(t)) return "verification";
   if (/^V\.\s*Sources/i.test(t)) return "citations";
   return "other";

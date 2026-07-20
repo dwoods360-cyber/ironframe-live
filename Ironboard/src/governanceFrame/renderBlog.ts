@@ -40,8 +40,20 @@ type Section = { id: SectionId; title: string; body: string };
 function classifySection(title: string): SectionId {
   const t = title.replace(/\*\*/g, "").trim();
   if (/^I\.\s*Exposure Vector/i.test(t)) return "exposure";
-  if (/^II\.\s*Calculated Quantitative Impact/i.test(t)) return "impact";
-  if (/^III\.\s*Machine-Rule Technical Translation/i.test(t)) return "machine-rule";
+  if (
+    /^II\.\s*(?:Calculated Quantitative Impact|Quantitative Context|Quantitative Impact|Economic Context)\b/i.test(
+      t,
+    )
+  ) {
+    return "impact";
+  }
+  if (
+    /^III\.\s*(?:Machine-Rule Technical Translation|What Modern GRC Must Enforce|Architectural Implications|Control-System Requirements)\b/i.test(
+      t,
+    )
+  ) {
+    return "machine-rule";
+  }
   if (/^IV\.\s*Verification Protocol/i.test(t)) return "verification";
   return "other";
 }

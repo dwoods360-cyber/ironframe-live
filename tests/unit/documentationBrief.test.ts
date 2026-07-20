@@ -70,7 +70,8 @@ describe("documentationBrief", () => {
 
     expect(brief.communicationDirection).toBe("ONE_WAY_IRONFRAME_TO_BOARD");
     expect(brief.corpusPlanes.appDocs.readerRoute).toBe("/docs");
-    expect(brief.corpusPlanes.governanceBriefings.readerRoute).toBe("/governance-frame");
+    expect(brief.corpusPlanes.governanceBriefings.readerRoute).toBe("/briefings");
+    expect(brief.mandate).toMatch(/Governance Frame research encyclopedia/i);
     expect(brief.outputMatrix.appDocs.plane).toBe("APP_DOCS");
     expect(brief.outputMatrix.governanceBriefings.plane).toBe("GOVERNANCE_BRIEFINGS");
     expect(brief.outputMatrix.promptBlock).toContain("DUAL-LOCATION OUTPUT MATRIX");
@@ -79,6 +80,10 @@ describe("documentationBrief", () => {
     expect(brief.trainerPlacementTargets).toContain("user-manuals/quickstart.md");
     expect(brief.trainerPlacementTargets).toContain("user-manuals/dashboard-guide.md");
     expect(brief.trainerPlacementTargets).toContain("training/LEVEL1-STUDENT-INDEX.md");
+    expect(brief.trainerPlacementTargets).toContain("training/LEVEL1-PARTNER-INDEX.md");
+    expect(brief.trainerPlacementTargets).toContain(
+      "user-manuals/design-partner-operator-packet.md",
+    );
     expect(brief.writerPlacementTargets).toContain("technical/architecture-and-api.md");
     expect(brief.platformFacts.baselineTenantsCents.medshield).toBe("1110000000");
     expect(brief.mandate).toContain("one-way");

@@ -4,8 +4,10 @@ import {
   inferRegionsFromQuery,
   isCompetitivePositioningQuery,
   isMarketResearchCapabilityQuery,
+  isPerimeterWorkforceHealthQuery,
   isWorkspaceOnlyQuery,
   needsExternalInfo,
+  requiresCrmDiscovery,
   shouldPrefetchProspects,
   shouldPrefetchWeb,
 } from './boardroomQueryIntent.js';
@@ -101,5 +103,33 @@ describe('boardroomQueryIntent', () => {
     expect(isCompetitivePositioningQuery('Are you not able to perform real market research?')).toBe(
       false,
     );
+  });
+
+  it('routes perimeter workforce indicator questions to fleet health, not web or CRM', () => {
+    const q = 'Why are the workforce indicators red?';
+    expect(isPerimeterWorkforceHealthQuery(q)).toBe(true);
+    expect(shouldPrefetchWeb(q)).toBe(false);
+    expect(shouldPrefetchProspects(q)).toBe(false);
+    expect(requiresCrmDiscovery(q)).toBe(false);
+  });
+
+  it('keeps clarifying perimeter app pastes on fleet health, not CRM discovery', () => {
+    const q = [
+      'Ironleads :8083 HIGH OSINT harvest → SUSPECT CRM ingress',
+      'SalesTeam :8084 HIGH PROSPECT outbound',
+      'IronSuccessTeam :8085 HIGH CLOSED_WON',
+      'IronSupportTeam :8086 HIGH Support intake',
+    ].join('\n');
+    expect(isPerimeterWorkforceHealthQuery(q)).toBe(true);
+    expect(shouldPrefetchWeb(q)).toBe(false);
+    expect(shouldPrefetchProspects(q)).toBe(false);
+    expect(requiresCrmDiscovery(q)).toBe(false);
+  });
+
+  it('does not treat explicit labor-market questions as perimeter fleet health', () => {
+    const q =
+      'Why are workforce indicators red in the Conference Board labor market differential for June 2026?';
+    expect(isPerimeterWorkforceHealthQuery(q)).toBe(false);
+    expect(shouldPrefetchWeb(q)).toBe(true);
   });
 });

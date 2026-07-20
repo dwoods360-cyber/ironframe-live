@@ -12,11 +12,14 @@ describe("orientationAudioScriptGenerator", () => {
     const sources = loadOrientationCorpusSources();
     const body = buildDeterministicOrientationScript(brief, sources);
 
-    expect(body).toContain("source-file: docs/user-manuals/quickstart.md");
+    expect(body).toContain("source-file: docs/user-manuals/design-partner-operator-packet.md");
     expect(body).toContain("Command Post");
-    expect(body).toContain("twenty-four-chapter");
+    expect(body).toContain("curated partner training");
     expect(body).toContain("multi-turn");
+    expect(body).toContain("slash exports");
+    expect(body.toLowerCase()).not.toContain("twenty-four-chapter");
     expect(body.toLowerCase()).not.toContain("twelve-chapter");
+    expect(body.toLowerCase()).not.toContain("dashboard exports");
     expect(body.toLowerCase()).not.toContain("ask one question");
     expect(body.toLowerCase()).not.toContain("cryptographic key");
     expect(body.toLowerCase()).not.toContain("locate your welcome message");

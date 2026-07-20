@@ -5,9 +5,6 @@ import type { DocNavSection } from "@/lib/docsNavigation";
 interface DocsSidebarProps {
   currentSlug: string[];
   navSections?: DocNavSection[];
-  variant?: "desktop" | "mobile";
-  id?: string;
-  open?: boolean;
   onNavigate?: () => void;
 }
 
@@ -109,7 +106,7 @@ function LegacyNavigation({ currentSlug }: { currentSlug: string[] }) {
         <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
           Master Directory
         </p>
-        <Link href="/docs/hub" className={`${linkClass(isActive(currentSlug, ["hub"]))} mb-1`}>
+        <Link href="/docs/README" className={`${linkClass(isActive(currentSlug, ["hub"]) || isActive(currentSlug, ["README"]))} mb-1`}>
           Documentation Hub
         </Link>
         <Link
@@ -198,9 +195,6 @@ function LegacyNavigation({ currentSlug }: { currentSlug: string[] }) {
 export default function DocsSidebar({
   currentSlug,
   navSections = [],
-  variant = "desktop",
-  id,
-  open = false,
   onNavigate,
 }: DocsSidebarProps) {
   const useCorpusNav = navSections.length > 0;
@@ -210,43 +204,19 @@ export default function DocsSidebar({
     <LegacyNavigation currentSlug={currentSlug} />
   );
 
-  if (variant === "mobile") {
-    return (
-      <aside
-        id={id}
-        className={`fixed inset-y-0 left-0 z-50 w-[min(100vw,18rem)] border-r border-slate-800 bg-slate-950/95 p-6 shadow-2xl backdrop-blur-md transition-transform duration-200 md:hidden ${
-          open ? "translate-x-0" : "-translate-x-full pointer-events-none"
-        }`}
-        aria-hidden={!open}
-      >
-        <div className="mb-6">
-          <Link
-            href="/dashboard"
-            onClick={onNavigate}
-            className="text-xs font-mono tracking-widest text-teal-400 transition-colors hover:text-teal-300"
-          >
-            RETURN TO DASHBOARD
-          </Link>
-          <h2 className="mt-2 text-lg font-bold text-white">Ironframe Docs</h2>
-        </div>
-        <nav className="max-h-[calc(100dvh-8rem)] space-y-4 overflow-y-auto pr-2">{navBody}</nav>
-      </aside>
-    );
-  }
-
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-slate-800 bg-slate-900/30 p-6 md:block">
-      <div className="mb-6">
+    <aside className="sticky top-14 z-20 flex h-[calc(100dvh-3.5rem)] w-52 shrink-0 flex-col self-start overflow-hidden border-r border-slate-800 bg-slate-900/30 p-4 sm:w-64 sm:p-6">
+      <div className="mb-4 shrink-0 sm:mb-6">
         <Link
           href="/dashboard"
           className="text-xs font-mono tracking-widest text-teal-400 transition-colors hover:text-teal-300"
         >
           RETURN TO DASHBOARD
         </Link>
-        <h2 className="mt-2 text-lg font-bold text-white">Ironframe Docs</h2>
+        <h2 className="mt-2 text-base font-bold text-white sm:text-lg">Ironframe Docs</h2>
       </div>
 
-      <nav className="max-h-[calc(100vh-8rem)] space-y-4 overflow-y-auto pr-2">{navBody}</nav>
+      <nav className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-2">{navBody}</nav>
     </aside>
   );
 }

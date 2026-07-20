@@ -11,7 +11,7 @@ describe("getStartedAudioAsset", () => {
 
   it("preserves existing query strings on mp3 paths", () => {
     expect(withGetStartedAudioCacheBust("/training-audio/foo.mp3?tenant=acorp")).toBe(
-      "/training-audio/foo.mp3?tenant=acorp&v=4",
+      "/training-audio/foo.mp3?tenant=acorp&v=6",
     );
   });
 });

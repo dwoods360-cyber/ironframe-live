@@ -49,35 +49,39 @@ ORIENTATION_SCRIPT = ROOT / "docs/user-manuals/get-started-orientation-audio-scr
 STEP_TEXT: dict[str, str] = {
     "quickstart": """
 Welcome to the Ironframe Command Post. You are signed in to your assigned workspace.
-This walkthrough covers the Command Post layout and first tasks on the Get Started portal.
+You joined as a paid design partner on the Path B Command Tier seat at four thousand nine hundred ninety-nine dollars.
+This first checklist step opens the Design Partner Operator Packet for workspace orientation.
 <break time="1s"/>
-Use the top navigation bar: Dashboard Cockpit, Integrity Hub, Evidence Locker, and Documentation.
-Your active tenant window shows which workspace you are viewing.
-On the left, Financial Targets show your safe baselines. On the right, the Hazard Pipeline tracks real-time risks.
+Use the top navigation bar: Dashboard, Integrity Hub, Evidence Locker, Exports, and Documentation.
+Your active workspace shows which tenant you are viewing.
+Financial posture reflects your ALE baseline. The Hazard Pipeline tracks live risks.
 <break time="1s"/>
-The first step is Command Post orientation.
-Review the Command Post layout, primary control areas, and keyboard navigation.
-Invite steps were handled separately in your activation email.
+Review the Command Post layout, primary control areas, and the daily cockpit loop.
+Activation steps were handled separately and are not repeated here.
 """.strip(),
     "integrity-hub": """
 Open Integrity Hub from the checklist or top navigation.
-Confirm your tenant name and baseline figures. These figures are displayed in US dollars.
+Confirm your workspace ALE baseline and protection figures in US dollars.
+If Get Started still asks for an ALE value, save it on this portal first, then return to Integrity Hub.
 Integrity Hub holds financial risk scores and protection baselines for your workspace.
 """.strip(),
     "level1-index": """
-Open the twenty-four-chapter Level 1 student index from the checklist.
-This curriculum includes labs tailored for your role. Work chapters in order when you have time.
-Documentation holds Level 1 manuals and screenshot-backed training tracks.
+Open the curated partner training index from the checklist.
+It lists recommended Level 1 chapters for design partners and omits classroom seed labs.
+Work those chapters in order when you have time.
+Documentation also holds the Design Partner Operator Packet and Level 1 manuals.
+Planned G A Ironframe Command is about thirty-five thousand dollars per year until commercial G A is enabled.
 """.strip(),
     "trainer-session": """
 Use Ask Trainer from Header number one or the panel on Get Started.
-You can ask questions grounded on the verified Level 1 corpus in multi-turn sessions.
+You can ask questions grounded on the verified training corpus in multi-turn sessions.
 The Trainer agent is isolated to the training corpus and does not access live tenant data.
 """.strip(),
     "export-path": """
-Open Dashboard Exports from the checklist.
-Locate tenant-scoped CSV and PDF export actions for auditor handoff.
-Exports are scoped to your active workspace and named for your tenant key.
+Open Exports from the checklist. The live console is at slash exports.
+Locate tenant-scoped CSV and PDF actions for auditor handoff.
+Do not use Pilot vendor screens for auditor files.
+Exports are scoped to your active workspace.
 """.strip(),
 }
 

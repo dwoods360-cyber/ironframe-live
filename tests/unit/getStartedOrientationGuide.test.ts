@@ -8,9 +8,15 @@ import { GET_STARTED_STEPS } from "@/app/lib/getStartedSteps";
 import { GET_STARTED_STEP_VISUALS } from "@/app/lib/getStartedStepVisuals";
 
 describe("GetStarted orientation guide", () => {
-  it("uses stable hash and quickstart href for inline reader", () => {
+  it("uses stable hash and operator packet href for inline reader", () => {
     expect(GET_STARTED_ORIENTATION_HASH).toBe("orientation-guide");
-    expect(GET_STARTED_QUICKSTART_GUIDE_HREF).toBe("/docs/user-manuals/quickstart");
+    expect(GET_STARTED_QUICKSTART_GUIDE_HREF).toBe(
+      "/docs/user-manuals/design-partner-operator-packet",
+    );
+    const orientation = GET_STARTED_STEPS.find((step) => step.id === "quickstart");
+    expect(orientation?.href).toBe("/docs/user-manuals/design-partner-operator-packet");
+    const training = GET_STARTED_STEPS.find((step) => step.id === "level1-index");
+    expect(training?.href).toBe("/docs/training/LEVEL1-PARTNER-INDEX");
   });
 
   it("maps export-path step to dashboard exports console and screenshot", () => {

@@ -19,6 +19,7 @@ export type OrientationCorpusSources = {
   quickstartMarkdown: string;
   onboardingMarkdown: string;
   getStartedStepsJson: string;
+  partnerPacketMarkdown: string;
 };
 
 function resolveRepoRoot(): string {
@@ -44,13 +45,18 @@ export function loadOrientationCorpusSources(): OrientationCorpusSources {
     quickstartMarkdown: readRepoFile("docs/user-manuals/quickstart.md"),
     onboardingMarkdown: readRepoFile("docs/end-users/onboarding.md"),
     getStartedStepsJson: readRepoFile("app/lib/getStartedSteps.ts"),
+    partnerPacketMarkdown: readRepoFile(
+      "docs/user-manuals/design-partner-operator-packet.md",
+    ),
   };
 }
 
 function buildChecklistSummary(getStartedStepsSource: string): string {
-  const matches = [...getStartedStepsSource.matchAll(/title:\s*"([^"]+)"[\s\S]*?description:\s*"([^"]+)"/g)];
+  const matches = [
+    ...getStartedStepsSource.matchAll(/title:\s*"([^"]+)"[\s\S]*?description:\s*"([^"]+)"/g),
+  ];
   if (matches.length === 0) {
-    return "- Command Post orientation\n- Integrity Hub\n- Level 1 training\n- Trainer sandbox\n- Audit exports";
+    return "- Workspace orientation\n- Integrity Hub\n- Partner training\n- Trainer sandbox\n- Audit exports";
   }
   return matches
     .map((match, index) => `${index + 1}. ${match[1]} — ${match[2]}`)
@@ -67,7 +73,7 @@ export function buildDeterministicOrientationScript(
   return [
     "### [0:00] Open",
     "",
-    "Welcome to the Ironframe Command Post. You are signed in to your assigned workspace. This walkthrough covers layout and first tasks on the Get Started portal. Invite and credential steps were handled during activation. We focus on orientation only.",
+    "Welcome to the Ironframe Command Post. You are signed in to your assigned workspace. This walkthrough covers layout and first tasks on the Get Started portal. Activation steps were handled separately. We focus on orientation only.",
     "",
     "Pause two seconds.",
     "",
@@ -75,7 +81,7 @@ export function buildDeterministicOrientationScript(
     "",
     "### [0:20] Command Post layout",
     "",
-    "Use the top navigation bar: Dashboard Cockpit, Integrity Hub, Evidence Locker, and Documentation. Your active tenant window shows which workspace you are viewing. On the left, Financial Targets show your safe baselines. On the right, the Hazard Pipeline tracks real-time risks. Press Tab to move between controls. Charts include text summaries for screen readers.",
+    "Use the top navigation bar: Dashboard, Integrity Hub, Evidence Locker, Exports, and Documentation. Your active workspace shows which tenant you are viewing. Financial posture reflects your ALE baseline. The Hazard Pipeline tracks live risks. Press Tab to move between controls. Charts include text summaries for screen readers.",
     "",
     "Pause two seconds.",
     "",
@@ -87,63 +93,66 @@ export function buildDeterministicOrientationScript(
     "",
     checklist,
     "",
-    "Pause one second.",
-    "",
-    "---",
-    "",
-    "### [1:15] Primary control areas",
-    "",
-    "Integrity Hub holds financial risk scores and protection baselines. Workforce Cockpit shows automated safety sweeps and agent trails. Evidence Locker stores sealed compliance documents. Documentation holds Level 1 manuals and training tracks. Settings holds tenant configuration and contacts.",
-    "",
-    "Pause two seconds.",
-    "",
-    "---",
-    "",
-    "### [1:50] Command Post orientation",
-    "",
-    "The first step is Command Post orientation. Review the layout, primary control areas, and keyboard navigation. Invite steps are handled separately in your activation email.",
-    "",
-    "Pause two seconds.",
-    "",
-    "---",
-    "",
-    "### [2:20] Integrity Hub and ALE baselines",
-    "",
-    "Open Integrity Hub from the checklist or top navigation. Confirm your tenant name and baseline figures in USD.",
-    "",
-    "Pause two seconds.",
-    "",
-    "---",
-    "",
-    "### [2:40] Level 1 training track",
-    "",
-    "Open the twenty-four-chapter Level 1 student index from the checklist. Work chapters in order when you have time.",
+    "Before you rely on Integrity Hub or exports, save your workspace ALE baseline and primary GRC company profile on this page.",
     "",
     "Pause one second.",
     "",
     "---",
     "",
-    "### [3:00] Trainer agent sandbox",
+    "### [1:20] Primary control areas",
     "",
-    "Use Ask Trainer from Header number one or the panel on Get Started. Ask questions grounded on the verified Level 1 corpus in multi-turn sessions.",
-    "",
-    "Pause two seconds.",
-    "",
-    "---",
-    "",
-    "### [3:20] Audit export path",
-    "",
-    "Open Dashboard Exports from the checklist. Locate tenant-scoped CSV and PDF export actions for auditor handoff.",
+    "Integrity Hub holds financial risk scores and protection baselines. Workforce Cockpit shows automated safety sweeps and agent trails. Evidence Locker stores sealed compliance documents. Exports provides tenant-scoped CSV and PDF downloads. Documentation holds Level 1 manuals and the curated partner training index. Settings holds contacts and tenant configuration.",
     "",
     "Pause two seconds.",
     "",
     "---",
     "",
-    "### [3:45] Close",
+    "### [1:55] Workspace orientation",
     "",
-    "Replay this audio while you complete the checklist. Progress saves in your browser. For deeper first-week tasks, open the extended onboarding checklist in Documentation.",
+    "The first checklist step opens the Design Partner Operator Packet. Review the Command Post layout, primary control areas, and the daily cockpit loop. Activation steps are not repeated here.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [2:25] Integrity Hub and ALE baselines",
+    "",
+    "Open Integrity Hub from the checklist or top navigation. Confirm your workspace ALE baseline and protection figures in USD.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [2:50] Partner training track",
+    "",
+    "Open the curated partner training index from the checklist. It lists recommended Level 1 chapters for design partners and omits classroom seed labs. Work those chapters in order when you have time.",
+    "",
+    "Pause one second.",
+    "",
+    "---",
+    "",
+    "### [3:10] Trainer agent sandbox",
+    "",
+    "Use Ask Trainer from Header number one or the panel on Get Started. Ask questions grounded on the verified training corpus in multi-turn sessions.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [3:30] Audit export path",
+    "",
+    "Open Exports at slash exports from the checklist. Locate tenant-scoped CSV and PDF actions for auditor handoff.",
+    "",
+    "Pause two seconds.",
+    "",
+    "---",
+    "",
+    "### [3:55] Close",
+    "",
+    "Replay this audio while you complete the checklist. Progress saves in your browser. For the full partner handoff packet, open Documentation and follow the Design Partner Operator Packet.",
     "",
     `ref: GET /api/board/shared-context · emittedAt=${brief.emittedAt}`,
+    "source-file: docs/user-manuals/design-partner-operator-packet.md",
     "source-file: docs/user-manuals/quickstart.md",
     "source-file: docs/end-users/onboarding.md",
     "source-file: app/lib/getStartedSteps.ts",
@@ -170,6 +179,9 @@ This is post-authentication operator audio only (Bucket B). FORBIDDEN in spoken 
 === CORPUS: QUICKSTART (LEVEL 1) ===
 ${sources.quickstartMarkdown}
 
+=== CORPUS: DESIGN PARTNER OPERATOR PACKET ===
+${sources.partnerPacketMarkdown.slice(0, 4_000)}
+
 === CORPUS: ONBOARDING (DAY 1 EXCERPT) ===
 ${sources.onboardingMarkdown.slice(0, 4_000)}
 
@@ -182,14 +194,16 @@ ${deterministicDraft}
 AUTHORING REQUIREMENTS:
 1. Output ONLY the "## Script" body: timestamped sections (### [m:ss] Title), spoken paragraphs, and "Pause N seconds." lines.
 2. Target 3:30–4:30 at calm pace. Short sentences. No emojis or exclamation points.
-3. Include separate spoken sections for EACH of the five Get Started checklist steps (orientation, Integrity Hub, Level 1 index, Trainer sandbox, audit exports) — not only a numbered list.
-4. Ground every UI surface name in quickstart.md or onboarding.md — do not invent routes or features.
+3. Include separate spoken sections for EACH of the five Get Started checklist steps (workspace orientation / operator packet, Integrity Hub, partner training index, Trainer sandbox, audit exports) — not only a numbered list.
+4. Ground every UI surface name in the corpus — do not invent routes or features.
 5. After each major section, include source-file lines citing the corpus file used.
 6. Do NOT include production notes, CapCut instructions, or markdown document title.
 7. Do NOT read checklist step descriptions verbatim — professionalize for spoken audio while preserving meaning.
-8. Level 1 training index has twenty-four chapters per training/level1-student-index — never say twelve chapters.
+8. Partner training uses the curated LEVEL1-PARTNER-INDEX — say curated partner training chapters; never say twenty-four-chapter classroom student index; never say twelve chapters.
 9. Trainer sandbox supports multi-turn sessions via Header #1 Ask Trainer and the Get Started panel — never say one question only.
-10. Do not mention cryptographic key paths in Settings — tenant configuration and contacts only.
+10. Export path is /exports (spoken as Exports or slash exports) — never say Dashboard Exports.
+11. Do not mention cryptographic key paths in Settings — tenant configuration and contacts only.
+12. Bucket B only — no invite inbox, password, MSA/DPA, or billing checkout narration.
 
 Write the complete spoken script now:`;
 }

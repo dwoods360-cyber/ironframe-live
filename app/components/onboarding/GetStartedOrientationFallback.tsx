@@ -1,7 +1,8 @@
 import { GET_STARTED_STEPS } from "@/app/lib/getStartedSteps";
 import { GET_STARTED_STEP_VISUALS } from "@/app/lib/getStartedStepVisuals";
 
-export const GET_STARTED_QUICKSTART_GUIDE_HREF = "/docs/user-manuals/quickstart";
+export const GET_STARTED_QUICKSTART_GUIDE_HREF =
+  "/docs/user-manuals/design-partner-operator-packet";
 
 export const GET_STARTED_ORIENTATION_HASH = "orientation-guide";
 

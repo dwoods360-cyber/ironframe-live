@@ -1,5 +1,13 @@
 import { buildStrategicIntelResearchBinding } from './context/strategicIntelResearchBinding.js';
 import { DESIGN_PARTNER_LAUNCH_BRIEFING } from './config/designPartnerLaunchBriefing.js';
+import { buildProductKnowledgeBinding } from '../../lib/ironframeProductKnowledge/boardBinding.js';
+import {
+  DESIGN_PARTNER_PATH_B_CENTS,
+  PLANNED_GA_COMMAND_CENTS,
+  PLANNED_GA_GROWTH_CENTS,
+  formatPathBUsd,
+  formatPlannedGaCommandUsd,
+} from '../../lib/ironframeProductKnowledge/commercial.js';
 
 export const CODESPACE_FOUR_PILLARS_BLUEPRINT = `
 EXECUTIVE DETERMINATION: THE 4 PILLARS OF IRONFRAME OPERATIONS
@@ -57,6 +65,7 @@ MARKETING & MESSAGING KNOWLEDGE BASE (AUTHORITATIVE):
 - Editorial calendar: docs/marketing-strategy/content-calendar.md
 - Social guidelines: docs/marketing-strategy/social-media-guidelines.md
 - Design-partner launch RACI + message lock: docs/sales/design-partner-workforce-briefing.md
+- Message constitution / beachhead drafting authority: docs/sales-enablement/message-constitution.md (code path SalesTeam/src/config/beachheadPrompts.ts — never invent a SalesTeam admin portal)
 - board-marketing-mgr: full GTM application of vault books + matrix ingest (marketing-strategy category); own warm/auditor intro blurbs with board-sales-lead
 - board-writer: narrative structure + partner packet / offer clarity — docs/training/level-2/13-narrative-frameworks-storybrand.md (no live cold DISPATCH)
 - board-trainer: operator clarity — docs/training/level-1/13-clear-messaging-for-operators.md · LEVEL1-PARTNER-INDEX (no pipeline tactics)
@@ -131,7 +140,8 @@ export const PERIMETER_WORKFORCE_APPS: readonly PerimeterWorkforceApp[] = [
     role: "PROSPECT outbound StoryBrand drafts → operator approval queue",
     crmStage: "PROSPECT",
     hitlDraftKind: "SALES",
-    ingressNote: "GET prospects + POST outreach (Bearer SALESTEAM_INGRESS_SECRET); poll ~120s",
+    ingressNote:
+      "Worker-only: GET /health + POST /poll; CRM via GET prospects + POST outreach (Bearer SALESTEAM_INGRESS_SECRET); beachheadPrompts.ts — no admin UI",
     boardOwnerIds: ["board-sales-lead", "board-marketing-mgr"],
   },
   {
@@ -168,6 +178,16 @@ INTERNAL USE ONLY — Ironframe platform operators: GLOBAL_ADMIN or designated B
 - SalesTeam :8084 — PROSPECT outbound drafts only (never auto-send)
 - IronSuccessTeam :8085 — CLOSED_WON retention/expansion advisories only (never auto-send)
 - IronSupportTeam :8086 — support intake reply drafts only (never auto-send)
+
+MESSAGE CONSTITUTION / BEACHHEAD DRAFTING LOCK (AUTHORITATIVE — overrides any conflicting advice):
+- IronBoard cannot write drafting templates into SalesTeam files, databases, or runtime config. Chat paste ≠ filesystem write.
+- SalesTeam has NO administration portal, NO "GTM Settings", NO "Campaign Engine", NO "Message Constitution" tab, NO beachhead slots, NO "Save & Lock".
+- SalesTeam HTTP surface is GET /health + POST /poll only (port 8084). Ops Hub → SalesTeam is health/poll — not constitution editing.
+- Beachhead StoryBrand scaffolding lives in code: SalesTeam/src/config/beachheadPrompts.ts
+  Sectors: REGIONAL_BHC · UTILITY_NERC · MSSP_ENCLAVE · HEALTH_HIPAA (ICP tags BHC/UTIL/MSSP/HEALTH map to these keys).
+- StoryBrand phrase guardrails: SalesTeam/src/config/storybrandGuidelines.ts · draft assembly: SalesTeam/src/agents/outboundDraftsman.ts
+- Program CTA / Path B message lock: docs/sales/design-partner-workforce-briefing.md · board ingest mirror: docs/sales-enablement/message-constitution.md
+- Correct operator path when templates change: edit the TypeScript config → restart/redeploy SalesTeam → verify next /poll. Never invent a paste-into-:8084 UI.
 
 CRM pipeline ownership (do not blur roles):
   SUSPECT → Ironleads | PROSPECT → SalesTeam | CLOSED_WON post-sale → IronSuccessTeam | Break/fix support intake → IronSupportTeam (SUPPORT drafts)
@@ -349,11 +369,12 @@ NAMING LOCK (AUTHORITATIVE — overrides any conflicting markdown in federation 
 PRICING MODEL CONSTITUTIONAL STANDARD:
 - Our platform completely rejects per-user, per-month seat licensing to eliminate fractional float billing calculations.
 - All pricing models are flat platform fees denominated strictly in BigInt integer cents.
-- Design-partner on-ramp (Phase 1 Path B / Command Tier): 499,900 cents ($4,999 USD) — sales-assisted invite; tenant-scoped Stripe activation for PENDING workspaces (never send PENDING partners to generic /pricing).
-- Planned GA Tier 1: 'Fintech Seed Gate' / Ironframe Command — For 5-25 employee startups under SOC2/ISO27001 pressure. Price: 3,500,000 cents ($35,000 USD/yr). Always label as "planned GA" until IRONFRAME_COMMERCIAL_GA is on.
-- Tier 2: 'Series A Growth Shield' - For 26-50 employee startups requiring Ironbloom sustainability tracking. Price: 7,500,000 cents ($75,000 USD).
+- Design-partner on-ramp (Phase 1 Path B / Command Tier): ${DESIGN_PARTNER_PATH_B_CENTS} cents (${formatPathBUsd()} USD) — sales-assisted invite; tenant-scoped Stripe activation for PENDING workspaces (never send PENDING partners to generic /pricing).
+- Planned GA Tier 1: 'Fintech Seed Gate' / Ironframe Command — For 5-25 employee startups under SOC2/ISO27001 pressure. Price: ${PLANNED_GA_COMMAND_CENTS} cents (${formatPlannedGaCommandUsd()} USD/yr). Always label as "planned GA" until IRONFRAME_COMMERCIAL_GA is on.
+- Tier 2: 'Series A Growth Shield' - For 26-50 employee startups requiring Ironbloom sustainability tracking. Price: ${PLANNED_GA_GROWTH_CENTS} cents ($75,000 USD).
 - Outreach CTA for design partners: 10–15 minute workflow review (not a free pilot or 20-minute product demo).
 - Heavily penalize and short-circuit any model generation that attempts to propose seat-based metrics, decimals, or enterprise enterprise pricing tiers over $100k.
+- Product spine: lib/ironframeProductKnowledge · federation: docs/sales-enablement/pricing-and-packaging.md · competitive-pricing-map.md
 
 OPERATIONAL COST VS. CLIENT BASELINE DISTINCTION:
 - Our internal operational cost is lean, totaling exactly between 7,700 cents ($77 USD) and 11,700 cents ($117 USD) per month for cloud infrastructure hosting (Vercel, Supabase, and Gemini API usage tokens).
@@ -386,15 +407,17 @@ PHASE 1 MONETIZATION MANDATE (AUTHORITATIVE — Q2 2026):
 export const DOCUMENTATION_CORPUS_BINDING = `
 DUAL-LOCATION OUTPUT MATRIX (AUTHORITATIVE — see lib/documentationCorpusPlanes.ts):
 
-PLANE 1 — NEWSLETTERS & BRIEFINGS (External / GTM Intelligence Surface)
-- Content: Market analysis, regulatory narratives, flywheel briefing logs, Ironcast newsletter series
-- Target: /governance-frame/[slug] · PublishedBriefing DB · Substack / Ironcast staging
-- Authors: board-bot, board-cfo, flywheel agents, narrate cron, Ops Hub briefing/newsletter request — NOT board-trainer/writer
+PLANE 1 — NEWSLETTERS & BRIEFINGS / GOVERNANCE FRAME RESEARCH ENCYCLOPEDIA (External / GTM Intelligence Surface)
+- Content: Market analysis, regulatory narratives, flywheel briefing logs, Ironcast newsletter series, published GF research papers catalog
+- Target: research.ironframegrc.com/briefings/[slug] · PublishedBriefing DB · docs/published-briefings · Substack / Ironcast staging
+- READ access: all board personas + perimeter workers may cite the published encyclopedia (federated at startup + product spine)
+- WRITE authors: board-bot, board-cfo, flywheel agents, narrate cron, Ops Hub briefing/newsletter request — NOT board-trainer/writer
 - Workflow: Ops Hub Briefings or Newsletters request/stage OR autonomous weekday GTM cron OR narrate → briefing-queue/ → human Promote (approve) / Deny → Ironcast syndicate
+- Forbidden: citing docs/briefing-queue drafts; inventing GF-#### paper IDs; treating product architecture as regulation
 - Operator submit URLs:
   · /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/request
   · /dashboard/operations?tab=newsletters · POST /api/admin/operations-hub/newsletters/request
-- IronBoard chat remains read-only advisory — paste is not a filesystem write
+- IronBoard chat remains read-only advisory for APP_DOCS writes — paste is not a filesystem write
 
 PLANE 2 — APP DOCS (Internal / Product GRC Corpus)
 - Content: Level 1 user-manuals + Level 2 technical specs + training paths + design-partner operator packet
@@ -424,6 +447,8 @@ export function buildStaticContextBundle(): string {
     '=== IRONBOARD STATIC CONTEXT (READ-ONLY; NO LIVE DATABASE) ===',
     '',
     PERIMETER_WORKFORCE_BINDING,
+    '',
+    buildProductKnowledgeBinding(),
     '',
     DOCUMENTATION_CORPUS_BINDING,
     '',

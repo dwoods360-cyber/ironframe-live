@@ -19,6 +19,13 @@ import { APP_DOCS_REPOSITORY_PREFIXES } from "../lib/documentationCorpusPlanes";
 const prisma = new PrismaClient();
 const DOCS_ROOT = path.join(process.cwd(), "docs");
 
+/** Author/ops artifacts under user-manuals/ that must not enter partner-facing AppDocument. */
+const APP_DOCS_SEED_EXCLUDE = new Set([
+  "user-manuals/get-started-orientation-audio-script.md",
+  "user-manuals/get-started-welcome-audio-script.md",
+  "user-manuals/platform-sync.md",
+]);
+
 function collectMarkdownFiles(absoluteDir: string, relativePrefix: string): string[] {
   if (!fs.existsSync(absoluteDir)) return [];
 
@@ -33,6 +40,7 @@ function collectMarkdownFiles(absoluteDir: string, relativePrefix: string): stri
     }
 
     if (entry.isFile() && entry.name.toLowerCase().endsWith(".md")) {
+      if (APP_DOCS_SEED_EXCLUDE.has(relativePath)) continue;
       results.push(relativePath);
     }
   }
@@ -84,7 +92,19 @@ async function main(): Promise<void> {
     console.log(`[seed-app-documents] upserted: ${slug}`);
   }
 
-  console.log(`[seed-app-documents] Completed — ${upserted} slug(s) from docs/.`);
+  let removed = 0;
+  for (const relativePath of APP_DOCS_SEED_EXCLUDE) {
+    const slug = normalizeAppDocumentSlug(relativePath);
+    const result = await prisma.appDocument.deleteMany({ where: { slug } });
+    removed += result.count;
+    if (result.count > 0) {
+      console.log(`[seed-app-documents] removed excluded slug: ${slug}`);
+    }
+  }
+
+  console.log(
+    `[seed-app-documents] Completed — ${upserted} slug(s) from docs/; removed ${removed} excluded.`,
+  );
 }
 
 main()

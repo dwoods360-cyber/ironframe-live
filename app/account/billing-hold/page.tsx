@@ -36,8 +36,8 @@ export default async function BillingHoldPage({
           If subscription payment fails, a Billing Gate blocks the Command Center. Use{" "}
           <strong className="font-normal text-slate-400">Update Payment Method</strong> below or
           contact{" "}
-          <a href="mailto:delivery@ironframegrc.com" className="text-cyan-400 hover:text-cyan-300">
-            delivery@ironframegrc.com
+          <a href="mailto:partners@ironframegrc.com" className="text-cyan-400 hover:text-cyan-300">
+            partners@ironframegrc.com
           </a>{" "}
           to resolve provisioning holds.
         </p>

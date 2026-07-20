@@ -78,7 +78,7 @@ const x = 1;
     expect(() => parseGovernanceMarkdown(md, "code.md")).toThrow(/content loss/i);
   });
 
-  it("builds cover metadata and TOC placeholder for manuscript payload", () => {
+  it("builds manuscript cover with separate metadata and contiguous TOC", () => {
     const md = `---
 researchId: "GF-2026-001"
 title: "The Evolution of GRC"
@@ -94,31 +94,72 @@ canonicalRepositoryPath: "docs/governance-frame/research-papers/GF-2026-001-evol
 
 ## Historical Analysis
 
+**Version:** 1.0 Draft  
+**Status:** Editorial Draft  
+**Classification:** Institutional Governance
+
+## Research Integrity Statement
+
+Prose stays normal.
+
+## Table of Contents
+
+1. Introduction
+2. Emergence
+9. Appendices
+
 # 1. Introduction
 
 Body.
 
-# References
+# 2. Emergence
 
-See refs.
-
-# Appendices
-
-Draft.
+Draft pending.
 `;
     const parsed = parseGovernanceMarkdown(md, "manuscript.md");
     const payload = buildDocsPayload(parsed, {
       includeCoverFromFrontmatter: true,
       forcePageBreaksForManuscript: true,
     });
-    expect(payload.text).toContain("Research ID: GF-2026-001");
-    expect(payload.text).toContain(
-      "Table of Contents — refresh in Google Docs after heading updates",
+    expect(payload.text).toContain("Version: 1.0 Draft\n");
+    expect(payload.text).toContain("Status: Editorial Draft\n");
+    expect(payload.text).toContain("Classification: Institutional Governance\n");
+    expect(payload.text).not.toMatch(
+      /Version: 1\.0 Draft Status: Editorial Draft Classification:/,
     );
-    expect(payload.text).toContain("Canonical repository path:");
-    expect(payload.pageBreaks.length).toBeGreaterThan(0);
+    expect(payload.text).toContain("Table of Contents\n");
+    expect(payload.text).toContain("Table of Contents\n1. Introduction\n2. Emergence\n");
+    expect(payload.text).toMatch(/Appendices\n/);
+    // Cover → TOC, TOC → body only (no blank interstitial page machinery).
+    expect(payload.pageBreaks).toHaveLength(2);
     expect(payload.paragraphStyles.some((s) => s.namedStyleType === "TITLE")).toBe(
       true,
     );
+    expect(payload.paragraphStyles.some((s) => s.namedStyleType === "HEADING_1")).toBe(
+      true,
+    );
+    expect(payload.paragraphStyles.some((s) => s.namedStyleType === "NORMAL_TEXT")).toBe(
+      true,
+    );
+  });
+
+  it("keeps Version/Status/Classification as separate paragraphs", () => {
+    const md = `# Title
+
+**Version:** 1.0 Draft  
+**Status:** Editorial Draft  
+**Classification:** Institutional Governance
+
+Body.
+`;
+    const parsed = parseGovernanceMarkdown(md, "meta.md");
+    const fields = parsed.blocks.filter((b) => b.type === "paragraph");
+    const texts = fields.map((b) =>
+      b.type === "paragraph" ? spansToPlainText(b.spans) : "",
+    );
+    expect(texts.some((t) => /^Version:/i.test(t) && !/Status:/i.test(t))).toBe(true);
+    expect(texts.some((t) => /^Status:/i.test(t))).toBe(true);
+    expect(texts.some((t) => /^Classification:/i.test(t))).toBe(true);
   });
 });
+

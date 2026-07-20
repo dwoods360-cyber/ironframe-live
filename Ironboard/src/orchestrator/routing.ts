@@ -1,3 +1,7 @@
+import {
+  buildDocsHubLocationAnswer,
+  buildTrainingDocsLocationAnswer,
+} from '../../../lib/ironframeProductKnowledge/productFacts.js';
 import type { BoardPersona } from '../staticContext.js';
 import {
   GRC_ANALYST_DAY_VIDEO_TITLE,
@@ -37,6 +41,7 @@ You are the IronBoard platform execution layer — the boardroom orchestration e
 NEVER begin responses with "While I, as an AI, do not personally..." or similar disclaimers.
 NEVER use first-person AI limitation language ("As an AI...", "I don't personally...", "I do not personally...", "I cannot personally...", "I am not capable of performing real market research").
 When asked for market research or GTM prospect discovery, execute and report tool-backed findings — never refuse by contrasting "information retrieval" with "real market research".
+ANTI-HALLUCINATION: Never invent SaaS routes, portals, Knowledge Bases, layouts, certifications, customers, or pricing. If the product spine / tools / telemetry do not confirm a fact, say you cannot verify it. Prefer short human-readable prose over fabricated markdown lessons.
 `.trim();
 
 export const CANONICAL_SALES_LEADS_RESPONSE =
@@ -87,6 +92,55 @@ export function isSalesLeadDiscoveryQuery(query: string): boolean {
   return false;
 }
 
+/** "Where is the docs hub / documentation hub /docs?" — deterministic prose. */
+export function isDocsHubLocationQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  const asksWhere =
+    q.includes('where') ||
+    q.includes('how do i open') ||
+    q.includes('how do i find') ||
+    q.includes('how to open') ||
+    q.includes('how to find') ||
+    q.includes('location of');
+  if (!asksWhere) return false;
+  return (
+    q.includes('docs hub') ||
+    q.includes('documentation hub') ||
+    q.includes('/docs') ||
+    (q.includes('documentation') && (q.includes('hub') || q.includes('reader'))) ||
+    (q.includes('in-app') && q.includes('documentation'))
+  );
+}
+
+/** "Where are user training documents / training manuals?" — deterministic prose. */
+export function isTrainingDocsLocationQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+  // Prefer training-specific over generic docs-hub when both could match.
+  const asksWhere =
+    q.includes('where') ||
+    q.includes('how do i find') ||
+    q.includes('how to find') ||
+    q.includes('location of');
+  if (!asksWhere) return false;
+  if (isDocsHubLocationQuery(query) && !/(training|manual|curriculum|level\s*1|partner index)/i.test(q)) {
+    return false;
+  }
+  return (
+    (q.includes('training') && (q.includes('doc') || q.includes('manual') || q.includes('material') || q.includes('guide') || q.includes('index'))) ||
+    q.includes('user training') ||
+    q.includes('training documents') ||
+    q.includes('partner training') ||
+    q.includes('level1-partner') ||
+    q.includes('level 1 partner') ||
+    q.includes('operator packet')
+  );
+}
+
+export const CANONICAL_DOCS_HUB_LOCATION_RESPONSE = buildDocsHubLocationAnswer();
+export const CANONICAL_TRAINING_DOCS_LOCATION_RESPONSE = buildTrainingDocsLocationAnswer();
+
 /** Deterministic canonical responses — bypass LLM synthesis when matched. */
 export function resolveCanonicalBoardResponse(query: string): string | null {
   if (isGrcVideoBriefingQuery(query)) {
@@ -98,6 +152,13 @@ export function resolveCanonicalBoardResponse(query: string): string | null {
   if (isSalesLeadDiscoveryQuery(query)) {
     return CANONICAL_SALES_LEADS_RESPONSE;
   }
+  // Training docs before docs hub — more specific "where are training documents?"
+  if (isTrainingDocsLocationQuery(query)) {
+    return CANONICAL_TRAINING_DOCS_LOCATION_RESPONSE;
+  }
+  if (isDocsHubLocationQuery(query)) {
+    return CANONICAL_DOCS_HUB_LOCATION_RESPONSE;
+  }
   return null;
 }
 
@@ -107,5 +168,6 @@ export function buildBoardroomPersonaPrompt(leader: BoardPersona): string {
     `Primary framework: ${leader.primaryBookAlignment}.`,
     `Expertise: ${leader.expertise.join(', ')}.`,
     'Respond in 2–3 dense sentences of fluent prose unless listing tool-verified playbook inventories. No markdown lists unless enumerating discovery tool results.',
+    'For "where is / where are" location questions about Docs Hub or training: plain human-readable prose only — never a markdown training chapter with # headings, Step checklists, or glossary tables.',
   ].join('\n');
 }

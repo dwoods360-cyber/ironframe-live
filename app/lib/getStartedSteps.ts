@@ -3,9 +3,9 @@ export const GET_STARTED_STEPS = [
     id: "quickstart",
     title: "Workspace orientation",
     description:
-      "Review invite activation, legal sign-off, and Command Post layout in the Level 1 quick-start guide.",
-    href: "/docs/user-manuals/quickstart",
-    docLabel: "Open quick-start guide",
+      "Open the Design Partner Operator Packet for workspace orientation, Get Started gates, and the daily cockpit loop.",
+    href: "/docs/user-manuals/design-partner-operator-packet",
+    docLabel: "Open operator packet",
   },
   {
     id: "integrity-hub",
@@ -17,17 +17,17 @@ export const GET_STARTED_STEPS = [
   },
   {
     id: "level1-index",
-    title: "Level 1 training track",
+    title: "Partner training track",
     description:
-      "Browse the 12-chapter student curriculum with screenshot-backed labs for your role.",
-    href: "/docs/training/LEVEL1-STUDENT-INDEX",
-    docLabel: "Open Level 1 index",
+      "Browse the curated Level 1 chapters for design partners (excludes classroom seed labs and CLI remediation).",
+    href: "/docs/training/LEVEL1-PARTNER-INDEX",
+    docLabel: "Open partner training index",
   },
   {
     id: "trainer-session",
     title: "Trainer agent sandbox",
     description:
-      "Ask the isolated Trainer one question grounded on the verified training corpus (complete via panel below).",
+      "Ask the isolated Trainer multi-turn questions grounded on the verified training corpus (complete via panel below).",
     href: "/get-started#trainer-sandbox",
     docLabel: "Use Trainer panel",
   },
@@ -35,7 +35,7 @@ export const GET_STARTED_STEPS = [
     id: "export-path",
     title: "Audit export path",
     description:
-      "Locate tenant-scoped CSV/PDF exports for auditor handoff from the dashboard exports surface.",
+      "Locate tenant-scoped CSV/PDF exports for auditor handoff at /exports.",
     href: "/exports",
     docLabel: "Open exports console",
   },

@@ -34,6 +34,18 @@ export type BoardroomSystemPromptInput = {
 
 export const BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE = BOARD_DUAL_LOCATION_OUTPUT_MATRIX;
 
+export const BOARD_OPERATOR_PROSE_MANDATE = `
+[OPERATOR ANSWER STYLE + NO HALLUCINATION]
+Applies to every boardroom answer about the SaaS product, docs, training, GTM, workforce, or UI:
+- Ground every factual claim in the product knowledge spine, tool receipts, or live telemetry — never invent.
+- If unknown: say you cannot verify. Do not invent portals, Knowledge Bases, layouts, buttons, certifications, customers, or prices.
+- Location / surface answers: plain human-readable prose (2–5 sentences). Sound like a colleague, not a pasted .md lesson.
+- FORBIDDEN response shapes for location Q&A: markdown # / ## / ### lesson titles, "Training Session:", "Step 1/2/3" lab walkthroughs, checkbox verification lists, glossary tables, bash seed blocks for design partners.
+- Docs Hub = /docs with DocsChrome reader (sidebar + article). NEVER claim Command Center 22%/48%/30% tripane layout for /docs.
+- Training docs = /docs + partner packet + LEVEL1-PARTNER-INDEX + /get-started — NEVER "SuccessTeam Portal Knowledge Base" or "Ops Hub Knowledge Base".
+- Prefer canonical product-spine wording from lib/ironframeProductKnowledge when present in static context.
+`.trim();
+
 export const BOARD_COMPETITIVE_HONESTY_MANDATE = `
 [COMPETITIVE POSITIONING — BOARD-SAFE LANGUAGE ONLY]
 Ironframe is architecturally differentiated for quantitative GRC (BigInt ALE, Irongate zero-trust ingest, observable agent boundaries, MSSP Command Center) in regulated mid-market — NOT market-leading vs Vanta, Drata, Optro, or OneTrust on customer scale, connector ecosystems, SOC 2 velocity, or enterprise IRM breadth.
@@ -146,6 +158,7 @@ export function buildBoardroomSystemInstruction(input: BoardroomSystemPromptInpu
   const blocks = [
     ...priorityBlocks,
     BOARD_DOCUMENTATION_AUTHORSHIP_MANDATE,
+    BOARD_OPERATOR_PROSE_MANDATE,
     BOARD_COMPETITIVE_HONESTY_MANDATE,
     BOARD_GTM_MARKET_AUTHENTICITY_MANDATE,
     BOARD_GRC_ENVIRONMENT_MANDATE,

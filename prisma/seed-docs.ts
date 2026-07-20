@@ -20,13 +20,15 @@ const masterDocuments = [
 
 Welcome to the central documentation depository for the Ironframe Governance, Risk, and Compliance platform (v0.1.0-ga-epic17).
 
-## 📁 Active Workspace Topography
+## Active Workspace Topography
+- Design partner packet: Navigate via /docs/user-manuals/design-partner-operator-packet
 - Level 1 User Manuals: Navigate via /docs/user-manuals/quickstart
+- Partner training (curated): Navigate via /docs/training/LEVEL1-PARTNER-INDEX
 - Level 2 Technical Specs: Navigate via /docs/technical/architecture-and-api
 - Security & Compliance: Navigate via /docs/technical/security-and-compliance
-- Training Framework Tracks: Navigate via /docs/training/level1-student-index
+- Classroom training (instructors): Navigate via /docs/training/LEVEL1-STUDENT-INDEX
 
-## 📈 System Operational Posture
+## System Operational Posture
 - Platform Version: v0.1.0-ga-epic17 (June 2026)
 - Public Registrations: Disabled (Sales-Assisted Mode Active)
 - Encryption Standards: AES-256-GCM + Epic 11 Supervisor Verification Layer`,
@@ -59,6 +61,11 @@ Detailed technical overview of the decoupled multi-port topology and multi-agent
 
 /** Filesystem-backed canonical rows — guaranteed before full corpus walk. */
 const fileMasterDocumentSources = [
+  "user-manuals/design-partner-operator-packet.md",
+  "user-manuals/get-started-workspace-setup.md",
+  "user-manuals/audit-exports.md",
+  "user-manuals/pilot-vs-preview.md",
+  "training/LEVEL1-PARTNER-INDEX.md",
   "technical/security-and-compliance.md",
 ] as const;
 
@@ -88,6 +95,11 @@ async function seedMasterDocuments(): Promise<void> {
   const fileMasters = fileMasterDocumentSources.map((relativePath) =>
     loadFileMasterDocument(relativePath),
   );
+  for (const master of fileMasters) {
+    if (master.slug.startsWith("user-manuals/") || master.slug.startsWith("training/")) {
+      assertOperatorPostAuthMarkdown(master.content, `docs/${master.slug}.md`);
+    }
+  }
   const allMasters = [
     ...masterDocuments.map((doc) =>
       doc.slug === "user-manuals/quickstart" ? { ...doc, content: operatorQuickstart } : doc,

@@ -11,6 +11,7 @@ import { GoogleGenAI, FunctionCallingConfigMode, type FunctionCall, type Groundi
 import { classifyGeminiStreamFault, withGeminiRateLimitRetry } from './lib/geminiRetry.js';
 import { buildIronboardReadiness } from './lib/geminiCredentialHealth.js';
 import { loadIronboardEnv, getIronboardApiKey, getIronboardGeminiModel } from './loadIronboardEnv.js';
+import { buildPublishedGovernanceFrameFederationBlock } from '../../lib/governanceFrame/publishedResearchKnowledge.js';
 import {
   AGENTIC_BOARD_ROSTER,
   BOARDROOM_ISOLATED_AGENT_IDS,
@@ -23,7 +24,10 @@ import {
   WORKFORCE_VS_SIMULATION_DISAMBIGUATION,
   type BoardPersona,
 } from './staticContext.js';
-import { buildProductMatrixHealthSnapshot } from './services/productMatrixHealth.js';
+import {
+  buildProductMatrixHealthSnapshot,
+  formatPerimeterWorkforceHealthAnswer,
+} from './services/productMatrixHealth.js';
 import { DYNAMIC_DISCOVERY_MANDATE } from './boardRouter.js';
 import {
   BOARD_CONVERSATIONAL_BOUNDARY,
@@ -72,6 +76,7 @@ import {
   isCompetitivePositioningQuery,
   isGtmMarketQuery,
   isMarketResearchCapabilityQuery,
+  isPerimeterWorkforceHealthQuery,
   requiresCrmDiscovery,
   requiresWorkspaceTools,
   shouldPrefetchGrcEnvironment,
@@ -180,6 +185,8 @@ function buildDocsFederationMatrix(): string {
   const docsRoot = resolveDocsRoot();
   console.log('[IRONBOARD DOCS] Scanning', docsRoot);
 
+  const governanceFrameResearch = buildPublishedGovernanceFrameFederationBlock(docsRoot);
+
   const tas = readDoc(path.join(docsRoot, 'TAS.md'));
   const trd = readDoc(path.join(docsRoot, 'stakeholders', 'technical-requirements.md'));
   const hub = readDoc(path.join(docsRoot, 'hub.md'));
@@ -244,6 +251,7 @@ function buildDocsFederationMatrix(): string {
     customerSuccessLibrary
       ? `\n── CUSTOMER SUCCESS LIBRARY (RETENTION + EXPANSION) ──\n${customerSuccessLibrary}`
       : '',
+    governanceFrameResearch ? `\n${governanceFrameResearch}` : '',
     '═══ END FEDERATION ═══',
   ].join('\n');
 }
@@ -485,6 +493,32 @@ async function prefetchBoardroomGroundTruth(params: {
   const enrichmentBlocks: string[] = [];
   const marketResults: VerifyAndOptimizeMarketDataResult[] = [];
   let workspaceSnapshot: Record<string, unknown> | undefined;
+
+  if (isPerimeterWorkforceHealthQuery(query)) {
+    writeSseToolCall(res, {
+      name: 'productMatrixHealth',
+      status: 'running',
+      prefetch: true,
+    });
+    const healthSnapshot = await buildProductMatrixHealthSnapshot();
+    writeSseToolCall(res, {
+      name: 'productMatrixHealth',
+      status: 'complete',
+      ok: true,
+      prefetch: true,
+      unreachable: healthSnapshot.services.filter((row) => !row.reachable).length,
+    });
+    enrichmentBlocks.push(
+      `PERIMETER WORKFORCE HEALTH (authoritative product-matrix probe — red = unreachable health endpoint; HIGH = static ops priority, not labor-market data, not CRM stage):\n${formatPerimeterWorkforceHealthAnswer(healthSnapshot)}`,
+    );
+    return {
+      prefetchedExchange,
+      systemEnrichment: enrichmentBlocks.join('\n\n'),
+      receipts: [],
+      marketResults,
+      workspaceSnapshot,
+    };
+  }
 
   const { receipts } = await runDynamicDiscovery(query, {
     tenantId,
@@ -1034,12 +1068,35 @@ function renderDashboard(): string {
     #chat-messages { min-height: min-content; }
     #chat-compose { flex-shrink: 0; margin-top: 0.75rem; }
     .chat-scroll-anchor { height: 0; width: 100%; overflow: hidden; pointer-events: none; flex-shrink: 0; }
-    .msg-user, .msg-model { padding: 0.65rem; margin-bottom: 0.5rem; border-radius: 0.35rem; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.5; }
-    .msg-user { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; }
+    .msg-user, .msg-model { padding: 0.65rem; margin-bottom: 0.5rem; border-radius: 0.35rem; font-size: 0.85rem; line-height: 1.5; }
+    .msg-user { background: #1e293b; border: 1px solid #334155; color: #e2e8f0; white-space: pre-wrap; }
     .msg-user-label { font-size: 0.6rem; color: #fbbf24; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem; }
     .msg-model { background: #020617; border: 1px solid #334155; border-left: 3px solid #f59e0b; color: #e2e8f0; }
     .msg-model-label { font-size: 0.6rem; color: #94a3b8; font-weight: 800; text-transform: uppercase; margin-bottom: 0.25rem; }
     .msg-streaming { border-left-color: #fbbf24; }
+    .msg-body { white-space: normal; }
+    .msg-body h1, .msg-body h2, .msg-body h3, .msg-body h4 { color: #fbbf24; font-weight: 800; line-height: 1.3; margin: 0.85rem 0 0.4rem; }
+    .msg-body h1 { font-size: 1.05rem; }
+    .msg-body h2 { font-size: 0.95rem; }
+    .msg-body h3, .msg-body h4 { font-size: 0.88rem; }
+    .msg-body p { margin: 0.45rem 0; }
+    .msg-body ul, .msg-body ol { margin: 0.4rem 0 0.4rem 1.25rem; padding: 0; }
+    .msg-body li { margin: 0.2rem 0; }
+    .msg-body blockquote { margin: 0.5rem 0; padding: 0.4rem 0.65rem; border-left: 3px solid #f59e0b; background: #0f172a; color: #cbd5e1; }
+    .msg-body pre { margin: 0.5rem 0; padding: 0.55rem 0.65rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.3rem; overflow-x: auto; font-size: 0.75rem; white-space: pre-wrap; }
+    .msg-body code { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+    .msg-body :not(pre) > code { background: #1e293b; border: 1px solid #334155; border-radius: 0.2rem; padding: 0.05rem 0.25rem; }
+    .msg-body table { width: 100%; border-collapse: collapse; margin: 0.55rem 0; font-size: 0.75rem; }
+    .msg-body th, .msg-body td { border: 1px solid #334155; padding: 0.35rem 0.45rem; text-align: left; vertical-align: top; }
+    .msg-body th { background: #0f172a; color: #fbbf24; font-weight: 800; }
+    .msg-body a { color: #38bdf8; text-decoration: none; }
+    .msg-body a:hover { text-decoration: underline; }
+    .msg-body hr { border: none; border-top: 1px solid #334155; margin: 0.75rem 0; }
+    .msg-body strong { color: #fde68a; font-weight: 800; }
+    .chat-export-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+    .chat-export-btn { background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 0.3rem; padding: 0.3rem 0.55rem; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; cursor: pointer; letter-spacing: 0.04em; }
+    .chat-export-btn:hover { border-color: #f59e0b; color: #fbbf24; }
+    .chat-export-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .grounding-panel { margin-top: 0.5rem; padding: 0.5rem 0.6rem; background: #0f172a; border: 1px solid #334155; border-radius: 0.25rem; font-size: 0.62rem; line-height: 1.4; }
     .grounding-label { display: block; font-weight: 800; text-transform: uppercase; color: #64748b; margin-bottom: 0.25rem; letter-spacing: 0.06em; }
     .grounding-queries { margin-bottom: 0.35rem; }
@@ -1124,6 +1181,10 @@ function renderDashboard(): string {
     <section id="chat-panel">
       <div id="chat-header">
         <div id="active-label">Active: Auto-Routing</div>
+        <div class="chat-export-actions">
+          <button type="button" id="export-html-btn" class="chat-export-btn" title="Download conversation as HTML">HTML</button>
+          <button type="button" id="export-pdf-btn" class="chat-export-btn" title="Open print dialog to save conversation as PDF">PDF</button>
+        </div>
       </div>
       <div id="chat-window"></div>
       <div id="chat-compose">
@@ -1446,6 +1507,223 @@ function renderDashboard(): string {
       return out;
     }
 
+    function formatInlineMarkdown(text) {
+      var s = escapeHtml(text);
+      s = s.replace(/\`([^\`]+)\`/g, '<code>$1</code>');
+      s = s.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\s)]+)\\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      s = s.replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>');
+      s = s.replace(/(^|[^*])\\*([^*]+)\\*(?!\\*)/g, '$1<em>$2</em>');
+      return s;
+    }
+
+    function isMarkdownTableSeparator(line) {
+      return /^\\|?\\s*:?-{3,}:?\\s*(\\|\\s*:?-{3,}:?\\s*)+\\|?\\s*$/.test(line);
+    }
+
+    function parseMarkdownTable(lines, startIdx) {
+      if (startIdx + 1 >= lines.length) return null;
+      var header = lines[startIdx].trim();
+      var sep = lines[startIdx + 1].trim();
+      if (header.indexOf('|') === -1 || !isMarkdownTableSeparator(sep)) return null;
+      function splitRow(row) {
+        var cells = row.replace(/^\\|/, '').replace(/\\|$/, '').split('|');
+        return cells.map(function(c) { return c.trim(); });
+      }
+      var headers = splitRow(header);
+      var rows = [];
+      var i = startIdx + 2;
+      while (i < lines.length) {
+        var row = lines[i].trim();
+        if (!row || row.indexOf('|') === -1) break;
+        rows.push(splitRow(row));
+        i++;
+      }
+      var html = '<table><thead><tr>' +
+        headers.map(function(h) { return '<th>' + formatInlineMarkdown(h) + '</th>'; }).join('') +
+        '</tr></thead><tbody>' +
+        rows.map(function(r) {
+          return '<tr>' + headers.map(function(_, idx) {
+            return '<td>' + formatInlineMarkdown(r[idx] || '') + '</td>';
+          }).join('') + '</tr>';
+        }).join('') +
+        '</tbody></table>';
+      return { html: html, nextIdx: i };
+    }
+
+    /** Convert boardroom markdown/prose into safe HTML for on-screen presentation. */
+    function formatModelHtml(raw) {
+      var fence = String.fromCharCode(96, 96, 96);
+      var text = String(raw || '').replace(/\\r\\n/g, '\\n');
+      if (!text.trim()) return '';
+      var lines = text.split('\\n');
+      var blocks = [];
+      var i = 0;
+      while (i < lines.length) {
+        var line = lines[i];
+        var trimmed = line.trim();
+        if (!trimmed) { i++; continue; }
+
+        if (trimmed.indexOf(fence) === 0) {
+          var lang = escapeHtml(trimmed.slice(3).trim());
+          var codeLines = [];
+          i++;
+          while (i < lines.length && lines[i].trim().indexOf(fence) !== 0) {
+            codeLines.push(lines[i]);
+            i++;
+          }
+          if (i < lines.length) i++;
+          blocks.push(
+            '<pre' + (lang ? ' data-lang="' + lang + '"' : '') + '><code>' +
+            escapeHtml(codeLines.join('\\n')) + '</code></pre>'
+          );
+          continue;
+        }
+
+        var heading = trimmed.match(/^(#{1,4})\\s+(.+)$/);
+        if (heading) {
+          var level = heading[1].length;
+          blocks.push('<h' + level + '>' + formatInlineMarkdown(heading[2]) + '</h' + level + '>');
+          i++;
+          continue;
+        }
+
+        if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+          blocks.push('<hr />');
+          i++;
+          continue;
+        }
+
+        if (trimmed.charAt(0) === '>') {
+          var quote = [];
+          while (i < lines.length && lines[i].trim().charAt(0) === '>') {
+            quote.push(lines[i].trim().replace(/^>\\s?/, ''));
+            i++;
+          }
+          blocks.push('<blockquote>' + formatInlineMarkdown(quote.join(' ')) + '</blockquote>');
+          continue;
+        }
+
+        var table = parseMarkdownTable(lines, i);
+        if (table) {
+          blocks.push(table.html);
+          i = table.nextIdx;
+          continue;
+        }
+
+        if (/^[-*]\\s+/.test(trimmed) || /^\\d+\\.\\s+/.test(trimmed)) {
+          var ordered = /^\\d+\\.\\s+/.test(trimmed);
+          var items = [];
+          while (i < lines.length) {
+            var itemLine = lines[i].trim();
+            var m = ordered ? itemLine.match(/^\\d+\\.\\s+(.+)$/) : itemLine.match(/^[-*]\\s+(.+)$/);
+            if (!m) break;
+            items.push('<li>' + formatInlineMarkdown(m[1]) + '</li>');
+            i++;
+          }
+          blocks.push((ordered ? '<ol>' : '<ul>') + items.join('') + (ordered ? '</ol>' : '</ul>'));
+          continue;
+        }
+
+        var para = [trimmed];
+        i++;
+        while (i < lines.length) {
+          var next = lines[i].trim();
+          if (!next) break;
+          if (next.indexOf(fence) === 0 || /^(#{1,4})\\s+/.test(next) || next.charAt(0) === '>' ||
+              /^[-*]\\s+/.test(next) || /^\\d+\\.\\s+/.test(next) || next === '---' ||
+              next === '***' || next === '___' || parseMarkdownTable(lines, i)) {
+            break;
+          }
+          para.push(next);
+          i++;
+        }
+        blocks.push('<p>' + formatInlineMarkdown(para.join(' ')) + '</p>');
+      }
+      return blocks.join('');
+    }
+
+    function buildExportDocumentHtml(title, bodyHtml) {
+      return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />' +
+        '<title>' + escapeHtml(title) + '</title>' +
+        '<style>' +
+        'body{font-family:Georgia,serif;max-width:48rem;margin:2rem auto;padding:0 1.25rem;color:#111;line-height:1.55;}' +
+        'h1,h2,h3,h4{font-family:system-ui,sans-serif;color:#111;}' +
+        '.turn{margin:0 0 1.25rem;padding-bottom:1rem;border-bottom:1px solid #ddd;}' +
+        '.label{font-family:system-ui,sans-serif;font-size:0.7rem;font-weight:800;text-transform:uppercase;color:#666;margin-bottom:0.35rem;}' +
+        'table{border-collapse:collapse;width:100%;margin:0.75rem 0;font-size:0.9rem;}' +
+        'th,td{border:1px solid #ccc;padding:0.4rem 0.5rem;text-align:left;vertical-align:top;}' +
+        'th{background:#f4f4f4;}' +
+        'pre{background:#f6f8fa;border:1px solid #ddd;padding:0.75rem;overflow:auto;white-space:pre-wrap;}' +
+        'blockquote{border-left:3px solid #999;margin:0.75rem 0;padding:0.35rem 0.75rem;color:#333;}' +
+        'a{color:#0b5fff;}' +
+        '@media print{body{margin:0;max-width:none;}}' +
+        '</style></head><body>' +
+        '<h1>' + escapeHtml(title) + '</h1>' +
+        bodyHtml +
+        '</body></html>';
+    }
+
+    function buildConversationExportBody() {
+      var history = getConversationHistory();
+      var parts = [];
+      for (var i = 0; i < history.length; i++) {
+        var turn = history[i];
+        if (turn.role === 'user') {
+          parts.push(
+            '<section class="turn"><div class="label">You</div>' +
+            '<div style="white-space:pre-wrap">' + escapeHtml(turn.text) + '</div></section>'
+          );
+        } else {
+          parts.push(
+            '<section class="turn"><div class="label">' + escapeHtml(activeAgentRole) + '</div>' +
+            '<div class="msg-body">' + formatModelHtml(turn.text) + '</div></section>'
+          );
+        }
+      }
+      if (!parts.length) {
+        parts.push('<p>No conversation turns yet.</p>');
+      }
+      return parts.join('');
+    }
+
+    function downloadHtmlFile(filename, html) {
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1500);
+    }
+
+    function exportConversationAsHtml() {
+      var stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      var title = 'IronBoard Boardroom — ' + activeAgentRole;
+      var html = buildExportDocumentHtml(title, buildConversationExportBody());
+      downloadHtmlFile('ironboard-boardroom-' + stamp + '.html', html);
+      setStatus('Downloaded HTML transcript.');
+    }
+
+    function exportConversationAsPdf() {
+      var title = 'IronBoard Boardroom — ' + activeAgentRole;
+      var html = buildExportDocumentHtml(title, buildConversationExportBody());
+      var win = window.open('', '_blank');
+      if (!win) {
+        setStatus('Pop-up blocked — allow pop-ups to export PDF, or use HTML download.');
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(function() {
+        try { win.print(); } catch (err) { /* ignore */ }
+      }, 250);
+      setStatus('Print dialog opened — choose Save as PDF.');
+    }
+
     function scrollChatToBottom() {
       var chatWindow = document.getElementById('chat-window');
       if (!chatWindow) return;
@@ -1476,7 +1754,7 @@ function renderDashboard(): string {
       if (!chatWindow) return;
       var body = chatWindow.querySelector('.msg-streaming .streaming-body');
       if (body) {
-        body.textContent = streamingText;
+        body.innerHTML = formatModelHtml(streamingText);
         scrollChatToBottom();
         return;
       }
@@ -1759,7 +2037,7 @@ function renderDashboard(): string {
         } else {
           parts.push(
             '<div class="msg-model"><div class="msg-model-label">' + escapeHtml(activeAgentRole) + '</div>' +
-            escapeHtml(turn.text) +
+            '<div class="msg-body">' + formatModelHtml(turn.text) + '</div>' +
             renderGroundingPanel(turn.grounding) +
             '</div>'
           );
@@ -1768,7 +2046,7 @@ function renderDashboard(): string {
       if (isStreamingActive || streamingText || streamingGrounding || streamingToolHint) {
         parts.push(
           '<div class="msg-model msg-streaming"><div class="msg-model-label">' + escapeHtml(activeAgentRole) + '</div>' +
-          '<div class="streaming-body">' + escapeHtml(streamingText) + '</div>' +
+          '<div class="streaming-body msg-body">' + formatModelHtml(streamingText) + '</div>' +
           (streamingToolHint ? '<div class="tool-call-hint">' + escapeHtml(streamingToolHint) + '</div>' : '') +
           renderGroundingPanel(streamingGrounding) +
           '</div>'
@@ -1796,7 +2074,7 @@ function renderDashboard(): string {
       if (!chatWindow) return;
       var body = chatWindow.querySelector('.msg-streaming .streaming-body');
       if (body) {
-        body.textContent = '';
+        body.innerHTML = '';
         var hint = chatWindow.querySelector('.msg-streaming .tool-call-hint');
         if (hint) hint.remove();
         scrollChatToBottom();
@@ -1804,6 +2082,13 @@ function renderDashboard(): string {
       }
       renderChat();
     }
+
+    (function bindExportButtons() {
+      var htmlBtn = document.getElementById('export-html-btn');
+      var pdfBtn = document.getElementById('export-pdf-btn');
+      if (htmlBtn) htmlBtn.addEventListener('click', exportConversationAsHtml);
+      if (pdfBtn) pdfBtn.addEventListener('click', exportConversationAsPdf);
+    })();
 
     function processSseBuffer(buffer) {
       var parts = buffer.split('\\n\\n');
@@ -2708,6 +2993,26 @@ app.post('/api/query', async (req, res) => {
     const canonicalResponse = resolveCanonicalBoardResponse(query);
     if (canonicalResponse) {
       writeSseToken(res, canonicalResponse);
+      res.end();
+      return;
+    }
+
+    // Perimeter fleet health dots (red/HIGH) — probe product-matrix; never labor-market web or CRM discovery.
+    if (isPerimeterWorkforceHealthQuery(query)) {
+      writeSseToolCall(res, {
+        name: 'productMatrixHealth',
+        status: 'running',
+        prefetch: true,
+      });
+      const healthSnapshot = await buildProductMatrixHealthSnapshot();
+      writeSseToolCall(res, {
+        name: 'productMatrixHealth',
+        status: 'complete',
+        ok: true,
+        prefetch: true,
+        unreachable: healthSnapshot.services.filter((row) => !row.reachable).length,
+      });
+      writeSseToken(res, formatPerimeterWorkforceHealthAnswer(healthSnapshot));
       res.end();
       return;
     }

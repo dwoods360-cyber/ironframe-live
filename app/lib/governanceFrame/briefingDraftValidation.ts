@@ -268,7 +268,8 @@ export function validateBriefingDraftContent(
   } else if (!hasTriadSections(markdown)) {
     issues.push({
       code: "MISSING_TRIAD",
-      message: "Draft must include Governance Frame triad sections I–III.",
+      message:
+        "Draft must include Governance Frame triad sections I–III. Section II accepts Quantitative/Economic Context (or Calculated Quantitative Impact). Section III accepts What Modern GRC Must Enforce, Architectural Implications, Control-System Requirements, or Machine-Rule Technical Translation.",
       severity: options?.promotion ? "error" : "warn",
     });
   }

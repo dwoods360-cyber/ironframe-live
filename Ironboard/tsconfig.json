@@ -16,6 +16,7 @@
   },
   "include": [
     "src/**/*",
+    "../lib/ironframeProductKnowledge/**/*",
     "../Ironleads/src/knowledge/**/*",
     "../Ironleads/src/types/**/*",
     "../Ironleads/src/tools/leadGenKnowledgeTools.ts"

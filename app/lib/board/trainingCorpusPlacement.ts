@@ -24,9 +24,14 @@ export function loadTrainingCorpusPlacementTargets(): TrainingCorpusManifestSlic
 
   const chapterSlugs = manifest.chapters.map((c) => `${c.slug}.md`);
   const trainerPlacementTargets = [
+    "user-manuals/design-partner-operator-packet.md",
     "user-manuals/quickstart.md",
+    "user-manuals/get-started-workspace-setup.md",
+    "user-manuals/audit-exports.md",
+    "user-manuals/pilot-vs-preview.md",
     "user-manuals/dashboard-guide.md",
     "user-manuals/glossary.md",
+    "training/LEVEL1-PARTNER-INDEX.md",
     "training/LEVEL1-STUDENT-INDEX.md",
     "training/LEVEL2-PRACTITIONER-INDEX.md",
     ...manifest.chapters

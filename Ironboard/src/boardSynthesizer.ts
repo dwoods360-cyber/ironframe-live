@@ -25,6 +25,11 @@ import {
   summarizeEmptyDiscoveryStates,
   synthesizePlaybookInventoryFromDiscovery,
 } from './services/dynamicDiscovery.js';
+import { isPerimeterWorkforceHealthQuery } from './services/boardroomQueryIntent.js';
+import {
+  buildProductMatrixHealthSnapshot,
+  formatPerimeterWorkforceHealthAnswer,
+} from './services/productMatrixHealth.js';
 
 const SYSTEM_INSTRUCTION = `${DYNAMIC_DISCOVERY_MANDATE}
 
@@ -152,22 +157,37 @@ export async function deliberateExecutiveQuery(
   routed: RoutedPanel,
   discoveryContext: DiscoveryContext = {},
 ): Promise<DeliberationResult> {
-  const { plan, receipts } = await runDynamicDiscovery(query, discoveryContext);
-  const discoveryBlock = formatDiscoveryEvidence(receipts);
-  const emptyStates = summarizeEmptyDiscoveryStates(receipts);
-  const failures = summarizeDiscoveryFailures(receipts);
-
   const canonicalResponse = resolveCanonicalBoardResponse(query);
   if (canonicalResponse) {
     return {
       isAutoRouted: routed.isAutoRouted,
       panelAssembly: routed.panel,
       determination: canonicalResponse,
-      thinkingTraces: { cognitivePath: routed.cognitivePath, discoveryIntents: plan.intents },
+      thinkingTraces: { cognitivePath: routed.cognitivePath, discoveryIntents: [] },
       executionStatus: 'COMPLETE',
       synthesisMode: 'discovery_only',
     };
   }
+
+  if (isPerimeterWorkforceHealthQuery(query)) {
+    const healthSnapshot = await buildProductMatrixHealthSnapshot();
+    return {
+      isAutoRouted: routed.isAutoRouted,
+      panelAssembly: routed.panel,
+      determination: formatPerimeterWorkforceHealthAnswer(healthSnapshot),
+      thinkingTraces: {
+        cognitivePath: routed.cognitivePath,
+        discoveryIntents: ['product_matrix_health'],
+      },
+      executionStatus: 'COMPLETE',
+      synthesisMode: 'discovery_only',
+    };
+  }
+
+  const { plan, receipts } = await runDynamicDiscovery(query, discoveryContext);
+  const discoveryBlock = formatDiscoveryEvidence(receipts);
+  const emptyStates = summarizeEmptyDiscoveryStates(receipts);
+  const failures = summarizeDiscoveryFailures(receipts);
 
   const playbookInventory = synthesizePlaybookInventoryFromDiscovery(receipts);
   if (playbookInventory && /playbook|knowledge base/i.test(query)) {

@@ -46,8 +46,64 @@ const WORKSPACE_QUERY_TERMS = [
   'managecrmpipeline',
 ] as const;
 
+/**
+ * Ironboard product-matrix / perimeter fleet health (status dots + HIGH priority labels).
+ * Must NOT route to labor-market web search or manageCrmPipeline discovery.
+ */
+export function isPerimeterWorkforceHealthQuery(query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return false;
+
+  // Explicit macro labor framing stays on the web path.
+  if (
+    /\b(labor market|labour market|conference board|jobs report|non[- ]farm|payrolls?|unemployment|bls\b|labor force participation)\b/.test(
+      q,
+    )
+  ) {
+    return false;
+  }
+
+  const namesOrPorts =
+    /\b(ironleads|salesteam|ironsuccessteam|ironsupportteam|product matrix|perimeter workforce|workforce fleet|fleet panel)\b/.test(
+      q,
+    ) || /:808[2-6]\b/.test(q);
+
+  if (/\bworkforce\s+indicators?\b/.test(q) && /\b(red|down|offline|unreachable|high|status|why)\b/.test(q)) {
+    return true;
+  }
+
+  if (
+    /\b(product\s+matrix|perimeter\s+workforce|workforce\s+fleet)\b/.test(q) &&
+    /\b(red|down|offline|unreachable|health|status|indicator|why)\b/.test(q)
+  ) {
+    return true;
+  }
+
+  if (
+    namesOrPorts &&
+    /\b(red|down|offline|unreachable|health|indicator|status\s+dot|why\b.+\b(red|down|high))\b/.test(q)
+  ) {
+    return true;
+  }
+
+  // Pasted Ops/product-matrix rows naming the four workers + red/HIGH concern.
+  if (
+    namesOrPorts &&
+    /\b(high)\b/.test(q) &&
+    (q.includes('ironleads') ||
+      q.includes('salesteam') ||
+      q.includes('ironsuccessteam') ||
+      q.includes('ironsupportteam'))
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 /** Board questions about whether CRM / sales tooling exists (requires manageCrmPipeline discovery). */
 export function requiresCrmDiscovery(query: string): boolean {
+  if (isPerimeterWorkforceHealthQuery(query)) return false;
   const q = query.trim().toLowerCase();
   if (q.includes('crm') || q.includes('managecrmpipeline')) return true;
   if (q.includes('contact database') || q.includes('deal pipeline')) return true;
@@ -202,6 +258,7 @@ export function shouldPrefetchGrcEnvironment(query: string): boolean {
 }
 
 export function shouldPrefetchProspects(query: string): boolean {
+  if (isPerimeterWorkforceHealthQuery(query)) return false;
   const q = query.toLowerCase();
   if (GTM_MARKET_SIGNAL.test(q)) return true;
   if (WORKSPACE_QUERY_TERMS.some(term => q.includes(term))) return true;
@@ -218,6 +275,7 @@ export function shouldPrefetchProspects(query: string): boolean {
 /** Prefetch live web grounding unless the query is strictly internal CRM data or a video link. */
 export function shouldPrefetchWeb(query: string): boolean {
   if (payloadSignalsVideoIntelligence(query)) return false;
+  if (isPerimeterWorkforceHealthQuery(query)) return false;
   if (shouldPrefetchGrcEnvironment(query)) return false;
   return !isWorkspaceOnlyQuery(query);
 }

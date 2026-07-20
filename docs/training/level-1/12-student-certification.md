@@ -42,7 +42,7 @@ source-file: public/docs/training/assets/level-1-12-student-certification.png
 
 - [ ] My journal shows Pass for the required labs.
 - [ ] I can restate GRC, ALE, WORM, and tenant isolation in plain words.
-- [ ] My trainer has the attestation packet.
+- [ ] My trainer has the lab completion sign-off packet.
 
 ## Common mistakes
 
@@ -53,7 +53,7 @@ source-file: public/docs/training/assets/level-1-12-student-certification.png
 
 | Term | Plain meaning |
 |------|---------------|
-| **Attestation** | Signed statement that you finished the labs. |
+| **Lab completion sign-off** | Signed statement that you finished the labs (not a SOC attestation). |
 | **CERT-L1** | Level 1 classroom completion checkpoint. |
 | **Lab journal** | Your dated notes with routes and findings. |
 

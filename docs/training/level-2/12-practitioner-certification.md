@@ -13,14 +13,14 @@ When you finish, you can:
 
 - Finish chapters 1–11 in order.
 - Complete architecture + deployment + TAS review notes.
-- Submit attestation with route-manifest citation.
+- Submit lab completion sign-off with route-manifest citation (not a SOC attestation).
 
 ## How to get there
 
 1. Open the Level 2 practitioner index.
 2. Confirm chapters 1–11 are Pass in your journal.
 3. Re-read the critical bits of `docs/TAS.md` and deployment docs.
-4. Submit trainer attestation citing `config/route-manifest.v0.1.0-ga-epic17.json`.
+4. Submit trainer lab completion sign-off citing `config/route-manifest.v0.1.0-ga-epic17.json`.
 
 ## Reference screenshot
 
@@ -41,7 +41,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 
 - [ ] My journal shows Pass for required labs.
 - [ ] I can explain dual-host, BigInt cents, and HITL dispatch.
-- [ ] My trainer has the attestation.
+- [ ] My trainer has the lab completion sign-off.
 
 ## Common mistakes
 
@@ -54,7 +54,7 @@ source-file: public/docs/training/assets/level-2-12-practitioner-certification.p
 |------|---------------|
 | **CERT-L2** | Level 2 practitioner completion checkpoint. |
 | **Route manifest** | Config listing official app routes for the release. |
-| **Attestation** | Signed statement that labs are complete. |
+| **Lab completion sign-off** | Signed statement that labs are complete (not a SOC attestation). |
 
 ## Source anchors
 

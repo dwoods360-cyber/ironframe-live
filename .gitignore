@@ -57,3 +57,9 @@ Ironleads/data/
 
 # Product-knowledge operator latch (Ops Hub floating notice)
 lib/ironframeProductKnowledge/.drift-notice.json
+
+# Local dump / bytecode noise (never commit)
+daily_code_diff.txt
+**/__pycache__/
+*.py[cod]
+*$py.class

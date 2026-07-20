@@ -104,18 +104,25 @@ Expect: `allMessageLocksPass: true` and at least one PENDING draft. This does **
 
 ### Must see / must not see
 
+**R2.1–R2.4 = commercial message locks (necessary).**  
+**R2.5–R2.8 = content quality (also necessary).** Locks alone are **not** a DISPATCH yes.
+
 | # | Must see in draft | Must NOT see | Pass |
 |---|-------------------|--------------|------|
 | R2.1 | `$4,999` (or 4999) and Path B / 90-day co-builder frame | `free PoC`, `free pilot`, `free trial` | ☐ |
 | R2.2 | CTA toward **workflow review** (10–15 min) | “Request Demo” as the main ask | ☐ |
 | R2.3 | — | `medshield`, `vaultbank`, `gridcore` as customers | ☐ |
 | R2.4 | Usable **email** and/or **phone** for the channel you will DISPATCH | Planning EMAIL with only `@ironleads.local` | ☐ |
+| R2.5 | Plain-English trigger (e.g. “hiring signal”) | Raw tokens like `COMPLIANCE_JOB_POST`, `NEW_CISO` | ☐ |
+| R2.6 | Human signature (**Ironframe** / operator) | Prompt leaks: `Anti-hallucination`, “never invent portals…”; **Ironframe Governance Frame** as sales signer | ☐ |
+| R2.7 | — | `$0.00` “governed loss exposure”; eng dumps (BigInt / Irongate DMZ / RLS) | ☐ |
+| R2.8 | Readable short paragraphs | Unfinished placeholders / instruction text meant for the model | ☐ |
 
 ### Fail → fix
 
-1. Edit the draft in Approvals (if editable) to restore locks, **or**
+1. Edit the draft in Approvals (if editable) to restore locks **and** content quality, **or**
 2. SalesTeam portal → run poll / regenerate, then re-open newest draft.
-3. Do **not** DISPATCH until R2 passes.
+3. Do **not** DISPATCH until **R2.1–R2.8** all pass. A green R2.1–R2.4 with failed R2.5–R2.8 is still **PURGE / rewrite**.
 
 **R2 done:** ☐
 
@@ -140,11 +147,11 @@ Use **one** message to an inbox/phone **you control**. Do not DISPATCH a real co
 3. Confirm channel:
    - `@ironleads.local` → choose **SMS** (not EMAIL).
    - Your test email → choose **EMAIL**.
-4. Re-read the body one last time (R2 locks).
+4. Re-read the body one last time (R2.1–R2.8 — locks **and** content quality).
 5. Click **Approve & dispatch** (or equivalent SALES DISPATCH button).
 6. Wait for UI success (`SUCCESS_DISPATCHED` / success toast — not a red error).
 7. Check **your** phone or inbox within ~2 minutes.
-8. Open the received message and re-check R2 locks on the **received** copy.
+8. Open the received message and re-check R2.1–R2.8 on the **received** copy.
 9. Confirm you did **not** get two copies for the same contact from this single click.
 
 ### Pass criteria
@@ -153,7 +160,7 @@ Use **one** message to an inbox/phone **you control**. Do not DISPATCH a real co
 |---|-----------|
 | R3.1 | DISPATCH UI succeeds |
 | R3.2 | You **receive** the message |
-| R3.3 | Received copy still matches message locks |
+| R3.3 | Received copy still matches R2.1–R2.8 (locks + no prompt leaks) |
 | R3.4 | Single send (no surprise duplicate) |
 
 ### Fail → HOLD

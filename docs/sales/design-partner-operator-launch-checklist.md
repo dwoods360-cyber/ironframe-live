@@ -29,7 +29,7 @@ This checklist is the batch/send cadence after that run order is GO.
 
 | # | Task | Done |
 |---|------|------|
-| C1 | Edit draft: $4,999 · workflow review CTA · no demo slugs · no free pilot | ☐ |
+| C1 | Edit draft: $4,999 · workflow review CTA · no free pilot · **no** raw triggers / anti-hallucination leaks / GF sales signature / `$0.00` ALE (see R2.5–R2.8) | ☐ |
 | C2 | DISPATCH (email Resend / SMS Textbelt) | ☐ |
 | C3 | Log touch date on shortlist | ☐ |
 

@@ -56,14 +56,32 @@ Rejection codes: `PHYSICAL_UNIT_REQUIRED` (HTTP 400), `CRITICAL_INGESTION_FAILUR
 
 Interactive HTML chapters are stored on disk under `docs/` (product, support, technical, and training trees).
 
-### 🎓 Track 1 — Student Training Portals (Classroom Sandbox HTML)
+### 🎓 Track 1 — Student (Ironframe Core SaaS)
 
-| Chapter | Sidebar label | Filesystem path |
-|---------|---------------|-----------------|
-| 1 | Product Core & Monopolies | `docs/product/vision_and_overview_track1.html` |
-| 2 | Automated Self-Healing Labs | `docs/support/self_healing_guide_track1.html` |
-| 3 | Visual Data Ingress Systems | `docs/technical/integration_basics_track1.html` |
-| Index | High School Index Portal | `docs/training/high-school/index.html` |
+**Scope:** Operating Ironframe Core (Integrity, Evidence, Cockpit, Exports, Docs).  
+**Reading level:** 11th grade. Ops/GTM is out of scope.
+
+| Resource | Path |
+|----------|------|
+| Student section home | `docs/training/student/README.md` |
+| Chapter labs index | `docs/training/LEVEL1-STUDENT-INDEX.md` |
+| Core manuals (glossary, quick-start, routes, …) | `docs/training/student/manuals/` |
+| High school HTML portal | `docs/training/high-school/index.html` |
+| Level 1 chapter files | `docs/training/level-1/` |
+
+Legacy HTML enrichment (not Core certification): `docs/product/vision_and_overview_track1.html`, `docs/support/self_healing_guide_track1.html`, `docs/technical/integration_basics_track1.html`.
+
+### 📈 Progressive tracks (after Student Core)
+
+| Track | Reading level | Index |
+|-------|---------------|-------|
+| Jr. GRC Analyst (Path A) | 11th grade | `docs/training/analyst/ANALYST-INDEX.md` |
+| Platform Practitioner (Path B) | 11th–12th grade | `docs/training/practitioner-core/PRACTITIONER-CORE-INDEX.md` |
+| Internal Ops / GTM (Path C, elective) | 11th–12th grade | `docs/training/ops-gtm/OPS-GTM-INDEX.md` |
+| Governance Frame (Path D) | 11th–12th grade · **GFP** credential | `docs/training/governance-frame/README.md` |
+| Full Level 2 (uncut) | Practitioner | `docs/training/LEVEL2-PRACTITIONER-INDEX.md` |
+
+Screenshots: `public/docs/training/assets/{analyst,practitioner-core,ops-gtm}-*.png` · `npm run training:screenshots`.
 
 ### 💼 Track 2 — GRC Practitioner Specifications (Print / Java contracts)
 
@@ -227,7 +245,8 @@ Interactive HTML chapters are stored on disk under `docs/` (product, support, te
 * **Enterprise Testing Suite:**
   * [Core System Protocol](./qa/manual-testing-protocol.md) — Technical, step-by-step security and context resilience verification for engineers.
 * **High School Classroom Track:**
-  * [Student Sandbox Lab](./qa/student-testing-protocol.md) — Simplified, plain-English manual testing walkthrough optimized for 11th & 12th-grade technical labs.
+  * [Student section — Ironframe Core](./training/student/README.md) — Classroom Core SaaS manuals (11th grade); chapter labs via [LEVEL1-STUDENT-INDEX](./training/LEVEL1-STUDENT-INDEX.md).
+  * [Student Sandbox Lab (QA supplement)](./qa/student-testing-protocol.md) — Instructor-depth UI checks; not a substitute for the student section.
   * [GRC Operations Glossary & Screen Guide](./qa/complete-feature-glossary.md) — Interactive reference for dashboard controls, locations, and lab operations.
 
 ---

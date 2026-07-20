@@ -3,6 +3,8 @@
 > **Track:** LEVEL_1 · **Reading level:** 11th grade · **Release:** `v0.1.0-ga-epic17`  
 > **Primary route:** `/integrity` · **Lab IDs:** FIN-001 / FIN-002
 
+> **Design partners:** use `https://{slug}.ironframegrc.com` and your client-owned login. Start from the [Operator Packet](/docs/user-manuals/design-partner-operator-packet) and [LEVEL1-PARTNER-INDEX](/docs/training/LEVEL1-PARTNER-INDEX). Localhost / student-credential steps are instructor-only.
+
 ## Why this chapter matters
 
 Boards care about money at risk. ALE is Annualized Loss Expectancy. Integrity Hub shows those dollars as readable amounts — never raw BigInt strings in the UI.

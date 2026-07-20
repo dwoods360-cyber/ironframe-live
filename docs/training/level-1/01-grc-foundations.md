@@ -3,6 +3,9 @@
 > **Track:** LEVEL_1 · **Reading level:** 11th grade · **Release:** `v0.1.0-ga-epic17`  
 > **Primary route:** `/integrity` · **Lab IDs:** INGRESS-001 / AUTH-001
 
+> **Students:** start from the [student section](/docs/training/student) and [LEVEL1-STUDENT-INDEX](/docs/training/LEVEL1-STUDENT-INDEX). Use classroom credentials from your trainer.  
+> **Design partners:** use `https://{slug}.ironframegrc.com` and your client-owned login. Start from the [Operator Packet](/docs/user-manuals/design-partner-operator-packet) and [LEVEL1-PARTNER-INDEX](/docs/training/LEVEL1-PARTNER-INDEX).
+
 ## Why this chapter matters
 
 Ironframe is a GRC command center. GRC means Governance, Risk, and Compliance. This chapter shows the main screen layout so later labs make sense.
@@ -25,6 +28,15 @@ When you finish, you can:
 
 ## How to get there
 
+**Design partners**
+
+1. Open `https://{your-slug}.ironframegrc.com/login`.
+2. Sign in with your **client-owned** operator email (not `@ironframegrc.com`).
+3. Land on Integrity Hub at `/integrity` (or open it from the top nav).
+4. Find the three panels: left (~22%), center (~48%), right (~30%).
+
+**Classroom / instructors**
+
 1. Open http://127.0.0.1:3000/login in your browser.
 2. Sign in with the student credentials your trainer gave you.
 3. Land on Integrity Hub at `/integrity` (or open it from the top nav).
@@ -40,11 +52,11 @@ source-file: public/docs/training/assets/level-1-01-grc-foundations.png
 
 ## Lab — Map the Command Deck (INGRESS-001 / AUTH-001)
 
-1. Confirm you are signed in and see your assigned classroom tenant.
+1. Confirm you are signed in (partner tenant **or** assigned classroom tenant).
 2. Open `/integrity`.
 3. Write down one item you see in each panel (left, center, right).
 4. In one sentence each, define Governance, Risk, and Compliance.
-5. Note the time in your lab journal.
+5. Note the time in your lab journal (classroom) or success-plan notes (partners).
 
 ## Check your understanding
 
@@ -54,8 +66,8 @@ source-file: public/docs/training/assets/level-1-01-grc-foundations.png
 
 ## Common mistakes
 
-- Do not treat seed tenant money figures as a real company balance sheet.
-- If login fails, stop and ask your trainer. Do not invent accounts.
+- Do not treat demo seed tenant money figures as a real company balance sheet.
+- If login fails, stop — partners escalate via Support / Success; students ask their trainer. Do not invent accounts.
 
 ## Glossary
 

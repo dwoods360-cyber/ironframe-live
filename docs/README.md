@@ -58,10 +58,17 @@ docs/
 │   └── deployment-and-ops.md           # Environment blueprint, validation, triage
 ├── training/                           # Training tracks (markdown chapters + indexes)
 │   ├── LEVEL1-PARTNER-INDEX.md        # Curated design-partner Level 1 chapters
-│   ├── LEVEL1-STUDENT-INDEX.md
+│   ├── LEVEL1-STUDENT-INDEX.md        # Ironframe Core classroom chapter labs
+│   ├── student/                       # Student section — Core SaaS manuals (11th grade)
+│   │   └── manuals/                   # Glossary, quick-start, dashboard, exports, …
+│   ├── analyst/                       # Jr. GRC Analyst practicum (Path A)
+│   ├── practitioner-core/             # Curated Platform Practitioner (Path B)
+│   ├── ops-gtm/                       # Internal Ops / GTM elective (Path C)
+│   ├── governance-frame/              # Path D — GF Reader/Writer/Verifier (GFP)
+│   ├── high-school/                   # HTML portal into the student Core track
 │   ├── LEVEL2-PRACTITIONER-INDEX.md
-│   ├── level-1/                       # 12 student chapters (board-trainer)
-│   └── level-2/                       # 12 practitioner chapters (board-writer)
+│   ├── level-1/                       # Core chapter labs (board-trainer)
+│   └── level-2/                       # Practitioner chapters (board-writer)
 ├── product/                            # Track 1 & 2 HTML modules (vision, business spec)
 ├── support/                            # Self-healing labs, triage specs, practitioner guides
 ├── end-users/                          # Extended operator guides (FAQ, onboarding, release notes)
@@ -106,9 +113,17 @@ docs/
 
 | Track | Audience | Entry points |
 |-------|----------|--------------|
-| **Track 1 — Design partner (curated)** | Paying / invited design-partner operators | `training/LEVEL1-PARTNER-INDEX.md` |
-| **Track 1 — Student (classroom)** | High-school / internal trainer sandbox | `training/LEVEL1-STUDENT-INDEX.md`, `training/high-school/index.html` |
-| **Track 2 — Practitioner** | GRC professionals & IT power users | `training/LEVEL2-PRACTITIONER-INDEX.md`, `training/professional/index.html` |
+| **Track 1 — Design partner (curated)** | Paying / invited design-partner operators | `training/LEVEL1-PARTNER-INDEX.md` + `user-manuals/` |
+| **Track 1 — Student (Ironframe Core)** | High-school / classroom — **Core SaaS only** | `training/student/README.md`, `training/LEVEL1-STUDENT-INDEX.md`, `training/high-school/index.html` |
+| **Track 1b — Jr. GRC Analyst** | Post–Core practicum (11th grade) | `training/analyst/ANALYST-INDEX.md` |
+| **Track 2a — Platform Practitioner** | Curated Level 2 (11th–12th grade) | `training/practitioner-core/PRACTITIONER-CORE-INDEX.md` |
+| **Track 2 — Practitioner (full)** | Full Level 2 depth | `training/LEVEL2-PRACTITIONER-INDEX.md`, `training/professional/index.html` |
+| **Track 3 — Internal Ops / GTM** | Operator elective (not GRC analysis) | `training/ops-gtm/OPS-GTM-INDEX.md` |
+| **Track 4 — Governance Frame (Path D)** | Research writing & editorial assurance (**GFP**) | `training/governance-frame/README.md` |
+
+**Student rule:** Handbooks that teach operating Ironframe Core must live under `training/student/` at 11th-grade reading level. Ops Hub / GTM sales docs stay in Track 3 only.
+
+**Screenshots:** `npm run training:screenshots` (copy baselines) · `npm run training:screenshots:live` (Ops Hub with Playwright storage state).
 
 See also: [Design partner documentation — AppDocument sync](ops/design-partner-docs-sync.md).
 

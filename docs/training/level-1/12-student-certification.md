@@ -13,7 +13,7 @@ When you finish, you can:
 
 - Confirm AUTH, tenant isolation, and export labs are done.
 - Review chapters 1–11 in order.
-- Submit attestation with tenant UUID and timestamp when asked.
+- Submit lab completion sign-off (tenant UUID + timestamp) when asked — not a SOC attestation.
 
 ## How to get there
 

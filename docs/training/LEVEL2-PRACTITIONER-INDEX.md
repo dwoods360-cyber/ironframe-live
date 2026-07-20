@@ -2,7 +2,11 @@
 
 **Audience:** Practitioners and trainers. **Release:** `v0.1.0-ga-epic17`.
 
-Finish Level 1 first if the Command Deck is new to you. Then work these chapters in order.
+Finish Level 1 / [Jr. GRC Analyst](./analyst/ANALYST-INDEX.md) first if the Command Deck is new to you.  
+Prefer the curated path [Platform Practitioner (Path B)](./practitioner-core/PRACTITIONER-CORE-INDEX.md) before this full list.  
+Ops Hub / GTM sales labs belong in [ops-gtm](./ops-gtm/OPS-GTM-INDEX.md), not in GRC analysis.
+
+Then work these chapters in order.
 
 Keep a journal. Write the route. Write what you saw. Write the time.
 

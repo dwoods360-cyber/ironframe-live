@@ -9,7 +9,7 @@ This is the only Level 1 training list partners should follow. It skips classroo
 
 ## Before chapters
 
-1. Finish Day-0 invite and Path B billing. Use the [operator packet](/docs/user-manuals/design-partner-operator-packet).
+1. Finish Day-0 invite and design-partner billing. Use the [operator packet](/docs/user-manuals/design-partner-operator-packet).
 2. Save ALE baseline and GRC company on [`/get-started`](/get-started). See [workspace setup](/docs/user-manuals/get-started-workspace-setup).
 3. Skim [pilot vs preview](/docs/user-manuals/pilot-vs-preview). Do not treat PILOT nav items as live data.
 
@@ -47,7 +47,7 @@ Partners skip these chapters. They are for internal instructors.
 | 11 Tenant switching labs | Fixed internal demo tenant IDs. |
 | 12 Student certification | Classroom sign-off track. |
 
-The full classroom list stays at [LEVEL1-STUDENT-INDEX](/docs/training/LEVEL1-STUDENT-INDEX) for Ironframe instructors only.
+The classroom **Ironframe Core** list stays at [LEVEL1-STUDENT-INDEX](/docs/training/LEVEL1-STUDENT-INDEX) with manuals under [training/student](/docs/training/student) for Ironframe instructors only. Partners do not use the student section for Day-0 handoff.
 
 ---
 

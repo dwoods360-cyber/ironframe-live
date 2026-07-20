@@ -45,7 +45,7 @@ source-file: public/docs/training/assets/level-2-08-admin-onboarding-provisionin
 
 - [ ] I know GLOBAL_ADMIN owns provisioning.
 - [ ] I can open the onboarding admin route when authorized.
-- [ ] I know partners use invite + Path B instead.
+- [ ] I know partners use invite + design-partner seat instead.
 
 ## Common mistakes
 

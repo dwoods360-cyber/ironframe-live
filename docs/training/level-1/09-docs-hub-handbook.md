@@ -3,25 +3,25 @@
 > **Track:** LEVEL_1 · **Reading level:** 11th grade · **Release:** `v0.1.0-ga-epic17`  
 > **Primary route:** `/docs` · **Lab IDs:** DOCS-001
 
-> **Note:** Students: if `/docs` is empty, tell your trainer. Do not run seed scripts yourself. Instructors may run `npx tsx scripts/seed-app-documents.ts` when the Compilation Ingress Portal appears.
+> **Note:** **Students** use the [student section](/docs/training/student) and [LEVEL1-STUDENT-INDEX](/docs/training/LEVEL1-STUDENT-INDEX). Design partners use the [Operator Packet](/docs/user-manuals/design-partner-operator-packet) and [LEVEL1-PARTNER-INDEX](/docs/training/LEVEL1-PARTNER-INDEX). If `/docs` is empty, students tell the trainer; partners tell Success/Support. Instructors may run `npx tsx scripts/seed-app-documents.ts` when the Compilation Ingress Portal appears.
 
 ## Why this chapter matters
 
-The in-app reader loads handbooks from the platform. You learn to browse manuals and the student training index without engineering CLI tools.
+The in-app reader loads Ironframe Core handbooks. Students learn to browse the **student section** and chapter index without engineering CLI tools.
 
 ## Learning objectives
 
 When you finish, you can:
 
-- Open `/docs` and browse a Level 1 manual.
-- Open the student training index.
+- Open `/docs` and browse a student Core manual.
+- Open the **student** training index and student section home.
 - Know when a seed/CLI step is instructor-only.
 
 ## How to get there
 
 1. Open `/docs`.
-2. From the sidebar, open `user-manuals/quickstart` (or the closest Level 1 manual).
-3. Open the Level 1 student index from training links.
+2. Open `training/student` (student section home) or `training/student/manuals/quickstart`.
+3. Open `training/LEVEL1-STUDENT-INDEX`.
 4. Confirm markdown pages show headings and cross-links.
 
 ## Reference screenshot
@@ -34,21 +34,22 @@ source-file: public/docs/training/assets/level-1-09-docs-hub-handbook.png
 
 ## Lab — Handbook scavenger hunt (DOCS-001)
 
-1. Open `/docs` and find the glossary or operator packet.
-2. Write the path of one Level 1 training chapter you can open.
+1. Open `/docs` and find the [student glossary](/docs/training/student/manuals/glossary) or [student section home](/docs/training/student).
+2. Write the path of one Level 1 Core chapter you can open.
 3. Write one cross-link you clicked and where it landed.
 4. If a Compilation Ingress message appears, screenshot it and stop — escalate to your trainer.
 
 ## Check your understanding
 
 - [ ] I can browse `/docs` without CLI.
-- [ ] I can find this training track from the index.
+- [ ] I can find the student section and this training index.
 - [ ] I know seed scripts are instructor-only.
 
 ## Common mistakes
 
 - Running seed scripts without rights can break a shared classroom DB.
-- Empty docs usually means billing or seed state — not a missing lesson.
+- Empty docs usually means seed state — not a missing lesson.
+- Opening Ops Hub or `docs/sales/` GTM pages is out of scope for Core labs.
 
 ## Glossary
 
@@ -56,14 +57,15 @@ source-file: public/docs/training/assets/level-1-09-docs-hub-handbook.png
 |------|---------------|
 | **Docs hub** | In-app markdown reader at `/docs`. |
 | **Compilation Ingress Portal** | Empty-state prompt when manuals are not seeded yet. |
-| **Student index** | Chapter list for classroom Level 1 training. |
+| **Student section** | `docs/training/student/` — Core SaaS handbooks at 11th-grade reading level. |
+| **Student index** | Chapter list for classroom Ironframe Core training. |
 
 ## Source anchors
 
 - `docs/TAS.md`
-- `docs/qa/complete-feature-glossary.md`
+- `docs/training/student/README.md`
 - `config/route-manifest.v0.1.0-ga-epic17.json`
-- `docs/user-manuals/glossary.md`
+- `docs/training/student/manuals/glossary.md`
 
 ## Next chapter
 

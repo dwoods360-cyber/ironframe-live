@@ -71,6 +71,7 @@
     "smoke:stripe:production-webhooks": "npx tsx scripts/ops/smoke-stripe-production-webhooks.ts",
     "ops:sync-stripe-production-webhooks": "npx tsx scripts/ops/sync-stripe-production-webhooks.ts",
     "ops:assign-partner-provisioner": "npx tsx scripts/ops/assign-partner-provisioner.ts",
+    "ops:assign-global-admin": "npx tsx scripts/ops/assign-global-admin.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
     "test:e2e": "playwright test",
@@ -99,8 +100,11 @@
     "knowledge:check": "npx tsx scripts/sync-product-knowledge.ts",
     "knowledge:sync": "npx tsx scripts/sync-product-knowledge.ts --apply",
     "knowledge:sync:json": "npx tsx scripts/sync-product-knowledge.ts --apply --json",
+    "training:screenshots": "node scripts/capture-training-screenshots.mjs",
+    "training:screenshots:live": "node scripts/capture-training-screenshots.mjs --live",
     "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts",
-    "governance-frame:google-docs": "npx tsx scripts/governance-frame/google-docs/create-research-paper.ts"
+    "governance-frame:google-docs": "npx tsx scripts/governance-frame/google-docs/create-research-paper.ts",
+    "governance-frame:google-docs:briefs": "npx tsx scripts/governance-frame/google-docs/create-industry-research-briefs.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

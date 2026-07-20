@@ -3,6 +3,8 @@
 > **Track:** LEVEL_1 · **Reading level:** 11th grade · **Release:** `v0.1.0-ga-epic17`  
 > **Primary route:** `/login` · **Lab IDs:** AUTH-001
 
+> **Design partners:** use `https://{slug}.ironframegrc.com` and your client-owned login. Start from the [Operator Packet](/docs/user-manuals/design-partner-operator-packet) and [LEVEL1-PARTNER-INDEX](/docs/training/LEVEL1-PARTNER-INDEX). Localhost / student-credential steps are instructor-only.
+
 ## Why this chapter matters
 
 Access control keeps each company's data apart. You learn how login, roles, and tenant cookies work before you touch money or evidence screens.

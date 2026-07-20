@@ -14,14 +14,21 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-1-01-grc-foundations.png",
-      "featureIds": ["INGRESS-001", "AUTH-001"],
+      "featureIds": [
+        "INGRESS-001",
+        "AUTH-001"
+      ],
       "navigationPath": [
         "Open browser to http://127.0.0.1:3000/login",
         "Authenticate with assigned student credentials",
         "Land on /integrity (Integrity Hub) after session gate",
         "Observe tripane layout: left 22% · center 48% · right 30%"
       ],
-      "sourceAnchors": ["docs/TAS.md", "docs/qa/complete-feature-glossary.md", "config/route-manifest.v0.1.0-ga-epic17.json"]
+      "sourceAnchors": [
+        "docs/TAS.md",
+        "docs/qa/complete-feature-glossary.md",
+        "config/route-manifest.v0.1.0-ga-epic17.json"
+      ]
     },
     {
       "slug": "training/level-1/02-auth-tenant-access",
@@ -31,14 +38,19 @@
       "primaryRoute": "/login",
       "captureRoute": "/login",
       "screenshotFile": "level-1-02-auth-tenant-access.png",
-      "featureIds": ["AUTH-001"],
+      "featureIds": [
+        "AUTH-001"
+      ],
       "navigationPath": [
         "Navigate to /login from guest landing",
         "Complete Supabase email/password authentication",
         "If unauthorized, verify redirect to /unauthorized",
         "After assignment, confirm ironframe-tenant cookie in DevTools → Application → Cookies"
       ],
-      "sourceAnchors": ["docs/user-manuals/quickstart.md", "app/(dashboard)/layout.tsx"]
+      "sourceAnchors": [
+        "docs/user-manuals/quickstart.md",
+        "app/(dashboard)/layout.tsx"
+      ]
     },
     {
       "slug": "training/level-1/03-dashboard-navigation",
@@ -48,14 +60,19 @@
       "primaryRoute": "/",
       "captureRoute": "/integrity",
       "screenshotFile": "level-1-03-dashboard-navigation.png",
-      "featureIds": ["NAV-001"],
+      "featureIds": [
+        "NAV-001"
+      ],
       "navigationPath": [
         "From authenticated session, open TopNav workspace links",
         "Visit /integrity, /cockpit, /board-report in sequence",
         "Confirm billing gate overlay when entitlement missing",
         "Return to /docs for in-app handbook cross-links"
       ],
-      "sourceAnchors": ["config/route-manifest.v0.1.0-ga-epic17.json", "docs/user-manuals/dashboard-guide.md"]
+      "sourceAnchors": [
+        "config/route-manifest.v0.1.0-ga-epic17.json",
+        "docs/user-manuals/dashboard-guide.md"
+      ]
     },
     {
       "slug": "training/level-1/04-integrity-hub-ale",
@@ -65,14 +82,20 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-1-04-integrity-hub-ale.png",
-      "featureIds": ["FIN-001", "FIN-002"],
+      "featureIds": [
+        "FIN-001",
+        "FIN-002"
+      ],
       "navigationPath": [
         "Open /integrity",
         "Locate sovereign pool baseline cards (Medshield, Vaultbank, Gridcore)",
         "Read active exposure formatted string (never raw BigInt in UI copy)",
         "Record maturity score and critical threat indicators in lab journal"
       ],
-      "sourceAnchors": ["docs/TAS.md", "docs/qa/complete-feature-glossary.md"]
+      "sourceAnchors": [
+        "docs/TAS.md",
+        "docs/qa/complete-feature-glossary.md"
+      ]
     },
     {
       "slug": "training/level-1/05-evidence-vault",
@@ -82,14 +105,19 @@
       "primaryRoute": "/evidence",
       "captureRoute": "/evidence",
       "screenshotFile": "level-1-05-evidence-vault.png",
-      "featureIds": ["EVID-001"],
+      "featureIds": [
+        "EVID-001"
+      ],
       "navigationPath": [
         "TopNav → Evidence or direct /evidence",
         "Review immutable evidence locker entries",
         "Cross-reference Epic 12 WORM constraints in docs/TAS.md",
         "Complete EXPORT-001 lab: download tenant-scoped export if enabled"
       ],
-      "sourceAnchors": ["docs/technical/security-and-compliance.md", "app/(dashboard)/evidence"]
+      "sourceAnchors": [
+        "docs/technical/security-and-compliance.md",
+        "app/(dashboard)/evidence"
+      ]
     },
     {
       "slug": "training/level-1/06-cockpit-agent-viewport",
@@ -99,14 +127,19 @@
       "primaryRoute": "/cockpit",
       "captureRoute": "/cockpit",
       "screenshotFile": "level-1-06-cockpit-agent-viewport.png",
-      "featureIds": ["AGENT-001"],
+      "featureIds": [
+        "AGENT-001"
+      ],
       "navigationPath": [
         "Navigate to /cockpit",
         "Identify active agent coordination panels",
         "Map agent IDs 01–19 to glossary entries",
         "Note IronBoard bridge status indicators when present"
       ],
-      "sourceAnchors": ["docs/technical/architecture-and-api.md", "docs/qa/complete-feature-glossary.md"]
+      "sourceAnchors": [
+        "docs/technical/architecture-and-api.md",
+        "docs/qa/complete-feature-glossary.md"
+      ]
     },
     {
       "slug": "training/level-1/07-board-report-readiness",
@@ -116,14 +149,19 @@
       "primaryRoute": "/board-report",
       "captureRoute": "/board-report",
       "screenshotFile": "level-1-07-board-report-readiness.png",
-      "featureIds": ["REPORT-001"],
+      "featureIds": [
+        "REPORT-001"
+      ],
       "navigationPath": [
         "Open /board-report",
         "Review compiled platform posture sections",
         "Compare DORA readiness percentage with /integrity signals",
         "Export or snapshot findings for classroom submission"
       ],
-      "sourceAnchors": ["docs/stakeholders/technical-requirements.md", "config/route-manifest.v0.1.0-ga-epic17.json"]
+      "sourceAnchors": [
+        "docs/stakeholders/technical-requirements.md",
+        "config/route-manifest.v0.1.0-ga-epic17.json"
+      ]
     },
     {
       "slug": "training/level-1/08-governance-frame-reader",
@@ -133,14 +171,19 @@
       "primaryRoute": "/governance-frame",
       "captureRoute": "/governance-frame",
       "screenshotFile": "level-1-08-governance-frame-reader.png",
-      "featureIds": ["BRIEF-001"],
+      "featureIds": [
+        "BRIEF-001"
+      ],
       "navigationPath": [
         "Navigate to /governance-frame (session required)",
         "Open published briefing index",
         "Select a slug under /governance-frame/[slug]",
         "Contrast with APP_DOCS plane at /docs — never cross-write planes"
       ],
-      "sourceAnchors": ["lib/documentationCorpusPlanes.ts", "docs/briefing-queue/README.md"]
+      "sourceAnchors": [
+        "lib/documentationCorpusPlanes.ts",
+        "docs/briefing-queue/README.md"
+      ]
     },
     {
       "slug": "training/level-1/09-docs-hub-handbook",
@@ -150,17 +193,20 @@
       "primaryRoute": "/docs",
       "captureRoute": "/docs",
       "screenshotFile": "level-1-09-docs-hub-handbook.png",
-      "featureIds": ["DOCS-001"],
+      "featureIds": [
+        "DOCS-001"
+      ],
       "navigationPath": [
         "Open /docs — content served from PostgreSQL app_documents",
         "If Compilation Ingress Portal appears, run npx tsx scripts/seed-app-documents.ts",
-        "Browse user-manuals/quickstart from sidebar",
-        "Open /docs/training/level1-student-index",
+        "Browse training/student (student section home) and training/student/manuals/quickstart",
+        "Open /docs/training/LEVEL1-STUDENT-INDEX",
         "Verify markdown renders with navigation cross-links"
       ],
       "sourceAnchors": [
         "docs/README.md",
-        "docs/user-manuals/quickstart.md",
+        "docs/training/student/README.md",
+        "docs/training/student/manuals/quickstart.md",
         "scripts/seed-app-documents.ts",
         "app/lib/server/appDocumentStore.ts"
       ]
@@ -173,14 +219,19 @@
       "primaryRoute": "/trust",
       "captureRoute": "/trust",
       "screenshotFile": "level-1-10-trust-center-procurement.png",
-      "featureIds": ["TRUST-001"],
+      "featureIds": [
+        "TRUST-001"
+      ],
       "navigationPath": [
         "Navigate to /trust",
         "Review subprocessor and residency charts",
         "Locate enterprise procurement download links",
         "Document subprocessors: Vercel, Supabase, Resend per DPA annex"
       ],
-      "sourceAnchors": ["docs/technical/security-and-compliance.md", "config/route-manifest.v0.1.0-ga-epic17.json"]
+      "sourceAnchors": [
+        "docs/technical/security-and-compliance.md",
+        "config/route-manifest.v0.1.0-ga-epic17.json"
+      ]
     },
     {
       "slug": "training/level-1/11-tenant-switching-labs",
@@ -190,14 +241,20 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-1-11-tenant-switching-labs.png",
-      "featureIds": ["TENANT-001", "AUTH-001"],
+      "featureIds": [
+        "TENANT-001",
+        "AUTH-001"
+      ],
       "navigationPath": [
         "Use tenant switcher in TopNav (when authorized for multiple tenants)",
         "Switch Medshield → Vaultbank → Gridcore",
         "Confirm exposure baselines change per tenant profile",
         "Verify no cross-tenant data bleed in network responses"
       ],
-      "sourceAnchors": ["docs/training/LEVEL1-STUDENT-INDEX.md", "docs/qa/student-testing-protocol.md"]
+      "sourceAnchors": [
+        "docs/training/LEVEL1-STUDENT-INDEX.md",
+        "docs/qa/student-testing-protocol.md"
+      ]
     },
     {
       "slug": "training/level-1/12-student-certification",
@@ -207,14 +264,19 @@
       "primaryRoute": "/docs/training/level-1/12-student-certification",
       "captureRoute": "/docs",
       "screenshotFile": "level-1-12-student-certification.png",
-      "featureIds": ["CERT-L1"],
+      "featureIds": [
+        "CERT-L1"
+      ],
       "navigationPath": [
         "Complete AUTH-001, TENANT-001, EXPORT-001 lab sequence",
         "Review all Level 1 chapters in order",
         "Submit classroom attestation with tenant UUID and timestamp",
         "Archive screenshots from /docs/training/assets/"
       ],
-      "sourceAnchors": ["docs/qa/student-testing-protocol.md", "docs/training/LEVEL1-STUDENT-INDEX.md"]
+      "sourceAnchors": [
+        "docs/qa/student-testing-protocol.md",
+        "docs/training/LEVEL1-STUDENT-INDEX.md"
+      ]
     },
     {
       "slug": "training/level-2/01-architecture-topology",
@@ -224,14 +286,19 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-2-01-architecture-topology.png",
-      "featureIds": ["ARCH-001"],
+      "featureIds": [
+        "ARCH-001"
+      ],
       "navigationPath": [
         "Review Ironframe :3000 vs IronBoard :8082 separation",
         "Trace GET /api/board/shared-context ingress",
         "Trace POST /api/documentation/execute documentation sync (IronBoard → app_documents)",
         "Validate fail-closed 502 on telemetry disconnect"
       ],
-      "sourceAnchors": ["docs/technical/architecture-and-api.md", "docs/TAS.md"]
+      "sourceAnchors": [
+        "docs/technical/architecture-and-api.md",
+        "docs/TAS.md"
+      ]
     },
     {
       "slug": "training/level-2/02-api-ingress-contracts",
@@ -241,14 +308,19 @@
       "primaryRoute": "/docs/technical/architecture-and-api",
       "captureRoute": "/docs/technical/architecture-and-api",
       "screenshotFile": "level-2-02-api-ingress-contracts.png",
-      "featureIds": ["API-001"],
+      "featureIds": [
+        "API-001"
+      ],
       "navigationPath": [
         "Open /docs/technical/architecture-and-api",
         "Map POST /api/sustainability/ironbloom physical-unit gate",
         "Review CRM SYSTEM_AGENT channel metadata schema",
         "Confirm no float cents in API examples"
       ],
-      "sourceAnchors": ["docs/technical/data_dictionary_and_api_track2.html", "docs/TAS.md"]
+      "sourceAnchors": [
+        "docs/technical/data_dictionary_and_api_track2.html",
+        "docs/TAS.md"
+      ]
     },
     {
       "slug": "training/level-2/03-deployment-ops-runbooks",
@@ -258,14 +330,19 @@
       "primaryRoute": "/opsupport",
       "captureRoute": "/opsupport",
       "screenshotFile": "level-2-03-deployment-ops-runbooks.png",
-      "featureIds": ["OPS-001"],
+      "featureIds": [
+        "OPS-001"
+      ],
       "navigationPath": [
         "Open /opsupport infrastructure dashboard",
         "Cross-read docs/technical/deployment-and-ops.md",
         "Verify .env.staging.example keys for Phase 1–3",
         "Document cron secret gating for internal routes"
       ],
-      "sourceAnchors": ["docs/technical/deployment-and-ops.md", "docs/operations-support/nightly-cron-runbook.md"]
+      "sourceAnchors": [
+        "docs/technical/deployment-and-ops.md",
+        "docs/operations-support/nightly-cron-runbook.md"
+      ]
     },
     {
       "slug": "training/level-2/04-security-compliance-controls",
@@ -275,14 +352,19 @@
       "primaryRoute": "/audit",
       "captureRoute": "/audit",
       "screenshotFile": "level-2-04-security-compliance-controls.png",
-      "featureIds": ["SEC-001"],
+      "featureIds": [
+        "SEC-001"
+      ],
       "navigationPath": [
         "Navigate to /audit (CISO/GRC_MANAGER/GLOBAL_ADMIN roles)",
         "Review meta-audit configuration panels",
         "Open /docs/technical/security-and-compliance",
         "Map Irontally framework readiness to control mappings"
       ],
-      "sourceAnchors": ["docs/technical/security-and-compliance.md", "docs/qa/complete-feature-glossary.md"]
+      "sourceAnchors": [
+        "docs/technical/security-and-compliance.md",
+        "docs/qa/complete-feature-glossary.md"
+      ]
     },
     {
       "slug": "training/level-2/05-audit-trail-exports",
@@ -292,14 +374,19 @@
       "primaryRoute": "/reports/audit-trail",
       "captureRoute": "/reports/audit-trail",
       "screenshotFile": "level-2-05-audit-trail-exports.png",
-      "featureIds": ["AUDIT-001"],
+      "featureIds": [
+        "AUDIT-001"
+      ],
       "navigationPath": [
         "Open /reports/audit-trail",
         "Generate tenant-scoped CSV export",
         "Verify CVE tokens sanitized in export prose",
         "Cross-reference Ironscribe audit lineage anchors"
       ],
-      "sourceAnchors": ["app/lib/reports/governanceTriadSanitizer.ts", "docs/qa/manual-testing-protocol.md"]
+      "sourceAnchors": [
+        "app/lib/reports/governanceTriadSanitizer.ts",
+        "docs/qa/manual-testing-protocol.md"
+      ]
     },
     {
       "slug": "training/level-2/06-ironboard-telemetry-bridge",
@@ -309,14 +396,19 @@
       "primaryRoute": "/cockpit",
       "captureRoute": "/cockpit",
       "screenshotFile": "level-2-06-ironboard-telemetry-bridge.png",
-      "featureIds": ["BRIDGE-001"],
+      "featureIds": [
+        "BRIDGE-001"
+      ],
       "navigationPath": [
         "Ensure IronBoard listening on http://127.0.0.1:8082",
         "Verify GET /api/board/shared-context on :3000",
         "Trigger boardroom query requiring live telemetry",
         "Confirm CORE_TELEMETRY_DISCONNECTED on bridge failure"
       ],
-      "sourceAnchors": ["Ironboard/src/services/coreTelemetryBridge.ts", "docs/technical/architecture-and-api.md"]
+      "sourceAnchors": [
+        "Ironboard/src/services/coreTelemetryBridge.ts",
+        "docs/technical/architecture-and-api.md"
+      ]
     },
     {
       "slug": "training/level-2/07-sustainability-ironbloom",
@@ -326,14 +418,19 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-2-07-sustainability-ironbloom.png",
-      "featureIds": ["ESG-001"],
+      "featureIds": [
+        "ESG-001"
+      ],
       "navigationPath": [
         "Locate Sustainability Pulse panel (right rail, 30% column)",
         "Read kWh and fluid liters from shared-context payload",
         "Attempt rejected monetary-only sustainability packet in lab sandbox",
         "Document Ironwatch heartbeat degradation flags"
       ],
-      "sourceAnchors": ["docs/TAS.md", "docs/qa/complete-feature-glossary.md"]
+      "sourceAnchors": [
+        "docs/TAS.md",
+        "docs/qa/complete-feature-glossary.md"
+      ]
     },
     {
       "slug": "training/level-2/08-admin-onboarding-provisioning",
@@ -343,14 +440,19 @@
       "primaryRoute": "/admin/onboarding",
       "captureRoute": "/admin/onboarding",
       "screenshotFile": "level-2-08-admin-onboarding-provisioning.png",
-      "featureIds": ["ADMIN-001"],
+      "featureIds": [
+        "ADMIN-001"
+      ],
       "navigationPath": [
         "Sign in as GLOBAL_ADMIN",
         "Navigate to /admin/onboarding",
         "Review corporate tenant provision flow",
         "Validate billing gate exemption on this route"
       ],
-      "sourceAnchors": ["app/lib/server/corporateTenantProvisionCore.ts", "config/route-manifest.v0.1.0-ga-epic17.json"]
+      "sourceAnchors": [
+        "app/lib/server/corporateTenantProvisionCore.ts",
+        "config/route-manifest.v0.1.0-ga-epic17.json"
+      ]
     },
     {
       "slug": "training/level-2/09-sales-support-portals",
@@ -360,7 +462,10 @@
       "primaryRoute": "/dashboard/support",
       "captureRoute": "/register/contact",
       "screenshotFile": "level-2-09-sales-support-portals.png",
-      "featureIds": ["SALES-001", "SUPPORT-001"],
+      "featureIds": [
+        "SALES-001",
+        "SUPPORT-001"
+      ],
       "navigationPath": [
         "Submit lead via /sales-agent-portal or POST /api/agents/sales",
         "Verify API returns { status: \"QUEUED\" } — no public pitch text is rendered",
@@ -382,7 +487,9 @@
       "primaryRoute": "/dashboard/admin/approvals",
       "captureRoute": "/dashboard/admin/approvals",
       "screenshotFile": "level-2-10-approvals-human-in-loop.png",
-      "featureIds": ["HITL-001"],
+      "featureIds": [
+        "HITL-001"
+      ],
       "navigationPath": [
         "Sign in as GLOBAL_ADMIN and open /dashboard/admin/approvals",
         "Review unified queue; note draftKind badge (SUPPORT vs SALES)",
@@ -404,14 +511,19 @@
       "primaryRoute": "/integrity",
       "captureRoute": "/integrity",
       "screenshotFile": "level-2-11-bigint-financial-integrity.png",
-      "featureIds": ["FIN-001"],
+      "featureIds": [
+        "FIN-001"
+      ],
       "navigationPath": [
         "Open /integrity financial posture cards",
         "Verify Medshield baseline 1110000000 cents",
         "Verify Vaultbank 590000000 and Gridcore 470000000",
         "Run tests/unit/financialIngressInvariant.test.ts in lab environment"
       ],
-      "sourceAnchors": ["docs/TAS.md", "tests/unit/financialIngressInvariant.test.ts"]
+      "sourceAnchors": [
+        "docs/TAS.md",
+        "tests/unit/financialIngressInvariant.test.ts"
+      ]
     },
     {
       "slug": "training/level-2/12-practitioner-certification",
@@ -421,14 +533,19 @@
       "primaryRoute": "/docs/training/level2-practitioner-index",
       "captureRoute": "/docs/training/level2-practitioner-index",
       "screenshotFile": "level-2-12-practitioner-certification.png",
-      "featureIds": ["CERT-L2"],
+      "featureIds": [
+        "CERT-L2"
+      ],
       "navigationPath": [
         "Complete practitioner reading order from LEVEL2 index",
         "Execute architecture + deployment + TAS review",
         "Pass manual testing protocol checkpoints",
         "Submit practitioner attestation with route manifest citation"
       ],
-      "sourceAnchors": ["docs/training/LEVEL2-PRACTITIONER-INDEX.md", "docs/qa/manual-testing-protocol.md"]
+      "sourceAnchors": [
+        "docs/training/LEVEL2-PRACTITIONER-INDEX.md",
+        "docs/qa/manual-testing-protocol.md"
+      ]
     },
     {
       "slug": "training/level-1/13-clear-messaging-for-operators",
@@ -438,7 +555,9 @@
       "primaryRoute": "/docs",
       "captureRoute": "/docs",
       "screenshotFile": "level-1-13-clear-messaging-for-operators.png",
-      "featureIds": ["DOCS-001"],
+      "featureIds": [
+        "DOCS-001"
+      ],
       "navigationPath": [
         "Open /docs from authenticated session",
         "Review quickstart problem-first orientation pattern",
@@ -459,7 +578,9 @@
       "primaryRoute": "/docs/training/level2-practitioner-index",
       "captureRoute": "/docs/training/level2-practitioner-index",
       "screenshotFile": "level-2-13-narrative-frameworks-storybrand.png",
-      "featureIds": ["DOCS-001"],
+      "featureIds": [
+        "DOCS-001"
+      ],
       "navigationPath": [
         "Open Level 2 practitioner index",
         "Apply StoryBrand section template to a draft chapter",
@@ -470,6 +591,200 @@
         "docs/marketing-strategy/storybrand-framework.md",
         "docs/marketing-strategy/marketing-strategy-library.md",
         "app/lib/server/writerAgentConsoleCore.ts"
+      ]
+    },
+    {
+      "slug": "training/analyst/chapters/01-hazard-pipeline",
+      "title": "Analyst 1 — Hazard pipeline",
+      "track": "ANALYST",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/integrity",
+      "captureRoute": "/integrity",
+      "screenshotFile": "analyst-01-hazard-pipeline.png",
+      "featureIds": [
+        "ANALYST-001"
+      ],
+      "navigationPath": [
+        "Open /integrity",
+        "Identify hazard pipeline",
+        "Journal one hazard"
+      ],
+      "sourceAnchors": [
+        "docs/training/analyst/ANALYST-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/analyst/chapters/06-analyst-certification",
+      "title": "Analyst 6 — Certification",
+      "track": "ANALYST",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/docs/training/analyst/ANALYST-INDEX",
+      "captureRoute": "/docs/training/analyst/ANALYST-INDEX",
+      "screenshotFile": "analyst-06-analyst-certification.png",
+      "featureIds": [
+        "ANALYST-CERT"
+      ],
+      "navigationPath": [
+        "Assemble practicum packet",
+        "Trainer sign-off"
+      ],
+      "sourceAnchors": [
+        "docs/training/analyst/ANALYST-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/practitioner-core/chapters/01-security-controls",
+      "title": "Practitioner Core 1 — Security controls",
+      "track": "PRACTITIONER_CORE",
+      "authorAgent": "board-writer",
+      "primaryRoute": "/audit",
+      "captureRoute": "/audit",
+      "screenshotFile": "practitioner-core-01-security-controls.png",
+      "featureIds": [
+        "PCORE-001"
+      ],
+      "navigationPath": [
+        "Open /audit",
+        "Map three controls"
+      ],
+      "sourceAnchors": [
+        "docs/training/practitioner-core/PRACTITIONER-CORE-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/practitioner-core/chapters/08-practitioner-core-cert",
+      "title": "Practitioner Core 8 — Certification",
+      "track": "PRACTITIONER_CORE",
+      "authorAgent": "board-writer",
+      "primaryRoute": "/docs/training/practitioner-core/PRACTITIONER-CORE-INDEX",
+      "captureRoute": "/docs/training/practitioner-core/PRACTITIONER-CORE-INDEX",
+      "screenshotFile": "practitioner-core-08-certification.png",
+      "featureIds": [
+        "PCORE-CERT"
+      ],
+      "navigationPath": [
+        "Pass table phases 1-3",
+        "Trainer sign-off"
+      ],
+      "sourceAnchors": [
+        "docs/training/practitioner-core/PRACTITIONER-CORE-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/ops-gtm/chapters/01-ops-hub-home",
+      "title": "Ops GTM 1 — Ops Hub home",
+      "track": "OPS_GTM",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/dashboard/operations",
+      "captureRoute": "/dashboard/operations",
+      "screenshotFile": "ops-gtm-01-ops-hub-home.png",
+      "featureIds": [
+        "OPSGTM-001"
+      ],
+      "navigationPath": [
+        "Open Ops Hub",
+        "Map three surfaces"
+      ],
+      "sourceAnchors": [
+        "docs/training/ops-gtm/OPS-GTM-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/ops-gtm/chapters/04-workflow-review-live",
+      "title": "Ops GTM 4 — Workflow-review LIVE",
+      "track": "OPS_GTM",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/dashboard/operations/workflow-review",
+      "captureRoute": "/dashboard/operations/workflow-review",
+      "screenshotFile": "ops-gtm-04-workflow-review-live.png",
+      "featureIds": [
+        "OPSGTM-004"
+      ],
+      "navigationPath": [
+        "Open LIVE assist",
+        "Dry-run mic session"
+      ],
+      "sourceAnchors": [
+        "docs/training/ops-gtm/OPS-GTM-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/ops-gtm/chapters/06-ops-gtm-certification",
+      "title": "Ops GTM 6 — Certification",
+      "track": "OPS_GTM",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/docs/training/ops-gtm/OPS-GTM-INDEX",
+      "captureRoute": "/docs/training/ops-gtm/OPS-GTM-INDEX",
+      "screenshotFile": "ops-gtm-06-certification.png",
+      "featureIds": [
+        "OPSGTM-CERT"
+      ],
+      "navigationPath": [
+        "Pass table",
+        "No unsupervised cold DISPATCH"
+      ],
+      "sourceAnchors": [
+        "docs/training/ops-gtm/OPS-GTM-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/governance-frame/l1/01-what-gf-is",
+      "title": "GF L1 — What Governance Frame Is",
+      "track": "GF_L1",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/gf-research",
+      "captureRoute": "/gf-research",
+      "screenshotFile": "gf-l1-01-what-gf-is.png",
+      "featureIds": [
+        "GF-R-001"
+      ],
+      "navigationPath": [
+        "Open research plane",
+        "Read what GF is"
+      ],
+      "sourceAnchors": [
+        "docs/governance-frame/charter/what-governance-frame-is.md",
+        "docs/training/governance-frame/GF-L1-READER-INDEX.md"
+      ]
+    },
+    {
+      "slug": "training/governance-frame/l2/06-writer-cert",
+      "title": "GF L2 — Writer portfolio capstone",
+      "track": "GF_L2",
+      "authorAgent": "board-writer",
+      "primaryRoute": "/docs/training/governance-frame/GF-L2-WRITER-INDEX",
+      "captureRoute": "/docs/training/governance-frame/GF-L2-WRITER-INDEX",
+      "screenshotFile": "gf-l1-05-reader-cert.png",
+      "featureIds": [
+        "GF-W-CERT"
+      ],
+      "navigationPath": [
+        "Submit quarantined draft",
+        "Score portfolio rubric"
+      ],
+      "sourceAnchors": [
+        "docs/governance-frame/charter/editorial-standards.md",
+        "docs/training/governance-frame/manuals/l2-portfolio-rubric.md"
+      ]
+    },
+    {
+      "slug": "training/governance-frame/l3/05-verifier-cert",
+      "title": "GF L3 — Verifier portfolio + GFP",
+      "track": "GF_L3",
+      "authorAgent": "board-trainer",
+      "primaryRoute": "/docs/training/governance-frame/GFP-CERTIFICATION",
+      "captureRoute": "/docs/training/governance-frame/GFP-CERTIFICATION",
+      "screenshotFile": "gf-l3-05-verifier-cert.png",
+      "featureIds": [
+        "GF-V-CERT"
+      ],
+      "navigationPath": [
+        "Complete promote-deny sheet",
+        "Award GFP stack"
+      ],
+      "sourceAnchors": [
+        "docs/briefing-queue/README.md",
+        "docs/training/governance-frame/GFP-CERTIFICATION.md"
       ]
     }
   ]

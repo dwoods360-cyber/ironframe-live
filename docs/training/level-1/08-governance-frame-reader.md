@@ -1,11 +1,13 @@
-# Chapter 8 — Governance Frame Briefing Reader
+# Chapter 8 — Governance Frame Briefing Reader (optional)
 
 > **Track:** LEVEL_1 · **Reading level:** 11th grade · **Release:** `v0.1.0-ga-epic17`  
-> **Primary route:** `/governance-frame` · **Lab IDs:** BRIEF-001
+> **Primary route:** `/governance-frame` · **Lab IDs:** BRIEF-001  
+> **Status:** Optional UI peek — **not** Student Core curriculum and **not** GFP. Not required for Ironframe Core certification.  
+> **Full GF credential path:** [Path D — Governance Frame / GFP](../governance-frame/README.md) (Reader → Writer → Verifier).
 
 ## Why this chapter matters
 
-Governance Frame holds published briefings. `/docs` holds operator manuals. They are separate planes. Do not mix them.
+Governance Frame holds published briefings. `/docs` holds Ironframe Core manuals. They are separate planes. Do not mix them.
 
 ## Learning objectives
 

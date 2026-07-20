@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
     "/gf-research/what-governance-frame-is": ["./docs/governance-frame/**/*"],
     "/gf-research/sources-and-corrections": ["./docs/governance-frame/**/*"],
     "/gf-research/about": ["./docs/governance-frame/**/*"],
+    "/gf-research/training": ["./docs/training/governance-frame/**/*"],
     /**
      * Ops Hub Briefings/Newsletters read quarantine + published mirrors via fs.
      * Dynamic path.join(docsRoot, …) is not auto-traced on Vercel.

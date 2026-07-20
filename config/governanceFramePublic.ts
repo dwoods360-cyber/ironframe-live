@@ -66,6 +66,7 @@ export function isGovernanceFramePublicPath(pathname: string): boolean {
     "/what-governance-frame-is",
     "/sources-and-corrections",
     "/about",
+    "/training",
   ] as const;
 
   return publicRoots.some((root) => pathname === root || pathname.startsWith(`${root}/`));

@@ -62,7 +62,15 @@ export default function ResearchAboutPage() {
           <li>Industry briefings</li>
           <li>Executive storytelling</li>
           <li>Newsletters</li>
-          <li>Video, training, and industry reports (over time)</li>
+          <li>
+            Video, training, and industry reports (over time) — see{" "}
+            <ResearchLink
+              href="/training"
+              className="font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              Training / GFP
+            </ResearchLink>
+          </li>
         </ul>
       </div>
 

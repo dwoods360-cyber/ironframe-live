@@ -52,6 +52,7 @@ export const APP_ROUTE_ROOTS = new Set([
   "what-governance-frame-is",
   "sources-and-corrections",
   "about",
+  "training",
   "dashboard",
   "account",
   "admin",

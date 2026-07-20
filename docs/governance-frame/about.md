@@ -27,6 +27,7 @@ Governance Frame publishes research for industry. Ironframe demonstrates one imp
 - Industry briefings
 - Executive storytelling
 - Newsletters (and, over time, video, training, and industry reports)
+- GFP training discovery (public research): `/training` → curriculum in Ironframe docs at `/docs/training/governance-frame`
 
 ## Editorial boundary
 

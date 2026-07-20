@@ -14,6 +14,7 @@ const NAV = [
   { path: "/methodology", label: "Methodology" },
   { path: "/editorial-standards", label: "Standards" },
   { path: "/sources-and-corrections", label: "Sources" },
+  { path: "/training", label: "Training" },
   { path: "/about", label: "About" },
 ] as const;
 
@@ -119,6 +120,13 @@ export default function ResearchSiteChrome({
               </p>
             </div>
             <p>
+              <ResearchLink
+                href="/training"
+                className="font-semibold text-[var(--gf-accent-deep)] no-underline hover:text-[var(--gf-accent)]"
+              >
+                Training / GFP
+              </ResearchLink>
+              {" · "}
               <ResearchLink
                 href="/about"
                 className="font-semibold text-[var(--gf-accent-deep)] no-underline hover:text-[var(--gf-accent)]"

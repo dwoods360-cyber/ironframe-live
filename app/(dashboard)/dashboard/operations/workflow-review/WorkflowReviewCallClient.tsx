@@ -130,7 +130,6 @@ export default function WorkflowReviewCallClient() {
   const [teamsStatus, setTeamsStatus] = useState<TeamsStatus | null>(null);
   const [teamsStatusRefreshing, setTeamsStatusRefreshing] = useState(false);
   const [teamsStatusError, setTeamsStatusError] = useState<string | null>(null);
-  const [teamsStatusCheckedAt, setTeamsStatusCheckedAt] = useState<string | null>(null);
   const [teamsMeeting, setTeamsMeeting] = useState<TeamsMeeting | null>(null);
   const [teamsJoinUrlInput, setTeamsJoinUrlInput] = useState("");
   const [teamsNote, setTeamsNote] = useState<string | null>(null);
@@ -164,7 +163,10 @@ export default function WorkflowReviewCallClient() {
   const refreshTeamsStatus = useCallback(async () => {
     setTeamsStatusRefreshing(true);
     setTeamsStatusError(null);
-    const checkedAt = new Date().toLocaleTimeString();
+    // Drop status-echo notes; keep OAuth success notes only via ?teams=connected.
+    setTeamsNote((prev) =>
+      prev && prev.startsWith("Teams connected") ? prev : null,
+    );
     try {
       const response = await fetch("/api/admin/operations-hub/teams/status", {
         method: "GET",
@@ -195,13 +197,9 @@ export default function WorkflowReviewCallClient() {
           (parsed.data.configured ? "post_meeting_transcript" : "not_configured"),
       };
       setTeamsStatus(next);
-      setTeamsStatusCheckedAt(checkedAt);
-      setTeamsNote(`Teams status: ${teamsStatusLabel(next)} · checked ${checkedAt}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Teams status failed.";
       setTeamsStatusError(message);
-      setTeamsStatusCheckedAt(checkedAt);
-      setTeamsNote(`Teams status refresh failed · ${checkedAt}`);
       setTeamsStatus((prev) =>
         prev ?? {
           configured: false,
@@ -782,9 +780,6 @@ export default function WorkflowReviewCallClient() {
                 : teamsStatus == null
                   ? "checking…"
                   : teamsStatusLabel(teamsStatus)}
-              {teamsStatusCheckedAt && !teamsStatusRefreshing
-                ? ` · ${teamsStatusCheckedAt}`
-                : ""}
             </p>
           </div>
 

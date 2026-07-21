@@ -36,6 +36,10 @@ describe('outboundDraftsman', () => {
     expect(draft.body).toContain('$5900000.00');
     expect(draft.body).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
     expect(draft.body.toLowerCase()).toContain('workflow review');
+    expect(draft.body.toLowerCase()).not.toContain('in this story, not us');
+    expect(draft.body.toLowerCase()).not.toContain('wedge:');
+    expect(draft.body.toLowerCase()).not.toContain('pending operator approval');
+    expect(draft.body).toMatch(/\n\n/);
     expect(draft.subject.toLowerCase()).toContain('workflow');
     expect(draft.industrySector).toBe('REGIONAL_BHC');
   });

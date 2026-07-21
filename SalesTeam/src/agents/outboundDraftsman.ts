@@ -45,6 +45,10 @@ const CONTENT_QUALITY_BANNED = [
   'bigint',
   'irongate dmz',
   'rls +',
+  'pending operator approval',
+  'in this story, not us',
+  'wedge:',
+  '[cadence:',
 ] as const;
 
 function formatCentsDisplay(valueCents: string): string {
@@ -115,26 +119,26 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
   const lossDisplay = hasModeledLoss ? formatCentsDisplay(prospect.valueCents) : null;
   const trigger = humanizeDetectedTrigger(prospect.detectedTrigger);
 
-  const wedgeBlock = lossDisplay
-    ? `Ironframe is the guide: we help you ${prompt.guidePlan}. Wedge: ${prompt.wedgeCentsNarrative}. For your profile we model ${lossDisplay} in governed loss exposure (whole cents only).`
-    : `Ironframe is the guide: we help you ${prompt.guidePlan}. Wedge: ${prompt.wedgeCentsNarrative}.`;
+  const guideBlock = lossDisplay
+    ? `Ironframe helps teams like yours ${prompt.guidePlan} — including ${prompt.wedgeCentsNarrative} (about ${lossDisplay} in modeled governed loss exposure, whole cents only).`
+    : `Ironframe helps teams like yours ${prompt.guidePlan} — including ${prompt.wedgeCentsNarrative}.`;
 
   return [
     `Hi ${firstName(prospect.fullName)},`,
     '',
-    `You're leading ${prompt.heroRole} work at ${prospect.company} — that makes you the decision-maker in this story, not us.`,
+    `You're leading ${prompt.heroRole} work at ${prospect.company}, so you're the decision-maker on how governance evidence reaches the board.`,
     '',
-    `We noticed ${trigger}. Quick question on how your team handles ${prompt.complianceHook} evidence today — especially where heatmaps or spreadsheets still feed the board.`,
+    `We noticed ${trigger}. Quick question: how does your team handle ${prompt.complianceHook} evidence today — especially where heatmaps or spreadsheets still feed leadership reporting?`,
     '',
-    wedgeBlock,
+    guideBlock,
     '',
     CUSTOMER_SAFE_POSITIONING,
     '',
-    `We're recruiting a small paid co-builder cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, 2-3 success criteria you set, weekly eng syncs capped then async. Planned GA Ironframe Command ~$${PLANNED_GA_COMMAND_USD}/yr.`,
+    `We're recruiting a small paid design-partner cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, 2–3 success criteria you set, weekly eng syncs then async. Planned GA for Ironframe Command is ~$${PLANNED_GA_COMMAND_USD}/yr.`,
     '',
-    'If the pain is real on your side, proposed next step is a 10-15 minute workflow review on evidence / board-report friction — not a product preview.',
+    'If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence / board-report pain — not a product preview.',
     '',
-    '— Ironframe (pending operator approval before send)',
+    '— Ironframe',
   ].join('\n');
 }
 

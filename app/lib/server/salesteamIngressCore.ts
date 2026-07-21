@@ -36,6 +36,26 @@ function sanitizeText(raw: unknown, maxLen: number): string {
     .slice(0, maxLen);
 }
 
+/** Draft bodies need paragraph breaks — keep \\n / \\r / \\t; strip other controls. */
+function sanitizeMultilineText(raw: unknown, maxLen: number): string {
+  return String(raw ?? "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "[STRIPPED]")
+    .replace(/\r\n/g, "\n")
+    .trim()
+    .slice(0, maxLen);
+}
+
+/** Operator-only cadence tags must not sit in customer-facing body text. */
+function peelCadenceFooter(body: string): { body: string; cadenceLine: string | null } {
+  const match = body.match(/\n*\[Cadence:\s*([^\]]+)\]\s*$/i);
+  if (!match) return { body: body.trim(), cadenceLine: null };
+  return {
+    body: body.replace(/\n*\[Cadence:\s*[^\]]+\]\s*$/i, "").trim(),
+    cadenceLine: `Cadence: ${match[1]!.trim()}`,
+  };
+}
+
 async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: string): Promise<void> {
   try {
     await tx.$executeRaw`SELECT ironguard_set_session_tenant(${tenantId}::uuid);`;
@@ -51,18 +71,22 @@ function buildSalesTeamPendingDraftSummary(input: {
   industrySector: string;
   lossExposureCents?: string;
 }): string {
+  const { body, cadenceLine } = peelCadenceFooter(input.body);
   const lossLine = input.lossExposureCents
     ? `Quantified loss exposure (¢): ${input.lossExposureCents}`
     : "Quantified loss exposure (¢): pending operator baseline bind";
   return [
     `${PENDING_SALES_DRAFT_TAG} ${input.subject}`,
     "--- Agent Proposed Reply Text ---",
-    input.body.trim(),
+    body,
     "--- Prospect Context ---",
     `Beachhead Sector: ${input.industrySector}`,
     lossLine,
+    cadenceLine,
     `Execution Source: ${SALESTEAM_EXECUTION_SOURCE}${input.channel}`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /**
@@ -136,7 +160,7 @@ export async function submitSalesteamOutreachDraft(
   const dealId = sanitizeText(input.dealId, 36);
   const contactId = sanitizeText(input.contactId, 36);
   const subject = sanitizeText(input.subject, 200);
-  const body = sanitizeText(input.body, 12_000);
+  const body = sanitizeMultilineText(input.body, 12_000);
 
   return prisma.$transaction(async (tx) => {
     await bindIronguardTenant(tx, tenant.id);

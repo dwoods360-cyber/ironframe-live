@@ -27,6 +27,15 @@ function escapeHtml(raw: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Never put HITL / cadence operator notes on the wire. */
+function stripOperatorOnlyOutboundLines(text: string): string {
+  return text
+    .replace(/\n*\[Cadence:[^\]]*\]\s*/gi, "\n")
+    .replace(/\s*\(pending operator approval before send\)/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -77,7 +86,10 @@ export async function POST(
         return NextResponse.json({ error: "Cannot dispatch an empty text payload." }, { status: 400 });
       }
 
-      const trimmedText = adjustedText.trim();
+      const trimmedText = stripOperatorOnlyOutboundLines(adjustedText);
+      if (!trimmedText) {
+        return NextResponse.json({ error: "Cannot dispatch an empty text payload." }, { status: 400 });
+      }
       const { subject } = parsePendingDraftSummary(pendingInteraction.summary);
       const dispatchSubject =
         draftKind === "SALES"

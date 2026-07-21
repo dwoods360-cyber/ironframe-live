@@ -22,6 +22,15 @@ function failsContentQuality(summary) {
   if (/\bCOMPLIANCE_JOB_POST\b/.test(body)) return "COMPLIANCE_JOB_POST";
   if (/\$0\.00/.test(body) && /loss exposure/i.test(body)) return "$0.00 loss exposure";
   if (/\bbigint\b/i.test(body) || /irongate dmz/i.test(body)) return "eng jargon dump";
+  if (lower.includes("in this story, not us")) return "storybrand scaffold voice";
+  if (lower.includes("wedge:")) return "wedge scaffold label";
+  if (lower.includes("pending operator approval")) return "operator HITL footer in body";
+  if (/\[cadence:/i.test(body)) return "cadence footer in body";
+  // Ingress used to strip \\n — smashed bodies fail professionalism gate.
+  const reply = body.split("--- Agent Proposed Reply Text ---")[1]?.split("--- Prospect Context ---")[0] || "";
+  if (reply.length > 120 && !/\n\s*\n/.test(reply) && !reply.includes("\nHi ")) {
+    return "smashed newlines / missing paragraph breaks";
+  }
   return null;
 }
 

@@ -11,5 +11,12 @@ export async function GET() {
     return NextResponse.json({ error: auth.error }, { status: 403 });
   }
 
-  return NextResponse.json({ ok: true, ...getTeamsGraphConnectionStatus() });
+  return NextResponse.json(
+    { ok: true, ...getTeamsGraphConnectionStatus() },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    },
+  );
 }

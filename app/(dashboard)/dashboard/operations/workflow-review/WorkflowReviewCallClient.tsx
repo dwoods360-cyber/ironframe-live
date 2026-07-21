@@ -9,6 +9,7 @@ import type {
   WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
+import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
 
 import WorkflowReviewTalkTrackPanel from "./WorkflowReviewTalkTrackPanel";
 
@@ -90,6 +91,12 @@ type TeamsStatus = {
   ingestMode: string;
 };
 
+function teamsStatusLabel(status: TeamsStatus): string {
+  if (!status.configured) return "not configured";
+  if (status.connected) return "connected";
+  return "ready to connect";
+}
+
 type TeamsMeeting = {
   id: string;
   joinUrl: string | null;
@@ -121,6 +128,9 @@ export default function WorkflowReviewCallClient() {
   const [micDeviceId, setMicDeviceId] = useState("");
   const [micOptions, setMicOptions] = useState<Array<{ deviceId: string; label: string }>>([]);
   const [teamsStatus, setTeamsStatus] = useState<TeamsStatus | null>(null);
+  const [teamsStatusRefreshing, setTeamsStatusRefreshing] = useState(false);
+  const [teamsStatusError, setTeamsStatusError] = useState<string | null>(null);
+  const [teamsStatusCheckedAt, setTeamsStatusCheckedAt] = useState<string | null>(null);
   const [teamsMeeting, setTeamsMeeting] = useState<TeamsMeeting | null>(null);
   const [teamsJoinUrlInput, setTeamsJoinUrlInput] = useState("");
   const [teamsNote, setTeamsNote] = useState<string | null>(null);
@@ -152,23 +162,59 @@ export default function WorkflowReviewCallClient() {
   }, [liveBuffer]);
 
   const refreshTeamsStatus = useCallback(async () => {
+    setTeamsStatusRefreshing(true);
+    setTeamsStatusError(null);
+    const checkedAt = new Date().toLocaleTimeString();
     try {
-      const data = await fetchOpsPortalJson<TeamsStatus>(
-        "/api/admin/operations-hub/teams/status",
-        { method: "GET" },
-        "Teams status failed.",
-      );
-      setTeamsStatus(data);
-    } catch (err) {
-      setTeamsStatus({
-        configured: false,
-        connected: false,
-        accountEmail: null,
-        accountName: null,
-        redirectUri: null,
-        error: err instanceof Error ? err.message : "Teams status failed.",
-        ingestMode: "not_configured",
+      const response = await fetch("/api/admin/operations-hub/teams/status", {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
       });
+      const parsed = await parseJsonResponse<TeamsStatus & { ok?: boolean; error?: string; hint?: string }>(
+        response,
+      );
+      if (!parsed.ok) {
+        throw new Error(parsed.error);
+      }
+      if (!response.ok) {
+        throw new Error(
+          [parsed.data.error, parsed.data.hint].filter(Boolean).join(" ") || "Teams status failed.",
+        );
+      }
+      const next: TeamsStatus = {
+        configured: Boolean(parsed.data.configured),
+        connected: Boolean(parsed.data.connected),
+        accountEmail: parsed.data.accountEmail ?? null,
+        accountName: parsed.data.accountName ?? null,
+        redirectUri: parsed.data.redirectUri ?? null,
+        error: parsed.data.error ?? null,
+        ingestMode:
+          parsed.data.ingestMode ||
+          (parsed.data.configured ? "post_meeting_transcript" : "not_configured"),
+      };
+      setTeamsStatus(next);
+      setTeamsStatusCheckedAt(checkedAt);
+      setTeamsNote(`Teams status: ${teamsStatusLabel(next)} · checked ${checkedAt}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Teams status failed.";
+      setTeamsStatusError(message);
+      setTeamsStatusCheckedAt(checkedAt);
+      setTeamsNote(`Teams status refresh failed · ${checkedAt}`);
+      setTeamsStatus((prev) =>
+        prev ?? {
+          configured: false,
+          connected: false,
+          accountEmail: null,
+          accountName: null,
+          redirectUri: null,
+          error: message,
+          ingestMode: "not_configured",
+        },
+      );
+    } finally {
+      setTeamsStatusRefreshing(false);
     }
   }, []);
 
@@ -731,18 +777,22 @@ export default function WorkflowReviewCallClient() {
               </p>
             </div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-indigo-300">
-              {teamsStatus == null
-                ? "checking…"
-                : !teamsStatus.configured
-                  ? "not configured"
-                  : teamsStatus.connected
-                    ? "connected"
-                    : "ready to connect"}
+              {teamsStatusRefreshing
+                ? "refreshing…"
+                : teamsStatus == null
+                  ? "checking…"
+                  : teamsStatusLabel(teamsStatus)}
+              {teamsStatusCheckedAt && !teamsStatusRefreshing
+                ? ` · ${teamsStatusCheckedAt}`
+                : ""}
             </p>
           </div>
 
           {teamsStatus?.error && !teamsStatus.configured ? (
             <p className="text-xs text-amber-200">{teamsStatus.error}</p>
+          ) : null}
+          {teamsStatusError ? (
+            <p className="text-xs text-amber-200">Status refresh failed: {teamsStatusError}</p>
           ) : null}
           {teamsStatus?.connected ? (
             <p className="text-xs text-slate-300">
@@ -760,12 +810,15 @@ export default function WorkflowReviewCallClient() {
 
           <div className="flex flex-wrap gap-2">
             {teamsStatus?.configured && !teamsStatus.connected ? (
-              <Link
-                href="/api/admin/operations-hub/teams/connect"
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.assign("/api/admin/operations-hub/teams/connect");
+                }}
                 className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-600"
               >
                 Connect Microsoft Teams
-              </Link>
+              </button>
             ) : null}
             {teamsStatus?.connected ? (
               <>
@@ -789,10 +842,15 @@ export default function WorkflowReviewCallClient() {
             ) : null}
             <button
               type="button"
-              onClick={() => void refreshTeamsStatus()}
-              className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400"
+              disabled={teamsStatusRefreshing}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void refreshTeamsStatus();
+              }}
+              className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200 hover:bg-slate-900 disabled:opacity-40"
             >
-              Refresh status
+              {teamsStatusRefreshing ? "Refreshing…" : "Refresh status"}
             </button>
           </div>
 

@@ -53,7 +53,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
 | GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
-| Workflow review talk track | `/dashboard/operations/workflow-review/protocol` (also buttons on Approvals · Ops Hub · SalesTeam portal) |
+| Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |
 | Ops Hub Calendar | `/dashboard/operations?tab=calendar` |
 | Teams Graph (optional) | Ops Hub **Teams** tab |

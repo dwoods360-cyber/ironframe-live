@@ -27,7 +27,7 @@ source-file: public/docs/training/assets/ops-gtm-04-workflow-review-live.png
 2. Set a dry-run company name.
 3. Start LIVE, speak a short design-partner sentence, stop.
 4. Journal: level bar? transcript words? recap?
-5. Optional: talk track `/dashboard/operations/workflow-review/protocol`.
+5. Confirm the talk track panel is visible on the same LIVE page (collapse/expand as needed).
 
 ## Next
 

@@ -1,0 +1,112 @@
+"use client";
+
+import { useState } from "react";
+
+/**
+ * Compact Path B talk track for the LIVE assist desk — doctrine beside the mic, not a second URL.
+ */
+export default function WorkflowReviewTalkTrackPanel() {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <section
+      id="talk-track"
+      className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-4"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
+            Ops GTM · Path B talk track
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-white">Peer-to-peer diligence script</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Plane: Ops GTM — not GF research. Host is human; this panel is the script.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-lg border border-amber-800/50 px-3 py-1.5 font-mono text-[10px] uppercase tracking-wide text-amber-100 hover:bg-amber-950/40"
+        >
+          {open ? "Collapse" : "Expand"}
+        </button>
+      </div>
+
+      {!open ? null : (
+        <div className="mt-4 space-y-4 text-sm text-slate-300">
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-400">
+            <div>
+              <strong className="text-slate-200">Lock:</strong> Path B $4,999 · 90-day · 2–3 written
+              metrics
+            </div>
+            <div>
+              <strong className="text-slate-200">Sidecar:</strong>{" "}
+              <code className="text-cyan-300">board-sales-lead</code> · Drafts: SalesTeam HITL only
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+              15-minute agenda
+            </h3>
+            <ul className="mt-2 space-y-2 text-xs leading-relaxed">
+              <li>
+                <strong className="text-white">0–3 · Ingress</strong> — “Skip the pitch — where does
+                evidence debt, board-dollar opacity, or multi-entity bleed show up today?”
+              </li>
+              <li>
+                <strong className="text-white">3–8 · Structure</strong> — RLS + Ironguard walls,
+                Irongate before persist, ALE in integer cents — not color charts.
+              </li>
+              <li>
+                <strong className="text-white">8–12 · Path B</strong> — Fixed 90-day paid co-builder
+                at $4,999. Prove 2–3 written metrics or part ways.
+              </li>
+              <li>
+                <strong className="text-white">12–15 · Gate</strong> — Order form with their criteria
+                → client-owned operator email → tenant-scoped Path B link. Not a deck.
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+              Pocket answers
+            </h3>
+            <ul className="mt-2 space-y-2 text-xs leading-relaxed">
+              <li>
+                <strong className="text-white">SOC 2?</strong> SOC2-aligned architecture — not a
+                completed Type II logo claim today. Diligence is migrations, RLS, gateway, criteria.
+              </li>
+              <li>
+                <strong className="text-white">Free trial?</strong> No. Flat $4,999 / 90-day. Convert
+                or exit on criteria they write.
+              </li>
+              <li>
+                <strong className="text-white">Risk $?</strong> Integer cents (BigInt) — not 5×5
+                heatmap board truth.
+              </li>
+              <li>
+                <strong className="text-white">Vanta/Drata?</strong> Keep for checklist CC if that job
+                is done. We quantify loss + isolate entities — different buying job.
+              </li>
+              <li>
+                <strong className="text-white">Demo?</strong> This slot is workflow diligence. Product
+                walk after Path B interest / criteria.
+              </li>
+            </ul>
+          </div>
+
+          <p className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-300">
+            Banned on call: medshield / vaultbank / gridcore as customers or “hardened baselines”
+            (demo seeds only).
+          </p>
+
+          <p className="font-mono text-[10px] text-slate-500">
+            Full doctrine: docs/sales/design-partner-workflow-review-protocol.md · Operator library
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}

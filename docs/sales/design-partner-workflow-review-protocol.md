@@ -7,10 +7,9 @@
 **Companions:** [Offer sheet](./design-partner-offer-sheet.md) · [Order form](./design-partner-order-form.md) · [Battlecard](./battlecard-ironframe-vs-vanta-drata.md) · [Sales enablement](./sales-enablement.md) · [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
 
 **In-call tools (Ops Hub):**  
-- LIVE assist — `/dashboard/operations/workflow-review` (mic STT, Pocket Q&A, End LIVE → recap, Push to calendar)  
+- LIVE desk — `/dashboard/operations/workflow-review` (talk track panel + mic STT + Pocket Q&A + End LIVE → recap + Push to calendar)  
 - Operator library — `/dashboard/operations/library`  
-- Talk track (Command Post page) — `/dashboard/operations/workflow-review/protocol`  
-  (legacy `/operator/workflow-review-protocol.html` redirects here)
+- Legacy URLs `/operator/workflow-review-protocol.html` and `/dashboard/operations/workflow-review/protocol` redirect to the LIVE desk `#talk-track`
 
 ---
 

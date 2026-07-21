@@ -10,6 +10,8 @@ import type {
 } from "@/app/lib/server/workflowReviewCallAssistCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
+import WorkflowReviewTalkTrackPanel from "./WorkflowReviewTalkTrackPanel";
+
 function pickRecorderMime(): string {
   const candidates = [
     "audio/webm;codecs=opus",
@@ -688,15 +690,19 @@ export default function WorkflowReviewCallClient() {
             >
               SalesTeam portal
             </Link>
+            <a href="#talk-track" className="text-amber-300 hover:underline">
+              Talk track
+            </a>
           </div>
           <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-            Workflow review · LIVE mic
+            Workflow review · LIVE desk · Path B
           </p>
           <h1 className="text-2xl font-bold text-white">In-call sidecar</h1>
           <p className="max-w-3xl text-sm text-slate-400">
-            Click <span className="text-emerald-300">Enable mic & go LIVE</span> (allow the browser
-            prompt). Audio is transcribed in ~2.2s chunks via Gemini, overlapping record + STT. Watch
-            the green level bar — if it stays at 0 while you talk, pick another mic.
+            One desk: talk track + mic STT + Pocket Q&A. Click{" "}
+            <span className="text-emerald-300">Enable mic & go LIVE</span> (allow the browser prompt).
+            Audio is transcribed in ~2.2s chunks via Gemini. Watch the green level bar — if it stays
+            at 0 while you talk, pick another mic.
           </p>
         </header>
 
@@ -919,7 +925,11 @@ export default function WorkflowReviewCallClient() {
           </div>
         </section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
+          <div className="xl:sticky xl:top-4 xl:self-start">
+            <WorkflowReviewTalkTrackPanel />
+          </div>
+
           <section className="space-y-4">
             <div
               className={`rounded-xl border p-4 ${

@@ -193,7 +193,7 @@ function AdminApprovalDashboardInner() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href="/dashboard/operations/workflow-review/protocol"
+              href="/dashboard/operations/workflow-review#talk-track"
               target="_blank"
               rel="noreferrer"
               className="rounded-lg border border-teal-800/50 bg-teal-950/40 px-4 py-2 text-sm font-medium text-teal-100 hover:border-teal-500"

@@ -159,7 +159,7 @@ Screenshots: `public/docs/training/assets/{analyst,practitioner-core,ops-gtm}-*.
 | [Pre-outreach dry-run (run order)](./sales/design-partner-pre-outreach-run-order.md) | R1–R8 gate before first partner DISPATCH |
 | [GTM operator glossary](./sales/design-partner-gtm-operator-glossary.md) | SUSPECT → Path B, DISPATCH, LIVE sidecar, message locks |
 | [Workflow review protocol](./sales/design-partner-workflow-review-protocol.md) | 15-min peer-to-peer diligence talk track |
-| Ops GTM talk track | `/dashboard/operations/workflow-review/protocol` |
+| Ops GTM LIVE desk (talk track + mic) | `/dashboard/operations/workflow-review` |
 | LIVE call assist (tool) | `/dashboard/operations/workflow-review` — mic STT, recap, calendar push |
 | [Operator launch checklist](./sales/design-partner-operator-launch-checklist.md) | Batch send + close/provision cadence after dry-run GO |
 | [Sales Enablement](./sales/sales-enablement.md) | Demo script, talk tracks, objections |

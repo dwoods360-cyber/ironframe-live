@@ -91,10 +91,15 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      /** Ops GTM talk track lives in Command Post (not GF research / not static HTML). */
+      /**
+       * Legacy static talk-track HTML → LIVE desk.
+       * Hash scroll is handled by public/operator/workflow-review-protocol.html when
+       * this redirect is skipped; destination omits # (redirects cannot carry fragments).
+       * /protocol is a Next page that redirects with #talk-track.
+       */
       {
         source: "/operator/workflow-review-protocol.html",
-        destination: "/dashboard/operations/workflow-review/protocol",
+        destination: "/dashboard/operations/workflow-review",
         permanent: false,
       },
       /** Item 4 — workflow solution slugs → baseline vertical deep-dives */

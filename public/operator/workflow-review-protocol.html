@@ -3,96 +3,155 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Workflow review — Peer-to-Peer Technical Diligence</title>
+    <meta
+      name="description"
+      content="Ops GTM Path B operator talk track — peer-to-peer workflow review. Not Governance Frame research."
+    />
+    <title>Ops GTM · Path B — Workflow review talk track</title>
     <style>
       :root {
-        --ink: #0f172a;
-        --ink-soft: #334155;
+        --bg: #020617;
+        --panel: rgba(7, 14, 32, 0.85);
+        --panel-solid: #070e20;
+        --ink: #e2e8f0;
+        --ink-soft: #94a3b8;
         --muted: #64748b;
-        --line: #e2e8f0;
-        --paper: #f8fafc;
-        --accent: #0f766e;
-        --amber: #b45309;
-        --ban: #b91c1c;
+        --line: #1e293b;
+        --line-strong: #334155;
+        --amber: #f59e0b;
+        --amber-dim: rgba(245, 158, 11, 0.12);
+        --cyan: #22d3ee;
+        --ban: #f87171;
+        --ban-bg: rgba(127, 29, 29, 0.25);
       }
       * {
         box-sizing: border-box;
       }
       body {
         margin: 0;
-        font-family: "Segoe UI", system-ui, sans-serif;
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
         color: var(--ink);
-        background: linear-gradient(180deg, #ecfeff 0%, var(--paper) 28%, #fff 100%);
+        background:
+          radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 158, 11, 0.08), transparent),
+          var(--bg);
         line-height: 1.55;
+        min-height: 100vh;
       }
       .wrap {
         max-width: 52rem;
         margin: 0 auto;
         padding: 2rem 1.25rem 4rem;
       }
+      .rail {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+        margin-bottom: 1.25rem;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #818cf8;
+      }
+      .rail .dot {
+        color: var(--line-strong);
+      }
+      .rail .gate {
+        color: var(--amber);
+      }
+      .plane {
+        margin: 0 0 0.75rem;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        border-radius: 0.5rem;
+        background: var(--amber-dim);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fcd34d;
+      }
       .eyebrow {
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
         font-size: 0.7rem;
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--accent);
+        color: var(--amber);
       }
       h1 {
-        font-family: Georgia, "Times New Roman", serif;
-        font-size: clamp(1.6rem, 3vw, 2.15rem);
-        font-weight: 600;
+        font-size: clamp(1.45rem, 2.8vw, 1.85rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
         margin: 0.4rem 0 0.75rem;
-        line-height: 1.2;
+        line-height: 1.25;
+        color: #fff;
       }
       .lede {
         color: var(--ink-soft);
-        max-width: 40rem;
+        max-width: 42rem;
+        font-size: 0.95rem;
       }
       .meta {
-        margin-top: 1rem;
-        padding: 0.85rem 1rem;
+        margin-top: 1.1rem;
+        padding: 0.9rem 1rem;
         border: 1px solid var(--line);
-        border-radius: 0.5rem;
-        background: #fff;
-        font-size: 0.9rem;
+        border-radius: 0.75rem;
+        background: var(--panel);
+        font-size: 0.88rem;
         color: var(--ink-soft);
       }
       .meta strong {
-        color: var(--ink);
+        color: #fff;
+        font-weight: 600;
       }
       h2 {
-        font-family: Georgia, "Times New Roman", serif;
-        font-size: 1.25rem;
-        margin: 2.25rem 0 0.75rem;
-        padding-top: 0.5rem;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--cyan);
+        margin: 2.25rem 0 0.85rem;
+        padding-top: 1rem;
         border-top: 1px solid var(--line);
       }
       p,
       li {
         color: var(--ink-soft);
+        font-size: 0.92rem;
+      }
+      strong {
+        color: #f1f5f9;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.88rem;
-        background: #fff;
+        font-size: 0.86rem;
+        background: var(--panel-solid);
         border: 1px solid var(--line);
-        border-radius: 0.5rem;
+        border-radius: 0.75rem;
         overflow: hidden;
       }
       th,
       td {
         text-align: left;
         vertical-align: top;
-        padding: 0.65rem 0.75rem;
+        padding: 0.7rem 0.8rem;
         border-bottom: 1px solid var(--line);
       }
       th {
-        background: #f1f5f9;
-        color: var(--ink);
-        font-size: 0.72rem;
+        background: rgba(15, 23, 42, 0.95);
+        color: var(--muted);
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.65rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.08em;
+      }
+      td {
+        color: var(--ink-soft);
       }
       tr:last-child td {
         border-bottom: 0;
@@ -100,14 +159,20 @@
       .ban {
         color: var(--ban);
         font-weight: 600;
+        padding: 0.75rem 0.9rem;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(185, 28, 28, 0.4);
+        background: var(--ban-bg);
+        font-size: 0.88rem;
       }
       .callout {
         margin: 1rem 0;
         padding: 0.85rem 1rem;
         border-left: 3px solid var(--amber);
-        background: #fffbeb;
+        border-radius: 0 0.5rem 0.5rem 0;
+        background: var(--amber-dim);
         color: var(--ink-soft);
-        font-size: 0.92rem;
+        font-size: 0.9rem;
       }
       .nav {
         display: flex;
@@ -117,26 +182,37 @@
       }
       .nav a {
         display: inline-block;
-        padding: 0.45rem 0.8rem;
-        border-radius: 0.4rem;
-        border: 1px solid var(--line);
-        background: #fff;
-        color: var(--accent);
+        padding: 0.5rem 0.85rem;
+        border-radius: 0.5rem;
+        border: 1px solid var(--line-strong);
+        background: rgba(15, 23, 42, 0.8);
+        color: #cbd5e1;
         text-decoration: none;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
+        transition: border-color 0.15s, color 0.15s;
       }
       .nav a:hover {
-        border-color: var(--accent);
+        border-color: rgba(245, 158, 11, 0.55);
+        color: #fde68a;
+      }
+      .nav a.primary {
+        border-color: rgba(245, 158, 11, 0.5);
+        background: rgba(180, 83, 9, 0.25);
+        color: #fde68a;
       }
       .src {
         margin-top: 2.5rem;
-        font-size: 0.8rem;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.72rem;
         color: var(--muted);
       }
       code {
-        font-size: 0.85em;
-        background: #f1f5f9;
+        font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+        font-size: 0.82em;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid var(--line);
+        color: #a5f3fc;
         padding: 0.1em 0.35em;
         border-radius: 0.25rem;
       }
@@ -144,7 +220,19 @@
   </head>
   <body>
     <div class="wrap">
-      <p class="eyebrow">Operator talk track · Path B</p>
+      <div class="rail">
+        <span>Ops Hub</span>
+        <span class="dot">·</span>
+        <span>Command Post</span>
+        <span class="dot">·</span>
+        <span class="gate">Gatekeeper / Path B</span>
+      </div>
+
+      <p class="plane">
+        Plane: Ops GTM (sales diligence) — not Governance Frame research · not GFP curriculum
+      </p>
+
+      <p class="eyebrow">Ops GTM · Path B talk track</p>
       <h1>Peer-to-Peer Technical Diligence Protocol</h1>
       <p class="lede">
         Authoritative 10–15 minute workflow review. Collaborative, direct, slightly clinical —
@@ -159,10 +247,12 @@
       </div>
 
       <div class="nav">
+        <a class="primary" href="/dashboard/operations/workflow-review">LIVE assist</a>
         <a href="/dashboard/admin/approvals?kind=SALES">Sales Approvals</a>
         <a href="/dashboard/operations/salesteam">SalesTeam portal</a>
         <a href="/admin/onboarding">Path B provision</a>
         <a href="/dashboard/operations">Ops Hub</a>
+        <a href="/dashboard/operations/library">Operator library</a>
       </div>
 
       <h2>Doctrine</h2>
@@ -317,18 +407,22 @@
       </p>
 
       <h2>In-call sidecar (Ops Hub)</h2>
-      <p>
-        Host the call yourself. Keep the LIVE assist open beside Teams:
-      </p>
+      <p>Host the call yourself. Keep the LIVE assist open beside Teams:</p>
       <ul>
-        <li><code>/dashboard/operations/workflow-review</code> — mic STT, Pocket Q&amp;A, End LIVE → recap, Push to calendar</li>
-        <li><code>/dashboard/operations/library</code> — operator playbooks directory (run order, glossary, offer sheet)</li>
+        <li>
+          <code>/dashboard/operations/workflow-review</code> — mic STT, Pocket Q&amp;A, End LIVE →
+          recap, Push to calendar
+        </li>
+        <li>
+          <code>/dashboard/operations/library</code> — operator playbooks directory (run order,
+          glossary, offer sheet)
+        </li>
         <li>Pre-outreach dry-run (R1–R8) before first partner DISPATCH</li>
       </ul>
 
       <p class="src">
-        Canonical markdown:
-        <code>docs/sales/design-partner-workflow-review-protocol.md</code>
+        Canonical markdown: docs/sales/design-partner-workflow-review-protocol.md · Plane: Ops GTM
+        (not docs/governance-frame / not GFP)
       </p>
     </div>
   </body>

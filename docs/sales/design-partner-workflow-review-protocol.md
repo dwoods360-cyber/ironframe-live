@@ -1,14 +1,15 @@
 # Design-partner workflow review — Peer-to-Peer Technical Diligence Protocol
 
 **Status:** Authoritative operator talk track for the **10–15 minute workflow review**  
+**Plane:** **Ops GTM / Path B** (sales diligence) — **not** Governance Frame research · **not** GFP curriculum  
 **Audience:** Human operator (host) · `board-sales-lead` call briefs · SalesTeam draft tone  
-**Not for:** Live agent-led calls with prospects · product demos · free pilots  
+**Not for:** Live agent-led calls with prospects · product demos · free pilots · GF research pages  
 **Companions:** [Offer sheet](./design-partner-offer-sheet.md) · [Order form](./design-partner-order-form.md) · [Battlecard](./battlecard-ironframe-vs-vanta-drata.md) · [Sales enablement](./sales-enablement.md) · [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
 
 **In-call tools (Ops Hub):**  
 - LIVE assist — `/dashboard/operations/workflow-review` (mic STT, Pocket Q&A, End LIVE → recap, Push to calendar)  
 - Operator library — `/dashboard/operations/library`  
-- Printable talk track — `/operator/workflow-review-protocol.html`
+- Printable talk track (Command Post chrome) — `/operator/workflow-review-protocol.html`
 
 ---
 

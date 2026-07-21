@@ -13,7 +13,8 @@ export async function GET() {
 
   const drafts = await fetchPendingApprovalDrafts();
   return NextResponse.json({
-    drafts: drafts.map(({ tenantId: _t, contactId: _c, contactEmail: _e, ...rest }) => rest),
+    // Keep tenant/contact IDs server-side; expose destination fields for HITL dry-run edits.
+    drafts: drafts.map(({ tenantId: _t, contactId: _c, ...rest }) => rest),
     queueDepth: drafts.length,
   });
 }

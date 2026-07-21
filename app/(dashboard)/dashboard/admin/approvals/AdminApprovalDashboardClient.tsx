@@ -16,6 +16,8 @@ import {
   type ApprovalKindFilter,
 } from "@/app/lib/approvalDraftKinds";
 
+type DispatchChannel = "EMAIL" | "SMS";
+
 interface PendingDraft {
   id: string;
   contactName: string;
@@ -25,6 +27,9 @@ interface PendingDraft {
   proposedReply: string;
   tier: "Gridcore" | "Vaultbank" | "Medshield";
   draftKind: ApprovalDraftKind;
+  contactEmail: string;
+  contactPhone: string | null;
+  dispatchChannel: DispatchChannel;
 }
 
 function kindSortRank(kind: ApprovalDraftKind): number {
@@ -43,6 +48,8 @@ function AdminApprovalDashboardInner() {
   const [isDispatching, setIsDispatching] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const loadQueue = useCallback(async () => {
     setIsLoading(true);
@@ -53,9 +60,14 @@ function AdminApprovalDashboardInner() {
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load approval queue.");
       }
-      const nextDrafts = [...(data.drafts ?? [])].sort(
-        (a, b) => kindSortRank(a.draftKind) - kindSortRank(b.draftKind),
-      );
+      const nextDrafts = [...(data.drafts ?? [])]
+        .map((draft) => ({
+          ...draft,
+          contactEmail: draft.contactEmail ?? "",
+          contactPhone: draft.contactPhone ?? null,
+          dispatchChannel: draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL",
+        }))
+        .sort((a, b) => kindSortRank(a.draftKind) - kindSortRank(b.draftKind));
       setDrafts(nextDrafts);
     } catch (err: unknown) {
       setLoadError(err instanceof Error ? err.message : "Queue load failure.");
@@ -95,18 +107,22 @@ function AdminApprovalDashboardInner() {
     router.replace(approvalsHref(next), { scroll: false });
   };
 
-  const handleUpdateDraftText = (newText: string) => {
+  const patchSelectedDraft = (patch: Partial<PendingDraft>) => {
     if (!activeDraftId) return;
     setDrafts((prev) =>
-      prev.map((draft) =>
-        draft.id === activeDraftId ? { ...draft, proposedReply: newText } : draft,
-      ),
+      prev.map((draft) => (draft.id === activeDraftId ? { ...draft, ...patch } : draft)),
     );
+  };
+
+  const handleUpdateDraftText = (newText: string) => {
+    patchSelectedDraft({ proposedReply: newText });
   };
 
   const handleAction = async (actionType: "DISPATCH" | "PURGE") => {
     if (!selectedDraft || isDispatching) return;
     setIsDispatching(true);
+    setActionError(null);
+    setActionSuccess(null);
 
     try {
       const response = await fetch(`/api/admin/approvals/${selectedDraft.id}`, {
@@ -115,10 +131,18 @@ function AdminApprovalDashboardInner() {
         body: JSON.stringify({
           action: actionType,
           adjustedText: selectedDraft.proposedReply,
+          recipientEmail: selectedDraft.contactEmail,
+          recipientPhone: selectedDraft.contactPhone,
+          dispatchChannel: selectedDraft.dispatchChannel,
         }),
       });
 
-      const data = (await response.json()) as { error?: string; status?: string };
+      const data = (await response.json()) as {
+        error?: string;
+        status?: string;
+        channel?: string;
+        to?: string;
+      };
       if (!response.ok) {
         throw new Error(data.error ?? "Workflow authorization error.");
       }
@@ -126,9 +150,20 @@ function AdminApprovalDashboardInner() {
         throw new Error("Unexpected workflow completion state.");
       }
 
+      if (data.status === "SUCCESS_DISPATCHED") {
+        setActionSuccess(
+          `SUCCESS_DISPATCHED via ${data.channel ?? selectedDraft.dispatchChannel}${
+            data.to ? ` → ${data.to}` : ""
+          }`,
+        );
+      } else {
+        setActionSuccess("SUCCESS_PURGED");
+      }
+
       setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
     } catch (err) {
       console.error("Workflow authorization error:", err);
+      setActionError(err instanceof Error ? err.message : "Workflow authorization error.");
     } finally {
       setIsDispatching(false);
     }
@@ -381,6 +416,91 @@ function AdminApprovalDashboardInner() {
                       </span>
                     </div>
                   </div>
+
+                  <div className="space-y-3 rounded-xl border border-amber-900/30 bg-amber-950/10 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                        Destination (editable before DISPATCH)
+                      </span>
+                      <span className="font-mono text-[9px] text-slate-500">
+                        Dry-run: set your inbox / test phone here
+                      </span>
+                    </div>
+                    {selectedDraft.draftKind === "SALES" ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(["EMAIL", "SMS"] as const).map((channel) => {
+                          const active = selectedDraft.dispatchChannel === channel;
+                          return (
+                            <button
+                              key={channel}
+                              type="button"
+                              onClick={() => patchSelectedDraft({ dispatchChannel: channel })}
+                              className={`rounded-lg border px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                                active
+                                  ? "border-amber-500/60 bg-amber-600/30 text-amber-100"
+                                  : "border-slate-700 bg-slate-950/60 text-slate-400 hover:border-slate-500"
+                              }`}
+                            >
+                              {channel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <label className="block space-y-1.5">
+                        <span className="font-mono text-[9px] uppercase text-slate-500">
+                          To email
+                        </span>
+                        <input
+                          type="email"
+                          value={selectedDraft.contactEmail}
+                          onChange={(event) =>
+                            patchSelectedDraft({ contactEmail: event.target.value })
+                          }
+                          disabled={
+                            selectedDraft.draftKind === "SALES" &&
+                            selectedDraft.dispatchChannel === "SMS"
+                          }
+                          className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/80 px-3 font-sans text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
+                          placeholder="you@example.com"
+                          autoComplete="off"
+                        />
+                      </label>
+                      <label className="block space-y-1.5">
+                        <span className="font-mono text-[9px] uppercase text-slate-500">
+                          To phone (E.164)
+                        </span>
+                        <input
+                          type="tel"
+                          value={selectedDraft.contactPhone ?? ""}
+                          onChange={(event) =>
+                            patchSelectedDraft({
+                              contactPhone: event.target.value.trim() || null,
+                            })
+                          }
+                          disabled={
+                            selectedDraft.draftKind !== "SALES" ||
+                            selectedDraft.dispatchChannel === "EMAIL"
+                          }
+                          className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/80 px-3 font-sans text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
+                          placeholder="+15551234567"
+                          autoComplete="off"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {actionError ? (
+                    <div className="rounded-lg border border-red-900/40 bg-red-950/30 px-3 py-2 font-sans text-xs text-red-300">
+                      {actionError}
+                    </div>
+                  ) : null}
+                  {actionSuccess ? (
+                    <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/30 px-3 py-2 font-sans text-xs text-emerald-300">
+                      {actionSuccess}
+                    </div>
+                  ) : null}
 
                   <div className="space-y-1.5">
                     <span className="block font-mono text-[10px] uppercase text-slate-500">

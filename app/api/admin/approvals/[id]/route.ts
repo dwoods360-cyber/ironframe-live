@@ -7,6 +7,7 @@ import {
   isPendingDraftSummary,
   isSalesSmsDraft,
   parsePendingDraftSummary,
+  type ApprovalDispatchChannel,
 } from "@/app/lib/server/approvalQueueCore";
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
@@ -36,6 +37,23 @@ function stripOperatorOnlyOutboundLines(text: string): string {
     .trim();
 }
 
+function sanitizeEmail(raw: unknown): string | null {
+  const email = String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 320);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+type DispatchBody = {
+  action?: string;
+  adjustedText?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  dispatchChannel?: ApprovalDispatchChannel;
+};
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -47,7 +65,7 @@ export async function POST(
 
   try {
     const { id: interactionId } = await params;
-    const body = (await req.json()) as { action?: string; adjustedText?: string };
+    const body = (await req.json()) as DispatchBody;
     const { action, adjustedText } = body;
 
     if (!action || !["DISPATCH", "PURGE"].includes(action)) {
@@ -79,7 +97,7 @@ export async function POST(
 
     const draftKind = inferDraftKind(pendingInteraction.summary);
     const contact = pendingInteraction.contact;
-    const smsDraft = isSalesSmsDraft(pendingInteraction.summary, pendingInteraction.channel);
+    const inferredSms = isSalesSmsDraft(pendingInteraction.summary, pendingInteraction.channel);
 
     if (action === "DISPATCH") {
       if (!adjustedText || adjustedText.trim().length === 0) {
@@ -98,22 +116,39 @@ export async function POST(
             ? subject
             : `Re: ${subject}`;
 
-      if (smsDraft) {
-        const toPhone = normalizeE164Phone(contact?.phone);
+      if (!contact?.id) {
+        return NextResponse.json(
+          { error: "Target contact configuration is missing." },
+          { status: 422 },
+        );
+      }
+
+      let channel: ApprovalDispatchChannel = "EMAIL";
+      if (draftKind === "SALES") {
+        if (body.dispatchChannel === "EMAIL" || body.dispatchChannel === "SMS") {
+          channel = body.dispatchChannel;
+        } else {
+          channel = inferredSms ? "SMS" : "EMAIL";
+        }
+      }
+
+      if (channel === "SMS") {
+        const toPhone = normalizeE164Phone(body.recipientPhone ?? contact.phone);
         if (!toPhone) {
           return NextResponse.json(
             {
               error:
-                "SMS draft requires a valid contact phone (E.164). Email fallback is disabled for SMS drafts.",
+                "SMS dispatch requires a valid destination phone (E.164). Edit the phone field before DISPATCH.",
             },
             { status: 422 },
           );
         }
-        if (!contact?.id) {
-          return NextResponse.json(
-            { error: "Target contact configuration is missing." },
-            { status: 422 },
-          );
+
+        if (contact.phone !== toPhone) {
+          await prisma.ironboardCrmContact.update({
+            where: { id: contact.id },
+            data: { phone: toPhone },
+          });
         }
 
         const sendResult = await sendOutboundSms({
@@ -139,7 +174,7 @@ export async function POST(
           "--- Authorized Text Dispatched ---",
           trimmedText,
           "--- Trace Matrix ---",
-          `Channel: SMS | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+          `Channel: SMS | To: ${toPhone} | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
           sendResult.messageSid
             ? `${sendResult.provider === "textbelt" ? "Textbelt textId" : "Twilio Message SID"}: ${sendResult.messageSid}`
             : "",
@@ -161,22 +196,34 @@ export async function POST(
         return NextResponse.json({
           status: "SUCCESS_DISPATCHED",
           channel: "SMS",
+          to: toPhone,
           provider: sendResult.provider ?? "unknown",
           messageSid: sendResult.messageSid,
         });
       }
 
-      if (!contact?.email) {
+      const toEmail = sanitizeEmail(body.recipientEmail ?? contact.email);
+      if (!toEmail) {
         return NextResponse.json(
-          { error: "Target contact configuration has no valid email mapping." },
+          {
+            error:
+              "EMAIL dispatch requires a valid destination email. Edit the email field before DISPATCH.",
+          },
           { status: 422 },
         );
+      }
+
+      if (contact.email.toLowerCase() !== toEmail) {
+        await prisma.ironboardCrmContact.update({
+          where: { id: contact.id },
+          data: { email: toEmail },
+        });
       }
 
       const sendResult = await sendOutboundEmail({
         tenantId: pendingInteraction.tenantId,
         contactId: contact.id,
-        to: [contact.email],
+        to: [toEmail],
         subject: dispatchSubject,
         html: `<p>${escapeHtml(trimmedText).replace(/\n/g, "<br />")}</p>`,
         text: trimmedText,
@@ -199,7 +246,7 @@ export async function POST(
         "--- Authorized Text Dispatched ---",
         trimmedText,
         "--- Trace Matrix ---",
-        `Channel: EMAIL | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
+        `Channel: EMAIL | To: ${toEmail} | Transitioned By: Manual Admin Override | Original Log Ref: ${interactionId}`,
         sendResult.emailId ? `Resend Message ID: ${sendResult.emailId}` : "",
       ]
         .filter(Boolean)
@@ -219,6 +266,7 @@ export async function POST(
       return NextResponse.json({
         status: "SUCCESS_DISPATCHED",
         channel: "EMAIL",
+        to: toEmail,
         emailId: sendResult.emailId,
       });
     }

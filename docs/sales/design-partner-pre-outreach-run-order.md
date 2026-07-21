@@ -144,9 +144,10 @@ Use **one** message to an inbox/phone **you control**. Do not DISPATCH a real co
 
 1. Approvals → `/dashboard/admin/approvals?kind=SALES`.
 2. Select the dry-run draft (newest, locks already Pass from R2).
-3. Confirm channel:
-   - `@ironleads.local` → choose **SMS** (not EMAIL).
-   - Your test email → choose **EMAIL**.
+3. In **Destination (editable before DISPATCH)**:
+   - Choose **EMAIL** or **SMS**.
+   - Set **To email** to your inbox, or **To phone** (E.164) to your test number.
+   - Do not leave a real prospect destination for the dry-run.
 4. Re-read the body one last time (R2.1–R2.8 — locks **and** content quality).
 5. Click **Approve & dispatch** (or equivalent SALES DISPATCH button).
 6. Wait for UI success (`SUCCESS_DISPATCHED` / success toast — not a red error).

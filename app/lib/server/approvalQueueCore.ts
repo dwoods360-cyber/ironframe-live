@@ -18,6 +18,8 @@ export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG, P
 export type ApprovalTier = "Gridcore" | "Vaultbank" | "Medshield";
 export type DraftKind = "SUPPORT" | "SALES" | "CUSTOMER_SUCCESS";
 
+export type ApprovalDispatchChannel = "EMAIL" | "SMS";
+
 export type PendingApprovalDraft = {
   id: string;
   contactName: string;
@@ -30,6 +32,9 @@ export type PendingApprovalDraft = {
   tenantId: string;
   contactId: string;
   contactEmail: string;
+  contactPhone: string | null;
+  /** Suggested wire channel for this draft (SALES may be SMS). */
+  dispatchChannel: ApprovalDispatchChannel;
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
@@ -101,11 +106,13 @@ function mapRowToDraft(row: {
   id: string;
   tenantId: string;
   contactId: string | null;
+  channel: string | null;
   summary: string;
   contact: {
     fullName: string;
     company: string;
     email: string;
+    phone: string | null;
     title: string;
     metadata: unknown;
   } | null;
@@ -115,12 +122,15 @@ function mapRowToDraft(row: {
 
   const parsed = parsePendingDraftSummary(row.summary);
   const draftKind = inferDraftKind(row.summary);
+  const dispatchChannel: ApprovalDispatchChannel =
+    draftKind === "SALES" && isSalesSmsDraft(row.summary, row.channel) ? "SMS" : "EMAIL";
 
   return {
     id: row.id,
     tenantId: row.tenantId,
     contactId: row.contactId,
     contactEmail: row.contact.email,
+    contactPhone: row.contact.phone,
     contactName: row.contact.fullName,
     company: row.contact.company,
     subject: parsed.subject,
@@ -129,6 +139,7 @@ function mapRowToDraft(row: {
     proposedReply: parsed.proposedReply,
     tier: inferTierFromContact(row.contact.title, row.contact.metadata),
     draftKind,
+    dispatchChannel,
   };
 }
 
@@ -150,12 +161,14 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       id: true,
       tenantId: true,
       contactId: true,
+      channel: true,
       summary: true,
       contact: {
         select: {
           fullName: true,
           company: true,
           email: true,
+          phone: true,
           title: true,
           metadata: true,
         },

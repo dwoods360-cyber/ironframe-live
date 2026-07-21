@@ -72,7 +72,7 @@ Never lead with a brochure or a 30-minute demo. Sell cohort seats.
 
 1. **Charge the pilot** ($4,999) — free partners rarely log in.  
 2. **2–3 success criteria** up front (e.g. SOC 2 evidence export; vendor questionnaire time).  
-3. **90-day** default window (floor 60 if scoped in writing) → convert at planned GA list or exit (Path B non-refundable; no convert discount).
+3. **90-day** default window (floor 60 if scoped in writing) → convert or exit. In-window convert: Path B fee credited to year-1 Command (fixed credit, not a negotiated %). Exit: Path B non-refundable.
 
 ---
 

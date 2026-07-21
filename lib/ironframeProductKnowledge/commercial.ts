@@ -46,6 +46,13 @@ export const DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT = '2-3' as const;
 export const DESIGN_PARTNER_COHORT_SEATS = '3-5' as const;
 export const WORKFLOW_REVIEW_CTA_MINUTES = '10-15' as const;
 
+/**
+ * Convert credit (not a negotiated % discount): if the partner converts to planned GA
+ * Command within the Path B window, the Path B fee is credited to first-year Command.
+ * Path B remains non-refundable on exit.
+ */
+export const DESIGN_PARTNER_CONVERT_CREDIT_USD = DESIGN_PARTNER_PATH_B_USD;
+
 export function formatUsdWhole(amountUsd: number): string {
   return `$${amountUsd.toLocaleString('en-US')}`;
 }

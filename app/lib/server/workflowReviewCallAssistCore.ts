@@ -2,9 +2,9 @@ import "server-only";
 
 import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
-  DESIGN_PARTNER_PATH_B_USD,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
+  formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 export type BuyingSignalId =
@@ -78,7 +78,11 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   },
   {
     match: /free\s*(trial|poc|pilot)|30[-\s]?day|proof of concept/i,
-    answer: `No free tier or loose trial. Entry is flat ${formatPathBUsd()} for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped co-builder seat so both teams stay in the trench. Convert or exit on criteria you write.`,
+    answer: `No free tier or loose trial. Entry is flat ${formatPathBUsd()} for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped co-builder seat — non-refundable. Convert or exit on criteria you write. If you convert in-window, that ${formatPathBUsd()} is credited to year-1 Command at planned GA list (${formatPlannedGaCommandUsd()}/yr) — a fixed convert credit, not a negotiated %.`,
+  },
+  {
+    match: /discount|credit|paying\s*twice|convert.*price|refund|money\s*back/i,
+    answer: `Not a negotiated discount. Path B ${formatPathBUsd()} is non-refundable if you exit. Planned GA Command stays at list (~${formatPlannedGaCommandUsd()}/yr). If you convert within the ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, the Path B fee is credited to year-1 Command — recognition of money already paid, not a haggled %.`,
   },
   {
     match: /vanta|drata|heatmap|heatmap/i,
@@ -102,7 +106,7 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   },
   {
     match: /price|cost|4999|\$4,?999|budget/i,
-    answer: `Path B / Command Tier is a fixed ${formatPathBUsd()} for the default ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window with 2–3 written success metrics. Planned GA is labeled separately — this call locks co-builder entry, not a custom SOW circus.`,
+    answer: `Path B / Command Tier is a fixed ${formatPathBUsd()} for the default ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window with 2–3 written success metrics — non-refundable. Planned GA Command is ~${formatPlannedGaCommandUsd()}/yr at list. Convert in-window and the ${formatPathBUsd()} credits year-1 Command; exit and the fee stays paid. This call locks co-builder entry, not a custom SOW circus.`,
   },
   {
     match: /nda|mutual\s*nda/i,
@@ -403,7 +407,7 @@ export function runWorkflowReviewCallAssist(
         "You host; this panel is a silent sidecar — never read it aloud like a script.",
         "When they ask something hard, type it into Live Q&A for a pocket answer.",
         "When a strong buying sign lights up, execute the Close hint immediately (criteria → order form).",
-        `Path B lock: ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics — not a demo detour.`,
+        `Path B lock: ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics · non-refundable · in-window convert credit to year-1 Command — not a demo detour.`,
       ],
     },
     assist,

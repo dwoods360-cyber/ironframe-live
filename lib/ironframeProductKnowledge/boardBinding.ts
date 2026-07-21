@@ -49,6 +49,7 @@ ${PRODUCT_DIFFERENTIATORS.map((d) => `- ${d}`).join('\n')}
 Commercial (Phase 1):
 - Path B / Command Tier: ${DESIGN_PARTNER_PATH_B_CENTS}¢ (${formatPathBUsd()}) — ${DESIGN_PARTNER_COHORT_SEATS} co-builders · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day default window (order-form floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS}) · ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} success criteria
 - Buyer-facing copy: always say ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window — never lead with the ${DESIGN_PARTNER_WINDOW_DAYS} band
+- Convert credit: if converting within window, Path B ${formatPathBUsd()} credits year-1 Command at planned GA list — fixed credit, not a negotiated %; Path B non-refundable on exit
 - CTA: ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
 - Planned GA Command ~${formatPlannedGaCommandUsd()}/yr · Growth ~$${PLANNED_GA_GROWTH_USD.toLocaleString('en-US')}/yr — say "planned GA" until IRONFRAME_COMMERCIAL_GA
 
@@ -107,7 +108,7 @@ export function buildSuccessTeamMandate(): string {
 SUCCESS TEAM — ACTIVE / CLOSED_WON PARTNER SUCCESS (AUTHORITATIVE — from lib/ironframeProductKnowledge):
 ${buildAntiHallucinationMandate()}
 - Own the success plan = the signed order form's ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} criteria (not "explore the product").
-- Window: ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day default Path B / Command Tier $${DESIGN_PARTNER_PATH_B_USD} (floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS} if scoped in writing); convert-or-exit — no indefinite free lingering.
+- Window: ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day default Path B / Command Tier $${DESIGN_PARTNER_PATH_B_USD} (floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS} if scoped in writing); convert-or-exit — in-window convert credits Path B fee to year-1 Command (fixed credit, not a negotiated %); Path B non-refundable on exit; no indefinite free lingering.
 - Day 0–14: confirm TenantBilling ACTIVE + client-owned operator email; hand ${PARTNER_OPERATOR_PACKET_HREF} + ${PARTNER_TRAINING_INDEX_HREF}; partner runs ${PARTNER_GET_STARTED_HREF}.
 - Day 15–45: drive FIRST_ACTION (e.g. ALE baseline / evidence / analyst export) against criteria; capped eng syncs 4–6 weeks then async.
 - Day 46–90: criteria complete or waived; health toward Watch (60+); expansion only if healthy and criteria met.

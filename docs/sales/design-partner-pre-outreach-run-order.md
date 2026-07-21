@@ -308,9 +308,9 @@ No send required — prove you can execute a **yes** without improvising.
 
 ### Steps
 
-1. Open [order form](./design-partner-order-form.md). Confirm you know where **2–3 success criteria** go.
+1. Open [order form](./design-partner-order-form.md). Confirm you know where **2–3 success criteria** go, and that convert credit = Path B fee toward year-1 Command (not a negotiated %).  
 2. Open `/admin/onboarding`. Confirm provision uses a **client-owned** operator email (not `@ironframegrc.com`).
-3. Say out loud (or note): after yes you send the **Path B activation link**, never generic `/pricing` for a PENDING partner.
+3. Say out loud (or note): after yes you send the **Path B activation link**, never generic `/pricing` for a PENDING partner. Path B is **non-refundable**; in-window convert credits **$4,999** to year-1 Command.
 4. Skim [workflow review protocol](./design-partner-workflow-review-protocol.md) 15-minute agenda once.
 
 ### Pass criteria

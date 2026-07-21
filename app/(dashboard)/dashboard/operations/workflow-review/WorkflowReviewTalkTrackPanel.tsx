@@ -37,7 +37,11 @@ export default function WorkflowReviewTalkTrackPanel() {
           <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-400">
             <div>
               <strong className="text-slate-200">Lock:</strong> Path B $4,999 · 90-day · 2–3 written
-              metrics
+              metrics · non-refundable
+            </div>
+            <div>
+              <strong className="text-slate-200">Convert:</strong> $4,999 credited to year-1 Command
+              (list ~$35k) if converting in-window — not a negotiated % · exit = no refund
             </div>
             <div>
               <strong className="text-slate-200">Sidecar:</strong>{" "}
@@ -60,7 +64,8 @@ export default function WorkflowReviewTalkTrackPanel() {
               </li>
               <li>
                 <strong className="text-white">8–12 · Path B</strong> — Fixed 90-day paid co-builder
-                at $4,999. Prove 2–3 written metrics or part ways.
+                at $4,999 (non-refundable). Prove 2–3 written metrics or part ways. If you convert
+                in-window, that $4,999 is credited to year-1 Command at list — not a haggled %.
               </li>
               <li>
                 <strong className="text-white">12–15 · Gate</strong> — Order form with their criteria
@@ -79,8 +84,13 @@ export default function WorkflowReviewTalkTrackPanel() {
                 completed Type II logo claim today. Diligence is migrations, RLS, gateway, criteria.
               </li>
               <li>
-                <strong className="text-white">Free trial?</strong> No. Flat $4,999 / 90-day. Convert
-                or exit on criteria they write.
+                <strong className="text-white">Free trial?</strong> No. Flat $4,999 / 90-day,
+                non-refundable. Convert or exit on criteria they write.
+              </li>
+              <li>
+                <strong className="text-white">Discount / convert?</strong> Not a negotiated %. If
+                they convert in-window, Path B $4,999 credits year-1 Command (~$35k list). Exit =
+                fee stays paid.
               </li>
               <li>
                 <strong className="text-white">Risk $?</strong> Integer cents (BigInt) — not 5×5

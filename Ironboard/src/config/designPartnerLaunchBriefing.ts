@@ -23,7 +23,7 @@ PROGRAM (single offer — do not invent a free companion program):
 - Window: ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day default (floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS} if scoped in writing) · ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} written success criteria · weekly eng syncs capped (first 4–6 weeks) then async.
 - Buyer-facing: always say ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window — do not lead with a 60-90 band.
 - Planned GA Ironframe Command ~${formatPlannedGaCommandUsd()}/yr — always say "planned GA" until IRONFRAME_COMMERCIAL_GA is on.
-- Convert-or-exit at window end: convert to planned GA Command at **list** pricing, or clean exit. Path B fee is **non-refundable**; do **not** invent a first-year convert discount.
+- Convert-or-exit at window end: convert to planned GA Command with Path B fee as a **fixed convert credit** to year-1 Command (not a negotiated %), or clean exit. Path B fee is **non-refundable** on exit.
 
 ACQUISITION (use multiple channels; one program):
 1. Warm network & advisors (highest conversion) — intro asks, not "buy our tool."

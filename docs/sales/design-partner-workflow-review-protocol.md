@@ -33,7 +33,7 @@ Enterprise risk / CISO / infra leads tune out polished multi-stage sales scripts
 |------|-------|-----------|----------------------|
 | 0:00–3:00 | **Ingress diagnosis** | They name the pain | “Skip the high-level pitch — where does evidence collection debt, board-dollar opacity, or multi-entity bleed show up in your stack today?” |
 | 3:00–8:00 | **Structural mapping** | Map pain → patterns (not demo tenants) | “Here’s how we handle that structurally: containment at the database / tenant boundary (PostgreSQL RLS + Ironguard), Irongate before persist, ALE in integer cents — not color charts.” |
-| 8:00–12:00 | **Path B invariant** | Hard commercial frame | “We don’t run endless discovery. Fixed **90-day** paid co-builder seat at **$4,999**. We prove **2–3 written success metrics** or we part ways.” |
+| 8:00–12:00 | **Path B invariant** | Hard commercial frame | “We don’t run endless discovery. Fixed **90-day** paid co-builder seat at **$4,999** — **non-refundable**. We prove **2–3 written success metrics** or we part ways. If you convert in-window, that **$4,999 is credited to year-1 Command** at planned GA list (~$35k) — a fixed convert credit, **not** a negotiated %.” |
 | 12:00–15:00 | **Engineering gate** | Lock next step | “If this fits: order form with your 2–3 criteria → we provision with your operator email → tenant-scoped Path B activation link. Not a pitch deck. Not generic `/pricing`.” |
 
 Use booking context / Scout trigger / role — do **not** invent “architecture notes from the form” unless they actually submitted them.
@@ -59,7 +59,8 @@ Speak in **architecture patterns** tied to beachheads (`REGIONAL_BHC` · `UTILIT
 | They ask | You say |
 |----------|---------|
 | “Are you SOC 2 certified?” | “We’re **SOC2-aligned** in architecture and controls; we are **not** claiming a completed SOC 2 Type II logo today. Diligence is migrations, RLS paths, gateway rules, and your Path B criteria — not paperwork theater.” |
-| “Can we do a free trial / 30-day PoC?” | “No free tier or loose trial. Entry is flat **$4,999** for a **90-day** scoped engagement so both teams stay in the trench. Convert or exit on criteria you write.” |
+| “Can we do a free trial / 30-day PoC?” | “No free tier or loose trial. Entry is flat **$4,999** for a **90-day** scoped engagement — **non-refundable**. Convert or exit on criteria you write.” |
+| “Do we get a discount if we convert?” / “Are we paying twice?” | “Not a negotiated %. Planned GA Command stays at list (~**$35,000**/yr). If you convert **within the Path B window**, the **$4,999 Path B fee is credited** to year-1 Command. If you exit, the fee stays paid — no mid-window refund.” |
 | “How do you handle risk financialization?” | “No qualitative 5×5 heatmaps as the board truth. Reporting math is **integer cents** (BigInt). Exposure tracks to dollar boundaries from live constraints — narrative agents don’t invent ALE.” |
 | “We’re already on Vanta/Drata.” | “Keep them for checklist continuous control if that job is done. We quantify loss exposure and isolate entities — different buying job.” (See battlecard.) |
 | “Show me a demo.” | “This slot is workflow diligence. Product walk is after Path B interest / criteria — not instead of them.” |
@@ -72,7 +73,7 @@ Operator asks IronBoard before the call for a one-pager:
 
 1. Prospect / trigger / beachhead sector  
 2. Likely pain hypothesis (evidence, isolation, board $)  
-3. Path B language lock ($4,999 · 90-day · workflow-review CTA already used)  
+3. Path B language lock ($4,999 · 90-day · non-refundable · in-window convert credit to year-1 Command · workflow-review CTA already used)  
 4. Bans for this account  
 5. Suggested 2–3 success-criteria starters (not closed until they name them)
 

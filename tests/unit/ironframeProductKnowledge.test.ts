@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BEACHHEAD_SECTORS,
+  DESIGN_PARTNER_CONVERT_CREDIT_USD,
   DESIGN_PARTNER_PATH_B_CENTS,
   DESIGN_PARTNER_PATH_B_USD,
   DOCS_HUB_HREF,
@@ -41,6 +42,10 @@ describe('ironframeProductKnowledge spine', () => {
     expect(PLANNED_GA_GROWTH_USD).toBe(75_000);
     expect(PLANNED_GA_GROWTH_CENTS).toBe('7500000');
     expect(formatPathBUsd()).toBe('$4,999');
+  });
+
+  it('locks Path B convert credit equal to Path B fee (not a negotiated %)', () => {
+    expect(DESIGN_PARTNER_CONVERT_CREDIT_USD).toBe(DESIGN_PARTNER_PATH_B_USD);
   });
 
   it('resolves beachhead tags to code sectors', () => {

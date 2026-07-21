@@ -109,7 +109,7 @@ export default function SalesteamPortalClient() {
               Sales outreach queue
             </Link>
             <Link
-              href="/operator/workflow-review-protocol.html"
+              href="/dashboard/operations/workflow-review/protocol"
               target="_blank"
               rel="noreferrer"
               className="rounded-lg border border-teal-800/50 bg-teal-950/30 px-4 py-2 text-sm font-medium text-teal-100 hover:border-teal-500"

@@ -114,7 +114,7 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         slug: "workflow-review-protocol",
         title: "Workflow review talk track",
         summary: "15-minute peer-to-peer diligence protocol (printable).",
-        href: "/operator/workflow-review-protocol.html",
+        href: "/dashboard/operations/workflow-review/protocol",
         external: true,
       },
       {

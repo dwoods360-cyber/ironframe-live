@@ -34,7 +34,7 @@ export function hrefForOpsSourceRef(
   const rolloutHref: Record<string, string> = {
     "rollout/fl1-pilot-ready": "/docs/ops/pilot-to-commercial-readiness-checklist",
     "rollout/dp-pre-outreach-gate": "/docs/sales/design-partner-operator-launch-checklist",
-    "rollout/dp-workflow-review": "/operator/workflow-review-protocol.html",
+    "rollout/dp-workflow-review": "/dashboard/operations/workflow-review/protocol",
     "rollout/sms-dispatch-smoke": "/docs/ops/sales-sms-twilio-dispatch",
     "rollout/dp-icp-shortlist": "/docs/sales/design-partner-icp-shortlist",
     "rollout/golden-path-regression": "/docs/ops/golden-path-checklist",

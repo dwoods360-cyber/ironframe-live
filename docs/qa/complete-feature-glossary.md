@@ -2551,7 +2551,7 @@ Every visible component on your monitor screen is mapped below using industry-st
   * `workflowReviewCallAssistCore.ts` — actions `assist` | `analyze` | `recap` | `push-calendar` | `session` via `/api/admin/operations-hub/workflow-review-call`
   * Mic LIVE uses Gemini STT through `/api/admin/operations-hub/worker-voice/transcribe` (~2.2s chunks); requires `GOOGLE_API_KEY`
   * `workflowReviewCalendarPush.ts` — idempotent Ops Calendar cards with `wf-recap:*` sourceRefs
-  * Printable talk track remains `/operator/workflow-review-protocol.html` (markdown: `docs/sales/design-partner-workflow-review-protocol.md`)
+  * Ops GTM talk track: `/dashboard/operations/workflow-review/protocol` (markdown: `docs/sales/design-partner-workflow-review-protocol.md`)
 * **Agent Boundary:** Operator hosts; board-sales-lead may prep briefs; SalesTeam never auto-sends from call assist.
 * **Step-by-Step Lab Validation:** Follow [pre-outreach run order R5–R6](../sales/design-partner-pre-outreach-run-order.md) — level bar moves, words in buffer, recap appears, Push to calendar creates `[WF review]` cards.
 

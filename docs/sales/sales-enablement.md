@@ -17,7 +17,7 @@ Ironframe is the **control-first GRC platform** that gives boards and auditors *
 
 **Doctrine:** Peer-to-peer technical diligence — not a sales script.  
 **Talk track:** [design-partner-workflow-review-protocol.md](./design-partner-workflow-review-protocol.md)  
-**Printable:** `/operator/workflow-review-protocol.html`  
+**Talk track (Ops):** `/dashboard/operations/workflow-review/protocol`  
 **LIVE sidecar (Ops Hub):** `/dashboard/operations/workflow-review` — mic STT, Pocket Q&A, End LIVE → recap, Push to calendar  
 **Operator library:** `/dashboard/operations/library` · [GTM glossary](./design-partner-gtm-operator-glossary.md) · [pre-outreach dry-run](./design-partner-pre-outreach-run-order.md)
 

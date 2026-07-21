@@ -9,7 +9,8 @@
 **In-call tools (Ops Hub):**  
 - LIVE assist — `/dashboard/operations/workflow-review` (mic STT, Pocket Q&A, End LIVE → recap, Push to calendar)  
 - Operator library — `/dashboard/operations/library`  
-- Printable talk track (Command Post chrome) — `/operator/workflow-review-protocol.html`
+- Talk track (Command Post page) — `/dashboard/operations/workflow-review/protocol`  
+  (legacy `/operator/workflow-review-protocol.html` redirects here)
 
 ---
 

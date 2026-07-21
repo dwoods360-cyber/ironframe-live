@@ -878,7 +878,7 @@ export default function OperationsHubClient() {
                 Operator library
               </Link>
               <Link
-                href="/operator/workflow-review-protocol.html"
+                href="/dashboard/operations/workflow-review/protocol"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-teal-200 hover:border-teal-600"

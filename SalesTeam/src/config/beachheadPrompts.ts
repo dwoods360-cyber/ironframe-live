@@ -51,7 +51,7 @@ export const BEACHHEAD_PROMPTS: Record<BeachheadSector, BeachheadPrompt> = {
     guidePlan:
       'deliver multi-client governance with strict tenant isolation and partner-ready reporting',
     wedgeCentsNarrative:
-      'show each client enclave its own cents-grade loss model without cross-tenant bleed',
+      'showing each client enclave its own cents-grade loss model without cross-tenant bleed',
     complianceHook: BEACHHEAD_SUMMARIES.MSSP_ENCLAVE.complianceHook,
   },
 };

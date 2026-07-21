@@ -56,10 +56,15 @@ function formatCentsDisplay(valueCents: string): string {
     const cents = BigInt(valueCents || '0');
     const dollars = cents / 100n;
     const remainder = cents % 100n;
-    return `$${dollars.toString()}.${remainder.toString().padStart(2, '0')}`;
+    const dollarsFmt = dollars.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `$${dollarsFmt}.${remainder.toString().padStart(2, '0')}`;
   } catch {
     return '$0.00';
   }
+}
+
+function formatUsd(amount: number): string {
+  return amount.toLocaleString('en-US');
 }
 
 function firstName(fullName: string): string {
@@ -120,13 +125,13 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
   const trigger = humanizeDetectedTrigger(prospect.detectedTrigger);
 
   const guideBlock = lossDisplay
-    ? `Ironframe helps teams like yours ${prompt.guidePlan} — including ${prompt.wedgeCentsNarrative} (about ${lossDisplay} in modeled governed loss exposure, whole cents only).`
-    : `Ironframe helps teams like yours ${prompt.guidePlan} — including ${prompt.wedgeCentsNarrative}.`;
+    ? `Ironframe helps teams like yours ${prompt.guidePlan} — ${prompt.wedgeCentsNarrative} (about ${lossDisplay} in modeled governed loss exposure, whole cents only).`
+    : `Ironframe helps teams like yours ${prompt.guidePlan} — ${prompt.wedgeCentsNarrative}.`;
 
   return [
     `Hi ${firstName(prospect.fullName)},`,
     '',
-    `You're leading ${prompt.heroRole} work at ${prospect.company}, so you're the decision-maker on how governance evidence reaches the board.`,
+    `As ${prompt.heroRole} at ${prospect.company}, you're the decision-maker on how governance evidence reaches the board.`,
     '',
     `We noticed ${trigger}. Quick question: how does your team handle ${prompt.complianceHook} evidence today — especially where heatmaps or spreadsheets still feed leadership reporting?`,
     '',
@@ -134,7 +139,7 @@ function draftEmailBody(prospect: ProspectRecord, prompt: ReturnType<typeof reso
     '',
     CUSTOMER_SAFE_POSITIONING,
     '',
-    `We're recruiting a small paid design-partner cohort — Command Tier / Path B $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, 2–3 success criteria you set, weekly eng syncs then async. Planned GA for Ironframe Command is ~$${PLANNED_GA_COMMAND_USD}/yr.`,
+    `We're recruiting a small paid design-partner cohort — Command Tier / Path B $${formatUsd(DESIGN_PARTNER_PATH_B_USD)}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, 2–3 success criteria you set, weekly eng syncs then async. Planned GA for Ironframe Command is ~$${formatUsd(PLANNED_GA_COMMAND_USD)}/yr.`,
     '',
     'If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence / board-report pain — not a product preview.',
     '',

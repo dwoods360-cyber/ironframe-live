@@ -60,12 +60,12 @@ function AdminApprovalDashboardInner() {
       if (!response.ok) {
         throw new Error(data.error ?? "Failed to load approval queue.");
       }
-      const nextDrafts = [...(data.drafts ?? [])]
+      const nextDrafts: PendingDraft[] = [...(data.drafts ?? [])]
         .map((draft) => ({
           ...draft,
           contactEmail: draft.contactEmail ?? "",
           contactPhone: draft.contactPhone ?? null,
-          dispatchChannel: draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL",
+          dispatchChannel: (draft.dispatchChannel === "SMS" ? "SMS" : "EMAIL") as DispatchChannel,
         }))
         .sort((a, b) => kindSortRank(a.draftKind) - kindSortRank(b.draftKind));
       setDrafts(nextDrafts);

@@ -66,7 +66,7 @@ SalesTeam HTTP surface is `GET /health` + `POST /poll` only — no GTM Settings 
 
 1. Success plan = the **2–3** order-form criteria.  
 2. Cadence: capped weekly eng syncs **4–6 weeks**, then async.  
-3. By day 90: convert at locked discount or clean exit.  
+3. By day 90: convert at planned GA list or clean exit (Path B fee non-refundable; no convert discount).  
 4. Advocacy only after a documented outcome (export / board pack).
 
 ---

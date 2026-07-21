@@ -26,7 +26,8 @@
 | **Payment** | Stripe tenant-scoped Path B activation link (not generic public `/pricing` for existing PENDING workspaces) |
 | **Pilot window** | **____ days** (default **90**, min **60**) from payment → ACTIVE |
 | **Engineering syncs** | Weekly for first **____** weeks (default **4–6**), then async only unless amended in writing |
-| **Planned GA reference** | Ironframe Command planned list **~$35,000/yr** — design-partner convert-or-exit discount: **____%** off first year if converting within window (or state “N/A”) |
+| **Planned GA reference** | Ironframe Command planned list **~$35,000/yr** — conversion is at **list** (no design-partner % off first year) |
+| **Refunds / discounts** | Path B **$4,999** is **non-refundable**. Convert-or-exit = decide GA Command at list **or** clean exit — **no** Path B discount, **no** mid-window refund |
 
 ## Success criteria (exactly 2 or 3)
 
@@ -34,7 +35,7 @@
 2. ________________________________________________________________
 3. ________________________________________________________________ (optional)
 
-**Exit:** If criteria are unmet at window end and Customer elects not to convert, workspace may be offboarded per Terms; no obligation to renew at GA pricing.
+**Exit:** If criteria are unmet at window end and Customer elects not to convert, workspace may be offboarded per Terms. Path B fee is not refunded; there is no obligation to renew at GA pricing.
 
 ## Data & legal pointers
 

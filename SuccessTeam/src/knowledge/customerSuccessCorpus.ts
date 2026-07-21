@@ -636,7 +636,7 @@ export const CUSTOMER_SUCCESS_KNOWLEDGE_CORPUS: Record<string, CustomerSuccessKn
       'Hand Operator Packet + LEVEL1-PARTNER-INDEX — never claim Success Portal/Approvals stores manuals.',
       'Clone order-form success criteria into CRM success plan (exact-dollar outcomes where applicable).',
       'Cap eng syncs; protect Golden Path scope freeze outside criteria.',
-      'By day 90: convert at locked discount or clean exit — advocacy only after documented export/outcome.',
+      'By day 90: convert at planned GA list or clean exit — Path B fee non-refundable; no convert discount. Advocacy only after documented export/outcome.',
     ],
     healthSignals: ['MISSED_PILOT_GATE', 'STALE_ENGAGEMENT', 'LOW_EVIDENCE_COMPLETENESS'],
     retentionPlays: ['Success-plan reset against order-form criteria', 'Executive sponsor alignment on convert-or-exit'],

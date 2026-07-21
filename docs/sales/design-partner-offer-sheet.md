@@ -13,7 +13,7 @@ Ironframe is recruiting a **small paid co-builder cohort** for the **Command Tie
 |------|------|
 | **Commercial** | Path B / Command Tier on-ramp **$4,999** (one price, sales-assisted) |
 | **Planned GA** | Ironframe Command **~$35,000/yr** (`FINTECH_SEED`) — say “planned GA” until commercial GA flag is on |
-| **Window** | **90-day** default (floor 60 if scoped in writing) → convert at locked discount or exit cleanly |
+| **Window** | **90-day** default (floor 60 if scoped in writing) → **convert at planned GA list** or **exit cleanly** (Path B fee non-refundable; no convert discount) |
 | **Eng syncs** | Weekly **capped** (first 4–6 weeks), then async — protects scope freeze |
 | **Success criteria** | Agree **2–3** up front (examples below) |
 | **CTA** | **10–15 min workflow review** on their evidence / board-report pain — not a product preview ([protocol](./design-partner-workflow-review-protocol.md)) |

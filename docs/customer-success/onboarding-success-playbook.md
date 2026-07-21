@@ -26,7 +26,7 @@ Commercial: Command Tier Path B **$4,999** · 90-day default window · **2–3**
 
 - Target: order-form criteria complete or explicitly waived with reason.
 - Health toward **Watch (60+)**; expansion deferred unless health ≥ 80 early.
-- Structured conversion: locked discount / GA path **or** clean exit — no indefinite free lingering.
+- Structured conversion: planned GA Command at **list** **or** clean exit — Path B fee non-refundable; no convert discount; no indefinite free lingering.
 
 ## Milestone mapping (crmPilotTracking)
 

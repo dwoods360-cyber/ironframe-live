@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
+
 /**
  * Compact Path B talk track for the LIVE assist desk — doctrine beside the mic, not a second URL.
  */
@@ -106,6 +108,8 @@ export default function WorkflowReviewTalkTrackPanel() {
               </li>
             </ul>
           </div>
+
+          <WorkflowReviewPostYesStrip />
 
           <p className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-300">
             Banned on call: medshield / vaultbank / gridcore as customers or “hardened baselines”

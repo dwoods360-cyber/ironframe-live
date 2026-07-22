@@ -11,6 +11,7 @@ import type {
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
 
+import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
 import WorkflowReviewTalkTrackPanel from "./WorkflowReviewTalkTrackPanel";
 
 function pickRecorderMime(): string {
@@ -1184,6 +1185,8 @@ export default function WorkflowReviewCallClient() {
             {calendarNote ? (
               <p className="text-xs text-emerald-300">{calendarNote}</p>
             ) : null}
+
+            <WorkflowReviewPostYesStrip emphasis="recap" />
 
             <div>
               <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-300">

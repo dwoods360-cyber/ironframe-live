@@ -371,6 +371,8 @@ No send required — prove you can execute a **yes** without improvising.
 | Workflow review | **Generate call recap** |
 | Workflow review | **Push to calendar** |
 | Workflow review | **Open calendar** |
+| Workflow review | **Open order form** (after yes → library) |
+| Workflow review | **Provision Path B** (`/admin/onboarding`) |
 | Ops Hub | Tab **Calendar** |
 
 ---

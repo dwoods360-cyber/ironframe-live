@@ -83,8 +83,10 @@ On the call: human hosts; agent answers only when the operator asks.
 
 ## After a yes
 
-1. Complete [order form](./design-partner-order-form.md) (2–3 criteria).  
-2. Provision with **client-owned** operator email.  
+On the LIVE desk (`/dashboard/operations/workflow-review`), use the **After a yes** strip (talk track + call recap): **Open order form** → **Provision Path B**.
+
+1. Complete [order form](./design-partner-order-form.md) (2–3 criteria) — in-app: `/dashboard/operations/library/order-form`.  
+2. Provision with **client-owned** operator email — `/admin/onboarding`.  
 3. Send **tenant-scoped Path B link** only.  
 4. On ACTIVE → `/get-started` + operator packet / LEVEL1 partner index → SuccessTeam owns the plan.
 

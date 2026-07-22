@@ -55,6 +55,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
 | Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |
+| After a yes (LIVE strip) | **Open order form** → `/dashboard/operations/library/order-form` · **Provision Path B** → `/admin/onboarding` |
 | Ops Hub Calendar | `/dashboard/operations?tab=calendar` |
 | Teams Graph (optional) | Ops Hub **Teams** tab |
 | Provision | `/admin/onboarding` |

@@ -15,24 +15,27 @@ Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer s
 
 ```
 Ironleads / Scout → Marketing + Sales Lead (ICP / message) → SalesTeam draft
-        → Operator Approvals DISPATCH → Path B provision (client email)
+        → GTM host Approvals DISPATCH → order form criteria
+        → BUSINESS_ADMIN / GLOBAL_ADMIN Path B provision (client email)
         → Partner /get-started → SuccessTeam success plan
         → SupportTeam only on break/fix tickets
 Writer / Trainer → docs & operator packet (never cold email)
 ```
 
+**SoD lock:** GTM execution (workflow review · drafts · DISPATCH · order form) stays segregated from platform commercial control (provision · billing · Path B activation oversight). See [GTM glossary — Separation of duties](./design-partner-gtm-operator-glossary.md). Do not add a `sales_admin` role without a TAS Amendment.
 | Role | Owns | Does **not** |
 |------|------|----------------|
 | **board-bot / CEO** | Scope freeze, prioritization, cohort seat count | Spray outbound |
 | **board-marketing-mgr** | Category language, warm/auditor blurbs, StoryBrand coherence | Live DISPATCH |
 | **board-sales-lead** | Draft QA, beachhead fit, $4,999 / workflow-review CTA; pre-call diligence brief | Auto-send; hosting the live workflow review |
 | **Ironleads** | SUSPECT harvest on triggers (funding, GRC hire, audit, fine) | Closing or Path B invite |
-| **SalesTeam** | PROSPECT EMAIL/SMS drafts (HITL) — peer/clinical tone | CLOSED_WON advisories; live calls |
+| **SalesTeam** | PROSPECT EMAIL/SMS drafts (HITL) — peer/clinical tone | CLOSED_WON advisories; live calls; tenant provision |
 | **board-writer** | Partner docs, offer/one-pager clarity, StoryBrand structure | Cold outreach copy-as-send |
 | **board-trainer** | LEVEL1 partner index / get-started clarity | Pipeline tactics |
 | **SuccessTeam / board-CS** | Post-ACTIVE success plan against order-form criteria | Outbound prospecting |
 | **SupportTeam** | Path B billing-hold, invite/login, export blockers | Sales pitches |
-| **Operator (human)** | Host [workflow review](./design-partner-workflow-review-protocol.md) with LIVE assist open; DISPATCH; provision; Path B; order form; run [pre-outreach dry-run](./design-partner-pre-outreach-run-order.md) before first send | Letting agents auto-send or run the live call |
+| **GTM host (human)** | Host [workflow review](./design-partner-workflow-review-protocol.md) with LIVE assist; edit drafts; DISPATCH; order-form criteria capture; run [pre-outreach dry-run](./design-partner-pre-outreach-run-order.md) | Tenant provision; billing flips; blurring into `BUSINESS_ADMIN` duties on the same beat |
+| **BUSINESS_ADMIN / GLOBAL_ADMIN** | Commercial approvals, `/admin/onboarding` provision, Path B activation oversight, platform governance | Default top-of-funnel sales hosting (SoD — see [GTM glossary](./design-partner-gtm-operator-glossary.md)) |
 
 ---
 

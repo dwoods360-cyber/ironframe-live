@@ -27,7 +27,9 @@ export default function WorkflowReviewPostYesStrip({
         After a yes
       </p>
       <p className="mt-1 text-xs text-slate-300">
-        Order form (2–3 criteria) → client-owned email provision → tenant Path B link — never{" "}
+        Order form (2–3 criteria) → hand off provision (
+        <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
+        <code className="text-cyan-300">GLOBAL_ADMIN</code>) → tenant Path B link — never{" "}
         <code className="text-cyan-300">/pricing</code>.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -40,8 +42,9 @@ export default function WorkflowReviewPostYesStrip({
         <Link
           href={WORKFLOW_REVIEW_PROVISION_HREF}
           className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
+          title="SoD: provision is BUSINESS_ADMIN / GLOBAL_ADMIN — not the GTM host beat"
         >
-          Provision Path B
+          Provision Path B (admin)
         </Link>
       </div>
     </div>

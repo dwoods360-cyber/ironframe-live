@@ -2,8 +2,9 @@
 
 **Status:** Authoritative operator talk track for the **10–15 minute workflow review**  
 **Plane:** **Ops GTM / Path B** (sales diligence) — **not** Governance Frame research · **not** GFP curriculum  
-**Audience:** Human operator (host) · `board-sales-lead` call briefs · SalesTeam draft tone  
-**Not for:** Live agent-led calls with prospects · product demos · free pilots · GF research pages  
+**Audience:** Human **GTM host** · `board-sales-lead` call briefs · SalesTeam draft tone  
+**Not for:** Live agent-led calls with prospects · product demos · free pilots · GF research pages · collapsing into `BUSINESS_ADMIN` provision on the same beat  
+**SoD:** Workflow review + order-form prep = GTM lane. Tenant provision + Path B activation oversight = `BUSINESS_ADMIN` / `GLOBAL_ADMIN`. See [GTM glossary](./design-partner-gtm-operator-glossary.md).  
 **Companions:** [Offer sheet](./design-partner-offer-sheet.md) · [Order form](./design-partner-order-form.md) · [Battlecard](./battlecard-ironframe-vs-vanta-drata.md) · [Sales enablement](./sales-enablement.md) · [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
 
 **In-call tools (Ops Hub):**  
@@ -83,10 +84,10 @@ On the call: human hosts; agent answers only when the operator asks.
 
 ## After a yes
 
-On the LIVE desk (`/dashboard/operations/workflow-review`), use the **After a yes** strip (talk track + call recap): **Open order form** → **Provision Path B**.
+On the LIVE desk (`/dashboard/operations/workflow-review`), use the **After a yes** strip (talk track + call recap): **Open order form** → hand off **Provision Path B** to `BUSINESS_ADMIN` / `GLOBAL_ADMIN`.
 
-1. Complete [order form](./design-partner-order-form.md) (2–3 criteria) — in-app: `/dashboard/operations/library/order-form`.  
-2. Provision with **client-owned** operator email — `/admin/onboarding`.  
+1. Complete [order form](./design-partner-order-form.md) (2–3 criteria) — in-app: `/dashboard/operations/library/order-form` (**GTM host**).  
+2. Provision with **client-owned** operator email — `/admin/onboarding` (**BUSINESS_ADMIN / GLOBAL_ADMIN** — separate duty).  
 3. Send **tenant-scoped Path B link** only.  
 4. On ACTIVE → `/get-started` + operator packet / LEVEL1 partner index → SuccessTeam owns the plan.
 

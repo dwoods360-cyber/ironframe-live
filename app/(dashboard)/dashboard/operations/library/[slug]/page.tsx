@@ -47,6 +47,33 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
           </p>
           <h1 className="text-2xl font-bold text-white">{doc.title}</h1>
           <p className="text-sm text-slate-400">{doc.summary}</p>
+          {slug === "order-form" ? (
+            <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3">
+              <p className="w-full font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+                After criteria are written
+              </p>
+              <p className="w-full text-xs text-slate-300">
+                Next: hand off to <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
+                <code className="text-cyan-300">GLOBAL_ADMIN</code> for provision with a{" "}
+                <strong className="text-slate-100">client-owned</strong> operator email, then send
+                the tenant Path B link — never <code className="text-cyan-300">/pricing</code>. GTM
+                host does not collapse into admin on this beat.
+              </p>
+              <Link
+                href="/admin/onboarding"
+                className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600"
+                title="SoD: provision is BUSINESS_ADMIN / GLOBAL_ADMIN"
+              >
+                Provision Path B (admin)
+              </Link>
+              <Link
+                href="/dashboard/operations/workflow-review#after-yes"
+                className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
+              >
+                Back to LIVE after-yes
+              </Link>
+            </div>
+          ) : null}
         </header>
 
         <article className="operator-library-prose rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-5 text-sm leading-relaxed text-slate-200 sm:px-6">

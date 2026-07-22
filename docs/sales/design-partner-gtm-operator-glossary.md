@@ -1,10 +1,25 @@
 # Design-partner GTM — operator glossary
 
-**Audience:** GLOBAL_ADMIN / BUSINESS_ADMIN hosts (Ops Hub).  
+**Audience:** Human GTM hosts + Ops Hub readers.  
 **Not for:** Partner tenants (they use [`/docs/user-manuals/glossary`](/docs/user-manuals/glossary)).  
-**Companions:** [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [Operator library](/dashboard/operations/library)
+**Companions:** [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [Operator library](/dashboard/operations/library) · [Workforce briefing](./design-partner-workforce-briefing.md)
 
 Short definitions for the Path B design-partner motion. If a term conflicts with partner docs, **partner-facing language wins on calls**; this page is for operators.
+
+---
+
+## Separation of duties (control-first · locked)
+
+Administrative control over platform infrastructure **must stay isolated** from GTM execution. Do **not** invent a `sales_admin` enum until a TAS Amendment defines a GTM-only assignment. Until then, **procedure SoD is mandatory** even when the same human holds multiple hats.
+
+| Lane | Actors | May do | Must not do |
+|------|--------|--------|-------------|
+| **Platform / commercial control** | `GLOBAL_ADMIN` · `BUSINESS_ADMIN` | Commercial approvals, tenant provision, Path B activation oversight, billing status | Day-to-day top-of-funnel hosting as the default persona |
+| **GTM execution** | Human workflow-review **host** · `SalesTeam` drafts (HITL) · `board-sales-lead` briefs | Pipeline progression, peer-to-peer workflow reviews, order-form prep, DISPATCH propose/edit | Global admin boundaries, tenant provision, billing flips |
+
+**Why:** Merging high-privilege Ops Hub administration with top-of-funnel sales execution violates least privilege and weakens a defendable audit posture (separation of duties).
+
+**Code note (drift):** Perimeter surfaces (Ops Hub, LIVE desk, SalesTeam portal) are still session-gated by `GLOBAL_ADMIN | BUSINESS_ADMIN` today. That **does not** authorize collapsing the lanes above. Founders who wear both hats must still execute GTM steps and provision steps as **separate duties** (different checklist rows, different timestamps). A future TAS-scoped GTM host capability (not named `sales_admin` by default) may split the login boundary.
 
 ---
 
@@ -36,12 +51,14 @@ Short definitions for the Path B design-partner motion. If a term conflicts with
 
 | Term | Meaning |
 |------|---------|
-| **SalesTeam** | Perimeter worker that drafts StoryBrand outreach → Approvals. Does not auto-send. |
-| **Approvals (SALES)** | HITL queue at `/dashboard/admin/approvals?kind=SALES`. |
+| **SalesTeam** | Perimeter worker that drafts StoryBrand outreach → Approvals. Does not auto-send. **GTM lane** — not a substitute for `BUSINESS_ADMIN`. |
+| **Approvals (SALES)** | HITL queue at `/dashboard/admin/approvals?kind=SALES`. Commercial send gate; treat as control surface, not casual GTM chat. |
 | **PENDING SALES DRAFT** | Draft waiting for human edit + DISPATCH. Use **newest** per contact if dupes appear. |
 | **DISPATCH** | Operator-approved send (email Resend / SMS Telnyx|Twilio). |
 | **PURGE** | Retire a bad/duplicate draft without sending. |
 | **HITL** | Human-in-the-loop — humans host and send; agents are sidecars. |
+| **GTM host (human)** | Runs the workflow review + order-form prep. **Not** the provisioner by duty — hand off to `BUSINESS_ADMIN` / `GLOBAL_ADMIN` for `/admin/onboarding`. |
+| **BUSINESS_ADMIN** | High-privilege Ops Hub role: platform governance, commercial approvals, tenant provisioning, Path B transition oversight. **Not** the default top-of-funnel sales persona. |
 | **Message lock** | Required copy: $4,999 · workflow-review CTA · no free PoC · no demo-tenant-as-customer. |
 | **Workflow review CTA** | Primary ask: **10–15 minute** peer-to-peer diligence call — not “Request Demo.” |
 | **Touch 1 / 2 / 3** | Outreach sequence cadence (see outreach sequence doc). |

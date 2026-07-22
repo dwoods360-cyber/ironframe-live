@@ -2,7 +2,8 @@
 
 **Purpose:** Verify the machine once, **in order**, before any real partner DISPATCH.  
 **Timebox:** ~30–45 minutes. **Stop on first hard fail** in R3–R6.  
-**Audience:** GLOBAL_ADMIN or designated BUSINESS_ADMIN (human host).  
+**Audience:** Human GTM host (workflow review / DISPATCH dry-run). Provision steps in R8 are **observed** or handed to `BUSINESS_ADMIN` / `GLOBAL_ADMIN` — do not collapse GTM and admin into one duty (see [GTM glossary SoD](./design-partner-gtm-operator-glossary.md)).  
+**Access note:** Perimeter login may still require `GLOBAL_ADMIN | BUSINESS_ADMIN` until a TAS-scoped GTM host capability exists; procedure SoD still applies.  
 **In-app directory:** Ops Hub → **Operator library** → `/dashboard/operations/library`  
 (this doc: `/dashboard/operations/library/pre-outreach-run-order`)
 
@@ -65,7 +66,7 @@ Expect: `allMessageLocksPass: true` and at least one PENDING draft. This does **
 
 ### Steps
 
-1. Go to `/login` if needed. Sign in as the platform GLOBAL_ADMIN (or designated BUSINESS_ADMIN).
+1. Go to `/login` if needed. Sign in with a perimeter-capable session (today: platform `GLOBAL_ADMIN` or designated `BUSINESS_ADMIN`). If you hold both GTM-host and admin hats, keep duties separate in the run log.
 2. Open tab **A**: `/dashboard/operations`.
 3. Confirm the page title/area is **Operations** / Ops Hub (not a tenant Command Post only).
 4. Open tab **D**: `/dashboard/admin/approvals?kind=SALES`.
@@ -309,7 +310,7 @@ No send required — prove you can execute a **yes** without improvising.
 ### Steps
 
 1. Open [order form](./design-partner-order-form.md). Confirm you know where **2–3 success criteria** go, and that convert credit = Path B fee toward year-1 Command (not a negotiated %).  
-2. Open `/admin/onboarding`. Confirm provision uses a **client-owned** operator email (not `@ironframegrc.com`).
+2. Open `/admin/onboarding` (**BUSINESS_ADMIN / GLOBAL_ADMIN duty**). Confirm provision uses a **client-owned** operator email (not `@ironframegrc.com`). GTM host may observe; do not treat this as a sales-lane task.
 3. Say out loud (or note): after yes you send the **Path B activation link**, never generic `/pricing` for a PENDING partner. Path B is **non-refundable**; in-window convert credits **$4,999** to year-1 Command.
 4. Skim [workflow review protocol](./design-partner-workflow-review-protocol.md) 15-minute agenda once.
 
@@ -321,7 +322,7 @@ No send required — prove you can execute a **yes** without improvising.
 | R8.2 | Provision path + client-owned email known |
 | R8.3 | Activation link (not `/pricing`) known |
 
-**R8 done:** ☐
+**R8 done:** ☑ Pass (operator walkthrough 2026-07-22 — criteria · convert credit · client-owned email · Path B link · agenda)
 
 ---
 
@@ -371,8 +372,8 @@ No send required — prove you can execute a **yes** without improvising.
 | Workflow review | **Generate call recap** |
 | Workflow review | **Push to calendar** |
 | Workflow review | **Open calendar** |
-| Workflow review | **Open order form** (after yes → library) |
-| Workflow review | **Provision Path B** (`/admin/onboarding`) |
+| Workflow review | **Open order form** (after yes → library · GTM host) |
+| Workflow review | **Provision Path B (admin)** (`/admin/onboarding` · `BUSINESS_ADMIN` / `GLOBAL_ADMIN`) |
 | Ops Hub | Tab **Calendar** |
 
 ---

@@ -24,6 +24,13 @@ export default function WorkflowReviewTalkTrackPanel() {
           <p className="mt-1 text-xs text-slate-400">
             Plane: Ops GTM — not GF research. Host is human; this panel is the script.
           </p>
+          <p className="mt-2 rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-2 text-[11px] leading-relaxed text-slate-400">
+            <strong className="text-slate-200">SoD:</strong> GTM host runs this call + order-form
+            criteria. Tenant provision / Path B activation oversight stays{" "}
+            <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
+            <code className="text-cyan-300">GLOBAL_ADMIN</code> — separate duty (not a{" "}
+            <code className="text-cyan-300">sales_admin</code> role).
+          </p>
         </div>
         <button
           type="button"

@@ -37,6 +37,7 @@ This checklist is the batch/send cadence after that run order is GO.
 
 | # | Task | Done |
 |---|------|------|
+| **D0** | **Counsel gate:** [Counsel review packet](./counsel-review-packet.md) returned; order form + MSA/DPA marked **Counsel-approved** with date/firm — **block Path B signature send until yes** | ☐ |
 | D1 | Complete [order form](./design-partner-order-form.md) (2–3 success criteria) | ☐ |
 | D2 | Quick-provision with **client-owned** email (server rejects @ironframegrc.com) | ☐ |
 | D3 | Send **Path B activation link only** — never generic `/pricing` for PENDING | ☐ |
@@ -56,6 +57,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |
 | After a yes (LIVE strip) | **Open order form** → `/dashboard/operations/library/order-form` · **Provision Path B** → `/admin/onboarding` |
+| Counsel review packet | [counsel-review-packet.md](./counsel-review-packet.md) · launch **D0** before first paid signature |
 | Ops Hub Calendar | `/dashboard/operations?tab=calendar` |
 | Teams Graph (optional) | Ops Hub **Teams** tab |
 | Provision | `/admin/onboarding` |

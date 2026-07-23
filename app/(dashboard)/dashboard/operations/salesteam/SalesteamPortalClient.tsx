@@ -84,7 +84,10 @@ export default function SalesteamPortalClient() {
     }
   };
 
-  const runRequeueDrafts = async () => {
+  const runRequeueDrafts = async (opts?: {
+    companyIncludes?: string;
+    force?: boolean;
+  }) => {
     if (pollBusy || requeueBusy) return;
     setRequeueBusy(true);
     setMessage(null);
@@ -94,7 +97,7 @@ export default function SalesteamPortalClient() {
         ok?: boolean;
         requeue?: {
           prospectsSeen: number;
-          queued: Array<{ company: string; channel: string }>;
+          queued: Array<{ company: string; channel: string; refreshed?: boolean }>;
           skipped: Array<{ company: string; reason: string }>;
           errors: Array<{ company: string; message: string }>;
         };
@@ -104,7 +107,11 @@ export default function SalesteamPortalClient() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "requeue-drafts" }),
+          body: JSON.stringify({
+            action: "requeue-drafts",
+            companyIncludes: opts?.companyIncludes,
+            force: opts?.force === true,
+          }),
         },
         "Re-queue failed.",
       );
@@ -128,8 +135,9 @@ export default function SalesteamPortalClient() {
           `No new drafts queued (saw ${q.prospectsSeen} PROSPECTS).${skipLabel}${errLabel} Open Sales outreach queue only after a draft is queued.`,
         );
       } else {
+        const refreshed = q.queued.some((r) => r.refreshed);
         setMessage(
-          `Queued ${q.queued.length} PENDING draft(s): ${queuedLabel}.${skipLabel}${errLabel} Open Sales outreach queue for C1.`,
+          `${refreshed ? "Refreshed" : "Queued"} ${q.queued.length} PENDING draft(s): ${queuedLabel}.${skipLabel}${errLabel} Open Sales outreach queue for C1.`,
         );
       }
     } catch (err) {
@@ -203,6 +211,17 @@ export default function SalesteamPortalClient() {
               title="Create PENDING Approvals drafts for prospect-pool PROSPECTs (bypasses worker processedDeal after dry-run)"
             >
               {requeueBusy ? "Re-queuing…" : "Re-queue Approvals drafts"}
+            </button>
+            <button
+              type="button"
+              disabled={pollBusy || requeueBusy}
+              onClick={() =>
+                void runRequeueDrafts({ companyIncludes: "BlueRadius", force: true })
+              }
+              className="rounded-lg border border-cyan-700 bg-cyan-950/40 px-4 py-2 text-sm font-medium text-cyan-100 hover:border-cyan-500 disabled:opacity-50"
+              title="Overwrite BlueRadius PENDING draft with C1-locked copy (Option A opener, no Path B, Dereck sign-off)"
+            >
+              {requeueBusy ? "Refreshing…" : "Refresh BlueRadius C1 copy"}
             </button>
           </div>
         </header>

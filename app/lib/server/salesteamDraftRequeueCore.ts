@@ -11,6 +11,7 @@ import {
   PURGED_DRAFT_TAG,
 } from "@/app/lib/server/approvalQueueCore";
 import {
+  buildSalesTeamPendingDraftSummary,
   listSalesteamProspectQueue,
   submitSalesteamOutreachDraft,
   type SalesteamProspectWire,
@@ -29,6 +30,7 @@ export type RequeueDraftResult = {
     channel: "EMAIL" | "SMS";
     interactionId: string;
     email: string;
+    refreshed?: boolean;
   }>;
   skipped: Array<{ company: string; dealId: string; reason: string }>;
   errors: Array<{ company: string; dealId: string; message: string }>;
@@ -38,9 +40,10 @@ function formatUsd(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-function firstName(fullName: string): string {
-  const part = fullName.trim().split(/\s+/)[0];
-  return part || "there";
+function greetingName(fullName: string): string {
+  const part = fullName.trim().split(/\s+/)[0] || "";
+  if (!part || /^(ops|contact|info|admin|lead|unknown)$/i.test(part)) return "Team";
+  return part;
 }
 
 function resolveSector(raw: string | null): (typeof CORE_BEACHHEAD_SECTORS)[number] {
@@ -51,37 +54,46 @@ function resolveSector(raw: string | null): (typeof CORE_BEACHHEAD_SECTORS)[numb
   return "REGIONAL_BHC";
 }
 
-function buildEmailBody(prospect: SalesteamProspectWire): { subject: string; body: string } {
-  const name = firstName(prospect.fullName);
-  const subject = `GRC workflow at ${prospect.company}`;
+/** C1-locked cold EMAIL — Command Design Partner only (no Path B), Option A hiring opener, founder sign-off. */
+export function buildC1LockedEmailBody(prospect: SalesteamProspectWire): {
+  subject: string;
+  body: string;
+} {
+  const name = greetingName(prospect.fullName);
+  const subject = `Command Design Partner — ${prospect.company}`;
   const body = [
     `Hi ${name},`,
     "",
-    `Saw a compliance / GRC hiring signal at ${prospect.company}. Quick question: how does your team handle evidence and board reporting today — especially where heatmaps or spreadsheets still feed leadership?`,
+    `Noticed ${prospect.company} is expanding its compliance / GRC team recently. Quick question: how does your team handle evidence and board reporting today — especially where heatmaps or spreadsheets are still feeding leadership?`,
     "",
     "Ironframe is a control-first GRC platform — quantified risk in whole cents, strict tenant isolation, and auditor-ready evidence — not heatmap theater or spreadsheet governance.",
     "",
-    `We're recruiting a small paid design-partner cohort — Command Design Partner / Path B $${formatUsd(DESIGN_PARTNER_PATH_B_USD)}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day co-builder seat, 2–3 success criteria you set. Planned GA for Ironframe Command is ~$${formatUsd(PLANNED_GA_COMMAND_USD)}/yr.`,
+    `We're currently opening a small Command Design Partner cohort ($${formatUsd(DESIGN_PARTNER_PATH_B_USD)} flat for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day co-builder seat, structured around 2–3 success criteria you set). Planned GA for Ironframe Command is ~$${formatUsd(PLANNED_GA_COMMAND_USD)}/year.`,
     "",
-    "If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence / board-report pain — not a product preview.",
+    "If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence and board-report pain — zero product preview or sales pitch.",
     "",
-    "— Ironframe",
+    "Best,",
+    "Dereck",
+    "Founder, Ironframe",
   ].join("\n");
   return { subject, body };
 }
 
 function buildSmsBody(prospect: SalesteamProspectWire): { subject: string; body: string } {
-  const name = firstName(prospect.fullName);
+  const name = greetingName(prospect.fullName);
   const body = [
-    `${name} — Ironframe Command Design Partner (Path B $${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days).`,
+    `${name} — Ironframe Command Design Partner ($${DESIGN_PARTNER_PATH_B_USD}, ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days).`,
     "Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain?",
     "Reply YES or STOP.",
   ].join(" ");
   return { subject: `SMS · ${prospect.company}`, body };
 }
 
-async function hasOpenPendingDraft(dealId: string, tenantId: string): Promise<boolean> {
-  const row = await prisma.ironboardCrmInteraction.findFirst({
+async function findOpenPendingDraft(
+  dealId: string,
+  tenantId: string,
+): Promise<{ id: string } | null> {
+  return prisma.ironboardCrmInteraction.findFirst({
     where: {
       tenantId,
       dealId,
@@ -93,21 +105,23 @@ async function hasOpenPendingDraft(dealId: string, tenantId: string): Promise<bo
         ],
       },
     },
+    orderBy: { occurredAt: "desc" },
     select: { id: true },
   });
-  return Boolean(row);
 }
 
 /**
- * Control-plane re-queue: create PENDING SALES DRAFT rows for prospect-pool PROSPECTs.
- * Bypasses SalesTeam worker processedDeal (dry-run / prior DISPATCH leaves poll creating 0 new drafts).
- * Never sends — HITL Approvals only.
+ * Control-plane re-queue: create or refresh PENDING SALES DRAFT rows for prospect-pool PROSPECTs.
+ * Bypasses SalesTeam worker processedDeal. Never sends — HITL Approvals only.
  */
 export async function requeueSalesteamApprovalDrafts(options?: {
   companyIncludes?: string;
+  /** When true, overwrite an existing PENDING draft with C1-locked copy. */
+  force?: boolean;
 }): Promise<RequeueDraftResult> {
   const tenantSlug = resolveSalesTeamCrmScopeSlug();
   const filter = options?.companyIncludes?.trim().toLowerCase();
+  const force = Boolean(options?.force);
   const { tenantId, prospects } = await listSalesteamProspectQueue(tenantSlug, 50);
 
   const result: RequeueDraftResult = {
@@ -129,7 +143,8 @@ export async function requeueSalesteamApprovalDrafts(options?: {
   }
 
   for (const prospect of targets) {
-    if (await hasOpenPendingDraft(prospect.dealId, tenantId)) {
+    const existing = await findOpenPendingDraft(prospect.dealId, tenantId);
+    if (existing && !force) {
       result.skipped.push({
         company: prospect.company,
         dealId: prospect.dealId,
@@ -148,9 +163,33 @@ export async function requeueSalesteamApprovalDrafts(options?: {
       continue;
     }
 
-    const draft = channel === "EMAIL" ? buildEmailBody(prospect) : buildSmsBody(prospect);
+    const draft = channel === "EMAIL" ? buildC1LockedEmailBody(prospect) : buildSmsBody(prospect);
+    const sector = resolveSector(prospect.industrySector);
 
     try {
+      if (existing && force) {
+        const summary = buildSalesTeamPendingDraftSummary({
+          subject: draft.subject,
+          body: draft.body,
+          channel,
+          industrySector: sector,
+          lossExposureCents: prospect.valueCents,
+        });
+        await prisma.ironboardCrmInteraction.update({
+          where: { id: existing.id },
+          data: { summary: summary.slice(0, 12_000), occurredAt: new Date() },
+        });
+        result.queued.push({
+          company: prospect.company,
+          dealId: prospect.dealId,
+          channel,
+          interactionId: existing.id,
+          email: prospect.email,
+          refreshed: true,
+        });
+        continue;
+      }
+
       const submitted = await submitSalesteamOutreachDraft({
         tenantSlug,
         dealId: prospect.dealId,
@@ -158,7 +197,7 @@ export async function requeueSalesteamApprovalDrafts(options?: {
         channel,
         subject: draft.subject,
         body: draft.body,
-        industrySector: resolveSector(prospect.industrySector),
+        industrySector: sector,
         lossExposureCents: prospect.valueCents,
       });
       result.queued.push({

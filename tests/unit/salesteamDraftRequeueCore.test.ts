@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveRequeueChannel } from "@/app/lib/server/salesteamDraftRequeueChannel";
+import { buildC1LockedEmailBody } from "@/app/lib/server/salesteamC1LockedCopy";
 import type { SalesteamProspectWire } from "@/app/lib/server/salesteamIngressCore";
 
 function prospect(partial: Partial<SalesteamProspectWire>): SalesteamProspectWire {
@@ -46,5 +47,20 @@ describe("resolveRequeueChannel", () => {
         prospect({ email: "x@ironleads.local", phone: null }),
       ),
     ).toBeNull();
+  });
+});
+
+describe("buildC1LockedEmailBody", () => {
+  it("uses Option A opener, Command Design Partner, no Path B, founder sign-off", () => {
+    const { body } = buildC1LockedEmailBody(prospect({}));
+    expect(body).toContain("Noticed BlueRadius Cyber is expanding its compliance / GRC team recently");
+    expect(body).toContain("Command Design Partner");
+    expect(body).toContain("$4,999");
+    expect(body).toContain("10–15 minute workflow review");
+    expect(body).toContain("Dereck");
+    expect(body).toContain("Founder, Ironframe");
+    expect(body.toLowerCase()).not.toContain("path b");
+    expect(body.toLowerCase()).not.toContain("hiring signal");
+    expect(body).not.toMatch(/— Ironframe\s*$/m);
   });
 });

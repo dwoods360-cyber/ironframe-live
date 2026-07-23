@@ -64,7 +64,7 @@ async function bindIronguardTenant(tx: Prisma.TransactionClient, tenantId: strin
   }
 }
 
-function buildSalesTeamPendingDraftSummary(input: {
+export function buildSalesTeamPendingDraftSummary(input: {
   subject: string;
   body: string;
   channel: SalesteamOutreachPayload["channel"];

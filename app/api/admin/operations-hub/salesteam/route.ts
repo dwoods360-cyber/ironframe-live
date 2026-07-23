@@ -36,21 +36,27 @@ export async function POST(request: NextRequest) {
 
   let action = "poll";
   let companyIncludes: string | undefined;
+  let force = false;
   try {
-    const body = (await request.json()) as { action?: string; companyIncludes?: string };
+    const body = (await request.json()) as {
+      action?: string;
+      companyIncludes?: string;
+      force?: boolean;
+    };
     if (typeof body.action === "string" && body.action.trim()) {
       action = body.action.trim().toLowerCase();
     }
     if (typeof body.companyIncludes === "string" && body.companyIncludes.trim()) {
       companyIncludes = body.companyIncludes.trim();
     }
+    force = body.force === true;
   } catch {
     action = "poll";
   }
 
   if (action === "requeue-drafts") {
     try {
-      const requeue = await requeueSalesteamApprovalDrafts({ companyIncludes });
+      const requeue = await requeueSalesteamApprovalDrafts({ companyIncludes, force });
       const snapshot = await buildSalesTeamPortalSnapshot(resolveSalesTeamCrmScopeSlug());
       return NextResponse.json({
         ok: requeue.ok,

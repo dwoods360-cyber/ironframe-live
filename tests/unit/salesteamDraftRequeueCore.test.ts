@@ -64,3 +64,18 @@ describe("buildC1LockedEmailBody", () => {
     expect(body).not.toMatch(/— Ironframe\s*$/m);
   });
 });
+
+describe("buildC1LockedSmsBody", () => {
+  it("stays under 160 chars with Command Design Partner and workflow review CTA", async () => {
+    const { buildC1LockedSmsBody, C1_LOCKED_SMS_BODY_GENERIC } = await import(
+      "@/app/lib/server/salesteamC1LockedCopy"
+    );
+    const { body } = buildC1LockedSmsBody(prospect({}));
+    expect(body.length).toBeLessThanOrEqual(160);
+    expect(body).toContain("Command Design Partner");
+    expect(body).toContain("$4,999");
+    expect(body).toContain("10–15 min workflow review");
+    expect(body.toLowerCase()).not.toContain("path b");
+    expect(C1_LOCKED_SMS_BODY_GENERIC.length).toBeLessThanOrEqual(160);
+  });
+});

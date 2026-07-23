@@ -18,6 +18,14 @@ import {
 
 type DispatchChannel = "EMAIL" | "SMS";
 
+/** Peer SMS lock — ≤160 chars, no Path B. Used when operator switches channel to SMS. */
+const SALES_SMS_LOCK_BODY =
+  "Team — Ironframe Command Design Partner ($4,999, 90 days). Quantified GRC, not heatmaps. 10–15 min workflow review? Reply YES or STOP.";
+
+function looksLikeLongEmailBody(text: string): boolean {
+  return text.length > 200 || /\n\s*\n/.test(text) || /^Hi\b/i.test(text.trim());
+}
+
 interface PendingDraft {
   id: string;
   contactName: string;
@@ -50,6 +58,8 @@ function AdminApprovalDashboardInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  /** Preserve EMAIL body when toggling to SMS so switching back does not lose edits. */
+  const [emailBodyByDraftId, setEmailBodyByDraftId] = useState<Record<string, string>>({});
 
   const loadQueue = useCallback(async () => {
     setIsLoading(true);
@@ -441,7 +451,26 @@ function AdminApprovalDashboardInner() {
                             <button
                               key={channel}
                               type="button"
-                              onClick={() => patchSelectedDraft({ dispatchChannel: channel })}
+                              onClick={() => {
+                                if (channel === "SMS") {
+                                  setEmailBodyByDraftId((prev) => ({
+                                    ...prev,
+                                    [selectedDraft.id]: selectedDraft.proposedReply,
+                                  }));
+                                  patchSelectedDraft({
+                                    dispatchChannel: "SMS",
+                                    ...(looksLikeLongEmailBody(selectedDraft.proposedReply)
+                                      ? { proposedReply: SALES_SMS_LOCK_BODY }
+                                      : {}),
+                                  });
+                                  return;
+                                }
+                                const restored = emailBodyByDraftId[selectedDraft.id];
+                                patchSelectedDraft({
+                                  dispatchChannel: "EMAIL",
+                                  ...(restored ? { proposedReply: restored } : {}),
+                                });
+                              }}
                               className={`rounded-lg border px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wide transition-colors ${
                                 active
                                   ? "border-amber-500/60 bg-amber-600/30 text-amber-100"
@@ -453,6 +482,14 @@ function AdminApprovalDashboardInner() {
                           );
                         })}
                       </div>
+                    ) : null}
+                    {selectedDraft.draftKind === "SALES" &&
+                    selectedDraft.dispatchChannel === "SMS" ? (
+                      <p className="font-mono text-[10px] text-slate-400">
+                        SMS body should stay short (~{selectedDraft.proposedReply.length} chars;
+                        target ≤160). Channel toggle loads the locked SMS template when the email
+                        body is still in the editor.
+                      </p>
                     ) : null}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <label className="block space-y-1.5">

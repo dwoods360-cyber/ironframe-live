@@ -36,7 +36,7 @@ export function hrefForOpsSourceRef(
     "rollout/dp-pre-outreach-gate": "/docs/sales/design-partner-operator-launch-checklist",
     "rollout/dp-workflow-review": "/dashboard/operations/workflow-review#talk-track",
     "rollout/sms-dispatch-smoke": "/docs/ops/sales-sms-twilio-dispatch",
-    "rollout/dp-icp-shortlist": "/docs/sales/design-partner-icp-shortlist",
+    "rollout/dp-icp-shortlist": "/dashboard/operations/library/icp-shortlist#section-d",
     "rollout/golden-path-regression": "/docs/ops/golden-path-checklist",
     "rollout/partner-client-provisioning-1d": "/docs/ops/pilot-to-commercial-readiness-checklist",
     "rollout/first-salesteam-dispatch": "/dashboard/operations/salesteam",

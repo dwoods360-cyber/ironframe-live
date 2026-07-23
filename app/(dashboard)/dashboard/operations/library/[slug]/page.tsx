@@ -77,6 +77,30 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
               </Link>
             </div>
           ) : null}
+          {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
+            <div className="mt-3 space-y-2 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                C3 — Log touch (§D)
+              </p>
+              <p className="text-xs text-slate-300">
+                Jump to{" "}
+                <a href="#section-d" className="font-medium text-cyan-300 hover:underline">
+                  §D Ironleads / Scout queue
+                </a>
+                . This page is <strong className="text-slate-100">read-only</strong> — after DISPATCH,
+                record the touch in your run log and/or ask Cursor to update the shortlist markdown in
+                git. Canonical library slug is{" "}
+                <code className="text-cyan-300">icp-shortlist</code> (filename-style URLs now alias
+                here).
+              </p>
+              <Link
+                href="/dashboard/admin/approvals?kind=SALES"
+                className="inline-flex rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
+              >
+                ← Sales Approvals
+              </Link>
+            </div>
+          ) : null}
         </header>
 
         {slug === "order-form" ? <DesignPartnerOrderFormClient /> : null}
@@ -88,9 +112,24 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
               h1: ({ children }) => (
                 <h1 className="mb-3 mt-6 text-xl font-bold text-white first:mt-0">{children}</h1>
               ),
-              h2: ({ children }) => (
-                <h2 className="mb-2 mt-6 text-lg font-semibold text-white">{children}</h2>
-              ),
+              h2: ({ children }) => {
+                const text = String(
+                  Array.isArray(children)
+                    ? children.map((c) => (typeof c === "string" ? c : "")).join("")
+                    : children ?? "",
+                );
+                const id = /^D\.\s/i.test(text.trim())
+                  ? "section-d"
+                  : undefined;
+                return (
+                  <h2
+                    id={id}
+                    className="mb-2 mt-6 scroll-mt-24 text-lg font-semibold text-white"
+                  >
+                    {children}
+                  </h2>
+                );
+              },
               h3: ({ children }) => (
                 <h3 className="mb-2 mt-4 text-base font-semibold text-cyan-100">{children}</h3>
               ),

@@ -83,10 +83,13 @@ Use for ICP score practice and Scout keywording — **do not** pitch until Conta
 
 Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / info inboxes only — **replace with a named buyer before DISPATCH** if the reply path looks wrong.
 
+**C3 note:** Operator library renders this doc **read-only**. Log touches by updating this table in git (or your run log) after DISPATCH — do not expect editable blanks on the LIVE page.
+
 | Date | Company | Trigger | Deal / contact ID | Channel EMAIL/SMS | Next touch |
 |------|---------|---------|-------------------|-------------------|------------|
 | 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | **SMS** (EMAIL draft present but local fake inbox) | C1 edit → C2 DISPATCH |
-| 2026-07-19 | BlueRadius Cyber | COMPLIANCE_JOB_POST | deal `edc5aa79…` · draft `49a02e66…` · info@blueradius.io | EMAIL (or SMS) | C1 edit → C2 DISPATCH |
+| 2026-07-19 | BlueRadius Cyber | COMPLIANCE_JOB_POST | deal `edc5aa79…` · draft `49a02e66…` · info@blueradius.io | EMAIL (or SMS) | — |
+| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · test dest operator inbox | **EMAIL** DISPATCHED (C1/C2 PASS) | Wait reply / Touch 2 day 4–5 |
 
 Fixture/OSINT SUSPECTs without reachable phone/email remain in demo tenants (`vaultbank` / `medshield` / `gridcore`) — **not** DISPATCH candidates until enriched.
 

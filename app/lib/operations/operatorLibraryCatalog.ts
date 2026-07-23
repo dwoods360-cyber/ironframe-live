@@ -92,7 +92,7 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         kind: "markdown",
         slug: "icp-shortlist",
         title: "ICP shortlist",
-        summary: "Attack order and prospect slots.",
+        summary: "Attack order and prospect slots — C3 log touches in §D.",
         file: "design-partner-icp-shortlist.md",
       },
       {
@@ -292,6 +292,19 @@ export function listMarkdownLibraryEntries(): Array<{
   return out;
 }
 
+/** Filename-style slugs operators paste from docs/ paths → library catalog slug. */
+const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
+  "design-partner-icp-shortlist": "icp-shortlist",
+  "design-partner-operator-launch-checklist": "operator-launch-checklist",
+  "design-partner-pre-outreach-run-order": "pre-outreach-run-order",
+  "design-partner-outreach-sequence": "outreach-sequence",
+  "design-partner-recruitment": "recruitment",
+  "design-partner-gtm-operator-glossary": "gtm-operator-glossary",
+  "design-partner-offer-sheet": "offer-sheet",
+  "design-partner-order-form": "order-form",
+  "design-partner-workflow-review-protocol": "workflow-review-protocol",
+};
+
 export function resolveMarkdownLibraryEntry(slug: string): {
   slug: string;
   title: string;
@@ -299,6 +312,7 @@ export function resolveMarkdownLibraryEntry(slug: string): {
   summary: string;
   docsRoot: "sales" | "qa";
 } | null {
-  const hit = listMarkdownLibraryEntries().find((e) => e.slug === slug);
+  const normalized = MARKDOWN_SLUG_ALIASES[slug.trim()] ?? slug.trim();
+  const hit = listMarkdownLibraryEntries().find((e) => e.slug === normalized);
   return hit ?? null;
 }

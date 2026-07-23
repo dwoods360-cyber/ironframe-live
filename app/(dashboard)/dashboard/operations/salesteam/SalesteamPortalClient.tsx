@@ -181,6 +181,13 @@ export default function SalesteamPortalClient() {
               Sales outreach queue
             </Link>
             <Link
+              href="/dashboard/operations/library/icp-shortlist#section-d"
+              className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
+              title="C3 — log DISPATCH touch on ICP shortlist §D"
+            >
+              C3 · ICP shortlist §D
+            </Link>
+            <Link
               href="/dashboard/operations/workflow-review#talk-track"
               target="_blank"
               rel="noreferrer"

@@ -201,6 +201,13 @@ function AdminApprovalDashboardInner() {
               Workflow review talk track
             </Link>
             <Link
+              href="/dashboard/operations/library/icp-shortlist#section-d"
+              className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-2 text-sm text-amber-100 hover:border-amber-600"
+              title="C3 — log DISPATCH touch on ICP shortlist §D"
+            >
+              C3 · Log touch (§D)
+            </Link>
+            <Link
               href="/dashboard/operations"
               className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 hover:border-cyan-600"
             >

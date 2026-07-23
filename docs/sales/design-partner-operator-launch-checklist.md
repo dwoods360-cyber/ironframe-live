@@ -31,7 +31,7 @@ This checklist is the batch/send cadence after that run order is GO.
 |---|------|------|
 | C1 | Edit draft: $4,999 · workflow review CTA · no free pilot · **no** raw triggers / anti-hallucination leaks / GF sales signature / `$0.00` ALE (see R2.5–R2.8) | ☐ |
 | C2 | DISPATCH (email Resend / SMS Textbelt) | ☐ |
-| C3 | Log touch date on shortlist | ☐ |
+| C3 | Log touch date on shortlist §D | ☑ 2026-07-23 — BlueRadius Cyber EMAIL DISPATCH logged (C1/C2); library URL `/dashboard/operations/library/icp-shortlist#section-d` |
 
 ## D. Close & provision
 
@@ -53,6 +53,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Operator library | `/dashboard/operations/library` |
 | Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
 | GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |
+| ICP shortlist (C3) | `/dashboard/operations/library/icp-shortlist#section-d` · [shortlist md](./design-partner-icp-shortlist.md) — **not** `/library/design-partner-icp-shortlist` |
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
 | Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |

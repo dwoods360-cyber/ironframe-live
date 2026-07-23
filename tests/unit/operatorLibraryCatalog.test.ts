@@ -15,6 +15,15 @@ describe("operatorLibraryCatalog", () => {
     expect(OPERATOR_LIBRARY_SETS.some((s) => s.id === "glossary")).toBe(true);
   });
 
+  it("aliases filename-style slugs to catalog slugs", () => {
+    const shortlist = resolveMarkdownLibraryEntry("design-partner-icp-shortlist");
+    expect(shortlist?.slug).toBe("icp-shortlist");
+    expect(shortlist?.file).toBe("design-partner-icp-shortlist.md");
+    expect(resolveMarkdownLibraryEntry("icp-shortlist")?.file).toBe(
+      "design-partner-icp-shortlist.md",
+    );
+  });
+
   it("uses unique slugs across all items", () => {
     const slugs = OPERATOR_LIBRARY_SETS.flatMap((set) => set.items.map((i) => i.slug));
     expect(new Set(slugs).size).toBe(slugs.length);

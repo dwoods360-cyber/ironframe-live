@@ -86,7 +86,9 @@ On the call: human hosts; agent answers only when the operator asks.
 
 On the LIVE desk (`/dashboard/operations/workflow-review`), use the **After a yes** strip (talk track + call recap): **Open order form** → hand off **Provision Path B** to `BUSINESS_ADMIN` / `GLOBAL_ADMIN`.
 
-1. Complete [order form](./design-partner-order-form.md) (2–3 criteria) — in-app: `/dashboard/operations/library/order-form` (**GTM host**).  
+1. Complete [order form](./design-partner-order-form.md) (2–3 criteria) — in-app: `/dashboard/operations/library/order-form` (**GTM host**).
+   - **Suggest from call** prefills legal name / contact / draft criteria from the LIVE recap (same browser session). Commercial locks ($4,999 · window · convert credit · non-refundable) are **never** taken from STT.
+   - Partner reads back criteria + commercials, then says/types lock word **`AGREED`** → form freezes. Unlock needs an audit reason + re-lock.  
 2. Provision with **client-owned** operator email — `/admin/onboarding` (**BUSINESS_ADMIN / GLOBAL_ADMIN** — separate duty).  
 3. Send **tenant-scoped Path B link** only.  
 4. On ACTIVE → `/get-started` + operator packet / LEVEL1 partner index → SuccessTeam owns the plan.

@@ -55,6 +55,7 @@ Administrative control over platform infrastructure **must stay isolated** from 
 | **Approvals (SALES)** | HITL queue at `/dashboard/admin/approvals?kind=SALES`. Commercial send gate; treat as control surface, not casual GTM chat. |
 | **PENDING SALES DRAFT** | Draft waiting for human edit + DISPATCH. Use **newest** per contact if dupes appear. |
 | **DISPATCH** | Operator-approved send (email Resend / SMS Telnyx|Twilio). |
+| **Order-form lock word** | Partner confirmation to freeze the interactive order form (`AGREED`). Suggest-from-call drafts only; commercial locks never from STT. |
 | **PURGE** | Retire a bad/duplicate draft without sending. |
 | **HITL** | Human-in-the-loop — humans host and send; agents are sidecars. |
 | **GTM host (human)** | Runs the workflow review + order-form prep. **Not** the provisioner by duty — hand off to `BUSINESS_ADMIN` / `GLOBAL_ADMIN` for `/admin/onboarding`. |

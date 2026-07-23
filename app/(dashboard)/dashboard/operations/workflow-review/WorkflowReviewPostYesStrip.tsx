@@ -27,7 +27,8 @@ export default function WorkflowReviewPostYesStrip({
         After a yes
       </p>
       <p className="mt-1 text-xs text-slate-300">
-        Order form (2–3 criteria) → hand off provision (
+        Order form: Suggest from call → partner owns 2–3 criteria → lock word{" "}
+        <code className="text-cyan-300">AGREED</code> freezes → hand off provision (
         <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
         <code className="text-cyan-300">GLOBAL_ADMIN</code>) → tenant Path B link — never{" "}
         <code className="text-cyan-300">/pricing</code>.

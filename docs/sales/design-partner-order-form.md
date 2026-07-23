@@ -2,7 +2,8 @@
 
 **Status:** Operator-ready template · **not counsel-approved** — see [counsel review packet](./counsel-review-packet.md); launch checklist **D0** blocks first paid signature until outside counsel returns approved text  
 **SKU:** Path B / Command Tier on-ramp **$4,999 USD** (BigInt **499900** cents)  
-**Companion:** [Offer sheet](./design-partner-offer-sheet.md)
+**Companion:** [Offer sheet](./design-partner-offer-sheet.md)  
+**In-app:** `/dashboard/operations/library/order-form` — interactive form with **Suggest from call** (LIVE recap drafts only) + partner lock word **`AGREED`** to freeze before copy/send. Commercial locks are never sourced from transcript.
 
 ---
 

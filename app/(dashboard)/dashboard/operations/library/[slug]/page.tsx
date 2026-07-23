@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import DesignPartnerOrderFormClient from "@/app/(dashboard)/dashboard/operations/library/DesignPartnerOrderFormClient";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { loadOperatorLibraryMarkdown } from "@/app/lib/server/loadOperatorLibraryMarkdown";
 
@@ -50,10 +51,12 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
           {slug === "order-form" ? (
             <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 p-3">
               <p className="w-full font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-                After criteria are written
+                After criteria are written + partner lock word
               </p>
               <p className="w-full text-xs text-slate-300">
-                Next: hand off to <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
+                Use the interactive form below (suggest from LIVE recap → partner says{" "}
+                <code className="text-cyan-300">AGREED</code> → freeze). Then hand off to{" "}
+                <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
                 <code className="text-cyan-300">GLOBAL_ADMIN</code> for provision with a{" "}
                 <strong className="text-slate-100">client-owned</strong> operator email, then send
                 the tenant Path B link — never <code className="text-cyan-300">/pricing</code>. GTM
@@ -75,6 +78,8 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
             </div>
           ) : null}
         </header>
+
+        {slug === "order-form" ? <DesignPartnerOrderFormClient /> : null}
 
         <article className="operator-library-prose rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-5 text-sm leading-relaxed text-slate-200 sm:px-6">
           <ReactMarkdown

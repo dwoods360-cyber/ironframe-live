@@ -8,6 +8,7 @@ import type {
   TranscriptAnalysis,
   WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
+import { persistWorkflowReviewRecap } from "@/app/lib/operations/workflowReviewRecapBridge";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
 
@@ -641,6 +642,7 @@ export default function WorkflowReviewCallClient() {
         "Call recap failed.",
       );
       setRecap(data.recap);
+      persistWorkflowReviewRecap(data.recap);
       void runAnalyzeLive(transcript);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Call recap failed.");

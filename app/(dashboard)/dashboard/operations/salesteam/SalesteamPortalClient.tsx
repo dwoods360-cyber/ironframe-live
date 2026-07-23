@@ -230,6 +230,17 @@ export default function SalesteamPortalClient() {
             >
               {requeueBusy ? "Refreshing…" : "Refresh BlueRadius C1 copy"}
             </button>
+            <button
+              type="button"
+              disabled={pollBusy || requeueBusy}
+              onClick={() =>
+                void runRequeueDrafts({ companyIncludes: "Pivot Point", force: true })
+              }
+              className="rounded-lg border border-violet-700 bg-violet-950/40 px-4 py-2 text-sm font-medium text-violet-100 hover:border-violet-500 disabled:opacity-50"
+              title="Overwrite Pivot Point PENDING draft as SMS (ironleads.local → SMS channel)"
+            >
+              {requeueBusy ? "Refreshing…" : "Refresh Pivot Point SMS"}
+            </button>
           </div>
         </header>
 

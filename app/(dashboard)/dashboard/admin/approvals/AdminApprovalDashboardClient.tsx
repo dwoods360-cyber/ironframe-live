@@ -458,6 +458,10 @@ function AdminApprovalDashboardInner() {
                       <label className="block space-y-1.5">
                         <span className="font-mono text-[9px] uppercase text-slate-500">
                           To email
+                          {selectedDraft.draftKind === "SALES" &&
+                          selectedDraft.dispatchChannel === "SMS"
+                            ? " (inactive while SMS selected)"
+                            : ""}
                         </span>
                         <input
                           type="email"
@@ -465,11 +469,7 @@ function AdminApprovalDashboardInner() {
                           onChange={(event) =>
                             patchSelectedDraft({ contactEmail: event.target.value })
                           }
-                          disabled={
-                            selectedDraft.draftKind === "SALES" &&
-                            selectedDraft.dispatchChannel === "SMS"
-                          }
-                          className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/80 px-3 font-sans text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
+                          className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/80 px-3 font-sans text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                           placeholder="you@example.com"
                           autoComplete="off"
                         />
@@ -477,6 +477,10 @@ function AdminApprovalDashboardInner() {
                       <label className="block space-y-1.5">
                         <span className="font-mono text-[9px] uppercase text-slate-500">
                           To phone (E.164)
+                          {selectedDraft.draftKind === "SALES" &&
+                          selectedDraft.dispatchChannel === "EMAIL"
+                            ? " — select SMS above to use this on DISPATCH"
+                            : ""}
                         </span>
                         <input
                           type="tel"
@@ -486,16 +490,27 @@ function AdminApprovalDashboardInner() {
                               contactPhone: event.target.value.trim() || null,
                             })
                           }
-                          disabled={
-                            selectedDraft.draftKind !== "SALES" ||
-                            selectedDraft.dispatchChannel === "EMAIL"
-                          }
+                          disabled={selectedDraft.draftKind !== "SALES"}
                           className="h-10 w-full rounded-lg border border-slate-800 bg-slate-950/80 px-3 font-sans text-sm text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 disabled:opacity-40"
                           placeholder="+15551234567"
                           autoComplete="off"
                         />
                       </label>
                     </div>
+                    {selectedDraft.draftKind === "SALES" &&
+                    selectedDraft.dispatchChannel === "EMAIL" ? (
+                      <p className="font-mono text-[10px] text-amber-200/80">
+                        Channel is EMAIL — phone field is editable for prep, but DISPATCH will use
+                        email until you switch to SMS.
+                      </p>
+                    ) : null}
+                    {selectedDraft.draftKind === "SALES" &&
+                    selectedDraft.dispatchChannel === "SMS" ? (
+                      <p className="font-mono text-[10px] text-amber-200/80">
+                        Channel is SMS — set your dry-run E.164 phone (not the prospect switchboard)
+                        before DISPATCH.
+                      </p>
+                    ) : null}
                   </div>
 
                   {actionError ? (

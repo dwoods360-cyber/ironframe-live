@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import {
@@ -6,6 +6,7 @@ import {
   resolveSalesTeamCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
 import { operationsPortalErrorResponse } from "@/app/lib/server/operationsPortalHttp";
+import { requeueSalesteamApprovalDrafts } from "@/app/lib/server/salesteamDraftRequeueCore";
 import {
   buildSalesTeamPortalSnapshot,
   triggerSalesTeamPoll,
@@ -27,10 +28,38 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
   if ("error" in auth) {
     return NextResponse.json({ error: auth.error }, { status: 403 });
+  }
+
+  let action = "poll";
+  let companyIncludes: string | undefined;
+  try {
+    const body = (await request.json()) as { action?: string; companyIncludes?: string };
+    if (typeof body.action === "string" && body.action.trim()) {
+      action = body.action.trim().toLowerCase();
+    }
+    if (typeof body.companyIncludes === "string" && body.companyIncludes.trim()) {
+      companyIncludes = body.companyIncludes.trim();
+    }
+  } catch {
+    action = "poll";
+  }
+
+  if (action === "requeue-drafts") {
+    try {
+      const requeue = await requeueSalesteamApprovalDrafts({ companyIncludes });
+      const snapshot = await buildSalesTeamPortalSnapshot(resolveSalesTeamCrmScopeSlug());
+      return NextResponse.json({
+        ok: requeue.ok,
+        requeue,
+        snapshot: redactSalesTeamPortalSnapshot(snapshot),
+      });
+    } catch (err) {
+      return operationsPortalErrorResponse(err, "Sales team requeue");
+    }
   }
 
   const result = await triggerSalesTeamPoll();

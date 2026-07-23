@@ -31,6 +31,7 @@ export default function SalesteamPortalClient() {
   const [snapshot, setSnapshot] = useState<RedactedSalesTeamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollBusy, setPollBusy] = useState(false);
+  const [requeueBusy, setRequeueBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +58,7 @@ export default function SalesteamPortalClient() {
   }, [loadSnapshot]);
 
   const runPoll = async () => {
-    if (pollBusy) return;
+    if (pollBusy || requeueBusy) return;
     setPollBusy(true);
     setMessage(null);
     setError(null);
@@ -65,13 +66,76 @@ export default function SalesteamPortalClient() {
       const data = await fetchOpsPortalJson<{
         ok?: boolean;
         snapshot?: RedactedSalesTeamSnapshot;
-      }>("/api/admin/operations-hub/salesteam", { method: "POST" }, "Poll failed.");
+      }>(
+        "/api/admin/operations-hub/salesteam",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "poll" }),
+        },
+        "Poll failed.",
+      );
       if (data.snapshot) setSnapshot(data.snapshot);
       setMessage("Poll cycle completed. Review PROSPECT queue and SALES approval queue.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Poll failed.");
     } finally {
       setPollBusy(false);
+    }
+  };
+
+  const runRequeueDrafts = async () => {
+    if (pollBusy || requeueBusy) return;
+    setRequeueBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        requeue?: {
+          prospectsSeen: number;
+          queued: Array<{ company: string; channel: string }>;
+          skipped: Array<{ company: string; reason: string }>;
+          errors: Array<{ company: string; message: string }>;
+        };
+        snapshot?: RedactedSalesTeamSnapshot;
+      }>(
+        "/api/admin/operations-hub/salesteam",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "requeue-drafts" }),
+        },
+        "Re-queue failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const q = data.requeue;
+      if (!q) {
+        setMessage("Re-queue completed.");
+        return;
+      }
+      const queuedLabel = q.queued.map((r) => `${r.company} (${r.channel})`).join(", ") || "none";
+      const skipLabel =
+        q.skipped.length > 0
+          ? ` Skipped: ${q.skipped.map((s) => `${s.company} — ${s.reason}`).join("; ")}.`
+          : "";
+      const errLabel =
+        q.errors.length > 0
+          ? ` Errors: ${q.errors.map((e) => `${e.company} — ${e.message}`).join("; ")}.`
+          : "";
+      if (q.queued.length === 0) {
+        setError(
+          `No new drafts queued (saw ${q.prospectsSeen} PROSPECTS).${skipLabel}${errLabel} Open Sales outreach queue only after a draft is queued.`,
+        );
+      } else {
+        setMessage(
+          `Queued ${q.queued.length} PENDING draft(s): ${queuedLabel}.${skipLabel}${errLabel} Open Sales outreach queue for C1.`,
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Re-queue failed.");
+    } finally {
+      setRequeueBusy(false);
     }
   };
 
@@ -125,11 +189,20 @@ export default function SalesteamPortalClient() {
             </button>
             <button
               type="button"
-              disabled={pollBusy}
+              disabled={pollBusy || requeueBusy}
               onClick={() => void runPoll()}
               className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
             >
               {pollBusy ? "Polling…" : "Run poll cycle"}
+            </button>
+            <button
+              type="button"
+              disabled={pollBusy || requeueBusy}
+              onClick={() => void runRequeueDrafts()}
+              className="rounded-lg border border-emerald-700 bg-emerald-950/40 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500 disabled:opacity-50"
+              title="Create PENDING Approvals drafts for prospect-pool PROSPECTs (bypasses worker processedDeal after dry-run)"
+            >
+              {requeueBusy ? "Re-queuing…" : "Re-queue Approvals drafts"}
             </button>
           </div>
         </header>

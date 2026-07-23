@@ -49,11 +49,14 @@ export function buildC1LockedSmsBody(prospect: C1DraftProspect): {
   body: string;
 } {
   const name = greetingName(prospect.fullName);
-  // Keep ≤160 chars for single-segment peer SMS (no Path B / eng jargon).
-  const body = `${name} — Ironframe Command Design Partner ($4,999, 90 days). Quantified GRC, not heatmaps. 10–15 min workflow review? Reply YES or STOP.`;
+  // ≤160 on wire: include Ironframe + STOP so sendOutboundSms does not double-brand.
+  const body = `Hi ${name}, Dereck @ Ironframe. Opening design-partner seats for MSSPs replacing heatmaps w/ dollar risk. Open to a 10–15 min workflow review? Reply YES or STOP.`;
   return { subject: `SMS · ${prospect.company}`, body };
 }
 
-/** Shared SMS lock body for Approvals channel toggle (no prospect name required). */
+/**
+ * Approvals SMS channel toggle / dry-run lock.
+ * No Path B, no URLs, Ironframe + STOP present (avoids server double-prefix).
+ */
 export const C1_LOCKED_SMS_BODY_GENERIC =
-  "Team — Ironframe Command Design Partner ($4,999, 90 days). Quantified GRC, not heatmaps. 10–15 min workflow review? Reply YES or STOP.";
+  "Hi Team, Dereck @ Ironframe. Opening design-partner seats for MSSPs replacing heatmaps w/ dollar risk. Open to a 10–15 min workflow review? Reply YES or STOP.";

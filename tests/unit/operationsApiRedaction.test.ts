@@ -4,17 +4,21 @@ import {
   redactOperationsHubSnapshot,
   redactSuccessTeamPortalSnapshot,
   resolveOperationsCrmScopeSlug,
+  resolveSalesTeamCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
 import type { OperationsHubSnapshot } from "@/app/lib/server/operationsHubCore";
 
 describe("operationsApiRedaction", () => {
   const originalCrmScope = process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
+  const originalSalesTeamScope = process.env.SALESTEAM_TARGET_TENANT_SLUG;
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalRequireScope = process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE;
 
   afterEach(() => {
     if (originalCrmScope === undefined) delete process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG;
     else process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = originalCrmScope;
+    if (originalSalesTeamScope === undefined) delete process.env.SALESTEAM_TARGET_TENANT_SLUG;
+    else process.env.SALESTEAM_TARGET_TENANT_SLUG = originalSalesTeamScope;
     if (originalVercelEnv === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = originalVercelEnv;
     if (originalRequireScope === undefined) delete process.env.IRONFRAME_REQUIRE_OPERATIONS_CRM_SCOPE;
@@ -39,6 +43,18 @@ describe("operationsApiRedaction", () => {
     process.env.VERCEL_ENV = "production";
     process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = "pilot1";
     expect(resolveOperationsCrmScopeSlug()).toBe("pilot1");
+  });
+
+  it("resolveSalesTeamCrmScopeSlug defaults to prospect-pool (not ops CRM scope)", () => {
+    process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = "pilot1";
+    delete process.env.SALESTEAM_TARGET_TENANT_SLUG;
+    expect(resolveSalesTeamCrmScopeSlug()).toBe("prospect-pool");
+  });
+
+  it("resolveSalesTeamCrmScopeSlug prefers SALESTEAM_TARGET_TENANT_SLUG", () => {
+    process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG = "pilot1";
+    process.env.SALESTEAM_TARGET_TENANT_SLUG = "prospect-pool";
+    expect(resolveSalesTeamCrmScopeSlug()).toBe("prospect-pool");
   });
 
   it("redactOperationsHubSnapshot strips tenant ids and worker infra urls", () => {

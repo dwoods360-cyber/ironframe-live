@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import {
   redactSalesTeamPortalSnapshot,
-  resolveOperationsCrmScopeSlug,
+  resolveSalesTeamCrmScopeSlug,
 } from "@/app/lib/server/operationsApiRedaction";
 import { operationsPortalErrorResponse } from "@/app/lib/server/operationsPortalHttp";
 import {
@@ -20,7 +20,7 @@ export async function GET() {
   }
 
   try {
-    const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    const snapshot = await buildSalesTeamPortalSnapshot(resolveSalesTeamCrmScopeSlug());
     return NextResponse.json(redactSalesTeamPortalSnapshot(snapshot));
   } catch (err) {
     return operationsPortalErrorResponse(err, "Sales team snapshot");
@@ -39,7 +39,7 @@ export async function POST() {
   }
 
   try {
-    const snapshot = await buildSalesTeamPortalSnapshot(resolveOperationsCrmScopeSlug());
+    const snapshot = await buildSalesTeamPortalSnapshot(resolveSalesTeamCrmScopeSlug());
     return NextResponse.json({
       ok: true,
       poll: result.result,

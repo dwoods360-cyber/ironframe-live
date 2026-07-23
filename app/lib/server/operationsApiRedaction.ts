@@ -15,6 +15,7 @@ const UUID_RE =
 /**
  * Server-resolved CRM scope for perimeter ops portals — never accept tenant slug/id from clients.
  * Production (VERCEL_ENV=production) requires IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG — no silent medshield fallback.
+ * Used by Success / Support portals (pilot CRM). Not used by SalesTeam (see resolveSalesTeamCrmScopeSlug).
  */
 export function resolveOperationsCrmScopeSlug(): string {
   const configured = process.env.IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG?.trim().toLowerCase();
@@ -30,6 +31,19 @@ export function resolveOperationsCrmScopeSlug(): string {
     );
   }
   return "medshield";
+}
+
+/**
+ * SalesTeam / design-partner outreach CRM — always prospect-pool unless overridden.
+ * Must not reuse IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG (pilot/medshield); that empties the PROSPECT queue
+ * while Cloud Run SALESTEAM_TARGET_TENANT_SLUG correctly targets prospect-pool.
+ */
+export function resolveSalesTeamCrmScopeSlug(): string {
+  const configured = process.env.SALESTEAM_TARGET_TENANT_SLUG?.trim().toLowerCase();
+  if (configured && /^[a-z0-9-]+$/.test(configured)) {
+    return configured;
+  }
+  return "prospect-pool";
 }
 
 export type RedactedWorkforceServiceStatus = Omit<

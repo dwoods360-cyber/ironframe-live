@@ -159,10 +159,11 @@ export async function POST(
         });
 
         if (!sendResult.success) {
+          const detail = sendResult.error ?? "Unknown provider failure.";
           return NextResponse.json(
             {
-              error: "SMS transport rejected the outbound payload.",
-              details: sendResult.error ?? "Unknown provider failure.",
+              error: `SMS transport rejected the outbound payload (${sendResult.provider ?? "unknown"}).`,
+              details: detail,
             },
             { status: 502 },
           );

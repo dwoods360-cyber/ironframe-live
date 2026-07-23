@@ -149,12 +149,16 @@ function AdminApprovalDashboardInner() {
 
       const data = (await response.json()) as {
         error?: string;
+        details?: string;
         status?: string;
         channel?: string;
         to?: string;
       };
       if (!response.ok) {
-        throw new Error(data.error ?? "Workflow authorization error.");
+        throw new Error(
+          [data.error, data.details].filter(Boolean).join(" — ") ||
+            "Workflow authorization error.",
+        );
       }
       if (data.status !== "SUCCESS_DISPATCHED" && data.status !== "SUCCESS_PURGED") {
         throw new Error("Unexpected workflow completion state.");

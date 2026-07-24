@@ -149,6 +149,9 @@ export default function WorkflowReviewCallClient() {
   const micLevelRef = useRef(0);
   const peakDuringChunkRef = useRef(0);
   const lastTranscriptRef = useRef("");
+  const recapAnchorRef = useRef<HTMLElement | null>(null);
+  const busyKindRef = useRef(busy);
+  busyKindRef.current = busy;
 
   useEffect(() => {
     setRecorderSupported(
@@ -161,6 +164,14 @@ export default function WorkflowReviewCallClient() {
   useEffect(() => {
     liveBufferRef.current = liveBuffer;
   }, [liveBuffer]);
+
+  useEffect(() => {
+    if (!recap?.generatedAt) return;
+    const id = window.setTimeout(() => {
+      recapAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => clearTimeout(id);
+  }, [recap?.generatedAt]);
 
   const refreshTeamsStatus = useCallback(async () => {
     setTeamsStatusRefreshing(true);
@@ -242,7 +253,11 @@ export default function WorkflowReviewCallClient() {
   const runAnalyzeLive = useCallback(async (text: string) => {
     if (!text.trim() || analyzeInFlightRef.current) return;
     analyzeInFlightRef.current = true;
-    setBusy("analyze");
+    // Never steal busy from recap/calendar/assist/teams — that made Generate
+    // look idle while the recap request was still in flight.
+    const canShowAnalyzeBusy =
+      busyKindRef.current == null || busyKindRef.current === "analyze";
+    if (canShowAnalyzeBusy) setBusy("analyze");
     try {
       const data = await fetchOpsPortalJson<{ analysis: TranscriptAnalysis }>(
         "/api/admin/operations-hub/workflow-review-call",
@@ -259,7 +274,7 @@ export default function WorkflowReviewCallClient() {
       setError(err instanceof Error ? err.message : "Live analysis failed.");
     } finally {
       analyzeInFlightRef.current = false;
-      setBusy(null);
+      setBusy((b) => (b === "analyze" ? null : b));
     }
   }, []);
 
@@ -621,6 +636,7 @@ export default function WorkflowReviewCallClient() {
     const transcript = liveBufferRef.current.trim() || liveBuffer.trim();
     if (!transcript) {
       setError("Transcript buffer is empty — speak or paste before generating a recap.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     setBusy("recap");
@@ -646,8 +662,9 @@ export default function WorkflowReviewCallClient() {
       void runAnalyzeLive(transcript);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Call recap failed.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
-      setBusy(null);
+      setBusy((b) => (b === "recap" ? null : b));
     }
   }, [channel, company, contactName, liveBuffer, runAnalyzeLive]);
 
@@ -1030,7 +1047,14 @@ export default function WorkflowReviewCallClient() {
                 </button>
                 <button
                   type="button"
-                  disabled={!liveBuffer.trim() || busy === "recap"}
+                  disabled={busy === "recap"}
+                  title={
+                    !liveBuffer.trim()
+                      ? "Paste or capture transcript first"
+                      : busy === "recap"
+                        ? "Generating recap…"
+                        : "Generate call recap"
+                  }
                   onClick={() => void generateRecap()}
                   className="rounded-lg border border-cyan-700 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-950/40 disabled:opacity-40"
                 >
@@ -1049,6 +1073,16 @@ export default function WorkflowReviewCallClient() {
                   Clear buffer
                 </button>
               </div>
+              {busy === "recap" ? (
+                <p className="mt-2 text-xs text-cyan-300">Generating call recap…</p>
+              ) : recap ? (
+                <p className="mt-2 text-xs text-cyan-300">
+                  Recap ready —{" "}
+                  <a href="#call-recap" className="underline hover:text-cyan-200">
+                    jump to call recap
+                  </a>
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-4">
@@ -1148,7 +1182,11 @@ export default function WorkflowReviewCallClient() {
         </div>
 
         {recap ? (
-          <section className="space-y-4 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-5">
+          <section
+            id="call-recap"
+            ref={recapAnchorRef}
+            className="space-y-4 rounded-xl border border-cyan-800/50 bg-cyan-950/20 p-5"
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-white">Call recap</h2>

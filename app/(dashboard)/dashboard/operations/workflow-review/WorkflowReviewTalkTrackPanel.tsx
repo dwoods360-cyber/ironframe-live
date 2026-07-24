@@ -1,23 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import {
   CUSTOMER_FACING_PATH_B_SKU,
-  formatDesignPartnerSkuWithInternalHint,
-  formatPathBUsd,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
 
 /**
- * Compact Design Partner talk track for the LIVE assist desk — doctrine beside the mic.
- * Spoken SKU: Command Design Partner · Internal code: Path B.
+ * New-operator talk track: speakable phrases first, internal jargon behind a glossary.
  */
 export default function WorkflowReviewTalkTrackPanel() {
   const [open, setOpen] = useState(true);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const sku = CUSTOMER_FACING_PATH_B_SKU;
   const price = formatPathBUsd();
   const days = DESIGN_PARTNER_DEFAULT_WINDOW_DAYS;
@@ -31,22 +31,12 @@ export default function WorkflowReviewTalkTrackPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-            Ops GTM · Design Partner talk track
+            Call script · {days} minutes
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-white">Peer-to-peer diligence script</h2>
-          <p className="mt-1 text-xs text-slate-400">
-            Plane: Ops GTM — not GF research. Host is human; this panel is the script.
-          </p>
-          <p className="mt-2 rounded-lg border border-cyan-900/40 bg-slate-950/70 px-2.5 py-2 text-[11px] leading-relaxed text-cyan-100/90">
-            <strong className="text-cyan-200">Say to prospect:</strong> {sku}.{" "}
-            <strong className="text-slate-300">Internal code:</strong> Path B (Stripe / provision).
-          </p>
-          <p className="mt-2 rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-2 text-[11px] leading-relaxed text-slate-400">
-            <strong className="text-slate-200">SoD:</strong> GTM host runs this call + order-form
-            criteria. Tenant provision / Path B activation oversight stays{" "}
-            <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
-            <code className="text-cyan-300">GLOBAL_ADMIN</code> — separate duty (not a{" "}
-            <code className="text-cyan-300">sales_admin</code> role).
+          <h2 className="mt-1 text-lg font-semibold text-white">What to say on the call</h2>
+          <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-400">
+            You host. This panel is your cue card — read the quoted lines to the prospect. Keep
+            technical product words light unless they ask.
           </p>
         </div>
         <button
@@ -60,93 +50,201 @@ export default function WorkflowReviewTalkTrackPanel() {
 
       {!open ? null : (
         <div className="mt-4 space-y-4 text-sm text-slate-300">
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-400">
-            <div>
-              <strong className="text-slate-200">Lock:</strong> {sku} {price} · {days}-day · 2–3
-              written metrics · non-refundable
-            </div>
-            <div>
-              <strong className="text-slate-200">Convert:</strong> {price} credited to year-1 Command
-              (list ~{commandList}) if converting in-window — not a negotiated % · exit = no refund
-            </div>
-            <div>
-              <strong className="text-slate-200">Sidecar:</strong>{" "}
-              <code className="text-cyan-300">board-sales-lead</code> · Drafts: SalesTeam HITL only
-            </div>
-            <div className="mt-1 text-[10px] text-slate-500">
-              {formatDesignPartnerSkuWithInternalHint()}
-            </div>
+          <div className="rounded-lg border border-cyan-900/40 bg-slate-950/70 p-3 text-xs leading-relaxed">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">
+              Naming (memorize this)
+            </p>
+            <p className="mt-1.5 text-slate-200">
+              <strong className="text-white">Say out loud:</strong> {sku}.
+            </p>
+            <p className="mt-1 text-slate-400">
+              <strong className="text-slate-300">Do not say on the call:</strong> “Path B” — that is
+              only an internal billing/setup code.
+            </p>
           </div>
 
-          <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              15-minute agenda
-            </h3>
-            <ul className="mt-2 space-y-2 text-xs leading-relaxed">
+          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs leading-relaxed text-slate-300">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              Money lock (do not improvise)
+            </p>
+            <ul className="mt-2 list-disc space-y-1.5 pl-4">
               <li>
-                <strong className="text-white">0–3 · Ingress</strong> — “Skip the pitch — where does
-                evidence debt, board-dollar opacity, or multi-entity bleed show up today?”
+                {sku} is <strong className="text-white">{price}</strong> for{" "}
+                <strong className="text-white">{days} days</strong>, with{" "}
+                <strong className="text-white">2–3 written success goals</strong> they own.
               </li>
               <li>
-                <strong className="text-white">3–8 · Structure</strong> — RLS + Ironguard walls,
-                Irongate before persist, ALE in integer cents — not color charts.
+                <strong className="text-white">Not refundable</strong> if they leave early.
               </li>
               <li>
-                <strong className="text-white">8–12 · {sku}</strong> — Fixed {days}-day paid
-                co-builder at {price} (non-refundable). Prove 2–3 written metrics or part ways. If
-                you convert in-window, that {price} is credited to year-1 Command at list — not a
-                haggled %.
-              </li>
-              <li>
-                <strong className="text-white">12–15 · Gate</strong> — Order form with their criteria
-                → client-owned operator email → tenant-scoped activation link (Path B). Not a deck.
+                If they buy full Ironframe Command later{" "}
+                <em>inside that window</em>, the {price} is{" "}
+                <strong className="text-white">credited</strong> toward year-1 Command (list about{" "}
+                {commandList}) — not a negotiated discount %.
               </li>
             </ul>
           </div>
 
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              Pocket answers
+              Minute-by-minute
             </h3>
-            <ul className="mt-2 space-y-2 text-xs leading-relaxed">
-              <li>
-                <strong className="text-white">SOC 2?</strong> SOC2-aligned architecture — not a
-                completed Type II logo claim today. Diligence is migrations, RLS, gateway, criteria.
+            <ol className="mt-2 space-y-3">
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
+                  0–3 · Open
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white">
+                  “Let’s skip the product pitch. Where does evidence collection, board reporting, or
+                  keeping entities cleanly separated get painful today?”
+                </p>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Goal: hear their pain in their words — not ours.
+                </p>
               </li>
-              <li>
-                <strong className="text-white">Free trial?</strong> No. Flat {price} / {days}-day{" "}
-                {sku}, non-refundable. Convert or exit on criteria they write.
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
+                  3–8 · How we think about it
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white">
+                  “We separate customer environments hard, check risky writes before they land, and
+                  keep dollar risk in exact cents — not a color heatmap.”
+                </p>
+                <p className="mt-1.5 text-[11px] text-slate-500">
+                  Stay plain. Only go deeper on security terms if they ask.
+                </p>
               </li>
-              <li>
-                <strong className="text-white">Discount / convert?</strong> Not a negotiated %. If
-                they convert in-window, the {price} {sku} fee credits year-1 Command (~{commandList}{" "}
-                list). Exit = fee stays paid.
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
+                  8–12 · Offer ({sku})
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white">
+                  “If the fit is real, the clean next step is {sku}: {price} for {days} days, you
+                  write 2–3 success goals, non-refundable. If you convert to Command in that window,
+                  the {price} credits year one — not a haggled percentage.”
+                </p>
               </li>
-              <li>
-                <strong className="text-white">Risk $?</strong> Integer cents (BigInt) — not 5×5
-                heatmap board truth.
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
+                  12–15 · Close the meeting
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-white">
+                  “If you’re in, we fill a short order form with your success goals, you use an
+                  email you control for the operator seat, and we send your activation link —
+                  not a slide deck.”
+                </p>
               </li>
-              <li>
-                <strong className="text-white">Vanta/Drata?</strong> Keep for checklist CC if that job
-                is done. We quantify loss + isolate entities — different buying job.
+            </ol>
+          </div>
+
+          <div>
+            <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+              If they ask…
+            </h3>
+            <ul className="mt-2 space-y-2.5">
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“Are you SOC 2 certified?”</p>
+                <p className="mt-1 text-slate-200">
+                  “We’re built SOC 2–aligned; we’re not claiming a finished Type II logo today.
+                  Diligence is how we migrate, isolate tenants, and gate writes — plus the success
+                  goals you write.”
+                </p>
               </li>
-              <li>
-                <strong className="text-white">Demo?</strong> This slot is workflow diligence. Product
-                walk after {sku} interest / criteria.
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“Can we do a free trial / PoC?”</p>
+                <p className="mt-1 text-slate-200">
+                  “No free pilot. {sku} is {price} / {days} days, non-refundable. You write the
+                  success goals; we prove them or we part ways cleanly.”
+                </p>
+              </li>
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“Can we get a discount?”</p>
+                <p className="mt-1 text-slate-200">
+                  “We don’t negotiate a percentage off. If you convert to Command inside the window,
+                  the {price} you already paid credits year-1 Command (about {commandList} list). If
+                  you exit, the fee stays paid.”
+                </p>
+              </li>
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“How do you show risk dollars?”</p>
+                <p className="mt-1 text-slate-200">
+                  “Exact cents — money math you can audit — not a 5×5 color heatmap for the board.”
+                </p>
+              </li>
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“We already use Vanta / Drata.”</p>
+                <p className="mt-1 text-slate-200">
+                  “Keep them if they cover checklist compliance. We’re a different job: quantify
+                  loss and keep entities isolated.”
+                </p>
+              </li>
+              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
+                <p className="font-semibold text-white">“Can you demo the product now?”</p>
+                <p className="mt-1 text-slate-200">
+                  “This call is workflow diligence. A product walk comes after {sku} interest and
+                  written success goals — not instead of them.”
+                </p>
               </li>
             </ul>
           </div>
 
           <WorkflowReviewPostYesStrip />
 
-          <p className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-300">
-            Banned on call: medshield / vaultbank / gridcore as customers or “hardened baselines”
-            (demo seeds only).
+          <p className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs leading-relaxed text-red-200">
+            <strong className="text-red-100">Never say on a call:</strong> that Medshield, Vaultbank,
+            or Gridcore are real customers, or call demo data “hardened baselines.” Those are
+            internal demo seeds only.
           </p>
 
-          <p className="font-mono text-[10px] text-slate-500">
-            Full doctrine: docs/sales/design-partner-workflow-review-protocol.md · Operator library
-          </p>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/40">
+            <button
+              type="button"
+              onClick={() => setGlossaryOpen((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+            >
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                Optional · internal terms (not for the prospect)
+              </span>
+              <span className="text-[10px] text-slate-500">
+                {glossaryOpen ? "Hide" : "Show"}
+              </span>
+            </button>
+            {glossaryOpen ? (
+              <dl className="space-y-2 border-t border-slate-800 px-3 py-3 text-[11px] leading-relaxed text-slate-400">
+                <div>
+                  <dt className="font-semibold text-slate-300">Path B</dt>
+                  <dd>Internal code for {sku} (billing / setup). Do not say this name to them.</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-slate-300">Your job vs admin setup</dt>
+                  <dd>
+                    You run the call and help with the order form. Turning on their tenant after a
+                    yes is an admin step (platform admin roles) — hand it off; don’t invent a
+                    “sales_admin” role.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-slate-300">RLS / Ironguard / Irongate / ALE</dt>
+                  <dd>
+                    Internal product shorthand for tenant walls, write checks, and loss math. Prefer
+                    the plain phrases in the script unless they want depth.
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-slate-300">More detail</dt>
+                  <dd>
+                    <Link
+                      href="/dashboard/operations/library"
+                      className="text-cyan-300 hover:underline"
+                    >
+                      Operator library
+                    </Link>{" "}
+                    · workflow review protocol
+                  </dd>
+                </div>
+              </dl>
+            ) : null}
+          </div>
         </div>
       )}
     </section>

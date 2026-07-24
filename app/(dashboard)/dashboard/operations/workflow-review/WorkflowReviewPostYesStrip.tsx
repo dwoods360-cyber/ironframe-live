@@ -13,7 +13,7 @@ type WorkflowReviewPostYesStripProps = {
 };
 
 /**
- * Post-yes Design Partner close strip — order form then provision (Path B admin).
+ * Post-yes close strip — plain steps for new operators.
  */
 export default function WorkflowReviewPostYesStrip({
   emphasis = "default",
@@ -26,15 +26,23 @@ export default function WorkflowReviewPostYesStrip({
   return (
     <div id="after-yes" className={shell}>
       <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-        After a yes
+        After they say yes
       </p>
-      <p className="mt-1 text-xs text-slate-300">
-        Order form: Suggest from call → partner owns 2–3 criteria → lock word{" "}
-        <code className="text-cyan-300">AGREED</code> freezes → hand off provision (
-        <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
-        <code className="text-cyan-300">GLOBAL_ADMIN</code>) → tenant {CUSTOMER_FACING_PATH_B_SKU}{" "}
-        activation link (Path B) — never <code className="text-cyan-300">/pricing</code>.
-      </p>
+      <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-slate-300">
+        <li>
+          Open the order form. Suggest from the call if helpful — they still own the 2–3 success
+          goals.
+        </li>
+        <li>
+          When ready, they type the lock word{" "}
+          <code className="text-cyan-300">AGREED</code> to freeze the form.
+        </li>
+        <li>
+          Hand off tenant setup to a platform admin (not you inventing access). They get a{" "}
+          {CUSTOMER_FACING_PATH_B_SKU} activation link for <em>their</em> tenant — never send generic{" "}
+          <code className="text-cyan-300">/pricing</code>.
+        </li>
+      </ol>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href={WORKFLOW_REVIEW_ORDER_FORM_HREF}
@@ -45,9 +53,9 @@ export default function WorkflowReviewPostYesStrip({
         <Link
           href={WORKFLOW_REVIEW_PROVISION_HREF}
           className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
-          title="SoD: provision is BUSINESS_ADMIN / GLOBAL_ADMIN — not the GTM host beat"
+          title="Admin-only: provision their tenant after the order form is locked"
         >
-          Provision Path B (admin)
+          Hand off to admin setup
         </Link>
       </div>
     </div>

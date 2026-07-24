@@ -151,12 +151,12 @@ export default function GuidedWorkflowDemoClient() {
       </div>
 
       <p className="mt-10 text-xs text-[var(--login-muted)]">
-        Prefer the open sandbox home?{" "}
-        <Link href="/register/demo" className="text-cyan-300 underline hover:opacity-90">
-          Enter evaluation sandbox
+        This page is a guided product demonstration only — not a Path B workspace and not Governance
+        Frame research. Ready to talk?{" "}
+        <Link href={SALES_CONTACT_PATH} className="text-cyan-300 underline hover:opacity-90">
+          Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
         </Link>
-        . This page is product demonstration only — not a Path B workspace and not Governance Frame
-        research.
+        .
       </p>
     </main>
   );

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   listEditorialPolicyDocs,
+  listPublicResearchPapers,
   listResearchPapers,
   listResearchSeries,
 } from "../../app/lib/governanceFrame/researchCatalog";
@@ -14,6 +15,12 @@ describe("researchCatalog", () => {
     expect(gf001?.slug).toBe("GF-2026-001-evolution-of-grc");
     expect(gf001?.isPublic).toBe(false);
     expect(gf001?.status.toUpperCase()).toContain("DRAFT");
+  });
+
+  it("hides unapproved papers from the public research listing", () => {
+    const publicPapers = listPublicResearchPapers();
+    expect(publicPapers.every((paper) => paper.isPublic)).toBe(true);
+    expect(publicPapers.some((paper) => paper.researchId === "GF-2026-001")).toBe(false);
   });
 
   it("lists the control-first-grc series with published installment slugs", () => {

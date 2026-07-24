@@ -16,8 +16,8 @@ export const PUBLIC_LEAD_API_PATH = "/api/register/public-lead";
 
 /**
  * When public registration is off, keep self-serve workspace setup blocked.
- * Client-only `/demo/*` sandbox and `/register/demo` entry remain available for public product demos
- * (mock auth only — no tenant provisioning).
+ * `/register/demo` redirects to sales contact. Client-only `/demo/*` remains reachable only
+ * after guided `/product-demo` initializes a mock session (no tenant provisioning).
  */
 export const BLOCK_DEMO_SANDBOX_WHEN_REGISTRATION_DISABLED = false;
 

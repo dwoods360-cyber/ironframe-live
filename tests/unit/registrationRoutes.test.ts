@@ -18,6 +18,7 @@ describe("registration route guards", () => {
   it("identifies public prospect registration", () => {
     expect(isPublicRegistrationPath("/register/setup")).toBe(true);
     expect(isPublicRegistrationPath(SALES_CONTACT_PATH)).toBe(false);
+    // Path still classified as demo entry; page permanently redirects to sales contact.
     expect(isPublicDemoRegistrationPath("/register/demo")).toBe(true);
     expect(isPublicRegistrationPath("/admin/onboarding")).toBe(false);
   });

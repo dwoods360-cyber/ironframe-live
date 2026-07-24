@@ -17,7 +17,8 @@ export default function DemoModeBootstrap({ children }: Props) {
   useEffect(() => {
     const session = readDemoSession();
     if (!session) {
-      router.replace("/register/demo");
+      // No public sandbox home — re-enter via guided product demo (initializes mock session).
+      router.replace("/product-demo");
       return;
     }
 

@@ -95,12 +95,17 @@ export function listResearchPapers(): ResearchPaperListing[] {
   return listings.sort((a, b) => a.researchId.localeCompare(b.researchId));
 }
 
+/** Public research site listings — PUBLISHED / PUBLIC only (hide drafts until Approve). */
+export function listPublicResearchPapers(): ResearchPaperListing[] {
+  return listResearchPapers().filter((paper) => paper.isPublic);
+}
+
 export function getResearchPaperManuscript(slug: string): {
   listing: ResearchPaperListing;
   bodyMarkdown: string;
 } | null {
-  const listing = listResearchPapers().find((paper) => paper.slug === slug);
-  if (!listing || !listing.isPublic) return null;
+  const listing = listPublicResearchPapers().find((paper) => paper.slug === slug);
+  if (!listing) return null;
 
   const manuscript = readUtf8IfExists(
     path.join(resolveDocsRoot(), listing.packagePath, "manuscript.md"),

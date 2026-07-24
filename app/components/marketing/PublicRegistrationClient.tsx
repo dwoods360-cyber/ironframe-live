@@ -336,31 +336,23 @@ export default function PublicRegistrationClient() {
                   </p>
                 ) : null}
 
-                {isPublicRegistrationEnabled() ? (
-                  <div className="mt-6 border-t border-slate-800 pt-4 text-center">
-                    <p className="text-sm text-slate-400">
-                      Just investigating our GRC isolation capabilities?
-                    </p>
-                    <Link
-                      href="/register/demo"
-                      className="mt-2 inline-block text-sm font-semibold text-red-400 transition-colors hover:text-red-300"
-                    >
-                      Launch an instant interactive sandbox →
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="mt-6 border-t border-slate-800 pt-4 text-center">
-                    <p className="text-sm text-slate-400">
-                      Self-serve provisioning is invite-only. Contact sales for a vetted workspace.
-                    </p>
-                    <Link
-                      href={SALES_CONTACT_PATH}
-                      className="mt-2 inline-block text-sm font-semibold text-red-400 transition-colors hover:text-red-300"
-                    >
-                      Request sales-assisted onboarding →
-                    </Link>
-                  </div>
-                )}
+                <div className="mt-6 border-t border-slate-800 pt-4 text-center">
+                  <p className="text-sm text-slate-400">
+                    {isPublicRegistrationEnabled()
+                      ? "Just investigating control-first workflows?"
+                      : "Self-serve provisioning is invite-only. Contact sales for a vetted workspace."}
+                  </p>
+                  <Link
+                    href={
+                      isPublicRegistrationEnabled() ? "/product-demo" : SALES_CONTACT_PATH
+                    }
+                    className="mt-2 inline-block text-sm font-semibold text-red-400 transition-colors hover:text-red-300"
+                  >
+                    {isPublicRegistrationEnabled()
+                      ? "Open the guided product demonstration →"
+                      : "Request sales-assisted onboarding →"}
+                  </Link>
+                </div>
               </form>
             ) : (
               <div

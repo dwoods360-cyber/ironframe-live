@@ -22,11 +22,22 @@ export { normalizeE164Phone };
 
 export type SmsProviderId = "twilio" | "textbelt";
 
-export function resolveSmsProvider(): SmsProviderId {
+/**
+ * Prefer Textbelt whenever a key is present (Ironframe default for sales SMS).
+ * Explicit `SMS_PROVIDER=twilio` still forces Twilio even if a Textbelt key exists.
+ */
+export function resolveSmsProvider(): SmsProviderId | null {
   const explicit = process.env.SMS_PROVIDER?.trim().toLowerCase();
-  if (explicit === "textbelt" || explicit === "twilio") return explicit;
-  if (process.env.TEXTBELT_API_KEY?.trim()) return "textbelt";
-  return "twilio";
+  const hasTextbelt = Boolean(process.env.TEXTBELT_API_KEY?.trim());
+  const hasTwilio = Boolean(
+    process.env.TWILIO_ACCOUNT_SID?.trim() && process.env.TWILIO_AUTH_TOKEN?.trim(),
+  );
+
+  if (explicit === "twilio") return "twilio";
+  if (explicit === "textbelt") return "textbelt";
+  if (hasTextbelt) return "textbelt";
+  if (hasTwilio) return "twilio";
+  return null;
 }
 
 export function resolveTwilioSmsFromNumber(override?: string): string | null {
@@ -36,6 +47,37 @@ export function resolveTwilioSmsFromNumber(override?: string): string | null {
     process.env.SALESTEAM_SMS_FROM?.trim() ||
     "";
   return normalizeE164Phone(from);
+}
+
+/** Non-secret Textbelt quota probe — never logs the raw API key. */
+export async function fetchTextbeltQuota(apiKey?: string): Promise<{
+  ok: boolean;
+  quotaRemaining?: number;
+  error?: string;
+}> {
+  const key = (apiKey ?? process.env.TEXTBELT_API_KEY)?.trim();
+  if (!key) return { ok: false, error: "TEXTBELT_API_KEY is not configured." };
+  try {
+    const res = await fetch(`https://textbelt.com/quota/${encodeURIComponent(key)}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    const raw = await res.text();
+    let parsed: { success?: boolean; quotaRemaining?: number; error?: string } = {};
+    try {
+      parsed = JSON.parse(raw) as typeof parsed;
+    } catch {
+      return { ok: false, error: `Textbelt quota non-JSON (${res.status})` };
+    }
+    if (!res.ok || parsed.success === false) {
+      return { ok: false, error: parsed.error || `Textbelt quota HTTP ${res.status}` };
+    }
+    return { ok: true, quotaRemaining: parsed.quotaRemaining };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Textbelt quota request failed",
+    };
+  }
 }
 
 async function sendViaTextbelt(
@@ -48,14 +90,15 @@ async function sendViaTextbelt(
     return {
       success: false,
       provider: "textbelt",
-      error: "TEXTBELT_API_KEY is not configured (create a key at https://textbelt.com/).",
+      error:
+        "TEXTBELT_API_KEY is not configured in this environment. Set SMS_PROVIDER=textbelt and TEXTBELT_API_KEY in Vercel Production (https://textbelt.com/).",
     };
   }
 
   const sender =
     process.env.TEXTBELT_SENDER?.trim() ||
     process.env.IRONCAST_FROM_NAME?.trim() ||
-    "Ironframe GRC";
+    "Ironframe";
 
   try {
     const form = new URLSearchParams({
@@ -90,12 +133,18 @@ async function sendViaTextbelt(
     }
 
     if (!res.ok || !parsed.success) {
+      const quota = await fetchTextbeltQuota(key);
+      const quotaHint =
+        typeof quota.quotaRemaining === "number"
+          ? ` quotaRemaining=${quota.quotaRemaining}`
+          : quota.error
+            ? ` quotaCheck=${quota.error}`
+            : "";
       return {
         success: false,
         provider: "textbelt",
         error:
-          parsed.error ||
-          `Textbelt rejected SMS (${res.status}): ${raw.slice(0, 300)}`,
+          `${parsed.error || `Textbelt rejected SMS (${res.status}): ${raw.slice(0, 300)}`}${quotaHint}`.trim(),
       };
     }
 
@@ -205,6 +254,13 @@ export async function sendOutboundSms(
         );
 
   const provider = resolveSmsProvider();
+  if (!provider) {
+    return {
+      success: false,
+      error:
+        "No SMS provider configured. Add SMS_PROVIDER=textbelt and TEXTBELT_API_KEY to Vercel Production (https://textbelt.com/), then redeploy.",
+    };
+  }
   if (provider === "textbelt") {
     return sendViaTextbelt(payload, to, branded);
   }

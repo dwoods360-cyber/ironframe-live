@@ -1,19 +1,20 @@
 import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/GovernanceFrameBrandLockup";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
-import { listResearchPapers, listResearchSeries } from "@/app/lib/governanceFrame/researchCatalog";
+import {
+  listPublicResearchPapers,
+  listResearchSeries,
+} from "@/app/lib/governanceFrame/researchCatalog";
 
 export const dynamic = "force-dynamic";
 
 export default async function GovernanceFrameResearchHomePage() {
   const [papers, series, briefings] = await Promise.all([
-    Promise.resolve(listResearchPapers()),
+    Promise.resolve(listPublicResearchPapers()),
     Promise.resolve(listResearchSeries()),
     fetchPublishedBriefings(),
   ]);
 
-  const publicPapers = papers.filter((paper) => paper.isPublic);
-  const forthcomingPapers = papers.filter((paper) => !paper.isPublic);
   const recentBriefings = briefings.slice(-5).reverse();
 
   return (
@@ -78,13 +79,13 @@ export default async function GovernanceFrameResearchHomePage() {
             View all
           </ResearchLink>
         </div>
-        {publicPapers.length === 0 && forthcomingPapers.length === 0 ? (
+        {papers.length === 0 ? (
           <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
-            No research papers registered yet.
+            No published research papers yet. Editorial manuscripts stay private until Approve.
           </p>
         ) : (
           <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {publicPapers.map((paper) => (
+            {papers.map((paper) => (
               <li key={paper.slug}>
                 <ResearchLink
                   href={`/research-papers/${paper.slug}`}
@@ -97,20 +98,6 @@ export default async function GovernanceFrameResearchHomePage() {
                     {paper.title}
                   </p>
                 </ResearchLink>
-              </li>
-            ))}
-            {forthcomingPapers.map((paper) => (
-              <li key={paper.slug} className="py-5">
-                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
-                  {paper.researchId} · Not yet approved
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                  {paper.title}
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                  Status: {paper.status}
-                  {paper.version ? ` · ${paper.version}` : ""} — full text withheld until Approve
-                </p>
               </li>
             ))}
           </ul>

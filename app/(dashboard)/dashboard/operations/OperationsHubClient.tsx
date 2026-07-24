@@ -38,6 +38,56 @@ function operationsTabHref(tab: HubTab): string {
   return tab === "overview" ? "/dashboard/operations" : `/dashboard/operations?tab=${tab}`;
 }
 
+/** Human-readable calendar due date (UTC date portion of ISO). */
+function formatOpsCalendarDate(iso: string): string {
+  const day = iso.slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!match) return day || iso;
+  const d = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(d.getTime())) return day;
+  return d.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function opsCalendarDueTone(args: {
+  isClosed: boolean;
+  daysUntilDue: number;
+}): { badge: string; urgency: string } {
+  if (args.isClosed) {
+    return {
+      badge: "border-slate-600 bg-slate-800/80 text-slate-100",
+      urgency: "text-slate-400",
+    };
+  }
+  if (args.daysUntilDue < 0) {
+    return {
+      badge: "border-rose-500 bg-rose-950/70 text-rose-50 ring-1 ring-rose-500/40",
+      urgency: "font-semibold text-rose-300",
+    };
+  }
+  if (args.daysUntilDue === 0) {
+    return {
+      badge: "border-amber-400 bg-amber-950/70 text-amber-50 ring-1 ring-amber-400/50",
+      urgency: "font-semibold text-amber-200",
+    };
+  }
+  if (args.daysUntilDue <= 3) {
+    return {
+      badge: "border-amber-600 bg-amber-950/50 text-amber-100 ring-1 ring-amber-700/40",
+      urgency: "font-medium text-amber-200/90",
+    };
+  }
+  return {
+    badge: "border-cyan-500/70 bg-cyan-950/50 text-cyan-50 ring-1 ring-cyan-500/30",
+    urgency: "text-cyan-200/90",
+  };
+}
+
 const STAGE_LABELS: Record<string, string> = {
   SUSPECT: "Suspect",
   PROSPECT: "Prospect",
@@ -1146,6 +1196,24 @@ export default function OperationsHubClient() {
                                 : activity.status === "CANCELLED"
                                   ? "Cancelled"
                                   : "Completed";
+                        const dueTone = opsCalendarDueTone({
+                          isClosed,
+                          daysUntilDue: activity.daysUntilDue,
+                        });
+                        const dueLabel = isClosed
+                          ? formatOpsCalendarDate(activity.completedAt || activity.dueAt)
+                          : formatOpsCalendarDate(activity.dueAt);
+                        const urgencyLabel = isClosed
+                          ? activity.completedAt
+                            ? "Closed"
+                            : "Was due"
+                          : activity.daysUntilDue < 0
+                            ? `${Math.abs(activity.daysUntilDue)}d overdue`
+                            : activity.daysUntilDue === 0
+                              ? "Due today"
+                              : activity.daysUntilDue === 1
+                                ? "Due tomorrow"
+                                : `${activity.daysUntilDue}d left`;
                         return (
                         <li
                           key={activity.id}
@@ -1155,6 +1223,23 @@ export default function OperationsHubClient() {
                               : "border-slate-800 bg-slate-950/70"
                           }`}
                         >
+                          <div
+                            className={`mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border px-2.5 py-2 ${dueTone.badge}`}
+                          >
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
+                                {isClosed ? "Closed" : "Due date"}
+                              </div>
+                              <div className="mt-0.5 text-base font-bold leading-tight tracking-tight sm:text-lg">
+                                {dueLabel}
+                              </div>
+                            </div>
+                            <div
+                              className={`shrink-0 rounded-md bg-black/25 px-2 py-1 text-xs font-semibold uppercase tracking-wide ${dueTone.urgency}`}
+                            >
+                              {urgencyLabel}
+                            </div>
+                          </div>
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span
@@ -1274,27 +1359,14 @@ export default function OperationsHubClient() {
                           <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
                             {activity.kind.replace(/_/g, " ")} · {activity.ownerLabel}
                           </div>
-                          <div className="mt-1 text-xs text-slate-400">
-                            {isClosed ? (
-                              <>
-                                Closed
-                                {activity.completedAt
-                                  ? ` ${activity.completedAt.slice(0, 10)}`
-                                  : ""}
-                                {" · "}
-                                was due {activity.dueAt.slice(0, 10)}
-                              </>
-                            ) : (
-                              <>
-                                Due {activity.dueAt.slice(0, 10)} ·{" "}
-                                {activity.daysUntilDue < 0
-                                  ? `${Math.abs(activity.daysUntilDue)}d overdue`
-                                  : activity.daysUntilDue === 0
-                                    ? "due today"
-                                    : `${activity.daysUntilDue}d left`}
-                              </>
-                            )}
-                          </div>
+                          {isClosed ? (
+                            <div className="mt-1.5 text-xs font-medium text-slate-300">
+                              Originally due{" "}
+                              <span className="font-semibold text-slate-100">
+                                {formatOpsCalendarDate(activity.dueAt)}
+                              </span>
+                            </div>
+                          ) : null}
                           {activity.sourceRef ? (
                             <div className="mt-1 truncate font-mono text-[10px] text-slate-500">
                               {activity.sourceRef}

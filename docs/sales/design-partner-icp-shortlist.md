@@ -83,7 +83,7 @@ Use for ICP score practice and Scout keywording — **do not** pitch until Conta
 
 Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / info inboxes only — **replace with a named buyer before DISPATCH** if the reply path looks wrong.
 
-**C3 note:** Operator library renders this doc **read-only**. Log touches by updating this table in git (or your run log) after DISPATCH — do not expect editable blanks on the LIVE page.
+**C3 note:** Research tables above stay git-owned. After DISPATCH, log TOUCH1–3 with the controlled **Log touch** panel on `/dashboard/operations/library/icp-shortlist#icp-touch-log` (or **Log TOUCH1** on Sales Approvals). Live rows land in OpsActivity — this markdown table is historical/reference.
 
 | Date | Company | Trigger | Deal / contact ID | Channel EMAIL/SMS | Next touch |
 |------|---------|---------|-------------------|-------------------|------------|

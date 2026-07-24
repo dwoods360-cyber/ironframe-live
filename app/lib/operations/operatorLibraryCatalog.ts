@@ -92,7 +92,7 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         kind: "markdown",
         slug: "icp-shortlist",
         title: "ICP shortlist",
-        summary: "Attack order and prospect slots — C3 log touches in §D.",
+        summary: "Attack order and prospect slots — C3 Log TOUCH1–3 on the controlled panel.",
         file: "design-partner-icp-shortlist.md",
       },
       {

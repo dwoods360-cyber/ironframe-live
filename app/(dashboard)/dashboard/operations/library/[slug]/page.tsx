@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import DesignPartnerOrderFormClient from "@/app/(dashboard)/dashboard/operations/library/DesignPartnerOrderFormClient";
+import IcpShortlistTouchLogClient from "@/app/(dashboard)/dashboard/operations/library/IcpShortlistTouchLogClient";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { loadOperatorLibraryMarkdown } from "@/app/lib/server/loadOperatorLibraryMarkdown";
 
@@ -83,15 +84,15 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
                 C3 — Log touch (§D)
               </p>
               <p className="text-xs text-slate-300">
-                Jump to{" "}
+                Research tables stay git-owned. After EMAIL/SMS DISPATCH, use{" "}
+                <a href="#icp-touch-log" className="font-medium text-cyan-300 hover:underline">
+                  Log TOUCH1–3
+                </a>{" "}
+                below (or the button on Approvals). Also see{" "}
                 <a href="#section-d" className="font-medium text-cyan-300 hover:underline">
-                  §D Ironleads / Scout queue
+                  §D in the doc
                 </a>
-                . This page is <strong className="text-slate-100">read-only</strong> — after DISPATCH,
-                record the touch in your run log and/or ask Cursor to update the shortlist markdown in
-                git. Canonical library slug is{" "}
-                <code className="text-cyan-300">icp-shortlist</code> (filename-style URLs now alias
-                here).
+                . Canonical slug: <code className="text-cyan-300">icp-shortlist</code>.
               </p>
               <Link
                 href="/dashboard/admin/approvals?kind=SALES"
@@ -104,6 +105,9 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
         </header>
 
         {slug === "order-form" ? <DesignPartnerOrderFormClient /> : null}
+        {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
+          <IcpShortlistTouchLogClient />
+        ) : null}
 
         <article className="operator-library-prose rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-5 text-sm leading-relaxed text-slate-200 sm:px-6">
           <ReactMarkdown

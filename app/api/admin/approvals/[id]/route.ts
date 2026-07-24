@@ -200,6 +200,11 @@ export async function POST(
           to: toPhone,
           provider: sendResult.provider ?? "unknown",
           messageSid: sendResult.messageSid,
+          interactionId,
+          company: contact.company ?? null,
+          contactId: contact.id,
+          dealId: pendingInteraction.dealId ?? null,
+          draftKind,
         });
       }
 
@@ -269,6 +274,11 @@ export async function POST(
         channel: "EMAIL",
         to: toEmail,
         emailId: sendResult.emailId,
+        interactionId,
+        company: contact.company ?? null,
+        contactId: contact.id,
+        dealId: pendingInteraction.dealId ?? null,
+        draftKind,
       });
     }
 

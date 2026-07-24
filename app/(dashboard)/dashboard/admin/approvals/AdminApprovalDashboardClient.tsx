@@ -58,6 +58,15 @@ function AdminApprovalDashboardInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [lastDispatch, setLastDispatch] = useState<{
+    company: string;
+    channel: DispatchChannel;
+    interactionId: string;
+    to: string;
+    draftKind: ApprovalDraftKind;
+  } | null>(null);
+  const [touchBusy, setTouchBusy] = useState(false);
+  const [touchMessage, setTouchMessage] = useState<string | null>(null);
   /** Preserve EMAIL body when toggling to SMS so switching back does not lose edits. */
   const [emailBodyByDraftId, setEmailBodyByDraftId] = useState<Record<string, string>>({});
 
@@ -128,11 +137,40 @@ function AdminApprovalDashboardInner() {
     patchSelectedDraft({ proposedReply: newText });
   };
 
+  const handleLogTouch1 = async () => {
+    if (!lastDispatch || touchBusy) return;
+    setTouchBusy(true);
+    setTouchMessage(null);
+    try {
+      const response = await fetch("/api/admin/operations-hub/icp-shortlist/touch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          touch: "TOUCH1",
+          channel: lastDispatch.channel,
+          company: lastDispatch.company,
+          interactionId: lastDispatch.interactionId,
+          to: lastDispatch.to || undefined,
+          nextTouchNote: "Wait reply / Touch 2 day 4–5",
+          occurredAt: new Date().toISOString(),
+        }),
+      });
+      const data = (await response.json()) as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Failed to log TOUCH1.");
+      setTouchMessage(data.message || "TOUCH1 logged.");
+    } catch (err) {
+      setTouchMessage(err instanceof Error ? err.message : "Failed to log TOUCH1.");
+    } finally {
+      setTouchBusy(false);
+    }
+  };
+
   const handleAction = async (actionType: "DISPATCH" | "PURGE") => {
     if (!selectedDraft || isDispatching) return;
     setIsDispatching(true);
     setActionError(null);
     setActionSuccess(null);
+    setTouchMessage(null);
 
     try {
       const response = await fetch(`/api/admin/approvals/${selectedDraft.id}`, {
@@ -153,6 +191,9 @@ function AdminApprovalDashboardInner() {
         status?: string;
         channel?: string;
         to?: string;
+        interactionId?: string;
+        company?: string | null;
+        draftKind?: ApprovalDraftKind;
       };
       if (!response.ok) {
         throw new Error(
@@ -170,8 +211,31 @@ function AdminApprovalDashboardInner() {
             data.to ? ` → ${data.to}` : ""
           }`,
         );
+        const company =
+          (typeof data.company === "string" && data.company.trim()) ||
+          selectedDraft.company?.trim() ||
+          "";
+        const interactionId =
+          typeof data.interactionId === "string" ? data.interactionId.trim() : "";
+        const channel =
+          data.channel === "SMS" || data.channel === "EMAIL"
+            ? data.channel
+            : selectedDraft.dispatchChannel;
+        if (company && interactionId && (channel === "EMAIL" || channel === "SMS")) {
+          setLastDispatch({
+            company,
+            channel,
+            interactionId,
+            to: typeof data.to === "string" ? data.to : "",
+            draftKind: data.draftKind ?? selectedDraft.draftKind,
+          });
+          setTouchMessage(null);
+        } else {
+          setLastDispatch(null);
+        }
       } else {
         setActionSuccess("SUCCESS_PURGED");
+        setLastDispatch(null);
       }
 
       setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
@@ -215,11 +279,11 @@ function AdminApprovalDashboardInner() {
               Workflow review talk track
             </Link>
             <Link
-              href="/dashboard/operations/library/icp-shortlist#section-d"
+              href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
               className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-2 text-sm text-amber-100 hover:border-amber-600"
-              title="C3 — log DISPATCH touch on ICP shortlist §D"
+              title="C3 — log DISPATCH touch (controlled TOUCH1–3)"
             >
-              C3 · Log touch (§D)
+              C3 · Log touch
             </Link>
             <Link
               href="/dashboard/operations"
@@ -562,6 +626,37 @@ function AdminApprovalDashboardInner() {
                   {actionSuccess ? (
                     <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/30 px-3 py-2 font-sans text-xs text-emerald-300">
                       {actionSuccess}
+                    </div>
+                  ) : null}
+
+                  {lastDispatch && lastDispatch.draftKind === "SALES" ? (
+                    <div className="space-y-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-3">
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                        C3 · Log TOUCH1 on ICP shortlist
+                      </p>
+                      <p className="font-sans text-xs text-slate-300">
+                        {lastDispatch.company} · {lastDispatch.channel}
+                        {lastDispatch.to ? ` → ${lastDispatch.to}` : ""}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={touchBusy}
+                          onClick={() => void handleLogTouch1()}
+                          className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-40"
+                        >
+                          {touchBusy ? "Logging…" : "Log TOUCH1"}
+                        </button>
+                        <a
+                          href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+                          className="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
+                        >
+                          Open touch log
+                        </a>
+                      </div>
+                      {touchMessage ? (
+                        <p className="font-sans text-xs text-emerald-200">{touchMessage}</p>
+                      ) : null}
                     </div>
                   ) : null}
 

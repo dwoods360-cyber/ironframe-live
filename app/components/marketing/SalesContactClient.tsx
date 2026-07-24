@@ -47,7 +47,7 @@ export default function SalesContactClient() {
       setSubmitted(true);
       form.reset();
     } catch {
-      setError("Network error — ensure the dev server is running on localhost.");
+      setError("Something went wrong submitting the form. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -61,23 +61,20 @@ export default function SalesContactClient() {
       <h1 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">
         Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
-      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
-        No workspace is created from this form. {CUSTOMER_FACING_PATH_B_SKU} is a{" "}
-        {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement after
-        agreement (convert-or-exit; not a free PoC or free trial).
-      </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
-        This form records a{" "}
-        <strong className="font-medium text-[var(--text-main)]">design-partner inquiry</strong> only
-        — work email, organization, and optional estimated annual loss exposure. Use it to schedule a{" "}
-        {WORKFLOW_REVIEW_CTA_MINUTES} minute review of one spreadsheet-based risk-and-evidence
-        workflow. Live workspaces are provisioned later via sales-assisted invite — never from this
-        page.
+        Tell us where spreadsheet or heatmap GRC is slowing you down. We&apos;ll use{" "}
+        {WORKFLOW_REVIEW_CTA_MINUTES} minutes to walk one risk-and-evidence workflow and decide
+        whether a paid design engagement is the right next step.
       </p>
-      <p className="mt-2 text-sm text-[var(--login-muted)]">
+      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
+        Submitting this form does not create a workspace or start a trial.{" "}
+        {CUSTOMER_FACING_PATH_B_SKU} is a paid {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
+        -day design engagement after agreement — convert in-window or exit; not a free PoC.
+      </p>
+      <p className="mt-3 text-sm text-[var(--login-muted)]">
         Prefer to see the product first?{" "}
         <Link href="/product-demo" className="text-cyan-300 underline hover:opacity-90">
-          Open the guided demonstration
+          Open the guided product tour
         </Link>
         .
       </p>
@@ -87,8 +84,8 @@ export default function SalesContactClient() {
           className="mt-8 rounded-lg border border-emerald-500/40 bg-emerald-950/20 p-5 text-sm text-emerald-100"
           role="status"
         >
-          Thank you — your inquiry is recorded in the executive lead ledger. We will follow up to
-          schedule the workflow review. No workspace was created.
+          Thanks — we received your request. We&apos;ll follow up to schedule the workflow review. No
+          workspace was created.
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -107,12 +104,12 @@ export default function SalesContactClient() {
             <input name="company" required className={fieldClass} autoComplete="organization" />
           </label>
           <label className="block text-[11px] text-[var(--login-muted)]">
-            Estimated annual loss exposure (USD, optional)
+            Rough annual loss exposure you care about (USD, optional)
             <input
               name="reportedAle"
               inputMode="decimal"
               className={fieldClass}
-              placeholder="e.g. 11,100,000"
+              placeholder="e.g. 5,900,000"
             />
           </label>
           {error ? (
@@ -137,7 +134,7 @@ export default function SalesContactClient() {
         {" · "}
         Already invited?{" "}
         <Link href="/login" className="text-[var(--login-accent)] hover:underline">
-          Sign in to your workspace
+          Sign in
         </Link>
       </p>
     </main>

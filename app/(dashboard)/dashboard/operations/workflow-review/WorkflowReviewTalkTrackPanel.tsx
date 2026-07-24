@@ -6,11 +6,15 @@ import { useState } from "react";
 import {
   CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
+
+/** Scheduled workflow-review call length (minutes). Agenda blocks must sum to this. */
+const LIVE_CALL_MINUTES = 15 as const;
 
 /**
  * GTM Host LIVE script: Command Design Partner.
@@ -31,12 +35,13 @@ export default function WorkflowReviewTalkTrackPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-            GTM host · LIVE call script
+            GTM host · LIVE call script · {LIVE_CALL_MINUTES} min
           </p>
           <h2 className="mt-1 text-lg font-semibold text-white">{sku}</h2>
           <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-400">
-            You host this {days === 90 ? "15-minute" : "short"} workflow review. Read the quoted
-            lines to the prospect. Keep the notices below for yourself — not for the call.
+            Scheduled call is <strong className="text-slate-200">{LIVE_CALL_MINUTES} minutes</strong>{" "}
+            (outreach CTA window {WORKFLOW_REVIEW_CTA_MINUTES} min). You host. Read the quoted lines
+            to the prospect. Keep the notices below for yourself — not for the call.
           </p>
         </div>
         <button
@@ -90,13 +95,16 @@ export default function WorkflowReviewTalkTrackPanel() {
 
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              15-minute agenda & spoken copy
+              {LIVE_CALL_MINUTES}-minute agenda & spoken copy
             </h3>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Blocks: 3 + 5 + 4 + 3 = {LIVE_CALL_MINUTES} minutes. Stay on the clock.
+            </p>
 
             <div className="mt-3 space-y-3">
               <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  00:00–03:00 · Ingress — identify the friction
+                  00:00–03:00 · Ingress (3 min) — identify the friction
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Goal: skip the generic pitch. Find where multi-client or board-level reporting is
@@ -115,7 +123,7 @@ export default function WorkflowReviewTalkTrackPanel() {
 
               <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  03:00–08:00 · Structure — control-first architecture
+                  03:00–08:00 · Structure (5 min) — control-first architecture
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Goal: contrast deterministic money math and isolated environments against
@@ -136,7 +144,7 @@ export default function WorkflowReviewTalkTrackPanel() {
 
               <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  08:00–12:00 · The offer — {sku}
+                  08:00–12:00 · The offer (4 min) — {sku}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Goal: anchor the {price} non-refundable price, {days}-day window, and credit toward
@@ -158,7 +166,7 @@ export default function WorkflowReviewTalkTrackPanel() {
 
               <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  12:00–15:00 · The gate — order form & next step
+                  12:00–15:00 · The gate (3 min) — order form & next step
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Goal: lock in their criteria and set up the admin handoff.

@@ -24,6 +24,7 @@ import {
   type DesignPartnerOrderFormLockState,
 } from "@/app/lib/operations/designPartnerOrderForm";
 import { loadWorkflowReviewRecap } from "@/app/lib/operations/workflowReviewRecapBridge";
+import { copyTextToClipboard } from "@/app/utils/safeClipboard";
 
 type PersistedBundle = {
   draft: DesignPartnerOrderFormDraft;
@@ -60,6 +61,7 @@ export default function DesignPartnerOrderFormClient() {
   const [unlockReason, setUnlockReason] = useState("");
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
     const persisted = loadPersisted();
@@ -160,12 +162,22 @@ export default function DesignPartnerOrderFormClient() {
   };
 
   const copyMarkdown = async () => {
-    try {
-      await navigator.clipboard.writeText(markdown);
-      setBanner("Copied order form markdown.");
-    } catch {
-      setError("Clipboard blocked — select the markdown preview and copy manually.");
+    setError(null);
+    setCopyStatus("idle");
+    if (!markdown.trim()) {
+      setError("Nothing to copy — fill the form first.");
+      setCopyStatus("failed");
+      return;
     }
+    const ok = await copyTextToClipboard(markdown);
+    if (ok) {
+      setCopyStatus("copied");
+      setBanner("Copied order form markdown.");
+      window.setTimeout(() => setCopyStatus("idle"), 2500);
+      return;
+    }
+    setCopyStatus("failed");
+    setError("Clipboard blocked — select the markdown below and copy manually (⌘/Ctrl+C).");
   };
 
   const fieldClass =
@@ -427,18 +439,38 @@ export default function DesignPartnerOrderFormClient() {
       )}
 
       <div className="space-y-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => void copyMarkdown()}
             className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600"
           >
-            Copy markdown
+            {copyStatus === "copied" ? "Copied ✓" : "Copy markdown"}
           </button>
+          {copyStatus === "copied" ? (
+            <span className="text-xs text-emerald-300">Markdown is on your clipboard.</span>
+          ) : null}
+          {copyStatus === "failed" ? (
+            <span className="text-xs text-rose-300">Copy failed — use the preview below.</span>
+          ) : null}
         </div>
-        <pre className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap">
+        <pre
+          tabIndex={0}
+          className="max-h-64 overflow-auto rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre-wrap focus:outline focus:outline-2 focus:outline-cyan-600"
+          onFocus={(e) => {
+            const selection = window.getSelection();
+            if (!selection) return;
+            const range = document.createRange();
+            range.selectNodeContents(e.currentTarget);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }}
+        >
           {markdown}
         </pre>
+        <p className="text-[10px] text-slate-500">
+          Tip: click inside the preview to select all, then ⌘/Ctrl+C if the button is blocked.
+        </p>
       </div>
     </section>
   );

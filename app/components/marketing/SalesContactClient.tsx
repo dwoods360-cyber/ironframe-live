@@ -9,6 +9,7 @@ import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
+  formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 export default function SalesContactClient() {
@@ -62,21 +63,22 @@ export default function SalesContactClient() {
         Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
-        Tell us where spreadsheet or heatmap GRC is slowing you down. We&apos;ll use{" "}
-        {WORKFLOW_REVIEW_CTA_MINUTES} minutes to walk one risk-and-evidence workflow and decide
-        whether a paid design engagement is the right next step.
+        <span className="font-medium text-[var(--text-main)]">What to expect:</span> a direct{" "}
+        {WORKFLOW_REVIEW_CTA_MINUTES} minute conversation on your current evidence collection and
+        board-reporting friction — zero pitch decks.
       </p>
-      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm text-amber-100">
-        Submitting this form does not create a workspace or start a trial.{" "}
-        {CUSTOMER_FACING_PATH_B_SKU} is a paid {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
-        -day design engagement after agreement — convert in-window or exit; not a free PoC.
+      <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm leading-relaxed text-amber-100">
+        <span className="font-medium">Design partner note:</span> Submitting this form does not
+        create a workspace. {CUSTOMER_FACING_PATH_B_SKU} is a fixed {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}
+        -day cohort at {formatPathBUsd()} flat — credited to year-1 Command (planned GA ~
+        {formatPlannedGaCommandUsd()}/yr) if you convert in-window. We do not offer free trials or
+        unmanaged PoCs. Workspaces are provisioned after mutual alignment on success criteria.
       </p>
       <p className="mt-3 text-sm text-[var(--login-muted)]">
-        Prefer to see the product first?{" "}
+        Prefer to explore the platform first?{" "}
         <Link href="/product-demo" className="text-cyan-300 underline hover:opacity-90">
-          Open the guided product tour
+          Open guided demonstration →
         </Link>
-        .
       </p>
 
       {submitted ? (
@@ -97,19 +99,26 @@ export default function SalesContactClient() {
               required
               className={fieldClass}
               autoComplete="email"
+              placeholder="name@company.com"
             />
           </label>
           <label className="block text-[11px] text-[var(--login-muted)]">
             Organization
-            <input name="company" required className={fieldClass} autoComplete="organization" />
+            <input
+              name="company"
+              required
+              className={fieldClass}
+              autoComplete="organization"
+              placeholder="Legal company name"
+            />
           </label>
           <label className="block text-[11px] text-[var(--login-muted)]">
-            Rough annual loss exposure you care about (USD, optional)
+            Estimated annual loss exposure (USD, optional)
             <input
               name="reportedAle"
               inputMode="decimal"
               className={fieldClass}
-              placeholder="e.g. 5,900,000"
+              placeholder="$ e.g. 5,900,000"
             />
           </label>
           {error ? (
@@ -132,7 +141,7 @@ export default function SalesContactClient() {
           View {CUSTOMER_FACING_PATH_B_SKU} packaging
         </Link>
         {" · "}
-        Already invited?{" "}
+        Already have a workspace invite?{" "}
         <Link href="/login" className="text-[var(--login-accent)] hover:underline">
           Sign in
         </Link>

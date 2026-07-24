@@ -244,6 +244,8 @@ export default function OperationsHubClient() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
   const [calendarSearch, setCalendarSearch] = useState("");
+  /** Per-card close-out notes — required before Done / Cancel (replaces window.prompt). */
+  const [outcomeDrafts, setOutcomeDrafts] = useState<Record<string, string>>({});
   const [decisionBusyFile, setDecisionBusyFile] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
@@ -653,15 +655,13 @@ export default function OperationsHubClient() {
   const setScheduleStatus = async (id: string, status: string) => {
     let outcome: string | undefined;
     if (status === "DONE" || status === "CANCELLED") {
-      const entered = window.prompt(
-        status === "DONE"
-          ? "What was done? (required — saved for later review)"
-          : "Why cancelled? (required — saved for later review)",
-      );
-      if (entered === null) return;
-      outcome = entered.trim();
+      outcome = (outcomeDrafts[id] ?? "").trim();
       if (!outcome) {
-        setScheduleMessage("Outcome is required when marking Done or Cancelled.");
+        setScheduleMessage(
+          status === "DONE"
+            ? "Add close-out notes on the card before marking Done."
+            : "Add a short reason on the card before cancelling.",
+        );
         return;
       }
     }
@@ -676,6 +676,12 @@ export default function OperationsHubClient() {
       });
       const data = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok) throw new Error(data.error || "Status update failed.");
+      setOutcomeDrafts((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       await loadSnapshot();
     } catch (err) {
       setScheduleMessage(err instanceof Error ? err.message : "Status update failed.");
@@ -1373,7 +1379,30 @@ export default function OperationsHubClient() {
                             </div>
                           ) : null}
                           {!isClosed ? (
-                            <div className="mt-2 flex flex-wrap gap-1">
+                            <div className="mt-2 space-y-2">
+                              <div>
+                                <label
+                                  htmlFor={`ops-outcome-${activity.id}`}
+                                  className="text-[10px] font-medium uppercase tracking-widest text-slate-500"
+                                >
+                                  Close-out notes
+                                </label>
+                                <textarea
+                                  id={`ops-outcome-${activity.id}`}
+                                  value={outcomeDrafts[activity.id] ?? ""}
+                                  onChange={(e) =>
+                                    setOutcomeDrafts((prev) => ({
+                                      ...prev,
+                                      [activity.id]: e.target.value,
+                                    }))
+                                  }
+                                  rows={2}
+                                  disabled={scheduleBusy}
+                                  placeholder="What was completed (required before Done)…"
+                                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-600 focus:outline-none"
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-1">
                               {activity.status !== "IN_PROGRESS" ? (
                                 <button
                                   type="button"
@@ -1389,19 +1418,42 @@ export default function OperationsHubClient() {
                                   type="button"
                                   disabled={scheduleBusy}
                                   onClick={() => void setScheduleStatus(activity.id, "IN_REVIEW")}
-                                  className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-cyan-600"
+                                  className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300 hover:border-amber-600"
                                 >
                                   Review
                                 </button>
                               ) : null}
                               <button
                                 type="button"
-                                disabled={scheduleBusy}
+                                disabled={
+                                  scheduleBusy || !(outcomeDrafts[activity.id] ?? "").trim()
+                                }
+                                title={
+                                  !(outcomeDrafts[activity.id] ?? "").trim()
+                                    ? "Add close-out notes first"
+                                    : "Mark done and save notes"
+                                }
                                 onClick={() => void setScheduleStatus(activity.id, "DONE")}
-                                className="rounded border border-emerald-800 px-2 py-0.5 text-[10px] text-emerald-300 hover:border-emerald-500"
+                                className="rounded border border-emerald-800 px-2 py-0.5 text-[10px] text-emerald-300 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                               >
                                 Done
                               </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  scheduleBusy || !(outcomeDrafts[activity.id] ?? "").trim()
+                                }
+                                title={
+                                  !(outcomeDrafts[activity.id] ?? "").trim()
+                                    ? "Add a cancel reason in close-out notes first"
+                                    : "Cancel and save reason"
+                                }
+                                onClick={() => void setScheduleStatus(activity.id, "CANCELLED")}
+                                className="rounded border border-rose-900/70 px-2 py-0.5 text-[10px] text-rose-300/90 hover:border-rose-600 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Cancel
+                              </button>
+                              </div>
                             </div>
                           ) : null}
                         </li>

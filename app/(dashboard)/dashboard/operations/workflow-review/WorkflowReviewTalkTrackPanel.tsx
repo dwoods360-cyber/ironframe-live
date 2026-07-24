@@ -13,11 +13,11 @@ import {
 import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
 
 /**
- * New-operator talk track: speakable phrases first, internal jargon behind a glossary.
+ * GTM Host LIVE script: Command Design Partner.
+ * Spoken copy first; SoD + banned words + internal context kept operator-facing only.
  */
 export default function WorkflowReviewTalkTrackPanel() {
   const [open, setOpen] = useState(true);
-  const [glossaryOpen, setGlossaryOpen] = useState(false);
   const sku = CUSTOMER_FACING_PATH_B_SKU;
   const price = formatPathBUsd();
   const days = DESIGN_PARTNER_DEFAULT_WINDOW_DAYS;
@@ -31,12 +31,12 @@ export default function WorkflowReviewTalkTrackPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-            Call script · {days} minutes
+            GTM host · LIVE call script
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-white">What to say on the call</h2>
+          <h2 className="mt-1 text-lg font-semibold text-white">{sku}</h2>
           <p className="mt-1 max-w-xl text-xs leading-relaxed text-slate-400">
-            You host. This panel is your cue card — read the quoted lines to the prospect. Keep
-            technical product words light unless they ask.
+            You host this {days === 90 ? "15-minute" : "short"} workflow review. Read the quoted
+            lines to the prospect. Keep the notices below for yourself — not for the call.
           </p>
         </div>
         <button
@@ -50,201 +50,229 @@ export default function WorkflowReviewTalkTrackPanel() {
 
       {!open ? null : (
         <div className="mt-4 space-y-4 text-sm text-slate-300">
-          <div className="rounded-lg border border-cyan-900/40 bg-slate-950/70 p-3 text-xs leading-relaxed">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">
-              Naming (memorize this)
+          <div className="rounded-lg border border-amber-800/50 bg-amber-950/30 p-3 text-xs leading-relaxed">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-300">
+              Operator procedural notice (SoD)
             </p>
-            <p className="mt-1.5 text-slate-200">
-              <strong className="text-white">Say out loud:</strong> {sku}.
+            <p className="mt-2 text-slate-200">
+              <strong className="text-white">Your role (GTM host):</strong> run this workflow
+              review, capture 2–3 written success criteria, and complete the order form.
             </p>
-            <p className="mt-1 text-slate-400">
-              <strong className="text-slate-300">Do not say on the call:</strong> “Path B” — that is
-              only an internal billing/setup code.
+            <p className="mt-1.5 text-slate-300">
+              <strong className="text-white">Admin duty (separate):</strong> tenant provisioning and
+              billing activation happen after handoff by a platform admin. Do not try to provision
+              during the call.
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs leading-relaxed text-slate-300">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Money lock (do not improvise)
+          <div className="rounded-lg border border-rose-900/50 bg-rose-950/25 p-3 text-xs leading-relaxed">
+            <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-rose-300">
+              Banned on live calls
             </p>
-            <ul className="mt-2 list-disc space-y-1.5 pl-4">
+            <ul className="mt-2 list-disc space-y-1.5 pl-4 text-rose-50/90">
               <li>
-                {sku} is <strong className="text-white">{price}</strong> for{" "}
-                <strong className="text-white">{days} days</strong>, with{" "}
-                <strong className="text-white">2–3 written success goals</strong> they own.
+                Never cite demo baselines as real customers: Medshield, Vaultbank, Gridcore
+                (synthetic demo seeds only).
               </li>
               <li>
-                <strong className="text-white">Not refundable</strong> if they leave early.
+                Never use internal system code out loud: Path B, Command Tier, Ironguard, Irongate,
+                RLS, BigInt.
               </li>
               <li>
-                If they buy full Ironframe Command later{" "}
-                <em>inside that window</em>, the {price} is{" "}
-                <strong className="text-white">credited</strong> toward year-1 Command (list about{" "}
-                {commandList}) — not a negotiated discount %.
+                Never offer discounts, free PoCs, or trials. The {price} fee is non-refundable and
+                fixed.
               </li>
             </ul>
+            <p className="mt-2 text-slate-300">
+              <strong className="text-white">Say out loud:</strong> {sku} only.
+            </p>
           </div>
 
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              Minute-by-minute
+              15-minute agenda & spoken copy
             </h3>
-            <ol className="mt-2 space-y-3">
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+
+            <div className="mt-3 space-y-3">
+              <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  0–3 · Open
+                  00:00–03:00 · Ingress — identify the friction
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-white">
-                  “Let’s skip the product pitch. Where does evidence collection, board reporting, or
-                  keeping entities cleanly separated get painful today?”
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Goal: skip the generic pitch. Find where multi-client or board-level reporting is
+                  breaking down.
                 </p>
-                <p className="mt-1.5 text-[11px] text-slate-500">
-                  Goal: hear their pain in their words — not ours.
+                <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300/80">
+                  What to say
                 </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="mt-1 text-xs leading-relaxed text-white">
+                  “Thanks for making time. We can skip the standard pitch deck today — I want to
+                  focus purely on your workflow. As you manage multi-client governance and report up
+                  to leadership or boards, where does evidence collection, multi-entity data bleed,
+                  or spreadsheet friction hurt your team the most right now?”
+                </p>
+              </article>
+
+              <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  3–8 · How we think about it
+                  03:00–08:00 · Structure — control-first architecture
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-white">
-                  “We separate customer environments hard, check risky writes before they land, and
-                  keep dollar risk in exact cents — not a color heatmap.”
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Goal: contrast deterministic money math and isolated environments against
+                  qualitative “heatmap theater.”
                 </p>
-                <p className="mt-1.5 text-[11px] text-slate-500">
-                  Stay plain. Only go deeper on security terms if they ask.
+                <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300/80">
+                  What to say
                 </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="mt-1 text-xs leading-relaxed text-white">
+                  “The reason we built Ironframe is that traditional GRC platforms rely on 5×5
+                  heatmaps and color charts that boards can’t actually make decisions on. We take a
+                  control-first approach: every client lives in its own strictly isolated
+                  environment, every piece of evidence passes through a zero-trust gateway before
+                  it’s saved, and financial risk is calculated in real dollars and cents — not
+                  arbitrary high/medium/low scores.”
+                </p>
+              </article>
+
+              <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  8–12 · Offer ({sku})
+                  08:00–12:00 · The offer — {sku}
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-white">
-                  “If the fit is real, the clean next step is {sku}: {price} for {days} days, you
-                  write 2–3 success goals, non-refundable. If you convert to Command in that window,
-                  the {price} credits year one — not a haggled percentage.”
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Goal: anchor the {price} non-refundable price, {days}-day window, and credit toward
+                  annual Command.
                 </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3">
+                <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300/80">
+                  What to say
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white">
+                  “Rather than asking you to sign an annual enterprise contract up front, we bring
+                  on a small cohort through our {sku} program. It’s a fixed {days}-day co-builder
+                  engagement for {price}. You write 2–3 concrete success criteria with us. We
+                  deliver on those criteria over {days} days. If you choose to convert to an annual
+                  license at the end, that full {price} is applied as a direct credit toward your
+                  Year 1 subscription (list ~{commandList}/yr). If you don’t convert, the program
+                  simply concludes — no automatic renewals or surprise bills.”
+                </p>
+              </article>
+
+              <article className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300/90">
-                  12–15 · Close the meeting
+                  12:00–15:00 · The gate — order form & next step
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-white">
-                  “If you’re in, we fill a short order form with your success goals, you use an
-                  email you control for the operator seat, and we send your activation link —
-                  not a slide deck.”
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Goal: lock in their criteria and set up the admin handoff.
                 </p>
-              </li>
-            </ol>
+                <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300/80">
+                  What to say
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-white">
+                  “If this matches what you need, the next step isn’t a product demo — it’s
+                  capturing your 2–3 success criteria on a short order form. Once you approve those
+                  criteria, we hand off to our administrative team to issue your dedicated tenant
+                  activation link. Does it make sense to outline those 2–3 criteria today?”
+                </p>
+              </article>
+            </div>
           </div>
 
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-              If they ask…
+              Pocket Q&A · objection handling
             </h3>
-            <ul className="mt-2 space-y-2.5">
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“Are you SOC 2 certified?”</p>
-                <p className="mt-1 text-slate-200">
-                  “We’re built SOC 2–aligned; we’re not claiming a finished Type II logo today.
-                  Diligence is how we migrate, isolate tenants, and gate writes — plus the success
-                  goals you write.”
-                </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“Can we do a free trial / PoC?”</p>
-                <p className="mt-1 text-slate-200">
-                  “No free pilot. {sku} is {price} / {days} days, non-refundable. You write the
-                  success goals; we prove them or we part ways cleanly.”
-                </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“Can we get a discount?”</p>
-                <p className="mt-1 text-slate-200">
-                  “We don’t negotiate a percentage off. If you convert to Command inside the window,
-                  the {price} you already paid credits year-1 Command (about {commandList} list). If
-                  you exit, the fee stays paid.”
-                </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“How do you show risk dollars?”</p>
-                <p className="mt-1 text-slate-200">
-                  “Exact cents — money math you can audit — not a 5×5 color heatmap for the board.”
-                </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“We already use Vanta / Drata.”</p>
-                <p className="mt-1 text-slate-200">
-                  “Keep them if they cover checklist compliance. We’re a different job: quantify
-                  loss and keep entities isolated.”
-                </p>
-              </li>
-              <li className="rounded-lg border border-slate-800/80 bg-slate-950/40 p-3 text-xs leading-relaxed">
-                <p className="font-semibold text-white">“Can you demo the product now?”</p>
-                <p className="mt-1 text-slate-200">
-                  “This call is workflow diligence. A product walk comes after {sku} interest and
-                  written success goals — not instead of them.”
-                </p>
-              </li>
-            </ul>
+            <div className="mt-3 overflow-x-auto rounded-lg border border-slate-800">
+              <table className="min-w-full border-collapse text-left text-[11px] leading-relaxed">
+                <thead className="bg-slate-950/80 text-[10px] uppercase tracking-widest text-slate-500">
+                  <tr>
+                    <th className="border-b border-slate-800 px-3 py-2 font-medium">
+                      Prospect question
+                    </th>
+                    <th className="border-b border-slate-800 px-3 py-2 font-medium">
+                      Spoken answer
+                    </th>
+                    <th className="border-b border-slate-800 px-3 py-2 font-medium">
+                      Internal (do not spook)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="align-top text-slate-300">
+                  <tr className="border-b border-slate-800/80">
+                    <td className="px-3 py-2.5 font-medium text-white">
+                      Are you SOC 2 certified?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “Our architecture is built directly to SOC 2 and ISO standards, though we
+                      don’t hold a completed Type II audit badge yet. We’re happy to walk you
+                      through our tenant isolation and gateway architecture during diligence.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Architecture aligned; do not claim a finished Type II logo.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-800/80">
+                    <td className="px-3 py-2.5 font-medium text-white">
+                      Can we do a free trial or PoC?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “We don’t offer free trials because every partner gets direct engineering
+                      attention. The {days}-day {price} program is designed so you test us against
+                      2–3 explicit criteria before committing to an annual license.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Paid co-builder only ({price} fixed).
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-800/80">
+                    <td className="px-3 py-2.5 font-medium text-white">
+                      Can we negotiate the price or conversion discount?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “The pricing is fixed across all design partners. The {price} fee applies 100%
+                      as a credit toward your Year 1 annual subscription if you convert in-window.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Non-negotiable %. No custom discounting.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-800/80">
+                    <td className="px-3 py-2.5 font-medium text-white">
+                      How is this different from Vanta or Drata?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “Vanta and Drata are great for automated SOC 2 compliance checklists.
+                      Ironframe solves a different problem: multi-client tenant isolation and
+                      quantifying financial loss exposure for board reporting.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Complementary buying job; don’t attack checklist tools.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-3 py-2.5 font-medium text-white">
+                      Can I see a full product demo first?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “This call is specifically for workflow diligence and setting success
+                      criteria. Once we agree on your 2–3 metrics, we review the exact environment
+                      workflow built for those criteria.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Gate full product walk behind mutual criteria lock.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <WorkflowReviewPostYesStrip />
 
-          <p className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs leading-relaxed text-red-200">
-            <strong className="text-red-100">Never say on a call:</strong> that Medshield, Vaultbank,
-            or Gridcore are real customers, or call demo data “hardened baselines.” Those are
-            internal demo seeds only.
+          <p className="text-[10px] text-slate-500">
+            More doctrine:{" "}
+            <Link href="/dashboard/operations/library" className="text-cyan-300 hover:underline">
+              Operator library
+            </Link>
           </p>
-
-          <div className="rounded-lg border border-slate-800 bg-slate-950/40">
-            <button
-              type="button"
-              onClick={() => setGlossaryOpen((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
-            >
-              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
-                Optional · internal terms (not for the prospect)
-              </span>
-              <span className="text-[10px] text-slate-500">
-                {glossaryOpen ? "Hide" : "Show"}
-              </span>
-            </button>
-            {glossaryOpen ? (
-              <dl className="space-y-2 border-t border-slate-800 px-3 py-3 text-[11px] leading-relaxed text-slate-400">
-                <div>
-                  <dt className="font-semibold text-slate-300">Path B</dt>
-                  <dd>Internal code for {sku} (billing / setup). Do not say this name to them.</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-slate-300">Your job vs admin setup</dt>
-                  <dd>
-                    You run the call and help with the order form. Turning on their tenant after a
-                    yes is an admin step (platform admin roles) — hand it off; don’t invent a
-                    “sales_admin” role.
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-slate-300">RLS / Ironguard / Irongate / ALE</dt>
-                  <dd>
-                    Internal product shorthand for tenant walls, write checks, and loss math. Prefer
-                    the plain phrases in the script unless they want depth.
-                  </dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-slate-300">More detail</dt>
-                  <dd>
-                    <Link
-                      href="/dashboard/operations/library"
-                      className="text-cyan-300 hover:underline"
-                    >
-                      Operator library
-                    </Link>{" "}
-                    · workflow review protocol
-                  </dd>
-                </div>
-              </dl>
-            ) : null}
-          </div>
         </div>
       )}
     </section>

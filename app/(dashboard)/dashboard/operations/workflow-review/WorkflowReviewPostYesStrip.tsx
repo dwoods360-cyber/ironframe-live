@@ -13,7 +13,7 @@ type WorkflowReviewPostYesStripProps = {
 };
 
 /**
- * Post-yes close strip — plain steps for new operators.
+ * Post-call protocol after a YES — plain steps + admin handoff.
  */
 export default function WorkflowReviewPostYesStrip({
   emphasis = "default",
@@ -26,21 +26,26 @@ export default function WorkflowReviewPostYesStrip({
   return (
     <div id="after-yes" className={shell}>
       <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
-        After they say yes
+        Post-call protocol · after a YES
       </p>
-      <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-slate-300">
+      <ol className="mt-2 list-decimal space-y-2 pl-4 text-xs leading-relaxed text-slate-300">
         <li>
-          Open the order form. Suggest from the call if helpful — they still own the 2–3 success
-          goals.
+          <strong className="text-slate-100">Capture criteria</strong> — fill the order form with
+          the exact 2–3 success criteria from the call.
         </li>
         <li>
-          When ready, they type the lock word{" "}
-          <code className="text-cyan-300">AGREED</code> to freeze the form.
+          <strong className="text-slate-100">Lock criteria</strong> — type{" "}
+          <code className="text-cyan-300">AGREED</code> in the status field to freeze the document.
         </li>
         <li>
-          Hand off tenant setup to a platform admin (not you inventing access). They get a{" "}
-          {CUSTOMER_FACING_PATH_B_SKU} activation link for <em>their</em> tenant — never send generic{" "}
-          <code className="text-cyan-300">/pricing</code>.
+          <strong className="text-slate-100">Admin handoff</strong> — notify platform admin to
+          generate the tenant-scoped activation link (internal billing code: Path B). Do not
+          provision yourself on the call.
+        </li>
+        <li>
+          <strong className="text-slate-100">Send client link</strong> — send the client-owned
+          operator their unique {CUSTOMER_FACING_PATH_B_SKU} activation URL. Never send prospects to
+          generic <code className="text-cyan-300">/pricing</code>.
         </li>
       </ol>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -53,7 +58,7 @@ export default function WorkflowReviewPostYesStrip({
         <Link
           href={WORKFLOW_REVIEW_PROVISION_HREF}
           className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
-          title="Admin-only: provision their tenant after the order form is locked"
+          title="Admin-only after AGREED lock — tenant activation handoff"
         >
           Hand off to admin setup
         </Link>

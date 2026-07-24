@@ -5,6 +5,10 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { GoogleGenAI } from "@google/genai";
 
 import { resolveGeminiFlashModel } from "@/app/config/geminiModels";
+import {
+  buildWorkflowReviewSttPrompt,
+  normalizeLiveTranscriptChunk,
+} from "@/app/lib/operations/liveTranscriptHygiene";
 import type { OpsChatTarget } from "@/app/lib/operations/opsWorkerIds";
 import {
   buildIronleadsMandate,
@@ -139,6 +143,8 @@ Reply as ${TARGET_LABEL[input.worker]} only.
 export async function transcribeOpsWorkerAudio(input: {
   audioBase64: string;
   mimeType?: string;
+  /** LIVE workflow desk uses domain-aware STT + mishear cleanup. */
+  context?: "workflow-review" | "ops-worker" | string;
 }): Promise<{ transcript: string; model: string }> {
   const apiKey = resolveApiKey();
   if (!apiKey) {
@@ -159,6 +165,16 @@ export async function transcribeOpsWorkerAudio(input: {
     throw new Error("AUDIO_TOO_LARGE");
   }
 
+  const sttPrompt =
+    input.context === "workflow-review"
+      ? buildWorkflowReviewSttPrompt()
+      : "You are a speech-to-text engine. Transcribe the audio verbatim.\n" +
+        "Rules:\n" +
+        "- Return ONLY the spoken words with normal punctuation.\n" +
+        "- Do not apologize, explain, translate, or add commentary.\n" +
+        "- Do not invent words that were not spoken.\n" +
+        "- If the audio is silent, music-only, or unintelligible, return exactly EMPTY.";
+
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
     model: modelId,
@@ -166,15 +182,7 @@ export async function transcribeOpsWorkerAudio(input: {
       {
         role: "user",
         parts: [
-          {
-            text:
-              "You are a speech-to-text engine. Transcribe the audio verbatim.\n" +
-              "Rules:\n" +
-              "- Return ONLY the spoken words with normal punctuation.\n" +
-              "- Do not apologize, explain, translate, or add commentary.\n" +
-              "- Do not invent words that were not spoken.\n" +
-              "- If the audio is silent, music-only, or unintelligible, return exactly EMPTY.",
-          },
+          { text: sttPrompt },
           { inlineData: { mimeType, data: audioBase64 } },
         ],
       },
@@ -195,6 +203,9 @@ export async function transcribeOpsWorkerAudio(input: {
     )
   ) {
     transcript = "";
+  }
+  if (transcript && input.context === "workflow-review") {
+    transcript = normalizeLiveTranscriptChunk(transcript);
   }
   return { transcript, model: modelId };
 }

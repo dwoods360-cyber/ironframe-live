@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: auth.error, transcript: "" }, { status: 403 });
   }
 
-  let body: { audioBase64?: string; mimeType?: string };
+  let body: { audioBase64?: string; mimeType?: string; context?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     const result = await transcribeOpsWorkerAudio({
       audioBase64: String(body.audioBase64 ?? ""),
       mimeType: body.mimeType,
+      context: body.context,
     });
     return NextResponse.json({ ok: true, ...result, operator: auth.userId });
   } catch (err) {

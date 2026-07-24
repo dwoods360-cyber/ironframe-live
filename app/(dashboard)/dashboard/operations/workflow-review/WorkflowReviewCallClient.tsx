@@ -8,6 +8,7 @@ import type {
   TranscriptAnalysis,
   WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
+import { normalizeLiveTranscriptChunk } from "@/app/lib/operations/liveTranscriptHygiene";
 import { persistWorkflowReviewRecap } from "@/app/lib/operations/workflowReviewRecapBridge";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 import { parseJsonResponse } from "@/app/utils/parseJsonResponse";
@@ -124,6 +125,7 @@ export default function WorkflowReviewCallClient() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [recap, setRecap] = useState<WorkflowReviewCallRecap | null>(null);
+  const [recapSource, setRecapSource] = useState<"llm" | "rules" | null>(null);
   const [calendarNote, setCalendarNote] = useState<string | null>(null);
   const [micStatus, setMicStatus] = useState("Mic off");
   const [micLevel, setMicLevel] = useState(0);
@@ -394,11 +396,15 @@ export default function WorkflowReviewCallClient() {
 
   const appendTranscript = useCallback(
     (chunk: string) => {
-      const cleaned = chunk.trim();
+      const cleaned = normalizeLiveTranscriptChunk(chunk);
       if (!cleaned || cleaned === "EMPTY") return;
       // Drop exact repeats from overlapping / hallucinated chunks.
       if (cleaned === lastTranscriptRef.current) return;
-      if (lastTranscriptRef.current && cleaned.includes(lastTranscriptRef.current) && cleaned.length < lastTranscriptRef.current.length + 12) {
+      if (
+        lastTranscriptRef.current &&
+        cleaned.includes(lastTranscriptRef.current) &&
+        cleaned.length < lastTranscriptRef.current.length + 12
+      ) {
         return;
       }
       lastTranscriptRef.current = cleaned;
@@ -471,8 +477,8 @@ export default function WorkflowReviewCallClient() {
 
   const runGeminiListenLoop = useCallback(
     async (stream: MediaStream) => {
-      /** Short chunks + overlap: keep recording while prior chunk transcribes. */
-      const CHUNK_MS = 2_200;
+      /** ~4s chunks: short clips mangled ordinals/vendor names ("25th"→"20 Fifth"). */
+      const CHUNK_MS = 4_000;
       let inFlight = 0;
       const waiters: Array<() => void> = [];
       const acquire = async () => {
@@ -504,6 +510,7 @@ export default function WorkflowReviewCallClient() {
               body: JSON.stringify({
                 audioBase64,
                 mimeType: blob.type || "audio/webm",
+                context: "workflow-review",
               }),
             },
             "Live transcribe failed.",
@@ -642,7 +649,10 @@ export default function WorkflowReviewCallClient() {
     setBusy("recap");
     setError(null);
     try {
-      const data = await fetchOpsPortalJson<{ recap: WorkflowReviewCallRecap }>(
+      const data = await fetchOpsPortalJson<{
+        recap: WorkflowReviewCallRecap;
+        recapSource?: "llm" | "rules";
+      }>(
         "/api/admin/operations-hub/workflow-review-call",
         {
           method: "POST",
@@ -658,6 +668,7 @@ export default function WorkflowReviewCallClient() {
         "Call recap failed.",
       );
       setRecap(data.recap);
+      setRecapSource(data.recapSource ?? "llm");
       persistWorkflowReviewRecap(data.recap);
       void runAnalyzeLive(transcript);
     } catch (err) {
@@ -765,7 +776,7 @@ export default function WorkflowReviewCallClient() {
           <p className="max-w-3xl text-sm text-slate-400">
             One desk: talk track + mic STT + Pocket Q&A. Click{" "}
             <span className="text-emerald-300">Enable mic & go LIVE</span> (allow the browser prompt).
-            Audio is transcribed in ~2.2s chunks via Gemini. Watch the green level bar — if it stays
+            Audio is transcribed in ~4s chunks via Gemini. Watch the green level bar — if it stays
             at 0 while you talk, pick another mic.
           </p>
         </header>
@@ -1023,7 +1034,7 @@ export default function WorkflowReviewCallClient() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-slate-400">
-                Chunks land about every ~2s (record continues while Gemini catches up). Level bar must
+                Chunks land about every ~4s (record continues while Gemini catches up). Level bar must
                 move when you talk. For prospect audio, play Teams on speakers or paste captions.
               </p>
               <textarea
@@ -1066,6 +1077,7 @@ export default function WorkflowReviewCallClient() {
                     setLiveBuffer("");
                     setAnalysis(null);
                     setRecap(null);
+                    setRecapSource(null);
                     setInterim("");
                   }}
                   className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400"
@@ -1194,6 +1206,7 @@ export default function WorkflowReviewCallClient() {
                   {recap.company}
                   {recap.contactName ? ` · ${recap.contactName}` : ""} · {recap.channel} ·{" "}
                   {recap.closeReadiness.band} ({recap.closeReadiness.score}/100)
+                  {recapSource ? ` · ${recapSource === "llm" ? "LLM summary" : "rules fallback"}` : ""}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

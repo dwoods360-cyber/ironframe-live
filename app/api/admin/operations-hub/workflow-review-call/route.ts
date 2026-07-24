@@ -4,13 +4,14 @@ import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkf
 import {
   assistWorkflowReviewQuestion,
   analyzeWorkflowReviewTranscript,
-  buildWorkflowReviewCallRecap,
   runWorkflowReviewCallAssist,
   type WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
+import { buildWorkflowReviewCallRecapAsync } from "@/app/lib/server/workflowReviewCallRecapLlm";
 import { pushWorkflowReviewRecapToCalendar } from "@/app/lib/server/workflowReviewCalendarPush";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const auth = await requirePerimeterWorkforceOperator();
@@ -58,28 +59,30 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    const { recap, source } = await buildWorkflowReviewCallRecapAsync({
+      transcript,
+      company: body.company,
+      contactName: body.contactName,
+      channel: body.channel ?? "teams",
+    });
     return NextResponse.json({
       ok: true,
-      recap: buildWorkflowReviewCallRecap({
-        transcript,
-        company: body.company,
-        contactName: body.contactName,
-        channel: body.channel ?? "teams",
-      }),
+      recap,
+      recapSource: source,
     });
   }
 
   if (action === "push-calendar") {
-    const recap =
-      body.recap ??
-      (body.transcript?.trim()
-        ? buildWorkflowReviewCallRecap({
-            transcript: body.transcript,
-            company: body.company,
-            contactName: body.contactName,
-            channel: body.channel ?? "teams",
-          })
-        : null);
+    let recap = body.recap ?? null;
+    if (!recap && body.transcript?.trim()) {
+      const built = await buildWorkflowReviewCallRecapAsync({
+        transcript: body.transcript,
+        company: body.company,
+        contactName: body.contactName,
+        channel: body.channel ?? "teams",
+      });
+      recap = built.recap;
+    }
     if (!recap || recap.actionItems.length === 0) {
       return NextResponse.json(
         { error: "No recap action items to push. Generate a call recap first." },

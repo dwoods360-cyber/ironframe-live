@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { normalizeLiveTranscriptChunk } from "@/app/lib/operations/liveTranscriptHygiene";
 import {
   analyzeWorkflowReviewTranscript,
   assistWorkflowReviewQuestion,
   buildWorkflowReviewCallRecap,
+  extractMeetingFacts,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
+import { assembleRecapFromLlmDraft } from "@/app/lib/server/workflowReviewCallRecapLlm";
 
 describe("workflowReviewCallAssistCore", () => {
   it("returns pocket answer for SOC 2 and free-trial questions", () => {
@@ -49,5 +52,83 @@ describe("workflowReviewCallAssistCore", () => {
     expect(recap.actionItems.some((a) => a.owner === "operator")).toBe(true);
     expect(recap.markdown).toContain("Workflow review recap");
     expect(recap.markdown).toContain("Action items");
+  });
+
+  it("normalizes common LIVE STT mishears", () => {
+    const cleaned = normalizeLiveTranscriptChunk(
+      "meet on July 20 Fifth to discuss the SMS provider tax bill We'll meet Probably about 9:30",
+    );
+    expect(cleaned).toContain("July 25th");
+    expect(cleaned).toContain("Textbelt");
+    expect(cleaned).not.toMatch(/tax bill/i);
+    expect(cleaned).not.toMatch(/20 Fifth/i);
+  });
+
+  it("recaps ops/sync notes with schedule facts instead of Path B diagnosis", () => {
+    const mangled = `
+      Friday, July 24th. We had a meeting that morning. and decide that we would meet on July 20 Fifth,
+      to discuss the problems we were having with the SMS provider tax bill We'll meet Probably about.
+      9:30 that morning. This is a our priority.
+    `;
+    const facts = extractMeetingFacts(normalizeLiveTranscriptChunk(mangled));
+    expect(facts.scheduledFollowUps.some((s) => /July 25th/i.test(s))).toBe(true);
+    expect(facts.topics.some((t) => /Textbelt|SMS/i.test(t))).toBe(true);
+
+    const recap = buildWorkflowReviewCallRecap({
+      company: "Internal ops",
+      channel: "teams",
+      transcript: mangled,
+    });
+    expect(recap.summary.join(" ")).toMatch(/July 25th/i);
+    expect(recap.summary.join(" ")).toMatch(/Textbelt|SMS/i);
+    expect(recap.pathBAsk.toLowerCase()).toContain("no path b ask");
+    expect(
+      recap.actionItems.some((a) => /July 25th|9:30|Textbelt|SMS/i.test(a.text)),
+    ).toBe(true);
+    expect(recap.actionItems.some((a) => /ill We'll meet/i.test(a.text))).toBe(false);
+    expect(
+      recap.actionItems.some((a) => /Keep diagnosing pain/i.test(a.text)),
+    ).toBe(false);
+  });
+
+  it("assembles an LLM meeting summary draft without Path B boilerplate", () => {
+    const transcript = `
+      Friday, July 24th. We had a meeting that morning, and decided that we would meet on July 25th,
+      to discuss the problems we were having with the SMS provider Textbelt. We'll meet probably about
+      9:30 that morning. This is our priority.
+    `;
+    const recap = assembleRecapFromLlmDraft({
+      company: "Internal ops",
+      channel: "teams",
+      transcript,
+      draft: {
+        meetingType: "ops_sync",
+        summary: [
+          "Morning sync on July 24th covered SMS provider failures.",
+          "Agreed to reconvene July 25th around 9:30 to dig into Textbelt issues.",
+          "Marked as a priority.",
+        ],
+        decisions: ["Meet July 25th ~9:30 about Textbelt SMS problems."],
+        actionItems: [
+          {
+            owner: "shared",
+            text: "Meet July 25th ~9:30 to discuss Textbelt SMS provider issues",
+            priority: "now",
+          },
+          {
+            owner: "operator",
+            text: "Bring Textbelt status / credits context to the follow-up",
+            priority: "now",
+          },
+        ],
+        openQuestions: ["What is the current Textbelt credit balance?"],
+        pathBAsk:
+          "No Path B ask from this buffer — capture the scheduled Textbelt follow-up first.",
+      },
+    });
+    expect(recap.summary.join(" ")).toMatch(/Textbelt|July 25/i);
+    expect(recap.pathBAsk.toLowerCase()).toContain("no path b ask");
+    expect(recap.actionItems[0]?.text).toMatch(/July 25|Textbelt/i);
+    expect(recap.markdown).toContain("Decision:");
   });
 });

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeLiveTranscriptChunk } from "@/app/lib/operations/liveTranscriptHygiene";
 import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
@@ -279,7 +280,7 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
 }
 
 export function analyzeWorkflowReviewTranscript(transcriptRaw: string): TranscriptAnalysis {
-  const transcript = transcriptRaw.replace(/\s+/g, " ").trim().slice(0, 80_000);
+  const transcript = normalizeLiveTranscriptChunk(transcriptRaw).slice(0, 80_000);
   const analyzedAt = new Date().toISOString();
   const wordCount = transcript ? transcript.split(/\s+/).filter(Boolean).length : 0;
 
@@ -416,19 +417,104 @@ export function runWorkflowReviewCallAssist(
 }
 
 function extractProspectCommitments(transcript: string): string[] {
+  // Word boundaries matter — without them "bill" matches `ill` and yields
+  // "ill We'll meet Probably about" from "tax bill We'll meet…".
   const patterns = [
-    /(?:i(?:'|’)?ll|we(?:'|’)?ll|i will|we will|let me|i can)\s+([^.]{8,120})/gi,
-    /(?:send|share|introduce|loop in|check with|get back)\s+([^.]{8,100})/gi,
+    /\b(?:i(?:'|’)ll|we(?:'|’)ll|i will|we will|let me|i can)\s+[^.]{8,120}/gi,
+    /\b(?:send|share|introduce|loop in|check with|get back)\s+[^.]{8,100}/gi,
   ];
   const out: string[] = [];
+  const seen = new Set<string>();
   for (const pattern of patterns) {
     for (const match of transcript.matchAll(pattern)) {
       const phrase = (match[0] ?? "").replace(/\s+/g, " ").trim();
-      if (phrase.length >= 12) out.push(phrase.slice(0, 160));
+      if (phrase.length < 12) continue;
+      // Drop mid-word / garbage starts (legacy ill-from-bill style).
+      if (!/^(?:i(?:'|’)ll|we(?:'|’)ll|i will|we will|let me|i can|send|share|introduce|loop in|check with|get back)\b/i.test(phrase)) {
+        continue;
+      }
+      const key = phrase.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(phrase.slice(0, 160));
       if (out.length >= 5) return out;
     }
   }
   return out;
+}
+
+const MONTH_NAMES =
+  "January|February|March|April|May|June|July|August|September|October|November|December";
+
+export type MeetingFactBundle = {
+  scheduledFollowUps: string[];
+  topics: string[];
+  priorities: string[];
+  summaryLines: string[];
+};
+
+/**
+ * Pull factual next-steps from the buffer (dates, times, vendors, priorities)
+ * so ops/sync transcripts are not drowned in Path B diagnosis boilerplate.
+ */
+export function extractMeetingFacts(transcriptRaw: string): MeetingFactBundle {
+  const transcript = transcriptRaw.replace(/\s+/g, " ").trim();
+  const scheduledFollowUps: string[] = [];
+  const topics: string[] = [];
+  const priorities: string[] = [];
+
+  const dateMatches = [
+    ...transcript.matchAll(
+      new RegExp(
+        `\\b(?:meet|meeting|call|sync|reconvene)\\b[^.]{0,80}?\\b((?:${MONTH_NAMES})\\s+\\d{1,2}(?:st|nd|rd|th)?)\\b`,
+        "gi",
+      ),
+    ),
+  ];
+  const timeMatches = [
+    ...transcript.matchAll(
+      /\b(?:about|around|at|by)\s+(\d{1,2}(?::\d{2})?(?:\s*(?:a\.?m\.?|p\.?m\.?))?)\b/gi,
+    ),
+    ...transcript.matchAll(
+      /\b(\d{1,2}:\d{2})\s*(?:a\.?m\.?|p\.?m\.?|that\s+morning|that\s+afternoon|that\s+evening)\b/gi,
+    ),
+  ];
+  const date = dateMatches[0]?.[1]?.trim();
+  const time = timeMatches[0]?.[1]?.trim();
+  if (date || time) {
+    scheduledFollowUps.push(
+      [date ? `Meet on ${date}` : "Follow-up meeting", time ? `~${time}` : null]
+        .filter(Boolean)
+        .join(" "),
+    );
+  }
+
+  if (/\bTextbelt\b/i.test(transcript) || /\bSMS\s+provider\b/i.test(transcript)) {
+    topics.push("SMS provider / Textbelt issues");
+  }
+  if (/\bPath\s*B\b/i.test(transcript)) topics.push("Path B commercial frame");
+  if (/\border\s+form\b/i.test(transcript)) topics.push("Order form / next-step paperwork");
+
+  const topicClause = transcript.match(
+    /\b(?:discuss|about|regarding)\s+(?:the\s+)?([^.]{10,100})/i,
+  );
+  if (topicClause?.[1]) {
+    const topic = topicClause[1].replace(/\s+/g, " ").trim();
+    if (topic && !topics.some((t) => t.toLowerCase().includes(topic.slice(0, 24).toLowerCase()))) {
+      topics.push(topic.slice(0, 120));
+    }
+  }
+
+  if (/\bpriorit(?:y|ies)\b/i.test(transcript)) {
+    priorities.push("Marked as a priority in the buffer");
+  }
+
+  const summaryLines: string[] = [];
+  for (const s of scheduledFollowUps) summaryLines.push(s + ".");
+  if (topics.length > 0) summaryLines.push(`Topics: ${topics.join("; ")}.`);
+  for (const p of priorities) summaryLines.push(p + ".");
+
+  return { scheduledFollowUps, topics, priorities, summaryLines };
 }
 
 export function buildWorkflowReviewCallRecap(input: {
@@ -440,44 +526,80 @@ export function buildWorkflowReviewCallRecap(input: {
   const company = String(input.company ?? "").trim() || "Prospect";
   const contactName = String(input.contactName ?? "").trim() || null;
   const channel = input.channel ?? "teams";
-  const transcript = String(input.transcript ?? "").replace(/\s+/g, " ").trim();
+  const transcript = normalizeLiveTranscriptChunk(String(input.transcript ?? ""));
   const analysis = analyzeWorkflowReviewTranscript(transcript);
+  const facts = extractMeetingFacts(transcript);
+  const hasCommercialSignal =
+    analysis.buyingSignals.length > 0 || analysis.closeReadiness.band !== "low";
 
   const summary: string[] = [
     `${company}${contactName ? ` · ${contactName}` : ""} — workflow review via ${channel}.`,
-    analysis.closeReadiness.summary,
-    analysis.buyingSignals.length > 0
-      ? `Buying signs: ${analysis.buyingSignals.map((s) => s.label).join("; ")}.`
-      : "No strong buying signs detected in the buffer — more diagnosis needed.",
-    analysis.objections.length > 0
-      ? `Objections heard: ${analysis.objections.map((o) => o.label).join("; ")}.`
-      : "No patterned objections detected in the buffer.",
   ];
+  if (facts.summaryLines.length > 0) {
+    summary.push(...facts.summaryLines);
+  }
+  if (hasCommercialSignal) {
+    summary.push(analysis.closeReadiness.summary);
+    summary.push(
+      analysis.buyingSignals.length > 0
+        ? `Buying signs: ${analysis.buyingSignals.map((s) => s.label).join("; ")}.`
+        : "No strong buying signs detected in the buffer — more diagnosis needed.",
+    );
+  } else if (facts.summaryLines.length === 0) {
+    summary.push(analysis.closeReadiness.summary);
+    summary.push("No strong buying signs detected in the buffer — more diagnosis needed.");
+  } else {
+    summary.push("No Path B commercial signals in this buffer — treating notes as ops/sync facts.");
+  }
+  if (analysis.objections.length > 0) {
+    summary.push(`Objections heard: ${analysis.objections.map((o) => o.label).join("; ")}.`);
+  }
 
   const actionItems: WorkflowReviewActionItem[] = [];
-  actionItems.push({
-    owner: "operator",
-    text: analysis.closeReadiness.nextMove,
-    priority: analysis.closeReadiness.band === "high" ? "now" : "this_week",
-  });
 
-  if (analysis.closeReadiness.band === "high" || analysis.buyingSignals.some((s) => s.id === "NEXT_STEP_ORDER")) {
+  for (const followUp of facts.scheduledFollowUps) {
     actionItems.push({
-      owner: "operator",
-      text: `Send Path B order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`,
+      owner: "shared",
+      text: followUp,
       priority: "now",
     });
-  } else if (analysis.closeReadiness.band === "medium") {
+  }
+  for (const topic of facts.topics.slice(0, 3)) {
     actionItems.push({
       owner: "operator",
-      text: "Send a short follow-up that restates their pain → structural map → Path B frame (no demo detour).",
+      text: `Prepare / follow through on: ${topic}`,
       priority: "this_week",
     });
-  } else {
+  }
+
+  if (hasCommercialSignal) {
     actionItems.push({
       owner: "operator",
-      text: "Book a tighter second diligence pass only if they named concrete evidence/board/isolation pain.",
-      priority: "later",
+      text: analysis.closeReadiness.nextMove,
+      priority: analysis.closeReadiness.band === "high" ? "now" : "this_week",
+    });
+
+    if (
+      analysis.closeReadiness.band === "high" ||
+      analysis.buyingSignals.some((s) => s.id === "NEXT_STEP_ORDER")
+    ) {
+      actionItems.push({
+        owner: "operator",
+        text: `Send Path B order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`,
+        priority: "now",
+      });
+    } else if (analysis.closeReadiness.band === "medium") {
+      actionItems.push({
+        owner: "operator",
+        text: "Send a short follow-up that restates their pain → structural map → Path B frame (no demo detour).",
+        priority: "this_week",
+      });
+    }
+  } else if (actionItems.length === 0) {
+    actionItems.push({
+      owner: "operator",
+      text: "No schedule/topic captured — confirm next step in writing before leaving the thread.",
+      priority: "this_week",
     });
   }
 
@@ -490,6 +612,13 @@ export function buildWorkflowReviewCallRecap(input: {
   }
 
   for (const commitment of extractProspectCommitments(transcript)) {
+    // Already captured as a dated follow-up — skip redundant "We'll meet…" snippets.
+    if (
+      facts.scheduledFollowUps.length > 0 &&
+      /\b(?:we(?:'|’)ll|i(?:'|’)ll)\s+meet\b/i.test(commitment)
+    ) {
+      continue;
+    }
     actionItems.push({
       owner: "prospect",
       text: `Follow up on: “${commitment}”`,
@@ -507,19 +636,22 @@ export function buildWorkflowReviewCallRecap(input: {
 
   // Dedupe by text
   const seen = new Set<string>();
-  const deduped = actionItems.filter((item) => {
-    const key = `${item.owner}:${item.text.toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).slice(0, 10);
+  const deduped = actionItems
+    .filter((item) => {
+      const key = `${item.owner}:${item.text.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10);
 
-  const pathBAsk =
-    analysis.closeReadiness.band === "high"
+  const pathBAsk = hasCommercialSignal
+    ? analysis.closeReadiness.band === "high"
       ? `Ask now: Path B at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics + client-owned operator email.`
       : analysis.closeReadiness.band === "medium"
         ? `Soft ask: if pain is real, the clean next step is Path B (${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) — not a free PoC.`
-        : `Do not hard-pitch yet. Earn Path B by finishing diagnosis; keep CTA as another ${WORKFLOW_REVIEW_CTA_MINUTES}-min diligence only if warranted.`;
+        : `Do not hard-pitch yet. Earn Path B by finishing diagnosis; keep CTA as another ${WORKFLOW_REVIEW_CTA_MINUTES}-min diligence only if warranted.`
+    : "No Path B ask from this buffer — capture the scheduled follow-up and ops topic first.";
 
   const markdownLines = [
     `# Workflow review recap — ${company}`,

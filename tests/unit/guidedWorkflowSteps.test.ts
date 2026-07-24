@@ -9,7 +9,8 @@ import { DEMO_ORG_NAME } from "@/app/lib/demo/demoModeConstants";
 describe("guidedWorkflowSteps", () => {
   it("uses the existing Acme demo identity — not invented customers", () => {
     expect(GUIDED_DEMO_COMPANY.name).toBe(DEMO_ORG_NAME);
-    expect(GUIDED_DEMO_COMPANY.disclaimer.toLowerCase()).toContain("demonstration data");
+    expect(GUIDED_DEMO_COMPANY.disclaimer.toLowerCase()).toMatch(/benchmark|demonstration/);
+    expect(GUIDED_DEMO_COMPANY.sessionNotice.toLowerCase()).toContain("read-only");
   });
 
   it("defines exactly seven buyer-language workflow steps", () => {
@@ -21,6 +22,15 @@ describe("guidedWorkflowSteps", () => {
       "evidence",
       "quarantine",
       "remediation",
+      "report",
+    ]);
+    expect(GUIDED_WORKFLOW_STEPS.map((step) => step.chipLabel)).toEqual([
+      "identify",
+      "exposure",
+      "controls",
+      "evidence",
+      "review",
+      "remediate",
       "report",
     ]);
   });
@@ -42,6 +52,10 @@ describe("guidedWorkflowSteps", () => {
       "path b",
       "bigint",
       "sandbox fixture",
+      "enclave",
+      "acme-corp",
+      "acorp-sandbox",
+      "governance frame",
     ]) {
       expect(blob, `banned term leaked: ${banned}`).not.toContain(banned);
     }

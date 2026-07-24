@@ -11,7 +11,10 @@ export type GuidedWorkflowStep = {
   chipLabel: string;
   title: string;
   summary: string;
-  outcome: string;
+  /** Buyer-facing impact line (replaces internal “Outcome:” ops jargon when preferred). */
+  impact: string;
+  /** Label for the progressive “Next” control pointing at this step. */
+  nextCtaLabel: string;
   /** Facts drawn from demonstration fixtures / product surfaces. */
   evidence: readonly string[];
   /** Optional deep-link into the existing demo UI after bootstrap. */
@@ -21,7 +24,9 @@ export type GuidedWorkflowStep = {
 export const GUIDED_DEMO_COMPANY = {
   name: DEMO_ORG_NAME,
   disclaimer:
-    "All figures and entities below are sample demonstration data for product evaluation. They are not live customer records.",
+    "This demonstration uses representative benchmark data to illustrate platform workflows. Figures and entities are not live customer records.",
+  sessionNotice:
+    "Interactive demo environment: a self-contained, read-only session. No production credentials and no workspace setup required.",
 } as const;
 
 /**
@@ -31,28 +36,31 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "identify",
     chipLabel: "identify",
-    title: "Risk is identified",
+    title: "Risk identification",
     summary:
-      "A risk enters the workspace as a named intake item — not a spreadsheet row waiting for someone to notice.",
-    outcome: "Operators see a named risk with source, target, and lifecycle state.",
+      "Threats and policy gaps enter the platform as structured, governed intake events — replacing unmonitored spreadsheets and delayed email notifications.",
+    impact:
+      "GRC and security teams immediately see a contextualized risk entry showing threat source, impacted asset, and active lifecycle state.",
+    nextCtaLabel: "Risk identification",
     evidence: [
-      "Example (healthcare): “PHI Exfiltration — EHR Perimeter.”",
-      "Example (finance): “SWIFT Gateway Credential Rotation Gap.”",
-      "Example (infrastructure): “OT Segment Lateral Movement.”",
+      "Healthcare enterprise scenario: “PHI Exfiltration Risk — EHR Perimeter.”",
+      "Financial services scenario: “SWIFT Gateway Credential Rotation Gap.”",
+      "Critical infrastructure scenario: “OT Network Segment Lateral Movement.”",
     ],
     sandboxHref: "/demo/dashboard",
   },
   {
     id: "exposure",
     chipLabel: "exposure",
-    title: "Financial exposure is estimated",
+    title: "Financial exposure",
     summary:
       "Exposure is expressed in whole dollars (stored as whole cents), not only High / Medium / Low labels.",
-    outcome: "Operators see quantified exposure baselines beside the risk context.",
+    impact: "Operators see quantified exposure baselines beside the risk context.",
+    nextCtaLabel: "Financial exposure",
     evidence: [
-      `Illustrative healthcare baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.medshield}`,
-      `Illustrative finance baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.vaultbank}`,
-      `Illustrative infrastructure baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.gridcore}`,
+      `Healthcare enterprise baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.medshield}`,
+      `Financial services baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.vaultbank}`,
+      `Critical infrastructure baseline (demo): ${DEMO_ALE_BASELINE_DISPLAY.gridcore}`,
       "Money fields stay in whole cents so finance and security can reconcile the same number.",
     ],
     sandboxHref: "/demo/dashboard",
@@ -60,10 +68,11 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "controls",
     chipLabel: "controls",
-    title: "Controls are linked",
+    title: "Controls linked",
     summary:
       "The identified risk is tied to the control and ownership context operators must defend — not left as an orphan ticket.",
-    outcome: "Risk, control expectation, and accountable workspace stay in one chain.",
+    impact: "Risk, control expectation, and accountable workspace stay in one chain.",
+    nextCtaLabel: "Controls",
     evidence: [
       "Demo dashboard shows open vs mitigated risk status per sample company lane.",
       "Policy status (active / draft) appears beside each company summary.",
@@ -74,10 +83,11 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "evidence",
     chipLabel: "evidence",
-    title: "Evidence is collected",
+    title: "Evidence collected",
     summary:
       "Evidence collection is continuous and workspace-scoped — not a last-minute screenshot pack before audit week.",
-    outcome: "Operators can point to an evidence trail attached to the same risk context.",
+    impact: "Operators can point to an evidence trail attached to the same risk context.",
+    nextCtaLabel: "Evidence",
     evidence: [
       "Evidence workflows live in the authenticated command workspace.",
       "This step explains the collection pattern; the sample home shows risk status, not a full vault seed.",
@@ -87,10 +97,11 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "quarantine",
     chipLabel: "review",
-    title: "Evidence is reviewed or held",
+    title: "Evidence reviewed or held",
     summary:
       "Invalid or untrusted intake does not silently join the trusted record set — it waits for human review.",
-    outcome: "Suspicious change lands in an operator review state instead of polluting the ledger.",
+    impact: "Suspicious change lands in an operator review state instead of polluting the ledger.",
+    nextCtaLabel: "Review",
     evidence: [
       "External and vendor intake is sanitized before it can become trusted evidence.",
       "An elevated OT-style sample risk is marked for heightened review attention.",
@@ -100,10 +111,11 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "remediation",
     chipLabel: "remediate",
-    title: "Remediation is assigned",
+    title: "Remediation assigned",
     summary:
       "Ownership and follow-through are explicit: someone is accountable for closing the gap.",
-    outcome: "Discovery-to-mitigation work is tracked with a named remediation path.",
+    impact: "Discovery-to-mitigation work is tracked with a named remediation path.",
+    nextCtaLabel: "Remediation",
     evidence: [
       "Demo telemetry distinguishes active, pipeline, and mitigated exposure buckets.",
       "Sample active exposure: $96,500 · pipeline: $154,000 · mitigated: $42,000.",
@@ -114,10 +126,11 @@ export const GUIDED_WORKFLOW_STEPS: readonly GuidedWorkflowStep[] = [
   {
     id: "report",
     chipLabel: "report",
-    title: "Board or audit report is generated",
+    title: "Executive report",
     summary:
       "Executives receive a clean package from the same governed chain — not a rebuilt narrative after the fact.",
-    outcome: "A workspace-scoped export can be produced from the same governed records.",
+    impact: "A workspace-scoped export can be produced from the same governed records.",
+    nextCtaLabel: "Executive report",
     evidence: [
       "Board-report and export paths live in the authenticated command workspace.",
       "Demo home projects maturity and company risk summaries for executive-style review.",

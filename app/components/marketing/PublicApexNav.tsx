@@ -35,19 +35,19 @@ export default function PublicApexNav({
           href="/product-demo"
           className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
-          Guided demo
+          Guided tour
         </Link>
         <Link
           href="/trust-center"
           className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
-          Trust
+          Trust & security
         </Link>
         <Link
           href="/tools"
           className="hidden h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200 lg:inline-flex"
         >
-          Tools
+          Platform
         </Link>
         <Link
           href="/pricing"
@@ -59,7 +59,7 @@ export default function PublicApexNav({
           href={SALES_CONTACT_PATH}
           className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
         >
-          Workflow review
+          Schedule workflow review
         </Link>
         {isAuthenticated ? (
           <Link

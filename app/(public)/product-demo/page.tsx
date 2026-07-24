@@ -4,9 +4,9 @@ import GuidedWorkflowDemoClient from "@/app/components/demo/GuidedWorkflowDemoCl
 import PublicApexNav from "@/app/components/marketing/PublicApexNav";
 
 export const metadata: Metadata = {
-  title: "Product demonstration | Ironframe",
+  title: "Guided product walkthrough | Ironframe",
   description:
-    "Guided tour of Ironframe’s control-first GRC workflow using sample demonstration data — not live customer records. Next step: a 10–15 min workflow review.",
+    "Control-first governance in action — a guided Ironframe walkthrough with representative benchmark data. Schedule a 10–15 min workflow review when you are ready.",
 };
 
 export default function ProductDemoPage() {

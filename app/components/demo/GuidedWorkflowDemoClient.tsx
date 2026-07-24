@@ -8,6 +8,7 @@ import {
   GUIDED_WORKFLOW_STEPS,
 } from "@/app/lib/demo/guidedWorkflowSteps";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
@@ -144,15 +145,15 @@ export default function GuidedWorkflowDemoClient() {
             href={SALES_CONTACT_PATH}
             className="inline-flex h-10 items-center rounded bg-indigo-600 px-4 text-sm font-semibold text-white"
           >
-            Continue to workflow review · {formatPathBUsd()} Path B ·{" "}
+            Continue to workflow review · {formatPathBUsd()} {CUSTOMER_FACING_PATH_B_SKU} ·{" "}
             {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window
           </Link>
         )}
       </div>
 
       <p className="mt-10 text-xs text-[var(--login-muted)]">
-        This page is a guided product demonstration only — not a Path B workspace and not Governance
-        Frame research. Ready to talk?{" "}
+        This page is a guided product demonstration only — not a live partner workspace and not
+        Governance Frame research. Ready to talk?{" "}
         <Link href={SALES_CONTACT_PATH} className="text-cyan-300 underline hover:opacity-90">
           Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
         </Link>

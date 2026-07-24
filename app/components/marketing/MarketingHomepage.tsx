@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type { PublishedBriefingCard } from "@/app/lib/governanceFrame/publishedBriefingLedgerCards";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
   WORKFLOW_REVIEW_CTA_MINUTES,
@@ -43,7 +44,7 @@ const COMMITTEE_DEFENSIBLES = [
 ] as const;
 
 /**
- * Illustrative Path B criteria only — partners write their own at kickoff.
+ * Illustrative Command Design Partner criteria only — partners write their own at kickoff.
  * Never present as promised deliverables or measured customer results.
  */
 const ILLUSTRATIVE_SUCCESS_CRITERIA = [
@@ -76,7 +77,7 @@ export default function MarketingHomepage({
           Workflow
         </a>
         <a href="#outcomes" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
-          Path B
+          Design partner
         </a>
         <a href="#solutions" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
           Solutions
@@ -133,8 +134,8 @@ export default function MarketingHomepage({
           </Link>
         </div>
         <p className="mx-auto max-w-xl font-mono text-xs text-[var(--login-muted)]">
-          Path B design-partner on-ramp {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped
-          engagement
+          {CUSTOMER_FACING_PATH_B_SKU} on-ramp {formatPathBUsd()} ·{" "}
+          {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement
         </p>
       </header>
 
@@ -155,9 +156,9 @@ export default function MarketingHomepage({
           From risk intake to board-ready output
         </h3>
         <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          The guided demo walks a sandbox company through seven steps. Every figure is labeled
-          demonstration data — not a live customer record. Opening the sandbox uses mock auth and
-          client-side fixtures only — it does not provision a tenant or write to production databases.
+          The guided demo walks a labeled example company through seven steps. Every figure is
+          demonstration data — not a live customer record. It does not provision a workspace or write
+          to production databases.
         </p>
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {WORKFLOW_STEPS.map((label, index) => (
@@ -190,7 +191,7 @@ export default function MarketingHomepage({
             id="outcomes-heading"
             className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
           >
-            Path B package
+            Design partner package
           </h2>
           <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
             What a committee can approve — before a longer sales cycle
@@ -207,7 +208,7 @@ export default function MarketingHomepage({
               </dt>
               <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">{formatPathBUsd()}</dd>
               <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
-                Path B / Command Tier design-partner seat
+                {CUSTOMER_FACING_PATH_B_SKU} seat
               </dd>
             </div>
             <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
@@ -290,8 +291,8 @@ export default function MarketingHomepage({
             </Link>
           </div>
           <p className="mt-4 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
-            Self-serve the sandbox first if you want product proof; use the workflow review to align
-            scope and success criteria with your buying group — not a product preview.
+            Prefer product proof first? Open the guided demonstration, then use the workflow review to
+            align scope and success criteria with your buying group.
           </p>
         </div>
       </section>
@@ -310,7 +311,7 @@ export default function MarketingHomepage({
               Baseline solutions
             </h2>
             <p className="mt-2 text-xl font-bold tracking-tight text-[var(--text-main)]">
-              Five deep-dives aligned to operational demo baselines.
+              Five sector deep-dives for regulated operators.
             </p>
           </div>
           <Link href="/solutions" className="text-sm font-medium text-cyan-300 underline hover:opacity-90">
@@ -325,7 +326,7 @@ export default function MarketingHomepage({
               className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-4 transition hover:border-cyan-700/50"
             >
               <h3 className="text-sm font-semibold text-[var(--text-main)]">{solution.eyebrow}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--login-muted)]">{solution.summary}</p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--login-muted)]">{solution.title}</p>
             </Link>
           ))}
         </div>
@@ -381,7 +382,7 @@ export default function MarketingHomepage({
           >
             <h4 className="font-semibold text-[var(--text-main)]">Guided demonstration</h4>
             <p className="mt-2 text-sm text-[var(--login-muted)]">
-              Seven-step sandbox walkthrough with labeled demo data.
+              Seven-step product walkthrough with labeled demonstration data.
             </p>
           </Link>
           <Link

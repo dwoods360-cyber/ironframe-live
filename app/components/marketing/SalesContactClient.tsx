@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { PUBLIC_LEAD_API_PATH } from "@/config/registration";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
@@ -61,9 +62,9 @@ export default function SalesContactClient() {
         Request a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
       <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
-        No workspace is created from this form. Path B on-ramp is {formatPathBUsd()} for a{" "}
-        {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement after agreement (convert-or-exit;
-        not a free pilot).
+        No workspace is created from this form. {CUSTOMER_FACING_PATH_B_SKU} on-ramp is{" "}
+        {formatPathBUsd()} for a {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement after
+        agreement (convert-or-exit; not a free pilot).
       </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
         This form records a{" "}

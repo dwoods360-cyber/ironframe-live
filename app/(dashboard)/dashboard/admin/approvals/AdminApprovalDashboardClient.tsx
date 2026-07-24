@@ -647,12 +647,12 @@ function AdminApprovalDashboardInner() {
                         >
                           {touchBusy ? "Logging…" : "Log TOUCH1"}
                         </button>
-                        <a
+                        <Link
                           href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
                           className="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
                         >
                           Open touch log
-                        </a>
+                        </Link>
                       </div>
                       {touchMessage ? (
                         <p className="font-sans text-xs text-emerald-200">{touchMessage}</p>

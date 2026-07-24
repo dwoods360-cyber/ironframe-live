@@ -770,7 +770,8 @@ export default function WorkflowReviewCallClient() {
             </a>
           </div>
           <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-            Workflow review · LIVE desk · Path B
+            Workflow review · LIVE desk · Design Partner
+            <span className="text-slate-500"> · internal Path B</span>
           </p>
           <h1 className="text-2xl font-bold text-white">In-call sidecar</h1>
           <p className="max-w-3xl text-sm text-slate-400">
@@ -1254,8 +1255,11 @@ export default function WorkflowReviewCallClient() {
 
             <div>
               <h3 className="font-mono text-[10px] uppercase tracking-widest text-amber-300">
-                Path B ask
+                Design Partner ask
               </h3>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Say Command Design Partner · Internal code: Path B
+              </p>
               <p className="mt-2 text-sm text-amber-50">{recap.pathBAsk}</p>
             </div>
 

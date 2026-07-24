@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Workflow review LIVE call assist | Ironframe Operations",
   description:
-    "In-call Path B workflow review sidecar — live transcript, Q&A pocket answers, and buying-sign detection while you host.",
-}
+    "In-call Design Partner workflow review sidecar — live transcript, Q&A pocket answers, and buying-sign detection while you host.",
+};
 
 export default async function WorkflowReviewCallPage() {
   const allowed = await canUsePerimeterWorkforceFromSession();

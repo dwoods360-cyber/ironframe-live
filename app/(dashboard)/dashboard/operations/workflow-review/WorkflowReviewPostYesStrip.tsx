@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { CUSTOMER_FACING_PATH_B_SKU } from "@/lib/ironframeProductKnowledge/commercial";
+
 export const WORKFLOW_REVIEW_ORDER_FORM_HREF = "/dashboard/operations/library/order-form";
 export const WORKFLOW_REVIEW_PROVISION_HREF = "/admin/onboarding";
 
@@ -11,7 +13,7 @@ type WorkflowReviewPostYesStripProps = {
 };
 
 /**
- * Post-yes Path B close strip — order form then provision. Not a raw docs/*.md path.
+ * Post-yes Design Partner close strip — order form then provision (Path B admin).
  */
 export default function WorkflowReviewPostYesStrip({
   emphasis = "default",
@@ -30,8 +32,8 @@ export default function WorkflowReviewPostYesStrip({
         Order form: Suggest from call → partner owns 2–3 criteria → lock word{" "}
         <code className="text-cyan-300">AGREED</code> freezes → hand off provision (
         <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
-        <code className="text-cyan-300">GLOBAL_ADMIN</code>) → tenant Path B link — never{" "}
-        <code className="text-cyan-300">/pricing</code>.
+        <code className="text-cyan-300">GLOBAL_ADMIN</code>) → tenant {CUSTOMER_FACING_PATH_B_SKU}{" "}
+        activation link (Path B) — never <code className="text-cyan-300">/pricing</code>.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link

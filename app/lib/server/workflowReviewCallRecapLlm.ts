@@ -13,6 +13,7 @@ import {
   type WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
@@ -44,7 +45,7 @@ const llmRecapSchema = z.object({
     .min(8)
     .max(400)
     .describe(
-      "Path B commercial next step only if the transcript supports it; otherwise say no Path B ask and state the real follow-up.",
+      "Design Partner (Command Design Partner) commercial next step only if the transcript supports it; otherwise say no Design Partner ask and state the real follow-up.",
     ),
   meetingType: z
     .enum(["prospect_workflow_review", "ops_sync", "internal", "unclear"])
@@ -83,7 +84,7 @@ function buildMarkdown(input: {
     "## Summary",
     ...input.summary.map((s) => `- ${s}`),
     "",
-    "## Path B ask",
+    "## Design Partner ask",
     input.pathBAsk,
     "",
     "## Action items",
@@ -149,13 +150,13 @@ export function assembleRecapFromLlmDraft(input: {
     priority: item.priority,
   }));
 
-  // Commercial lock overlay when heuristics see a real Path B close path.
+  // Commercial lock overlay when heuristics see a real Design Partner close path.
   if (
     analysis.closeReadiness.band === "high" ||
     analysis.buyingSignals.some((s) => s.id === "NEXT_STEP_ORDER" || s.id === "ASKS_PRICE")
   ) {
-    const orderText = `Send Path B order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`;
-    if (!actionItems.some((a) => /order form|path\s*b/i.test(a.text))) {
+    const orderText = `Send ${CUSTOMER_FACING_PATH_B_SKU} order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`;
+    if (!actionItems.some((a) => /order form|path\s*b|design partner/i.test(a.text))) {
       actionItems.unshift({ owner: "operator", text: orderText, priority: "now" });
     }
   }
@@ -173,16 +174,16 @@ export function assembleRecapFromLlmDraft(input: {
   let pathBAsk = input.draft.pathBAsk.trim();
   if (
     analysis.closeReadiness.band === "high" &&
-    !/path\s*b|\$4,?999|order form/i.test(pathBAsk)
+    !/path\s*b|\$4,?999|order form|design partner/i.test(pathBAsk)
   ) {
-    pathBAsk = `Ask now: Path B at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics + client-owned operator email.`;
+    pathBAsk = `Ask now: ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics + client-owned operator email.`;
   } else if (
     analysis.closeReadiness.band === "low" &&
     analysis.buyingSignals.length === 0 &&
     /earn the right to path b|hard-pitch|do not pitch/i.test(pathBAsk)
   ) {
     pathBAsk =
-      "No Path B ask from this buffer — capture the scheduled follow-up and discussed topics first.";
+      "No Design Partner ask from this buffer — capture the scheduled follow-up and discussed topics first.";
   }
 
   const openQuestions = [
@@ -275,9 +276,11 @@ You write operator call recaps for Ironframe LIVE desk (10–15 min workflow rev
 Rules:
 - Base EVERY bullet only on the transcript. Do not invent attendees, prices, or commitments.
 - Prefer concrete facts: dates, times, vendors (e.g. Textbelt), decisions, owners.
-- Conversations vary — summarize what was actually said, not a canned Path B pitch.
-- Path B commercial lock (only when the transcript supports a commercial next step): ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written success metrics · non-refundable · convert credit to year-1 Command. CTA length ~${WORKFLOW_REVIEW_CTA_MINUTES} min.
-- If this is an internal/ops sync (SMS provider, tooling, scheduling) with no prospect buying talk, set meetingType accordingly and pathBAsk must say there is no Path B ask.
+- Conversations vary — summarize what was actually said, not a canned Design Partner pitch.
+- Partner-facing SKU name: ${CUSTOMER_FACING_PATH_B_SKU}. Internal code: Path B (Stripe / provision only).
+- Commercial lock (only when the transcript supports a commercial next step): ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written success metrics · non-refundable · convert credit to year-1 Command. CTA length ~${WORKFLOW_REVIEW_CTA_MINUTES} min.
+- If this is an internal/ops sync (SMS provider, tooling, scheduling) with no prospect buying talk, set meetingType accordingly and pathBAsk must say there is no Design Partner ask.
+- In pathBAsk and action items spoken to prospects, prefer "${CUSTOMER_FACING_PATH_B_SKU}" over "Path B".
 - Action items must be specific and usable on a calendar.
 
 Context:

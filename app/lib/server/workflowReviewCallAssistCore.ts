@@ -2,6 +2,7 @@ import "server-only";
 
 import { normalizeLiveTranscriptChunk } from "@/app/lib/operations/liveTranscriptHygiene";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
@@ -75,7 +76,7 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   {
     match: /soc\s*2|soc2|iso\s*27001|certified/i,
     answer:
-      "We’re SOC2-aligned in architecture and controls; we are not claiming a completed SOC 2 Type II logo today. Diligence is migrations, RLS paths, gateway rules, and your Path B criteria — not paperwork theater.",
+      "We’re SOC2-aligned in architecture and controls; we are not claiming a completed SOC 2 Type II logo today. Diligence is migrations, RLS paths, gateway rules, and your Command Design Partner criteria — not paperwork theater.",
   },
   {
     match: /free\s*(trial|poc|pilot)|30[-\s]?day|proof of concept/i,
@@ -83,7 +84,7 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   },
   {
     match: /discount|credit|paying\s*twice|convert.*price|refund|money\s*back/i,
-    answer: `Not a negotiated discount. Path B ${formatPathBUsd()} is non-refundable if you exit. Planned GA Command stays at list (~${formatPlannedGaCommandUsd()}/yr). If you convert within the ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, the Path B fee is credited to year-1 Command — recognition of money already paid, not a haggled %.`,
+    answer: `Not a negotiated discount. ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()} is non-refundable if you exit. Planned GA Command stays at list (~${formatPlannedGaCommandUsd()}/yr). If you convert within the ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, the fee is credited to year-1 Command — recognition of money already paid, not a haggled %.`,
   },
   {
     match: /vanta|drata|heatmap|heatmap/i,
@@ -93,7 +94,7 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   {
     match: /demo|product\s*tour|show\s*me/i,
     answer:
-      "This slot is workflow diligence. Product walk comes after Path B interest and written criteria — not instead of them.",
+      "This slot is workflow diligence. Product walk comes after Command Design Partner interest and written criteria — not instead of them.",
   },
   {
     match: /ale|risk\s*financ|dollar|bigint|cents/i,
@@ -107,12 +108,12 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
   },
   {
     match: /price|cost|4999|\$4,?999|budget/i,
-    answer: `Path B / Command Tier is a fixed ${formatPathBUsd()} for the default ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window with 2–3 written success metrics — non-refundable. Planned GA Command is ~${formatPlannedGaCommandUsd()}/yr at list. Convert in-window and the ${formatPathBUsd()} credits year-1 Command; exit and the fee stays paid. This call locks co-builder entry, not a custom SOW circus.`,
+    answer: `${CUSTOMER_FACING_PATH_B_SKU} is a fixed ${formatPathBUsd()} for the default ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window with 2–3 written success metrics — non-refundable. Planned GA Command is ~${formatPlannedGaCommandUsd()}/yr at list. Convert in-window and the ${formatPathBUsd()} credits year-1 Command; exit and the fee stays paid. This call locks co-builder entry, not a custom SOW circus.`,
   },
   {
     match: /nda|mutual\s*nda/i,
     answer:
-      "Mutual NDA can appear later under a scoped Path B if needed. The immediate gate after a yes is the order form with 2–3 criteria and client-owned operator email — not NDA as the next step from this call.",
+      "Mutual NDA can appear later under a scoped Command Design Partner seat if needed. The immediate gate after a yes is the order form with 2–3 criteria and client-owned operator email — not NDA as the next step from this call.",
   },
 ];
 
@@ -135,7 +136,7 @@ const SIGNAL_RULES: Array<{
       /auditor/i,
       /heatmap/i,
     ],
-    closeHint: "Mirror their words → map to one structural pattern → Path B criteria.",
+    closeHint: "Mirror their words → map to one structural pattern → Design Partner criteria.",
   },
   {
     id: "ASKS_TIMELINE",
@@ -146,9 +147,9 @@ const SIGNAL_RULES: Array<{
   },
   {
     id: "ASKS_PRICE",
-    label: "Engages on Path B price / commercial frame",
+    label: "Engages on Design Partner price / commercial frame",
     strength: "strong",
-    patterns: [/4,?999|\$4k|path\s*b|co[-\s]?builder|what\s+does\s+it\s+cost/i],
+    patterns: [/4,?999|\$4k|path\s*b|command\s+design\s+partner|co[-\s]?builder|what\s+does\s+it\s+cost/i],
     closeHint: "Confirm $4,999 / 90-day / 2–3 metrics; ask who signs the order form.",
   },
   {
@@ -156,7 +157,7 @@ const SIGNAL_RULES: Array<{
     label: "Diligence on security / SOC / isolation",
     strength: "medium",
     patterns: [/soc\s*2|isolation|rls|tenant|irongate|security\s+review/i],
-    closeHint: "Stay clinical; offer Path B as the diligence vehicle, not a free PoC.",
+    closeHint: "Stay clinical; offer Command Design Partner as the diligence vehicle, not a free PoC.",
   },
   {
     id: "COMPETITOR_COMPARE",
@@ -188,7 +189,7 @@ const SIGNAL_RULES: Array<{
     label: "Asks about order form / provisioning / next step",
     strength: "strong",
     patterns: [/order\s+form/i, /next\s+step/i, /send\s+(me\s+)?(the\s+)?(paperwork|form|link)/i, /provision/i],
-    closeHint: "Close: order form + client-owned operator email → tenant-scoped Path B link.",
+    closeHint: "Close: order form + client-owned operator email → tenant-scoped activation link (Path B).",
   },
   {
     id: "BUDGET_OWNER",
@@ -202,7 +203,7 @@ const SIGNAL_RULES: Array<{
     label: "Tied to audit / board / regulatory event",
     strength: "medium",
     patterns: [/board\s+meeting/i, /audit\s+(kickoff|season)/i, /exam/i, /deadline/i, /regulator/i],
-    closeHint: "Anchor Path B window to that event date on the order form.",
+    closeHint: "Anchor the Design Partner window to that event date on the order form.",
   },
 ];
 
@@ -273,7 +274,7 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
 
   return {
     question,
-    answer: `Stay in peer-to-peer diligence: map their pain to isolation / integer-cent ALE / Irongate, then frame Path B at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus.`,
+    answer: `Stay in peer-to-peer diligence: map their pain to isolation / integer-cent ALE / Irongate, then frame ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus.`,
     banNote:
       "Do not invent architecture notes they did not state. Do not offer free pilots.",
   };
@@ -333,7 +334,7 @@ export function analyzeWorkflowReviewTranscript(transcriptRaw: string): Transcri
   let nextMove =
     "Keep diagnosing pain; do not demo. Ask where evidence / board-dollar / multi-entity bleed shows up.";
   if (band === "medium") {
-    nextMove = `Frame Path B (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 criteria) and test for a signer.`;
+    nextMove = `Frame ${CUSTOMER_FACING_PATH_B_SKU} (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 criteria) and test for a signer.`;
   }
   if (band === "high" || hasOrder) {
     nextMove = hasCriteria
@@ -355,12 +356,12 @@ export function analyzeWorkflowReviewTranscript(transcriptRaw: string): Transcri
           ? "Buying energy is present — push to order form, not another discovery loop."
           : band === "medium"
             ? "Interest is real but incomplete — tighten commercial frame and next step."
-            : "Still in diagnosis — earn the right to Path B; do not pitch-slide.",
+            : "Still in diagnosis — earn the right to Command Design Partner; do not pitch-slide.",
       nextMove,
     },
     talkTrackReminders: [
       `Human hosts; agent is Q&A sidecar only.`,
-      `Agenda: diagnosis → structural mapping → Path B ${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day → engineering gate.`,
+      `Agenda: diagnosis → structural mapping → ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day → engineering gate.`,
       `Banned: demo-tenant slugs as customers; free pilots; Request Demo as primary CTA.`,
     ],
   };
@@ -408,7 +409,7 @@ export function runWorkflowReviewCallAssist(
         "You host; this panel is a silent sidecar — never read it aloud like a script.",
         "When they ask something hard, type it into Live Q&A for a pocket answer.",
         "When a strong buying sign lights up, execute the Close hint immediately (criteria → order form).",
-        `Path B lock: ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics · non-refundable · in-window convert credit to year-1 Command — not a demo detour.`,
+        `${CUSTOMER_FACING_PATH_B_SKU} lock (internal: Path B): ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics · non-refundable · in-window convert credit to year-1 Command — not a demo detour.`,
       ],
     },
     assist,
@@ -492,7 +493,9 @@ export function extractMeetingFacts(transcriptRaw: string): MeetingFactBundle {
   if (/\bTextbelt\b/i.test(transcript) || /\bSMS\s+provider\b/i.test(transcript)) {
     topics.push("SMS provider / Textbelt issues");
   }
-  if (/\bPath\s*B\b/i.test(transcript)) topics.push("Path B commercial frame");
+  if (/\bPath\s*B\b/i.test(transcript) || /\bCommand Design Partner\b/i.test(transcript)) {
+    topics.push("Command Design Partner commercial frame");
+  }
   if (/\border\s+form\b/i.test(transcript)) topics.push("Order form / next-step paperwork");
 
   const topicClause = transcript.match(
@@ -549,7 +552,7 @@ export function buildWorkflowReviewCallRecap(input: {
     summary.push(analysis.closeReadiness.summary);
     summary.push("No strong buying signs detected in the buffer — more diagnosis needed.");
   } else {
-    summary.push("No Path B commercial signals in this buffer — treating notes as ops/sync facts.");
+    summary.push("No Design Partner commercial signals in this buffer — treating notes as ops/sync facts.");
   }
   if (analysis.objections.length > 0) {
     summary.push(`Objections heard: ${analysis.objections.map((o) => o.label).join("; ")}.`);
@@ -585,13 +588,13 @@ export function buildWorkflowReviewCallRecap(input: {
     ) {
       actionItems.push({
         owner: "operator",
-        text: `Send Path B order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`,
+        text: `Send ${CUSTOMER_FACING_PATH_B_SKU} order form (${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) with 2–3 written success criteria fields.`,
         priority: "now",
       });
     } else if (analysis.closeReadiness.band === "medium") {
       actionItems.push({
         owner: "operator",
-        text: "Send a short follow-up that restates their pain → structural map → Path B frame (no demo detour).",
+        text: `Send a short follow-up that restates their pain → structural map → ${CUSTOMER_FACING_PATH_B_SKU} frame (no demo detour).`,
         priority: "this_week",
       });
     }
@@ -606,7 +609,7 @@ export function buildWorkflowReviewCallRecap(input: {
   if (analysis.buyingSignals.some((s) => s.id === "INTRO_STAKEHOLDER")) {
     actionItems.push({
       owner: "shared",
-      text: "Confirm buying-committee intro (CISO/CFO/sponsor) and hold a scoped Path B criteria workshop.",
+      text: `Confirm buying-committee intro (CISO/CFO/sponsor) and hold a scoped ${CUSTOMER_FACING_PATH_B_SKU} criteria workshop.`,
       priority: "this_week",
     });
   }
@@ -647,11 +650,11 @@ export function buildWorkflowReviewCallRecap(input: {
 
   const pathBAsk = hasCommercialSignal
     ? analysis.closeReadiness.band === "high"
-      ? `Ask now: Path B at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics + client-owned operator email.`
+      ? `Ask now: ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics + client-owned operator email.`
       : analysis.closeReadiness.band === "medium"
-        ? `Soft ask: if pain is real, the clean next step is Path B (${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) — not a free PoC.`
-        : `Do not hard-pitch yet. Earn Path B by finishing diagnosis; keep CTA as another ${WORKFLOW_REVIEW_CTA_MINUTES}-min diligence only if warranted.`
-    : "No Path B ask from this buffer — capture the scheduled follow-up and ops topic first.";
+        ? `Soft ask: if pain is real, the clean next step is ${CUSTOMER_FACING_PATH_B_SKU} (${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) — not a free PoC.`
+        : `Do not hard-pitch yet. Earn ${CUSTOMER_FACING_PATH_B_SKU} by finishing diagnosis; keep CTA as another ${WORKFLOW_REVIEW_CTA_MINUTES}-min diligence only if warranted.`
+    : "No Design Partner ask from this buffer — capture the scheduled follow-up and ops topic first.";
 
   const markdownLines = [
     `# Workflow review recap — ${company}`,
@@ -664,7 +667,7 @@ export function buildWorkflowReviewCallRecap(input: {
     "## Summary",
     ...summary.map((s) => `- ${s}`),
     "",
-    "## Path B ask",
+    "## Design Partner ask",
     pathBAsk,
     "",
     "## Action items",

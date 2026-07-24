@@ -24,6 +24,23 @@ export const CUSTOMER_PACKAGE_LABELS = [
   'Vault',
 ] as const;
 
+/**
+ * Partner-facing Path B SKU name — say this on calls, LIVE ask, cold email/SMS, offer sheet.
+ * Internal code remains "Path B" for Stripe, R2 locks, and provision-admin chrome.
+ */
+export const CUSTOMER_FACING_PATH_B_SKU = 'Command Design Partner' as const;
+
+/** Internal commercial code (ops / Stripe / locks) for {@link CUSTOMER_FACING_PATH_B_SKU}. */
+export const INTERNAL_PATH_B_CODE = 'Path B' as const;
+
+/** Operator chrome: spoken SKU + internal alias so hosts are not dual-trained. */
+export function formatDesignPartnerSkuWithInternalHint(): string {
+  return `${CUSTOMER_FACING_PATH_B_SKU} (internal: ${INTERNAL_PATH_B_CODE})`;
+}
+
+/** Umbrella ICP label for the paid co-builder cohort (all Core 4 beachheads). */
+export const CUSTOMER_FACING_AUDIENCE_UMBRELLA = 'multi-entity GRC operators' as const;
+
 /** Stable commercial SKUs (code registry intent). */
 export const COMMERCIAL_SKUS = {
   PATH_B_COMMAND_TIER: 'COMMAND_TIER_V1',

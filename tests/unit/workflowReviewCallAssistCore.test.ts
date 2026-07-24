@@ -48,7 +48,7 @@ describe("workflowReviewCallAssistCore", () => {
     });
     expect(recap.company).toBe("Western Alliance");
     expect(recap.closeReadiness.band).toBe("high");
-    expect(recap.pathBAsk.toLowerCase()).toContain("path b");
+    expect(recap.pathBAsk.toLowerCase()).toContain("design partner");
     expect(recap.actionItems.some((a) => a.owner === "operator")).toBe(true);
     expect(recap.markdown).toContain("Workflow review recap");
     expect(recap.markdown).toContain("Action items");
@@ -81,7 +81,7 @@ describe("workflowReviewCallAssistCore", () => {
     });
     expect(recap.summary.join(" ")).toMatch(/July 25th/i);
     expect(recap.summary.join(" ")).toMatch(/Textbelt|SMS/i);
-    expect(recap.pathBAsk.toLowerCase()).toContain("no path b ask");
+    expect(recap.pathBAsk.toLowerCase()).toContain("no design partner ask");
     expect(
       recap.actionItems.some((a) => /July 25th|9:30|Textbelt|SMS/i.test(a.text)),
     ).toBe(true);
@@ -123,11 +123,11 @@ describe("workflowReviewCallAssistCore", () => {
         ],
         openQuestions: ["What is the current Textbelt credit balance?"],
         pathBAsk:
-          "No Path B ask from this buffer — capture the scheduled Textbelt follow-up first.",
+          "No Design Partner ask from this buffer — capture the scheduled Textbelt follow-up first.",
       },
     });
     expect(recap.summary.join(" ")).toMatch(/Textbelt|July 25/i);
-    expect(recap.pathBAsk.toLowerCase()).toContain("no path b ask");
+    expect(recap.pathBAsk.toLowerCase()).toContain("no design partner ask");
     expect(recap.actionItems[0]?.text).toMatch(/July 25|Textbelt/i);
     expect(recap.markdown).toContain("Decision:");
   });

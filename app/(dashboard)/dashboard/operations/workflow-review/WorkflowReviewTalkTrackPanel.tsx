@@ -2,13 +2,26 @@
 
 import { useState } from "react";
 
+import {
+  CUSTOMER_FACING_PATH_B_SKU,
+  formatDesignPartnerSkuWithInternalHint,
+  formatPathBUsd,
+  DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  formatPlannedGaCommandUsd,
+} from "@/lib/ironframeProductKnowledge/commercial";
+
 import WorkflowReviewPostYesStrip from "./WorkflowReviewPostYesStrip";
 
 /**
- * Compact Path B talk track for the LIVE assist desk — doctrine beside the mic, not a second URL.
+ * Compact Design Partner talk track for the LIVE assist desk — doctrine beside the mic.
+ * Spoken SKU: Command Design Partner · Internal code: Path B.
  */
 export default function WorkflowReviewTalkTrackPanel() {
   const [open, setOpen] = useState(true);
+  const sku = CUSTOMER_FACING_PATH_B_SKU;
+  const price = formatPathBUsd();
+  const days = DESIGN_PARTNER_DEFAULT_WINDOW_DAYS;
+  const commandList = formatPlannedGaCommandUsd();
 
   return (
     <section
@@ -18,11 +31,15 @@ export default function WorkflowReviewTalkTrackPanel() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-            Ops GTM · Path B talk track
+            Ops GTM · Design Partner talk track
           </p>
           <h2 className="mt-1 text-lg font-semibold text-white">Peer-to-peer diligence script</h2>
           <p className="mt-1 text-xs text-slate-400">
             Plane: Ops GTM — not GF research. Host is human; this panel is the script.
+          </p>
+          <p className="mt-2 rounded-lg border border-cyan-900/40 bg-slate-950/70 px-2.5 py-2 text-[11px] leading-relaxed text-cyan-100/90">
+            <strong className="text-cyan-200">Say to prospect:</strong> {sku}.{" "}
+            <strong className="text-slate-300">Internal code:</strong> Path B (Stripe / provision).
           </p>
           <p className="mt-2 rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-2 text-[11px] leading-relaxed text-slate-400">
             <strong className="text-slate-200">SoD:</strong> GTM host runs this call + order-form
@@ -45,16 +62,19 @@ export default function WorkflowReviewTalkTrackPanel() {
         <div className="mt-4 space-y-4 text-sm text-slate-300">
           <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-400">
             <div>
-              <strong className="text-slate-200">Lock:</strong> Path B $4,999 · 90-day · 2–3 written
-              metrics · non-refundable
+              <strong className="text-slate-200">Lock:</strong> {sku} {price} · {days}-day · 2–3
+              written metrics · non-refundable
             </div>
             <div>
-              <strong className="text-slate-200">Convert:</strong> $4,999 credited to year-1 Command
-              (list ~$35k) if converting in-window — not a negotiated % · exit = no refund
+              <strong className="text-slate-200">Convert:</strong> {price} credited to year-1 Command
+              (list ~{commandList}) if converting in-window — not a negotiated % · exit = no refund
             </div>
             <div>
               <strong className="text-slate-200">Sidecar:</strong>{" "}
               <code className="text-cyan-300">board-sales-lead</code> · Drafts: SalesTeam HITL only
+            </div>
+            <div className="mt-1 text-[10px] text-slate-500">
+              {formatDesignPartnerSkuWithInternalHint()}
             </div>
           </div>
 
@@ -72,13 +92,14 @@ export default function WorkflowReviewTalkTrackPanel() {
                 Irongate before persist, ALE in integer cents — not color charts.
               </li>
               <li>
-                <strong className="text-white">8–12 · Path B</strong> — Fixed 90-day paid co-builder
-                at $4,999 (non-refundable). Prove 2–3 written metrics or part ways. If you convert
-                in-window, that $4,999 is credited to year-1 Command at list — not a haggled %.
+                <strong className="text-white">8–12 · {sku}</strong> — Fixed {days}-day paid
+                co-builder at {price} (non-refundable). Prove 2–3 written metrics or part ways. If
+                you convert in-window, that {price} is credited to year-1 Command at list — not a
+                haggled %.
               </li>
               <li>
                 <strong className="text-white">12–15 · Gate</strong> — Order form with their criteria
-                → client-owned operator email → tenant-scoped Path B link. Not a deck.
+                → client-owned operator email → tenant-scoped activation link (Path B). Not a deck.
               </li>
             </ul>
           </div>
@@ -93,13 +114,13 @@ export default function WorkflowReviewTalkTrackPanel() {
                 completed Type II logo claim today. Diligence is migrations, RLS, gateway, criteria.
               </li>
               <li>
-                <strong className="text-white">Free trial?</strong> No. Flat $4,999 / 90-day,
-                non-refundable. Convert or exit on criteria they write.
+                <strong className="text-white">Free trial?</strong> No. Flat {price} / {days}-day{" "}
+                {sku}, non-refundable. Convert or exit on criteria they write.
               </li>
               <li>
                 <strong className="text-white">Discount / convert?</strong> Not a negotiated %. If
-                they convert in-window, Path B $4,999 credits year-1 Command (~$35k list). Exit =
-                fee stays paid.
+                they convert in-window, the {price} {sku} fee credits year-1 Command (~{commandList}{" "}
+                list). Exit = fee stays paid.
               </li>
               <li>
                 <strong className="text-white">Risk $?</strong> Integer cents (BigInt) — not 5×5
@@ -111,7 +132,7 @@ export default function WorkflowReviewTalkTrackPanel() {
               </li>
               <li>
                 <strong className="text-white">Demo?</strong> This slot is workflow diligence. Product
-                walk after Path B interest / criteria.
+                walk after {sku} interest / criteria.
               </li>
             </ul>
           </div>

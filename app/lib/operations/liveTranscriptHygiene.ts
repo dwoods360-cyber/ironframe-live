@@ -10,6 +10,7 @@ const MONTH =
 export const WORKFLOW_REVIEW_STT_VOCAB = [
   "Textbelt",
   "Twilio",
+  "Command Design Partner",
   "Path B",
   "Ironframe",
   "Ironleads",

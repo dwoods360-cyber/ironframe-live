@@ -4,7 +4,7 @@ export const DEMO_SESSION_STORAGE_KEY = "ironframe-demo-session";
 export const DEMO_SESSION_COOKIE = "ironframe-demo-session-payload";
 export const DEMO_ACTIVE_COOKIE = "ironframe-demo-active";
 
-export const DEMO_ORG_NAME = "Acme Corporation (Sandbox)";
+export const DEMO_ORG_NAME = "Acme Corporation (Demo)";
 export const DEMO_WORKSPACE_SLUG = "acorp-sandbox";
 
 export const DEMO_ENCLAVE_UUID = "00000000-0000-4000-8000-000000000001";

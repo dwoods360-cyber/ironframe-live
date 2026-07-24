@@ -6,7 +6,7 @@ import PublicApexNav from "@/app/components/marketing/PublicApexNav";
 export const metadata: Metadata = {
   title: "Product demonstration | Ironframe",
   description:
-    "Guided demonstration of Ironframe’s control-first GRC workflow using labeled sandbox data — not live customer records.",
+    "Guided tour of Ironframe’s control-first GRC workflow using sample demonstration data — not live customer records. Next step: a 10–15 min workflow review.",
 };
 
 export default function ProductDemoPage() {

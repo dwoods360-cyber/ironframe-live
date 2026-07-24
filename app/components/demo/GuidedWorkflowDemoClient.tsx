@@ -30,7 +30,7 @@ export default function GuidedWorkflowDemoClient() {
   return (
     <main className="ironframe-public-funnel mx-auto min-h-screen max-w-3xl px-6 py-10 text-[var(--text-main)]">
       <p className="font-mono text-xs uppercase tracking-widest text-cyan-400/90">
-        Public product demonstration
+        Guided product tour
       </p>
       <h1 className="mt-2 text-3xl font-semibold tracking-tight">
         Control-first workflow — guided tour
@@ -38,15 +38,12 @@ export default function GuidedWorkflowDemoClient() {
       <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
         {GUIDED_DEMO_COMPANY.disclaimer}
       </p>
-      <p className="mt-2 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-300">
-        Notice: Sandbox entry uses mock authentication and a client-side fixture layer (local storage /
-        cookies + in-browser state). It does not request production credentials, does not provision a
-        tenant, and demo mode blocks ordinary API write paths. Figures are demonstration data only.
+      <p className="mt-2 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm leading-relaxed text-slate-300">
+        This tour uses sample demonstration data in a read-only preview. It does not create an
+        account, request production credentials, or change live systems.
       </p>
       <p className="mt-3 text-sm text-[var(--login-muted)]">
-        Fictional workspace{" "}
-        <span className="font-mono text-cyan-200/90">{GUIDED_DEMO_COMPANY.slug}</span> ·{" "}
-        {GUIDED_DEMO_COMPANY.name}
+        Sample workspace · {GUIDED_DEMO_COMPANY.name}
       </p>
 
       <ol className="mt-8 flex flex-wrap gap-2" aria-label="Workflow steps">
@@ -68,7 +65,7 @@ export default function GuidedWorkflowDemoClient() {
                 ].join(" ")}
                 aria-current={active ? "step" : undefined}
               >
-                {index + 1}. {item.id}
+                {index + 1}. {item.chipLabel}
               </button>
             </li>
           );
@@ -111,7 +108,7 @@ export default function GuidedWorkflowDemoClient() {
               onClick={() => goSandbox(step.sandboxHref!)}
               className="inline-flex h-11 items-center justify-center rounded-md border border-cyan-500/60 bg-cyan-950/40 px-4 font-mono text-xs font-semibold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-900/50"
             >
-              Open related sandbox view
+              Open related demo view
             </button>
           ) : null}
           <Link
@@ -152,8 +149,7 @@ export default function GuidedWorkflowDemoClient() {
       </div>
 
       <p className="mt-10 text-xs text-[var(--login-muted)]">
-        This page is a guided product demonstration only — not a live partner workspace and not
-        Governance Frame research. Ready to talk?{" "}
+        This page is a guided product tour only — not a live partner workspace. Ready to talk?{" "}
         <Link href={SALES_CONTACT_PATH} className="text-cyan-300 underline hover:opacity-90">
           Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
         </Link>

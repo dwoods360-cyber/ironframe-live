@@ -6,7 +6,7 @@ import { SolutionsIndexContent } from "@/app/components/marketing/SolutionsConte
 export const metadata: Metadata = {
   title: "GRC solutions | Ironframe",
   description:
-    "Baseline-aligned Ironframe deep-dives: fintech containment, healthcare perimeter, critical infrastructure, multi-entity rollups, and BigInt risk engineering — with illustrative demo ALE baselines labeled as non-customer fixtures.",
+    "Sector deep-dives for regulated operators: fintech containment, healthcare perimeter, critical infrastructure, multi-entity rollups, and whole-cent risk engineering — with a 10–15 min workflow review as the next step.",
 };
 
 export default function SolutionsIndexPage() {

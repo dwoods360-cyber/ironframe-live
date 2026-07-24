@@ -140,7 +140,7 @@ export const SOLUTION_PAGES: readonly SolutionPageContent[] = [
     audiences: [
       "CISOs and CROs who require whole-cent ALE beside linked control records.",
       "Finance partners who reject float-rounded loss estimates on money columns.",
-      "Design-partner operators naming Path B success criteria around a tenant-scoped BigInt exposure export.",
+      "Design-partner operators naming Command Design Partner success criteria around a tenant-scoped whole-cent exposure export.",
     ],
   },
 ] as const;

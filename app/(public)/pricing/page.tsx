@@ -4,13 +4,16 @@ import type { Metadata } from "next";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
 import {
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
+  formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 export const metadata: Metadata = {
   title: "Pricing | Ironframe",
-  description: `Ironframe Command Tier / Path B design-partner on-ramp ${formatPathBUsd()} for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day convert-or-exit window. Planned GA Command pricing labeled separately — not a free pilot.`,
+  description: `Ironframe ${CUSTOMER_FACING_PATH_B_SKU}: ${formatPathBUsd()} for a ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement. Ironframe Command planned GA ~${formatPlannedGaCommandUsd()}/yr — not a free pilot.`,
   robots: {
     index: false,
     follow: false,
@@ -18,11 +21,11 @@ export const metadata: Metadata = {
 };
 
 const COMMAND_FEATURES = [
-  "Multi-tenant Command Post with sovereign workspace isolation",
-  "BigInt-cent ALE baselines and governed liability math",
-  "Irongate-sanitized threat pipeline and audit trail exports",
-  "Role-gated operator access with Supabase invite-only onboarding",
-  "Instant activation via Stripe — no self-serve database forms on our origin",
+  "Multi-tenant command post with strict workspace isolation (zero cross-tenant data bleed)",
+  "Whole-cent financial exposure — replaces qualitative heatmap-only risk registers",
+  "Zero-trust ingestion: evidence sanitized before it becomes trusted state",
+  "Connected control ↔ evidence ↔ remediation chain with audit-ready exports",
+  "Sales-assisted onboarding — workspace invite after agreement, not a self-serve free trial",
 ] as const;
 
 export default function PricingPage() {
@@ -32,41 +35,37 @@ export default function PricingPage() {
     <main className="ironframe-public-funnel min-h-screen bg-[var(--bg-primary)] text-[var(--text-main)]">
       <div className="mx-auto max-w-5xl px-6 py-20">
         <p className="font-mono text-xs uppercase tracking-[0.25em] text-[var(--login-accent)]">
-          Enterprise packaging
+          Commercial packaging
         </p>
         <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-          One premium tier. Zero spreadsheet GRC.
+          {CUSTOMER_FACING_PATH_B_SKU}. Zero free pilots.
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[var(--login-muted)]">
-          Ironframe Command Tier delivers the full multi-tenant command post for regulated operators
-          who require deterministic financial integrity and isolated tenant enclaves. Checkout runs
-          entirely on Stripe-hosted pages — our application stays closed until your workspace is
-          provisioned.
+          For MSSPs, vCISOs, and multi-entity CISOs who need whole-cent exposure and strict
+          multi-tenant isolation — not spreadsheet GRC or an open-ended PoC.
         </p>
 
         <div className="mt-16 grid gap-8 lg:grid-cols-1">
           <article className="relative overflow-hidden rounded-2xl border border-[var(--login-border)] bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] p-8 shadow-xl shadow-black/20 sm:p-10">
             <div className="absolute right-6 top-6 rounded-full border border-[var(--login-accent)]/30 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-[var(--login-accent)]">
-              Command Tier
+              Design engagement
             </div>
-            <h2 className="text-2xl font-semibold">The Command Tier</h2>
+            <h2 className="text-2xl font-semibold">{CUSTOMER_FACING_PATH_B_SKU}</h2>
             <p className="mt-2 text-sm text-[var(--login-muted)]">
-              Single-tenant enterprise GRC — dashboard, active risks, threat pipeline, baseline
-              exports. Payment clears → tenant enclave queues → secure email invite within seconds.
+              {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid co-builder cohort with 2–3 written success
+              metrics. Convert within the window and the fee credits Year-1 Ironframe Command
+              (~{formatPlannedGaCommandUsd()}/yr, planned GA).
             </p>
             <p className="mt-8 font-mono text-3xl font-bold tracking-tight text-[var(--text-main)]">
-              $4,999
+              {formatPathBUsd()}
             </p>
             <p className="mt-1 text-xs text-[var(--login-muted)]">
-              Command Tier / Path B on-ramp · flat platform fee (no per-seat licensing)
-              {checkoutUrl
-                ? " · Stripe-hosted checkout"
-                : " · contact sales if checkout URL is unset"}
+              Flat platform fee · no per-seat licensing
+              {checkoutUrl ? " · Stripe-hosted checkout after agreement" : ""}
             </p>
             <p className="mt-3 text-xs leading-relaxed text-[var(--login-muted)]">
-              Design-partner cohort: 90-day co-builder window. Planned GA Ironframe Command
-              ~$35,000/yr. Existing PENDING workspaces activate via tenant-scoped Path B link from
-              onboarding — not a second generic checkout.
+              Existing pending workspaces activate via a tenant-scoped invitation link from
+              onboarding — never a second generic public checkout as a free trial substitute.
             </p>
             <ul className="mt-8 space-y-3 border-t border-[var(--login-border)] pt-8">
               {COMMAND_FEATURES.map((feature) => (
@@ -80,33 +79,34 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href={SALES_CONTACT_PATH}
+                className="rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition hover:opacity-90"
+              >
+                Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
+              </Link>
               {checkoutUrl ? (
                 <a
                   href={checkoutUrl}
                   rel="noopener noreferrer"
-                  className="rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition hover:opacity-90"
+                  className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"
                 >
-                  Activate Command Tier — Stripe
+                  Activate after agreement — Stripe
                 </a>
               ) : null}
               <Link
-                href={SALES_CONTACT_PATH}
+                href="/trust-center"
                 className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"
               >
-                Design-partner inquiry
-              </Link>
-              <Link
-                href="/docs"
-                className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"
-              >
-                Review documentation
+                Trust Center
               </Link>
             </div>
           </article>
         </div>
 
         <p className="mt-12 text-center text-xs text-[var(--login-muted)]">
-          Governance+, Sustainability, Vault, and MSSP Platform modules available as add-ons.{" "}
+          Ironframe Command planned GA ~{formatPlannedGaCommandUsd()}/yr. Governance+, Sustainability,
+          Vault, and MSSP Platform modules available as add-ons.{" "}
           <Link href="/terms" className="text-[var(--login-accent)] hover:underline">
             Terms
           </Link>

@@ -27,19 +27,19 @@ const WORKFLOW_STEPS = [
   "Board / audit report generated",
 ] as const;
 
-/** Committee-forwardable truths a champion can defend — not a feature list. */
+/** Buyer-facing capability truths — no agent codenames, no DB jargon. */
 const COMMITTEE_DEFENSIBLES = [
   {
-    title: "Exposure in integer cents",
-    desc: "Documented financial exposure with assumptions and baselines operators can defend — not color codes alone.",
+    title: "Whole-cent financial exposure",
+    desc: "Replace qualitative high/medium/low heatmaps with documented dollar-loss exposure operators can defend to a board or examiner.",
   },
   {
     title: "Connected evidence chain",
-    desc: "Controls, evidence, owners, review history, and remediation stay linked in one workspace.",
+    desc: "Controls, evidence, owners, review history, and remediation stay linked in one workspace — not a disconnected ticket dump.",
   },
   {
-    title: "Multi-entity separation",
-    desc: "Subsidiaries, clients, and departments stay isolated without losing the command view.",
+    title: "Strict multi-tenant isolation",
+    desc: "Subsidiaries, clients, and managed accounts stay separated with zero cross-tenant data bleed — without losing the command view.",
   },
 ] as const;
 
@@ -52,6 +52,20 @@ const ILLUSTRATIVE_SUCCESS_CRITERIA = [
   "Link controls and evidence for one priority control family end-to-end in the workspace.",
   "Run a multi-entity (or multi-client) review without cross-tenant evidence bleed.",
 ] as const;
+
+/** Public sector teasers — no synthetic demo-tenant names. */
+const SECTOR_TEASERS: Record<string, string> = {
+  fintech:
+    "For regional financial institutions and fintech holding structures that cannot share one risk register across legal entities.",
+  healthcare:
+    "For healthcare MSSPs and health-system CISOs who need perimeter and vendor signals bound to attributable controls.",
+  infrastructure:
+    "For critical infrastructure and energy operators who need isolated ingest paths and board-ready resilience metrics.",
+  enterprise:
+    "For multi-entity corporate rollups where subsidiaries and client programs must never share an evidence pool.",
+  "risk-engineering":
+    "For vCISOs and risk leaders replacing heatmap-only registers with whole-cent exposure and governed exports.",
+};
 
 type MarketingHomepageProps = {
   /** Live published-ledger teaser cards (never queue drafts). */
@@ -73,19 +87,40 @@ export default function MarketingHomepage({
         className="flex min-h-11 w-full items-center justify-center gap-5 overflow-x-auto border-b border-[var(--login-border)] bg-[var(--bg-primary)] px-4 text-sm font-medium text-[var(--login-muted)] sm:gap-8 sm:px-6"
         aria-label="Product sections"
       >
-        <a href="#workflow" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+        <a
+          href="#problem"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
+          Problem
+        </a>
+        <a
+          href="#workflow"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
           Workflow
         </a>
-        <a href="#outcomes" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+        <a
+          href="#outcomes"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
           Design partner
         </a>
-        <a href="#solutions" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+        <a
+          href="#solutions"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
           Solutions
         </a>
-        <a href="#proof" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+        <a
+          href="#proof"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
           Proof
         </a>
-        <Link href="/product-demo" className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]">
+        <Link
+          href="/product-demo"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
           Guided demo
         </Link>
       </nav>
@@ -103,28 +138,32 @@ export default function MarketingHomepage({
           className="inline-flex items-center space-x-2 rounded-full border border-[var(--login-accent)]/20 bg-[var(--login-accent)]/10 px-3 py-1 font-mono text-xs text-[var(--login-accent)]"
           role="status"
         >
-          <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--login-accent)]" aria-hidden="true" />
-          <span>Control-first GRC command post · design-partner phase</span>
+          <span
+            className="h-2 w-2 animate-pulse rounded-full bg-[var(--login-accent)]"
+            aria-hidden="true"
+          />
+          <span>For MSSPs, vCISOs, and multi-entity CISOs</span>
         </div>
         <h1
           id="homepage-hero-title"
           className="mx-auto max-w-4xl text-4xl leading-tight font-bold tracking-tight text-[var(--text-main)] sm:text-5xl lg:text-6xl"
         >
-          Ironframe
+          Control-first GRC for MSSPs &amp; enterprise risk leaders
         </h1>
         <p className="mx-auto max-w-2xl text-xl font-medium leading-snug text-[var(--text-main)] sm:text-2xl">
-          Replace spreadsheet risk-and-evidence work with an auditable, multi-entity workflow.
+          Quantify financial risk in whole cents and enforce zero-trust tenant isolation — eliminate
+          5×5 heatmap theater.
         </p>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-[var(--login-muted)] sm:text-lg">
           See how a risk moves from intake to quantified exposure, evidence review, remediation, and
-          board-ready output — with tenant isolation enforced at every step.
+          board-ready output — with strict multi-tenant isolation at every step.
         </p>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Link
             href={SALES_CONTACT_PATH}
             className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
           >
-            Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
+            Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
           </Link>
           <Link
             href="/product-demo"
@@ -133,13 +172,34 @@ export default function MarketingHomepage({
             Open guided demonstration
           </Link>
         </div>
-        <p className="mx-auto max-w-xl font-mono text-xs text-[var(--login-muted)]">
-          {CUSTOMER_FACING_PATH_B_SKU} on-ramp {formatPathBUsd()} ·{" "}
-          {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement
+        <p className="mx-auto max-w-xl text-xs leading-relaxed text-[var(--login-muted)]">
+          Primary next step is a workflow review — not a free trial. {CUSTOMER_FACING_PATH_B_SKU}:{" "}
+          {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement.
         </p>
       </header>
 
-      <hr className="my-4 border-[var(--login-border)]" aria-hidden="true" />
+      <section
+        id="problem"
+        className="scroll-mt-24 border-y border-[var(--login-border)] bg-[var(--bg-secondary)] py-16"
+        aria-labelledby="problem-heading"
+      >
+        <div className="mx-auto max-w-6xl px-6">
+          <h2
+            id="problem-heading"
+            className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
+          >
+            The board problem
+          </h2>
+          <h3 className="mb-4 max-w-3xl text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
+            Spreadsheets and qualitative color charts fail at the board level
+          </h3>
+          <p className="max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
+            Ironframe replaces arbitrary high/medium/low scores with deterministic dollar-loss
+            exposure — whole-cent financial quantification, connected evidence, and isolation that
+            MSSP directors and CISOs can defend under diligence.
+          </p>
+        </div>
+      </section>
 
       <section
         id="workflow"
@@ -156,9 +216,9 @@ export default function MarketingHomepage({
           From risk intake to board-ready output
         </h3>
         <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-          The guided demo walks a labeled example company through seven steps. Every figure is
-          demonstration data — not a live customer record. It does not provision a workspace or write
-          to production databases.
+          The guided demonstration walks a labeled example company through seven steps. Every figure
+          is demonstration data — not a live customer record. It does not provision a workspace or
+          write to production databases.
         </p>
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {WORKFLOW_STEPS.map((label, index) => (
@@ -176,7 +236,7 @@ export default function MarketingHomepage({
             href="/product-demo"
             className="inline-flex h-11 items-center justify-center rounded-lg border border-cyan-600/50 bg-cyan-950/30 px-5 text-sm font-medium text-cyan-100 hover:bg-cyan-900/40"
           >
-            Start the guided demo →
+            Open guided demonstration →
           </Link>
         </div>
       </section>
@@ -191,24 +251,26 @@ export default function MarketingHomepage({
             id="outcomes-heading"
             className="mb-2 font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
           >
-            Design partner package
+            {CUSTOMER_FACING_PATH_B_SKU} cohort
           </h2>
           <h3 className="mb-4 text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
-            What a committee can approve — before a longer sales cycle
+            A 90-day paid design engagement — not a free pilot
           </h3>
           <p className="mb-8 max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-            Forward this block to finance, audit, or the GRC owner. Same commercial truth as pricing
-            and outreach — no open-ended free pilot.
+            Join a select cohort of MSSPs and GRC leaders. Lock {DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT}{" "}
+            custom success metrics for a {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day engagement (
+            {formatPathBUsd()} flat). If you convert within the window, that fee is credited to
+            Year-1 Ironframe Command (~{formatPlannedGaCommandUsd()}/yr, planned GA).
           </p>
 
           <dl className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
               <dt className="font-mono text-[10px] tracking-widest text-[var(--login-muted)] uppercase">
-                On-ramp
+                Engagement
               </dt>
               <dd className="mt-2 text-lg font-bold text-[var(--text-main)]">{formatPathBUsd()}</dd>
               <dd className="mt-1 text-xs leading-relaxed text-[var(--login-muted)]">
-                {CUSTOMER_FACING_PATH_B_SKU} seat
+                90-day paid design engagement
               </dd>
             </div>
             <div className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-5">
@@ -281,18 +343,19 @@ export default function MarketingHomepage({
               href={SALES_CONTACT_PATH}
               className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
             >
-              Request a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
+              Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
             </Link>
             <Link
-              href="/product-demo"
+              href="/pricing"
               className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
             >
-              Open guided demonstration
+              {CUSTOMER_FACING_PATH_B_SKU} — {formatPathBUsd()} /{" "}
+              {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days
             </Link>
           </div>
           <p className="mt-4 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
-            Prefer product proof first? Open the guided demonstration, then use the workflow review to
-            align scope and success criteria with your buying group.
+            Start with a workflow review to map one spreadsheet workflow and align success criteria.
+            Seat activation follows agreement — never a free PoC.
           </p>
         </div>
       </section>
@@ -308,13 +371,16 @@ export default function MarketingHomepage({
               id="solutions-heading"
               className="font-mono text-xs tracking-widest text-[var(--login-accent)] uppercase"
             >
-              Baseline solutions
+              Industry profiles
             </h2>
             <p className="mt-2 text-xl font-bold tracking-tight text-[var(--text-main)]">
-              Five sector deep-dives for regulated operators.
+              Built for high-value GRC buyers — not generic IT shopping.
             </p>
           </div>
-          <Link href="/solutions" className="text-sm font-medium text-cyan-300 underline hover:opacity-90">
+          <Link
+            href="/solutions"
+            className="text-sm font-medium text-cyan-300 underline hover:opacity-90"
+          >
             View all solutions →
           </Link>
         </div>
@@ -326,7 +392,9 @@ export default function MarketingHomepage({
               className="rounded-lg border border-[var(--login-border)] bg-[var(--bg-primary)] p-4 transition hover:border-cyan-700/50"
             >
               <h3 className="text-sm font-semibold text-[var(--text-main)]">{solution.eyebrow}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-[var(--login-muted)]">{solution.title}</p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--login-muted)]">
+                {SECTOR_TEASERS[solution.slug] ?? solution.title}
+              </p>
             </Link>
           ))}
         </div>
@@ -347,25 +415,22 @@ export default function MarketingHomepage({
           See the product, then talk scope
         </h3>
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          <Link href="/product-demo" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          <Link
+            href="/product-demo"
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/product-demo.png"
               alt="Screenshot of the Ironframe guided product demonstration"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demo (UI capture)</p>
+            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demonstration (UI capture)</p>
           </Link>
-          <Link href="/marketing" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
-            <img
-              src="/marketing/proof/homepage.png"
-              alt="Screenshot of the Ironframe marketing homepage"
-              className="h-40 w-full object-cover object-top"
-            />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Marketing homepage (UI capture)</p>
-          </Link>
-          <Link href="/trust-center" className="block overflow-hidden rounded-lg border border-[var(--login-border)]">
+          <Link
+            href="/trust-center"
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
               src="/marketing/proof/trust-center.png"
@@ -373,6 +438,20 @@ export default function MarketingHomepage({
               className="h-40 w-full object-cover object-top"
             />
             <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (UI capture)</p>
+          </Link>
+          <Link
+            href="/pricing"
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
+            <img
+              src="/marketing/proof/homepage.png"
+              alt="Screenshot of Ironframe commercial packaging"
+              className="h-40 w-full object-cover object-top"
+            />
+            <p className="p-3 text-xs text-[var(--login-muted)]">
+              {CUSTOMER_FACING_PATH_B_SKU} packaging
+            </p>
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -386,12 +465,12 @@ export default function MarketingHomepage({
             </p>
           </Link>
           <Link
-            href="/tools"
+            href="/trust-center"
             className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
           >
-            <h4 className="font-semibold text-[var(--text-main)]">Free control tools</h4>
+            <h4 className="font-semibold text-[var(--text-main)]">Trust Center</h4>
             <p className="mt-2 text-sm text-[var(--login-muted)]">
-              Ungated worksheets and checklists — templates only, not certifications.
+              Procurement-ready isolation, residency, and subprocessors overview.
             </p>
           </Link>
           <Link
@@ -441,7 +520,10 @@ export default function MarketingHomepage({
             Pricing
           </Link>
           {" · "}
-          <Link href="/resources/briefings" className="text-[var(--login-accent)] underline hover:opacity-90">
+          <Link
+            href="/resources/briefings"
+            className="text-[var(--login-accent)] underline hover:opacity-90"
+          >
             Briefings
           </Link>
           {" · "}

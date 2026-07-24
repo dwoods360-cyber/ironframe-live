@@ -56,24 +56,23 @@ export default function SalesContactClient() {
   return (
     <main className="ironframe-public-funnel mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-6 py-12">
       <p className="font-mono text-xs uppercase tracking-widest text-[var(--login-muted)]">
-        Design-partner workflow review
+        For MSSPs, vCISOs, and multi-entity CISOs
       </p>
       <h1 className="mt-2 text-2xl font-semibold text-[var(--text-main)]">
-        Request a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
+        Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
       </h1>
       <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-sm font-medium text-amber-100">
-        No workspace is created from this form. {CUSTOMER_FACING_PATH_B_SKU} on-ramp is{" "}
-        {formatPathBUsd()} for a {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day scoped engagement after
-        agreement (convert-or-exit; not a free pilot).
+        No workspace is created from this form. {CUSTOMER_FACING_PATH_B_SKU} is a{" "}
+        {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement after
+        agreement (convert-or-exit; not a free PoC or free trial).
       </p>
       <p className="mt-3 text-sm leading-relaxed text-[var(--login-muted)]">
         This form records a{" "}
-        <strong className="font-medium text-[var(--text-main)]">
-          sales lead / design-partner inquiry
-        </strong>{" "}
-        only — work email, organization, and optional estimated ALE. Use it to request a{" "}
+        <strong className="font-medium text-[var(--text-main)]">design-partner inquiry</strong> only
+        — work email, organization, and optional estimated annual loss exposure. Use it to schedule a{" "}
         {WORKFLOW_REVIEW_CTA_MINUTES} minute review of one spreadsheet-based risk-and-evidence
-        workflow. Live enclaves are minted later via sales-assisted invite — never from this page.
+        workflow. Live workspaces are provisioned later via sales-assisted invite — never from this
+        page.
       </p>
       <p className="mt-2 text-sm text-[var(--login-muted)]">
         Prefer to see the product first?{" "}
@@ -126,14 +125,14 @@ export default function SalesContactClient() {
             disabled={busy}
             className="w-full rounded-md bg-[var(--login-accent)] py-3 font-mono text-sm font-bold text-[var(--bg-primary)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? "Submitting…" : `Request ${WORKFLOW_REVIEW_CTA_MINUTES} min workflow review`}
+            {busy ? "Submitting…" : `Schedule ${WORKFLOW_REVIEW_CTA_MINUTES} min workflow review`}
           </button>
         </form>
       )}
 
       <p className="mt-8 text-center text-xs text-[var(--login-muted)]">
         <Link href="/pricing" className="text-[var(--login-accent)] hover:underline">
-          View Command Tier pricing
+          View {CUSTOMER_FACING_PATH_B_SKU} packaging
         </Link>
         {" · "}
         Already invited?{" "}

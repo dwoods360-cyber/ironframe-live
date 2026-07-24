@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Ironframe | Control-first GRC for regulated operators",
   description:
-    "Control-first GRC for regulated operators: multi-entity isolation, quantified exposure in integer cents, and a paid Command Design Partner on-ramp — guided demo with labeled demonstration data.",
+    "Control-first GRC for MSSPs, vCISOs, and multi-entity CISOs: whole-cent financial exposure, strict multi-tenant isolation, and a paid Command Design Partner engagement — not a free pilot.",
 };
 
 /** Public marketing landing — always renders the guest homepage (even when signed in). */

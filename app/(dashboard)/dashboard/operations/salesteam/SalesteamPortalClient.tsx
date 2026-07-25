@@ -21,6 +21,7 @@ type RedactedSalesTeamSnapshot = {
     opsStatus: string | null;
     priority: number;
     sourceRef: string;
+    pendingDraftId: string | null;
   }>;
   prospects: Array<{
     dealId: string;
@@ -230,8 +231,8 @@ export default function SalesteamPortalClient() {
             </p>
             <h1 className="text-2xl font-bold text-white">Sales interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Public /register/contact hand-raisers are P1. Cold PROSPECT deals are secondary. Queue a
-              reply draft into Approvals — never auto-send.
+              Public /register/contact hand-raisers are P1. Approvals drafts auto-queue on intake —
+              open the draft, edit, then HITL DISPATCH. Cold PROSPECT deals are secondary.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -408,18 +409,38 @@ export default function SalesteamPortalClient() {
                               {lead.opsStatus ? ` · ${lead.opsStatus}` : ""}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            disabled={closed || Boolean(inboundBusySlug)}
-                            onClick={() => void queueInboundDraft(lead.slug)}
-                            className="rounded-lg bg-rose-700 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-600 disabled:opacity-40"
-                          >
-                            {inboundBusySlug === lead.slug
-                              ? "Queuing…"
-                              : closed
-                                ? "Closed"
-                                : "Queue Approvals draft"}
-                          </button>
+                          <div className="flex flex-col gap-2">
+                            {lead.pendingDraftId ? (
+                              <button
+                                type="button"
+                                disabled={closed}
+                                onClick={() =>
+                                  router.push(approvalsDraftHref(lead.pendingDraftId!, "SALES"))
+                                }
+                                className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500 disabled:opacity-40"
+                              >
+                                Open Approvals draft
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              disabled={closed || Boolean(inboundBusySlug)}
+                              onClick={() => void queueInboundDraft(lead.slug)}
+                              className={`rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:opacity-40 ${
+                                lead.pendingDraftId
+                                  ? "border border-rose-700/70 bg-transparent text-rose-100 hover:bg-rose-950/50"
+                                  : "bg-rose-700 hover:bg-rose-600"
+                              }`}
+                            >
+                              {inboundBusySlug === lead.slug
+                                ? "Queuing…"
+                                : closed
+                                  ? "Closed"
+                                  : lead.pendingDraftId
+                                    ? "Re-queue draft"
+                                    : "Queue Approvals draft"}
+                            </button>
+                          </div>
                         </div>
                       </li>
                     );

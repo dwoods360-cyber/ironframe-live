@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
@@ -49,7 +50,12 @@ function savePersisted(bundle: PersistedBundle) {
   }
 }
 
-export default function DesignPartnerOrderFormClient() {
+function DesignPartnerOrderFormInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const autoSuggest = searchParams.get("suggest") === "1";
+  const autoSuggestRan = useRef(false);
+
   const [draft, setDraft] = useState<DesignPartnerOrderFormDraft>(() =>
     createEmptyOrderFormDraft(),
   );
@@ -100,17 +106,17 @@ export default function DesignPartnerOrderFormClient() {
     });
   };
 
-  const suggestFromCall = () => {
+  const suggestFromCall = useCallback((): boolean => {
     if (frozen) {
       setError("Form is locked — unlock with an audit reason before suggesting.");
-      return;
+      return false;
     }
     const recap = loadWorkflowReviewRecap();
     if (!recap) {
       setError(
         "No LIVE recap in this browser session. Run End LIVE → recap on the workflow-review desk first (same tab/session).",
       );
-      return;
+      return false;
     }
     setDraft((prev) =>
       suggestOrderFormFromRecap(
@@ -129,7 +135,17 @@ export default function DesignPartnerOrderFormClient() {
       `Suggested from call (${recap.company}${recap.contactName ? ` · ${recap.contactName}` : ""}). Edit criteria — partner must own the wording before lock.`,
     );
     setError(null);
-  };
+    return true;
+  }, [frozen]);
+
+  useEffect(() => {
+    if (!hydrated || !autoSuggest || frozen || autoSuggestRan.current) return;
+    autoSuggestRan.current = true;
+    const ok = suggestFromCall();
+    if (ok) {
+      router.replace("/dashboard/operations/library/order-form#order-form", { scroll: false });
+    }
+  }, [hydrated, autoSuggest, frozen, suggestFromCall, router]);
 
   const applyLock = () => {
     if (!matchesOrderFormLockWord(lockWordInput)) {
@@ -185,7 +201,10 @@ export default function DesignPartnerOrderFormClient() {
   const labelClass = "block text-xs font-medium text-slate-400";
 
   return (
-    <section className="space-y-4 rounded-xl border border-emerald-900/50 bg-emerald-950/15 p-4 sm:p-5">
+    <section
+      id="order-form"
+      className="space-y-4 rounded-xl border border-emerald-900/50 bg-emerald-950/15 p-4 sm:p-5"
+    >
       <header className="space-y-2">
         <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">
           Interactive order form · suggest ≠ bind
@@ -201,7 +220,7 @@ export default function DesignPartnerOrderFormClient() {
         <div className="flex flex-wrap gap-2 pt-1">
           <button
             type="button"
-            onClick={suggestFromCall}
+            onClick={() => void suggestFromCall()}
             disabled={frozen}
             className="rounded-lg bg-cyan-800 px-3 py-2 text-xs font-semibold text-white hover:bg-cyan-700 disabled:opacity-50"
           >
@@ -473,5 +492,19 @@ export default function DesignPartnerOrderFormClient() {
         </p>
       </div>
     </section>
+  );
+}
+
+export default function DesignPartnerOrderFormClient() {
+  return (
+    <Suspense
+      fallback={
+        <section className="rounded-xl border border-emerald-900/50 bg-emerald-950/15 p-4 text-xs text-slate-400">
+          Loading order form…
+        </section>
+      }
+    >
+      <DesignPartnerOrderFormInner />
+    </Suspense>
   );
 }

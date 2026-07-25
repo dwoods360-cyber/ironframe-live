@@ -16,6 +16,7 @@ import {
   normalizeE164Phone,
   sendOutboundSms,
 } from "@/app/lib/server/sendOutboundSms";
+import { finalizeSalesDispatchOperatorTrail } from "@/app/lib/server/finalizeSalesDispatchOperatorTrail";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -194,6 +195,18 @@ export async function POST(
         console.log(
           `SMS dispatch complete. Interaction [${interactionId}] closed via ${sendResult.provider ?? "sms"}.`,
         );
+        const trail =
+          draftKind === "SALES"
+            ? await finalizeSalesDispatchOperatorTrail({
+                company: (contact.company ?? "").trim() || "Unknown company",
+                channel: "SMS",
+                interactionId,
+                to: toPhone,
+                email: contact.email,
+                dealId: pendingInteraction.dealId,
+                loggedBy: auth.userId,
+              })
+            : { touchLogged: false, inboundAdvanced: false };
         return NextResponse.json({
           status: "SUCCESS_DISPATCHED",
           channel: "SMS",
@@ -205,6 +218,9 @@ export async function POST(
           contactId: contact.id,
           dealId: pendingInteraction.dealId ?? null,
           draftKind,
+          touchLogged: trail.touchLogged,
+          inboundAdvanced: trail.inboundAdvanced,
+          nextStep: trail.touchLogged ? "LIVE" : "C3",
         });
       }
 
@@ -269,6 +285,18 @@ export async function POST(
       console.log(
         `Dispatch complete. Interaction [${interactionId}] closed and verified on wire.`,
       );
+      const trail =
+        draftKind === "SALES"
+          ? await finalizeSalesDispatchOperatorTrail({
+              company: (contact.company ?? "").trim() || "Unknown company",
+              channel: "EMAIL",
+              interactionId,
+              to: toEmail,
+              email: contact.email,
+              dealId: pendingInteraction.dealId,
+              loggedBy: auth.userId,
+            })
+          : { touchLogged: false, inboundAdvanced: false };
       return NextResponse.json({
         status: "SUCCESS_DISPATCHED",
         channel: "EMAIL",
@@ -279,6 +307,9 @@ export async function POST(
         contactId: contact.id,
         dealId: pendingInteraction.dealId ?? null,
         draftKind,
+        touchLogged: trail.touchLogged,
+        inboundAdvanced: trail.inboundAdvanced,
+        nextStep: draftKind === "SALES" && trail.touchLogged ? "LIVE" : undefined,
       });
     }
 

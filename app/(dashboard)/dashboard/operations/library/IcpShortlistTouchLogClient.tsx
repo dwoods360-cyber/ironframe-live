@@ -163,9 +163,9 @@ function IcpShortlistTouchLogInner({
             C3 · Controlled touch log
           </p>
           <p className="mt-1 text-xs text-slate-300">
-            After <strong className="text-slate-100">Approve &amp; dispatch SALES</strong>, fields
-            autofill from the DISPATCH receipt. Confirm destination, then{" "}
-            <strong className="text-slate-100">Log {touch}</strong>.
+            After <strong className="text-slate-100">Approve &amp; dispatch SALES</strong>, TOUCH1 is
+            logged automatically and you are taken to LIVE. Use this panel for TOUCH2/3 or audit
+            corrections — fields autofill from query params when present.
           </p>
           {autofilled ? (
             <p className="mt-1 font-mono text-[10px] text-emerald-400">

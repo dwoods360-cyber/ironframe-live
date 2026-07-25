@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { orderFormSuggestHref } from "@/app/lib/approvalDraftKinds";
 import { CUSTOMER_FACING_PATH_B_SKU } from "@/lib/ironframeProductKnowledge/commercial";
 
 export const WORKFLOW_REVIEW_ORDER_FORM_HREF = "/dashboard/operations/library/order-form";
@@ -30,8 +31,8 @@ export default function WorkflowReviewPostYesStrip({
       </p>
       <ol className="mt-2 list-decimal space-y-2 pl-4 text-xs leading-relaxed text-slate-300">
         <li>
-          <strong className="text-slate-100">Capture criteria</strong> — fill the order form with
-          the exact 2–3 success criteria from the call.
+          <strong className="text-slate-100">Capture criteria</strong> — open the order form
+          (auto-fills from this LIVE recap when available). Confirm the exact 2–3 success criteria.
         </li>
         <li>
           <strong className="text-slate-100">Lock criteria</strong> — type{" "}
@@ -50,10 +51,10 @@ export default function WorkflowReviewPostYesStrip({
       </ol>
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
-          href={WORKFLOW_REVIEW_ORDER_FORM_HREF}
+          href={orderFormSuggestHref()}
           className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600"
         >
-          Open order form
+          Open order form (auto-fill from recap)
         </Link>
         <Link
           href={WORKFLOW_REVIEW_PROVISION_HREF}

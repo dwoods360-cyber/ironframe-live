@@ -70,7 +70,7 @@ export function approvalsDraftHref(interactionId: string, kind: ApprovalKindFilt
   return `${base}${sep}draft=${encodeURIComponent(interactionId)}`;
 }
 
-/** C3 touch log with autofill after SALES DISPATCH. */
+/** C3 touch log with autofill after SALES DISPATCH (manual TOUCH2/3 or audit). */
 export function icpTouchLogHref(opts: {
   company: string;
   channel: "EMAIL" | "SMS";
@@ -85,6 +85,16 @@ export function icpTouchLogHref(opts: {
   if (opts.to?.trim()) q.set("to", opts.to.trim());
   q.set("touch", opts.touch ?? "TOUCH1");
   return `/dashboard/operations/library/icp-shortlist?${q.toString()}#icp-touch-log`;
+}
+
+/** LIVE desk after automated TOUCH1 (SALES DISPATCH already sent). */
+export function workflowReviewLiveHref(): string {
+  return "/dashboard/operations/workflow-review";
+}
+
+/** Order form with auto-suggest from LIVE recap session storage. */
+export function orderFormSuggestHref(): string {
+  return "/dashboard/operations/library/order-form?suggest=1#order-form";
 }
 
 export function draftKindCardClass(kind: ApprovalDraftKind, selected: boolean): string {

@@ -13,6 +13,7 @@ import {
   draftKindCardClass,
   icpTouchLogHref,
   parseApprovalKindFilter,
+  workflowReviewLiveHref,
   type ApprovalDraftKind,
   type ApprovalKindFilter,
 } from "@/app/lib/approvalDraftKinds";
@@ -200,6 +201,8 @@ function AdminApprovalDashboardInner() {
         interactionId?: string;
         company?: string | null;
         draftKind?: ApprovalDraftKind;
+        touchLogged?: boolean;
+        nextStep?: "LIVE" | "C3";
       };
       if (!response.ok) {
         throw new Error(
@@ -229,6 +232,17 @@ function AdminApprovalDashboardInner() {
             : selectedDraft.dispatchChannel;
         const draftKind = data.draftKind ?? selectedDraft.draftKind;
         const to = typeof data.to === "string" ? data.to : "";
+        setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
+
+        if (draftKind === "SALES" && (data.nextStep === "LIVE" || data.touchLogged)) {
+          setLastDispatch(null);
+          setActionSuccess(
+            `${data.channel ?? channel} sent${to ? ` → ${to}` : ""}. TOUCH1 logged — opening LIVE desk…`,
+          );
+          router.push(workflowReviewLiveHref());
+          return;
+        }
+
         if (company && interactionId && (channel === "EMAIL" || channel === "SMS")) {
           setLastDispatch({
             company,
@@ -239,7 +253,6 @@ function AdminApprovalDashboardInner() {
           });
           setTouchMessage(null);
           if (draftKind === "SALES") {
-            setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
             router.push(
               icpTouchLogHref({
                 company,
@@ -254,11 +267,11 @@ function AdminApprovalDashboardInner() {
         } else {
           setLastDispatch(null);
         }
-      } else {
-        setActionSuccess("SUCCESS_PURGED");
-        setLastDispatch(null);
+        return;
       }
 
+      setActionSuccess("SUCCESS_PURGED");
+      setLastDispatch(null);
       setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
     } catch (err) {
       console.error("Workflow authorization error:", err);

@@ -19,6 +19,8 @@ describe("publicFunnelShell", () => {
     expect(isPublicDarkShellPath("/tools/third-party-criticality-questionnaire")).toBe(true);
     expect(isPublicDarkShellPath("/product-demo")).toBe(true);
     expect(isPublicDarkShellPath("/trust-center")).toBe(true);
+    expect(isPublicDarkShellPath("/workflow-review")).toBe(true);
+    expect(isPublicDarkShellPath("/contact")).toBe(true);
   });
 
   it("does not treat dashboard routes as public dark shell paths", () => {

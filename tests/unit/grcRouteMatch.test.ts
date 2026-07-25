@@ -140,6 +140,8 @@ describe("grcRouteMatch", () => {
     expect(isPublicRoute("/product-demo")).toBe(true);
     expect(isPublicRoute("/trust-center")).toBe(true);
     expect(isPublicRoute("/trust-center/dpa")).toBe(true);
+    expect(isPublicRoute("/workflow-review")).toBe(true);
+    expect(isPublicRoute("/contact")).toBe(true);
     expect(isPublicRoute("/terms")).toBe(true);
     expect(isPublicRoute("/docs/TAS.md")).toBe(false);
     expect(isPublicRoute("/governance-frame/briefing")).toBe(true);

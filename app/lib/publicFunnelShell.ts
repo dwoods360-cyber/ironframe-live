@@ -17,6 +17,7 @@ export function isPublicDarkShellPath(pathname: string): boolean {
   if (normalized === "/product-demo" || normalized.startsWith("/product-demo/")) return true;
   if (normalized === "/trust-center" || normalized.startsWith("/trust-center/")) return true;
   if (normalized === "/tools" || normalized.startsWith("/tools/")) return true;
+  if (normalized === "/workflow-review" || normalized === "/contact") return true;
   if (normalized === "/terms" || normalized.startsWith("/terms/")) return true;
   if (normalized === "/privacy" || normalized.startsWith("/privacy/")) return true;
   if (

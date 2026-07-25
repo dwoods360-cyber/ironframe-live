@@ -128,6 +128,20 @@ const nextConfig: NextConfig = {
         destination: "/solutions/infrastructure",
         permanent: true,
       },
+      /**
+       * Buyer funnel aliases — bad checklists / short URLs must not hit /login.
+       * Canonical booking form: /register/contact (SALES_CONTACT_PATH).
+       */
+      {
+        source: "/workflow-review",
+        destination: "/register/contact",
+        permanent: true,
+      },
+      {
+        source: "/contact",
+        destination: "/register/contact",
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

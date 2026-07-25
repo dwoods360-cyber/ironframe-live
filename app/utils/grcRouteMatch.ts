@@ -130,6 +130,11 @@ export function isPublicRoute(pathname: string): boolean {
   if (pathname === "/product-demo" || pathname.startsWith("/product-demo/")) return true;
   if (pathname === "/trust-center" || pathname.startsWith("/trust-center/")) return true;
   if (pathname === "/tools" || pathname.startsWith("/tools/")) return true;
+  /**
+   * Funnel aliases (next.config permanent redirects → /register/contact).
+   * Must be public so middleware does not 302 guests to /login before the redirect runs.
+   */
+  if (pathname === "/workflow-review" || pathname === "/contact") return true;
   /** Governance Frame research publication (also served on research/brief hosts). */
   if (pathname === "/gf-research" || pathname.startsWith("/gf-research/")) return true;
   if (pathname === "/governance-frame" || pathname.startsWith("/governance-frame/")) return true;
@@ -302,7 +307,9 @@ export function isPublicProspectOnboardingPath(pathname: string): boolean {
     pathname.startsWith("/tools/") ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
-    pathname === "/sales-agent-portal"
+    pathname === "/sales-agent-portal" ||
+    pathname === "/workflow-review" ||
+    pathname === "/contact"
   ) {
     return true;
   }

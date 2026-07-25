@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { isDemoModeActive } from '@/app/lib/demo/demoMode';
 import { isDemoRouteGroupPath } from '@/app/utils/grcRouteMatch';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
@@ -318,10 +317,10 @@ export default function DashboardHomeClient({
   const setForensicPlaybackThreatId = useRiskStore((s) => s.setForensicPlaybackThreatId);
   const hasMounted = useHasMounted();
   const pathname = usePathname();
-  /** Public `/demo/*` + mock session — never hit production dashboard APIs. */
+  /** Public `/demo/*` only — leftover demo cookies must not skip live dashboard on Approvals/Ops. */
   const isDemoSandbox = useMemo(
-    () => isDemoRouteGroupPath(pathname ?? "") || (hasMounted && isDemoModeActive()),
-    [pathname, hasMounted],
+    () => isDemoRouteGroupPath(pathname ?? ""),
+    [pathname],
   );
   /** Cookie lane only after mount — matches ThreatPipeline / avoids handshake UI SSR mismatch. */
   const shadowHandshakeBypassActive = useMemo(

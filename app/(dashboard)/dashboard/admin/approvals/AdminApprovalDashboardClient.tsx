@@ -402,6 +402,18 @@ function AdminApprovalDashboardInner() {
               {visibleDrafts.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-800 p-4 text-center font-sans text-xs text-slate-500">
                   No pending drafts in this track.
+                  {kindFilter === "SALES" ? (
+                    <p className="mt-2 text-slate-400">
+                      Public /register/contact leads land on SalesTeam first —{" "}
+                      <Link
+                        href="/dashboard/operations/salesteam#inbound-leads"
+                        className="text-cyan-400 hover:underline"
+                      >
+                        Queue Approvals draft from inbound
+                      </Link>
+                      . Cold outreach drafts come from SalesTeam poll / re-queue.
+                    </p>
+                  ) : null}
                   {kindFilter !== "ALL" ? (
                     <>
                       {" "}

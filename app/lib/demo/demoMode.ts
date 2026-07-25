@@ -143,6 +143,15 @@ export function isDemoModeActive(): boolean {
   return document.cookie.includes(`${DEMO_ACTIVE_COOKIE}=1`);
 }
 
+/**
+ * True only while the browser is on `/demo/*`.
+ * Leftover demo cookies must not poison Approvals / Ops Hub / production APIs.
+ */
+export function isDemoSandboxSurfaceActive(): boolean {
+  if (typeof window === "undefined") return false;
+  return isDemoPath(window.location.pathname);
+}
+
 export function clearDemoSession(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(DEMO_SESSION_STORAGE_KEY);

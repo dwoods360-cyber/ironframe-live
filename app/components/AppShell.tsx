@@ -11,7 +11,7 @@ import AirlockBanner from "@/app/components/ui/AirlockBanner";
 import { layoutContentShellClass } from "@/app/config/layoutConstants";
 import { isScrollableStandalonePath } from "@/app/utils/grcRouteMatch";
 import DemoSandboxBanner from "@/app/components/demo/DemoSandboxBanner";
-import { isDemoModeActive } from "@/app/lib/demo/demoMode";
+import { clearDemoSession, isDemoModeActive } from "@/app/lib/demo/demoMode";
 import { isDemoRouteGroupPath } from "@/app/utils/grcRouteMatch";
 import { hydrateSystemConfig, useSystemConfigStore } from "@/app/store/systemConfigStore";
 import { useKimbotPersistLoop } from "@/app/hooks/useKimbotPersistLoop";
@@ -25,7 +25,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isBoardReport = pathname === "/board-report" || pathname.startsWith("/board-report/");
   const isScrollableStandalonePage = isScrollableStandalonePath(pathname);
   const isSimulationMode = useSystemConfigStore().isSimulationMode;
-  const demoSandbox = isDemoRouteGroupPath(pathname) || isDemoModeActive();
+  /** Demo chrome only on `/demo/*` — leftover Acme cookies must not wrap Approvals/Ops. */
+  const demoSandbox = isDemoRouteGroupPath(pathname);
   const topBannerOffset = demoSandbox || isSimulationMode;
   const contentShell = layoutContentShellClass(topBannerOffset);
 
@@ -36,6 +37,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hydrateSystemConfig();
   }, []);
+
+  useEffect(() => {
+    if (!isDemoRouteGroupPath(pathname) && isDemoModeActive()) {
+      clearDemoSession();
+    }
+  }, [pathname]);
 
   if (isThreatDetailPage) {
     return (

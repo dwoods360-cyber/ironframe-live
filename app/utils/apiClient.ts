@@ -7,7 +7,7 @@ import { isPublicRegistrationApiPath } from "@/app/lib/auth/publicRegistrationRo
 import { isPublicConstitutionalSentinelPath } from "@/app/utils/grcRouteMatch";
 import {
   DEMO_API_BLOCK_MESSAGE,
-  isDemoModeActive,
+  isDemoSandboxSurfaceActive,
 } from "@/app/lib/demo/demoMode";
 import { logIsolationSentinelBlocked } from "@/app/utils/isolationSentinelLog";
 import { appendAuditLog } from "@/app/utils/auditLogger";
@@ -129,7 +129,7 @@ export function applyIronguardToFetch(
     return [input, { ...init, headers }];
   }
 
-  if (isDemoModeActive() && !isPublicConstitutionalSentinelPath(pathname)) {
+  if (isDemoSandboxSurfaceActive() && !isPublicConstitutionalSentinelPath(pathname)) {
     logIsolationSentinelBlocked({
       reasonCode: "DEMO_MODE_ISOLATED",
       path: pathname,

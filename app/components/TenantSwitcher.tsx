@@ -22,7 +22,8 @@ import { useHostTenantSlug } from "@/app/hooks/useHostTenantSlug";
 import { buildTenantSubdomainOrigin } from "@/app/lib/tenantSubdomain";
 import { resolvePublicAppUrl } from "@/app/lib/auth/publicAppUrl";
 import { navigateToTenantWorkspace } from "@/app/lib/auth/navigateToTenantWorkspace";
-import { getDemoCommandCenterScope, isDemoModeActive } from "@/app/lib/demo/demoMode";
+import { getDemoCommandCenterScope, isDemoSandboxSurfaceActive } from "@/app/lib/demo/demoMode";
+import { isDemoRouteGroupPath } from "@/app/utils/grcRouteMatch";
 import { Loader2 } from "lucide-react";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -76,7 +77,7 @@ export default function TenantSwitcher() {
   const [cookieRevision, setCookieRevision] = useState(0);
 
   useEffect(() => {
-    if (isDemoModeActive()) {
+    if (isDemoSandboxSurfaceActive()) {
       const scope = getDemoCommandCenterScope();
       setRows(scope.tenants);
       setCanAccessGlobal(scope.canAccessGlobal);
@@ -174,7 +175,7 @@ export default function TenantSwitcher() {
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (isSubdomainLocked) return;
-    if (isDemoModeActive()) {
+    if (isDemoSandboxSurfaceActive()) {
       const v = e.target.value;
       const tenant = rows.find((r) => r.id === v);
       setSelectedTenantName(tenant?.name?.trim() ? tenant.name.trim() : null);

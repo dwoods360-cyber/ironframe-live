@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 type TouchRow = {
   id: string;
@@ -16,32 +17,72 @@ type TouchRow = {
   nextTouchNote: string;
 };
 
-type Props = {
-  /** Prefill when opened from Approvals after DISPATCH. */
-  initialCompany?: string;
-  initialChannel?: "EMAIL" | "SMS";
-  initialInteractionId?: string;
-  initialTo?: string;
+type Prefill = {
+  company?: string;
+  channel?: "EMAIL" | "SMS";
+  interactionId?: string;
+  to?: string;
+  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3";
+};
+
+type Props = Prefill & {
   compact?: boolean;
 };
 
-export default function IcpShortlistTouchLogClient({
+function parseChannel(raw: string | null | undefined): "EMAIL" | "SMS" | undefined {
+  const v = (raw ?? "").trim().toUpperCase();
+  if (v === "SMS" || v === "EMAIL") return v;
+  return undefined;
+}
+
+function parseTouch(raw: string | null | undefined): "TOUCH1" | "TOUCH2" | "TOUCH3" | undefined {
+  const v = (raw ?? "").trim().toUpperCase();
+  if (v === "TOUCH1" || v === "TOUCH2" || v === "TOUCH3") return v;
+  return undefined;
+}
+
+function IcpShortlistTouchLogInner({
   initialCompany = "",
   initialChannel = "EMAIL",
   initialInteractionId = "",
   initialTo = "",
+  initialTouch = "TOUCH1",
   compact = false,
-}: Props) {
+}: {
+  initialCompany?: string;
+  initialChannel?: "EMAIL" | "SMS";
+  initialInteractionId?: string;
+  initialTo?: string;
+  initialTouch?: "TOUCH1" | "TOUCH2" | "TOUCH3";
+  compact?: boolean;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const fromQuery: Prefill = {
+    company: (searchParams.get("company") ?? "").trim() || undefined,
+    channel: parseChannel(searchParams.get("channel")),
+    interactionId: (searchParams.get("interactionId") ?? "").trim() || undefined,
+    to: (searchParams.get("to") ?? "").trim() || undefined,
+    touch: parseTouch(searchParams.get("touch")),
+  };
+
+  const companySeed = fromQuery.company || initialCompany;
+  const channelSeed = fromQuery.channel || initialChannel;
+  const interactionSeed = fromQuery.interactionId || initialInteractionId;
+  const toSeed = fromQuery.to || initialTo;
+  const touchSeed = fromQuery.touch || initialTouch;
+
   const [rows, setRows] = useState<TouchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [company, setCompany] = useState(initialCompany);
-  const [channel, setChannel] = useState<"EMAIL" | "SMS">(initialChannel);
-  const [interactionId, setInteractionId] = useState(initialInteractionId);
-  const [to, setTo] = useState(initialTo);
-  const [touch, setTouch] = useState<"TOUCH1" | "TOUCH2" | "TOUCH3">("TOUCH1");
+  const [company, setCompany] = useState(companySeed);
+  const [channel, setChannel] = useState<"EMAIL" | "SMS">(channelSeed);
+  const [interactionId, setInteractionId] = useState(interactionSeed);
+  const [to, setTo] = useState(toSeed);
+  const [touch, setTouch] = useState<"TOUCH1" | "TOUCH2" | "TOUCH3">(touchSeed);
   const [nextTouchNote, setNextTouchNote] = useState("Wait reply / Touch 2 day 4–5");
 
   const load = useCallback(async () => {
@@ -66,11 +107,12 @@ export default function IcpShortlistTouchLogClient({
   }, [load]);
 
   useEffect(() => {
-    if (initialCompany) setCompany(initialCompany);
-    if (initialChannel) setChannel(initialChannel);
-    if (initialInteractionId) setInteractionId(initialInteractionId);
-    if (initialTo) setTo(initialTo);
-  }, [initialCompany, initialChannel, initialInteractionId, initialTo]);
+    if (companySeed) setCompany(companySeed);
+    if (channelSeed) setChannel(channelSeed);
+    if (interactionSeed) setInteractionId(interactionSeed);
+    if (toSeed) setTo(toSeed);
+    if (touchSeed) setTouch(touchSeed);
+  }, [companySeed, channelSeed, interactionSeed, toSeed, touchSeed]);
 
   const logTouch = async () => {
     setBusy(true);
@@ -96,14 +138,17 @@ export default function IcpShortlistTouchLogClient({
         error?: string;
       };
       if (!response.ok) throw new Error(data.error || "Log failed.");
-      setMessage(data.message || "Touch logged.");
+      setMessage(`${data.message || "Touch logged."} Opening LIVE desk…`);
       await load();
+      router.push("/dashboard/operations/workflow-review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Log failed.");
     } finally {
       setBusy(false);
     }
   };
+
+  const autofilled = Boolean(companySeed || interactionSeed);
 
   return (
     <section
@@ -118,15 +163,23 @@ export default function IcpShortlistTouchLogClient({
             C3 · Controlled touch log
           </p>
           <p className="mt-1 text-xs text-slate-300">
-            Logs TOUCH1–3 after EMAIL/SMS DISPATCH. Does not edit the research tables above — those
-            stay git-owned.
+            After <strong className="text-slate-100">Approve &amp; dispatch SALES</strong>, fields
+            autofill from the DISPATCH receipt. Confirm destination, then{" "}
+            <strong className="text-slate-100">Log {touch}</strong>.
           </p>
+          {autofilled ? (
+            <p className="mt-1 font-mono text-[10px] text-emerald-400">
+              Autofilled from Approvals DISPATCH
+              {companySeed ? ` · ${companySeed}` : ""}
+              {channelSeed ? ` · ${channelSeed}` : ""}
+            </p>
+          ) : null}
         </div>
         <Link
           href="/dashboard/admin/approvals?kind=SALES"
-          className="rounded-lg border border-amber-700/70 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
+          className="text-xs text-cyan-300 hover:underline"
         >
-          Sales Approvals
+          ← Sales Approvals
         </Link>
       </div>
 
@@ -208,58 +261,79 @@ export default function IcpShortlistTouchLogClient({
           onClick={() => void load()}
           className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-200 hover:bg-slate-900"
         >
-          Refresh
+          Refresh log
         </button>
       </div>
 
-      {message ? (
-        <p className="rounded-md border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-100">
-          {message}
-        </p>
-      ) : null}
-      {error ? (
-        <p className="rounded-md border border-rose-900/50 bg-rose-950/30 px-3 py-2 text-xs text-rose-100">
-          {error}
-        </p>
-      ) : null}
+      {message ? <p className="text-xs text-emerald-300">{message}</p> : null}
+      {error ? <p className="text-xs text-rose-300">{error}</p> : null}
 
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
-          Live §D touch rows
-        </p>
-        {loading ? (
-          <p className="mt-2 text-xs text-slate-500">Loading…</p>
-        ) : rows.length === 0 ? (
-          <p className="mt-2 text-xs text-slate-500">
-            No controlled touches yet. After EMAIL DISPATCH, log TOUCH1 here.
-          </p>
-        ) : (
-          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-800">
-            <table className="min-w-full border-collapse text-left text-[11px]">
-              <thead className="bg-slate-950 text-[10px] uppercase tracking-widest text-slate-500">
-                <tr>
-                  <th className="border-b border-slate-800 px-2 py-1.5">Date</th>
-                  <th className="border-b border-slate-800 px-2 py-1.5">Company</th>
-                  <th className="border-b border-slate-800 px-2 py-1.5">Stage</th>
-                  <th className="border-b border-slate-800 px-2 py-1.5">Channel</th>
-                  <th className="border-b border-slate-800 px-2 py-1.5">Next</th>
+      <div className="overflow-x-auto rounded-lg border border-slate-800">
+        <table className="min-w-full text-left text-xs text-slate-300">
+          <thead className="bg-slate-950/80 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-2 py-2">When</th>
+              <th className="px-2 py-2">Touch</th>
+              <th className="px-2 py-2">Channel</th>
+              <th className="px-2 py-2">Company</th>
+              <th className="px-2 py-2">To</th>
+              <th className="px-2 py-2">Next</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-2 py-3 text-slate-500">
+                  Loading…
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-2 py-3 text-slate-500">
+                  No controlled touches logged yet.
+                </td>
+              </tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className="border-t border-slate-800/80">
+                  <td className="whitespace-nowrap px-2 py-1.5 font-mono text-[10px] text-slate-500">
+                    {row.date}
+                  </td>
+                  <td className="px-2 py-1.5 font-mono text-amber-300">{row.touch}</td>
+                  <td className="px-2 py-1.5">{row.channel}</td>
+                  <td className="px-2 py-1.5 text-slate-100">{row.company}</td>
+                  <td className="px-2 py-1.5 text-slate-400">{row.to ?? "—"}</td>
+                  <td className="px-2 py-1.5 text-slate-400">{row.nextTouchNote}</td>
                 </tr>
-              </thead>
-              <tbody className="text-slate-200">
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-800/80">
-                    <td className="px-2 py-1.5 font-mono text-slate-300">{row.date}</td>
-                    <td className="px-2 py-1.5">{row.company}</td>
-                    <td className="px-2 py-1.5 font-semibold text-amber-200">{row.touch}</td>
-                    <td className="px-2 py-1.5">{row.channel}</td>
-                    <td className="px-2 py-1.5 text-slate-400">{row.nextTouchNote}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </section>
+  );
+}
+
+export default function IcpShortlistTouchLogClient(props: Props) {
+  return (
+    <Suspense
+      fallback={
+        <section
+          id="icp-touch-log"
+          className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-4 text-xs text-slate-400"
+        >
+          Loading touch log…
+        </section>
+      }
+    >
+      <IcpShortlistTouchLogInner
+        initialCompany={props.company}
+        initialChannel={props.channel}
+        initialInteractionId={props.interactionId}
+        initialTo={props.to}
+        initialTouch={props.touch}
+        compact={props.compact}
+      />
+    </Suspense>
   );
 }

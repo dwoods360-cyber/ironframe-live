@@ -12,7 +12,13 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return (value[0] ?? "").trim();
+  return (value ?? "").trim();
+}
 
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;
@@ -22,15 +28,25 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
-export default async function OperatorLibraryDocPage({ params }: PageProps) {
+export default async function OperatorLibraryDocPage({ params, searchParams }: PageProps) {
   const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }
 
   const { slug } = await params;
+  const query = await searchParams;
   const doc = await loadOperatorLibraryMarkdown(slug);
   if (!doc) notFound();
+
+  const touchChannelRaw = firstParam(query.channel).toUpperCase();
+  const touchChannel =
+    touchChannelRaw === "SMS" || touchChannelRaw === "EMAIL" ? touchChannelRaw : undefined;
+  const touchStageRaw = firstParam(query.touch).toUpperCase();
+  const touchStage =
+    touchStageRaw === "TOUCH1" || touchStageRaw === "TOUCH2" || touchStageRaw === "TOUCH3"
+      ? touchStageRaw
+      : undefined;
 
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -106,7 +122,13 @@ export default async function OperatorLibraryDocPage({ params }: PageProps) {
 
         {slug === "order-form" ? <DesignPartnerOrderFormClient /> : null}
         {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
-          <IcpShortlistTouchLogClient />
+          <IcpShortlistTouchLogClient
+            company={firstParam(query.company) || undefined}
+            channel={touchChannel}
+            interactionId={firstParam(query.interactionId) || undefined}
+            to={firstParam(query.to) || undefined}
+            touch={touchStage}
+          />
         ) : null}
 
         <article className="operator-library-prose rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-5 text-sm leading-relaxed text-slate-200 sm:px-6">

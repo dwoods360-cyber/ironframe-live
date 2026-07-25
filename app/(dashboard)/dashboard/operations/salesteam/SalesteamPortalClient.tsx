@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { approvalsDraftHref, approvalsHref } from "@/app/lib/approvalDraftKinds";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 type RedactedSalesTeamSnapshot = {
@@ -49,6 +51,7 @@ function formatAleCents(cents: string): string {
 }
 
 export default function SalesteamPortalClient() {
+  const router = useRouter();
   const [snapshot, setSnapshot] = useState<RedactedSalesTeamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollBusy, setPollBusy] = useState(false);
@@ -159,8 +162,9 @@ export default function SalesteamPortalClient() {
       } else {
         const refreshed = q.queued.some((r) => r.refreshed);
         setMessage(
-          `${refreshed ? "Refreshed" : "Queued"} ${q.queued.length} PENDING draft(s): ${queuedLabel}.${skipLabel}${errLabel} Open Sales outreach queue for C1.`,
+          `${refreshed ? "Refreshed" : "Queued"} ${q.queued.length} PENDING draft(s): ${queuedLabel}.${skipLabel}${errLabel} Opening Sales Approvals…`,
         );
+        router.push(approvalsHref("SALES"));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Re-queue failed.");
@@ -201,9 +205,10 @@ export default function SalesteamPortalClient() {
       }
       setMessage(
         q.created
-          ? `P1 inbound draft queued for ${q.company} (${q.email}). Open Sales outreach queue — HITL DISPATCH only.`
-          : `Pending draft already exists for ${q.company}. Open Sales outreach queue.`,
+          ? `P1 inbound draft queued for ${q.company} (${q.email}). Opening Sales Approvals…`
+          : `Pending draft already exists for ${q.company}. Opening Sales Approvals…`,
       );
+      router.push(approvalsDraftHref(q.interactionId, "SALES"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Queue inbound draft failed.");
     } finally {

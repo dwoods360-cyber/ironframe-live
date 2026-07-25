@@ -63,6 +63,30 @@ export function approvalsHref(kind: ApprovalKindFilter = "ALL"): string {
   return `/dashboard/admin/approvals?kind=${kind}`;
 }
 
+/** Sales Approvals with a specific draft selected (CRM interaction id). */
+export function approvalsDraftHref(interactionId: string, kind: ApprovalKindFilter = "SALES"): string {
+  const base = approvalsHref(kind);
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}draft=${encodeURIComponent(interactionId)}`;
+}
+
+/** C3 touch log with autofill after SALES DISPATCH. */
+export function icpTouchLogHref(opts: {
+  company: string;
+  channel: "EMAIL" | "SMS";
+  interactionId: string;
+  to?: string;
+  touch?: "TOUCH1" | "TOUCH2" | "TOUCH3";
+}): string {
+  const q = new URLSearchParams();
+  if (opts.company.trim()) q.set("company", opts.company.trim());
+  q.set("channel", opts.channel);
+  if (opts.interactionId.trim()) q.set("interactionId", opts.interactionId.trim());
+  if (opts.to?.trim()) q.set("to", opts.to.trim());
+  q.set("touch", opts.touch ?? "TOUCH1");
+  return `/dashboard/operations/library/icp-shortlist?${q.toString()}#icp-touch-log`;
+}
+
 export function draftKindCardClass(kind: ApprovalDraftKind, selected: boolean): string {
   const base = selected
     ? {

@@ -11,6 +11,7 @@ import {
   draftKindBadgeClass,
   draftKindBannerClass,
   draftKindCardClass,
+  icpTouchLogHref,
   parseApprovalKindFilter,
   type ApprovalDraftKind,
   type ApprovalKindFilter,
@@ -50,6 +51,7 @@ function AdminApprovalDashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const kindFilter = parseApprovalKindFilter(searchParams.get("kind"));
+  const draftParam = (searchParams.get("draft") ?? "").trim();
 
   const [drafts, setDrafts] = useState<PendingDraft[]>([]);
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -114,10 +116,13 @@ function AdminApprovalDashboardInner() {
 
   useEffect(() => {
     setActiveDraftId((current) => {
+      if (draftParam && visibleDrafts.some((draft) => draft.id === draftParam)) {
+        return draftParam;
+      }
       if (current && visibleDrafts.some((draft) => draft.id === current)) return current;
       return visibleDrafts[0]?.id ?? null;
     });
-  }, [visibleDrafts]);
+  }, [visibleDrafts, draftParam]);
 
   const selectedDraft = visibleDrafts.find((draft) => draft.id === activeDraftId);
   const selectedMeta = selectedDraft ? APPROVAL_KIND_META[selectedDraft.draftKind] : null;
@@ -157,7 +162,8 @@ function AdminApprovalDashboardInner() {
       });
       const data = (await response.json()) as { message?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Failed to log TOUCH1.");
-      setTouchMessage(data.message || "TOUCH1 logged.");
+      setTouchMessage(data.message || "TOUCH1 logged. Opening LIVE desk…");
+      router.push("/dashboard/operations/workflow-review");
     } catch (err) {
       setTouchMessage(err instanceof Error ? err.message : "Failed to log TOUCH1.");
     } finally {
@@ -221,15 +227,30 @@ function AdminApprovalDashboardInner() {
           data.channel === "SMS" || data.channel === "EMAIL"
             ? data.channel
             : selectedDraft.dispatchChannel;
+        const draftKind = data.draftKind ?? selectedDraft.draftKind;
+        const to = typeof data.to === "string" ? data.to : "";
         if (company && interactionId && (channel === "EMAIL" || channel === "SMS")) {
           setLastDispatch({
             company,
             channel,
             interactionId,
-            to: typeof data.to === "string" ? data.to : "",
-            draftKind: data.draftKind ?? selectedDraft.draftKind,
+            to,
+            draftKind,
           });
           setTouchMessage(null);
+          if (draftKind === "SALES") {
+            setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
+            router.push(
+              icpTouchLogHref({
+                company,
+                channel,
+                interactionId,
+                to: to || undefined,
+                touch: "TOUCH1",
+              }),
+            );
+            return;
+          }
         } else {
           setLastDispatch(null);
         }
@@ -660,7 +681,13 @@ function AdminApprovalDashboardInner() {
                           {touchBusy ? "Logging…" : "Log TOUCH1"}
                         </button>
                         <Link
-                          href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+                          href={icpTouchLogHref({
+                            company: lastDispatch.company,
+                            channel: lastDispatch.channel,
+                            interactionId: lastDispatch.interactionId,
+                            to: lastDispatch.to || undefined,
+                            touch: "TOUCH1",
+                          })}
                           className="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
                         >
                           Open touch log

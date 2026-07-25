@@ -158,6 +158,8 @@ describe("grcRouteMatch", () => {
   it("allows public tools through prospect and cloud ingress", () => {
     expect(isPublicProspectOnboardingPath("/tools")).toBe(true);
     expect(isPublicProspectOnboardingPath("/tools/nist-csf-2-govern-assessment")).toBe(true);
+    expect(isPublicProspectOnboardingPath("/workflow-review")).toBe(true);
+    expect(isPublicProspectOnboardingPath("/contact")).toBe(true);
     expect(isPublicCloudIngressPath("/tools/evidence-readiness-assessment")).toBe(true);
   });
 

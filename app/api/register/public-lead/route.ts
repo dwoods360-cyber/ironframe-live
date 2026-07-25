@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { normalizeProvisionedTenantSlug } from "@/app/lib/tenantSlugRegistry";
+import { elevateInboundLeadPriority } from "@/app/lib/server/inboundLeadOpsCore";
 import { parseDollarAleToBigIntCents } from "@/app/lib/server/salesIntakeParse";
 import { recordProspectLead } from "@/app/lib/server/prospectLedger";
 
@@ -80,10 +81,26 @@ export async function POST(req: NextRequest) {
       reportedAle: aleParsed.cents,
     });
 
+    let opsNotified = false;
+    try {
+      const elevated = await elevateInboundLeadPriority({
+        orgName: prospect.orgName,
+        slug: prospect.slug,
+        email: prospect.email,
+        reportedAleCents: aleParsed.cents,
+      });
+      opsNotified = elevated.notified;
+    } catch (elevateErr) {
+      // Lead is already persisted — never fail the public response on ops elevation.
+      console.error("[public-lead] P1 elevation failed", elevateErr);
+    }
+
     return NextResponse.json({
       ok: true,
       prospectSlug: prospect.slug,
       reportedAleCents: aleParsed.cents.toString(),
+      priority: 1,
+      opsNotified,
     });
   } catch (e) {
     console.error("[public-lead]", e);

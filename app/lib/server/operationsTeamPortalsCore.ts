@@ -4,6 +4,7 @@ import {
   fetchPendingApprovalDrafts,
 } from "@/app/lib/server/approvalQueueCore";
 import type { SalesteamProspectWire } from "@/app/lib/server/salesteamIngressCore";
+import { listInboundProspectLeads } from "@/app/lib/server/inboundLeadOpsCore";
 import { listSalesteamProspectQueue } from "@/app/lib/server/salesteamIngressCore";
 import {
   collapseSuspectRowsByCompany,
@@ -226,6 +227,18 @@ export type SalesTeamPortalSnapshot = {
     healthUrl: string;
     status: string | null;
   };
+  /** Public /register/contact hand-raisers — always P1 over cold PROSPECT queue. */
+  inboundLeads: Array<{
+    id: string;
+    orgName: string;
+    slug: string;
+    email: string;
+    reportedAleCents: string;
+    createdAt: string;
+    opsStatus: string | null;
+    priority: number;
+    sourceRef: string;
+  }>;
   prospects: SalesteamProspectWire[];
   polledAt: string;
 };
@@ -261,11 +274,15 @@ export async function buildSalesTeamPortalSnapshot(
     reachable = false;
   }
 
-  const prospectResult = await listSalesteamProspectQueue(tenantSlug, 25);
+  const [prospectResult, inboundLeads] = await Promise.all([
+    listSalesteamProspectQueue(tenantSlug, 25),
+    listInboundProspectLeads(40),
+  ]);
 
   return {
     generatedAt: new Date().toISOString(),
     worker: { reachable, healthUrl, status },
+    inboundLeads,
     prospects: prospectResult.prospects,
     polledAt: prospectResult.polledAt,
   };

@@ -922,10 +922,11 @@ export default function OperationsHubClient() {
                 CS advisories ({snapshot.approvals.byKind.CUSTOMER_SUCCESS})
               </Link>
               <Link
-                href="/dashboard/operations/salesteam"
-                className="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-cyan-200 hover:border-cyan-600"
+                href="/dashboard/operations/salesteam#inbound-leads"
+                className="rounded-lg border border-rose-800/60 bg-rose-950/30 px-4 py-2 text-sm text-rose-100 hover:border-rose-500"
+                title="P1 public inbound first, then cold PROSPECT queue"
               >
-                SalesTeam portal
+                SalesTeam · P1 inbound
               </Link>
               <Link
                 href="/dashboard/operations/library"
@@ -2021,6 +2022,18 @@ export default function OperationsHubClient() {
                     Ironleads interaction portal
                   </Link>
                   <p className="text-slate-500">SUSPECT harvest & OSINT pipeline → CRM ingress (:8083).</p>
+                </li>
+                <li>
+                  <Link
+                    href="/dashboard/operations/salesteam#inbound-leads"
+                    className="text-rose-300 hover:underline"
+                  >
+                    SalesTeam portal · P1 inbound
+                  </Link>
+                  <p className="text-slate-500">
+                    Public /register/contact hand-raisers are P1 (Ops calendar + notify). Cold PROSPECT
+                    queue is secondary (:8084).
+                  </p>
                 </li>
                 <li>
                   <Link href="/sales-agent-portal" className="text-cyan-300 hover:underline">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { queueInboundLeadApprovalDraft } from "@/app/lib/server/inboundLeadOpsCore";
 import {
   redactSalesTeamPortalSnapshot,
   resolveSalesTeamCrmScopeSlug,
@@ -37,11 +38,13 @@ export async function POST(request: NextRequest) {
   let action = "poll";
   let companyIncludes: string | undefined;
   let force = false;
+  let inboundSlug: string | undefined;
   try {
     const body = (await request.json()) as {
       action?: string;
       companyIncludes?: string;
       force?: boolean;
+      slug?: string;
     };
     if (typeof body.action === "string" && body.action.trim()) {
       action = body.action.trim().toLowerCase();
@@ -50,8 +53,29 @@ export async function POST(request: NextRequest) {
       companyIncludes = body.companyIncludes.trim();
     }
     force = body.force === true;
+    if (typeof body.slug === "string" && body.slug.trim()) {
+      inboundSlug = body.slug.trim().toLowerCase();
+    }
   } catch {
     action = "poll";
+  }
+
+  if (action === "queue-inbound-draft") {
+    if (!inboundSlug) {
+      return NextResponse.json({ error: "slug is required." }, { status: 400 });
+    }
+    try {
+      const queued = await queueInboundLeadApprovalDraft({ slug: inboundSlug });
+      const snapshot = await buildSalesTeamPortalSnapshot(resolveSalesTeamCrmScopeSlug());
+      return NextResponse.json({
+        ok: true,
+        queued,
+        approvalsHref: "/dashboard/admin/approvals?kind=SALES",
+        snapshot: redactSalesTeamPortalSnapshot(snapshot),
+      });
+    } catch (err) {
+      return operationsPortalErrorResponse(err, "Queue inbound draft");
+    }
   }
 
   if (action === "requeue-drafts") {

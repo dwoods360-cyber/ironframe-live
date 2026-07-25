@@ -11,6 +11,10 @@ export function hrefForOpsSourceRef(
   const raw = (sourceRef ?? "").trim();
   if (!raw) return "/dashboard/operations?tab=calendar";
 
+  if (raw.startsWith("inbound-lead:")) {
+    return "/dashboard/operations/salesteam#inbound-leads";
+  }
+
   const hashIdx = raw.indexOf("#");
   const base = hashIdx >= 0 ? raw.slice(0, hashIdx) : raw;
   const hash = hashIdx >= 0 ? raw.slice(hashIdx) : "";

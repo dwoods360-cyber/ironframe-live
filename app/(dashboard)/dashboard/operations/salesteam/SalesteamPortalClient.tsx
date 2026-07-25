@@ -9,6 +9,17 @@ type RedactedSalesTeamSnapshot = {
   generatedAt: string;
   crmScope: string;
   worker: { reachable: boolean; status: string | null };
+  inboundLeads: Array<{
+    id: string;
+    orgName: string;
+    slug: string;
+    email: string;
+    reportedAleCents: string;
+    createdAt: string;
+    opsStatus: string | null;
+    priority: number;
+    sourceRef: string;
+  }>;
   prospects: Array<{
     dealId: string;
     contactId: string;
@@ -27,11 +38,22 @@ type RedactedSalesTeamSnapshot = {
   polledAt: string;
 };
 
+function formatAleCents(cents: string): string {
+  try {
+    const n = BigInt(cents);
+    if (n <= 0n) return "—";
+    return `$${(Number(n) / 100).toLocaleString("en-US")}`;
+  } catch {
+    return "—";
+  }
+}
+
 export default function SalesteamPortalClient() {
   const [snapshot, setSnapshot] = useState<RedactedSalesTeamSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollBusy, setPollBusy] = useState(false);
   const [requeueBusy, setRequeueBusy] = useState(false);
+  const [inboundBusySlug, setInboundBusySlug] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +80,7 @@ export default function SalesteamPortalClient() {
   }, [loadSnapshot]);
 
   const runPoll = async () => {
-    if (pollBusy || requeueBusy) return;
+    if (pollBusy || requeueBusy || inboundBusySlug) return;
     setPollBusy(true);
     setMessage(null);
     setError(null);
@@ -88,7 +110,7 @@ export default function SalesteamPortalClient() {
     companyIncludes?: string;
     force?: boolean;
   }) => {
-    if (pollBusy || requeueBusy) return;
+    if (pollBusy || requeueBusy || inboundBusySlug) return;
     setRequeueBusy(true);
     setMessage(null);
     setError(null);
@@ -147,18 +169,64 @@ export default function SalesteamPortalClient() {
     }
   };
 
+  const queueInboundDraft = async (slug: string) => {
+    if (pollBusy || requeueBusy || inboundBusySlug) return;
+    setInboundBusySlug(slug);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        queued?: {
+          interactionId: string;
+          created: boolean;
+          company: string;
+          email: string;
+        };
+        snapshot?: RedactedSalesTeamSnapshot;
+      }>(
+        "/api/admin/operations-hub/salesteam",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "queue-inbound-draft", slug }),
+        },
+        "Queue inbound draft failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const q = data.queued;
+      if (!q) {
+        setError("Queue succeeded but no draft payload returned.");
+        return;
+      }
+      setMessage(
+        q.created
+          ? `P1 inbound draft queued for ${q.company} (${q.email}). Open Sales outreach queue — HITL DISPATCH only.`
+          : `Pending draft already exists for ${q.company}. Open Sales outreach queue.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Queue inbound draft failed.");
+    } finally {
+      setInboundBusySlug(null);
+    }
+  };
+
+  const inboundOpenCount =
+    snapshot?.inboundLeads.filter((lead) => lead.opsStatus !== "DONE" && lead.opsStatus !== "CANCELLED")
+      .length ?? 0;
+
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="flex flex-col gap-4 border-b border-slate-800 pb-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-amber-400">
-              SalesTeam · PROSPECT outreach
+            <p className="font-mono text-[10px] uppercase tracking-widest text-rose-400">
+              SalesTeam · P1 inbound first
             </p>
             <h1 className="text-2xl font-bold text-white">Sales interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Monitor PROSPECT-stage deals, trigger poll cycles, and route StoryBrand drafts to the
-              SALES approval queue. CRM scope is server-resolved.
+              Public /register/contact hand-raisers are P1. Cold PROSPECT deals are secondary. Queue a
+              reply draft into Approvals — never auto-send.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -204,7 +272,7 @@ export default function SalesteamPortalClient() {
             </button>
             <button
               type="button"
-              disabled={pollBusy || requeueBusy}
+              disabled={pollBusy || requeueBusy || Boolean(inboundBusySlug)}
               onClick={() => void runPoll()}
               className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
             >
@@ -212,7 +280,7 @@ export default function SalesteamPortalClient() {
             </button>
             <button
               type="button"
-              disabled={pollBusy || requeueBusy}
+              disabled={pollBusy || requeueBusy || Boolean(inboundBusySlug)}
               onClick={() => void runRequeueDrafts()}
               className="rounded-lg border border-emerald-700 bg-emerald-950/40 px-4 py-2 text-sm font-medium text-emerald-100 hover:border-emerald-500 disabled:opacity-50"
               title="Create PENDING Approvals drafts for prospect-pool PROSPECTs (bypasses worker processedDeal after dry-run)"
@@ -221,7 +289,7 @@ export default function SalesteamPortalClient() {
             </button>
             <button
               type="button"
-              disabled={pollBusy || requeueBusy}
+              disabled={pollBusy || requeueBusy || Boolean(inboundBusySlug)}
               onClick={() =>
                 void runRequeueDrafts({ companyIncludes: "BlueRadius", force: true })
               }
@@ -232,7 +300,7 @@ export default function SalesteamPortalClient() {
             </button>
             <button
               type="button"
-              disabled={pollBusy || requeueBusy}
+              disabled={pollBusy || requeueBusy || Boolean(inboundBusySlug)}
               onClick={() =>
                 void runRequeueDrafts({ companyIncludes: "Pivot Point", force: true })
               }
@@ -276,11 +344,87 @@ export default function SalesteamPortalClient() {
                   <span className="text-slate-500">CRM scope:</span>{" "}
                   <span className="font-mono text-cyan-300">{snapshot.crmScope}</span>
                 </p>
+                <p>
+                  <span className="text-slate-500">Open P1 inbound:</span>{" "}
+                  <span className={inboundOpenCount > 0 ? "font-semibold text-rose-300" : "text-slate-300"}>
+                    {inboundOpenCount}
+                  </span>
+                </p>
               </div>
             </section>
 
+            <section
+              id="inbound-leads"
+              className="scroll-mt-24 rounded-xl border border-rose-900/50 bg-rose-950/20 p-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-rose-400">
+                    P1 · Public inbound
+                  </p>
+                  <h2 className="mt-1 text-lg font-semibold text-white">
+                    Workflow review requests
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-300">
+                    From /register/contact. Highest priority over cold outreach. Queue a scheduling
+                    reply into Approvals — you still HITL DISPATCH.
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard/admin/approvals?kind=SALES"
+                  className="rounded-lg border border-rose-700/70 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-950/50"
+                >
+                  Sales Approvals →
+                </Link>
+              </div>
+              <ul className="mt-4 space-y-3">
+                {(snapshot.inboundLeads ?? []).length === 0 ? (
+                  <li className="text-sm text-slate-500">No public inbound leads recorded yet.</li>
+                ) : (
+                  (snapshot.inboundLeads ?? []).map((lead) => {
+                    const closed = lead.opsStatus === "DONE" || lead.opsStatus === "CANCELLED";
+                    return (
+                      <li
+                        key={lead.id}
+                        className="rounded-lg border border-rose-900/40 bg-slate-950/50 p-4 text-sm"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {lead.orgName}{" "}
+                              <span className="ml-2 rounded border border-rose-700/60 px-1.5 py-0.5 font-mono text-[10px] uppercase text-rose-200">
+                                P{lead.priority || 1}
+                              </span>
+                            </p>
+                            <p className="mt-1 text-slate-300">{lead.email}</p>
+                            <p className="mt-1 font-mono text-[11px] text-slate-500">
+                              {new Date(lead.createdAt).toLocaleString()} · ALE{" "}
+                              {formatAleCents(lead.reportedAleCents)} · {lead.slug}
+                              {lead.opsStatus ? ` · ${lead.opsStatus}` : ""}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={closed || Boolean(inboundBusySlug)}
+                            onClick={() => void queueInboundDraft(lead.slug)}
+                            className="rounded-lg bg-rose-700 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-600 disabled:opacity-40"
+                          >
+                            {inboundBusySlug === lead.slug
+                              ? "Queuing…"
+                              : closed
+                                ? "Closed"
+                                : "Queue Approvals draft"}
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </section>
+
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">PROSPECT queue</h2>
+              <h2 className="text-lg font-semibold text-white">PROSPECT queue (secondary)</h2>
               <p className="mt-1 text-sm text-slate-400">
                 Polled {new Date(snapshot.polledAt).toLocaleString()}
               </p>

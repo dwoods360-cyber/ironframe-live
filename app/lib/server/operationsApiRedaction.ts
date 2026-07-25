@@ -150,6 +150,7 @@ export function redactSalesTeamPortalSnapshot(
     generatedAt: snapshot.generatedAt,
     crmScope: "platform-default",
     worker,
+    inboundLeads: snapshot.inboundLeads ?? [],
     prospects: snapshot.prospects.map(({ tenantId: _tenantId, ...prospect }) => prospect),
     polledAt: snapshot.polledAt,
   };

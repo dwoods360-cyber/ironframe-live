@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CUSTOMER_FACING_AUDIENCE_UMBRELLA,
+  CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_PATH_B_USD,
   draftOutboundMessage,
   humanizeDetectedTrigger,
@@ -27,23 +29,28 @@ const SAMPLE_PROSPECT: ProspectRecord = {
 };
 
 describe('outboundDraftsman', () => {
-  it('opens problem-led then sells paid Path B with workflow-review CTA', () => {
+  it('opens problem-led then sells Command Design Partner / Path B with workflow-review CTA', () => {
     const draft = draftOutboundMessage(SAMPLE_PROSPECT, 'EMAIL');
     expect(draft.storyBrandOk).toBe(true);
     expect(draft.contentQualityOk).toBe(true);
-    expect(draft.body.toLowerCase()).toContain('decision-maker');
     expect(draft.body.toLowerCase()).toContain('quick question');
+    expect(draft.body.toLowerCase()).toContain('saw');
     expect(draft.body).toContain('$5,900,000.00');
     expect(draft.body).toContain('$4,999');
     expect(draft.body).toContain('$35,000');
+    expect(draft.body).toContain(CUSTOMER_FACING_PATH_B_SKU);
+    expect(draft.body).toContain('Path B');
+    expect(draft.body).toContain(CUSTOMER_FACING_AUDIENCE_UMBRELLA);
+    expect(draft.body.toLowerCase()).toContain('multi-entity banks');
     expect(draft.body.toLowerCase()).toContain('workflow review');
+    expect(draft.body.toLowerCase()).not.toContain('decision-maker');
     expect(draft.body.toLowerCase()).not.toContain('in this story, not us');
     expect(draft.body.toLowerCase()).not.toContain('wedge:');
     expect(draft.body.toLowerCase()).not.toContain('pending operator approval');
     expect(draft.body.toLowerCase()).not.toContain('including show');
-    expect(draft.body).toMatch(/^As /m);
+    expect(draft.body.toLowerCase()).not.toContain('bigint');
     expect(draft.body).toMatch(/\n\n/);
-    expect(draft.subject.toLowerCase()).toContain('workflow');
+    expect(draft.subject.toLowerCase()).toContain('acme regional bank');
     expect(draft.industrySector).toBe('REGIONAL_BHC');
   });
 
@@ -62,11 +69,24 @@ describe('outboundDraftsman', () => {
     expect(draft.contentQualityOk).toBe(true);
   });
 
-  it('keeps SMS drafts short and commercial', () => {
+  it('keeps SMS drafts short and commercial with dual naming', () => {
     const draft = draftOutboundMessage(SAMPLE_PROSPECT, 'SMS');
     expect(draft.channel).toBe('SMS');
+    expect(draft.body).toContain(CUSTOMER_FACING_PATH_B_SKU);
+    expect(draft.body).toContain('Path B');
     expect(draft.body).toContain(`$${DESIGN_PARTNER_PATH_B_USD}`);
     expect(draft.body.length).toBeLessThan(320);
+  });
+
+  it('uses multi-client partners face name for MSSP beachhead', () => {
+    const draft = draftOutboundMessage(
+      { ...SAMPLE_PROSPECT, industrySector: 'MSSP_ENCLAVE', company: 'Pivot Point Security' },
+      'EMAIL',
+    );
+    expect(draft.body.toLowerCase()).toContain('multi-client partners');
+    expect(draft.body.toLowerCase()).not.toContain('cents-grade');
+    expect(draft.body.toLowerCase()).not.toContain('cross-tenant bleed');
+    expect(draft.contentQualityOk).toBe(true);
   });
 
   it('fails content quality when prompt artifacts remain', () => {

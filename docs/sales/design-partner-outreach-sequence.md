@@ -8,33 +8,37 @@ SalesTeam `outboundDraftsman` generates Touch 1–shaped first drafts. Use this 
 
 ---
 
+## Naming (customer vs internal)
+
+| Surface | Use |
+|---------|-----|
+| **Partner-facing SKU** | **Command Design Partner** |
+| **Internal / R2 / Stripe / ops** | **Path B** (always keep in Touch 1 commercials) |
+| **Audience umbrella** | **multi-entity GRC operators** |
+| **Beachhead face names** | multi-entity banks · grid / CIP operators · multi-client partners · regulated care operators |
+
 ## Touch 1 — Open (day 0)
 
-**Subject:** Question about {{compliance-or-evidence}} workflow at {{company}}
+**Subject:** {{short-compliance-hook}} at {{company}}
 
 ```
 Hi {{firstName}},
 
-You're leading {{role-or-compliance-work}} at {{company}} — that makes you the decision-maker in this story, not us.
+Saw {{trigger}} at {{company}}. Quick question: how does your team handle {{compliance-or-evidence}} today — especially where heatmaps or spreadsheets still feed board reporting?
 
-We noticed {{trigger}}. Quick question on how your team handles evidence today — especially where heatmaps or spreadsheets still feed the board.
+Ironframe helps {{audience-face}} like yours {{guide-plan}} — {{plain-cents-wedge}}.
 
-Ironframe is a quantitative GRC command post (BigInt dollar risk, isolated enclaves, auditor-ready exports). We're recruiting a small paid co-builder cohort:
+We're recruiting a small cohort of multi-entity GRC operators into Command Design Partner — Path B $4,999, 90-day co-builder seat, 2–3 success criteria you set. Planned GA for Ironframe Command is ~$35,000/yr.
 
-• Command Tier / Path B on-ramp: $4,999
-• 90-day window (default), 2–3 success criteria you set
-• Weekly eng syncs capped (first 4–6 weeks), then async
-• Planned GA Ironframe Command ~$35k/yr (say "planned" until GA flag)
+If that friction is real on your side, the next step is a 10–15 minute workflow review on evidence / board-report pain — not a product preview.
 
-If the pain is real on your side: a 10–15 minute workflow review — not a product preview.
-
-— Ironframe (pending operator approval before send)
+— Ironframe
 ```
 
 **SMS (≤320 chars):**
 
 ```
-{{firstName}} — Ironframe paid co-builder (Command Tier $4,999, 90-day window). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or stop.
+{{firstName}} — Ironframe Command Design Partner (Path B $4,999, 90 days). Quantified GRC, not heatmaps. 10-15 min workflow review on your evidence pain? Reply YES or STOP.
 ```
 
 ---

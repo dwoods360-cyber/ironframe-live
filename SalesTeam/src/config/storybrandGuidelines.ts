@@ -7,10 +7,11 @@ export const STORYBRAND_GUIDELINES = {
     'generic compliance checklist',
   ],
   requiredElements: [
-    'name the operator as the decision-maker',
-    'state a single clear plan step',
-    'anchor financial risk in whole cents',
-    'end with a low-friction next step',
+    'lead with a specific signal + peer question (operator is the hero)',
+    'state a single clear plan step in plain language',
+    'anchor financial risk in whole cents (no BigInt / eng dumps)',
+    'name Command Design Partner with Path B $ / window locks',
+    'end with workflow-review CTA (not a demo)',
   ],
 } as const;
 

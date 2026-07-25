@@ -110,7 +110,7 @@ Expect: `allMessageLocksPass: true` and at least one PENDING draft. This does **
 
 | # | Must see in draft | Must NOT see | Pass |
 |---|-------------------|--------------|------|
-| R2.1 | `$4,999` (or 4999) and Path B / 90-day co-builder frame | `free PoC`, `free pilot`, `free trial` | ☐ |
+| R2.1 | `$4,999` (or 4999) and **Command Design Partner** / Path B / 90-day co-builder frame | `free PoC`, `free pilot`, `free trial` | ☐ |
 | R2.2 | CTA toward **workflow review** (10–15 min) | “Request Demo” as the main ask | ☐ |
 | R2.3 | — | `medshield`, `vaultbank`, `gridcore` as customers | ☐ |
 | R2.4 | Usable **email** and/or **phone** for the channel you will DISPATCH | Planning EMAIL with only `@ironleads.local` | ☐ |

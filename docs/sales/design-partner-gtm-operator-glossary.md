@@ -39,8 +39,11 @@ Administrative control over platform infrastructure **must stay isolated** from 
 
 | Term | Meaning |
 |------|---------|
-| **Path B** | Paid design-partner seat: flat **$4,999** for default **90 days**, with **2–3 written success criteria**. Not a free pilot. |
-| **Command Tier** | Same commercial path as Path B in packaging language. |
+| **Command Design Partner** | Partner-facing SKU name for the paid co-builder seat. Use in cold email/SMS/offer sheet. |
+| **Path B** | Internal commercial code for the same seat: flat **$4,999** · default **90 days** · **2–3 written success criteria**. Keep in Touch 1 locks / Stripe / ops. Not a free pilot. |
+| **multi-entity GRC operators** | Audience umbrella for the cohort (all Core 4 beachheads). |
+| **Beachhead face names** | multi-entity banks · grid / CIP operators · multi-client partners · regulated care operators. |
+| **Command Tier** | Packaging synonym still valid; prefer **Command Design Partner** in outbound. |
 | **Order form** | Captures criteria + client-owned operator email before provision. |
 | **Path B activation link** | Tenant-scoped Stripe / activation URL. **Never** send generic `/pricing` to a PENDING partner. |
 | **Client-owned operator email** | Partner’s real work email for provision — not `@ironframegrc.com`. |

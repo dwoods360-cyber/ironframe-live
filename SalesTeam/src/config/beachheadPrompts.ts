@@ -42,7 +42,7 @@ export const BEACHHEAD_PROMPTS: Record<BeachheadSector, BeachheadPrompt> = {
     guidePlan:
       'unify vendor risk, patient privacy controls, and audit-ready evidence in one tenant-scoped workspace',
     wedgeCentsNarrative:
-      'frame breach and vendor-risk exposure as pristine BigInt cents tied to remediation tasks',
+      'frame breach and vendor-risk exposure in whole cents tied to remediation tasks',
     complianceHook: BEACHHEAD_SUMMARIES.HEALTH_HIPAA.complianceHook,
   },
   MSSP_ENCLAVE: {
@@ -51,7 +51,7 @@ export const BEACHHEAD_PROMPTS: Record<BeachheadSector, BeachheadPrompt> = {
     guidePlan:
       'deliver multi-client governance with strict tenant isolation and partner-ready reporting',
     wedgeCentsNarrative:
-      'showing each client enclave its own cents-grade loss model without cross-tenant bleed',
+      'showing each client enclave its own whole-cents loss model with hard per-client boundaries',
     complianceHook: BEACHHEAD_SUMMARIES.MSSP_ENCLAVE.complianceHook,
   },
 };

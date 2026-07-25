@@ -26,25 +26,36 @@ export const BEACHHEAD_TAG_TO_SECTOR: Record<string, BeachheadSector> = {
 
 export const BEACHHEAD_SUMMARIES: Record<
   BeachheadSector,
-  { label: string; heroAngle: string; complianceHook: string }
+  {
+    /** Short operator label (docs / CRM). */
+    label: string;
+    /** Partner-facing audience name for outbound. */
+    audienceFace: string;
+    heroAngle: string;
+    complianceHook: string;
+  }
 > = {
   REGIONAL_BHC: {
     label: 'Multi-entity / regional BHC',
+    audienceFace: 'multi-entity banks',
     heroAngle: 'regional banking CISO or compliance operator',
     complianceHook: 'FFIEC supervision, board reporting cadence, and vendor oversight',
   },
   UTILITY_NERC: {
     label: 'Utility / OT / NERC CIP',
+    audienceFace: 'grid / CIP operators',
     heroAngle: 'utility CIP program owner or grid security lead',
     complianceHook: 'NERC CIP evidence trails and operational attestations',
   },
   MSSP_ENCLAVE: {
     label: 'MSSP / vCISO',
+    audienceFace: 'multi-client partners',
     heroAngle: 'MSSP governance lead or partner program director',
     complianceHook: 'multi-client governance and partner-led distribution',
   },
   HEALTH_HIPAA: {
     label: 'Healthcare / HIPAA',
+    audienceFace: 'regulated care operators',
     heroAngle: 'healthcare compliance operator or vendor risk lead',
     complianceHook: 'HIPAA vendor risk, patient data privacy, and heavy compliance operations',
   },

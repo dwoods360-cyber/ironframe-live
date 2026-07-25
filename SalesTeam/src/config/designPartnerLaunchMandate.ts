@@ -7,6 +7,8 @@ export {
   PLANNED_GA_COMMAND_USD,
   DESIGN_PARTNER_PATH_B_CENTS,
   PLANNED_GA_COMMAND_CENTS,
+  CUSTOMER_FACING_PATH_B_SKU,
+  CUSTOMER_FACING_AUDIENCE_UMBRELLA,
 } from '../../../lib/ironframeProductKnowledge/commercial.js';
 export { buildSalesTeamLaunchMandate as buildDesignPartnerLaunchMandate } from '../../../lib/ironframeProductKnowledge/boardBinding.js';
 

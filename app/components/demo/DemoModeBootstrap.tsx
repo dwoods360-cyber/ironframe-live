@@ -29,8 +29,8 @@ export default function DemoModeBootstrap({ children }: Props) {
   if (!ready) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-6 text-center">
-        <p className="font-mono text-xs uppercase tracking-widest text-cyan-400/90">Evaluation Sandbox</p>
-        <p className="text-sm text-slate-400">Loading mock workspace…</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-cyan-400/90">Demo workspace</p>
+        <p className="text-sm text-slate-400">Loading sample Command Post…</p>
       </div>
     );
   }

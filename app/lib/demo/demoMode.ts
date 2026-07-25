@@ -180,22 +180,22 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
       },
       {
         id: DEMO_INDUSTRY_UUIDS.medshield,
-        name: "Medshield",
-        slug: "medshield",
+        name: "Healthcare Enterprise (demo)",
+        slug: "healthcare-demo",
         industry: "Healthcare",
         aleBaselineCents: medshieldCents.toString(),
       },
       {
         id: DEMO_INDUSTRY_UUIDS.vaultbank,
-        name: "Vaultbank",
-        slug: "vaultbank",
+        name: "Financial Services Co (demo)",
+        slug: "finance-demo",
         industry: "Finance",
         aleBaselineCents: vaultbankCents.toString(),
       },
       {
         id: DEMO_INDUSTRY_UUIDS.gridcore,
-        name: "Gridcore",
-        slug: "gridcore",
+        name: "Critical Infrastructure Co (demo)",
+        slug: "infrastructure-demo",
         industry: "Infrastructure",
         aleBaselineCents: gridcoreCents.toString(),
       },
@@ -207,4 +207,4 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
 }
 
 export const DEMO_API_BLOCK_MESSAGE =
-  "[ DEMO MODE ] | Production telemetry isolated — API call blocked.";
+  "[ DEMO MODE ] Sample session only — production API calls are blocked.";

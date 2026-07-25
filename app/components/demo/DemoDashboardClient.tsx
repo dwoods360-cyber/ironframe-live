@@ -37,14 +37,14 @@ const DEMO_SUSTAINABILITY = {
 
 const DEMO_COMPANIES: SerializedCompany[] = [
   {
-    name: "Medshield Health",
+    name: "Healthcare Enterprise (demo)",
     sector: "Healthcare",
     risks: [{ status: "OPEN" }, { status: "MITIGATED" }],
     policies: [{ status: "ACTIVE" }],
     industry_avg_loss_cents: 9650000,
   },
   {
-    name: "Vaultbank Financial",
+    name: "Financial Services Co (demo)",
     sector: "Financial Services",
     risks: [{ status: "OPEN" }],
     policies: [{ status: "ACTIVE" }, { status: "DRAFT" }],

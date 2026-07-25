@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { isDemoModeActive } from '@/app/lib/demo/demoMode';
+import { isDemoRouteGroupPath } from '@/app/utils/grcRouteMatch';
 import ActiveRisksClient from './ActiveRisksClient';
 import AuditIntelligence from './AuditIntelligence';
 import DashboardWithDrawer from './DashboardWithDrawer';
@@ -315,6 +317,12 @@ export default function DashboardHomeClient({
   const forensicPlaybackThreatId = useRiskStore((s) => s.forensicPlaybackThreatId);
   const setForensicPlaybackThreatId = useRiskStore((s) => s.setForensicPlaybackThreatId);
   const hasMounted = useHasMounted();
+  const pathname = usePathname();
+  /** Public `/demo/*` + mock session — never hit production dashboard APIs. */
+  const isDemoSandbox = useMemo(
+    () => isDemoRouteGroupPath(pathname ?? "") || (hasMounted && isDemoModeActive()),
+    [pathname, hasMounted],
+  );
   /** Cookie lane only after mount — matches ThreatPipeline / avoids handshake UI SSR mismatch. */
   const shadowHandshakeBypassActive = useMemo(
     () =>
@@ -518,7 +526,7 @@ export default function DashboardHomeClient({
   }, [dashboardTenantUuid, clearHandshakeTimers, setShadowPlaneHandshakeAuthorized, isSimulationMode]);
 
   useEffect(() => {
-    if (!dashboardTenantUuid) {
+    if (!dashboardTenantUuid || isDemoSandbox) {
       setTenantGovernanceBps(null);
       return;
     }
@@ -531,7 +539,7 @@ export default function DashboardHomeClient({
     return () => {
       cancelled = true;
     };
-  }, [dashboardTenantUuid]);
+  }, [dashboardTenantUuid, isDemoSandbox]);
 
   useEffect(() => {
     const onClearThreatModals = () => {
@@ -620,7 +628,7 @@ export default function DashboardHomeClient({
   );
 
   const refetchDashboard = useCallback(() => {
-    if (!dashboardTenantUuid) return;
+    if (!dashboardTenantUuid || isDemoSandbox) return;
     void fetchDashboardWithRetry()
       .then((json: DashboardData) => {
         lastGoodDashboardSnapshotRef.current = json;
@@ -650,26 +658,32 @@ export default function DashboardHomeClient({
         });
         if (message) setError(message);
       });
-  }, [dashboardTenantUuid, fetchDashboardWithRetry]);
+  }, [dashboardTenantUuid, fetchDashboardWithRetry, isDemoSandbox]);
 
   useEffect(() => {
     const onRefetch = () => {
+      if (isDemoSandbox) return;
       refetchDashboard();
       void pulseThreatBoardsFromDb().catch(() => undefined);
     };
     window.addEventListener('ironframe:dashboard-refetch', onRefetch);
     return () => window.removeEventListener('ironframe:dashboard-refetch', onRefetch);
-  }, [refetchDashboard, pulseThreatBoardsFromDb]);
+  }, [refetchDashboard, pulseThreatBoardsFromDb, isDemoSandbox]);
 
   useShadowPlaneThreatRefetch({
-    dashboardTenantUuid,
+    dashboardTenantUuid: isDemoSandbox ? null : dashboardTenantUuid,
     isSimulationMode,
     pulseThreatBoardsFromDb,
     refetchDashboard,
   });
 
   useDashboardThreatRealtime({
-    enabled: Boolean(data) && Boolean(dashboardTenantUuid) && !loading && tenantCompanyIds.length > 0,
+    enabled:
+      !isDemoSandbox &&
+      Boolean(data) &&
+      Boolean(dashboardTenantUuid) &&
+      !loading &&
+      tenantCompanyIds.length > 0,
     isSimulationMode,
     tenantCompanyIds,
     replacePipelineThreats,
@@ -687,6 +701,18 @@ export default function DashboardHomeClient({
     if (!dashboardTenantUuid) {
       setData(null);
       lastGoodDashboardSnapshotRef.current = null;
+      setError(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+        mountAbort.abort(ABORT_REASONS.dashboardNavCleanup);
+      };
+    }
+
+    /** Demo Command Post: static fixtures only — production API block must not surface as Retry. */
+    if (isDemoSandbox) {
+      lastGoodDashboardSnapshotRef.current = EMPTY_DASHBOARD_DATA;
+      setData(EMPTY_DASHBOARD_DATA);
       setError(null);
       setLoading(false);
       return () => {
@@ -742,7 +768,7 @@ export default function DashboardHomeClient({
       cancelled = true;
       mountAbort.abort(ABORT_REASONS.dashboardNavCleanup);
     };
-  }, [dashboardTenantUuid, fetchDashboardWithRetry]);
+  }, [dashboardTenantUuid, fetchDashboardWithRetry, isDemoSandbox]);
 
   const handleContextSwitchPanelsPainted = useCallback(() => {
     setLocalMaturitySnapshot(tenantBaselineToSnapshot(normalizedMaturityTenantKey));

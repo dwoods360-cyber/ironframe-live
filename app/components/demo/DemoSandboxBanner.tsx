@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+
 import { DEMO_SANDBOX_BANNER_HEIGHT_CLASS } from "@/app/components/demo/demoBannerLayout";
+import { WORKFLOW_REVIEW_CTA_MINUTES } from "@/lib/ironframeProductKnowledge/commercial";
+import { SALES_CONTACT_PATH } from "@/config/registration";
 
 export function DemoEvaluationBanner({ className = "" }: { className?: string }) {
   return (
@@ -11,12 +14,12 @@ export function DemoEvaluationBanner({ className = "" }: { className?: string })
       aria-live="polite"
     >
       <p className="text-center font-mono text-[11px] font-semibold tracking-wide text-cyan-100">
-        💡 You are exploring an isolated evaluation sandbox.{" "}
+        Demo walkthrough — sample data only; no live workspace.{" "}
         <Link
-          href="/register/contact"
+          href={SALES_CONTACT_PATH}
           className="underline decoration-cyan-400/80 underline-offset-2 transition-colors hover:text-white"
         >
-          Click here to claim your permanent, secure multi-tenant GRC enclave.
+          Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review →
         </Link>
       </p>
     </div>

@@ -72,6 +72,6 @@ export function inboundLeadSuccessCopy(workflowReviewMinutes: string): string {
   return [
     "Thanks — we received your request. An Ironframe operator will contact you within 1 business hour",
     `(${INBOUND_SLA_WINDOW_COPY}) to schedule the ${workflowReviewMinutes}-minute workflow review.`,
-    "Outside those hours, expect a reply at the start of the next business day. No workspace was created.",
+    "Outside those hours, expect a reply the next business day. No workspace was created.",
   ].join(" ");
 }

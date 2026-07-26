@@ -29,13 +29,32 @@ import {
   listProvisionedTenantsForAdminAction,
   type ProvisionedTenantAdminRow,
 } from "@/app/actions/admin/listProvisionedTenants";
+import PathBActivationReceipt from "./PathBActivationReceipt";
 
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
 type MintInvitationState = MintWorkspaceInvitationResult | null;
 type QuickProvisionState = QuickProvisionCorporateWorkspaceActionResult | null;
 
-export default function CorporateOnboardingClient() {
+export type CorporateOnboardingPrefill = {
+  name?: string;
+  email?: string;
+  slug?: string;
+};
+
+export default function CorporateOnboardingClient({
+  prefill = {},
+}: {
+  prefill?: CorporateOnboardingPrefill;
+}) {
+  const prefillName = (prefill.name ?? "").trim();
+  const prefillEmail = (prefill.email ?? "").trim().toLowerCase();
+  const prefillSlug = (prefill.slug ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "");
+  const prefillActive = Boolean(prefillName || prefillEmail || prefillSlug);
+
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
   const [provisionBusy, setProvisionBusy] = useState(false);
@@ -48,6 +67,19 @@ export default function CorporateOnboardingClient() {
   const [quickResult, setQuickResult] = useState<QuickProvisionState>(null);
   const [quickProgress, setQuickProgress] = useState<QuickProvisionProgressState | null>(null);
   const [inviteTenantSlug, setInviteTenantSlug] = useState("");
+  const [quickName, setQuickName] = useState(prefillName);
+  const [quickSlug, setQuickSlug] = useState(prefillSlug);
+  const [quickEmail, setQuickEmail] = useState(prefillEmail);
+  const [provisionName, setProvisionName] = useState(prefillName);
+  const [provisionSlug, setProvisionSlug] = useState(prefillSlug);
+
+  useEffect(() => {
+    setQuickName(prefillName);
+    setQuickSlug(prefillSlug);
+    setQuickEmail(prefillEmail);
+    setProvisionName(prefillName);
+    setProvisionSlug(prefillSlug);
+  }, [prefillName, prefillSlug, prefillEmail]);
 
   const refreshTenants = useCallback(async () => {
     const res = await listProvisionedTenantsForAdminAction();
@@ -245,6 +277,13 @@ export default function CorporateOnboardingClient() {
             the tenant-scoped activation link returned below — not the generic /pricing checkout.
           </p>
 
+          {prefillActive ? (
+            <p className="mb-3 rounded border border-cyan-800/40 bg-cyan-950/30 px-2 py-1.5 text-[10px] text-cyan-100">
+              Prefilled from order-form AGREED handoff — confirm client-owned operator email before
+              provision.
+            </p>
+          ) : null}
+
           {quickProgress ? (
             <div className="mb-4">
               <QuickProvisionProgressPanel
@@ -264,6 +303,8 @@ export default function CorporateOnboardingClient() {
                 required
                 minLength={2}
                 disabled={quickBusy}
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
                 className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
                 placeholder="Acme Corporation"
               />
@@ -275,6 +316,10 @@ export default function CorporateOnboardingClient() {
                 required
                 pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
                 disabled={quickBusy}
+                value={quickSlug}
+                onChange={(e) =>
+                  setQuickSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                }
                 className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
                 placeholder="acmecorp"
               />
@@ -289,6 +334,8 @@ export default function CorporateOnboardingClient() {
                 type="email"
                 required
                 disabled={quickBusy}
+                value={quickEmail}
+                onChange={(e) => setQuickEmail(e.target.value)}
                 className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
                 placeholder="ciso@customer.com"
               />
@@ -330,33 +377,11 @@ export default function CorporateOnboardingClient() {
               <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-cyan-200">
                 {quickResult.registerUrl}
               </code>
-              {quickResult.activationCheckoutUrl ? (
-                <>
-                  <p className="mt-3 font-mono text-[9px] uppercase tracking-wide text-slate-500">
-                    Path B activation link (tenant-scoped Stripe — not /pricing)
-                  </p>
-                  <p className="mt-1 text-[9px] text-slate-500">
-                    metadata{" "}
-                    <code className="text-slate-300">tenant_slug={quickResult.slug}</code>
-                  </p>
-                  <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-emerald-200">
-                    {quickResult.activationCheckoutUrl}
-                  </code>
-                  <a
-                    href={quickResult.activationCheckoutUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex text-[9px] font-bold uppercase tracking-wide text-emerald-300 hover:text-emerald-200"
-                  >
-                    Open Stripe checkout for this slug →
-                  </a>
-                </>
-              ) : (
-                <p className="mt-3 text-amber-200" role="alert">
-                  Stripe activation link not minted — configure STRIPE_SECRET_KEY and run{" "}
-                  <code className="text-amber-100">npm run stripe:provision-catalog</code>.
-                </p>
-              )}
+              <PathBActivationReceipt
+                slug={quickResult.slug}
+                activationCheckoutUrl={quickResult.activationCheckoutUrl}
+                operatorEmailHint={quickEmail || null}
+              />
               {quickResult.inviteEmail && !quickResult.inviteEmail.sent ? (
                 <p className="mt-2 text-amber-200" role="alert">
                   Email not sent: {quickResult.inviteEmail.error ?? "delivery failed"}
@@ -385,6 +410,8 @@ export default function CorporateOnboardingClient() {
                 name="name"
                 required
                 minLength={2}
+                value={provisionName}
+                onChange={(e) => setProvisionName(e.target.value)}
                 className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
                 placeholder="Acme Corporation"
               />
@@ -395,6 +422,10 @@ export default function CorporateOnboardingClient() {
                 name="slug"
                 required
                 pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+                value={provisionSlug}
+                onChange={(e) =>
+                  setProvisionSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                }
                 className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
                 placeholder="acmecorp"
               />
@@ -447,20 +478,11 @@ export default function CorporateOnboardingClient() {
                 <span className="text-slate-500"> · </span>
                 {provisionResult.workspaceUrl}
               </p>
-              {provisionResult.activationCheckoutUrl ? (
-                <>
-                  <p className="mt-3 font-mono text-[9px] uppercase tracking-wide text-slate-500">
-                    Path B activation link (tenant-scoped Stripe — not /pricing)
-                  </p>
-                  <p className="mt-1 text-[9px] text-slate-500">
-                    metadata{" "}
-                    <code className="text-slate-300">tenant_slug={provisionResult.slug}</code>
-                  </p>
-                  <code className="mt-1 block break-all rounded bg-black/40 px-2 py-1 font-mono text-[9px] text-emerald-200">
-                    {provisionResult.activationCheckoutUrl}
-                  </code>
-                </>
-              ) : null}
+              <PathBActivationReceipt
+                slug={provisionResult.slug}
+                activationCheckoutUrl={provisionResult.activationCheckoutUrl}
+                operatorEmailHint={quickEmail || null}
+              />
               <p className="mt-2 text-slate-400">
                 Add to Supabase Auth → URL Configuration → Redirect URLs:
               </p>

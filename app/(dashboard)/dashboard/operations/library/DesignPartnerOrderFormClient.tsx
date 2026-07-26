@@ -9,6 +9,8 @@ import {
   DESIGN_PARTNER_MIN_WINDOW_DAYS,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
+import { notifyOrderFormAgreedAction } from "@/app/actions/operations/notifyOrderFormAgreed";
+import { adminOnboardingProvisionHref } from "@/app/lib/approvalDispatchValidation";
 import {
   DESIGN_PARTNER_ORDER_FORM_LOCK_WORD,
   DESIGN_PARTNER_ORDER_FORM_STORAGE_KEY,
@@ -68,11 +70,22 @@ function DesignPartnerOrderFormInner() {
   const [banner, setBanner] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [lockBusy, setLockBusy] = useState(false);
+  const [provisionHref, setProvisionHref] = useState<string | null>(null);
 
   useEffect(() => {
     const persisted = loadPersisted();
     if (persisted?.draft) setDraft(persisted.draft);
     if (persisted?.lock) setLock(persisted.lock);
+    if (persisted?.lock?.locked && persisted.draft) {
+      setProvisionHref(
+        adminOnboardingProvisionHref({
+          name: persisted.draft.customerLegalName,
+          email: persisted.draft.operatorEmail,
+          slug: persisted.draft.workspaceSlug,
+        }),
+      );
+    }
     setHydrated(true);
   }, []);
 
@@ -147,7 +160,7 @@ function DesignPartnerOrderFormInner() {
     }
   }, [hydrated, autoSuggest, frozen, suggestFromCall, router]);
 
-  const applyLock = () => {
+  const applyLock = async () => {
     if (!matchesOrderFormLockWord(lockWordInput)) {
       setError(`Lock word must be ${DESIGN_PARTNER_ORDER_FORM_LOCK_WORD} (partner confirmation).`);
       return;
@@ -156,14 +169,46 @@ function DesignPartnerOrderFormInner() {
       setError(eligibility.reasons.join(" · "));
       return;
     }
-    setLock(
-      lockOrderForm(lock, {
-        note: `Partner said/typed ${DESIGN_PARTNER_ORDER_FORM_LOCK_WORD}`,
-      }),
-    );
-    setLockWordInput("");
-    setBanner("Form locked. Commercial terms + criteria frozen for copy/send / signature path.");
+    setLockBusy(true);
     setError(null);
+    try {
+      setLock(
+        lockOrderForm(lock, {
+          note: `Partner said/typed ${DESIGN_PARTNER_ORDER_FORM_LOCK_WORD}`,
+        }),
+      );
+      setLockWordInput("");
+
+      const localHref = adminOnboardingProvisionHref({
+        name: draft.customerLegalName,
+        email: draft.operatorEmail,
+        slug: draft.workspaceSlug,
+      });
+      setProvisionHref(localHref);
+
+      const notify = await notifyOrderFormAgreedAction({
+        customerLegalName: draft.customerLegalName,
+        operatorEmail: draft.operatorEmail,
+        billingEmail: draft.billingEmail,
+        workspaceSlug: draft.workspaceSlug,
+        pilotWindowDays: draft.pilotWindowDays,
+        successCriteria: [...draft.successCriteria],
+      });
+      if (!notify.ok) {
+        setBanner(
+          `Form locked. Admin notify skipped: ${notify.error}. Open provision with the deep-link below.`,
+        );
+        return;
+      }
+      setProvisionHref(notify.provisionHref);
+      setBanner(
+        notify.notified
+          ? "Form locked + admin notified. Open prefilled Quick provision (SoD) — do not use /pricing."
+          : "Form locked. Admin notify did not confirm delivery — use the provision deep-link below.",
+      );
+    } finally {
+      setLockBusy(false);
+    }
   };
 
   const applyUnlock = () => {
@@ -233,12 +278,28 @@ function DesignPartnerOrderFormInner() {
             LIVE desk
           </Link>
           <Link
-            href="/admin/onboarding"
+            href={
+              provisionHref ??
+              adminOnboardingProvisionHref({
+                name: draft.customerLegalName,
+                email: draft.operatorEmail,
+                slug: draft.workspaceSlug,
+              })
+            }
             className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
           >
             Provision Path B (admin)
           </Link>
         </div>
+        {frozen && provisionHref ? (
+          <p className="rounded-md border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-100">
+            Next: admin opens{" "}
+            <Link href={provisionHref} className="font-semibold text-emerald-200 underline">
+              prefilled Quick provision
+            </Link>{" "}
+            → copy Path B link → send only to client-owned operator email.
+          </p>
+        ) : null}
         {banner ? (
           <p className="rounded-md border border-cyan-900/50 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-100">
             {banner}
@@ -414,10 +475,11 @@ function DesignPartnerOrderFormInner() {
             </label>
             <button
               type="button"
-              onClick={applyLock}
-              className="rounded-lg bg-amber-700 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600"
+              onClick={() => void applyLock()}
+              disabled={lockBusy}
+              className="rounded-lg bg-amber-700 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
             >
-              Lock form
+              {lockBusy ? "Locking…" : "Lock form"}
             </button>
           </div>
         </div>

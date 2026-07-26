@@ -24,13 +24,28 @@ export const metadata = {
     "Provision isolated client enclaves, manage billing activation, and mint invite-only operator access.",
 };
 
-export default async function AdminOnboardingDashboardPage() {
+export default async function AdminOnboardingDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   noStore();
 
   const allowed = await canUsePartnerProvisionerFromSession();
   if (!allowed) {
     redirect("/unauthorized");
   }
+
+  const query = await searchParams;
+  const first = (value: string | string[] | undefined) =>
+    (Array.isArray(value) ? value[0] : value)?.trim() || "";
+  const prefill = {
+    name: first(query.name) || first(query.company) || first(query.orgName),
+    email: first(query.email).toLowerCase(),
+    slug: first(query.slug)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, ""),
+  };
 
   const [platformAdmin, partnerGate] = await Promise.all([
     canUsePlatformAdminTools(),
@@ -77,7 +92,7 @@ export default async function AdminOnboardingDashboardPage() {
         />
 
         <section id="onboarding-controls" className="scroll-mt-8">
-          <CorporateOnboardingClient />
+          <CorporateOnboardingClient prefill={prefill} />
           {platformAdmin ? <RevokeAccessControlPanel /> : null}
         </section>
       </main>

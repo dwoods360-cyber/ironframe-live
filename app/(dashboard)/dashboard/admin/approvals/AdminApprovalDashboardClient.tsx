@@ -17,6 +17,10 @@ import {
   type ApprovalDraftKind,
   type ApprovalKindFilter,
 } from "@/app/lib/approvalDraftKinds";
+import {
+  SALES_SMS_MAX_CHARS,
+  validateApprovalDispatch,
+} from "@/app/lib/approvalDispatchValidation";
 
 type DispatchChannel = "EMAIL" | "SMS";
 
@@ -128,6 +132,17 @@ function AdminApprovalDashboardInner() {
   const selectedDraft = visibleDrafts.find((draft) => draft.id === activeDraftId);
   const selectedMeta = selectedDraft ? APPROVAL_KIND_META[selectedDraft.draftKind] : null;
 
+  const dispatchValidation = useMemo(() => {
+    if (!selectedDraft) return { ok: true as const, errors: [] as string[] };
+    return validateApprovalDispatch({
+      draftKind: selectedDraft.draftKind,
+      channel: selectedDraft.dispatchChannel,
+      body: selectedDraft.proposedReply,
+      recipientEmail: selectedDraft.contactEmail,
+      recipientPhone: selectedDraft.contactPhone,
+    });
+  }, [selectedDraft]);
+
   const setKindFilter = (next: ApprovalKindFilter) => {
     router.replace(approvalsHref(next), { scroll: false });
   };
@@ -174,6 +189,10 @@ function AdminApprovalDashboardInner() {
 
   const handleAction = async (actionType: "DISPATCH" | "PURGE") => {
     if (!selectedDraft || isDispatching) return;
+    if (actionType === "DISPATCH" && !dispatchValidation.ok) {
+      setActionError(dispatchValidation.errors.join(" · "));
+      return;
+    }
     setIsDispatching(true);
     setActionError(null);
     setActionSuccess(null);
@@ -599,10 +618,16 @@ function AdminApprovalDashboardInner() {
                     ) : null}
                     {selectedDraft.draftKind === "SALES" &&
                     selectedDraft.dispatchChannel === "SMS" ? (
-                      <p className="font-mono text-[10px] text-slate-400">
-                        SMS body should stay short (~{selectedDraft.proposedReply.length} chars;
-                        target ≤160). Channel toggle loads the locked SMS template when the email
-                        body is still in the editor.
+                      <p
+                        className={`font-mono text-[10px] ${
+                          selectedDraft.proposedReply.length > SALES_SMS_MAX_CHARS
+                            ? "text-rose-300"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        SMS body {selectedDraft.proposedReply.length}/{SALES_SMS_MAX_CHARS} chars.
+                        Channel toggle loads the locked SMS template when the email body is still in
+                        the editor. No URLs / Path B /pricing.
                       </p>
                     ) : null}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -738,6 +763,11 @@ function AdminApprovalDashboardInner() {
                   </div>
 
                   <div className="mt-2 flex flex-col items-center justify-end gap-3 border-t border-slate-900 pt-4 sm:flex-row">
+                    {!dispatchValidation.ok ? (
+                      <p className="w-full text-xs text-rose-300 sm:mr-auto" role="alert">
+                        {dispatchValidation.errors.join(" · ")}
+                      </p>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void handleAction("PURGE")}
@@ -749,7 +779,7 @@ function AdminApprovalDashboardInner() {
                     <button
                       type="button"
                       onClick={() => void handleAction("DISPATCH")}
-                      disabled={isDispatching}
+                      disabled={isDispatching || !dispatchValidation.ok}
                       className={`flex h-11 w-full touch-manipulation items-center justify-center rounded-lg px-8 font-sans text-xs font-bold uppercase tracking-wide text-white shadow-lg transition-all duration-150 active:scale-[0.98] disabled:bg-slate-900 disabled:text-slate-600 sm:w-auto ${
                         selectedDraft.draftKind === "SALES"
                           ? "bg-amber-600 shadow-amber-950/40 hover:bg-amber-500"

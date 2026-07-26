@@ -9,6 +9,7 @@ import {
   parsePendingDraftSummary,
   type ApprovalDispatchChannel,
 } from "@/app/lib/server/approvalQueueCore";
+import { validateApprovalDispatch } from "@/app/lib/approvalDispatchValidation";
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { validateIngressContext } from "@/app/middleware/irongateShield";
 import { sendOutboundEmail } from "@/app/lib/server/sendOutboundEmail";
@@ -131,6 +132,23 @@ export async function POST(
         } else {
           channel = inferredSms ? "SMS" : "EMAIL";
         }
+      }
+
+      const dispatchGate = validateApprovalDispatch({
+        draftKind,
+        channel,
+        body: trimmedText,
+        recipientEmail: String(body.recipientEmail ?? contact.email ?? ""),
+        recipientPhone: body.recipientPhone ?? contact.phone,
+      });
+      if (!dispatchGate.ok) {
+        return NextResponse.json(
+          {
+            error: "DISPATCH blocked by destination / payload guards.",
+            details: dispatchGate.errors.join(" · "),
+          },
+          { status: 422 },
+        );
       }
 
       if (channel === "SMS") {

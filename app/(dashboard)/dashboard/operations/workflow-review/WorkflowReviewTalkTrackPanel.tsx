@@ -280,6 +280,14 @@ export default function WorkflowReviewTalkTrackPanel() {
             <Link href="/dashboard/operations/library" className="text-cyan-300 hover:underline">
               Operator library
             </Link>
+            {" · "}
+            <Link
+              href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+              className="text-cyan-300 hover:underline"
+              title="C3 — controlled TOUCH1–3"
+            >
+              C3 · Log touch
+            </Link>
           </p>
         </div>
       )}

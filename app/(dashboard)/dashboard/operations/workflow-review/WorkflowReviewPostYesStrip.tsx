@@ -57,6 +57,13 @@ export default function WorkflowReviewPostYesStrip({
           Open order form (auto-fill from recap)
         </Link>
         <Link
+          href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+          className="rounded-lg border border-cyan-700/70 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-950/40"
+          title="C3 — controlled TOUCH1–3 log (TOUCH1 auto after SALES DISPATCH)"
+        >
+          C3 · Log touch
+        </Link>
+        <Link
           href={WORKFLOW_REVIEW_PROVISION_HREF}
           className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
           title="Admin-only after AGREED lock — tenant activation handoff"

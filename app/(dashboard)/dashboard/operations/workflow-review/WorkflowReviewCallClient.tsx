@@ -765,6 +765,13 @@ export default function WorkflowReviewCallClient() {
             >
               SalesTeam portal
             </Link>
+            <Link
+              href="/dashboard/operations/library/icp-shortlist#icp-touch-log"
+              className="text-cyan-300 hover:underline"
+              title="C3 — log DISPATCH touch (controlled TOUCH1–3)"
+            >
+              C3 · Log touch
+            </Link>
             <a href="#talk-track" className="text-amber-300 hover:underline">
               Talk track
             </a>

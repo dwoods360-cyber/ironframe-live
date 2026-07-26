@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { SALES_CONTACT_PATH } from "@/config/registration";
-import { resolveStripeCommandTierCheckoutUrl } from "@/config/stripe";
 import {
   CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
@@ -29,8 +28,6 @@ const COMMAND_FEATURES = [
 ] as const;
 
 export default function PricingPage() {
-  const checkoutUrl = resolveStripeCommandTierCheckoutUrl();
-
   return (
     <main className="ironframe-public-funnel min-h-screen bg-[var(--bg-primary)] text-[var(--text-main)]">
       <div className="mx-auto max-w-5xl px-6 py-20">
@@ -60,12 +57,13 @@ export default function PricingPage() {
               {formatPathBUsd()}
             </p>
             <p className="mt-1 text-xs text-[var(--login-muted)]">
-              Flat platform fee · no per-seat licensing
-              {checkoutUrl ? " · Stripe-hosted checkout after agreement" : ""}
+              Flat platform fee · no per-seat licensing · checkout only via tenant-scoped Path B
+              link after agreement
             </p>
             <p className="mt-3 text-xs leading-relaxed text-[var(--login-muted)]">
-              Existing pending workspaces activate via a tenant-scoped invitation link from
-              onboarding — never a second generic public checkout as a free trial substitute.
+              There is no public Stripe buy button here. Pending partners activate with a
+              tenant-scoped invitation link from onboarding — never a generic Payment Link as a
+              free-trial substitute.
             </p>
             <ul className="mt-8 space-y-3 border-t border-[var(--login-border)] pt-8">
               {COMMAND_FEATURES.map((feature) => (
@@ -80,20 +78,11 @@ export default function PricingPage() {
             </ul>
             <div className="mt-10 flex flex-col gap-3 sm:flex-row">
               <Link
-                href={SALES_CONTACT_PATH}
+                href={`${SALES_CONTACT_PATH}?source=pricing`}
                 className="rounded-md bg-[var(--login-accent)] px-8 py-3 text-center font-mono text-sm font-bold text-[var(--bg-primary)] transition hover:opacity-90"
               >
                 Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
               </Link>
-              {checkoutUrl ? (
-                <a
-                  href={checkoutUrl}
-                  rel="noopener noreferrer"
-                  className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"
-                >
-                  Activate after agreement — Stripe
-                </a>
-              ) : null}
               <Link
                 href="/trust-center"
                 className="rounded-md border border-[var(--login-border)] px-8 py-3 text-center font-mono text-sm text-[var(--text-main)] transition hover:border-[var(--login-muted)]"

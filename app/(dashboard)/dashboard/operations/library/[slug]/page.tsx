@@ -95,27 +95,59 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
             </div>
           ) : null}
           {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
-            <div className="mt-3 space-y-2 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-                C3 — Log touch (§D)
-              </p>
-              <p className="text-xs text-slate-300">
-                Research tables stay git-owned. After EMAIL/SMS DISPATCH, use{" "}
-                <a href="#icp-touch-log" className="font-medium text-cyan-300 hover:underline">
-                  Log TOUCH1–3
-                </a>{" "}
-                below (or the button on Approvals). Also see{" "}
-                <a href="#section-d" className="font-medium text-cyan-300 hover:underline">
-                  §D in the doc
-                </a>
-                . Canonical slug: <code className="text-cyan-300">icp-shortlist</code>.
-              </p>
-              <Link
-                href="/dashboard/admin/approvals?kind=SALES"
-                className="inline-flex rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
-              >
-                ← Sales Approvals
-              </Link>
+            <div className="mt-3 space-y-3">
+              <div className="space-y-2 rounded-lg border border-cyan-900/40 bg-cyan-950/20 p-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-cyan-400">
+                  Warm intro kit · highest conversion
+                </p>
+                <p className="text-xs text-slate-300">
+                  Board priority #1 before Scout/cold. Paste A1–A5 contacts in the doc, send the
+                  warm-ask, then route intros through Approvals → LIVE — never{" "}
+                  <code className="text-cyan-300">/pricing</code>.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <a
+                    href="#section-a"
+                    className="rounded-lg border border-cyan-700/70 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-950/50"
+                  >
+                    §A Warm network
+                  </a>
+                  <Link
+                    href="/dashboard/admin/approvals?kind=SALES"
+                    className="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
+                  >
+                    Sales Approvals
+                  </Link>
+                  <Link
+                    href="/dashboard/operations/salesteam#inbound-leads"
+                    className="rounded-lg border border-rose-700/70 px-3 py-2 text-xs font-semibold text-rose-100 hover:bg-rose-950/50"
+                  >
+                    P1 inbound
+                  </Link>
+                </div>
+              </div>
+              <div className="space-y-2 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3">
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                  C3 — Log touch (§D)
+                </p>
+                <p className="text-xs text-slate-300">
+                  Research tables stay git-owned. After EMAIL/SMS DISPATCH, use{" "}
+                  <a href="#icp-touch-log" className="font-medium text-cyan-300 hover:underline">
+                    Log TOUCH1–3
+                  </a>{" "}
+                  below (or the button on Approvals). Also see{" "}
+                  <a href="#section-d" className="font-medium text-cyan-300 hover:underline">
+                    §D in the doc
+                  </a>
+                  . Canonical slug: <code className="text-cyan-300">icp-shortlist</code>.
+                </p>
+                <Link
+                  href="/dashboard/admin/approvals?kind=SALES"
+                  className="inline-flex rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
+                >
+                  ← Sales Approvals
+                </Link>
+              </div>
             </div>
           ) : null}
         </header>
@@ -144,9 +176,12 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
                     ? children.map((c) => (typeof c === "string" ? c : "")).join("")
                     : children ?? "",
                 );
-                const id = /^D\.\s/i.test(text.trim())
+                const trimmed = text.trim();
+                const id = /^D\.\s/i.test(trimmed)
                   ? "section-d"
-                  : undefined;
+                  : /^A\.\s/i.test(trimmed)
+                    ? "section-a"
+                    : undefined;
                 return (
                   <h2
                     id={id}

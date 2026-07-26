@@ -18,10 +18,12 @@ import { initializeDemoSandbox } from "@/app/lib/demo/demoMode";
 
 export default function GuidedWorkflowDemoClient() {
   const [stepIndex, setStepIndex] = useState(0);
+  const [sandboxArmed, setSandboxArmed] = useState(false);
   const step = GUIDED_WORKFLOW_STEPS[stepIndex]!;
   const total = GUIDED_WORKFLOW_STEPS.length;
   const progressPct = useMemo(() => Math.round(((stepIndex + 1) / total) * 100), [stepIndex, total]);
   const nextStep = stepIndex < total - 1 ? GUIDED_WORKFLOW_STEPS[stepIndex + 1] : null;
+  const contactHref = `${SALES_CONTACT_PATH}?source=product-demo`;
 
   const goSandbox = useCallback((href: string) => {
     initializeDemoSandbox();
@@ -41,6 +43,10 @@ export default function GuidedWorkflowDemoClient() {
       </p>
       <p className="mt-2 rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm leading-relaxed text-slate-300">
         {GUIDED_DEMO_COMPANY.sessionNotice}
+      </p>
+      <p className="mt-3 rounded-md border border-indigo-700/40 bg-indigo-950/30 px-3 py-2 text-sm text-indigo-100">
+        Primary next step is a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not an open
+        sandbox. Explore below only after you understand this is sample data.
       </p>
       <p className="mt-3 text-sm text-[var(--login-muted)]">
         Sample workspace · {GUIDED_DEMO_COMPANY.name}
@@ -102,21 +108,31 @@ export default function GuidedWorkflowDemoClient() {
         </ul>
 
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          {step.sandboxHref ? (
-            <button
-              type="button"
-              onClick={() => goSandbox(step.sandboxHref!)}
-              className="inline-flex h-11 items-center justify-center rounded-md border border-cyan-500/60 bg-cyan-950/40 px-4 font-mono text-xs font-semibold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-900/50"
-            >
-              Launch interactive scenario view
-            </button>
-          ) : null}
           <Link
-            href={SALES_CONTACT_PATH}
+            href={contactHref}
             className="inline-flex h-11 items-center justify-center rounded-md bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-500"
           >
             Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
           </Link>
+          {step.sandboxHref ? (
+            sandboxArmed ? (
+              <button
+                type="button"
+                onClick={() => goSandbox(step.sandboxHref!)}
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-600 bg-slate-900/40 px-4 font-mono text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-cyan-600"
+              >
+                Open sample sandbox
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSandboxArmed(true)}
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-700 px-4 font-mono text-xs uppercase tracking-wide text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+              >
+                I understand — show sandbox option
+              </button>
+            )
+          ) : null}
         </div>
       </article>
 
@@ -139,7 +155,7 @@ export default function GuidedWorkflowDemoClient() {
           </button>
         ) : (
           <Link
-            href={SALES_CONTACT_PATH}
+            href={contactHref}
             className="inline-flex h-10 items-center rounded bg-indigo-600 px-4 text-sm font-semibold text-white"
           >
             Schedule workflow review · {formatPathBUsd()} {CUSTOMER_FACING_PATH_B_SKU} ·{" "}
@@ -152,7 +168,7 @@ export default function GuidedWorkflowDemoClient() {
         Evaluation notice: this interactive walkthrough demonstrates core platform capabilities using
         synthetic benchmark data. Ready to see how Ironframe supports multi-client governance for your
         organization?{" "}
-        <Link href={SALES_CONTACT_PATH} className="text-cyan-300 underline hover:opacity-90">
+        <Link href={contactHref} className="text-cyan-300 underline hover:opacity-90">
           Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review
         </Link>
         .

@@ -820,6 +820,73 @@ export default function OperationsHubClient() {
 
         {snapshot && tab === "overview" ? (
           <>
+          <section className="rounded-xl border border-rose-900/40 bg-rose-950/15 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-rose-400">
+                  GTM pipeline · design partner
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Warm + P1 inbound first. Cold Scout is secondary. Path B only after AGREED +
+                  counsel D0.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/operations/library/icp-shortlist#section-a"
+                className="text-xs text-cyan-300 hover:underline"
+              >
+                Warm intro kit →
+              </Link>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Link
+                href="/dashboard/operations/salesteam#inbound-leads"
+                className="rounded-lg border border-rose-800/50 bg-slate-950/40 px-3 py-2 hover:border-rose-500"
+              >
+                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500">
+                  P1 inbound open
+                </p>
+                <p className="mt-1 text-2xl font-bold text-rose-200">
+                  {snapshot.gtmPipeline?.inboundOpen ?? 0}
+                  <span className="ml-1 text-sm font-normal text-slate-500">
+                    / {snapshot.gtmPipeline?.inboundTotal ?? 0}
+                  </span>
+                </p>
+              </Link>
+              <Link
+                href="/dashboard/admin/approvals?kind=SALES"
+                className="rounded-lg border border-amber-800/50 bg-slate-950/40 px-3 py-2 hover:border-amber-500"
+              >
+                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500">
+                  SALES approvals
+                </p>
+                <p className="mt-1 text-2xl font-bold text-amber-100">
+                  {snapshot.gtmPipeline?.salesApprovalsPending ??
+                    snapshot.approvals.byKind.SALES}
+                </p>
+              </Link>
+              <Link
+                href="/dashboard/operations/workflow-review"
+                className="rounded-lg border border-teal-800/50 bg-slate-950/40 px-3 py-2 hover:border-teal-500"
+              >
+                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500">
+                  LIVE / inbound due ≤3d
+                </p>
+                <p className="mt-1 text-2xl font-bold text-teal-100">
+                  {snapshot.gtmPipeline?.liveDueSoon ?? 0}
+                </p>
+              </Link>
+              <Link
+                href="/admin/onboarding"
+                className="rounded-lg border border-emerald-800/50 bg-slate-950/40 px-3 py-2 hover:border-emerald-500"
+              >
+                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-500">
+                  Path B provision
+                </p>
+                <p className="mt-1 text-sm font-semibold text-emerald-100">Admin SoD only →</p>
+              </Link>
+            </div>
+          </section>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="text-[10px] uppercase tracking-widest text-slate-500">Approval queue</div>

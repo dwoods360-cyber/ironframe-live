@@ -6,6 +6,15 @@ import {
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
+import {
+  BEACHHEAD_SUMMARIES,
+  beachheadSectorToBaselineTarget,
+  inferBeachheadFromOrgText,
+} from "@/lib/ironframeProductKnowledge/beachheads";
+import {
+  INBOUND_LEAD_REPLY_SLA_HOURS,
+  resolveWorkflowReviewBookingUrl,
+} from "@/config/commercialGates";
 import { notifyOpsChannels } from "@/app/lib/server/notifyOpsEmail";
 import { upsertOpsActivity } from "@/app/lib/server/opsScheduleCore";
 import {
@@ -41,24 +50,37 @@ export function buildInboundWorkflowReviewDraft(input: {
   orgName: string;
   email: string;
   reportedAleCents: bigint;
+  beachheadLabel?: string;
 }): string {
   const aleDollars =
     input.reportedAleCents > 0n
       ? `$${Number(input.reportedAleCents / 100n).toLocaleString("en-US")}`
       : "not stated";
+  const bookingUrl = resolveWorkflowReviewBookingUrl();
+  const scheduleLines = bookingUrl
+    ? [
+        `Book a slot here (preferred): ${bookingUrl}`,
+        "Or reply with 2–3 times that work this week (or YES and we will propose slots).",
+      ]
+    : [
+        "Reply with 2–3 times that work this week (or YES and we will propose slots).",
+      ];
   return [
     `Thanks for requesting a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review with Ironframe.`,
     "",
     `We received your note for ${input.orgName} (${input.email}). Next step is a peer review on evidence / board-report friction — not a product demo.`,
+    input.beachheadLabel ? `Beachhead fit (operator): ${input.beachheadLabel}.` : null,
     "",
     `Reported annual loss exposure (intake): ${aleDollars}.`,
     "",
     `${CUSTOMER_FACING_PATH_B_SKU} is ${formatPathBUsd()} flat for a fixed cohort window if we align on success criteria after the review.`,
     "",
-    "Reply with 2–3 times that work this week (or YES and we will propose slots).",
+    ...scheduleLines,
     "",
     "— Ironframe GTM",
-  ].join("\n");
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
 }
 
 function contactDisplayName(email: string, orgName: string): string {
@@ -95,7 +117,7 @@ export async function elevateInboundLeadPriority(input: {
     input.reportedAleCents > 0n
       ? `$${(Number(input.reportedAleCents) / 100).toLocaleString("en-US")}`
       : "ALE not stated";
-  const dueAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  const dueAt = new Date(Date.now() + INBOUND_LEAD_REPLY_SLA_HOURS * 60 * 60 * 1000);
 
   const existing = await prisma.opsActivity.findFirst({ where: { sourceRef } });
   const created = !existing;
@@ -111,14 +133,15 @@ export async function elevateInboundLeadPriority(input: {
     priority: 1,
     synopsis: [
       "Highest priority: public /register/contact hand-raiser.",
+      `SLA: reply ≤${INBOUND_LEAD_REPLY_SLA_HOURS}h`,
       `Email ${input.email}`,
       aleLabel,
       "Reply via Approvals HITL — do not auto-send.",
     ].join(" · "),
     nextActions: [
-      "Open SalesTeam inbound strip / queue Approvals draft",
-      "HITL DISPATCH scheduling reply",
+      `HITL DISPATCH scheduling reply within ${INBOUND_LEAD_REPLY_SLA_HOURS}h`,
       "Host workflow review on LIVE desk",
+      "Order form → admin Path B (after AGREED)",
     ],
   });
 
@@ -150,6 +173,7 @@ export async function elevateInboundLeadPriority(input: {
           `Email: ${input.email}`,
           `Slug: ${slug}`,
           `ALE: ${aleLabel}`,
+          `Operator SLA: reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} hours.`,
           "",
           queuedDraftId
             ? "Approvals draft auto-queued (PENDING). Review Proposed outreach → Approve & dispatch SALES."
@@ -259,13 +283,20 @@ export async function queueInboundLeadApprovalDraft(input: {
     });
   }
 
-  const baselineTarget: BaselineTarget = "regionalBHC";
+  const sector = inferBeachheadFromOrgText({
+    orgName: prospect.orgName,
+    email: prospect.email,
+  });
+  const baselineTarget = beachheadSectorToBaselineTarget(sector) as BaselineTarget;
+  const beachheadLabel = BEACHHEAD_SUMMARIES[sector].label;
   const name = contactDisplayName(prospect.email, prospect.orgName);
   const notes = [
     "Channel: PUBLIC_LEAD_FORM",
     "Priority: P1 inbound workflow-review request",
+    `beachhead: ${sector}`,
     `prospectSlug: ${prospect.slug}`,
     `reportedAleCents: ${prospect.reportedAle.toString()}`,
+    `slaHours: ${INBOUND_LEAD_REPLY_SLA_HOURS}`,
   ].join(" | ");
 
   const contact = await upsertProspectCrmContact({
@@ -303,6 +334,7 @@ export async function queueInboundLeadApprovalDraft(input: {
     orgName: prospect.orgName,
     email: prospect.email,
     reportedAleCents: prospect.reportedAle,
+    beachheadLabel,
   });
 
   const interactionId = await logPendingSalesDraftApproval({

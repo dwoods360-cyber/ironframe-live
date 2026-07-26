@@ -3,12 +3,25 @@ import { NextResponse } from "next/server";
 import { parseCheckoutSessionCompleted } from "@/app/lib/billing/parseCheckoutSession";
 import { verifyStripeWebhookEvent } from "@/app/lib/billing/stripeClient";
 import { fulfillStripeInstantCheckout } from "@/app/lib/server/stripeInstantProvisionCore";
+import { isPublicInstantCheckoutEnabled } from "@/config/commercialGates";
 import { resolveStripeInstantCheckoutWebhookSecret } from "@/config/stripe";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!isPublicInstantCheckoutEnabled()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Public instant checkout is disabled. Use tenant-scoped Path B activation after workflow review + order form.",
+        code: "PUBLIC_INSTANT_CHECKOUT_DISABLED",
+      },
+      { status: 403 },
+    );
+  }
+
   const webhookSecret = resolveStripeInstantCheckoutWebhookSecret();
   if (!webhookSecret) {
     return NextResponse.json({ ok: false, error: "Webhook not configured." }, { status: 503 });

@@ -68,3 +68,58 @@ export function resolveBeachheadSector(sectorOrTag: string | null | undefined): 
   }
   return BEACHHEAD_TAG_TO_SECTOR[raw] ?? 'REGIONAL_BHC';
 }
+
+/**
+ * Infer Core 4 beachhead from org name / email / free text (inbound form).
+ * Keyword heuristics only — default REGIONAL_BHC.
+ */
+export function inferBeachheadFromOrgText(input: {
+  orgName?: string | null;
+  email?: string | null;
+  notes?: string | null;
+}): BeachheadSector {
+  const blob = [input.orgName, input.email, input.notes]
+    .map((v) => String(v ?? '').toLowerCase())
+    .join(' ');
+
+  if (
+    /\b(mssp|vciso|v-ciso|managed security|security partner|multi-client)\b/.test(blob)
+  ) {
+    return 'MSSP_ENCLAVE';
+  }
+  if (
+    /\b(hipaa|hospital|health\s?care|healthcare|clinic|pharma|patient|fhir)\b/.test(blob)
+  ) {
+    return 'HEALTH_HIPAA';
+  }
+  if (
+    /\b(nerc|cip|utility|grid|ot\b|scada|pipeline|energy|power\s?co)\b/.test(blob)
+  ) {
+    return 'UTILITY_NERC';
+  }
+  if (
+    /\b(bank|bhc|fintech|credit\s?union|federal\s?reserve|ffiec|treasury)\b/.test(blob)
+  ) {
+    return 'REGIONAL_BHC';
+  }
+  return 'REGIONAL_BHC';
+}
+
+/**
+ * Map Core 4 → sales-agent BaselineTarget keys (3-value playbook).
+ * MSSP maps to regionalBHC commercially; sector stays in notes.
+ */
+export function beachheadSectorToBaselineTarget(
+  sector: BeachheadSector,
+): 'regionalBHC' | 'publicPower' | 'communityHealth' {
+  switch (sector) {
+    case 'UTILITY_NERC':
+      return 'publicPower';
+    case 'HEALTH_HIPAA':
+      return 'communityHealth';
+    case 'MSSP_ENCLAVE':
+    case 'REGIONAL_BHC':
+    default:
+      return 'regionalBHC';
+  }
+}

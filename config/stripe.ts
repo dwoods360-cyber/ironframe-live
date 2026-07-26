@@ -11,10 +11,18 @@ export const STRIPE_BILLING_WEBHOOK_PATH = "/api/billing/webhook";
 
 export const STRIPE_WEBHOOK_PATHS = [STRIPE_WEBHOOK_PATH, STRIPE_BILLING_WEBHOOK_PATH] as const;
 
-/** Hosted Checkout URL configured in Stripe Dashboard (Payment Link or Checkout session template). */
+/** Hosted Checkout URL — admin/billing only. Never expose on public /pricing. */
 export function resolveStripeCommandTierCheckoutUrl(): string | null {
   const url = process.env.NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL?.trim();
   return url && url.startsWith("https://") ? url : null;
+}
+
+/**
+ * Public /pricing must not offer generic Stripe. Pending partners use tenant-scoped Path B.
+ * @deprecated Prefer resolveStripeCommandTierCheckoutUrl for admin surfaces only.
+ */
+export function resolvePublicPricingCheckoutUrl(): string | null {
+  return null;
 }
 
 export function resolveStripeWebhookSecret(): string {

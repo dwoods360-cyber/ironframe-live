@@ -17,7 +17,7 @@ export function DemoEvaluationBanner({ className = "" }: { className?: string })
       <p className="text-center font-mono text-[11px] font-semibold tracking-wide text-cyan-100">
         Demo walkthrough — sample data only; no live workspace.{" "}
         <Link
-          href={SALES_CONTACT_PATH}
+          href={`${SALES_CONTACT_PATH}?source=demo-sandbox`}
           className="underline decoration-cyan-400/80 underline-offset-2 transition-colors hover:text-white"
         >
           Schedule a {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review →

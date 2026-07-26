@@ -23,6 +23,13 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 **Operator action (before B2):** paste 3–5 real people you can text/email this week. Use the warm-ask blurb from the [offer sheet](./design-partner-offer-sheet.md).
 
+### Warm intro kit (≤10 min)
+
+1. Pick 3 people from A1–A5 (or your phone) who know CISOs / compliance leads.  
+2. Send the warm-ask below (email/SMS/LinkedIn). Track replies in Stage → INTRO.  
+3. When they intro a fit: create/queue Approvals draft → HITL DISPATCH → LIVE workflow review.  
+4. Do **not** send `/pricing` or a generic Stripe link — Path B only after order form AGREED + counsel D0.
+
 | # | Company | Seg | Contact / title | Email / phone | Warm path | Pri | Stage | Notes |
 |---|---------|-----|-----------------|---------------|-----------|-----|-------|-------|
 | 1 | *(paste)* | | | | Advisor / ex-colleague / investor | H | RESEARCH | Highest trust door |

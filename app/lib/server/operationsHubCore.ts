@@ -15,6 +15,7 @@ import {
   fetchPendingApprovalDrafts,
   type DraftKind,
 } from "@/app/lib/server/approvalQueueCore";
+import { listInboundProspectLeads } from "@/app/lib/server/inboundLeadOpsCore";
 import {
   collapseSuspectRowsByCompany,
   purgeDuplicateSuspectContacts,
@@ -134,6 +135,13 @@ export type OperationsHubSnapshot = {
   };
   /** Due-dated editorial/ops activities with T-3/T-2/T-1 reminder ledger. */
   schedule: OpsScheduleSnapshot;
+  /** Compact GTM pipeline counts for overview strip. */
+  gtmPipeline: {
+    inboundOpen: number;
+    inboundTotal: number;
+    salesApprovalsPending: number;
+    liveDueSoon: number;
+  };
   workforce: WorkforceServiceStatus[];
   quickLinks: Array<{ label: string; href: string; external?: boolean }>;
 };
@@ -464,6 +472,27 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     portalUrl: portalUrls[service.id],
   }));
 
+  let inboundOpen = 0;
+  let inboundTotal = 0;
+  try {
+    const inbound = await listInboundProspectLeads(40);
+    inboundTotal = inbound.length;
+    inboundOpen = inbound.filter(
+      (row) => row.opsStatus !== "DONE" && row.opsStatus !== "CANCELLED",
+    ).length;
+  } catch (err) {
+    console.warn("[operations-hub] inbound pipeline unavailable", err);
+  }
+  const liveDueSoon = (schedule.activities ?? []).filter(
+    (a) =>
+      a.status !== "DONE" &&
+      a.status !== "CANCELLED" &&
+      (a.sourceRef?.startsWith("inbound-lead:") ||
+        a.sourceRef?.includes("wf-recap") ||
+        /workflow review/i.test(a.title)) &&
+      a.daysUntilDue <= 3,
+  ).length;
+
   return {
     generatedAt: new Date().toISOString(),
     approvals: {
@@ -496,6 +525,12 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     },
     newsletters,
     schedule,
+    gtmPipeline: {
+      inboundOpen,
+      inboundTotal,
+      salesApprovalsPending: byKind.SALES,
+      liveDueSoon,
+    },
     workforce: workforceWithPortals,
     quickLinks: [
       { label: "Operations hub", href: "/dashboard/operations" },

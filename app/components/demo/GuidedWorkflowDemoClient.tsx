@@ -121,13 +121,13 @@ export default function GuidedWorkflowDemoClient() {
                 onClick={() => goSandbox(step.sandboxHref!)}
                 className="inline-flex h-11 items-center justify-center rounded-md border border-slate-600 bg-slate-900/40 px-4 font-mono text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-cyan-600"
               >
-                Open sample sandbox
+                Click here to open the sample sandbox →
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setSandboxArmed(true)}
-                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-700 px-4 font-mono text-xs uppercase tracking-wide text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
+                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-700 px-4 text-xs text-slate-400 transition hover:border-slate-500 hover:text-slate-200"
               >
                 I understand — show sandbox option
               </button>

@@ -13,9 +13,14 @@ import {
 } from "@/lib/ironframeProductKnowledge/beachheads";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
+  INBOUND_SLA_WINDOW_COPY,
   resolveWorkflowReviewBookingUrl,
 } from "@/config/commercialGates";
 import { notifyOpsChannels } from "@/app/lib/server/notifyOpsEmail";
+import {
+  inboundLeadSlaDueAt,
+  sendInboundLeadT1Ack,
+} from "@/app/lib/server/inboundLeadSlaBackup";
 import { upsertOpsActivity } from "@/app/lib/server/opsScheduleCore";
 import {
   logPendingSalesDraftApproval,
@@ -60,10 +65,10 @@ export function buildInboundWorkflowReviewDraft(input: {
   const scheduleLines = bookingUrl
     ? [
         `Book a slot here (preferred): ${bookingUrl}`,
-        "Or reply with 2–3 times that work this week (or YES and we will propose slots).",
+        "Or reply with 2–3 times that work this week in Central Time (or YES and we will propose slots).",
       ]
     : [
-        "Reply with 2–3 times that work this week (or YES and we will propose slots).",
+        "Reply with 2–3 times that work this week in Central Time (or YES and we will propose slots).",
       ];
   return [
     `Thanks for requesting a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review with Ironframe.`,
@@ -93,7 +98,7 @@ function contactDisplayName(email: string, orgName: string): string {
 
 /**
  * After public-lead upsert: P1 OpsActivity + operator notify + Approvals draft queued.
- * Does NOT email the prospect (HITL DISPATCH only).
+ * T1 system ack may email the prospect; scheduling DISPATCH remains HITL.
  */
 export async function elevateInboundLeadPriority(input: {
   orgName: string;
@@ -104,12 +109,15 @@ export async function elevateInboundLeadPriority(input: {
   notify?: boolean;
   /** Queue PENDING SALES draft for Approvals (default true). Never auto-DISPATCH. */
   autoQueueDraft?: boolean;
+  /** Send T1 instant ack (default true on create). */
+  sendT1Ack?: boolean;
 }): Promise<{
   sourceRef: string;
   notified: boolean;
   created: boolean;
   queuedDraftId: string | null;
   draftCreated: boolean;
+  t1AckSent: boolean;
 }> {
   const slug = input.slug.trim().toLowerCase();
   const sourceRef = inboundLeadSourceRef(slug);
@@ -117,11 +125,11 @@ export async function elevateInboundLeadPriority(input: {
     input.reportedAleCents > 0n
       ? `$${(Number(input.reportedAleCents) / 100).toLocaleString("en-US")}`
       : "ALE not stated";
-  const dueAt = new Date(Date.now() + INBOUND_LEAD_REPLY_SLA_HOURS * 60 * 60 * 1000);
+  const dueAt = inboundLeadSlaDueAt();
 
   const existing = await prisma.opsActivity.findFirst({ where: { sourceRef } });
   const created = !existing;
-  await upsertOpsActivity({
+  const activity = await upsertOpsActivity({
     id: existing?.id,
     title: `P1 Inbound · ${input.orgName} · workflow review`,
     kind: "OPS_GENERAL",
@@ -133,13 +141,14 @@ export async function elevateInboundLeadPriority(input: {
     priority: 1,
     synopsis: [
       "Highest priority: public /register/contact hand-raiser.",
-      `SLA: reply ≤${INBOUND_LEAD_REPLY_SLA_HOURS}h`,
+      `SLA: reply ≤${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour`,
+      `Window: ${INBOUND_SLA_WINDOW_COPY}`,
       `Email ${input.email}`,
       aleLabel,
-      "Reply via Approvals HITL — do not auto-send.",
+      "HITL DISPATCH for scheduling; T1 system ack may auto-send.",
     ].join(" · "),
     nextActions: [
-      `HITL DISPATCH scheduling reply within ${INBOUND_LEAD_REPLY_SLA_HOURS}h`,
+      `HITL DISPATCH scheduling reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour`,
       "Host workflow review on LIVE desk",
       "Order form → admin Path B (after AGREED)",
     ],
@@ -173,13 +182,14 @@ export async function elevateInboundLeadPriority(input: {
           `Email: ${input.email}`,
           `Slug: ${slug}`,
           `ALE: ${aleLabel}`,
-          `Operator SLA: reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} hours.`,
+          `Operator SLA: reply within ${INBOUND_LEAD_REPLY_SLA_HOURS} Central business hour.`,
+          `Window: ${INBOUND_SLA_WINDOW_COPY}`,
           "",
           queuedDraftId
             ? "Approvals draft auto-queued (PENDING). Review Proposed outreach → Approve & dispatch SALES."
             : "Queue Approvals draft from SalesTeam inbound strip, then DISPATCH.",
           `Open: https://ironframegrc.com${draftHref}`,
-          "Do not auto-reply — HITL DISPATCH only.",
+          "T1 system ack may auto-send; scheduling reply stays HITL DISPATCH.",
         ].join("\n"),
       });
       notified = delivery.emailOk === true || delivery.endpointsOk > 0;
@@ -188,7 +198,22 @@ export async function elevateInboundLeadPriority(input: {
     }
   }
 
-  return { sourceRef, notified, created, queuedDraftId, draftCreated };
+  let t1AckSent = false;
+  if (input.sendT1Ack !== false && created) {
+    try {
+      const t1 = await sendInboundLeadT1Ack({
+        orgName: input.orgName,
+        slug,
+        email: input.email,
+        activityId: activity.id,
+      });
+      t1AckSent = t1.sent;
+    } catch (err) {
+      console.warn("[inbound-lead] T1 ack failed", err);
+    }
+  }
+
+  return { sourceRef, notified, created, queuedDraftId, draftCreated, t1AckSent };
 }
 
 export async function listInboundProspectLeads(limit = 40): Promise<InboundProspectLeadRow[]> {

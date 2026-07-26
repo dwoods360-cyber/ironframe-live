@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 
+import { inboundLeadSuccessCopy } from "@/config/commercialGates";
 import { PUBLIC_LEAD_API_PATH } from "@/config/registration";
 import {
   CUSTOMER_FACING_PATH_B_SKU,
@@ -86,8 +87,7 @@ export default function SalesContactClient() {
           className="mt-8 rounded-lg border border-emerald-500/40 bg-emerald-950/20 p-5 text-sm text-emerald-100"
           role="status"
         >
-          Thanks — we received your request. We&apos;ll follow up to schedule the workflow review. No
-          workspace was created.
+          {inboundLeadSuccessCopy(WORKFLOW_REVIEW_CTA_MINUTES)}
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-8 space-y-4">

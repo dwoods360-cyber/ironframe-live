@@ -206,6 +206,7 @@ export async function listInboundProspectLeads(limit = 40): Promise<InboundProsp
       select: { id: true, contactId: true },
     });
     for (const row of pendings) {
+      if (!row.contactId) continue;
       if (!pendingByContact.has(row.contactId)) {
         pendingByContact.set(row.contactId, row.id);
       }

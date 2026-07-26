@@ -32,7 +32,7 @@ test.describe("QA-02 public lead inbound (guest)", () => {
       `qa02+${stamp}@example.com`;
 
     await page.goto(`${BASE}/register/contact`, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "load",
       timeout: 60_000,
     });
 
@@ -40,9 +40,22 @@ test.describe("QA-02 public lead inbound (guest)", () => {
       page.getByRole("heading", { name: /Schedule a .* workflow review/i }),
     ).toBeVisible({ timeout: 30_000 });
 
-    await page.locator('input[name="email"]').fill(email);
-    await page.locator('input[name="company"]').fill(orgName);
-    await page.locator('input[name="reportedAle"]').fill("5000000");
+    // Wait for client hydration — filling SSR-only nodes gets wiped on remount.
+    const emailInput = page.getByRole("textbox", { name: /Work email/i });
+    const companyInput = page.getByRole("textbox", { name: /Organization/i });
+    const aleInput = page.getByRole("textbox", {
+      name: /Estimated annual loss exposure/i,
+    });
+    const submit = page.getByRole("button", {
+      name: /Schedule .* workflow review/i,
+    });
+    await expect(submit).toBeEnabled({ timeout: 30_000 });
+
+    await emailInput.fill(email);
+    await companyInput.fill(orgName);
+    await aleInput.fill("5000000");
+    await expect(emailInput).toHaveValue(email);
+    await expect(companyInput).toHaveValue(orgName);
 
     const leadResponsePromise = page.waitForResponse(
       (res) =>
@@ -51,9 +64,7 @@ test.describe("QA-02 public lead inbound (guest)", () => {
       { timeout: 45_000 },
     );
 
-    await page
-      .getByRole("button", { name: /Schedule .* workflow review/i })
-      .click();
+    await submit.click();
 
     const leadResponse = await leadResponsePromise;
     expect(leadResponse.status(), "public-lead HTTP status").toBe(200);

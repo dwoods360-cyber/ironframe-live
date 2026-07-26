@@ -82,10 +82,10 @@ test.describe("QA inbound SLA backup ladder", () => {
         !process.env.E2E_PRODUCTION_BASE_URL?.includes("ironframegrc.com"),
       "Set E2E_PRODUCTION=1 to hit live.",
     );
-    const cronSecret = process.env.IRONFRAME_CRON_SECRET?.trim();
+    const cronSecret = process.env.IRONFRAME_CRON_SECRET?.trim().replace(/[\r\n]+/g, "");
     test.skip(
-      !cronSecret,
-      "Export IRONFRAME_CRON_SECRET (prod value) in the shell — local .env.local has it blank / CLI cannot pull sensitive secrets.",
+      !cronSecret || /[\s]/.test(cronSecret) || cronSecret.length < 16,
+      "Export a clean IRONFRAME_CRON_SECRET / IRONFRAME_SLA_TEST_BEARER (no whitespace).",
     );
 
     // Ensure a fresh lead exists for this worker (independent of T1 test email).

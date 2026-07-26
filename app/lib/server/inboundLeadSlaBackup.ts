@@ -3,11 +3,12 @@ import "server-only";
 import prisma from "@/lib/prisma";
 import {
   INBOUND_LEAD_REPLY_SLA_HOURS,
-  INBOUND_SLA_T2_ESCALATE_MINUTES,
-  INBOUND_SLA_T3_HOLD_MINUTES,
   INBOUND_SLA_WINDOW_COPY,
   isInboundSlaT1AckEnabled,
   isInboundSlaT3AutosendEnabled,
+  isInboundSlaTestAccelEnabled,
+  resolveInboundSlaT2EscalateMinutes,
+  resolveInboundSlaT3HoldMinutes,
   resolveWorkflowReviewBookingUrl,
 } from "@/config/commercialGates";
 import {
@@ -142,8 +143,12 @@ async function sendT2OpsEscalate(input: {
   await notifyOpsChannels({
     subject: `SLA risk — inbound still open (${input.orgName})`,
     text: [
-      `P1 workflow-review lead has had no HITL DISPATCH for ${INBOUND_SLA_T2_ESCALATE_MINUTES} Central business minutes.`,
-      `SLA breach in ~${INBOUND_SLA_T3_HOLD_MINUTES - INBOUND_SLA_T2_ESCALATE_MINUTES} business minutes.`,
+      `P1 workflow-review lead has had no HITL DISPATCH for ${resolveInboundSlaT2EscalateMinutes()} ${
+        isInboundSlaTestAccelEnabled() ? "wall-clock (TEST ACCEL)" : "Central business"
+      } minutes.`,
+      `SLA breach in ~${
+        resolveInboundSlaT3HoldMinutes() - resolveInboundSlaT2EscalateMinutes()
+      } minutes.`,
       "",
       `Company: ${input.orgName}`,
       `Email: ${input.email}`,
@@ -206,11 +211,14 @@ export type InboundSlaTickResult = {
   t2: number;
   t3: number;
   skippedDispatched: number;
+  testAccel: boolean;
+  t2Minutes: number;
+  t3Minutes: number;
 };
 
 /**
- * Cron tick: T2 ops escalate @ 45 business minutes; T3 hold @ 60 (if autosend on).
- * Skips when HITL SALES already DISPATCHed. Off-hours decay is handled by business clock.
+ * Cron tick: T2 ops escalate @ 45 business minutes (or 2 wall-clock min in TEST ACCEL);
+ * T3 hold @ 60 (or 3) when autosend on. Skips HITL DISPATCHed leads.
  */
 export async function processInboundLeadSlaBackupTick(
   now: Date = new Date(),
@@ -225,15 +233,22 @@ export async function processInboundLeadSlaBackupTick(
     orderBy: { createdAt: "asc" },
   });
 
+  const testAccel = isInboundSlaTestAccelEnabled();
+  const t2Minutes = resolveInboundSlaT2EscalateMinutes();
+  const t3Minutes = resolveInboundSlaT3HoldMinutes();
+
   const result: InboundSlaTickResult = {
     scanned: activities.length,
     t2: 0,
     t3: 0,
     skippedDispatched: 0,
+    testAccel,
+    t2Minutes,
+    t3Minutes,
   };
 
-  const t2Ms = INBOUND_SLA_T2_ESCALATE_MINUTES * 60_000;
-  const t3Ms = INBOUND_SLA_T3_HOLD_MINUTES * 60_000;
+  const t2Ms = t2Minutes * 60_000;
+  const t3Ms = t3Minutes * 60_000;
 
   for (const activity of activities) {
     const slug = (activity.sourceRef ?? "").slice(INBOUND_LEAD_SOURCE_PREFIX.length);
@@ -251,7 +266,9 @@ export async function processInboundLeadSlaBackupTick(
       continue;
     }
 
-    const elapsed = businessMillisecondsElapsed(activity.createdAt, now);
+    const elapsed = testAccel
+      ? Math.max(0, now.getTime() - activity.createdAt.getTime())
+      : businessMillisecondsElapsed(activity.createdAt, now);
     const draftHref = activity.href?.startsWith("/") ? activity.href : INBOUND_LEADS_HREF;
 
     if (elapsed >= t2Ms && !notesHasMarker(activity.notes, SLA_T2_MARKER)) {

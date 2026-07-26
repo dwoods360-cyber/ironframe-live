@@ -47,7 +47,34 @@ export const INBOUND_SLA_T2_ESCALATE_MINUTES = 45 as const;
 /** T3 prospect hold after this much Central business time (env-gated autosend). */
 export const INBOUND_SLA_T3_HOLD_MINUTES = 60 as const;
 
+/** Accel mode: T2 wall-clock minutes (Sunday / QA without waiting a business hour). */
+export const INBOUND_SLA_TEST_ACCEL_T2_MINUTES = 2 as const;
+
+/** Accel mode: T3 wall-clock minutes. */
+export const INBOUND_SLA_TEST_ACCEL_T3_MINUTES = 3 as const;
+
 export const INBOUND_SLA_WINDOW_COPY = INBOUND_SLA_WINDOW_LABEL;
+
+/**
+ * Short QA ladder — wall-clock T2/T3 (skips weekend/holiday pause).
+ * Set IRONFRAME_INBOUND_SLA_TEST_ACCEL=1 only while testing; turn off after.
+ */
+export function isInboundSlaTestAccelEnabled(): boolean {
+  const raw = process.env.IRONFRAME_INBOUND_SLA_TEST_ACCEL?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+export function resolveInboundSlaT2EscalateMinutes(): number {
+  return isInboundSlaTestAccelEnabled()
+    ? INBOUND_SLA_TEST_ACCEL_T2_MINUTES
+    : INBOUND_SLA_T2_ESCALATE_MINUTES;
+}
+
+export function resolveInboundSlaT3HoldMinutes(): number {
+  return isInboundSlaTestAccelEnabled()
+    ? INBOUND_SLA_TEST_ACCEL_T3_MINUTES
+    : INBOUND_SLA_T3_HOLD_MINUTES;
+}
 
 /**
  * T1 instant prospect ack — on by default (set IRONFRAME_INBOUND_SLA_T1_ACK=0 to disable).

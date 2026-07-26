@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
 
     let opsNotified = false;
     let queuedDraftId: string | null = null;
+    let t1AckSent = false;
     try {
       const elevated = await elevateInboundLeadPriority({
         orgName: prospect.orgName,
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
       });
       opsNotified = elevated.notified;
       queuedDraftId = elevated.queuedDraftId;
+      t1AckSent = elevated.t1AckSent;
     } catch (elevateErr) {
       // Lead is already persisted — never fail the public response on ops elevation.
       console.error("[public-lead] P1 elevation failed", elevateErr);
@@ -105,6 +107,7 @@ export async function POST(req: NextRequest) {
       opsNotified,
       approvalsDraftQueued: Boolean(queuedDraftId),
       approvalsDraftId: queuedDraftId,
+      t1AckSent,
     });
   } catch (e) {
     console.error("[public-lead]", e);

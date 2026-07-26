@@ -1,4 +1,9 @@
 import { test, expect, request as playwrightRequest } from "@playwright/test";
+import dotenv from "dotenv";
+import path from "node:path";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 /**
  * Backup ladder QA — T1 (instant) + T2 (accel wall-clock) via cron.
@@ -7,10 +12,9 @@ import { test, expect, request as playwrightRequest } from "@playwright/test";
  *
  *   E2E_PRODUCTION=1 \
  *   E2E_PRODUCTION_BASE_URL=https://ironframegrc.com \
- *   IRONFRAME_CRON_SECRET=… \
  *   npx playwright test tests/e2e/qaInboundSlaBackupLadder.spec.ts --project=chromium
  *
- * Optional: E2E_QA_CONTACT_EMAIL for a real inbox (T1 mail).
+ * Loads IRONFRAME_CRON_SECRET from .env.local / process env.
  * T3 skipped unless IRONFRAME_INBOUND_SLA_AUTOSEND is on (leave off for this smoke).
  */
 

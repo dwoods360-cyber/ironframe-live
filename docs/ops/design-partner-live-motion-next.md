@@ -4,6 +4,27 @@
 
 Counsel D0 stays **off** until counsel returns.
 
+## Remaining work (reframed)
+
+### A — Not dependent on design-partner acquisition (prep)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1 | Counsel D0 return + env flip | ☐ waiting | Outside counsel — not acquisition |
+| 2 | **Stripe live Path B** | ☐ operator | Prod still `STRIPE_CREDENTIAL_MODE=test` + checkout `/test_…`. Run cutover script below |
+| 3 | Instant checkout off / counsel off | ☑ | Keep until counsel returns |
+
+```bash
+# Run in a local terminal (Stripe secrets are redacted in the agent sandbox):
+npx vercel env run -e production -- npx tsx scripts/ops/cutover-stripe-pathb-live.ts
+npx vercel env run -e production -- npx tsx scripts/ops/cutover-stripe-pathb-live.ts --execute
+# Then set Vercel Production STRIPE_CREDENTIAL_MODE=live + checkout URL from artifact, redeploy.
+```
+
+### B — Go-live as you capture partners (acquisition / close)
+
+Completed per partner: live C1–C3 → LIVE yes → D1–D5 → D7 (Path B send only after D0).
+
 ## Operator-owned pass (2026-07-27) — done without 3rd parties
 
 | # | Item | Status |
@@ -19,9 +40,9 @@ Counsel D0 stays **off** until counsel returns.
 | # | Item | Owner |
 |---|------|--------|
 | A | Counsel D0 return + env flip | Counsel → ops |
-| B | First **live** DISPATCH or warm intro | GTM |
-| C | LIVE → AGREED → provision → Path B charge | GTM + admin (after D0) |
-| D | Confirm Stripe **live** Path B ($4,999) before charge | Ops — prod env currently `STRIPE_CREDENTIAL_MODE=test` |
+| B | Stripe **live** Path B cutover | Ops (local terminal — see §A) |
+| C | First **live** DISPATCH or warm intro | GTM (acquisition) |
+| D | LIVE → AGREED → provision → Path B charge | GTM + admin after D0 |
 
 ## Ordered motion (HITL only)
 

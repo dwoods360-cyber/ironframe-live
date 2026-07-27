@@ -75,6 +75,7 @@
     "ops:quarantine-qa-throwaway": "npx tsx scripts/ops/quarantine-qa-throwaway-tenant.ts",
     "ops:design-partner-operator-ready": "npx tsx scripts/ops/design-partner-operator-ready-pass.ts",
     "ops:verify-stripe-pathb-live": "npx tsx scripts/ops/verify-stripe-pathb-live-readiness.ts",
+    "ops:cutover-stripe-pathb-live": "npx tsx scripts/ops/cutover-stripe-pathb-live.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
     "test:e2e": "playwright test",

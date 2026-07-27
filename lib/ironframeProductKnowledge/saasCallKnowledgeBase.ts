@@ -6,7 +6,6 @@
 
 import {
   CUSTOMER_FACING_PATH_B_SKU,
-  DESIGN_PARTNER_COHORT_SEATS,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
   formatPathBUsd,
@@ -37,7 +36,8 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     topic: "Client / tenant capacity",
     match:
       /max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities)|(clients?|tenants?|entities)\s*(we\s*can\s*)?(load|run|onboard|add|support|host)|client\s*limit|tenant\s*limit|unlimited\s*clients|capacity|scale\s*(to|with)\s*(clients?|tenants?)/i,
-    answer: `No soft marketing “max clients” ceiling. Isolation is hard per-client / per-entity walls (PostgreSQL RLS + Ironguard) — not shared spreadsheet folders. Design Partner cohort is intentionally small (${DESIGN_PARTNER_COHORT_SEATS} seats). Entity count and client enclaves for a live seat are written into your ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} success criteria on the order form — we don’t invent a free-for-all quota on this call.`,
+    answer:
+      "Direct answer: there is no hardcoded maximum number of clients in Ironframe today. Each client (or legal entity) sits behind its own isolation wall — PostgreSQL RLS + Ironguard — so adding another client is another enclave, not a shared folder. How many you load is a commercial / ops scope choice for the seat, not a product constant like “50 max.” Do not quote Design Partner cohort size (company-wide co-builder seats) or the old Silver/Gold/Platinum calculator tiers as a platform client ceiling.",
   },
   {
     id: "what-is-command",

@@ -191,8 +191,12 @@ function IcpShortlistTouchLogInner({
             value={company}
             onChange={(e) => setCompany(e.target.value)}
             className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm text-slate-100"
-            placeholder="BlueRadius Cyber"
+            placeholder="e.g. BlueRadius Cyber"
+            aria-required
           />
+          {!company.trim() ? (
+            <span className="mt-0.5 block text-[10px] text-amber-400/90">Required to enable Save</span>
+          ) : null}
         </label>
         <label className="block text-[11px] text-slate-400">
           Channel (EMAIL or SMS)
@@ -264,9 +268,6 @@ function IcpShortlistTouchLogInner({
         >
           Refresh log
         </button>
-        {!company.trim() ? (
-          <p className="text-[11px] text-amber-300/90">Enter a company name to enable Save.</p>
-        ) : null}
       </div>
 
       {message ? <p className="text-xs text-emerald-300">{message}</p> : null}

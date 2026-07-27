@@ -30,6 +30,7 @@ import {
   type ProvisionedTenantAdminRow,
 } from "@/app/actions/admin/listProvisionedTenants";
 import PathBActivationReceipt from "./PathBActivationReceipt";
+import { getOrderFormAgreedHandoffAction } from "@/app/actions/admin/getOrderFormAgreedHandoff";
 
 type ProvisionState = ProvisionCorporateTenantResult | null;
 type InviteState = InviteCorporateTenantUserResult | null;
@@ -40,6 +41,7 @@ export type CorporateOnboardingPrefill = {
   name?: string;
   email?: string;
   slug?: string;
+  handoffToken?: string;
 };
 
 export default function CorporateOnboardingClient({
@@ -53,7 +55,8 @@ export default function CorporateOnboardingClient({
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "");
-  const prefillActive = Boolean(prefillName || prefillEmail || prefillSlug);
+  const prefillHandoff = (prefill.handoffToken ?? "").trim();
+  const prefillActive = Boolean(prefillName || prefillEmail || prefillSlug || prefillHandoff);
 
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
@@ -70,6 +73,10 @@ export default function CorporateOnboardingClient({
   const [quickName, setQuickName] = useState(prefillName);
   const [quickSlug, setQuickSlug] = useState(prefillSlug);
   const [quickEmail, setQuickEmail] = useState(prefillEmail);
+  const [handoffToken, setHandoffToken] = useState(prefillHandoff);
+  const [handoffTrusted, setHandoffTrusted] = useState(false);
+  const [handoffError, setHandoffError] = useState<string | null>(null);
+  const [handoffLoading, setHandoffLoading] = useState(Boolean(prefillHandoff));
   const [provisionName, setProvisionName] = useState(prefillName);
   const [provisionSlug, setProvisionSlug] = useState(prefillSlug);
 
@@ -77,9 +84,42 @@ export default function CorporateOnboardingClient({
     setQuickName(prefillName);
     setQuickSlug(prefillSlug);
     setQuickEmail(prefillEmail);
+    setHandoffToken(prefillHandoff);
     setProvisionName(prefillName);
     setProvisionSlug(prefillSlug);
-  }, [prefillName, prefillSlug, prefillEmail]);
+  }, [prefillName, prefillSlug, prefillEmail, prefillHandoff]);
+
+  useEffect(() => {
+    if (!prefillHandoff) {
+      setHandoffTrusted(false);
+      setHandoffError(null);
+      setHandoffLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setHandoffLoading(true);
+    void (async () => {
+      const res = await getOrderFormAgreedHandoffAction(prefillHandoff);
+      if (cancelled) return;
+      setHandoffLoading(false);
+      if (!res.ok) {
+        setHandoffTrusted(false);
+        setHandoffError(res.error);
+        return;
+      }
+      setHandoffTrusted(true);
+      setHandoffError(null);
+      setHandoffToken(res.handoff.token);
+      setQuickName(res.handoff.customerLegalName);
+      setQuickEmail(res.handoff.operatorEmail);
+      setQuickSlug(res.handoff.workspaceSlug);
+      setProvisionName(res.handoff.customerLegalName);
+      setProvisionSlug(res.handoff.workspaceSlug);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefillHandoff]);
 
   const refreshTenants = useCallback(async () => {
     const res = await listProvisionedTenantsForAdminAction();
@@ -146,12 +186,26 @@ export default function CorporateOnboardingClient({
 
   const onQuickProvision = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (handoffToken && handoffError) {
+      setQuickResult({
+        ok: false,
+        error: handoffError,
+      });
+      return;
+    }
     setQuickBusy(true);
     setQuickResult(null);
     setQuickProgress(buildInitialQuickProvisionProgress());
 
     const form = e.currentTarget;
     const fd = new FormData(form);
+    if (handoffToken) {
+      fd.set("handoffToken", handoffToken);
+      // Prefer controlled values (server-trusted when handoff active).
+      fd.set("name", quickName);
+      fd.set("email", quickEmail);
+      fd.set("slug", quickSlug);
+    }
     const tenantStageTimer = window.setTimeout(() => {
       setQuickProgress((current) =>
         current ? advanceQuickProvisionProgress(current, 1) : current,
@@ -168,6 +222,10 @@ export default function CorporateOnboardingClient({
     if (res.ok) {
       form.reset();
       setInviteTenantSlug(res.slug);
+      if (handoffToken) {
+        setHandoffToken("");
+        setHandoffTrusted(false);
+      }
       void refreshTenants();
     }
     window.setTimeout(() => setQuickProgress(null), 2000);
@@ -277,10 +335,29 @@ export default function CorporateOnboardingClient({
             the tenant-scoped activation link returned below — not the generic /pricing checkout.
           </p>
 
-          {prefillActive ? (
-            <p className="mb-3 rounded border border-cyan-800/40 bg-cyan-950/30 px-2 py-1.5 text-[10px] text-cyan-100">
-              Prefilled from order-form AGREED handoff — confirm client-owned operator email before
-              provision.
+          {handoffLoading ? (
+            <p className="mb-3 rounded border border-slate-700 bg-slate-950/40 px-2 py-1.5 text-[10px] text-slate-300">
+              Validating AGREED handoff…
+            </p>
+          ) : null}
+
+          {handoffTrusted ? (
+            <p className="mb-3 rounded border border-emerald-800/50 bg-emerald-950/30 px-2 py-1.5 text-[10px] text-emerald-100">
+              Trusted AGREED handoff — party fields locked to the order-form baton. Unlocking the
+              order form revokes this handoff.
+            </p>
+          ) : null}
+
+          {handoffError ? (
+            <p className="mb-3 rounded border border-rose-800/50 bg-rose-950/30 px-2 py-1.5 text-[10px] text-rose-100" role="alert">
+              {handoffError}
+            </p>
+          ) : null}
+
+          {prefillActive && !handoffToken && !handoffLoading ? (
+            <p className="mb-3 rounded border border-amber-800/40 bg-amber-950/30 px-2 py-1.5 text-[10px] text-amber-100">
+              Query prefill only (no AGREED handoff token). Prefer the order-form Lock form handoff
+              link for SoD-trusted provision.
             </p>
           ) : null}
 
@@ -296,16 +373,17 @@ export default function CorporateOnboardingClient({
           ) : null}
 
           <form onSubmit={onQuickProvision} className="grid gap-3 sm:grid-cols-3">
+            {handoffToken ? <input type="hidden" name="handoffToken" value={handoffToken} /> : null}
             <label className="block text-[10px] text-slate-400">
               Business display name
               <input
                 name="name"
                 required
                 minLength={2}
-                disabled={quickBusy}
+                disabled={quickBusy || handoffTrusted}
                 value={quickName}
                 onChange={(e) => setQuickName(e.target.value)}
-                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100 disabled:opacity-70"
                 placeholder="Acme Corporation"
               />
             </label>
@@ -315,12 +393,12 @@ export default function CorporateOnboardingClient({
                 name="slug"
                 required
                 pattern="[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
-                disabled={quickBusy}
+                disabled={quickBusy || handoffTrusted}
                 value={quickSlug}
                 onChange={(e) =>
                   setQuickSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
                 }
-                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100 disabled:opacity-70"
                 placeholder="acmecorp"
               />
             </label>
@@ -333,16 +411,16 @@ export default function CorporateOnboardingClient({
                 name="email"
                 type="email"
                 required
-                disabled={quickBusy}
+                disabled={quickBusy || handoffTrusted}
                 value={quickEmail}
                 onChange={(e) => setQuickEmail(e.target.value)}
-                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100"
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100 disabled:opacity-70"
                 placeholder="ciso@customer.com"
               />
             </label>
             <button
               type="submit"
-              disabled={quickBusy}
+              disabled={quickBusy || handoffLoading || Boolean(handoffToken && handoffError)}
               className="sm:col-span-3 inline-flex h-11 items-center justify-center rounded border border-cyan-600/70 bg-cyan-950/40 text-[10px] font-black uppercase text-cyan-200 disabled:opacity-40"
             >
               {quickBusy ? "Provisioning…" : "Quick provision workspace"}

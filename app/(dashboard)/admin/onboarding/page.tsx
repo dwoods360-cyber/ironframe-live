@@ -45,6 +45,7 @@ export default async function AdminOnboardingDashboardPage({
     slug: first(query.slug)
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, ""),
+    handoffToken: first(query.handoff),
   };
 
   const [platformAdmin, partnerGate] = await Promise.all([

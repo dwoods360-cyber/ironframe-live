@@ -76,11 +76,14 @@ export function adminOnboardingProvisionHref(input: {
   name?: string;
   email?: string;
   slug?: string;
+  /** Server-minted AGREED handoff token (SoD baton). */
+  handoff?: string;
 }): string {
   const q = new URLSearchParams();
   if (input.name?.trim()) q.set("name", input.name.trim());
   if (input.email?.trim()) q.set("email", input.email.trim().toLowerCase());
   if (input.slug?.trim()) q.set("slug", input.slug.trim().toLowerCase());
+  if (input.handoff?.trim()) q.set("handoff", input.handoff.trim());
   const qs = q.toString();
   return `/admin/onboarding${qs ? `?${qs}` : ""}#onboarding-controls`;
 }

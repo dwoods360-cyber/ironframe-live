@@ -68,4 +68,17 @@ describe("adminOnboardingProvisionHref", () => {
       "/admin/onboarding?name=Acme+Corp&email=ciso%40acme.com&slug=acmecorp#onboarding-controls",
     );
   });
+
+  it("includes AGREED handoff token when present", () => {
+    expect(
+      adminOnboardingProvisionHref({
+        name: "Acme Corp",
+        email: "ciso@acme.com",
+        slug: "acmecorp",
+        handoff: "tok_abc",
+      }),
+    ).toBe(
+      "/admin/onboarding?name=Acme+Corp&email=ciso%40acme.com&slug=acmecorp&handoff=tok_abc#onboarding-controls",
+    );
+  });
 });

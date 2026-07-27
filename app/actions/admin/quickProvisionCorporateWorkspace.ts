@@ -1,11 +1,12 @@
 "use server";
 
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
-import {
-  assertTenantSlugInPartnerScope,
-  requirePartnerProvisioner,
-} from "@/app/lib/auth/partnerProvisionerAccess";
+import { requirePartnerProvisioner } from "@/app/lib/auth/partnerProvisionerAccess";
 import { linkPartnerProvisionerToClientTenant } from "@/app/lib/server/partnerProvisionerTenantLink";
+import {
+  consumeOrderFormAgreedHandoff,
+  requireActiveOrderFormAgreedHandoff,
+} from "@/app/lib/server/orderFormAgreedHandoffCore";
 import {
   quickProvisionCorporateWorkspaceCore,
   type QuickProvisionCorporateWorkspaceResult,
@@ -21,12 +22,28 @@ export async function quickProvisionCorporateWorkspaceAction(
     return { ok: false, error: gate.error };
   }
 
+  const handoffToken = String(formData.get("handoffToken") ?? "").trim();
+  let email = String(formData.get("email") ?? "");
+  let name = String(formData.get("name") ?? "");
+  let slugRaw = String(formData.get("slug") ?? "");
+
+  if (handoffToken) {
+    const trusted = await requireActiveOrderFormAgreedHandoff(handoffToken);
+    if (!trusted.ok) {
+      return { ok: false, error: trusted.error };
+    }
+    // SoD: party fields come from the AGREED handoff, not a tampered form post.
+    name = trusted.handoff.customerLegalName;
+    email = trusted.handoff.operatorEmail;
+    slugRaw = trusted.handoff.workspaceSlug;
+  }
+
   const user = await getSupabaseSessionUser();
   const result = await quickProvisionCorporateWorkspaceCore({
     operatorId: gate.userId,
-    email: String(formData.get("email") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    slugRaw: String(formData.get("slug") ?? ""),
+    email,
+    name,
+    slugRaw,
   });
 
   if (result.ok) {
@@ -35,6 +52,11 @@ export async function quickProvisionCorporateWorkspaceAction(
       operatorEmail: user?.email,
       tenantSlug: result.slug,
     });
+    if (handoffToken) {
+      await consumeOrderFormAgreedHandoff(handoffToken).catch((err) => {
+        console.warn("[quick-provision] handoff consume failed", err);
+      });
+    }
   }
 
   return result;

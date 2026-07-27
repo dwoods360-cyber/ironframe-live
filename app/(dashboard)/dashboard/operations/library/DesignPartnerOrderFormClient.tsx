@@ -10,6 +10,7 @@ import {
   formatPathBUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 import { notifyOrderFormAgreedAction } from "@/app/actions/operations/notifyOrderFormAgreed";
+import { revokeOrderFormAgreedHandoffAction } from "@/app/actions/operations/revokeOrderFormAgreedHandoff";
 import { adminOnboardingProvisionHref } from "@/app/lib/approvalDispatchValidation";
 import {
   DESIGN_PARTNER_ORDER_FORM_LOCK_WORD,
@@ -32,6 +33,7 @@ import { copyTextToClipboard } from "@/app/utils/safeClipboard";
 type PersistedBundle = {
   draft: DesignPartnerOrderFormDraft;
   lock: DesignPartnerOrderFormLockState;
+  handoffToken?: string | null;
 };
 
 function loadPersisted(): PersistedBundle | null {
@@ -72,17 +74,20 @@ function DesignPartnerOrderFormInner() {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [lockBusy, setLockBusy] = useState(false);
   const [provisionHref, setProvisionHref] = useState<string | null>(null);
+  const [handoffToken, setHandoffToken] = useState<string | null>(null);
 
   useEffect(() => {
     const persisted = loadPersisted();
     if (persisted?.draft) setDraft(persisted.draft);
     if (persisted?.lock) setLock(persisted.lock);
+    if (persisted?.handoffToken) setHandoffToken(persisted.handoffToken);
     if (persisted?.lock?.locked && persisted.draft) {
       setProvisionHref(
         adminOnboardingProvisionHref({
           name: persisted.draft.customerLegalName,
           email: persisted.draft.operatorEmail,
           slug: persisted.draft.workspaceSlug,
+          handoff: persisted.handoffToken || undefined,
         }),
       );
     }
@@ -91,8 +96,8 @@ function DesignPartnerOrderFormInner() {
 
   useEffect(() => {
     if (!hydrated) return;
-    savePersisted({ draft, lock });
-  }, [draft, lock, hydrated]);
+    savePersisted({ draft, lock, handoffToken });
+  }, [draft, lock, handoffToken, hydrated]);
 
   const eligibility = useMemo(() => evaluateOrderFormLockEligibility(draft), [draft]);
   const markdown = useMemo(
@@ -172,20 +177,6 @@ function DesignPartnerOrderFormInner() {
     setLockBusy(true);
     setError(null);
     try {
-      setLock(
-        lockOrderForm(lock, {
-          note: `Partner said/typed ${DESIGN_PARTNER_ORDER_FORM_LOCK_WORD}`,
-        }),
-      );
-      setLockWordInput("");
-
-      const localHref = adminOnboardingProvisionHref({
-        name: draft.customerLegalName,
-        email: draft.operatorEmail,
-        slug: draft.workspaceSlug,
-      });
-      setProvisionHref(localHref);
-
       const notify = await notifyOrderFormAgreedAction({
         customerLegalName: draft.customerLegalName,
         operatorEmail: draft.operatorEmail,
@@ -194,33 +185,55 @@ function DesignPartnerOrderFormInner() {
         pilotWindowDays: draft.pilotWindowDays,
         successCriteria: [...draft.successCriteria],
       });
-      const handoffHref =
-        notify.ok && notify.provisionHref ? notify.provisionHref : localHref;
-      setProvisionHref(handoffHref);
-
       if (!notify.ok) {
-        setBanner(
-          `Form locked. Admin notify skipped: ${notify.error}. Opening prefilled Quick provision…`,
-        );
-      } else {
-        setBanner(
-          notify.notified
-            ? "Form locked + admin notified. Opening prefilled Quick provision (SoD)…"
-            : "Form locked. Admin notify did not confirm delivery — opening prefilled Quick provision…",
-        );
+        setError(`AGREED handoff failed: ${notify.error}`);
+        return;
       }
-      // SoD handoff: land on prefilled Quick provision (query params), not bare /admin/onboarding.
-      router.push(handoffHref);
+
+      setLock(
+        lockOrderForm(lock, {
+          note: `Partner said/typed ${DESIGN_PARTNER_ORDER_FORM_LOCK_WORD}`,
+        }),
+      );
+      setLockWordInput("");
+      setHandoffToken(notify.handoffToken);
+      setProvisionHref(notify.provisionHref);
+      setBanner(
+        notify.notified
+          ? "Form locked + admin notified. Opening prefilled Quick provision (SoD handoff)…"
+          : "Form locked + AGREED handoff minted. Opening prefilled Quick provision…",
+      );
+      router.push(notify.provisionHref);
     } finally {
       setLockBusy(false);
     }
   };
 
-  const applyUnlock = () => {
+  const applyUnlock = async () => {
     try {
-      setLock(unlockOrderForm(lock, unlockReason));
+      const reason = unlockReason.trim();
+      if (reason.length < 4) {
+        setError("Unlock requires a short reason (audit).");
+        return;
+      }
+      const revoke = await revokeOrderFormAgreedHandoffAction({
+        token: handoffToken,
+        workspaceSlug: draft.workspaceSlug,
+        reason,
+      });
+      if (!revoke.ok) {
+        setError(revoke.error);
+        return;
+      }
+      setLock(unlockOrderForm(lock, reason));
       setUnlockReason("");
-      setBanner("Form unlocked for edit — re-confirm with lock word after changes.");
+      setHandoffToken(null);
+      setProvisionHref(null);
+      setBanner(
+        revoke.revoked > 0
+          ? "Form unlocked — AGREED admin handoff revoked. Re-lock with AGREED before Quick provision."
+          : "Form unlocked for edit — re-confirm with lock word after changes.",
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unlock failed.");
@@ -509,7 +522,7 @@ function DesignPartnerOrderFormInner() {
             </label>
             <button
               type="button"
-              onClick={applyUnlock}
+              onClick={() => void applyUnlock()}
               disabled={unlockReason.trim().length < 4}
               className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-900 disabled:opacity-40"
             >

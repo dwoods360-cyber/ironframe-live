@@ -26,7 +26,7 @@ const PURGED_PREFIX =
 
 const PARTNER_PACKET_SLUGS = [
   "user-manuals/design-partner-operator-packet",
-  "training/LEVEL1-PARTNER-INDEX",
+  "training/level1-partner-index",
 ];
 
 async function main(): Promise<void> {

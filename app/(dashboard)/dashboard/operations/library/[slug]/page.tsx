@@ -72,26 +72,25 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
               </p>
               <p className="w-full text-xs text-slate-300">
                 Use the interactive form below (suggest from LIVE recap → partner says{" "}
-                <code className="text-cyan-300">AGREED</code> → freeze). Then hand off to{" "}
+                <code className="text-cyan-300">AGREED</code> → freeze). Lock auto-opens prefilled{" "}
+                <strong className="text-slate-100">Quick provision</strong> for{" "}
                 <code className="text-cyan-300">BUSINESS_ADMIN</code> /{" "}
-                <code className="text-cyan-300">GLOBAL_ADMIN</code> for provision with a{" "}
-                <strong className="text-slate-100">client-owned</strong> operator email, then send
-                the tenant Path B link — never <code className="text-cyan-300">/pricing</code>. GTM
-                host does not collapse into admin on this beat.
+                <code className="text-cyan-300">GLOBAL_ADMIN</code> — never{" "}
+                <code className="text-cyan-300">/pricing</code>. GTM host does not collapse into
+                admin on this beat.
               </p>
-              <Link
-                href="/admin/onboarding"
-                className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600"
-                title="SoD: provision is BUSINESS_ADMIN / GLOBAL_ADMIN"
-              >
-                Provision Path B (admin)
-              </Link>
               <Link
                 href="/dashboard/operations/workflow-review#after-yes"
                 className="rounded-lg border border-emerald-700/70 px-3 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-950/50"
               >
                 Back to LIVE after-yes
               </Link>
+              <a
+                href="#order-form"
+                className="rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-600"
+              >
+                Jump to interactive form ↓
+              </a>
             </div>
           ) : null}
           {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (

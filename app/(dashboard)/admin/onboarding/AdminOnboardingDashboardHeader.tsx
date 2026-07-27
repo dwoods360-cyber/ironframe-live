@@ -37,6 +37,7 @@ export default function AdminOnboardingDashboardHeader({
       <button
         type="button"
         onClick={scrollToControls}
+        title="Scrolls to Provisioning controls on this page. Prefill requires ?name=&email=&slug= from the locked order form handoff."
         className="flex h-11 touch-manipulation items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 font-mono text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-indigo-950/40 transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98]"
       >
         <span>+</span> {partnerMode ? "Add Client Workspace" : "Provision New Invite Link"}

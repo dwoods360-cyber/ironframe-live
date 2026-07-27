@@ -194,18 +194,23 @@ function DesignPartnerOrderFormInner() {
         pilotWindowDays: draft.pilotWindowDays,
         successCriteria: [...draft.successCriteria],
       });
+      const handoffHref =
+        notify.ok && notify.provisionHref ? notify.provisionHref : localHref;
+      setProvisionHref(handoffHref);
+
       if (!notify.ok) {
         setBanner(
-          `Form locked. Admin notify skipped: ${notify.error}. Open provision with the deep-link below.`,
+          `Form locked. Admin notify skipped: ${notify.error}. Opening prefilled Quick provision…`,
         );
-        return;
+      } else {
+        setBanner(
+          notify.notified
+            ? "Form locked + admin notified. Opening prefilled Quick provision (SoD)…"
+            : "Form locked. Admin notify did not confirm delivery — opening prefilled Quick provision…",
+        );
       }
-      setProvisionHref(notify.provisionHref);
-      setBanner(
-        notify.notified
-          ? "Form locked + admin notified. Open prefilled Quick provision (SoD) — do not use /pricing."
-          : "Form locked. Admin notify did not confirm delivery — use the provision deep-link below.",
-      );
+      // SoD handoff: land on prefilled Quick provision (query params), not bare /admin/onboarding.
+      router.push(handoffHref);
     } finally {
       setLockBusy(false);
     }

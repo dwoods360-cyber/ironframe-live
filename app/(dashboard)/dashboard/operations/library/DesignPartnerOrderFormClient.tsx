@@ -490,9 +490,12 @@ function DesignPartnerOrderFormInner() {
         </div>
       ) : (
         <div className="rounded-lg border border-slate-700 bg-slate-950/50 p-3 space-y-2">
-          <p className="text-xs text-slate-400">
-            Unlock requires an audit reason, then re-lock with{" "}
-            {DESIGN_PARTNER_ORDER_FORM_LOCK_WORD} after edits.
+          <p className="text-xs text-slate-300">
+            Fields are frozen while locked. To change them: enter an{" "}
+            <strong className="text-slate-100">Unlock reason</strong> →{" "}
+            <strong className="text-slate-100">Unlock for edit</strong> → edit → partner re-types{" "}
+            <code className="text-cyan-300">{DESIGN_PARTNER_ORDER_FORM_LOCK_WORD}</code> →{" "}
+            <strong className="text-slate-100">Lock form</strong> again.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <label className={labelClass + " min-w-[12rem] flex-1"}>
@@ -507,10 +510,16 @@ function DesignPartnerOrderFormInner() {
             <button
               type="button"
               onClick={applyUnlock}
-              className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-900"
+              disabled={unlockReason.trim().length < 4}
+              className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-900 disabled:opacity-40"
             >
               Unlock for edit
             </button>
+            {unlockReason.trim().length < 4 ? (
+              <p className="w-full text-[11px] text-amber-300/90">
+                Enter a short unlock reason (at least 4 characters) to enable Unlock for edit.
+              </p>
+            ) : null}
           </div>
           {lock.unlockAudit.length > 0 ? (
             <ul className="text-[11px] text-slate-500 space-y-0.5">

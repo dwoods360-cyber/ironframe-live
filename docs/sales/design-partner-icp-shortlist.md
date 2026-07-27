@@ -96,7 +96,7 @@ Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / 
 |------|---------|---------|-------------------|-------------------|------------|
 | 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | **SMS** (EMAIL draft present but local fake inbox) | C1 edit → C2 DISPATCH |
 | 2026-07-19 | BlueRadius Cyber | COMPLIANCE_JOB_POST | deal `edc5aa79…` · draft `49a02e66…` · info@blueradius.io | EMAIL (or SMS) | — |
-| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · test dest operator inbox | **EMAIL** DISPATCHED (C1/C2 PASS) | Wait reply / Touch 2 day 4–5 |
+| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · test dest operator inbox | **EMAIL** DISPATCHED (C1/C2 PASS) | **Touch 2 due** (day 4–5 from 2026-07-23 → 2026-07-27/28) |
 
 Fixture/OSINT SUSPECTs without reachable phone/email remain in demo tenants (`vaultbank` / `medshield` / `gridcore`) — **not** DISPATCH candidates until enriched.
 
@@ -106,10 +106,11 @@ Re-check: `node scripts/dev/b3-list-prospects.mjs`
 
 ## Attack priority (this week)
 
-1. **B4** — SalesTeam poll → Approvals drafts for the two PROSPECT rows above.  
-2. **C1–C2** — edit (Path B $4,999 · workflow review) then HITL DISPATCH.  
-3. **§A warm** — still optional if a real intro appears.  
-4. Keep Scout harvesting; enrich email/phone before promoting more SUSPECTs.
+1. **BlueRadius Touch 2** — due now (TOUCH1 2026-07-23). Edit Approvals draft from [Touch 2 copy](./design-partner-outreach-sequence.md#touch-2--soften--scarcity-day-4–5) → HITL DISPATCH → log on C3.  
+2. **Pivot Point** — C1 edit then **SMS** DISPATCH (`+18774540039`; email is `@ironleads.local`).  
+3. **§A warm** — paste real A1–A5 contacts; highest conversion if available.  
+4. Keep Scout harvesting; enrich email/phone before promoting more SUSPECTs.  
+5. **Never** Path-B / provision `ironframe-central-test` (quarantined QA throwaway).
 
 **When a row hits YES:** order form → provision → Path B → ACTIVE. Track paid count toward GTM-3 (3 paying design partners).
 

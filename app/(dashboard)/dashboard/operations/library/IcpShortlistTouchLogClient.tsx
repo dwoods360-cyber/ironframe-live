@@ -165,7 +165,8 @@ function IcpShortlistTouchLogInner({
           <p className="mt-1 text-xs text-slate-300">
             After <strong className="text-slate-100">Approve &amp; dispatch SALES</strong>, TOUCH1 is
             logged automatically and you are taken to LIVE. Use this panel for TOUCH2/3 or audit
-            corrections — fields autofill from query params when present.
+            corrections — not a CRM account list. Channels are EMAIL / SMS only (HITL DISPATCH
+            paths). Shortlist Seg / Pri / Stage live in the markdown tables above.
           </p>
           {autofilled ? (
             <p className="mt-1 font-mono text-[10px] text-emerald-400">
@@ -194,7 +195,7 @@ function IcpShortlistTouchLogInner({
           />
         </label>
         <label className="block text-[11px] text-slate-400">
-          Channel
+          Channel (EMAIL or SMS)
           <select
             value={channel}
             onChange={(e) => setChannel(e.target.value as "EMAIL" | "SMS")}
@@ -246,14 +247,14 @@ function IcpShortlistTouchLogInner({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={busy || !company.trim()}
           onClick={() => void logTouch()}
           className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-40"
         >
-          {busy ? "Logging…" : `Log ${touch}`}
+          {busy ? "Saving…" : `Save touch · Log ${touch}`}
         </button>
         <button
           type="button"
@@ -263,6 +264,9 @@ function IcpShortlistTouchLogInner({
         >
           Refresh log
         </button>
+        {!company.trim() ? (
+          <p className="text-[11px] text-amber-300/90">Enter a company name to enable Save.</p>
+        ) : null}
       </div>
 
       {message ? <p className="text-xs text-emerald-300">{message}</p> : null}

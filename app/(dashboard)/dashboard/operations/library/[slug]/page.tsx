@@ -112,6 +112,12 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
                   >
                     §A Warm network
                   </a>
+                  <a
+                    href="#section-c"
+                    className="rounded-lg border border-cyan-700/70 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-950/50"
+                  >
+                    §C Beachhead profiles
+                  </a>
                   <Link
                     href="/dashboard/admin/approvals?kind=SALES"
                     className="rounded-lg border border-amber-700/70 px-3 py-2 text-xs font-semibold text-amber-100 hover:bg-amber-950/50"
@@ -131,11 +137,12 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
                   C3 — Log touch (§D)
                 </p>
                 <p className="text-xs text-slate-300">
-                  Research tables stay git-owned. After EMAIL/SMS DISPATCH, use{" "}
+                  Research tables stay git-owned (Seg / Pri / Stage columns in §A–§C below). After
+                  EMAIL/SMS DISPATCH, scroll to{" "}
                   <a href="#icp-touch-log" className="font-medium text-cyan-300 hover:underline">
                     Log TOUCH1–3
                   </a>{" "}
-                  below (or the button on Approvals). Also see{" "}
+                  (or use Approvals auto-log). Also see{" "}
                   <a href="#section-d" className="font-medium text-cyan-300 hover:underline">
                     §D in the doc
                   </a>
@@ -153,15 +160,6 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
         </header>
 
         {slug === "order-form" ? <DesignPartnerOrderFormClient /> : null}
-        {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
-          <IcpShortlistTouchLogClient
-            company={firstParam(query.company) || undefined}
-            channel={touchChannel}
-            interactionId={firstParam(query.interactionId) || undefined}
-            to={firstParam(query.to) || undefined}
-            touch={touchStage}
-          />
-        ) : null}
 
         <article className="operator-library-prose rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-5 text-sm leading-relaxed text-slate-200 sm:px-6">
           <ReactMarkdown
@@ -181,7 +179,9 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
                   ? "section-d"
                   : /^A\.\s/i.test(trimmed)
                     ? "section-a"
-                    : undefined;
+                    : /^C\.\s/i.test(trimmed)
+                      ? "section-c"
+                      : undefined;
                 return (
                   <h2
                     id={id}
@@ -254,6 +254,16 @@ export default async function OperatorLibraryDocPage({ params, searchParams }: P
             {doc.markdown}
           </ReactMarkdown>
         </article>
+
+        {slug === "icp-shortlist" || slug === "design-partner-icp-shortlist" ? (
+          <IcpShortlistTouchLogClient
+            company={firstParam(query.company) || undefined}
+            channel={touchChannel}
+            interactionId={firstParam(query.interactionId) || undefined}
+            to={firstParam(query.to) || undefined}
+            touch={touchStage}
+          />
+        ) : null}
       </div>
     </div>
   );

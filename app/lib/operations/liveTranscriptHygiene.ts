@@ -6,7 +6,7 @@
 const MONTH =
   "January|February|March|April|May|June|July|August|September|October|November|December";
 
-/** Domain terms the LIVE mic often mangles. */
+/** Domain terms the LIVE mic often mangles — spelling hints only, never invent. */
 export const WORKFLOW_REVIEW_STT_VOCAB = [
   "Textbelt",
   "Twilio",
@@ -25,11 +25,17 @@ export const WORKFLOW_REVIEW_STT_VOCAB = [
 ] as const;
 
 /**
- * Fix high-frequency Gemini STT mishears on short LIVE chunks.
+ * Strip silence token + fix high-frequency Gemini STT mishears on short LIVE chunks.
  */
 export function normalizeLiveTranscriptChunk(raw: string): string {
   let text = String(raw ?? "").replace(/\s+/g, " ").trim();
   if (!text) return "";
+
+  // Model sometimes returns EMPTY alone or embeds it mid-utterance.
+  if (/^empty$/i.test(text)) return "";
+  text = text.replace(/\bEMPTY\b/gi, " ").replace(/\s+/g, " ").trim();
+  text = text.replace(/\s*\.\s*\./g, ".").replace(/\s+/g, " ").trim();
+  if (!text || /^empty$/i.test(text) || /^\.+$/.test(text)) return "";
 
   // SMS provider: "tax bill" / "taxbelt" / "text belt" → Textbelt
   text = text.replace(
@@ -60,11 +66,15 @@ export function buildWorkflowReviewSttPrompt(): string {
     "You are a speech-to-text engine for Ironframe Ops Hub LIVE calls.\n" +
     "Transcribe the audio verbatim with normal punctuation.\n" +
     "Rules:\n" +
-    "- Return ONLY the spoken words. No apology, commentary, translation, or labels.\n" +
-    "- Do not invent words that were not spoken.\n" +
-    "- Prefer correct ordinals and vendor names when phonetically clear " +
+    "- Return ONLY the spoken words. No apology, commentary, translation, labels, or summaries.\n" +
+    "- Do not invent, complete, or continue the speaker's sentence with sales talk-track.\n" +
+    "- Do not inject host phrases such as \"Command Design Partner\", \"Path B\", or " +
+    '"workflow review" unless those exact words were clearly spoken in this clip.\n' +
+    "- Preserve content nouns (clients, tenants, entities, users, seats). Never drop them.\n" +
+    "- Prefer correct ordinals and vendor spellings when phonetically clear " +
     '(e.g. "July 25th" not "July 20 Fifth"; "Textbelt" not "tax bill").\n' +
-    `- Domain vocabulary to prefer when sounded: ${vocab}.\n` +
-    "- If the audio is silent, music-only, or unintelligible, return exactly EMPTY."
+    `- Spelling hints only when sounded: ${vocab}.\n` +
+    "- If the audio is silent, music-only, or unintelligible, return exactly EMPTY and nothing else.\n" +
+    "- Never place the word EMPTY inside a normal transcript."
   );
 }

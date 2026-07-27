@@ -478,7 +478,8 @@ export default function WorkflowReviewCallClient() {
   const runGeminiListenLoop = useCallback(
     async (stream: MediaStream) => {
       /** ~4s chunks: short clips mangled ordinals/vendor names ("25th"→"20 Fifth"). */
-      const CHUNK_MS = 4_000;
+      // Longer chunks improve Gemini STT accuracy (fewer mid-phrase cuts / talk-track fills).
+      const CHUNK_MS = 6_000;
       let inFlight = 0;
       const waiters: Array<() => void> = [];
       const acquire = async () => {
@@ -784,7 +785,7 @@ export default function WorkflowReviewCallClient() {
           <p className="max-w-3xl text-sm text-slate-400">
             One desk: talk track + mic STT + Pocket Q&A. Click{" "}
             <span className="text-emerald-300">Enable mic & go LIVE</span> (allow the browser prompt).
-            Audio is transcribed in ~4s chunks via Gemini. Watch the green level bar — if it stays
+            Audio is transcribed in ~6s chunks via Gemini. Watch the green level bar — if it stays
             at 0 while you talk, pick another mic.
           </p>
         </header>

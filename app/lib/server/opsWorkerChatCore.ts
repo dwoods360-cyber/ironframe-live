@@ -196,7 +196,6 @@ export async function transcribeOpsWorkerAudio(input: {
     .replace(/^["'`]+|["'`]+$/g, "")
     .replace(/^\s*transcript\s*:\s*/i, "")
     .trim();
-  if (!transcript || /^empty$/i.test(transcript)) transcript = "";
   if (
     /^(i'?m sorry\.?|i am sorry\.?|sorry\.?|thank you\.?|thanks\.?|please subscribe\.?|you$'?re welcome\.?)$/i.test(
       transcript,
@@ -204,8 +203,7 @@ export async function transcribeOpsWorkerAudio(input: {
   ) {
     transcript = "";
   }
-  if (transcript && input.context === "workflow-review") {
-    transcript = normalizeLiveTranscriptChunk(transcript);
-  }
+  // Always run hygiene: strips mid-utterance EMPTY + Textbelt/date fixes on LIVE desk.
+  transcript = normalizeLiveTranscriptChunk(transcript);
   return { transcript, model: modelId };
 }

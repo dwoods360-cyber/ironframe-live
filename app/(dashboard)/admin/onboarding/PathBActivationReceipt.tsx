@@ -94,10 +94,15 @@ export default function PathBActivationReceipt({
           </p>
           <code
             className={`block break-all rounded bg-black/40 px-2 py-1.5 font-mono text-[9px] ${
-              canSend ? "text-emerald-200" : "text-slate-500 blur-[2px] select-none"
+              canSend
+                ? "text-emerald-200"
+                : "border border-dashed border-slate-600 text-slate-400"
             }`}
+            aria-hidden={!canSend}
           >
-            {canSend ? activationCheckoutUrl : "•••••••• (unlock after counsel D0 + acknowledgment)"}
+            {canSend
+              ? activationCheckoutUrl
+              : "•••••••• (unlock after counsel D0 + acknowledgment)"}
           </code>
           <div className="flex flex-wrap gap-2">
             <button

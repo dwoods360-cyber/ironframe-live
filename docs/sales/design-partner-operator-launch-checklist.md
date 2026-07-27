@@ -2,6 +2,8 @@
 
 Print or keep beside Approvals. Aim: ≤15 min/day rhythm after rails are green.
 
+**Production remaining (only):** [production go-live remaining](../ops/production-go-live-remaining.md) — counsel D0 · Stripe live Path B · design-partner acquisition/close.
+
 **Before first real DISPATCH:** run the timed dry-run  
 → [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) (R1–R8, ~30–45 min).  
 In-app: Ops Hub → **Operator library** → `/dashboard/operations/library/pre-outreach-run-order`.  

@@ -38,9 +38,14 @@ tsconfig.tsbuildinfo
 debug.zip
 scripts/vercel-env-preview-pki.mjs
 scripts/dev/stripe-catalog-artifact.json
+scripts/dev/stripe-catalog-artifact.live.json
 scripts/dev/stripe-client-links.json
 secrets-replacements.txt
 .env*
+
+# Local scratch + counsel binary exports (keep on disk; never commit)
+/tmp/
+docs/sales/exports/
 
 # Google Cloud Platform IAM Keys
 ironframe-prod-907f1402c60c.json

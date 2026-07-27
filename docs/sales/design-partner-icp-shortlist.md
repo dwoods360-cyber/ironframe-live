@@ -98,13 +98,13 @@ Re-check: `node scripts/dev/b3-list-prospects.mjs`
 
 ---
 
-## Attack priority (this week)
+## Attack priority (production remaining)
+
+Canonical list: [production go-live remaining](../ops/production-go-live-remaining.md)
 
 1. **Counsel D0** — wait for outside counsel; keep product gate off until approved.  
-2. **First live seat** — warm §A **or** intentional live DISPATCH (BlueRadius `info@blueradius.io` or Pivot Point SMS) — not another dry-run.  
-3. On YES → order form AGREED → admin provision (never `ironframe-central-test`) → Path B only after D0.  
-4. Keep Scout harvesting; enrich email/phone before promoting more SUSPECTs.  
-5. **Stripe live Path B** — confirm `STRIPE_CREDENTIAL_MODE=live` + $4,999 price before first real charge (prod currently reports mode `test` in env).
+2. **Stripe live Path B** — `sk_live_` + `STRIPE_CREDENTIAL_MODE=live` before first real charge.  
+3. **First live design partner** — warm §A or live DISPATCH → LIVE → AGREED → provision → Path B (after D0).  
 
 **When a row hits YES:** order form → provision → Path B → ACTIVE. Track paid count toward GTM-3 (3 paying design partners).
 

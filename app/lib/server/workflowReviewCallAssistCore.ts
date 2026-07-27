@@ -8,6 +8,7 @@ import {
   formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
+import { lookupSaasCallKnowledge } from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
 
 export type BuyingSignalId =
   | "NAMES_PAIN"
@@ -207,6 +208,11 @@ const SIGNAL_RULES: Array<{
   },
 ];
 
+const POCKET_SOC2 = POCKET_QA[0]!.answer;
+const POCKET_FREE_TRIAL = POCKET_QA[1]!.answer;
+const POCKET_VANTA = POCKET_QA[3]!.answer;
+const POCKET_DEMO = POCKET_QA[4]!.answer;
+
 const OBJECTION_RULES: Array<{
   label: string;
   patterns: RegExp[];
@@ -215,22 +221,22 @@ const OBJECTION_RULES: Array<{
   {
     label: "Wants free trial / PoC",
     patterns: [/free\s*(trial|poc|pilot)/i, /just\s+a\s+poc/i],
-    suggestedReply: POCKET_QA[1]!.answer,
+    suggestedReply: POCKET_FREE_TRIAL,
   },
   {
     label: "Wants product demo now",
     patterns: [/show\s+me\s+(a\s+)?demo/i, /can\s+we\s+see\s+the\s+product/i],
-    suggestedReply: POCKET_QA[3]!.answer,
+    suggestedReply: POCKET_DEMO,
   },
   {
     label: "Already on Vanta/Drata",
     patterns: [/we\s+(already\s+)?use\s+(vanta|drata)/i, /happy\s+with\s+(vanta|drata)/i],
-    suggestedReply: POCKET_QA[2]!.answer,
+    suggestedReply: POCKET_VANTA,
   },
   {
     label: "SOC 2 logo ask",
     patterns: [/are\s+you\s+soc/i, /soc\s*2\s+certified/i],
-    suggestedReply: POCKET_QA[0]!.answer,
+    suggestedReply: POCKET_SOC2,
   },
 ];
 
@@ -272,11 +278,21 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
     }
   }
 
+  const kb = lookupSaasCallKnowledge(question);
+  if (kb) {
+    return {
+      question,
+      answer: kb.answer,
+      banNote:
+        "SaaS KB hit — do not invent soft max-client quotas, certs, or demo tenants as customers. Human hosts; agent is sidecar only.",
+    };
+  }
+
   return {
     question,
-    answer: `Stay in peer-to-peer diligence: map their pain to isolation / integer-cent ALE / Irongate, then frame ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus.`,
+    answer: `Stay in peer-to-peer diligence: map their pain to isolation / integer-cent ALE / Irongate, then frame ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus. If this is a product-shape ask (capacity, HITL, docs, hosting), capture it for the order-form criteria — don’t invent numbers.`,
     banNote:
-      "Do not invent architecture notes they did not state. Do not offer free pilots.",
+      "Do not invent architecture notes they did not state. Do not offer free pilots. Add recurring SaaS asks to saasCallKnowledgeBase.ts.",
   };
 }
 

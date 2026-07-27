@@ -20,6 +20,27 @@ describe("workflowReviewCallAssistCore", () => {
     expect(trial.answer.toLowerCase()).toMatch(/no free/);
   });
 
+  it("answers SaaS capacity / HITL asks from the call knowledge base", () => {
+    const capacity = assistWorkflowReviewQuestion(
+      "What's the maximum number of clients we can run?",
+    );
+    expect(capacity.answer.toLowerCase()).toMatch(/no soft|max clients/);
+    expect(capacity.answer).toMatch(/RLS|Ironguard/);
+    expect(capacity.banNote?.toLowerCase()).toMatch(/saas kb/);
+
+    const loadQ = assistWorkflowReviewQuestion(
+      "What is the maximum number of clients we can load into the Ironframe system?",
+    );
+    expect(loadQ.answer.toLowerCase()).toMatch(/no soft|max clients/);
+    expect(loadQ.banNote?.toLowerCase()).toMatch(/saas kb/);
+
+    const hitl = assistWorkflowReviewQuestion("Will the AI agent auto-send emails?");
+    expect(hitl.answer.toLowerCase()).toMatch(/never auto-send|hitl/);
+
+    const docs = assistWorkflowReviewQuestion("Where are the docs for operators?");
+    expect(docs.answer).toContain("/docs");
+  });
+
   it("detects buying signs and close readiness from a strong transcript", () => {
     const analysis = analyzeWorkflowReviewTranscript(`
       Prospect: We're drowning in spreadsheet evidence before the board pack and multi-entity bleed.

@@ -1,6 +1,7 @@
 export * from './commercial';
 export * from './beachheads';
 export * from './productFacts';
+export * from './saasCallKnowledgeBase';
 export {
   buildProductKnowledgeBinding,
   buildSalesTeamLaunchMandate,

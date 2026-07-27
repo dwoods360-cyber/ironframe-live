@@ -36,7 +36,7 @@ export async function listProvisionedTenantsForAdminAction(): Promise<
       industry: true,
       ale_baseline: true,
     },
-    orderBy: { name: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 
   const billingRows = await prisma.tenantBilling.findMany({

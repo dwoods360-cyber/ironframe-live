@@ -72,6 +72,7 @@
     "ops:sync-stripe-production-webhooks": "npx tsx scripts/ops/sync-stripe-production-webhooks.ts",
     "ops:assign-partner-provisioner": "npx tsx scripts/ops/assign-partner-provisioner.ts",
     "ops:assign-global-admin": "npx tsx scripts/ops/assign-global-admin.ts",
+    "ops:quarantine-qa-throwaway": "npx tsx scripts/ops/quarantine-qa-throwaway-tenant.ts",
     "verify:multiplexer": "npx tsx scripts/dev/verify-multiplexer-integration.ts",
     "synthesize:get-started-audio": "python scripts/synthesize-get-started-audio.py",
     "test:e2e": "playwright test",

@@ -228,7 +228,31 @@ async function deleteSupabaseUsersForTenantRoles(tenantIds: string[], terms: rea
     .map((u) => u.id);
 
   /** Only auth users tied to matched tenants — never broad email match (would hit dwoods360@gmail.com). */
-  const allUserIds = [...new Set([...userIdsFromRoles, ...metadataMatchedIds])];
+  const PLATFORM_ADMIN_EMAILS = new Set(
+    [
+      process.env.IRONFRAME_PLATFORM_GLOBAL_ADMIN_EMAIL?.trim().toLowerCase(),
+      "dwoods360@gmail.com",
+    ].filter(Boolean) as string[],
+  );
+
+  const protectedUserIds = new Set(
+    allAuthUsers
+      .filter((u) => PLATFORM_ADMIN_EMAILS.has((u.email ?? "").trim().toLowerCase()))
+      .map((u) => u.id),
+  );
+
+  const allUserIds = [...new Set([...userIdsFromRoles, ...metadataMatchedIds])].filter(
+    (id) => !protectedUserIds.has(id),
+  );
+  const skippedProtected = [...new Set([...userIdsFromRoles, ...metadataMatchedIds])].filter((id) =>
+    protectedUserIds.has(id),
+  );
+  if (skippedProtected.length > 0) {
+    console.warn(
+      `[purge] Skipping ${skippedProtected.length} platform-admin auth user(s) — role rows only will cascade with tenant delete.`,
+    );
+  }
+
   const deleted: string[] = [];
   const errors: { userId: string; message: string }[] = [];
 
@@ -238,7 +262,13 @@ async function deleteSupabaseUsersForTenantRoles(tenantIds: string[], terms: rea
     else deleted.push(userId);
   }
 
-  return { skipped: false as const, deleted, errors, candidateCount: allUserIds.length };
+  return {
+    skipped: false as const,
+    deleted,
+    errors,
+    candidateCount: allUserIds.length,
+    skippedProtectedCount: skippedProtected.length,
+  };
 }
 
 async function deleteOrphanRolesForMatchedAuthUsers(terms: readonly string[]) {

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
 import { requirePartnerProvisioner } from "@/app/lib/auth/partnerProvisionerAccess";
 import { linkPartnerProvisionerToClientTenant } from "@/app/lib/server/partnerProvisionerTenantLink";
@@ -57,6 +58,7 @@ export async function quickProvisionCorporateWorkspaceAction(
         console.warn("[quick-provision] handoff consume failed", err);
       });
     }
+    revalidatePath("/admin/onboarding");
   }
 
   return result;

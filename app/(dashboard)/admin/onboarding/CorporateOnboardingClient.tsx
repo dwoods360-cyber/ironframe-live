@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatLocalTenantWorkspaceUrl } from "@/app/lib/tenantSubdomain";
 import { Building2, KeyRound, Mail, Rocket, UserPlus } from "lucide-react";
 import {
@@ -56,7 +57,7 @@ export default function CorporateOnboardingClient({
     .toLowerCase()
     .replace(/[^a-z0-9-]/g, "");
   const prefillHandoff = (prefill.handoffToken ?? "").trim();
-  const prefillActive = Boolean(prefillName || prefillEmail || prefillSlug || prefillHandoff);
+  const router = useRouter();
 
   const [tenants, setTenants] = useState<ProvisionedTenantAdminRow[]>([]);
   const [tenantsError, setTenantsError] = useState<string | null>(null);
@@ -77,23 +78,32 @@ export default function CorporateOnboardingClient({
   const [handoffTrusted, setHandoffTrusted] = useState(false);
   const [handoffError, setHandoffError] = useState<string | null>(null);
   const [handoffLoading, setHandoffLoading] = useState(Boolean(prefillHandoff));
+  /** After trusted handoff provision, suppress stale URL-prefill amber banner. */
+  const [handoffPrefillCleared, setHandoffPrefillCleared] = useState(false);
   const [provisionName, setProvisionName] = useState(prefillName);
   const [provisionSlug, setProvisionSlug] = useState(prefillSlug);
 
+  const prefillActive =
+    !handoffPrefillCleared &&
+    Boolean(prefillName || prefillEmail || prefillSlug || prefillHandoff);
+
   useEffect(() => {
+    if (handoffPrefillCleared) return;
     setQuickName(prefillName);
     setQuickSlug(prefillSlug);
     setQuickEmail(prefillEmail);
     setHandoffToken(prefillHandoff);
     setProvisionName(prefillName);
     setProvisionSlug(prefillSlug);
-  }, [prefillName, prefillSlug, prefillEmail, prefillHandoff]);
+  }, [prefillName, prefillSlug, prefillEmail, prefillHandoff, handoffPrefillCleared]);
 
   useEffect(() => {
-    if (!prefillHandoff) {
-      setHandoffTrusted(false);
-      setHandoffError(null);
-      setHandoffLoading(false);
+    if (handoffPrefillCleared || !prefillHandoff) {
+      if (!prefillHandoff) {
+        setHandoffTrusted(false);
+        setHandoffError(null);
+        setHandoffLoading(false);
+      }
       return;
     }
     let cancelled = false;
@@ -119,9 +129,9 @@ export default function CorporateOnboardingClient({
     return () => {
       cancelled = true;
     };
-  }, [prefillHandoff]);
+  }, [prefillHandoff, handoffPrefillCleared]);
 
-  const refreshTenants = useCallback(async () => {
+  const refreshTenants = useCallback(async (preferSlug?: string) => {
     const res = await listProvisionedTenantsForAdminAction();
     if (!res.ok) {
       setTenantsError(res.error);
@@ -130,10 +140,16 @@ export default function CorporateOnboardingClient({
     }
     setTenantsError(null);
     setTenants(res.tenants);
-    if (res.tenants.length > 0 && !inviteTenantSlug) {
-      setInviteTenantSlug(res.tenants[res.tenants.length - 1]!.slug);
+    if (preferSlug) {
+      setInviteTenantSlug(preferSlug);
+      return;
     }
-  }, [inviteTenantSlug]);
+    setInviteTenantSlug((current) => {
+      if (current) return current;
+      if (res.tenants.length === 0) return current;
+      return res.tenants[res.tenants.length - 1]!.slug;
+    });
+  }, []);
 
   useEffect(() => {
     void refreshTenants();
@@ -151,7 +167,7 @@ export default function CorporateOnboardingClient({
     if (res.ok) {
       form.reset();
       setInviteTenantSlug(res.slug);
-      void refreshTenants();
+      void refreshTenants(res.slug);
     }
   };
 
@@ -199,6 +215,7 @@ export default function CorporateOnboardingClient({
 
     const form = e.currentTarget;
     const fd = new FormData(form);
+    const usedTrustedHandoff = Boolean(handoffToken && handoffTrusted);
     if (handoffToken) {
       fd.set("handoffToken", handoffToken);
       // Prefer controlled values (server-trusted when handoff active).
@@ -222,11 +239,20 @@ export default function CorporateOnboardingClient({
     if (res.ok) {
       form.reset();
       setInviteTenantSlug(res.slug);
-      if (handoffToken) {
+      if (usedTrustedHandoff || handoffToken) {
         setHandoffToken("");
         setHandoffTrusted(false);
+        setHandoffError(null);
+        setHandoffPrefillCleared(true);
+        setQuickName("");
+        setQuickEmail("");
+        setQuickSlug("");
+        setProvisionName("");
+        setProvisionSlug("");
+        router.replace("/admin/onboarding");
       }
-      void refreshTenants();
+      await refreshTenants(res.slug);
+      router.refresh();
     }
     window.setTimeout(() => setQuickProgress(null), 2000);
   };

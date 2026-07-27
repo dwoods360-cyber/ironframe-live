@@ -29,21 +29,21 @@ This checklist is the batch/send cadence after that run order is GO.
 
 | # | Task | Done |
 |---|------|------|
-| C1 | Edit draft: $4,999 · workflow review CTA · no free pilot · **no** raw triggers / anti-hallucination leaks / GF sales signature / `$0.00` ALE (see R2.5–R2.8) | ☐ |
-| C2 | DISPATCH (email Resend / SMS Textbelt) | ☐ |
-| C3 | Log touch date on shortlist §D | ☑ 2026-07-23 — BlueRadius Cyber EMAIL DISPATCH logged (C1/C2); use **Log TOUCH1** on Approvals or `/dashboard/operations/library/icp-shortlist#icp-touch-log` for controlled rows |
+| C1 | Edit draft: $4,999 · workflow review CTA · no free pilot · **no** raw triggers / anti-hallucination leaks / GF sales signature / `$0.00` ALE (see R2.5–R2.8) | ☑ dry-run 2026-07-23 — C1 locks on BlueRadius; **live** C1 still ☐ until real destination DISPATCH |
+| C2 | DISPATCH (email Resend / SMS Textbelt) | ☑ dry-run 2026-07-23 — EMAIL to operator inbox (`dwoods360@gmail.com`); Resend `1a7a80e4…`. **Live** DISPATCH still ☐ |
+| C3 | Log touch date on shortlist §D | ☑ 2026-07-23 — BlueRadius dry-run TOUCH1 logged; 2026-07-27 — stale PENDING requeue purged; CRM email restored to `info@blueradius.io` |
 
 ## D. Close & provision
 
 | # | Task | Done |
 |---|------|------|
-| **D0** | **Counsel gate:** [Counsel review packet](./counsel-review-packet.md) returned; order form + MSA/DPA marked **Counsel-approved** with date/firm — **block Path B signature send until yes**. Product gate: set `NEXT_PUBLIC_IRONFRAME_COUNSEL_D0_APPROVED=true` then acknowledge on Path B receipt. Keep **off** until counsel returns. | ☐ |
+| **D0** | **Counsel gate:** [Counsel review packet](./counsel-review-packet.md) returned; order form + MSA/DPA marked **Counsel-approved** with date/firm — **block Path B signature send until yes** | ☐ |
 | D1 | Complete [order form](./design-partner-order-form.md) (2–3 success criteria) — **GTM host** | ☐ |
-| D2 | Quick-provision with **client-owned** email + **live slug** (never `ironframe-central-test`) — **`BUSINESS_ADMIN` / `GLOBAL_ADMIN` duty** (SoD; not the GTM host beat). Prefer trusted AGREED handoff URL. See [live motion next](../ops/design-partner-live-motion-next.md). | ☐ |
+| D2 | Quick-provision with **client-owned** email (server rejects @ironframegrc.com) — **`BUSINESS_ADMIN` / `GLOBAL_ADMIN` duty** (SoD; not the GTM host beat) | ☐ |
 | D3 | Send **Path B activation link only** — never generic `/pricing` for PENDING | ☐ |
 | D4 | Confirm billing ACTIVE → partner on `/get-started` (ALE + company) | ☐ |
 | D5 | Hand partner the **Operator Packet** link: `/docs/user-manuals/design-partner-operator-packet` (+ curated `/docs/training/LEVEL1-PARTNER-INDEX`) — not full classroom index or `docs/ops/*` | ☐ |
-| D6 | Confirm AppDocument corpus seeded on that environment (`npx tsx scripts/seed-app-documents.ts` or `npx tsx prisma/seed-docs.ts`) so packet resolves in `/docs` | ☐ |
+| D6 | Confirm AppDocument corpus seeded on that environment (`npx tsx scripts/seed-app-documents.ts` or `npx tsx prisma/seed-docs.ts`) so packet resolves in `/docs` | ☑ 2026-07-27 — partner packet present; `training/level1-partner-index` upserted in production |
 | D7 | Schedule capped weekly sync; freeze scope outside criteria | ☐ |
 
 ## Surfaces
@@ -53,7 +53,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Operator library | `/dashboard/operations/library` |
 | Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
 | GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |
-| ICP shortlist (C3) | `/dashboard/operations/library/icp-shortlist#icp-touch-log` · [shortlist md](./design-partner-icp-shortlist.md) — **not** `/library/design-partner-icp-shortlist` |
+| ICP shortlist (C3) | `/dashboard/operations/library/icp-shortlist#section-d` · [shortlist md](./design-partner-icp-shortlist.md) — **not** `/library/design-partner-icp-shortlist` |
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
 | Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |

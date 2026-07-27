@@ -23,13 +23,6 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 **Operator action (before B2):** paste 3–5 real people you can text/email this week. Use the warm-ask blurb from the [offer sheet](./design-partner-offer-sheet.md).
 
-### Warm intro kit (≤10 min)
-
-1. Pick 3 people from A1–A5 (or your phone) who know CISOs / compliance leads.  
-2. Send the warm-ask below (email/SMS/LinkedIn). Track replies in Stage → INTRO.  
-3. When they intro a fit: create/queue Approvals draft → HITL DISPATCH → LIVE workflow review.  
-4. Do **not** send `/pricing` or a generic Stripe link — Path B only after order form AGREED + counsel D0.
-
 | # | Company | Seg | Contact / title | Email / phone | Warm path | Pri | Stage | Notes |
 |---|---------|-----|-----------------|---------------|-----------|-----|-------|-------|
 | 1 | *(paste)* | | | | Advisor / ex-colleague / investor | H | RESEARCH | Highest trust door |
@@ -90,13 +83,14 @@ Use for ICP score practice and Scout keywording — **do not** pitch until Conta
 
 Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / info inboxes only — **replace with a named buyer before DISPATCH** if the reply path looks wrong.
 
-**C3 note:** Research tables above stay git-owned. After DISPATCH, log TOUCH1–3 with the controlled **Log touch** panel on `/dashboard/operations/library/icp-shortlist#icp-touch-log` (or **Log TOUCH1** on Sales Approvals). Live rows land in OpsActivity — this markdown table is historical/reference.
+**C3 note:** Operator library renders this doc **read-only**. Log touches by updating this table in git (or your run log) after DISPATCH — do not expect editable blanks on the LIVE page.
 
 | Date | Company | Trigger | Deal / contact ID | Channel EMAIL/SMS | Next touch |
 |------|---------|---------|-------------------|-------------------|------------|
 | 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | **SMS** (EMAIL draft present but local fake inbox) | C1 edit → C2 DISPATCH |
 | 2026-07-19 | BlueRadius Cyber | COMPLIANCE_JOB_POST | deal `edc5aa79…` · draft `49a02e66…` · info@blueradius.io | EMAIL (or SMS) | — |
-| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · test dest operator inbox | **EMAIL** DISPATCHED (C1/C2 PASS) | **Touch 2 due** (day 4–5 from 2026-07-23 → 2026-07-27/28) |
+| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · **dry-run** To `dwoods360@gmail.com` | **EMAIL** DISPATCHED (dry-run) | Dry-run complete — do **not** continue Touch 2 to self |
+| **2026-07-27** | **BlueRadius Cyber** | ops hygiene | contact email restored `info@blueradius.io`; PENDING requeue `53bbfdde…` **PURGED** | — | Next live send only with intentional C1 + live To |
 
 Fixture/OSINT SUSPECTs without reachable phone/email remain in demo tenants (`vaultbank` / `medshield` / `gridcore`) — **not** DISPATCH candidates until enriched.
 
@@ -106,11 +100,11 @@ Re-check: `node scripts/dev/b3-list-prospects.mjs`
 
 ## Attack priority (this week)
 
-1. **BlueRadius Touch 2** — due now (TOUCH1 2026-07-23). Edit Approvals draft from [Touch 2 copy](./design-partner-outreach-sequence.md#touch-2--soften--scarcity-day-4–5) → HITL DISPATCH → log on C3.  
-2. **Pivot Point** — C1 edit then **SMS** DISPATCH (`+18774540039`; email is `@ironleads.local`).  
-3. **§A warm** — paste real A1–A5 contacts; highest conversion if available.  
+1. **Counsel D0** — wait for outside counsel; keep product gate off until approved.  
+2. **First live seat** — warm §A **or** intentional live DISPATCH (BlueRadius `info@blueradius.io` or Pivot Point SMS) — not another dry-run.  
+3. On YES → order form AGREED → admin provision (never `ironframe-central-test`) → Path B only after D0.  
 4. Keep Scout harvesting; enrich email/phone before promoting more SUSPECTs.  
-5. **Never** Path-B / provision `ironframe-central-test` (quarantined QA throwaway).
+5. **Stripe live Path B** — confirm `STRIPE_CREDENTIAL_MODE=live` + $4,999 price before first real charge (prod currently reports mode `test` in env).
 
 **When a row hits YES:** order form → provision → Path B → ACTIVE. Track paid count toward GTM-3 (3 paying design partners).
 

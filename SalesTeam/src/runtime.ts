@@ -60,8 +60,8 @@ async function scheduledPoll(): Promise<void> {
 function startPollCron(): void {
   if (!isPollEnabled() || pollTimer) return;
   const intervalMs = getPollIntervalMs();
-  console.log(`[salesteam] polling every ${intervalMs}ms`);
-  void scheduledPoll();
+  console.log(`[salesteam] polling every ${intervalMs}ms (first cycle in 20s)`);
+  setTimeout(() => void scheduledPoll(), 20_000);
   pollTimer = setInterval(() => void scheduledPoll(), intervalMs);
 }
 

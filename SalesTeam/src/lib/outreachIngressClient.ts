@@ -48,6 +48,7 @@ export async function submitOutreachDraft(
       ...input,
       tenantSlug: input.tenantSlug || targetTenantSlug,
     }),
+    signal: AbortSignal.timeout(30_000),
   });
 
   let body: unknown;

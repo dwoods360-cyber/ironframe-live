@@ -50,6 +50,7 @@ export async function pollProspectQueue(limit = 50): Promise<PollProspectsResult
   const response = await fetch(url, {
     method: 'GET',
     headers: { Authorization: `Bearer ${secret}` },
+    signal: AbortSignal.timeout(30_000),
   });
 
   let body: unknown;

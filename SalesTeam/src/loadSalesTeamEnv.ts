@@ -67,7 +67,11 @@ function defaultDatabaseUrl(): string {
 }
 
 function defaultCheckpointPath(): string {
-  return join(resolveWorkerDataDir(SALESTEAM_ROOT), 'salesteam-checkpoints.db');
+  // Keep LangGraph checkpoints on local container disk — better-sqlite3 sync I/O
+  // against GCS FUSE can block the Node event loop and make /health unavailable.
+  const localDir = join(SALESTEAM_ROOT, 'data');
+  if (!existsSync(localDir)) mkdirSync(localDir, { recursive: true });
+  return join(localDir, 'salesteam-checkpoints.db');
 }
 
 export function getSalesTeamCheckpointPath(): string {

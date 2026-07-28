@@ -77,6 +77,7 @@ npm run dev:fleet    # :8082–:8086 workers
 - All workers honor Cloud Run `PORT` and bind `0.0.0.0`.
 - Poll workers **listen before** runtime `db:push` so Cloud Run startup probes succeed when GCS FUSE is slow; `/health` reports `schemaReady`.
 - Deploy workflow verifies `GET /health` returns `"ok": true` after each Cloud Run revision (fail the job if not).
+- Poll worker images are built from **monorepo root** (`docker build -f <Worker>/Dockerfile .`) so `lib/ironframeProductKnowledge` is present for commercial/beachhead imports.
 
 ### Production poll env (set by deploy workflow)
 

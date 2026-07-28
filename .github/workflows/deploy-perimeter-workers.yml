@@ -66,11 +66,8 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
           IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ matrix.service }}:${{ github.sha }}"
-          if [ "${{ matrix.id }}" = "ironboard" ]; then
-            docker build -f Ironboard/Dockerfile -t "$IMAGE" .
-          else
-            docker build -t "$IMAGE" "${{ matrix.context }}"
-          fi
+          # Always build from monorepo root so shared lib/ironframeProductKnowledge is available.
+          docker build -f "${{ matrix.context }}/Dockerfile" -t "$IMAGE" .
           docker push "$IMAGE"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 

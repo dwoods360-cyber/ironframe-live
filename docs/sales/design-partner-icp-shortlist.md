@@ -103,8 +103,11 @@ Re-check: `node scripts/dev/b3-list-prospects.mjs`
 Canonical list: [production go-live remaining](../ops/production-go-live-remaining.md)
 
 1. **Counsel D0** — wait for outside counsel; keep product gate off until approved.  
-2. **Stripe live Path B** — `sk_live_` + `STRIPE_CREDENTIAL_MODE=live` before first real charge.  
-3. **First live design partner** — warm §A or live DISPATCH → LIVE → AGREED → provision → Path B (after D0).  
+2. **Week-1 Scout = beachhead D (MSSP / vCISO)** — [week-1 playbook](./design-partner-week1-mssp-scout-playbook.md); then SalesTeam poll → live DISPATCH.  
+3. **First live design partner** — LIVE → AGREED → provision → Path B (after D0).  
+
+**Stripe live Path B:** done 2026-07-28 (catalog + webhooks + rotated keys).  
+**Week-2 option:** beachhead A (FFIEC / BHC) once D is producing reachable PROSPECTs.
 
 **When a row hits YES:** order form → provision → Path B → ACTIVE. Track paid count toward GTM-3 (3 paying design partners).
 

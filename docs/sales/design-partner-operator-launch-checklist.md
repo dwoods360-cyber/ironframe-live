@@ -2,7 +2,7 @@
 
 Print or keep beside Approvals. Aim: ≤15 min/day rhythm after rails are green.
 
-**Production remaining (only):** [production go-live remaining](../ops/production-go-live-remaining.md) — counsel D0 · Stripe live Path B · design-partner acquisition/close.
+**Production remaining (only):** [production go-live remaining](../ops/production-go-live-remaining.md) — counsel D0 · design-partner acquisition/close (Stripe live Path B **done** 2026-07-28).
 
 **Before first real DISPATCH:** run the timed dry-run  
 → [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) (R1–R8, ~30–45 min).  
@@ -44,7 +44,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | D2 | Quick-provision with **client-owned** email (server rejects @ironframegrc.com) — **`BUSINESS_ADMIN` / `GLOBAL_ADMIN` duty** (SoD; not the GTM host beat) | ☐ |
 | D3 | Send **Path B activation link only** — never generic `/pricing` for PENDING | ☐ |
 | D4 | Confirm billing ACTIVE → partner on `/get-started` (ALE + company) | ☐ |
-| D5 | Hand partner the **Operator Packet** link: `/docs/user-manuals/design-partner-operator-packet` (+ curated `/docs/training/LEVEL1-PARTNER-INDEX`) — not full classroom index or `docs/ops/*` | ☐ |
+| D5 | Hand partner the **Operator Packet** link: `/docs/user-manuals/design-partner-operator-packet` (+ curated `/docs/training/LEVEL1-PARTNER-INDEX`) — not full classroom index or `docs/ops/*` | ☐ — send script: [first-close handoff notes](./design-partner-first-close-handoff-notes.md) |
 | D6 | Confirm AppDocument corpus seeded on that environment (`npx tsx scripts/seed-app-documents.ts` or `npx tsx prisma/seed-docs.ts`) so packet resolves in `/docs` | ☑ 2026-07-27 — partner packet present; `training/level1-partner-index` upserted in production |
 | D7 | Schedule capped weekly sync; freeze scope outside criteria | ☐ |
 
@@ -56,6 +56,7 @@ This checklist is the batch/send cadence after that run order is GO.
 | Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
 | GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |
 | ICP shortlist (C3) | `/dashboard/operations/library/icp-shortlist#section-d` · [shortlist md](./design-partner-icp-shortlist.md) — **not** `/library/design-partner-icp-shortlist` |
+| Week-1 Scout (MSSP D) | `/dashboard/operations/library/week1-mssp-scout` · [playbook](./design-partner-week1-mssp-scout-playbook.md) |
 | Approvals | `/dashboard/admin/approvals` (filter: `?kind=SALES` · `SUPPORT` · `CUSTOMER_SUCCESS`) |
 | Workflow review LIVE desk | `/dashboard/operations/workflow-review` (talk track + mic; buttons on Approvals · Ops Hub · SalesTeam portal) |
 | LIVE call assist | `/dashboard/operations/workflow-review` (mic STT, recap, Push to calendar) |

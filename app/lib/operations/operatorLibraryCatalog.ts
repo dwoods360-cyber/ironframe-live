@@ -83,6 +83,13 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
       },
       {
         kind: "markdown",
+        slug: "week1-mssp-scout",
+        title: "Week-1 Scout playbook (MSSP / vCISO)",
+        summary: "7-day hiring/press/evidence feeds → ≥12/20 PROSPECT → DISPATCH.",
+        file: "design-partner-week1-mssp-scout-playbook.md",
+      },
+      {
+        kind: "markdown",
         slug: "outreach-sequence",
         title: "Outreach sequence",
         summary: "Touch 1–3 cadence and message intent.",
@@ -158,6 +165,13 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         title: "Order form",
         summary: "2–3 success criteria + provision inputs.",
         file: "design-partner-order-form.md",
+      },
+      {
+        kind: "markdown",
+        slug: "first-close-handoff",
+        title: "First-close Operator Packet handoff",
+        summary: "Send script + D5/D7 checklist after billing ACTIVE.",
+        file: "design-partner-first-close-handoff-notes.md",
       },
       {
         kind: "markdown",
@@ -298,10 +312,12 @@ const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
   "design-partner-operator-launch-checklist": "operator-launch-checklist",
   "design-partner-pre-outreach-run-order": "pre-outreach-run-order",
   "design-partner-outreach-sequence": "outreach-sequence",
+  "design-partner-week1-mssp-scout-playbook": "week1-mssp-scout",
   "design-partner-recruitment": "recruitment",
   "design-partner-gtm-operator-glossary": "gtm-operator-glossary",
   "design-partner-offer-sheet": "offer-sheet",
   "design-partner-order-form": "order-form",
+  "design-partner-first-close-handoff-notes": "first-close-handoff",
   "design-partner-workflow-review-protocol": "workflow-review-protocol",
 };
 

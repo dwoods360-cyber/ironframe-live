@@ -1,0 +1,162 @@
+/**
+ * Ironleads runtime — loaded after Cloud Run boot listener is up.
+ */
+import type { Express } from 'express';
+import express from 'express';
+import { execSync } from 'node:child_process';
+
+import { bootState } from './bootState.js';
+import { IRONLEADS_KNOWLEDGE_MANIFEST } from './knowledge/index.js';
+import { ironleadsApp } from './graph/pipeline.js';
+import { isHarvestCronEnabled, loadIronleadsEnv } from './loadIronleadsEnv.js';
+import { disconnectIronleadsPrisma } from './lib/prisma.js';
+import { runHarvestCycle } from './pipeline/runHarvestCycle.js';
+import { executeLeadGenKnowledgeTool } from './tools/leadGenKnowledgeTools.js';
+
+const SCHEMA_PUSH_TIMEOUT_MS = 90_000;
+
+let schemaReady = false;
+let schemaError: string | null = null;
+let harvestInFlight = false;
+let harvestTimer: ReturnType<typeof setInterval> | null = null;
+const HARVEST_INTERVAL_MS = 60 * 60 * 1000;
+
+function ensureSqliteSchema(): void {
+  execSync('npx prisma db push --schema prisma/schema.prisma', {
+    stdio: 'inherit',
+    env: process.env,
+    timeout: SCHEMA_PUSH_TIMEOUT_MS,
+  });
+}
+
+function publishHealth(): void {
+  bootState.status = schemaReady ? 'HEALTHY' : schemaError ? 'DEGRADED' : 'STARTING';
+  bootState.error = schemaError;
+  bootState.details = {
+    schemaReady,
+    schemaError,
+    corpusId: IRONLEADS_KNOWLEDGE_MANIFEST.corpusId,
+    harvestCronEnabled: isHarvestCronEnabled(),
+    pipeline: ['scout', 'parser', 'scorer', 'strategist', 'marshal', 'quarantine_dlq'],
+    recovery: 'last-known-good',
+    graph: 'langgraph-linear',
+    checkpoint: 'sqlite',
+  };
+}
+
+async function scheduledHarvest(): Promise<void> {
+  if (!isHarvestCronEnabled() || !schemaReady || harvestInFlight) return;
+  harvestInFlight = true;
+  try {
+    await runHarvestCycle({
+      sourceIds: ['ironleads_fixture_regional_bhc', 'ironleads_fixture_mssp'],
+    });
+  } catch (err) {
+    console.error('[Ironleads] scheduled harvest error:', err);
+  } finally {
+    harvestInFlight = false;
+  }
+}
+
+function startHarvestCron(): void {
+  if (!isHarvestCronEnabled() || harvestTimer) return;
+  console.log('[Ironleads] harvest cron enabled — hourly fixture cycle');
+  void scheduledHarvest();
+  harvestTimer = setInterval(() => {
+    void scheduledHarvest();
+  }, HARVEST_INTERVAL_MS);
+}
+
+export async function startIronleadsRuntime(app: Express): Promise<void> {
+  bootState.status = 'STARTING';
+  loadIronleadsEnv();
+  app.use(express.json({ limit: '1mb' }));
+
+  app.get('/api/pipeline', (_req, res) => {
+    res.json({
+      ok: true,
+      nodes: ironleadsApp.getGraph().nodes,
+      edges: [
+        ['__start__', 'scout'],
+        ['scout', 'parser'],
+        ['parser', 'scorer'],
+        ['scorer', 'strategist'],
+        ['strategist', 'marshal'],
+        ['marshal', '__end__'],
+        ['quarantine_dlq', '__end__'],
+      ],
+    });
+  });
+
+  app.get('/api/knowledge', async (req, res) => {
+    const result = await executeLeadGenKnowledgeTool({
+      action: 'list_leadgen_knowledge',
+      category: req.query.category,
+      kind: req.query.kind,
+      beachheadSector: req.query.beachheadSector,
+      trigger: req.query.trigger,
+      searchQuery: req.query.q,
+      limit: req.query.limit,
+    });
+    res.json(result);
+  });
+
+  app.get('/api/knowledge/:id', async (req, res) => {
+    const result = await executeLeadGenKnowledgeTool({
+      action: 'get_leadgen_entry',
+      knowledgeId: req.params.id,
+    });
+    res.status(result.ok ? 200 : 404).json(result);
+  });
+
+  app.post('/api/harvest', async (req, res) => {
+    if (!schemaReady) {
+      res.status(503).json({ ok: false, error: 'Schema not ready', schemaError });
+      return;
+    }
+    if (harvestInFlight) {
+      res.status(409).json({ ok: false, error: 'Harvest cycle already running' });
+      return;
+    }
+    harvestInFlight = true;
+    try {
+      const sourceIds = Array.isArray(req.body?.sourceIds)
+        ? req.body.sourceIds.map(String)
+        : undefined;
+      const result = await runHarvestCycle({
+        sourceIds,
+        scoutOnly: Boolean(req.body?.scoutOnly),
+        skipIngress: Boolean(req.body?.skipIngress),
+      });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Harvest failed',
+      });
+    } finally {
+      harvestInFlight = false;
+    }
+  });
+
+  try {
+    ensureSqliteSchema();
+    schemaReady = true;
+    schemaError = null;
+    console.log('[Ironleads] sqlite schema ready');
+    startHarvestCron();
+  } catch (err) {
+    schemaReady = false;
+    schemaError = err instanceof Error ? err.message : 'db:push failed';
+    console.error('[Ironleads] sqlite schema push failed:', schemaError);
+  }
+
+  publishHealth();
+
+  const shutdown = (): void => {
+    if (harvestTimer) clearInterval(harvestTimer);
+    void disconnectIronleadsPrisma().finally(() => process.exit(0));
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}

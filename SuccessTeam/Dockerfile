@@ -9,4 +9,4 @@ COPY . .
 RUN npm run db:generate && npm run db:push
 ENV NODE_ENV=production
 EXPOSE 8080
-CMD ["npm", "start"]
+CMD ["node", "--import", "tsx", "src/boot.ts"]

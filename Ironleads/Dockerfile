@@ -11,4 +11,5 @@ ENV IRONLEADS_CHECKPOINT_DATABASE_URL=file:./data/ironleads-checkpoints.db
 RUN mkdir -p data && npm run db:generate && npm run db:push
 ENV NODE_ENV=production
 EXPOSE 8080
-CMD ["npm", "start"]
+# Bypass npm wrapper so Cloud Run sees a listener sooner.
+CMD ["node", "--import", "tsx", "src/boot.ts"]

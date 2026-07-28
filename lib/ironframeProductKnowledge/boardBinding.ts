@@ -29,7 +29,22 @@ import {
   buildPartnerLearningLinksBlurb,
   buildTrainingDocsLocationAnswer,
 } from './productFacts';
-import { buildPublishedGovernanceFrameKnowledgeBinding } from '../governanceFrame/publishedResearchKnowledge';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const requireFromHere = createRequire(fileURLToPath(import.meta.url));
+
+/** Optional — IronBoard has docs + governanceFrame; perimeter workers may not. */
+function publishedGovernanceFrameBindingOrFallback(): string {
+  try {
+    const mod = requireFromHere('../governanceFrame/publishedResearchKnowledge') as {
+      buildPublishedGovernanceFrameKnowledgeBinding: () => string;
+    };
+    return mod.buildPublishedGovernanceFrameKnowledgeBinding();
+  } catch {
+    return 'Governance Frame: cite published research at research.ironframegrc.com only — never quarantine drafts; never invent GF paper IDs.';
+  }
+}
 
 /** Injected into IronBoard static context so personas share one product spine. */
 export function buildProductKnowledgeBinding(): string {
@@ -80,7 +95,7 @@ ${buildDocsHubLocationAnswer()}
 Canonical training-docs answer (use verbatim when asked where user training documents are):
 ${buildTrainingDocsLocationAnswer()}
 
-${buildPublishedGovernanceFrameKnowledgeBinding()}
+${publishedGovernanceFrameBindingOrFallback()}
 `.trim();
 }
 

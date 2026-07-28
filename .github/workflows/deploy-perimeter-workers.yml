@@ -171,7 +171,7 @@ jobs:
       - name: Compose deploy flags
         id: deploy
         run: |
-          FLAGS="--allow-unauthenticated --memory=${{ matrix.memory }} --cpu=1 --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
+          FLAGS="--allow-unauthenticated --memory=${{ matrix.memory }} --cpu=1 --cpu-boost --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
           if [ "${{ matrix.poll_worker }}" = "true" ]; then
             FLAGS="$FLAGS --execution-environment=gen2 --min-instances=1 --max-instances=1 --add-volume=name=worker-data,type=cloud-storage,bucket=${{ env.WORKER_DATA_BUCKET }} --add-volume-mount=volume=worker-data,mount-path=/mnt/worker-data"
           else
@@ -200,6 +200,27 @@ jobs:
             --member=allUsers \
             --role=roles/run.invoker \
             --quiet
+
+      - name: Verify /health
+        run: |
+          set -euo pipefail
+          URL="$(gcloud run services describe ${{ matrix.service }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')"
+          echo "Probing ${URL}/health"
+          for i in $(seq 1 24); do
+            if BODY="$(curl -fsS --max-time 10 "${URL}/health" 2>/dev/null)"; then
+              echo "$BODY"
+              if echo "$BODY" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
+                echo "Health OK for ${{ matrix.service }}"
+                exit 0
+              fi
+            fi
+            echo "Attempt ${i}/24 — waiting…"
+            sleep 5
+          done
+          echo "::error::/health failed for ${{ matrix.service }} at ${URL}"
+          exit 1
 
       - name: Print service URL
         run: |

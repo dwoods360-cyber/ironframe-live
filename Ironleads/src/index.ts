@@ -1,6 +1,9 @@
 /**
  * Ironleads — autonomous OSINT lead harvester (out-of-process from Ironframe).
  * Agents (LangGraph): scout → parser → scorer → strategist → marshal
+ *
+ * Cloud Run: bind 0.0.0.0:$PORT and listen BEFORE sqlite db:push so the
+ * revision passes the startup probe (GCS FUSE db:push can be slow).
  */
 import express from 'express';
 import { execSync } from 'node:child_process';
@@ -14,23 +17,36 @@ import { executeLeadGenKnowledgeTool } from './tools/leadGenKnowledgeTools.js';
 
 loadIronleadsEnv();
 
-function ensureSqliteSchema(): void {
-  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
-}
+const LISTEN_HOST = '0.0.0.0';
+const SCHEMA_PUSH_TIMEOUT_MS = 90_000;
 
-ensureSqliteSchema();
+let schemaReady = false;
+let schemaError: string | null = null;
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', {
+    stdio: 'inherit',
+    env: process.env,
+    timeout: SCHEMA_PUSH_TIMEOUT_MS,
+  });
+}
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 const HARVEST_INTERVAL_MS = 60 * 60 * 1000;
 let harvestInFlight = false;
+let harvestTimer: ReturnType<typeof setInterval> | null = null;
 
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'ironleads',
+    status: schemaReady ? 'HEALTHY' : schemaError ? 'DEGRADED' : 'STARTING',
+    schemaReady,
+    schemaError,
     port: getIronleadsPort(),
+    listenHost: LISTEN_HOST,
     corpusId: IRONLEADS_KNOWLEDGE_MANIFEST.corpusId,
     harvestCronEnabled: isHarvestCronEnabled(),
     pipeline: ['scout', 'parser', 'scorer', 'strategist', 'marshal', 'quarantine_dlq'],
@@ -78,6 +94,10 @@ app.get('/api/knowledge/:id', async (req, res) => {
 });
 
 app.post('/api/harvest', async (req, res) => {
+  if (!schemaReady) {
+    res.status(503).json({ ok: false, error: 'Schema not ready', schemaError });
+    return;
+  }
   if (harvestInFlight) {
     res.status(409).json({ ok: false, error: 'Harvest cycle already running' });
     return;
@@ -104,7 +124,7 @@ app.post('/api/harvest', async (req, res) => {
 });
 
 async function scheduledHarvest(): Promise<void> {
-  if (!isHarvestCronEnabled() || harvestInFlight) return;
+  if (!isHarvestCronEnabled() || !schemaReady || harvestInFlight) return;
   harvestInFlight = true;
   try {
     await runHarvestCycle({ sourceIds: ['ironleads_fixture_regional_bhc', 'ironleads_fixture_mssp'] });
@@ -115,22 +135,37 @@ async function scheduledHarvest(): Promise<void> {
   }
 }
 
-const port = getIronleadsPort();
-app.listen(port, () => {
-  console.log(`[Ironleads] listening on http://127.0.0.1:${port}`);
-  if (isHarvestCronEnabled()) {
-    console.log('[Ironleads] harvest cron enabled — hourly fixture cycle');
+function startHarvestCron(): void {
+  if (!isHarvestCronEnabled() || harvestTimer) return;
+  console.log('[Ironleads] harvest cron enabled — hourly fixture cycle');
+  void scheduledHarvest();
+  harvestTimer = setInterval(() => {
     void scheduledHarvest();
-    setInterval(() => {
-      void scheduledHarvest();
-    }, HARVEST_INTERVAL_MS);
+  }, HARVEST_INTERVAL_MS);
+}
+
+const port = getIronleadsPort();
+const server = app.listen(port, LISTEN_HOST, () => {
+  console.log(`[Ironleads] listening on http://${LISTEN_HOST}:${port}`);
+  try {
+    ensureSqliteSchema();
+    schemaReady = true;
+    schemaError = null;
+    console.log('[Ironleads] sqlite schema ready');
+    startHarvestCron();
+  } catch (err) {
+    schemaReady = false;
+    schemaError = err instanceof Error ? err.message : 'db:push failed';
+    console.error('[Ironleads] sqlite schema push failed after listen:', schemaError);
   }
 });
 
-process.on('SIGINT', () => {
-  void disconnectIronleadsPrisma().finally(() => process.exit(0));
-});
+function shutdown(): void {
+  if (harvestTimer) clearInterval(harvestTimer);
+  server.close(() => {
+    void disconnectIronleadsPrisma().finally(() => process.exit(0));
+  });
+}
 
-process.on('SIGTERM', () => {
-  void disconnectIronleadsPrisma().finally(() => process.exit(0));
-});
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

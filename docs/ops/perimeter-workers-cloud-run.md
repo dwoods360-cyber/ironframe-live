@@ -75,6 +75,8 @@ npm run dev:fleet    # :8082–:8086 workers
 - Workers use SQLite for local poll state; GCS FUSE is pilot-grade — for production hardening prefer Cloud Filestore NFS or Postgres-backed worker state.
 - Ironboard requires `DATABASE_URL` / `GOOGLE_API_KEY` on Cloud Run for CRM + Gemini.
 - All workers honor Cloud Run `PORT` and bind `0.0.0.0`.
+- Poll workers **listen before** runtime `db:push` so Cloud Run startup probes succeed when GCS FUSE is slow; `/health` reports `schemaReady`.
+- Deploy workflow verifies `GET /health` returns `"ok": true` after each Cloud Run revision (fail the job if not).
 
 ### Production poll env (set by deploy workflow)
 

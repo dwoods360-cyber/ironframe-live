@@ -12,11 +12,19 @@ import { runPollCycle } from './pipeline/runPollCycle.js';
 
 loadSalesTeamEnv();
 
-function ensureSqliteSchema(): void {
-  execSync('npm run db:push', { stdio: 'inherit', env: process.env });
-}
+const LISTEN_HOST = '0.0.0.0';
+const SCHEMA_PUSH_TIMEOUT_MS = 90_000;
 
-ensureSqliteSchema();
+let schemaReady = false;
+let schemaError: string | null = null;
+
+function ensureSqliteSchema(): void {
+  execSync('npm run db:push', {
+    stdio: 'inherit',
+    env: process.env,
+    timeout: SCHEMA_PUSH_TIMEOUT_MS,
+  });
+}
 
 const app = express();
 app.use(express.json());
@@ -27,13 +35,20 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     service: 'salesteam',
-    status: 'HEALTHY',
+    status: schemaReady ? 'HEALTHY' : schemaError ? 'DEGRADED' : 'STARTING',
+    schemaReady,
+    schemaError,
+    listenHost: LISTEN_HOST,
     pollEnabled: isPollEnabled(),
     checkedAt: new Date().toISOString(),
   });
 });
 
 app.post('/poll', async (_req, res) => {
+  if (!schemaReady) {
+    res.status(503).json({ ok: false, error: 'Schema not ready', schemaError });
+    return;
+  }
   if (pollInFlight) {
     res.status(409).json({ ok: false, error: 'POLL_ALREADY_RUNNING' });
     return;
@@ -51,7 +66,7 @@ app.post('/poll', async (_req, res) => {
 });
 
 async function scheduledPoll(): Promise<void> {
-  if (!isPollEnabled() || pollInFlight) return;
+  if (!isPollEnabled() || !schemaReady || pollInFlight) return;
   pollInFlight = true;
   try {
     const result = await runPollCycle();
@@ -67,19 +82,36 @@ async function scheduledPoll(): Promise<void> {
 
 const port = getSalesTeamPort();
 const intervalMs = getPollIntervalMs();
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-const server = app.listen(port, () => {
-  console.log(`[salesteam] worker listening on http://127.0.0.1:${port}`);
-  if (isPollEnabled()) {
-    console.log(`[salesteam] polling every ${intervalMs}ms`);
-    void scheduledPoll();
-    setInterval(() => void scheduledPoll(), intervalMs);
-  } else {
-    console.log('[salesteam] polling disabled — POST /poll to run manually');
+function startPollCron(): void {
+  if (!isPollEnabled() || pollTimer) return;
+  console.log(`[salesteam] polling every ${intervalMs}ms`);
+  void scheduledPoll();
+  pollTimer = setInterval(() => void scheduledPoll(), intervalMs);
+}
+
+const server = app.listen(port, LISTEN_HOST, () => {
+  console.log(`[salesteam] worker listening on http://${LISTEN_HOST}:${port}`);
+  try {
+    ensureSqliteSchema();
+    schemaReady = true;
+    schemaError = null;
+    console.log('[salesteam] sqlite schema ready');
+    if (isPollEnabled()) {
+      startPollCron();
+    } else {
+      console.log('[salesteam] polling disabled — POST /poll to run manually');
+    }
+  } catch (err) {
+    schemaReady = false;
+    schemaError = err instanceof Error ? err.message : 'db:push failed';
+    console.error('[salesteam] sqlite schema push failed after listen:', schemaError);
   }
 });
 
 function shutdown(): void {
+  if (pollTimer) clearInterval(pollTimer);
   server.close(() => {
     void disconnectSalesTeamPrisma().finally(() => process.exit(0));
   });

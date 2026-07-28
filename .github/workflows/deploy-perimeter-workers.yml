@@ -10,6 +10,7 @@ on:
       - "SalesTeam/**"
       - "SuccessTeam/**"
       - "SupportTeam/**"
+      - "lib/ironframeProductKnowledge/**"
       - ".github/workflows/deploy-perimeter-workers.yml"
 
 env:

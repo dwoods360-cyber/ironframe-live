@@ -170,7 +170,8 @@ jobs:
         run: |
           FLAGS="--allow-unauthenticated --memory=${{ matrix.memory }} --cpu=1 --cpu-boost --service-account=ironframe-gcp-sa-key@${{ env.PROJECT_ID }}.iam.gserviceaccount.com"
           if [ "${{ matrix.poll_worker }}" = "true" ]; then
-            FLAGS="$FLAGS --execution-environment=gen2 --min-instances=1 --max-instances=1 --add-volume=name=worker-data,type=cloud-storage,bucket=${{ env.WORKER_DATA_BUCKET }} --add-volume-mount=volume=worker-data,mount-path=/mnt/worker-data"
+            # Always-on CPU so post-listen runtime import + FUSE db:push can finish (not just during requests).
+            FLAGS="$FLAGS --no-cpu-throttling --execution-environment=gen2 --min-instances=1 --max-instances=1 --add-volume=name=worker-data,type=cloud-storage,bucket=${{ env.WORKER_DATA_BUCKET }} --add-volume-mount=volume=worker-data,mount-path=/mnt/worker-data"
           else
             FLAGS="$FLAGS --min-instances=0 --max-instances=2"
           fi

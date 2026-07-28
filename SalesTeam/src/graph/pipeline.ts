@@ -15,9 +15,14 @@ export const salesTeamPipeline = new StateGraph(SalesTeamStateSchema)
   .addEdge('draft', 'queue')
   .addEdge('queue', END);
 
-const checkpointer = getSalesTeamCheckpointer();
+let salesTeamApp: ReturnType<typeof salesTeamPipeline.compile> | null = null;
 
-export const salesTeamApp = salesTeamPipeline.compile({ checkpointer });
+function getSalesTeamApp() {
+  if (!salesTeamApp) {
+    salesTeamApp = salesTeamPipeline.compile({ checkpointer: getSalesTeamCheckpointer() });
+  }
+  return salesTeamApp;
+}
 
 export type PollGraphResult = SalesTeamGraphState & {
   threadId: string;
@@ -52,7 +57,7 @@ export async function invokeSalesTeamPoll(
   input: SalesTeamPipelineInput = {},
 ): Promise<PollGraphResult> {
   const threadId = input.threadId?.trim() || randomUUID();
-  const finalState = (await salesTeamApp.invoke(buildInitialState(threadId), {
+  const finalState = (await getSalesTeamApp().invoke(buildInitialState(threadId), {
     configurable: { thread_id: threadId },
     durability: 'sync',
   })) as SalesTeamGraphState;

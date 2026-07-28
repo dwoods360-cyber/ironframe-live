@@ -1,14 +1,13 @@
-import { join } from 'node:path';
-
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite';
 
-import { SALESTEAM_ROOT_PATH } from '../loadSalesTeamEnv.js';
+import { getSalesTeamCheckpointPath, loadSalesTeamEnv } from '../loadSalesTeamEnv.js';
 
 let checkpointer: SqliteSaver | null = null;
 
 export function getSalesTeamCheckpointer(): SqliteSaver {
   if (!checkpointer) {
-    const dbPath = join(SALESTEAM_ROOT_PATH, 'data', 'salesteam-checkpoints.db');
+    loadSalesTeamEnv();
+    const dbPath = getSalesTeamCheckpointPath();
     checkpointer = SqliteSaver.fromConnString(dbPath);
   }
   return checkpointer;

@@ -8,16 +8,15 @@ import {
   isPollEnabled,
   loadSuccessTeamEnv,
 } from './loadSuccessTeamEnv.js';
-import { runPollCycle } from './pipeline/runPollCycle.js';
 
-const SCHEMA_PUSH_TIMEOUT_MS = 90_000;
+const SCHEMA_PUSH_TIMEOUT_MS = 240_000;
 
 let schemaReady = false;
 let schemaError: string | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 function ensureSqliteSchema(): void {
-  execSync('npm run db:push', {
+  execSync('npx prisma db push --schema prisma/schema.prisma --skip-generate', {
     stdio: 'inherit',
     env: process.env,
     timeout: SCHEMA_PUSH_TIMEOUT_MS,
@@ -30,9 +29,15 @@ function publishHealth(): void {
   bootState.details = { schemaReady, schemaError };
 }
 
+async function loadRunPollCycle() {
+  const mod = await import('./pipeline/runPollCycle.js');
+  return mod.runPollCycle;
+}
+
 async function scheduledPoll(): Promise<void> {
   if (!schemaReady) return;
   try {
+    const runPollCycle = await loadRunPollCycle();
     const result = await runPollCycle();
     console.log(
       `[successteam] poll complete — seen=${result.summary.accountsSeen} new=${result.summary.newAccounts} queued=${result.summary.advisoriesQueued}`,
@@ -61,6 +66,7 @@ export async function startSuccessTeamRuntime(app: Express): Promise<void> {
       return;
     }
     try {
+      const runPollCycle = await loadRunPollCycle();
       const result = await runPollCycle();
       res.json({ ok: true, pollRunId: result.pollRunId, summary: result.summary });
     } catch (err) {

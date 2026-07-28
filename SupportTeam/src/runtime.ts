@@ -8,9 +8,8 @@ import {
   isPollEnabled,
   loadSupportTeamEnv,
 } from './loadSupportTeamEnv.js';
-import { runPollCycle } from './pipeline/runPollCycle.js';
 
-const SCHEMA_PUSH_TIMEOUT_MS = 90_000;
+const SCHEMA_PUSH_TIMEOUT_MS = 240_000;
 
 let schemaReady = false;
 let schemaError: string | null = null;
@@ -18,7 +17,7 @@ let pollInFlight = false;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 function ensureSqliteSchema(): void {
-  execSync('npm run db:push', {
+  execSync('npx prisma db push --schema prisma/schema.prisma --skip-generate', {
     stdio: 'inherit',
     env: process.env,
     timeout: SCHEMA_PUSH_TIMEOUT_MS,
@@ -36,10 +35,16 @@ function publishHealth(): void {
   };
 }
 
+async function loadRunPollCycle() {
+  const mod = await import('./pipeline/runPollCycle.js');
+  return mod.runPollCycle;
+}
+
 async function scheduledPoll(): Promise<void> {
   if (!schemaReady || pollInFlight) return;
   pollInFlight = true;
   try {
+    const runPollCycle = await loadRunPollCycle();
     const result = await runPollCycle();
     console.log(
       `[supportteam] poll complete — seen=${result.summary.ticketsSeen} new=${result.summary.newTickets} queued=${result.summary.repliesQueued}`,
@@ -75,6 +80,7 @@ export async function startSupportTeamRuntime(app: Express): Promise<void> {
     }
     pollInFlight = true;
     try {
+      const runPollCycle = await loadRunPollCycle();
       const result = await runPollCycle();
       res.json({ ok: true, pollRunId: result.pollRunId, summary: result.summary });
     } catch (err) {

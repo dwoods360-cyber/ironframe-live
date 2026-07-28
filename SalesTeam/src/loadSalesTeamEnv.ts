@@ -66,6 +66,19 @@ function defaultDatabaseUrl(): string {
   return `file:${dbPath}`;
 }
 
+function defaultCheckpointPath(): string {
+  return join(resolveWorkerDataDir(SALESTEAM_ROOT), 'salesteam-checkpoints.db');
+}
+
+export function getSalesTeamCheckpointPath(): string {
+  const fromEnv = process.env.SALESTEAM_CHECKPOINT_DATABASE_URL?.trim();
+  if (fromEnv) {
+    if (fromEnv.startsWith('file:')) return fromEnv.slice('file:'.length);
+    return fromEnv;
+  }
+  return defaultCheckpointPath();
+}
+
 function hydrateProcessEnv(): void {
   if (!process.env.SALESTEAM_DATABASE_URL?.trim()) {
     process.env.SALESTEAM_DATABASE_URL = isolated.databaseUrl || defaultDatabaseUrl();

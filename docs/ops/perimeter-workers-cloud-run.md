@@ -71,11 +71,12 @@ npm run dev:fleet    # :8082–:8086 workers
 
 ## Notes
 
-- Poll workers mount GCS bucket `${GCP_PROJECT_ID}-perimeter-worker-data` at `/mnt/worker-data` (gen2, `min-instances=1`, `max-instances=1` for SQLite safety).
+- Poll workers mount GCS bucket `${GCP_PROJECT_ID}-perimeter-worker-data` at `/mnt/worker-data` (gen2, `min-instances=1`, `max-instances=1`, `--no-cpu-throttling` for SQLite safety).
 - Workers use SQLite for local poll state; GCS FUSE is pilot-grade — for production hardening prefer Cloud Filestore NFS or Postgres-backed worker state.
 - Ironboard requires `DATABASE_URL` / `GOOGLE_API_KEY` on Cloud Run for CRM + Gemini.
 - All workers honor Cloud Run `PORT` and bind `0.0.0.0`.
 - Poll workers **listen before** runtime `db:push` so Cloud Run startup probes succeed when GCS FUSE is slow; `/health` reports `schemaReady`.
+- Runtime loads LangGraph poll pipelines via **dynamic import** after listen (avoids stuck `BOOTING` when graph/SQLite init is slow).
 - Deploy workflow verifies `GET /health` returns `"ok": true` after each Cloud Run revision (fail the job if not).
 - Poll worker images are built from **monorepo root** (`docker build -f <Worker>/Dockerfile .`) so `lib/ironframeProductKnowledge` is present for commercial/beachhead imports.
 

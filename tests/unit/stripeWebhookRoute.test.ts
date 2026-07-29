@@ -9,6 +9,7 @@ describe("/api/webhooks/stripe", () => {
     vi.restoreAllMocks();
     delete process.env.STRIPE_WEBHOOK_SECRET;
     process.env.STRIPE_INSTANT_CHECKOUT_WEBHOOK_SECRET = "whsec_instant_test";
+    delete process.env.IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED;
   });
 
   it("returns 503 when instant checkout webhook secret is missing", async () => {
@@ -23,7 +24,28 @@ describe("/api/webhooks/stripe", () => {
     expect(res.status).toBe(503);
   });
 
-  it("ignores non checkout.session.completed events", async () => {
+  it("acks verified events when public instant checkout is disabled (no fulfill)", async () => {
+    vi.spyOn(StripeClient, "verifyStripeWebhookEvent").mockReturnValue({
+      type: "checkout.session.completed",
+      data: { object: {} },
+    } as never);
+    const fulfill = vi.spyOn(InstantProvisionCore, "fulfillStripeInstantCheckout");
+
+    const req = new Request("http://localhost:3000/api/webhooks/stripe", {
+      method: "POST",
+      headers: { "stripe-signature": "sig" },
+      body: "{}",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ignored?: boolean; code?: string };
+    expect(body.ignored).toBe(true);
+    expect(body.code).toBe("PUBLIC_INSTANT_CHECKOUT_DISABLED");
+    expect(fulfill).not.toHaveBeenCalled();
+  });
+
+  it("ignores non checkout.session.completed events when gate is on", async () => {
+    process.env.IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED = "true";
     vi.spyOn(StripeClient, "verifyStripeWebhookEvent").mockReturnValue({
       type: "payment_intent.succeeded",
       data: { object: {} },
@@ -40,7 +62,8 @@ describe("/api/webhooks/stripe", () => {
     expect(body.ignored).toBe("payment_intent.succeeded");
   });
 
-  it("provisions tenant on checkout.session.completed", async () => {
+  it("provisions tenant on checkout.session.completed when gate is on", async () => {
+    process.env.IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED = "true";
     vi.spyOn(StripeClient, "verifyStripeWebhookEvent").mockReturnValue({
       type: "checkout.session.completed",
       data: {

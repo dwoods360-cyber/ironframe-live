@@ -44,6 +44,8 @@ export const CUSTOMER_FACING_AUDIENCE_UMBRELLA = 'multi-entity GRC operators' as
 /** Stable commercial SKUs (code registry intent). */
 export const COMMERCIAL_SKUS = {
   PATH_B_COMMAND_TIER: 'COMMAND_TIER_V1',
+  /** Year-1 Command net after Path B convert credit ($35,000 − $4,999). */
+  COMMAND_YEAR1_BALANCE: 'COMMAND_YEAR1_BALANCE_V1',
   FINTECH_SEED: 'FINTECH_SEED',
   SERIES_A_GROWTH: 'SERIES_A_GROWTH',
   VAULT_SHIELD: 'VAULT_SHIELD',
@@ -70,6 +72,14 @@ export const WORKFLOW_REVIEW_CTA_MINUTES = '10-15' as const;
  */
 export const DESIGN_PARTNER_CONVERT_CREDIT_USD = DESIGN_PARTNER_PATH_B_USD;
 
+/**
+ * Year-1 Command balance after Path B convert credit:
+ * planned GA Command ($35,000) − Path B credit ($4,999) = $30,001.
+ */
+export const DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD = (PLANNED_GA_COMMAND_USD -
+  DESIGN_PARTNER_CONVERT_CREDIT_USD) as 30_001;
+export const DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_CENTS = '3000100' as const;
+
 export function formatUsdWhole(amountUsd: number): string {
   return `$${amountUsd.toLocaleString('en-US')}`;
 }
@@ -80,4 +90,8 @@ export function formatPathBUsd(): string {
 
 export function formatPlannedGaCommandUsd(): string {
   return formatUsdWhole(PLANNED_GA_COMMAND_USD);
+}
+
+export function formatYear1CommandBalanceUsd(): string {
+  return formatUsdWhole(DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD);
 }

@@ -110,10 +110,16 @@ async function main(): Promise<void> {
     secret: instantSecret,
     stripeSecretKey,
   });
+  const instantGateOff =
+    ignored.status === 200 &&
+    ignored.body.ignored === true &&
+    ignored.body.code === "PUBLIC_INSTANT_CHECKOUT_DISABLED";
+  const instantIgnoredType =
+    ignored.status === 200 && ignored.body.ignored === "customer.created";
   probes.push({
     name: "POST /api/webhooks/stripe (signed ignored event)",
-    ok: ignored.status === 200 && ignored.body.ignored === "customer.created",
-    detail: `status=${ignored.status} ignored=${String(ignored.body.ignored ?? "")}`,
+    ok: instantGateOff || instantIgnoredType,
+    detail: `status=${ignored.status} ignored=${String(ignored.body.ignored ?? "")} code=${String(ignored.body.code ?? "")}`,
   });
 
   const missingSlugEvent = {

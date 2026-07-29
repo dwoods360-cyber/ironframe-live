@@ -7,6 +7,8 @@ import {
   DESIGN_PARTNER_CONVERT_CREDIT_USD,
   DESIGN_PARTNER_PATH_B_CENTS,
   DESIGN_PARTNER_PATH_B_USD,
+  DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_CENTS,
+  DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD,
   DOCS_HUB_HREF,
   PARTNER_GET_STARTED_HREF,
   PARTNER_OPERATOR_PACKET_HREF,
@@ -46,6 +48,14 @@ describe('ironframeProductKnowledge spine', () => {
 
   it('locks Path B convert credit equal to Path B fee (not a negotiated %)', () => {
     expect(DESIGN_PARTNER_CONVERT_CREDIT_USD).toBe(DESIGN_PARTNER_PATH_B_USD);
+  });
+
+  it('locks year-1 Command balance to planned GA minus Path B convert credit', () => {
+    expect(DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD).toBe(30_001);
+    expect(DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_CENTS).toBe('3000100');
+    expect(DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD).toBe(
+      PLANNED_GA_COMMAND_USD - DESIGN_PARTNER_CONVERT_CREDIT_USD,
+    );
   });
 
   it('resolves beachhead tags to code sectors', () => {

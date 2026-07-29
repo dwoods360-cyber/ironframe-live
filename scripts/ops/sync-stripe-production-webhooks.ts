@@ -14,8 +14,15 @@ import Stripe from "stripe";
 
 import { upsertEnvLocalVar } from "../dev/stripeSmokeEnv";
 
+// Prefer an already-exported live key over empty .env.local placeholders.
+const preexistingSecretKey = process.env.STRIPE_SECRET_KEY?.trim() || process.env.STRIPE_SECRET_KEY_LIVE?.trim() || "";
+
 config({ path: resolve(process.cwd(), ".env") });
 config({ path: resolve(process.cwd(), ".env.local"), override: true });
+
+if (preexistingSecretKey) {
+  process.env.STRIPE_SECRET_KEY = preexistingSecretKey;
+}
 
 const ORIGIN = (process.env.PRODUCTION_ORIGIN ?? "https://ironframegrc.com").replace(/\/$/, "");
 const APPLY = process.argv.includes("--apply");

@@ -20,21 +20,25 @@ Keep `IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED` and counsel D0 **off** until co
 
 ---
 
-## 2. Stripe live Path B
+## 2. Stripe live Path B — DONE (2026-07-28)
 
-| # | Task | Owner |
+| # | Task | Status |
 |---|------|--------|
-| 2.1 | Ensure Vercel Production has `sk_live_…` (`STRIPE_SECRET_KEY` or `STRIPE_SECRET_KEY_LIVE`) | Ops |
-| 2.2 | Run live catalog cutover (local terminal — agent sandbox redacts Stripe secrets) | Ops |
-| 2.3 | Set `STRIPE_CREDENTIAL_MODE=live` + **live** (non-`/test_`) `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` → redeploy | Ops |
+| 2.1 | Vercel Production `sk_live_…` (`STRIPE_SECRET_KEY` + `STRIPE_SECRET_KEY_LIVE`) | ☑ |
+| 2.2 | Live catalog cutover (Path B $4,999 + year-1 balance $30,001) | ☑ |
+| 2.3 | `STRIPE_CREDENTIAL_MODE=live` + live `NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL` → redeploy | ☑ |
+| 2.4 | Live webhook endpoints + signing secrets on Vercel Production | ☑ |
 
-```bash
-bash scripts/ops/run-stripe-pathb-live-cutover.sh
-# or:
-STRIPE_CREDENTIAL_MODE=live npm run stripe:provision-catalog:production
-```
+**Catalog (live):**
+- Path B provision: https://buy.stripe.com/14A9AM0jtcWbcR56OQbZe00
+- Path B activation: https://buy.stripe.com/14A3cogirf4j5oD4GIbZe01
+- Year-1 Command balance: https://buy.stripe.com/9B6fZa8PZaO3aIXb56bZe02
 
-Prod today: mode `test`, checkout `buy.stripe.com/test_…` (intentional pilot; flip before first real charge).
+**Webhooks (live mode → ironframegrc.com):**
+- `/api/webhooks/stripe` ← `checkout.session.completed` (acks while public instant checkout stays off)
+- `/api/billing/webhook` ← `payment_intent.succeeded` (Path B billing ACTIVE)
+
+**Ops hygiene:** `sk_live_` rotated and redeployed 2026-07-28.
 
 ---
 
@@ -66,3 +70,4 @@ ICP: [shortlist](../sales/design-partner-icp-shortlist.md)
 - `ironframe-central-test` quarantined  
 - Partner AppDocuments seeded  
 - AGREED handoff + Quick provision polish on `main`
+- Stripe live Path B catalog + credential mode + live webhooks (2026-07-28)

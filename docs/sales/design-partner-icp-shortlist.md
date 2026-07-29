@@ -88,9 +88,9 @@ Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / 
 | Date | Company | Trigger | Deal / contact ID | Channel EMAIL/SMS | Next touch |
 |------|---------|---------|-------------------|-------------------|------------|
 | 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | **SMS** (EMAIL draft present but local fake inbox) | C1 edit → C2 DISPATCH |
-| 2026-07-19 | BlueRadius Cyber | COMPLIANCE_JOB_POST | deal `edc5aa79…` · draft `49a02e66…` · info@blueradius.io | EMAIL (or SMS) | — |
-| **2026-07-23** | **BlueRadius Cyber** | COMPLIANCE_JOB_POST | deal `edc5aa79…` · C1 locked copy · **dry-run** To `dwoods360@gmail.com` | **EMAIL** DISPATCHED (dry-run) | Dry-run complete — do **not** continue Touch 2 to self |
-| **2026-07-27** | **BlueRadius Cyber** | ops hygiene | contact email restored `info@blueradius.io`; PENDING requeue `53bbfdde…` **PURGED** | — | Next live send only with intentional C1 + live To |
+| **2026-07-28** | **BlueRadius Cyber** | real MSSP/vCISO (Austin) · public `info@blueradius.io` · +1-800-930-0989 · [blueradius.io](https://blueradius.io/) | deal `edc5aa79…` · CRM email restored | **Hold — not dry-run** | **Do not DISPATCH Path B cold.** They sell **Radius360** (MSSP GRC) — treat as channel/partner or competitor, not a Path B co-builder until a named buyer + competitive fit is confirmed. Dry-run to self (2026-07-23) is closed; do not Touch 2 to operator inbox. |
+
+**BlueRadius history (closed):** 2026-07-19 harvest → 2026-07-23 EMAIL dry-run To `dwoods360@gmail.com` (C1 locks) → 2026-07-27 email restored / stale PENDING purged. **Status now: HOLD / qualify**, not active dry-run and not next live DISPATCH.
 
 Fixture/OSINT SUSPECTs without reachable phone/email remain in demo tenants (`vaultbank` / `medshield` / `gridcore`) — **not** DISPATCH candidates until enriched.
 

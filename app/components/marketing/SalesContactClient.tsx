@@ -81,6 +81,12 @@ export default function SalesContactClient() {
           Open guided demonstration →
         </Link>
       </p>
+      <p className="mt-3 text-sm text-[var(--login-muted)]">
+        Or call{" "}
+        <a href="tel:+18774540039" className="text-cyan-300 underline hover:opacity-90">
+          +1.877.454.0039
+        </a>
+      </p>
 
       {submitted ? (
         <div

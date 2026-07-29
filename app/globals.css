@@ -438,7 +438,7 @@ body {
 
 .marketing-city-cycle-line {
   opacity: 0;
-  animation-duration: 16s;
+  animation-duration: 28s;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
   animation-fill-mode: both;
@@ -464,7 +464,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .marketing-city-cycle-line {
-    animation-duration: 24s;
+    animation-duration: 40s;
     animation-timing-function: ease-in-out;
   }
 }

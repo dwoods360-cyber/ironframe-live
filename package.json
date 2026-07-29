@@ -108,7 +108,8 @@
     "training:screenshots:live": "node scripts/capture-training-screenshots.mjs --live",
     "crm:pilot-report": "npx tsx scripts/crm-pilot-metrics-report.ts",
     "governance-frame:google-docs": "npx tsx scripts/governance-frame/google-docs/create-research-paper.ts",
-    "governance-frame:google-docs:briefs": "npx tsx scripts/governance-frame/google-docs/create-industry-research-briefs.ts"
+    "governance-frame:google-docs:briefs": "npx tsx scripts/governance-frame/google-docs/create-industry-research-briefs.ts",
+    "ops:counsel-packet-google-docs": "npx tsx scripts/ops/upload-counsel-packet-google-docs.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.53",

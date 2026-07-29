@@ -5,7 +5,7 @@
 **Sector tag:** `MSSP_ENCLAVE` on every D lead (SalesTeam StoryBrand face).  
 **Cap:** prefer quality; purge dupes; no mega-RFP chase.
 
-**Do in parallel Day 1–2:** live DISPATCH existing BlueRadius / Pivot Point drafts (real To — not operator inbox).
+**Do in parallel Day 1–2:** live DISPATCH reachable MSSP/vCISO drafts with a **named buyer** To (not operator inbox). **BlueRadius Cyber = HOLD** (real firm; sells Radius360 — channel/competitor qualify first; dry-run closed). Prefer Pivot Point SMS or a fresh §D Scout row.
 
 ---
 
@@ -107,7 +107,7 @@ After send: log §D (date · company · trigger · deal/draft id · EMAIL/SMS ·
 
 | Day | Operator actions |
 |-----|------------------|
-| 1 | Stand hiring + press folders; **live DISPATCH BlueRadius** (info@) if C1 locks pass |
+| 1 | Stand hiring + press folders; **Pivot Point SMS** (or new Scout PROSPECT) if C1 locks pass — **not** BlueRadius Path B cold (HOLD) |
 | 2 | Evidence-pressure alerts; Pivot Point **SMS** if phone valid; Ironleads harvest + promote reachable |
 | 3–4 | Enrich top hits → PROSPECT; SalesTeam poll; purge draft dupes |
 | 5 | Score pass; hold list ≤15 DISPATCH-ready |

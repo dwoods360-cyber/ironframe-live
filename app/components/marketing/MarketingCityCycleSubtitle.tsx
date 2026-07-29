@@ -5,11 +5,11 @@ const CITY_CYCLES = [
   "TOKYO — TORONTO — MONTRÉAL",
 ] as const;
 
-/** CSS keyframe carousel with crossfade between city sets — no client JS required. */
+/** CSS keyframe carousel with crossfade between city sets — no client JS required. Soft brand chrome under the mark. */
 export default function MarketingCityCycleSubtitle() {
   return (
     <p
-      className="mt-2 min-h-[1.25rem] text-center font-mono text-[10px] uppercase tracking-[0.25em] text-slate-400 sm:text-xs sm:tracking-widest"
+      className="mt-3 mb-1 min-h-[1.1rem] text-center font-mono text-[9px] uppercase tracking-[0.2em] text-slate-400/90 sm:text-[10px] sm:tracking-[0.22em]"
       aria-live="polite"
       aria-atomic="true"
       data-testid="marketing-city-cycle"

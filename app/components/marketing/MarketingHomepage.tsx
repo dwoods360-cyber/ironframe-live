@@ -9,6 +9,10 @@ import {
   formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
+import {
+  INBOUND_LEAD_REPLY_SLA_HOURS,
+  INBOUND_SLA_WINDOW_COPY,
+} from "@/config/commercialGates";
 import { SALES_CONTACT_PATH } from "@/config/registration";
 
 import BriefingsArchive from "./BriefingsArchive";
@@ -148,20 +152,20 @@ export default function MarketingHomepage({
           id="homepage-hero-title"
           className="mx-auto max-w-4xl text-4xl leading-tight font-bold tracking-tight text-[var(--text-main)] sm:text-5xl lg:text-6xl"
         >
-          Control-first GRC for MSSPs &amp; enterprise risk leaders
+          Control-first GRC for MSSPs, vCISOs &amp; multi-entity CISOs
         </h1>
         <p className="mx-auto max-w-2xl text-xl font-medium leading-snug text-[var(--text-main)] sm:text-2xl">
-          Quantify financial risk in whole cents and enforce zero-trust tenant isolation — eliminate
-          5×5 heatmap theater.
+          Defend dollar risk in whole cents — with hard tenant walls that keep entities and clients
+          from bleeding into one register.
         </p>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-[var(--login-muted)] sm:text-lg">
-          See how a risk moves from intake to quantified exposure, evidence review, remediation, and
-          board-ready output — with strict multi-tenant isolation at every step.
+          Replace 5×5 heatmap theater with quantified exposure, connected evidence, and board-ready
+          output under zero-trust isolation.
         </p>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Link
             href={SALES_CONTACT_PATH}
-            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
+            className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-teal-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-teal-500 active:scale-[0.98] sm:w-auto"
           >
             Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
           </Link>
@@ -175,6 +179,10 @@ export default function MarketingHomepage({
         <p className="mx-auto max-w-xl text-xs leading-relaxed text-[var(--login-muted)]">
           Primary next step is a workflow review — not a free trial. {CUSTOMER_FACING_PATH_B_SKU}:{" "}
           {formatPathBUsd()} · {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day paid design engagement.
+        </p>
+        <p className="mx-auto max-w-xl text-xs leading-relaxed text-[var(--login-muted)]">
+          An operator typically replies within {INBOUND_LEAD_REPLY_SLA_HOURS} business hour (
+          {INBOUND_SLA_WINDOW_COPY}).
         </p>
       </header>
 
@@ -338,19 +346,19 @@ export default function MarketingHomepage({
             ))}
           </div>
 
-          <div className="flex w-full flex-col items-stretch gap-4 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
             <Link
               href={SALES_CONTACT_PATH}
-              className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-indigo-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-indigo-500 active:scale-[0.98] sm:w-auto"
+              className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg bg-teal-600 px-6 font-sans text-sm font-bold tracking-wide text-white uppercase transition-all duration-150 hover:bg-teal-500 active:scale-[0.98] sm:w-auto"
             >
               Schedule {WORKFLOW_REVIEW_CTA_MINUTES} min workflow review
             </Link>
             <Link
               href="/pricing"
-              className="inline-flex h-11 w-full touch-manipulation items-center justify-center rounded-lg border border-slate-600 bg-slate-900/60 px-6 font-sans text-sm font-medium text-slate-100 transition-colors hover:border-slate-500 hover:bg-slate-800/80 sm:w-auto"
+              className="inline-flex min-h-[44px] items-center justify-center text-sm font-medium text-[var(--login-muted)] underline decoration-[var(--login-border)] underline-offset-4 transition-colors hover:text-[var(--text-main)]"
             >
-              {CUSTOMER_FACING_PATH_B_SKU} — {formatPathBUsd()} /{" "}
-              {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days
+              View {CUSTOMER_FACING_PATH_B_SKU} packaging ({formatPathBUsd()} /{" "}
+              {DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days)
             </Link>
           </div>
           <p className="mt-4 max-w-2xl text-xs leading-relaxed text-[var(--login-muted)]">
@@ -417,7 +425,7 @@ export default function MarketingHomepage({
         <div className="mb-8 grid gap-4 sm:grid-cols-3">
           <Link
             href="/product-demo"
-            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)] transition hover:border-cyan-700/50"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
@@ -425,11 +433,16 @@ export default function MarketingHomepage({
               alt="Screenshot of the Ironframe guided product demonstration"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Guided demonstration (UI capture)</p>
+            <div className="space-y-1 p-3">
+              <p className="text-sm font-semibold text-[var(--text-main)]">Guided demonstration</p>
+              <p className="text-xs leading-relaxed text-[var(--login-muted)]">
+                Seven-step walkthrough with labeled demonstration data — not a live customer record.
+              </p>
+            </div>
           </Link>
           <Link
             href="/trust-center"
-            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)] transition hover:border-cyan-700/50"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
@@ -437,11 +450,16 @@ export default function MarketingHomepage({
               alt="Screenshot of the Ironframe public Trust Center"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">Trust Center (UI capture)</p>
+            <div className="space-y-1 p-3">
+              <p className="text-sm font-semibold text-[var(--text-main)]">Trust Center</p>
+              <p className="text-xs leading-relaxed text-[var(--login-muted)]">
+                Procurement-ready isolation, residency, and subprocessors overview.
+              </p>
+            </div>
           </Link>
           <Link
-            href="/pricing"
-            className="block overflow-hidden rounded-lg border border-[var(--login-border)]"
+            href={SALES_CONTACT_PATH}
+            className="block overflow-hidden rounded-lg border border-[var(--login-border)] transition hover:border-cyan-700/50"
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- static marketing proof captures */}
             <img
@@ -449,40 +467,25 @@ export default function MarketingHomepage({
               alt="Screenshot of Ironframe commercial packaging"
               className="h-40 w-full object-cover object-top"
             />
-            <p className="p-3 text-xs text-[var(--login-muted)]">
-              {CUSTOMER_FACING_PATH_B_SKU} packaging
-            </p>
+            <div className="space-y-1 p-3">
+              <p className="text-sm font-semibold text-[var(--text-main)]">Workflow review</p>
+              <p className="text-xs leading-relaxed text-[var(--login-muted)]">
+                {WORKFLOW_REVIEW_CTA_MINUTES} minutes to map one spreadsheet workflow and align
+                success criteria.
+              </p>
+            </div>
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <p className="text-center text-xs text-[var(--login-muted)]">
+          Prefer packaging detail first?{" "}
           <Link
-            href="/product-demo"
-            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
+            href="/pricing"
+            className="font-medium text-[var(--login-accent)] underline hover:opacity-90"
           >
-            <h4 className="font-semibold text-[var(--text-main)]">Guided demonstration</h4>
-            <p className="mt-2 text-sm text-[var(--login-muted)]">
-              Seven-step product walkthrough with labeled demonstration data.
-            </p>
+            View {CUSTOMER_FACING_PATH_B_SKU} terms
           </Link>
-          <Link
-            href="/trust-center"
-            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
-          >
-            <h4 className="font-semibold text-[var(--text-main)]">Trust Center</h4>
-            <p className="mt-2 text-sm text-[var(--login-muted)]">
-              Procurement-ready isolation, residency, and subprocessors overview.
-            </p>
-          </Link>
-          <Link
-            href={SALES_CONTACT_PATH}
-            className="rounded-lg border border-[var(--login-border)] p-5 transition hover:border-cyan-700/50"
-          >
-            <h4 className="font-semibold text-[var(--text-main)]">Workflow review</h4>
-            <p className="mt-2 text-sm text-[var(--login-muted)]">
-              {WORKFLOW_REVIEW_CTA_MINUTES} minutes to map one spreadsheet workflow to Ironframe.
-            </p>
-          </Link>
-        </div>
+          .
+        </p>
       </section>
 
       {publishedBriefingCards.length > 0 ? (
@@ -512,6 +515,13 @@ export default function MarketingHomepage({
       <footer className="w-full border-t border-[var(--login-border)] bg-[var(--bg-primary)] px-6 py-8 text-center font-mono text-xs text-[var(--login-muted)]">
         <p>© 2026 IRONFRAME GRC SYSTEM INC. ALL RIGHTS RESERVED.</p>
         <p className="mt-2">
+          <Link
+            href={SALES_CONTACT_PATH}
+            className="text-[var(--login-accent)] underline hover:opacity-90"
+          >
+            Schedule workflow review
+          </Link>
+          {" · "}
           <Link href="/trust-center" className="text-[var(--login-accent)] underline hover:opacity-90">
             Trust Center
           </Link>

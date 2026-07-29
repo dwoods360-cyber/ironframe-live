@@ -57,7 +57,7 @@ export default function PublicApexNav({
         </Link>
         <Link
           href={SALES_CONTACT_PATH}
-          className="inline-flex h-11 items-center px-2 text-sm font-medium text-slate-400 transition-colors hover:text-slate-200"
+          className="inline-flex h-9 items-center rounded-md bg-teal-600 px-3 text-sm font-semibold text-white transition-colors hover:bg-teal-500 sm:h-10 sm:px-4"
         >
           Schedule workflow review
         </Link>

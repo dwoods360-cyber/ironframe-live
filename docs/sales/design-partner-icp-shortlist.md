@@ -2,7 +2,7 @@
 
 **Goal:** 15–25 named accounts → convert **3–5** paying co-builders ($4,999 Path B).  
 **Order of attack:** (1) warm network (2) auditor intros (3) Scout/Ironleads triggers (4) cold ICP.  
-**Filled:** 2026-07-19 (B1) — beachhead research named; **warm A1–A5 contact/email still operator-owned** before first DISPATCH.
+**Filled:** 2026-07-19 (B1) beachhead research · **2026-07-29** §A locked to 5-sector cross-section (MSSP·BHC·UTIL·HEALTH·OTHER); **named buyer / email still operator-owned** before first DISPATCH.
 
 Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below are **research targets only**, not assumed leads. Never pitch demo slugs (`medshield`, `vaultbank`, `gridcore`).
 
@@ -19,21 +19,24 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 ---
 
-## A. Warm network (fill first — highest conversion)
+## A. Warm cross-section (fill contacts first — highest conversion)
 
-**Operator action (before B2):** paste 3–5 real people you can text/email this week. Use the warm-ask blurb from the [offer sheet](./design-partner-offer-sheet.md).
+**Shape (locked 2026-07-29):** exactly **five companies**, one per beachhead slice — **MSSP · BHC · UTIL · HEALTH · OTHER**.  
+**Operator action (before B2 / live DISPATCH):** paste a **named buyer** + email (or warm intro path) for each row. Companies below are research anchors, not assumed leads. Use the warm-ask from the [offer sheet](./design-partner-offer-sheet.md).
 
 | # | Company | Seg | Contact / title | Email / phone | Warm path | Pri | Stage | Notes |
 |---|---------|-----|-----------------|---------------|-----------|-----|-------|-------|
-| 1 | *(paste)* | | | | Advisor / ex-colleague / investor | H | RESEARCH | Highest trust door |
-| 2 | *(paste)* | | | | Same | H | RESEARCH | Prefer CISO / VP Infra / Compliance |
-| 3 | *(paste)* | | | | Same | H | RESEARCH | Or “who should I talk to?” |
-| 4 | *(paste)* | | | | Same | M | RESEARCH | |
-| 5 | *(paste)* | | | | Same | M | RESEARCH | |
+| 1 | [Pivot Point Security](https://www.pivotpointsecurity.com/) | MSSP | *(named buyer — not info@ / not SMS until Twilio)* | | Advisor / LinkedIn / ex-colleague intro | H | RESEARCH | Beachhead D. Already on §D Scout queue — **enrich buyer email**; do not cold-SMS with SMS off. |
+| 2 | [Customers Bancorp / Customers Bank](https://www.customersbank.com/) | BHC | *(CISO / VP Risk / Compliance)* | | Warm FI intro or auditor handoff | H | RESEARCH | Multi-entity / fin-risk isolation wedge. Prefer named risk owner over general inbox. |
+| 3 | [SMUD](https://www.smud.org/) | UTIL | *(CISO / CIP / GRC lead)* | | Utility peer / CIP advisor intro | H | RESEARCH | NERC CIP + OT/IT evidence burden. Public-power board reporting pain. |
+| 4 | [HealthPartners](https://www.healthpartners.com/) | HEALTH | *(CISO / Privacy / Compliance)* | | Health-system peer or counsel intro | H | RESEARCH | Mid-market HIPAA + multi-entity feel. Prefer warm; no cold blast to patient-facing inboxes. |
+| 5 | Local 2–5 sub portfolio / holdco (name via network) | OTHER | *(ops / GRC for sub companies)* | | PE/holdco advisor or ex-colleague | M | RESEARCH | Isolation wedge across subsidiaries. **Operator names the firm** — slot reserved for warm network, not cold logo chase. |
+
+**Cross-section rule:** do not replace two rows with a second MSSP or second bank until each segment has one reachable named buyer. **BlueRadius Cyber stays HOLD** (competitor/channel) — not an A-row substitute.
 
 **Warm-ask (copy):**
 
-> Who do you know standing up SOC 2, ISO, or ESG ops who is stuck in spreadsheets or heatmap GRC — and would value a **paid co-builder seat** on a quantitative command post ($4,999 Path B, 90-day window, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
+> Who do you know among **MSSPs / multi-entity banks / utilities / health systems** stuck in spreadsheets or heatmap GRC — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
 
 ---
 

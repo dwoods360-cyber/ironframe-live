@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-07-28T18:21:26.123Z",
+  "mode": "live",
+  "sku": "COMMAND_YEAR1_BALANCE_V1",
+  "productId": "prod_UyC1WQgSB20Wfe",
+  "priceId": "price_1TyFd33rywI5LhJOsE9wGMVk",
+  "unitAmountCents": 3000100,
+  "unitAmountUsd": 30001,
+  "math": {
+    "plannedGaCommandUsd": 35000,
+    "pathBConvertCreditUsd": 4999,
+    "year1BalanceUsd": 30001
+  },
+  "paymentLinkUrl": "https://buy.stripe.com/9B6fZa8PZaO3aIXb56bZe02"
+}

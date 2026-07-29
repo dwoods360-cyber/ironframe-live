@@ -38,8 +38,7 @@ tsconfig.tsbuildinfo
 debug.zip
 scripts/vercel-env-preview-pki.mjs
 scripts/dev/stripe-catalog-artifact.json
-scripts/dev/stripe-catalog-artifact.live.json
-scripts/dev/stripe-year1-balance-artifact.live.json
+# Live Path B / year-1 balance ID maps are tracked (ops continuity across workstations).
 scripts/dev/stripe-client-links.json
 secrets-replacements.txt
 .env*
@@ -53,8 +52,9 @@ ironframe-prod-907f1402c60c.json
 
 # Governance Frame Google Docs utility (OAuth + sync state)
 scripts/governance-frame/google-docs/.state/
-# Counsel packet Google Docs upload sync state (folder/doc IDs)
-scripts/ops/.state/
+# Counsel packet Google Docs ID map is tracked; ignore other ops state noise
+scripts/ops/.state/*
+!scripts/ops/.state/counsel-packet-google-docs.json
 **/google-oauth-client*.json
 **/google-oauth-token*.json
 secrets/google-oauth*.json

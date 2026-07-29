@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-07-28T18:10:57.548Z",
+  "mode": "live",
+  "productId": "prod_UyBqOQbKK9gCej",
+  "priceId": "price_1TyFSn3rywI5LhJOAXsXNqoA",
+  "unitAmountCents": 499900,
+  "provisionPaymentLinkUrl": "https://buy.stripe.com/14A9AM0jtcWbcR56OQbZe00",
+  "activationPaymentLinkUrl": "https://buy.stripe.com/14A3cogirf4j5oD4GIbZe01",
+  "vercelEnvUpdates": {
+    "STRIPE_CREDENTIAL_MODE": "live",
+    "NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL": "https://buy.stripe.com/14A9AM0jtcWbcR56OQbZe00",
+    "IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED": "0",
+    "NEXT_PUBLIC_IRONFRAME_COUNSEL_D0_APPROVED": "keep off until counsel returns"
+  },
+  "nextCommands": [
+    "npx vercel env rm STRIPE_CREDENTIAL_MODE production --yes  # if replacing",
+    "printf live | npx vercel env add STRIPE_CREDENTIAL_MODE production",
+    "printf '<provisionPaymentLinkUrl>' | npx vercel env add NEXT_PUBLIC_STRIPE_COMMAND_TIER_CHECKOUT_URL production",
+    "npx vercel --prod"
+  ]
+}

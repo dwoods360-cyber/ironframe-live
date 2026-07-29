@@ -2771,6 +2771,7 @@ app.post('/api/voice/transcribe', async (req, res) => {
 app.get('/health', (_req, res) => {
   const key = getIronboardApiKey();
   res.json({
+    ok: true,
     status: 'HEALTHY',
     service: 'ironboard',
     port: PORT,

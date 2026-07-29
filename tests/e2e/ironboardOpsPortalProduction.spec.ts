@@ -15,7 +15,8 @@ async function bootstrapProductionSession(page: import("@playwright/test").Page)
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!supabaseUrl || !serviceKey || !anonKey) {
-    throw new Error("Missing Supabase env for production auth");
+    test.skip(true, "Missing Supabase env for production auth");
+    return;
   }
 
   const admin = createClient(supabaseUrl, serviceKey, {

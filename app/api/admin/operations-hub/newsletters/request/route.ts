@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { requestGovernanceNewsletterSeriesCore } from "@/app/lib/server/requestGovernanceNewsletterSeriesCore";
-import prisma from "@/lib/prisma";
+import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
+import { validateIngressContext } from "@/app/middleware/irongateShield";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -63,16 +64,15 @@ export async function POST(request: NextRequest) {
   }
 
   const tenantSlug = String(body.tenantSlug ?? "ironframe-sandbox").trim().toLowerCase();
-  const tenant = await prisma.tenant.findFirst({
-    where: { slug: tenantSlug },
-    select: { id: true, slug: true },
-  });
+  const tenant = await lookupTenantBySlug(tenantSlug);
   if (!tenant) {
     return NextResponse.json(
       { error: `Tenant slug not found for frontmatter binding: ${tenantSlug}` },
       { status: 400 },
     );
   }
+
+  validateIngressContext(tenant.id);
 
   const result = await requestGovernanceNewsletterSeriesCore({
     requestPrompt,

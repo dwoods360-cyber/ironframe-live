@@ -85,7 +85,7 @@ export function shouldBlockProductionIngress(
 ): boolean {
   const hostname = request.nextUrl.hostname;
   if (isLocalDevelopmentHost(hostname)) return false;
-  if (isGovernanceFramePublicHost(request.headers.get("host") ?? hostname)) return false;
+  if (isGovernanceFramePublicHost(request.headers?.get?.("host") ?? hostname)) return false;
   if (isStripeWebhookIngressPath(pathname)) return false;
   if (isTokenGatedApiIngressPath(pathname)) return false;
   if (isPublicCloudIngressPath(pathname)) return false;

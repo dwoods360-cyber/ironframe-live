@@ -25,7 +25,9 @@ test.describe("Documentation auth gate", () => {
   test("guest can view public pricing page", async ({ page }) => {
     await page.goto("/pricing");
     await expect(page).toHaveURL(/\/pricing(\?|$)/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: /one premium tier/i })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: /command design partner/i }).first(),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });

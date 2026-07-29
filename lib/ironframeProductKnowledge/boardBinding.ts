@@ -30,14 +30,16 @@ import {
   buildTrainingDocsLocationAnswer,
 } from './productFacts';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-const requireFromHere = createRequire(fileURLToPath(import.meta.url));
-
-/** Optional — IronBoard has docs + governanceFrame; perimeter workers may not. */
+/**
+ * Optional GF binding — perimeter workers may lack publishedResearchKnowledge.
+ * Use cwd/package.json (never import.meta) so Ironboard CJS tsc and Next bundling stay happy.
+ */
 function publishedGovernanceFrameBindingOrFallback(): string {
   try {
-    const mod = requireFromHere('../governanceFrame/publishedResearchKnowledge') as {
+    const requireFromCwd = createRequire(join(process.cwd(), 'package.json'));
+    const mod = requireFromCwd('./lib/governanceFrame/publishedResearchKnowledge') as {
       buildPublishedGovernanceFrameKnowledgeBinding: () => string;
     };
     return mod.buildPublishedGovernanceFrameKnowledgeBinding();

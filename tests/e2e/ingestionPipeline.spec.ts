@@ -69,8 +69,11 @@ test.describe.serial("Ingestion pipeline — public lead, Stripe webhook, subdom
     expect(leadResponse.ok(), await leadResponse.text()).toBe(true);
 
     await expect(
-      page.getByText(/inquiry is recorded in the executive lead ledger/i),
+      page.getByText(/Thanks — we received your request/i),
     ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByText(/No workspace was created/i),
+    ).toBeVisible({ timeout: 5_000 });
 
     const prospect = await getE2ePrisma().prospect.findFirst({
       where: { email: leadEmail },

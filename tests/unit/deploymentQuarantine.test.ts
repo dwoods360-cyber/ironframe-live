@@ -16,6 +16,9 @@ function mockRequest(
 ) {
   return {
     nextUrl: { pathname, hostname },
+    headers: {
+      get: (name: string) => (name.toLowerCase() === "host" ? hostname : null),
+    },
     cookies: {
       has: (name: string) => name in cookies,
       get: (name: string) => (cookies[name] ? { name, value: cookies[name] } : undefined),

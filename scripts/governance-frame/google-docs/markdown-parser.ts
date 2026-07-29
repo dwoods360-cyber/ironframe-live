@@ -370,7 +370,7 @@ export function parseGovernanceMarkdown(
 
   // Hard failures that would cause content loss
   const fatal = unsupported.filter((u) =>
-    /images are not supported|Malformed Markdown table/.test(u.detail),
+    /images are not supported|Malformed Markdown table|Fenced code block/.test(u.detail),
   );
   if (fatal.length > 0) {
     const msg = fatal.map((u) => `${u.file}:${u.line} — ${u.detail}`).join("\n");

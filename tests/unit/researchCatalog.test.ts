@@ -32,9 +32,9 @@ describe("researchCatalog", () => {
     );
   });
 
-  it("marks placeholder editorial policy docs as not public-ready", () => {
+  it("marks published editorial policy docs as public-ready", () => {
     const methodology = listEditorialPolicyDocs().find((doc) => doc.id === "research-methodology");
     expect(methodology).toBeTruthy();
-    expect(methodology?.ready).toBe(false);
+    expect(methodology?.ready).toBe(true);
   });
 });

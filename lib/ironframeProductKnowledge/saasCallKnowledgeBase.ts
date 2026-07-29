@@ -37,7 +37,7 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     match:
       /max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities)|(clients?|tenants?|entities)\s*(we\s*can\s*)?(load|run|onboard|add|support|host)|client\s*limit|tenant\s*limit|unlimited\s*clients|capacity|scale\s*(to|with)\s*(clients?|tenants?)/i,
     answer:
-      "Direct answer: there is no hardcoded maximum number of clients in Ironframe today. Each client (or legal entity) sits behind its own isolation wall — PostgreSQL RLS + Ironguard — so adding another client is another enclave, not a shared folder. How many you load is a commercial / ops scope choice for the seat, not a product constant like “50 max.” Do not quote the company-wide Design Partner co-builder seat count (3–5) or the old Silver/Gold/Platinum calculator tiers as a platform client ceiling.",
+      "Direct answer: there is no platform technical ceiling like “50 max clients,” but commercial entitlement is capped. Path B / Command Design Partner includes 1 Primary Entity + up to 2 Subtenant Enclaves for the cohort window. Planned GA Command Core is 1 Primary + 3 Subtenants; additional Subtenant Enclaves are Paid Enclaves at published list ($3,500/yr with volume tiers) or Partner book commits for true MSSPs. Do not promise unlimited enclaves at flat Core. Do not quote the company-wide Design Partner co-builder seat count (3–5) as a platform client ceiling.",
   },
   {
     id: "what-is-command",

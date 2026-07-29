@@ -46,6 +46,42 @@ describe('ironframeProductKnowledge spine', () => {
     expect(formatPathBUsd()).toBe('$4,999');
   });
 
+  it('locks dual-motion entitlements and Path B entity cap', async () => {
+    const {
+      COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
+      COMMAND_CORE_TOTAL_ENTITIES,
+      COMMAND_ENTERPRISE_MAX_ENTITIES,
+      COMMAND_ENTERPRISE_USD,
+      COMMAND_MULTI_MAX_ENTITIES,
+      COMMAND_MULTI_USD,
+      MULTI_YEAR_PATH_B_ELIGIBLE,
+      MULTI_YEAR_PUBLISHED_DISCOUNT,
+      PAID_ENCLAVE_FLOOR_USD,
+      PAID_ENCLAVE_LIST_USD,
+      PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
+      PATH_B_PRIMARY_ENTITIES,
+      WORM_EXPANSION_USD_PER_BLOCK_MONTH,
+      INGEST_EXPANSION_USD_PER_BLOCK_MONTH,
+      pathBEntityScopeLockText,
+    } = await import('@/lib/ironframeProductKnowledge/commercial');
+
+    expect(PATH_B_PRIMARY_ENTITIES).toBe(1);
+    expect(PATH_B_INCLUDED_SUBTENANT_ENCLAVES).toBe(2);
+    expect(COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES).toBe(3);
+    expect(COMMAND_CORE_TOTAL_ENTITIES).toBe(4);
+    expect(PAID_ENCLAVE_LIST_USD).toBe(3_500);
+    expect(PAID_ENCLAVE_FLOOR_USD).toBe(1_750);
+    expect(COMMAND_MULTI_USD).toBe(55_000);
+    expect(COMMAND_MULTI_MAX_ENTITIES).toBe(10);
+    expect(COMMAND_ENTERPRISE_USD).toBe(95_000);
+    expect(COMMAND_ENTERPRISE_MAX_ENTITIES).toBe(25);
+    expect(WORM_EXPANSION_USD_PER_BLOCK_MONTH).toBe(25);
+    expect(INGEST_EXPANSION_USD_PER_BLOCK_MONTH).toBe(20);
+    expect(MULTI_YEAR_PUBLISHED_DISCOUNT).toBe(false);
+    expect(MULTI_YEAR_PATH_B_ELIGIBLE).toBe(false);
+    expect(pathBEntityScopeLockText()).toMatch(/up to 2 Subtenant Enclaves/);
+  });
+
   it('locks Path B convert credit equal to Path B fee (not a negotiated %)', () => {
     expect(DESIGN_PARTNER_CONVERT_CREDIT_USD).toBe(DESIGN_PARTNER_PATH_B_USD);
   });

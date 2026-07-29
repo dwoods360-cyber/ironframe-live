@@ -27,6 +27,7 @@ export async function provisionCorporateTenantAction(
     aleBaselineCentsRaw: String(formData.get("aleBaselineCents") ?? "0"),
     operatorId: gate.userId,
     skipInvitationGate: true,
+    parentTenantSlug: String(formData.get("parentTenantSlug") ?? "").trim() || null,
   });
 
   if (result.ok) {

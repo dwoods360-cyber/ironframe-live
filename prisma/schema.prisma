@@ -20,6 +20,16 @@ model Tenant {
   isUnderTargetedSiege         Boolean                     @default(false) @map("is_under_targeted_siege")
   /// Successful constitutional chaos drill — lifts quarantine maturity penalty until next adversarial activity.
   lastChaosForensicHardeningAt DateTime?                   @map("last_chaos_forensic_hardening_at")
+  /// PRIMARY = billing control plane; SUBTENANT = isolated operating enclave under a Primary.
+  enclaveRole                  String                      @default("PRIMARY") @map("enclave_role")
+  /// Commercial package driving Subtenant Enclave hard-caps (PATH_B, COMMAND_CORE, …).
+  commercialTier               String                      @default("PATH_B") @map("commercial_tier")
+  /// Optional override for max Subtenant Enclaves (null = derive from commercialTier).
+  entitledSubtenantSlots       Int?                        @map("entitled_subtenant_slots")
+  /// Parent Primary workspace when enclaveRole = SUBTENANT.
+  parentTenantId               String?                     @map("parent_tenant_id") @db.Uuid
+  parentTenant                 Tenant?                     @relation("TenantEnclaveHierarchy", fields: [parentTenantId], references: [id], onDelete: Restrict)
+  childEnclaves                Tenant[]                    @relation("TenantEnclaveHierarchy")
   riskEvents                   RiskEvent[]
   agentComputeLogs             AgentComputeLog[]
   agent_logs                   AgentLog[]
@@ -45,6 +55,7 @@ model Tenant {
   publishedBriefings           PublishedBriefing[]
   contactProfile               TenantContactProfile?
 
+  @@index([parentTenantId])
   @@map("tenants")
 }
 

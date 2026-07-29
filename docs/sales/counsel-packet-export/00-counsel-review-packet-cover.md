@@ -66,9 +66,11 @@ Please return a written memo + redlined / replacement text for:
 |------|--------|
 | Path B fee | **$4,999 USD** (BigInt **499900** cents) one-time on-ramp |
 | Window | Default **90** days (min **60**) convert-or-exit |
+| Entity scope | **1 Primary + up to 2 Subtenant Enclaves** — expansion only via Multi-Entity Change Order |
 | Refunds | **Non-refundable** on exit / mid-window termination |
 | Convert credit | In-window convert → Path B fee **credited** to year-1 Command; **not** a negotiated % |
-| Planned GA list (reference) | ~**$35,000**/yr Command |
+| Planned GA list (reference) | ~**$35,000**/yr Command Core (1 Primary + 3 Subtenants); Paid Enclave **$3,500**/yr |
+| Multi-year discounts | **Not published**; annual list only; discretionary founder/CFO band only — never Path B |
 | Operator email | Must be **client-owned** (not `@ironframegrc.com`) |
 | Activation | Tenant-scoped Stripe Path B link — not generic `/pricing` for PENDING workspaces |
 | Money storage | All USD in product as **integer cents (BigInt)** — no float/Decimal |

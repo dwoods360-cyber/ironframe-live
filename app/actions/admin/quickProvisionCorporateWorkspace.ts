@@ -45,6 +45,10 @@ export async function quickProvisionCorporateWorkspaceAction(
     email,
     name,
     slugRaw,
+    // AGREED Path B handoff is always a Primary Entity — never attach under another parent.
+    parentTenantSlug: handoffToken
+      ? null
+      : String(formData.get("parentTenantSlug") ?? "").trim() || null,
   });
 
   if (result.ok) {

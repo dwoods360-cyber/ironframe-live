@@ -82,6 +82,8 @@ export default function CorporateOnboardingClient({
   const [handoffPrefillCleared, setHandoffPrefillCleared] = useState(false);
   const [provisionName, setProvisionName] = useState(prefillName);
   const [provisionSlug, setProvisionSlug] = useState(prefillSlug);
+  const [quickParentSlug, setQuickParentSlug] = useState("");
+  const [provisionParentSlug, setProvisionParentSlug] = useState("");
 
   const prefillActive =
     !handoffPrefillCleared &&
@@ -123,8 +125,10 @@ export default function CorporateOnboardingClient({
       setQuickName(res.handoff.customerLegalName);
       setQuickEmail(res.handoff.operatorEmail);
       setQuickSlug(res.handoff.workspaceSlug);
+      setQuickParentSlug("");
       setProvisionName(res.handoff.customerLegalName);
       setProvisionSlug(res.handoff.workspaceSlug);
+      setProvisionParentSlug("");
     })();
     return () => {
       cancelled = true;
@@ -166,6 +170,9 @@ export default function CorporateOnboardingClient({
     setProvisionResult(res);
     if (res.ok) {
       form.reset();
+      setProvisionName("");
+      setProvisionSlug("");
+      setProvisionParentSlug("");
       setInviteTenantSlug(res.slug);
       void refreshTenants(res.slug);
     }
@@ -359,6 +366,8 @@ export default function CorporateOnboardingClient({
             welcome email. The workspace slug becomes the subdomain host (e.g.{" "}
             <code className="text-slate-300">{"{slug}"}.lvh.me:3000</code>). Stripe billing must use
             the tenant-scoped activation link returned below — not the generic /pricing checkout.
+            Path B Primaries are uncapped across the cohort; Subtenant Enclaves under a Primary are
+            hard-capped (Path B: 1 Primary + up to 2 Subtenants).
           </p>
 
           {handoffLoading ? (
@@ -442,6 +451,24 @@ export default function CorporateOnboardingClient({
                 onChange={(e) => setQuickEmail(e.target.value)}
                 className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100 disabled:opacity-70"
                 placeholder="ciso@customer.com"
+              />
+            </label>
+            <label className="block text-[10px] text-slate-400 sm:col-span-3">
+              Parent Primary slug (optional — Subtenant Enclave)
+              <span className="mt-0.5 block font-normal normal-case tracking-normal text-slate-500">
+                Leave blank for a Path B Primary (AGREED handoff). Set to attach under an existing
+                Primary and enforce the Subtenant hard-cap.
+              </span>
+              <input
+                name="parentTenantSlug"
+                disabled={quickBusy || handoffTrusted}
+                value={quickParentSlug}
+                onChange={(e) =>
+                  setQuickParentSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                }
+                list="provisioned-primary-slugs"
+                className="mt-1 h-11 w-full rounded border border-slate-700 bg-black/40 px-2 font-mono text-[11px] text-slate-100 disabled:opacity-70"
+                placeholder="acme-primary"
               />
             </label>
             <button
@@ -553,6 +580,28 @@ export default function CorporateOnboardingClient({
                 className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
               />
             </label>
+            <label className="block text-[10px] text-slate-400">
+              Parent Primary slug (optional — Subtenant Enclave)
+              <input
+                name="parentTenantSlug"
+                value={provisionParentSlug}
+                onChange={(e) =>
+                  setProvisionParentSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                }
+                list="provisioned-primary-slugs"
+                className="mt-1 w-full rounded border border-slate-700 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-slate-100"
+                placeholder="Leave blank for Primary"
+              />
+            </label>
+            <datalist id="provisioned-primary-slugs">
+              {tenants
+                .filter((t) => (t.enclaveRole ?? "PRIMARY") === "PRIMARY")
+                .map((t) => (
+                  <option key={t.id} value={t.slug}>
+                    {t.name}
+                  </option>
+                ))}
+            </datalist>
             <button
               type="submit"
               disabled={provisionBusy}

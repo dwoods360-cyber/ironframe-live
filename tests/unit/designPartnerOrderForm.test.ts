@@ -101,6 +101,10 @@ describe("designPartnerOrderForm", () => {
     expect(md).toContain("**LOCKED**");
     expect(md).toContain("Commercial terms (locked");
     expect(md).toContain("$4,999");
+    expect(md).toContain("Entity scope (Path B)");
+    expect(md).toContain("up to 2 Subtenant Enclaves");
+    expect(md).toContain("Path B Design Partner Scope & Expansion Lock");
+    expect(ORDER_FORM_COMMERCIAL_LOCKS.includedSubtenantEnclaves).toBe(2);
   });
 });
 

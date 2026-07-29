@@ -8,10 +8,13 @@ import {
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_MIN_WINDOW_DAYS,
   DESIGN_PARTNER_PATH_B_USD,
+  PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
+  PATH_B_PRIMARY_ENTITIES,
   PLANNED_GA_COMMAND_USD,
   formatPathBUsd,
   formatPlannedGaCommandUsd,
   formatUsdWhole,
+  pathBEntityScopeLockText,
 } from "@/lib/ironframeProductKnowledge/commercial";
 
 /** Canonical partner lock word (spoken or typed). Case-insensitive. */
@@ -30,6 +33,11 @@ export type DesignPartnerOrderFormCommercialLocks = {
   plannedGaLabel: string;
   refunds: string;
   payment: string;
+  /** Hard entity cap for Path B cohort seat. */
+  entityScopeLabel: string;
+  entityScopeLock: string;
+  primaryEntities: number;
+  includedSubtenantEnclaves: number;
 };
 
 export type DesignPartnerOrderFormDraft = {
@@ -75,6 +83,10 @@ export const ORDER_FORM_COMMERCIAL_LOCKS: DesignPartnerOrderFormCommercialLocks 
   refunds: `Path B ${formatPathBUsd()} is non-refundable on exit or mid-window termination — no refund, no % off Path B`,
   payment:
     "Stripe tenant-scoped Path B activation link (not generic public /pricing for existing PENDING workspaces)",
+  primaryEntities: PATH_B_PRIMARY_ENTITIES,
+  includedSubtenantEnclaves: PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
+  entityScopeLabel: `${PATH_B_PRIMARY_ENTITIES} Primary Entity + up to ${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves (hard cap for Path B window)`,
+  entityScopeLock: pathBEntityScopeLockText(),
 };
 
 export function createEmptyOrderFormDraft(
@@ -300,9 +312,14 @@ ${lockBanner}
 | **Payment** | ${locks.payment} |
 | **Pilot window** | **${draft.pilotWindowDays} days** (default **${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}**, min **${DESIGN_PARTNER_MIN_WINDOW_DAYS}**) from payment → ACTIVE |
 | **Engineering syncs** | Weekly for first **${draft.engSyncWeeks}** weeks, then async only unless amended in writing |
+| **Entity scope (Path B)** | ${locks.entityScopeLabel} |
 | **Planned GA reference** | ${locks.plannedGaLabel} |
 | **Convert credit** | ${locks.convertCreditLabel} |
 | **Refunds** | ${locks.refunds} |
+
+## Path B Design Partner Scope & Expansion Lock
+
+${locks.entityScopeLock}
 
 ## Success criteria (exactly 2 or 3)
 

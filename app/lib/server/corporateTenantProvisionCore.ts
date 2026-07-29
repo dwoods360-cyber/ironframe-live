@@ -27,6 +27,17 @@ import {
   sendWorkspaceInviteEmailCore,
   summarizeWorkspaceInviteEmailDelivery,
 } from "@/app/lib/server/workspaceInviteEmailDelivery";
+import {
+  assertCanProvisionSubtenantUnderParent,
+  parseCommercialTier,
+  parseEnclaveRole,
+  resolveParentTenantIdBySlug,
+} from "@/app/lib/server/enclaveEntitlement";
+import {
+  COMMERCIAL_TIER,
+  ENCLAVE_ROLE,
+  type CommercialTierCode,
+} from "@/lib/ironframeProductKnowledge/commercial";
 
 export const PUBLIC_INTAKE_OPERATOR_ID = "PUBLIC_INTAKE";
 
@@ -41,6 +52,13 @@ export type ProvisionCorporateTenantCoreInput = {
   invitationToken?: string | null;
   /** Platform-admin server actions bypass invite-only gate after RBAC check. */
   skipInvitationGate?: boolean;
+  /**
+   * Parent Primary workspace slug. When set, provisions a Subtenant Enclave
+   * and enforces the parent's commercial Subtenant Enclave hard-cap.
+   */
+  parentTenantSlug?: string | null;
+  /** Commercial tier for new Primary workspaces (default PATH_B design-partner). */
+  commercialTier?: CommercialTierCode | string | null;
 };
 
 export type ProvisionCorporateTenantCoreResult =
@@ -109,6 +127,26 @@ export async function provisionCorporateTenantCore(
     return { ok: false, error: `Tenant slug "${slug}" is already provisioned.` };
   }
 
+  const parentSlugRaw = input.parentTenantSlug?.trim() ?? "";
+  let parentTenantId: string | null = null;
+  let enclaveRole: (typeof ENCLAVE_ROLE)[keyof typeof ENCLAVE_ROLE] = ENCLAVE_ROLE.PRIMARY;
+  let commercialTier = parseCommercialTier(input.commercialTier ?? COMMERCIAL_TIER.PATH_B);
+
+  if (parentSlugRaw) {
+    const parentResolved = await resolveParentTenantIdBySlug(parentSlugRaw);
+    if (!parentResolved.ok) {
+      return { ok: false, error: parentResolved.error };
+    }
+    const cap = await assertCanProvisionSubtenantUnderParent(parentResolved.parentTenantId);
+    if (!cap.ok) {
+      return { ok: false, error: cap.error };
+    }
+    parentTenantId = parentResolved.parentTenantId;
+    enclaveRole = ENCLAVE_ROLE.SUBTENANT;
+    // Subtenants inherit parent commercial tier for reporting; slots are enforced on parent.
+    commercialTier = cap.entitlement.commercialTier;
+  }
+
   try {
     const tenant = await prisma.tenant.create({
       data: {
@@ -116,8 +154,11 @@ export async function provisionCorporateTenantCore(
         slug,
         industry,
         ale_baseline: aleBaseline,
+        enclaveRole,
+        commercialTier,
+        parentTenantId,
       },
-      select: { id: true, slug: true, name: true },
+      select: { id: true, slug: true, name: true, enclaveRole: true, commercialTier: true },
     });
 
     invalidateTenantSlugCache(slug);
@@ -131,12 +172,17 @@ export async function provisionCorporateTenantCore(
       companyName: tenant.name,
     });
 
+    const roleNote =
+      parseEnclaveRole(tenant.enclaveRole) === ENCLAVE_ROLE.SUBTENANT && parentTenantId
+        ? ` Subtenant under parent ${parentSlugRaw} (tier ${tenant.commercialTier}).`
+        : ` Primary Entity (tier ${tenant.commercialTier}).`;
+
     await auditLogCreateLoose({
       data: {
         action: input.auditAction ?? "CORPORATE_TENANT_PROVISIONED",
         operatorId: input.operatorId,
         tenantId: tenant.id,
-        justification: `Corporate tenant provisioned: ${tenant.name} (${tenant.slug}).`,
+        justification: `Corporate tenant provisioned: ${tenant.name} (${tenant.slug}).${roleNote}`,
       },
     });
 

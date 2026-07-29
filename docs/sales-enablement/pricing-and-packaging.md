@@ -2,7 +2,7 @@
 Document Type: Sales Enablement Documentation
 Status: ACTIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-07-16
+Last Updated: 2026-07-29
 GeneratedBy: scripts/sync-product-knowledge.ts
 ---
 
@@ -11,7 +11,8 @@ GeneratedBy: scripts/sync-product-knowledge.ts
 > Board docs-matrix ingest path (`sales-enablement`). Canonical narrative mirrors [`docs/sales/pricing-and-packaging.md`](../sales/pricing-and-packaging.md).  
 > Code truth: `lib/ironframeProductKnowledge/commercial.ts` (Path B $4,999 / 499900¢ · planned GA Command $35,000/yr).
 
-*Authoritative for sales + `/pricing` during design-partner phase.*
+*Authoritative for sales + `/pricing` during design-partner phase.*  
+*Code truth: `lib/ironframeProductKnowledge/commercial.ts`.*
 
 ## Phase 1 — Design-partner / Command Tier
 
@@ -24,15 +25,40 @@ GeneratedBy: scripts/sync-product-knowledge.ts
 
 - No per-seat / per-month licensing.  
 - Existing **PENDING** workspaces: Path B link from `/admin/onboarding` only — **never** generic `/pricing` (duplicate workspace risk).  
-- Planned GA **Ironframe Command ~$35,000/yr** (`FINTECH_SEED`) — label “planned GA” until commercial GA flag is on.
+- **Entity scope (hard cap):** 1 Primary Entity + up to **2** Subtenant Enclaves for the Path B window. Expansion requires a Multi-Entity Change Order — not ad-hoc provisioning.  
+- Planned GA **Ironframe Command ~$35,000/yr** (`FINTECH_SEED`) — label “planned GA” until commercial GA flag is on.  
+- **Multi-year discounts:** not on the published list. Annual billing only. Founder/CFO discretionary ≤10% (2-yr) / ≤15% (3-yr) prepaid — **never** on Path B.
 
-## Planned GA tiers (Phase 2+)
+## Planned GA — Motion 1 (Mid-Market & Holding Companies)
 
-| Tier | Audience | List (USD/yr) |
-|------|----------|---------------|
-| Command / Fintech Seed | 5–25 emp, SOC 2 / ISO pressure | ~$35,000 |
-| Series A Growth Shield | 26–50 emp + Ironbloom path | ~$75,000 |
-| Governance+ / Sustainability / Vault / MSSP | Add-ons | Quote |
+| SKU | List (USD/yr) | Entities included |
+|-----|---------------|-------------------|
+| **Command Core** | **$35,000** | 1 Primary + 3 Subtenant Enclaves (4 total) |
+| **Paid Enclave** | **$3,500** list | 1 additional Subtenant; volume: $2,625 (11–50 Paid), $1,750 floor (51+) |
+| **Command Multi** | **$55,000** | Up to 10 Entities (quote mask over Core + Paid) |
+| **Command Enterprise** | **$95,000** | Up to 25 Entities (quote mask over Core + volume) |
+| Series A Growth / Sustainability | ~$75,000 | Capability track (Ironbloom) — separate from entity count |
+
+Volume tiers apply to **Paid Enclaves beyond the 3 included in Core** only.
+
+## Planned GA — Motion 2 (MSSP & Managed Partners)
+
+Requires Partner MSA, partner L1 support, and enclaves = unaffiliated end-clients (not buyer subsidiaries).
+
+| Tier | Annual commit | Included enclaves | Overage / enclave / yr | Included WORM |
+|------|---------------|-------------------|------------------------|---------------|
+| Partner Silver | $50,000 | 15 | $2,800 | 375 GB |
+| Partner Gold | $100,000 | 40 | $2,100 | 1 TB |
+| Partner Platinum | $200,000 | 100 | $1,500 | 2.5 TB |
+
+## COGS fair-use (per active enclave)
+
+| Meter | Included | Expansion SKU |
+|-------|----------|---------------|
+| WORM evidence storage | 25 GB / enclave / year | **$25 / 50 GB / month** (or $250/yr prepaid) |
+| Telemetry ingestion | 5M events / month | **$20 / 5M events / month** |
+
+Hard stop at 3× fair-use without Expansion SKU.
 
 ## Packaging modules (capabilities)
 
@@ -42,12 +68,12 @@ GeneratedBy: scripts/sync-product-knowledge.ts
 | **Governance+** | + mapping, maturity, Ironquery PDF/CSV |
 | **Sustainability** | Carbon pulse, Ironbloom physical units |
 | **Vault** | Dual-gate / PKI clearance UI |
-| **MSSP Platform** | Multi-client enclaves, scoped tenants, API |
+| **MSSP Platform** | Multi-client enclaves, scoped tenants, API — sold via Partner book |
 
 ## Promotions (internal)
 
-- **Design partner:** $4,999 Path B · 90-day default window · capped eng syncs · convert-or-exit  
-- **Not offered:** free 30-day pilots (they rarely log in)
+- **Design partner:** $4,999 Path B · 90-day default window · 1+2 entity cap · capped eng syncs · convert-or-exit  
+- **Not offered:** free 30-day pilots; published multi-year list discounts; unlimited enclaves at flat Core
 
 ## Procurement notes
 

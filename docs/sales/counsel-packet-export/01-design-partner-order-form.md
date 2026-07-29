@@ -28,8 +28,13 @@
 | **Pilot window** | **____ days** (default **90**, min **60**) from payment → ACTIVE |
 | **Engineering syncs** | Weekly for first **____** weeks (default **4–6**), then async only unless amended in writing |
 | **Planned GA reference** | Ironframe Command planned list **~$35,000/yr** (list price) |
+| **Entity scope (Path B)** | **1 Primary Entity + up to 2 Subtenant Enclaves** (hard cap for Path B window) |
 | **Convert credit** | If Customer converts to Command **within the Path B window**, the Path B **$4,999** fee is **credited to year-1 Command** (fixed convert credit — **not** a negotiated %). Year-1 net ≈ list minus $4,999 |
 | **Refunds** | Path B **$4,999** is **non-refundable** on exit or mid-window termination — **no** refund, **no** % off Path B |
+
+## Path B Design Partner Scope & Expansion Lock
+
+The Command Design Partner seat ($4,999 flat / 90 days) includes active deployment for 1 Primary Entity + up to 2 Subtenant Enclaves. Subtenant expansion beyond this threshold is strictly excluded during the review period and cannot be provisioned via ad-hoc requests. Additional enclaves require an executed Multi-Entity Change Order under the standard Multi-Entity Expansion schedule (Paid Enclave list $3,500/yr, subject to published volume tiers). Path B fees are non-creditable against annual Command ACV except as separately stated in a conversion exhibit.
 
 ## Success criteria (exactly 2 or 3)
 

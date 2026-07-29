@@ -18,6 +18,12 @@ export type QuickProvisionCorporateWorkspaceInput = {
   email: string;
   name: string;
   slugRaw: string;
+  /**
+   * When set, creates a Subtenant Enclave under this Primary and enforces the
+   * Path B / Command Subtenant hard-cap. Omit for Path B Primary (AGREED handoff).
+   */
+  parentTenantSlug?: string | null;
+  commercialTier?: string | null;
 };
 
 export type QuickProvisionCorporateWorkspaceResult =
@@ -73,6 +79,8 @@ export async function quickProvisionCorporateWorkspaceCore(
     operatorId: input.operatorId,
     auditAction: "QUICK_PROVISION_CORPORATE_WORKSPACE",
     skipInvitationGate: true,
+    parentTenantSlug: input.parentTenantSlug,
+    commercialTier: input.commercialTier,
   });
 
   let tenantAlreadyExisted = false;

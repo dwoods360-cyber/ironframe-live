@@ -15,6 +15,9 @@ export type ProvisionedTenantAdminRow = {
   aleBaselineCents: string;
   workspaceUrl: string;
   billingStatus: string | null;
+  enclaveRole: string;
+  commercialTier: string;
+  parentTenantId: string | null;
 };
 
 export async function listProvisionedTenantsForAdminAction(): Promise<
@@ -35,6 +38,9 @@ export async function listProvisionedTenantsForAdminAction(): Promise<
       slug: true,
       industry: true,
       ale_baseline: true,
+      enclaveRole: true,
+      commercialTier: true,
+      parentTenantId: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -55,6 +61,9 @@ export async function listProvisionedTenantsForAdminAction(): Promise<
       aleBaselineCents: t.ale_baseline.toString(),
       workspaceUrl: buildTenantSubdomainOrigin(t.slug, port),
       billingStatus: billingBySlug.get(t.slug) ?? null,
+      enclaveRole: t.enclaveRole,
+      commercialTier: t.commercialTier,
+      parentTenantId: t.parentTenantId,
     })),
   };
 }

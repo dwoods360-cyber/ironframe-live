@@ -17,6 +17,108 @@ export const PLANNED_GA_COMMAND_CENTS = '3500000' as const;
 export const PLANNED_GA_GROWTH_USD = 75_000 as const;
 export const PLANNED_GA_GROWTH_CENTS = '7500000' as const;
 
+/**
+ * Dual-motion Command packaging (entity / enclave entitlements).
+ * Primary Entity = billing control plane. Subtenant Enclave = isolated operating entity.
+ * Paid Enclave volume tiers apply only beyond Core's included Subtenant Enclaves.
+ */
+export const COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES = 3 as const;
+export const COMMAND_CORE_TOTAL_ENTITIES = 4 as const; // 1 Primary + 3 Subtenants
+export const PAID_ENCLAVE_LIST_USD = 3_500 as const;
+export const PAID_ENCLAVE_VOLUME_11_50_USD = 2_625 as const; // −25%
+export const PAID_ENCLAVE_FLOOR_USD = 1_750 as const; // −50% / volume floor (51+)
+export const COMMAND_MULTI_USD = 55_000 as const;
+export const COMMAND_MULTI_MAX_ENTITIES = 10 as const;
+export const COMMAND_ENTERPRISE_USD = 95_000 as const;
+export const COMMAND_ENTERPRISE_MAX_ENTITIES = 25 as const;
+
+/** Path B cohort seat — hard commercial cap (not unlimited portfolio load). */
+export const PATH_B_PRIMARY_ENTITIES = 1 as const;
+export const PATH_B_INCLUDED_SUBTENANT_ENCLAVES = 2 as const;
+
+/** Partner book annual commits (MSSP MSA required — not for holding-co diversion). */
+export const PARTNER_SILVER_USD = 50_000 as const;
+export const PARTNER_SILVER_ENCLAVES = 15 as const;
+export const PARTNER_SILVER_OVERAGE_USD = 2_800 as const;
+export const PARTNER_SILVER_WORM_GB = 375 as const; // 15 × 25
+export const PARTNER_GOLD_USD = 100_000 as const;
+export const PARTNER_GOLD_ENCLAVES = 40 as const;
+export const PARTNER_GOLD_OVERAGE_USD = 2_100 as const;
+export const PARTNER_GOLD_WORM_GB = 1_024 as const; // 1 TB pool
+export const PARTNER_PLATINUM_USD = 200_000 as const;
+export const PARTNER_PLATINUM_ENCLAVES = 100 as const;
+export const PARTNER_PLATINUM_OVERAGE_USD = 1_500 as const;
+export const PARTNER_PLATINUM_WORM_GB = 2_560 as const; // 2.5 TB = 100 × 25
+
+/**
+ * Commercial tier codes persisted on Tenant.commercialTier.
+ * Drive Subtenant Enclave hard-caps in provisionCorporateTenantCore.
+ */
+export const COMMERCIAL_TIER = {
+  PATH_B: 'PATH_B',
+  COMMAND_CORE: 'COMMAND_CORE',
+  COMMAND_MULTI: 'COMMAND_MULTI',
+  COMMAND_ENTERPRISE: 'COMMAND_ENTERPRISE',
+  PARTNER_SILVER: 'PARTNER_SILVER',
+  PARTNER_GOLD: 'PARTNER_GOLD',
+  PARTNER_PLATINUM: 'PARTNER_PLATINUM',
+  /** Multi-Entity Change Order / internal — uncapped. */
+  UNLIMITED: 'UNLIMITED',
+} as const;
+
+export type CommercialTierCode = (typeof COMMERCIAL_TIER)[keyof typeof COMMERCIAL_TIER];
+
+export const ENCLAVE_ROLE = {
+  PRIMARY: 'PRIMARY',
+  SUBTENANT: 'SUBTENANT',
+} as const;
+
+export type EnclaveRoleCode = (typeof ENCLAVE_ROLE)[keyof typeof ENCLAVE_ROLE];
+
+/** Default max Subtenant Enclaves per commercial tier (Primary not counted). */
+export const SUBTENANT_ENCLAVE_CAP_BY_TIER: Record<CommercialTierCode, number> = {
+  PATH_B: PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
+  COMMAND_CORE: COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
+  COMMAND_MULTI: COMMAND_MULTI_MAX_ENTITIES - 1,
+  COMMAND_ENTERPRISE: COMMAND_ENTERPRISE_MAX_ENTITIES - 1,
+  PARTNER_SILVER: PARTNER_SILVER_ENCLAVES,
+  PARTNER_GOLD: PARTNER_GOLD_ENCLAVES,
+  PARTNER_PLATINUM: PARTNER_PLATINUM_ENCLAVES,
+  UNLIMITED: Number.MAX_SAFE_INTEGER,
+};
+
+/** Fair-use infrastructure per active enclave (COGS guardrails). */
+export const WORM_INCLUDED_GB_PER_ENCLAVE_YEAR = 25 as const;
+export const WORM_EXPANSION_GB_BLOCK = 50 as const;
+export const WORM_EXPANSION_USD_PER_BLOCK_MONTH = 25 as const;
+export const WORM_EXPANSION_USD_PER_BLOCK_YEAR = 250 as const;
+export const INGEST_INCLUDED_EVENTS_PER_ENCLAVE_MONTH = 5_000_000 as const;
+export const INGEST_EXPANSION_EVENTS_BLOCK = 5_000_000 as const;
+export const INGEST_EXPANSION_USD_PER_BLOCK_MONTH = 20 as const;
+
+/**
+ * Multi-year discounts are NOT on the published price book yet.
+ * Founder/CFO discretionary only; never on Path B.
+ */
+export const MULTI_YEAR_PUBLISHED_DISCOUNT = false as const;
+export const MULTI_YEAR_PATH_B_ELIGIBLE = false as const;
+export const MULTI_YEAR_DISCRETIONARY_2YR_MAX_PCT = 10 as const;
+export const MULTI_YEAR_DISCRETIONARY_3YR_MAX_PCT = 15 as const;
+
+/** Paste-ready Path B entity scope lock for order forms / counsel packet. */
+export function pathBEntityScopeLockText(): string {
+  return (
+    `The Command Design Partner seat (${formatPathBUsd()} flat / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days) ` +
+    `includes active deployment for ${PATH_B_PRIMARY_ENTITIES} Primary Entity + up to ` +
+    `${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves. Subtenant expansion beyond this ` +
+    `threshold is strictly excluded during the review period and cannot be provisioned via ad-hoc ` +
+    `requests. Additional enclaves require an executed Multi-Entity Change Order under the standard ` +
+    `Multi-Entity Expansion schedule (Paid Enclave list ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr, ` +
+    `subject to published volume tiers). Path B fees are non-creditable against annual Command ACV ` +
+    `except as separately stated in a conversion exhibit.`
+  );
+}
+
 /** Customer-facing package labels (Phase 2+ catalog). */
 export const CUSTOMER_PACKAGE_LABELS = [
   'Command',

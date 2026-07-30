@@ -11,6 +11,10 @@ test-results
 .vscode
 debug.zip
 *.md
+# IronBoard federates claim bans + sales-enablement from monorepo docs/
+!docs/
+!docs/**/
+!docs/**/*.md
 .env
 .env.*
 !.env.production

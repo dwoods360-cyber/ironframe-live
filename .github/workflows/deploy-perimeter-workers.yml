@@ -11,6 +11,8 @@ on:
       - "SuccessTeam/**"
       - "SupportTeam/**"
       - "lib/ironframeProductKnowledge/**"
+      - "docs/**"
+      - ".dockerignore"
       - ".github/workflows/deploy-perimeter-workers.yml"
 
 env:

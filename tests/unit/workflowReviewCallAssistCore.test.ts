@@ -24,15 +24,19 @@ describe("workflowReviewCallAssistCore", () => {
     const capacity = assistWorkflowReviewQuestion(
       "What's the maximum number of clients we can run?",
     );
-    expect(capacity.answer.toLowerCase()).toMatch(/no hardcoded maximum/);
-    expect(capacity.answer).toMatch(/RLS|Ironguard/);
-    expect(capacity.answer.toLowerCase()).not.toContain("cohort");
+    expect(capacity.answer.toLowerCase()).toMatch(
+      /no platform technical ceiling|commercial entitlement is capped/,
+    );
+    expect(capacity.answer).toMatch(/Primary Entity|Subtenant/);
+    expect(capacity.answer.toLowerCase()).toMatch(/do not promise unlimited enclaves/);
     expect(capacity.banNote?.toLowerCase()).toMatch(/saas kb/);
 
     const loadQ = assistWorkflowReviewQuestion(
       "What is the maximum number of clients we can load into the Ironframe system?",
     );
-    expect(loadQ.answer.toLowerCase()).toMatch(/no hardcoded maximum/);
+    expect(loadQ.answer.toLowerCase()).toMatch(
+      /no platform technical ceiling|commercial entitlement is capped/,
+    );
     expect(loadQ.banNote?.toLowerCase()).toMatch(/saas kb/);
 
     const hitl = assistWorkflowReviewQuestion("Will the AI agent auto-send emails?");

@@ -79,6 +79,7 @@ npm run dev:fleet    # :8082–:8086 workers
 - Runtime loads LangGraph poll pipelines via **dynamic import** after listen (avoids stuck `BOOTING` when graph/SQLite init is slow).
 - Deploy workflow verifies `GET /health` returns `"ok": true` after each Cloud Run revision (fail the job if not).
 - Poll worker images are built from **monorepo root** (`docker build -f <Worker>/Dockerfile .`) so `lib/ironframeProductKnowledge` is present for commercial/beachhead imports.
+- Ironboard also `COPY docs ./docs` so Cloud Run federates `docs/sales-enablement/message-constitution.md` (claim bans), pricing maps, and published Governance Frame research. `.dockerignore` must keep `!docs/**/*.md` or the copy is empty.
 
 ### Production poll env (set by deploy workflow)
 

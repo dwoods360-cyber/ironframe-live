@@ -12,6 +12,8 @@ COPY lib/crm ./lib/crm
 COPY lib/ironframeProductKnowledge ./lib/ironframeProductKnowledge
 COPY lib/governanceFrame ./lib/governanceFrame
 COPY config/governanceFramePublic.ts ./config/governanceFramePublic.ts
+# Federation root: resolveDocsRoot() → /app/docs (message-constitution claim bans, pricing, published briefings)
+COPY docs ./docs
 RUN npm install --no-save prisma@6.19.2 @prisma/client@6.19.2 \
   && npx prisma generate
 

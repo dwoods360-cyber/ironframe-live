@@ -211,6 +211,9 @@ function buildDocsFederationMatrix(): string {
   const messageConstitution = readDoc(
     path.join(docsRoot, 'sales-enablement', 'message-constitution.md'),
   );
+  const controlToCapital = readDoc(
+    path.join(docsRoot, 'sales', 'control-to-capital-market-narrative.md'),
+  );
   const loaded = [
     tas,
     trd,
@@ -222,6 +225,7 @@ function buildDocsFederationMatrix(): string {
     pricingPackaging,
     competitivePricingMap,
     messageConstitution,
+    controlToCapital,
   ].filter(Boolean).length;
   console.log(`[IRONBOARD DOCS] Loaded ${loaded} markdown file(s).`);
 
@@ -241,6 +245,9 @@ function buildDocsFederationMatrix(): string {
       : '',
     messageConstitution
       ? `\n── MESSAGE CONSTITUTION / BEACHHEAD DRAFTING AUTHORITY (SALES-ENABLEMENT) ──\n${messageConstitution}`
+      : '',
+    controlToCapital
+      ? `\n── CONTROL-TO-CAPITAL MARKET NARRATIVE (CLAIM BANS + BUYER-SAFE WEDGE) ──\n${controlToCapital}`
       : '',
     marketingLibrary
       ? `\n── MARKETING STRATEGY LIBRARY (GTM + STORYBRAND) ──\n${marketingLibrary}`

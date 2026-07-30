@@ -69,6 +69,13 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
     items: [
       {
         kind: "markdown",
+        slug: "ops-surface-map",
+        title: "Ops surface map (what each screen is for)",
+        summary: "One job per screen + daily 5-min check. Start here if the queues confuse you.",
+        file: "design-partner-ops-surface-map.md",
+      },
+      {
+        kind: "markdown",
         slug: "pre-outreach-run-order",
         title: "Pre-outreach dry-run (run order)",
         summary: "R1–R8 click-through. Hard gates before first real send.",
@@ -330,6 +337,7 @@ export function listMarkdownLibraryEntries(): Array<{
 /** Filename-style slugs operators paste from docs/ paths → library catalog slug. */
 const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
   "design-partner-icp-shortlist": "icp-shortlist",
+  "design-partner-ops-surface-map": "ops-surface-map",
   "design-partner-operator-launch-checklist": "operator-launch-checklist",
   "design-partner-pre-outreach-run-order": "pre-outreach-run-order",
   "design-partner-outreach-sequence": "outreach-sequence",

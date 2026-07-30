@@ -11,15 +11,18 @@ Keep public instant checkout and counsel D0 **off** until counsel returns.
 
 ## Surfaces
 
+**How to use them together (what / look for):** [Ops surface map](../sales/design-partner-ops-surface-map.md) · in-app `/dashboard/operations/library/ops-surface-map`
+
 | Step | URL |
 |------|-----|
+| Ops surface map | `/dashboard/operations/library/ops-surface-map` |
 | Ironleads harvest | `/dashboard/operations/ironleads` |
 | SalesTeam poll | `/dashboard/operations/salesteam` |
 | Approvals | `/dashboard/admin/approvals?kind=SALES` |
 | LIVE desk | `/dashboard/operations/workflow-review` |
 | Order form | `/dashboard/operations/library/order-form` |
 | Provision | `/admin/onboarding` |
-| ICP shortlist §D | `/dashboard/operations/library/icp-shortlist` |
+| ICP shortlist §A/§D | `/dashboard/operations/library/icp-shortlist` |
 | First-close Packet handoff | `/dashboard/operations/library/first-close-handoff` |
 | Operator checklist | [design-partner-operator-launch-checklist.md](../sales/design-partner-operator-launch-checklist.md) |
 

@@ -50,8 +50,11 @@ This checklist is the batch/send cadence after that run order is GO.
 
 ## Surfaces
 
+**Start here for “what is each screen for”:** [Ops surface map](./design-partner-ops-surface-map.md) · `/dashboard/operations/library/ops-surface-map`
+
 | Step | URL / tool |
 |------|------------|
+| Ops surface map | `/dashboard/operations/library/ops-surface-map` |
 | Operator library | `/dashboard/operations/library` |
 | Pre-outreach dry-run | `/dashboard/operations/library/pre-outreach-run-order` · [run order md](./design-partner-pre-outreach-run-order.md) |
 | GTM glossary | `/dashboard/operations/library/gtm-operator-glossary` · [glossary md](./design-partner-gtm-operator-glossary.md) |

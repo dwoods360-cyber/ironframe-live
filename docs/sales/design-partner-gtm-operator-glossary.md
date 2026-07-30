@@ -2,7 +2,7 @@
 
 **Audience:** Human GTM hosts + Ops Hub readers.  
 **Not for:** Partner tenants (they use [`/docs/user-manuals/glossary`](/docs/user-manuals/glossary)).  
-**Companions:** [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [Operator library](/dashboard/operations/library) · [Workforce briefing](./design-partner-workforce-briefing.md)
+**Companions:** [Ops surface map](./design-partner-ops-surface-map.md) · [Pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [Operator library](/dashboard/operations/library) · [Workforce briefing](./design-partner-workforce-briefing.md)
 
 Short definitions for the Path B design-partner motion. If a term conflicts with partner docs, **partner-facing language wins on calls**; this page is for operators.
 

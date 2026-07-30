@@ -196,6 +196,27 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
     items: [
       {
         kind: "markdown",
+        slug: "control-to-capital",
+        title: "Control-to-Capital narrative",
+        summary: "Buyer-safe market claims — what to say / never say.",
+        file: "control-to-capital-market-narrative.md",
+      },
+      {
+        kind: "markdown",
+        slug: "heatmap-amnesty",
+        title: "Heatmap Amnesty campaign",
+        summary: "Landing copy + 3-touch CISO/CFO email sequence.",
+        file: "heatmap-amnesty-campaign.md",
+      },
+      {
+        kind: "href",
+        slug: "heatmap-amnesty-live",
+        title: "Heatmap Amnesty (live page)",
+        summary: "Public Priority-1 Path B landing.",
+        href: "/marketing/heatmap-amnesty",
+      },
+      {
+        kind: "markdown",
         slug: "sales-enablement",
         title: "Sales enablement",
         summary: "Operator talking points and enablement notes.",

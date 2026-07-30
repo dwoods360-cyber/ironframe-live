@@ -23,6 +23,10 @@ const config: Config = {
         foreground: "var(--foreground)",
       },
       keyframes: {
+        fadeIn: {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         "ironframe-processing-pulse": {
           "0%, 100%": { opacity: "1", filter: "brightness(1)" },
           "50%": { opacity: "0.7", filter: "brightness(1.5)" },
@@ -42,6 +46,7 @@ const config: Config = {
         },
       },
       animation: {
+        fadeIn: "fadeIn 0.55s ease-out both",
         "pulse-amber": "ironframe-processing-pulse 0.4s ease-in-out infinite",
         "flash-green": "ironframe-verify-flash 0.6s ease-in-out forwards",
         "ironwatch-pulse-slow": "ironwatch-pulse-breathe-slow 2.8s ease-in-out infinite",

@@ -35,7 +35,7 @@ const WORKFLOW_STEPS = [
 const COMMITTEE_DEFENSIBLES = [
   {
     title: "Whole-cent financial exposure",
-    desc: "Replace qualitative high/medium/low heatmaps with documented dollar-loss exposure operators can defend to a board or examiner.",
+    desc: "Documented estimated dollar-loss exposure in whole cents — heatmaps can stay as context; they should not be the only board decision layer.",
   },
   {
     title: "Connected evidence chain",
@@ -122,6 +122,12 @@ export default function MarketingHomepage({
           Proof
         </a>
         <Link
+          href="/marketing/heatmap-amnesty"
+          className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
+        >
+          Heatmap Amnesty
+        </Link>
+        <Link
           href="/product-demo"
           className="inline-flex min-h-[44px] shrink-0 items-center transition-colors hover:text-[var(--text-main)]"
         >
@@ -159,8 +165,8 @@ export default function MarketingHomepage({
           from bleeding into one register.
         </p>
         <p className="mx-auto max-w-2xl text-base leading-relaxed text-[var(--login-muted)] sm:text-lg">
-          Replace 5×5 heatmap theater with quantified exposure, connected evidence, and board-ready
-          output under zero-trust isolation.
+          Put estimated exposure, connected evidence, and board-ready output under zero-trust
+          isolation — so color charts are context, not the capital conversation.
         </p>
         <div className="flex w-full flex-col items-stretch justify-center gap-4 pt-6 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
           <Link
@@ -199,12 +205,12 @@ export default function MarketingHomepage({
             The board problem
           </h2>
           <h3 className="mb-4 max-w-3xl text-2xl font-bold tracking-tight text-[var(--text-main)] sm:text-3xl">
-            Spreadsheets and qualitative color charts fail at the board level
+            Spreadsheets and color charts alone fail the capital conversation
           </h3>
           <p className="max-w-3xl text-sm leading-relaxed text-[var(--login-muted)] sm:text-base">
-            Ironframe replaces arbitrary high/medium/low scores with deterministic dollar-loss
-            exposure — whole-cent financial quantification, connected evidence, and isolation that
-            MSSP directors and CISOs can defend under diligence.
+            Ironframe makes estimated dollar-loss exposure — whole cents, assumptions visible — the
+            decision layer beside connected evidence and isolation MSSP directors and CISOs can
+            defend under diligence. Heatmaps can remain context.
           </p>
         </div>
       </section>

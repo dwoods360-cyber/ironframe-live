@@ -75,7 +75,7 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     match:
       /board\s*(pack|report|number)|heatmap|qualitative\s*risk|5\s*[x×]\s*5|loss\s*exposure|annualized\s*loss/i,
     answer:
-      "Board-facing math is integer cents (BigInt) — not qualitative 5×5 heatmaps as the truth layer. Exposure tracks to dollar boundaries from live constraints; narrative agents don’t invent ALE.",
+      "Board-facing math is whole-cent estimated loss exposure (BigInt) — heatmaps can stay as context, but they are not the decision layer. Prefer exposure ranges with visible assumptions over a single ‘true ALE.’ Narrative agents don’t invent dollars. SEC materiality includes quantitative and qualitative factors — quantification helps defensibility; it does not require FAIR.",
   },
   {
     id: "docs-training",

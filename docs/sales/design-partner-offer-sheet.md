@@ -7,7 +7,7 @@
 
 ## Offer (one breath)
 
-Ironframe is recruiting a small cohort of **multi-entity GRC operators** into **Command Design Partner** (internal SKU: **Path B**) — board-grade dollar risk, tenant-isolated enclaves, auditor-ready exports. Not another checkbox automation shelf.
+Ironframe is recruiting a small cohort of **multi-entity GRC operators** into **Command Design Partner** (internal SKU: **Path B**) — estimated loss exposure in whole cents, hard tenant enclaves, auditor-ready exports in one daily command loop. Not another checkbox shelf, and not a claim that “nobody else quantifies risk.”
 
 | Item | Term |
 |------|------|
@@ -23,23 +23,30 @@ Ironframe is recruiting a small cohort of **multi-entity GRC operators** into **
 
 1. Produce a clean **Ironquery analyst export** usable in a board pack or audit binder.  
 2. Cut vendor / security **questionnaire turnaround** with governed evidence paths.  
-3. Stand up **BigInt ALE** for one primary entity the board can defend in dollars.  
+3. Stand up **estimated loss exposure in whole cents** for one primary entity the board can defend (assumptions visible — not a single “true ALE”).  
 4. Prove **tenant isolation** for multi-entity / MSSP-style client boundaries.
 
 ## Channel blurbs (copy-paste)
 
 ### Warm network / advisor ask
 
-> Who do you know among **multi-entity GRC operators** stuck in spreadsheets or heatmap GRC — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
+> Who do you know among **multi-entity GRC operators** still using heatmap-only packs as the board *decision* layer — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs) for whole-cent exposure + hard enclaves? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
 
 ### Auditor / consultant intro
 
-> Looking for 1–2 mid-market **multi-entity GRC operators** where audit evidence and board dollar-risk still live in spreadsheets. Ironframe offers **Command Design Partner** ($4,999 Path B) with bounded syncs and a clear convert-or-exit window — useful when you need a referenceable quantified stack, not another checklist tool. Happy to keep you in the loop after one clean pilot.
+> Looking for 1–2 mid-market **multi-entity GRC operators** where audit evidence and board dollar-risk still live in spreadsheets. Ironframe offers **Command Design Partner** ($4,999 Path B) with bounded syncs and a clear convert-or-exit window — useful when you need referenceable estimated exposure + isolation, not another checklist tool. Happy to keep you in the loop after one clean pilot.
 
 ### Cold co-builder open (subject options)
 
+- Heatmap Amnesty — board risk in dollars, not tiles  
 - Command Design Partner ($4,999 Path B) — workflow review, not a demo  
 - Multi-entity GRC co-builder — 90-day window, roadmap influence  
+
+### Co-builder talk-track (Control-to-Capital)
+
+> Mid-market multi-entity operators stitch together compliance checkboxes + separate CRQ math + long IRM rollouts. Path B is a paid co-builder command post where **whole-cent estimated exposure**, **hard tenant enclaves**, and **auditor-ready exports** are the default daily loop — flat $4,999 on-ramp.
+
+**Claim bans:** “most urgent unmet need,” “proves,” “competitors cannot,” “true ALE,” “SEC requires FAIR.” Full sheet: [Control-to-Capital narrative](./control-to-capital-market-narrative.md) · [Heatmap Amnesty campaign](./heatmap-amnesty-campaign.md) · public `/marketing/heatmap-amnesty`
 
 ## Path after “yes”
 

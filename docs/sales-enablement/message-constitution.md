@@ -2,7 +2,7 @@
 Document Type: Sales Enablement Documentation
 Status: ACTIVE
 Security Classification: INTERNAL ONLY (Tenant Boundaries Enforced)
-Last Updated: 2026-07-14
+Last Updated: 2026-07-30
 ---
 
 # Message Constitution — Beachhead Drafting Authority
@@ -57,6 +57,20 @@ After code edits: rebuild/restart the SalesTeam worker so `:8084` poll cycles lo
 - PENDING partners: tenant-scoped Path B link — never generic `/pricing`.
 - Operator email: client-owned only (not `@ironframegrc.com`).
 - Customer is hero; Ironframe is guide only (StoryBrand for drafts; stripped diligence on the call).
+
+### Claim bans (market narrative — 2026-07-30)
+
+Do **not** put in drafts or board advice:
+
+- “most urgent unmet need,” “proves,” “competitors cannot / must rewrite”
+- “true ALE,” “SEC requires FAIR / dollars”
+- “boards are rejecting heatmaps” (say: heatmaps alone aren’t the decision layer)
+- “nobody builds multi-tenant GRC” / “standard tools are single-entity only” (universal)
+- Cherry-picked precise CAGRs without a named source
+
+Canonical framing: [Control-to-Capital narrative](../sales/control-to-capital-market-narrative.md) · [Heatmap Amnesty](../sales/heatmap-amnesty-campaign.md) · `/marketing/heatmap-amnesty`
+
+Lead with **estimated whole-cent exposure + hard enclaves**; framework crosswalk is supporting proof only.
 
 ## Beachhead sectors (code keys)
 

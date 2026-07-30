@@ -2,7 +2,9 @@
 
 **Rule:** SalesTeam / Approvals draft only — never auto-send. Operator DISPATCH after review.  
 **Commercial lock:** Path B **$4,999** · planned GA **~$35k/yr** · CTA = **10–15 min workflow review**.  
-**Ban:** demo slugs, free pilot, “fastest certification,” seat/month licensing language.
+**Ban:** demo slugs, free pilot, “fastest certification,” seat/month licensing language.  
+**Priority-1 CISO/CFO sequence:** use [Heatmap Amnesty campaign](./heatmap-amnesty-campaign.md) copy (landing `/marketing/heatmap-amnesty`) when board-dollar exposure is the wedge — same HITL DISPATCH rules.  
+**Doctrine:** [Control-to-Capital narrative](./control-to-capital-market-narrative.md)
 
 SalesTeam `outboundDraftsman` generates Touch 1–shaped first drafts. Use this file for follow-ups and SMS variants in Approvals.
 
@@ -92,4 +94,4 @@ If timing is better after {{audit-or-board-event}}, a 10–15 min workflow revie
 | CTA | Workflow review — not 20-min demo / free pilot |
 | PENDING tenants | After yes → provision + Path B link, **not** `/pricing` |
 
-**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)
+**Related:** [Offer sheet](./design-partner-offer-sheet.md) · [Heatmap Amnesty](./heatmap-amnesty-campaign.md) · [Control-to-Capital](./control-to-capital-market-narrative.md) · [Workflow review protocol](./design-partner-workflow-review-protocol.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md)

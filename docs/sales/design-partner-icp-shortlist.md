@@ -22,7 +22,7 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 ## A. Warm cross-section (fill contacts first — highest conversion)
 
 **Shape (locked 2026-07-29):** exactly **five companies**, one per beachhead slice — **MSSP · BHC · UTIL · HEALTH · OTHER**.  
-**Operator action (before B2 / live DISPATCH):** paste a **named buyer** + email (or warm intro path) for each row. Companies below are research anchors, not assumed leads. Use the warm-ask from the [offer sheet](./design-partner-offer-sheet.md).
+**Operator action (before B2 / live DISPATCH):** paste a **named buyer** + email (or warm intro path) for each row. Companies below are research anchors, not assumed leads. Use the warm-ask from the [offer sheet](./design-partner-offer-sheet.md); for CISO/CFO board-pack pain use [Heatmap Amnesty](./heatmap-amnesty-campaign.md) (`/marketing/heatmap-amnesty`).
 
 | # | Company | Seg | Contact / title | Email / phone | Warm path | Pri | Stage | Notes |
 |---|---------|-----|-----------------|---------------|-----------|-----|-------|-------|
@@ -36,7 +36,7 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 **Warm-ask (copy):**
 
-> Who do you know among **MSSPs / multi-entity banks / utilities / health systems** stuck in spreadsheets or heatmap GRC — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs)? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
+> Who do you know among **MSSPs / multi-entity banks / utilities / health systems** still using heatmap-only packs as the board *decision* layer — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs) for whole-cent estimated exposure + hard enclaves? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
 
 ---
 

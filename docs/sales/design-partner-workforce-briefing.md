@@ -5,7 +5,7 @@
 **Commercial lock:** Command Tier / Path B **$4,999** · planned GA **~$35k/yr** · **3–5** co-builders · **90-day** default window (floor 60 if scoped in writing) · **2–3** success criteria  
 **GTM rule:** **Multiple acquisition channels · one partner program** (never a free forever cohort beside Path B)
 
-Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer sheet](./design-partner-offer-sheet.md) · [outreach sequence](./design-partner-outreach-sequence.md) · [workflow review protocol](./design-partner-workflow-review-protocol.md) · [order form](./design-partner-order-form.md) · [launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md) · [pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
+Canonical human docs: [recruitment](./design-partner-recruitment.md) · [offer sheet](./design-partner-offer-sheet.md) · [Control-to-Capital](./control-to-capital-market-narrative.md) · [Heatmap Amnesty](./heatmap-amnesty-campaign.md) · [outreach sequence](./design-partner-outreach-sequence.md) · [workflow review protocol](./design-partner-workflow-review-protocol.md) · [order form](./design-partner-order-form.md) · [launch checklist](./design-partner-operator-launch-checklist.md) · [ICP shortlist](./design-partner-icp-shortlist.md) · [pre-outreach run order](./design-partner-pre-outreach-run-order.md) · [GTM operator glossary](./design-partner-gtm-operator-glossary.md)
 
 **Ops Hub surfaces:** Operator library `/dashboard/operations/library` · LIVE call assist `/dashboard/operations/workflow-review`
 

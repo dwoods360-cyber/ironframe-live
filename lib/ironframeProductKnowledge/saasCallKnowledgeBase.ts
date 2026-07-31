@@ -1,6 +1,7 @@
 /**
  * Curated SaaS facts for LIVE Pocket Q&A (workflow-review sidecar).
- * Spoken, short answers only — no invented certs, customers, soft “max clients,” or free pilots.
+ * Spoken, short answers only — grounded in commercial.ts / productFacts.
+ * No invented certs, customers, soft “max clients,” or free pilots.
  * Edit here when product Qs keep arising on calls; unit tests assert lookup behavior.
  */
 
@@ -8,21 +9,49 @@ import {
   COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
   COMMAND_CORE_TOTAL_ENTITIES,
   COMMAND_ENTERPRISE_MAX_ENTITIES,
+  COMMAND_ENTERPRISE_USD,
   COMMAND_MULTI_MAX_ENTITIES,
+  COMMAND_MULTI_USD,
   CUSTOMER_FACING_PATH_B_SKU,
+  DESIGN_PARTNER_COHORT_SEATS,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  DESIGN_PARTNER_MIN_WINDOW_DAYS,
   DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
+  INGEST_EXPANSION_EVENTS_BLOCK,
+  INGEST_EXPANSION_USD_PER_BLOCK_MONTH,
+  INGEST_INCLUDED_EVENTS_PER_ENCLAVE_MONTH,
+  PAID_ENCLAVE_FLOOR_USD,
   PAID_ENCLAVE_LIST_USD,
+  PAID_ENCLAVE_VOLUME_11_50_USD,
+  PARTNER_GOLD_ENCLAVES,
+  PARTNER_GOLD_OVERAGE_USD,
+  PARTNER_GOLD_USD,
+  PARTNER_PLATINUM_ENCLAVES,
+  PARTNER_PLATINUM_OVERAGE_USD,
+  PARTNER_PLATINUM_USD,
+  PARTNER_SILVER_ENCLAVES,
+  PARTNER_SILVER_OVERAGE_USD,
+  PARTNER_SILVER_USD,
   PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
   PATH_B_PRIMARY_ENTITIES,
+  PLANNED_GA_COMMAND_USD,
+  PLANNED_GA_GROWTH_USD,
+  WORM_EXPANSION_GB_BLOCK,
+  WORM_EXPANSION_USD_PER_BLOCK_MONTH,
+  WORM_EXPANSION_USD_PER_BLOCK_YEAR,
+  WORM_INCLUDED_GB_PER_ENCLAVE_YEAR,
+  WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
+  formatPlannedGaCommandUsd,
   formatUsdWhole,
+  formatYear1CommandBalanceUsd,
 } from "./commercial";
 import {
   DOCS_HUB_HREF,
   PARTNER_GET_STARTED_HREF,
   PARTNER_OPERATOR_PACKET_HREF,
   PARTNER_TRAINING_INDEX_HREF,
+  PRODUCT_DIFFERENTIATORS,
   PRODUCT_NAME,
 } from "./productFacts";
 
@@ -47,13 +76,68 @@ export function saasCapacityClientsTenantsAnswer(): string {
     `(${COMMAND_CORE_TOTAL_ENTITIES} total). Beyond Core, Paid Enclaves start at ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr ` +
     `(published volume tiers), or Command Multi / Enterprise book (${COMMAND_MULTI_MAX_ENTITIES} / ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities) ` +
     `or Partner book for true MSSPs. Do not promise unlimited enclaves at flat Core. Do not quote the company-wide ` +
-    `Design Partner co-builder seat count (3–5) as a client/tenant ceiling.`
+    `Design Partner co-builder seat count (${DESIGN_PARTNER_COHORT_SEATS}) as a client/tenant ceiling.`
+  );
+}
+
+export function saasCommandCorePackagingAnswer(): string {
+  return (
+    `Planned GA Command Core is ${formatUsdWhole(PLANNED_GA_COMMAND_USD)}/yr — always say “planned GA” until commercial GA is on. ` +
+    `Includes ${PATH_B_PRIMARY_ENTITIES} Primary Entity + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves ` +
+    `(${COMMAND_CORE_TOTAL_ENTITIES} total). Entry today is still ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} ` +
+    `for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with a ${PATH_B_PRIMARY_ENTITIES}+${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} hard cap.`
+  );
+}
+
+export function saasPaidEnclaveAnswer(): string {
+  return (
+    `Paid Enclave list is ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr per additional Subtenant beyond Command Core’s included three. ` +
+    `Volume: ${formatUsdWhole(PAID_ENCLAVE_VOLUME_11_50_USD)} (11–50 Paid) and ${formatUsdWhole(PAID_ENCLAVE_FLOOR_USD)} floor (51+). ` +
+    `During ${CUSTOMER_FACING_PATH_B_SKU}, expansion beyond ${PATH_B_PRIMARY_ENTITIES}+${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} needs a written Multi-Entity Change Order — not ad-hoc upload.`
+  );
+}
+
+export function saasCommandMultiEnterpriseAnswer(): string {
+  return (
+    `Planned GA quote masks: Command Multi ${formatUsdWhole(COMMAND_MULTI_USD)}/yr up to ${COMMAND_MULTI_MAX_ENTITIES} entities; ` +
+    `Command Enterprise ${formatUsdWhole(COMMAND_ENTERPRISE_USD)}/yr up to ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities. ` +
+    `These are holding-co / mid-market books over Core + Paid Enclave math — label planned GA. ` +
+    `Today’s paid entry remains ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()}.`
+  );
+}
+
+export function saasPartnerBookAnswer(): string {
+  return (
+    `MSSP / managed Partner book (requires Partner MSA; enclaves = unaffiliated end-clients, not buyer subsidiaries): ` +
+    `Silver ${formatUsdWhole(PARTNER_SILVER_USD)}/yr · ${PARTNER_SILVER_ENCLAVES} enclaves · overage ${formatUsdWhole(PARTNER_SILVER_OVERAGE_USD)}/enclave/yr; ` +
+    `Gold ${formatUsdWhole(PARTNER_GOLD_USD)}/yr · ${PARTNER_GOLD_ENCLAVES} · ${formatUsdWhole(PARTNER_GOLD_OVERAGE_USD)}; ` +
+    `Platinum ${formatUsdWhole(PARTNER_PLATINUM_USD)}/yr · ${PARTNER_PLATINUM_ENCLAVES} · ${formatUsdWhole(PARTNER_PLATINUM_OVERAGE_USD)}. ` +
+    `Do not sell Partner book as a holding-company shortcut around Core.`
+  );
+}
+
+export function saasFairUseWormIngestAnswer(): string {
+  return (
+    `Fair-use per active enclave: WORM evidence ${WORM_INCLUDED_GB_PER_ENCLAVE_YEAR} GB/year included; expansion ` +
+    `${formatUsdWhole(WORM_EXPANSION_USD_PER_BLOCK_MONTH)}/${WORM_EXPANSION_GB_BLOCK} GB/month ` +
+    `(or ${formatUsdWhole(WORM_EXPANSION_USD_PER_BLOCK_YEAR)}/yr prepaid). ` +
+    `Telemetry ingest ${INGEST_INCLUDED_EVENTS_PER_ENCLAVE_MONTH.toLocaleString("en-US")} events/month included; expansion ` +
+    `${formatUsdWhole(INGEST_EXPANSION_USD_PER_BLOCK_MONTH)} per ${INGEST_EXPANSION_EVENTS_BLOCK.toLocaleString("en-US")} events/month. ` +
+    `Hard stop near 3× fair-use without an Expansion SKU — don’t invent unlimited storage.`
+  );
+}
+
+export function saasPocketTopicCatalog(): string {
+  return (
+    "capacity/enclaves · Command Core · Paid Enclave · Multi/Enterprise · Partner book · convert credit · " +
+    "window/eng syncs · fair-use WORM/ingest · modules · seats · isolation · SOC2 · HITL · hosting · " +
+    "integrations · docs · next-step gate · Growth/Sustainability"
   );
 }
 
 /**
- * Order matters: first regex win. Keep commercial locks in workflowReviewCallAssistCore
- * POCKET_QA (price / free pilot / SOC2 / demo gate); this KB covers product shape.
+ * Order matters: first regex win. Keep hard commercial locks in workflowReviewCallAssistCore
+ * POCKET_QA (free pilot / SOC2 / demo gate); this KB covers product + packaging shape.
  */
 export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
   {
@@ -64,11 +148,107 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     answer: saasCapacityClientsTenantsAnswer(),
   },
   {
+    id: "packaging-command-core",
+    topic: "Command Core packaging",
+    match:
+      /command\s*core|core\s*(sku|tier|package|pricing)|35,?000|\$35k|planned\s*ga\s*command(?!\s*multi|\s*enterprise)/i,
+    answer: saasCommandCorePackagingAnswer(),
+  },
+  {
+    id: "packaging-paid-enclave",
+    topic: "Paid Enclave add-on",
+    match:
+      /paid\s*enclave|additional\s*(sub)?tenant|extra\s*(enclave|entity|tenant)|3,?500|enclave\s*add[-\s]?on|volume\s*tier/i,
+    answer: saasPaidEnclaveAnswer(),
+  },
+  {
+    id: "packaging-multi-enterprise",
+    topic: "Command Multi / Enterprise",
+    match:
+      /command\s*multi|command\s*enterprise|55,?000|95,?000|up\s*to\s*(10|25)\s*(entities|tenants|enclaves)|enterprise\s*(sku|tier|package)/i,
+    answer: saasCommandMultiEnterpriseAnswer(),
+  },
+  {
+    id: "packaging-partner-book",
+    topic: "Partner / MSSP book",
+    match:
+      /partner\s*(silver|gold|platinum|book|msa)|mssp\s*(pricing|tier|book)|managed\s*partner|50,?000.*(enclave|partner)|100,?000.*(enclave|partner)|200,?000.*(enclave|partner)/i,
+    answer: saasPartnerBookAnswer(),
+  },
+  {
+    id: "convert-credit-year1",
+    topic: "Convert credit / year-1 Command",
+    match:
+      /convert\s*credit|year[-\s]?1|year\s*one|credit(ed)?\s*(toward|to|against)|paying\s*twice|30,?001|after\s*convert/i,
+    answer: (
+      `If they convert within the ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day window, the ${formatPathBUsd()} ` +
+      `${CUSTOMER_FACING_PATH_B_SKU} fee is a fixed convert credit to year-1 Command at planned GA list ` +
+      `(${formatPlannedGaCommandUsd()}/yr) — year-1 net ≈ ${formatYear1CommandBalanceUsd()}. ` +
+      `Not a negotiated %. Exit = fee non-refundable, no credit.`
+    ),
+  },
+  {
+    id: "window-eng-syncs",
+    topic: "Window / eng syncs",
+    match:
+      /how\s*long\s*(is\s*)?(the\s*)?(window|pilot|engagement)|90[-\s]?day|60[-\s]?day|eng(ineering)?\s*sync|weekly\s*sync|capped\s*sync/i,
+    answer: (
+      `${CUSTOMER_FACING_PATH_B_SKU} default window is ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days ` +
+      `(floor ${DESIGN_PARTNER_MIN_WINDOW_DAYS} if scoped in writing). Buyer-facing: say ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day — don’t lead with a 60–90 band. ` +
+      `Weekly eng syncs are capped (first 4–6 weeks), then async unless amended. Convert-or-exit on ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} written criteria.`
+    ),
+  },
+  {
+    id: "fair-use-worm-ingest",
+    topic: "Fair-use WORM / ingest",
+    match:
+      /worm|evidence\s*storage|storage\s*(limit|quota|included)|ingest(ion)?|telemetry\s*(limit|volume|events)|fair[-\s]?use|gb\s*per\s*enclave/i,
+    answer: saasFairUseWormIngestAnswer(),
+  },
+  {
+    id: "modules-capabilities",
+    topic: "Modules / capabilities",
+    match:
+      /governance\+|sustainability|ironbloom|vault\s*(module|sku|shield)|what\s*modules|packaging\s*modules|capability\s*track/i,
+    answer: (
+      `Capability modules (separate from entity count): Command (dashboard, active risks, pipeline, basic exports, isolation); ` +
+      `Governance+ (mapping, maturity, Ironquery export); Sustainability / Ironbloom (physical units — kWh, L, km); ` +
+      `Vault (dual-gate / PKI clearance UI); MSSP Platform sold via Partner book. ` +
+      `Planned GA Growth / Sustainability track ~${formatUsdWhole(PLANNED_GA_GROWTH_USD)}/yr is a capability track, not an entity-count SKU.`
+    ),
+  },
+  {
+    id: "no-seat-pricing",
+    topic: "Seats / users pricing",
+    match:
+      /per[-\s]?seat|seat\s*license|how\s*many\s*users|user\s*license|per[-\s]?month|monthly\s*(price|fee)|named\s*user/i,
+    answer: (
+      `No per-seat / per-month licensing. ${CUSTOMER_FACING_PATH_B_SKU} is a flat ${formatPathBUsd()} platform on-ramp; ` +
+      `planned GA Command is annual list by entity/enclave packaging, not named-user seats.`
+    ),
+  },
+  {
     id: "what-is-command",
     topic: "What is Command / Command Center",
     match:
       /what\s+is\s+(ironframe\s+)?command|command\s+center|command\s+tier|what\s+does\s+(the\s+)?(product|platform|saas)\s+do|what\s+is\s+ironframe/i,
-    answer: `${PRODUCT_NAME} Command is the control-first GRC operating plane: multi-tenant isolation, integer-cent loss exposure (BigInt ALE), Irongate sanitize-before-persist, and HITL perimeter workers. Entry today is ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days — co-builder seat, not a freemium sandbox.`,
+    answer: (
+      `${PRODUCT_NAME} is the control-first GRC operating plane: multi-tenant isolation, integer-cent loss exposure, ` +
+      `sanitize-before-persist ingest, and HITL perimeter workers — not heatmap theater. ` +
+      `Entry today is ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days. ` +
+      `Differentiators: ${PRODUCT_DIFFERENTIATORS.slice(0, 3).join("; ")}.`
+    ),
+  },
+  {
+    id: "who-for-beachhead",
+    topic: "Who it’s for / beachheads",
+    match:
+      /who\s*(is\s*)?(this|it)\s*for|ideal\s*customer|icp|beachhead|holding\s*co|fintech|healthcare|utility|nerc|hipaa|bhc/i,
+    answer: (
+      `${PRODUCT_NAME} beachheads: multi-entity / regional BHC, utility / NERC, MSSP enclaves, healthcare / HIPAA — ` +
+      `operators who need hard isolation and whole-cent board exposure, not checklist-only GRC. ` +
+      `Cohort is a small paid co-builder set (${DESIGN_PARTNER_COHORT_SEATS} seats), not unlimited free logos.`
+    ),
   },
   {
     id: "hitl-no-auto-send",
@@ -84,6 +264,17 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     match:
       /how\s*(long|fast).*(provision|stand\s*up|go[-\s]?live|onboard)|provision(ing)?\s*(time|speed|sla)|when\s*(do\s*we|can\s*we)\s*(get|have)\s*(access|a\s*tenant)/i,
     answer: `After a yes: order form with ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} written criteria and client-owned operator email → provision (SoD — seller does not self-provision) → Path B activation link to that tenant. Timing is ops-gated after payment and form lock, not “instant sandbox after this call.”`,
+  },
+  {
+    id: "next-step-gate",
+    topic: "Next step / order form / Path B link",
+    match:
+      /next\s*step|order\s*form|activation\s*link|path\s*b\s*link|after\s*(a\s*)?yes|how\s*do\s*we\s*(buy|sign|start)|\/pricing/i,
+    answer: (
+      `Gate after yes: order form with ${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} success criteria → provision with ` +
+      `client-owned operator email → tenant-scoped Path B activation link. Never send a PENDING partner to generic /pricing. ` +
+      `CTA on this call remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus.`
+    ),
   },
   {
     id: "isolation-deep",
@@ -145,7 +336,7 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     match:
       /mssp|v\s*ciso|vciso|multi[-\s]?entity|managed\s*service|client\s*portfolio/i,
     answer:
-      "MSSP / vCISO beachhead: hard per-client enclaves so portfolio work doesn’t bleed. Same commercial gate — Command Design Partner with written criteria — not a free multi-tenant sandbox.",
+      "MSSP / vCISO beachhead: hard per-client enclaves so portfolio work doesn’t bleed. Same commercial gate — Command Design Partner with written criteria — not a free multi-tenant sandbox. True portfolio scale uses the Partner book, not unlimited Core.",
   },
   {
     id: "export-exit",
@@ -161,6 +352,11 @@ export type SaasCallKbHit = {
   topic: string;
   answer: string;
 };
+
+/** Topic labels for miss / empty-state guidance (operator-facing). */
+export function listSaasCallKnowledgeTopics(): string[] {
+  return SAAS_CALL_KNOWLEDGE_BASE.map((row) => row.topic);
+}
 
 /** First matching curated SaaS answer, or null. */
 export function lookupSaasCallKnowledge(questionRaw: string): SaasCallKbHit | null {

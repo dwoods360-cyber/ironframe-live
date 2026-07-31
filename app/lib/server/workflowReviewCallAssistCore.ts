@@ -4,11 +4,16 @@ import { normalizeLiveTranscriptChunk } from "@/app/lib/operations/liveTranscrip
 import {
   CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
+  DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
   WORKFLOW_REVIEW_CTA_MINUTES,
   formatPathBUsd,
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
-import { lookupSaasCallKnowledge } from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
+import {
+  listSaasCallKnowledgeTopics,
+  lookupSaasCallKnowledge,
+  saasPocketTopicCatalog,
+} from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
 
 export type BuyingSignalId =
   | "NAMES_PAIN"
@@ -263,8 +268,19 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
   if (!question) {
     return {
       question: "",
-      answer: "Ask a concrete diligence question (SOC 2, price, isolation, Vanta, demo, ALE).",
+      answer: `Ask a concrete customer question. Pocket topics: ${saasPocketTopicCatalog()}.`,
       banNote: null,
+    };
+  }
+
+  // Product / packaging KB first so capacity & SKU asks don't fall through to diligence filler.
+  const kb = lookupSaasCallKnowledge(question);
+  if (kb) {
+    return {
+      question,
+      answer: kb.answer,
+      banNote:
+        "SaaS KB hit — do not invent soft max-client quotas, certs, or demo tenants as customers. Human hosts; agent is sidecar only.",
     };
   }
 
@@ -279,21 +295,17 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
     }
   }
 
-  const kb = lookupSaasCallKnowledge(question);
-  if (kb) {
-    return {
-      question,
-      answer: kb.answer,
-      banNote:
-        "SaaS KB hit — do not invent soft max-client quotas, certs, or demo tenants as customers. Human hosts; agent is sidecar only.",
-    };
-  }
-
+  const topics = listSaasCallKnowledgeTopics().slice(0, 12).join(" · ");
   return {
     question,
-    answer: `Stay in peer-to-peer diligence: map their pain to isolation / integer-cent ALE / Irongate, then frame ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with 2–3 written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review — not a demo circus. If this is a product-shape ask (capacity, HITL, docs, hosting), capture it for the order-form criteria — don’t invent numbers.`,
+    answer: (
+      `No locked pocket fact for that phrasing — don’t invent numbers. Re-ask using a packaged topic ` +
+      `(${topics} · …). Meanwhile stay in peer-to-peer diligence: map pain to isolation / integer-cent exposure / sanitize-before-persist, ` +
+      `then frame ${CUSTOMER_FACING_PATH_B_SKU} at ${formatPathBUsd()} for ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS} days with ` +
+      `${DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT} written success metrics. CTA remains a ${WORKFLOW_REVIEW_CTA_MINUTES} minute workflow review.`
+    ),
     banNote:
-      "Do not invent architecture notes they did not state. Do not offer free pilots. Add recurring SaaS asks to saasCallKnowledgeBase.ts.",
+      "Do not invent architecture notes they did not state. Do not offer free pilots. Add recurring SaaS asks to saasCallKnowledgeBase.ts (commercial.ts is code truth).",
   };
 }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  listSaasCallKnowledgeTopics,
   lookupSaasCallKnowledge,
   saasCapacityClientsTenantsAnswer,
 } from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
@@ -30,5 +31,25 @@ describe("saasCallKnowledgeBase capacity", () => {
     expect(lookupSaasCallKnowledge("What is the tenant limit?")?.id).toBe(
       "capacity-clients-tenants",
     );
+  });
+
+  it("covers dual-motion packaging and Partner book from commercial.ts", () => {
+    expect(lookupSaasCallKnowledge("What is Command Core pricing?")?.answer).toContain(
+      "$35,000",
+    );
+    expect(lookupSaasCallKnowledge("How much is a Paid Enclave?")?.answer).toContain(
+      "$3,500",
+    );
+    expect(lookupSaasCallKnowledge("Tell me about Command Enterprise")?.answer).toContain(
+      "$95,000",
+    );
+    expect(lookupSaasCallKnowledge("What is Partner Gold?")?.answer).toMatch(/Gold/);
+    expect(lookupSaasCallKnowledge("Do you charge per seat?")?.answer).toMatch(
+      /No per-seat/i,
+    );
+    expect(lookupSaasCallKnowledge("What is the convert credit?")?.answer).toContain(
+      "$30,001",
+    );
+    expect(listSaasCallKnowledgeTopics().length).toBeGreaterThanOrEqual(18);
   });
 });

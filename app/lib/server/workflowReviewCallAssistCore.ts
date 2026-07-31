@@ -103,9 +103,10 @@ const POCKET_QA: Array<{ match: RegExp; answer: string }> = [
       "No qualitative 5×5 heatmaps as the board truth. Reporting math is integer cents (BigInt). Exposure tracks to dollar boundaries from live constraints — narrative agents don’t invent ALE.",
   },
   {
-    match: /multi[-\s]?tenant|isolation|rls|enclave|bleed/i,
+    // Architecture / walls only — capacity / “how many tenants” must hit saasCallKnowledgeBase first.
+    match: /(?:how\s*(does|is)\s*)?(isolation|rls|cross[-\s]?tenant|data\s*bleed)|multi[-\s]?tenant\s*(isolation|wall|boundary)|ironguard|client\s*wall/i,
     answer:
-      "Containment is at the database / tenant boundary (PostgreSQL RLS + Ironguard). Irongate sanitizes before persist. MSSP-style client enclaves are hard per-client walls — not shared spreadsheet folders.",
+      "Containment is at the database / tenant boundary (PostgreSQL RLS + Ironguard). Irongate sanitizes before persist. MSSP-style client enclaves are hard per-client walls — not shared spreadsheet folders. For how many entities you can load, ask capacity — Path B is 1 Primary + 2 Subtenants; expansion is Paid Enclave / Core convert, not unlimited upload.",
   },
   {
     match: /price|cost|4999|\$4,?999|budget/i,

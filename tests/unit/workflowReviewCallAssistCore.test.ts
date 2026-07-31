@@ -24,20 +24,22 @@ describe("workflowReviewCallAssistCore", () => {
     const capacity = assistWorkflowReviewQuestion(
       "What's the maximum number of clients we can run?",
     );
-    expect(capacity.answer.toLowerCase()).toMatch(
-      /no platform technical ceiling|commercial entitlement is capped/,
-    );
     expect(capacity.answer).toMatch(/Primary Entity|Subtenant/);
+    expect(capacity.answer).toContain("$3,500");
     expect(capacity.answer.toLowerCase()).toMatch(/do not promise unlimited enclaves/);
     expect(capacity.banNote?.toLowerCase()).toMatch(/saas kb/);
 
     const loadQ = assistWorkflowReviewQuestion(
       "What is the maximum number of clients we can load into the Ironframe system?",
     );
-    expect(loadQ.answer.toLowerCase()).toMatch(
-      /no platform technical ceiling|commercial entitlement is capped/,
-    );
+    expect(loadQ.answer).toMatch(/1 Primary Entity/);
     expect(loadQ.banNote?.toLowerCase()).toMatch(/saas kb/);
+
+    const uploadMore = assistWorkflowReviewQuestion("Can we upload more than 3 tenants?");
+    expect(uploadMore.answer).toMatch(/hard-caps|Path B|Command Design Partner/i);
+    expect(uploadMore.answer).toContain("2 Subtenant");
+    expect(uploadMore.answer).not.toMatch(/Stay in peer-to-peer diligence/);
+    expect(uploadMore.banNote?.toLowerCase()).toMatch(/saas kb/);
 
     const hitl = assistWorkflowReviewQuestion("Will the AI agent auto-send emails?");
     expect(hitl.answer.toLowerCase()).toMatch(/never auto-send|hitl/);

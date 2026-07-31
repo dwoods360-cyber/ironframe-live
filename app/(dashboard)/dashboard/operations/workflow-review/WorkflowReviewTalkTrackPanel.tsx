@@ -244,6 +244,20 @@ export default function WorkflowReviewTalkTrackPanel() {
                   </tr>
                   <tr className="border-b border-slate-800/80">
                     <td className="px-3 py-2.5 font-medium text-white">
+                      Can we upload / load more than 3 tenants?
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-100">
+                      “Design Partner hard-caps at one primary entity plus two subtenant enclaves
+                      for the {days}-day window. Beyond that is a written expansion — Paid Enclave
+                      add-ons or a larger Command book after convert — not unlimited upload on the
+                      flat {price} seat.”
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">
+                      Path B = 1+2. Core = 1+3. Paid Enclave list $3,500/yr. Never invent soft maxes.
+                    </td>
+                  </tr>
+                  <tr className="border-b border-slate-800/80">
+                    <td className="px-3 py-2.5 font-medium text-white">
                       How is this different from Vanta or Drata?
                     </td>
                     <td className="px-3 py-2.5 text-slate-100">

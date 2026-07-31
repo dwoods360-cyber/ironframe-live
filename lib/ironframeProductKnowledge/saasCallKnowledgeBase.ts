@@ -5,10 +5,18 @@
  */
 
 import {
+  COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
+  COMMAND_CORE_TOTAL_ENTITIES,
+  COMMAND_ENTERPRISE_MAX_ENTITIES,
+  COMMAND_MULTI_MAX_ENTITIES,
   CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
+  PAID_ENCLAVE_LIST_USD,
+  PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
+  PATH_B_PRIMARY_ENTITIES,
   formatPathBUsd,
+  formatUsdWhole,
 } from "./commercial";
 import {
   DOCS_HUB_HREF,
@@ -26,6 +34,23 @@ export type SaasCallKbEntry = {
   answer: string;
 };
 
+const PATH_B_TOTAL_ENTITIES = PATH_B_PRIMARY_ENTITIES + PATH_B_INCLUDED_SUBTENANT_ENCLAVES;
+
+/** Spoken capacity lock — keep in sync with commercial.ts dual-motion packaging. */
+export function saasCapacityClientsTenantsAnswer(): string {
+  return (
+    `Direct answer: yes beyond three entities is a commercial expansion, not a platform “upload” ceiling. ` +
+    `${CUSTOMER_FACING_PATH_B_SKU} (${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) hard-caps at ` +
+    `${PATH_B_PRIMARY_ENTITIES} Primary Entity + up to ${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves ` +
+    `(${PATH_B_TOTAL_ENTITIES} total). You cannot load a fourth enclave on Path B without a written Multi-Entity Change Order. ` +
+    `Planned GA Command Core is ${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants ` +
+    `(${COMMAND_CORE_TOTAL_ENTITIES} total). Beyond Core, Paid Enclaves start at ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr ` +
+    `(published volume tiers), or Command Multi / Enterprise book (${COMMAND_MULTI_MAX_ENTITIES} / ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities) ` +
+    `or Partner book for true MSSPs. Do not promise unlimited enclaves at flat Core. Do not quote the company-wide ` +
+    `Design Partner co-builder seat count (3–5) as a client/tenant ceiling.`
+  );
+}
+
 /**
  * Order matters: first regex win. Keep commercial locks in workflowReviewCallAssistCore
  * POCKET_QA (price / free pilot / SOC2 / demo gate); this KB covers product shape.
@@ -35,9 +60,8 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     id: "capacity-clients-tenants",
     topic: "Client / tenant capacity",
     match:
-      /max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities)|(clients?|tenants?|entities)\s*(we\s*can\s*)?(load|run|onboard|add|support|host)|client\s*limit|tenant\s*limit|unlimited\s*clients|capacity|scale\s*(to|with)\s*(clients?|tenants?)/i,
-    answer:
-      "Direct answer: there is no platform technical ceiling like “50 max clients,” but commercial entitlement is capped. Path B / Command Design Partner includes 1 Primary Entity + up to 2 Subtenant Enclaves for the cohort window. Planned GA Command Core is 1 Primary + 3 Subtenants; additional Subtenant Enclaves are Paid Enclaves at published list ($3,500/yr with volume tiers) or Partner book commits for true MSSPs. Do not promise unlimited enclaves at flat Core. Do not quote the company-wide Design Partner co-builder seat count (3–5) as a platform client ceiling.",
+      /(?:more\s+than|over|above|\d+\+?)\s*(clients?|tenants?|entities|enclaves)|(?:upload|add|load|onboard|run|support|host).{0,40}(?:clients?|tenants?|entities|enclaves)|(?:clients?|tenants?|entities|enclaves).{0,40}(?:upload|add|load|onboard|more)|max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities|enclaves)|(clients?|tenants?|entities|enclaves)\s*(we\s*can\s*)?(load|run|onboard|add|support|host|upload)|client\s*limit|tenant\s*limit|entity\s*limit|enclave\s*(cap|limit)|unlimited\s*(clients?|tenants?|enclaves)|capacity|scale\s*(to|with)\s*(clients?|tenants?|entities|enclaves)/i,
+    answer: saasCapacityClientsTenantsAnswer(),
   },
   {
     id: "what-is-command",

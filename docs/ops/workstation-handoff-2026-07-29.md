@@ -1,6 +1,8 @@
 # Workstation handoff — remote Mac sunset (2026-07-29)
 
-**Context:** Ironframe GTM/ops returns to the **original Cursor workstation** after 2026-07-29. The temporary/remote Mac used for this push window is **not** an Ironframe ops host after that date.
+**Superseded for Windows bring-up:** use **[Windows workstation migration](./windows-workstation-migration.md)** (bootstrap + Task Scheduler + GTM smoke).
+
+**Context:** Ironframe GTM/ops returns to the **original / Windows Cursor workstation**. Temporary/remote Mac sessions are **not** Ironframe ops hosts after handoff.
 
 ## On the original box (required)
 

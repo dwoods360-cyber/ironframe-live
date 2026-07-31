@@ -1,6 +1,6 @@
 /**
  * Curated operator document directory for Ops Hub → Library.
- * Markdown entries resolve under docs/sales via the library [slug] reader.
+ * Markdown entries resolve under docs/<docsRoot> via the library [slug] reader.
  */
 
 export type OperatorLibraryLink =
@@ -11,8 +11,8 @@ export type OperatorLibraryLink =
       summary: string;
       /** Basename under docs/<docsRoot>/ */
       file: string;
-      /** Default sales. Use qa for internal feature glossary. */
-      docsRoot?: "sales" | "qa";
+      /** Default sales. Use qa for internal feature glossary; ops for go-live / workstation docs. */
+      docsRoot?: "sales" | "qa" | "ops";
     }
   | {
       kind: "href";
@@ -73,6 +73,14 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
         title: "Ops surface map (what each screen is for)",
         summary: "One job per screen + daily 5-min check. Start here if the queues confuse you.",
         file: "design-partner-ops-surface-map.md",
+      },
+      {
+        kind: "markdown",
+        slug: "windows-workstation-migration",
+        title: "Windows workstation migration",
+        summary: "Pull, secrets, Task Scheduler, GTM smoke — bring-up on the Windows Cursor box.",
+        file: "windows-workstation-migration.md",
+        docsRoot: "ops",
       },
       {
         kind: "markdown",
@@ -309,14 +317,14 @@ export function listMarkdownLibraryEntries(): Array<{
   title: string;
   file: string;
   summary: string;
-  docsRoot: "sales" | "qa";
+  docsRoot: "sales" | "qa" | "ops";
 }> {
   const out: Array<{
     slug: string;
     title: string;
     file: string;
     summary: string;
-    docsRoot: "sales" | "qa";
+    docsRoot: "sales" | "qa" | "ops";
   }> = [];
   for (const set of OPERATOR_LIBRARY_SETS) {
     for (const item of set.items) {
@@ -338,6 +346,7 @@ export function listMarkdownLibraryEntries(): Array<{
 const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
   "design-partner-icp-shortlist": "icp-shortlist",
   "design-partner-ops-surface-map": "ops-surface-map",
+  "windows-workstation-migration": "windows-workstation-migration",
   "design-partner-operator-launch-checklist": "operator-launch-checklist",
   "design-partner-pre-outreach-run-order": "pre-outreach-run-order",
   "design-partner-outreach-sequence": "outreach-sequence",
@@ -355,7 +364,7 @@ export function resolveMarkdownLibraryEntry(slug: string): {
   title: string;
   file: string;
   summary: string;
-  docsRoot: "sales" | "qa";
+  docsRoot: "sales" | "qa" | "ops";
 } | null {
   const normalized = MARKDOWN_SLUG_ALIASES[slug.trim()] ?? slug.trim();
   const hit = listMarkdownLibraryEntries().find((e) => e.slug === normalized);

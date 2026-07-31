@@ -17,7 +17,8 @@ export async function loadOperatorLibraryMarkdown(slug: string): Promise<{
   // Prevent path escape — only basename under an allowed docs root.
   const base = path.basename(entry.file);
   if (base !== entry.file || !base.endsWith(".md")) return null;
-  const root = entry.docsRoot === "qa" ? "qa" : "sales";
+  const root =
+    entry.docsRoot === "qa" ? "qa" : entry.docsRoot === "ops" ? "ops" : "sales";
 
   const fullPath = path.join(process.cwd(), "docs", root, base);
   try {

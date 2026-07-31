@@ -1,7 +1,7 @@
 # Live design-partner motion
 
 **Canonical remaining list:** [production-go-live-remaining.md](./production-go-live-remaining.md)  
-**Workstation:** after **2026-07-29**, Ironframe ops continues on the **original Cursor box** — see [workstation handoff](./workstation-handoff-2026-07-29.md).
+**Workstation:** Ironframe ops on the **Windows Cursor box** — [Windows migration checklist](./windows-workstation-migration.md) (Task Scheduler + secrets + GTM smoke). Prior note: [Mac sunset handoff](./workstation-handoff-2026-07-29.md).
 
 Open tracks: **counsel D0** · **design-partner acquisition/close** (Ironleads → live DISPATCH → close).  
 **Stripe live Path B:** done 2026-07-28.

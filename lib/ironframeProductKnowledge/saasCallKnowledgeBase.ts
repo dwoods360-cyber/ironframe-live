@@ -65,15 +65,35 @@ export type SaasCallKbEntry = {
 
 const PATH_B_TOTAL_ENTITIES = PATH_B_PRIMARY_ENTITIES + PATH_B_INCLUDED_SUBTENANT_ENCLAVES;
 
+/**
+ * Correct “$4,999 + $3,500 = four tenants?” stacking math.
+ * Paid Enclave is a planned-GA add-on beyond Core’s included Subtenants — not a Path B bolt-on.
+ */
+export function saasEntityStackingCostAnswer(): string {
+  return (
+    `No — do not stack ${formatPathBUsd()} + ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} for a fourth tenant. ` +
+    `${CUSTOMER_FACING_PATH_B_SKU} is a flat ${formatPathBUsd()} for ${PATH_B_PRIMARY_ENTITIES} Primary + up to ` +
+    `${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves (${PATH_B_TOTAL_ENTITIES} total). A fourth enclave is ` +
+    `blocked on Path B without a written Multi-Entity Change Order — Paid Enclave is not an automatic Path B add-on. ` +
+    `For four entities at planned GA, Command Core is ${formatUsdWhole(PLANNED_GA_COMMAND_USD)}/yr and already includes ` +
+    `${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants ` +
+    `(${COMMAND_CORE_TOTAL_ENTITIES} total) — you do not pay Core plus ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} for the fourth. ` +
+    `Paid Enclave (${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr list, volume tiers) starts at entity #5 and beyond ` +
+    `(beyond Core’s three included Subtenants).`
+  );
+}
+
 /** Spoken capacity lock — keep in sync with commercial.ts dual-motion packaging. */
 export function saasCapacityClientsTenantsAnswer(): string {
   return (
-    `Direct answer: yes beyond three entities is a commercial expansion, not a platform “upload” ceiling. ` +
+    `Direct answer: beyond ${PATH_B_TOTAL_ENTITIES} entities is a commercial expansion, not a platform “upload” ceiling — ` +
+    `and it is not ${formatPathBUsd()} + ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}. ` +
     `${CUSTOMER_FACING_PATH_B_SKU} (${formatPathBUsd()} / ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day) hard-caps at ` +
     `${PATH_B_PRIMARY_ENTITIES} Primary Entity + up to ${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} Subtenant Enclaves ` +
     `(${PATH_B_TOTAL_ENTITIES} total). You cannot load a fourth enclave on Path B without a written Multi-Entity Change Order. ` +
-    `Planned GA Command Core is ${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants ` +
-    `(${COMMAND_CORE_TOTAL_ENTITIES} total). Beyond Core, Paid Enclaves start at ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr ` +
+    `Planned GA Command Core is ${formatUsdWhole(PLANNED_GA_COMMAND_USD)}/yr for ${PATH_B_PRIMARY_ENTITIES} Primary + ` +
+    `${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants (${COMMAND_CORE_TOTAL_ENTITIES} total) — four entities are inside Core, ` +
+    `not Core + Paid Enclave. Paid Enclaves start at ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr for entity #5+ ` +
     `(published volume tiers), or Command Multi / Enterprise book (${COMMAND_MULTI_MAX_ENTITIES} / ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities) ` +
     `or Partner book for true MSSPs. Do not promise unlimited enclaves at flat Core. Do not quote the company-wide ` +
     `Design Partner co-builder seat count (${DESIGN_PARTNER_COHORT_SEATS}) as a client/tenant ceiling.`
@@ -140,6 +160,13 @@ export function saasPocketTopicCatalog(): string {
  * POCKET_QA (free pilot / SOC2 / demo gate); this KB covers product + packaging shape.
  */
 export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
+  {
+    id: "entity-stacking-cost",
+    topic: "Entity stacking math ($4,999 + Paid Enclave)",
+    match:
+      /4,?999\s*\+|\$?4,?999.{0,40}3,?500|3,?500.{0,40}4,?999|upload\s*4|four\s*(tenants?|entities|enclaves).{0,40}(cost|price|\$)|(?:cost|price|total).{0,40}(4|four)\s*(tenants?|entities|enclaves)|stack(ing)?\s*(enclave|tenant|path\s*b)|plus\s*(a\s*)?(paid\s*)?enclave/i,
+    answer: saasEntityStackingCostAnswer(),
+  },
   {
     id: "capacity-clients-tenants",
     topic: "Client / tenant capacity",

@@ -4,10 +4,23 @@ import {
   listSaasCallKnowledgeTopics,
   lookupSaasCallKnowledge,
   saasCapacityClientsTenantsAnswer,
+  saasEntityStackingCostAnswer,
 } from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
 import { assistWorkflowReviewQuestion } from "@/app/lib/server/workflowReviewCallAssistCore";
 
 describe("saasCallKnowledgeBase capacity", () => {
+  it("rejects Path B + Paid Enclave stacking for four tenants", () => {
+    const q =
+      "So, if I upload 4 tenants, the cost is 4,999+3,500=8,400?";
+    const hit = lookupSaasCallKnowledge(q);
+    expect(hit?.id).toBe("entity-stacking-cost");
+    expect(hit?.answer).toBe(saasEntityStackingCostAnswer());
+    expect(hit?.answer).toMatch(/No — do not stack/i);
+    expect(hit?.answer).toContain("$35,000");
+    expect(hit?.answer).toMatch(/entity #5/i);
+    expect(assistWorkflowReviewQuestion(q).answer).toBe(saasEntityStackingCostAnswer());
+  });
+
   it("answers upload / more-than-N tenant asks from dual-motion packaging", () => {
     const hit = lookupSaasCallKnowledge("Can we upload more than 3 tenants?");
     expect(hit?.id).toBe("capacity-clients-tenants");
@@ -15,6 +28,7 @@ describe("saasCallKnowledgeBase capacity", () => {
     expect(hit?.answer).toContain("2 Subtenant");
     expect(hit?.answer).toContain("3 Subtenants");
     expect(hit?.answer).toContain("$3,500");
+    expect(hit?.answer).toMatch(/not \$4,999 \+ \$3,500/);
     expect(hit?.answer).not.toContain("Stay in peer-to-peer diligence");
   });
 

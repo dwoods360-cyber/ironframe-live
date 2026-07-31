@@ -64,6 +64,11 @@ export type SaasCallKbEntry = {
 };
 
 const PATH_B_TOTAL_ENTITIES = PATH_B_PRIMARY_ENTITIES + PATH_B_INCLUDED_SUBTENANT_ENCLAVES;
+/** Subtenants in a full Multi book (1 Primary + N Subtenants = COMMAND_MULTI_MAX_ENTITIES). */
+const COMMAND_MULTI_SUBTENANTS = COMMAND_MULTI_MAX_ENTITIES - PATH_B_PRIMARY_ENTITIES;
+/** Paid Enclaves to fill Multi from Core: Multi Subtenants − Core’s included Subtenants. */
+const PAID_ENCLAVES_TO_FILL_MULTI =
+  COMMAND_MULTI_SUBTENANTS - COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES;
 
 /**
  * Correct “$4,999 + $3,500 = four tenants?” stacking math.
@@ -80,6 +85,34 @@ export function saasEntityStackingCostAnswer(): string {
     `(${COMMAND_CORE_TOTAL_ENTITIES} total) — you do not pay Core plus ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} for the fourth. ` +
     `Paid Enclave (${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr list, volume tiers) starts at entity #5 and beyond ` +
     `(beyond Core’s three included Subtenants).`
+  );
+}
+
+/**
+ * Clear Core → Paid → Multi counting (operator Pocket).
+ * Core includes 3 Subtenants; next 6 Paid fill Multi’s 9 Subtenants / 10 entities.
+ */
+export function saasCorePaidToMultiStackAnswer(): string {
+  return (
+    `Yes — planned GA, list math: Command Core (${formatUsdWhole(PLANNED_GA_COMMAND_USD)}/yr) includes ` +
+    `${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants ` +
+    `(${COMMAND_CORE_TOTAL_ENTITIES} entities). The next ${PAID_ENCLAVES_TO_FILL_MULTI} Subtenants are Paid Enclaves at ` +
+    `${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr each (list) — that fills Command Multi’s footprint ` +
+    `(${COMMAND_MULTI_SUBTENANTS} Subtenants / ${COMMAND_MULTI_MAX_ENTITIES} entities total). ` +
+    `Prefer quoting Command Multi at ${formatUsdWhole(COMMAND_MULTI_USD)}/yr flat for that book instead of stacking. ` +
+    `Always label planned GA.`
+  );
+}
+
+/** When to quote $55k Command Multi — clear eligibility. */
+export function saasCommandMultiEligibilityAnswer(): string {
+  return (
+    `Quote planned GA Command Multi (${formatUsdWhole(COMMAND_MULTI_USD)}/yr) when the book needs up to ` +
+    `${COMMAND_MULTI_MAX_ENTITIES} entities (${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_MULTI_SUBTENANTS} Subtenants) — ` +
+    `typically once you’re past Core’s ${COMMAND_CORE_TOTAL_ENTITIES} entities and stacking Core + Paid Enclaves ` +
+    `(${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr each for Subtenants #4–#${COMMAND_MULTI_SUBTENANTS}) gets messy. ` +
+    `It is a flat quote mask, not “pay ${formatUsdWhole(COMMAND_MULTI_USD)} the moment you add a 5th entity.” ` +
+    `Today’s paid entry remains ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()}. Always label planned GA.`
   );
 }
 
@@ -111,18 +144,38 @@ export function saasCommandCorePackagingAnswer(): string {
 
 export function saasPaidEnclaveAnswer(): string {
   return (
-    `Paid Enclave list is ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr per additional Subtenant beyond Command Core’s included three. ` +
-    `Volume: ${formatUsdWhole(PAID_ENCLAVE_VOLUME_11_50_USD)} (11–50 Paid) and ${formatUsdWhole(PAID_ENCLAVE_FLOOR_USD)} floor (51+). ` +
-    `During ${CUSTOMER_FACING_PATH_B_SKU}, expansion beyond ${PATH_B_PRIMARY_ENTITIES}+${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} needs a written Multi-Entity Change Order — not ad-hoc upload.`
+    `Yes — ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr list per Subtenant after Command Core’s included ` +
+    `${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} (entity #5+). Not ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} × every entity. ` +
+    `To fill Multi (${COMMAND_MULTI_MAX_ENTITIES} entities / ${COMMAND_MULTI_SUBTENANTS} Subtenants): ` +
+    `${PAID_ENCLAVES_TO_FILL_MULTI} Paid Enclaves after those three — or quote Multi at ${formatUsdWhole(COMMAND_MULTI_USD)}/yr flat. ` +
+    `Volume on Paid count: ${formatUsdWhole(PAID_ENCLAVE_VOLUME_11_50_USD)}/yr (11–50 Paid), ` +
+    `${formatUsdWhole(PAID_ENCLAVE_FLOOR_USD)}/yr floor (51+). ` +
+    `During ${CUSTOMER_FACING_PATH_B_SKU}, expansion beyond ${PATH_B_PRIMARY_ENTITIES}+${PATH_B_INCLUDED_SUBTENANT_ENCLAVES} needs a written Multi-Entity Change Order.`
+  );
+}
+
+/**
+ * Straight refute: “10–25 entities = $3,500 each?”
+ * Multi/Enterprise books are flat annual masks — Paid Enclave is only beyond Core’s included three.
+ */
+export function saasEntityRangePricingAnswer(): string {
+  return (
+    `No — not ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} × each entity from 10–25. ` +
+    `Planned GA: Command Multi is ${formatUsdWhole(COMMAND_MULTI_USD)}/yr up to ${COMMAND_MULTI_MAX_ENTITIES} entities; ` +
+    `Command Enterprise is ${formatUsdWhole(COMMAND_ENTERPRISE_USD)}/yr up to ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities. ` +
+    `Paid Enclave (${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr list) is only for additional Subtenants beyond Command Core’s included three ` +
+    `(${PAID_ENCLAVES_TO_FILL_MULTI} Paid to fill Multi’s ${COMMAND_MULTI_SUBTENANTS} Subtenants) — not a flat per-entity price across the whole book. ` +
+    `Always label planned GA.`
   );
 }
 
 export function saasCommandMultiEnterpriseAnswer(): string {
   return (
-    `Planned GA quote masks: Command Multi ${formatUsdWhole(COMMAND_MULTI_USD)}/yr up to ${COMMAND_MULTI_MAX_ENTITIES} entities; ` +
+    `Planned GA: Command Multi ${formatUsdWhole(COMMAND_MULTI_USD)}/yr up to ${COMMAND_MULTI_MAX_ENTITIES} entities ` +
+    `(${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_MULTI_SUBTENANTS} Subtenants); ` +
     `Command Enterprise ${formatUsdWhole(COMMAND_ENTERPRISE_USD)}/yr up to ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities. ` +
-    `These are holding-co / mid-market books over Core + Paid Enclave math — label planned GA. ` +
-    `Today’s paid entry remains ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()}.`
+    `These are flat quote masks over Core + Paid Enclave math — not ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)} × every entity. ` +
+    `Today’s paid entry remains ${CUSTOMER_FACING_PATH_B_SKU} ${formatPathBUsd()}. Always label planned GA.`
   );
 }
 
@@ -168,11 +221,40 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     answer: saasEntityStackingCostAnswer(),
   },
   {
-    id: "capacity-clients-tenants",
-    topic: "Client / tenant capacity",
+    id: "core-paid-to-multi-stack",
+    topic: "Core → Paid → Multi counting (3 included, next 6)",
     match:
-      /(?:more\s+than|over|above|\d+\+?)\s*(clients?|tenants?|entities|enclaves)|(?:upload|add|load|onboard|run|support|host).{0,40}(?:clients?|tenants?|entities|enclaves)|(?:clients?|tenants?|entities|enclaves).{0,40}(?:upload|add|load|onboard|more)|max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities|enclaves)|(clients?|tenants?|entities|enclaves)\s*(we\s*can\s*)?(load|run|onboard|add|support|host|upload)|client\s*limit|tenant\s*limit|entity\s*limit|enclave\s*(cap|limit)|unlimited\s*(clients?|tenants?|enclaves)|capacity|scale\s*(to|with)\s*(clients?|tenants?|entities|enclaves)/i,
-    answer: saasCapacityClientsTenantsAnswer(),
+      /(?:after|beyond)\s*(the\s*)?(1st|first)\s*3\b|(?:after|beyond|next)\s*(the\s*)?(1st|first|included)?\s*3\s*(sub)?tenants?|(?:next|following)\s*6\s*(sub)?tenants?|6\s*(paid\s*)?(enclaves?|subtenants?)|(?:how\s*many|number\s*of)\s*paid\s*(enclaves?|subtenants?).{0,40}(10|multi)|(?:fill|reach|get\s*to)\s*(command\s*)?multi|up\s*to\s*9\s*(sub)?tenants?|9\s*(sub)?tenants?.{0,40}(3,?500|paid|multi)|3\s*included.{0,40}(6|paid|3,?500)|paid\s*(enclaves?)?\s*(to\s*)?(fill|reach)\s*10/i,
+    answer: saasCorePaidToMultiStackAnswer(),
+  },
+  {
+    id: "entity-range-pricing",
+    topic: "Entity range pricing (10–25 / $3,500 each)",
+    // Require an explicit 10–25 (or from/between N–M) range — do not steal “after first 3, $3,500 each?”
+    match:
+      /(?:from|between)\s*\d+.{0,12}(to|-|–|—)\s*\d+.{0,40}(entities|enclaves|tenants)|(?:10|11|12|15|20|25).{0,40}(entities|enclaves|tenants).{0,60}(3,?500|cost|price|each|per)|(?:entities|enclaves|tenants).{0,40}(?:from|between).{0,20}(10|25).{0,40}3,?500|multi.{0,20}enterprise.{0,40}(cost|price|3,?500)|how\s*much.{0,40}(10|25)\s*(entities|enclaves)|3,?500\s*(each|per).{0,40}(10|11|12|15|20|25)|(10|11|12|15|20|25).{0,40}3,?500\s*(each|per)/i,
+    answer: saasEntityRangePricingAnswer(),
+  },
+  {
+    id: "packaging-paid-enclave",
+    topic: "Paid Enclave add-on",
+    match:
+      /paid\s*enclave|additional\s*(sub)?tenant|extra\s*(enclave|entity|tenant)|3,?500|enclave\s*add[-\s]?on|volume\s*tier|(?:after|beyond)\s*(the\s*)?(1st|first)\s*3/i,
+    answer: saasPaidEnclaveAnswer(),
+  },
+  {
+    id: "packaging-multi-eligibility",
+    topic: "When to quote Command Multi ($55,000)",
+    match:
+      /55,?000|eligible.{0,40}(55|multi)|when.{0,40}(pay|quote|buy|eligible).{0,40}(55|multi)|when.{0,40}command\s*multi/i,
+    answer: saasCommandMultiEligibilityAnswer(),
+  },
+  {
+    id: "packaging-multi-enterprise",
+    topic: "Command Multi / Enterprise",
+    match:
+      /command\s*multi|command\s*enterprise|95,?000|up\s*to\s*(10|25)\s*(entities|tenants|enclaves)|enterprise\s*(sku|tier|package)/i,
+    answer: saasCommandMultiEnterpriseAnswer(),
   },
   {
     id: "packaging-command-core",
@@ -182,18 +264,12 @@ export const SAAS_CALL_KNOWLEDGE_BASE: readonly SaasCallKbEntry[] = [
     answer: saasCommandCorePackagingAnswer(),
   },
   {
-    id: "packaging-paid-enclave",
-    topic: "Paid Enclave add-on",
+    id: "capacity-clients-tenants",
+    topic: "Client / tenant capacity",
+    // Intentionally no bare "N entities" — that stole pricing asks like "10 to 25 entities… $3,500 each?"
     match:
-      /paid\s*enclave|additional\s*(sub)?tenant|extra\s*(enclave|entity|tenant)|3,?500|enclave\s*add[-\s]?on|volume\s*tier/i,
-    answer: saasPaidEnclaveAnswer(),
-  },
-  {
-    id: "packaging-multi-enterprise",
-    topic: "Command Multi / Enterprise",
-    match:
-      /command\s*multi|command\s*enterprise|55,?000|95,?000|up\s*to\s*(10|25)\s*(entities|tenants|enclaves)|enterprise\s*(sku|tier|package)/i,
-    answer: saasCommandMultiEnterpriseAnswer(),
+      /(?:more\s+than|over|above|beyond)\s*\d*\s*(clients?|tenants?|entities|enclaves)|(?:upload|add|load|onboard|run|support|host).{0,40}(?:clients?|tenants?|entities|enclaves)|(?:clients?|tenants?|entities|enclaves).{0,40}(?:upload|add|load|onboard|more)|max(imum)?\s*(number\s*of\s*)?(clients?|tenants?|entities|enclaves)|(how\s*many|number\s*of)\s*(clients?|tenants?|entities|enclaves)|(clients?|tenants?|entities|enclaves)\s*(we\s*can\s*)?(load|run|onboard|add|support|host|upload)|client\s*limit|tenant\s*limit|entity\s*limit|enclave\s*(cap|limit)|unlimited\s*(clients?|tenants?|enclaves)|capacity|scale\s*(to|with)\s*(clients?|tenants?|entities|enclaves)/i,
+    answer: saasCapacityClientsTenantsAnswer(),
   },
   {
     id: "packaging-partner-book",
@@ -387,12 +463,19 @@ export function listSaasCallKnowledgeTopics(): string[] {
 
 /** First matching curated SaaS answer, or null. */
 export function lookupSaasCallKnowledge(questionRaw: string): SaasCallKbHit | null {
+  const hits = collectSaasCallKnowledgeHits(questionRaw);
+  return hits[0] ?? null;
+}
+
+/** All matching curated cards (for grounded LLM priority facts — not just first-win dump). */
+export function collectSaasCallKnowledgeHits(questionRaw: string): SaasCallKbHit[] {
   const question = questionRaw.trim();
-  if (!question) return null;
+  if (!question) return [];
+  const hits: SaasCallKbHit[] = [];
   for (const row of SAAS_CALL_KNOWLEDGE_BASE) {
     if (row.match.test(question)) {
-      return { id: row.id, topic: row.topic, answer: row.answer };
+      hits.push({ id: row.id, topic: row.topic, answer: row.answer });
     }
   }
-  return null;
+  return hits;
 }

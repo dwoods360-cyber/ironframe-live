@@ -1,14 +1,71 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  collectSaasCallKnowledgeHits,
   listSaasCallKnowledgeTopics,
   lookupSaasCallKnowledge,
   saasCapacityClientsTenantsAnswer,
+  saasCommandMultiEligibilityAnswer,
+  saasCorePaidToMultiStackAnswer,
+  saasEntityRangePricingAnswer,
   saasEntityStackingCostAnswer,
+  saasPaidEnclaveAnswer,
 } from "@/lib/ironframeProductKnowledge/saasCallKnowledgeBase";
 import { assistWorkflowReviewQuestion } from "@/app/lib/server/workflowReviewCallAssistCore";
 
 describe("saasCallKnowledgeBase capacity", () => {
+  it("answers Core → next 6 Paid → Multi counting clearly", () => {
+    const questions = [
+      "So after the 1st 3, the cost is $3,500 each?",
+      "So $3,500 for each after the 1st 3 subtenants, up to 9 subtenants?",
+      "So, 3,500 for each of the next 6 subtenants?",
+      "How many paid enclaves to get to 10 entities?",
+    ];
+    for (const q of questions) {
+      const hit = lookupSaasCallKnowledge(q);
+      expect(hit?.id, q).toBe("core-paid-to-multi-stack");
+      expect(hit?.answer, q).toBe(saasCorePaidToMultiStackAnswer());
+      expect(hit?.answer, q).toMatch(/next 6 Subtenants/i);
+      expect(hit?.answer, q).toContain("$3,500");
+      expect(hit?.answer, q).toContain("$55,000");
+      expect(assistWorkflowReviewQuestion(q).answer, q).toBe(saasCorePaidToMultiStackAnswer());
+    }
+  });
+
+  it("answers when to quote Command Multi $55,000", () => {
+    const q = "When am I eligible to pay $55,000 per year?";
+    const hit = lookupSaasCallKnowledge(q);
+    expect(hit?.id).toBe("packaging-multi-eligibility");
+    expect(hit?.answer).toBe(saasCommandMultiEligibilityAnswer());
+    expect(hit?.answer).toMatch(/up to 10 entities/i);
+    expect(hit?.answer).toMatch(/not “pay \$55,000 the moment/i);
+    expect(assistWorkflowReviewQuestion(q).answer).toBe(saasCommandMultiEligibilityAnswer());
+  });
+
+  it("gives a straight no to $3,500 each from 10–25 entities", () => {
+    const q = "From 10 to 25 entities, the cost is $3,500 each?";
+    const hit = lookupSaasCallKnowledge(q);
+    expect(hit?.id).toBe("entity-range-pricing");
+    expect(hit?.answer).toBe(saasEntityRangePricingAnswer());
+    expect(hit?.answer).toMatch(/^No — not \$3,500/i);
+    expect(hit?.answer).toContain("$55,000");
+    expect(hit?.answer).toContain("$95,000");
+    expect(hit?.answer).toMatch(/6 Paid/i);
+    expect(hit?.answer).not.toMatch(/beyond 3 entities is a commercial expansion/i);
+    expect(assistWorkflowReviewQuestion(q).answer).toBe(saasEntityRangePricingAnswer());
+    const hits = collectSaasCallKnowledgeHits(q);
+    expect(hits.map((h) => h.id)).toContain("entity-range-pricing");
+    expect(hits[0]?.id).toBe("entity-range-pricing");
+  });
+
+  it("answers bare Paid Enclave asks without the 10–25 refute opener", () => {
+    const hit = lookupSaasCallKnowledge("How much is a Paid Enclave?");
+    expect(hit?.id).toBe("packaging-paid-enclave");
+    expect(hit?.answer).toBe(saasPaidEnclaveAnswer());
+    expect(hit?.answer).toMatch(/^Yes — \$3,500/i);
+    expect(hit?.answer).toMatch(/6 Paid Enclaves/i);
+  });
+
   it("rejects Path B + Paid Enclave stacking for four tenants", () => {
     const q =
       "So, if I upload 4 tenants, the cost is 4,999+3,500=8,400?";

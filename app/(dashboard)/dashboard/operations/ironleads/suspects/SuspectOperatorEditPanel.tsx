@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { IronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 
@@ -37,7 +37,14 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const onHold = Boolean(report.operatorHold);
+  /** Optimistic HOLD flag so Restore updates UI even before RSC refresh settles. */
+  const [onHold, setOnHold] = useState(Boolean(report.operatorHold));
+  const [holdSnapshot, setHoldSnapshot] = useState(report.operatorHold);
+
+  useEffect(() => {
+    setOnHold(Boolean(report.operatorHold));
+    setHoldSnapshot(report.operatorHold);
+  }, [report.operatorHold]);
 
   async function patchSuspect(body: Record<string, unknown>, successMessage: string) {
     setBusy(true);
@@ -52,10 +59,23 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
           body: JSON.stringify(body),
         },
       );
-      const data = (await response.json()) as { ok?: boolean; error?: string };
+      const data = (await response.json()) as {
+        ok?: boolean;
+        error?: string;
+        report?: IronleadsSuspectReport;
+      };
       if (!response.ok || !data.ok) {
         setError(data.error || `Save failed (${response.status})`);
         return;
+      }
+      if (data.report) {
+        setOnHold(Boolean(data.report.operatorHold));
+        setHoldSnapshot(data.report.operatorHold);
+      } else if (body.restoreFromHoldArchive === true) {
+        setOnHold(false);
+        setHoldSnapshot(null);
+      } else if (body.moveToHoldArchive === true) {
+        setOnHold(true);
       }
       setMessage(successMessage);
       router.refresh();
@@ -255,8 +275,11 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         {onHold ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs text-amber-200/90">
-              Archived {report.operatorHold?.at} · {report.operatorHold?.classification}
-              {report.operatorHold?.reason ? ` — ${report.operatorHold.reason}` : ""}
+              Archived {holdSnapshot?.at ?? report.operatorHold?.at} ·{" "}
+              {holdSnapshot?.classification ?? report.operatorHold?.classification}
+              {(holdSnapshot?.reason ?? report.operatorHold?.reason)
+                ? ` — ${holdSnapshot?.reason ?? report.operatorHold?.reason}`
+                : ""}
             </p>
             <button
               type="button"

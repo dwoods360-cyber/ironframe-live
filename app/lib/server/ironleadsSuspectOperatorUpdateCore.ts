@@ -9,6 +9,7 @@ import {
   buildOperatorHoldRecord,
   clearOperatorHoldFromMetadata,
   isOperatorHoldArchived,
+  OPERATOR_HOLD_META_KEY,
   resolveOperatorHold,
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
@@ -196,9 +197,15 @@ export async function updateIronleadsSuspectContact(
       reason: input.holdReason ?? input.operatorNote,
       classification: input.holdClassification ?? "hold",
     });
-    Object.assign(nextMeta, applyOperatorHoldToMetadata(nextMeta, hold));
+    const withHold = applyOperatorHoldToMetadata(nextMeta, hold);
+    for (const key of Object.keys(nextMeta)) delete nextMeta[key];
+    Object.assign(nextMeta, withHold);
   } else if (input.restoreFromHoldArchive) {
-    Object.assign(nextMeta, clearOperatorHoldFromMetadata(nextMeta));
+    // Must delete the key — Object.assign(cleared) cannot remove operatorHold.
+    const cleared = clearOperatorHoldFromMetadata(nextMeta);
+    for (const key of Object.keys(nextMeta)) delete nextMeta[key];
+    Object.assign(nextMeta, cleared);
+    delete nextMeta[OPERATOR_HOLD_META_KEY];
   }
 
   if (

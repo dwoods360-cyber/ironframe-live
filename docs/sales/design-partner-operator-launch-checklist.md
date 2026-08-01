@@ -39,7 +39,7 @@ This checklist is the batch/send cadence after that run order is GO.
 
 | # | Task | Done |
 |---|------|------|
-| **D0** | **Counsel gate:** [Counsel review packet](./counsel-review-packet.md) returned; order form + MSA/DPA marked **Counsel-approved** with date/firm — **block Path B signature send until yes** | ☐ |
+| **D0** | **Counsel gate:** [Counsel review packet](./counsel-review-packet.md) returned; order form + MSA/DPA marked **Counsel-approved** with date/firm — **block Path B signature send until yes** | ☐ requested 2026-08-01 — **LegalCorps**; awaiting reply (do not flip product D0 env until approved text lands) |
 | D1 | Complete [order form](./design-partner-order-form.md) (2–3 success criteria) — **GTM host** | ☐ |
 | D2 | Quick-provision with **client-owned** email (server rejects @ironframegrc.com) — **`BUSINESS_ADMIN` / `GLOBAL_ADMIN` duty** (SoD; not the GTM host beat) | ☐ |
 | D3 | Send **Path B activation link only** — never generic `/pricing` for PENDING | ☐ |

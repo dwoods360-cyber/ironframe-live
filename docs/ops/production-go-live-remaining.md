@@ -10,13 +10,14 @@ Keep `IRONFRAME_PUBLIC_INSTANT_CHECKOUT_ENABLED` and counsel D0 **off** until co
 
 ## 1. Counsel review (D0)
 
-| # | Task | Owner |
-|---|------|--------|
-| 1.1 | Outside counsel returns approved order form + MSA/DPA | Counsel |
-| 1.2 | Mark packet counsel-approved (date/firm) in [counsel-review-packet](../sales/counsel-review-packet.md) | Ops |
-| 1.3 | Set `NEXT_PUBLIC_IRONFRAME_COUNSEL_D0_APPROVED=true` (and server twin if used) → redeploy | Ops |
+| # | Task | Owner | Status |
+|---|------|--------|--------|
+| 1.0 | Submit packet to outside counsel | Ops | ☑ 2026-08-01 — requested from **LegalCorps**; awaiting reply |
+| 1.1 | Outside counsel returns approved order form + MSA/DPA | Counsel | ☐ waiting on LegalCorps |
+| 1.2 | Mark packet counsel-approved (date/firm) in [counsel-review-packet](../sales/counsel-review-packet.md) | Ops | ☐ |
+| 1.3 | Set `NEXT_PUBLIC_IRONFRAME_COUNSEL_D0_APPROVED=true` (and server twin if used) → redeploy | Ops | ☐ |
 
-**Until then:** no Path B signature / activation send to a paying partner.
+**Until then:** no Path B signature / activation send to a paying partner. Outreach / DISPATCH may proceed.
 
 ---
 

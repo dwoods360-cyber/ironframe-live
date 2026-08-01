@@ -41,12 +41,28 @@ describe("demoMode", () => {
   });
 
   it("keeps buyer-facing demo labels — no synthetic seed-tenant names", () => {
-    const blob = JSON.stringify({
-      scope: getDemoCommandCenterScope(),
-      threats: buildDemoPipelineThreats(),
-    }).toLowerCase();
+    const scope = getDemoCommandCenterScope();
+    const threats = buildDemoPipelineThreats();
+    // Schema keys (e.g. enclaveRole) are internal — only scan display strings.
+    const blob = [
+      ...scope.tenants.flatMap((t) => [t.name, t.slug, t.industry ?? ""]),
+      ...threats.flatMap((t) => [
+        t.name,
+        t.description,
+        t.source,
+        t.target,
+        t.industry,
+      ]),
+    ]
+      .join("\n")
+      .toLowerCase();
     for (const banned of ["medshield", "vaultbank", "gridcore", "irongate", "enclave"]) {
       expect(blob, `banned term leaked: ${banned}`).not.toContain(banned);
     }
+    expect(scope.tenants[0]?.enclaveRole).toBe("PRIMARY");
+    expect(scope.tenants[0]?.parentTenantId).toBeNull();
+    expect(scope.tenants.find((t) => t.slug === "healthcare-demo")?.enclaveRole).toBe(
+      "SUBTENANT",
+    );
   });
 });

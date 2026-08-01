@@ -1,7 +1,8 @@
 # Counsel review packet — Path B commercial contracts
 
-**Status:** Ready for outside counsel review · **not** counsel-approved  
+**Status:** Submitted to outside counsel · **awaiting reply** · **not** counsel-approved  
 **Prepared:** 2026-07-22  
+**Submitted:** 2026-08-01 — **LegalCorps** (review requested; waiting on reply)  
 **Product:** Ironframe GRC — Command Tier / Path B design-partner on-ramp  
 **Operator gate:** Launch checklist **D0** — no paid signature / Path B activation send until counsel returns approved text  
 

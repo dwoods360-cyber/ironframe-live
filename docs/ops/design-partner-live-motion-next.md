@@ -3,11 +3,12 @@
 **Canonical remaining list:** [production-go-live-remaining.md](./production-go-live-remaining.md)  
 **Workstation:** Ironframe ops on the **Windows Cursor box** — [Windows migration checklist](./windows-workstation-migration.md) (Task Scheduler + secrets + GTM smoke). Prior note: [Mac sunset handoff](./workstation-handoff-2026-07-29.md).
 
-Open tracks: **counsel D0** · **design-partner acquisition/close** (Ironleads → live DISPATCH → close).  
-**Stripe live Path B:** done 2026-07-28.
+Open tracks: **counsel D0 (waiting on LegalCorps)** · **design-partner acquisition/close** (Ironleads → live DISPATCH → close).  
+**Stripe live Path B:** done 2026-07-28.  
+**Counsel:** packet submitted to **LegalCorps** 2026-08-01 — awaiting reply (D0 product gate stays **off**).
 
 Never Path-B / provision `ironframe-central-test` (QA throwaway).  
-Keep public instant checkout and counsel D0 **off** until counsel returns.
+Keep public instant checkout and counsel D0 **off** until LegalCorps returns approved text.
 
 ## Surfaces
 

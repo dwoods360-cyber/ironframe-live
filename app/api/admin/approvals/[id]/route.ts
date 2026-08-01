@@ -18,6 +18,7 @@ import {
   sendOutboundSms,
 } from "@/app/lib/server/sendOutboundSms";
 import { finalizeSalesDispatchOperatorTrail } from "@/app/lib/server/finalizeSalesDispatchOperatorTrail";
+import { applyApprovalNeedsEnrichment } from "@/app/lib/server/approvalNeedsEnrichmentCore";
 import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ type DispatchBody = {
   recipientPhone?: string;
   dispatchChannel?: ApprovalDispatchChannel;
   acknowledgeOperatorSelfDispatch?: boolean;
+  /** Optional note stored on the deal when returning for enrichment. */
+  operatorNote?: string;
 };
 
 export async function POST(
@@ -71,7 +74,7 @@ export async function POST(
     const body = (await req.json()) as DispatchBody;
     const { action, adjustedText } = body;
 
-    if (!action || !["DISPATCH", "PURGE"].includes(action)) {
+    if (!action || !["DISPATCH", "PURGE", "NEEDS_ENRICHMENT"].includes(action)) {
       return NextResponse.json({ error: "Invalid action perimeter request." }, { status: 400 });
     }
 
@@ -332,6 +335,40 @@ export async function POST(
         inboundAdvanced: trail.inboundAdvanced,
         nextStep: draftKind === "SALES" && trail.touchLogged ? "LIVE" : undefined,
       });
+    }
+
+    if (action === "NEEDS_ENRICHMENT") {
+      if (draftKind !== "SALES") {
+        return NextResponse.json(
+          {
+            error:
+              "Needs enrichment applies to SALES drafts only — use Purge for Support / CS.",
+          },
+          { status: 400 },
+        );
+      }
+      if (!contact?.id) {
+        return NextResponse.json(
+          { error: "Needs enrichment requires a linked CRM contact." },
+          { status: 409 },
+        );
+      }
+
+      const result = await applyApprovalNeedsEnrichment({
+        interactionId,
+        contactId: contact.id,
+        dealId: pendingInteraction.dealId ?? null,
+        originalSummary: pendingInteraction.summary,
+        priorEmail: contact.email,
+        priorPhone: contact.phone,
+        priorContactMetadata: contact.metadata,
+        operatorNote: body.operatorNote,
+      });
+
+      console.log(
+        `Needs enrichment complete. Draft [${interactionId}] archived; deal demoted=${result.dealDemoted}.`,
+      );
+      return NextResponse.json(result);
     }
 
     const purgedSummary = [

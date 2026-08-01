@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DISPATCHED_DRAFT_TAG,
   DISPATCHED_SALES_DRAFT_TAG,
+  NEEDS_ENRICHMENT_DRAFT_TAG,
   PENDING_DRAFT_TAG,
   PENDING_SALES_DRAFT_TAG,
   inferDraftKind,
@@ -76,6 +77,18 @@ describe("approvalQueueCore", () => {
       "[PENDING SALES DRAFT APPROVAL] Ironframe platform assessment — Acme Financial",
       "--- Agent Proposed Reply Text ---",
       "Discarded body.",
+    ].join("\n");
+
+    expect(isPendingDraftSummary(summary)).toBe(false);
+  });
+
+  it("treats needs-enrichment archives as non-pending", () => {
+    const summary = [
+      `${NEEDS_ENRICHMENT_DRAFT_TAG} Operator returned this draft for contact enrichment.`,
+      "--- Discarded Copy Text ---",
+      `${PENDING_SALES_DRAFT_TAG} GRC workflow at Pivot Point Security`,
+      "--- Agent Proposed Reply Text ---",
+      "Body",
     ].join("\n");
 
     expect(isPendingDraftSummary(summary)).toBe(false);

@@ -12,6 +12,8 @@ export const PENDING_CS_ADVISORY_TAG = "[PENDING CS ADVISORY APPROVAL]";
 export const DISPATCHED_DRAFT_TAG = "[DISPATCHED SUPPORT COURIER]";
 export const DISPATCHED_SALES_DRAFT_TAG = "[DISPATCHED SALES COURIER]";
 export const PURGED_DRAFT_TAG = "[PURGED DRAFT]";
+/** Soft-archive after Approvals "Needs enrichment" — demote back to SUSPECT pipeline. */
+export const NEEDS_ENRICHMENT_DRAFT_TAG = "[NEEDS ENRICHMENT]";
 
 export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG, PENDING_CS_ADVISORY_TAG] as const;
 
@@ -38,9 +40,15 @@ export type PendingApprovalDraft = {
 };
 
 export function isPendingDraftSummary(summary: string): boolean {
-  // Purged rows archive the original body (which still contains PENDING tags) —
-  // treat soft-archived drafts as non-pending so Approvals does not re-list them.
+  // Soft-archived rows keep the original PENDING body in a discard block —
+  // treat them as non-pending so Approvals does not re-list them.
   if (summary.includes(PURGED_DRAFT_TAG) || summary.startsWith("[PURGED DRAFT]")) {
+    return false;
+  }
+  if (
+    summary.includes(NEEDS_ENRICHMENT_DRAFT_TAG) ||
+    summary.startsWith("[NEEDS ENRICHMENT]")
+  ) {
     return false;
   }
   return PENDING_DRAFT_TAGS.some((tag) => summary.includes(tag));
@@ -151,6 +159,8 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
         OR: [
           { summary: { contains: PURGED_DRAFT_TAG } },
           { summary: { startsWith: "[PURGED DRAFT]" } },
+          { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
+          { summary: { startsWith: "[NEEDS ENRICHMENT]" } },
         ],
       },
       contactId: { not: null },

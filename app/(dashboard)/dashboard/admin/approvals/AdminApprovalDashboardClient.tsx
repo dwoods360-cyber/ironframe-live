@@ -223,10 +223,14 @@ function AdminApprovalDashboardInner() {
     }
   };
 
-  const handleAction = async (actionType: "DISPATCH" | "PURGE") => {
+  const handleAction = async (actionType: "DISPATCH" | "PURGE" | "NEEDS_ENRICHMENT") => {
     if (!selectedDraft || isDispatching) return;
     if (actionType === "DISPATCH" && !dispatchValidation.ok) {
       setActionError(dispatchValidation.errors.join(" · "));
+      return;
+    }
+    if (actionType === "NEEDS_ENRICHMENT" && selectedDraft.draftKind !== "SALES") {
+      setActionError("Needs enrichment is for SALES drafts only.");
       return;
     }
     setIsDispatching(true);
@@ -259,6 +263,9 @@ function AdminApprovalDashboardInner() {
         draftKind?: ApprovalDraftKind;
         touchLogged?: boolean;
         nextStep?: "LIVE" | "C3";
+        dealDemoted?: boolean;
+        suspectReportPath?: string;
+        placeholderEmail?: string;
       };
       if (!response.ok) {
         throw new Error(
@@ -266,7 +273,11 @@ function AdminApprovalDashboardInner() {
             "Workflow authorization error.",
         );
       }
-      if (data.status !== "SUCCESS_DISPATCHED" && data.status !== "SUCCESS_PURGED") {
+      if (
+        data.status !== "SUCCESS_DISPATCHED" &&
+        data.status !== "SUCCESS_PURGED" &&
+        data.status !== "SUCCESS_NEEDS_ENRICHMENT"
+      ) {
         throw new Error("Unexpected workflow completion state.");
       }
 
@@ -322,6 +333,25 @@ function AdminApprovalDashboardInner() {
           }
         } else {
           setLastDispatch(null);
+        }
+        return;
+      }
+
+      if (data.status === "SUCCESS_NEEDS_ENRICHMENT") {
+        setLastDispatch(null);
+        setDrafts((prev) => prev.filter((draft) => draft.id !== selectedDraft.id));
+        const demoteNote = data.dealDemoted
+          ? "Deal demoted PROSPECT → SUSPECT."
+          : "Deal stage left unchanged (not PROSPECT).";
+        setActionSuccess(
+          `Needs enrichment — draft archived. ${demoteNote} Destinations cleared.`,
+        );
+        const path =
+          typeof data.suspectReportPath === "string" && data.suspectReportPath.startsWith("/")
+            ? data.suspectReportPath
+            : null;
+        if (path) {
+          router.push(path);
         }
         return;
       }
@@ -627,6 +657,14 @@ function AdminApprovalDashboardInner() {
                         auto-switches to SMS when a phone is present — or paste a real buyer email.
                       </p>
                     ) : null}
+                    {selectedDraft.draftKind === "SALES" &&
+                    isOperatorDryRunEmail(selectedDraft.contactEmail) ? (
+                      <p className="rounded-lg border border-sky-800/40 bg-sky-950/30 px-3 py-2 text-xs text-sky-100">
+                        Destination email looks like an operator dry-run inbox — not a prospect.
+                        Use <strong>Needs enrichment</strong> to demote to SUSPECT and clear
+                        destinations, or paste a real buyer email before DISPATCH.
+                      </p>
+                    ) : null}
                     {selectedDraft.draftKind === "SALES" ? (
                       <div className="flex flex-wrap gap-2">
                         {(["EMAIL", "SMS"] as const).map((channel) => {
@@ -829,7 +867,7 @@ function AdminApprovalDashboardInner() {
                     />
                   </div>
 
-                  <div className="mt-2 flex flex-col items-center justify-end gap-3 border-t border-slate-900 pt-4 sm:flex-row">
+                  <div className="mt-2 flex flex-col items-stretch justify-end gap-3 border-t border-slate-900 pt-4 sm:flex-row sm:items-center">
                     {!dispatchValidation.ok ? (
                       <p className="w-full text-xs text-rose-300 sm:mr-auto" role="alert">
                         {dispatchValidation.errors.join(" · ")}
@@ -843,6 +881,17 @@ function AdminApprovalDashboardInner() {
                     >
                       Purge draft
                     </button>
+                    {selectedDraft.draftKind === "SALES" ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleAction("NEEDS_ENRICHMENT")}
+                        disabled={isDispatching}
+                        title="Archive draft, demote deal to SUSPECT, clear email/phone for Ironleads enrichment"
+                        className="h-11 w-full touch-manipulation rounded-lg border border-sky-800/50 bg-sky-950/30 px-5 font-sans text-xs font-bold uppercase tracking-wide text-sky-200 transition-colors duration-150 hover:border-sky-500 hover:bg-sky-950/50 active:scale-95 disabled:opacity-40 sm:w-auto"
+                      >
+                        Needs enrichment
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void handleAction("DISPATCH")}

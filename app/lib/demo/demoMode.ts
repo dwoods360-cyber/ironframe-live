@@ -32,12 +32,15 @@ export {
   isDemoSandboxSlug,
 };
 
+/** Mirrors `CommandCenterTenantRow` from commandCenterTenantAccess (client-safe copy). */
 export type CommandCenterTenantRow = {
   id: string;
   name: string;
   slug: string;
   industry: string | null;
   aleBaselineCents: string;
+  parentTenantId: string | null;
+  enclaveRole: string;
 };
 
 export type DemoCommandCenterScope = {
@@ -186,6 +189,8 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
         slug: DEMO_WORKSPACE_SLUG,
         industry: "Corporate",
         aleBaselineCents: aggregateCents.toString(),
+        parentTenantId: null,
+        enclaveRole: "PRIMARY",
       },
       {
         id: DEMO_INDUSTRY_UUIDS.medshield,
@@ -193,6 +198,8 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
         slug: "healthcare-demo",
         industry: "Healthcare",
         aleBaselineCents: medshieldCents.toString(),
+        parentTenantId: DEMO_ENCLAVE_UUID,
+        enclaveRole: "SUBTENANT",
       },
       {
         id: DEMO_INDUSTRY_UUIDS.vaultbank,
@@ -200,6 +207,8 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
         slug: "finance-demo",
         industry: "Finance",
         aleBaselineCents: vaultbankCents.toString(),
+        parentTenantId: DEMO_ENCLAVE_UUID,
+        enclaveRole: "SUBTENANT",
       },
       {
         id: DEMO_INDUSTRY_UUIDS.gridcore,
@@ -207,6 +216,8 @@ export function getDemoCommandCenterScope(): DemoCommandCenterScope {
         slug: "infrastructure-demo",
         industry: "Infrastructure",
         aleBaselineCents: gridcoreCents.toString(),
+        parentTenantId: DEMO_ENCLAVE_UUID,
+        enclaveRole: "SUBTENANT",
       },
     ],
     canAccessGlobal: false,

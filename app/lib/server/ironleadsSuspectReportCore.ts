@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   buildAccountResearchBrief,
+  resolveAccountResearchBrief,
   type AccountResearchBrief,
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
@@ -253,25 +254,42 @@ export async function buildIronleadsSuspectReport(
     nextActions.push("Review trigger and qualification signals, then decide enrich vs drop.");
   }
 
-  // Rebuild on every report so HOLD / conflict rules stay current.
-  const accountResearchBrief = buildAccountResearchBrief({
-    company: contact.company,
-    websiteUrl: location.websiteUrl,
-    detectedTrigger: contact.detectedTrigger,
-    industrySector: contact.industrySector,
-    dealStage: deal?.stage ?? null,
-    corpus: "",
-    sourceUrls: [
-      ...(location.namedBuyer?.sourceUrls ?? []),
-      ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
-      ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
-    ],
-    members: location.buyingCommittee?.members ?? [],
-    socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
-    hasRealEmail,
-    hasPhone,
-    generatedAt: new Date().toISOString(),
-  });
+  // Prefer the brief persisted by buying-committee research (real page corpus).
+  // Rebuild only when missing — empty corpus here previously forced Fit UNKNOWN
+  // even when websiteUrl was already on the contact.
+  const persistedBrief = resolveAccountResearchBrief(contact.metadata);
+  const reportCorpus = [
+    contact.company,
+    contact.industrySector,
+    location.websiteUrl,
+    contact.detectedTrigger,
+    ...(location.buyingCommittee?.members.flatMap((m) =>
+      [m.fullName, m.title, m.note, ...m.emails.map((e) => e.email)].filter(Boolean),
+    ) ?? []),
+    ...(location.candidateEmails.map((e) => `${e.person} ${e.email}`) ?? []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const accountResearchBrief =
+    persistedBrief ??
+    buildAccountResearchBrief({
+      company: contact.company,
+      websiteUrl: location.websiteUrl,
+      detectedTrigger: contact.detectedTrigger,
+      industrySector: contact.industrySector,
+      dealStage: deal?.stage ?? null,
+      corpus: reportCorpus,
+      sourceUrls: [
+        ...(location.namedBuyer?.sourceUrls ?? []),
+        ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
+        ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
+      ],
+      members: location.buyingCommittee?.members ?? [],
+      socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
+      hasRealEmail,
+      hasPhone,
+      generatedAt: new Date().toISOString(),
+    });
 
   const operatorHold = resolveOperatorHold(contact.metadata);
 

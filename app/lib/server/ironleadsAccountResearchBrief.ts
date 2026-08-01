@@ -283,17 +283,25 @@ export function buildAccountResearchBrief(
   const namedMembers = input.members.filter((m) => m.fullName?.trim());
   const hasNamedBuyer = namedMembers.length > 0;
 
+  const fitHaystack = [
+    input.company,
+    input.industrySector,
+    input.websiteUrl,
+    corpus,
+  ]
+    .filter(Boolean)
+    .join("\n");
   const fitPass =
     services.some((s) =>
       ["MSSP", "vCISO", "managed GRC", "compliance advisory"].includes(s),
-    ) || /mssp|vciso|managed\s+grc|cybersecurity/i.test(`${input.company}\n${corpus}`);
+    ) || /mssp|vciso|managed\s+grc|cybersecurity|managed\s+security/i.test(fitHaystack);
 
   const fit: AccountResearchBriefGate = fitPass
     ? {
         result: "PASS",
         finding: services.length
           ? `Public site signals: ${services.join(", ")}.`
-          : "Company name / sector suggests a security or compliance practice.",
+          : "Company name / sector / website signals suggest a security or compliance practice.",
         why: "Path B design partners need a real MSSP, vCISO, or managed-GRC motion — not a one-off enterprise IT shop.",
       }
     : corpus.trim()
@@ -302,11 +310,18 @@ export function buildAccountResearchBrief(
           finding: "Public pages fetched but MSSP/vCISO/managed-GRC language was not clearly detected.",
           why: "Operator should confirm practice type before Promote; Fit FAIL means Drop or research-only.",
         }
-      : {
-          result: "UNKNOWN",
-          finding: "Insufficient public corpus to confirm practice type.",
-          why: "Add website/domain and re-run research before Fit can Pass.",
-        };
+      : input.websiteUrl?.trim()
+        ? {
+            result: "UNKNOWN",
+            finding:
+              "Website is on file, but no fetched page text is loaded into this brief yet.",
+            why: "Re-run Research only on Ironleads so Fit can read the public site — having a URL alone is not the corpus.",
+          }
+        : {
+            result: "UNKNOWN",
+            finding: "Insufficient public corpus to confirm practice type.",
+            why: "Add website/domain and re-run research before Fit can Pass.",
+          };
 
   const trigger = input.detectedTrigger?.trim() || null;
   const pain: AccountResearchBriefGate = trigger

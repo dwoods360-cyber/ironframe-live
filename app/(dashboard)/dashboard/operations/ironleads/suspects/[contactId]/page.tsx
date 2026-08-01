@@ -4,6 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import AccountResearchBriefPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/AccountResearchBriefPanel";
 import SuspectOperatorEditPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/SuspectOperatorEditPanel";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
+import {
+  formatIronleadsDealNotes,
+  formatQualificationSignalsDisplay,
+} from "@/app/lib/ironleadsOperatorDisplay";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 
 export const dynamic = "force-dynamic";
@@ -461,23 +465,35 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
           {report.deal?.notes?.trim() ? (
             <div className="mt-4">
               <p className="text-[10px] uppercase tracking-widest text-slate-500">Deal notes</p>
-              <pre className="mt-1 whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/50 p-3 font-mono text-xs text-slate-300">
-                {report.deal.notes}
-              </pre>
+              <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-300">
+                {formatIronleadsDealNotes(report.deal.notes).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
             </div>
           ) : null}
-          {report.qualificationSignals &&
-          typeof report.qualificationSignals === "object" &&
-          Object.keys(report.qualificationSignals as object).length > 0 ? (
-            <div className="mt-4">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">
-                Qualification signals
-              </p>
-              <pre className="mt-1 overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/50 p-3 font-mono text-xs text-slate-300">
-                {JSON.stringify(report.qualificationSignals, null, 2)}
-              </pre>
-            </div>
-          ) : null}
+          {(() => {
+            const quals = formatQualificationSignalsDisplay(report.qualificationSignals);
+            if (!quals) return null;
+            return (
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                  Qualification signals
+                </p>
+                <p className="mt-2 text-sm text-slate-300">{quals.summary}</p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  {quals.rows.map((row) => (
+                    <div key={row.label}>
+                      <dt className="text-[10px] uppercase tracking-widest text-slate-500">
+                        {row.label}
+                      </dt>
+                      <dd className="mt-0.5 text-slate-200">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
         </section>
 
         <section className="rounded-xl border border-cyan-900/40 bg-cyan-950/20 p-5">

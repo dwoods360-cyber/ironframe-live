@@ -96,6 +96,7 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
             <p className="mt-1 text-xs text-slate-400">
               Supporting extract for the Account Research Brief above. LinkedIn URLs are review links
               only (not scraped). Pattern emails stay unverified until published or confirmed.
+              Research runs format+MX hygiene (routability risk only — not ownership proof).
               {report.buyingCommittee.researchedAt
                 ? ` · ${report.buyingCommittee.researchedAt}`
                 : ""}
@@ -161,7 +162,9 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
                       {member.emails.map((row) => (
                         <div key={row.email} className="break-all font-mono">
                           email: {row.email}{" "}
-                          <span className="text-amber-200/80">({row.status})</span>
+                          <span className="text-amber-200/80">
+                            ({[row.status, row.mailboxLabel].filter(Boolean).join(" · ")})
+                          </span>
                         </div>
                       ))}
                       {member.phones.map((row) => (
@@ -225,7 +228,10 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
               Candidate emails (unverified)
             </h2>
             <p className="mt-1 text-xs text-slate-400">
-              Pattern guesses only — do not clear PLACEHOLDER_EMAIL until confirmed.
+              Pattern guesses only — do not clear PLACEHOLDER_EMAIL until confirmed.{" "}
+              <span className="text-slate-500">
+                mx_ok = domain accepts mail (not proof the mailbox exists).
+              </span>
             </p>
             <ul className="mt-3 space-y-3">
               {report.candidateEmails.map((row) => (
@@ -236,7 +242,9 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
                   <div className="text-sm font-medium text-slate-100">{row.person}</div>
                   <div className="mt-0.5 break-all font-mono text-xs text-cyan-300">{row.email}</div>
                   <div className="mt-1 font-mono text-[10px] uppercase tracking-wide text-amber-200/80">
-                    {[row.status, row.confidence, row.role].filter(Boolean).join(" · ")}
+                    {[row.status, row.confidence, row.mailboxLabel, row.role]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                   {row.note ? (
                     <p className="mt-1 text-xs text-slate-500">{row.note}</p>

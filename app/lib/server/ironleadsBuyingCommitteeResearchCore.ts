@@ -20,6 +20,11 @@ import {
   type PublicSocialLink,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
+  checkMailboxHygieneMany,
+  mailboxHygieneLabel,
+  type MailboxHygieneResult,
+} from "@/app/lib/server/emailMailboxHygiene";
+import {
   websiteUrlFromDomainOrUrl,
 } from "@/app/lib/server/ironleadsSuspectLocation";
 import prisma from "@/lib/prisma";
@@ -28,6 +33,15 @@ export type BuyingCommitteeEmail = {
   email: string;
   status: "published" | "pattern_guess";
   source: string | null;
+  /** Format + MX hygiene only — not ownership proof. */
+  mailboxCheck?: {
+    ok: boolean;
+    formatOk: boolean;
+    mxOk: boolean | null;
+    reason: string;
+    label: string;
+    checkedAt: string;
+  } | null;
 };
 
 export type BuyingCommitteePhone = {
@@ -343,22 +357,85 @@ function mergeCandidateEmails(
   for (const member of members) {
     if (!member.fullName) continue;
     for (const email of member.emails) {
-      const already = rows.some((row) => {
+      const alreadyIdx = rows.findIndex((row) => {
         const r = asRecord(row);
-        return r && String(r.email).toLowerCase() === email.email;
+        return r && String(r.email).toLowerCase() === email.email.toLowerCase();
       });
-      if (already) continue;
-      rows.push({
+      const mailbox = email.mailboxCheck ?? null;
+      const payload = {
         person: member.fullName,
         role: member.role,
         email: email.email,
         confidence: email.status,
         status: email.status === "published" ? "published" : "unverified",
         note: member.note,
-      });
+        mailboxCheck: mailbox,
+        mailboxLabel: mailbox?.label ?? null,
+      };
+      if (alreadyIdx >= 0) {
+        const priorRow = asRecord(rows[alreadyIdx]) ?? {};
+        rows[alreadyIdx] = { ...priorRow, ...payload };
+      } else {
+        rows.push(payload);
+      }
     }
   }
   return rows.slice(0, 24) as Array<Record<string, unknown>>;
+}
+
+function serializeMailboxCheck(result: MailboxHygieneResult): NonNullable<BuyingCommitteeEmail["mailboxCheck"]> {
+  return {
+    ok: result.ok,
+    formatOk: result.formatOk,
+    mxOk: result.mxOk,
+    reason: result.reason,
+    label: mailboxHygieneLabel(result),
+    checkedAt: result.checkedAt,
+  };
+}
+
+function hygieneMemberNote(
+  prior: string | null,
+  emails: BuyingCommitteeEmail[],
+): string | null {
+  const fail = emails.find((e) => e.mailboxCheck && !e.mailboxCheck.ok)?.mailboxCheck;
+  let extra: string | null = null;
+  if (fail?.reason === "format_invalid") {
+    extra = "Mailbox hygiene FAIL: invalid email format.";
+  } else if (fail?.reason === "mx_missing") {
+    extra = "Mailbox hygiene FAIL: domain has no MX — likely not mail-routable.";
+  } else if (fail?.reason === "mx_lookup_failed") {
+    extra = "Mailbox hygiene inconclusive: MX lookup failed.";
+  } else if (emails.some((e) => e.status === "pattern_guess" && e.mailboxCheck?.ok)) {
+    extra =
+      "Mailbox hygiene PASS (format+MX) — still a pattern guess until published or buyer confirms.";
+  }
+  if (!extra) return prior;
+  if (prior?.includes(extra)) return prior;
+  return prior ? `${prior} ${extra}` : extra;
+}
+
+/** Attach format+MX hygiene to committee emails (does not upgrade pattern_guess → published). */
+async function attachMailboxHygiene(
+  members: BuyingCommitteeMember[],
+): Promise<BuyingCommitteeMember[]> {
+  const emails = members.flatMap((m) => m.emails.map((e) => e.email));
+  if (emails.length === 0) return members;
+  const checks = await checkMailboxHygieneMany(emails);
+  return members.map((member) => {
+    const nextEmails = member.emails.map((row) => {
+      const check = checks.get(row.email.toLowerCase()) ?? null;
+      return {
+        ...row,
+        mailboxCheck: check ? serializeMailboxCheck(check) : null,
+      };
+    });
+    return {
+      ...member,
+      emails: nextEmails,
+      note: hygieneMemberNote(member.note, nextEmails),
+    };
+  });
 }
 
 export async function researchBuyingCommitteeForContact(
@@ -512,6 +589,13 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
       socialProfiles,
       socialPagesFetched: socialPages.length,
       researchedAt,
+    };
+  }
+
+  if (result.members.length > 0) {
+    result = {
+      ...result,
+      members: await attachMailboxHygiene(result.members),
     };
   }
 

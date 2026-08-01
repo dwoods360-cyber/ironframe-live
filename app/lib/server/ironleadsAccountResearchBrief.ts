@@ -135,7 +135,12 @@ export type BuildAccountResearchBriefInput = {
     role: string;
     fullName: string | null;
     title: string | null;
-    emails: Array<{ email: string; status: string; source: string | null }>;
+    emails: Array<{
+      email: string;
+      status: string;
+      source: string | null;
+      mailboxCheck?: { label?: string; ok?: boolean; reason?: string } | null;
+    }>;
     phones: Array<{ phone: string; kind: string; status: string; source: string | null }>;
     sourceUrls: string[];
     note: string | null;
@@ -379,7 +384,9 @@ export function buildAccountResearchBrief(
       linkedInUrl: null,
       biographyUrl: bio,
       email: email?.email ?? null,
-      emailStatus: email?.status ?? null,
+      emailStatus: email
+        ? [email.status, email.mailboxCheck?.label].filter(Boolean).join(" · ") || email.status
+        : null,
       phone: phone?.phone ?? null,
       confidence,
     };

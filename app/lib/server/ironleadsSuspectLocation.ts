@@ -37,6 +37,15 @@ export type SuspectExecutiveSponsor = {
   note: string | null;
 };
 
+export type SuspectMailboxCheck = {
+  ok: boolean;
+  formatOk: boolean;
+  mxOk: boolean | null;
+  reason: string;
+  label: string;
+  checkedAt: string | null;
+};
+
 export type SuspectCandidateEmail = {
   person: string;
   role: string | null;
@@ -44,13 +53,21 @@ export type SuspectCandidateEmail = {
   confidence: string | null;
   status: string | null;
   note: string | null;
+  mailboxLabel: string | null;
+  mailboxCheck: SuspectMailboxCheck | null;
 };
 
 export type SuspectBuyingCommitteeMember = {
   role: string;
   fullName: string | null;
   title: string | null;
-  emails: Array<{ email: string; status: string; source: string | null }>;
+  emails: Array<{
+    email: string;
+    status: string;
+    source: string | null;
+    mailboxLabel: string | null;
+    mailboxCheck: SuspectMailboxCheck | null;
+  }>;
   phones: Array<{ phone: string; kind: string; status: string; source: string | null }>;
   sourceUrls: string[];
   note: string | null;
@@ -198,6 +215,22 @@ export function resolveSuspectExecutiveSponsor(metadata: unknown): SuspectExecut
   };
 }
 
+function resolveMailboxCheck(raw: unknown): SuspectMailboxCheck | null {
+  const row = asRecord(raw);
+  if (!row) return null;
+  const reason = cleanText(row.reason, 80);
+  const label = cleanText(row.label, 40) ?? reason;
+  if (!reason && !label) return null;
+  return {
+    ok: row.ok === true,
+    formatOk: row.formatOk === true,
+    mxOk: typeof row.mxOk === "boolean" ? row.mxOk : null,
+    reason: reason ?? "unknown",
+    label: label ?? "unknown",
+    checkedAt: cleanText(row.checkedAt, 40),
+  };
+}
+
 export function resolveSuspectCandidateEmails(metadata: unknown): SuspectCandidateEmail[] {
   const meta = asRecord(metadata);
   if (!Array.isArray(meta?.candidateEmails)) return [];
@@ -208,6 +241,7 @@ export function resolveSuspectCandidateEmails(metadata: unknown): SuspectCandida
     const email = cleanText(raw.email, 320)?.toLowerCase() ?? null;
     const person = cleanText(raw.person, 200);
     if (!email || !person) continue;
+    const mailboxCheck = resolveMailboxCheck(raw.mailboxCheck);
     out.push({
       person,
       role: cleanText(raw.role, 80),
@@ -215,6 +249,8 @@ export function resolveSuspectCandidateEmails(metadata: unknown): SuspectCandida
       confidence: cleanText(raw.confidence, 120),
       status: cleanText(raw.status, 40),
       note: cleanText(raw.note, 500),
+      mailboxLabel: cleanText(raw.mailboxLabel, 40) ?? mailboxCheck?.label ?? null,
+      mailboxCheck,
     });
   }
   return out.slice(0, 12);
@@ -235,11 +271,16 @@ export function resolveSuspectBuyingCommittee(metadata: unknown): SuspectBuyingC
       ? m.emails
           .map((e) => asRecord(e))
           .filter((e): e is Record<string, unknown> => Boolean(e))
-          .map((e) => ({
-            email: cleanText(e.email, 320)?.toLowerCase() ?? "",
-            status: cleanText(e.status, 40) ?? "unverified",
-            source: cleanText(e.source, 200),
-          }))
+          .map((e) => {
+            const mailboxCheck = resolveMailboxCheck(e.mailboxCheck);
+            return {
+              email: cleanText(e.email, 320)?.toLowerCase() ?? "",
+              status: cleanText(e.status, 40) ?? "unverified",
+              source: cleanText(e.source, 200),
+              mailboxLabel: mailboxCheck?.label ?? null,
+              mailboxCheck,
+            };
+          })
           .filter((e) => e.email)
       : [];
     const phones = Array.isArray(m.phones)

@@ -591,29 +591,35 @@ export function ironframeRollout2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Rollout — Pre-outreach gate (A1–A4 launch checklist)",
       kind: "OPS_GENERAL",
-      status: "IN_PROGRESS",
+      status: "DONE",
       dueAt: "2026-07-22T17:00:00.000Z",
       sourceRef: "rollout/dp-pre-outreach-gate",
       synopsis:
         "Clear A1–A4 on the design-partner operator launch checklist before any outbound batch.",
+      outcome:
+        "PASS 2026-07-19 — A1–A4 on design-partner-operator-launch-checklist.md all clear (contact lead-only; Path B test Checkout mint; Resend+Textbelt; offer/sequence locks).",
     },
     {
       title: "Rollout — SMS DISPATCH / Twilio smoke",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-22T17:00:00.000Z",
       sourceRef: "rollout/sms-dispatch-smoke",
       synopsis:
         "Prove SalesTeam SMS DISPATCH via Twilio end-to-end before first live outreach batch.",
+      outcome:
+        "PASS 2026-07-19 — A3: SMS path ready via Textbelt (quota≈199); Resend ironframegrc.com verified. Twilio not required for current DISPATCH provider.",
     },
     {
       title: "Rollout — ICP shortlist + warm intros batch",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-25T17:00:00.000Z",
       sourceRef: "rollout/dp-icp-shortlist",
       synopsis:
         "Finalize Path B ICP shortlist and warm-intro targets for design-partner recruitment.",
+      outcome:
+        "PASS 2026-07-19 — B1 ICP shortlist filled (attack order + §C research); B3 prospect-pool has Pivot Point + BlueRadius PROSPECTs. Warm A1–A5 slots empty by design (no warm network).",
     },
     {
       title: "Rollout — Golden Path regression smoke (Stops 1–5)",
@@ -836,22 +842,26 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Marketing — Spot-check live credibility surfaces",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-20T17:00:00.000Z",
       sourceRef: "marketing/live-surfaces-credibility-spotcheck",
       priorityHint: 1,
       synopsis:
         "Before outreach: verify /marketing, /product-demo, Trust Center, contact, and published GF briefings look coherent.",
+      outcome:
+        "PASS 2026-07-18 — A1 prod spot-check: /register/contact lead-only; onboarding Path B label; get-started GRC≠CRM; public credibility surfaces coherent.",
     },
     {
       title: "Marketing — Confirm Path B Stripe activation checkout",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "DONE",
       dueAt: "2026-07-20T18:00:00.000Z",
       sourceRef: "marketing/path-b-stripe-activation-confirm",
       priorityHint: 2,
       synopsis:
         "Pre-outreach checklist: tenant-scoped Path B activation is live; never send PENDING partners to generic /pricing.",
+      outcome:
+        "PASS 2026-07-19 — A2: Stripe test Checkout Session minted for throwaway slug via scripts/dev/a2-pathb-activation-dry-run.mjs ($4,999 Path B); live refused; never send PENDING to generic /pricing.",
     },
     {
       title: "LinkedIn Mon — GRC problem post (heatmap vs dollars)",
@@ -886,12 +896,14 @@ export function preOutreachMarketing2026SeedSpecs(): OpsScheduleSeedSpec[] {
     {
       title: "Marketing — Warm network / advisor asks (before cold)",
       kind: "OPS_GENERAL",
-      status: "PLANNED",
+      status: "CANCELLED",
       dueAt: "2026-07-26T17:00:00.000Z",
       sourceRef: "marketing/warm-network-advisor-asks",
       priorityHint: 8,
       synopsis:
         "Fastest first doors: ask warm network who has board-risk / evidence friction — before cold co-builder batch.",
+      outcome:
+        "N/A 2026-07-19 — B2: no warm network / advisor intros available; deferred until a real intro appears. Cold path proceeds from prospect-pool.",
     },
     {
       title: "Marketing — Cold outreach gate (after free marketing)",

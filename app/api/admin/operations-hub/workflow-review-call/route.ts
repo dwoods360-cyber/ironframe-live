@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import {
-  assistWorkflowReviewQuestion,
+  assistWorkflowReviewQuestionAsync,
   analyzeWorkflowReviewTranscript,
-  runWorkflowReviewCallAssist,
+  runWorkflowReviewCallAssistAsync,
   type WorkflowReviewCallRecap,
 } from "@/app/lib/server/workflowReviewCallAssistCore";
 import { buildWorkflowReviewCallRecapAsync } from "@/app/lib/server/workflowReviewCallRecapLlm";
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   if (action === "assist") {
     return NextResponse.json({
       ok: true,
-      assist: assistWorkflowReviewQuestion(String(body.question ?? "")),
+      assist: await assistWorkflowReviewQuestionAsync(String(body.question ?? "")),
     });
   }
 
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    runWorkflowReviewCallAssist({
+    await runWorkflowReviewCallAssistAsync({
       company: String(body.company ?? "").trim() || "Prospect",
       contactName: body.contactName?.trim(),
       channel: body.channel ?? "teams",

@@ -29,6 +29,12 @@ export const PAID_ENCLAVE_VOLUME_11_50_USD = 2_625 as const; // −25%
 export const PAID_ENCLAVE_FLOOR_USD = 1_750 as const; // −50% / volume floor (51+)
 export const COMMAND_MULTI_USD = 55_000 as const;
 export const COMMAND_MULTI_MAX_ENTITIES = 10 as const;
+/** Subtenants in a full Multi book (1 Primary + N Subtenants). */
+export const COMMAND_MULTI_SUBTENANTS = (COMMAND_MULTI_MAX_ENTITIES -
+  1) as 9;
+/** Paid Enclaves to fill Multi from Core (9 Subtenants − 3 included). */
+export const PAID_ENCLAVES_TO_FILL_MULTI = (COMMAND_MULTI_SUBTENANTS -
+  COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES) as 6;
 export const COMMAND_ENTERPRISE_USD = 95_000 as const;
 export const COMMAND_ENTERPRISE_MAX_ENTITIES = 25 as const;
 

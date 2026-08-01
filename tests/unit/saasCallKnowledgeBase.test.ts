@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
+  COMMAND_CORE_TOTAL_ENTITIES,
+  COMMAND_MULTI_MAX_ENTITIES,
+  COMMAND_MULTI_SUBTENANTS,
+  COMMAND_MULTI_USD,
+  PAID_ENCLAVE_LIST_USD,
+  PAID_ENCLAVES_TO_FILL_MULTI,
+  PLANNED_GA_COMMAND_USD,
+} from "@/lib/ironframeProductKnowledge/commercial";
+import {
   collectSaasCallKnowledgeHits,
   listSaasCallKnowledgeTopics,
   lookupSaasCallKnowledge,
@@ -14,6 +24,22 @@ import {
 import { assistWorkflowReviewQuestion } from "@/app/lib/server/workflowReviewCallAssistCore";
 
 describe("saasCallKnowledgeBase capacity", () => {
+  it("pins Multi stack math to commercial.ts (no drifted counts)", () => {
+    expect(COMMAND_CORE_TOTAL_ENTITIES).toBe(4);
+    expect(COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES).toBe(3);
+    expect(COMMAND_MULTI_MAX_ENTITIES).toBe(10);
+    expect(COMMAND_MULTI_SUBTENANTS).toBe(9);
+    expect(PAID_ENCLAVES_TO_FILL_MULTI).toBe(6);
+    expect(PAID_ENCLAVES_TO_FILL_MULTI).toBe(
+      COMMAND_MULTI_SUBTENANTS - COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES,
+    );
+    const stack = saasCorePaidToMultiStackAnswer();
+    expect(stack).toContain(String(PAID_ENCLAVES_TO_FILL_MULTI));
+    expect(stack).toContain(`$${PLANNED_GA_COMMAND_USD.toLocaleString("en-US")}`);
+    expect(stack).toContain(`$${PAID_ENCLAVE_LIST_USD.toLocaleString("en-US")}`);
+    expect(stack).toContain(`$${COMMAND_MULTI_USD.toLocaleString("en-US")}`);
+  });
+
   it("answers Core → next 6 Paid → Multi counting clearly", () => {
     const questions = [
       "So after the 1st 3, the cost is $3,500 each?",

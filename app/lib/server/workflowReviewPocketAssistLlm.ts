@@ -12,20 +12,27 @@ import {
   COMMAND_ENTERPRISE_MAX_ENTITIES,
   COMMAND_ENTERPRISE_USD,
   COMMAND_MULTI_MAX_ENTITIES,
+  COMMAND_MULTI_SUBTENANTS,
   COMMAND_MULTI_USD,
+  PAID_ENCLAVES_TO_FILL_MULTI,
   CUSTOMER_FACING_PATH_B_SKU,
   DESIGN_PARTNER_COHORT_SEATS,
   DESIGN_PARTNER_DEFAULT_WINDOW_DAYS,
   DESIGN_PARTNER_MIN_WINDOW_DAYS,
+  DESIGN_PARTNER_PATH_B_USD,
   DESIGN_PARTNER_SUCCESS_CRITERIA_COUNT,
+  DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD,
   PAID_ENCLAVE_FLOOR_USD,
   PAID_ENCLAVE_LIST_USD,
   PAID_ENCLAVE_VOLUME_11_50_USD,
   PARTNER_GOLD_ENCLAVES,
+  PARTNER_GOLD_OVERAGE_USD,
   PARTNER_GOLD_USD,
   PARTNER_PLATINUM_ENCLAVES,
+  PARTNER_PLATINUM_OVERAGE_USD,
   PARTNER_PLATINUM_USD,
   PARTNER_SILVER_ENCLAVES,
+  PARTNER_SILVER_OVERAGE_USD,
   PARTNER_SILVER_USD,
   PATH_B_INCLUDED_SUBTENANT_ENCLAVES,
   PATH_B_PRIMARY_ENTITIES,
@@ -118,7 +125,7 @@ Differentiators: ${PRODUCT_DIFFERENTIATORS.join("; ")}
 - Command Core: ${formatUsdWhole(PLANNED_GA_COMMAND_USD)}/yr — ${PATH_B_PRIMARY_ENTITIES} Primary + ${COMMAND_CORE_INCLUDED_SUBTENANT_ENCLAVES} Subtenants (${COMMAND_CORE_TOTAL_ENTITIES} total)
 - Four entities = Core list alone — NOT Core + Paid Enclave
 - Paid Enclave: ${formatUsdWhole(PAID_ENCLAVE_LIST_USD)}/yr list beyond Core's three included Subtenants; volume ${formatUsdWhole(PAID_ENCLAVE_VOLUME_11_50_USD)} (11–50), floor ${formatUsdWhole(PAID_ENCLAVE_FLOOR_USD)} (51+)
-- To fill Multi (10 entities / 9 Subtenants): 6 Paid Enclaves after Core's three — or quote Multi flat
+- To fill Multi (${COMMAND_MULTI_MAX_ENTITIES} entities / ${COMMAND_MULTI_SUBTENANTS} Subtenants): ${PAID_ENCLAVES_TO_FILL_MULTI} Paid Enclaves after Core's three — or quote Multi flat
 - Command Multi: ${formatUsdWhole(COMMAND_MULTI_USD)}/yr up to ${COMMAND_MULTI_MAX_ENTITIES} entities
 - Command Enterprise: ${formatUsdWhole(COMMAND_ENTERPRISE_USD)}/yr up to ${COMMAND_ENTERPRISE_MAX_ENTITIES} entities
 - Growth / Sustainability track: ~${formatUsdWhole(PLANNED_GA_GROWTH_USD)}/yr (capability track, not entity count)
@@ -175,6 +182,61 @@ export function pocketRefuseAnswer(question: string): CallAssistAnswer {
     ),
     banNote:
       "Grounded miss — refused rather than hallucinate. Add recurring facts to saasCallKnowledgeBase.ts / commercial.ts.",
+  };
+}
+
+/** Dollar amounts allowed in grounded LLM pocket answers (commercial.ts only). */
+const POCKET_ALLOWED_USD = new Set<number>([
+  DESIGN_PARTNER_PATH_B_USD,
+  DESIGN_PARTNER_YEAR1_COMMAND_BALANCE_USD,
+  PLANNED_GA_COMMAND_USD,
+  PLANNED_GA_GROWTH_USD,
+  PAID_ENCLAVE_LIST_USD,
+  PAID_ENCLAVE_VOLUME_11_50_USD,
+  PAID_ENCLAVE_FLOOR_USD,
+  COMMAND_MULTI_USD,
+  COMMAND_ENTERPRISE_USD,
+  PARTNER_SILVER_USD,
+  PARTNER_GOLD_USD,
+  PARTNER_PLATINUM_USD,
+  PARTNER_SILVER_OVERAGE_USD,
+  PARTNER_GOLD_OVERAGE_USD,
+  PARTNER_PLATINUM_OVERAGE_USD,
+]);
+
+/**
+ * Reject LLM text that invents dollar amounts outside commercial.ts.
+ * Returns null when clean; otherwise a refuse answer.
+ */
+function parseUsdToken(raw: string): number | null {
+  const m = raw.match(/^\$([\d,]+(?:\.\d+)?)([kKmM])?$/);
+  if (!m) return null;
+  const base = Number(m[1].replace(/,/g, ""));
+  if (!Number.isFinite(base)) return null;
+  const suffix = (m[2] || "").toLowerCase();
+  if (suffix === "k") return Math.round(base * 1_000);
+  if (suffix === "m") return Math.round(base * 1_000_000);
+  return base;
+}
+
+export function refuseIfInventedUsdAmounts(
+  question: string,
+  answer: string,
+): CallAssistAnswer | null {
+  const amounts = [...answer.matchAll(/\$[\d,]+(?:\.\d+)?[kKmM]?\b/g)]
+    .map((m) => parseUsdToken(m[0]))
+    .filter((n): n is number => n != null);
+  const invented = amounts.filter((n) => n >= 100 && !POCKET_ALLOWED_USD.has(n));
+  if (invented.length === 0) return null;
+  return {
+    question,
+    answer: (
+      `I won’t invent pricing — that answer contained unlocked dollar amounts ` +
+      `(${invented.map((n) => formatUsdWhole(n)).join(", ")}). ` +
+      `Re-ask with Command Core / Paid Enclave / Multi / Enterprise wording, or use a locked pocket topic.`
+    ),
+    banNote:
+      "Anti-hallucination: grounded LLM cited USD not in commercial.ts — refused.",
   };
 }
 
@@ -257,6 +319,18 @@ export async function groundedPocketAssistFromLlm(
 
     const answer = object.answer.trim();
     if (!answer) return pocketRefuseAnswer(question);
+
+    const usdRefuse = refuseIfInventedUsdAmounts(question, answer);
+    if (usdRefuse) return usdRefuse;
+
+    if (/\b(medshield|vaultbank|gridcore)\b/i.test(answer)) {
+      return {
+        question,
+        answer: pocketRefuseAnswer(question).answer,
+        banNote:
+          "Anti-hallucination: grounded LLM cited demo-tenant names — refused.",
+      };
+    }
 
     const determinationLabel =
       object.determination === "n/a"

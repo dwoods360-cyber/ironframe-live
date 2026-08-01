@@ -10,6 +10,7 @@ import {
   formatPlannedGaCommandUsd,
 } from "@/lib/ironframeProductKnowledge/commercial";
 import {
+  collectSaasCallKnowledgeHits,
   listSaasCallKnowledgeTopics,
   lookupSaasCallKnowledge,
   saasPocketTopicCatalog,
@@ -35,10 +36,14 @@ export type BuyingSignal = {
   closeHint: string;
 };
 
+export type CallAssistSource = "saas_kb" | "pocket_lock" | "miss" | "grounded_llm";
+
 export type CallAssistAnswer = {
   question: string;
   answer: string;
   banNote: string | null;
+  /** How the answer was produced. Exact locks never invent; grounded_llm is pack-only. */
+  source?: CallAssistSource;
 };
 
 export type TranscriptAnalysis = {
@@ -263,6 +268,10 @@ function findEvidence(text: string, patterns: RegExp[]): string[] {
   return hits.slice(0, 3);
 }
 
+/**
+ * Deterministic pocket locks only (SaaS KB + POCKET_QA). Prefer
+ * {@link assistWorkflowReviewQuestionAsync} on LIVE — it grounds misses in the product pack.
+ */
 export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAnswer {
   const question = questionRaw.trim().slice(0, 1_000);
   if (!question) {
@@ -270,6 +279,7 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
       question: "",
       answer: `Ask a concrete customer question. Pocket topics: ${saasPocketTopicCatalog()}.`,
       banNote: null,
+      source: "miss",
     };
   }
 
@@ -281,6 +291,7 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
       answer: kb.answer,
       banNote:
         "SaaS KB hit — do not invent soft max-client quotas, certs, or demo tenants as customers. Human hosts; agent is sidecar only.",
+      source: "saas_kb",
     };
   }
 
@@ -291,6 +302,7 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
         answer: row.answer,
         banNote:
           "Do not cite medshield / vaultbank / gridcore as customers. Human hosts; agent is sidecar only.",
+        source: "pocket_lock",
       };
     }
   }
@@ -306,7 +318,51 @@ export function assistWorkflowReviewQuestion(questionRaw: string): CallAssistAns
     ),
     banNote:
       "Do not invent architecture notes they did not state. Do not offer free pilots. Add recurring SaaS asks to saasCallKnowledgeBase.ts (commercial.ts is code truth).",
+    source: "miss",
   };
+}
+
+/**
+ * LIVE Pocket: exact SaaS KB / pocket locks first (no LLM rewrite — anti-hallucination).
+ * Only novel phrasing goes to grounded LLM; if Gemini is unavailable, refuse rather than invent.
+ */
+export async function assistWorkflowReviewQuestionAsync(
+  questionRaw: string,
+): Promise<CallAssistAnswer> {
+  const question = questionRaw.trim().slice(0, 1_000);
+  if (!question) {
+    return assistWorkflowReviewQuestion(questionRaw);
+  }
+
+  // Locked commercial/product cards — return verbatim. Never let the model paraphrase prices.
+  const exact = assistWorkflowReviewQuestion(question);
+  if (exact.source === "saas_kb" || exact.source === "pocket_lock") {
+    return exact;
+  }
+
+  const priorityCards = collectSaasCallKnowledgeHits(question);
+  const priorityNotes: string[] = [];
+  for (const row of POCKET_QA) {
+    if (row.match.test(question)) {
+      priorityNotes.push(row.answer);
+    }
+  }
+
+  const { groundedPocketAssistFromLlm, pocketRefuseAnswer } = await import(
+    "@/app/lib/server/workflowReviewPocketAssistLlm"
+  );
+  const grounded = await groundedPocketAssistFromLlm(question, {
+    priorityCards,
+    priorityNotes,
+  });
+  if (grounded) {
+    return {
+      ...grounded,
+      source: grounded.banNote?.includes("refused") ? "miss" : "grounded_llm",
+    };
+  }
+
+  return { ...pocketRefuseAnswer(question), source: "miss" };
 }
 
 export function analyzeWorkflowReviewTranscript(transcriptRaw: string): TranscriptAnalysis {
@@ -427,22 +483,45 @@ export function runWorkflowReviewCallAssist(
 
   return {
     ok: true,
-    guidance: {
-      recording: [
-        "IN-CALL (not after): get verbal consent at minute 0, then keep this console open beside Teams.",
-        "Turn on Teams live captions (or Zoom/Meet captions). Feed the live buffer via mic listen and/or paste captions as they appear.",
-        "Buying signs and close readiness refresh while you talk — do not wait for Recap.",
-        "Optional: also Record in Teams for a post-call archive; analysis for closing happens live.",
-      ],
-      duringCall: [
-        "You host; this panel is a silent sidecar — never read it aloud like a script.",
-        "When they ask something hard, type it into Live Q&A for a pocket answer.",
-        "When a strong buying sign lights up, execute the Close hint immediately (criteria → order form).",
-        `${CUSTOMER_FACING_PATH_B_SKU} lock (internal: Path B): ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics · non-refundable · in-window convert credit to year-1 Command — not a demo detour.`,
-      ],
-    },
+    guidance: sessionGuidance(),
     assist,
     analysis,
+  };
+}
+
+/** LIVE session path — uses grounded pocket assist for novel questions. */
+export async function runWorkflowReviewCallAssistAsync(
+  input: WorkflowReviewCallSessionInput,
+): Promise<WorkflowReviewCallSessionResult> {
+  const assist = input.liveQuestion?.trim()
+    ? await assistWorkflowReviewQuestionAsync(input.liveQuestion)
+    : null;
+  const analysis = input.transcript?.trim()
+    ? analyzeWorkflowReviewTranscript(input.transcript)
+    : null;
+
+  return {
+    ok: true,
+    guidance: sessionGuidance(),
+    assist,
+    analysis,
+  };
+}
+
+function sessionGuidance(): WorkflowReviewCallSessionResult["guidance"] {
+  return {
+    recording: [
+      "IN-CALL (not after): get verbal consent at minute 0, then keep this console open beside Teams.",
+      "Turn on Teams live captions (or Zoom/Meet captions). Feed the live buffer via mic listen and/or paste captions as they appear.",
+      "Buying signs and close readiness refresh while you talk — do not wait for Recap.",
+      "Optional: also Record in Teams for a post-call archive; analysis for closing happens live.",
+    ],
+    duringCall: [
+      "You host; this panel is a silent sidecar — never read it aloud like a script.",
+      "When they ask something hard, type it into Live Q&A for a pocket answer.",
+      "When a strong buying sign lights up, execute the Close hint immediately (criteria → order form).",
+      `${CUSTOMER_FACING_PATH_B_SKU} lock (internal: Path B): ${formatPathBUsd()} · ${DESIGN_PARTNER_DEFAULT_WINDOW_DAYS}-day · 2–3 written metrics · non-refundable · in-window convert credit to year-1 Command — not a demo detour.`,
+    ],
   };
 }
 

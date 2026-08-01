@@ -244,6 +244,9 @@ export default function OperationsHubClient() {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
   const [calendarSearch, setCalendarSearch] = useState("");
+  /** YYYY-MM-DD inclusive bounds on activity dueAt (falls back to completedAt). */
+  const [calendarDueFrom, setCalendarDueFrom] = useState("");
+  const [calendarDueTo, setCalendarDueTo] = useState("");
   /** Per-card close-out notes — required before Done / Cancel (replaces window.prompt). */
   const [outcomeDrafts, setOutcomeDrafts] = useState<Record<string, string>>({});
   const [decisionBusyFile, setDecisionBusyFile] = useState<string | null>(null);
@@ -700,9 +703,15 @@ export default function OperationsHubClient() {
     { id: "teams", label: "Teams" },
   ];
 
+  const calendarFilterActive = Boolean(
+    calendarSearch.trim() || calendarDueFrom || calendarDueTo,
+  );
+
   const scheduleByPriority = useMemo(() => {
     const activities = snapshot?.schedule?.activities ?? [];
     const q = calendarSearch.trim().toLowerCase();
+    const from = calendarDueFrom.trim();
+    const to = calendarDueTo.trim();
     /** P1 (highest) first — lower numeric rank wins. */
     const byPriority = (a: (typeof activities)[number], b: (typeof activities)[number]) => {
       const pa = typeof a.priority === "number" ? a.priority : 999;
@@ -710,7 +719,15 @@ export default function OperationsHubClient() {
       if (pa !== pb) return pa - pb;
       return (a.dueAt ?? "").localeCompare(b.dueAt ?? "");
     };
-    const matches = (a: (typeof activities)[number]) => {
+    const inDueRange = (a: (typeof activities)[number]) => {
+      if (!from && !to) return true;
+      const day = (a.dueAt || a.completedAt || "").slice(0, 10);
+      if (!day) return false;
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      return true;
+    };
+    const matchesText = (a: (typeof activities)[number]) => {
       if (!q) return true;
       const haystack = [
         a.title,
@@ -733,19 +750,21 @@ export default function OperationsHubClient() {
         .toLowerCase();
       return haystack.includes(q);
     };
+    const matches = (a: (typeof activities)[number]) => inDueRange(a) && matchesText(a);
     const filtered = [...activities.filter(matches)].sort(byPriority);
     const open = filtered.filter((a) =>
       ["PLANNED", "IN_PROGRESS", "IN_REVIEW"].includes(a.status),
     );
     const done = filtered.filter((a) => a.status === "DONE" || a.status === "CANCELLED");
+    const filterOn = Boolean(q || from || to);
     return {
       open,
-      done: calendarSearch.trim() ? done : done.slice(0, 12),
+      done: filterOn ? done : done.slice(0, 12),
       doneTotal: done.length,
       matchCount: filtered.length,
       totalCount: activities.length,
     };
-  }, [snapshot, calendarSearch]);
+  }, [snapshot, calendarSearch, calendarDueFrom, calendarDueTo]);
 
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -1187,33 +1206,85 @@ export default function OperationsHubClient() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4">
-                <label htmlFor="ops-calendar-search" className="sr-only">
-                  Search calendar
-                </label>
-                <div className="relative">
-                  <input
-                    id="ops-calendar-search"
-                    type="search"
-                    value={calendarSearch}
-                    onChange={(e) => setCalendarSearch(e.target.value)}
-                    placeholder="Search title, synopsis, kind, owner, source…"
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 pr-20 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
-                  />
-                  {calendarSearch.trim() ? (
-                    <button
-                      type="button"
-                      onClick={() => setCalendarSearch("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-end">
+                  <div className="relative min-w-0 flex-1">
+                    <label htmlFor="ops-calendar-search" className="sr-only">
+                      Search calendar
+                    </label>
+                    <input
+                      id="ops-calendar-search"
+                      type="search"
+                      value={calendarSearch}
+                      onChange={(e) => setCalendarSearch(e.target.value)}
+                      placeholder="Search title, synopsis, kind, owner, source… (try WF review)"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 pr-20 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                    />
+                    {calendarSearch.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => setCalendarSearch("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+                      >
+                        Clear text
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div>
+                      <label
+                        htmlFor="ops-calendar-due-from"
+                        className="mb-1 block text-[10px] uppercase tracking-widest text-slate-500"
+                      >
+                        Due from
+                      </label>
+                      <input
+                        id="ops-calendar-due-from"
+                        type="date"
+                        value={calendarDueFrom}
+                        max={calendarDueTo || undefined}
+                        onChange={(e) => setCalendarDueFrom(e.target.value)}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="ops-calendar-due-to"
+                        className="mb-1 block text-[10px] uppercase tracking-widest text-slate-500"
+                      >
+                        Due to
+                      </label>
+                      <input
+                        id="ops-calendar-due-to"
+                        type="date"
+                        value={calendarDueTo}
+                        min={calendarDueFrom || undefined}
+                        onChange={(e) => setCalendarDueTo(e.target.value)}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
+                      />
+                    </div>
+                    {calendarFilterActive ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCalendarSearch("");
+                          setCalendarDueFrom("");
+                          setCalendarDueTo("");
+                        }}
+                        className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                      >
+                        Clear filters
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                {calendarSearch.trim() ? (
-                  <p className="mt-1.5 text-xs text-slate-500">
+                {calendarFilterActive ? (
+                  <p className="text-xs text-slate-500">
                     Showing {scheduleByPriority.matchCount} of {scheduleByPriority.totalCount}{" "}
                     items
+                    {calendarDueFrom || calendarDueTo
+                      ? ` · due ${calendarDueFrom || "…"} → ${calendarDueTo || "…"}`
+                      : ""}
                   </p>
                 ) : null}
               </div>
@@ -1242,7 +1313,7 @@ export default function OperationsHubClient() {
                     {label}{" "}
                     <span className="font-normal text-slate-500">
                       (
-                      {label === "Done" && !calendarSearch.trim()
+                      {label === "Done" && !calendarFilterActive
                         ? `${items.length}${
                             scheduleByPriority.doneTotal > items.length
                               ? ` of ${scheduleByPriority.doneTotal}`

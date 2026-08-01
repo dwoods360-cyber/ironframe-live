@@ -54,6 +54,7 @@ type DispatchBody = {
   recipientEmail?: string;
   recipientPhone?: string;
   dispatchChannel?: ApprovalDispatchChannel;
+  acknowledgeOperatorSelfDispatch?: boolean;
 };
 
 export async function POST(
@@ -140,6 +141,8 @@ export async function POST(
         body: trimmedText,
         recipientEmail: String(body.recipientEmail ?? contact.email ?? ""),
         recipientPhone: body.recipientPhone ?? contact.phone,
+        company: contact?.company,
+        acknowledgeOperatorSelfDispatch: Boolean(body.acknowledgeOperatorSelfDispatch),
       });
       if (!dispatchGate.ok) {
         return NextResponse.json(

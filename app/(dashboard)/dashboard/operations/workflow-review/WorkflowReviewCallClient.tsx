@@ -109,7 +109,8 @@ type TeamsMeeting = {
 export default function WorkflowReviewCallClient() {
   const [company, setCompany] = useState("");
   const [contactName, setContactName] = useState("");
-  const [channel, setChannel] = useState<"teams" | "zoom" | "meet" | "other">("teams");
+  /** Default Zoom — Teams Graph is optional (R7 N/A). Persist operator preference. */
+  const [channel, setChannel] = useState<"teams" | "zoom" | "meet" | "other">("zoom");
   const [liveMode, setLiveMode] = useState(false);
   const [listening, setListening] = useState(false);
   const [micReady, setMicReady] = useState(false);
@@ -162,6 +163,25 @@ export default function WorkflowReviewCallClient() {
         typeof MediaRecorder !== "undefined",
     );
   }, []);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("ironframe.live.channel");
+      if (saved === "teams" || saved === "zoom" || saved === "meet" || saved === "other") {
+        setChannel(saved);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("ironframe.live.channel", channel);
+    } catch {
+      /* ignore */
+    }
+  }, [channel]);
 
   useEffect(() => {
     liveBufferRef.current = liveBuffer;
@@ -952,9 +972,9 @@ export default function WorkflowReviewCallClient() {
               }
               className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
             >
-              <option value="teams">Microsoft Teams</option>
-              <option value="zoom">Zoom</option>
+              <option value="zoom">Zoom (default)</option>
               <option value="meet">Google Meet</option>
+              <option value="teams">Microsoft Teams</option>
               <option value="other">Other</option>
             </select>
           </label>

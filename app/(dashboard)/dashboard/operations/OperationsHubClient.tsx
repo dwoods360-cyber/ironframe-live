@@ -1263,6 +1263,33 @@ export default function OperationsHubClient() {
                         className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-2 text-sm text-slate-100 focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600"
                       />
                     </div>
+                    <div className="flex flex-wrap gap-1.5 pb-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          setCalendarDueFrom(today);
+                          setCalendarDueTo(today);
+                          setCalendarSearch("WF review");
+                        }}
+                        className="rounded border border-cyan-800/50 px-2 py-1.5 text-[10px] uppercase tracking-wide text-cyan-200 hover:border-cyan-600"
+                      >
+                        Today · WF review
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const start = new Date();
+                          const end = new Date();
+                          end.setDate(end.getDate() + 7);
+                          setCalendarDueFrom(start.toISOString().slice(0, 10));
+                          setCalendarDueTo(end.toISOString().slice(0, 10));
+                        }}
+                        className="rounded border border-slate-700 px-2 py-1.5 text-[10px] uppercase tracking-wide text-slate-300 hover:border-slate-500"
+                      >
+                        Next 7 days
+                      </button>
+                    </div>
                     {calendarFilterActive ? (
                       <button
                         type="button"

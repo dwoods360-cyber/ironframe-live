@@ -19,6 +19,10 @@ import {
 } from "@/app/lib/approvalDraftKinds";
 import {
   SALES_SMS_MAX_CHARS,
+  isIronleadsLocalEmail,
+  isOperatorDryRunEmail,
+  isSalesDispatchHoldCompany,
+  preferredSalesDispatchChannel,
   validateApprovalDispatch,
 } from "@/app/lib/approvalDispatchValidation";
 
@@ -76,6 +80,8 @@ function AdminApprovalDashboardInner() {
   const [touchMessage, setTouchMessage] = useState<string | null>(null);
   /** Preserve EMAIL body when toggling to SMS so switching back does not lose edits. */
   const [emailBodyByDraftId, setEmailBodyByDraftId] = useState<Record<string, string>>({});
+  /** Required when To is an operator dry-run inbox (prevents accidental “live” send to self). */
+  const [acknowledgeDryRun, setAcknowledgeDryRun] = useState(false);
 
   const loadQueue = useCallback(async () => {
     setIsLoading(true);
@@ -132,17 +138,6 @@ function AdminApprovalDashboardInner() {
   const selectedDraft = visibleDrafts.find((draft) => draft.id === activeDraftId);
   const selectedMeta = selectedDraft ? APPROVAL_KIND_META[selectedDraft.draftKind] : null;
 
-  const dispatchValidation = useMemo(() => {
-    if (!selectedDraft) return { ok: true as const, errors: [] as string[] };
-    return validateApprovalDispatch({
-      draftKind: selectedDraft.draftKind,
-      channel: selectedDraft.dispatchChannel,
-      body: selectedDraft.proposedReply,
-      recipientEmail: selectedDraft.contactEmail,
-      recipientPhone: selectedDraft.contactPhone,
-    });
-  }, [selectedDraft]);
-
   const setKindFilter = (next: ApprovalKindFilter) => {
     router.replace(approvalsHref(next), { scroll: false });
   };
@@ -153,6 +148,47 @@ function AdminApprovalDashboardInner() {
       prev.map((draft) => (draft.id === activeDraftId ? { ...draft, ...patch } : draft)),
     );
   };
+
+  const dispatchValidation = useMemo(() => {
+    if (!selectedDraft) return { ok: true as const, errors: [] as string[] };
+    return validateApprovalDispatch({
+      draftKind: selectedDraft.draftKind,
+      channel: selectedDraft.dispatchChannel,
+      body: selectedDraft.proposedReply,
+      recipientEmail: selectedDraft.contactEmail,
+      recipientPhone: selectedDraft.contactPhone,
+      company: selectedDraft.company,
+      acknowledgeOperatorSelfDispatch: acknowledgeDryRun,
+    });
+  }, [selectedDraft, acknowledgeDryRun]);
+
+  // Harvest placeholder → force SMS when a phone exists (operator error preventer).
+  useEffect(() => {
+    if (!selectedDraft || selectedDraft.draftKind !== "SALES") return;
+    const preferred = preferredSalesDispatchChannel({
+      email: selectedDraft.contactEmail,
+      phone: selectedDraft.contactPhone,
+      current: selectedDraft.dispatchChannel,
+    });
+    if (preferred === selectedDraft.dispatchChannel) return;
+    const swapToSmsLock =
+      preferred === "SMS" && looksLikeLongEmailBody(selectedDraft.proposedReply);
+    if (swapToSmsLock) {
+      setEmailBodyByDraftId((prev) => ({
+        ...prev,
+        [selectedDraft.id]: selectedDraft.proposedReply,
+      }));
+    }
+    patchSelectedDraft({
+      dispatchChannel: preferred,
+      ...(swapToSmsLock ? { proposedReply: SALES_SMS_LOCK_BODY } : {}),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when destination identity changes
+  }, [selectedDraft?.id, selectedDraft?.contactEmail, selectedDraft?.contactPhone]);
+
+  useEffect(() => {
+    setAcknowledgeDryRun(false);
+  }, [selectedDraft?.id, selectedDraft?.contactEmail]);
 
   const handleUpdateDraftText = (newText: string) => {
     patchSelectedDraft({ proposedReply: newText });
@@ -208,6 +244,7 @@ function AdminApprovalDashboardInner() {
           recipientEmail: selectedDraft.contactEmail,
           recipientPhone: selectedDraft.contactPhone,
           dispatchChannel: selectedDraft.dispatchChannel,
+          acknowledgeOperatorSelfDispatch: acknowledgeDryRun,
         }),
       });
 
@@ -576,6 +613,20 @@ function AdminApprovalDashboardInner() {
                         Dry-run: set your inbox / test phone here
                       </span>
                     </div>
+                    {selectedDraft.draftKind === "SALES" &&
+                    isSalesDispatchHoldCompany(selectedDraft.company) ? (
+                      <p className="rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-2 text-xs text-rose-100">
+                        HOLD — {selectedDraft.company} is on shortlist channel/competitor block.
+                        Do not Path B cold DISPATCH. Purge or re-qualify with a named buyer first.
+                      </p>
+                    ) : null}
+                    {selectedDraft.draftKind === "SALES" &&
+                    isIronleadsLocalEmail(selectedDraft.contactEmail) ? (
+                      <p className="rounded-lg border border-amber-700/40 bg-amber-950/40 px-3 py-2 text-xs text-amber-100">
+                        EMAIL destination is @ironleads.local (harvest placeholder). Channel
+                        auto-switches to SMS when a phone is present — or paste a real buyer email.
+                      </p>
+                    ) : null}
                     {selectedDraft.draftKind === "SALES" ? (
                       <div className="flex flex-wrap gap-2">
                         {(["EMAIL", "SMS"] as const).map((channel) => {
@@ -686,6 +737,22 @@ function AdminApprovalDashboardInner() {
                         Channel is SMS — set your dry-run E.164 phone (not the prospect switchboard)
                         before DISPATCH.
                       </p>
+                    ) : null}
+                    {selectedDraft.draftKind === "SALES" &&
+                    selectedDraft.dispatchChannel === "EMAIL" &&
+                    isOperatorDryRunEmail(selectedDraft.contactEmail) ? (
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5"
+                          checked={acknowledgeDryRun}
+                          onChange={(e) => setAcknowledgeDryRun(e.target.checked)}
+                        />
+                        <span>
+                          Acknowledge dry-run to my inbox — not a live prospect send. Uncheck and
+                          set a real buyer email for production DISPATCH.
+                        </span>
+                      </label>
                     ) : null}
                   </div>
 

@@ -19,13 +19,16 @@
 
 ```
 Feed / alert signal
-  → Ironleads SUSPECT (or manual CRM on prospect-pool)
-  → Enrich real email / E.164 (+ buying committee if useful)
-  → Promote PROSPECT (MSSP_ENCLAVE)
-  → SalesTeam poll → Approvals ?kind=SALES
-  → C1 edit (locks) → C2 live DISPATCH
+  → Ironleads harvest + auto buying-committee research (portal: Harvest + research)
+  → Operator reviews SUSPECT report (light confirm only)
+  → Human Promote PROSPECT (MSSP_ENCLAVE) when named buyer email ready
+  → Human SalesTeam poll → Approvals ?kind=SALES
+  → Human C1 edit (locks) → C2 live DISPATCH
   → Log shortlist §D
 ```
+
+**Automate:** harvest, site buying-committee extract, blockers on the report.  
+**Keep human:** Promote · SalesTeam poll · Approvals DISPATCH (Path B safety rail).
 
 Surfaces: `/dashboard/operations/ironleads` · `/dashboard/operations/salesteam` · `/dashboard/admin/approvals?kind=SALES` · `/dashboard/operations/library/icp-shortlist#section-d`  
 CLI (with prod DB): `node scripts/dev/b3-list-prospects.mjs`

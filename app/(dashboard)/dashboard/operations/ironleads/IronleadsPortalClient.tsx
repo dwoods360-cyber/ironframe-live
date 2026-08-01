@@ -45,6 +45,11 @@ export default function IronleadsPortalClient() {
       const data = await fetchOpsPortalJson<{
         ok?: boolean;
         snapshot?: IronleadsPortalSnapshot;
+        research?: {
+          total: number;
+          researched: number;
+          skipped: number;
+        } | null;
       }>(
         "/api/admin/operations-hub/ironleads",
         {
@@ -55,7 +60,12 @@ export default function IronleadsPortalClient() {
         "Harvest failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
-      setMessage("Harvest cycle completed. Review SUSPECT queue below.");
+      const research = data.research;
+      setMessage(
+        research
+          ? `Harvest + buying-committee research done — ${research.researched}/${research.total} researched, ${research.skipped} skipped. Open Why SUSPECT reports: light confirm → Promote (or HOLD). SalesTeam poll + DISPATCH stay human.`
+          : "Harvest cycle completed. Review SUSPECT queue below.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Harvest failed.");
     } finally {
@@ -110,8 +120,9 @@ export default function IronleadsPortalClient() {
             </p>
             <h1 className="text-2xl font-bold text-white">Lead generation interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Trigger OSINT harvest cycles, research buying committee (CEO / CFO / CISO), and review
-              SUSPECT-stage contacts ingested into Ironboard CRM.
+              Ironleads automates harvest + buying-committee research. You only{" "}
+              <span className="text-slate-300">review</span> SUSPECT reports, do light confirm if
+              needed, then Promote. SalesTeam poll and Approvals DISPATCH stay human.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -133,8 +144,9 @@ export default function IronleadsPortalClient() {
               disabled={harvestBusy || researchBusy}
               onClick={() => void runBuyingCommitteeResearch()}
               className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/50 disabled:opacity-50"
+              title="Re-run research only (e.g. after Cloud Run cron harvest without portal click)"
             >
-              {researchBusy ? "Researching…" : "Research buying committee"}
+              {researchBusy ? "Researching…" : "Research only"}
             </button>
             <button
               type="button"
@@ -142,7 +154,7 @@ export default function IronleadsPortalClient() {
               onClick={() => void runHarvest()}
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
             >
-              {harvestBusy ? "Harvesting…" : "Run harvest cycle"}
+              {harvestBusy ? "Harvest + research…" : "Harvest + research"}
             </button>
           </div>
         </header>
@@ -193,7 +205,8 @@ export default function IronleadsPortalClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 lg:col-span-2">
               <h2 className="text-lg font-semibold text-white">SUSPECT queue</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Recent contacts created by Ironleads ingress — promoted to PROSPECT via SalesTeam.
+                Review each Why SUSPECT report → Promote when email-ready (or HOLD). Then SalesTeam
+                poll + human DISPATCH.
               </p>
               <ul className="mt-4 space-y-2">
                 {snapshot.suspects.length === 0 ? (

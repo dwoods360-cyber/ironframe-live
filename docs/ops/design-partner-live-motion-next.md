@@ -31,10 +31,10 @@ Keep public instant checkout and counsel D0 **off** until LegalCorps returns app
 
 **This week:** beachhead **D — MSSP / vCISO** ([week-1 Scout playbook](../sales/design-partner-week1-mssp-scout-playbook.md)).
 
-1. `/dashboard/operations/ironleads` → **Run harvest cycle** → optional **Research buying committee**
-2. Promote reachable SUSPECTs to **PROSPECT** on `prospect-pool` (tag `MSSP_ENCLAVE`; **named buyer email** — email-first; SMS deferred; never Promote on `@ironleads.local` alone)
-3. `/dashboard/operations/salesteam` → **Run poll cycle**
-4. Edit + live DISPATCH from Approvals → log on shortlist §D  
+1. `/dashboard/operations/ironleads` → **Harvest + research** (buying committee auto-runs after harvest). Operator only reviews reports; light confirm if needed.
+2. **Human:** Promote reachable SUSPECTs to **PROSPECT** on `prospect-pool` (tag `MSSP_ENCLAVE`; **named buyer email** — email-first; SMS deferred; never Promote on `@ironleads.local` alone)
+3. **Human:** `/dashboard/operations/salesteam` → **Run poll cycle**
+4. **Human:** Edit + live DISPATCH from Approvals → log on shortlist §D  
    Cap: **10–15** ≥12/20 reachable PROSPECTs — not feed noise.  
    CLI check: `node scripts/dev/b3-list-prospects.mjs`  
    **Day 1–2:** live DISPATCH reachable PROSPECTs with named buyer + verified channel before waiting on new feeds. **BlueRadius = HOLD** (Radius360). **Pivot Point = HOLD** (OSCAR GRC) — not Path B SMS/cold.

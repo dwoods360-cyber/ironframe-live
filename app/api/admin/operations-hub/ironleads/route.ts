@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     action?: string;
     scoutOnly?: boolean;
     skipIngress?: boolean;
+    /** Default false — harvest auto-runs buying-committee research for operator review. */
+    skipBuyingCommitteeResearch?: boolean;
   } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -39,25 +41,29 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
+  const formatResearch = (
+    research: Awaited<ReturnType<typeof researchBuyingCommitteeForAllSuspects>>,
+  ) => ({
+    researchedAt: research.researchedAt,
+    total: research.total,
+    researched: research.researched,
+    skipped: research.skipped,
+    results: research.results.map((row) => ({
+      contactId: row.contactId,
+      company: row.company,
+      skipped: row.skipped,
+      skipReason: row.skipReason,
+      memberRoles: row.members.map((m) => m.role),
+      memberCount: row.members.length,
+    })),
+  });
+
   if (body.action === "research_buying_committee") {
     const research = await researchBuyingCommitteeForAllSuspects();
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
       ok: true,
-      research: {
-        researchedAt: research.researchedAt,
-        total: research.total,
-        researched: research.researched,
-        skipped: research.skipped,
-        results: research.results.map((row) => ({
-          contactId: row.contactId,
-          company: row.company,
-          skipped: row.skipped,
-          skipReason: row.skipReason,
-          memberRoles: row.members.map((m) => m.role),
-          memberCount: row.members.length,
-        })),
-      },
+      research: formatResearch(research),
       snapshot: redactIronleadsPortalSnapshot(snapshot),
     });
   }
@@ -67,10 +73,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error ?? "Harvest failed" }, { status: 502 });
   }
 
+  let research: ReturnType<typeof formatResearch> | null = null;
+  if (!body.skipBuyingCommitteeResearch) {
+    const researchRaw = await researchBuyingCommitteeForAllSuspects();
+    research = formatResearch(researchRaw);
+  }
+
   const snapshot = await buildIronleadsPortalSnapshot();
   return NextResponse.json({
     ok: true,
     harvest: result.result,
+    research,
     snapshot: redactIronleadsPortalSnapshot(snapshot),
   });
 }

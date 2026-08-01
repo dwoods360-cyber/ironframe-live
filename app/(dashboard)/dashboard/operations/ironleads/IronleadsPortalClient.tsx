@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { listMsspFreeDirectorySeeds } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
 import type { IronleadsPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
+
+const FREE_DIRECTORY_SEED_COUNT = listMsspFreeDirectorySeeds().length;
 
 export default function IronleadsPortalClient() {
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [harvestBusy, setHarvestBusy] = useState(false);
   const [researchBusy, setResearchBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,7 +42,7 @@ export default function IronleadsPortalClient() {
   }, [loadSnapshot]);
 
   const runHarvest = async () => {
-    if (harvestBusy || researchBusy) return;
+    if (harvestBusy || researchBusy || importBusy) return;
     setHarvestBusy(true);
     setMessage(null);
     setError(null);
@@ -73,8 +78,96 @@ export default function IronleadsPortalClient() {
     }
   };
 
+  const runImportFreeDirectorySeeds = async () => {
+    if (harvestBusy || researchBusy || importBusy) return;
+    const ok = window.confirm(
+      "Import curated free-directory MSSP seeds into prospect-pool as SUSPECTs? (Not a live Clutch scrape — starter pack only.)",
+    );
+    if (!ok) return;
+    setImportBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        snapshot?: IronleadsPortalSnapshot;
+        import?: { created: number; deduped: number; skipped: number; total: number };
+        research?: { researched: number; total: number; skipped: number } | null;
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "import_free_directory_seeds" }),
+        },
+        "Directory seed import failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const imp = data.import;
+      const research = data.research;
+      setMessage(
+        imp
+          ? `Free-directory import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped (${imp.total} rows).${
+              research
+                ? ` Research ${research.researched}/${research.total}.`
+                : ""
+            } Review active SUSPECT queue — HOLD competitors, discard noise, Promote only with named buyer email.`
+          : "Directory seed import completed.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Directory seed import failed.");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const runImportPaste = async () => {
+    if (harvestBusy || researchBusy || importBusy) return;
+    if (!pasteText.trim()) {
+      setError("Paste at least one line: company, website [, trigger]");
+      return;
+    }
+    setImportBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        snapshot?: IronleadsPortalSnapshot;
+        import?: { created: number; deduped: number; skipped: number; total: number };
+        research?: { researched: number; total: number; skipped: number } | null;
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "import_directory_paste",
+            paste: pasteText,
+          }),
+        },
+        "Paste import failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const imp = data.import;
+      const research = data.research;
+      setMessage(
+        imp
+          ? `Paste import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped (${imp.total} rows).${
+              research ? ` Research ${research.researched}/${research.total}.` : ""
+            }`
+          : "Paste import completed.",
+      );
+      setPasteText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Paste import failed.");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
   const runBuyingCommitteeResearch = async () => {
-    if (harvestBusy || researchBusy) return;
+    if (harvestBusy || researchBusy || importBusy) return;
     setResearchBusy(true);
     setMessage(null);
     setError(null);
@@ -141,7 +234,16 @@ export default function IronleadsPortalClient() {
             </button>
             <button
               type="button"
-              disabled={harvestBusy || researchBusy}
+              disabled={harvestBusy || researchBusy || importBusy}
+              onClick={() => void runImportFreeDirectorySeeds()}
+              className="rounded-lg border border-emerald-700 px-4 py-2 text-sm font-medium text-emerald-100 hover:bg-emerald-950/40 disabled:opacity-50"
+              title="Import curated free-directory MSSP seeds (Clutch/public listings) into prospect-pool"
+            >
+              {importBusy ? "Importing…" : "Import free-directory seeds"}
+            </button>
+            <button
+              type="button"
+              disabled={harvestBusy || researchBusy || importBusy}
               onClick={() => void runBuyingCommitteeResearch()}
               className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/50 disabled:opacity-50"
               title="Re-run research only (e.g. after Cloud Run cron harvest without portal click)"
@@ -150,7 +252,7 @@ export default function IronleadsPortalClient() {
             </button>
             <button
               type="button"
-              disabled={harvestBusy || researchBusy}
+              disabled={harvestBusy || researchBusy || importBusy}
               onClick={() => void runHarvest()}
               className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
             >
@@ -178,6 +280,60 @@ export default function IronleadsPortalClient() {
 
         {snapshot ? (
           <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-5 lg:col-span-2">
+              <h2 className="text-lg font-semibold text-emerald-100">
+                Free-directory MSSP import
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Sales Nav not required. Paste firms from{" "}
+                <a
+                  className="text-emerald-200 underline hover:text-emerald-100"
+                  href="https://clutch.co/it-services/cybersecurity"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Clutch
+                </a>{" "}
+                /{" "}
+                <a
+                  className="text-emerald-200 underline hover:text-emerald-100"
+                  href="https://msspproviders.io/browse/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  MSSPProviders
+                </a>{" "}
+                (company, website), or load the curated starter pack. Lands on{" "}
+                <span className="text-slate-300">prospect-pool</span> as MSSP SUSPECTs — still HITL
+                before Promote.
+              </p>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                rows={4}
+                placeholder={"CyberDuo, https://www.cyberduo.com, COMPLIANCE_JOB_POST\nNopalCyber, https://nopalcyber.com"}
+                className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 placeholder:text-slate-600"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={importBusy || harvestBusy || researchBusy}
+                  onClick={() => void runImportPaste()}
+                  className="rounded-lg border border-emerald-700 bg-emerald-950/50 px-4 py-2 text-sm font-medium text-emerald-50 hover:border-emerald-500 disabled:opacity-40"
+                >
+                  Import paste
+                </button>
+                <button
+                  type="button"
+                  disabled={importBusy || harvestBusy || researchBusy}
+                  onClick={() => void runImportFreeDirectorySeeds()}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:border-emerald-700 disabled:opacity-40"
+                >
+                  Import starter pack ({FREE_DIRECTORY_SEED_COUNT})
+                </button>
+              </div>
+            </section>
+
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">Worker status</h2>
               <div className="mt-4 space-y-2 text-sm">

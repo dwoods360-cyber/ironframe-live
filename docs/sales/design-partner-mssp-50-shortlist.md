@@ -66,15 +66,16 @@ Fail any gate → **Hold** or drop. Do not treat “practice/client proof” alo
 ## Enrichment stack (first wave — keep small)
 
 ```
-Sales Navigator (manual select)
-  → Account + buyer names on this sheet
-  → Apollo OR Prospeo (one finder)
+Free directories (Clutch / MSSPProviders) OR Google
+  → Ironleads portal: Import free-directory seeds OR paste company,website
+  → SUSPECT on prospect-pool (MSSP_ENCLAVE) + buying-committee research
+  → Operator Fit · Pain · Buyer gates on this sheet
+  → Optional: Apollo OR Prospeo (one finder) for named buyer email
   → Ordinary email verification
-  → BounceBan only for unresolved catch-all
   → Approvals HITL DISPATCH (10–15 at a time)
 ```
 
-Do **not** stand up Clay + Apollo + Dropcontact + Prospeo + Cognism before the first 20 deliberate sends. Add Clay only after a weekly process is repeatable. Do not scrape Sales Navigator via browser plugins.
+Sales Navigator is optional (cost). Prefer free Clutch / MSSPProviders + paste import. Do **not** stand up Clay + multi-finder stacks before the first 20 deliberate sends. Do not scrape LinkedIn via browser plugins.
 
 ---
 

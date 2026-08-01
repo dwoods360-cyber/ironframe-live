@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { researchBuyingCommitteeForAllSuspects } from "@/app/lib/server/ironleadsBuyingCommitteeResearchCore";
 import {
+  importMsspDirectoryAccounts,
+  importMsspFreeDirectorySeeds,
+  listMsspFreeDirectorySeeds,
+  parseDirectoryImportPaste,
+} from "@/app/lib/server/ironleadsMsspDirectoryImportCore";
+import {
   redactIronleadsPortalSnapshot,
 } from "@/app/lib/server/operationsApiRedaction";
 import {
@@ -19,7 +25,14 @@ export async function GET() {
   }
 
   const snapshot = await buildIronleadsPortalSnapshot();
-  return NextResponse.json(redactIronleadsPortalSnapshot(snapshot));
+  return NextResponse.json({
+    ...redactIronleadsPortalSnapshot(snapshot),
+    directorySeeds: listMsspFreeDirectorySeeds().map((s) => ({
+      companyName: s.companyName,
+      websiteUrl: s.websiteUrl,
+      directorySource: s.directorySource,
+    })),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -34,6 +47,8 @@ export async function POST(request: NextRequest) {
     skipIngress?: boolean;
     /** Default false — harvest auto-runs buying-committee research for operator review. */
     skipBuyingCommitteeResearch?: boolean;
+    paste?: string;
+    runResearchAfterImport?: boolean;
   } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -64,6 +79,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       research: formatResearch(research),
+      snapshot: redactIronleadsPortalSnapshot(snapshot),
+    });
+  }
+
+  if (body.action === "import_free_directory_seeds") {
+    const imported = await importMsspFreeDirectorySeeds();
+    let research: ReturnType<typeof formatResearch> | null = null;
+    if (body.runResearchAfterImport !== false) {
+      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+    }
+    const snapshot = await buildIronleadsPortalSnapshot();
+    return NextResponse.json({
+      ok: true,
+      import: imported,
+      research,
+      snapshot: redactIronleadsPortalSnapshot(snapshot),
+    });
+  }
+
+  if (body.action === "import_directory_paste") {
+    const rows = parseDirectoryImportPaste(typeof body.paste === "string" ? body.paste : "");
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: "Paste at least one line: company, website [, trigger]" },
+        { status: 400 },
+      );
+    }
+    if (rows.length > 50) {
+      return NextResponse.json(
+        { error: "Max 50 rows per paste import" },
+        { status: 400 },
+      );
+    }
+    const imported = await importMsspDirectoryAccounts(rows);
+    let research: ReturnType<typeof formatResearch> | null = null;
+    if (body.runResearchAfterImport !== false) {
+      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+    }
+    const snapshot = await buildIronleadsPortalSnapshot();
+    return NextResponse.json({
+      ok: true,
+      import: imported,
+      research,
       snapshot: redactIronleadsPortalSnapshot(snapshot),
     });
   }

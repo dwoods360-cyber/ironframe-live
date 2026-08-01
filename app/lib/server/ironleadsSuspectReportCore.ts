@@ -7,6 +7,11 @@ import {
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
+  formatIronleadsDealNotes,
+  formatQualificationSignalsDisplay,
+  type QualificationSignalsDisplay,
+} from "@/app/lib/ironleadsOperatorDisplay";
+import {
   resolveOperatorHold,
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
@@ -83,6 +88,10 @@ export type IronleadsSuspectReport = {
   whyNotProspectQueue: string;
   blockers: SuspectReportBlocker[];
   nextActions: string[];
+  /** Plain-language deal notes for the report UI. */
+  dealNotesDisplay: string[];
+  /** Plain-language qualification signals for the report UI. */
+  qualificationDisplay: QualificationSignalsDisplay | null;
 };
 
 const IRONLEADS_LOCAL_EMAIL = /@ironleads\.local$/i;
@@ -359,5 +368,7 @@ export async function buildIronleadsSuspectReport(
       : "No reachable EMAIL or SMS path yet (real inbox and/or phone). Without that enrichment, the lead stays in the SUSPECT review queue and is excluded from design-partner PROSPECT dispatch.",
     blockers,
     nextActions,
+    dealNotesDisplay: formatIronleadsDealNotes(deal?.notes),
+    qualificationDisplay: formatQualificationSignalsDisplay(contact.qualificationSignals),
   };
 }

@@ -18,6 +18,14 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
+function cleanLine(line: string): string {
+  return line
+    .replace(/\u00a0/g, " ")
+    .replace(/\r/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function formatTriggerToken(token: string): string {
   const key = token.trim().toUpperCase();
   return TRIGGER_LABELS[key] ?? token.replace(/_/g, " ").toLowerCase();
@@ -25,7 +33,7 @@ function formatTriggerToken(token: string): string {
 
 function formatTriggerList(raw: string): string {
   return raw
-    .split(",")
+    .split(/[,|]/)
     .map((t) => t.trim())
     .filter(Boolean)
     .map(formatTriggerToken)
@@ -43,75 +51,81 @@ function formatWhen(iso: string): string {
   return d.toLocaleString("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
-  });
+    timeZone: "UTC",
+  }) + " UTC";
+}
+
+function formatDealNoteLine(line: string): string {
+  const text = cleanLine(line);
+  if (!text) return "";
+
+  if (/ironleads ingress/i.test(text) && /trigger=/i.test(text)) {
+    const triggerMatch = text.match(/trigger=([^|]+?)(?:\s*\||$)/i);
+    const scoreMatch = text.match(/priorScore=(\d+)/i);
+    const triggers = formatTriggerList(triggerMatch?.[1] ?? "");
+    const prior = scoreMatch?.[1] ? ` Prior priority score was ${scoreMatch[1]}.` : "";
+    const deduped = /\(deduped\)/i.test(text)
+      ? "Matched an existing SUSPECT (deduped) and refreshed it."
+      : "Created as a new SUSPECT from harvest.";
+    return `${deduped} Timeliness hooks: ${triggers || "none listed"}.${prior}`;
+  }
+
+  if (/buying-committee research/i.test(text)) {
+    const whenMatch = text.match(
+      /buying-committee research\s+(\d{4}-\d{2}-\d{2}T[0-9:.Z+-]+)/i,
+    );
+    const membersMatch = text.match(/members=([^;]+)/i);
+    const pagesMatch = text.match(/pages=(\d+)/i);
+    const when = whenMatch?.[1] ? formatWhen(whenMatch[1]) : "an earlier run";
+    const members = (membersMatch?.[1] ?? "")
+      .split(",")
+      .map((m) => m.trim())
+      .filter(Boolean)
+      .join(", ");
+    const pages = pagesMatch?.[1] ?? "0";
+    return `Buying-committee research on ${when}: found roles ${members || "none"}; fetched ${pages} public page(s).`;
+  }
+
+  const hold = text.match(
+    /^\[([^\]]+)\]\s*Operator moved SUSPECT → HOLD archive\s*\(([^)]+)\):\s*(.*)$/i,
+  );
+  if (hold) {
+    return `Moved to HOLD archive on ${formatWhen(hold[1] ?? "")} (${(hold[2] ?? "hold").replace(/_/g, " ")}): ${hold[3] ?? ""}`.trim();
+  }
+
+  const restore = text.match(
+    /^\[([^\]]+)\]\s*Operator restored SUSPECT from HOLD archive\.?(.*)$/i,
+  );
+  if (restore) {
+    const extra = (restore[2] ?? "").trim();
+    return `Restored from HOLD archive on ${formatWhen(restore[1] ?? "")}${extra ? `. ${extra}` : "."}`;
+  }
+
+  const promote = text.match(
+    /^\[([^\]]+)\]\s*Operator promoted SUSPECT → PROSPECT from intake report\.?(.*)$/i,
+  );
+  if (promote) {
+    const extra = (promote[2] ?? "").trim();
+    return `Promoted to PROSPECT on ${formatWhen(promote[1] ?? "")}${extra ? `. ${extra}` : "."}`;
+  }
+
+  const enrich = text.match(/^\[([^\]]+)\]\s*Operator enrichment:\s*(.*)$/i);
+  if (enrich) {
+    return `Operator note (${formatWhen(enrich[1] ?? "")}): ${enrich[2] ?? ""}`.trim();
+  }
+
+  return text;
 }
 
 /** Turn raw deal.notes lines into operator-facing bullets. */
 export function formatIronleadsDealNotes(notes: string | null | undefined): string[] {
-  const raw = (notes ?? "").trim();
+  const raw = (notes ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
   if (!raw) return [];
 
   return raw
     .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const ingress = line.match(
-        /^Ironleads ingress(?:\s*\(deduped\))?\s*\|\s*trigger=([^|]+?)(?:\s*\|\s*priorScore=(\d+))?\s*$/i,
-      );
-      if (ingress) {
-        const triggers = formatTriggerList(ingress[1] ?? "");
-        const prior = ingress[2] ? ` Prior priority score was ${ingress[2]}.` : "";
-        const deduped = /\(deduped\)/i.test(line)
-          ? "Matched an existing SUSPECT (deduped) and refreshed it."
-          : "Created as a new SUSPECT from harvest.";
-        return `${deduped} Timeliness hooks: ${triggers}.${prior}`;
-      }
-
-      const research = line.match(
-        /^Buying-committee research\s+(\S+):\s*members=([^;]*);\s*pages=(\d+)\s*$/i,
-      );
-      if (research) {
-        const when = formatWhen(research[1] ?? "");
-        const members = (research[2] ?? "")
-          .split(",")
-          .map((m) => m.trim())
-          .filter(Boolean)
-          .join(", ");
-        const pages = research[3] ?? "0";
-        return `Buying-committee research on ${when}: found roles ${members || "none"}; fetched ${pages} public page(s).`;
-      }
-
-      const hold = line.match(
-        /^\[([^\]]+)\]\s*Operator moved SUSPECT → HOLD archive\s*\(([^)]+)\):\s*(.*)$/i,
-      );
-      if (hold) {
-        return `Moved to HOLD archive on ${formatWhen(hold[1] ?? "")} (${(hold[2] ?? "hold").replace(/_/g, " ")}): ${hold[3] ?? ""}`.trim();
-      }
-
-      const restore = line.match(
-        /^\[([^\]]+)\]\s*Operator restored SUSPECT from HOLD archive\.?(.*)$/i,
-      );
-      if (restore) {
-        const extra = (restore[2] ?? "").trim();
-        return `Restored from HOLD archive on ${formatWhen(restore[1] ?? "")}${extra ? `. ${extra}` : "."}`;
-      }
-
-      const promote = line.match(
-        /^\[([^\]]+)\]\s*Operator promoted SUSPECT → PROSPECT from intake report\.?(.*)$/i,
-      );
-      if (promote) {
-        const extra = (promote[2] ?? "").trim();
-        return `Promoted to PROSPECT on ${formatWhen(promote[1] ?? "")}${extra ? `. ${extra}` : "."}`;
-      }
-
-      const enrich = line.match(/^\[([^\]]+)\]\s*Operator enrichment:\s*(.*)$/i);
-      if (enrich) {
-        return `Operator note (${formatWhen(enrich[1] ?? "")}): ${enrich[2] ?? ""}`.trim();
-      }
-
-      return line;
-    });
+    .map(formatDealNoteLine)
+    .filter(Boolean);
 }
 
 export type QualificationSignalsDisplay = {
@@ -174,9 +188,7 @@ export function formatQualificationSignalsDisplay(
   if (painScore) {
     rows.push({
       label: "Pain signal weight",
-      value: painBits.length
-        ? `${painScore} — ${painBits.join("; ")}`
-        : painScore,
+      value: painBits.length ? `${painScore} — ${painBits.join("; ")}` : painScore,
     });
   }
 

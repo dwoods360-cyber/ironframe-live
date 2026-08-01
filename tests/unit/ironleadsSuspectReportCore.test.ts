@@ -30,6 +30,19 @@ describe("ironleadsSuspectReportCore", () => {
     expect(codes).not.toContain("OSINT_TITLE_NOISE");
   });
 
+  it("does not flag MISSING_DOMAIN when websiteUrl can derive the domain", () => {
+    const blockers = buildSuspectHoldBlockers({
+      company: "Western Alliance Bancorporation",
+      email: "suspect+94cff908@ironleads.local",
+      phone: "+16023893500",
+      tenantSlug: "vaultbank",
+      accountDomain: null,
+      websiteUrl: "https://www.westernalliancebancorporation.com",
+      stage: "SUSPECT",
+    });
+    expect(blockers.map((b) => b.code)).not.toContain("MISSING_DOMAIN");
+  });
+
   it("does not flag real email + phone on prospect-pool as contact blockers", () => {
     const blockers = buildSuspectHoldBlockers({
       company: "BlueRadius Cyber",

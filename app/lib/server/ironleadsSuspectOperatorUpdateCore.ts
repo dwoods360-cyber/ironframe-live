@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
   applyOperatorHoldToMetadata,
@@ -219,54 +220,52 @@ export async function updateIronleadsSuspectContact(
     data,
   });
 
-  if (deal && input.promoteToProspect) {
-    if (deal.stage === "PROSPECT") {
-      // already there
-    } else if (deal.stage !== "SUSPECT") {
-      return {
-        ok: false,
-        error: `Cannot promote from stage ${deal.stage} (expected SUSPECT)`,
-        status: 400,
-      };
-    } else {
-      const noteLine = `[${stamp}] Operator promoted SUSPECT → PROSPECT from intake report.${
+  if (deal) {
+    const derivedDomain =
+      normalizeAccountDomain(deal.accountDomain) ||
+      normalizeAccountDomain(
+        typeof nextMeta.websiteUrl === "string" ? nextMeta.websiteUrl : null,
+      );
+    const dealData: Prisma.IronboardCrmDealUpdateInput = {};
+    if (derivedDomain && !deal.accountDomain) {
+      dealData.accountDomain = derivedDomain;
+    }
+
+    if (input.promoteToProspect) {
+      if (deal.stage !== "PROSPECT" && deal.stage !== "SUSPECT") {
+        return {
+          ok: false,
+          error: `Cannot promote from stage ${deal.stage} (expected SUSPECT)`,
+          status: 400,
+        };
+      }
+      if (deal.stage === "SUSPECT") {
+        const noteLine = `[${stamp}] Operator promoted SUSPECT → PROSPECT from intake report.${
+          input.operatorNote?.trim() ? ` ${input.operatorNote.trim().slice(0, 400)}` : ""
+        }`;
+        dealData.stage = "PROSPECT";
+        dealData.notes = deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine;
+      }
+    } else if (input.moveToHoldArchive) {
+      const hold = resolveOperatorHold(nextMeta) ?? buildOperatorHoldRecord({});
+      const noteLine = `[${stamp}] Operator moved SUSPECT → HOLD archive (${hold.classification}): ${hold.reason}`;
+      dealData.notes = deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine;
+    } else if (input.restoreFromHoldArchive) {
+      const noteLine = `[${stamp}] Operator restored SUSPECT from HOLD archive.${
         input.operatorNote?.trim() ? ` ${input.operatorNote.trim().slice(0, 400)}` : ""
       }`;
+      dealData.notes = deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine;
+    } else if (input.operatorNote?.trim()) {
+      const noteLine = `[${stamp}] Operator enrichment: ${input.operatorNote.trim().slice(0, 400)}`;
+      dealData.notes = deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine;
+    }
+
+    if (Object.keys(dealData).length > 0) {
       await prisma.ironboardCrmDeal.update({
         where: { id: deal.id },
-        data: {
-          stage: "PROSPECT",
-          notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
-        },
+        data: dealData,
       });
     }
-  } else if (deal && input.moveToHoldArchive) {
-    const hold = resolveOperatorHold(nextMeta) ?? buildOperatorHoldRecord({});
-    const noteLine = `[${stamp}] Operator moved SUSPECT → HOLD archive (${hold.classification}): ${hold.reason}`;
-    await prisma.ironboardCrmDeal.update({
-      where: { id: deal.id },
-      data: {
-        notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
-      },
-    });
-  } else if (deal && input.restoreFromHoldArchive) {
-    const noteLine = `[${stamp}] Operator restored SUSPECT from HOLD archive.${
-      input.operatorNote?.trim() ? ` ${input.operatorNote.trim().slice(0, 400)}` : ""
-    }`;
-    await prisma.ironboardCrmDeal.update({
-      where: { id: deal.id },
-      data: {
-        notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
-      },
-    });
-  } else if (deal && input.operatorNote?.trim() && !input.promoteToProspect) {
-    const noteLine = `[${stamp}] Operator enrichment: ${input.operatorNote.trim().slice(0, 400)}`;
-    await prisma.ironboardCrmDeal.update({
-      where: { id: deal.id },
-      data: {
-        notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
-      },
-    });
   }
 
   const report = await buildIronleadsSuspectReport(contactId);

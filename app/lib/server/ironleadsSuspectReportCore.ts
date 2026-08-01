@@ -10,8 +10,10 @@ import {
   resolveOperatorHold,
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
+import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import {
   resolveSuspectLocationFields,
+  websiteUrlFromDomainOrUrl,
   type SuspectBuyingCommittee,
   type SuspectCandidateEmail,
   type SuspectExecutiveSponsor,
@@ -91,11 +93,16 @@ export function buildSuspectHoldBlockers(input: {
   phone: string | null;
   tenantSlug: string;
   accountDomain: string | null;
+  /** metadata.websiteUrl — counts toward domain readiness when deal.accountDomain is empty */
+  websiteUrl?: string | null;
   stage: string | null;
 }): SuspectReportBlocker[] {
   const blockers: SuspectReportBlocker[] = [];
   const hasRealEmail = Boolean(input.email) && !IRONLEADS_LOCAL_EMAIL.test(input.email);
   const hasPhone = Boolean(input.phone?.trim());
+  const resolvedDomain =
+    normalizeAccountDomain(input.accountDomain) ||
+    normalizeAccountDomain(websiteUrlFromDomainOrUrl(input.websiteUrl) ?? input.websiteUrl);
 
   if (!input.stage || input.stage === "SUSPECT") {
     blockers.push({
@@ -134,12 +141,12 @@ export function buildSuspectHoldBlockers(input: {
     });
   }
 
-  if (!input.accountDomain?.trim()) {
+  if (!resolvedDomain) {
     blockers.push({
       code: "MISSING_DOMAIN",
       title: "Missing account domain",
       detail:
-        "No normalized account domain on the deal. Domain helps dedupe and confirms the company is a real outbound target.",
+        "No deal.accountDomain and no website URL to derive one. Domain helps dedupe and confirms the company is a real outbound target.",
     });
   }
 
@@ -211,6 +218,7 @@ export async function buildIronleadsSuspectReport(
     phone: contact.phone,
     tenantSlug: contact.tenant.slug,
     accountDomain: deal?.accountDomain ?? null,
+    websiteUrl: location.websiteUrl,
     stage: deal?.stage ?? null,
   });
 

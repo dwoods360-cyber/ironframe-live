@@ -19,6 +19,7 @@ import {
   type BuyingRole,
   type PublicSocialLink,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
+import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import {
   checkMailboxHygieneMany,
   mailboxHygieneLabel,
@@ -742,9 +743,18 @@ async function persistResearch(
 
   const deal = contact.primaryDeals[0];
   if (deal) {
+    const derivedDomain =
+      normalizeAccountDomain(deal.accountDomain) ||
+      normalizeAccountDomain(result.websiteUrl) ||
+      normalizeAccountDomain(
+        typeof metadata.websiteUrl === "string" ? metadata.websiteUrl : null,
+      );
     await prisma.ironboardCrmDeal.update({
       where: { id: deal.id },
       data: {
+        ...(derivedDomain && !deal.accountDomain
+          ? { accountDomain: derivedDomain }
+          : {}),
         notes: [
           deal.notes?.trim() || "",
           `Buying-committee research ${result.researchedAt}: members=${result.members.map((m) => m.role).join(",") || "none"}; pages=${result.pagesFetched}`,

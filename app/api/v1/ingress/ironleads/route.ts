@@ -71,6 +71,15 @@ export async function POST(request: NextRequest) {
     if (message.startsWith('TARGET_TENANT_NOT_FOUND')) {
       return NextResponse.json({ error: 'TARGET_TENANT_NOT_FOUND' }, { status: 404 });
     }
+    if (message === 'OSINT_TITLE_NOISE_COMPANY') {
+      return NextResponse.json(
+        {
+          error: 'OSINT_TITLE_NOISE_COMPANY',
+          message: 'Discarded — company name is OSINT/directive title noise, not a buyer account',
+        },
+        { status: 422 },
+      );
+    }
     console.error('IRONLEADS_INGRESS_CRASH_LOGGED:', error);
     return NextResponse.json({ error: 'INTERNAL_INGRESS_FAULT' }, { status: 500 });
   }

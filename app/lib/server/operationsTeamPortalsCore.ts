@@ -10,7 +10,9 @@ import {
   collapseSuspectRowsByCompany,
   purgeDuplicateSuspectContacts,
 } from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import { resolveOperatorHold } from "@/app/lib/server/ironleadsOperatorHoldCore";
+import { purgeOsintTitleNoiseSuspects } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   getSuccessTeamHealthSnapshot,
@@ -104,6 +106,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
 
   // Collapse harvest clones before listing (also clears DB duplexes from older races).
   await purgeDuplicateSuspectContacts();
+  // Directive / article titles must never sit in the SUSPECT queue.
+  await purgeOsintTitleNoiseSuspects();
 
   const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
@@ -125,7 +129,9 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     },
   });
 
-  const collapsed = collapseSuspectRowsByCompany(suspectsRaw);
+  const collapsed = collapseSuspectRowsByCompany(suspectsRaw).filter(
+    (row) => !looksLikeOsintTitleNoise(row.company),
+  );
   const activeRows = collapsed.filter((row) => !resolveOperatorHold(row.metadata));
   const holdRows = collapsed.filter((row) => resolveOperatorHold(row.metadata));
 

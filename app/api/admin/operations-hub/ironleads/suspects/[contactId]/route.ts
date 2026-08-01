@@ -77,6 +77,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     promoteToProspect: body.promoteToProspect === true,
     moveToHoldArchive: body.moveToHoldArchive === true,
     restoreFromHoldArchive: body.restoreFromHoldArchive === true,
+    discardSuspect: body.discardSuspect === true,
     holdReason: typeof body.holdReason === "string" ? body.holdReason : undefined,
     holdClassification:
       body.holdClassification === "hold" ||
@@ -90,6 +91,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+
+  if (result.discarded) {
+    return NextResponse.json({ ok: true, discarded: true });
   }
 
   return NextResponse.json({ ok: true, report: result.report });

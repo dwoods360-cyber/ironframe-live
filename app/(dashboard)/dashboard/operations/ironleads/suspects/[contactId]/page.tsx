@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import AccountResearchBriefPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/AccountResearchBriefPanel";
 import SuspectOperatorEditPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/SuspectOperatorEditPanel";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
+import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
+import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +43,12 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
   const report = await buildIronleadsSuspectReport(contactId);
   if (!report) {
     notFound();
+  }
+
+  // Directive / article titles must not remain as SUSPECT accounts.
+  if (looksLikeOsintTitleNoise(report.company)) {
+    await discardIronleadsSuspectContact(contactId);
+    redirect("/dashboard/operations/ironleads?discarded=osint-title-noise");
   }
 
   return (

@@ -9,6 +9,7 @@ import {
   normalizeSuspectCompanyKey,
 } from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
+import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
   classifyVulnerability,
   computeQualificationScores,
@@ -94,6 +95,9 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
 
   const companyName = sanitizeText(input.companyName, 255);
   if (!companyName || companyName.length < 2) throw new Error("companyName is required");
+  if (looksLikeOsintTitleNoise(companyName)) {
+    throw new Error("OSINT_TITLE_NOISE_COMPANY");
+  }
 
   if (!isBeachheadSector(input.industrySector)) {
     throw new Error(`Invalid industrySector "${input.industrySector}"`);

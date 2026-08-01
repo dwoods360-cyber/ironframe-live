@@ -44,11 +44,8 @@ const ENRICHMENTS: Enrichment[] = [
     websiteUrl: "https://www.hhs.gov",
     accountDomain: "hhs.gov",
   },
-  {
-    companyMatch: /^bod 26-04/i,
-    websiteUrl: "https://msrc.microsoft.com",
-    accountDomain: "msrc.microsoft.com",
-  },
+  // Do not enrich BOD 26-04* rows — CISA directive title noise, not a company.
+  // msrc.microsoft.com is Microsoft's vuln-reporting hub, not an Ironleads target.
 ];
 
 async function main() {

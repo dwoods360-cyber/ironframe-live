@@ -13,6 +13,7 @@ import {
   resolveOperatorHold,
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
+import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 import prisma from "@/lib/prisma";
 
@@ -32,6 +33,8 @@ export type SuspectOperatorUpdateInput = {
   moveToHoldArchive?: boolean;
   /** Restore from HOLD archive into the active SUSPECT queue. */
   restoreFromHoldArchive?: boolean;
+  /** Hard-delete OSINT title-noise / non-company SUSPECT rows. */
+  discardSuspect?: boolean;
   holdReason?: string | null;
   holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
@@ -60,7 +63,11 @@ export async function updateIronleadsSuspectContact(
   contactId: string,
   input: SuspectOperatorUpdateInput,
 ): Promise<
-  | { ok: true; report: NonNullable<Awaited<ReturnType<typeof buildIronleadsSuspectReport>>> }
+  | {
+      ok: true;
+      report?: NonNullable<Awaited<ReturnType<typeof buildIronleadsSuspectReport>>>;
+      discarded?: boolean;
+    }
   | { ok: false; error: string; status: number }
 > {
   const contact = await prisma.ironboardCrmContact.findUnique({
@@ -74,6 +81,22 @@ export async function updateIronleadsSuspectContact(
   });
   if (!contact) {
     return { ok: false, error: "Contact not found", status: 404 };
+  }
+
+  if (input.discardSuspect) {
+    if (!looksLikeOsintTitleNoise(contact.company)) {
+      return {
+        ok: false,
+        error:
+          "Discard is only for OSINT title-noise / non-company rows (e.g. BOD directives). Use HOLD archive for real accounts.",
+        status: 400,
+      };
+    }
+    const discarded = await discardIronleadsSuspectContact(contactId);
+    if (!discarded.ok) {
+      return { ok: false, error: discarded.error ?? "Discard failed", status: discarded.status ?? 500 };
+    }
+    return { ok: true, discarded: true };
   }
 
   const deal = contact.primaryDeals[0] ?? null;
@@ -114,6 +137,13 @@ export async function updateIronleadsSuspectContact(
   if (input.company !== undefined) {
     const company = cleanOptional(input.company, 200);
     if (!company) return { ok: false, error: "company is required", status: 400 };
+    if (looksLikeOsintTitleNoise(company)) {
+      return {
+        ok: false,
+        error: "company looks like OSINT title noise — discard the row instead of renaming to it",
+        status: 400,
+      };
+    }
     data.company = company;
   }
 

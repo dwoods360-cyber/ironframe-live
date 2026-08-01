@@ -46,6 +46,8 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     setHoldSnapshot(report.operatorHold);
   }, [report.operatorHold]);
 
+  const isTitleNoise = report.blockers.some((b) => b.code === "OSINT_TITLE_NOISE");
+
   async function patchSuspect(body: Record<string, unknown>, successMessage: string) {
     setBusy(true);
     setMessage(null);
@@ -63,9 +65,16 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         ok?: boolean;
         error?: string;
         report?: IronleadsSuspectReport;
+        discarded?: boolean;
       };
       if (!response.ok || !data.ok) {
         setError(data.error || `Save failed (${response.status})`);
+        return;
+      }
+      if (data.discarded) {
+        setMessage(successMessage);
+        router.push("/dashboard/operations/ironleads");
+        router.refresh();
         return;
       }
       if (data.report) {
@@ -134,6 +143,14 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     );
   }
 
+  async function onDiscardTitleNoise() {
+    const ok = window.confirm(
+      "Discard this row permanently? It is OSINT/directive title noise (not a buyer company) and will be removed from the SUSPECT queue.",
+    );
+    if (!ok) return;
+    await patchSuspect({ discardSuspect: true }, "Discarded — not a buyer company.");
+  }
+
   return (
     <section className="rounded-xl border border-teal-900/50 bg-teal-950/20 p-5">
       <h2 className="text-lg font-semibold text-teal-100">Operator enrichment</h2>
@@ -141,6 +158,24 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         Edit demographics here — the report above is forensic. Clear scrape-noise buyers before
         promote. EMAIL needs a real inbox; otherwise keep SMS to the switchboard.
       </p>
+
+      {isTitleNoise ? (
+        <div className="mt-4 rounded-lg border border-rose-900/60 bg-rose-950/30 p-4">
+          <h3 className="text-sm font-semibold text-rose-100">OSINT title noise</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            This company field is a directive/article title (e.g. BOD 26-04), not an account. Discard
+            it — do not promote or HOLD.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onDiscardTitleNoise()}
+            className="mt-3 rounded-lg border border-rose-700 bg-rose-950/60 px-4 py-2 text-sm font-medium text-rose-50 hover:border-rose-500 disabled:opacity-40"
+          >
+            Discard permanently
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block text-xs text-slate-400">

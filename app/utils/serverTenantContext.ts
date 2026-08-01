@@ -5,10 +5,10 @@ import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { readSimulationModeCookieEnabled } from "@/app/utils/simulationModeCookieServer";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
 import {
-  isDemoBeachheadTenantId,
-  isDemoBeachheadTenantSlug,
-  isProductionDemoBeachheadFilterActive,
-} from "@/app/lib/demoBeachheadTenantGate";
+  isNonLivePlatformTenantId,
+  isNonLivePlatformTenantSlug,
+  isProductionTenantSwitcherFilterActive,
+} from "@/app/lib/productionTenantSwitcherGate";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 
 const SLUGS = new Set<TenantKey>(["medshield", "vaultbank", "gridcore", "defense"]);
@@ -86,15 +86,15 @@ export async function getScopedTenantUuidFromCookies(): Promise<string | null> {
 
   const store = await cookies();
   const rawFull = store.get("ironframe-tenant")?.value?.trim();
-  // Sticky apex cookies for seed beachheads must not keep Medshield (etc.) active on production.
+  // Sticky apex cookies for non-live fixtures must not keep demo/QA tenants active on production.
   if (
-    isProductionDemoBeachheadFilterActive() &&
-    (isDemoBeachheadTenantSlug(rawFull) || isDemoBeachheadTenantId(rawFull))
+    isProductionTenantSwitcherFilterActive() &&
+    (isNonLivePlatformTenantSlug(rawFull) || isNonLivePlatformTenantId(rawFull))
   ) {
     return null;
   }
   const resolved = await resolveTenantUuidFromIronframeCookieRaw(rawFull);
-  if (resolved && isProductionDemoBeachheadFilterActive() && isDemoBeachheadTenantId(resolved)) {
+  if (resolved && isProductionTenantSwitcherFilterActive() && isNonLivePlatformTenantId(resolved)) {
     return null;
   }
   return resolved;

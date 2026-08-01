@@ -40,8 +40,8 @@ export function isDemoBeachheadTenantId(id: string | null | undefined): boolean 
 }
 
 /**
- * Hide demo beachhead rows on production unless the request is host-bound to
- * that tenant (subdomain workspace). Assignment does not keep them visible on apex.
+ * Hide demo beachhead rows on production unless host-bound.
+ * Prefer `filterNonLivePlatformTenants` for the full production switcher gate.
  */
 export function filterDemoBeachheadTenants<T extends { slug: string; id?: string }>(
   rows: T[],

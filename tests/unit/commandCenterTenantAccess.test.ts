@@ -71,7 +71,7 @@ describe("resolveCommandCenterTenantScope", () => {
     expect(scope.tenants[0]?.slug).toBe("medshield");
   });
 
-  it("hides unassigned demo beachheads for GLOBAL_ADMIN on production", async () => {
+  it("hides non-live platform tenants for GLOBAL_ADMIN on production", async () => {
     const previous = process.env.VERCEL_ENV;
     process.env.VERCEL_ENV = "production";
     delete process.env.IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS;
@@ -88,6 +88,17 @@ describe("resolveCommandCenterTenantScope", () => {
           slug: "medshield",
           industry: "HEALTH",
           ale_baseline: 100n,
+          parentTenantId: null,
+          enclaveRole: "PRIMARY",
+        },
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Ironframe Prospect Pool",
+          slug: "prospect-pool",
+          industry: null,
+          ale_baseline: 0n,
+          parentTenantId: null,
+          enclaveRole: "PRIMARY",
         },
         {
           id: acorp,
@@ -95,6 +106,8 @@ describe("resolveCommandCenterTenantScope", () => {
           slug: "acorp",
           industry: "FINANCE",
           ale_baseline: 200n,
+          parentTenantId: null,
+          enclaveRole: "PRIMARY",
         },
       ] as never);
 
@@ -122,6 +135,8 @@ describe("resolveCommandCenterTenantScope", () => {
           slug: "medshield",
           industry: "HEALTH",
           ale_baseline: 100n,
+          parentTenantId: null,
+          enclaveRole: "PRIMARY",
         },
         {
           id: acorp,
@@ -129,6 +144,8 @@ describe("resolveCommandCenterTenantScope", () => {
           slug: "acorp",
           industry: "FINANCE",
           ale_baseline: 200n,
+          parentTenantId: null,
+          enclaveRole: "PRIMARY",
         },
       ] as never);
 
@@ -196,6 +213,8 @@ describe("resolveCommandCenterTenantScope", () => {
         slug: true,
         industry: true,
         ale_baseline: true,
+        parentTenantId: true,
+        enclaveRole: true,
       },
       orderBy: { name: "asc" },
     });

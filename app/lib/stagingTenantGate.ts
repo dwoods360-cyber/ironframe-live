@@ -1,8 +1,11 @@
 import "server-only";
 
+import { isProductionTenantSwitcherFilterActive } from "@/app/lib/productionTenantSwitcherGate";
+
 /**
  * Optional staging tenants hidden from fleet pickers until IRONFRAME_ENABLE_HIDDEN_STAGING_TENANTS=1.
  * Comma-separated slugs in IRONFRAME_HIDDEN_STAGING_TENANT_SLUGS (default: none).
+ * On production, assignment does not keep staging-hidden rows visible (same as non-live gate).
  */
 function hiddenStagingTenantSlugs(): Set<string> {
   if (process.env.IRONFRAME_ENABLE_HIDDEN_STAGING_TENANTS === "1") {
@@ -27,10 +30,13 @@ export function filterHiddenStagingTenants<T extends { slug: string; id?: string
   rows: T[],
   assignedTenantIds: readonly string[] = [],
 ): T[] {
+  const hardHide = isProductionTenantSwitcherFilterActive();
   const assigned = new Set(assignedTenantIds.map((id) => id.trim().toLowerCase()).filter(Boolean));
   return rows.filter((row) => {
+    if (!isHiddenStagingTenantSlug(row.slug)) return true;
+    if (hardHide) return false;
     const rowId = row.id?.trim().toLowerCase();
     if (rowId && assigned.has(rowId)) return true;
-    return !isHiddenStagingTenantSlug(row.slug);
+    return false;
   });
 }

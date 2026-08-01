@@ -4,16 +4,20 @@ import { UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
-import { filterDemoBeachheadTenants } from "@/app/lib/demoBeachheadTenantGate";
+import { filterNonLivePlatformTenants } from "@/app/lib/productionTenantSwitcherGate";
 import { filterHiddenStagingTenants, isHiddenStagingTenantSlug } from "@/app/lib/stagingTenantGate";
 import { getHostBoundTenantUuid } from "@/app/utils/serverTenantContext";
 
-function finalizeSwitcherTenants<T extends { slug: string; id?: string }>(
-  rows: T[],
-  assignedTenantIds: readonly string[],
-  hostTenantId?: string | null,
-): T[] {
-  return filterDemoBeachheadTenants(
+function finalizeSwitcherTenants<
+  T extends {
+    slug: string;
+    id?: string;
+    name?: string | null;
+    parentTenantId?: string | null;
+    enclaveRole?: string | null;
+  },
+>(rows: T[], assignedTenantIds: readonly string[], hostTenantId?: string | null): T[] {
+  return filterNonLivePlatformTenants(
     filterHiddenStagingTenants(rows, assignedTenantIds),
     assignedTenantIds,
     { hostTenantId },
@@ -26,6 +30,8 @@ export type CommandCenterTenantRow = {
   slug: string;
   industry: string | null;
   aleBaselineCents: string;
+  parentTenantId: string | null;
+  enclaveRole: string;
 };
 
 export type CommandCenterTenantScope = {
@@ -45,6 +51,8 @@ function mapTenantRows(
     slug: string;
     industry: string | null;
     ale_baseline: bigint;
+    parentTenantId: string | null;
+    enclaveRole: string;
   }>,
 ): CommandCenterTenantRow[] {
   return rows.map((t) => ({
@@ -53,6 +61,8 @@ function mapTenantRows(
     slug: t.slug,
     industry: t.industry,
     aleBaselineCents: t.ale_baseline.toString(),
+    parentTenantId: t.parentTenantId,
+    enclaveRole: t.enclaveRole,
   }));
 }
 
@@ -107,6 +117,8 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     slug: true,
     industry: true,
     ale_baseline: true,
+    parentTenantId: true,
+    enclaveRole: true,
   } as const;
 
   const tenantListQuery = {

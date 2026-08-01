@@ -6,6 +6,7 @@ import {
   extractBuyingPersons,
   extractPublishedEmails,
   extractPublicSocialLinks,
+  extractSameOriginTeamPageUrls,
   extractUsPhones,
   guessInitialLastEmail,
   inferInitialLastEmailPattern,
@@ -114,15 +115,47 @@ async function gatherCompanyPages(websiteUrl: string): Promise<
   Array<{ url: string; text: string; rawHtml: string }>
 > {
   const base = websiteUrl.replace(/\/$/, "");
-  const urls = [base, ...RESEARCH_PATHS.map((path) => `${base}${path}`)];
+  const seedUrls = [base, ...RESEARCH_PATHS.map((path) => `${base}${path}`)];
+  const seen = new Set<string>();
   const pages: Array<{ url: string; text: string; rawHtml: string }> = [];
-  for (const url of urls) {
+
+  const fetchOne = async (url: string) => {
+    const key = url.replace(/\/$/, "").toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
     const raw = await fetchText(url);
-    if (!raw || raw.length < 80) continue;
-    pages.push({ url, text: stripHtmlToText(raw), rawHtml: raw });
+    if (!raw || raw.length < 80) return;
+    pages.push({ url: url.replace(/\/$/, ""), text: stripHtmlToText(raw), rawHtml: raw });
+  };
+
+  // Homepage first so we can discover Meet the Team / Leadership nav links
+  // (e.g. /company/meet-the-team/ on pivotpointsecurity.com).
+  await fetchOne(base);
+  const homeHtml = pages[0]?.rawHtml ?? "";
+  const discovered = homeHtml
+    ? extractSameOriginTeamPageUrls(homeHtml, base)
+    : [];
+
+  for (const url of [...discovered, ...seedUrls.slice(1)]) {
+    if (pages.length >= 18) break;
+    await fetchOne(url);
   }
+
+  // Second pass: team-page HTML often links to leadership bios — discover once more.
+  for (const page of [...pages]) {
+    if (pages.length >= 22) break;
+    if (!TEAM_PAGE_RETEST.test(page.url)) continue;
+    for (const url of extractSameOriginTeamPageUrls(page.rawHtml, base)) {
+      if (pages.length >= 22) break;
+      await fetchOne(url);
+    }
+  }
+
   return pages;
 }
+
+const TEAM_PAGE_RETEST =
+  /meet[-_]?the[-_]?team|meet[-_]?our[-_]?team|\/leadership|\/team(?:\/|$)|\/people(?:\/|$)/i;
 
 /**
  * Fetch public YouTube/Facebook About pages linked from the company site.

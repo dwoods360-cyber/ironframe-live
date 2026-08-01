@@ -10,7 +10,10 @@ export type BuyingRole =
   | "CRO"
   | "CCO"
   | "GC"
-  | "VP_COMPLIANCE";
+  | "VP_COMPLIANCE"
+  | "MANAGING_DIRECTOR"
+  | "GRC_PRACTICE_LEAD"
+  | "DIRECTOR_OPS";
 
 export type ExtractedPerson = {
   role: BuyingRole;
@@ -29,7 +32,7 @@ const ROLE_PATTERNS: Array<{ role: BuyingRole; title: RegExp; weight: number }> 
   {
     role: "CEO",
     title:
-      /\b(?:chief executive officer|\bceo\b|president and chief executive|chairman[, ]+president and chief executive)\b/i,
+      /\b(?:chief executive officer|ceo|president and chief executive|chairman[, ]+president and chief executive)\b/i,
     weight: 95,
   },
   {
@@ -57,10 +60,31 @@ const ROLE_PATTERNS: Array<{ role: BuyingRole; title: RegExp; weight: number }> 
     title: /\b(?:vp|vice president)[, ]+(?:of )?compliance\b/i,
     weight: 75,
   },
+  {
+    role: "MANAGING_DIRECTOR",
+    title:
+      /\b(?:lead\s+)?managing\s+director\b|\bmanaging\s+partner\b|\bmanaging\s+director[, ]+cybersecurity\b/i,
+    weight: 88,
+  },
+  {
+    role: "GRC_PRACTICE_LEAD",
+    title:
+      /\bgrc\s+practice\s+lead\b|\b(?:head|director|lead)\s+of\s+grc\b|\bv?ciso\s+practice\s+lead\b/i,
+    weight: 82,
+  },
+  {
+    role: "DIRECTOR_OPS",
+    title: /\bdirector\s+of\s+operations\b|\bchief\s+operating\s+officer\b|\bcoo\b/i,
+    weight: 70,
+  },
 ];
 
+// Keep ASCII A-Z anchors; extraction regexes intentionally omit the `i` flag so
+// lowercase prose ("guides", "has") cannot be swallowed into person names.
 const NAME_TOKEN = "[A-Z][A-Za-z'’-]+";
-const FULL_NAME = `${NAME_TOKEN}(?:\\s+[A-Z]\\.)?(?:\\s+${NAME_TOKEN}){1,3}`;
+// First + optional middle initial + last only — avoids swallowing "GRC" from
+// "Rich Stever GRC Practice Lead" meet-the-team cards.
+const FULL_NAME = `${NAME_TOKEN}(?:\\s+[A-Z]\\.)?(?:\\s+${NAME_TOKEN}){1}`;
 
 /** Strip tags / scripts for regex scanning. */
 export function stripHtmlToText(raw: string): string {
@@ -158,12 +182,22 @@ export function guessInitialLastEmail(
   return `${first[0]!.toLowerCase()}${last.toLowerCase()}@${domain.toLowerCase()}`;
 }
 
+const TITLE_NAME_TAIL =
+  /^(Lead|Managing|Chief|Director|Practice|Senior|Junior|Global|Vice|President|Officer|Head|Partner|Principal|Associate)$/i;
+
 /** Strip common leadership-page chrome before name validation. */
 export function normalizeExtractedPersonName(name: string): string {
-  return name
+  let parts = name
     .replace(/\s+/g, " ")
     .replace(/^(View Bio|Bio|About|Meet)\s+/i, "")
-    .trim();
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  // "John Verry Lead" from "John Verry Lead Managing Director" cards
+  while (parts.length > 2 && TITLE_NAME_TAIL.test(parts[parts.length - 1]!)) {
+    parts = parts.slice(0, -1);
+  }
+  return parts.join(" ");
 }
 
 /** Reject HTML/award noise that regex can latch onto as a "person". */
@@ -173,8 +207,10 @@ export function isPlausiblePersonName(name: string): boolean {
   if (parts.length < 2 || parts.length > 4) return false;
   // All-caps marketing phrases ("PRIVACY COMPLIANCE…") are not people.
   if (trimmed === trimmed.toUpperCase() && trimmed.length > 8) return false;
+  if (/['’]s$/i.test(parts[parts.length - 1]!)) return false;
+  if (/^(As|The|And|For|With|Our|This)\b/i.test(trimmed)) return false;
   if (
-    /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet)\b/i.test(
+    /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet|security|services|solutions|systems|partners|point)\b/i.test(
       trimmed,
     )
   ) {
@@ -185,29 +221,55 @@ export function isPlausiblePersonName(name: string): boolean {
   );
 }
 
+/**
+ * Expand title regex source so CEO/CISO match regardless of case, without `i` on names.
+ * Preserves regex escapes (`\b`, `\s`, …) — never fold the `b` in `\b`.
+ */
+function entryTitleSourceCaseInsensitive(title: RegExp): string {
+  return title.source.replace(/\\.|[a-zA-Z]+/g, (chunk) => {
+    if (chunk.startsWith("\\")) return chunk;
+    return chunk
+      .split("")
+      .map((ch) => {
+        const lower = ch.toLowerCase();
+        const upper = ch.toUpperCase();
+        if (lower === upper) return ch;
+        return `[${lower}${upper}]`;
+      })
+      .join("");
+  });
+}
+
 export function extractBuyingPersons(text: string): ExtractedPerson[] {
   const cleaned = text.replace(/\s+/g, " ");
   const found: ExtractedPerson[] = [];
 
   for (const entry of ROLE_PATTERNS) {
+    // Case-folded titles; names stay case-sensitive (`g` only — not `i`).
+    // Group title so `|` alternation cannot escape the surrounding pattern.
+    const title = `(?:${entryTitleSourceCaseInsensitive(entry.title)})`;
     const patterns = [
       // "Appoints Stephen McMaster as Chief Information Security Officer"
       new RegExp(
-        `\\bAppoints\\s+(${FULL_NAME})\\s+as\\s+(?:the\\s+)?${entry.title.source}`,
-        "gi",
+        `\\b[Aa]ppoints\\s+(${FULL_NAME})\\s+[Aa]s\\s+(?:[Tt]he\\s+)?${title}`,
+        "g",
       ),
       // "Stephen McMaster as Chief Information Security Officer"
       new RegExp(
-        `\\b(${FULL_NAME})\\b(?:\\s*[,:\\-–—]|\\s+as\\s+|\\s+has\\s+been\\s+appointed\\s+as\\s+|\\s+is\\s+)(?:the\\s+)?${entry.title.source}`,
-        "gi",
+        `\\b(${FULL_NAME})\\b(?:\\s*[,:\\-–—]|\\s+[Aa]s\\s+|\\s+[Hh]as\\s+[Bb]een\\s+[Aa]ppointed\\s+[Aa]s\\s+|\\s+[Ii]s\\s+)(?:[Tt]he\\s+)?${title}`,
+        "g",
       ),
       // "Kenneth A. Vecchione is Chairman, President and Chief Executive Officer"
+      new RegExp(`\\b(${FULL_NAME})\\s+[Ii]s\\s+(?:[Tt]he\\s+)?${title}`, "g"),
+      // Meet-the-team cards: "John Verry Lead Managing Director" (before title-first — safer)
+      new RegExp(`\\b(${FULL_NAME})\\s+${title}`, "g"),
+      // Bio lines: "Richard Rebetti has been … Chief Operating Officer"
       new RegExp(
-        `\\b(${FULL_NAME})\\s+is\\s+(?:the\\s+)?${entry.title.source}`,
-        "gi",
+        `\\b(${FULL_NAME})\\s+[Hh]as\\s+[Bb]een\\b[^.!?]{0,120}?${title}`,
+        "g",
       ),
       // Title before name: "Chief Information Security Officer Stephen McMaster"
-      new RegExp(`${entry.title.source}\\s*[,:\\-–—]?\\s*(${FULL_NAME})\\b`, "gi"),
+      new RegExp(`${title}\\s*[,:\\-–—]?\\s*(${FULL_NAME})\\b`, "g"),
     ];
 
     for (const rx of patterns) {
@@ -226,11 +288,26 @@ export function extractBuyingPersons(text: string): ExtractedPerson[] {
     }
   }
 
-  // Keep best per role.
+  const matchQuality = (person: ExtractedPerson): number => {
+    const title = person.title.toLowerCase();
+    const name = person.fullName.toLowerCase();
+    // Prefer "Name Title" cards and appointment/bio prose over risky title-first mashups.
+    if (title.startsWith(name)) return 3;
+    if (/\bappoints\b/.test(title) || /\bhas been\b/.test(title) || /\bis\b/.test(title))
+      return 2;
+    return 1;
+  };
+
   const best = new Map<BuyingRole, ExtractedPerson>();
   for (const person of found) {
     const prev = best.get(person.role);
-    if (!prev || person.confidence > prev.confidence) best.set(person.role, person);
+    if (
+      !prev ||
+      person.confidence > prev.confidence ||
+      (person.confidence === prev.confidence && matchQuality(person) > matchQuality(prev))
+    ) {
+      best.set(person.role, person);
+    }
   }
   return [...best.values()].sort((a, b) => b.confidence - a.confidence);
 }
@@ -244,13 +321,60 @@ export const RESEARCH_PATHS = [
   "/leadership",
   "/team",
   "/meet-the-team",
+  "/meet-our-team",
+  "/our-team",
   "/people",
   "/company",
+  "/company/meet-the-team",
+  "/company/team",
+  "/company/leadership",
+  "/about/team",
+  "/about/leadership",
+  "/about/meet-the-team",
   "/news",
   "/insights",
   "/press",
   "/careers",
 ] as const;
+
+const TEAM_PATH_HINT =
+  /(?:meet[-_]?the[-_]?team|meet[-_]?our[-_]?team|our[-_]?team|our[-_]?leadership|leadership|\/team(?:\/|$)|\/people(?:\/|$)|\/staff(?:\/|$))/i;
+
+/**
+ * Discover same-origin Meet the Team / Leadership URLs from homepage (or any) HTML.
+ * Example: https://www.pivotpointsecurity.com/company/meet-the-team/
+ */
+export function extractSameOriginTeamPageUrls(
+  html: string,
+  websiteBaseUrl: string,
+): string[] {
+  let origin: string;
+  try {
+    origin = new URL(websiteBaseUrl).origin;
+  } catch {
+    return [];
+  }
+
+  const found = new Set<string>();
+  const hrefRe = /href\s*=\s*["']([^"'#]+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = hrefRe.exec(html)) !== null) {
+    const raw = m[1].trim();
+    if (!raw || raw.startsWith("mailto:") || raw.startsWith("tel:")) continue;
+    let absolute: URL;
+    try {
+      absolute = new URL(raw, origin);
+    } catch {
+      continue;
+    }
+    if (absolute.origin !== origin) continue;
+    if (!TEAM_PATH_HINT.test(absolute.pathname)) continue;
+    const normalized = `${absolute.origin}${absolute.pathname}`.replace(/\/$/, "");
+    if (normalized === origin) continue;
+    found.add(normalized);
+  }
+  return [...found].slice(0, 8);
+}
 
 export type PublicSocialNetwork = "linkedin" | "youtube" | "facebook";
 

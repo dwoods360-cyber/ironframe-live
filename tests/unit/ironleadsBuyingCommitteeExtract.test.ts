@@ -4,6 +4,7 @@ import {
   extractBuyingPersons,
   extractPublishedEmails,
   extractPublicSocialLinks,
+  extractSameOriginTeamPageUrls,
   extractUsPhones,
   guessInitialLastEmail,
   inferInitialLastEmailPattern,
@@ -52,6 +53,38 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("and Best Company Board")).toBe(false);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
+  });
+
+  it("discovers Meet the Team URLs from homepage nav (e.g. /company/meet-the-team/)", () => {
+    const html = `
+      <a href="/company/meet-the-team/">Meet The Team</a>
+      <a href="https://www.pivotpointsecurity.com/about/leadership">Leadership</a>
+      <a href="https://other.com/team">Ignore</a>
+    `;
+    const urls = extractSameOriginTeamPageUrls(
+      html,
+      "https://www.pivotpointsecurity.com",
+    );
+    expect(urls).toContain("https://www.pivotpointsecurity.com/company/meet-the-team");
+    expect(urls).toContain("https://www.pivotpointsecurity.com/about/leadership");
+    expect(urls.some((u) => u.includes("other.com"))).toBe(false);
+  });
+
+  it("extracts MSSP leadership from Meet the Team prose", () => {
+    const text = [
+      "John Verry Lead Managing Director",
+      "As Pivot Point Security's Managing Partner and CEO John Verry guides organizations.",
+      "Rich Stever GRC Practice Lead",
+      "Richard Rebetti has been Pivot Point Security's Chief Operating Officer",
+    ].join(" ");
+    const people = extractBuyingPersons(text);
+    expect(people.some((p) => p.role === "CEO" && /Verry/i.test(p.fullName))).toBe(true);
+    expect(
+      people.some((p) => p.role === "GRC_PRACTICE_LEAD" && /Stever/i.test(p.fullName)),
+    ).toBe(true);
+    expect(
+      people.some((p) => p.role === "DIRECTOR_OPS" && /Rebetti/i.test(p.fullName)),
+    ).toBe(true);
   });
 
   it("extracts public LinkedIn/YouTube/Facebook links and never marks LinkedIn fetchable", () => {

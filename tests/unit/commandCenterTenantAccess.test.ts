@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   default: {
     userRoleAssignment: { findMany: vi.fn(), findUnique: vi.fn() },
     tenant: { findMany: vi.fn(), findUnique: vi.fn() },
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -36,6 +37,7 @@ describe("resolveCommandCenterTenantScope", () => {
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([]);
     vi.mocked(prisma.tenant.findMany).mockResolvedValue([]);
     vi.mocked(prisma.tenant.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.$queryRaw).mockImplementation(async () => []);
   });
 
   it("returns empty scope for unauthenticated users", async () => {
@@ -213,11 +215,10 @@ describe("resolveCommandCenterTenantScope", () => {
         slug: true,
         industry: true,
         ale_baseline: true,
-        parentTenantId: true,
-        enclaveRole: true,
       },
       orderBy: { name: "asc" },
     });
+    expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
   it("locks scope to host tenant on subdomain with no global lane", async () => {

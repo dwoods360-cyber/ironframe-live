@@ -1,6 +1,6 @@
 import "server-only";
 
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
@@ -44,26 +44,55 @@ export type CommandCenterTenantScope = {
   canSwitchTenantsOnSubdomain: boolean;
 };
 
-function mapTenantRows(
-  rows: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    industry: string | null;
-    ale_baseline: bigint;
-    parentTenantId: string | null;
-    enclaveRole: string;
-  }>,
-): CommandCenterTenantRow[] {
-  return rows.map((t) => ({
-    id: t.id,
-    name: t.name,
-    slug: t.slug,
-    industry: t.industry,
-    aleBaselineCents: t.ale_baseline.toString(),
-    parentTenantId: t.parentTenantId,
-    enclaveRole: t.enclaveRole,
-  }));
+type TenantBaseRow = {
+  id: string;
+  name: string;
+  slug: string;
+  industry: string | null;
+  ale_baseline: bigint;
+};
+
+/**
+ * Enclave hierarchy columns via SQL so a stale Prisma Client (missing DMMF fields)
+ * cannot break the Command Center switcher after migrate deploy.
+ */
+async function loadEnclaveFieldsByTenantId(
+  ids: string[],
+): Promise<Map<string, { parentTenantId: string | null; enclaveRole: string }>> {
+  const out = new Map<string, { parentTenantId: string | null; enclaveRole: string }>();
+  if (ids.length === 0) return out;
+  const rows = await prisma.$queryRaw<
+    Array<{ id: string; parent_tenant_id: string | null; enclave_role: string | null }>
+  >`
+    SELECT id::text AS id,
+           parent_tenant_id::text AS parent_tenant_id,
+           enclave_role
+    FROM tenants
+    WHERE id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+  `;
+  for (const row of rows) {
+    out.set(row.id, {
+      parentTenantId: row.parent_tenant_id,
+      enclaveRole: (row.enclave_role ?? "PRIMARY").trim() || "PRIMARY",
+    });
+  }
+  return out;
+}
+
+async function mapTenantRows(rows: TenantBaseRow[]): Promise<CommandCenterTenantRow[]> {
+  const enclaveById = await loadEnclaveFieldsByTenantId(rows.map((r) => r.id));
+  return rows.map((t) => {
+    const enclave = enclaveById.get(t.id);
+    return {
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      industry: t.industry,
+      aleBaselineCents: t.ale_baseline.toString(),
+      parentTenantId: enclave?.parentTenantId ?? null,
+      enclaveRole: enclave?.enclaveRole ?? "PRIMARY",
+    };
+  });
 }
 
 /**
@@ -111,14 +140,13 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     ).keys(),
   ];
 
+  /** Base columns only — enclave fields loaded via SQL (see mapTenantRows). */
   const tenantSelect = {
     id: true,
     name: true,
     slug: true,
     industry: true,
     ale_baseline: true,
-    parentTenantId: true,
-    enclaveRole: true,
   } as const;
 
   const tenantListQuery = {
@@ -166,7 +194,11 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     });
 
     return {
-      tenants: finalizeSwitcherTenants(mapTenantRows(rows), assignedTenantIds, hostTenantUuid),
+      tenants: finalizeSwitcherTenants(
+        await mapTenantRows(rows),
+        assignedTenantIds,
+        hostTenantUuid,
+      ),
       canAccessGlobal: false,
       hostTenantSlug: hostRow.slug,
       canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
@@ -176,7 +208,7 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   if (hasGlobalAdmin) {
     const rows = await prisma.tenant.findMany(tenantListQuery);
     return {
-      tenants: finalizeSwitcherTenants(mapTenantRows(rows), assignedTenantIds),
+      tenants: finalizeSwitcherTenants(await mapTenantRows(rows), assignedTenantIds),
       canAccessGlobal: true,
       hostTenantSlug: null,
       canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
@@ -194,7 +226,7 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   );
 
   return {
-    tenants: finalizeSwitcherTenants(mapTenantRows(orderedRows), assignedTenantIds),
+    tenants: finalizeSwitcherTenants(await mapTenantRows(orderedRows), assignedTenantIds),
     canAccessGlobal: false,
     hostTenantSlug: null,
     canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,

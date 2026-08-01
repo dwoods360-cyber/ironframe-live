@@ -4,7 +4,10 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
 import type { IronleadsIngressPayload } from "@/app/lib/ingress/ironleadsIngressSchema";
-import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
+import {
+  normalizeAccountDomain,
+  normalizeSuspectCompanyKey,
+} from "@/app/lib/ingress/ironleadsSuspectIdentity";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   classifyVulnerability,
@@ -135,23 +138,26 @@ export async function ingestIronleadsLead(input: IronleadsIngressPayload): Promi
         })
       : null;
 
+    const companyKey = normalizeSuspectCompanyKey(companyName);
     const existingByCompany = existingByDomain?.primaryContact
       ? null
-      : await tx.ironboardCrmContact.findFirst({
-          where: {
-            tenantId: tenant.id,
-            company: { equals: companyName, mode: "insensitive" },
-            primaryDeals: { some: { stage: "SUSPECT" } },
-          },
-          include: {
-            primaryDeals: {
-              where: { stage: "SUSPECT" },
-              orderBy: { updatedAt: "desc" },
-              take: 1,
+      : (
+          await tx.ironboardCrmContact.findMany({
+            where: {
+              tenantId: tenant.id,
+              primaryDeals: { some: { stage: "SUSPECT" } },
             },
-          },
-          orderBy: { updatedAt: "desc" },
-        });
+            include: {
+              primaryDeals: {
+                where: { stage: "SUSPECT" },
+                orderBy: { updatedAt: "desc" },
+                take: 1,
+              },
+            },
+            orderBy: { updatedAt: "desc" },
+            take: 250,
+          })
+        ).find((c) => normalizeSuspectCompanyKey(c.company) === companyKey) ?? null;
 
     const existingContact = existingByDomain?.primaryContact ?? existingByCompany;
 

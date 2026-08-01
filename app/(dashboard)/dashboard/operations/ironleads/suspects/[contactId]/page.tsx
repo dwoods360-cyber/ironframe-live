@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import AccountResearchBriefPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/AccountResearchBriefPanel";
 import SuspectOperatorEditPanel from "@/app/(dashboard)/dashboard/operations/ironleads/suspects/SuspectOperatorEditPanel";
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
@@ -81,27 +82,32 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
           </div>
         </header>
 
+        {report.accountResearchBrief ? (
+          <AccountResearchBriefPanel brief={report.accountResearchBrief} />
+        ) : null}
+
         <SuspectOperatorEditPanel contactId={report.contactId} report={report} />
 
         {report.buyingCommittee ? (
           <section className="rounded-xl border border-violet-900/40 bg-violet-950/20 p-5">
-            <h2 className="text-lg font-semibold text-violet-100">Buying committee research</h2>
+            <h2 className="text-lg font-semibold text-violet-100">
+              Buying committee (raw evidence)
+            </h2>
             <p className="mt-1 text-xs text-slate-400">
-              Public company site + linked YouTube/Facebook About when available. LinkedIn URLs are
-              review links only (not scraped). Pattern emails stay unverified until published or
-              confirmed.
+              Supporting extract for the Account Research Brief above. LinkedIn URLs are review links
+              only (not scraped). Pattern emails stay unverified until published or confirmed.
               {report.buyingCommittee.researchedAt
                 ? ` · ${report.buyingCommittee.researchedAt}`
                 : ""}
             </p>
             {report.buyingCommittee.socialProfiles.length > 0 ? (
-              <div className="mt-3 rounded-lg border border-violet-900/30 bg-slate-950/50 px-3 py-2">
-                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-300">
+              <details className="mt-3 rounded-lg border border-violet-900/30 bg-slate-950/50 px-3 py-2">
+                <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-widest text-violet-300">
                   Public social links
                   {report.buyingCommittee.socialPagesFetched > 0
                     ? ` · ${report.buyingCommittee.socialPagesFetched} about page(s) fetched`
                     : ""}
-                </p>
+                </summary>
                 <ul className="mt-2 space-y-1.5 text-xs">
                   {report.buyingCommittee.socialProfiles.map((row) => (
                     <li key={row.url} className="text-slate-300">
@@ -126,7 +132,7 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
                     </li>
                   ))}
                 </ul>
-              </div>
+              </details>
             ) : null}
             {report.buyingCommittee.skipped ? (
               <p className="mt-3 text-sm text-amber-200/90">

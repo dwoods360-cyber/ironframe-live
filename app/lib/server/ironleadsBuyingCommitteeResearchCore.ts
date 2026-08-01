@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
+import { buildAccountResearchBrief } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import {
   extractBuyingPersons,
   extractPublishedEmails,
@@ -66,8 +67,15 @@ type ContactRow = {
   company: string;
   email: string;
   phone: string | null;
+  detectedTrigger: string | null;
+  industrySector: string | null;
   metadata: unknown;
-  primaryDeals: Array<{ id: string; accountDomain: string | null; notes: string }>;
+  primaryDeals: Array<{
+    id: string;
+    accountDomain: string | null;
+    notes: string;
+    stage: string;
+  }>;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -363,12 +371,14 @@ export async function researchBuyingCommitteeForContact(
       company: true,
       email: true,
       phone: true,
+      detectedTrigger: true,
+      industrySector: true,
       metadata: true,
       primaryDeals: {
         where: { stage: "SUSPECT" },
         orderBy: { updatedAt: "desc" },
         take: 1,
-        select: { id: true, accountDomain: true, notes: true },
+        select: { id: true, accountDomain: true, notes: true, stage: true },
       },
     },
   });
@@ -505,14 +515,43 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
-  await persistResearch(contact, result);
+  const corpus =
+    pages.length || socialPages.length
+      ? [...pages.map((p) => p.text), ...socialPages.map((p) => p.text)].join(" \n ")
+      : "";
+  const sourceUrls = [
+    ...pages.map((p) => p.url),
+    ...socialPages.map((p) => p.url),
+    ...result.members.flatMap((m) => m.sourceUrls),
+  ];
+
+  await persistResearch(contact, result, { corpus, sourceUrls });
   return result;
 }
 
 async function persistResearch(
   contact: ContactRow,
   result: BuyingCommitteeResearchResult,
+  evidence: { corpus: string; sourceUrls: string[] },
 ): Promise<void> {
+  const IRONLEADS_LOCAL = /@ironleads\.local$/i;
+  const hasRealEmail = Boolean(contact.email) && !IRONLEADS_LOCAL.test(contact.email);
+  const hasPhone = Boolean(contact.phone?.trim() || result.switchboardPhones[0]?.phone);
+  const brief = buildAccountResearchBrief({
+    company: contact.company,
+    websiteUrl: result.websiteUrl,
+    detectedTrigger: contact.detectedTrigger,
+    industrySector: contact.industrySector,
+    dealStage: contact.primaryDeals[0]?.stage ?? "SUSPECT",
+    corpus: evidence.corpus,
+    sourceUrls: evidence.sourceUrls,
+    members: result.members,
+    socialProfiles: result.socialProfiles,
+    hasRealEmail,
+    hasPhone,
+    generatedAt: result.researchedAt,
+  });
+
   if (result.skipped && result.members.length === 0) {
     const prior = asRecord(contact.metadata) ?? {};
     await prisma.ironboardCrmContact.update({
@@ -528,6 +567,7 @@ async function persistResearch(
             socialProfiles: result.socialProfiles,
             socialPagesFetched: result.socialPagesFetched,
           },
+          accountResearchBrief: brief,
         } as Prisma.InputJsonValue,
       },
     });
@@ -578,6 +618,7 @@ async function persistResearch(
       socialProfiles: result.socialProfiles,
       socialPagesFetched: result.socialPagesFetched,
     },
+    accountResearchBrief: brief,
     publicSocialProfiles: result.socialProfiles,
     candidateEmails: mergeCandidateEmails(prior, result.members),
     namedBuyer,
@@ -647,12 +688,14 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
       company: true,
       email: true,
       phone: true,
+      detectedTrigger: true,
+      industrySector: true,
       metadata: true,
       primaryDeals: {
         where: { stage: "SUSPECT" },
         orderBy: { updatedAt: "desc" },
         take: 1,
-        select: { id: true, accountDomain: true, notes: true },
+        select: { id: true, accountDomain: true, notes: true, stage: true },
       },
     },
   });

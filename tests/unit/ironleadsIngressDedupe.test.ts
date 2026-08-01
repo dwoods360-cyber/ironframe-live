@@ -12,6 +12,12 @@ describe("ironleadsIngress company/domain normalize", () => {
     );
   });
 
+  it("strips CBIZ-style parent prefixes for brand match", () => {
+    expect(normalizeSuspectCompanyKey("CBIZ Pivot Point Security")).toBe(
+      "pivot point security",
+    );
+  });
+
   it("strips scheme, path, and www from account domains", () => {
     expect(normalizeAccountDomain("https://www.hhs.gov/ocr/breach")).toBe("hhs.gov");
     expect(normalizeAccountDomain("www.cisco.com")).toBe("cisco.com");

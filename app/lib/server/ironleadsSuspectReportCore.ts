@@ -1,5 +1,9 @@
 import "server-only";
 
+import {
+  buildAccountResearchBrief,
+  type AccountResearchBrief,
+} from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
   resolveSuspectLocationFields,
@@ -43,6 +47,8 @@ export type IronleadsSuspectReport = {
   executiveSponsor: SuspectExecutiveSponsor | null;
   candidateEmails: SuspectCandidateEmail[];
   buyingCommittee: SuspectBuyingCommittee | null;
+  /** Qualification + outreach decision brief (LinkedIn/YT are evidence, not the deliverable). */
+  accountResearchBrief: AccountResearchBrief | null;
   tenantSlug: string;
   industrySector: string | null;
   detectedTrigger: string | null;
@@ -241,6 +247,38 @@ export async function buildIronleadsSuspectReport(
     nextActions.push("Review trigger and qualification signals, then decide enrich vs drop.");
   }
 
+  // Rebuild on every report so HOLD / conflict rules stay current.
+  const accountResearchBrief = buildAccountResearchBrief({
+    company: contact.company,
+    websiteUrl: location.websiteUrl,
+    detectedTrigger: contact.detectedTrigger,
+    industrySector: contact.industrySector,
+    dealStage: deal?.stage ?? null,
+    corpus: "",
+    sourceUrls: [
+      ...(location.namedBuyer?.sourceUrls ?? []),
+      ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
+      ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
+    ],
+    members: location.buyingCommittee?.members ?? [],
+    socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
+    hasRealEmail,
+    hasPhone,
+    generatedAt: new Date().toISOString(),
+  });
+
+  if (accountResearchBrief.outreach.status === "hold") {
+    nextActions.unshift(
+      "Account Research Brief: HOLD — do not Promote for Path B cold; see competitive conflict + what to say (internal only).",
+    );
+  } else if (accountResearchBrief.outreach.status === "drop") {
+    nextActions.unshift("Account Research Brief: DROP — remove from Path B shortlist.");
+  } else if (accountResearchBrief.outreach.status === "promote" && deal?.stage === "SUSPECT") {
+    nextActions.unshift(
+      "Account Research Brief: gates support Promote — confirm email, then SUSPECT→PROSPECT.",
+    );
+  }
+
   return {
     contactId: contact.id,
     company: contact.company,
@@ -255,6 +293,7 @@ export async function buildIronleadsSuspectReport(
     executiveSponsor: location.executiveSponsor,
     candidateEmails: location.candidateEmails,
     buyingCommittee: location.buyingCommittee,
+    accountResearchBrief,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,
     detectedTrigger: contact.detectedTrigger,

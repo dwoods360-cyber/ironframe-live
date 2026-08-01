@@ -120,9 +120,9 @@ export default function IronleadsPortalClient() {
             </p>
             <h1 className="text-2xl font-bold text-white">Lead generation interaction portal</h1>
             <p className="mt-2 max-w-2xl text-sm text-slate-400">
-              Ironleads automates harvest + buying-committee research. You only{" "}
-              <span className="text-slate-300">review</span> SUSPECT reports, do light confirm if
-              needed, then Promote. SalesTeam poll and Approvals DISPATCH stay human.
+              Ironleads automates harvest + buying-committee research. You{" "}
+              <span className="text-slate-300">review</span> SUSPECT reports, Promote when ready, or
+              move channel-competitors to the HOLD archive for later retrieval.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -205,12 +205,14 @@ export default function IronleadsPortalClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 lg:col-span-2">
               <h2 className="text-lg font-semibold text-white">SUSPECT queue</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Review each Why SUSPECT report → Promote when email-ready (or HOLD). Then SalesTeam
-                poll + human DISPATCH.
+                Active review only (HOLD archive excluded). Promote when email-ready, or park on the
+                report page after HITL.
               </p>
               <ul className="mt-4 space-y-2">
                 {snapshot.suspects.length === 0 ? (
-                  <li className="text-sm text-slate-500">No SUSPECT contacts yet. Run a harvest cycle.</li>
+                  <li className="text-sm text-slate-500">
+                    No active SUSPECTs. Run a harvest cycle, or restore from HOLD archive below.
+                  </li>
                 ) : (
                   snapshot.suspects.map((row) => (
                     <li
@@ -247,6 +249,46 @@ export default function IronleadsPortalClient() {
                         className="shrink-0 text-xs text-cyan-300 hover:underline"
                       >
                         Why SUSPECT →
+                      </Link>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </section>
+
+            <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5 lg:col-span-2">
+              <h2 className="text-lg font-semibold text-amber-100">HOLD archive</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Parked after operator review for later retrieval (channel-competitors, enrich-later).
+                Not Path B cold DISPATCH targets until restored and re-qualified.
+              </p>
+              <ul className="mt-4 space-y-2">
+                {(snapshot.holdArchive ?? []).length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    Empty — use <span className="text-amber-200/90">Move to HOLD archive</span> on a
+                    SUSPECT report after HITL.
+                  </li>
+                ) : (
+                  (snapshot.holdArchive ?? []).map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/30 bg-slate-950/40 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-medium text-slate-100">{row.company}</span>
+                        <div className="mt-0.5 font-mono text-xs text-amber-200/80">
+                          {row.holdClassification ?? "hold"}
+                          {row.holdAt ? ` · ${row.holdAt}` : ""}
+                        </div>
+                        {row.holdReason ? (
+                          <div className="mt-1 text-xs text-slate-500">{row.holdReason}</div>
+                        ) : null}
+                      </div>
+                      <Link
+                        href={`/dashboard/operations/ironleads/suspects/${row.id}`}
+                        className="shrink-0 text-xs text-amber-200 hover:underline"
+                      >
+                        Open / restore →
                       </Link>
                     </li>
                   ))

@@ -26,11 +26,20 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
   const [clearNamedBuyer, setClearNamedBuyer] = useState(false);
   const [promoteToProspect, setPromoteToProspect] = useState(false);
   const [operatorNote, setOperatorNote] = useState("");
+  const [holdClassification, setHoldClassification] = useState<
+    "hold" | "channel_competitor" | "enrich_later" | "other"
+  >(
+    report.operatorHold?.classification === "channel_competitor" ||
+      report.accountResearchBrief?.outreach.status === "hold"
+      ? "channel_competitor"
+      : "hold",
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const onHold = Boolean(report.operatorHold);
 
-  async function onSave(alsoPromote: boolean) {
+  async function patchSuspect(body: Record<string, unknown>, successMessage: string) {
     setBusy(true);
     setMessage(null);
     setError(null);
@@ -40,20 +49,7 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fullName,
-            email,
-            phone: phone.trim() || null,
-            title: title.trim() || undefined,
-            company,
-            websiteUrl: websiteUrl.trim() || null,
-            addressLine: addressLine.trim() || null,
-            namedBuyerFullName: clearNamedBuyer ? null : namedBuyerFullName.trim() || null,
-            namedBuyerTitle: clearNamedBuyer ? null : namedBuyerTitle.trim() || null,
-            clearNamedBuyer,
-            promoteToProspect: alsoPromote || promoteToProspect,
-            operatorNote: operatorNote.trim() || undefined,
-          }),
+          body: JSON.stringify(body),
         },
       );
       const data = (await response.json()) as { ok?: boolean; error?: string };
@@ -61,17 +57,61 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         setError(data.error || `Save failed (${response.status})`);
         return;
       }
-      setMessage(
-        alsoPromote || promoteToProspect
-          ? "Saved and promoted to PROSPECT (SalesTeam can draft on next poll)."
-          : "Saved contact demographics.",
-      );
+      setMessage(successMessage);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function onSave(alsoPromote: boolean) {
+    await patchSuspect(
+      {
+        fullName,
+        email,
+        phone: phone.trim() || null,
+        title: title.trim() || undefined,
+        company,
+        websiteUrl: websiteUrl.trim() || null,
+        addressLine: addressLine.trim() || null,
+        namedBuyerFullName: clearNamedBuyer ? null : namedBuyerFullName.trim() || null,
+        namedBuyerTitle: clearNamedBuyer ? null : namedBuyerTitle.trim() || null,
+        clearNamedBuyer,
+        promoteToProspect: alsoPromote || promoteToProspect,
+        operatorNote: operatorNote.trim() || undefined,
+      },
+      alsoPromote || promoteToProspect
+        ? "Saved and promoted to PROSPECT (SalesTeam can draft on next poll)."
+        : "Saved contact demographics.",
+    );
+  }
+
+  async function onMoveToHoldArchive() {
+    const ok = window.confirm(
+      "Move this SUSPECT to the HOLD archive? It leaves the active queue and can be restored later from Ironleads → HOLD archive.",
+    );
+    if (!ok) return;
+    await patchSuspect(
+      {
+        moveToHoldArchive: true,
+        holdClassification,
+        holdReason: operatorNote.trim() || undefined,
+        operatorNote: operatorNote.trim() || undefined,
+      },
+      "Moved to HOLD archive. Retrieve anytime from Ironleads → HOLD archive.",
+    );
+  }
+
+  async function onRestoreFromHoldArchive() {
+    await patchSuspect(
+      {
+        restoreFromHoldArchive: true,
+        operatorNote: operatorNote.trim() || undefined,
+      },
+      "Restored from HOLD archive into the active SUSPECT queue.",
+    );
   }
 
   return (
@@ -197,12 +237,65 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         </button>
         <button
           type="button"
-          disabled={busy || report.deal?.stage === "PROSPECT"}
+          disabled={busy || onHold || report.deal?.stage === "PROSPECT"}
           onClick={() => void onSave(true)}
           className="rounded-lg border border-cyan-700 bg-cyan-950/50 px-4 py-2 text-sm font-medium text-cyan-100 hover:border-cyan-500 disabled:opacity-40"
+          title={onHold ? "Restore from HOLD archive before promoting" : undefined}
         >
           Save + promote to PROSPECT
         </button>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-amber-900/50 bg-amber-950/20 p-4">
+        <h3 className="text-sm font-semibold text-amber-100">HOLD archive</h3>
+        <p className="mt-1 text-xs text-slate-400">
+          After HITL review, park channel-competitors or not-ready accounts here for later
+          retrieval. Deal stays SUSPECT; row leaves the active queue.
+        </p>
+        {onHold ? (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-amber-200/90">
+              Archived {report.operatorHold?.at} · {report.operatorHold?.classification}
+              {report.operatorHold?.reason ? ` — ${report.operatorHold.reason}` : ""}
+            </p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onRestoreFromHoldArchive()}
+              className="rounded-lg border border-amber-700 bg-amber-950/50 px-4 py-2 text-sm font-medium text-amber-100 hover:border-amber-500 disabled:opacity-40"
+            >
+              Restore to active SUSPECT queue
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="block text-xs text-slate-400">
+              Classification
+              <select
+                value={holdClassification}
+                onChange={(e) =>
+                  setHoldClassification(
+                    e.target.value as typeof holdClassification,
+                  )
+                }
+                className="mt-1 block rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+              >
+                <option value="channel_competitor">Channel / competitor</option>
+                <option value="hold">HOLD (re-qualify later)</option>
+                <option value="enrich_later">Enrich later</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void onMoveToHoldArchive()}
+              className="rounded-lg border border-amber-700 bg-amber-900/40 px-4 py-2 text-sm font-medium text-amber-50 hover:border-amber-500 disabled:opacity-40"
+            >
+              Move to HOLD archive
+            </button>
+          </div>
+        )}
       </div>
 
       {message ? <p className="mt-3 text-sm text-emerald-300">{message}</p> : null}

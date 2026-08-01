@@ -3,6 +3,14 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
+import {
+  applyOperatorHoldToMetadata,
+  buildOperatorHoldRecord,
+  clearOperatorHoldFromMetadata,
+  isOperatorHoldArchived,
+  resolveOperatorHold,
+  type OperatorHoldRecord,
+} from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 import prisma from "@/lib/prisma";
 
@@ -18,6 +26,12 @@ export type SuspectOperatorUpdateInput = {
   namedBuyerTitle?: string | null;
   clearNamedBuyer?: boolean;
   promoteToProspect?: boolean;
+  /** Park in HOLD archive (leaves deal stage SUSPECT). */
+  moveToHoldArchive?: boolean;
+  /** Restore from HOLD archive into the active SUSPECT queue. */
+  restoreFromHoldArchive?: boolean;
+  holdReason?: string | null;
+  holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
 };
 
@@ -161,6 +175,43 @@ export async function updateIronleadsSuspectContact(
     lastNote: cleanOptional(input.operatorNote, 500),
   };
 
+  if (input.moveToHoldArchive && input.restoreFromHoldArchive) {
+    return {
+      ok: false,
+      error: "Cannot move to HOLD archive and restore in the same request",
+      status: 400,
+    };
+  }
+
+  if (input.moveToHoldArchive) {
+    if (input.promoteToProspect) {
+      return {
+        ok: false,
+        error: "Cannot promote and move to HOLD archive in the same request",
+        status: 400,
+      };
+    }
+    const hold = buildOperatorHoldRecord({
+      reason: input.holdReason ?? input.operatorNote,
+      classification: input.holdClassification ?? "hold",
+    });
+    Object.assign(nextMeta, applyOperatorHoldToMetadata(nextMeta, hold));
+  } else if (input.restoreFromHoldArchive) {
+    Object.assign(nextMeta, clearOperatorHoldFromMetadata(nextMeta));
+  }
+
+  if (
+    input.promoteToProspect &&
+    isOperatorHoldArchived(nextMeta) &&
+    !input.restoreFromHoldArchive
+  ) {
+    return {
+      ok: false,
+      error: "Restore from HOLD archive before promoting to PROSPECT",
+      status: 400,
+    };
+  }
+
   data.metadata = nextMeta as Prisma.InputJsonValue;
 
   await prisma.ironboardCrmContact.update({
@@ -189,6 +240,25 @@ export async function updateIronleadsSuspectContact(
         },
       });
     }
+  } else if (deal && input.moveToHoldArchive) {
+    const hold = resolveOperatorHold(nextMeta) ?? buildOperatorHoldRecord({});
+    const noteLine = `[${stamp}] Operator moved SUSPECT → HOLD archive (${hold.classification}): ${hold.reason}`;
+    await prisma.ironboardCrmDeal.update({
+      where: { id: deal.id },
+      data: {
+        notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
+      },
+    });
+  } else if (deal && input.restoreFromHoldArchive) {
+    const noteLine = `[${stamp}] Operator restored SUSPECT from HOLD archive.${
+      input.operatorNote?.trim() ? ` ${input.operatorNote.trim().slice(0, 400)}` : ""
+    }`;
+    await prisma.ironboardCrmDeal.update({
+      where: { id: deal.id },
+      data: {
+        notes: deal.notes?.trim() ? `${deal.notes.trim()}\n${noteLine}` : noteLine,
+      },
+    });
   } else if (deal && input.operatorNote?.trim() && !input.promoteToProspect) {
     const noteLine = `[${stamp}] Operator enrichment: ${input.operatorNote.trim().slice(0, 400)}`;
     await prisma.ironboardCrmDeal.update({

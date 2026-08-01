@@ -10,6 +10,7 @@ import {
   collapseSuspectRowsByCompany,
   purgeDuplicateSuspectContacts,
 } from "@/app/lib/server/dedupeIronleadsSuspectsCore";
+import { resolveOperatorHold } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   getSuccessTeamHealthSnapshot,
@@ -27,6 +28,19 @@ function workerBaseUrl(envKey: string, fallbackPort: number): string {
   return `http://127.0.0.1:${fallbackPort}`;
 }
 
+export type IronleadsPortalSuspectRow = {
+  id: string;
+  company: string;
+  priorityScore: number;
+  detectedTrigger: string | null;
+  websiteUrl: string | null;
+  addressLine: string | null;
+  createdAt: string;
+  holdReason?: string | null;
+  holdClassification?: string | null;
+  holdAt?: string | null;
+};
+
 export type IronleadsPortalSnapshot = {
   generatedAt: string;
   worker: {
@@ -35,15 +49,10 @@ export type IronleadsPortalSnapshot = {
     status: string | null;
     pipeline: string[] | null;
   };
-  suspects: Array<{
-    id: string;
-    company: string;
-    priorityScore: number;
-    detectedTrigger: string | null;
-    websiteUrl: string | null;
-    addressLine: string | null;
-    createdAt: string;
-  }>;
+  /** Active SUSPECT review queue (excludes HOLD archive). */
+  suspects: IronleadsPortalSuspectRow[];
+  /** Operator HOLD archive — parked for later retrieval. */
+  holdArchive: IronleadsPortalSuspectRow[];
 };
 
 export type SuccessTeamPortalSnapshot = {
@@ -99,7 +108,7 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
     orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
-    take: 80,
+    take: 120,
     select: {
       id: true,
       company: true,
@@ -116,26 +125,35 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     },
   });
 
-  const suspects = collapseSuspectRowsByCompany(suspectsRaw).slice(0, 20);
+  const collapsed = collapseSuspectRowsByCompany(suspectsRaw);
+  const activeRows = collapsed.filter((row) => !resolveOperatorHold(row.metadata));
+  const holdRows = collapsed.filter((row) => resolveOperatorHold(row.metadata));
+
+  const mapRow = (row: (typeof collapsed)[number]): IronleadsPortalSuspectRow => {
+    const location = resolveSuspectLocationFields({
+      metadata: row.metadata,
+      accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
+    });
+    const hold = resolveOperatorHold(row.metadata);
+    return {
+      id: row.id,
+      company: row.company,
+      priorityScore: row.priorityScore,
+      detectedTrigger: row.detectedTrigger,
+      websiteUrl: location.websiteUrl,
+      addressLine: location.addressLine,
+      createdAt: row.createdAt.toISOString(),
+      holdReason: hold?.reason ?? null,
+      holdClassification: hold?.classification ?? null,
+      holdAt: hold?.at ?? null,
+    };
+  };
 
   return {
     generatedAt: new Date().toISOString(),
     worker: { reachable, healthUrl, status, pipeline },
-    suspects: suspects.map((row) => {
-      const location = resolveSuspectLocationFields({
-        metadata: row.metadata,
-        accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
-      });
-      return {
-        id: row.id,
-        company: row.company,
-        priorityScore: row.priorityScore,
-        detectedTrigger: row.detectedTrigger,
-        websiteUrl: location.websiteUrl,
-        addressLine: location.addressLine,
-        createdAt: row.createdAt.toISOString(),
-      };
-    }),
+    suspects: activeRows.slice(0, 20).map(mapRow),
+    holdArchive: holdRows.slice(0, 40).map(mapRow),
   };
 }
 

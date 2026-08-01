@@ -6,6 +6,10 @@ import {
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
+  resolveOperatorHold,
+  type OperatorHoldRecord,
+} from "@/app/lib/server/ironleadsOperatorHoldCore";
+import {
   resolveSuspectLocationFields,
   type SuspectBuyingCommittee,
   type SuspectCandidateEmail,
@@ -49,6 +53,8 @@ export type IronleadsSuspectReport = {
   buyingCommittee: SuspectBuyingCommittee | null;
   /** Qualification + outreach decision brief (LinkedIn/YT are evidence, not the deliverable). */
   accountResearchBrief: AccountResearchBrief | null;
+  /** Operator HITL HOLD archive — parked for later retrieval (not Path B cold). */
+  operatorHold: OperatorHoldRecord | null;
   tenantSlug: string;
   industrySector: string | null;
   detectedTrigger: string | null;
@@ -267,9 +273,15 @@ export async function buildIronleadsSuspectReport(
     generatedAt: new Date().toISOString(),
   });
 
-  if (accountResearchBrief.outreach.status === "hold") {
+  const operatorHold = resolveOperatorHold(contact.metadata);
+
+  if (operatorHold) {
     nextActions.unshift(
-      "Account Research Brief: HOLD — do not Promote for Path B cold; see competitive conflict + what to say (internal only).",
+      `HOLD archive (${operatorHold.classification}) — parked ${operatorHold.at}. Restore from archive before Promote. Reason: ${operatorHold.reason}`,
+    );
+  } else if (accountResearchBrief.outreach.status === "hold") {
+    nextActions.unshift(
+      "Account Research Brief: HOLD — move to HOLD archive after review (do not Promote for Path B cold).",
     );
   } else if (accountResearchBrief.outreach.status === "drop") {
     nextActions.unshift("Account Research Brief: DROP — remove from Path B shortlist.");
@@ -294,6 +306,7 @@ export async function buildIronleadsSuspectReport(
     candidateEmails: location.candidateEmails,
     buyingCommittee: location.buyingCommittee,
     accountResearchBrief,
+    operatorHold,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,
     detectedTrigger: contact.detectedTrigger,

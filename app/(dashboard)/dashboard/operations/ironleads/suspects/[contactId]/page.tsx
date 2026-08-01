@@ -79,8 +79,26 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
               ok={report.deal?.stage === "PROSPECT"}
               label={report.deal?.stage === "PROSPECT" ? "prospect" : "suspect"}
             />
+            {report.operatorHold ? (
+              <span className="rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide bg-amber-950/60 text-amber-200 ring-1 ring-amber-800">
+                hold archive
+              </span>
+            ) : null}
           </div>
         </header>
+
+        {report.operatorHold ? (
+          <section className="rounded-xl border border-amber-900/50 bg-amber-950/25 p-4 text-sm text-amber-100">
+            <p className="font-semibold">In HOLD archive</p>
+            <p className="mt-1 text-xs text-amber-200/90">
+              {report.operatorHold.classification} · parked {report.operatorHold.at}
+            </p>
+            <p className="mt-2 text-sm text-slate-300">{report.operatorHold.reason}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Retrieve from Ironleads portal → HOLD archive, or restore below.
+            </p>
+          </section>
+        ) : null}
 
         {report.accountResearchBrief ? (
           <AccountResearchBriefPanel brief={report.accountResearchBrief} />

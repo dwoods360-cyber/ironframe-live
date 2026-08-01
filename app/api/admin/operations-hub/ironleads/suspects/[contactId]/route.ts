@@ -75,6 +75,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           : undefined,
     clearNamedBuyer: body.clearNamedBuyer === true,
     promoteToProspect: body.promoteToProspect === true,
+    moveToHoldArchive: body.moveToHoldArchive === true,
+    restoreFromHoldArchive: body.restoreFromHoldArchive === true,
+    holdReason: typeof body.holdReason === "string" ? body.holdReason : undefined,
+    holdClassification:
+      body.holdClassification === "hold" ||
+      body.holdClassification === "channel_competitor" ||
+      body.holdClassification === "enrich_later" ||
+      body.holdClassification === "other"
+        ? body.holdClassification
+        : undefined,
     operatorNote: typeof body.operatorNote === "string" ? body.operatorNote : undefined,
   });
 

@@ -119,6 +119,13 @@ export const OPERATOR_LIBRARY_SETS: OperatorLibrarySet[] = [
       },
       {
         kind: "markdown",
+        slug: "mssp-50-shortlist",
+        title: "MSSP 50-account shortlist",
+        summary: "First-wave Fit/Pain/Buyer gates, sheet schema, light enrich, isolation opener.",
+        file: "design-partner-mssp-50-shortlist.md",
+      },
+      {
+        kind: "markdown",
         slug: "recruitment",
         title: "Recruitment runbook",
         summary: "How design partners are recruited into Path B.",
@@ -345,6 +352,7 @@ export function listMarkdownLibraryEntries(): Array<{
 /** Filename-style slugs operators paste from docs/ paths → library catalog slug. */
 const MARKDOWN_SLUG_ALIASES: Record<string, string> = {
   "design-partner-icp-shortlist": "icp-shortlist",
+  "design-partner-mssp-50-shortlist": "mssp-50-shortlist",
   "design-partner-ops-surface-map": "ops-surface-map",
   "windows-workstation-migration": "windows-workstation-migration",
   "design-partner-operator-launch-checklist": "operator-launch-checklist",

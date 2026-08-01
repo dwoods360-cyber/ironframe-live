@@ -22,6 +22,9 @@ describe("operatorLibraryCatalog", () => {
     expect(resolveMarkdownLibraryEntry("icp-shortlist")?.file).toBe(
       "design-partner-icp-shortlist.md",
     );
+    const mssp50 = resolveMarkdownLibraryEntry("design-partner-mssp-50-shortlist");
+    expect(mssp50?.slug).toBe("mssp-50-shortlist");
+    expect(mssp50?.file).toBe("design-partner-mssp-50-shortlist.md");
   });
 
   it("uses unique slugs across all items", () => {

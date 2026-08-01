@@ -6,6 +6,14 @@
 
 Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below are **research targets only**, not assumed leads. Never pitch demo slugs (`medshield`, `vaultbank`, `gridcore`).
 
+### First-wave cold / Scout lock (2026-08-01)
+
+**50-account MSSP / vCISO sheet** (gates, columns, enrichment, first-touch): [design-partner-mssp-50-shortlist.md](./design-partner-mssp-50-shortlist.md).
+
+Before approving cold outreach on beachhead D, each account must pass **Fit · Pain signal · Buyer access**. Do not stand up a multi-tool Clay waterfall before the first deliberate 20 sends. Heatmap Amnesty is for the later CISO/CFO lane — MSSP openers lead with multi-client isolation.
+
+**Exposure wording:** estimated financial exposure ranges with visible assumptions — never “true ALE” or false precision. Internal whole-cent math ≠ displayed certainty ([Control-to-Capital](./control-to-capital-market-narrative.md)).
+
 ---
 
 ## Legend
@@ -36,7 +44,7 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 **Warm-ask (copy):**
 
-> Who do you know among **MSSPs / multi-entity banks / utilities / health systems** still using heatmap-only packs as the board *decision* layer — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs) for whole-cent estimated exposure + hard enclaves? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
+> Who do you know among **MSSPs / multi-entity banks / utilities / health systems** still using heatmap-only packs as the board *decision* layer — and would value a **Command Design Partner** seat ($4,999 Path B, 90-day window, capped eng syncs) for estimated financial exposure ranges (assumptions visible) + isolated entity/client workspaces? Intro welcome; we run a 10–15 min workflow review first, not a demo circus.
 
 ---
 
@@ -114,4 +122,4 @@ Canonical list: [production go-live remaining](../ops/production-go-live-remaini
 
 **When a row hits YES:** order form → provision → Path B → ACTIVE. Track paid count toward GTM-3 (3 paying design partners).
 
-**Related:** [Operator launch checklist](./design-partner-operator-launch-checklist.md) · [Target market research](./target-market-research.md) · [Offer sheet](./design-partner-offer-sheet.md)
+**Related:** [MSSP 50-account shortlist](./design-partner-mssp-50-shortlist.md) · [Operator launch checklist](./design-partner-operator-launch-checklist.md) · [Target market research](./target-market-research.md) · [Offer sheet](./design-partner-offer-sheet.md)

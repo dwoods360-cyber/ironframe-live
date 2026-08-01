@@ -7,6 +7,8 @@
 
 **Do in parallel Day 1–2:** live DISPATCH reachable MSSP/vCISO drafts with a **named buyer** To (not operator inbox). **BlueRadius Cyber = HOLD** (real firm; sells Radius360 — channel/competitor qualify first; dry-run closed). Prefer Pivot Point SMS or a fresh §D Scout row.
 
+**50-account sheet:** qualify cold/Scout targets on [MSSP 50-account shortlist](./design-partner-mssp-50-shortlist.md) — **Fit · Pain signal · Buyer access** before Approvals. Manual Sales Nav selection; Apollo *or* Prospeo; no LinkedIn scrape plugins.
+
 ---
 
 ## System of record (do not parallel-spreadsheet)
@@ -117,5 +119,5 @@ After send: log §D (date · company · trigger · deal/draft id · EMAIL/SMS ·
 
 ## Related
 
-- [ICP shortlist](./design-partner-icp-shortlist.md) · [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md)  
+- [MSSP 50-account shortlist](./design-partner-mssp-50-shortlist.md) · [ICP shortlist](./design-partner-icp-shortlist.md) · [Offer sheet](./design-partner-offer-sheet.md) · [Outreach sequence](./design-partner-outreach-sequence.md)  
 - [Live motion](../ops/design-partner-live-motion-next.md) · [Pre-outreach R4](./design-partner-pre-outreach-run-order.md)

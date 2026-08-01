@@ -88,7 +88,7 @@ Signed in on https://ironframegrc.com :
 
 1. [Ops surface map](https://ironframegrc.com/dashboard/operations/library/ops-surface-map) — know each screen  
 2. [ICP shortlist §A](https://ironframegrc.com/dashboard/operations/library/icp-shortlist#section-a) — five warm cross-section rows  
-3. [Approvals SALES](https://ironframegrc.com/dashboard/admin/approvals?kind=SALES) — Pivot Point / newest draft  
+3. [Approvals SALES](https://ironframegrc.com/dashboard/admin/approvals?kind=SALES) — newest non-HOLD draft (not Pivot Point / BlueRadius)  
 4. Calling card: https://ironframegrc.com/marketing  
 
 Locks unchanged: counsel **D0 off** · public instant checkout **off** · no demo-tenant pitches · BlueRadius **HOLD**.

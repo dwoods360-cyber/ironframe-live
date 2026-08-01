@@ -15,7 +15,7 @@ This checklist is the batch/send cadence after that run order is GO.
 |---|------|------|
 | A1 | Spot-check prod: `/register/contact` = lead only; `/admin/onboarding` = Path B link label; `/get-started` Step 2 = GRC company ≠ CRM | ☑ 2026-07-18 — contact lead-only copy+API; onboarding UI labels Path B activation (not /pricing); get-started Step 2 states GRC company ≠ CRM |
 | A2 | Confirm Path B activation mints on a throwaway slug (Stripe session). Prefer **live** only when ready to charge; test mode OK for dry-run | ☑ 2026-07-19 — test mode (`sk_test_`); unpaid Checkout Session minted for slug `a2-dryrun-mrroi1wm` via `scripts/dev/a2-pathb-activation-dry-run.mjs` (`cs_test_…`, price $4,999, `checkout.stripe.com`); live refused; payment not completed |
-| A3 | Resend domain OK for sales/invite From; Textbelt or Twilio set if SMS DISPATCH planned (`SMS_PROVIDER`, keys) | ☑ 2026-07-19 — Vercel DNS added (DKIM `resend._domainkey`, MX+TXT `send`); Resend `ironframegrc.com` **verified**; Textbelt OK (quota≈199); From `delivery@ironframegrc.com` |
+| A3 | Resend domain OK for sales/invite From; SMS optional later | ☑ 2026-07-19 — Resend `ironframegrc.com` **verified**; From `delivery@ironframegrc.com`. **2026-08-01 lock:** Path B is **email-first** — Textbelt/SMS deferred (cancel Textbelt OK; re-add when phone outreach is needed). |
 | A4 | Read [offer sheet](./design-partner-offer-sheet.md) + [sequence](./design-partner-outreach-sequence.md) + [workflow review protocol](./design-partner-workflow-review-protocol.md) | ☑ 2026-07-19 — locks confirmed: $4,999 Path B · 90-day · CTA workflow review · HITL DISPATCH only · no demo slugs / free pilot; Touch 1–3 cadence day 0 / 4–5 / 10–12; protocol added for peer-to-peer diligence talk track |
 
 ## B. Batch build (warm first)
@@ -24,15 +24,15 @@ This checklist is the batch/send cadence after that run order is GO.
 |---|------|------|
 | B1 | Fill [ICP shortlist](./design-partner-icp-shortlist.md) — prioritize warm intros | ☑ 2026-07-19 — attack order locked (warm → auditor → Scout → cold); §C 15 research profiles named; §A/§B slots prioritized — **paste real A1–A5 contacts before B2/DISPATCH** |
 | B2 | Warm-network ask + auditor blurbs sent (human, not SalesTeam) | ☑ N/A 2026-07-19 — no warm network; deferred until a real intro appears |
-| B3 | Ironleads / Scout triggers → CRM `prospect-pool` with email or phone | ☑ 2026-07-19 — Ironleads harvest + public-phone enrichment; **2 PROSPECT** rows in `prospect-pool` (Pivot Point Security SMS · BlueRadius Cyber EMAIL/SMS); see shortlist §D |
-| B4 | SalesTeam poll → drafts in `/dashboard/admin/approvals` | ☑ 2026-07-19 — SalesTeam poll OK; **2 unique PENDING SALES DRAFT** rows for Pivot Point + BlueRadius (copy locks pass: $4,999 · workflow review · planned GA · no demo slugs). Note: Pivot Point email is `@ironleads.local` — use **SMS** on DISPATCH; BlueRadius EMAIL ok (`info@`). Duplicate older interactions may appear — use newest per deal. |
+| B3 | Ironleads / Scout triggers → CRM `prospect-pool` with **named buyer email** | ☑ 2026-07-19 harvest noted; **2026-08-01:** Pivot Point + BlueRadius both **HOLD** (OSCAR / Radius360) — not Path B targets. Next PROSPECTs need verified buyer email (SMS deferred). |
+| B4 | SalesTeam poll → drafts in `/dashboard/admin/approvals` | ☑ 2026-07-19 — drafts existed for Pivot Point + BlueRadius; **do not live DISPATCH** either (HOLD). Prefer newest draft for a non-HOLD account with real To email. |
 
 ## C. Per-prospect send
 
 | # | Task | Done |
 |---|------|------|
 | C1 | Edit draft: $4,999 · workflow review CTA · no free pilot · **no** raw triggers / anti-hallucination leaks / GF sales signature / `$0.00` ALE (see R2.5–R2.8) | ☑ dry-run 2026-07-23 — C1 locks on BlueRadius; **live** C1 still ☐ until real destination DISPATCH |
-| C2 | DISPATCH (email Resend / SMS Textbelt) | ☑ dry-run 2026-07-23 — EMAIL to operator inbox (`dwoods360@gmail.com`); Resend `1a7a80e4…`. **Live** DISPATCH still ☐ |
+| C2 | DISPATCH **email (Resend)** — SMS deferred | ☑ dry-run 2026-07-23 — EMAIL to operator inbox (`dwoods360@gmail.com`); Resend `1a7a80e4…`. **Live** EMAIL DISPATCH still ☐ |
 | C3 | Log touch date on shortlist §D | ☑ 2026-07-23 — BlueRadius dry-run TOUCH1 logged; 2026-07-27 — stale PENDING requeue purged; CRM email restored to `info@blueradius.io` |
 
 ## D. Close & provision

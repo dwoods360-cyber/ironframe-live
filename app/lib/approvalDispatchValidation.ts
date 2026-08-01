@@ -16,7 +16,12 @@ const SALES_SMS_BANNED: Array<{ re: RegExp; label: string }> = [
  * Companies on shortlist HOLD — never Path B cold DISPATCH.
  * Keep lowercase keys; match company name contains.
  */
-export const SALES_DISPATCH_HOLD_COMPANIES: readonly string[] = ["blueradius"];
+/** Path B cold DISPATCH blocked until channel/competitor re-qualification. */
+export const SALES_DISPATCH_HOLD_COMPANIES: readonly string[] = [
+  "blueradius",
+  "pivot point",
+  "pivotpoint",
+];
 
 /**
  * Operator / dry-run inboxes — live partner DISPATCH must not use these unless acknowledged.

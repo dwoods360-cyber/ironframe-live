@@ -10,7 +10,7 @@ Fill **Contact / Email / Warm path** before first DISPATCH. Public orgs below ar
 
 **50-account MSSP / vCISO sheet** (gates, columns, enrichment, first-touch): [design-partner-mssp-50-shortlist.md](./design-partner-mssp-50-shortlist.md).
 
-Before approving cold outreach on beachhead D, each account must pass **Fit · Pain signal · Buyer access**. Do not stand up a multi-tool Clay waterfall before the first deliberate 20 sends. Heatmap Amnesty is for the later CISO/CFO lane — MSSP openers lead with multi-client isolation.
+Before approving cold outreach on beachhead D, each account must pass **Fit · Pain signal · Buyer access** + no proprietary GRC conflict. **Channel: email-first (Resend)** — SMS deferred. Do not stand up a multi-tool Clay waterfall before the first deliberate 20 sends. Heatmap Amnesty is for the later CISO/CFO lane — MSSP openers lead with multi-client isolation.
 
 **Exposure wording:** estimated financial exposure ranges with visible assumptions — never “true ALE” or false precision. Internal whole-cent math ≠ displayed certainty ([Control-to-Capital](./control-to-capital-market-narrative.md)).
 
@@ -34,13 +34,13 @@ Before approving cold outreach on beachhead D, each account must pass **Fit · P
 
 | # | Company | Seg | Contact / title | Email / phone | Warm path | Pri | Stage | Notes |
 |---|---------|-----|-----------------|---------------|-----------|-----|-------|-------|
-| 1 | [Pivot Point Security](https://www.pivotpointsecurity.com/) | MSSP | *(named buyer — not info@ / not SMS until Twilio)* | | Advisor / LinkedIn / ex-colleague intro | H | RESEARCH | Beachhead D. Already on §D Scout queue — **enrich buyer email**; do not cold-SMS with SMS off. |
+| 1 | [Pivot Point Security](https://www.pivotpointsecurity.com/) (CBIZ) | MSSP | John Verry (MD Cyber) · Rich Stever (GRC Practice Lead) — *not verified direct channel* | Switchboard +1-877-454-0039 only | Channel / partner qualify only | H | **HOLD** | **HOLD 2026-08-01** — own **OSCAR** GRC platform (product overlap). Do **not** Promote, SMS, or Path B cold DISPATCH. Same class as BlueRadius. |
 | 2 | [Customers Bancorp / Customers Bank](https://www.customersbank.com/) | BHC | *(CISO / VP Risk / Compliance)* | | Warm FI intro or auditor handoff | H | RESEARCH | Multi-entity / fin-risk isolation wedge. Prefer named risk owner over general inbox. |
 | 3 | [SMUD](https://www.smud.org/) | UTIL | *(CISO / CIP / GRC lead)* | | Utility peer / CIP advisor intro | H | RESEARCH | NERC CIP + OT/IT evidence burden. Public-power board reporting pain. |
 | 4 | [HealthPartners](https://www.healthpartners.com/) | HEALTH | *(CISO / Privacy / Compliance)* | | Health-system peer or counsel intro | H | RESEARCH | Mid-market HIPAA + multi-entity feel. Prefer warm; no cold blast to patient-facing inboxes. |
 | 5 | Local 2–5 sub portfolio / holdco (name via network) | OTHER | *(ops / GRC for sub companies)* | | PE/holdco advisor or ex-colleague | M | RESEARCH | Isolation wedge across subsidiaries. **Operator names the firm** — slot reserved for warm network, not cold logo chase. |
 
-**Cross-section rule:** do not replace two rows with a second MSSP or second bank until each segment has one reachable named buyer. **BlueRadius Cyber stays HOLD** (competitor/channel) — not an A-row substitute.
+**Cross-section rule:** do not replace two rows with a second MSSP or second bank until each segment has one reachable named buyer. **BlueRadius Cyber** and **Pivot Point Security** stay **HOLD** (own GRC platforms — Radius360 / OSCAR) — not Path B cold targets and not warm A-row substitutes until complementary fit is proven. Replace A1 with a non-conflict MSSP when a reachable named buyer exists.
 
 **Warm-ask (copy):**
 
@@ -98,10 +98,11 @@ Harvested 2026-07-19 into CRM tenant `prospect-pool` (B3). Public switchboard / 
 
 | Date | Company | Trigger | Deal / contact ID | Channel EMAIL/SMS | Next touch |
 |------|---------|---------|-------------------|-------------------|------------|
-| 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | **SMS** (EMAIL draft present but local fake inbox) | C1 edit → C2 DISPATCH |
+| 2026-07-19 | Pivot Point Security | COMPLIANCE_JOB_POST | deal `c1547560…` · draft `073a973f…` · +18774540039 | Was SMS path (`@ironleads.local` email) | **HOLD 2026-08-01** — do not DISPATCH / SMS |
+| **2026-08-01** | **Pivot Point Security (CBIZ)** | vCISO/VST fit · own **OSCAR** GRC · buyers John Verry / Rich Stever (no verified direct email/mobile) | SUSPECT `f9ca3ffb-315c-4c4c-a8e7-bffb2ca069d6` | **HOLD — channel-competitor** | **Do not Promote or Path B cold.** Company phone is switchboard. Park until complementary (not competitive) fit + named buyer + verified channel. |
 | **2026-07-28** | **BlueRadius Cyber** | real MSSP/vCISO (Austin) · public `info@blueradius.io` · +1-800-930-0989 · [blueradius.io](https://blueradius.io/) | deal `edc5aa79…` · CRM email restored | **Hold — not dry-run** | **Do not DISPATCH Path B cold.** They sell **Radius360** (MSSP GRC) — treat as channel/partner or competitor, not a Path B co-builder until a named buyer + competitive fit is confirmed. Dry-run to self (2026-07-23) is closed; do not Touch 2 to operator inbox. |
 
-**BlueRadius history (closed):** 2026-07-19 harvest → 2026-07-23 EMAIL dry-run To `dwoods360@gmail.com` (C1 locks) → 2026-07-27 email restored / stale PENDING purged. **Status now: HOLD / qualify**, not active dry-run and not next live DISPATCH.
+**HOLD history:** **BlueRadius** — 2026-07-19 harvest → 2026-07-23 EMAIL dry-run To `dwoods360@gmail.com` → closed; **HOLD / qualify**. **Pivot Point** — 2026-07-19 Scout → 2026-08-01 research: OSCAR platform conflict + no verified named-buyer channel → **HOLD / channel-competitor** (same class). Neither is next live Path B DISPATCH.
 
 Fixture/OSINT SUSPECTs without reachable phone/email remain in demo tenants (`vaultbank` / `medshield` / `gridcore`) — **not** DISPATCH candidates until enriched.
 

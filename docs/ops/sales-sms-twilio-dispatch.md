@@ -1,9 +1,11 @@
 # Sales SMS dispatch (operator-approved)
 
+**Status 2026-08-01:** Path B design-partner outreach is **email-first (Resend)**. SMS is **deferred** — cancel Textbelt if unused; re-enable this guide when phone-only buyers are in scope. Code paths remain in repo.
+
 SalesTeam never auto-sends SMS. Live send happens only from
 `POST /api/admin/approvals/[id]` with `action: "DISPATCH"` when the draft is SMS.
 
-## Recommended right now: Textbelt (no Twilio number / selfie ID)
+## When re-enabled: Textbelt (no Twilio number / selfie ID)
 
 Twilio phone purchase often requires identity photo verification. **Textbelt** needs only an API key.
 

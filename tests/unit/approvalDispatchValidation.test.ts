@@ -52,6 +52,19 @@ describe("validateApprovalDispatch", () => {
     expect(result.errors.some((e) => /HOLD/i.test(e))).toBe(true);
   });
 
+  it("blocks Pivot Point HOLD companies (OSCAR GRC overlap)", () => {
+    const result = validateApprovalDispatch({
+      draftKind: "SALES",
+      channel: "EMAIL",
+      body: LOCKED_EMAIL_BODY,
+      recipientEmail: "buyer@example.com",
+      recipientPhone: null,
+      company: "CBIZ Pivot Point Security",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => /HOLD/i.test(e))).toBe(true);
+  });
+
   it("requires acknowledge for operator dry-run inbox", () => {
     const blocked = validateApprovalDispatch({
       draftKind: "SALES",
@@ -59,7 +72,7 @@ describe("validateApprovalDispatch", () => {
       body: LOCKED_EMAIL_BODY,
       recipientEmail: "dwoods360@gmail.com",
       recipientPhone: null,
-      company: "Pivot Point Security",
+      company: "Acme Managed GRC LLC",
     });
     expect(blocked.ok).toBe(false);
 
@@ -69,7 +82,7 @@ describe("validateApprovalDispatch", () => {
       body: LOCKED_EMAIL_BODY,
       recipientEmail: "dwoods360@gmail.com",
       recipientPhone: null,
-      company: "Pivot Point Security",
+      company: "Acme Managed GRC LLC",
       acknowledgeOperatorSelfDispatch: true,
     });
     expect(ok).toEqual({ ok: true, errors: [] });
@@ -129,7 +142,7 @@ describe("validateApprovalDispatch", () => {
       body,
       recipientEmail: "a@b.com",
       recipientPhone: "+15551234567",
-      company: "Pivot Point Security",
+      company: "Acme Managed GRC LLC",
     });
     expect(result).toEqual({ ok: true, errors: [] });
   });
@@ -144,6 +157,7 @@ describe("validateApprovalDispatch", () => {
       }),
     ).toBe("SMS");
     expect(isSalesDispatchHoldCompany("BlueRadius Cyber")).toBe(true);
+    expect(isSalesDispatchHoldCompany("CBIZ Pivot Point Security")).toBe(true);
   });
 });
 

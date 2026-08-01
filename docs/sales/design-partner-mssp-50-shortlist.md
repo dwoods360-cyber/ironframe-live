@@ -16,7 +16,9 @@
 | Credit | Credited toward Year 1 Command **only if** convert inside the defined window |
 | CTA | **10–15 minute** workflow review — not demo / free pilot |
 | Send | Human **DISPATCH** only — never auto-send; no Cursor scrape of LinkedIn |
-| BlueRadius | **HOLD** (channel/competitor) — not a Path B cold target |
+| Channel (2026-08-01) | **Email-first (Resend)** — named buyer business email required to Promote / DISPATCH. **SMS deferred** (Textbelt/Twilio optional later; cancel Textbelt OK) |
+| BlueRadius | **HOLD** (Radius360) — channel/competitor; not Path B cold |
+| Pivot Point (CBIZ) | **HOLD** (OSCAR GRC) — channel/competitor; not Path B cold |
 
 Commercial truth: `lib/ironframeProductKnowledge/commercial.ts`.
 
@@ -40,7 +42,8 @@ An account enters **Approved** only when every gate passes:
 
 1. **Fit** — Operates a vCISO, managed GRC, compliance, or security-advisory practice (not a pure product reseller with no client delivery).
 2. **Pain signal** — At least one concrete trigger: multi-client growth, GRC/compliance hiring, new managed service, acquisition, or visible multi-client workflow complexity.
-3. **Buyer access** — At least one **economic buyer** and one **operational buyer** identified (may be the same person at ≤~20 headcount firms).
+3. **Buyer access** — At least one **economic buyer** and one **operational buyer** identified (may be the same person at ≤~20 headcount firms), with a **verified direct** email or mobile — not switchboard / info@ alone.
+4. **No proprietary GRC conflict** — If the firm sells or operates its own client-facing GRC platform (e.g. OSCAR, Radius360), mark **HOLD / channel-competitor**. Do not Path B cold until complementary fit is proven.
 
 Fail any gate → **Hold** or drop. Do not treat “practice/client proof” alone as enough.
 
@@ -55,7 +58,7 @@ Fail any gate → **Hold** or drop. Do not treat “practice/client proof” alo
 | Practice proof | Serves **≥10 clients** *or* clear managed GRC / vCISO practice page |
 | Titles (primary) | Founder / Managing Partner / CEO · Head of vCISO · Practice Lead GRC · VP Managed Services · Director GRC · CISO |
 | Titles (secondary) | Client delivery lead · compliance eng lead · practice ops |
-| Exclude | BlueRadius Path B cold · mega-RFP shops · no named buyer · `@ironleads.local` only |
+| Exclude | BlueRadius · Pivot Point (OSCAR) Path B cold · mega-RFP shops · no named buyer · switchboard-only · `@ironleads.local` only |
 
 ---
 
@@ -106,11 +109,13 @@ Copy into a spreadsheet or keep a parallel table below / in git. Log DISPATCH ou
 
 ## Working table (fill to 50)
 
-Seed from ICP §A Pivot Point, Scout §D (excluding HOLD), and manual Sales Nav picks. Leave blanks until gates pass.
+Seed from Scout §D (**excluding HOLD**), and manual Sales Nav picks. Leave blanks until gates pass. **Pivot Point and BlueRadius are logged HOLD — do not use as row 1 outreach.**
 
 | # | Account | Website | Emp | Practice | Trigger | Primary buyer | Secondary | Email | Verif | Approval | Notes |
 |---|---------|---------|-----|----------|---------|---------------|-----------|-------|-------|----------|-------|
-| 1 | Pivot Point Security | pivotpointsecurity.com | | MSSP / vCISO | On Scout queue | *(named)* | | | | Research | Enrich buyer; see ICP §D |
+| — | CBIZ Pivot Point Security | pivotpointsecurity.com | | MSSP / vCISO | Hiring / AI gov expansion | John Verry (MD Cyber) | Rich Stever (GRC Lead) | *(none verified)* | Switchboard only | **HOLD** | Own **OSCAR** GRC — channel-competitor; no Path B SMS/DISPATCH |
+| — | BlueRadius Cyber | blueradius.io | | MSSP / vCISO | | | | info@ | | **HOLD** | **Radius360** — channel-competitor |
+| 1 | *(next non-conflict MSSP)* | | | | | | | | | Research | Must pass all four gates |
 | 2 | | | | | | | | | | | |
 | … | | | | | | | | | | | |
 | 50 | | | | | | | | | | | |

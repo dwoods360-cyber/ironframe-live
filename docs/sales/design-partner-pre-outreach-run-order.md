@@ -95,7 +95,7 @@ Expect: `allMessageLocksPass: true` and at least one PENDING draft. This does **
 
 1. Stay on Approvals: `/dashboard/admin/approvals?kind=SALES`.
 2. In the left/queue list, open the **newest** PENDING draft for a known prospect  
-   (today’s batch: **Pivot Point Security** or **BlueRadius Cyber**).
+   (today’s batch: **new Scout PROSPECTs only** — **not** Pivot Point or BlueRadius; both HOLD).
 3. If two rows look like the same company, pick the **newest** (older may be purged/dupes). Prefer **PURGE** on stale duplicates so only one PENDING draft remains per contact.
 4. Read the **editable body** in the detail pane (full draft text).
 5. Check channel readiness:
@@ -389,7 +389,7 @@ npx tsx scripts/dev/pre-outreach-calendar-smoke.ts
 |-------|-------------------------------------|
 | Dev server `:3000` | UP |
 | Unit tests (review + calendar + approvals) | PASS |
-| PENDING drafts (newest/contact) | 2 — Pivot Point (SMS) · BlueRadius (EMAIL/SMS) |
+| PENDING drafts (newest/contact) | Pivot Point + BlueRadius historically present — both **HOLD 2026-08-01** (OSCAR / Radius360); do not DISPATCH Path B cold |
 | Message locks | PASS |
 | CRM | 2 PROSPECT · 4 SUSPECT |
 | Calendar smoke card | Creatable |

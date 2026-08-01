@@ -4,6 +4,11 @@ import { IRONFRAME_HOST_TENANT_SLUG_HEADER, IRONFRAME_HOST_TENANT_UUID_HEADER, t
 import { lookupTenantBySlug } from "@/app/lib/tenantSlugRegistry";
 import { readSimulationModeCookieEnabled } from "@/app/utils/simulationModeCookieServer";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
+import {
+  isDemoBeachheadTenantId,
+  isDemoBeachheadTenantSlug,
+  isProductionDemoBeachheadFilterActive,
+} from "@/app/lib/demoBeachheadTenantGate";
 import { TENANT_UUIDS, type TenantKey } from "@/app/utils/tenantIsolation";
 
 const SLUGS = new Set<TenantKey>(["medshield", "vaultbank", "gridcore", "defense"]);
@@ -81,7 +86,18 @@ export async function getScopedTenantUuidFromCookies(): Promise<string | null> {
 
   const store = await cookies();
   const rawFull = store.get("ironframe-tenant")?.value?.trim();
-  return resolveTenantUuidFromIronframeCookieRaw(rawFull);
+  // Sticky apex cookies for seed beachheads must not keep Medshield (etc.) active on production.
+  if (
+    isProductionDemoBeachheadFilterActive() &&
+    (isDemoBeachheadTenantSlug(rawFull) || isDemoBeachheadTenantId(rawFull))
+  ) {
+    return null;
+  }
+  const resolved = await resolveTenantUuidFromIronframeCookieRaw(rawFull);
+  if (resolved && isProductionDemoBeachheadFilterActive() && isDemoBeachheadTenantId(resolved)) {
+    return null;
+  }
+  return resolved;
 }
 
 /**

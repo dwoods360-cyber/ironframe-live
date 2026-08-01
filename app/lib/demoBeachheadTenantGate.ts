@@ -1,14 +1,22 @@
+import { TENANT_UUIDS } from "@/app/utils/tenantIsolation";
+
 /**
  * Demo beachhead seed tenants (medshield / vaultbank / gridcore).
- * On production they must not appear in the Command Center switcher unless the
- * operator has an explicit RBAC assignment (or is on that host subdomain).
+ * On production they never appear in the Command Center switcher on the apex
+ * control plane — RBAC assignment alone is not enough (seed assigns platform
+ * owners to these rows). Opt back in with IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS=1,
+ * or open the workspace host (`{slug}.ironframegrc.com`).
  */
 
 export const DEMO_BEACHHEAD_TENANT_SLUGS = ["medshield", "vaultbank", "gridcore"] as const;
 
 export type DemoBeachheadTenantSlug = (typeof DEMO_BEACHHEAD_TENANT_SLUGS)[number];
 
-/** True when production-style filtering should hide unassigned demo beachheads. */
+const DEMO_BEACHHEAD_TENANT_IDS = new Set(
+  DEMO_BEACHHEAD_TENANT_SLUGS.map((slug) => TENANT_UUIDS[slug].toLowerCase()),
+);
+
+/** True when production-style filtering should hide demo beachheads from the switcher. */
 export function isProductionDemoBeachheadFilterActive(): boolean {
   if (process.env.IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS === "1") {
     return false;
@@ -25,27 +33,28 @@ export function isDemoBeachheadTenantSlug(slug: string | null | undefined): bool
   return (DEMO_BEACHHEAD_TENANT_SLUGS as readonly string[]).includes(normalized);
 }
 
+/** True when the id is a known demo beachhead UUID (medshield / vaultbank / gridcore). */
+export function isDemoBeachheadTenantId(id: string | null | undefined): boolean {
+  if (!id?.trim()) return false;
+  return DEMO_BEACHHEAD_TENANT_IDS.has(id.trim().toLowerCase());
+}
+
 /**
- * Hide demo beachhead rows on production unless:
- * - operator is explicitly assigned to that tenant id, or
- * - the request is host-bound to that tenant (subdomain workspace).
+ * Hide demo beachhead rows on production unless the request is host-bound to
+ * that tenant (subdomain workspace). Assignment does not keep them visible on apex.
  */
 export function filterDemoBeachheadTenants<T extends { slug: string; id?: string }>(
   rows: T[],
-  assignedTenantIds: readonly string[] = [],
+  _assignedTenantIds: readonly string[] = [],
   options?: { hostTenantId?: string | null },
 ): T[] {
   if (!isProductionDemoBeachheadFilterActive()) return rows;
 
-  const assigned = new Set(
-    assignedTenantIds.map((id) => id.trim().toLowerCase()).filter(Boolean),
-  );
   const hostId = options?.hostTenantId?.trim().toLowerCase() || "";
 
   return rows.filter((row) => {
     if (!isDemoBeachheadTenantSlug(row.slug)) return true;
     const rowId = row.id?.trim().toLowerCase() || "";
-    if (rowId && assigned.has(rowId)) return true;
     if (hostId && rowId === hostId) return true;
     return false;
   });

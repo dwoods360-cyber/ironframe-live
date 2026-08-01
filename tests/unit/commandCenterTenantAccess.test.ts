@@ -107,7 +107,7 @@ describe("resolveCommandCenterTenantScope", () => {
     }
   });
 
-  it("keeps demo beachhead on production when explicitly assigned", async () => {
+  it("hides demo beachhead on production even when explicitly assigned", async () => {
     const previous = process.env.VERCEL_ENV;
     process.env.VERCEL_ENV = "production";
     delete process.env.IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS;
@@ -133,7 +133,7 @@ describe("resolveCommandCenterTenantScope", () => {
       ] as never);
 
       const scope = await resolveCommandCenterTenantScope();
-      expect(scope.tenants.map((t) => t.slug).sort()).toEqual(["acorp", "medshield"]);
+      expect(scope.tenants.map((t) => t.slug)).toEqual(["acorp"]);
     } finally {
       if (previous === undefined) delete process.env.VERCEL_ENV;
       else process.env.VERCEL_ENV = previous;

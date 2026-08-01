@@ -15,7 +15,7 @@
 | Path B | **$4,999** flat · **90**-day default window |
 | Credit | Credited toward Year 1 Command **only if** convert inside the defined window |
 | CTA | **10–15 minute** workflow review — not demo / free pilot |
-| Ironleads | **Harvest + research** auto-fills SUSPECT reports; operator reviews / light confirm only |
+| Ironleads | **Harvest + research** auto-fills SUSPECT reports (company site + public YT/FB About when linked; LinkedIn URLs for review only — no scrape); operator reviews / light confirm only |
 | Human rail | **Promote → SalesTeam poll → DISPATCH** — never auto-send; no Cursor scrape of LinkedIn |
 | Channel (2026-08-01) | **Email-first (Resend)** — named buyer business email required to Promote / DISPATCH. **SMS deferred** (Textbelt/Twilio optional later; cancel Textbelt OK) |
 | BlueRadius | **HOLD** (Radius360) — channel/competitor; not Path B cold |

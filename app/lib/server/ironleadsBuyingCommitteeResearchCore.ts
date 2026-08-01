@@ -5,14 +5,17 @@ import type { Prisma } from "@prisma/client";
 import {
   extractBuyingPersons,
   extractPublishedEmails,
+  extractPublicSocialLinks,
   extractUsPhones,
   guessInitialLastEmail,
   inferInitialLastEmailPattern,
   isPlausiblePersonName,
   looksLikeOsintTitleNoise,
   RESEARCH_PATHS,
+  socialAboutFetchUrl,
   stripHtmlToText,
   type BuyingRole,
+  type PublicSocialLink,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import {
   websiteUrlFromDomainOrUrl,
@@ -52,6 +55,8 @@ export type BuyingCommitteeResearchResult = {
   switchboardPhones: BuyingCommitteePhone[];
   publishedEmails: string[];
   pagesFetched: number;
+  socialProfiles: PublicSocialLink[];
+  socialPagesFetched: number;
   researchedAt: string;
 };
 
@@ -105,14 +110,46 @@ async function fetchText(url: string): Promise<string | null> {
   }
 }
 
-async function gatherCompanyPages(websiteUrl: string): Promise<Array<{ url: string; text: string }>> {
+async function gatherCompanyPages(websiteUrl: string): Promise<
+  Array<{ url: string; text: string; rawHtml: string }>
+> {
   const base = websiteUrl.replace(/\/$/, "");
   const urls = [base, ...RESEARCH_PATHS.map((path) => `${base}${path}`)];
-  const pages: Array<{ url: string; text: string }> = [];
+  const pages: Array<{ url: string; text: string; rawHtml: string }> = [];
   for (const url of urls) {
     const raw = await fetchText(url);
     if (!raw || raw.length < 80) continue;
-    pages.push({ url, text: stripHtmlToText(raw) });
+    pages.push({ url, text: stripHtmlToText(raw), rawHtml: raw });
+  }
+  return pages;
+}
+
+/**
+ * Fetch public YouTube/Facebook About pages linked from the company site.
+ * Never fetches LinkedIn (ToS) — those stay as operator review links only.
+ */
+async function gatherPublicSocialPages(
+  links: PublicSocialLink[],
+): Promise<Array<{ url: string; text: string; network: PublicSocialLink["network"] }>> {
+  const pages: Array<{ url: string; text: string; network: PublicSocialLink["network"] }> = [];
+  const fetchTargets = links
+    .filter((l) => l.fetchable)
+    .slice(0, 4)
+    .map((l) => ({ link: l, aboutUrl: socialAboutFetchUrl(l) }))
+    .filter((t): t is { link: PublicSocialLink; aboutUrl: string } => Boolean(t.aboutUrl));
+
+  for (const { link, aboutUrl } of fetchTargets) {
+    const urls = [aboutUrl, link.url].filter((u, i, arr) => arr.indexOf(u) === i);
+    for (const url of urls) {
+      const raw = await fetchText(url);
+      if (!raw || raw.length < 80) continue;
+      pages.push({
+        url,
+        text: stripHtmlToText(raw),
+        network: link.network,
+      });
+      break;
+    }
   }
   return pages;
 }
@@ -248,6 +285,8 @@ function curatedPlaybook(company: string): BuyingCommitteeResearchResult | null 
         note: "Playbook: Chairman since 2026-06-10; CEO since 2018; email pattern-guess only.",
       },
     ],
+    socialProfiles: [],
+    socialPagesFetched: 0,
     researchedAt,
   };
 }
@@ -320,22 +359,34 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
       switchboardPhones: [],
       publishedEmails: [],
       pagesFetched: 0,
+      socialProfiles: [],
+      socialPagesFetched: 0,
       researchedAt,
     };
   }
 
   const websiteUrl = resolveWebsiteBase(contact.metadata, accountDomain);
-  let pages: Array<{ url: string; text: string }> = [];
+  let pages: Array<{ url: string; text: string; rawHtml: string }> = [];
   if (websiteUrl) {
     pages = await gatherCompanyPages(websiteUrl);
   }
 
+  const socialProfiles = extractPublicSocialLinks(
+    pages.map((p) => p.rawHtml).join("\n"),
+  );
+  const socialPages = await gatherPublicSocialPages(socialProfiles);
+
   const playbook = curatedPlaybook(contact.company);
   let result: BuyingCommitteeResearchResult;
 
-  if (pages.length === 0) {
+  if (pages.length === 0 && socialPages.length === 0) {
     if (playbook) {
-      result = { ...playbook, contactId: contact.id };
+      result = {
+        ...playbook,
+        contactId: contact.id,
+        socialProfiles,
+        socialPagesFetched: 0,
+      };
     } else {
       result = {
         contactId: contact.id,
@@ -349,12 +400,19 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
         switchboardPhones: [],
         publishedEmails: [],
         pagesFetched: 0,
+        socialProfiles,
+        socialPagesFetched: 0,
         researchedAt,
       };
     }
   } else {
-    const corpus = pages.map((p) => p.text).join(" \n ");
-    const sourceUrls = pages.map((p) => p.url);
+    const corpus = [...pages.map((p) => p.text), ...socialPages.map((p) => p.text)].join(
+      " \n ",
+    );
+    const sourceUrls = [
+      ...pages.map((p) => p.url),
+      ...socialPages.map((p) => p.url),
+    ];
     const emails = [
       ...extractPublishedEmails(corpus, accountDomain),
       ...(playbook?.publishedEmails ?? []),
@@ -381,7 +439,11 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     for (const member of liveMembers) {
       if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
       const prior = mergedByRole.get(member.role);
-      if (!prior || (member.emails.some((e) => e.status === "published") && prior.emails.every((e) => e.status !== "published"))) {
+      if (
+        !prior ||
+        (member.emails.some((e) => e.status === "published") &&
+          prior.emails.every((e) => e.status !== "published"))
+      ) {
         mergedByRole.set(member.role, member);
       }
     }
@@ -404,6 +466,8 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           : (playbook?.switchboardPhones ?? []),
       publishedEmails: emails.length > 0 ? emails : (playbook?.publishedEmails ?? []),
       pagesFetched: pages.length,
+      socialProfiles,
+      socialPagesFetched: socialPages.length,
       researchedAt,
     };
   }
@@ -428,6 +492,8 @@ async function persistResearch(
             skipped: true,
             skipReason: result.skipReason,
             members: [],
+            socialProfiles: result.socialProfiles,
+            socialPagesFetched: result.socialPagesFetched,
           },
         } as Prisma.InputJsonValue,
       },
@@ -476,7 +542,10 @@ async function persistResearch(
       publishedEmails: result.publishedEmails,
       switchboardPhones: result.switchboardPhones,
       members: result.members,
+      socialProfiles: result.socialProfiles,
+      socialPagesFetched: result.socialPagesFetched,
     },
+    publicSocialProfiles: result.socialProfiles,
     candidateEmails: mergeCandidateEmails(prior, result.members),
     namedBuyer,
     executiveSponsor,

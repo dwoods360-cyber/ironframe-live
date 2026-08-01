@@ -243,9 +243,135 @@ export const RESEARCH_PATHS = [
   "/our-leadership",
   "/leadership",
   "/team",
+  "/meet-the-team",
+  "/people",
+  "/company",
   "/news",
   "/insights",
+  "/press",
+  "/careers",
 ] as const;
+
+export type PublicSocialNetwork = "linkedin" | "youtube" | "facebook";
+
+export type PublicSocialLink = {
+  network: PublicSocialNetwork;
+  url: string;
+  /** company_page | person_profile | channel | unknown */
+  kind: "company_page" | "person_profile" | "channel" | "unknown";
+  /** true = safe to fetch HTML; LinkedIn profiles are link-only (no scrape). */
+  fetchable: boolean;
+  note: string;
+};
+
+/**
+ * Pull public LinkedIn / YouTube / Facebook URLs from company HTML.
+ * LinkedIn person/company links are recorded for operator review — never scraped.
+ */
+export function extractPublicSocialLinks(htmlOrText: string): PublicSocialLink[] {
+  const found = new Map<string, PublicSocialLink>();
+
+  const consider = (rawUrl: string) => {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawUrl.replace(/&amp;/g, "&"));
+    } catch {
+      return;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const path = parsed.pathname.replace(/\/$/, "") || "/";
+    const href = `${parsed.origin}${parsed.pathname}`.replace(/\/$/, "");
+
+    if (host === "linkedin.com" || host.endsWith(".linkedin.com")) {
+      if (/^\/in\//i.test(path)) {
+        found.set(href.toLowerCase(), {
+          network: "linkedin",
+          url: href,
+          kind: "person_profile",
+          fetchable: false,
+          note: "Public LinkedIn profile link from company site — open manually; do not scrape.",
+        });
+        return;
+      }
+      if (/^\/company\//i.test(path) || /^\/school\//i.test(path)) {
+        found.set(href.toLowerCase(), {
+          network: "linkedin",
+          url: href,
+          kind: "company_page",
+          fetchable: false,
+          note: "Company LinkedIn page link — operator review only (LinkedIn ToS: no automated scrape).",
+        });
+      }
+      return;
+    }
+
+    if (
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "youtu.be" ||
+      host.endsWith(".youtube.com")
+    ) {
+      const isChannel =
+        /^\/(channel|c|user|@)/i.test(path) || host === "youtu.be";
+      found.set(href.toLowerCase(), {
+        network: "youtube",
+        url: href,
+        kind: isChannel ? "channel" : "unknown",
+        fetchable: Boolean(isChannel && !/^\/watch/i.test(path)),
+        note: isChannel
+          ? "Public YouTube channel — About/description may be fetched."
+          : "YouTube link from company site.",
+      });
+      return;
+    }
+
+    if (
+      host === "facebook.com" ||
+      host === "m.facebook.com" ||
+      host === "fb.com" ||
+      host.endsWith(".facebook.com")
+    ) {
+      if (/^\/(privacy|help|login|watch|reel|groups)\b/i.test(path)) return;
+      found.set(href.toLowerCase(), {
+        network: "facebook",
+        url: href,
+        kind: "company_page",
+        fetchable: true,
+        note: "Public Facebook Page — About text may be fetched when available.",
+      });
+    }
+  };
+
+  // Prefer href="..." from HTML, then bare URLs in stripped text.
+  const hrefRe =
+    /href\s*=\s*["'](https?:\/\/(?:www\.)?(?:linkedin\.com|youtube\.com|youtu\.be|facebook\.com|fb\.com|m\.facebook\.com|m\.youtube\.com)[^"'#?\s]*)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = hrefRe.exec(htmlOrText)) !== null) {
+    consider(m[1]);
+  }
+  const bareRe =
+    /https?:\/\/(?:www\.)?(?:linkedin\.com|youtube\.com|youtu\.be|facebook\.com|fb\.com)\/[^\s"'<>)]+/gi;
+  while ((m = bareRe.exec(htmlOrText)) !== null) {
+    consider(m[0].replace(/[.,;]+$/, ""));
+  }
+
+  return [...found.values()].slice(0, 16);
+}
+
+/** Best-effort public About URL for YouTube / Facebook (never LinkedIn). */
+export function socialAboutFetchUrl(link: PublicSocialLink): string | null {
+  if (!link.fetchable) return null;
+  if (link.network === "youtube") {
+    if (/\/about\/?$/i.test(link.url)) return link.url;
+    return `${link.url.replace(/\/$/, "")}/about`;
+  }
+  if (link.network === "facebook") {
+    if (/\/about\/?/i.test(link.url)) return link.url;
+    return `${link.url.replace(/\/$/, "")}/about`;
+  }
+  return null;
+}
 
 /** Loose heuristic for OSINT article titles / agency pages ingested as company names. */
 export function looksLikeOsintTitleNoise(company: string): boolean {

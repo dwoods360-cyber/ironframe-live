@@ -87,12 +87,47 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
           <section className="rounded-xl border border-violet-900/40 bg-violet-950/20 p-5">
             <h2 className="text-lg font-semibold text-violet-100">Buying committee research</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Lead-gen OSINT for economic buyers (CEO / CFO / CISO / …). Pattern emails stay
-              unverified until published or confirmed.
+              Public company site + linked YouTube/Facebook About when available. LinkedIn URLs are
+              review links only (not scraped). Pattern emails stay unverified until published or
+              confirmed.
               {report.buyingCommittee.researchedAt
                 ? ` · ${report.buyingCommittee.researchedAt}`
                 : ""}
             </p>
+            {report.buyingCommittee.socialProfiles.length > 0 ? (
+              <div className="mt-3 rounded-lg border border-violet-900/30 bg-slate-950/50 px-3 py-2">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-violet-300">
+                  Public social links
+                  {report.buyingCommittee.socialPagesFetched > 0
+                    ? ` · ${report.buyingCommittee.socialPagesFetched} about page(s) fetched`
+                    : ""}
+                </p>
+                <ul className="mt-2 space-y-1.5 text-xs">
+                  {report.buyingCommittee.socialProfiles.map((row) => (
+                    <li key={row.url} className="text-slate-300">
+                      <span className="font-mono uppercase text-violet-200/90">{row.network}</span>
+                      {" · "}
+                      <a
+                        href={row.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-cyan-300 hover:underline"
+                      >
+                        {row.url}
+                      </a>
+                      <span className="text-slate-500">
+                        {" "}
+                        ({row.kind}
+                        {row.fetchable ? "" : " · link only"})
+                      </span>
+                      {row.note ? (
+                        <div className="mt-0.5 text-[11px] text-slate-500">{row.note}</div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {report.buyingCommittee.skipped ? (
               <p className="mt-3 text-sm text-amber-200/90">
                 Skipped: {report.buyingCommittee.skipReason ?? "no researchable company signal"}

@@ -27,7 +27,7 @@ Feed / alert signal
   → Log shortlist §D
 ```
 
-**Automate:** harvest, site buying-committee extract, blockers on the report.  
+**Automate:** harvest, site buying-committee extract, public social links (LinkedIn URLs for review only — no scrape; YouTube/Facebook About when linked from the company site), blockers on the report.  
 **Keep human:** Promote · SalesTeam poll · Approvals DISPATCH (Path B safety rail).
 
 Surfaces: `/dashboard/operations/ironleads` · `/dashboard/operations/salesteam` · `/dashboard/admin/approvals?kind=SALES` · `/dashboard/operations/library/icp-shortlist#section-d`  

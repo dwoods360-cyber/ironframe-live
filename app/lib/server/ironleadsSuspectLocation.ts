@@ -56,11 +56,21 @@ export type SuspectBuyingCommitteeMember = {
   note: string | null;
 };
 
+export type SuspectPublicSocialProfile = {
+  network: "linkedin" | "youtube" | "facebook";
+  url: string;
+  kind: string;
+  fetchable: boolean;
+  note: string | null;
+};
+
 export type SuspectBuyingCommittee = {
   researchedAt: string | null;
   skipped: boolean;
   skipReason: string | null;
   members: SuspectBuyingCommitteeMember[];
+  socialProfiles: SuspectPublicSocialProfile[];
+  socialPagesFetched: number;
 };
 
 export type SuspectLocationFields = {
@@ -254,11 +264,34 @@ export function resolveSuspectBuyingCommittee(metadata: unknown): SuspectBuyingC
       note: cleanText(m.note, 800),
     });
   }
+  const socialRaw = Array.isArray(raw.socialProfiles) ? raw.socialProfiles : [];
+  const socialProfiles: SuspectPublicSocialProfile[] = [];
+  for (const row of socialRaw) {
+    const s = asRecord(row);
+    if (!s) continue;
+    const network = cleanText(s.network, 40)?.toLowerCase();
+    const url = cleanText(s.url, 500);
+    if (!network || !url) continue;
+    if (network !== "linkedin" && network !== "youtube" && network !== "facebook") continue;
+    socialProfiles.push({
+      network,
+      url,
+      kind: cleanText(s.kind, 40) ?? "unknown",
+      fetchable: Boolean(s.fetchable),
+      note: cleanText(s.note, 400),
+    });
+  }
+
   return {
     researchedAt: cleanText(raw.researchedAt, 40),
     skipped: Boolean(raw.skipped),
     skipReason: cleanText(raw.skipReason, 240),
     members,
+    socialProfiles: socialProfiles.slice(0, 16),
+    socialPagesFetched:
+      typeof raw.socialPagesFetched === "number" && Number.isFinite(raw.socialPagesFetched)
+        ? raw.socialPagesFetched
+        : 0,
   };
 }
 

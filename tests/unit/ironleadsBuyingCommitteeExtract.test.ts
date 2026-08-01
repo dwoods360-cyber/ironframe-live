@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   extractBuyingPersons,
   extractPublishedEmails,
+  extractPublicSocialLinks,
   extractUsPhones,
   guessInitialLastEmail,
   inferInitialLastEmailPattern,
   isPlausiblePersonName,
+  socialAboutFetchUrl,
 } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 
 describe("ironleadsBuyingCommitteeExtract", () => {
@@ -50,5 +52,24 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("and Best Company Board")).toBe(false);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
+  });
+
+  it("extracts public LinkedIn/YouTube/Facebook links and never marks LinkedIn fetchable", () => {
+    const html = `
+      <a href="https://www.linkedin.com/company/acme-grc">LinkedIn</a>
+      <a href="https://www.linkedin.com/in/jane-ciso">Jane</a>
+      <a href="https://www.youtube.com/@AcmeGRC">YouTube</a>
+      <a href="https://www.facebook.com/AcmeGRC">Facebook</a>
+    `;
+    const links = extractPublicSocialLinks(html);
+    expect(links.some((l) => l.network === "linkedin" && l.kind === "company_page")).toBe(true);
+    expect(links.some((l) => l.network === "linkedin" && l.kind === "person_profile")).toBe(true);
+    expect(links.filter((l) => l.network === "linkedin").every((l) => !l.fetchable)).toBe(true);
+    const yt = links.find((l) => l.network === "youtube");
+    expect(yt?.fetchable).toBe(true);
+    expect(socialAboutFetchUrl(yt!)).toMatch(/\/about$/);
+    const fb = links.find((l) => l.network === "facebook");
+    expect(fb?.fetchable).toBe(true);
+    expect(socialAboutFetchUrl(fb!)).toMatch(/\/about$/);
   });
 });

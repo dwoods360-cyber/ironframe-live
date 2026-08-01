@@ -3,17 +3,17 @@ import { redirect } from "next/navigation";
 
 import { canUsePerimeterWorkforceFromSession } from "@/app/lib/auth/perimeterWorkforceAccess";
 
-import OperationsHubClient from "./OperationsHubClient";
+import PublishingDeskClient from "./PublishingDeskClient";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Ops Today | Ironframe Admin",
+  title: "Publishing Desk | Ironframe Operations",
   description:
-    "Operator Today inbox — prioritized GTM, calendar, publishing, and workforce desks. GLOBAL_ADMIN or designated BUSINESS_ADMIN only; not tenant workspaces.",
+    "Quarantine → Approve / Deny → syndicate for Governance Frame briefings and Ironcast newsletters.",
 };
 
-export default async function OperationsHubPage() {
+export default async function PublishingDeskPage() {
   const allowed = await canUsePerimeterWorkforceFromSession();
   if (!allowed) {
     redirect("/unauthorized");
@@ -23,11 +23,11 @@ export default async function OperationsHubPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-[#020617] p-8 text-slate-400">
-          Loading Ops Today…
+          Loading publishing desk…
         </div>
       }
     >
-      <OperationsHubClient />
+      <PublishingDeskClient />
     </Suspense>
   );
 }

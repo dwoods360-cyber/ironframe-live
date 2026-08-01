@@ -63,12 +63,25 @@ function ironguardShadowPlaneBypassesMissingSession(): boolean {
   }
 }
 
+/** Production apex must not silently impersonate the medshield demo beachhead. */
+function allowDemoBeachheadIronguardFallback(): boolean {
+  if (typeof window === "undefined") return true;
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV === "production") return false;
+  const host = window.location.hostname.toLowerCase();
+  if (host === "ironframegrc.com" || host.endsWith(".ironframegrc.com")) {
+    // Tenant subdomains may still use shadow/sim locally against prod DNS in rare cases;
+    // only block the marketing/control-plane apex (www / bare).
+    if (host === "ironframegrc.com" || host === "www.ironframegrc.com") return false;
+  }
+  return true;
+}
+
 function resolveEffectiveTenantForIronguardFetch(): string | null {
   const fromSession = getIronguardEffectiveTenant();
   if (fromSession) return fromSession;
   const dashboardFallback = getDashboardWorkspaceFallbackTenant();
   if (dashboardFallback) return dashboardFallback;
-  if (ironguardShadowPlaneBypassesMissingSession()) {
+  if (ironguardShadowPlaneBypassesMissingSession() && allowDemoBeachheadIronguardFallback()) {
     return TENANT_UUIDS.medshield;
   }
   return null;
@@ -142,7 +155,11 @@ export function applyIronguardToFetch(
 
   let effective = resolveEffectiveTenantForIronguardFetch();
   /** Last-resort internal authorized scope — never emit IRONGUARD FETCH BLOCKED for shadow/sim builds. */
-  if (!effective && ironguardShadowPlaneBypassesMissingSession()) {
+  if (
+    !effective &&
+    ironguardShadowPlaneBypassesMissingSession() &&
+    allowDemoBeachheadIronguardFallback()
+  ) {
     effective = TENANT_UUIDS.medshield;
   }
   if (!effective) {
@@ -255,7 +272,11 @@ export function assertIronguardBeforeFetch(input: RequestInfo | URL, init?: Requ
   if (!requested) return;
 
   let effective = resolveEffectiveTenantForIronguardFetch();
-  if (!effective && ironguardShadowPlaneBypassesMissingSession()) {
+  if (
+    !effective &&
+    ironguardShadowPlaneBypassesMissingSession() &&
+    allowDemoBeachheadIronguardFallback()
+  ) {
     effective = TENANT_UUIDS.medshield;
   }
   if (!effective) {

@@ -533,8 +533,9 @@ export async function buildOperationsHubSnapshot(): Promise<OperationsHubSnapsho
     },
     workforce: workforceWithPortals,
     quickLinks: [
-      { label: "Operations hub", href: "/dashboard/operations" },
+      { label: "Ops Today", href: "/dashboard/operations" },
       { label: "Ops Calendar", href: "/dashboard/operations?tab=calendar" },
+      { label: "Publishing Desk", href: "/dashboard/operations/publishing" },
       { label: "Ironboard console", href: IRONBOARD_OPERATIONS_PORTAL_PATH },
       { label: "Agent approvals", href: "/dashboard/admin/approvals" },
       { label: "Support intake console", href: "/dashboard/operations/support-intake" },

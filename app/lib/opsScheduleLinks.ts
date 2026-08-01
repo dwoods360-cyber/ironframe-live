@@ -27,8 +27,8 @@ export function hrefForOpsSourceRef(
       kind === "NEWSLETTER_REVIEW" ||
       kind === "NEWSLETTER_DRAFT" ||
       kind === "NEWSLETTER_SYNDICATE";
-    const tab = isNewsletter ? "newsletters" : "briefings";
-    return `/dashboard/operations?tab=${tab}&draft=${encodeURIComponent(file)}`;
+    const desk = isNewsletter ? "newsletters" : "briefings";
+    return `/dashboard/operations/publishing?desk=${desk}&draft=${encodeURIComponent(file)}`;
   }
 
   if (base.startsWith("video-series/") || base.includes("when-risk-enters-the-room")) {
@@ -75,17 +75,17 @@ export function hrefForOpsSourceRef(
     return "/docs/sales/design-partner-recruitment";
   }
   if (base === "marketing/control-first-newsletter-aug") {
-    return "/dashboard/operations?tab=newsletters";
+    return "/dashboard/operations/publishing?desk=newsletters";
   }
   if (base === "marketing/companion-story-bank") {
     return "/docs/marketing-strategy/content-calendar";
   }
   if (base === "queue/archive-cf-grc-mirrors") {
-    return "/dashboard/operations?tab=briefings";
+    return "/dashboard/operations/publishing?desk=briefings";
   }
 
   if (base.startsWith("eng/eu-ai-act") || base.startsWith("eng/board-packet-ai-act")) {
-    return "/dashboard/operations?tab=briefings&draft=2026-08-02-draft-research-eu-ai-act-august.md";
+    return "/dashboard/operations/publishing?desk=briefings&draft=2026-08-02-draft-research-eu-ai-act-august.md";
   }
   if (base.startsWith("eng/nydfs") || base.startsWith("eng/cmmc")) {
     return "/docs/stakeholder-deck";

@@ -12,9 +12,9 @@ export const BOARD_DUAL_LOCATION_OUTPUT_MATRIX = `
    Authors (WRITE-to-queue): gf-researcher, gf-editor, gf-verifier, gf-regulatory-reviewer, gf-product-boundary, gf-operator (desk), board-bot, board-cfo, board-compliance, GTM flywheel agents, Irontally narrate cron, autonomous GTM briefing-queue cron, Ops Hub briefings/request, Ops Hub newsletters/request
    READ access: all board personas + perimeter workers may cite the published encyclopedia (federated + product spine)
    Operator submit:
-  - /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/desk-run (GF desk)
-  - /dashboard/operations?tab=briefings · POST /api/admin/operations-hub/briefings/request
-  - /dashboard/operations?tab=newsletters · POST /api/admin/operations-hub/newsletters/request
+  - /dashboard/operations/publishing?desk=briefings · POST /api/admin/operations-hub/briefings/desk-run (GF desk)
+  - /dashboard/operations/publishing?desk=briefings · POST /api/admin/operations-hub/briefings/request
+  - /dashboard/operations/publishing?desk=newsletters · POST /api/admin/operations-hub/newsletters/request
   - Approve: briefings/promote · Deny: briefings/deny (human Publisher only — desk agents never promote)
    Rules:
   - Dynamic, narrative-driven, and completely decoupled from internal system code.

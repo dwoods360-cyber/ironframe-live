@@ -71,6 +71,75 @@ describe("resolveCommandCenterTenantScope", () => {
     expect(scope.tenants[0]?.slug).toBe("medshield");
   });
 
+  it("hides unassigned demo beachheads for GLOBAL_ADMIN on production", async () => {
+    const previous = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "production";
+    delete process.env.IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS;
+    try {
+      vi.mocked(getSupabaseSessionUser).mockResolvedValue({
+        id: "owner-1",
+        email: "dwoods360@gmail.com",
+      } as never);
+      vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+        {
+          id: MED,
+          name: "Medshield",
+          slug: "medshield",
+          industry: "HEALTH",
+          ale_baseline: 100n,
+        },
+        {
+          id: acorp,
+          name: "Design Partner Co.",
+          slug: "acorp",
+          industry: "FINANCE",
+          ale_baseline: 200n,
+        },
+      ] as never);
+
+      const scope = await resolveCommandCenterTenantScope();
+      expect(scope.canAccessGlobal).toBe(true);
+      expect(scope.tenants.map((t) => t.slug)).toEqual(["acorp"]);
+    } finally {
+      if (previous === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = previous;
+    }
+  });
+
+  it("keeps demo beachhead on production when explicitly assigned", async () => {
+    const previous = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "production";
+    delete process.env.IRONFRAME_SHOW_DEMO_BEACHHEAD_TENANTS;
+    try {
+      vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
+        { tenantId: MED, role: "GLOBAL_ADMIN" },
+      ] as never);
+      vi.mocked(prisma.tenant.findMany).mockResolvedValue([
+        {
+          id: MED,
+          name: "Medshield",
+          slug: "medshield",
+          industry: "HEALTH",
+          ale_baseline: 100n,
+        },
+        {
+          id: acorp,
+          name: "Design Partner Co.",
+          slug: "acorp",
+          industry: "FINANCE",
+          ale_baseline: 200n,
+        },
+      ] as never);
+
+      const scope = await resolveCommandCenterTenantScope();
+      expect(scope.tenants.map((t) => t.slug).sort()).toEqual(["acorp", "medshield"]);
+    } finally {
+      if (previous === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = previous;
+    }
+  });
+
   it("returns only assigned tenants for scoped CISO", async () => {
     vi.mocked(prisma.userRoleAssignment.findMany).mockResolvedValue([
       { tenantId: VAULT, role: "CISO" },

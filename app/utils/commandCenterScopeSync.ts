@@ -30,6 +30,13 @@ export function resolveCommandCenterTenantRow(
  * Align header tenant label + Strategic Intel Industry Profile with `ironframe-tenant` cookie.
  * Global aggregate (no cookie): tenant name cleared; industry left unchanged (sector lens for aggregate).
  */
+function allowDemoBeachheadIronguardFallback(): boolean {
+  if (typeof window === "undefined") return true;
+  if (process.env.NEXT_PUBLIC_VERCEL_ENV === "production") return false;
+  const host = window.location.hostname.toLowerCase();
+  return host !== "ironframegrc.com" && host !== "www.ironframegrc.com";
+}
+
 /** Global aggregate + shadow/simulation: align Ironguard with server red-team tenant (e79ea77 parity). */
 export function syncIronguardForRedTeamLane(cookieAbsent: boolean): void {
   if (!cookieAbsent || typeof window === "undefined") return;
@@ -40,7 +47,7 @@ export function syncIronguardForRedTeamLane(cookieAbsent: boolean): void {
   const simulation = document.cookie
     .split("; ")
     .some((row) => row.startsWith(`${SIMULATION_MODE_COOKIE}=`) && row.split("=")[1]?.trim() === "1");
-  if (shadow || simulation) {
+  if ((shadow || simulation) && allowDemoBeachheadIronguardFallback()) {
     setIronguardEffectiveTenant(TENANT_UUIDS.medshield);
   } else {
     setIronguardEffectiveTenant(null);

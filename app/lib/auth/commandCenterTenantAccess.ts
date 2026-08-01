@@ -4,8 +4,21 @@ import { UserRole } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { isPlatformGlobalAdminEmail } from "@/config/platformSecurity";
 import { getSupabaseSessionUser } from "@/app/utils/serverAuth";
+import { filterDemoBeachheadTenants } from "@/app/lib/demoBeachheadTenantGate";
 import { filterHiddenStagingTenants, isHiddenStagingTenantSlug } from "@/app/lib/stagingTenantGate";
 import { getHostBoundTenantUuid } from "@/app/utils/serverTenantContext";
+
+function finalizeSwitcherTenants<T extends { slug: string; id?: string }>(
+  rows: T[],
+  assignedTenantIds: readonly string[],
+  hostTenantId?: string | null,
+): T[] {
+  return filterDemoBeachheadTenants(
+    filterHiddenStagingTenants(rows, assignedTenantIds),
+    assignedTenantIds,
+    { hostTenantId },
+  );
+}
 
 export type CommandCenterTenantRow = {
   id: string;
@@ -141,7 +154,7 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
     });
 
     return {
-      tenants: filterHiddenStagingTenants(mapTenantRows(rows), assignedTenantIds),
+      tenants: finalizeSwitcherTenants(mapTenantRows(rows), assignedTenantIds, hostTenantUuid),
       canAccessGlobal: false,
       hostTenantSlug: hostRow.slug,
       canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
@@ -151,7 +164,7 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   if (hasGlobalAdmin) {
     const rows = await prisma.tenant.findMany(tenantListQuery);
     return {
-      tenants: filterHiddenStagingTenants(mapTenantRows(rows), assignedTenantIds),
+      tenants: finalizeSwitcherTenants(mapTenantRows(rows), assignedTenantIds),
       canAccessGlobal: true,
       hostTenantSlug: null,
       canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,
@@ -169,7 +182,7 @@ export async function resolveCommandCenterTenantScope(): Promise<CommandCenterTe
   );
 
   return {
-    tenants: filterHiddenStagingTenants(mapTenantRows(orderedRows), assignedTenantIds),
+    tenants: finalizeSwitcherTenants(mapTenantRows(orderedRows), assignedTenantIds),
     canAccessGlobal: false,
     hostTenantSlug: null,
     canSwitchTenantsOnSubdomain: canSwitchAssignedWorkspaces,

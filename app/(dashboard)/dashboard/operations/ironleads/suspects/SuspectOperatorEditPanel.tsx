@@ -151,6 +151,17 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     await patchSuspect({ discardSuspect: true }, "Discarded — not a buyer company.");
   }
 
+  async function onEnrichWithApollo() {
+    const ok = window.confirm(
+      "Call Apollo to enrich this SUSPECT (org + named buyer email if set)? This consumes Apollo credits. Path B send stays on Approvals — Apollo will not email.",
+    );
+    if (!ok) return;
+    await patchSuspect(
+      { enrichWithApollo: true },
+      "Apollo enrich complete — review email/phone below, then Promote when ready.",
+    );
+  }
+
   return (
     <section className="rounded-xl border border-teal-900/50 bg-teal-950/20 p-5">
       <h2 className="text-lg font-semibold text-teal-100">Operator enrichment</h2>
@@ -175,7 +186,34 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
             Discard permanently
           </button>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-4 rounded-lg border border-violet-900/50 bg-violet-950/20 p-4">
+          <h3 className="text-sm font-semibold text-violet-100">Apollo enrich</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Uses <span className="font-mono text-violet-200/90">APOLLO_API_KEY</span>. Set Named
+            buyer first for email match. Org enrich runs on domain alone. Does not send mail.
+          </p>
+          {report.apolloEnrichment ? (
+            <p className="mt-2 font-mono text-[11px] text-violet-200/80">
+              Last: {report.apolloEnrichment.enrichedAt}
+              {report.apolloEnrichment.person?.email
+                ? ` · ${report.apolloEnrichment.person.email}`
+                : report.apolloEnrichment.personMatched
+                  ? " · person matched (no email)"
+                  : " · org only"}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            disabled={busy || onHold}
+            onClick={() => void onEnrichWithApollo()}
+            className="mt-3 rounded-lg border border-violet-700 bg-violet-950/50 px-4 py-2 text-sm font-medium text-violet-50 hover:border-violet-500 disabled:opacity-40"
+            title={onHold ? "Restore from HOLD before Apollo enrich" : undefined}
+          >
+            Enrich with Apollo
+          </button>
+        </div>
+      )}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block text-xs text-slate-400">

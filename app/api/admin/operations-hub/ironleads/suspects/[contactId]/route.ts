@@ -78,6 +78,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     moveToHoldArchive: body.moveToHoldArchive === true,
     restoreFromHoldArchive: body.restoreFromHoldArchive === true,
     discardSuspect: body.discardSuspect === true,
+    enrichWithApollo: body.enrichWithApollo === true,
     holdReason: typeof body.holdReason === "string" ? body.holdReason : undefined,
     holdClassification:
       body.holdClassification === "hold" ||

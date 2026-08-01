@@ -13,6 +13,7 @@ import {
   resolveOperatorHold,
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
+import { enrichIronleadsSuspectWithApollo } from "@/app/lib/server/ironleadsApolloEnrichCore";
 import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 import prisma from "@/lib/prisma";
@@ -35,6 +36,8 @@ export type SuspectOperatorUpdateInput = {
   restoreFromHoldArchive?: boolean;
   /** Hard-delete OSINT title-noise / non-company SUSPECT rows. */
   discardSuspect?: boolean;
+  /** HITL Apollo org + named-buyer enrich (consumes Apollo credits). */
+  enrichWithApollo?: boolean;
   holdReason?: string | null;
   holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
@@ -97,6 +100,10 @@ export async function updateIronleadsSuspectContact(
       return { ok: false, error: discarded.error ?? "Discard failed", status: discarded.status ?? 500 };
     }
     return { ok: true, discarded: true };
+  }
+
+  if (input.enrichWithApollo) {
+    return enrichIronleadsSuspectWithApollo(contactId, { applyContactFields: true });
   }
 
   const deal = contact.primaryDeals[0] ?? null;

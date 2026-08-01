@@ -11,6 +11,7 @@ import {
   formatQualificationSignalsDisplay,
   type QualificationSignalsDisplay,
 } from "@/app/lib/ironleadsOperatorDisplay";
+import type { ApolloEnrichSnapshot } from "@/app/lib/server/apolloEnrichmentClient";
 import {
   resolveOperatorHold,
   type OperatorHoldRecord,
@@ -63,6 +64,8 @@ export type IronleadsSuspectReport = {
   accountResearchBrief: AccountResearchBrief | null;
   /** Operator HITL HOLD archive — parked for later retrieval (not Path B cold). */
   operatorHold: OperatorHoldRecord | null;
+  /** Last Apollo.org/people enrich snapshot (HITL; credits consumed on Apollo side). */
+  apolloEnrichment: ApolloEnrichSnapshot | null;
   tenantSlug: string;
   industrySector: string | null;
   detectedTrigger: string | null;
@@ -239,7 +242,9 @@ export async function buildIronleadsSuspectReport(
     nextActions.push("Enrich a public switchboard or buyer phone for SMS.");
   }
   if (!hasRealEmail) {
-    nextActions.push("Replace @ironleads.local with a real buyer or info@ inbox for EMAIL.");
+    nextActions.push(
+      "Replace @ironleads.local with a real buyer email (Enrich with Apollo after Named buyer is set, or paste manually).",
+    );
   }
   if (!location.websiteUrl) {
     nextActions.push("Add company website URL (metadata.websiteUrl or deal accountDomain).");
@@ -309,6 +314,16 @@ export async function buildIronleadsSuspectReport(
     });
 
   const operatorHold = resolveOperatorHold(contact.metadata);
+  const apolloRaw =
+    contact.metadata &&
+    typeof contact.metadata === "object" &&
+    !Array.isArray(contact.metadata)
+      ? (contact.metadata as Record<string, unknown>).apolloEnrichment
+      : null;
+  const apolloEnrichment =
+    apolloRaw && typeof apolloRaw === "object" && !Array.isArray(apolloRaw)
+      ? (apolloRaw as ApolloEnrichSnapshot)
+      : null;
 
   if (operatorHold) {
     nextActions.unshift(
@@ -342,6 +357,7 @@ export async function buildIronleadsSuspectReport(
     buyingCommittee: location.buyingCommittee,
     accountResearchBrief,
     operatorHold,
+    apolloEnrichment,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,
     detectedTrigger: contact.detectedTrigger,

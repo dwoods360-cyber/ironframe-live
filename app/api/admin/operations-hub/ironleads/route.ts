@@ -21,6 +21,7 @@ import {
 } from "@/app/lib/server/operationsTeamPortalsCore";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 export async function GET() {
   const auth = await requirePerimeterWorkforceOperator();
@@ -124,16 +125,29 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.action === "import_directory_paste") {
-    const rows = parseDirectoryImportPaste(typeof body.paste === "string" ? body.paste : "");
+    const pasteRaw = typeof body.paste === "string" ? body.paste : "";
+    const rows = parseDirectoryImportPaste(pasteRaw);
     if (rows.length === 0) {
+      const nonEmptyLines = pasteRaw
+        .split(/\r\n|\n|\r/)
+        .map((l) => l.trim())
+        .filter(Boolean).length;
       return NextResponse.json(
-        { error: "Paste at least one line: company, website [, trigger]" },
+        {
+          error:
+            nonEmptyLines > 0
+              ? `Could not parse any firms from ${nonEmptyLines} non-empty line(s). Use one company per line (optional: company, https://site.com).`
+              : "Paste is empty. Use one company per line (optional website after a comma).",
+          hint: "Example:\nCyberDuo, https://www.cyberduo.com\nNopalCyber",
+        },
         { status: 400 },
       );
     }
     if (rows.length > 100) {
       return NextResponse.json(
-        { error: "Max 100 rows per paste import" },
+        {
+          error: `Max 100 rows per paste import (got ${rows.length}). Split your text file into batches of 100.`,
+        },
         { status: 400 },
       );
     }

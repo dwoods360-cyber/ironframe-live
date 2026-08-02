@@ -3,12 +3,16 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
-import { listMsspFreeDirectorySeeds } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
+import {
+  listMsspFreeDirectorySeeds,
+  parseDirectoryImportPaste,
+} from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
 import type { IronleadsPortalSnapshot } from "@/app/lib/server/operationsTeamPortalsCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 const FREE_DIRECTORY_SEED_COUNT = listMsspFreeDirectorySeeds().length;
 const PASTE_DRAFT_KEY = "ironleads.directoryPasteDraft.v1";
+const PASTE_MAX_ROWS = 100;
 
 export default function IronleadsPortalClient() {
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
@@ -153,10 +157,28 @@ export default function IronleadsPortalClient() {
     }
   };
 
+  const pastePreview = parseDirectoryImportPaste(pasteText);
+  const pasteLineCount = pasteText
+    .split(/\r\n|\n|\r/)
+    .map((l) => l.trim())
+    .filter(Boolean).length;
+
   const runImportPaste = async () => {
     if (harvestBusy || researchBusy || importBusy) return;
     if (!pasteText.trim()) {
-      setError("Paste at least one line: company, website [, trigger]");
+      setError("Paste is empty. One company per line (optional: company, https://site.com).");
+      return;
+    }
+    if (pastePreview.length === 0) {
+      setError(
+        `Could not parse any firms from ${pasteLineCount} non-empty line(s). Use one company per line.`,
+      );
+      return;
+    }
+    if (pastePreview.length > PASTE_MAX_ROWS) {
+      setError(
+        `${pastePreview.length} firms in the box (max ${PASTE_MAX_ROWS} per import). Clear the box and paste a batch of ≤${PASTE_MAX_ROWS} from your text file.`,
+      );
       return;
     }
     setImportBusy(true);
@@ -431,24 +453,48 @@ export default function IronleadsPortalClient() {
                 >
                   MSSPProviders
                 </a>{" "}
-                (company, website — one firm per line, max 100). Draft auto-saves in this browser until
-                import succeeds. Overflow beyond the active 20 goes to Pending.
+                One company per line (website optional — Research will probe a likely site). Max{" "}
+                {PASTE_MAX_ROWS} per import. Draft auto-saves here until import succeeds.
               </p>
               <textarea
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
-                rows={4}
-                placeholder={"CyberDuo, https://www.cyberduo.com, COMPLIANCE_JOB_POST\nNopalCyber, https://nopalcyber.com"}
+                rows={8}
+                placeholder={"CyberDuo, https://www.cyberduo.com\nNopalCyber\nPacketlabs | https://www.packetlabs.com"}
                 className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 placeholder:text-slate-600"
               />
+              <p
+                className={`mt-2 font-mono text-xs ${
+                  pastePreview.length > PASTE_MAX_ROWS
+                    ? "text-rose-300"
+                    : pastePreview.length > 0
+                      ? "text-emerald-300/90"
+                      : "text-slate-500"
+                }`}
+              >
+                Parsed {pastePreview.length} firm{pastePreview.length === 1 ? "" : "s"}
+                {pasteLineCount !== pastePreview.length
+                  ? ` from ${pasteLineCount} non-empty line(s)`
+                  : ""}
+                {pastePreview.length > PASTE_MAX_ROWS
+                  ? ` — over max ${PASTE_MAX_ROWS}; split the paste`
+                  : pastePreview.length > 0
+                    ? " — ready to import"
+                    : " — nothing to import yet"}
+                {pastePreview[0]?.companyName
+                  ? ` · first: ${pastePreview[0].companyName}${
+                      pastePreview[0].websiteUrl ? ` (${pastePreview[0].websiteUrl})` : " (no website yet)"
+                    }`
+                  : ""}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  disabled={importBusy || harvestBusy || researchBusy}
+                  disabled={importBusy || harvestBusy || researchBusy || pastePreview.length === 0}
                   onClick={() => void runImportPaste()}
                   className="rounded-lg border border-emerald-700 bg-emerald-950/50 px-4 py-2 text-sm font-medium text-emerald-50 hover:border-emerald-500 disabled:opacity-40"
                 >
-                  Import paste
+                  {importBusy ? "Importing…" : `Import paste (${pastePreview.length})`}
                 </button>
                 <button
                   type="button"

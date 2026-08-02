@@ -29,6 +29,7 @@ import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCo
 import {
   websiteUrlFromDomainOrUrl,
 } from "@/app/lib/server/ironleadsSuspectLocation";
+import { probeCompanyWebsite } from "@/app/lib/server/ironleadsWebsiteProbeCore";
 import prisma from "@/lib/prisma";
 
 export type BuyingCommitteeEmail = {
@@ -487,7 +488,10 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
-  const websiteUrl = resolveWebsiteBase(contact.metadata, accountDomain);
+  let websiteUrl = resolveWebsiteBase(contact.metadata, accountDomain);
+  if (!websiteUrl && contact.company?.trim()) {
+    websiteUrl = await probeCompanyWebsite(contact.company);
+  }
   let pages: Array<{ url: string; text: string; rawHtml: string }> = [];
   if (websiteUrl) {
     pages = await gatherCompanyPages(websiteUrl);

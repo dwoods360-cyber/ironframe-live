@@ -25,6 +25,14 @@ describe("MSSP free-directory import helpers", () => {
     expect(rows[2]?.detectedTrigger).toBe("NEW_CISO");
   });
 
+  it("parses company-only lines and inline URLs without commas", () => {
+    const rows = parseDirectoryImportPaste(
+      ["TechHeights", "OSIbeyond https://osibeyond.com", "1. Teal Tech", "Teal Tech"].join("\n"),
+    );
+    expect(rows.map((r) => r.companyName)).toEqual(["TechHeights", "OSIbeyond", "Teal Tech"]);
+    expect(rows[1]?.websiteUrl).toMatch(/osibeyond\.com/i);
+  });
+
   it("ships a non-empty curated starter pack without HOLD/noise names", () => {
     const seeds = listMsspFreeDirectorySeeds();
     expect(seeds.length).toBeGreaterThanOrEqual(3);

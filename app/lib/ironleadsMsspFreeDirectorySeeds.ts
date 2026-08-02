@@ -3,6 +3,8 @@
  * Not a live Clutch scrape — curated seeds for operator import into prospect-pool.
  * Operator must still pass Fit · Pain · Buyer · no proprietary GRC before Promote.
  */
+
+import { isDirectoryPasteNoise } from "@/app/lib/ironleadsDirectoryPasteNoise";
 export type MsspDirectorySeed = {
   companyName: string;
   websiteUrl: string;
@@ -104,6 +106,8 @@ function parsePasteLine(line: string): DirectoryImportRow | null {
       return null;
     }
   }
+
+  if (isDirectoryPasteNoise(companyName)) return null;
 
   return {
     companyName: companyName.slice(0, 200),

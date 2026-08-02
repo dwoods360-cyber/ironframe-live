@@ -33,6 +33,21 @@ describe("MSSP free-directory import helpers", () => {
     expect(rows[1]?.websiteUrl).toMatch(/osibeyond\.com/i);
   });
 
+  it("drops MSSPProviders page chrome (logo, Best for, locations, SLA)", () => {
+    const rows = parseDirectoryImportPaste(
+      [
+        "Ankura",
+        "Ankura logo",
+        "Best for: SMB to Mid-Market orgs, Manufacturing",
+        "Lockport, IL",
+        "1 hour SLA",
+        "Serves: SMB (51-200), Mid-Market (201-1000)",
+        "Teal",
+      ].join("\n"),
+    );
+    expect(rows.map((r) => r.companyName)).toEqual(["Ankura", "Teal"]);
+  });
+
   it("ships a non-empty curated starter pack without HOLD/noise names", () => {
     const seeds = listMsspFreeDirectorySeeds();
     expect(seeds.length).toBeGreaterThanOrEqual(3);

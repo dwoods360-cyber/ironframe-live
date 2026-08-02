@@ -552,7 +552,7 @@ export default function IronleadsPortalClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 lg:col-span-2">
               <h2 className="text-lg font-semibold text-white">SUSPECT queue</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Working batch (target 20). Pending and HOLD are separate. Showing{" "}
+                Named buyers and fullest dossiers first. Pending and HOLD are separate. Showing{" "}
                 {snapshot.suspects.length}
                 {typeof snapshot.activeCount === "number"
                   ? ` of ${snapshot.activeCount} active`
@@ -573,7 +573,8 @@ export default function IronleadsPortalClient() {
                       <div className="min-w-0">
                         <span className="font-medium text-slate-100">{row.company}</span>
                         <div className="mt-0.5 font-mono text-xs text-slate-400">
-                          score {row.priorityScore}
+                          readiness {row.readinessScore ?? "—"}
+                          {row.namedBuyerName ? ` · buyer ${row.namedBuyerName}` : ""}
                           {row.detectedTrigger ? ` · ${row.detectedTrigger}` : ""}
                         </div>
                         <div className="mt-1 space-y-0.5 text-xs text-slate-500">

@@ -25,6 +25,7 @@ import {
   mailboxHygieneLabel,
   type MailboxHygieneResult,
 } from "@/app/lib/server/emailMailboxHygiene";
+import { scoreSuspectReadiness } from "@/app/lib/ironleadsSuspectReadiness";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import {
   websiteUrlFromDomainOrUrl,
@@ -799,9 +800,20 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
     },
   });
 
-  // Active batch only — skip HOLD / pending pool so Research only hits the working 20.
+  // Active only — prefer thinnest dossiers so Research fills gaps (queue UI sorts richest first).
   const suspects = suspectsRaw
     .filter((row) => !isOperatorHoldArchived(row.metadata))
+    .sort((a, b) => {
+      const sa = scoreSuspectReadiness({
+        metadata: a.metadata,
+        accountDomain: a.primaryDeals[0]?.accountDomain ?? null,
+      }).score;
+      const sb = scoreSuspectReadiness({
+        metadata: b.metadata,
+        accountDomain: b.primaryDeals[0]?.accountDomain ?? null,
+      }).score;
+      return sa - sb;
+    })
     .slice(0, 20);
 
   const results: BuyingCommitteeResearchResult[] = [];

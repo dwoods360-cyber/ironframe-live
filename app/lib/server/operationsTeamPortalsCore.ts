@@ -16,6 +16,10 @@ import { purgeOsintTitleNoiseSuspects } from "@/app/lib/server/ironleadsOsintNoi
 import { isPendingBatchHold } from "@/app/lib/server/ironleadsPendingPoolCore";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
+  compareSuspectReadiness,
+  scoreSuspectReadiness,
+} from "@/app/lib/ironleadsSuspectReadiness";
+import {
   getSuccessTeamHealthSnapshot,
   listSuccessTeamAccounts,
   type SuccessTeamAccountWire,
@@ -39,6 +43,10 @@ export type IronleadsPortalSuspectRow = {
   websiteUrl: string | null;
   addressLine: string | null;
   createdAt: string;
+  /** Named buyer on file (CISO / operator-seeded). */
+  namedBuyerName?: string | null;
+  /** Higher = more complete dossier for HITL review. */
+  readinessScore?: number;
   holdReason?: string | null;
   holdClassification?: string | null;
   holdAt?: string | null;
@@ -118,9 +126,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
 
   const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    // Newest first so paste/directory imports surface immediately (score alone buried MSSP ~55).
     orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
-    take: 240,
+    take: 500,
     select: {
       id: true,
       company: true,
@@ -140,7 +147,16 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   const collapsed = collapseSuspectRowsByCompany(suspectsRaw).filter(
     (row) => !looksLikeOsintTitleNoise(row.company),
   );
-  const activeRows = collapsed.filter((row) => !resolveOperatorHold(row.metadata));
+  const readinessKey = (row: (typeof collapsed)[number]) => ({
+    metadata: row.metadata,
+    accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
+    priorityScore: row.priorityScore,
+    createdAt: row.createdAt,
+  });
+  // Active queue: named buyers + fullest dossiers first for HITL review.
+  const activeRows = collapsed
+    .filter((row) => !resolveOperatorHold(row.metadata))
+    .sort((a, b) => compareSuspectReadiness(readinessKey(a), readinessKey(b)));
   const pendingRows = collapsed
     .filter((row) => isPendingBatchHold(row.metadata))
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -149,11 +165,17 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   );
 
   const mapRow = (row: (typeof collapsed)[number]): IronleadsPortalSuspectRow => {
+    const accountDomain = row.primaryDeals[0]?.accountDomain ?? null;
     const location = resolveSuspectLocationFields({
       metadata: row.metadata,
-      accountDomain: row.primaryDeals[0]?.accountDomain ?? null,
+      accountDomain,
     });
     const hold = resolveOperatorHold(row.metadata);
+    const readiness = scoreSuspectReadiness({
+      metadata: row.metadata,
+      accountDomain,
+      priorityScore: row.priorityScore,
+    });
     return {
       id: row.id,
       company: row.company,
@@ -162,6 +184,8 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
       websiteUrl: location.websiteUrl,
       addressLine: location.addressLine,
       createdAt: row.createdAt.toISOString(),
+      namedBuyerName: location.namedBuyer?.fullName ?? null,
+      readinessScore: Math.round(readiness.score),
       holdReason: hold?.reason ?? null,
       holdClassification: hold?.classification ?? null,
       holdAt: hold?.at ?? null,

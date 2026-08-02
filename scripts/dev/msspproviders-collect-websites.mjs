@@ -23,7 +23,7 @@
  *   --skip-visit      only collect profile URLs (no Visit Website click)
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { chromium } from "playwright";
 
@@ -54,6 +54,15 @@ function csvEscape(value) {
   const s = String(value ?? "");
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
+}
+
+function isUsableWebsite(url) {
+  if (!url || typeof url !== "string") return false;
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (/msspproviders\.io|chrome-error:|about:blank|chromewebdata/i.test(url)) {
+    return false;
+  }
+  return true;
 }
 
 async function dismissCookieBanner(page) {
@@ -156,16 +165,21 @@ async function resolveCompanyAndWebsite(context, profileUrl, { skipVisit, delayM
         try {
           await site.waitForLoadState("domcontentloaded", { timeout: 30000 });
           await sleep(800);
-          websiteUrl = site.url();
-          // Reject if we never left msspproviders
-          if (/msspproviders\.io/i.test(websiteUrl)) {
-            websiteUrl = href.startsWith("http") ? href : null;
+          const landed = site.url();
+          if (isUsableWebsite(landed)) {
+            websiteUrl = landed;
+          } else if (isUsableWebsite(href)) {
+            websiteUrl = href.startsWith("http")
+              ? href
+              : new URL(href, profileUrl).toString();
           }
         } finally {
           if (popup) await popup.close().catch(() => {});
         }
-      } else if (href) {
-        websiteUrl = new URL(href, profileUrl).toString();
+      } else if (href && isUsableWebsite(href)) {
+        websiteUrl = href.startsWith("http")
+          ? href
+          : new URL(href, profileUrl).toString();
       }
     }
 
@@ -176,13 +190,17 @@ async function resolveCompanyAndWebsite(context, profileUrl, { skipVisit, delayM
       for (let i = 0; i < Math.min(count, 40); i++) {
         const href = await anchors.nth(i).getAttribute("href");
         if (!href) continue;
-        if (/msspproviders\.io|linkedin\.com|facebook\.com|twitter\.com|x\.com|youtube\.com/i.test(href)) {
+        if (
+          !isUsableWebsite(href) ||
+          /linkedin\.com|facebook\.com|twitter\.com|x\.com|youtube\.com/i.test(href)
+        ) {
           continue;
         }
         websiteUrl = href;
         break;
       }
     }
+    if (websiteUrl && !isUsableWebsite(websiteUrl)) websiteUrl = null;
 
     await sleep(delayMs);
     return {
@@ -221,6 +239,48 @@ async function main() {
   const browse = await context.newPage();
   const rows = [];
   const seenCompanies = new Set();
+  const checkpointPath = outPath.replace(/\.csv$/i, ".checkpoint.json");
+  mkdirSync(dirname(outPath), { recursive: true });
+
+  if (existsSync(checkpointPath) && process.argv.includes("--resume")) {
+    try {
+      const prior = JSON.parse(readFileSync(checkpointPath, "utf8"));
+      if (Array.isArray(prior.rows)) {
+        for (const row of prior.rows) {
+          rows.push(row);
+          seenCompanies.add(String(row.companyName || "").toLowerCase());
+        }
+        console.log(`resumed ${rows.length} rows from checkpoint`);
+      }
+    } catch (err) {
+      console.warn("checkpoint load failed", err);
+    }
+  }
+
+  function persistCheckpoint(pageIdx) {
+    writeFileSync(
+      checkpointPath,
+      JSON.stringify({ pageIdx, rows, savedAt: new Date().toISOString() }, null, 2),
+      "utf8",
+    );
+    const lines = [
+      "company,website",
+      ...rows.map(
+        (r) => `${csvEscape(r.companyName)},${csvEscape(r.websiteUrl ?? "")}`,
+      ),
+    ];
+    writeFileSync(outPath, lines.join("\n") + "\n", "utf8");
+    const pastePath = outPath.replace(/\.csv$/i, ".paste.txt");
+    writeFileSync(
+      pastePath,
+      rows
+        .map((r) =>
+          r.websiteUrl ? `${r.companyName}, ${r.websiteUrl}` : r.companyName,
+        )
+        .join("\n") + "\n",
+      "utf8",
+    );
+  }
 
   try {
     await browse.goto(startUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -233,10 +293,16 @@ async function main() {
       if (profiles.length === 0) break;
 
       for (const profileUrl of profiles) {
-        const row = await resolveCompanyAndWebsite(context, profileUrl, {
-          skipVisit,
-          delayMs,
-        });
+        let row;
+        try {
+          row = await resolveCompanyAndWebsite(context, profileUrl, {
+            skipVisit,
+            delayMs,
+          });
+        } catch (err) {
+          console.warn(`  error on ${profileUrl}: ${err?.message || err}`);
+          continue;
+        }
         const key = row.companyName.toLowerCase();
         if (seenCompanies.has(key)) {
           console.log(`  skip dup ${row.companyName}`);
@@ -247,7 +313,9 @@ async function main() {
         console.log(
           `  + ${row.companyName} → ${row.websiteUrl ?? "(no website)"} (${rows.length})`,
         );
+        if (rows.length % 5 === 0) persistCheckpoint(pageIdx);
       }
+      persistCheckpoint(pageIdx);
 
       const canNext = await nextPageEnabled(browse);
       if (!canNext) {
@@ -257,31 +325,11 @@ async function main() {
       await clickNext(browse);
     }
   } finally {
+    persistCheckpoint(0);
     await browser.close();
   }
 
-  mkdirSync(dirname(outPath), { recursive: true });
-  const lines = [
-    "company,website",
-    ...rows.map(
-      (r) =>
-        `${csvEscape(r.companyName)},${csvEscape(r.websiteUrl ?? "")}`,
-    ),
-  ];
-  writeFileSync(outPath, lines.join("\n") + "\n", "utf8");
-
-  // Also write Ironleads paste format (no header)
   const pastePath = outPath.replace(/\.csv$/i, ".paste.txt");
-  writeFileSync(
-    pastePath,
-    rows
-      .map((r) =>
-        r.websiteUrl ? `${r.companyName}, ${r.websiteUrl}` : r.companyName,
-      )
-      .join("\n") + "\n",
-    "utf8",
-  );
-
   console.log(
     JSON.stringify(
       {
@@ -289,6 +337,7 @@ async function main() {
         withWebsite: rows.filter((r) => r.websiteUrl).length,
         csv: outPath,
         paste: pastePath,
+        checkpoint: checkpointPath,
         next: "Paste .paste.txt into Ironleads (≤100/batch) → Import paste → Research only",
       },
       null,

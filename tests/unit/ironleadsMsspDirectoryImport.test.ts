@@ -48,6 +48,35 @@ describe("MSSP free-directory import helpers", () => {
     expect(rows.map((r) => r.companyName)).toEqual(["Ankura", "Teal"]);
   });
 
+  it("treats ========= card blocks as one firm each", () => {
+    const rows = parseDirectoryImportPaste(
+      [
+        "=========",
+        "Vinson",
+        "Best for: SMB to Mid-Market orgs, Manufacturing",
+        "",
+        "Vinson provides managed cybersecurity services and IT solutions to businesses in Ohio.",
+        "Akron, OH",
+        "51-200 employees",
+        "1 hour SLA",
+        "Managed Detection & Response (MDR)",
+        "Endpoint Protection",
+        "Cloud Security",
+        "Vulnerability Management",
+        "+1 more",
+        "Serves: SMB (51-200), Mid-Market (201-1000)",
+        "=========",
+        "Teal",
+        "Best for: SMB to Mid-Market orgs, Technology",
+        "Teal delivers managed security for mid-market firms.",
+        "Austin, TX",
+        "=========",
+      ].join("\n"),
+    );
+    expect(rows.map((r) => r.companyName)).toEqual(["Vinson", "Teal"]);
+    expect(rows[0]?.directorySource).toBe("msspproviders_public");
+  });
+
   it("ships a non-empty curated starter pack without HOLD/noise names", () => {
     const seeds = listMsspFreeDirectorySeeds();
     expect(seeds.length).toBeGreaterThanOrEqual(3);

@@ -453,8 +453,8 @@ export default function IronleadsPortalClient() {
                 >
                   MSSPProviders
                 </a>{" "}
-                One company per line (website optional — Research will probe a likely site). Max{" "}
-                {PASTE_MAX_ROWS} per import. Draft auto-saves here until import succeeds.
+                Paste MSSPProviders cards (blocks between =========) or one company per line. Only
+                the firm name is imported — chips/blurbs ignored. Max {PASTE_MAX_ROWS} per import.
               </p>
               <textarea
                 value={pasteText}

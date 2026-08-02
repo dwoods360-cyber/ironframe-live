@@ -36,9 +36,18 @@ export function directoryPasteNoiseReason(company: string): string | null {
     return "geo_label";
   }
   if (/\bis (a|an|one of)\b/i.test(c) && c.length > 40) return "short_blurb";
+  // Card blurbs: "Vinson provides managed cybersecurity…"
+  if (
+    c.length > 35 &&
+    /\b(provides|delivers|offers|specializ(?:e|es|ing)|helping businesses)\b/i.test(c)
+  ) {
+    return "card_blurb";
+  }
   if (/^\d[\d,]*\+?\s*(employees|emp)/i.test(c)) return "emp_chip";
   if (/^\d+\s*-\s*\d+\s*employees/i.test(c)) return "emp_chip";
   if (/^\$[\d,]+/i.test(c)) return "price_chip";
+  // Service chips without product acronyms
+  if (/^vulnerability management$/i.test(c)) return "generic_service";
   return null;
 }
 

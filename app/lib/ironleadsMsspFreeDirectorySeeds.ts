@@ -117,19 +117,89 @@ function parsePasteLine(line: string): DirectoryImportRow | null {
   };
 }
 
-/** Parse operator paste: company [, website] [, trigger] — CSV / TSV / pipe / company-only. */
+const BLOCK_SEPARATOR_RE = /^={3,}\s*$/;
+
+function pushUniqueRow(
+  rows: DirectoryImportRow[],
+  seen: Set<string>,
+  row: DirectoryImportRow,
+): void {
+  const key = row.companyName.trim().toLowerCase();
+  if (!key || seen.has(key)) return;
+  seen.add(key);
+  rows.push(row);
+}
+
+/**
+ * MSSPProviders card paste: each entity sits between ========= lines.
+ * First non-noise line in the block is the company; chips/blurbs/locations are ignored.
+ */
+function parseDirectoryCardBlocks(text: string): DirectoryImportRow[] | null {
+  const lines = text.split(/\r\n|\n|\r|\u2028|\u2029/);
+  const separatorCount = lines.filter((l) => BLOCK_SEPARATOR_RE.test(l.trim())).length;
+  if (separatorCount < 2) return null;
+
+  const blocks: string[][] = [];
+  let current: string[] = [];
+  for (const line of lines) {
+    if (BLOCK_SEPARATOR_RE.test(line.trim())) {
+      if (current.some((l) => l.trim())) blocks.push(current);
+      current = [];
+      continue;
+    }
+    current.push(line);
+  }
+  if (current.some((l) => l.trim())) blocks.push(current);
+
+  const rows: DirectoryImportRow[] = [];
+  const seen = new Set<string>();
+  for (const block of blocks) {
+    let companyRow: DirectoryImportRow | null = null;
+    let websiteUrl: string | null = null;
+    const noteBits: string[] = [];
+
+    for (const line of block) {
+      const trimmed = stripLineNoise(line);
+      if (!trimmed) continue;
+      const urlMatch = trimmed.match(URL_IN_LINE);
+      if (urlMatch) {
+        websiteUrl = normalizeWebsiteCandidate(urlMatch[0]) ?? websiteUrl;
+      }
+      if (isDirectoryPasteNoise(trimmed)) {
+        if (/^best for:/i.test(trimmed) || /^serves:/i.test(trimmed)) {
+          noteBits.push(trimmed.slice(0, 160));
+        }
+        continue;
+      }
+      if (!companyRow) {
+        companyRow = parsePasteLine(trimmed);
+      }
+    }
+
+    if (!companyRow) continue;
+    if (websiteUrl && !companyRow.websiteUrl) companyRow.websiteUrl = websiteUrl;
+    if (noteBits.length) {
+      companyRow.notes = noteBits.slice(0, 3).join(" | ");
+      companyRow.directorySource = "msspproviders_public";
+    }
+    pushUniqueRow(rows, seen, companyRow);
+  }
+  return rows;
+}
+
+/** Parse operator paste: card blocks, or company [, website] [, trigger] line lists. */
 export function parseDirectoryImportPaste(raw: string): DirectoryImportRow[] {
   const text = (raw ?? "").replace(/^\uFEFF/, "");
+  const fromBlocks = parseDirectoryCardBlocks(text);
+  if (fromBlocks && fromBlocks.length > 0) return fromBlocks;
+
   const lines = text.split(/\r\n|\n|\r|\u2028|\u2029/);
   const rows: DirectoryImportRow[] = [];
   const seen = new Set<string>();
   for (const line of lines) {
     const row = parsePasteLine(line);
     if (!row) continue;
-    const key = row.companyName.trim().toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    rows.push(row);
+    pushUniqueRow(rows, seen, row);
   }
   return rows;
 }

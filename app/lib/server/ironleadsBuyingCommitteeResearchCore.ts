@@ -25,6 +25,7 @@ import {
   mailboxHygieneLabel,
   type MailboxHygieneResult,
 } from "@/app/lib/server/emailMailboxHygiene";
+import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import {
   websiteUrlFromDomainOrUrl,
 } from "@/app/lib/server/ironleadsSuspectLocation";
@@ -773,10 +774,10 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
   skipped: number;
   results: BuyingCommitteeResearchResult[];
 }> {
-  const suspects = await prisma.ironboardCrmContact.findMany({
+  const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
-    take: 40,
+    orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
+    take: 80,
     select: {
       id: true,
       company: true,
@@ -793,6 +794,11 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
       },
     },
   });
+
+  // Active batch only — skip HOLD / pending pool so Research only hits the working 20.
+  const suspects = suspectsRaw
+    .filter((row) => !isOperatorHoldArchived(row.metadata))
+    .slice(0, 20);
 
   const results: BuyingCommitteeResearchResult[] = [];
   for (const contact of suspects) {

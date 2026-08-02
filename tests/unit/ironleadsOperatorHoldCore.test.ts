@@ -27,6 +27,15 @@ describe("ironleadsOperatorHoldCore", () => {
     expect(OPERATOR_HOLD_META_KEY in cleared).toBe(false);
   });
 
+  it("supports pending_batch for the directory overflow pool", () => {
+    const hold = buildOperatorHoldRecord({ classification: "pending_batch" });
+    expect(hold.classification).toBe("pending_batch");
+    expect(hold.reason.toLowerCase()).toContain("pending");
+    expect(resolveOperatorHold(applyOperatorHoldToMetadata({}, hold))?.classification).toBe(
+      "pending_batch",
+    );
+  });
+
   it("does not leave operatorHold when merging cleared metadata (regression)", () => {
     const hold = buildOperatorHoldRecord({ classification: "channel_competitor" });
     const nextMeta: Record<string, unknown> = applyOperatorHoldToMetadata({ a: 1 }, hold);

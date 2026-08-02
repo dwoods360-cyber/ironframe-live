@@ -84,6 +84,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       body.holdClassification === "hold" ||
       body.holdClassification === "channel_competitor" ||
       body.holdClassification === "enrich_later" ||
+      body.holdClassification === "pending_batch" ||
       body.holdClassification === "other"
         ? body.holdClassification
         : undefined,

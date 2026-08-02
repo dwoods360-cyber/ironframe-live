@@ -27,12 +27,14 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
   const [promoteToProspect, setPromoteToProspect] = useState(false);
   const [operatorNote, setOperatorNote] = useState("");
   const [holdClassification, setHoldClassification] = useState<
-    "hold" | "channel_competitor" | "enrich_later" | "other"
+    "hold" | "channel_competitor" | "enrich_later" | "pending_batch" | "other"
   >(
     report.operatorHold?.classification === "channel_competitor" ||
       report.accountResearchBrief?.outreach.status === "hold"
       ? "channel_competitor"
-      : "hold",
+      : report.operatorHold?.classification === "pending_batch"
+        ? "pending_batch"
+        : "hold",
   );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -379,6 +381,7 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
                 <option value="channel_competitor">Channel / competitor</option>
                 <option value="hold">HOLD (re-qualify later)</option>
                 <option value="enrich_later">Enrich later</option>
+                <option value="pending_batch">Pending pool (batch later)</option>
                 <option value="other">Other</option>
               </select>
             </label>

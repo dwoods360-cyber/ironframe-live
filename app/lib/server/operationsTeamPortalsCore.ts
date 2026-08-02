@@ -13,6 +13,7 @@ import {
 import { looksLikeOsintTitleNoise } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 import { resolveOperatorHold } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { purgeOsintTitleNoiseSuspects } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
+import { isPendingBatchHold } from "@/app/lib/server/ironleadsPendingPoolCore";
 import { resolveSuspectLocationFields } from "@/app/lib/server/ironleadsSuspectLocation";
 import {
   getSuccessTeamHealthSnapshot,
@@ -51,10 +52,16 @@ export type IronleadsPortalSnapshot = {
     status: string | null;
     pipeline: string[] | null;
   };
-  /** Active SUSPECT review queue (excludes HOLD archive). */
+  /** Active SUSPECT review queue (excludes HOLD archive). Newest first. */
   suspects: IronleadsPortalSuspectRow[];
-  /** Operator HOLD archive — parked for later retrieval. */
+  /** Total active SUSPECTs after collapse (may exceed `suspects.length`). */
+  activeCount: number;
+  /** Directory overflow waiting to be pulled into the active batch of 20. */
+  pendingPool: IronleadsPortalSuspectRow[];
+  pendingCount: number;
+  /** Operator HOLD archive — parked for later retrieval (excludes pending pool). */
   holdArchive: IronleadsPortalSuspectRow[];
+  holdCount: number;
 };
 
 export type SuccessTeamPortalSnapshot = {
@@ -111,8 +118,9 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
 
   const suspectsRaw = await prisma.ironboardCrmContact.findMany({
     where: { primaryDeals: { some: { stage: "SUSPECT" } } },
-    orderBy: [{ priorityScore: "desc" }, { createdAt: "desc" }],
-    take: 120,
+    // Newest first so paste/directory imports surface immediately (score alone buried MSSP ~55).
+    orderBy: [{ createdAt: "desc" }, { priorityScore: "desc" }],
+    take: 240,
     select: {
       id: true,
       company: true,
@@ -133,7 +141,12 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
     (row) => !looksLikeOsintTitleNoise(row.company),
   );
   const activeRows = collapsed.filter((row) => !resolveOperatorHold(row.metadata));
-  const holdRows = collapsed.filter((row) => resolveOperatorHold(row.metadata));
+  const pendingRows = collapsed
+    .filter((row) => isPendingBatchHold(row.metadata))
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const holdRows = collapsed.filter(
+    (row) => resolveOperatorHold(row.metadata) && !isPendingBatchHold(row.metadata),
+  );
 
   const mapRow = (row: (typeof collapsed)[number]): IronleadsPortalSuspectRow => {
     const location = resolveSuspectLocationFields({
@@ -158,8 +171,12 @@ export async function buildIronleadsPortalSnapshot(): Promise<IronleadsPortalSna
   return {
     generatedAt: new Date().toISOString(),
     worker: { reachable, healthUrl, status, pipeline },
-    suspects: activeRows.slice(0, 20).map(mapRow),
+    suspects: activeRows.slice(0, 80).map(mapRow),
+    activeCount: activeRows.length,
+    pendingPool: pendingRows.slice(0, 80).map(mapRow),
+    pendingCount: pendingRows.length,
     holdArchive: holdRows.slice(0, 40).map(mapRow),
+    holdCount: holdRows.length,
   };
 }
 

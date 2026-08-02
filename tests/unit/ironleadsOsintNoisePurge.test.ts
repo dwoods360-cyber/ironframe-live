@@ -13,5 +13,6 @@ describe("OSINT title-noise discard policy", () => {
   it("does not discard real beachhead company names", () => {
     expect(looksLikeOsintTitleNoise("Western Alliance Bancorporation")).toBe(false);
     expect(looksLikeOsintTitleNoise("Pivot Point Security")).toBe(false);
+    expect(looksLikeOsintTitleNoise("Ruleset GRC Advisory")).toBe(false);
   });
 });

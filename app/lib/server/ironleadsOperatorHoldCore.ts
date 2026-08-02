@@ -10,7 +10,12 @@ export type OperatorHoldRecord = {
   at: string;
   reason: string;
   source: "operator";
-  classification: "hold" | "channel_competitor" | "enrich_later" | "other";
+  classification:
+    | "hold"
+    | "channel_competitor"
+    | "enrich_later"
+    | "pending_batch"
+    | "other";
 };
 
 export const OPERATOR_HOLD_META_KEY = "operatorHold" as const;
@@ -35,6 +40,7 @@ export function resolveOperatorHold(metadata: unknown): OperatorHoldRecord | nul
   const classification: OperatorHoldRecord["classification"] =
     classificationRaw === "channel_competitor" ||
     classificationRaw === "enrich_later" ||
+    classificationRaw === "pending_batch" ||
     classificationRaw === "other" ||
     classificationRaw === "hold"
       ? classificationRaw
@@ -60,7 +66,9 @@ export function buildOperatorHoldRecord(input: {
     (input.reason ?? "").trim().slice(0, 500) ||
     (classification === "channel_competitor"
       ? "Channel / competitor — park for later re-qualify (not Path B cold)."
-      : "Operator HOLD archive after HITL review.");
+      : classification === "pending_batch"
+        ? "Pending pool — pull into active batch of 20 when ready."
+        : "Operator HOLD archive after HITL review.");
   return {
     at: new Date().toISOString(),
     reason,

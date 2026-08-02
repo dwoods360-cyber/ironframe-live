@@ -502,7 +502,14 @@ export function looksLikeOsintTitleNoise(company: string): boolean {
   const name = company.trim();
   if (name.length < 4) return true;
   if (/^(bod|cve|u\.?s\.?\s+department|department of)\b/i.test(name)) return true;
-  if (/\b(prioritizing|remediation|advisory|bulletin)\b/i.test(name)) return true;
+  // Article-style OSINT titles — do NOT treat firm names like "Ruleset GRC Advisory" as noise.
+  if (/\b(prioritizing|remediation|bulletin)\b/i.test(name)) return true;
+  if (
+    /\badvisory\b/i.test(name) &&
+    (/\b(cisa|msrc|bod|cve|security updates?|based on risk)\b/i.test(name) || name.length > 48)
+  ) {
+    return true;
+  }
   if (/^chief information security$/i.test(name)) return true;
   // Marketing / nav keyword piles mistaken for person names (e.g. "PRIVACY COMPLIANCE SECURE APPLICATIONS").
   if (

@@ -13,6 +13,7 @@ import {
   type MsspDirectorySeed,
 } from "@/app/lib/ironleadsMsspFreeDirectorySeeds";
 import { normalizeAccountDomain } from "@/app/lib/ingress/ironleadsSuspectIdentity";
+import { parkImportedOverflow } from "@/app/lib/server/ironleadsPendingPoolCore";
 import { websiteUrlFromDomainOrUrl } from "@/app/lib/server/ironleadsSuspectLocation";
 import prisma from "@/lib/prisma";
 
@@ -76,12 +77,16 @@ export async function importMsspDirectoryAccounts(
   created: number;
   deduped: number;
   skipped: number;
+  keptActive: number;
+  parkedPending: number;
+  activeCap: number;
   results: DirectoryImportResultRow[];
 }> {
   const results: DirectoryImportResultRow[] = [];
   let created = 0;
   let deduped = 0;
   let skipped = 0;
+  const importedContactIds: string[] = [];
 
   for (const row of rows) {
     const companyName = row.companyName.trim();
@@ -126,6 +131,7 @@ export async function importMsspDirectoryAccounts(
       if (ingested.deduped) deduped += 1;
       else created += 1;
 
+      importedContactIds.push(ingested.contact.id);
       results.push({
         companyName,
         ok: true,
@@ -144,12 +150,17 @@ export async function importMsspDirectoryAccounts(
     }
   }
 
+  const overflow = await parkImportedOverflow(importedContactIds);
+
   return {
     importedAt: new Date().toISOString(),
     total: results.length,
     created,
     deduped,
     skipped,
+    keptActive: overflow.keptActive,
+    parkedPending: overflow.parkedPending,
+    activeCap: overflow.activeCap,
     results,
   };
 }

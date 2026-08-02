@@ -9,6 +9,10 @@ import {
   parseDirectoryImportPaste,
 } from "@/app/lib/server/ironleadsMsspDirectoryImportCore";
 import {
+  parkExcessActiveToPending,
+  pullPendingSuspectBatch,
+} from "@/app/lib/server/ironleadsPendingPoolCore";
+import {
   redactIronleadsPortalSnapshot,
 } from "@/app/lib/server/operationsApiRedaction";
 import {
@@ -83,10 +87,31 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  if (body.action === "pull_pending_batch") {
+    const pulled = await pullPendingSuspectBatch(20);
+    const snapshot = await buildIronleadsPortalSnapshot();
+    return NextResponse.json({
+      ok: true,
+      pull: pulled,
+      snapshot: redactIronleadsPortalSnapshot(snapshot),
+    });
+  }
+
+  if (body.action === "park_excess_active") {
+    const parked = await parkExcessActiveToPending();
+    const snapshot = await buildIronleadsPortalSnapshot();
+    return NextResponse.json({
+      ok: true,
+      park: parked,
+      snapshot: redactIronleadsPortalSnapshot(snapshot),
+    });
+  }
+
   if (body.action === "import_free_directory_seeds") {
     const imported = await importMsspFreeDirectorySeeds();
+    // Default OFF — auto-research-all times out and leaves the queue looking empty.
     let research: ReturnType<typeof formatResearch> | null = null;
-    if (body.runResearchAfterImport !== false) {
+    if (body.runResearchAfterImport === true) {
       research = formatResearch(await researchBuyingCommitteeForAllSuspects());
     }
     const snapshot = await buildIronleadsPortalSnapshot();
@@ -106,15 +131,16 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (rows.length > 50) {
+    if (rows.length > 100) {
       return NextResponse.json(
-        { error: "Max 50 rows per paste import" },
+        { error: "Max 100 rows per paste import" },
         { status: 400 },
       );
     }
     const imported = await importMsspDirectoryAccounts(rows);
+    // Default OFF — use Research only after import; bundling research-all often times out.
     let research: ReturnType<typeof formatResearch> | null = null;
-    if (body.runResearchAfterImport !== false) {
+    if (body.runResearchAfterImport === true) {
       research = formatResearch(await researchBuyingCommitteeForAllSuspects());
     }
     const snapshot = await buildIronleadsPortalSnapshot();

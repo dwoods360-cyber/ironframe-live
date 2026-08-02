@@ -8,6 +8,7 @@ import type { IronleadsPortalSnapshot } from "@/app/lib/server/operationsTeamPor
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
 const FREE_DIRECTORY_SEED_COUNT = listMsspFreeDirectorySeeds().length;
+const PASTE_DRAFT_KEY = "ironleads.directoryPasteDraft.v1";
 
 export default function IronleadsPortalClient() {
   const [snapshot, setSnapshot] = useState<IronleadsPortalSnapshot | null>(null);
@@ -18,6 +19,24 @@ export default function IronleadsPortalClient() {
   const [pasteText, setPasteText] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const draft = window.localStorage.getItem(PASTE_DRAFT_KEY);
+      if (draft?.trim()) setPasteText(draft);
+    } catch {
+      /* ignore quota / private mode */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (pasteText.trim()) window.localStorage.setItem(PASTE_DRAFT_KEY, pasteText);
+      else window.localStorage.removeItem(PASTE_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [pasteText]);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -91,27 +110,40 @@ export default function IronleadsPortalClient() {
       const data = await fetchOpsPortalJson<{
         ok?: boolean;
         snapshot?: IronleadsPortalSnapshot;
-        import?: { created: number; deduped: number; skipped: number; total: number };
-        research?: { researched: number; total: number; skipped: number } | null;
+        import?: {
+          created: number;
+          deduped: number;
+          skipped: number;
+          total: number;
+          keptActive?: number;
+          parkedPending?: number;
+          activeCap?: number;
+          results?: Array<{ companyName: string; skipped?: boolean; skipReason?: string }>;
+        };
       }>(
         "/api/admin/operations-hub/ironleads",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "import_free_directory_seeds" }),
+          body: JSON.stringify({
+            action: "import_free_directory_seeds",
+            runResearchAfterImport: false,
+          }),
         },
         "Directory seed import failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
       const imp = data.import;
-      const research = data.research;
+      const skipSample = (imp?.results ?? [])
+        .filter((r) => r.skipped && r.skipReason)
+        .slice(0, 3)
+        .map((r) => `${r.companyName}: ${r.skipReason}`)
+        .join("; ");
       setMessage(
         imp
-          ? `Free-directory import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped (${imp.total} rows).${
-              research
-                ? ` Research ${research.researched}/${research.total}.`
-                : ""
-            } Review active SUSPECT queue — HOLD competitors, discard noise, Promote only with named buyer email.`
+          ? `Free-directory import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Active batch kept ${imp.keptActive ?? "—"} / pending ${imp.parkedPending ?? 0} (cap ${imp.activeCap ?? 20}). Research only on the active 20.${
+              skipSample ? ` Skips: ${skipSample}` : ""
+            }`
           : "Directory seed import completed.",
       );
     } catch (err) {
@@ -134,8 +166,16 @@ export default function IronleadsPortalClient() {
       const data = await fetchOpsPortalJson<{
         ok?: boolean;
         snapshot?: IronleadsPortalSnapshot;
-        import?: { created: number; deduped: number; skipped: number; total: number };
-        research?: { researched: number; total: number; skipped: number } | null;
+        import?: {
+          created: number;
+          deduped: number;
+          skipped: number;
+          total: number;
+          keptActive?: number;
+          parkedPending?: number;
+          activeCap?: number;
+          results?: Array<{ companyName: string; skipped?: boolean; skipReason?: string }>;
+        };
       }>(
         "/api/admin/operations-hub/ironleads",
         {
@@ -144,23 +184,111 @@ export default function IronleadsPortalClient() {
           body: JSON.stringify({
             action: "import_directory_paste",
             paste: pasteText,
+            runResearchAfterImport: false,
           }),
         },
         "Paste import failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
       const imp = data.import;
-      const research = data.research;
+      const skipSample = (imp?.results ?? [])
+        .filter((r) => r.skipped && r.skipReason)
+        .slice(0, 5)
+        .map((r) => `${r.companyName}: ${r.skipReason}`)
+        .join("; ");
       setMessage(
         imp
-          ? `Paste import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped (${imp.total} rows).${
-              research ? ` Research ${research.researched}/${research.total}.` : ""
+          ? `Paste import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Kept ${imp.keptActive ?? "—"} in active batch; parked ${imp.parkedPending ?? 0} in pending (cap ${imp.activeCap ?? 20}). Pull next 20 when this batch is done.${
+              skipSample ? ` Skips: ${skipSample}` : ""
             }`
           : "Paste import completed.",
       );
+      // Clear draft only after a successful import so a failed/timeout run never wipes the list.
       setPasteText("");
+      try {
+        window.localStorage.removeItem(PASTE_DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Paste import failed.");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const runPullPendingBatch = async () => {
+    if (harvestBusy || researchBusy || importBusy) return;
+    setImportBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        snapshot?: IronleadsPortalSnapshot;
+        pull?: {
+          pulled: number;
+          remainingPending: number;
+          activeCount: number;
+          activeCap: number;
+        };
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "pull_pending_batch" }),
+        },
+        "Pull pending batch failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const pull = data.pull;
+      setMessage(
+        pull
+          ? pull.pulled === 0
+            ? `Active queue already at ${pull.activeCount}/${pull.activeCap}. Finish or HOLD current rows, then pull again. Pending left: ${pull.remainingPending}.`
+            : `Pulled ${pull.pulled} from pending → active (${pull.activeCount}/${pull.activeCap}). ${pull.remainingPending} still pending. Research only next.`
+          : "Pull completed.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Pull pending batch failed.");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const runParkExcessActive = async () => {
+    if (harvestBusy || researchBusy || importBusy) return;
+    const ok = window.confirm(
+      "Park excess active SUSPECTs into pending (keep newest 20)? Use if the active queue is already overloaded.",
+    );
+    if (!ok) return;
+    setImportBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        snapshot?: IronleadsPortalSnapshot;
+        park?: { keptActive: number; parkedPending: number; activeCap: number };
+      }>(
+        "/api/admin/operations-hub/ironleads",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "park_excess_active" }),
+        },
+        "Park excess failed.",
+      );
+      if (data.snapshot) setSnapshot(data.snapshot);
+      const park = data.park;
+      setMessage(
+        park
+          ? `Trimmed active to ${park.keptActive}/${park.activeCap}; parked ${park.parkedPending} into pending.`
+          : "Park excess completed.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Park excess failed.");
     } finally {
       setImportBusy(false);
     }
@@ -303,9 +431,8 @@ export default function IronleadsPortalClient() {
                 >
                   MSSPProviders
                 </a>{" "}
-                (company, website), or load the curated starter pack. Lands on{" "}
-                <span className="text-slate-300">prospect-pool</span> as MSSP SUSPECTs — still HITL
-                before Promote.
+                (company, website — one firm per line, max 100). Draft auto-saves in this browser until
+                import succeeds. Overflow beyond the active 20 goes to Pending.
               </p>
               <textarea
                 value={pasteText}
@@ -330,6 +457,24 @@ export default function IronleadsPortalClient() {
                   className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:border-emerald-700 disabled:opacity-40"
                 >
                   Import starter pack ({FREE_DIRECTORY_SEED_COUNT})
+                </button>
+                <button
+                  type="button"
+                  disabled={importBusy || harvestBusy || researchBusy}
+                  onClick={() => void runPullPendingBatch()}
+                  className="rounded-lg border border-cyan-700 px-4 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-950/40 disabled:opacity-40"
+                  title="Fill active queue up to 20 from the pending pool (oldest first)"
+                >
+                  Pull next 20 from pending
+                </button>
+                <button
+                  type="button"
+                  disabled={importBusy || harvestBusy || researchBusy}
+                  onClick={() => void runParkExcessActive()}
+                  className="rounded-lg border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:border-slate-400 disabled:opacity-40"
+                  title="If active is already bloated, keep newest 20 and park the rest"
+                >
+                  Trim active → pending
                 </button>
               </div>
             </section>
@@ -361,8 +506,12 @@ export default function IronleadsPortalClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 lg:col-span-2">
               <h2 className="text-lg font-semibold text-white">SUSPECT queue</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Active review only (HOLD archive excluded). Promote when email-ready, or park on the
-                report page after HITL.
+                Working batch (target 20). Pending and HOLD are separate. Showing{" "}
+                {snapshot.suspects.length}
+                {typeof snapshot.activeCount === "number"
+                  ? ` of ${snapshot.activeCount} active`
+                  : ""}
+                .
               </p>
               <ul className="mt-4 space-y-2">
                 {snapshot.suspects.length === 0 ? (
@@ -412,11 +561,52 @@ export default function IronleadsPortalClient() {
               </ul>
             </section>
 
+            <section className="rounded-xl border border-sky-900/40 bg-sky-950/15 p-5 lg:col-span-2">
+              <h2 className="text-lg font-semibold text-sky-100">Pending pool</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Directory overflow waiting for the next batch. Oldest first — use{" "}
+                <span className="text-sky-200/90">Pull next 20 from pending</span> when the active
+                queue has room. Showing {(snapshot.pendingPool ?? []).length}
+                {typeof snapshot.pendingCount === "number"
+                  ? ` of ${snapshot.pendingCount} pending`
+                  : ""}
+                .
+              </p>
+              <ul className="mt-4 space-y-2">
+                {(snapshot.pendingPool ?? []).length === 0 ? (
+                  <li className="text-sm text-slate-500">
+                    Empty — paste imports beyond the active 20 land here automatically.
+                  </li>
+                ) : (
+                  (snapshot.pendingPool ?? []).map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-900/30 bg-slate-950/40 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-medium text-slate-100">{row.company}</span>
+                        <div className="mt-0.5 font-mono text-xs text-sky-200/80">
+                          pending_batch
+                          {row.websiteUrl ? ` · ${row.websiteUrl}` : ""}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/dashboard/operations/ironleads/suspects/${row.id}`}
+                        className="shrink-0 text-xs text-sky-200 hover:underline"
+                      >
+                        Open →
+                      </Link>
+                    </li>
+                  ))
+                )}
+              </ul>
+            </section>
+
             <section className="rounded-xl border border-amber-900/40 bg-amber-950/15 p-5 lg:col-span-2">
               <h2 className="text-lg font-semibold text-amber-100">HOLD archive</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Parked after operator review for later retrieval (channel-competitors, enrich-later).
-                Not Path B cold DISPATCH targets until restored and re-qualified.
+                Parked after operator review (channel-competitors, enrich-later). Separate from the
+                pending pool. Not Path B cold until restored and re-qualified.
               </p>
               <ul className="mt-4 space-y-2">
                 {(snapshot.holdArchive ?? []).length === 0 ? (

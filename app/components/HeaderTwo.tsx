@@ -21,7 +21,7 @@ type HeaderTwoProps = {
 
 const NAV_LINK_PREFETCH = true;
 const CHIP_CLASS =
-  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 font-sans text-[10px] font-bold leading-none";
+  "relative inline-flex h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md px-3 font-sans text-[10px] font-bold leading-none after:absolute after:-inset-y-1.5 after:-inset-x-0.5 after:content-['']";
 
 export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
   const pathname = usePathname();
@@ -108,7 +108,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
                 type="button"
                 onClick={() => scrollChipBar("left")}
                 data-testid="chip-scroll-left"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-[10px] font-bold text-white"
+                className="inline-flex h-9 w-9 touch-manipulation items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-[10px] font-bold text-white sm:h-8 sm:w-8"
                 aria-label="Scroll action bar left"
               >
                 ←
@@ -117,7 +117,7 @@ export default function HeaderTwo({ onVendorDownload }: HeaderTwoProps) {
                 type="button"
                 onClick={() => scrollChipBar("right")}
                 data-testid="chip-scroll-right"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-[10px] font-bold text-white"
+                className="inline-flex h-9 w-9 touch-manipulation items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-[10px] font-bold text-white sm:h-8 sm:w-8"
                 aria-label="Scroll action bar right"
               >
                 →

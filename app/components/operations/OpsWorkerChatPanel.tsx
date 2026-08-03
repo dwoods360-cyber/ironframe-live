@@ -122,6 +122,33 @@ export default function OpsWorkerChatPanel({
     cancelOpsWorkerSpeech();
   }, [worker]);
 
+  const applyMicList = useCallback((devices: MediaDeviceInfo[]) => {
+    const inputs = devices
+      .filter((d) => d.kind === "audioinput")
+      .filter((d) => d.deviceId !== "default" && d.deviceId !== "communications")
+      .map((d, i) => ({
+        deviceId: d.deviceId,
+        label: d.label || `Microphone ${i + 1}`,
+      }));
+    setMicOptions(inputs);
+    const saved =
+      typeof window !== "undefined" ? window.localStorage.getItem(PTT_MIC_KEY) || "" : "";
+    if (saved && inputs.some((d) => d.deviceId === saved)) {
+      setMicDeviceId(saved);
+    }
+  }, []);
+
+  /** Silent list — do not prompt for mic on Ops Hub open (mobile Safari especially). */
+  const listMicsQuietly = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      applyMicList(await navigator.mediaDevices.enumerateDevices());
+    } catch {
+      /* ignore until PTT */
+    }
+  }, [applyMicList]);
+
+  /** Permission + labeled devices — only when operator starts PTT. */
   const refreshMics = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return;
     try {
@@ -129,31 +156,18 @@ export default function OpsWorkerChatPanel({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       probe.getTracks().forEach((t) => t.stop());
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const inputs = devices
-        .filter((d) => d.kind === "audioinput")
-        .filter((d) => d.deviceId !== "default" && d.deviceId !== "communications")
-        .map((d, i) => ({
-          deviceId: d.deviceId,
-          label: d.label || `Microphone ${i + 1}`,
-        }));
-      setMicOptions(inputs);
-      const saved =
-        typeof window !== "undefined" ? window.localStorage.getItem(PTT_MIC_KEY) || "" : "";
-      if (saved && inputs.some((d) => d.deviceId === saved)) {
-        setMicDeviceId(saved);
-      }
+      applyMicList(await navigator.mediaDevices.enumerateDevices());
     } catch {
       setStatus("Mic list unavailable — allow microphone permission to use PTT.");
     }
-  }, []);
+  }, [applyMicList]);
 
   useEffect(() => {
-    void refreshMics();
-    const onChange = () => void refreshMics();
+    void listMicsQuietly();
+    const onChange = () => void listMicsQuietly();
     navigator.mediaDevices?.addEventListener?.("devicechange", onChange);
     return () => navigator.mediaDevices?.removeEventListener?.("devicechange", onChange);
-  }, [refreshMics]);
+  }, [listMicsQuietly]);
 
   useEffect(() => {
     transcriptBoxRef.current?.scrollTo({ top: transcriptBoxRef.current.scrollHeight });
@@ -482,11 +496,11 @@ export default function OpsWorkerChatPanel({
                 /* ignore */
               }
             }}
-            className="min-w-[12rem] flex-1 rounded border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200 disabled:opacity-50"
+            className="min-h-11 min-w-[12rem] flex-1 touch-manipulation rounded border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200 disabled:opacity-50"
             aria-label="PTT microphone"
-            title="Leave as Windows default to follow Sound → Input"
+            title="Leave as system default to follow the OS input device"
           >
-            <option value="">Windows default</option>
+            <option value="">System default</option>
             {micOptions.map((mic) => (
               <option key={mic.deviceId} value={mic.deviceId}>
                 {mic.label}
@@ -500,7 +514,7 @@ export default function OpsWorkerChatPanel({
               if (recording) void stopPttAndSubmit();
               else void startPtt();
             }}
-            className={`rounded-lg border px-4 py-2 text-sm font-bold uppercase ${
+            className={`min-h-11 min-w-11 touch-manipulation rounded-lg border px-4 py-2 text-sm font-bold uppercase ${
               recording
                 ? "border-rose-500 text-rose-200 shadow-[0_0_0.45rem_rgba(248,113,113,0.35)]"
                 : "border-slate-600 bg-slate-800 text-slate-100 hover:border-cyan-600"
@@ -512,7 +526,7 @@ export default function OpsWorkerChatPanel({
           <button
             type="submit"
             disabled={busy || recording || prompt.trim().length < 2}
-            className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
+            className="min-h-11 touch-manipulation rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-600 disabled:opacity-50"
           >
             {busy ? "Working…" : "Ask"}
           </button>

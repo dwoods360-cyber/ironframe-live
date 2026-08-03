@@ -70,12 +70,12 @@ export default function RootError({ error, reset }: RootErrorProps) {
           >
             Retry
           </button>
-          <a
+          <Link
             href="/login?fresh=1"
             className="rounded-md border border-cyan-700/60 bg-cyan-950/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-500"
           >
             Sign in fresh
-          </a>
+          </Link>
           <Link
             href="/"
             className="rounded-md border border-teal-700/60 bg-teal-950/40 px-4 py-2 text-sm font-medium text-teal-100 transition hover:border-teal-500 hover:bg-teal-900/50"

@@ -1,12 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { OperationsHubSnapshot, WorkforceServiceStatus } from "@/app/lib/server/operationsHubCore";
-import OpsWorkerChatPanel from "@/app/components/operations/OpsWorkerChatPanel";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
+
+/** Client-only — speech / MediaRecorder must not crash SSR or take down the Ops shell. */
+const OpsWorkerChatPanel = dynamic(
+  () => import("@/app/components/operations/OpsWorkerChatPanel"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-xs text-slate-500">
+        Loading workforce chat…
+      </div>
+    ),
+  },
+);
 
 type HubTab =
   | "overview"
@@ -596,7 +609,8 @@ export default function OperationsHubClient() {
             >
               <div className="text-[10px] uppercase tracking-widest text-slate-500">Workers online</div>
               <div className="mt-2 text-3xl font-bold text-white">
-                {snapshot.workforce.filter((w) => w.reachable).length}/{snapshot.workforce.length}
+                {(snapshot.workforce ?? []).filter((w) => w.reachable).length}/
+                {(snapshot.workforce ?? []).length}
               </div>
               <div className="mt-1 text-xs text-slate-400">Local fleet health probes</div>
             </Link>
@@ -684,17 +698,18 @@ export default function OperationsHubClient() {
           </section>
           <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-sm">
             <div className="flex flex-wrap items-center gap-2 text-slate-300">
-              <StatusDot ok={snapshot.workforce.every((service) => service.reachable)} />
+              <StatusDot ok={(snapshot.workforce ?? []).every((service) => service.reachable)} />
               <span>
-                {snapshot.workforce.filter((service) => service.reachable).length}/{snapshot.workforce.length} workers up
+                {(snapshot.workforce ?? []).filter((service) => service.reachable).length}/
+                {(snapshot.workforce ?? []).length} workers up
               </span>
               <Link href="/dashboard/operations?tab=workforce" className="text-cyan-300 hover:underline">
                 Open Workforce →
               </Link>
             </div>
-            {snapshot.workforce.some((service) => !service.reachable) ? (
+            {(snapshot.workforce ?? []).some((service) => !service.reachable) ? (
               <ul className="mt-3 flex flex-wrap gap-3 text-xs">
-                {snapshot.workforce
+                {(snapshot.workforce ?? [])
                   .filter((service) => !service.reachable)
                   .map((service) => (
                     <li key={service.id} className="rounded border border-rose-900/60 bg-rose-950/20 px-2 py-1 text-rose-200">
@@ -714,7 +729,7 @@ export default function OperationsHubClient() {
 
         {snapshot && tab === "workforce" ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {snapshot.workforce.map((service) => (
+            {(snapshot.workforce ?? []).map((service) => (
               <WorkforceCard key={service.id} service={service} />
             ))}
           </div>
@@ -1278,7 +1293,7 @@ export default function OperationsHubClient() {
                 dispatch.
               </p>
               <div className="mt-4">
-                <WorkforceFleetList workforce={snapshot.workforce} />
+                <WorkforceFleetList workforce={snapshot.workforce ?? []} />
               </div>
             </section>
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">

@@ -176,8 +176,24 @@ export function speakOpsWorkerReply(text: string, _worker: OpsChatTarget): void 
 
 export function bindOpsWorkerSpeechVoices(): () => void {
   if (typeof window === "undefined" || !window.speechSynthesis) return () => undefined;
-  refreshVoices();
-  const onChange = () => refreshVoices();
-  window.speechSynthesis.addEventListener("voiceschanged", onChange);
-  return () => window.speechSynthesis.removeEventListener("voiceschanged", onChange);
+  try {
+    refreshVoices();
+    const onChange = () => {
+      try {
+        refreshVoices();
+      } catch {
+        /* ignore voice enumeration failures */
+      }
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", onChange);
+    return () => {
+      try {
+        window.speechSynthesis.removeEventListener("voiceschanged", onChange);
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    return () => undefined;
+  }
 }

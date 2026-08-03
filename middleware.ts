@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { updateSession, withPathnameRequestHeaders } from "@/lib/supabase/middleware";
 import { assertTenantAccess } from "@/app/utils/tenantIsolation";
 import { isShadowPlaneActiveFromEnv } from "@/app/utils/shadowPlaneActive";
@@ -337,9 +337,12 @@ export async function middleware(request: NextRequest) {
   // ==========================================
   const pathnameRequestHeaders = withPathnameRequestHeaders(request.headers, pathname);
   const isSessionLogoutRoute = pathname.startsWith("/api/auth/session-logout");
-  const supabaseResponse = isSessionLogoutRoute
-    ? NextResponse.next({ request: { headers: pathnameRequestHeaders } })
+  /** One getUser per request — reuse for quarantine + auth gates (avoids dead-refresh double logs). */
+  const session: { response: NextResponse; user: User | null } = isSessionLogoutRoute
+    ? { response: NextResponse.next({ request: { headers: pathnameRequestHeaders } }), user: null }
     : await updateSession(request, pathnameRequestHeaders);
+  const supabaseResponse = session.response;
+  const sessionUser = session.user;
 
   const isAuthCallbackRoute = pathname.startsWith("/api/auth/callback");
   const isSessionBootstrapRoute = pathname.startsWith("/api/auth/session-bootstrap");
@@ -432,21 +435,7 @@ export async function middleware(request: NextRequest) {
     undefined;
 
   if (!middlewareSimulationBypass(request) && !quarantineMiddlewareBypassPath(pathname)) {
-    let userIdEarly: string | undefined;
-    const supabaseUrlEarly = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const supabaseAnonEarly = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-    if (supabaseUrlEarly && supabaseAnonEarly) {
-      const supaEarly = createServerClient(supabaseUrlEarly, supabaseAnonEarly, {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll();
-          },
-          setAll() {},
-        },
-      });
-      const { data } = await supaEarly.auth.getUser();
-      userIdEarly = data.user?.id?.trim() || undefined;
-    }
+    const userIdEarly = sessionUser?.id?.trim() || undefined;
     if (
       await fetchQuarantineIngressBlocked(
         request.nextUrl.origin,
@@ -526,26 +515,14 @@ export async function middleware(request: NextRequest) {
     return denied;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!supabaseUrl || !supabaseAnon) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+  ) {
     return await finalizeMiddlewareResponse(request, supabaseResponse);
   }
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnon, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll() {
-        // updateSession already handles cookie writes for this request cycle.
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = sessionUser;
 
   // ==========================================
   // 3. AUTH ENTRANCE CODES (core telemetry paths)

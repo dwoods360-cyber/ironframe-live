@@ -2,20 +2,23 @@
 
 import { useEffect } from "react";
 
-import { isChunkLoadError, recoverFromChunkLoadError } from "@/app/utils/chunkLoadRecovery";
+import {
+  isRecoverableClientDriftError,
+  recoverFromClientDriftError,
+} from "@/app/utils/chunkLoadRecovery";
 
-/** One-shot reload when webpack chunks drift after `next dev` rebuilds or hot deploys. */
+/** One-shot reload when webpack chunks / Server Actions drift after rebuilds or hot deploys. */
 export default function ChunkLoadRecoveryBootstrap() {
   useEffect(() => {
     const onWindowError = (event: ErrorEvent) => {
-      if (isChunkLoadError(event.error ?? event.message)) {
-        recoverFromChunkLoadError();
+      if (isRecoverableClientDriftError(event.error ?? event.message)) {
+        recoverFromClientDriftError();
       }
     };
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-      if (isChunkLoadError(event.reason)) {
-        recoverFromChunkLoadError();
+      if (isRecoverableClientDriftError(event.reason)) {
+        recoverFromClientDriftError();
       }
     };
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 
-import { buildAccountResearchBrief } from "@/app/lib/server/ironleadsAccountResearchBrief";
+import { buildAccountResearchBrief, mergeNamedBuyerIntoBriefMembers } from "@/app/lib/server/ironleadsAccountResearchBrief";
 import {
   extractBuyingPersons,
   extractPublishedEmails,
@@ -628,6 +628,30 @@ async function persistResearch(
   const IRONLEADS_LOCAL = /@ironleads\.local$/i;
   const hasRealEmail = Boolean(contact.email) && !IRONLEADS_LOCAL.test(contact.email);
   const hasPhone = Boolean(contact.phone?.trim() || result.switchboardPhones[0]?.phone);
+  const priorMeta = asRecord(contact.metadata) ?? {};
+  const priorNamedBuyer = asRecord(priorMeta.namedBuyer);
+  const briefMembers = mergeNamedBuyerIntoBriefMembers({
+    members: result.members,
+    namedBuyer:
+      priorNamedBuyer && typeof priorNamedBuyer.fullName === "string"
+        ? {
+            fullName: priorNamedBuyer.fullName,
+            title: typeof priorNamedBuyer.title === "string" ? priorNamedBuyer.title : null,
+            role: typeof priorNamedBuyer.role === "string" ? priorNamedBuyer.role : null,
+            email: typeof priorNamedBuyer.email === "string" ? priorNamedBuyer.email : null,
+            emailStatus:
+              typeof priorNamedBuyer.emailStatus === "string"
+                ? priorNamedBuyer.emailStatus
+                : null,
+            linkedinUrl:
+              typeof priorNamedBuyer.linkedinUrl === "string"
+                ? priorNamedBuyer.linkedinUrl
+                : null,
+          }
+        : null,
+    contactEmail: hasRealEmail ? contact.email : null,
+    contactTitle: null,
+  });
   const brief = buildAccountResearchBrief({
     company: contact.company,
     websiteUrl: result.websiteUrl,
@@ -636,7 +660,7 @@ async function persistResearch(
     dealStage: contact.primaryDeals[0]?.stage ?? "SUSPECT",
     corpus: evidence.corpus,
     sourceUrls: evidence.sourceUrls,
-    members: result.members,
+    members: briefMembers,
     socialProfiles: result.socialProfiles,
     hasRealEmail,
     hasPhone,

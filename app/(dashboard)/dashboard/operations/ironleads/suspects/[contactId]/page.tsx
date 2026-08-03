@@ -217,10 +217,35 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
             <h2 className="text-lg font-semibold text-emerald-100">Named buyer (public signal)</h2>
             <p className="mt-2 text-xl font-medium text-white">{report.namedBuyer.fullName}</p>
             <p className="mt-1 text-sm text-slate-300">
-              {[report.namedBuyer.title, report.namedBuyer.location, report.namedBuyer.announcedAt]
+              {[
+                report.namedBuyer.title,
+                report.namedBuyer.role,
+                report.namedBuyer.location,
+                report.namedBuyer.announcedAt,
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {report.namedBuyer.email ? (
+              <p className="mt-2 font-mono text-sm text-emerald-200">
+                {report.namedBuyer.email}
+                {report.namedBuyer.emailStatus
+                  ? ` · ${report.namedBuyer.emailStatus}`
+                  : ""}
+              </p>
+            ) : null}
+            {report.namedBuyer.linkedinUrl ? (
+              <p className="mt-2 break-all font-mono text-xs">
+                <a
+                  href={report.namedBuyer.linkedinUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-cyan-300 hover:underline"
+                >
+                  {report.namedBuyer.linkedinUrl}
+                </a>
+              </p>
+            ) : null}
             {report.namedBuyer.trigger ? (
               <p className="mt-2 font-mono text-xs text-emerald-300/90">
                 Trigger confirmed: {report.namedBuyer.trigger}

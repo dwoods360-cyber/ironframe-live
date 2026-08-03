@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   buildAccountResearchBrief,
+  mergeNamedBuyerIntoBriefMembers,
   resolveAccountResearchBrief,
   type AccountResearchBrief,
 } from "@/app/lib/server/ironleadsAccountResearchBrief";
@@ -187,6 +188,7 @@ export async function buildIronleadsSuspectReport(
       fullName: true,
       email: true,
       company: true,
+      title: true,
       phone: true,
       metadata: true,
       industrySector: true,
@@ -280,38 +282,75 @@ export async function buildIronleadsSuspectReport(
   // Rebuild only when missing — empty corpus here previously forced Fit UNKNOWN
   // even when websiteUrl was already on the contact.
   const persistedBrief = resolveAccountResearchBrief(contact.metadata);
+  const briefMembers = mergeNamedBuyerIntoBriefMembers({
+    members: location.buyingCommittee?.members ?? [],
+    namedBuyer: location.namedBuyer
+      ? {
+          fullName: location.namedBuyer.fullName,
+          title: location.namedBuyer.title,
+          role: location.namedBuyer.role,
+          email: location.namedBuyer.email,
+          emailStatus: location.namedBuyer.emailStatus,
+          linkedinUrl: location.namedBuyer.linkedinUrl,
+          sourceUrls: location.namedBuyer.sourceUrls,
+          note: location.namedBuyer.note,
+        }
+      : null,
+    contactEmail: hasRealEmail ? contact.email : null,
+    contactTitle: contact.title,
+  });
   const reportCorpus = [
     contact.company,
     contact.industrySector,
     location.websiteUrl,
     contact.detectedTrigger,
-    ...(location.buyingCommittee?.members.flatMap((m) =>
+    contact.title,
+    location.namedBuyer?.fullName,
+    location.namedBuyer?.title,
+    location.namedBuyer?.role,
+    // Boutique founder/vCISO sites often lack a scraped committee; seed Fit from sector + buyer title.
+    /mssp|vciso|grc|compliance|cyber/i.test(
+      `${contact.industrySector ?? ""} ${location.namedBuyer?.title ?? ""} ${contact.title ?? ""}`,
+    )
+      ? "MSSP vCISO compliance advisory cybersecurity"
+      : null,
+    ...briefMembers.flatMap((m) =>
       [m.fullName, m.title, m.note, ...m.emails.map((e) => e.email)].filter(Boolean),
-    ) ?? []),
+    ),
     ...(location.candidateEmails.map((e) => `${e.person} ${e.email}`) ?? []),
   ]
     .filter(Boolean)
     .join("\n");
+  const rebuiltBrief = buildAccountResearchBrief({
+    company: contact.company,
+    websiteUrl: location.websiteUrl,
+    detectedTrigger: contact.detectedTrigger,
+    industrySector: contact.industrySector,
+    dealStage: deal?.stage ?? null,
+    corpus: reportCorpus,
+    sourceUrls: [
+      ...(location.namedBuyer?.sourceUrls ?? []),
+      ...(location.namedBuyer?.linkedinUrl ? [location.namedBuyer.linkedinUrl] : []),
+      ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
+      ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
+    ],
+    members: briefMembers,
+    socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
+    hasRealEmail,
+    hasPhone,
+    generatedAt: new Date().toISOString(),
+  });
+  // Stale persisted briefs can show Buyer FAIL after operator/Prospeo namedBuyer
+  // was added without re-running committee research. Prefer rebuild when Buyer
+  // improves (or when no committee members were used in the persisted snapshot).
   const accountResearchBrief =
-    persistedBrief ??
-    buildAccountResearchBrief({
-      company: contact.company,
-      websiteUrl: location.websiteUrl,
-      detectedTrigger: contact.detectedTrigger,
-      industrySector: contact.industrySector,
-      dealStage: deal?.stage ?? null,
-      corpus: reportCorpus,
-      sourceUrls: [
-        ...(location.namedBuyer?.sourceUrls ?? []),
-        ...(location.buyingCommittee?.members.flatMap((m) => m.sourceUrls) ?? []),
-        ...(location.buyingCommittee?.socialProfiles.map((s) => s.url) ?? []),
-      ],
-      members: location.buyingCommittee?.members ?? [],
-      socialProfiles: location.buyingCommittee?.socialProfiles ?? [],
-      hasRealEmail,
-      hasPhone,
-      generatedAt: new Date().toISOString(),
-    });
+    persistedBrief &&
+    !(
+      persistedBrief.gates.buyer.result === "FAIL" &&
+      rebuiltBrief.gates.buyer.result !== "FAIL"
+    )
+      ? persistedBrief
+      : rebuiltBrief;
 
   const operatorHold = resolveOperatorHold(contact.metadata);
   const apolloRaw =

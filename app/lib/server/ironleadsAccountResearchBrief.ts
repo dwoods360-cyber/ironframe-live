@@ -157,6 +157,84 @@ export type BuildAccountResearchBriefInput = {
   generatedAt?: string;
 };
 
+export type BriefCommitteeMemberInput = BuildAccountResearchBriefInput["members"][number];
+
+/**
+ * Buyer gate historically only counted buyingCommittee scrape members.
+ * Operator / Prospeo namedBuyer must also count — otherwise boutique founders
+ * with verified email show Buyer FAIL despite a clear economic buyer on file.
+ */
+export function mergeNamedBuyerIntoBriefMembers(input: {
+  members: BriefCommitteeMemberInput[];
+  namedBuyer: {
+    fullName: string;
+    title?: string | null;
+    role?: string | null;
+    email?: string | null;
+    emailStatus?: string | null;
+    linkedinUrl?: string | null;
+    sourceUrls?: string[];
+    note?: string | null;
+  } | null;
+  /** Contact-level email when namedBuyer.email is absent. */
+  contactEmail?: string | null;
+  contactTitle?: string | null;
+}): BriefCommitteeMemberInput[] {
+  const members = [...input.members];
+  const buyer = input.namedBuyer;
+  if (!buyer?.fullName?.trim()) return members;
+
+  const nameKey = buyer.fullName.trim().toLowerCase();
+  const already = members.some(
+    (m) => m.fullName?.trim().toLowerCase() === nameKey,
+  );
+  if (already) return members;
+
+  const email =
+    (buyer.email?.trim() || input.contactEmail?.trim() || "").toLowerCase() || null;
+  const emailStatus = buyer.emailStatus?.trim() || (email ? "operator_verified" : null);
+  const role =
+    buyer.role?.trim() ||
+    inferBriefRoleFromTitle(buyer.title || input.contactTitle) ||
+    "FOUNDER";
+
+  members.unshift({
+    role,
+    fullName: buyer.fullName.trim(),
+    title: buyer.title?.trim() || input.contactTitle?.trim() || null,
+    emails: email
+      ? [
+          {
+            email,
+            status: emailStatus || "operator_verified",
+            source: "namedBuyer",
+          },
+        ]
+      : [],
+    phones: [],
+    sourceUrls: [
+      ...(buyer.sourceUrls ?? []),
+      ...(buyer.linkedinUrl ? [buyer.linkedinUrl] : []),
+    ].filter(Boolean),
+    note:
+      buyer.note?.trim() ||
+      "Named buyer on contact metadata (operator / Prospeo) — not scrape-only.",
+  });
+  return members;
+}
+
+function inferBriefRoleFromTitle(title: string | null | undefined): string | null {
+  const t = (title || "").toLowerCase();
+  if (!t) return null;
+  if (/\bfounder\b|\bprincipal\b|\bowner\b/.test(t)) return "FOUNDER";
+  if (/\bceo\b|chief executive/.test(t)) return "CEO";
+  if (/\bcfo\b|chief financial/.test(t)) return "CFO";
+  if (/\bciso\b|chief information security|chief infosec/.test(t)) return "CISO";
+  if (/\bmanaging director\b|\bmd\b/.test(t)) return "MANAGING_DIRECTOR";
+  if (/\bgrc\b|compliance lead|practice lead/.test(t)) return "GRC_PRACTICE_LEAD";
+  return null;
+}
+
 const GRC_PRODUCT_PATTERNS: Array<{ re: RegExp; name: string }> = [
   { re: /\boscar\b/i, name: "OSCAR" },
   { re: /\bradius\s*360\b|\bradius360\b/i, name: "Radius360" },
@@ -218,7 +296,17 @@ function practiceTypeFromServices(services: string[], industry: string | null): 
 
 function purchaseRoleForMemberRole(role: string): BriefPurchaseRole {
   const r = role.toUpperCase();
-  if (r === "CEO" || r === "CFO" || r === "MANAGING_DIRECTOR") return "economic_buyer";
+  if (
+    r === "CEO" ||
+    r === "CFO" ||
+    r === "MANAGING_DIRECTOR" ||
+    r === "FOUNDER" ||
+    r === "OWNER" ||
+    r === "PRINCIPAL" ||
+    r === "PARTNER"
+  ) {
+    return "economic_buyer";
+  }
   if (
     r === "CISO" ||
     r === "CRO" ||
@@ -245,6 +333,11 @@ function whyOwnsWorkflow(role: string, title: string | null): string {
       return `${titled} sets practice P&L and partner strategy; economic buyer for design-partner or channel motions.`;
     case "CEO":
       return `${titled} approves net-new platform spend and partnership posture; economic sponsor when the practice bets on a GRC stack.`;
+    case "FOUNDER":
+    case "OWNER":
+    case "PRINCIPAL":
+    case "PARTNER":
+      return `${titled} owns practice P&L and tool selection in a boutique model — economic and operational buyer for Path B co-builder seats.`;
     case "CFO":
       return `${titled} controls budget and ROI framing for multi-tenant tooling; engage only after operational fit is clear.`;
     case "CRO":

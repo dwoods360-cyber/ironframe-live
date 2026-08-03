@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAccountResearchBrief } from "@/app/lib/server/ironleadsAccountResearchBrief";
+import {
+  buildAccountResearchBrief,
+  mergeNamedBuyerIntoBriefMembers,
+} from "@/app/lib/server/ironleadsAccountResearchBrief";
 
 describe("buildAccountResearchBrief", () => {
   it("HOLDs Pivot Point with OSCAR conflict and internal-only what-to-say", () => {
@@ -94,5 +97,41 @@ describe("buildAccountResearchBrief", () => {
     expect(brief.outreach.whatToSay).toMatch(/Jordan Lee|portfolio/i);
     expect(brief.outreach.howToUse).toMatch(/Promote/i);
     expect(brief.buyerMap[0]?.whyOwnsWorkflow).toMatch(/operational buyer/i);
+  });
+
+  it("passes Buyer when only operator/Prospeo namedBuyer is present (no committee scrape)", () => {
+    const members = mergeNamedBuyerIntoBriefMembers({
+      members: [],
+      namedBuyer: {
+        fullName: "Chris DiSalle",
+        title: "Founder & Cybersecurity Strategist",
+        role: "FOUNDER",
+        email: "cdisalle@nonasec.com",
+        emailStatus: "VERIFIED",
+        linkedinUrl: "https://www.linkedin.com/in/chrisdisalle",
+      },
+      contactEmail: "cdisalle@nonasec.com",
+    });
+    const brief = buildAccountResearchBrief({
+      company: "NonaSec",
+      websiteUrl: "https://nonasec.com/",
+      detectedTrigger: null,
+      industrySector: "MSSP_ENCLAVE",
+      dealStage: "SUSPECT",
+      corpus:
+        "NonaSec\nMSSP_ENCLAVE\nhttps://nonasec.com/\nChris DiSalle\nFounder & Cybersecurity Strategist\nMSSP vCISO compliance advisory cybersecurity",
+      sourceUrls: ["https://www.linkedin.com/in/chrisdisalle"],
+      members,
+      socialProfiles: [],
+      hasRealEmail: true,
+      hasPhone: false,
+    });
+
+    expect(brief.gates.buyer.result).toBe("PASS");
+    expect(brief.gates.buyer.finding).toMatch(/Chris DiSalle/i);
+    expect(brief.buyerMap[0]?.purchaseRole).toBe("economic_buyer");
+    expect(brief.gates.fit.result).toBe("PASS");
+    // No harvest trigger → Pain UNKNOWN; operator can still Promote on Fit+Buyer.
+    expect(brief.gates.pain.result).toBe("UNKNOWN");
   });
 });

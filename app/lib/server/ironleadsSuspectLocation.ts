@@ -21,6 +21,11 @@ export type SuspectWebsiteContact = {
 export type SuspectNamedBuyer = {
   fullName: string;
   title: string | null;
+  /** Path B role tag when known (FOUNDER, CEO, CISO, …). */
+  role: string | null;
+  email: string | null;
+  emailStatus: string | null;
+  linkedinUrl: string | null;
   location: string | null;
   trigger: string | null;
   announcedAt: string | null;
@@ -191,6 +196,10 @@ export function resolveSuspectNamedBuyer(metadata: unknown): SuspectNamedBuyer |
   return {
     fullName,
     title: cleanText(raw.title, 200),
+    role: cleanText(raw.role, 40),
+    email: cleanText(raw.email, 320)?.toLowerCase() ?? null,
+    emailStatus: cleanText(raw.emailStatus, 40),
+    linkedinUrl: cleanText(raw.linkedinUrl, 500),
     location: cleanText(raw.location, 200),
     trigger: cleanText(raw.trigger, 80),
     announcedAt: cleanText(raw.announcedAt, 40),

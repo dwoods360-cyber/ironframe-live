@@ -23,15 +23,11 @@ const MOBILE_VIEWPORTS = [
     name: "iPhone 14",
     viewport: devices["iPhone 14"].viewport!,
     userAgent: devices["iPhone 14"].userAgent!,
-    isMobile: true,
-    hasTouch: true,
   },
   {
     name: "Pixel 7",
     viewport: devices["Pixel 7"].viewport!,
     userAgent: devices["Pixel 7"].userAgent!,
-    isMobile: true,
-    hasTouch: true,
   },
 ] as const;
 
@@ -155,15 +151,18 @@ test.describe.configure({ mode: "serial" });
 
 for (const mobile of MOBILE_VIEWPORTS) {
   test.describe(`Mobile smoke (${mobile.name})`, () => {
+    // Viewport + UA only — `isMobile`/`hasTouch` break the Firefox CI project.
     test.use({
       viewport: mobile.viewport,
       userAgent: mobile.userAgent,
-      isMobile: mobile.isMobile,
-      hasTouch: mobile.hasTouch,
     });
     test.setTimeout(180_000);
 
-    test("login, integrity, and Ops Hub mount without shell failure", async ({ page }) => {
+    test("login, integrity, and Ops Hub mount without shell failure", async ({
+      page,
+      browserName,
+    }) => {
+      test.skip(browserName !== "chromium", "Mobile production smoke is Chromium-only.");
       test.skip(
         process.env.E2E_PRODUCTION !== "1" &&
           process.env.PLAYWRIGHT_TARGET?.trim().toLowerCase() !== "production",
@@ -230,7 +229,11 @@ for (const mobile of MOBILE_VIEWPORTS) {
       expect(fatalClient, fatalClient.join("\n")).toEqual([]);
     });
 
-    test("OPS HUB chip is reachable via horizontal chip scroll", async ({ page }) => {
+    test("OPS HUB chip is reachable via horizontal chip scroll", async ({
+      page,
+      browserName,
+    }) => {
+      test.skip(browserName !== "chromium", "Mobile production smoke is Chromium-only.");
       test.skip(
         process.env.E2E_PRODUCTION !== "1" &&
           process.env.PLAYWRIGHT_TARGET?.trim().toLowerCase() !== "production",

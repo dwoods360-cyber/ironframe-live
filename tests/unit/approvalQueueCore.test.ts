@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   DISPATCHED_DRAFT_TAG,
   DISPATCHED_SALES_DRAFT_TAG,
+  HOLD_PARKED_DRAFT_TAG,
   NEEDS_ENRICHMENT_DRAFT_TAG,
   PENDING_DRAFT_TAG,
   PENDING_SALES_DRAFT_TAG,
+  buildHoldParkedDraftSummary,
   inferDraftKind,
   isPendingDraftSummary,
   parsePendingDraftSummary,
@@ -92,5 +94,17 @@ describe("approvalQueueCore", () => {
     ].join("\n");
 
     expect(isPendingDraftSummary(summary)).toBe(false);
+  });
+
+  it("treats HOLD-parked drafts as non-pending (live Approvals cleared; Ironleads HOLD kept)", () => {
+    const original = [
+      `${PENDING_SALES_DRAFT_TAG} Command Design Partner — UltraViolet Cyber`,
+      "--- Agent Proposed Reply Text ---",
+      "Body to ira.goldstein@uvcyber.com",
+    ].join("\n");
+    const parked = buildHoldParkedDraftSummary(original, "Ultraviolet Cyber");
+    expect(parked).toContain(HOLD_PARKED_DRAFT_TAG);
+    expect(parked).toContain("Ironleads HOLD archive");
+    expect(isPendingDraftSummary(parked)).toBe(false);
   });
 });

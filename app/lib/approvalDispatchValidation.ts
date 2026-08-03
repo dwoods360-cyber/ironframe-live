@@ -21,6 +21,9 @@ export const SALES_DISPATCH_HOLD_COMPANIES: readonly string[] = [
   "blueradius",
   "pivot point",
   "pivotpoint",
+  "ultraviolet",
+  "uv cyber",
+  "uvcyber",
 ];
 
 /**

@@ -2,6 +2,8 @@ import "server-only";
 
 import prisma from "@/lib/prisma";
 import { isSalesSmsDraft } from "@/app/lib/approvalDraftChannel";
+import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
+import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 
 export { isSalesSmsDraft };
 
@@ -14,6 +16,11 @@ export const DISPATCHED_SALES_DRAFT_TAG = "[DISPATCHED SALES COURIER]";
 export const PURGED_DRAFT_TAG = "[PURGED DRAFT]";
 /** Soft-archive after Approvals "Needs enrichment" — demote back to SUSPECT pipeline. */
 export const NEEDS_ENRICHMENT_DRAFT_TAG = "[NEEDS ENRICHMENT]";
+/**
+ * Soft-archive Path B HOLD / channel-competitor drafts out of live Approvals.
+ * Ironleads `operatorHold` archive remains the operator "hold queue".
+ */
+export const HOLD_PARKED_DRAFT_TAG = "[HOLD PARKED DRAFT]";
 
 export const PENDING_DRAFT_TAGS = [PENDING_DRAFT_TAG, PENDING_SALES_DRAFT_TAG, PENDING_CS_ADVISORY_TAG] as const;
 
@@ -51,7 +58,25 @@ export function isPendingDraftSummary(summary: string): boolean {
   ) {
     return false;
   }
+  if (
+    summary.includes(HOLD_PARKED_DRAFT_TAG) ||
+    summary.startsWith("[HOLD PARKED DRAFT]")
+  ) {
+    return false;
+  }
   return PENDING_DRAFT_TAGS.some((tag) => summary.includes(tag));
+}
+
+export function buildHoldParkedDraftSummary(originalSummary: string, company: string): string {
+  const label = company.trim() || "HOLD company";
+  return [
+    `${HOLD_PARKED_DRAFT_TAG} Removed from live Sales Approvals — ${label} is Path B HOLD.`,
+    "Account stays in Ironleads HOLD archive (not discarded). Do not DISPATCH.",
+    "--- Discarded Copy ---",
+    originalSummary,
+  ]
+    .join("\n")
+    .slice(0, 12_000);
 }
 
 export function inferDraftKind(summary: string): DraftKind {
@@ -161,6 +186,8 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
           { summary: { startsWith: "[PURGED DRAFT]" } },
           { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
           { summary: { startsWith: "[NEEDS ENRICHMENT]" } },
+          { summary: { contains: HOLD_PARKED_DRAFT_TAG } },
+          { summary: { startsWith: "[HOLD PARKED DRAFT]" } },
         ],
       },
       contactId: { not: null },
@@ -188,7 +215,15 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
 
   const drafts = rows
     .map(mapRowToDraft)
-    .filter((draft): draft is PendingApprovalDraft => draft != null);
+    .filter((draft): draft is PendingApprovalDraft => draft != null)
+    // Path B HOLD / Ironleads archive must not clutter the live Approvals queue.
+    .filter((draft) => {
+      if (draft.draftKind !== "SALES") return true;
+      if (isSalesDispatchHoldCompany(draft.company)) return false;
+      const row = rows.find((r) => r.id === draft.id);
+      if (row?.contact && isOperatorHoldArchived(row.contact.metadata)) return false;
+      return true;
+    });
 
   return Promise.all(
     drafts.map(async (draft) => {
@@ -201,6 +236,53 @@ export async function fetchPendingApprovalDrafts(): Promise<PendingApprovalDraft
       };
     }),
   );
+}
+
+/** Soft-park pending SALES drafts for shortlist HOLD / Ironleads-archived companies. */
+export async function parkHoldCompanyPendingSalesDrafts(options?: {
+  companyContains?: string[];
+}): Promise<{ parked: Array<{ id: string; company: string }> }> {
+  const needles = (options?.companyContains ?? []).map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const rows = await prisma.ironboardCrmInteraction.findMany({
+    where: {
+      summary: { contains: PENDING_SALES_DRAFT_TAG },
+      NOT: {
+        OR: [
+          { summary: { contains: PURGED_DRAFT_TAG } },
+          { summary: { contains: NEEDS_ENRICHMENT_DRAFT_TAG } },
+          { summary: { contains: HOLD_PARKED_DRAFT_TAG } },
+        ],
+      },
+      contactId: { not: null },
+    },
+    take: 100,
+    select: {
+      id: true,
+      summary: true,
+      contact: { select: { company: true, metadata: true } },
+    },
+  });
+
+  const parked: Array<{ id: string; company: string }> = [];
+  for (const row of rows) {
+    const company = (row.contact?.company ?? "").trim();
+    const companyHit =
+      isSalesDispatchHoldCompany(company) ||
+      (needles.length > 0 && needles.some((n) => company.toLowerCase().includes(n)));
+    const holdHit = row.contact ? isOperatorHoldArchived(row.contact.metadata) : false;
+    if (!companyHit && !holdHit) continue;
+    if (!isPendingDraftSummary(row.summary)) continue;
+
+    await prisma.ironboardCrmInteraction.update({
+      where: { id: row.id },
+      data: {
+        summary: buildHoldParkedDraftSummary(row.summary, company),
+        occurredAt: new Date(),
+      },
+    });
+    parked.push({ id: row.id, company: company || "(unknown)" });
+  }
+  return { parked };
 }
 
 async function resolveIncomingQuery(contactId: string, excludeInteractionId: string): Promise<string> {

@@ -65,6 +65,20 @@ describe("validateApprovalDispatch", () => {
     expect(result.errors.some((e) => /HOLD/i.test(e))).toBe(true);
   });
 
+  it("blocks UltraViolet Cyber HOLD (wrong Path B seat / platform MSSP)", () => {
+    const result = validateApprovalDispatch({
+      draftKind: "SALES",
+      channel: "EMAIL",
+      body: LOCKED_EMAIL_BODY,
+      recipientEmail: "ira.goldstein@uvcyber.com",
+      recipientPhone: null,
+      company: "Ultraviolet Cyber",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.errors.some((e) => /HOLD/i.test(e))).toBe(true);
+    expect(isSalesDispatchHoldCompany("UltraViolet Cyber")).toBe(true);
+  });
+
   it("requires acknowledge for operator dry-run inbox", () => {
     const blocked = validateApprovalDispatch({
       draftKind: "SALES",

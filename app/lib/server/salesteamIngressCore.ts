@@ -3,9 +3,11 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
+import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
 import {
   PENDING_SALES_DRAFT_TAG,
 } from "@/app/lib/server/approvalQueueCore";
+import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import type { SalesteamOutreachPayload } from "@/app/lib/ingress/salesteamIngressSchema";
 import prisma from "@/lib/prisma";
 
@@ -120,6 +122,10 @@ export async function listSalesteamProspectQueue(
     for (const deal of deals) {
       const contact = deal.primaryContact;
       if (!contact) continue;
+      // Do not re-queue Path B HOLD / Ironleads archive into Sales Approvals.
+      if (isSalesDispatchHoldCompany(contact.company) || isOperatorHoldArchived(contact.metadata)) {
+        continue;
+      }
       prospects.push({
         dealId: deal.id,
         contactId: contact.id,
@@ -173,9 +179,17 @@ export async function submitSalesteamOutreachDraft(
 
     const contact = await tx.ironboardCrmContact.findFirst({
       where: { id: contactId, tenantId: tenant.id },
-      select: { id: true },
+      select: { id: true, company: true, metadata: true },
     });
     if (!contact) throw new Error(`CONTACT_NOT_FOUND: ${contactId}`);
+    if (
+      isSalesDispatchHoldCompany(contact.company) ||
+      isOperatorHoldArchived(contact.metadata)
+    ) {
+      throw new Error(
+        `HOLD_COMPANY_NOT_QUEUEABLE: ${contact.company} is Path B HOLD / Ironleads archive — do not create Sales Approvals drafts.`,
+      );
+    }
 
     const interaction = await tx.ironboardCrmInteraction.create({
       data: {

@@ -647,7 +647,9 @@ function AdminApprovalDashboardInner() {
                     isSalesDispatchHoldCompany(selectedDraft.company) ? (
                       <p className="rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-2 text-xs text-rose-100">
                         HOLD — {selectedDraft.company} is on shortlist channel/competitor block.
-                        Do not Path B cold DISPATCH. Purge or re-qualify with a named buyer first.
+                        Do not Path B cold DISPATCH. Use <strong>Purge draft</strong> to clear
+                        this card from live Approvals — the account stays in Ironleads HOLD
+                        archive (not deleted).
                       </p>
                     ) : null}
                     {selectedDraft.draftKind === "SALES" &&

@@ -11,6 +11,7 @@ import {
   parsePublishingDeskTab,
   publishingDeskHref,
   publishingDeskTabForQueueDraft,
+  PUBLISHING_VIDEO_NARRATIVE_LINKS,
   PUBLISHING_VIDEOS_PAGE_HREF,
   type PublishingDeskTab,
 } from "@/app/lib/governanceFrame/publishingDeskDraftKind";
@@ -549,7 +550,7 @@ export default function PublishingDeskClient() {
       setSyndicateBusy(false);
     }
   };
-  const tabs: Array<{ id: string; label: string; href: string; active: boolean }> = [
+  const tabs: Array<{ id: DeskTab; label: string; href: string; active: boolean }> = [
     {
       id: "briefings",
       label: "Briefings",
@@ -571,8 +572,8 @@ export default function PublishingDeskClient() {
     {
       id: "video",
       label: "Video",
-      href: PUBLISHING_VIDEOS_PAGE_HREF,
-      active: false,
+      href: publishingDeskHref("video"),
+      active: desk === "video",
     },
   ];
 
@@ -628,7 +629,67 @@ export default function PublishingDeskClient() {
         </div>
 
         {error ? <div className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</div> : null}
-        {loading && !snapshot ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
+        {loading && !snapshot && desk !== "video" ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
+
+        {desk === "video" ? (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">Video campaign</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                When Risk Enters the Room — same desk chrome as Briefings / Newsletters / Research
+                papers. Open the campaign hub for the plan and narrative index.
+              </p>
+              <Link
+                href={PUBLISHING_VIDEOS_PAGE_HREF}
+                className="mt-5 inline-flex items-center rounded-lg bg-cyan-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-cyan-700"
+              >
+                Open Videos hub
+              </Link>
+              <p className="mt-3 font-mono text-[10px] text-slate-500">
+                {PUBLISHING_VIDEOS_PAGE_HREF}
+              </p>
+              <p className="mt-4 text-sm text-slate-400">
+                Hub URL:{" "}
+                <a
+                  href="https://ironframegrc.com/docs/marketing-strategy/video-series/when-risk-enters-the-room"
+                  className="text-cyan-300 hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  ironframegrc.com/docs/…/when-risk-enters-the-room
+                </a>
+              </p>
+            </section>
+            <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+              <h2 className="text-lg font-semibold text-white">Narratives in this folder</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Full episode scripts, persona vignettes, and Evidence Breaks scenes — each file under{" "}
+                <span className="font-mono text-slate-300">docs/marketing-strategy/video-series/</span>.
+              </p>
+              <div className="mt-4 max-h-[36rem] space-y-5 overflow-y-auto pr-1">
+                {PUBLISHING_VIDEO_NARRATIVE_LINKS.map((group) => (
+                  <div key={group.group}>
+                    <h3 className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+                      {group.group}
+                    </h3>
+                    <ul className="mt-2 space-y-1.5">
+                      {group.items.map((item) => (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className="block rounded-md border border-slate-800 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 hover:border-cyan-700/60 hover:text-cyan-100"
+                          >
+                            {item.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         {snapshot && isBriefingsOrResearchDesk ? (
           <div className="grid gap-6 lg:grid-cols-2">
@@ -1128,6 +1189,9 @@ export default function PublishingDeskClient() {
                   </Link>
                   <Link href="/dashboard/operations/publishing?desk=research" className="text-cyan-300 hover:underline">
                     Research papers queue
+                  </Link>
+                  <Link href="/dashboard/operations/publishing?desk=video" className="text-cyan-300 hover:underline">
+                    Video desk
                   </Link>
                 </div>
                 <div className="mt-5 space-y-3">

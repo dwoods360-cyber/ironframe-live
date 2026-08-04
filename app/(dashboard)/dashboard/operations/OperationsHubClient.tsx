@@ -667,10 +667,7 @@ export default function OperationsHubClient() {
                     ["Publishing Desk", "/dashboard/operations/publishing?desk=briefings"],
                     ["Newsletters desk", "/dashboard/operations/publishing?desk=newsletters"],
                     ["Research papers desk", "/dashboard/operations/publishing?desk=research"],
-                    [
-                      "Video campaign",
-                      "/docs/marketing-strategy/video-series/when-risk-enters-the-room",
-                    ],
+                    ["Video desk", "/dashboard/operations/publishing?desk=video"],
                     ["GF public", "/governance-frame"],
                   ],
                 },

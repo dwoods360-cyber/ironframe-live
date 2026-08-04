@@ -26,6 +26,14 @@ export async function parseJsonResponse<T>(response: Response): Promise<ParsedJs
   }
 
   if (!contentType.includes("application/json")) {
+    if (response.status === 504) {
+      return {
+        ok: false,
+        error:
+          "Gateway timeout (504). Research may have partially saved — click Research only again to continue the next batch.",
+        response,
+      };
+    }
     return {
       ok: false,
       error: `Unexpected response type (${response.status}).`,

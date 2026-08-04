@@ -34,6 +34,10 @@ curl.exe "https://api.search.brave.com/res/v1/web/search?q=CISO&count=3" -H "Acc
 3. Vercel → `SERPAPI_API_KEY` → Production + Preview
 4. Redeploy (used only if Brave key is absent)
 
+## Research only batching (Vercel 120s)
+
+Portal **Research only** processes **5 SUSPECTs per request** (thinnest first, 12‑minute cooldown so timed-out runs advance). The UI auto-continues up to 5 batches. A **504** means the prior invoke hit `maxDuration` — partial progress is saved; click again or wait for the next auto batch.
+
 ## After names land
 
 - Pattern emails may appear when a company domain is known (still guesses until published/confirmed).

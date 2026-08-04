@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requirePerimeterWorkforceOperator } from "@/app/lib/auth/perimeterWorkforceAccess";
-import { researchBuyingCommitteeForAllSuspects } from "@/app/lib/server/ironleadsBuyingCommitteeResearchCore";
+import {
+  IRONLEADS_RESEARCH_BATCH_DEFAULT,
+  IRONLEADS_RESEARCH_BATCH_MAX,
+  researchBuyingCommitteeForAllSuspects,
+} from "@/app/lib/server/ironleadsBuyingCommitteeResearchCore";
 import {
   importMsspDirectoryAccounts,
   importMsspFreeDirectorySeeds,
@@ -54,12 +58,23 @@ export async function POST(request: NextRequest) {
     skipBuyingCommitteeResearch?: boolean;
     paste?: string;
     runResearchAfterImport?: boolean;
+    /** Research-only batch size (default 5) — avoids Vercel 120s 504s. */
+    researchBatchLimit?: number;
   } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
     body = {};
   }
+
+  const resolveResearchBatchLimit = (override?: number) => {
+    const raw =
+      typeof override === "number" && Number.isFinite(override)
+        ? override
+        : IRONLEADS_RESEARCH_BATCH_DEFAULT;
+    // Portal/API: keep ≤10 so scrape + Brave stays under Vercel 120s.
+    return Math.min(Math.max(Math.floor(raw), 1), Math.min(10, IRONLEADS_RESEARCH_BATCH_MAX));
+  };
 
   const formatResearch = (
     research: Awaited<ReturnType<typeof researchBuyingCommitteeForAllSuspects>>,
@@ -68,6 +83,11 @@ export async function POST(request: NextRequest) {
     total: research.total,
     researched: research.researched,
     skipped: research.skipped,
+    batchLimit: research.batchLimit,
+    activeQueue: research.activeQueue,
+    cooledDown: research.cooledDown,
+    remaining: research.remaining,
+    hasMore: research.hasMore,
     results: research.results.map((row) => ({
       contactId: row.contactId,
       company: row.company,
@@ -79,7 +99,9 @@ export async function POST(request: NextRequest) {
   });
 
   if (body.action === "research_buying_committee") {
-    const research = await researchBuyingCommitteeForAllSuspects();
+    const research = await researchBuyingCommitteeForAllSuspects({
+      limit: resolveResearchBatchLimit(body.researchBatchLimit),
+    });
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
       ok: true,
@@ -92,7 +114,11 @@ export async function POST(request: NextRequest) {
     const pulled = await pullPendingSuspectBatch(20);
     let research: ReturnType<typeof formatResearch> | null = null;
     if (body.runResearchAfterImport === true && pulled.pulled > 0) {
-      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+      research = formatResearch(
+        await researchBuyingCommitteeForAllSuspects({
+          limit: resolveResearchBatchLimit(body.researchBatchLimit),
+        }),
+      );
     }
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
@@ -118,7 +144,11 @@ export async function POST(request: NextRequest) {
     // Default OFF — auto-research-all times out and leaves the queue looking empty.
     let research: ReturnType<typeof formatResearch> | null = null;
     if (body.runResearchAfterImport === true) {
-      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+      research = formatResearch(
+        await researchBuyingCommitteeForAllSuspects({
+          limit: resolveResearchBatchLimit(body.researchBatchLimit),
+        }),
+      );
     }
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
@@ -160,7 +190,11 @@ export async function POST(request: NextRequest) {
     // Default OFF — use Research only after import; bundling research-all often times out.
     let research: ReturnType<typeof formatResearch> | null = null;
     if (body.runResearchAfterImport === true) {
-      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+      research = formatResearch(
+        await researchBuyingCommitteeForAllSuspects({
+          limit: resolveResearchBatchLimit(body.researchBatchLimit),
+        }),
+      );
     }
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
@@ -178,7 +212,10 @@ export async function POST(request: NextRequest) {
 
   let research: ReturnType<typeof formatResearch> | null = null;
   if (!body.skipBuyingCommitteeResearch) {
-    const researchRaw = await researchBuyingCommitteeForAllSuspects();
+    // Batched — harvest + full active-queue research exceeds Vercel 120s.
+    const researchRaw = await researchBuyingCommitteeForAllSuspects({
+      limit: resolveResearchBatchLimit(body.researchBatchLimit),
+    });
     research = formatResearch(researchRaw);
   }
 

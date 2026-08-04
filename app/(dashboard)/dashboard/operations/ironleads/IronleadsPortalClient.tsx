@@ -362,30 +362,59 @@ export default function IronleadsPortalClient() {
     setResearchBusy(true);
     setMessage(null);
     setError(null);
+    type ResearchPayload = {
+      total: number;
+      researched: number;
+      skipped: number;
+      batchLimit?: number;
+      remaining?: number;
+      hasMore?: boolean;
+      cooledDown?: number;
+    };
+    const maxRounds = 5;
+    let rounds = 0;
+    let researchedSum = 0;
+    let skippedSum = 0;
+    let lastRemaining = 0;
     try {
-      const data = await fetchOpsPortalJson<{
-        ok?: boolean;
-        snapshot?: IronleadsPortalSnapshot;
-        research?: {
-          total: number;
-          researched: number;
-          skipped: number;
-        };
-      }>(
-        "/api/admin/operations-hub/ironleads",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "research_buying_committee" }),
-        },
-        "Buying-committee research failed.",
-      );
-      if (data.snapshot) setSnapshot(data.snapshot);
-      const research = data.research;
+      // Server batches (~5) under Vercel 120s; client continues until queue cools down.
+      while (rounds < maxRounds) {
+        rounds += 1;
+        setMessage(
+          rounds === 1
+            ? "Researching… (batched to avoid gateway timeouts)"
+            : `Researching… batch ${rounds}/${maxRounds}`,
+        );
+        const data = await fetchOpsPortalJson<{
+          ok?: boolean;
+          snapshot?: IronleadsPortalSnapshot;
+          research?: ResearchPayload;
+        }>(
+          "/api/admin/operations-hub/ironleads",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "research_buying_committee",
+              researchBatchLimit: 5,
+            }),
+          },
+          "Buying-committee research failed.",
+        );
+        if (data.snapshot) setSnapshot(data.snapshot);
+        const research = data.research;
+        if (!research) break;
+        researchedSum += research.researched;
+        skippedSum += research.skipped;
+        lastRemaining = research.remaining ?? 0;
+        if (!research.hasMore || research.total === 0) break;
+      }
+      const moreHint =
+        lastRemaining > 0
+          ? ` ${lastRemaining} still eligible — click Research only again.`
+          : "";
       setMessage(
-        research
-          ? `Buying-committee research done — ${research.researched}/${research.total} researched, ${research.skipped} skipped. Open each Why SUSPECT report for CEO/CFO/CISO + candidate emails/phones.`
-          : "Buying-committee research completed.",
+        `Buying-committee research done — ${researchedSum} researched, ${skippedSum} skipped across ${rounds} batch(es).${moreHint} Open each Why SUSPECT report for CEO/CFO/CISO + candidate emails/phones.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Buying-committee research failed.");

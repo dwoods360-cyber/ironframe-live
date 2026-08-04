@@ -959,11 +959,97 @@ async function persistResearch(
   }
 }
 
-export async function researchBuyingCommitteeForAllSuspects(): Promise<{
+/** Portal Research-only batch size — keeps each Vercel invoke under maxDuration 120s. */
+export const IRONLEADS_RESEARCH_BATCH_DEFAULT = 5;
+/** Hard cap per invoke (portal sends 5; scripts may pass up to this). */
+export const IRONLEADS_RESEARCH_BATCH_MAX = 20;
+/** Skip re-researching the same SUSPECT within this window so batches advance. */
+export const IRONLEADS_RESEARCH_COOLDOWN_MS = 12 * 60 * 1000;
+
+function asMetaRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/** Parse buyingCommittee.researchedAt from CRM metadata (ms since epoch). */
+export function buyingCommitteeResearchedAtMs(metadata: unknown): number | null {
+  const bc = asMetaRecord(asMetaRecord(metadata)?.buyingCommittee);
+  const raw = bc?.researchedAt;
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Pick the next Research batch: thinnest active dossiers first, skip recent
+ * researchedAt so a timed-out run can continue without redoing the same rows.
+ */
+export function selectSuspectsForResearchBatch<
+  T extends {
+    metadata: unknown;
+    primaryDeals?: Array<{ accountDomain?: string | null }>;
+  },
+>(
+  activeSuspects: T[],
+  opts: { limit: number; nowMs?: number; cooldownMs?: number },
+): {
+  batch: T[];
+  cooledDown: number;
+  eligibleRemainingAfterBatch: number;
+  activeQueue: number;
+} {
+  const limit = Math.min(
+    Math.max(opts.limit, 1),
+    IRONLEADS_RESEARCH_BATCH_MAX,
+  );
+  const nowMs = opts.nowMs ?? Date.now();
+  const cooldownMs = opts.cooldownMs ?? IRONLEADS_RESEARCH_COOLDOWN_MS;
+
+  const ranked = [...activeSuspects].sort((a, b) => {
+    const sa = scoreSuspectReadiness({
+      metadata: a.metadata,
+      accountDomain: a.primaryDeals?.[0]?.accountDomain ?? null,
+    }).score;
+    const sb = scoreSuspectReadiness({
+      metadata: b.metadata,
+      accountDomain: b.primaryDeals?.[0]?.accountDomain ?? null,
+    }).score;
+    return sa - sb;
+  });
+
+  const eligible: T[] = [];
+  let cooledDown = 0;
+  for (const row of ranked) {
+    const at = buyingCommitteeResearchedAtMs(row.metadata);
+    if (at != null && nowMs - at < cooldownMs) {
+      cooledDown += 1;
+      continue;
+    }
+    eligible.push(row);
+  }
+
+  const batch = eligible.slice(0, limit);
+  return {
+    batch,
+    cooledDown,
+    eligibleRemainingAfterBatch: Math.max(0, eligible.length - batch.length),
+    activeQueue: activeSuspects.length,
+  };
+}
+
+export async function researchBuyingCommitteeForAllSuspects(options?: {
+  /** Max SUSPECTs to research in this invoke (default: full active queue cap of 20). */
+  limit?: number;
+}): Promise<{
   researchedAt: string;
   total: number;
   researched: number;
   skipped: number;
+  batchLimit: number;
+  activeQueue: number;
+  cooledDown: number;
+  remaining: number;
+  hasMore: boolean;
   results: BuyingCommitteeResearchResult[];
 }> {
   const suspectsRaw = await prisma.ironboardCrmContact.findMany({
@@ -989,23 +1075,21 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
   });
 
   // Active only — prefer thinnest dossiers so Research fills gaps (queue UI sorts richest first).
-  const suspects = suspectsRaw
+  const activeSuspects = suspectsRaw
     .filter((row) => !isOperatorHoldArchived(row.metadata))
-    .sort((a, b) => {
-      const sa = scoreSuspectReadiness({
-        metadata: a.metadata,
-        accountDomain: a.primaryDeals[0]?.accountDomain ?? null,
-      }).score;
-      const sb = scoreSuspectReadiness({
-        metadata: b.metadata,
-        accountDomain: b.primaryDeals[0]?.accountDomain ?? null,
-      }).score;
-      return sa - sb;
-    })
     .slice(0, 20);
 
+  const requestedLimit =
+    typeof options?.limit === "number" && Number.isFinite(options.limit)
+      ? options.limit
+      : activeSuspects.length;
+
+  const selected = selectSuspectsForResearchBatch(activeSuspects, {
+    limit: requestedLimit,
+  });
+
   const results: BuyingCommitteeResearchResult[] = [];
-  for (const contact of suspects) {
+  for (const contact of selected.batch) {
     results.push(await researchAndPersist(contact));
   }
 
@@ -1014,6 +1098,14 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
     total: results.length,
     researched: results.filter((r) => !r.skipped).length,
     skipped: results.filter((r) => r.skipped).length,
+    batchLimit: Math.min(
+      Math.max(requestedLimit, 1),
+      IRONLEADS_RESEARCH_BATCH_MAX,
+    ),
+    activeQueue: selected.activeQueue,
+    cooledDown: selected.cooledDown,
+    remaining: selected.eligibleRemainingAfterBatch,
+    hasMore: selected.eligibleRemainingAfterBatch > 0,
     results,
   };
 }

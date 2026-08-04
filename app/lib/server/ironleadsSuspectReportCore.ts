@@ -354,12 +354,12 @@ export async function buildIronleadsSuspectReport(
     persistedBrief?.gates.buyer.result === "PASS" &&
     rebuiltBrief.gates.buyer.result !== "PASS";
   const persistedBuyerNames = (persistedBrief?.buyerMap ?? [])
-    .map((b) => b.name.trim().toLowerCase())
+    .map((b) => (b.name ?? "").trim().toLowerCase())
     .filter(Boolean)
     .sort()
     .join("|");
   const rebuiltBuyerNames = rebuiltBrief.buyerMap
-    .map((b) => b.name.trim().toLowerCase())
+    .map((b) => (b.name ?? "").trim().toLowerCase())
     .filter(Boolean)
     .sort()
     .join("|");

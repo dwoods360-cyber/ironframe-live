@@ -81,8 +81,16 @@ export default function PublishingDeskClient() {
   const [decisionBusyFile, setDecisionBusyFile] = useState<string | null>(null);
   const [decisionMessage, setDecisionMessage] = useState<string | null>(null);
   const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
+  const [draftReaderOpen, setDraftReaderOpen] = useState(false);
+  const [draftReaderFilename, setDraftReaderFilename] = useState<string | null>(null);
+  const [draftReaderTitle, setDraftReaderTitle] = useState<string | null>(null);
+  const [draftReaderMarkdown, setDraftReaderMarkdown] = useState<string | null>(null);
+  const [draftReaderValidationOk, setDraftReaderValidationOk] = useState<boolean | null>(null);
+  const [draftReaderLoading, setDraftReaderLoading] = useState(false);
+  const [draftReaderError, setDraftReaderError] = useState<string | null>(null);
   const promoteDefaultsSet = useRef(false);
   const promotePanelRef = useRef<HTMLDivElement | null>(null);
+  const autoOpenedDraftRef = useRef<string | null>(null);
 
   const slugFromQueueFilename = useCallback(
     (filename: string) =>
@@ -134,6 +142,73 @@ export default function PublishingDeskClient() {
     if (!el) return;
     el.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [focusedDraft, loading, desk, snapshot]);
+
+  const closeDraftReader = useCallback(() => {
+    setDraftReaderOpen(false);
+    setDraftReaderFilename(null);
+    setDraftReaderTitle(null);
+    setDraftReaderMarkdown(null);
+    setDraftReaderValidationOk(null);
+    setDraftReaderLoading(false);
+    setDraftReaderError(null);
+  }, []);
+
+  const openDraftReader = useCallback(
+    async (filename: string, options?: { select?: boolean }) => {
+      const file = filename.trim();
+      if (!file) return;
+      if (options?.select !== false) {
+        selectQueueDraft(file, { scrollPromote: false });
+      }
+      setDraftReaderOpen(true);
+      setDraftReaderFilename(file);
+      setDraftReaderTitle(null);
+      setDraftReaderMarkdown(null);
+      setDraftReaderValidationOk(null);
+      setDraftReaderError(null);
+      setDraftReaderLoading(true);
+      try {
+        const data = await fetchOpsPortalJson<{
+          ok?: boolean;
+          filename?: string;
+          title?: string;
+          markdown?: string;
+          validationOk?: boolean;
+        }>(
+          `/api/admin/operations-hub/briefings/draft?filename=${encodeURIComponent(file)}`,
+          { cache: "no-store" },
+          "Failed to load draft.",
+        );
+        setDraftReaderFilename(data.filename ?? file);
+        setDraftReaderTitle(data.title ?? file);
+        setDraftReaderMarkdown(data.markdown ?? "");
+        setDraftReaderValidationOk(data.validationOk ?? null);
+      } catch (err) {
+        setDraftReaderError(err instanceof Error ? err.message : "Failed to load draft.");
+      } finally {
+        setDraftReaderLoading(false);
+      }
+    },
+    [selectQueueDraft],
+  );
+
+  useEffect(() => {
+    if (!focusedDraft || loading || !snapshot) return;
+    const inQueue = snapshot.briefings.queueDrafts.some((d) => d.filename === focusedDraft);
+    if (!inQueue) return;
+    if (autoOpenedDraftRef.current === focusedDraft) return;
+    autoOpenedDraftRef.current = focusedDraft;
+    void openDraftReader(focusedDraft, { select: false });
+  }, [focusedDraft, loading, snapshot, openDraftReader]);
+
+  useEffect(() => {
+    if (!draftReaderOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeDraftReader();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [draftReaderOpen, closeDraftReader]);
 
   const loadSnapshot = useCallback(async () => {
     setLoading(true);
@@ -218,6 +293,7 @@ export default function PublishingDeskClient() {
       const okMsg = `Approved & promoted to /governance-frame/${data.slug ?? slug}`;
       setPromoteMessage(okMsg);
       setDecisionMessage(okMsg);
+      if (draftReaderFilename === file) closeDraftReader();
       await loadSnapshot();
     } catch (err) {
       const fail = err instanceof Error ? err.message : "Promotion failed.";
@@ -253,6 +329,7 @@ export default function PublishingDeskClient() {
       const okMsg = data.message ?? `Denied ${file} — removed from active queue.`;
       setDecisionMessage(okMsg);
       setPromoteMessage(okMsg);
+      if (draftReaderFilename === file) closeDraftReader();
       if (promoteFile === file) {
         setPromoteFile("");
         setPromoteSlug("");
@@ -503,8 +580,9 @@ export default function PublishingDeskClient() {
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
               <h2 className="text-lg font-semibold text-white">Quarantined drafts</h2>
               <p className="mt-1 text-sm text-slate-400">
-                Weekday autonomous GTM cron and manual requests stage here only. Nothing publishes until you
-                Approve (promote) or Deny.
+                Weekday autonomous GTM cron and manual requests stage here only. Use{" "}
+                <span className="text-slate-300">Read</span> for the full manuscript. Nothing publishes
+                until you Approve (promote) or Deny.
               </p>
               {decisionMessage ? (
                 <p className="mt-2 text-sm text-slate-300">{decisionMessage}</p>
@@ -567,6 +645,14 @@ export default function PublishingDeskClient() {
                           {!draft.promotable ? <span className="text-slate-500">non-promotable</span> : null}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={busy || draftReaderLoading}
+                            onClick={() => void openDraftReader(draft.filename)}
+                            className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-100 hover:border-cyan-600 disabled:opacity-50"
+                          >
+                            Read
+                          </button>
                           <button
                             type="button"
                             disabled={busy || !draft.promotable || promoteBusy || denyBusy}
@@ -818,6 +904,14 @@ export default function PublishingDeskClient() {
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button
                               type="button"
+                              disabled={busy || draftReaderLoading}
+                              onClick={() => void openDraftReader(draft.filename)}
+                              className="rounded-md border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs font-medium text-slate-100 hover:border-cyan-600 disabled:opacity-50"
+                            >
+                              Read
+                            </button>
+                            <button
+                              type="button"
                               disabled={busy || !draft.promotable || promoteBusy || denyBusy}
                               onClick={() => void handlePromote(draft.filename, slug)}
                               className="rounded-md bg-cyan-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
@@ -996,6 +1090,124 @@ export default function PublishingDeskClient() {
           </div>
         ) : null}
       </div>
+
+      {draftReaderOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70 p-3 sm:items-center sm:p-6"
+          role="presentation"
+          onClick={closeDraftReader}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="publishing-draft-reader-title"
+            className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-950 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
+                  Quarantined draft
+                </p>
+                <h2
+                  id="publishing-draft-reader-title"
+                  className="mt-1 truncate text-lg font-semibold text-white"
+                >
+                  {draftReaderTitle ?? draftReaderFilename ?? "Draft"}
+                </h2>
+                {draftReaderFilename ? (
+                  <p className="mt-1 truncate font-mono text-[10px] text-slate-500">
+                    {draftReaderFilename}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={closeDraftReader}
+                className="shrink-0 rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-cyan-600"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 px-4 py-2 sm:px-5">
+              {draftReaderValidationOk == null ? null : (
+                <span
+                  className={`text-[10px] uppercase tracking-widest ${
+                    draftReaderValidationOk ? "text-emerald-400" : "text-amber-400"
+                  }`}
+                >
+                  {draftReaderValidationOk ? "validation ok" : "needs review"}
+                </span>
+              )}
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">
+                Full markdown · Escape to close
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+              {draftReaderLoading ? (
+                <p className="text-sm text-slate-400">Loading draft…</p>
+              ) : null}
+              {draftReaderError ? (
+                <p className="text-sm text-rose-300">{draftReaderError}</p>
+              ) : null}
+              {!draftReaderLoading && !draftReaderError && draftReaderMarkdown != null ? (
+                <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-slate-200">
+                  {draftReaderMarkdown}
+                </pre>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap gap-2 border-t border-slate-800 px-4 py-3 sm:px-5">
+              <button
+                type="button"
+                disabled={
+                  !draftReaderFilename ||
+                  decisionBusyFile === draftReaderFilename ||
+                  promoteBusy ||
+                  denyBusy ||
+                  draftReaderLoading
+                }
+                onClick={() => {
+                  if (!draftReaderFilename) return;
+                  void handlePromote(
+                    draftReaderFilename,
+                    slugFromQueueFilename(draftReaderFilename),
+                  );
+                }}
+                className="rounded-md bg-cyan-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={
+                  !draftReaderFilename ||
+                  decisionBusyFile === draftReaderFilename ||
+                  promoteBusy ||
+                  denyBusy ||
+                  draftReaderLoading
+                }
+                onClick={() => {
+                  if (!draftReaderFilename) return;
+                  void handleDenyDraft(draftReaderFilename);
+                }}
+                className="rounded-md border border-rose-800/80 bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-200 hover:border-rose-600 disabled:opacity-50"
+              >
+                Deny
+              </button>
+              <button
+                type="button"
+                onClick={closeDraftReader}
+                className="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-cyan-600"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

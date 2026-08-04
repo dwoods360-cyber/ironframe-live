@@ -82,6 +82,7 @@ export type BuyingCommitteeResearchResult = {
 
 type ContactRow = {
   id: string;
+  fullName: string;
   company: string;
   email: string;
   phone: string | null;
@@ -449,6 +450,7 @@ export async function researchBuyingCommitteeForContact(
     where: { id: contactId },
     select: {
       id: true,
+      fullName: true,
       company: true,
       email: true,
       phone: true,
@@ -835,6 +837,7 @@ export async function researchBuyingCommitteeForAllSuspects(): Promise<{
     take: 80,
     select: {
       id: true,
+      fullName: true,
       company: true,
       email: true,
       phone: true,

@@ -54,8 +54,12 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("Scorecard Free")).toBe(false);
     expect(isPlausiblePersonName("Readiness Tool")).toBe(false);
     expect(isPlausiblePersonName("IT Manager")).toBe(false);
+    expect(isPlausiblePersonName("Phishing Simulation")).toBe(false);
+    expect(isPlausiblePersonName("Knowledge Center")).toBe(false);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
+    expect(isPlausiblePersonName("Ali Hassani")).toBe(true);
+    expect(isPlausiblePersonName("Marguerite Fleming")).toBe(true);
   });
 
   it("discovers Meet the Team URLs from homepage nav (e.g. /company/meet-the-team/)", () => {

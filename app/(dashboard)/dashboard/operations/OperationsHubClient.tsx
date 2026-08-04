@@ -666,6 +666,7 @@ export default function OperationsHubClient() {
                   links: [
                     ["Publishing Desk", "/dashboard/operations/publishing?desk=briefings"],
                     ["Newsletters desk", "/dashboard/operations/publishing?desk=newsletters"],
+                    ["Research papers desk", "/dashboard/operations/publishing?desk=research"],
                     ["GF public", "/governance-frame"],
                   ],
                 },

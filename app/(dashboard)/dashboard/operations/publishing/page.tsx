@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Publishing Desk | Ironframe Operations",
   description:
-    "Quarantine → Approve / Deny → syndicate for Governance Frame briefings and Ironcast newsletters.",
+    "Quarantine → Approve / Deny → syndicate for Governance Frame briefings, research papers, and Ironcast newsletters.",
 };
 
 export default async function PublishingDeskPage() {

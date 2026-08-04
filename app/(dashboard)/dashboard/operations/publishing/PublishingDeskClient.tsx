@@ -4,20 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  isNewslettersDeskDraft,
+  isResearchDeskDraft,
+  isStrictNewsletterQueueDraft,
+  parsePublishingDeskTab,
+  publishingDeskHref,
+  publishingDeskTabForQueueDraft,
+  type PublishingDeskTab,
+} from "@/app/lib/governanceFrame/publishingDeskDraftKind";
 import type { OperationsHubSnapshot } from "@/app/lib/server/operationsHubCore";
 import { fetchOpsPortalJson } from "@/app/utils/fetchOpsPortalJson";
 
-type DeskTab = "briefings" | "newsletters";
-
-const DESK_TAB_IDS: DeskTab[] = ["briefings", "newsletters"];
-
-function parseDeskTab(raw: string | null): DeskTab {
-  return raw && DESK_TAB_IDS.includes(raw as DeskTab) ? (raw as DeskTab) : "briefings";
-}
-
-function publishingDeskHref(desk: DeskTab): string {
-  return `/dashboard/operations/publishing?desk=${desk}`;
-}
+type DeskTab = PublishingDeskTab;
 
 function DeskReviewBadges({
   deskReview,
@@ -55,7 +54,11 @@ export default function PublishingDeskClient() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [desk, setDesk] = useState<DeskTab>(() => parseDeskTab(searchParams.get("desk")));
+  const [desk, setDesk] = useState<DeskTab>(() => {
+    const fromParam = parsePublishingDeskTab(searchParams.get("desk"));
+    const draft = searchParams.get("draft")?.trim();
+    return draft ? publishingDeskTabForQueueDraft(draft) : fromParam;
+  });
   const [snapshot, setSnapshot] = useState<OperationsHubSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,15 +114,16 @@ export default function PublishingDeskClient() {
       setPromoteMessage(`Selected ${file} for promote / deny.`);
       setDecisionMessage(null);
 
+      const targetDesk = publishingDeskTabForQueueDraft(file);
       const params = new URLSearchParams(searchParams.toString());
-      params.set("desk", desk);
+      params.set("desk", targetDesk);
       params.set("draft", file);
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
 
       if (options?.scrollPromote !== false) {
         window.requestAnimationFrame(() => {
-          if (desk === "briefings") {
+          if (targetDesk === "briefings" || targetDesk === "research") {
             promotePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
             return;
           }
@@ -129,12 +133,26 @@ export default function PublishingDeskClient() {
         });
       }
     },
-    [desk, pathname, router, searchParams, slugFromQueueFilename],
+    [pathname, router, searchParams, slugFromQueueFilename],
   );
 
   useEffect(() => {
-    setDesk(parseDeskTab(searchParams.get("desk")));
-  }, [searchParams]);
+    const draft = searchParams.get("draft")?.trim();
+    if (draft) {
+      const targetDesk = publishingDeskTabForQueueDraft(draft);
+      setDesk(targetDesk);
+      const currentDesk = searchParams.get("desk");
+      if (currentDesk !== targetDesk) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("desk", targetDesk);
+        params.set("draft", draft);
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      }
+      return;
+    }
+    setDesk(parsePublishingDeskTab(searchParams.get("desk")));
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     if (!focusedDraft || loading) return;
@@ -244,19 +262,6 @@ export default function PublishingDeskClient() {
   }, [loadSnapshot]);
 
 
-  /** Strict Ironcast/newsletter filenames (autonomous or requested). */
-  const isStrictNewsletterQueueDraft = (filename: string) =>
-    /newsletter/i.test(filename) || /ironcast/i.test(filename);
-
-  /**
-   * Newsletters approve/deny desk: Ironcast drafts plus market series that syndicate
-   * as newsletter editions after Approve (e.g. *-draft-market-grc-*).
-   */
-  const isNewslettersDeskDraft = (filename: string) =>
-    isStrictNewsletterQueueDraft(filename) ||
-    /market-grc/i.test(filename) ||
-    /-draft-market-/i.test(filename);
-
   const newsletterQueueDrafts = useMemo(() => {
     if (!snapshot) return [];
     return snapshot.briefings.queueDrafts.filter(
@@ -264,13 +269,29 @@ export default function PublishingDeskClient() {
     );
   }, [snapshot]);
 
-  /** Briefings desk keeps governance drafts that are not strict Ironcast newsletter names. */
+  const researchQueueDrafts = useMemo(() => {
+    if (!snapshot) return [];
+    return snapshot.briefings.queueDrafts.filter((draft) =>
+      isResearchDeskDraft(draft.filename),
+    );
+  }, [snapshot]);
+
+  /** Briefings desk: exclude Ironcast newsletters and research-paper queue drafts. */
   const briefingQueueDrafts = useMemo(() => {
     if (!snapshot) return [];
     return snapshot.briefings.queueDrafts.filter(
-      (draft) => !isStrictNewsletterQueueDraft(draft.filename),
+      (draft) =>
+        !isStrictNewsletterQueueDraft(draft.filename) &&
+        !isResearchDeskDraft(draft.filename),
     );
   }, [snapshot]);
+
+  const activeQueueDrafts =
+    desk === "research"
+      ? researchQueueDrafts
+      : desk === "newsletters"
+        ? newsletterQueueDrafts
+        : briefingQueueDrafts;
 
   const handlePromote = async (filenameOverride?: string, slugOverride?: string) => {
     const file = (filenameOverride ?? promoteFile).trim();
@@ -530,7 +551,10 @@ export default function PublishingDeskClient() {
   const tabs: Array<{ id: DeskTab; label: string }> = [
     { id: "briefings", label: "Briefings" },
     { id: "newsletters", label: "Newsletters" },
+    { id: "research", label: "Research papers" },
   ];
+
+  const isBriefingsOrResearchDesk = desk === "briefings" || desk === "research";
 
   return (
     <div className="min-h-screen bg-[#020617] p-4 text-slate-100 sm:p-6">
@@ -584,14 +608,34 @@ export default function PublishingDeskClient() {
         {error ? <div className="rounded-xl border border-rose-900/50 bg-rose-950/30 p-4 text-sm text-rose-200">{error}</div> : null}
         {loading && !snapshot ? <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-8 text-center text-slate-400">Loading publishing snapshot…</div> : null}
 
-        {snapshot && desk === "briefings" ? (
+        {snapshot && isBriefingsOrResearchDesk ? (
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-lg font-semibold text-white">Quarantined drafts</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {desk === "research" ? "Research paper drafts" : "Quarantined drafts"}
+              </h2>
               <p className="mt-1 text-sm text-slate-400">
-                Weekday autonomous GTM cron and manual requests stage here only. Use{" "}
-                <span className="text-slate-300">Read</span> for the full manuscript. Nothing publishes
-                until you Approve (promote) or Deny.
+                {desk === "research" ? (
+                  <>
+                    Industry research queue files (
+                    <span className="font-mono text-slate-300">*-draft-research-*</span>
+                    ). Use <span className="text-slate-300">Read</span> for the full manuscript.
+                    Nothing publishes until you Approve (promote) or Deny.
+                  </>
+                ) : (
+                  <>
+                    Weekday autonomous GTM cron and manual requests stage here only. Use{" "}
+                    <span className="text-slate-300">Read</span> for the full manuscript. Nothing publishes
+                    until you Approve (promote) or Deny. Research paper drafts live under{" "}
+                    <Link
+                      href={publishingDeskHref("research")}
+                      className="text-cyan-300 hover:underline"
+                    >
+                      Research papers
+                    </Link>
+                    .
+                  </>
+                )}
               </p>
               {decisionMessage ? (
                 <p
@@ -605,13 +649,22 @@ export default function PublishingDeskClient() {
                 </p>
               ) : null}
               <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-                {briefingQueueDrafts.length === 0 ? (
+                {activeQueueDrafts.length === 0 ? (
                   <li className="text-sm text-slate-500">
-                    No briefing drafts awaiting review. Autonomous weekday runs land as{" "}
-                    <span className="font-mono text-slate-400">*-draft-auto-briefing-*</span>.
+                    {desk === "research" ? (
+                      <>
+                        No research drafts awaiting review. Look for{" "}
+                        <span className="font-mono text-slate-400">*-draft-research-*</span>.
+                      </>
+                    ) : (
+                      <>
+                        No briefing drafts awaiting review. Autonomous weekday runs land as{" "}
+                        <span className="font-mono text-slate-400">*-draft-auto-briefing-*</span>.
+                      </>
+                    )}
                   </li>
                 ) : (
-                  briefingQueueDrafts.map((draft) => {
+                  activeQueueDrafts.map((draft) => {
                     const busy = decisionBusyFile === draft.filename;
                     const slug = slugFromQueueFilename(draft.filename);
                     const selected =
@@ -652,6 +705,9 @@ export default function PublishingDeskClient() {
                           <DeskReviewBadges deskReview={draft.deskReview} />
                           {/auto-briefing/i.test(draft.filename) ? (
                             <span className="text-violet-300">autonomous</span>
+                          ) : null}
+                          {isResearchDeskDraft(draft.filename) ? (
+                            <span className="text-teal-300">research</span>
                           ) : null}
                           {/gf-desk/i.test(draft.filename) ? (
                             <span className="text-cyan-300">gf desk</span>
@@ -748,6 +804,7 @@ export default function PublishingDeskClient() {
                   <p className="mt-3 text-sm text-slate-300">{deskMessage}</p>
                 ) : null}
               </div>
+              {desk === "briefings" ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
                 <h2 className="text-lg font-semibold text-white">Request series (queue only)</h2>
                 <p className="mt-1 text-sm text-slate-400">
@@ -778,6 +835,7 @@ export default function PublishingDeskClient() {
                   <p className="mt-3 text-sm text-slate-300">{requestMessage}</p>
                 ) : null}
               </div>
+              ) : null}
               <div
                 id="briefings-promote-panel"
                 ref={promotePanelRef}
@@ -829,9 +887,32 @@ export default function PublishingDeskClient() {
                 </div>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-                <h2 className="text-lg font-semibold text-white">Published briefings</h2>
+                <h2 className="text-lg font-semibold text-white">
+                  {desk === "research" ? "Published research briefs" : "Published briefings"}
+                </h2>
+                {desk === "research" ? (
+                  <p className="mt-1 text-sm text-slate-400">
+                    Live on{" "}
+                    <a
+                      href="https://research.ironframegrc.com/research-papers"
+                      className="text-cyan-300 hover:underline"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      research.ironframegrc.com/research-papers
+                    </a>
+                    .
+                  </p>
+                ) : null}
                 <ul className="mt-4 space-y-2">
-                  {snapshot.briefings.published.map((briefing) => (
+                  {(desk === "research"
+                    ? snapshot.briefings.published.filter((row) =>
+                        /^Industry Research Brief\b/i.test(row.title),
+                      )
+                    : snapshot.briefings.published.filter(
+                        (row) => !/^Industry Research Brief\b/i.test(row.title),
+                      )
+                  ).map((briefing) => (
                     <li key={briefing.slug} className="flex items-center justify-between gap-3 text-sm">
                       <span className="text-slate-200">{briefing.title}</span>
                       <Link
@@ -1021,7 +1102,10 @@ export default function PublishingDeskClient() {
                     Governance Frame reader
                   </Link>
                   <Link href="/dashboard/operations/publishing?desk=briefings" className="text-cyan-300 hover:underline">
-                    Review / promote queue
+                    Briefings queue
+                  </Link>
+                  <Link href="/dashboard/operations/publishing?desk=research" className="text-cyan-300 hover:underline">
+                    Research papers queue
                   </Link>
                 </div>
                 <div className="mt-5 space-y-3">

@@ -27,7 +27,8 @@ export function hrefForOpsSourceRef(
       kind === "NEWSLETTER_REVIEW" ||
       kind === "NEWSLETTER_DRAFT" ||
       kind === "NEWSLETTER_SYNDICATE";
-    const desk = isNewsletter ? "newsletters" : "briefings";
+    const isResearch = /-draft-research-/i.test(file) || /^draft-research-/i.test(file);
+    const desk = isNewsletter ? "newsletters" : isResearch ? "research" : "briefings";
     return `/dashboard/operations/publishing?desk=${desk}&draft=${encodeURIComponent(file)}`;
   }
 
@@ -85,7 +86,7 @@ export function hrefForOpsSourceRef(
   }
 
   if (base.startsWith("eng/eu-ai-act") || base.startsWith("eng/board-packet-ai-act")) {
-    return "/dashboard/operations/publishing?desk=briefings&draft=2026-08-02-draft-research-eu-ai-act-august.md";
+    return "/dashboard/operations/publishing?desk=research&draft=2026-08-02-draft-research-eu-ai-act-august.md";
   }
   if (base.startsWith("eng/nydfs") || base.startsWith("eng/cmmc")) {
     return "/docs/stakeholder-deck";

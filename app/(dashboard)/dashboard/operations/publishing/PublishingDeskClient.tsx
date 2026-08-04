@@ -585,7 +585,15 @@ export default function PublishingDeskClient() {
                 until you Approve (promote) or Deny.
               </p>
               {decisionMessage ? (
-                <p className="mt-2 text-sm text-slate-300">{decisionMessage}</p>
+                <p
+                  className={`mt-2 text-sm ${
+                    /fail|block|error|invalid|denied/i.test(decisionMessage)
+                      ? "text-rose-300"
+                      : "text-emerald-200"
+                  }`}
+                >
+                  {decisionMessage}
+                </p>
               ) : null}
               <ul className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
                 {briefingQueueDrafts.length === 0 ? (
@@ -1144,6 +1152,18 @@ export default function PublishingDeskClient() {
                 Full markdown · Escape to close
               </span>
             </div>
+
+            {decisionMessage ? (
+              <div
+                className={`border-b px-4 py-2 text-sm sm:px-5 ${
+                  /fail|block|error|invalid|denied/i.test(decisionMessage)
+                    ? "border-rose-900/60 bg-rose-950/40 text-rose-200"
+                    : "border-emerald-900/50 bg-emerald-950/30 text-emerald-200"
+                }`}
+              >
+                {decisionMessage}
+              </div>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
               {draftReaderLoading ? (

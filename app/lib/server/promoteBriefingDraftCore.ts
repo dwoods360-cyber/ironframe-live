@@ -99,7 +99,7 @@ export async function promoteBriefingDraftCore(
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Briefing data-test acknowledgement required.",
-      hint: "Set IRONFRAME_BRIEFING_DATA_TEST_ACK=1 in local Core .env and restart the Next.js server, then Approve again.",
+      hint: "Set IRONFRAME_BRIEFING_DATA_TEST_ACK=1 in the deployment environment (Vercel Production / local .env), redeploy if needed, then Approve again.",
     };
   }
 

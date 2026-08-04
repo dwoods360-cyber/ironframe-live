@@ -230,12 +230,20 @@ async function listBriefingQueueDrafts(docsRoot: string): Promise<BriefingQueueD
   if (!fs.existsSync(queueDir)) return [];
 
   const denied = await listDeniedBriefingFilenames();
+  const publishedRows = await prisma.publishedBriefing.findMany({
+    select: { slug: true },
+  });
+  const publishedSlugs = new Set(publishedRows.map((row) => row.slug.toLowerCase()));
+
+  const slugFromQueueFilename = (filename: string) =>
+    filename.replace(/-draft-/i, "-").replace(/\.md$/i, "").toLowerCase();
 
   return fs
     .readdirSync(queueDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .filter((entry) => !QUARANTINE_ALLOWLIST.has(entry.name.toLowerCase()))
     .filter((entry) => !denied.has(entry.name))
+    .filter((entry) => !publishedSlugs.has(slugFromQueueFilename(entry.name)))
     .map((entry) => {
       const filePath = path.join(queueDir, entry.name);
       const markdown = fs.readFileSync(filePath, "utf-8");

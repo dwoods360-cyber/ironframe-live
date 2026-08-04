@@ -1,5 +1,7 @@
 import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/GovernanceFrameBrandLockup";
+import BriefingArchiveDirectory from "@/app/components/governanceFrame/BriefingArchiveDirectory";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
+import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   classifyPublishedLedgerItem,
@@ -27,6 +29,7 @@ export default async function GovernanceFrameResearchHomePage() {
   const newslettersOnly = ledger.filter(
     (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "newsletter",
   );
+  const briefingArchive = listBriefingArchiveEntries(ledger);
 
   const recentPapers = [
     ...papers.map((paper) => ({
@@ -49,220 +52,226 @@ export default async function GovernanceFrameResearchHomePage() {
   const recentNewsletters = newslettersOnly.slice(-5).reverse();
 
   return (
-    <div className="space-y-16">
-      {/* First viewport: one composition — brand, one line, one sentence, CTAs */}
-      <section
-        aria-labelledby="gf-home-heading"
-        className="gf-rise relative overflow-hidden px-1 py-4 sm:py-6"
-      >
-        <div
-          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full opacity-40"
-          style={{
-            background: "radial-gradient(circle, var(--gf-accent-glow), transparent 68%)",
-          }}
-          aria-hidden
-        />
-        <GovernanceFrameBrandLockup variant="research" size="hero" className="gf-rise relative" />
-        <h2 id="gf-home-heading" className="sr-only">
-          Governance Frame Research
-        </h2>
-        <p className="gf-rise-delay relative mt-6 max-w-2xl font-[family-name:var(--font-gf-serif)] text-xl leading-snug text-[var(--gf-ink-soft)] sm:text-2xl">
-          Independent research on governance, risk, and compliance.
-        </p>
-        <p className="gf-rise-delay-2 relative mt-3 max-w-xl font-[family-name:var(--font-gf-sans)] text-base leading-relaxed text-[var(--gf-muted)]">
-          Vendor-neutral analysis for executives and practitioners — evidence-led, corrected when
-          wrong, never a product brochure.
-        </p>
-        <div className="gf-rise-delay-2 relative mt-7 flex flex-wrap gap-3">
-          <ResearchLink
-            href="/research-papers"
-            className="inline-flex items-center rounded-md bg-[var(--gf-accent-deep)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-white no-underline transition hover:bg-[var(--gf-accent)]"
-          >
-            Research papers
-          </ResearchLink>
-          <ResearchLink
-            href="/briefings"
-            className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
-          >
-            Briefings
-          </ResearchLink>
-          <ResearchLink
-            href="/newsletters"
-            className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
-          >
-            Newsletters
-          </ResearchLink>
-          <ResearchLink
-            href="/methodology"
-            className="inline-flex items-center px-2 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-brass)] no-underline hover:underline"
-          >
-            Methodology →
-          </ResearchLink>
-        </div>
-      </section>
-
-      <section aria-labelledby="gf-papers-heading" className="space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h3
-            id="gf-papers-heading"
-            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
-          >
-            Research papers
-          </h3>
-          <ResearchLink
-            href="/research-papers"
-            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
-          >
-            View all
-          </ResearchLink>
-        </div>
-        {recentPapers.length === 0 ? (
-          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
-            No published research papers yet. Editorial manuscripts stay private until Approve.
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,17.5rem)] lg:items-start lg:gap-10 xl:gap-12">
+      <div className="space-y-16">
+        {/* First viewport: one composition — brand, one line, one sentence, CTAs */}
+        <section
+          aria-labelledby="gf-home-heading"
+          className="gf-rise relative overflow-hidden px-1 py-4 sm:py-6"
+        >
+          <div
+            className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full opacity-40"
+            style={{
+              background: "radial-gradient(circle, var(--gf-accent-glow), transparent 68%)",
+            }}
+            aria-hidden
+          />
+          <GovernanceFrameBrandLockup variant="research" size="hero" className="gf-rise relative" />
+          <h2 id="gf-home-heading" className="sr-only">
+            Governance Frame Research
+          </h2>
+          <p className="gf-rise-delay relative mt-6 max-w-2xl font-[family-name:var(--font-gf-serif)] text-xl leading-snug text-[var(--gf-ink-soft)] sm:text-2xl">
+            Independent research on governance, risk, and compliance.
           </p>
-        ) : (
+          <p className="gf-rise-delay-2 relative mt-3 max-w-xl font-[family-name:var(--font-gf-sans)] text-base leading-relaxed text-[var(--gf-muted)]">
+            Vendor-neutral analysis for executives and practitioners — evidence-led, corrected when
+            wrong, never a product brochure.
+          </p>
+          <div className="gf-rise-delay-2 relative mt-7 flex flex-wrap gap-3">
+            <ResearchLink
+              href="/research-papers"
+              className="inline-flex items-center rounded-md bg-[var(--gf-accent-deep)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-white no-underline transition hover:bg-[var(--gf-accent)]"
+            >
+              Research papers
+            </ResearchLink>
+            <ResearchLink
+              href="/briefings"
+              className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
+            >
+              Briefings
+            </ResearchLink>
+            <ResearchLink
+              href="/newsletters"
+              className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
+            >
+              Newsletters
+            </ResearchLink>
+            <ResearchLink
+              href="/methodology"
+              className="inline-flex items-center px-2 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-brass)] no-underline hover:underline"
+            >
+              Methodology →
+            </ResearchLink>
+          </div>
+        </section>
+
+        <section aria-labelledby="gf-papers-heading" className="space-y-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3
+              id="gf-papers-heading"
+              className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+            >
+              Research papers
+            </h3>
+            <ResearchLink
+              href="/research-papers"
+              className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              View all
+            </ResearchLink>
+          </div>
+          {recentPapers.length === 0 ? (
+            <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+              No published research papers yet. Editorial manuscripts stay private until Approve.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+              {recentPapers.map((paper) => (
+                <li key={paper.key}>
+                  <ResearchLink
+                    href={paper.href}
+                    className="block py-5 no-underline transition hover:bg-white/40"
+                  >
+                    <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
+                      {paper.eyebrow}
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                      {paper.title}
+                    </p>
+                    {paper.meta ? (
+                      <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                        {paper.meta}
+                      </p>
+                    ) : null}
+                  </ResearchLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="gf-briefings-heading" className="space-y-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3
+              id="gf-briefings-heading"
+              className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+            >
+              Briefings
+            </h3>
+            <ResearchLink
+              href="/briefings"
+              className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              View all
+            </ResearchLink>
+          </div>
+          {recentBriefings.length === 0 ? (
+            <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+              No published briefings yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+              {recentBriefings.map((briefing) => (
+                <li key={briefing.slug}>
+                  <ResearchLink
+                    href={`/briefings/${briefing.slug}`}
+                    className="block py-5 no-underline transition hover:bg-white/40"
+                  >
+                    <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                      {briefing.title}
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                      {briefing.slug}
+                    </p>
+                  </ResearchLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="gf-newsletters-heading" className="space-y-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3
+              id="gf-newsletters-heading"
+              className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+            >
+              Newsletters
+            </h3>
+            <ResearchLink
+              href="/newsletters"
+              className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              View all
+            </ResearchLink>
+          </div>
+          {recentNewsletters.length === 0 ? (
+            <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+              No published newsletter editions yet.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+              {recentNewsletters.map((edition) => (
+                <li key={edition.slug}>
+                  <ResearchLink
+                    href={`/briefings/${edition.slug}`}
+                    className="block py-5 no-underline transition hover:bg-white/40"
+                  >
+                    <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                      {edition.title}
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                      {edition.slug}
+                    </p>
+                  </ResearchLink>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="gf-series-heading" className="space-y-5">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3
+              id="gf-series-heading"
+              className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+            >
+              Series
+            </h3>
+            <ResearchLink
+              href="/series"
+              className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+            >
+              View all
+            </ResearchLink>
+          </div>
           <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {recentPapers.map((paper) => (
-              <li key={paper.key}>
+            {series.map((item) => (
+              <li key={item.seriesId}>
                 <ResearchLink
-                  href={paper.href}
+                  href={`/series/${item.seriesId}`}
                   className="block py-5 no-underline transition hover:bg-white/40"
                 >
-                  <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
-                    {paper.eyebrow}
+                  <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
+                    {item.seriesId}
                   </p>
                   <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                    {paper.title}
-                  </p>
-                  {paper.meta ? (
-                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                      {paper.meta}
-                    </p>
-                  ) : null}
-                </ResearchLink>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="gf-briefings-heading" className="space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h3
-            id="gf-briefings-heading"
-            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
-          >
-            Briefings
-          </h3>
-          <ResearchLink
-            href="/briefings"
-            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
-          >
-            View all
-          </ResearchLink>
-        </div>
-        {recentBriefings.length === 0 ? (
-          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
-            No published briefings yet.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {recentBriefings.map((briefing) => (
-              <li key={briefing.slug}>
-                <ResearchLink
-                  href={`/briefings/${briefing.slug}`}
-                  className="block py-5 no-underline transition hover:bg-white/40"
-                >
-                  <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                    {briefing.title}
+                    {item.title}
                   </p>
                   <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                    {briefing.slug}
+                    {item.installments.length} installment
+                    {item.installments.length === 1 ? "" : "s"}
                   </p>
                 </ResearchLink>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      </div>
 
-      <section aria-labelledby="gf-newsletters-heading" className="space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h3
-            id="gf-newsletters-heading"
-            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
-          >
-            Newsletters
-          </h3>
-          <ResearchLink
-            href="/newsletters"
-            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
-          >
-            View all
-          </ResearchLink>
-        </div>
-        {recentNewsletters.length === 0 ? (
-          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
-            No published newsletter editions yet.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {recentNewsletters.map((edition) => (
-              <li key={edition.slug}>
-                <ResearchLink
-                  href={`/briefings/${edition.slug}`}
-                  className="block py-5 no-underline transition hover:bg-white/40"
-                >
-                  <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                    {edition.title}
-                  </p>
-                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                    {edition.slug}
-                  </p>
-                </ResearchLink>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="gf-series-heading" className="space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <h3
-            id="gf-series-heading"
-            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
-          >
-            Series
-          </h3>
-          <ResearchLink
-            href="/series"
-            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
-          >
-            View all
-          </ResearchLink>
-        </div>
-        <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-          {series.map((item) => (
-            <li key={item.seriesId}>
-              <ResearchLink
-                href={`/series/${item.seriesId}`}
-                className="block py-5 no-underline transition hover:bg-white/40"
-              >
-                <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]">
-                  {item.seriesId}
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
-                  {item.title}
-                </p>
-                <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                  {item.installments.length} installment
-                  {item.installments.length === 1 ? "" : "s"}
-                </p>
-              </ResearchLink>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div className="mt-14 border-t border-[var(--gf-line)] pt-8 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-4">
+        <BriefingArchiveDirectory entries={briefingArchive} />
+      </div>
     </div>
   );
 }

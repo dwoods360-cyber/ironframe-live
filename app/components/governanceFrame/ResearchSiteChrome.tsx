@@ -85,7 +85,7 @@ export default function ResearchSiteChrome({
         />
 
         <header className="border-b border-[var(--gf-line)]/70 bg-[color-mix(in_srgb,var(--gf-paper-elevated)_82%,transparent)] backdrop-blur-md">
-          <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:py-6">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:py-6">
             <ResearchLink href="/" className="w-fit shrink-0 no-underline">
               <GovernanceFrameBrandLockup variant="research" />
             </ResearchLink>
@@ -106,10 +106,10 @@ export default function ResearchSiteChrome({
           </div>
         </header>
 
-        <main className="mx-auto max-w-5xl px-6 py-10 sm:py-12">{children}</main>
+        <main className="mx-auto max-w-6xl px-6 py-10 sm:py-12">{children}</main>
 
         <footer className="border-t border-[var(--gf-line)] bg-[color-mix(in_srgb,var(--gf-accent-deep)_12%,var(--gf-paper))]">
-          <div className="mx-auto flex max-w-5xl flex-col gap-3 px-6 py-8 font-[family-name:var(--font-gf-sans)] text-xs leading-relaxed text-[var(--gf-muted)] sm:flex-row sm:items-end sm:justify-between">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-8 font-[family-name:var(--font-gf-sans)] text-xs leading-relaxed text-[var(--gf-muted)] sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-xl space-y-1">
               <p className="font-[family-name:var(--font-gf-serif)] text-sm text-[var(--gf-ink)]">
                 Governance Frame Research

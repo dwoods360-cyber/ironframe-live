@@ -1,0 +1,54 @@
+# Ironleads Google Programmable Search — Sites to search (max 50)
+# Paste into CSE Control Panel → Sites to search (one pattern per line).
+# Open-web "Search the entire web" is retired for new engines (2026-01-20+).
+# These are press / channel / cyber media sources where MSSP leadership
+# appointments are typically indexed — NOT each prospect's own domain.
+
+*.businesswire.com/*
+*.prnewswire.com/*
+*.globenewswire.com/*
+*.einpresswire.com/*
+*.newswire.com/*
+*.accesswire.com/*
+*.benzinga.com/*
+*.bloomberg.com/*
+*.reuters.com/*
+*.prweb.com/*
+*.darkreading.com/*
+*.scmagazine.com/*
+*.scworld.com/*
+*.securityweek.com/*
+*.cybersecuritydive.com/*
+*.thehackernews.com/*
+*.msspalert.com/*
+*.channelere2e.com/*
+*.crn.com/*
+*.channelpartnersonline.com/*
+*.sdxcentral.com/*
+*.zdnet.com/*
+*.techrepublic.com/*
+*.techcrunch.com/*
+*.venturebeat.com/*
+*.forbes.com/*
+*.businessinsider.com/*
+*.csoonline.com/*
+*.infosecurity-magazine.com/*
+*.helpnetsecurity.com/*
+*.cybersecasia.net/*
+*.securityboulevard.com/*
+*.bankinfosecurity.com/*
+*.govinfosecurity.com/*
+*.healthcareinfosecurity.com/*
+*.itsecurityguru.org/*
+*.cyberriskalliance.com/*
+*.cybersecurityventures.com/*
+*.channelnomics.com/*
+*.msp-channel.com/*
+*.mspsuccess.com/*
+*.managedservices.com/*
+*.clutch.co/*
+*.g2.com/*
+*.capterra.com/*
+*.linkedin.com/*
+*.youtube.com/*
+*.wikipedia.org/*

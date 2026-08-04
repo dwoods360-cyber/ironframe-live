@@ -4,7 +4,13 @@ import "server-only";
  * Google Programmable Search (Custom Search JSON API) — leadership OSINT only.
  * Never scrapes google.com/search HTML (blocked / ToS). Requires:
  *   GOOGLE_CSE_API_KEY (or GOOGLE_CUSTOM_SEARCH_API_KEY)
- *   GOOGLE_CSE_CX (Programmable Search Engine ID, search-the-entire-web)
+ *   GOOGLE_CSE_CX (Programmable Search Engine ID)
+ *
+ * As of 2026-01-20, new CSE engines cannot "Search the entire web" — they are
+ * limited to ≤50 Sites to search. Seed those from
+ * docs/ops/google-cse-ironleads-sites.txt (press / cyber / channel media).
+ * Do not add *.com or per-MSSP domains (50-domain cap + public-suffix ban).
+ *
  * Free tier is typically 100 queries/day — Research only calls this when the
  * site scrape left the dossier thin.
  */
@@ -45,15 +51,15 @@ export function isGoogleLeadershipSearchConfigured(): boolean {
   return Boolean(getCseApiKey() && getCseCx());
 }
 
-function buildLeadershipQuery(company: string, domain: string | null): string {
+function buildLeadershipQuery(company: string, _domain: string | null): string {
   const firm = company.trim().replace(/"/g, "");
-  const domainClause = domain ? ` OR site:${domain.replace(/^www\./, "")}` : "";
-  // Prefer appointment / role prose Google indexes from press + firm pages.
-  return `"${firm}" (CEO OR CISO OR Founder OR "Managing Director" OR CFO OR "Chief Information Security") (appointed OR joins OR "is the" OR founder)${domainClause}`;
+  // Do not append site:{prospectDomain} — new CSE engines only search the ≤50
+  // allowlisted media domains (see docs/ops/google-cse-ironleads-sites.txt).
+  return `"${firm}" (CEO OR CISO OR Founder OR "Managing Director" OR CFO OR "Chief Information Security") (appointed OR joins OR "is the" OR founder)`;
 }
 
 /**
- * Search the open web for leadership mentions for one company.
+ * Search allowlisted press/cyber media for leadership mentions for one company.
  * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
  */
 export async function searchCompanyLeadership(input: {
@@ -68,7 +74,7 @@ export async function searchCompanyLeadership(input: {
       ok: false,
       configured: false,
       error:
-        "GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX are not set. Create a Programmable Search Engine (entire web) and enable Custom Search API.",
+        "GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX are not set. Create a Programmable Search Engine, add ≤50 Sites to search (docs/ops/google-cse-ironleads-sites.txt), and enable Custom Search API.",
       status: 503,
     };
   }

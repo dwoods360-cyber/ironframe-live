@@ -791,7 +791,7 @@ async function persistResearch(
           contact.fullName && !isPlausiblePersonName(contact.fullName)
           ? {
               fullName: `${contact.company} — buyer TBD`,
-              title: null,
+              title: "",
             }
           : {}),
     },

@@ -25,6 +25,10 @@ import {
   mailboxHygieneLabel,
   type MailboxHygieneResult,
 } from "@/app/lib/server/emailMailboxHygiene";
+import {
+  isGoogleLeadershipSearchConfigured,
+  searchCompanyLeadership,
+} from "@/app/lib/server/googleLeadershipSearchClient";
 import { scoreSuspectReadiness } from "@/app/lib/ironleadsSuspectReadiness";
 import { isOperatorHoldArchived } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import {
@@ -601,6 +605,55 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
+  // Optional Google Programmable Search — fill leadership names when the site
+  // scrape left no plausible people (never scrapes google.com HTML).
+  let googleCorpus = "";
+  let googleSourceUrls: string[] = [];
+  const plausibleNamed = result.members.filter(
+    (m) => m.fullName && isPlausiblePersonName(m.fullName),
+  ).length;
+  if (plausibleNamed === 0 && isGoogleLeadershipSearchConfigured()) {
+    const google = await searchCompanyLeadership({
+      company: contact.company,
+      domain: accountDomain,
+    });
+    if (google.ok && google.corpus.trim()) {
+      googleCorpus = google.corpus;
+      googleSourceUrls = google.sourceUrls;
+      const googlePeople = extractBuyingPersons(google.corpus).filter((p) =>
+        isPlausiblePersonName(p.fullName),
+      );
+      if (googlePeople.length > 0) {
+        const googleMembers = buildMembers({
+          people: googlePeople,
+          emails: [],
+          phones: [],
+          sourceUrls: googleSourceUrls,
+          accountDomain,
+        });
+        const byRole = new Map(result.members.map((m) => [m.role, m] as const));
+        for (const member of googleMembers) {
+          if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
+          if (byRole.has(member.role)) continue;
+          byRole.set(member.role, {
+            ...member,
+            note:
+              member.note ??
+              "Google Programmable Search — press/web snippet (confirm before Promote)",
+            sourceUrls:
+              member.sourceUrls.length > 0 ? member.sourceUrls : googleSourceUrls.slice(0, 4),
+          });
+        }
+        result = {
+          ...result,
+          skipped: false,
+          skipReason: null,
+          members: [...byRole.values()],
+        };
+      }
+    }
+  }
+
   if (result.members.length > 0) {
     result = {
       ...result,
@@ -609,23 +662,48 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
   }
 
   const corpus =
-    pages.length || socialPages.length
-      ? [...pages.map((p) => p.text), ...socialPages.map((p) => p.text)].join(" \n ")
+    pages.length || socialPages.length || googleCorpus
+      ? [
+          ...pages.map((p) => p.text),
+          ...socialPages.map((p) => p.text),
+          googleCorpus,
+        ]
+          .filter(Boolean)
+          .join(" \n ")
       : "";
   const sourceUrls = [
     ...pages.map((p) => p.url),
     ...socialPages.map((p) => p.url),
+    ...googleSourceUrls,
     ...result.members.flatMap((m) => m.sourceUrls),
   ];
 
-  await persistResearch(contact, result, { corpus, sourceUrls });
+  await persistResearch(contact, result, {
+    corpus,
+    sourceUrls,
+    googleLeadershipSearch: googleCorpus
+      ? {
+          queriedAt: researchedAt,
+          hitCount: googleSourceUrls.length,
+          sourceUrls: googleSourceUrls.slice(0, 8),
+        }
+      : null,
+  });
   return result;
 }
 
 async function persistResearch(
   contact: ContactRow,
   result: BuyingCommitteeResearchResult,
-  evidence: { corpus: string; sourceUrls: string[] },
+  evidence: {
+    corpus: string;
+    sourceUrls: string[];
+    googleLeadershipSearch?: {
+      queriedAt: string;
+      hitCount: number;
+      sourceUrls: string[];
+    } | null;
+  },
 ): Promise<void> {
   const IRONLEADS_LOCAL = /@ironleads\.local$/i;
   const hasRealEmail = Boolean(contact.email) && !IRONLEADS_LOCAL.test(contact.email);
@@ -754,6 +832,9 @@ async function persistResearch(
       members: result.members,
       socialProfiles: result.socialProfiles,
       socialPagesFetched: result.socialPagesFetched,
+      ...(evidence.googleLeadershipSearch
+        ? { googleLeadershipSearch: evidence.googleLeadershipSearch }
+        : {}),
     },
     accountResearchBrief: brief,
     publicSocialProfiles: result.socialProfiles,

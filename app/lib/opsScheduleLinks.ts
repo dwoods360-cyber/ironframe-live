@@ -79,7 +79,7 @@ export function hrefForOpsSourceRef(
     return "/dashboard/operations/publishing?desk=newsletters";
   }
   if (base === "marketing/companion-story-bank") {
-    return "/docs/marketing-strategy/content-calendar";
+    return "/docs/marketing-strategy/video-series/when-risk-enters-the-room";
   }
   if (base === "queue/archive-cf-grc-mirrors") {
     return "/dashboard/operations/publishing?desk=briefings";

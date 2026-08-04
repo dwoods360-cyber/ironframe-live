@@ -5,8 +5,43 @@
     <link>https://research.ironframegrc.com</link>
     <description>Independent Governance Frame research and industry briefings from Ironframe GRC.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 04 Aug 2026 17:22:54 GMT</lastBuildDate>
+    <lastBuildDate>Tue, 04 Aug 2026 21:21:01 GMT</lastBuildDate>
     <generator>Ironframe Governance Frame RSS Compiler</generator>
+    <item>
+      <title>Industry Research Brief — DORA in Active Supervision: Examination Readiness Across EU Financial Authorities</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-research-dora-supervision</guid>
+      <pubDate>Tue, 04 Aug 2026 21:21:00 GMT</pubDate>
+      <description>DORA has applied since 17 January 2025. By August 2026, competent authorities are conducting active, authority-specific supervision—not one EU-wide examination programme. Financial entities need examination-ready evidence for management-body oversight, ICT-framework review, incident clocks, resilience testing, third-party registers and contracts, concentration and substitutability, exit planning, and remediation closure. Critical ICT third-party oversight is distinct from entity-level supervision.</description>
+    </item>
+    <item>
+      <title>Industry Research Brief — Evolution of GRC: Persistent Pain Points and Historical Mitigations (2002–2026)</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-evolution</guid>
+      <pubDate>Tue, 04 Aug 2026 19:09:02 GMT</pubDate>
+      <description>Governance, risk and compliance practices have evolved from formal internal-control assessment and document-centred assurance toward integrated cyber governance, operational resilience and automation-supported evidence. Across these periods, research and public enforcement records show persistent challenges involving spreadsheet lifecycle controls, evidence traceability, risk communication, third-party dependencies and access boundaries—without treating exact-dollar certainty, physical tenant separation or universal AI review as mandatory in every environment. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>Industry Research Brief — Current GRC Pain Points and Control-First Alleviation Paths</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-15-research-grc-current-pain</guid>
+      <pubDate>Tue, 04 Aug 2026 19:03:57 GMT</pubDate>
+      <description>Organisations continue to face control risks when evidence is manually assembled, risk estimates conceal uncertainty, external data enters trusted workflows without validation, tenant boundaries depend only on application conventions, or AI-generated content is used without risk-appropriate review. This brief maps five current GRC pain themes to enforceable, testable alleviation requirements—correcting prior misattributions of SolarWinds and SOX 404 figures and refusing incomparable financial aggregation. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>Governance Frame Australia — August 2026: After the Tranche 2 Enrolment Deadline</title>
+      <link>https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-06-16-newsletter-austrac-tranche-2</guid>
+      <pubDate>Tue, 04 Aug 2026 18:14:05 GMT</pubDate>
+      <description>Australia’s expanded AML/CTF regime is now in force for newly regulated designated services. This August newsletter reads the post–July 29 landscape: who is actually covered, what enrolment did and did not achieve, how senior-manager approval differs from governing-body oversight, and which dealer, CDD, officer-notification and independent-evaluation controls must still be evidenced. Information reviewed through August 4, 2026.</description>
+    </item>
+    <item>
+      <title>Governance Frame Europe — July 2026: CSRD After Omnibus I and the Revised ESRS</title>
+      <link>https://research.ironframegrc.com/briefings/2026-07-16-newsletter-csrd-omnibus-esrs</link>
+      <guid isPermaLink="true">https://research.ironframegrc.com/briefings/2026-07-16-newsletter-csrd-omnibus-esrs</guid>
+      <pubDate>Tue, 04 Aug 2026 18:05:03 GMT</pubDate>
+      <description>On 3 July 2026 the European Commission adopted revised European Sustainability Reporting Standards under the Omnibus I simplification programme. Scope and datapoints are being reduced; governance duties for entities that remain in scope are not. This newsletter separates enacted CSRD requirements, Omnibus I changes, the revised ESRS delegated act, Official Journal / application timing, and voluntary options for smaller companies.</description>
+    </item>
     <item>
       <title>Governance Frame U.S. Cyber Disclosure Review — August 2026: What Item 1.05 Filings Reveal About Materiality</title>
       <link>https://research.ironframegrc.com/briefings/2026-08-16-newsletter-sec-item-105-filings</link>

@@ -111,10 +111,16 @@ export async function enrichPersonWithProspeo(input: {
 
     const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (!response.ok) {
+      const errorCode = asString(body.error_code);
+      // Prospeo returns HTTP 400 NO_MATCH when the person is not in their DB —
+      // treat as a soft miss (persistible) rather than an operator fault.
+      if (errorCode === "NO_MATCH") {
+        return { ok: true, person: null, matched: false };
+      }
       const msg =
         asString(body.error) ||
         asString(body.message) ||
-        asString(body.error_code) ||
+        errorCode ||
         `Prospeo API ${response.status}`;
       return { ok: false, error: msg, status: response.status };
     }

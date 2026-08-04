@@ -241,7 +241,10 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
                   ? ` · ${report.prospeoEnrichment.person.email}`
                   : report.prospeoEnrichment.personMatched
                     ? " · person matched (no email)"
-                    : " · no match"}
+                    : " · NO_MATCH (not in Prospeo DB — try LinkedIn URL or paste email)"}
+                {report.prospeoEnrichment.notes?.length
+                  ? ` · ${report.prospeoEnrichment.notes[0]}`
+                  : ""}
               </p>
             ) : null}
             <button

@@ -343,17 +343,32 @@ export async function buildIronleadsSuspectReport(
     hasPhone,
     generatedAt: new Date().toISOString(),
   });
-  // Prefer persisted brief (has real page corpus) unless Buyer gate drifted:
+  // Prefer persisted brief (has real page corpus) unless Buyer gate/roster drifted:
   // - improve: operator/Prospeo namedBuyer added after scrape → rebuild
   // - degrade: scrape junk cleared / stricter name rules → rebuild (kill false green)
+  // - roster: junk names dropped (e.g. "National Defense" CEO) → rebuild finding copy
   const buyerImproved =
     persistedBrief?.gates.buyer.result === "FAIL" &&
     rebuiltBrief.gates.buyer.result !== "FAIL";
   const buyerDegraded =
     persistedBrief?.gates.buyer.result === "PASS" &&
     rebuiltBrief.gates.buyer.result !== "PASS";
+  const persistedBuyerNames = (persistedBrief?.buyerMap ?? [])
+    .map((b) => b.name.trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const rebuiltBuyerNames = rebuiltBrief.buyerMap
+    .map((b) => b.name.trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  const buyerRosterChanged =
+    Boolean(persistedBrief) && persistedBuyerNames !== rebuiltBuyerNames;
   const accountResearchBrief =
-    persistedBrief && !buyerImproved && !buyerDegraded ? persistedBrief : rebuiltBrief;
+    persistedBrief && !buyerImproved && !buyerDegraded && !buyerRosterChanged
+      ? persistedBrief
+      : rebuiltBrief;
 
   const operatorHold = resolveOperatorHold(contact.metadata);
   const metaRecord =

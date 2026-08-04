@@ -22,9 +22,14 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function splitName(fullName: string): { first: string; last: string } | null {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    // Drop middle initials ("B.") so Prospeo gets first+last only.
+    .filter((p) => !/^[A-Z]\.?$/i.test(p));
   if (parts.length < 2) return null;
-  return { first: parts[0]!, last: parts.slice(1).join(" ") };
+  return { first: parts[0]!, last: parts[parts.length - 1]! };
 }
 
 function resolveLinkedinHint(meta: Record<string, unknown>, buyerName: string): string | null {

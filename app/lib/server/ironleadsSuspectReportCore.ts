@@ -13,6 +13,7 @@ import {
   type QualificationSignalsDisplay,
 } from "@/app/lib/ironleadsOperatorDisplay";
 import type { ApolloEnrichSnapshot } from "@/app/lib/server/apolloEnrichmentClient";
+import type { ProspeoEnrichSnapshot } from "@/app/lib/server/prospeoEnrichmentClient";
 import {
   resolveOperatorHold,
   type OperatorHoldRecord,
@@ -67,6 +68,8 @@ export type IronleadsSuspectReport = {
   operatorHold: OperatorHoldRecord | null;
   /** Last Apollo.org/people enrich snapshot (HITL; credits consumed on Apollo side). */
   apolloEnrichment: ApolloEnrichSnapshot | null;
+  /** Last Prospeo enrich-person snapshot (HITL; credits consumed on Prospeo side). */
+  prospeoEnrichment: ProspeoEnrichSnapshot | null;
   tenantSlug: string;
   industrySector: string | null;
   detectedTrigger: string | null;
@@ -245,7 +248,7 @@ export async function buildIronleadsSuspectReport(
   }
   if (!hasRealEmail) {
     nextActions.push(
-      "Replace @ironleads.local with a real buyer email (Enrich with Apollo after Named buyer is set, or paste manually).",
+      "Replace @ironleads.local with a real buyer email (Enrich with Apollo or Prospeo after Named buyer is set, or paste manually).",
     );
   }
   if (!location.websiteUrl) {
@@ -340,28 +343,34 @@ export async function buildIronleadsSuspectReport(
     hasPhone,
     generatedAt: new Date().toISOString(),
   });
-  // Stale persisted briefs can show Buyer FAIL after operator/Prospeo namedBuyer
-  // was added without re-running committee research. Prefer rebuild when Buyer
-  // improves (or when no committee members were used in the persisted snapshot).
+  // Prefer persisted brief (has real page corpus) unless Buyer gate drifted:
+  // - improve: operator/Prospeo namedBuyer added after scrape → rebuild
+  // - degrade: scrape junk cleared / stricter name rules → rebuild (kill false green)
+  const buyerImproved =
+    persistedBrief?.gates.buyer.result === "FAIL" &&
+    rebuiltBrief.gates.buyer.result !== "FAIL";
+  const buyerDegraded =
+    persistedBrief?.gates.buyer.result === "PASS" &&
+    rebuiltBrief.gates.buyer.result !== "PASS";
   const accountResearchBrief =
-    persistedBrief &&
-    !(
-      persistedBrief.gates.buyer.result === "FAIL" &&
-      rebuiltBrief.gates.buyer.result !== "FAIL"
-    )
-      ? persistedBrief
-      : rebuiltBrief;
+    persistedBrief && !buyerImproved && !buyerDegraded ? persistedBrief : rebuiltBrief;
 
   const operatorHold = resolveOperatorHold(contact.metadata);
-  const apolloRaw =
+  const metaRecord =
     contact.metadata &&
     typeof contact.metadata === "object" &&
     !Array.isArray(contact.metadata)
-      ? (contact.metadata as Record<string, unknown>).apolloEnrichment
+      ? (contact.metadata as Record<string, unknown>)
       : null;
+  const apolloRaw = metaRecord?.apolloEnrichment ?? null;
   const apolloEnrichment =
     apolloRaw && typeof apolloRaw === "object" && !Array.isArray(apolloRaw)
       ? (apolloRaw as ApolloEnrichSnapshot)
+      : null;
+  const prospeoRaw = metaRecord?.prospeoEnrichment ?? null;
+  const prospeoEnrichment =
+    prospeoRaw && typeof prospeoRaw === "object" && !Array.isArray(prospeoRaw)
+      ? (prospeoRaw as ProspeoEnrichSnapshot)
       : null;
 
   if (operatorHold) {
@@ -397,6 +406,7 @@ export async function buildIronleadsSuspectReport(
     accountResearchBrief,
     operatorHold,
     apolloEnrichment,
+    prospeoEnrichment,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,
     detectedTrigger: contact.detectedTrigger,

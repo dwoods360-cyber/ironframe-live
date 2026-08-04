@@ -90,10 +90,15 @@ export async function POST(request: NextRequest) {
 
   if (body.action === "pull_pending_batch") {
     const pulled = await pullPendingSuspectBatch(20);
+    let research: ReturnType<typeof formatResearch> | null = null;
+    if (body.runResearchAfterImport === true && pulled.pulled > 0) {
+      research = formatResearch(await researchBuyingCommitteeForAllSuspects());
+    }
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({
       ok: true,
       pull: pulled,
+      research,
       snapshot: redactIronleadsPortalSnapshot(snapshot),
     });
   }

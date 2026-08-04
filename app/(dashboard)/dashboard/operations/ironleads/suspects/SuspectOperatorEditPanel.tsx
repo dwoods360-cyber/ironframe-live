@@ -164,6 +164,17 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
     );
   }
 
+  async function onEnrichWithProspeo() {
+    const ok = window.confirm(
+      "Call Prospeo to enrich this SUSPECT (named buyer + domain → work email)? This consumes Prospeo credits. Path B send stays on Approvals — Prospeo will not email.",
+    );
+    if (!ok) return;
+    await patchSuspect(
+      { enrichWithProspeo: true },
+      "Prospeo enrich complete — review email below, then Promote when ready.",
+    );
+  }
+
   return (
     <section className="rounded-xl border border-teal-900/50 bg-teal-950/20 p-5">
       <h2 className="text-lg font-semibold text-teal-100">Operator enrichment</h2>
@@ -189,31 +200,60 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
           </button>
         </div>
       ) : (
-        <div className="mt-4 rounded-lg border border-violet-900/50 bg-violet-950/20 p-4">
-          <h3 className="text-sm font-semibold text-violet-100">Apollo enrich</h3>
-          <p className="mt-1 text-xs text-slate-400">
-            Uses <span className="font-mono text-violet-200/90">APOLLO_API_KEY</span>. Set Named
-            buyer first for email match. Org enrich runs on domain alone. Does not send mail.
-          </p>
-          {report.apolloEnrichment ? (
-            <p className="mt-2 font-mono text-[11px] text-violet-200/80">
-              Last: {report.apolloEnrichment.enrichedAt}
-              {report.apolloEnrichment.person?.email
-                ? ` · ${report.apolloEnrichment.person.email}`
-                : report.apolloEnrichment.personMatched
-                  ? " · person matched (no email)"
-                  : " · org only"}
+        <div className="mt-4 space-y-3">
+          <div className="rounded-lg border border-violet-900/50 bg-violet-950/20 p-4">
+            <h3 className="text-sm font-semibold text-violet-100">Apollo enrich</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Uses <span className="font-mono text-violet-200/90">APOLLO_API_KEY</span>. Set Named
+              buyer first for email match. Org enrich runs on domain alone. Does not send mail.
             </p>
-          ) : null}
-          <button
-            type="button"
-            disabled={busy || onHold}
-            onClick={() => void onEnrichWithApollo()}
-            className="mt-3 rounded-lg border border-violet-700 bg-violet-950/50 px-4 py-2 text-sm font-medium text-violet-50 hover:border-violet-500 disabled:opacity-40"
-            title={onHold ? "Restore from HOLD before Apollo enrich" : undefined}
-          >
-            Enrich with Apollo
-          </button>
+            {report.apolloEnrichment ? (
+              <p className="mt-2 font-mono text-[11px] text-violet-200/80">
+                Last: {report.apolloEnrichment.enrichedAt}
+                {report.apolloEnrichment.person?.email
+                  ? ` · ${report.apolloEnrichment.person.email}`
+                  : report.apolloEnrichment.personMatched
+                    ? " · person matched (no email)"
+                    : " · org only"}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              disabled={busy || onHold}
+              onClick={() => void onEnrichWithApollo()}
+              className="mt-3 rounded-lg border border-violet-700 bg-violet-950/50 px-4 py-2 text-sm font-medium text-violet-50 hover:border-violet-500 disabled:opacity-40"
+              title={onHold ? "Restore from HOLD before Apollo enrich" : undefined}
+            >
+              Enrich with Apollo
+            </button>
+          </div>
+          <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
+            <h3 className="text-sm font-semibold text-sky-100">Prospeo enrich</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Uses <span className="font-mono text-sky-200/90">PROSPEO_API_KEY</span>. Requires Named
+              buyer (first + last) and domain. Prefer when Apollo people-match is blocked. Does not
+              send mail.
+            </p>
+            {report.prospeoEnrichment ? (
+              <p className="mt-2 font-mono text-[11px] text-sky-200/80">
+                Last: {report.prospeoEnrichment.enrichedAt}
+                {report.prospeoEnrichment.person?.email
+                  ? ` · ${report.prospeoEnrichment.person.email}`
+                  : report.prospeoEnrichment.personMatched
+                    ? " · person matched (no email)"
+                    : " · no match"}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              disabled={busy || onHold}
+              onClick={() => void onEnrichWithProspeo()}
+              className="mt-3 rounded-lg border border-sky-700 bg-sky-950/50 px-4 py-2 text-sm font-medium text-sky-50 hover:border-sky-500 disabled:opacity-40"
+              title={onHold ? "Restore from HOLD before Prospeo enrich" : undefined}
+            >
+              Enrich with Prospeo
+            </button>
+          </div>
         </div>
       )}
 

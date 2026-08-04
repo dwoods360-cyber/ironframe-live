@@ -21,6 +21,8 @@ export default function IronleadsPortalClient() {
   const [researchBusy, setResearchBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  /** When on, paste/seed import and pull-next-20 also run buying-committee research on the active 20. */
+  const [runResearchAfterImport, setRunResearchAfterImport] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,6 +126,11 @@ export default function IronleadsPortalClient() {
           activeCap?: number;
           results?: Array<{ companyName: string; skipped?: boolean; skipReason?: string }>;
         };
+        research?: {
+          total: number;
+          researched: number;
+          skipped: number;
+        } | null;
       }>(
         "/api/admin/operations-hub/ironleads",
         {
@@ -131,21 +138,27 @@ export default function IronleadsPortalClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "import_free_directory_seeds",
-            runResearchAfterImport: false,
+            runResearchAfterImport,
           }),
         },
         "Directory seed import failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
       const imp = data.import;
+      const research = data.research;
       const skipSample = (imp?.results ?? [])
         .filter((r) => r.skipped && r.skipReason)
         .slice(0, 3)
         .map((r) => `${r.companyName}: ${r.skipReason}`)
         .join("; ");
+      const researchNote = research
+        ? ` Research: ${research.researched}/${research.total} researched, ${research.skipped} skipped.`
+        : runResearchAfterImport
+          ? " Research skipped (nothing to run)."
+          : " Research off — use Research only when ready.";
       setMessage(
         imp
-          ? `Free-directory import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Active batch kept ${imp.keptActive ?? "—"} / pending ${imp.parkedPending ?? 0} (cap ${imp.activeCap ?? 20}). Research only on the active 20.${
+          ? `Free-directory import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Active batch kept ${imp.keptActive ?? "—"} / pending ${imp.parkedPending ?? 0} (cap ${imp.activeCap ?? 20}).${researchNote}${
               skipSample ? ` Skips: ${skipSample}` : ""
             }`
           : "Directory seed import completed.",
@@ -198,6 +211,11 @@ export default function IronleadsPortalClient() {
           activeCap?: number;
           results?: Array<{ companyName: string; skipped?: boolean; skipReason?: string }>;
         };
+        research?: {
+          total: number;
+          researched: number;
+          skipped: number;
+        } | null;
       }>(
         "/api/admin/operations-hub/ironleads",
         {
@@ -206,21 +224,27 @@ export default function IronleadsPortalClient() {
           body: JSON.stringify({
             action: "import_directory_paste",
             paste: pasteText,
-            runResearchAfterImport: false,
+            runResearchAfterImport,
           }),
         },
         "Paste import failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
       const imp = data.import;
+      const research = data.research;
       const skipSample = (imp?.results ?? [])
         .filter((r) => r.skipped && r.skipReason)
         .slice(0, 5)
         .map((r) => `${r.companyName}: ${r.skipReason}`)
         .join("; ");
+      const researchNote = research
+        ? ` Research: ${research.researched}/${research.total} researched, ${research.skipped} skipped.`
+        : runResearchAfterImport
+          ? " Research skipped (nothing to run)."
+          : " Research off — use Research only when ready.";
       setMessage(
         imp
-          ? `Paste import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Kept ${imp.keptActive ?? "—"} in active batch; parked ${imp.parkedPending ?? 0} in pending (cap ${imp.activeCap ?? 20}). Pull next 20 when this batch is done.${
+          ? `Paste import: ${imp.created} new, ${imp.deduped} refreshed, ${imp.skipped} skipped. Kept ${imp.keptActive ?? "—"} in active batch; parked ${imp.parkedPending ?? 0} in pending (cap ${imp.activeCap ?? 20}).${researchNote} Pull next 20 when this batch is done.${
               skipSample ? ` Skips: ${skipSample}` : ""
             }`
           : "Paste import completed.",
@@ -254,22 +278,39 @@ export default function IronleadsPortalClient() {
           activeCount: number;
           activeCap: number;
         };
+        research?: {
+          total: number;
+          researched: number;
+          skipped: number;
+        } | null;
       }>(
         "/api/admin/operations-hub/ironleads",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "pull_pending_batch" }),
+          body: JSON.stringify({
+            action: "pull_pending_batch",
+            runResearchAfterImport,
+          }),
         },
         "Pull pending batch failed.",
       );
       if (data.snapshot) setSnapshot(data.snapshot);
       const pull = data.pull;
+      const research = data.research;
+      const researchNote = research
+        ? ` Research: ${research.researched}/${research.total} researched, ${research.skipped} skipped.`
+        : "";
       setMessage(
         pull
           ? pull.pulled === 0
             ? `Active queue already at ${pull.activeCount}/${pull.activeCap}. Finish or HOLD current rows, then pull again. Pending left: ${pull.remainingPending}.`
-            : `Pulled ${pull.pulled} from pending → active (${pull.activeCount}/${pull.activeCap}). ${pull.remainingPending} still pending. Research only next.`
+            : `Pulled ${pull.pulled} from pending → active (${pull.activeCount}/${pull.activeCap}). ${pull.remainingPending} still pending.${
+                researchNote ||
+                (runResearchAfterImport
+                  ? ""
+                  : " Research off — use Research only when ready.")
+              }`
           : "Pull completed.",
       );
     } catch (err) {
@@ -487,6 +528,19 @@ export default function IronleadsPortalClient() {
                     }`
                   : ""}
               </p>
+              <label className="mt-3 flex items-start gap-2 text-xs text-emerald-100/90">
+                <input
+                  type="checkbox"
+                  checked={runResearchAfterImport}
+                  onChange={(e) => setRunResearchAfterImport(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Research after import / pull — runs buying-committee research on the active 20
+                  after paste, starter pack, or Pull next 20. Uncheck if the request may time out;
+                  use <span className="text-cyan-200">Research only</span> instead.
+                </span>
+              </label>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"

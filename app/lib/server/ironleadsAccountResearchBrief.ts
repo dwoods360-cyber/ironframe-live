@@ -4,7 +4,10 @@
  */
 
 import { isSalesDispatchHoldCompany } from "@/app/lib/approvalDispatchValidation";
-import type { PublicSocialLink } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
+import {
+  isPlausiblePersonName,
+  type PublicSocialLink,
+} from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
 
 export type GateResult = "PASS" | "FAIL" | "UNKNOWN";
 
@@ -183,6 +186,8 @@ export function mergeNamedBuyerIntoBriefMembers(input: {
   const members = [...input.members];
   const buyer = input.namedBuyer;
   if (!buyer?.fullName?.trim()) return members;
+  // Do not let scrape/product UI junk ("Scorecard Free") inflate the Buyer gate.
+  if (!isPlausiblePersonName(buyer.fullName)) return members;
 
   const nameKey = buyer.fullName.trim().toLowerCase();
   const already = members.some(
@@ -373,7 +378,9 @@ export function buildAccountResearchBrief(
   const competingPlatform = products.find((p) => p === "OSCAR" || p === "Radius360") ?? null;
   const hasCompetingStack = Boolean(competingPlatform) || hold;
 
-  const namedMembers = input.members.filter((m) => m.fullName?.trim());
+  const namedMembers = input.members.filter(
+    (m) => m.fullName?.trim() && isPlausiblePersonName(m.fullName),
+  );
   const hasNamedBuyer = namedMembers.length > 0;
 
   const fitHaystack = [
@@ -433,7 +440,10 @@ export function buildAccountResearchBrief(
 
   const buyer: AccountResearchBriefGate = hasNamedBuyer
     ? {
-        result: hasCompetingStack ? "FAIL" : input.hasRealEmail || input.hasPhone ? "PASS" : "UNKNOWN",
+        // Switchboard phone alone must not green-light Buyer — require a real inbox
+        // (published / operator / Apollo / Prospeo). Pattern-guess names + HQ phone
+        // previously falsely opened all three gates on product-UI scrape junk.
+        result: hasCompetingStack ? "FAIL" : input.hasRealEmail ? "PASS" : "UNKNOWN",
         finding: hasNamedBuyer
           ? `Named public roles: ${namedMembers
               .map((m) => `${m.fullName} (${m.role})`)
@@ -442,14 +452,14 @@ export function buildAccountResearchBrief(
           : "No named buyer extracted.",
         why: hasCompetingStack
           ? "Buyer names do not unlock Path B while the account is HOLD/competitor."
-          : input.hasRealEmail || input.hasPhone
-            ? "A named role plus a reachable channel supports Promote → SalesTeam poll."
-            : "Names without a verified email/phone stay SUSPECT for enrichment only.",
+          : input.hasRealEmail
+            ? "A plausible named role plus a real (non-placeholder) email supports Promote → SalesTeam poll."
+            : "Names without a real buyer email stay SUSPECT — Enrich with Apollo/Prospeo or paste a verified inbox. Switchboard phone alone is not enough.",
       }
     : {
         result: "FAIL",
         finding: "No plausible named economic or operational buyer extracted from public pages.",
-        why: "Do not Promote on title guesses alone; find a person who owns GRC delivery or budget.",
+        why: "Do not Promote on title guesses or product/UI scrape junk; find a real person who owns GRC delivery or budget.",
       };
 
   let status: BriefAccountStatus = "SUSPECT";

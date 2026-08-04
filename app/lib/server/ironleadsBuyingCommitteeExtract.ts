@@ -200,25 +200,30 @@ export function normalizeExtractedPersonName(name: string): string {
   return parts.join(" ");
 }
 
-/** Reject HTML/award noise that regex can latch onto as a "person". */
+/**
+ * Product / UI / job-title tokens that regex often latches onto as a "person"
+ * (e.g. "Scorecard Free CISO", "Readiness Tool CEO", "IT Manager CFO").
+ */
+const PERSON_NAME_NOISE =
+  /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet|security|services|solutions|systems|partners|point|scorecard|readiness|tool|free|manager|audit|platform|portal|dashboard|assessment|software|product|demo|trial|download|login|signup|contact|support|team|staff|expert|specialist|consultant|analyst|engineer|administrator|framework|governance|risk|control|evidence|portfolio|client|clients|customer|customers|enterprise|managed|virtual|cloud|cyber|hipaa|cmmc|soc|nist|iso|grc|mssp|vciso|it)\b/i;
+
+/** Reject HTML/award/product-UI noise that regex can latch onto as a "person". */
 export function isPlausiblePersonName(name: string): boolean {
   const trimmed = normalizeExtractedPersonName(name);
-  const parts = trimmed.split(/\s+/);
+  const parts = trimmed.split(/\s+/).filter(Boolean);
   if (parts.length < 2 || parts.length > 4) return false;
   // All-caps marketing phrases ("PRIVACY COMPLIANCE…") are not people.
   if (trimmed === trimmed.toUpperCase() && trimmed.length > 8) return false;
   if (/['’]s$/i.test(parts[parts.length - 1]!)) return false;
   if (/^(As|The|And|For|With|Our|This)\b/i.test(trimmed)) return false;
-  if (
-    /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet|security|services|solutions|systems|partners|point)\b/i.test(
-      trimmed,
-    )
-  ) {
-    return false;
+  if (PERSON_NAME_NOISE.test(trimmed)) return false;
+  // Reject bare acronyms / all-caps tokens that are not middle initials ("IT", "CEO").
+  for (const part of parts) {
+    if (/^[A-Z]\.$/.test(part)) continue;
+    if (/^[A-Z]{2,}$/.test(part)) return false;
+    if (!/^[A-Z][a-zA-Z'’-]+$/.test(part)) return false;
   }
-  return parts.every(
-    (part) => /^[A-Z][a-zA-Z'’-]+$/.test(part) || /^[A-Z]\.$/.test(part),
-  );
+  return true;
 }
 
 /**

@@ -3,6 +3,8 @@
  * Stored on contact.metadata when known; website may also derive from deal.accountDomain.
  */
 
+import { isPlausiblePersonName } from "@/app/lib/server/ironleadsBuyingCommitteeExtract";
+
 export type SuspectPostalAddress = {
   street: string | null;
   city: string | null;
@@ -192,7 +194,7 @@ export function resolveSuspectNamedBuyer(metadata: unknown): SuspectNamedBuyer |
   const raw = asRecord(meta?.namedBuyer);
   if (!raw) return null;
   const fullName = cleanText(raw.fullName, 200);
-  if (!fullName) return null;
+  if (!fullName || !isPlausiblePersonName(fullName)) return null;
   return {
     fullName,
     title: cleanText(raw.title, 200),
@@ -213,7 +215,7 @@ export function resolveSuspectExecutiveSponsor(metadata: unknown): SuspectExecut
   const raw = asRecord(meta?.executiveSponsor);
   if (!raw) return null;
   const fullName = cleanText(raw.fullName, 200);
-  if (!fullName) return null;
+  if (!fullName || !isPlausiblePersonName(fullName)) return null;
   return {
     fullName,
     title: cleanText(raw.title, 240),
@@ -249,7 +251,7 @@ export function resolveSuspectCandidateEmails(metadata: unknown): SuspectCandida
     if (!raw) continue;
     const email = cleanText(raw.email, 320)?.toLowerCase() ?? null;
     const person = cleanText(raw.person, 200);
-    if (!email || !person) continue;
+    if (!email || !person || !isPlausiblePersonName(person)) continue;
     const mailboxCheck = resolveMailboxCheck(raw.mailboxCheck);
     out.push({
       person,
@@ -304,9 +306,12 @@ export function resolveSuspectBuyingCommittee(metadata: unknown): SuspectBuyingC
           }))
           .filter((p) => p.phone)
       : [];
+    const fullName = cleanText(m.fullName, 200);
+    // Drop product/UI scrape junk so Buyer map + gates never see "Scorecard Free".
+    if (fullName && !isPlausiblePersonName(fullName)) continue;
     members.push({
       role,
-      fullName: cleanText(m.fullName, 200),
+      fullName,
       title: cleanText(m.title, 240),
       emails,
       phones,

@@ -14,6 +14,7 @@ import {
   type OperatorHoldRecord,
 } from "@/app/lib/server/ironleadsOperatorHoldCore";
 import { enrichIronleadsSuspectWithApollo } from "@/app/lib/server/ironleadsApolloEnrichCore";
+import { enrichIronleadsSuspectWithProspeo } from "@/app/lib/server/ironleadsProspeoEnrichCore";
 import { discardIronleadsSuspectContact } from "@/app/lib/server/ironleadsOsintNoisePurgeCore";
 import { buildIronleadsSuspectReport } from "@/app/lib/server/ironleadsSuspectReportCore";
 import prisma from "@/lib/prisma";
@@ -38,6 +39,8 @@ export type SuspectOperatorUpdateInput = {
   discardSuspect?: boolean;
   /** HITL Apollo org + named-buyer enrich (consumes Apollo credits). */
   enrichWithApollo?: boolean;
+  /** HITL Prospeo named-buyer enrich (consumes Prospeo credits). */
+  enrichWithProspeo?: boolean;
   holdReason?: string | null;
   holdClassification?: OperatorHoldRecord["classification"] | null;
   operatorNote?: string | null;
@@ -104,6 +107,10 @@ export async function updateIronleadsSuspectContact(
 
   if (input.enrichWithApollo) {
     return enrichIronleadsSuspectWithApollo(contactId, { applyContactFields: true });
+  }
+
+  if (input.enrichWithProspeo) {
+    return enrichIronleadsSuspectWithProspeo(contactId, { applyContactFields: true });
   }
 
   const deal = contact.primaryDeals[0] ?? null;

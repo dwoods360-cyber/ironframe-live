@@ -49,8 +49,11 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     ).toContain("mpondelik@westernalliancebank.com");
   });
 
-  it("rejects award / board noise as person names", () => {
+  it("rejects award / board / product-UI noise as person names", () => {
     expect(isPlausiblePersonName("and Best Company Board")).toBe(false);
+    expect(isPlausiblePersonName("Scorecard Free")).toBe(false);
+    expect(isPlausiblePersonName("Readiness Tool")).toBe(false);
+    expect(isPlausiblePersonName("IT Manager")).toBe(false);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
   });

@@ -690,9 +690,25 @@ async function persistResearch(
   }
 
   const prior = asRecord(contact.metadata) ?? {};
-  const ciso = result.members.find((m) => m.role === "CISO");
-  const ceo = result.members.find((m) => m.role === "CEO");
+  const ciso = result.members.find(
+    (m) => m.role === "CISO" && m.fullName && isPlausiblePersonName(m.fullName),
+  );
+  const ceo = result.members.find(
+    (m) => m.role === "CEO" && m.fullName && isPlausiblePersonName(m.fullName),
+  );
   const switchboard = result.switchboardPhones[0]?.phone ?? null;
+
+  const priorBuyerName =
+    typeof priorNamedBuyer?.fullName === "string" ? priorNamedBuyer.fullName : null;
+  const priorBuyerPlausible = Boolean(
+    priorBuyerName && isPlausiblePersonName(priorBuyerName),
+  );
+  const priorSponsor = asRecord(prior.executiveSponsor);
+  const priorSponsorName =
+    typeof priorSponsor?.fullName === "string" ? priorSponsor.fullName : null;
+  const priorSponsorPlausible = Boolean(
+    priorSponsorName && isPlausiblePersonName(priorSponsorName),
+  );
 
   const namedBuyer = ciso?.fullName
     ? {
@@ -705,7 +721,9 @@ async function persistResearch(
         note: ciso.note,
         seededAt: result.researchedAt,
       }
-    : prior.namedBuyer;
+    : priorBuyerPlausible
+      ? prior.namedBuyer
+      : null;
 
   const executiveSponsor = ceo?.fullName
     ? {
@@ -717,7 +735,9 @@ async function persistResearch(
         note: ceo.note,
         seededAt: result.researchedAt,
       }
-    : prior.executiveSponsor;
+    : priorSponsorPlausible
+      ? prior.executiveSponsor
+      : null;
 
   const metadata: Record<string, unknown> = {
     ...prior,
@@ -762,12 +782,18 @@ async function persistResearch(
     data: {
       phone: nextPhone,
       metadata: metadata as Prisma.InputJsonValue,
-      ...(ciso?.fullName
+      ...(ciso?.fullName && isPlausiblePersonName(ciso.fullName)
         ? {
             fullName: ciso.fullName,
             title: "Chief Information Security Officer",
           }
-        : {}),
+        : // Wipe contact label when prior research wrote product/UI junk as "fullName".
+          contact.fullName && !isPlausiblePersonName(contact.fullName)
+          ? {
+              fullName: `${contact.company} — buyer TBD`,
+              title: null,
+            }
+          : {}),
     },
   });
 

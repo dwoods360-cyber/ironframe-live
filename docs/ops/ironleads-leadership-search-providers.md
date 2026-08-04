@@ -10,6 +10,8 @@ Google Custom Search JSON API is **closed to new customers** — do not rely on 
 2. **SerpAPI** — `SERPAPI_API_KEY` (Google engine)
 3. **Google CSE** — `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` (legacy entitlement only)
 
+**Failover:** When Brave is configured and returns **zero usable hits** (or errors), Research automatically tries SerpAPI next (then CSE if present). Set `SERPAPI_API_KEY` on Vercel to unlock this path — free tier is 250 searches/mo.
+
 Hits are filtered to `app/lib/server/ironleadsLeadershipSearchAllowlist.ts` (mirror of `docs/ops/google-cse-ironleads-sites.txt`), then company-relevance refined in `ironleadsLeadershipSearchHitRefine.ts` (drops generic CISO roundups / Wikipedia role pages; turns LinkedIn `/in/` and Forbes Councils profile slugs into extractable prose). Brave requests use `extra_snippets=true` for richer corpus.
 
 ## Setup — Brave (recommended)
@@ -27,12 +29,12 @@ $key = "YOUR_BRAVE_KEY"
 curl.exe "https://api.search.brave.com/res/v1/web/search?q=CISO&count=3" -H "Accept: application/json" -H "X-Subscription-Token: $key"
 ```
 
-## Setup — SerpAPI (backup)
+## Setup — SerpAPI (backup + empty-hit failover)
 
 1. Create an account at [SerpAPI](https://serpapi.com/)
 2. Copy API key from dashboard
 3. Vercel → `SERPAPI_API_KEY` → Production + Preview
-4. Redeploy (used only if Brave key is absent)
+4. Redeploy — used when Brave is absent **or** Brave returns zero usable leadership hits
 
 ## Research only batching (Vercel 120s)
 

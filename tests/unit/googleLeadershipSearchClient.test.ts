@@ -128,6 +128,86 @@ describe("googleLeadershipSearchClient", () => {
     expect(result.provider).toBe("serpapi");
     expect(result.hits[0]?.link).toContain("crn.com");
   });
+
+  it("cascades Brave empty usable hits to SerpAPI", async () => {
+    clearProviderEnv();
+    process.env.BRAVE_SEARCH_API_KEY = "test-brave";
+    process.env.SERPAPI_API_KEY = "test-serp";
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const href = String(input);
+      if (href.includes("api.search.brave.com")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            web: {
+              results: [
+                {
+                  title: "New CISO appointments 2026",
+                  description: "Generic roundup",
+                  url: "https://www.csoonline.com/article/new-ciso-appointments-2026/",
+                },
+              ],
+            },
+          }),
+        };
+      }
+      expect(href).toContain("serpapi.com");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          organic_results: [
+            {
+              title: "GitSimple Appoints Alex Nguyen as CEO",
+              snippet: "Alex Nguyen is the CEO of GitSimple.",
+              link: "https://www.prnewswire.com/news/gitsimple-ceo",
+            },
+          ],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchCompanyLeadership({ company: "GitSimple" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.provider).toBe("serpapi");
+    expect(result.cascadedFrom).toEqual(["brave"]);
+    expect(result.hits.some((h) => /Alex Nguyen/i.test(h.title + h.snippet))).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not call SerpAPI when Brave already has usable hits", async () => {
+    clearProviderEnv();
+    process.env.BRAVE_SEARCH_API_KEY = "test-brave";
+    process.env.SERPAPI_API_KEY = "test-serp";
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        web: {
+          results: [
+            {
+              title: "Acme MSSP Appoints Jordan Lee as Chief Information Security Officer",
+              description: "Jordan Lee joins Acme as CISO.",
+              url: "https://www.prnewswire.com/news/acme-ciso",
+            },
+          ],
+        },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await searchCompanyLeadership({ company: "Acme MSSP" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.provider).toBe("brave");
+    expect(result.cascadedFrom).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("ironleadsLeadershipSearchAllowlist", () => {

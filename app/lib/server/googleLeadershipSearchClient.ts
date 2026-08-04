@@ -6,9 +6,10 @@ import { refineLeadershipHits } from "@/app/lib/server/ironleadsLeadershipSearch
 /**
  * Leadership OSINT search for Ironleads Research-only thin dossiers.
  *
- * Provider order (first configured wins):
+ * Provider order:
  *   1. Brave Search API — BRAVE_SEARCH_API_KEY (or BRAVE_API_KEY)
- *   2. SerpAPI — SERPAPI_API_KEY (Google engine)
+ *   2. SerpAPI — SERPAPI_API_KEY (Google engine) — also used as **failover**
+ *      when Brave is ok but returns zero usable hits (or Brave errors)
  *   3. Google Custom Search JSON API — GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX
  *      (closed to new GCP customers; kept for legacy entitlement only)
  *
@@ -35,6 +36,8 @@ export type GoogleLeadershipSearchResult =
       ok: true;
       configured: true;
       provider: LeadershipSearchProvider;
+      /** Prior provider(s) tried before this result (e.g. brave → serpapi). */
+      cascadedFrom?: LeadershipSearchProvider[];
       query: string;
       hits: GoogleLeadershipHit[];
       corpus: string;
@@ -44,6 +47,7 @@ export type GoogleLeadershipSearchResult =
       ok: false;
       configured: boolean;
       provider: LeadershipSearchProvider | null;
+      cascadedFrom?: LeadershipSearchProvider[];
       error: string;
       status: number;
     };
@@ -339,9 +343,31 @@ async function searchViaGoogleCse(
   }
 }
 
+function withCascadeNote(
+  result: GoogleLeadershipSearchResult,
+  cascadedFrom: LeadershipSearchProvider[],
+): GoogleLeadershipSearchResult {
+  if (cascadedFrom.length === 0) return result;
+  return { ...result, cascadedFrom };
+}
+
+/**
+ * True when the primary result should try the next provider:
+ * API failure, or success with zero allowlisted/refined hits.
+ */
+export function shouldFailoverLeadershipSearch(
+  result: GoogleLeadershipSearchResult,
+): boolean {
+  if (!result.ok) return true;
+  return result.hits.length === 0;
+}
+
 /**
  * Search press/cyber media for leadership mentions for one company.
  * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
+ *
+ * When Brave is primary: on empty usable hits or Brave error, automatically
+ * tries SerpAPI (then Google CSE) if those keys are configured.
  */
 export async function searchCompanyLeadership(input: {
   company: string;
@@ -374,7 +400,39 @@ export async function searchCompanyLeadership(input: {
   const query = buildLeadershipQuery(company);
   const num = Math.min(Math.max(input.num ?? 8, 1), 10);
 
-  if (provider === "brave") return searchViaBrave(company, query, num);
-  if (provider === "serpapi") return searchViaSerpApi(company, query, num);
-  return searchViaGoogleCse(company, query, num);
+  const runPrimary = (): Promise<GoogleLeadershipSearchResult> => {
+    if (provider === "brave") return searchViaBrave(company, query, num);
+    if (provider === "serpapi") return searchViaSerpApi(company, query, num);
+    return searchViaGoogleCse(company, query, num);
+  };
+
+  const primary = await runPrimary();
+  if (!shouldFailoverLeadershipSearch(primary)) return primary;
+
+  const tried: LeadershipSearchProvider[] = primary.provider ? [primary.provider] : [];
+  const failoverPlan: Array<() => Promise<GoogleLeadershipSearchResult>> = [];
+
+  if (provider === "brave") {
+    if (getSerpApiKey()) failoverPlan.push(() => searchViaSerpApi(company, query, num));
+    if (getCseApiKey() && getCseCx()) {
+      failoverPlan.push(() => searchViaGoogleCse(company, query, num));
+    }
+  } else if (provider === "serpapi") {
+    if (getCseApiKey() && getCseCx()) {
+      failoverPlan.push(() => searchViaGoogleCse(company, query, num));
+    }
+  }
+
+  let last: GoogleLeadershipSearchResult = primary;
+  for (const next of failoverPlan) {
+    const candidate = await next();
+    if (candidate.provider) tried.push(candidate.provider);
+    if (!shouldFailoverLeadershipSearch(candidate)) {
+      return withCascadeNote(candidate, tried.slice(0, -1));
+    }
+    // Prefer last ok-empty over hard fail when both empty
+    if (candidate.ok || !last.ok) last = candidate;
+  }
+
+  return withCascadeNote(last, tried.slice(0, -1));
 }

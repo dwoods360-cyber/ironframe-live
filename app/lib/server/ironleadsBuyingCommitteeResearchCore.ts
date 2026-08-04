@@ -617,6 +617,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     ok: boolean;
     configured: boolean;
     provider: string | null;
+    cascadedFrom?: string[];
     hitCount: number;
     sourceUrls: string[];
     error: string | null;
@@ -647,6 +648,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           ok: false,
           configured: google.configured,
           provider: google.provider,
+          cascadedFrom: google.cascadedFrom,
           hitCount: 0,
           sourceUrls: [],
           error: google.error.slice(0, 240),
@@ -659,6 +661,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           ok: true,
           configured: true,
           provider: google.provider,
+          cascadedFrom: google.cascadedFrom,
           hitCount: google.hits.length,
           sourceUrls: google.sourceUrls.slice(0, 8),
           error: null,
@@ -755,6 +758,7 @@ async function persistResearch(
       ok: boolean;
       configured: boolean;
       provider: string | null;
+      cascadedFrom?: string[];
       hitCount: number;
       sourceUrls: string[];
       error: string | null;

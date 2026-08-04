@@ -4,7 +4,6 @@ import BriefingArchiveDirectory from "@/app/components/governanceFrame/BriefingA
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
-import { isBriefingIndexItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +24,6 @@ function formatPublishedDate(iso: string): string {
 
 export default async function ResearchBriefingsIndexPage() {
   const ledger = await fetchPublishedBriefings();
-  const briefings = ledger.filter((item) =>
-    isBriefingIndexItem(item.markdown, item.slug, item.title),
-  );
   const briefingArchive = listBriefingArchiveEntries(ledger);
 
   return (
@@ -44,13 +40,13 @@ export default async function ResearchBriefingsIndexPage() {
           appear under their own sections. Quarantined drafts do not appear here.
         </p>
 
-        {briefings.length === 0 ? (
+        {briefingArchive.length === 0 ? (
           <p className="mt-8 font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
             No published briefings yet.
           </p>
         ) : (
           <ul className="mt-8 divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {[...briefings].reverse().map((briefing) => (
+            {briefingArchive.map((briefing) => (
               <li key={briefing.slug}>
                 <ResearchLink
                   href={`/briefings/${briefing.slug}`}
@@ -65,11 +61,9 @@ export default async function ResearchBriefingsIndexPage() {
                   <h2 className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
                     {briefing.title}
                   </h2>
-                  {briefing.classification ? (
-                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                      {briefing.classification}
-                    </p>
-                  ) : null}
+                  <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-sm leading-relaxed text-[var(--gf-ink-soft)]">
+                    {briefing.synopsis}
+                  </p>
                 </ResearchLink>
               </li>
             ))}

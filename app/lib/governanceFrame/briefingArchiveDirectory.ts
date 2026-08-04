@@ -28,6 +28,11 @@ function resolveSynopsis(markdown: string): string {
   return raw.length > 180 ? `${raw.slice(0, 177).trimEnd()}…` : raw;
 }
 
+/** Short synopsis for list and archive rows (summary frontmatter or executive summary). */
+export function briefingSynopsisFromMarkdown(markdown: string): string {
+  return resolveSynopsis(markdown);
+}
+
 /**
  * Newest-first archive directory for ordinary briefings (excludes newsletters
  * and industry research briefs, which have their own indexes).

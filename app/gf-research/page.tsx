@@ -23,9 +23,6 @@ export default async function GovernanceFrameResearchHomePage() {
   const industryResearch = ledger.filter(
     (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "industry_research",
   );
-  const briefingsOnly = ledger.filter(
-    (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "briefing",
-  );
   const newslettersOnly = ledger.filter(
     (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "newsletter",
   );
@@ -48,7 +45,7 @@ export default async function GovernanceFrameResearchHomePage() {
     })),
   ].slice(0, 5);
 
-  const recentBriefings = briefingsOnly.slice(-5).reverse();
+  const recentBriefings = briefingArchive.slice(0, 5);
   const recentNewsletters = newslettersOnly.slice(-5).reverse();
 
   return (
@@ -177,11 +174,20 @@ export default async function GovernanceFrameResearchHomePage() {
                     href={`/briefings/${briefing.slug}`}
                     className="block py-5 no-underline transition hover:bg-white/40"
                   >
-                    <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                    <time
+                      dateTime={briefing.publishedAt}
+                      className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-muted)]"
+                    >
+                      {new Intl.DateTimeFormat("en-US", {
+                        dateStyle: "medium",
+                        timeZone: "UTC",
+                      }).format(new Date(briefing.publishedAt))}
+                    </time>
+                    <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
                       {briefing.title}
                     </p>
-                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
-                      {briefing.slug}
+                    <p className="mt-2 font-[family-name:var(--font-gf-sans)] text-sm leading-relaxed text-[var(--gf-ink-soft)]">
+                      {briefing.synopsis}
                     </p>
                   </ResearchLink>
                 </li>

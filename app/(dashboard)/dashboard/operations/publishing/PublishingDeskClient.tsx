@@ -11,6 +11,7 @@ import {
   parsePublishingDeskTab,
   publishingDeskHref,
   publishingDeskTabForQueueDraft,
+  PUBLISHING_VIDEOS_PAGE_HREF,
   type PublishingDeskTab,
 } from "@/app/lib/governanceFrame/publishingDeskDraftKind";
 import type { OperationsHubSnapshot } from "@/app/lib/server/operationsHubCore";
@@ -548,10 +549,31 @@ export default function PublishingDeskClient() {
       setSyndicateBusy(false);
     }
   };
-  const tabs: Array<{ id: DeskTab; label: string }> = [
-    { id: "briefings", label: "Briefings" },
-    { id: "newsletters", label: "Newsletters" },
-    { id: "research", label: "Research papers" },
+  const tabs: Array<{ id: string; label: string; href: string; active: boolean }> = [
+    {
+      id: "briefings",
+      label: "Briefings",
+      href: publishingDeskHref("briefings"),
+      active: desk === "briefings",
+    },
+    {
+      id: "newsletters",
+      label: "Newsletters",
+      href: publishingDeskHref("newsletters"),
+      active: desk === "newsletters",
+    },
+    {
+      id: "research",
+      label: "Research papers",
+      href: publishingDeskHref("research"),
+      active: desk === "research",
+    },
+    {
+      id: "video",
+      label: "Video",
+      href: PUBLISHING_VIDEOS_PAGE_HREF,
+      active: false,
+    },
   ];
 
   const isBriefingsOrResearchDesk = desk === "briefings" || desk === "research";
@@ -588,9 +610,9 @@ export default function PublishingDeskClient() {
             {tabs.map((item) => (
               <Link
                 key={item.id}
-                href={publishingDeskHref(item.id)}
+                href={item.href}
                 className={`rounded-lg px-3 py-2 text-sm font-medium ${
-                  desk === item.id
+                  item.active
                     ? "bg-cyan-900/50 text-cyan-100 ring-1 ring-cyan-700"
                     : "bg-slate-900 text-slate-400 hover:text-slate-200"
                 }`}

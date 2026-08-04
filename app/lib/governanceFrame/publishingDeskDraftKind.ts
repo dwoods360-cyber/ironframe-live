@@ -51,3 +51,8 @@ export function publishingDeskHref(
   if (draft) params.set("draft", draft);
   return `/dashboard/operations/publishing?${params.toString()}`;
 }
+
+/** Canonical Videos page (When Risk Enters the Room campaign hub). */
+export const PUBLISHING_VIDEOS_PAGE_HREF =
+  "/docs/marketing-strategy/video-series/when-risk-enters-the-room";
+

@@ -19,7 +19,7 @@ Complements [Marketing Content Calendar](../marketing/content-calendar.md) with 
 | August 2026 | Video Episodes 1–3 | V1 Number · V2 Evidence · V3 Boundary (Wed demos) |
 | September 2026 | Video Episodes 4–6 | V4 Draft · V5 Intake · V6 Complete story (Wed 10/01) |
 
-Canonical video calendar: [../marketing-strategy/video-series/when-risk-enters-the-room.md](../marketing-strategy/video-series/when-risk-enters-the-room.md)
+Canonical video calendar (plan + scripts): [../marketing-strategy/video-series/when-risk-enters-the-room.md](../marketing-strategy/video-series/when-risk-enters-the-room.md)
 
 ## Post backlog (ready to draft)
 

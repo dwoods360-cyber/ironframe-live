@@ -9,6 +9,7 @@ import {
   extractExecutiveSummary,
   parseFrontmatterField,
 } from "@/app/lib/governanceFrame/briefingMarkdown";
+import { isNewsletterLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 import { isPublicPublishedClassification } from "@/app/lib/governanceFrame/publicPublishedBriefingEligibility";
 
 /**
@@ -33,11 +34,7 @@ function governanceFrameArticleUrl(slug: string): string {
 }
 
 function resolveKind(markdown: string, slug: string): "briefing" | "newsletter" {
-  const category = parseFrontmatterField(markdown, "category")?.toLowerCase() ?? "";
-  if (category.includes("newsletter") || /newsletter|ironcast/i.test(slug)) {
-    return "newsletter";
-  }
-  return "briefing";
+  return isNewsletterLedgerItem(markdown, slug) ? "newsletter" : "briefing";
 }
 
 function resolveOneLiner(markdown: string): string {

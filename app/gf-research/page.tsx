@@ -2,6 +2,9 @@ import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/Governa
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 import {
+  classifyPublishedLedgerItem,
+} from "@/app/lib/governanceFrame/publishedLedgerKind";
+import {
   listPublicResearchPapers,
   listResearchSeries,
 } from "@/app/lib/governanceFrame/researchCatalog";
@@ -9,13 +12,41 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function GovernanceFrameResearchHomePage() {
-  const [papers, series, briefings] = await Promise.all([
+  const [papers, series, ledger] = await Promise.all([
     Promise.resolve(listPublicResearchPapers()),
     Promise.resolve(listResearchSeries()),
     fetchPublishedBriefings(),
   ]);
 
-  const recentBriefings = briefings.slice(-5).reverse();
+  const industryResearch = ledger.filter(
+    (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "industry_research",
+  );
+  const briefingsOnly = ledger.filter(
+    (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "briefing",
+  );
+  const newslettersOnly = ledger.filter(
+    (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "newsletter",
+  );
+
+  const recentPapers = [
+    ...papers.map((paper) => ({
+      key: paper.slug,
+      href: `/research-papers/${paper.slug}`,
+      eyebrow: paper.researchId,
+      title: paper.title,
+      meta: null as string | null,
+    })),
+    ...[...industryResearch].reverse().map((item) => ({
+      key: item.slug,
+      href: `/briefings/${item.slug}`,
+      eyebrow: "Industry research brief",
+      title: item.title,
+      meta: item.slug,
+    })),
+  ].slice(0, 5);
+
+  const recentBriefings = briefingsOnly.slice(-5).reverse();
+  const recentNewsletters = newslettersOnly.slice(-5).reverse();
 
   return (
     <div className="space-y-16">
@@ -56,6 +87,12 @@ export default async function GovernanceFrameResearchHomePage() {
             Briefings
           </ResearchLink>
           <ResearchLink
+            href="/newsletters"
+            className="inline-flex items-center rounded-md border-2 border-[var(--gf-accent)] bg-[var(--gf-paper-elevated)] px-4 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-accent-deep)] no-underline transition hover:bg-[color-mix(in_srgb,var(--gf-accent)_12%,white)]"
+          >
+            Newsletters
+          </ResearchLink>
+          <ResearchLink
             href="/methodology"
             className="inline-flex items-center px-2 py-2.5 font-[family-name:var(--font-gf-sans)] text-sm font-semibold text-[var(--gf-brass)] no-underline hover:underline"
           >
@@ -79,24 +116,29 @@ export default async function GovernanceFrameResearchHomePage() {
             View all
           </ResearchLink>
         </div>
-        {papers.length === 0 ? (
+        {recentPapers.length === 0 ? (
           <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
             No published research papers yet. Editorial manuscripts stay private until Approve.
           </p>
         ) : (
           <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
-            {papers.map((paper) => (
-              <li key={paper.slug}>
+            {recentPapers.map((paper) => (
+              <li key={paper.key}>
                 <ResearchLink
-                  href={`/research-papers/${paper.slug}`}
+                  href={paper.href}
                   className="block py-5 no-underline transition hover:bg-white/40"
                 >
                   <p className="font-[family-name:var(--font-gf-sans)] text-xs font-semibold uppercase tracking-[0.14em] text-[var(--gf-accent)]">
-                    {paper.researchId}
+                    {paper.eyebrow}
                   </p>
                   <p className="mt-1 font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
                     {paper.title}
                   </p>
+                  {paper.meta ? (
+                    <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                      {paper.meta}
+                    </p>
+                  ) : null}
                 </ResearchLink>
               </li>
             ))}
@@ -136,6 +178,46 @@ export default async function GovernanceFrameResearchHomePage() {
                   </p>
                   <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
                     {briefing.slug}
+                  </p>
+                </ResearchLink>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="gf-newsletters-heading" className="space-y-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <h3
+            id="gf-newsletters-heading"
+            className="font-[family-name:var(--font-gf-serif)] text-2xl text-[var(--gf-ink)]"
+          >
+            Newsletters
+          </h3>
+          <ResearchLink
+            href="/newsletters"
+            className="font-[family-name:var(--font-gf-sans)] text-sm font-medium text-[var(--gf-accent)] no-underline hover:underline"
+          >
+            View all
+          </ResearchLink>
+        </div>
+        {recentNewsletters.length === 0 ? (
+          <p className="font-[family-name:var(--font-gf-sans)] text-sm text-[var(--gf-muted)]">
+            No published newsletter editions yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[var(--gf-line)] border-y border-[var(--gf-line)]">
+            {recentNewsletters.map((edition) => (
+              <li key={edition.slug}>
+                <ResearchLink
+                  href={`/briefings/${edition.slug}`}
+                  className="block py-5 no-underline transition hover:bg-white/40"
+                >
+                  <p className="font-[family-name:var(--font-gf-serif)] text-lg text-[var(--gf-ink)]">
+                    {edition.title}
+                  </p>
+                  <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs text-[var(--gf-muted)]">
+                    {edition.slug}
                   </p>
                 </ResearchLink>
               </li>

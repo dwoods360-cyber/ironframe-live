@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
-import { parseFrontmatterField } from "@/app/lib/governanceFrame/briefingMarkdown";
+import { isNewsletterLedgerItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 import { listNewsletterPlaceholders } from "@/app/lib/governanceFrame/researchCatalog";
 
 export const dynamic = "force-dynamic";
@@ -11,17 +11,14 @@ export const metadata: Metadata = {
   title: "Newsletters",
 };
 
-function isNewsletter(markdown: string, slug: string): boolean {
-  const category = parseFrontmatterField(markdown, "category")?.toLowerCase() ?? "";
-  return category.includes("newsletter") || /newsletter|ironcast/i.test(slug);
-}
-
 export default async function ResearchNewslettersPage() {
   const [briefings, placeholders] = await Promise.all([
     fetchPublishedBriefings(),
     Promise.resolve(listNewsletterPlaceholders()),
   ]);
-  const editions = briefings.filter((briefing) => isNewsletter(briefing.markdown, briefing.slug));
+  const editions = briefings.filter((briefing) =>
+    isNewsletterLedgerItem(briefing.markdown, briefing.slug, briefing.title),
+  );
 
   return (
     <section aria-labelledby="newsletters-heading" className="max-w-3xl">

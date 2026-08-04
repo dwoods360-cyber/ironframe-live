@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
+import { isBriefingIndexItem } from "@/app/lib/governanceFrame/publishedLedgerKind";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ function formatPublishedDate(iso: string): string {
 }
 
 export default async function ResearchBriefingsIndexPage() {
-  const briefings = await fetchPublishedBriefings();
+  const ledger = await fetchPublishedBriefings();
+  const briefings = ledger.filter((item) =>
+    isBriefingIndexItem(item.markdown, item.slug, item.title),
+  );
 
   return (
     <section aria-labelledby="briefings-index-heading" className="max-w-3xl">
@@ -32,7 +36,8 @@ export default async function ResearchBriefingsIndexPage() {
         Industry briefings
       </h1>
       <p className="mt-4 max-w-2xl font-[family-name:var(--font-gf-sans)] text-[15px] leading-relaxed text-[var(--gf-ink-soft)]">
-        Approved briefings from the published ledger. Quarantined drafts do not appear here.
+        Approved briefings from the published ledger. Newsletters and industry research briefs
+        appear under their own sections. Quarantined drafts do not appear here.
       </p>
 
       {briefings.length === 0 ? (

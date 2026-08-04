@@ -7,7 +7,7 @@ import {
 } from "@/app/components/governanceFrame/ResearchBasePath";
 
 const NAV = [
-  { path: "/research-papers", label: "Papers" },
+  { path: "/research-papers", label: "Research papers" },
   { path: "/briefings", label: "Briefings" },
   { path: "/series", label: "Series" },
   { path: "/newsletters", label: "Newsletters" },

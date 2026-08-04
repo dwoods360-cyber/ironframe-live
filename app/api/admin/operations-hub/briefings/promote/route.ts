@@ -44,12 +44,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const already = result.alreadyPublished ? " (already published)" : "";
+  const skipped = result.syndicationSkipped
+    ? " — live in Governance Frame; filesystem RSS/Ironcast mirror skipped on this host"
+    : "";
+  const queueNote = result.removedFromQueue
+    ? ""
+    : " (queue file still on disk — remove from git on next docs sync if needed)";
+
   return NextResponse.json(
     {
       ...result,
-      message: `Approved & promoted to /governance-frame/${result.slug}${
-        result.removedFromQueue ? "" : " (queue file still on disk — remove manually if needed)"
-      }`,
+      message: `Approved & promoted to /governance-frame/${result.slug}${already}${skipped}${queueNote}`,
     },
     { status: 201 },
   );

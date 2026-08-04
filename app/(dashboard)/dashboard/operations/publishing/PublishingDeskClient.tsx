@@ -281,7 +281,12 @@ export default function PublishingDeskClient() {
     setPromoteMessage(null);
     setDecisionMessage(null);
     try {
-      const data = await fetchOpsPortalJson<{ ok?: boolean; slug?: string }>(
+      const data = await fetchOpsPortalJson<{
+        ok?: boolean;
+        slug?: string;
+        message?: string;
+        alreadyPublished?: boolean;
+      }>(
         "/api/admin/operations-hub/briefings/promote",
         {
           method: "POST",
@@ -290,7 +295,11 @@ export default function PublishingDeskClient() {
         },
         "Promotion failed.",
       );
-      const okMsg = `Approved & promoted to /governance-frame/${data.slug ?? slug}`;
+      const okMsg =
+        data.message?.trim() ||
+        `Approved & promoted to /governance-frame/${data.slug ?? slug}${
+          data.alreadyPublished ? " (already published)" : ""
+        }`;
       setPromoteMessage(okMsg);
       setDecisionMessage(okMsg);
       if (draftReaderFilename === file) closeDraftReader();

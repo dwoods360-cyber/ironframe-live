@@ -47,6 +47,8 @@ export type PromoteBriefingDraftResult =
       rssPath?: string;
       newsletterHtmlPath?: string | null;
       removedFromQueue: boolean;
+      alreadyPublished?: boolean;
+      syndicationSkipped?: boolean;
     }
   | {
       ok: false;
@@ -54,6 +56,10 @@ export type PromoteBriefingDraftResult =
       hint?: string;
       issues?: BriefingDraftValidationIssue[];
     };
+
+function isServerlessReadOnlyFs(): boolean {
+  return process.env.VERCEL === "1" || Boolean(process.env.AWS_LAMBDA_FUNCTION_NAME);
+}
 
 function removeQueueDraftBestEffort(queuePath: string): boolean {
   if (!fs.existsSync(queuePath)) return false;
@@ -134,7 +140,18 @@ export async function promoteBriefingDraftCore(
 
   const existing = await prisma.publishedBriefing.findUnique({ where: { slug } });
   if (existing) {
-    return { ok: false, error: `Published slug already exists: ${slug}` };
+    // Idempotent Approve: DB is the authoritative ledger. Retries after a
+    // read-only syndication failure must not surface as a hard error.
+    await clearBriefingQueueHold(file);
+    const removedFromQueue = removeQueueDraftBestEffort(queuePath);
+    return {
+      ok: true,
+      publishedBriefingId: existing.id,
+      slug,
+      removedFromQueue,
+      alreadyPublished: true,
+      syndicationSkipped: true,
+    };
   }
 
   const cleanMarkdownBody = cleanBodyForPublication(markdown);
@@ -155,9 +172,18 @@ export async function promoteBriefingDraftCore(
 
   await clearBriefingQueueHold(file);
 
-  if (input.skipSyndication) {
+  // Vercel / Lambda cannot persist docs/ or public/ writes — PostgreSQL is the
+  // live reader source. Skip FS syndication there; commit mirrors from a writable host.
+  const skipSyndication = input.skipSyndication === true || isServerlessReadOnlyFs();
+  if (skipSyndication) {
     const removedFromQueue = removeQueueDraftBestEffort(queuePath);
-    return { ok: true, publishedBriefingId: record.id, slug, removedFromQueue };
+    return {
+      ok: true,
+      publishedBriefingId: record.id,
+      slug,
+      removedFromQueue,
+      syndicationSkipped: isServerlessReadOnlyFs() && input.skipSyndication !== true,
+    };
   }
 
   try {
@@ -187,13 +213,18 @@ export async function promoteBriefingDraftCore(
     };
   } catch (err) {
     removePublishedFilesystemMirror(slug, docsRoot);
+    // Keep DB publication — reader uses PostgreSQL. Surface a soft success with hint.
+    const removedFromQueue = removeQueueDraftBestEffort(queuePath);
+    console.error("[promote] syndication failed after DB publish", {
+      slug,
+      err: err instanceof Error ? err.message : err,
+    });
     return {
-      ok: false,
-      error:
-        err instanceof Error
-          ? `Syndication failed (DB record retained): ${err.message}`
-          : "Syndication failed (DB record retained).",
-      hint: "Fix syndication, then re-Approve — or delete the published slug and retry.",
+      ok: true,
+      publishedBriefingId: record.id,
+      slug,
+      removedFromQueue,
+      syndicationSkipped: true,
     };
   }
 }

@@ -1,20 +1,11 @@
 ---
 title: "CPS 230 at the Contract Deadline: Governing Material Service Providers, Fourth Parties, and Exit Risk"
-date: "2026-06-16T00:00:00.000Z"
-lastUpdated: "2026-08-04T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "research-briefing"
-seriesId: "governance-frame-summer-2026"
-installmentId: "GF-SUM-2026-06-B"
+publishedAt: "2026-08-04T17:00:41.997Z"
+published: "2026-08-04"
 summary: "APRA’s final targeted amendments to CPS 230 and CPG 230 commence 1 July 2026. For many APRA-regulated entities, the same date closes the transitional window for pre-existing material service provider contracts. This briefing examines contract governance, fourth-party exposure, exit and substitution risk, and the narrow exemptions for certain nontraditional providers—while separating enforceable contract terms, entity-level operational duties, duties specifically disapplied for exempt arrangements, and prudent examination-readiness practice."
+classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-audience: "Public — brief.ironframegrc.com"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** CPS 230 is no longer primarily a policy-drafting exercise. By 1 July 2026, APRA-regulated entities must treat material service provider (MSP) arrangements as governed operational dependencies: identified, diligence-tested, contractually controlled where required, monitored for fourth-party concentration, and exit-ready where the standard still requires it. Limited exemptions for specified nontraditional providers disapply particular contractual and related monitoring/exit paragraphs—they do not erase ongoing operational-risk management, MSP-register, or BCP duties. Boards need evidence that shows which arrangements are uplifted, which rely on exemptions, what residual risk remains, and who owns remediation.

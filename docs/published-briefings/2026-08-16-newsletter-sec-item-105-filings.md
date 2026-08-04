@@ -1,20 +1,11 @@
 ---
 title: "Governance Frame U.S. Cyber Disclosure Review — August 2026: What Item 1.05 Filings Reveal About Materiality"
-date: "2026-08-16T00:00:00.000Z"
-lastUpdated: "2026-08-04T00:00:00.000Z"
-status: "QUARANTINED_DRAFT"
-classification: "Institutional Governance"
-category: "newsletter"
-seriesId: "governance-frame-summer-2026"
-installmentId: "GF-SUM-2026-08-N"
+publishedAt: "2026-08-04T17:16:03.617Z"
+published: "2026-08-04"
 summary: "Two-plus years into the SEC’s cybersecurity disclosure rules, the useful August 2026 question is not what Item 1.05 says in the abstract—it is what recent filings show about materiality without operational shutdown, third-party environments, sensitive data, unauthorized AI use, and disclosure-committee evidence. This newsletter reads filing patterns against Item 1.05 and Item 106 duties while keeping discovery, materiality determination, the four-business-day clock, and amendments distinct. Information reviewed through August 4, 2026."
+classification: "Institutional Governance"
 author: "Ironframe Governance Frame"
-audience: "Public — brief.ironframegrc.com"
-tenantId: "00000000-0000-0000-0000-000000000000"
-tenantSlug: "industry-research"
-requiresImmediatePromotion: false
-activeExposureCents: "0"
-publishState: "QUARANTINED_AWAITING_OPERATOR"
+publishedBy: "54aac838-9094-4de5-ac24-993672505cbc"
 ---
 
 > **Executive Summary:** Item 1.05 is a materiality-triggered disclosure control, not an automatic public notice for every intrusion. Item 1.05 filings by Navient, CareCloud, CB Financial Services and Amgen show registrants finding materiality based on the volume and sensitivity of information, potential legal and regulatory consequences, and qualitative investor considerations—even where operations continued, company-owned systems were not compromised, or no material financial-condition impact was expected. GRC leaders should distinguish incident discovery, materiality determination, the four-business-day filing period and later amendments; align those processes with the governance disclosures made under Item 106; and preserve evidence supporting the determination.

@@ -32,7 +32,7 @@ const ROLE_PATTERNS: Array<{ role: BuyingRole; title: RegExp; weight: number }> 
   {
     role: "CEO",
     title:
-      /\b(?:chief executive officer|ceo|president and chief executive|chairman[, ]+president and chief executive)\b/i,
+      /\b(?:chief executive officer|ceo|president and chief executive|chairman[, ]+president and chief executive|co[- ]?founder|founder)\b/i,
     weight: 95,
   },
   {
@@ -205,7 +205,7 @@ export function normalizeExtractedPersonName(name: string): string {
  * (e.g. "Scorecard Free CISO", "Readiness Tool CEO", "IT Manager CFO").
  */
 const PERSON_NAME_NOISE =
-  /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet|security|services|solutions|systems|partners|point|scorecard|readiness|tool|free|manager|audit|platform|portal|dashboard|assessment|software|product|demo|trial|download|login|signup|contact|support|team|staff|expert|specialist|consultant|analyst|engineer|administrator|framework|governance|risk|control|evidence|portfolio|client|clients|customer|customers|enterprise|managed|virtual|cloud|cyber|hipaa|cmmc|soc|nist|iso|grc|mssp|vciso|it|phishing|simulation|knowledge|center|newsletter|webinar|resource|library|insights|blog|press|guide|overview|features|pricing)\b/i;
+  /\b(and|board|company|best|officer|chief|president|western|alliance|department|united|appoints|director|award|extel|privacy|compliance|secure|applications|view|bio|meet|security|services|solutions|systems|partners|point|scorecard|readiness|tool|free|manager|audit|platform|portal|dashboard|assessment|software|product|demo|trial|download|login|signup|contact|support|team|staff|expert|specialist|consultant|analyst|engineer|administrator|framework|governance|risk|control|evidence|portfolio|client|clients|customer|customers|enterprise|managed|virtual|cloud|cyber|hipaa|cmmc|soc|nist|iso|grc|mssp|vciso|it|phishing|simulation|knowledge|center|newsletter|webinar|resource|library|insights|blog|press|guide|overview|features|pricing|us|your|our|adviser|advisor|global|learn|more|click|here|about|home|news|careers|terms|cookie|subscribe|follow|share|email|phone|address|office|hours|menu|nav|footer|header|copyright|rights|reserved|back|next|previous|skip|content|page|site|web|www)\b/i;
 
 /** Reject HTML/award/product-UI noise that regex can latch onto as a "person". */
 export function isPlausiblePersonName(name: string): boolean {
@@ -215,7 +215,9 @@ export function isPlausiblePersonName(name: string): boolean {
   // All-caps marketing phrases ("PRIVACY COMPLIANCE…") are not people.
   if (trimmed === trimmed.toUpperCase() && trimmed.length > 8) return false;
   if (/['’]s$/i.test(parts[parts.length - 1]!)) return false;
-  if (/^(As|The|And|For|With|Our|This)\b/i.test(trimmed)) return false;
+  if (/^(As|The|And|For|With|Our|This|Us|Your|Meet|Learn|Contact|About)\b/i.test(trimmed)) {
+    return false;
+  }
   if (PERSON_NAME_NOISE.test(trimmed)) return false;
   // Reject bare acronyms / all-caps tokens that are not middle initials ("IT", "CEO").
   for (const part of parts) {

@@ -10,7 +10,7 @@ Google Custom Search JSON API is **closed to new customers** — do not rely on 
 2. **SerpAPI** — `SERPAPI_API_KEY` (Google engine)
 3. **Google CSE** — `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_CX` (legacy entitlement only)
 
-Hits are filtered to `app/lib/server/ironleadsLeadershipSearchAllowlist.ts` (mirror of `docs/ops/google-cse-ironleads-sites.txt`).
+Hits are filtered to `app/lib/server/ironleadsLeadershipSearchAllowlist.ts` (mirror of `docs/ops/google-cse-ironleads-sites.txt`), then company-relevance refined in `ironleadsLeadershipSearchHitRefine.ts` (drops generic CISO roundups / Wikipedia role pages; turns LinkedIn `/in/` and Forbes Councils profile slugs into extractable prose). Brave requests use `extra_snippets=true` for richer corpus.
 
 ## Setup — Brave (recommended)
 

@@ -55,9 +55,10 @@ describe("googleLeadershipSearchClient", () => {
     clearProviderEnv();
     process.env.BRAVE_SEARCH_API_KEY = "test-brave";
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const href = String(input);
+      expect(href).toContain("extra_snippets=true");
+      return {
         ok: true,
         status: 200,
         json: async () => ({
@@ -67,6 +68,12 @@ describe("googleLeadershipSearchClient", () => {
                 title: "Acme MSSP Appoints Jordan Lee as Chief Information Security Officer",
                 description: "Jordan Lee joins Acme as CISO to lead client GRC programs.",
                 url: "https://www.prnewswire.com/news/acme-ciso",
+                extra_snippets: ["Jordan Lee is Chief Information Security Officer at Acme MSSP."],
+              },
+              {
+                title: "New CISO appointments 2026",
+                description: "Industry roundup with no firm match",
+                url: "https://www.csoonline.com/article/new-ciso-appointments-2026/",
               },
               {
                 title: "Random blog",
@@ -76,8 +83,9 @@ describe("googleLeadershipSearchClient", () => {
             ],
           },
         }),
-      })),
-    );
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await searchCompanyLeadership({
       company: "Acme MSSP",
@@ -89,6 +97,7 @@ describe("googleLeadershipSearchClient", () => {
     expect(result.provider).toBe("brave");
     expect(result.hits).toHaveLength(1);
     expect(result.corpus).toMatch(/Jordan Lee/i);
+    expect(result.corpus).toMatch(/Chief Information Security Officer at Acme MSSP/i);
     expect(result.sourceUrls[0]).toContain("prnewswire.com");
   });
 

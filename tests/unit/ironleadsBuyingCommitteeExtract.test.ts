@@ -56,6 +56,8 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("IT Manager")).toBe(false);
     expect(isPlausiblePersonName("Phishing Simulation")).toBe(false);
     expect(isPlausiblePersonName("Knowledge Center")).toBe(false);
+    expect(isPlausiblePersonName("Us Your")).toBe(false);
+    expect(isPlausiblePersonName("Adviser Global")).toBe(false);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
     expect(isPlausiblePersonName("Ali Hassani")).toBe(true);

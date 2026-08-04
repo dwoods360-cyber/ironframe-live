@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isAllowlistedLeadershipUrl } from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
+import { refineLeadershipHits } from "@/app/lib/server/ironleadsLeadershipSearchHitRefine";
 
 /**
  * Leadership OSINT search for Ironleads Research-only thin dossiers.
@@ -98,16 +99,15 @@ function buildLeadershipQuery(company: string): string {
 
 function finalizeHits(
   provider: LeadershipSearchProvider,
+  company: string,
   query: string,
   rawHits: GoogleLeadershipHit[],
 ): Extract<GoogleLeadershipSearchResult, { ok: true }> {
-  const hits = rawHits
+  const allowlisted = rawHits
     .filter((h) => h.link && isAllowlistedLeadershipUrl(h.link))
     .filter((h) => h.title || h.snippet);
 
-  const corpus = hits
-    .map((h) => [h.title, h.snippet].filter(Boolean).join(". "))
-    .join(" \n ");
+  const { hits, corpus } = refineLeadershipHits(company, allowlisted);
   const sourceUrls = hits.map((h) => h.link).filter(Boolean);
 
   return {
@@ -122,6 +122,7 @@ function finalizeHits(
 }
 
 async function searchViaBrave(
+  company: string,
   query: string,
   num: number,
 ): Promise<GoogleLeadershipSearchResult> {
@@ -140,6 +141,7 @@ async function searchViaBrave(
   url.searchParams.set("q", query);
   url.searchParams.set("count", String(num));
   url.searchParams.set("safesearch", "moderate");
+  url.searchParams.set("extra_snippets", "true");
 
   try {
     const response = await fetch(url.toString(), {
@@ -162,6 +164,7 @@ async function searchViaBrave(
           title?: string;
           description?: string;
           url?: string;
+          extra_snippets?: string[];
         }>;
       };
     };
@@ -182,13 +185,22 @@ async function searchViaBrave(
       };
     }
 
-    const rawHits: GoogleLeadershipHit[] = (body.web?.results ?? []).map((item) => ({
-      title: typeof item.title === "string" ? item.title.trim() : "",
-      snippet: typeof item.description === "string" ? item.description.trim() : "",
-      link: typeof item.url === "string" ? item.url.trim() : "",
-    }));
+    const rawHits: GoogleLeadershipHit[] = (body.web?.results ?? []).map((item) => {
+      const description =
+        typeof item.description === "string" ? item.description.trim() : "";
+      const extras = Array.isArray(item.extra_snippets)
+        ? item.extra_snippets
+            .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+            .map((s) => s.trim())
+        : [];
+      return {
+        title: typeof item.title === "string" ? item.title.trim() : "",
+        snippet: [description, ...extras].filter(Boolean).join(" "),
+        link: typeof item.url === "string" ? item.url.trim() : "",
+      };
+    });
 
-    return finalizeHits("brave", query, rawHits);
+    return finalizeHits("brave", company, query, rawHits);
   } catch (err) {
     return {
       ok: false,
@@ -201,6 +213,7 @@ async function searchViaBrave(
 }
 
 async function searchViaSerpApi(
+  company: string,
   query: string,
   num: number,
 ): Promise<GoogleLeadershipSearchResult> {
@@ -252,7 +265,7 @@ async function searchViaSerpApi(
       link: typeof item.link === "string" ? item.link.trim() : "",
     }));
 
-    return finalizeHits("serpapi", query, rawHits);
+    return finalizeHits("serpapi", company, query, rawHits);
   } catch (err) {
     return {
       ok: false,
@@ -265,6 +278,7 @@ async function searchViaSerpApi(
 }
 
 async function searchViaGoogleCse(
+  company: string,
   query: string,
   num: number,
 ): Promise<GoogleLeadershipSearchResult> {
@@ -313,7 +327,7 @@ async function searchViaGoogleCse(
       link: typeof item.link === "string" ? item.link.trim() : "",
     }));
 
-    return finalizeHits("google_cse", query, rawHits);
+    return finalizeHits("google_cse", company, query, rawHits);
   } catch (err) {
     return {
       ok: false,
@@ -360,7 +374,7 @@ export async function searchCompanyLeadership(input: {
   const query = buildLeadershipQuery(company);
   const num = Math.min(Math.max(input.num ?? 8, 1), 10);
 
-  if (provider === "brave") return searchViaBrave(query, num);
-  if (provider === "serpapi") return searchViaSerpApi(query, num);
-  return searchViaGoogleCse(query, num);
+  if (provider === "brave") return searchViaBrave(company, query, num);
+  if (provider === "serpapi") return searchViaSerpApi(company, query, num);
+  return searchViaGoogleCse(company, query, num);
 }

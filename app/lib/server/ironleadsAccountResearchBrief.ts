@@ -74,7 +74,13 @@ export type AccountResearchBrief = {
   gates: {
     fit: AccountResearchBriefGate;
     pain: AccountResearchBriefGate;
+    /** Named economic/operational buyer from public pages or operator attach. */
     buyer: AccountResearchBriefGate;
+    /**
+     * Real work inbox (published / operator / Apollo / Prospeo).
+     * Optional on legacy persisted briefs — report rebuild fills it.
+     */
+    email?: AccountResearchBriefGate;
   };
   buyerMap: AccountResearchBriefBuyer[];
   triggerEvidence: Array<{
@@ -430,7 +436,7 @@ export function buildAccountResearchBrief(
         finding: `Harvest trigger: ${trigger}.`,
         why: hasCompetingStack
           ? "A trigger exists, but proprietary GRC conflict overrides Path B cold pain timing — do not treat hiring/news as a green light."
-          : "A concrete OSINT trigger makes outreach timely if Fit and Buyer also Pass.",
+          : "A concrete OSINT trigger makes outreach timely if Fit, Buyer, and Email also Pass.",
       }
     : {
         result: "UNKNOWN",
@@ -440,27 +446,42 @@ export function buildAccountResearchBrief(
 
   const buyer: AccountResearchBriefGate = hasNamedBuyer
     ? {
-        // Switchboard phone alone must not green-light Buyer — require a real inbox
-        // (published / operator / Apollo / Prospeo). Pattern-guess names + HQ phone
-        // previously falsely opened all three gates on product-UI scrape junk.
-        result: hasCompetingStack ? "FAIL" : input.hasRealEmail ? "PASS" : "UNKNOWN",
-        finding: hasNamedBuyer
-          ? `Named public roles: ${namedMembers
-              .map((m) => `${m.fullName} (${m.role})`)
-              .slice(0, 4)
-              .join("; ")}.`
-          : "No named buyer extracted.",
+        result: hasCompetingStack ? "FAIL" : "PASS",
+        finding: `Named public roles: ${namedMembers
+          .map((m) => `${m.fullName} (${m.role})`)
+          .slice(0, 4)
+          .join("; ")}.`,
         why: hasCompetingStack
           ? "Buyer names do not unlock Path B while the account is HOLD/competitor."
-          : input.hasRealEmail
-            ? "A plausible named role plus a real (non-placeholder) email supports Promote → SalesTeam poll."
-            : "Names without a real buyer email stay SUSPECT — Enrich with Apollo/Prospeo or paste a verified inbox. Switchboard phone alone is not enough.",
+          : "A plausible named role is on file — clear Email separately before Promote.",
       }
     : {
         result: "FAIL",
         finding: "No plausible named economic or operational buyer extracted from public pages.",
         why: "Do not Promote on title guesses or product/UI scrape junk; find a real person who owns GRC delivery or budget.",
       };
+
+  const email: AccountResearchBriefGate = hasCompetingStack
+    ? {
+        result: "FAIL",
+        finding: input.hasRealEmail
+          ? "A real inbox is on file, but HOLD/competitor blocks Path B use of it."
+          : "No real buyer inbox on file; HOLD/competitor also blocks Path B.",
+        why: "Do not DISPATCH while the account is on the competitor/HOLD shortlist.",
+      }
+    : input.hasRealEmail
+      ? {
+          result: "PASS",
+          finding: "A real (non-placeholder) work email is on file for outreach.",
+          why: "Published, operator-pasted, Apollo, or Prospeo inboxes clear this gate — pattern_guess alone does not.",
+        }
+      : {
+          result: "UNKNOWN",
+          finding: hasNamedBuyer
+            ? "Named buyer is on file, but no real work email yet."
+            : "No real work email on file.",
+          why: "Enrich with Apollo/Prospeo or paste a verified inbox. Switchboard phone alone is not enough. Buyer PASS without Email keeps the account SUSPECT.",
+        };
 
   let status: BriefAccountStatus = "SUSPECT";
   let classification: BriefRelationshipClass = "research_relationship";
@@ -473,7 +494,8 @@ export function buildAccountResearchBrief(
   } else if (
     fit.result === "PASS" &&
     pain.result === "PASS" &&
-    buyer.result === "PASS"
+    buyer.result === "PASS" &&
+    email.result === "PASS"
   ) {
     status = input.dealStage === "PROSPECT" ? "APPROVED" : "SUSPECT";
     classification = "direct_design_partner";
@@ -485,11 +507,11 @@ export function buildAccountResearchBrief(
   }
 
   const buyerMap: AccountResearchBriefBuyer[] = namedMembers.slice(0, 8).map((m) => {
-    const email = m.emails[0] ?? null;
+    const memberEmail = m.emails[0] ?? null;
     const phone = m.phones[0] ?? null;
     const bio = m.sourceUrls[0] ?? null;
     const confidence: AccountResearchBriefBuyer["confidence"] =
-      email?.status === "published" || phone?.status === "published"
+      memberEmail?.status === "published" || phone?.status === "published"
         ? "high"
         : m.fullName
           ? "medium"
@@ -501,9 +523,10 @@ export function buildAccountResearchBrief(
       whyOwnsWorkflow: whyOwnsWorkflow(m.role, m.title),
       linkedInUrl: null,
       biographyUrl: bio,
-      email: email?.email ?? null,
-      emailStatus: email
-        ? [email.status, email.mailboxCheck?.label].filter(Boolean).join(" · ") || email.status
+      email: memberEmail?.email ?? null,
+      emailStatus: memberEmail
+        ? [memberEmail.status, memberEmail.mailboxCheck?.label].filter(Boolean).join(" · ") ||
+          memberEmail.status
         : null,
       phone: phone?.phone ?? null,
       confidence,
@@ -574,8 +597,8 @@ export function buildAccountResearchBrief(
   const whyThisApproach = hasCompetingStack
     ? "HOLD protects Path B seats: pitching into a practice that ships its own GRC burns trust and wastes DISPATCH quota. Keep the row for competitive intelligence; do not Promote for cold design-partner outreach."
     : outreachStatus === "promote"
-      ? "Fit, pain, and buyer gates support a human-led Promote → SalesTeam draft → Approve DISPATCH. Email-first keeps SMS unused until proven."
-      : "Gates are incomplete — use enrichment (email, phone, buyer confirm) before any outreach so Approvals never invent a buyer story.";
+      ? "Fit, pain, buyer, and email gates support a human-led Promote → SalesTeam draft → Approve DISPATCH. Email-first keeps SMS unused until proven."
+      : "Gates are incomplete — clear Fit, Pain, Buyer, and Email (named person + real inbox) before any outreach so Approvals never invent a buyer story.";
 
   const whatToSay = hasCompetingStack
     ? `Do not send Path B cold outreach. Internal note only: "${input.company} appears to be a ${classification} (${proprietaryPlatform ?? "HOLD"}). Revisit only for non-Path-B partner/ecosystem motions after design-partner seats are filled."`
@@ -644,7 +667,7 @@ export function buildAccountResearchBrief(
   return {
     generatedAt,
     howToUse:
-      "Read snapshot + Fit·Pain·Buyer first. If any gate is FAIL or status is HOLD/DROP, stop — do not Promote for Path B cold. If all Pass, use Outreach (why + what to say) to edit a draft after SalesTeam poll; confirm emails marked pattern_guess before DISPATCH. Treat LinkedIn/YouTube as evidence to open, not as the brief.",
+      "Read snapshot + Fit·Pain·Buyer·Email first. If any gate is FAIL or status is HOLD/DROP, stop — do not Promote for Path B cold. Buyer PASS with Email UNKNOWN means enrich Apollo/Prospeo (or paste a verified inbox) before Promote. If all Pass, use Outreach (why + what to say) to edit a draft after SalesTeam poll; confirm emails marked pattern_guess before DISPATCH. Treat LinkedIn/YouTube as evidence to open, not as the brief.",
     snapshot: {
       company: input.company,
       websiteUrl: input.websiteUrl,
@@ -655,7 +678,7 @@ export function buildAccountResearchBrief(
       existingGrcProducts: products,
       status,
     },
-    gates: { fit, pain, buyer },
+    gates: { fit, pain, buyer, email },
     buyerMap,
     triggerEvidence,
     linkedInIntelligence: {

@@ -101,7 +101,7 @@ export default function AccountResearchBriefPanel({ brief }: { brief: AccountRes
 
       <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800">
         <p className="border-b border-slate-800 bg-slate-950/60 px-3 py-2 font-mono text-[10px] uppercase tracking-widest text-slate-500">
-          2 · Fit · Pain · Buyer
+          2 · Fit · Pain · Buyer · Email
         </p>
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-950/40 text-slate-500">
@@ -118,6 +118,14 @@ export default function AccountResearchBriefPanel({ brief }: { brief: AccountRes
                 ["Fit", gates.fit],
                 ["Pain", gates.pain],
                 ["Buyer", gates.buyer],
+                [
+                  "Email",
+                  gates.email ?? {
+                    result: "UNKNOWN" as const,
+                    finding: "Email gate not on this saved brief yet.",
+                    why: "Re-open or re-run Research — Email is now a separate gate from Buyer.",
+                  },
+                ],
               ] as const
             ).map(([label, gate]) => (
               <tr key={label}>

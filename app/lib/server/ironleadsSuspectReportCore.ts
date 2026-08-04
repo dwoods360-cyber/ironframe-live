@@ -29,9 +29,15 @@ import {
   type SuspectPostalAddress,
   type SuspectWebsiteContact,
 } from "@/app/lib/server/ironleadsSuspectLocation";
+import {
+  buildDomainMailFootprint,
+  resolveFootprintDomain,
+  type DomainMailFootprint,
+} from "@/app/lib/server/domainMailFootprint";
 import prisma from "@/lib/prisma";
 
 export { looksLikeOsintTitleNoise };
+export type { DomainMailFootprint };
 
 /** Matches Ironleads sector routing default for design-partner outreach. */
 const PROSPECT_POOL_TENANT_SLUG = "prospect-pool";
@@ -70,6 +76,11 @@ export type IronleadsSuspectReport = {
   apolloEnrichment: ApolloEnrichSnapshot | null;
   /** Last Prospeo enrich-person snapshot (HITL; credits consumed on Prospeo side). */
   prospeoEnrichment: ProspeoEnrichSnapshot | null;
+  /**
+   * Public DNS mail footprint (MX / SPF / DMARC / provider guess).
+   * Decision aid only — not mailbox ownership proof.
+   */
+  mailFootprint: DomainMailFootprint | null;
   tenantSlug: string;
   industrySector: string | null;
   detectedTrigger: string | null;
@@ -343,16 +354,24 @@ export async function buildIronleadsSuspectReport(
     hasPhone,
     generatedAt: new Date().toISOString(),
   });
-  // Prefer persisted brief (has real page corpus) unless Buyer gate/roster drifted:
-  // - improve: operator/Prospeo namedBuyer added after scrape → rebuild
-  // - degrade: scrape junk cleared / stricter name rules → rebuild (kill false green)
-  // - roster: junk names dropped (e.g. "National Defense" CEO) → rebuild finding copy
+  // Prefer persisted brief (has real page corpus) unless Buyer/Email gate or roster drifted:
+  // - improve: operator/Prospeo namedBuyer or real email added after scrape → rebuild
+  // - degrade: scrape junk cleared / email lost / stricter name rules → rebuild
+  // - roster: junk names dropped → rebuild finding copy
+  // - schema: pre-Email-gate briefs always rebuild so Email appears as its own row
   const buyerImproved =
     persistedBrief?.gates.buyer.result === "FAIL" &&
     rebuiltBrief.gates.buyer.result !== "FAIL";
   const buyerDegraded =
     persistedBrief?.gates.buyer.result === "PASS" &&
     rebuiltBrief.gates.buyer.result !== "PASS";
+  const emailMissing = Boolean(persistedBrief) && !persistedBrief?.gates?.email;
+  const emailImproved =
+    persistedBrief?.gates.email?.result !== "PASS" &&
+    rebuiltBrief.gates.email.result === "PASS";
+  const emailDegraded =
+    persistedBrief?.gates.email?.result === "PASS" &&
+    rebuiltBrief.gates.email.result !== "PASS";
   const persistedBuyerNames = (persistedBrief?.buyerMap ?? [])
     .map((b) => (b.name ?? "").trim().toLowerCase())
     .filter(Boolean)
@@ -366,7 +385,13 @@ export async function buildIronleadsSuspectReport(
   const buyerRosterChanged =
     Boolean(persistedBrief) && persistedBuyerNames !== rebuiltBuyerNames;
   const accountResearchBrief =
-    persistedBrief && !buyerImproved && !buyerDegraded && !buyerRosterChanged
+    persistedBrief &&
+    !buyerImproved &&
+    !buyerDegraded &&
+    !emailMissing &&
+    !emailImproved &&
+    !emailDegraded &&
+    !buyerRosterChanged
       ? persistedBrief
       : rebuiltBrief;
 
@@ -387,6 +412,29 @@ export async function buildIronleadsSuspectReport(
     prospeoRaw && typeof prospeoRaw === "object" && !Array.isArray(prospeoRaw)
       ? (prospeoRaw as ProspeoEnrichSnapshot)
       : null;
+
+  const footprintDomain = resolveFootprintDomain({
+    accountDomain: deal?.accountDomain ?? null,
+    websiteUrl: location.websiteUrl,
+    contactEmail: hasRealEmail ? contact.email : null,
+  });
+  let mailFootprint: DomainMailFootprint | null = null;
+  if (footprintDomain) {
+    try {
+      mailFootprint = await buildDomainMailFootprint(footprintDomain);
+    } catch {
+      mailFootprint = null;
+    }
+  }
+  if (mailFootprint?.catchAllRisk === "high") {
+    nextActions.unshift(
+      `Mail footprint: ${mailFootprint.providerLabel} — high catch-all/gateway risk. Do not Promote on pattern_guess MX PASS alone.`,
+    );
+  } else if (mailFootprint?.mxOk === false) {
+    nextActions.unshift(
+      "Mail footprint: no MX for this domain — pattern-guess emails are unlikely to route.",
+    );
+  }
 
   if (operatorHold) {
     nextActions.unshift(
@@ -422,6 +470,7 @@ export async function buildIronleadsSuspectReport(
     operatorHold,
     apolloEnrichment,
     prospeoEnrichment,
+    mailFootprint,
     tenantSlug: contact.tenant.slug,
     industrySector: contact.industrySector,
     detectedTrigger: contact.detectedTrigger,

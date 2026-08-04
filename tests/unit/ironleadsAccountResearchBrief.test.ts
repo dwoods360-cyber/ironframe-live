@@ -50,15 +50,16 @@ describe("buildAccountResearchBrief", () => {
     expect(brief.snapshot.existingGrcProducts).toContain("OSCAR");
     expect(brief.competitiveConflict.classification).toBe("competitor");
     expect(brief.gates.pain.result).toBe("FAIL");
+    expect(brief.gates.email.result).toBe("FAIL");
     expect(brief.outreach.status).toBe("hold");
     expect(brief.outreach.whatToSay).toMatch(/Do not send Path B/i);
     expect(brief.outreach.whyThisApproach).toMatch(/HOLD/i);
-    expect(brief.howToUse).toMatch(/Fit·Pain·Buyer/i);
+    expect(brief.howToUse).toMatch(/Fit·Pain·Buyer·Email/i);
     expect(brief.linkedInIntelligence.urls[0]).toContain("linkedin.com");
     expect(brief.youtubeIntelligence.operatorPrompt).toMatch(/timestamps/i);
   });
 
-  it("recommends promote when fit pain buyer pass without conflict", () => {
+  it("recommends promote when fit pain buyer email pass without conflict", () => {
     const brief = buildAccountResearchBrief({
       company: "Acme Managed GRC",
       websiteUrl: "https://acme-mgrc.example",
@@ -93,6 +94,7 @@ describe("buildAccountResearchBrief", () => {
     expect(brief.gates.fit.result).toBe("PASS");
     expect(brief.gates.pain.result).toBe("PASS");
     expect(brief.gates.buyer.result).toBe("PASS");
+    expect(brief.gates.email.result).toBe("PASS");
     expect(brief.outreach.status).toBe("promote");
     expect(brief.outreach.whatToSay).toMatch(/Jordan Lee|portfolio/i);
     expect(brief.outreach.howToUse).toMatch(/Promote/i);
@@ -143,10 +145,11 @@ describe("buildAccountResearchBrief", () => {
     expect(brief.gates.fit.result).toBe("PASS");
     expect(brief.gates.pain.result).toBe("PASS");
     expect(brief.gates.buyer.result).toBe("FAIL");
+    expect(brief.gates.email.result).toBe("UNKNOWN");
     expect(brief.outreach.status).not.toBe("promote");
   });
 
-  it("keeps Buyer UNKNOWN when plausible name exists but email is still placeholder", () => {
+  it("passes Buyer but keeps Email UNKNOWN when name exists without real inbox", () => {
     const brief = buildAccountResearchBrief({
       company: "Acme Managed GRC",
       websiteUrl: "https://acme-mgrc.example",
@@ -171,7 +174,9 @@ describe("buildAccountResearchBrief", () => {
       hasPhone: true,
     });
 
-    expect(brief.gates.buyer.result).toBe("UNKNOWN");
+    expect(brief.gates.buyer.result).toBe("PASS");
+    expect(brief.gates.email.result).toBe("UNKNOWN");
+    expect(brief.gates.email.finding).toMatch(/no real work email/i);
     expect(brief.outreach.status).not.toBe("promote");
   });
 
@@ -205,9 +210,10 @@ describe("buildAccountResearchBrief", () => {
 
     expect(brief.gates.buyer.result).toBe("PASS");
     expect(brief.gates.buyer.finding).toMatch(/Chris DiSalle/i);
+    expect(brief.gates.email.result).toBe("PASS");
     expect(brief.buyerMap[0]?.purchaseRole).toBe("economic_buyer");
     expect(brief.gates.fit.result).toBe("PASS");
-    // No harvest trigger → Pain UNKNOWN; operator can still Promote on Fit+Buyer.
+    // No harvest trigger → Pain UNKNOWN; operator can still Promote on Fit+Buyer+Email when Pain clears.
     expect(brief.gates.pain.result).toBe("UNKNOWN");
   });
 });

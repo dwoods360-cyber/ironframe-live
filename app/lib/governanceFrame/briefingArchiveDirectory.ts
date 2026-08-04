@@ -52,7 +52,7 @@ export function listBriefingArchiveEntries(
 }
 
 /** How many briefings the research home main body lists before the archive. */
-export const HOME_BRIEFING_PREVIEW_COUNT = 5;
+export const HOME_BRIEFING_PREVIEW_COUNT = 3;
 
 /**
  * Split newest-first briefings into the home main-body preview and the

@@ -72,9 +72,13 @@ describe("partitionHomeBriefings / briefingArchiveExcluding", () => {
       ),
     );
     const { featured, archive } = partitionHomeBriefings(entries);
-    expect(featured).toHaveLength(5);
-    expect(archive).toHaveLength(1);
-    expect(archive[0]?.slug).toBe("2026-06-15-briefing");
+    expect(featured).toHaveLength(3);
+    expect(archive).toHaveLength(3);
+    expect(archive.map((e) => e.slug)).toEqual([
+      "2026-04-15-briefing",
+      "2026-05-15-briefing",
+      "2026-06-15-briefing",
+    ]);
     expect(featured.map((e) => e.slug)).not.toContain(archive[0]?.slug);
   });
 

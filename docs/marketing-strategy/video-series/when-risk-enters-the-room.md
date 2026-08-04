@@ -4,28 +4,62 @@ Status: ACTIVE
 Security Classification: INTERNAL ONLY
 Last Updated: 2026-08-04
 Series: When Risk Enters the Room
-Source brief: User-supplied production plan + scripts (ChatGPT thread not machine-readable without login)
-Canonical hub: This file is the single linked Videos page for Ops Publishing Desk and Ops Calendar.
+Canonical hub: Videos page for Ops Publishing Desk and Ops Calendar — plan + index of narrative files in this folder.
+Source: Documents/SaaS/Videos/Series.txt (2026-07-18 ChatGPT export), split into separate files 2026-08-04.
 ---
 
 # When Risk Enters the Room — Video campaign (canonical)
 
-Public cinematic series for Ironframe. Fully AI-generated scenes. **This is the system-of-record page** for plan, publish windows, production checklist, and episode scripts.
+Public cinematic series for Ironframe. Fully AI-generated scenes. **This is the Videos hub** for Ops Publishing Desk and Ops Calendar — plan and index. Full narratives live as **separate files in this folder**.
 
 **Ops:** Publishing Desk → **Video** tab opens this page · Calendar reminders seed from `video-series/when-risk-enters-the-room#…` sourceRefs.
 
-## Document inventory (consolidated here)
+**Source:** Imported 2026-08-04 from `Documents/SaaS/Videos/Series.txt` (2026-07-18 ChatGPT export). End-card CTAs normalized to **10–15 minute workflow review**.
 
-| Former / companion location | Disposition |
-|-----------------------------|-------------|
-| `docs/marketing-strategy/video-series/episode-scripts.md` | Scripts merged below; file is a stub pointer |
-| Video campaign section in `docs/marketing-strategy/content-calendar.md` | Moved here; calendar keeps a short pointer |
-| `docs/marketing/content-calendar.md` | Template only — already pointed here |
-| `docs/social/content-calendar.md` | Monthly themes only — points here |
-| `docs/marketing-strategy/video-series/when-risk-enters-the-room.ics` | Optional personal ICS mirror (stays alongside) |
-| `docs/marketing-strategy/marketing-strategy-library.md` | Library index link only |
+## Narrative files in this folder
 
-Product/engineering video-intelligence code (`Ironboard` ingress, GRC analyst day seed) is **not** this campaign — do not mix those docs into this hub.
+### Budget
+
+- [budget-and-production.md](./budget-and-production.md)
+
+### Episode scripts (full scene-by-scene)
+
+| ID | File |
+|----|------|
+| V1 | [v1-the-risk-register.md](./v1-the-risk-register.md) |
+| V2 | [v2-the-audit-request.md](./v2-the-audit-request.md) |
+| V3 | [v3-the-wrong-client.md](./v3-the-wrong-client.md) |
+| V4 | [v4-the-ai-generated-board-report.md](./v4-the-ai-generated-board-report.md) |
+| V5 | [v5-the-connector.md](./v5-the-connector.md) |
+| V6 | [v6-the-complete-ironframe-story.md](./v6-the-complete-ironframe-story.md) |
+
+Condensed stub: [episode-scripts.md](./episode-scripts.md) → points here.
+
+### Persona vignettes (longer-form)
+
+1. [The CISO and the Red Square](./vignette-ciso-red-square.md)
+2. [The CISO and the Missing Evidence](./vignette-ciso-missing-evidence.md)
+3. [The CRO and the Risk That Would Not Fit](./vignette-cro-risk-that-would-not-fit.md)
+4. [The Data Protection Officer and the Open Door](./vignette-dpo-open-door.md)
+5. [The CFO and the Word “Material”](./vignette-cfo-word-material.md)
+6. [General Counsel and the Draft That Almost Escaped](./vignette-gc-draft-that-almost-escaped.md)
+7. [The Head of ITSM and the Emergency Change](./vignette-itsm-emergency-change.md)
+8. [The Head of Product Security and the Helpful Agent](./vignette-product-security-helpful-agent.md)
+
+### When the Evidence Breaks (10 short scenes)
+
+1. [Security — The Binder](./evidence-breaks-01-security-the-binder.md)
+2. [Risk — The Two Reds](./evidence-breaks-02-risk-the-two-reds.md)
+3. [Privacy — The Wrong Hospital](./evidence-breaks-03-privacy-the-wrong-hospital.md)
+4. [Finance — Final_v7](./evidence-breaks-04-finance-final-v7.md)
+5. [Legal — The Shared Search](./evidence-breaks-05-legal-the-shared-search.md)
+6. [IT Operations — The Helpful Connector](./evidence-breaks-06-it-operations-the-helpful-connector.md)
+7. [Product Security — The Answer That Sent Itself](./evidence-breaks-07-product-security-the-answer-that-sent-itself.md)
+8. [Internal Audit — The Perfect Control](./evidence-breaks-08-internal-audit-the-perfect-control.md)
+9. [The Audit Director — The Question Behind the Question](./evidence-breaks-09-audit-director-the-question-behind-the-question.md)
+10. [The Command Center](./evidence-breaks-10-the-command-center.md)
+
+Product/engineering video-intelligence code (`Ironboard` ingress, GRC analyst day seed) is **not** this campaign.
 
 ## Campaign totals
 
@@ -39,7 +73,7 @@ Product/engineering video-intelligence code (`Ironboard` ingress, GRC analyst da
 | Full-campaign budget | **$300–$500** DIY |
 | Phase-1 budget (Episodes 1–2) | **~$200** |
 
-Do **not** plan on Sora (discontinued Apr 26, 2026).
+Do **not** plan on Sora (discontinued Apr 26, 2026). Detail: [budget-and-production.md](./budget-and-production.md).
 
 ## CTA lock (message constitution)
 
@@ -111,14 +145,14 @@ Intervals preserved; no cross-list overlaps. Authoritative public ship dates:
 
 ## Project register (all six)
 
-| ID | Title | Length | Primary problem | Product surface | Solution page |
-|----|-------|--------|-----------------|-----------------|---------------|
-| V1 | The Risk Register — *The Number* | 75–90s | Qualitative heatmaps | Quantified scenario / cents | `/solutions/risk-engineering` |
-| V2 | The Audit Request — *The Evidence* | 75–90s | Evidence scramble | Control ↔ evidence chain | `/solutions/healthcare` |
-| V3 | The Wrong Client — *The Boundary* | 75–90s | Cross-tenant bleed | Isolation / RLS | `/solutions/enterprise` |
-| V4 | The AI-Generated Board Report — *The Draft* | 75–90s | Unapproved AI text | HITL draft gate | `/solutions/enterprise` |
-| V5 | The Connector — *The Intake* | 75–90s | Reckless automation | Irongate sanitize-before-persist | `/solutions/infrastructure` + intake narrative |
-| V6 | The Complete Ironframe Story | 2–3 min | Fragmented incident response | End-to-end workflow | `/product-demo` |
+| ID | Title | Length | Primary problem | Product surface | Solution page | Script |
+|----|-------|--------|-----------------|-----------------|---------------|--------|
+| V1 | The Risk Register — *The Number* | 75–90s | Qualitative heatmaps | Quantified scenario / cents | `/solutions/risk-engineering` | [v1](./v1-the-risk-register.md) |
+| V2 | The Audit Request — *The Evidence* | 75–90s | Evidence scramble | Control ↔ evidence chain | `/solutions/healthcare` | [v2](./v2-the-audit-request.md) |
+| V3 | The Wrong Client — *The Boundary* | 75–90s | Cross-tenant bleed | Isolation / RLS | `/solutions/enterprise` | [v3](./v3-the-wrong-client.md) |
+| V4 | The AI-Generated Board Report — *The Draft* | 75–90s | Unapproved AI text | HITL draft gate | `/solutions/enterprise` | [v4](./v4-the-ai-generated-board-report.md) |
+| V5 | The Connector — *The Intake* | 75–90s | Reckless automation | Irongate sanitize-before-persist | `/solutions/infrastructure` | [v5](./v5-the-connector.md) |
+| V6 | The Complete Ironframe Story | 2–3 min | Fragmented incident response | End-to-end workflow | `/product-demo` | [v6](./v6-the-complete-ironframe-story.md) |
 
 ## Generation budget notes
 
@@ -143,23 +177,6 @@ Intervals preserved; no cross-list overlaps. Authoritative public ship dates:
 - [ ] Captions + 9:16 cutdown for LinkedIn
 - [ ] UTM on `/register/contact` and `/product-demo`
 
-## Companion story bank (longer-form)
-
-Persona vignettes for LinkedIn / newsletter / future cutdowns (not separate video IDs yet):
-
-1. The CISO and the Red Square
-2. The CISO and the Missing Evidence
-3. The CRO and the Risk That Would Not Fit
-4. The Data Protection Officer and the Open Door
-5. The CFO and the Word “Material”
-6. General Counsel and the Draft That Almost Escaped
-7. The Head of ITSM and the Emergency Change
-8. The Head of Product Security and the Helpful Agent
-
-Plus **When the Evidence Breaks** (10 short scenes) for Friday Governance Frame lessons.
-
-Schedule as Friday lessons or newsletter chapters — not separate video IDs until Phase 1 style is frozen.
-
 ## Schedule (canonical: Ops Calendar)
 
 **Canonical task calendar:** Ironframe Ops Hub → [Calendar](/dashboard/operations?tab=calendar).
@@ -173,96 +190,9 @@ Ops already sends **T-3 / T-2 / T-1 / T-0** reminders against each activity `due
 
 Optional personal mirror (not the system of record): [`when-risk-enters-the-room.ics`](./when-risk-enters-the-room.ics) for Google / Outlook / Apple.
 
----
-
-## Episode scripts — production master {#episode-scripts}
-
-End-card CTA (locked): **Request a 10–15 minute workflow review** → `/register/contact`  
-Secondary: `/product-demo`
-
-### V1 — The Risk Register (The Number) · 75–90s
-
-**Title card:** When Risk Enters the Room · Episode 1: The Number
-
-1. **Boardroom** — Heatmap on screen. CFO: “What does ‘High’ mean in dollars?” Silence. Spreadsheets.  
-   VO: Many organizations can rank cyber risk. Far fewer can explain what the ranking means financially.
-2. **Problem inserts** — Conflicting sheets, undocumented probability, email loss estimate, “High Risk” board report.  
-   VO: Color supports prioritization. Budgeting, insurance, materiality, and capital need examinable assumptions.
-3. **Ironframe** — Scenario owner, frequency, loss categories, evidence, uncertainty, review history, whole-cent exposure.  
-   VO: Ironframe connects the scenario to assumptions, evidence, owners, controls, and approval history.  
-   CFO: “Now I can challenge the number.”
-4. **Close** — Heatmap beside quantified scenario.  
-   VO: Ironframe does not make uncertainty disappear. It makes the reasoning visible.  
-   **End card:** IRONFRAME · Defensible risk. Traceable decisions. · Request a 10–15 min workflow review.
-
-### V2 — The Audit Request (The Evidence) · 75–90s
-
-**Title card:** Episode 2: The Evidence
-
-1. Auditor asks for Q2 access-review evidence. Tabs multiply (drive, tickets, cloud, email, sheets, screenshots).  
-   VO: The control may have operated. Proving it is another matter.
-2. Undated screenshot, conflicting versions, renamed attachment. Auditor: “Where did this evidence come from?”
-3. Ironframe control record: objective, owner, source, dates, period, reviewer, exceptions, remediation, approvals.  
-   VO: Evidence stays connected to the assertion it supports.
-4. Auditor completes request. Spreadsheet folder closes unused.  
-   VO: An independent reviewer should be able to reconstruct what happened.  
-   **End card:** Control-first evidence governance. See the workflow → `/product-demo`.
-
-### V3 — The Wrong Client (The Boundary) · 75–90s
-
-**Title card:** Episode 3: The Boundary
-
-1. MSSP analyst preparing Client A report glimpses Client B control record. “That should not be here.”
-2. Shared multi-client platform. VO: Labels are not enough; every query, export, job, and privilege must stay in scope.
-3. Ironframe: workspace identity, role, RLS, entity/query/export scope, privileged log. Cross-tenant denied + alert.  
-   VO: Isolation throughout the workflow—not only the UI.
-4. Isolation test report with permitted/denied cases.  
-   VO: Separation is established by controls that can be tested.  
-   **End card:** Multi-entity governance with demonstrable boundaries. Request a workflow review.
-
-### V4 — The AI-Generated Board Report (The Draft) · 75–90s
-
-**Title card:** Episode 4: The Draft
-
-1. Late evening. AI drafts “fully remediated all material access-control deficiencies” while one item is overdue.
-2. Cursor toward Send. VO: AI can produce confident language faster than verification.
-3. Ironframe marks AI-assisted draft — not approved; shows evidence, exceptions, citations, reviewer, publication status. Analyst corrects language; GC approves.
-4. Packet releases only after approval.  
-   VO: AI assists without becoming an authorized statement by accident.  
-   **End card:** AI assistance inside accountable governance. Drafts never approve themselves.
-
-### V5 — The Connector (The Intake) · 75–90s
-
-**Title card:** Episode 5: The Intake
-
-1. Connector imports; dashboard celebrates “48,000 evidence objects.”
-2. Duplicates, expired screenshots, wrong period, untrusted text, wrong entity.  
-   VO: Automation can collect the wrong evidence faster.
-3. Irongate checks: auth, schema, entity, period, duplicate, quarantine, exception. Only verified proceeds.
-4. Dashboard: accepted / rejected / quarantined / awaiting review.  
-   VO: A connector count is not an assurance result. Sanitize before persist.  
-   **End card:** Trusted intake. Controlled evidence.
-
-### V6 — The Complete Ironframe Story · 2–3 min
-
-**Title card:** The Ironframe Workflow
-
-1. Regional FI + critical provider incident; alerts from every department.  
-2. Fragmentation across security, legal, finance, compliance, TPRM, audit; board asks cost and response.  
-3. Ironframe connects service, provider, ops, contracts, controls, evidence, customers, scenario, remediation, executives.  
-4. Irongate intake: pass / quarantine / reject.  
-5. Financial scenario with visible assumptions/uncertainty (whole cents).  
-6. AI draft labeled human-approval-required; Legal/Finance/CISO/CRO edit and approve.  
-7. Board packet: what happened, uncertainty, controls, impact, exposure, decisions, owners, next review.  
-8. Chain: Risk → Control → Evidence → Decision → Accountability.  
-   VO: Ironframe does not replace judgment, counsel, auditors, or regulators. It gives them a defensible place to work.  
-   **End card:** Control-first GRC. Request a 10–15 min workflow review.
-
----
-
 ## Related
 
-- [Content Calendar](../content-calendar.md) (editorial; video campaign lives here)
+- [Content Calendar](../content-calendar.md)
 - [LinkedIn founder cadence](../linkedin-founder-cadence.md)
 - [Marketing Strategy Library](../marketing-strategy-library.md)
-- Scripts stub (redirect): [episode-scripts.md](./episode-scripts.md)
+- ChatGPT thread (source discussion): https://chatgpt.com/c/1644eefe-4f49-4ec6-8ab6-d7173bca824d

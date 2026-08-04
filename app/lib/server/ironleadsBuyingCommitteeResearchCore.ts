@@ -605,16 +605,16 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
     };
   }
 
-  // Optional Google Programmable Search — fill leadership names when the site
-  // scrape left no plausible people (never scrapes google.com HTML).
-  // Always persist attempt metadata (ok / empty / error) when the dossier is thin
-  // so operators can tell CSE-not-configured vs zero press hits vs API failure.
+  // Optional press/web leadership search (Brave → SerpAPI → Google CSE legacy)
+  // when the site scrape left no plausible people. Persist attempt metadata
+  // (ok / empty / error) so operators can diagnose not-configured vs zero hits.
   let googleCorpus = "";
   let googleSourceUrls: string[] = [];
   let googleLeadershipSearch: {
     queriedAt: string;
     ok: boolean;
     configured: boolean;
+    provider: string | null;
     hitCount: number;
     sourceUrls: string[];
     error: string | null;
@@ -628,10 +628,11 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
         queriedAt: researchedAt,
         ok: false,
         configured: false,
+        provider: null,
         hitCount: 0,
         sourceUrls: [],
         error:
-          "GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX are not set on this deployment",
+          "No leadership search provider configured (set BRAVE_SEARCH_API_KEY and/or SERPAPI_API_KEY)",
       };
     } else {
       const google = await searchCompanyLeadership({
@@ -643,6 +644,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           queriedAt: researchedAt,
           ok: false,
           configured: google.configured,
+          provider: google.provider,
           hitCount: 0,
           sourceUrls: [],
           error: google.error.slice(0, 240),
@@ -654,6 +656,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
           queriedAt: researchedAt,
           ok: true,
           configured: true,
+          provider: google.provider,
           hitCount: google.hits.length,
           sourceUrls: google.sourceUrls.slice(0, 8),
           error: null,
@@ -678,7 +681,7 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
                 ...member,
                 note:
                   member.note ??
-                  "Google Programmable Search — press/web snippet (confirm before Promote)",
+                  `Press/web search (${google.provider}) — confirm before Promote`,
                 sourceUrls:
                   member.sourceUrls.length > 0
                     ? member.sourceUrls
@@ -749,6 +752,7 @@ async function persistResearch(
       queriedAt: string;
       ok: boolean;
       configured: boolean;
+      provider: string | null;
       hitCount: number;
       sourceUrls: string[];
       error: string | null;

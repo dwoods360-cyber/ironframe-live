@@ -1,21 +1,27 @@
 import "server-only";
 
+import { isAllowlistedLeadershipUrl } from "@/app/lib/server/ironleadsLeadershipSearchAllowlist";
+
 /**
- * Google Programmable Search (Custom Search JSON API) — leadership OSINT only.
- * Never scrapes google.com/search HTML (blocked / ToS). Requires:
- *   GOOGLE_CSE_API_KEY (or GOOGLE_CUSTOM_SEARCH_API_KEY)
- *   GOOGLE_CSE_CX (Programmable Search Engine ID)
+ * Leadership OSINT search for Ironleads Research-only thin dossiers.
  *
- * As of 2026-01-20, new CSE engines cannot "Search the entire web" — they are
- * limited to ≤50 Sites to search. Seed those from
- * docs/ops/google-cse-ironleads-sites.txt (press / cyber / channel media).
- * Do not add *.com or per-MSSP domains (50-domain cap + public-suffix ban).
+ * Provider order (first configured wins):
+ *   1. Brave Search API — BRAVE_SEARCH_API_KEY (or BRAVE_API_KEY)
+ *   2. SerpAPI — SERPAPI_API_KEY (Google engine)
+ *   3. Google Custom Search JSON API — GOOGLE_CSE_API_KEY + GOOGLE_CSE_CX
+ *      (closed to new GCP customers; kept for legacy entitlement only)
  *
- * Free tier is typically 100 queries/day — Research only calls this when the
- * site scrape left the dossier thin.
+ * Never scrapes google.com/search HTML. Hits are filtered to the press/cyber
+ * allowlist in ironleadsLeadershipSearchAllowlist.ts.
+ *
+ * Research only calls this when the company-site scrape left zero plausible names.
  */
 
+const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
+const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 const CUSTOM_SEARCH_URL = "https://www.googleapis.com/customsearch/v1";
+
+export type LeadershipSearchProvider = "brave" | "serpapi" | "google_cse";
 
 export type GoogleLeadershipHit = {
   title: string;
@@ -27,65 +33,253 @@ export type GoogleLeadershipSearchResult =
   | {
       ok: true;
       configured: true;
+      provider: LeadershipSearchProvider;
       query: string;
       hits: GoogleLeadershipHit[];
       corpus: string;
       sourceUrls: string[];
     }
-  | { ok: false; configured: boolean; error: string; status: number };
+  | {
+      ok: false;
+      configured: boolean;
+      provider: LeadershipSearchProvider | null;
+      error: string;
+      status: number;
+    };
+
+function getBraveApiKey(): string | null {
+  return (
+    process.env.BRAVE_SEARCH_API_KEY?.trim() ||
+    process.env.BRAVE_API_KEY?.trim() ||
+    null
+  );
+}
+
+function getSerpApiKey(): string | null {
+  return process.env.SERPAPI_API_KEY?.trim() || null;
+}
 
 function getCseApiKey(): string | null {
-  const key =
+  return (
     process.env.GOOGLE_CSE_API_KEY?.trim() ||
     process.env.GOOGLE_CUSTOM_SEARCH_API_KEY?.trim() ||
-    null;
-  return key || null;
+    null
+  );
 }
 
 function getCseCx(): string | null {
-  const cx = process.env.GOOGLE_CSE_CX?.trim() || process.env.GOOGLE_CUSTOM_SEARCH_CX?.trim();
-  return cx || null;
+  return (
+    process.env.GOOGLE_CSE_CX?.trim() ||
+    process.env.GOOGLE_CUSTOM_SEARCH_CX?.trim() ||
+    null
+  );
 }
 
+export function resolveLeadershipSearchProvider(): LeadershipSearchProvider | null {
+  if (getBraveApiKey()) return "brave";
+  if (getSerpApiKey()) return "serpapi";
+  if (getCseApiKey() && getCseCx()) return "google_cse";
+  return null;
+}
+
+/** @deprecated Prefer isLeadershipSearchConfigured — kept for call-site compatibility. */
 export function isGoogleLeadershipSearchConfigured(): boolean {
-  return Boolean(getCseApiKey() && getCseCx());
+  return resolveLeadershipSearchProvider() != null;
 }
 
-function buildLeadershipQuery(company: string, _domain: string | null): string {
+export function isLeadershipSearchConfigured(): boolean {
+  return resolveLeadershipSearchProvider() != null;
+}
+
+function buildLeadershipQuery(company: string): string {
   const firm = company.trim().replace(/"/g, "");
-  // Do not append site:{prospectDomain} — new CSE engines only search the ≤50
-  // allowlisted media domains (see docs/ops/google-cse-ironleads-sites.txt).
   return `"${firm}" (CEO OR CISO OR Founder OR "Managing Director" OR CFO OR "Chief Information Security") (appointed OR joins OR "is the" OR founder)`;
 }
 
-/**
- * Search allowlisted press/cyber media for leadership mentions for one company.
- * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
- */
-export async function searchCompanyLeadership(input: {
-  company: string;
-  domain?: string | null;
-  num?: number;
-}): Promise<GoogleLeadershipSearchResult> {
+function finalizeHits(
+  provider: LeadershipSearchProvider,
+  query: string,
+  rawHits: GoogleLeadershipHit[],
+): Extract<GoogleLeadershipSearchResult, { ok: true }> {
+  const hits = rawHits
+    .filter((h) => h.link && isAllowlistedLeadershipUrl(h.link))
+    .filter((h) => h.title || h.snippet);
+
+  const corpus = hits
+    .map((h) => [h.title, h.snippet].filter(Boolean).join(". "))
+    .join(" \n ");
+  const sourceUrls = hits.map((h) => h.link).filter(Boolean);
+
+  return {
+    ok: true,
+    configured: true,
+    provider,
+    query,
+    hits,
+    corpus,
+    sourceUrls,
+  };
+}
+
+async function searchViaBrave(
+  query: string,
+  num: number,
+): Promise<GoogleLeadershipSearchResult> {
+  const apiKey = getBraveApiKey();
+  if (!apiKey) {
+    return {
+      ok: false,
+      configured: false,
+      provider: null,
+      error: "BRAVE_SEARCH_API_KEY is not set",
+      status: 503,
+    };
+  }
+
+  const url = new URL(BRAVE_SEARCH_URL);
+  url.searchParams.set("q", query);
+  url.searchParams.set("count", String(num));
+  url.searchParams.set("safesearch", "moderate");
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      signal: AbortSignal.timeout(20_000),
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": apiKey,
+      },
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: {
+        meta?: { errors?: Array<{ detail?: string; message?: string }> };
+        message?: string;
+      };
+      message?: string;
+      web?: {
+        results?: Array<{
+          title?: string;
+          description?: string;
+          url?: string;
+        }>;
+      };
+    };
+
+    if (!response.ok) {
+      const detail =
+        body.error?.meta?.errors?.[0]?.detail ||
+        body.error?.meta?.errors?.[0]?.message ||
+        body.error?.message ||
+        body.message ||
+        `Brave Search ${response.status}`;
+      return {
+        ok: false,
+        configured: true,
+        provider: "brave",
+        error: String(detail).slice(0, 240),
+        status: response.status,
+      };
+    }
+
+    const rawHits: GoogleLeadershipHit[] = (body.web?.results ?? []).map((item) => ({
+      title: typeof item.title === "string" ? item.title.trim() : "",
+      snippet: typeof item.description === "string" ? item.description.trim() : "",
+      link: typeof item.url === "string" ? item.url.trim() : "",
+    }));
+
+    return finalizeHits("brave", query, rawHits);
+  } catch (err) {
+    return {
+      ok: false,
+      configured: true,
+      provider: "brave",
+      error: err instanceof Error ? err.message : "Brave Search request failed",
+      status: 502,
+    };
+  }
+}
+
+async function searchViaSerpApi(
+  query: string,
+  num: number,
+): Promise<GoogleLeadershipSearchResult> {
+  const apiKey = getSerpApiKey();
+  if (!apiKey) {
+    return {
+      ok: false,
+      configured: false,
+      provider: null,
+      error: "SERPAPI_API_KEY is not set",
+      status: 503,
+    };
+  }
+
+  const url = new URL(SERPAPI_SEARCH_URL);
+  url.searchParams.set("engine", "google");
+  url.searchParams.set("q", query);
+  url.searchParams.set("api_key", apiKey);
+  url.searchParams.set("num", String(num));
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      signal: AbortSignal.timeout(25_000),
+      headers: { Accept: "application/json" },
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      organic_results?: Array<{
+        title?: string;
+        snippet?: string;
+        link?: string;
+      }>;
+    };
+
+    if (!response.ok || body.error) {
+      return {
+        ok: false,
+        configured: true,
+        provider: "serpapi",
+        error: (body.error || `SerpAPI ${response.status}`).slice(0, 240),
+        status: response.ok ? 502 : response.status,
+      };
+    }
+
+    const rawHits: GoogleLeadershipHit[] = (body.organic_results ?? []).map((item) => ({
+      title: typeof item.title === "string" ? item.title.trim() : "",
+      snippet: typeof item.snippet === "string" ? item.snippet.trim() : "",
+      link: typeof item.link === "string" ? item.link.trim() : "",
+    }));
+
+    return finalizeHits("serpapi", query, rawHits);
+  } catch (err) {
+    return {
+      ok: false,
+      configured: true,
+      provider: "serpapi",
+      error: err instanceof Error ? err.message : "SerpAPI request failed",
+      status: 502,
+    };
+  }
+}
+
+async function searchViaGoogleCse(
+  query: string,
+  num: number,
+): Promise<GoogleLeadershipSearchResult> {
   const apiKey = getCseApiKey();
   const cx = getCseCx();
   if (!apiKey || !cx) {
     return {
       ok: false,
       configured: false,
-      error:
-        "GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX are not set. Create a Programmable Search Engine, add ≤50 Sites to search (docs/ops/google-cse-ironleads-sites.txt), and enable Custom Search API.",
+      provider: null,
+      error: "GOOGLE_CSE_API_KEY and GOOGLE_CSE_CX are not set",
       status: 503,
     };
   }
 
-  const company = input.company.trim();
-  if (!company) {
-    return { ok: false, configured: true, error: "company is required", status: 400 };
-  }
-
-  const query = buildLeadershipQuery(company, input.domain ?? null);
-  const num = Math.min(Math.max(input.num ?? 5, 1), 8);
   const url = new URL(CUSTOM_SEARCH_URL);
   url.searchParams.set("key", apiKey);
   url.searchParams.set("cx", cx);
@@ -107,38 +301,66 @@ export async function searchCompanyLeadership(input: {
       return {
         ok: false,
         configured: true,
+        provider: "google_cse",
         error: body.error?.message || `Google CSE ${response.status}`,
         status: response.status,
       };
     }
 
-    const hits: GoogleLeadershipHit[] = (body.items ?? [])
-      .map((item) => ({
-        title: typeof item.title === "string" ? item.title.trim() : "",
-        snippet: typeof item.snippet === "string" ? item.snippet.trim() : "",
-        link: typeof item.link === "string" ? item.link.trim() : "",
-      }))
-      .filter((h) => h.title || h.snippet);
+    const rawHits: GoogleLeadershipHit[] = (body.items ?? []).map((item) => ({
+      title: typeof item.title === "string" ? item.title.trim() : "",
+      snippet: typeof item.snippet === "string" ? item.snippet.trim() : "",
+      link: typeof item.link === "string" ? item.link.trim() : "",
+    }));
 
-    const corpus = hits
-      .map((h) => [h.title, h.snippet].filter(Boolean).join(". "))
-      .join(" \n ");
-    const sourceUrls = hits.map((h) => h.link).filter(Boolean);
-
-    return {
-      ok: true,
-      configured: true,
-      query,
-      hits,
-      corpus,
-      sourceUrls,
-    };
+    return finalizeHits("google_cse", query, rawHits);
   } catch (err) {
     return {
       ok: false,
       configured: true,
+      provider: "google_cse",
       error: err instanceof Error ? err.message : "Google CSE request failed",
       status: 502,
     };
   }
+}
+
+/**
+ * Search press/cyber media for leadership mentions for one company.
+ * Returns title+snippet corpus for extractBuyingPersons (plausibility filtered upstream).
+ */
+export async function searchCompanyLeadership(input: {
+  company: string;
+  domain?: string | null;
+  num?: number;
+}): Promise<GoogleLeadershipSearchResult> {
+  const provider = resolveLeadershipSearchProvider();
+  if (!provider) {
+    return {
+      ok: false,
+      configured: false,
+      provider: null,
+      error:
+        "No leadership search provider configured. Set BRAVE_SEARCH_API_KEY and/or SERPAPI_API_KEY (preferred). Google CSE is closed to new customers.",
+      status: 503,
+    };
+  }
+
+  const company = input.company.trim();
+  if (!company) {
+    return {
+      ok: false,
+      configured: true,
+      provider,
+      error: "company is required",
+      status: 400,
+    };
+  }
+
+  const query = buildLeadershipQuery(company);
+  const num = Math.min(Math.max(input.num ?? 8, 1), 10);
+
+  if (provider === "brave") return searchViaBrave(query, num);
+  if (provider === "serpapi") return searchViaSerpApi(query, num);
+  return searchViaGoogleCse(query, num);
 }

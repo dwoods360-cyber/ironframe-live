@@ -1,0 +1,69 @@
+/**
+ * Press / cyber / channel domains for Ironleads leadership OSINT fill.
+ * Mirror of docs/ops/google-cse-ironleads-sites.txt (without *. prefix).
+ * Used to filter Brave/SerpAPI open-web hits (Google CSE used a Sites list).
+ */
+
+export const IRONLEADS_LEADERSHIP_SEARCH_ALLOWLIST: readonly string[] = [
+  "businesswire.com",
+  "prnewswire.com",
+  "globenewswire.com",
+  "einpresswire.com",
+  "newswire.com",
+  "accesswire.com",
+  "benzinga.com",
+  "bloomberg.com",
+  "reuters.com",
+  "prweb.com",
+  "darkreading.com",
+  "scmagazine.com",
+  "scworld.com",
+  "securityweek.com",
+  "cybersecuritydive.com",
+  "thehackernews.com",
+  "msspalert.com",
+  "channelere2e.com",
+  "crn.com",
+  "channelpartnersonline.com",
+  "sdxcentral.com",
+  "zdnet.com",
+  "techrepublic.com",
+  "techcrunch.com",
+  "venturebeat.com",
+  "forbes.com",
+  "businessinsider.com",
+  "csoonline.com",
+  "infosecurity-magazine.com",
+  "helpnetsecurity.com",
+  "cybersecasia.net",
+  "securityboulevard.com",
+  "bankinfosecurity.com",
+  "govinfosecurity.com",
+  "healthcareinfosecurity.com",
+  "itsecurityguru.org",
+  "cyberriskalliance.com",
+  "cybersecurityventures.com",
+  "channelnomics.com",
+  "msp-channel.com",
+  "mspsuccess.com",
+  "managedservices.com",
+  "clutch.co",
+  "g2.com",
+  "capterra.com",
+  "linkedin.com",
+  "youtube.com",
+  "wikipedia.org",
+  "cisa.gov",
+  "nist.gov",
+] as const;
+
+export function isAllowlistedLeadershipUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    return IRONLEADS_LEADERSHIP_SEARCH_ALLOWLIST.some(
+      (domain) => host === domain || host.endsWith(`.${domain}`),
+    );
+  } catch {
+    return false;
+  }
+}

@@ -1,7 +1,8 @@
-# Paste into CSE → Sites to search (one pattern per line).
-# Format: Entire domain = *.example.com  (NOT *.example.com/*)
-# Max 50 distinct domains. Do NOT use *.com / *.io / public suffixes.
-# Source: Ironleads leadership press/cyber allowlist.
+# Ironleads leadership press/cyber allowlist.
+# Runtime filter: app/lib/server/ironleadsLeadershipSearchAllowlist.ts
+# Providers: docs/ops/ironleads-leadership-search-providers.md (Brave / SerpAPI).
+# Legacy CSE paste format (if still entitled): one pattern per line,
+# Entire domain = *.example.com  (NOT *.example.com/*). Max 50.
 
 *.businesswire.com
 *.prnewswire.com

@@ -36,9 +36,24 @@ curl.exe "https://api.search.brave.com/res/v1/web/search?q=CISO&count=3" -H "Acc
 
 ## Research only batching (Vercel 120s)
 
-Portal **Research only** processes **5 SUSPECTs per request** (thinnest first, 12‑minute cooldown so timed-out runs advance). The UI auto-continues up to 5 batches. A **504** means the prior invoke hit `maxDuration` — partial progress is saved; click again or wait for the next auto batch.
+Portal **Research only** processes **5 SUSPECTs per request** (thinnest first), with **2 contacts in parallel** per invoke. Named dossiers use a **2‑minute** cooldown so multi-batch runs advance; **thin / empty** dossiers stay eligible immediately (no 12‑minute idle wait). First click sends `forceResearch` to bypass cooldown on named rows. The UI auto-continues up to **8** batches. A **504** means the prior invoke hit `maxDuration` — partial progress is saved; click again.
 
 ## After names land
 
 - Pattern emails may appear when a company domain is known (still guesses until published/confirmed).
 - Use **Prospeo** on the SUSPECT card for verified buyer email when available.
+
+### Email syntax (MSSP / GRC / Enterprise IT)
+
+Default guess order when no published staff mail proves a schema:
+
+| Rank | Pattern | Example | ~Share |
+| --- | --- | --- | --- |
+| 1 | `{first}.{last}@` | `jane.doe@` | ~62% |
+| 2 | `{f}{last}@` | `jdoe@` | ~22% |
+| 3 | `{first}@` | `jane@` | ~8% |
+| 4+ | `{first}{last}@`, `{first}_{last}@`, `{f}.{last}@` | … | ~8% |
+
+- **Primary stored guess** = rank 1, unless ≥2 published addresses on the domain match another schema (then that schema leads).
+- Research also stores up to **3** ordered `pattern_guess` failover candidates per person.
+- **MX / format hygiene PASS ≠ ownership** — ~30–35% of security/IT firms use catch-all or gateways (Proofpoint, Mimecast, Barracuda). Do not Promote on pattern_guess alone.

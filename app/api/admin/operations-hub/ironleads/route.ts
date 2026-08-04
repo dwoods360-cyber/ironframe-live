@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
     runResearchAfterImport?: boolean;
     /** Research-only batch size (default 5) — avoids Vercel 120s 504s. */
     researchBatchLimit?: number;
+    /** Ignore research cooldown (re-run named dossiers immediately). */
+    forceResearch?: boolean;
   } = {};
   try {
     body = (await request.json()) as typeof body;
@@ -101,6 +103,7 @@ export async function POST(request: NextRequest) {
   if (body.action === "research_buying_committee") {
     const research = await researchBuyingCommitteeForAllSuspects({
       limit: resolveResearchBatchLimit(body.researchBatchLimit),
+      force: body.forceResearch === true,
     });
     const snapshot = await buildIronleadsPortalSnapshot();
     return NextResponse.json({

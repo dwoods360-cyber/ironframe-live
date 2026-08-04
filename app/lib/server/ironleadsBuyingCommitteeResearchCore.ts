@@ -9,8 +9,8 @@ import {
   extractPublicSocialLinks,
   extractSameOriginTeamPageUrls,
   extractUsPhones,
-  guessInitialLastEmail,
-  inferInitialLastEmailPattern,
+  buildEmailPermutationCandidates,
+  inferEmailLocalPattern,
   isPlausiblePersonName,
   looksLikeOsintTitleNoise,
   RESEARCH_PATHS,
@@ -228,9 +228,12 @@ function buildMembers(input: {
   sourceUrls: string[];
   accountDomain: string | null;
 }): BuyingCommitteeMember[] {
-  const pattern = inferInitialLastEmailPattern(input.emails);
+  const inferred = inferEmailLocalPattern(input.emails);
+  // Primary: published schema when proven; else first.last (~62% MSSP/M365).
+  // Also store failover candidates (f.last, first@) — still pattern_guess; MX PASS
+  // does not prove ownership (catch-all / gateway domains ~30–35%).
   const guessDomain =
-    pattern?.domain ??
+    inferred?.domain ??
     input.accountDomain?.replace(/^www\./i, "").toLowerCase() ??
     null;
 
@@ -245,14 +248,17 @@ function buildMembers(input: {
       emails.push({ email, status: "published", source: "company_website" });
     }
     if (emails.length === 0 && guessDomain) {
-      const guess = guessInitialLastEmail(person.fullName, guessDomain);
-      if (guess) {
+      const candidates = buildEmailPermutationCandidates(person.fullName, guessDomain, {
+        primary: inferred?.pattern ?? null,
+        max: 3,
+      });
+      for (const candidate of candidates) {
         emails.push({
-          email: guess,
+          email: candidate.email,
           status: "pattern_guess",
-          source: pattern
-            ? `inferred_initial_last@${guessDomain}`
-            : `assumed_initial_last@${guessDomain}`,
+          source: inferred
+            ? `inferred_${candidate.pattern}@${guessDomain}#${candidate.rank}`
+            : `assumed_${candidate.pattern}@${guessDomain}#${candidate.rank}`,
         });
       }
     }
@@ -271,7 +277,7 @@ function buildMembers(input: {
       sourceUrls: input.sourceUrls.slice(0, 6),
       note:
         emails.some((e) => e.status === "pattern_guess")
-          ? "Email is a pattern guess until published on a company page or confirmed by reply."
+          ? "Email is a pattern guess (test order first.last → f.last → first@) until published or buyer-confirmed. MX PASS ≠ ownership on catch-all domains."
           : null,
     };
   });
@@ -959,8 +965,14 @@ async function persistResearch(
 export const IRONLEADS_RESEARCH_BATCH_DEFAULT = 5;
 /** Hard cap per invoke (portal sends 5; scripts may pass up to this). */
 export const IRONLEADS_RESEARCH_BATCH_MAX = 20;
-/** Skip re-researching the same SUSPECT within this window so batches advance. */
-export const IRONLEADS_RESEARCH_COOLDOWN_MS = 12 * 60 * 1000;
+/**
+ * Skip re-researching a *named* dossier within this window so multi-batch runs advance.
+ * Thin / empty member dossiers are never cooled — operators can retry immediately.
+ * (Was 12m; that forced idle waits after every Research click.)
+ */
+export const IRONLEADS_RESEARCH_COOLDOWN_MS = 2 * 60 * 1000;
+/** Parallel contacts per Research invoke — wall-clock cut without blowing Brave/rate limits. */
+export const IRONLEADS_RESEARCH_CONCURRENCY = 2;
 
 function asMetaRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -976,9 +988,43 @@ export function buyingCommitteeResearchedAtMs(metadata: unknown): number | null 
   return Number.isFinite(ms) ? ms : null;
 }
 
+/** True when buyingCommittee already has at least one named person. */
+export function buyingCommitteeHasNamedMember(metadata: unknown): boolean {
+  const bc = asMetaRecord(asMetaRecord(metadata)?.buyingCommittee);
+  const members = bc?.members;
+  if (!Array.isArray(members)) return false;
+  return members.some((m) => {
+    const row = asMetaRecord(m);
+    return typeof row?.fullName === "string" && row.fullName.trim().length > 0;
+  });
+}
+
+async function mapPool<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const i = next;
+        next += 1;
+        if (i >= items.length) return;
+        results[i] = await fn(items[i]!);
+      }
+    }),
+  );
+  return results;
+}
+
 /**
- * Pick the next Research batch: thinnest active dossiers first, skip recent
- * researchedAt so a timed-out run can continue without redoing the same rows.
+ * Pick the next Research batch: thinnest active dossiers first.
+ * Named dossiers skip re-research during cooldown so batches advance.
+ * Thin / empty dossiers stay eligible immediately (no idle wait to retry).
  */
 export function selectSuspectsForResearchBatch<
   T extends {
@@ -1017,7 +1063,11 @@ export function selectSuspectsForResearchBatch<
   let cooledDown = 0;
   for (const row of ranked) {
     const at = buyingCommitteeResearchedAtMs(row.metadata);
-    if (at != null && nowMs - at < cooldownMs) {
+    if (
+      at != null &&
+      nowMs - at < cooldownMs &&
+      buyingCommitteeHasNamedMember(row.metadata)
+    ) {
       cooledDown += 1;
       continue;
     }
@@ -1036,6 +1086,8 @@ export function selectSuspectsForResearchBatch<
 export async function researchBuyingCommitteeForAllSuspects(options?: {
   /** Max SUSPECTs to research in this invoke (default: full active queue cap of 20). */
   limit?: number;
+  /** Ignore cooldown (operator force re-run after code/data fix). */
+  force?: boolean;
 }): Promise<{
   researchedAt: string;
   total: number;
@@ -1082,12 +1134,14 @@ export async function researchBuyingCommitteeForAllSuspects(options?: {
 
   const selected = selectSuspectsForResearchBatch(activeSuspects, {
     limit: requestedLimit,
+    cooldownMs: options?.force === true ? 0 : IRONLEADS_RESEARCH_COOLDOWN_MS,
   });
 
-  const results: BuyingCommitteeResearchResult[] = [];
-  for (const contact of selected.batch) {
-    results.push(await researchAndPersist(contact));
-  }
+  const results = await mapPool(
+    selected.batch,
+    IRONLEADS_RESEARCH_CONCURRENCY,
+    (contact) => researchAndPersist(contact),
+  );
 
   return {
     researchedAt: new Date().toISOString(),

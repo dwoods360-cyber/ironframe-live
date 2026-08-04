@@ -371,18 +371,19 @@ export default function IronleadsPortalClient() {
       hasMore?: boolean;
       cooledDown?: number;
     };
-    const maxRounds = 5;
+    const maxRounds = 8;
     let rounds = 0;
     let researchedSum = 0;
     let skippedSum = 0;
     let lastRemaining = 0;
+    let lastCooled = 0;
     try {
-      // Server batches (~5) under Vercel 120s; client continues until queue cools down.
+      // Server batches (~5, concurrency 2) under Vercel 120s; auto-continue until queue empty.
       while (rounds < maxRounds) {
         rounds += 1;
         setMessage(
           rounds === 1
-            ? "Researching… (batched to avoid gateway timeouts)"
+            ? "Researching… (parallel batches — no long cooldown on thin dossiers)"
             : `Researching… batch ${rounds}/${maxRounds}`,
         );
         const data = await fetchOpsPortalJson<{
@@ -397,6 +398,8 @@ export default function IronleadsPortalClient() {
             body: JSON.stringify({
               action: "research_buying_committee",
               researchBatchLimit: 5,
+              // First click forces through named-dossier cooldown so operators aren't stuck.
+              forceResearch: rounds === 1,
             }),
           },
           "Buying-committee research failed.",
@@ -407,12 +410,15 @@ export default function IronleadsPortalClient() {
         researchedSum += research.researched;
         skippedSum += research.skipped;
         lastRemaining = research.remaining ?? 0;
+        lastCooled = research.cooledDown ?? 0;
         if (!research.hasMore || research.total === 0) break;
       }
       const moreHint =
         lastRemaining > 0
           ? ` ${lastRemaining} still eligible — click Research only again.`
-          : "";
+          : lastCooled > 0 && researchedSum === 0
+            ? ` ${lastCooled} named dossier(s) on short cooldown — thin rows stay eligible; click again to force.`
+            : "";
       setMessage(
         `Buying-committee research done — ${researchedSum} researched, ${skippedSum} skipped across ${rounds} batch(es).${moreHint} Open each Why SUSPECT report for CEO/CFO/CISO + candidate emails/phones.`,
       );

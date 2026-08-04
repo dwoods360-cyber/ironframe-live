@@ -6,7 +6,11 @@ import {
   extractPublicSocialLinks,
   extractSameOriginTeamPageUrls,
   extractUsPhones,
+  buildEmailPermutationCandidates,
+  EMAIL_PATTERN_TEST_ORDER,
+  guessFirstDotLastEmail,
   guessInitialLastEmail,
+  inferEmailLocalPattern,
   inferInitialLastEmailPattern,
   isPlausiblePersonName,
   socialAboutFetchUrl,
@@ -35,9 +39,50 @@ describe("ironleadsBuyingCommitteeExtract", () => {
       domain: "westernalliancebank.com",
       pattern: "initial_last",
     });
+    expect(inferEmailLocalPattern(emails)).toEqual({
+      domain: "westernalliancebank.com",
+      pattern: "initial_last",
+    });
     expect(guessInitialLastEmail("Stephen McMaster", "westernalliancebank.com")).toBe(
       "smcmaster@westernalliancebank.com",
     );
+  });
+
+  it("infers first.last pattern and guesses MSSP-default first.last emails", () => {
+    expect(
+      inferEmailLocalPattern([
+        "jane.doe@acme-mssp.com",
+        "alex.chen@acme-mssp.com",
+      ]),
+    ).toEqual({ domain: "acme-mssp.com", pattern: "first_dot_last" });
+    expect(guessFirstDotLastEmail("Al Alper", "absolutelogic.com")).toBe(
+      "al.alper@absolutelogic.com",
+    );
+    expect(guessFirstDotLastEmail("Ruppert Vernon", "absolutelogic.com")).toBe(
+      "ruppert.vernon@absolutelogic.com",
+    );
+  });
+
+  it("builds industry failover order first.last → f.last → first@", () => {
+    expect(EMAIL_PATTERN_TEST_ORDER.slice(0, 3)).toEqual([
+      "first_dot_last",
+      "initial_last",
+      "first_only",
+    ]);
+    const candidates = buildEmailPermutationCandidates("Al Alper", "absolutelogic.com", {
+      max: 3,
+    });
+    expect(candidates.map((c) => c.email)).toEqual([
+      "al.alper@absolutelogic.com",
+      "aalper@absolutelogic.com",
+      "al@absolutelogic.com",
+    ]);
+    expect(
+      buildEmailPermutationCandidates("Stephen McMaster", "westernalliancebank.com", {
+        primary: "initial_last",
+        max: 2,
+      }).map((c) => c.pattern),
+    ).toEqual(["initial_last", "first_dot_last"]);
   });
 
   it("extracts phones and domain-scoped emails", () => {

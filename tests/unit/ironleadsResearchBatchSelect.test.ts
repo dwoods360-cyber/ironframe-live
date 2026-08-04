@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buyingCommitteeHasNamedMember,
   buyingCommitteeResearchedAtMs,
   selectSuspectsForResearchBatch,
 } from "@/app/lib/server/ironleadsBuyingCommitteeResearchCore";
@@ -17,13 +18,26 @@ describe("selectSuspectsForResearchBatch", () => {
     expect(buyingCommitteeResearchedAtMs({})).toBeNull();
   });
 
-  it("takes thinnest eligible rows and skips cooldown window", () => {
+  it("detects named buying-committee members", () => {
+    expect(
+      buyingCommitteeHasNamedMember({
+        buyingCommittee: { members: [{ fullName: "Ada Rich" }] },
+      }),
+    ).toBe(true);
+    expect(
+      buyingCommitteeHasNamedMember({
+        buyingCommittee: { members: [] },
+      }),
+    ).toBe(false);
+  });
+
+  it("cools only named dossiers; thin rows stay eligible immediately", () => {
     const rows = [
       {
         id: "rich",
         metadata: {
           buyingCommittee: {
-            researchedAt: "2026-08-04T20:55:00.000Z",
+            researchedAt: "2026-08-04T20:59:00.000Z", // 1m ago — inside 2m named cooldown
             members: [{ role: "CEO", fullName: "Ada Rich" }],
           },
         },
@@ -32,7 +46,7 @@ describe("selectSuspectsForResearchBatch", () => {
       {
         id: "thin-fresh",
         metadata: {
-          buyingCommittee: { researchedAt: "2026-08-04T20:55:00.000Z", members: [] },
+          buyingCommittee: { researchedAt: "2026-08-04T20:59:00.000Z", members: [] },
         },
         primaryDeals: [{ accountDomain: null }],
       },
@@ -53,12 +67,13 @@ describe("selectSuspectsForResearchBatch", () => {
     const selected = selectSuspectsForResearchBatch(rows, {
       limit: 2,
       nowMs: now,
-      cooldownMs: 12 * 60 * 1000,
+      cooldownMs: 2 * 60 * 1000,
     });
 
-    expect(selected.cooledDown).toBe(2); // rich + thin-fresh
-    expect(selected.batch.map((r) => r.id).sort()).toEqual(["thin-never", "thin-stale"]);
-    expect(selected.eligibleRemainingAfterBatch).toBe(0);
+    // Only rich is named + inside cooldown. Thin-fresh stays eligible.
+    expect(selected.cooledDown).toBe(1);
+    expect(selected.batch.map((r) => r.id)).toEqual(["thin-fresh", "thin-stale"]);
+    expect(selected.eligibleRemainingAfterBatch).toBe(1); // thin-never
     expect(selected.activeQueue).toBe(4);
   });
 
@@ -71,7 +86,7 @@ describe("selectSuspectsForResearchBatch", () => {
     const selected = selectSuspectsForResearchBatch(rows, {
       limit: 5,
       nowMs: now,
-      cooldownMs: 12 * 60 * 1000,
+      cooldownMs: 2 * 60 * 1000,
     });
     expect(selected.batch).toHaveLength(5);
     expect(selected.eligibleRemainingAfterBatch).toBe(1);

@@ -144,42 +144,192 @@ export function extractUsPhones(text: string): string[] {
 }
 
 /**
- * Infer firstInitial+lastname pattern when ≥2 published emails match it on a domain.
+ * Corporate local-part schemas ranked by prevalence across MSSP / GRC / Enterprise IT
+ * (~62% first.last → ~22% f.last → ~8% first@ → remainder).
  */
-export function inferInitialLastEmailPattern(
+export type EmailLocalPattern =
+  | "first_dot_last"
+  | "initial_last"
+  | "first_only"
+  | "first_last"
+  | "first_underscore_last"
+  | "initial_dot_last";
+
+/** SMTP / enrichment test order when no published pattern evidence exists. */
+export const EMAIL_PATTERN_TEST_ORDER: readonly EmailLocalPattern[] = [
+  "first_dot_last",
+  "initial_last",
+  "first_only",
+  "first_last",
+  "first_underscore_last",
+  "initial_dot_last",
+] as const;
+
+function namePartsForEmailGuess(fullName: string): { first: string; last: string } | null {
+  const parts = fullName
+    .replace(/[^A-Za-z\s'-]/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((p) => !/^[A-Z]\.?$/i.test(p)); // drop middle initials
+  if (parts.length < 2) return null;
+  const first = parts[0]!.replace(/[^A-Za-z]/g, "");
+  const last = parts[parts.length - 1]!.replace(/[^A-Za-z]/g, "");
+  if (first.length < 1 || last.length < 2) return null;
+  return { first, last };
+}
+
+/**
+ * Infer mailbox local-part pattern from published staff emails on a domain.
+ * Prefers first.last when evidence exists; else initial+last / first-only.
+ */
+export function inferEmailLocalPattern(
   emails: string[],
-): { domain: string; pattern: "initial_last" } | null {
+): { domain: string; pattern: EmailLocalPattern } | null {
   const byDomain = new Map<string, string[]>();
   for (const email of emails) {
     const [local, domain] = email.split("@");
     if (!local || !domain) continue;
-    const list = byDomain.get(domain) ?? [];
-    list.push(local);
-    byDomain.set(domain, list);
+    const list = byDomain.get(domain.toLowerCase()) ?? [];
+    list.push(local.toLowerCase());
+    byDomain.set(domain.toLowerCase(), list);
   }
   for (const [domain, locals] of byDomain) {
-    const initialLast = locals.filter((local) => /^[a-z][a-z]{2,}$/.test(local));
+    const firstDotLast = locals.filter((local) => /^[a-z]{2,}\.[a-z]{2,}$/.test(local));
+    if (firstDotLast.length >= 2) {
+      return { domain, pattern: "first_dot_last" };
+    }
+    const firstUnderscore = locals.filter((local) => /^[a-z]{2,}_[a-z]{2,}$/.test(local));
+    if (firstUnderscore.length >= 2) {
+      return { domain, pattern: "first_underscore_last" };
+    }
+    const initialDotLast = locals.filter((local) => /^[a-z]\.[a-z]{2,}$/.test(local));
+    if (initialDotLast.length >= 2) {
+      return { domain, pattern: "initial_dot_last" };
+    }
+    // f+last: 1 letter + surname (≥4 letters), e.g. smcmaster — not short first names like "jane"
+    const initialLast = locals.filter((local) => /^[a-z][a-z]{4,}$/.test(local));
     if (initialLast.length >= 2) {
       return { domain, pattern: "initial_last" };
     }
+    // Boutique first@ — short alpha locals, not f+surname shape
+    const firstOnly = locals.filter(
+      (local) => /^[a-z]{2,10}$/.test(local) && !/^[a-z][a-z]{4,}$/.test(local),
+    );
+    if (firstOnly.length >= 2) {
+      return { domain, pattern: "first_only" };
+    }
   }
   return null;
+}
+
+/** @deprecated Prefer inferEmailLocalPattern — kept for call-site compatibility. */
+export function inferInitialLastEmailPattern(
+  emails: string[],
+): { domain: string; pattern: "initial_last" } | null {
+  const inferred = inferEmailLocalPattern(emails);
+  if (!inferred || inferred.pattern !== "initial_last") return null;
+  return { domain: inferred.domain, pattern: "initial_last" };
+}
+
+/** Industry-primary for modern MSSP / M365: first.last@domain */
+export function guessFirstDotLastEmail(fullName: string, domain: string): string | null {
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first.toLowerCase()}.${parts.last.toLowerCase()}@${domain.toLowerCase()}`;
 }
 
 export function guessInitialLastEmail(
   fullName: string,
   domain: string,
 ): string | null {
-  const parts = fullName
-    .replace(/[^A-Za-z\s'-]/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length < 2) return null;
-  const first = parts[0].replace(/[^A-Za-z]/g, "");
-  const last = parts[parts.length - 1].replace(/[^A-Za-z]/g, "");
-  if (first.length < 1 || last.length < 2) return null;
-  return `${first[0]!.toLowerCase()}${last.toLowerCase()}@${domain.toLowerCase()}`;
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first[0]!.toLowerCase()}${parts.last.toLowerCase()}@${domain.toLowerCase()}`;
+}
+
+export function guessFirstOnlyEmail(fullName: string, domain: string): string | null {
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first.toLowerCase()}@${domain.toLowerCase()}`;
+}
+
+export function guessFirstLastEmail(fullName: string, domain: string): string | null {
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first.toLowerCase()}${parts.last.toLowerCase()}@${domain.toLowerCase()}`;
+}
+
+export function guessFirstUnderscoreLastEmail(fullName: string, domain: string): string | null {
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first.toLowerCase()}_${parts.last.toLowerCase()}@${domain.toLowerCase()}`;
+}
+
+export function guessInitialDotLastEmail(fullName: string, domain: string): string | null {
+  const parts = namePartsForEmailGuess(fullName);
+  if (!parts) return null;
+  return `${parts.first[0]!.toLowerCase()}.${parts.last.toLowerCase()}@${domain.toLowerCase()}`;
+}
+
+export function guessEmailForPattern(
+  fullName: string,
+  domain: string,
+  pattern: EmailLocalPattern,
+): string | null {
+  switch (pattern) {
+    case "first_dot_last":
+      return guessFirstDotLastEmail(fullName, domain);
+    case "initial_last":
+      return guessInitialLastEmail(fullName, domain);
+    case "first_only":
+      return guessFirstOnlyEmail(fullName, domain);
+    case "first_last":
+      return guessFirstLastEmail(fullName, domain);
+    case "first_underscore_last":
+      return guessFirstUnderscoreLastEmail(fullName, domain);
+    case "initial_dot_last":
+      return guessInitialDotLastEmail(fullName, domain);
+    default:
+      return null;
+  }
+}
+
+export type EmailPermutationCandidate = {
+  email: string;
+  pattern: EmailLocalPattern;
+  rank: number;
+};
+
+/**
+ * Ordered pattern guesses for enrichment / SMTP failover.
+ * Default primary is first.last (~62% MSSP/M365). Pass `primary` when published
+ * staff mail proves a different schema. Does not SMTP-verify; catch-all domains
+ * will accept RCPT TO for all candidates.
+ */
+export function buildEmailPermutationCandidates(
+  fullName: string,
+  domain: string,
+  options?: { primary?: EmailLocalPattern | null; max?: number },
+): EmailPermutationCandidate[] {
+  const primary = options?.primary ?? null;
+  const max = options?.max ?? 3;
+  const ordered: EmailLocalPattern[] = primary
+    ? [primary, ...EMAIL_PATTERN_TEST_ORDER.filter((p) => p !== primary)]
+    : [...EMAIL_PATTERN_TEST_ORDER];
+
+  const out: EmailPermutationCandidate[] = [];
+  const seen = new Set<string>();
+  for (const pattern of ordered) {
+    const email = guessEmailForPattern(fullName, domain, pattern);
+    if (!email) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ email, pattern, rank: out.length + 1 });
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 const TITLE_NAME_TAIL =

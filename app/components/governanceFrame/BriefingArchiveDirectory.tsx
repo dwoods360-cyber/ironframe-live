@@ -39,7 +39,7 @@ export default function BriefingArchiveDirectory({
         Archive
       </h2>
       <p className="mt-1 font-[family-name:var(--font-gf-sans)] text-xs leading-relaxed text-[var(--gf-muted)]">
-        All published briefings — title, date, and synopsis.
+        Earlier briefings not listed in the main column — title, date, and synopsis.
       </p>
 
       {entries.length === 0 ? (

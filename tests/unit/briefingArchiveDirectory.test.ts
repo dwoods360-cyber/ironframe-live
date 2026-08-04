@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { GovernanceBriefing } from "@/app/lib/governanceFrame/briefingFilesystemLedger";
-import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
+import {
+  briefingArchiveExcluding,
+  listBriefingArchiveEntries,
+  partitionHomeBriefings,
+} from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 
 function item(overrides: Partial<GovernanceBriefing> = {}): GovernanceBriefing {
   return {
@@ -53,5 +57,33 @@ describe("listBriefingArchiveEntries", () => {
       }),
     ]);
     expect(entries.map((e) => e.slug)).toEqual(["2026-01-15-market-grc-2000-2008"]);
+  });
+});
+
+describe("partitionHomeBriefings / briefingArchiveExcluding", () => {
+  it("puts overflow-only items in the archive", () => {
+    const entries = listBriefingArchiveEntries(
+      Array.from({ length: 6 }, (_, i) =>
+        item({
+          slug: `2026-0${i + 1}-15-briefing`,
+          publishedAt: `2026-07-${16 - i}T12:00:00.000Z`,
+          title: `Briefing ${i + 1}`,
+        }),
+      ),
+    );
+    const { featured, archive } = partitionHomeBriefings(entries);
+    expect(featured).toHaveLength(5);
+    expect(archive).toHaveLength(1);
+    expect(archive[0]?.slug).toBe("2026-06-15-briefing");
+    expect(featured.map((e) => e.slug)).not.toContain(archive[0]?.slug);
+  });
+
+  it("excludes the open briefing from the article archive", () => {
+    const entries = listBriefingArchiveEntries([
+      item({ slug: "a-briefing", publishedAt: "2026-07-16T12:00:00.000Z" }),
+      item({ slug: "b-briefing", publishedAt: "2026-07-15T12:00:00.000Z", title: "B" }),
+    ]);
+    const archive = briefingArchiveExcluding(entries, ["a-briefing"]);
+    expect(archive.map((e) => e.slug)).toEqual(["b-briefing"]);
   });
 });

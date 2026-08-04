@@ -34,8 +34,8 @@ export function briefingSynopsisFromMarkdown(markdown: string): string {
 }
 
 /**
- * Newest-first archive directory for ordinary briefings (excludes newsletters
- * and industry research briefs, which have their own indexes).
+ * Newest-first list of ordinary briefings (excludes newsletters and industry
+ * research briefs, which have their own indexes).
  */
 export function listBriefingArchiveEntries(
   ledger: GovernanceBriefing[],
@@ -49,4 +49,32 @@ export function listBriefingArchiveEntries(
       synopsis: resolveSynopsis(item.markdown),
     }))
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+}
+
+/** How many briefings the research home main body lists before the archive. */
+export const HOME_BRIEFING_PREVIEW_COUNT = 5;
+
+/**
+ * Split newest-first briefings into the home main-body preview and the
+ * overflow archive (items not shown in the main list).
+ */
+export function partitionHomeBriefings(entries: BriefingArchiveEntry[]): {
+  featured: BriefingArchiveEntry[];
+  archive: BriefingArchiveEntry[];
+} {
+  const featured = entries.slice(0, HOME_BRIEFING_PREVIEW_COUNT);
+  const archive = entries.slice(HOME_BRIEFING_PREVIEW_COUNT);
+  return { featured, archive };
+}
+
+/** Archive rows excluding briefings already present in the main body. */
+export function briefingArchiveExcluding(
+  entries: BriefingArchiveEntry[],
+  excludeSlugs: Iterable<string>,
+): BriefingArchiveEntry[] {
+  const excluded = new Set(
+    [...excludeSlugs].map((slug) => slug.trim().toLowerCase()).filter(Boolean),
+  );
+  if (excluded.size === 0) return entries;
+  return entries.filter((entry) => !excluded.has(entry.slug.toLowerCase()));
 }

@@ -1,7 +1,7 @@
 import GovernanceFrameBrandLockup from "@/app/components/governanceFrame/GovernanceFrameBrandLockup";
 import BriefingArchiveDirectory from "@/app/components/governanceFrame/BriefingArchiveDirectory";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
-import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
+import { listBriefingArchiveEntries, partitionHomeBriefings } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 import { fetchPublishedBriefings } from "@/app/lib/governanceFrame/briefingLoader";
 import {
   classifyPublishedLedgerItem,
@@ -26,7 +26,9 @@ export default async function GovernanceFrameResearchHomePage() {
   const newslettersOnly = ledger.filter(
     (item) => classifyPublishedLedgerItem(item.markdown, item.slug, item.title) === "newsletter",
   );
-  const briefingArchive = listBriefingArchiveEntries(ledger);
+  const allBriefings = listBriefingArchiveEntries(ledger);
+  const { featured: recentBriefings, archive: overflowBriefings } =
+    partitionHomeBriefings(allBriefings);
 
   const recentPapers = [
     ...papers.map((paper) => ({
@@ -45,11 +47,18 @@ export default async function GovernanceFrameResearchHomePage() {
     })),
   ].slice(0, 5);
 
-  const recentBriefings = briefingArchive.slice(0, 5);
   const recentNewsletters = newslettersOnly.slice(-5).reverse();
 
+  const showArchive = overflowBriefings.length > 0;
+
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,17.5rem)] lg:items-start lg:gap-10 xl:gap-12">
+    <div
+      className={
+        showArchive
+          ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,17.5rem)] lg:items-start lg:gap-10 xl:gap-12"
+          : undefined
+      }
+    >
       <div className="space-y-16">
         {/* First viewport: one composition — brand, one line, one sentence, CTAs */}
         <section
@@ -275,9 +284,11 @@ export default async function GovernanceFrameResearchHomePage() {
         </section>
       </div>
 
-      <div className="mt-14 border-t border-[var(--gf-line)] pt-8 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-4">
-        <BriefingArchiveDirectory entries={briefingArchive} />
-      </div>
+      {showArchive ? (
+        <div className="mt-14 border-t border-[var(--gf-line)] pt-8 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-4">
+          <BriefingArchiveDirectory entries={overflowBriefings} />
+        </div>
+      ) : null}
     </div>
   );
 }

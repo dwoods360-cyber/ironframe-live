@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import BriefingArchiveDirectory from "@/app/components/governanceFrame/BriefingArchiveDirectory";
 import BriefingMarkdown from "@/app/components/governanceFrame/BriefingMarkdown";
 import { ResearchLink } from "@/app/components/governanceFrame/ResearchBasePath";
-import { listBriefingArchiveEntries } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
+import { listBriefingArchiveEntries, briefingArchiveExcluding } from "@/app/lib/governanceFrame/briefingArchiveDirectory";
 import {
   briefingBodyMarkdown,
   fetchBriefingBySlug,
@@ -51,10 +51,20 @@ export default async function ResearchBriefingPage({ params }: PageProps) {
   ]);
   if (!briefing) notFound();
 
-  const briefingArchive = listBriefingArchiveEntries(ledger);
+  const overflowArchive = briefingArchiveExcluding(
+    listBriefingArchiveEntries(ledger),
+    [briefing.slug],
+  );
+  const showArchive = overflowArchive.length > 0;
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,17.5rem)] lg:items-start lg:gap-10 xl:gap-12">
+    <div
+      className={
+        showArchive
+          ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(15rem,17.5rem)] lg:items-start lg:gap-10 xl:gap-12"
+          : undefined
+      }
+    >
       <article className="min-w-0 max-w-3xl">
         <ResearchLink
           href="/briefings"
@@ -86,9 +96,11 @@ export default async function ResearchBriefingPage({ params }: PageProps) {
         />
       </article>
 
-      <div className="mt-14 border-t border-[var(--gf-line)] pt-8 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-1">
-        <BriefingArchiveDirectory entries={briefingArchive} activeSlug={briefing.slug} />
-      </div>
+      {showArchive ? (
+        <div className="mt-14 border-t border-[var(--gf-line)] pt-8 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-1">
+          <BriefingArchiveDirectory entries={overflowArchive} />
+        </div>
+      ) : null}
     </div>
   );
 }

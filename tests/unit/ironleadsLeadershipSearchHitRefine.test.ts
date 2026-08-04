@@ -32,6 +32,27 @@ describe("ironleadsLeadershipSearchHitRefine", () => {
         "AI4IT",
       ),
     ).toBe(false);
+    // Shared first token must not attach Absolute Software to Absolute Logic.
+    expect(
+      leadershipHitMentionsCompany(
+        {
+          title: "Absolute Software Welcomes New CFO and CISO",
+          snippet: "Edwin Ng joins Absolute Software executive team",
+          link: "https://www.businesswire.com/news/home/20221031005263/en/Absolute-Software-Welcomes-New-CFO-and-CISO-to-Executive-Team",
+        },
+        "Absolute Logic",
+      ),
+    ).toBe(false);
+    expect(
+      leadershipHitMentionsCompany(
+        {
+          title: "Absolute Logic expands compliance practice",
+          snippet: "Absolute Logic leadership update",
+          link: "https://www.prnewswire.com/news/absolute-logic-ciso",
+        },
+        "Absolute Logic",
+      ),
+    ).toBe(true);
   });
 
   it("flags generic CISO roundup / Wikipedia noise URLs", () => {

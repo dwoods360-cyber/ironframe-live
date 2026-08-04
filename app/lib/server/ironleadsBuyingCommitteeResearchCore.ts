@@ -120,8 +120,11 @@ async function fetchText(url: string): Promise<string | null> {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(12_000),
       headers: {
-        "User-Agent": "Ironleads-BuyingCommittee/1.0 (+https://ironframegrc.com)",
+        // Browser-like UA — some MSSP sites serve empty shells to short bot agents.
+        "User-Agent":
+          "Mozilla/5.0 (compatible; IronleadsResearch/1.1; +https://ironframegrc.com) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept: "text/html,application/xhtml+xml,text/plain,*/*",
+        "Accept-Language": "en-US,en;q=0.9",
       },
       redirect: "follow",
       cache: "no-store",
@@ -565,20 +568,13 @@ async function researchAndPersist(contact: ContactRow): Promise<BuyingCommitteeR
       accountDomain,
     });
 
-    // Prefer curated public appointments when live HTML parse is thin or noisy.
+    // Playbook fills gaps only — live About/team parse wins when it has a name.
     const playbookMembers = playbook?.members ?? [];
     const mergedByRole = new Map<BuyingRole, BuyingCommitteeMember>();
     for (const member of playbookMembers) mergedByRole.set(member.role, member);
     for (const member of liveMembers) {
       if (!member.fullName || !isPlausiblePersonName(member.fullName)) continue;
-      const prior = mergedByRole.get(member.role);
-      if (
-        !prior ||
-        (member.emails.some((e) => e.status === "published") &&
-          prior.emails.every((e) => e.status !== "published"))
-      ) {
-        mergedByRole.set(member.role, member);
-      }
+      mergedByRole.set(member.role, member);
     }
 
     result = {

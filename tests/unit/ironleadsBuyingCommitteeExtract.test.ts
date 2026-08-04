@@ -59,11 +59,31 @@ describe("ironleadsBuyingCommitteeExtract", () => {
     expect(isPlausiblePersonName("Us Your")).toBe(false);
     expect(isPlausiblePersonName("Adviser Global")).toBe(false);
     expect(isPlausiblePersonName("National Defense")).toBe(false);
+    expect(isPlausiblePersonName("Dameon Jeremy")).toBe(false);
     expect(isPlausiblePersonName("Andrew B. Quiming")).toBe(true);
+    expect(isPlausiblePersonName("Al Alper")).toBe(true);
     expect(isPlausiblePersonName("Stephen McMaster")).toBe(true);
     expect(isPlausiblePersonName("Kenneth A. Vecchione")).toBe(true);
     expect(isPlausiblePersonName("Ali Hassani")).toBe(true);
     expect(isPlausiblePersonName("Marguerite Fleming")).toBe(true);
+  });
+
+  it("extracts Meet the Leadership Team cards (Absolute Logic style)", () => {
+    const text = `
+Meet the Leadership Team
+dameon jeremy soarin
+Al Alper
+CEO & Founder
+dameon jeremy soarin
+Ruppert Vernon
+Director of Operations
+`;
+    const people = extractBuyingPersons(text);
+    expect(people.some((p) => p.fullName === "Al Alper" && p.role === "CEO")).toBe(true);
+    expect(
+      people.some((p) => p.fullName === "Ruppert Vernon" && p.role === "DIRECTOR_OPS"),
+    ).toBe(true);
+    expect(people.some((p) => /dameon|soarin/i.test(p.fullName))).toBe(false);
   });
 
   it("discovers Meet the Team URLs from homepage nav (e.g. /company/meet-the-team/)", () => {

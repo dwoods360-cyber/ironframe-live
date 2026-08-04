@@ -62,9 +62,9 @@ export function leadershipHitMentionsCompany(
   if (tokens.length === 1) return hay.includes(tokens[0]!);
 
   const matched = tokens.filter((t) => hay.includes(t)).length;
-  // Multi-token firms: require the longest token or 2+ tokens.
-  const longest = [...tokens].sort((a, b) => b.length - a.length)[0]!;
-  return matched >= 2 || (longest.length >= 5 && hay.includes(longest));
+  // Multi-token firms: require ≥2 tokens. Never accept a shared first word alone
+  // (e.g. Absolute Software must not match prospect Absolute Logic).
+  return matched >= 2;
 }
 
 export function isGenericLeadershipNoiseUrl(url: string): boolean {

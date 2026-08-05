@@ -90,9 +90,8 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
       }
       setMessage(successMessage);
       if (body.promoteToProspect === true) {
-        // Hard navigation so the server report reloads as PROSPECT (router.refresh alone
-        // often left the old SUSPECT copy + grayed promote button looking stuck).
-        router.push(`/dashboard/operations/ironleads/suspects/${report.contactId}`);
+        // Leave the intake dossier — promoted deals belong in SalesTeam, not the SUSPECT queue.
+        router.push("/dashboard/operations/ironleads");
         router.refresh();
         return;
       }

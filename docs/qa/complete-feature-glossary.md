@@ -2,7 +2,7 @@
 ## Standardized Sovereign Command Deck Training Playbook for Independent Learners
 ### Target Audience: High School Lab Technicians (Grade 11/12) & Independent Compliance Auditors
 ### System Architecture: Control-First Modular Agent Coordination Framework
-### Operational Date: 2026-08-01
+### Operational Date: 2026-08-03
 ### Delta Source: `daily_code_diff.txt` (24-hour git window — Writer Narrative Architect mandate)
 
 ---
@@ -31,7 +31,7 @@ This platform uses a structured architecture model called **Governance, Risk, an
 
 ### 🏛️ 1. Governance (The Corporate Constitution)
 * **Plain-English Definition:** Governance represents the unchangeable, absolute rules and system limits established by company executives or international law.
-* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta (2026-08-01) delivers **Ironintel July 31 live OSINT manifest refresh** — `grcProfessionalResearch.manifest.json` rotates to `ironintel-osint-2026-07-31-live` with Minnesota water PLC coordinated campaign (30-plus community systems, CISA AA26-097A), Cisco Secure FMC CVE-2026-20316 static-credential zero-day (BOD 26-04 FCEB deadline **August 1**), Balbooa Forms CVE-2026-56291 deadline-day RCE (**July 31**), CareCloud **345000**-individual AWS EHR exfiltration notification wave, CMMC Phase II suspension day **18** (RFI closes **August 14**), and post-deadline KNX/Arista VeloCloud/AD FS verification carryover; updated `riskMetricsCents` on workday analysis doc: median annual GRC program **4895000000**, audit remediation lag **1168000000**, SaaS consolidation savings **892000000**, board reporting overhead **158400000** cents; SaaS disruption memorandum doc: **4526000000**, **1235000000**, **1412000000**, **126800000** cents — all string-encoded BigInt integers through Irongate DMZ before CRM persistence. **Sales DISPATCH perimeter hardening** — `approvalDispatchValidation.ts` blocks `@ironleads.local` EMAIL destinations, enforces **HOLD** on shortlist companies (`SALES_DISPATCH_HOLD_COMPANIES`: **blueradius**), requires **Acknowledge dry-run to my inbox** checkbox for operator dry-run emails (`OPERATOR_DRY_RUN_EMAILS` env extension), auto-prefers SMS when harvest placeholder email has E.164 phone via `preferredSalesDispatchChannel()`, and enforces Sales EMAIL **C1 locks** — body must mention **$4,999** or Command Design Partner plus workflow review CTA; forbids free pilot/PoC/trial language; `AdminApprovalDashboardClient.tsx` surfaces rose HOLD banner, amber `@ironleads.local` warning, and cyan dry-run acknowledge checkbox. **Workflow-review LIVE pocket assist upgrade** — `assistWorkflowReviewQuestionAsync()` and `runWorkflowReviewCallAssistAsync()` on workflow-review-call API; SaaS KB lookup runs **before** pocket locks; new `workflowReviewPocketAssistLlm.ts` grounds novel phrasing in `buildPocketGroundingPack()` at Gemini Flash `temperature: 0` — exact KB/pocket locks never paraphrased; `WorkflowReviewCallClient.tsx` defaults channel to **Zoom** with `ironframe.live.channel` localStorage persistence; talk-track adds **load more than 3 tenants** row (Path B **1+2**, Core **1+3**). **SaaS call knowledge base packaging expansion** — `saasCallKnowledgeBase.ts` adds **20+** curated entries; `commercial.ts` adds `COMMAND_MULTI_SUBTENANTS` (**9**) and `PAID_ENCLAVES_TO_FILL_MULTI` (**6**); new `tests/unit/saasCallKnowledgeBase.test.ts` pins stack math to spine. **Ops Calendar date-range filters** — `calendarDueFrom` / `calendarDueTo` inclusive bounds, **Today · WF review** preset, **Next 7 days** preset. **Ops schedule seed outcome closure** — pre-outreach gate milestones marked **DONE** with PASS receipts (**2026-07-19**); warm-network advisor asks **CANCELLED**. **Operator library ops docs root** — `docsRoot: "ops"` for `windows-workstation-migration.md`. Prior-cycle (2026-07-31) **Control-to-Capital market narrative federation** — `docs/sales/control-to-capital-market-narrative.md` in IronBoard docs matrix; Heatmap Amnesty landing `/marketing/heatmap-amnesty`; Mandate 16 claim bans; Path B **499900** cents via `formatPathBUsd()`. Prior-cycle (2026-07-20) Prior-cycle (2026-07-20) **Ironleads SUSPECT location enrichment** — `ironleadsSuspectLocation.ts` resolves `websiteUrl`, postal `addressLine`, and optional `websiteContact` from contact `metadata` and deal `accountDomain`; `ironleadsIngressCore.ts` merges normalized HTTPS website URLs on every autonomous crawler upsert; Ops Hub CRM and Ironleads portal suspect rows expose `websiteUrl` and `addressLine`; per-contact forensic report at `/dashboard/operations/ironleads/suspects/[contactId]` via `buildIronleadsSuspectReport()` with blocker codes (`STAGE_SUSPECT`, `PLACEHOLDER_EMAIL`, `NO_PHONE`, `NOT_PROSPECT_POOL`, `MISSING_DOMAIN`, `OSINT_TITLE_NOISE`) and channel-readiness flags — **priorityScore is an integer ICP tier score, not USD cents**. **Tri-track HITL Approvals desk** — `approvalDraftKinds.ts` unifies SALES (amber), SUPPORT (emerald), and CUSTOMER_SUCCESS (violet) draft kinds on `/dashboard/admin/approvals` with `?kind=` filter chips; Ops Hub overview links to filtered queues via `snapshot.approvals.byKind`; DISPATCH remains human-only per Mandate 10. **Ops Calendar checklist expansion** — `seed-all-projects` action seeds summer editorial, video campaign, and ironframe rollout milestones from `allProjects2026SeedSpecs`; calendar cards carry P1–P3 priority ranks, clickable `href` deep links to briefing queue rows, inline `nextActions` checklists with `set-checklist-item`, and required outcome text when marking **Done** or **Cancelled**; deny/promote clears `briefing_queue_holds` on both paths. Prior-cycle (2026-07-19) **Governance Frame Publication Desk** — six quarantine-only desk agents (`gf-researcher`, `gf-editor`, `gf-verifier`, `gf-regulatory-reviewer`, `gf-product-boundary`, `gf-operator`) orchestrated by `runGovernanceFramePublicationDesk()` in `governanceFramePublicationDeskCore.ts`; **`POST /api/admin/operations-hub/briefings/desk-run`** with `mode: author|review` stages markdown into `docs/briefing-queue/` and writes advisory `.desk-reviews/{filename}.desk.json` sidecars — desk agents **never** call promote, deny, or syndicate; human Publisher/Founder alone approves via Ops Hub **Approve**. Ops Hub briefings desk shows **DeskReviewBadges** (`desk ready` / `desk revise` plus per-agent pass/warn/fail/advisory chips). **IronBoard perimeter fleet health** — `isPerimeterWorkforceHealthQuery()` routes red/HIGH workforce dots to `buildProductMatrixHealthSnapshot()` + `formatPerimeterWorkforceHealthAnswer()` (product-matrix health probes on ports **8082–8086**) — explicitly **not** U.S. labor-market statistics or CRM pipeline health; blocks labor-market web prefetch when operators paste Ops matrix rows. **`BOARD_OPERATOR_PROSE_MANDATE`** in `boardroomSystemPrompt.ts` forbids inventing product surfaces and mandates plain prose for docs/training location answers. Prior-cycle (2026-07-18) **Governance Frame Research Publication** at `https://research.ironframegrc.com` — canonical public origin replacing legacy `brief.ironframegrc.com`; `config/governanceFramePublic.ts` defines `governanceFrameBriefingPath()` as `/briefings/[slug]`; middleware on `research.ironframegrc.com` and `brief.ironframegrc.com` rewrites pretty paths into `/gf-research/*` and **308**-redirects legacy `/governance-frame/*` to `/briefings/*`; `deploymentQuarantine.ts` whitelists research publication hosts so the encyclopedia renders on cloud without full ingress opt-in. **`app/gf-research/*`** renders briefings, research papers (`GF-2026-001`), briefing series (`control-first-grc`), newsletters, methodology, editorial standards, sources-and-corrections, and about pages from `docs/governance-frame/` and `docs/published-briefings/` via `researchCatalog.ts` — only manuscripts with `status: PUBLISHED` render full text. **`lib/governanceFrame/publishedResearchKnowledge.ts`** federates published GF encyclopedia into IronBoard docs matrix for READ-only agent citation; dual-location matrix now marks WRITE vs READ access and forbids ingesting `docs/briefing-queue/` drafts. **IronBoard boardroom** adds client-side markdown rendering (`formatModelHtml`) with **HTML** and **PDF** export buttons for conversation transcripts. **Ops Hub Calendar** tab (`?tab=calendar`, bookmark alias `schedule`) tracks `OpsActivity` Postgres rows with T-3/T-2/T-1/T-0 idempotent reminder ledger; `/api/cron/ops-schedule-reminders` runs daily at **13:15 UTC** per `vercel.json`. **Promote hardening** removes queue filesystem drafts on successful approve, clears `briefing_queue_holds`, and hides already-promoted slugs from the Approve desk. **Marketing funnel expansion**: `/product-demo` guided seven-step workflow (`GuidedWorkflowDemoClient`), `/solutions/*`, `/trust-center`, `/tools/*`; homepage redesigned around workflow outcomes and spine-driven CTAs from `lib/ironframeProductKnowledge/commercial.ts` — Path B **499900** cents (**$4,999**), planned GA Command **3500000** cents/yr (**$35,000**/yr). **`BLOCK_DEMO_SANDBOX_WHEN_REGISTRATION_DISABLED=false`** restores client-only `/demo/*` sandbox when registration disabled — `/register/demo` remains available for mock-auth product demos without tenant provisioning. **Ironintel July 17 OSINT** refresh (`ironintel-osint-2026-07-17-live`): FCEB deadline-day SonicWall SMA1000 CVE-2026-15409/15410 and SharePoint CVE-2026-56164 machine-key theft; FortiSandbox triple-CVE (FCEB deadline July 19); Coca-Cola fairlife OT ransomware halting US production; CMMC Phase II C3PAO suspension day four; Manufacturing industry profile added; July 17 `riskMetricsCents`: median annual GRC program **4580000000**, audit remediation lag **1015000000**, SaaS consolidation savings **762000000**, board reporting overhead **143000000** cents. **CI** runs `npm run knowledge:check` and `npm run test:product-knowledge` before Postgres bootstrap. Prior-cycle product knowledge spine, briefing hold/resume/read gates, anti-hallucination mandates, marketing briefings archive, editorial section synonyms, and Google Docs GF-2026-001 utility remain locked from 2026-07-15 through 2026-07-17 governance cycles.
+* **The App Reality:** In our platform, these rules are hardcoded into an electronic constitution known as the **TAS (Tenant Architecture Specifications)** file at `docs/TAS.md`. The software code is physically blocked from ever breaking these rules. Today's delta (2026-08-03) delivers **Ironintel August 2 live OSINT manifest refresh** — `grcProfessionalResearch.manifest.json` rotates to `ironintel-osint-2026-08-02-live` with identity-first threat convergence: Microsoft Threat Intelligence **CaptiveCrunch** (Storm-2945 / Midnight Blizzard sub-cluster) captive-portal M365/Azure AD/WAM token theft via ChocoShell since early May 2026 with device-code OAuth abuse added July 16; Arch Linux **AUR openconnect-sso** poisoned-build supply-chain malware freeze August 1 (infostealer, RAT, SSH worm across developer workstations); WEF Global Cybersecurity Outlook 2026 synthesis — **75** percent of breaches involve compromised identities, **87** percent cite AI-powered attacks as fastest-growing risk; **ShinyHunters** healthcare vishing-to-Entra-SSO extortion wave (Health-ISAC alert — Medtronic, iRhythm, OneMedical, DentaQuest) plus Amgen third-party cloud PHI exfiltration SEC 8-K July 31; CMMC Phase II C3PAO suspension day **20** (RFI closes **August 14** with **12** days remaining); BOD 26-04 post-deadline verification carryover on Cisco Secure FMC CVE-2026-20316 (deadline passed **August 1**), Balbooa Forms CVE-2026-56291 (**July 31** passed), SharePoint machine-key cluster; WordPress Core CVE-2026-60137 due **August 4** (**2** days); Fortinet FortiOS CVE-2025-68686 due **August 10** (**8** days); Minnesota water PLC day **six** (CISA AA26-097A); Cl0p Windchill CVE-2026-12569 PLM extortion carryover; updated `riskMetricsCents` on workday analysis doc: median annual GRC program **4985000000**, audit remediation lag **1215000000**, SaaS consolidation savings **918000000**, board reporting overhead **162300000** cents; SaaS disruption memorandum doc: **4612000000**, **1286000000**, **1458000000**, **129100000** cents — all string-encoded BigInt integers through Irongate DMZ before CRM persistence. **Ironleads SUSPECT readiness ranking** — `ironleadsSuspectReadiness.ts` scores named buyer, buying-committee emails, website, phone, executive sponsor, and Account Research Brief completeness; active queue sorts **named buyers and fullest dossiers first** (`compareSuspectReadiness` in `operationsTeamPortalsCore.ts`); buying-committee research batch prefers **thinnest dossiers first** to fill gaps while UI surfaces richest rows for HITL review; portal displays `readinessScore` and `namedBuyerName` instead of raw `priorityScore` alone. **MSSPProviders card-block paste import** — `parseDirectoryCardBlocks()` in `ironleadsMsspFreeDirectorySeeds.ts` parses `=========` delimited MSSPProviders cards (firm name only — chips, blurbs, geo labels ignored); `ironleadsDirectoryPasteNoise.ts` adds `card_blurb` and `generic_service` rejection heuristics. **Client bundle drift recovery** — `chunkLoadRecovery.ts` expands to `isRecoverableClientDriftError()` covering stale webpack chunks and post-deploy Server Action / RSC payload mismatch (`isStaleDeploymentClientError()`); `ChunkLoadRecoveryBootstrap.tsx`, `app/error.tsx`, and `app/global-error.tsx` one-shot reload via cache-buster `location.replace` plus **Sign in fresh** link to `/login?fresh=1` with iOS Safari website-data guidance. **Supabase middleware session hardening** — `lib/supabase/middleware.ts` returns `MiddlewareSessionResult` with single `getUser()` per request; dead refresh tokens cleared via `isInvalidRefreshTokenError()` without poisoning every navigation; `middleware.ts` reuses session user for quarantine and auth gates (eliminates duplicate `getUser` logs). **Founder pitch practice audio** — `FounderPitchPracticeAudio.tsx` with commercial and casual registers (`founderPitchPracticeAssets.ts`); sentence-level MP3 manifest under `/public/training-audio/`; header control on workflow-review LIVE desk; operator library link to `/dashboard/operations/founder-pitch-casual`; `npm run synthesize:founder-pitch-audio` and `synthesize:founder-pitch-casual-audio` in `package.json`. **Stripe tenant activation metadata** — `resolveTenantActivationCheckoutUrl.server.ts` stamps `plan_sku: COMMAND_TIER` on checkout session and payment-intent metadata alongside existing `commercial_flow: tenant_activation`. **Operator-only directory collectors** (not Vercel/cron) — `scripts/dev/msspproviders-collect-websites.mjs`, `scripts/dev/clutch-collect-websites.mjs` with shepherd/resume/checkpoint; import via `scripts/dev/import-msspproviders-paste-file.ts` and `import-msspproviders-csv.mjs` into prospect-pool SUSPECT rows capped at **20** active. Prior-cycle (2026-08-02) **Ironintel August 1 live OSINT manifest refresh** — `grcProfessionalResearch.manifest.json` rotates to `ironintel-osint-2026-08-01-live` with Cisco Secure FMC CVE-2026-20316 BOD 26-04 **deadline-day** static-credential zero-day (FCEB close **August 1**), Minnesota water PLC coordinated campaign day five (30-plus community systems, CISA AA26-097A), Cl0p PTC Windchill/FlexPLM CVE-2026-12569 PLM extortion wave (first PTC product on KEV), Balbooa Forms CVE-2026-56291 post-deadline verification (**July 31** passed), CareCloud **345000**-individual AWS EHR exfiltration carryover, Fortinet FortiOS CVE-2025-68686 approaching deadline **August 10**, WordPress Core KEV **August 4**, CMMC Phase II suspension day **19** (RFI closes **August 14**), SharePoint machine-key post-deadline carryover, SonicWall SMA forensic verification carryover; updated `riskMetricsCents` on workday analysis doc: median annual GRC program **4928000000**, audit remediation lag **1182000000**, SaaS consolidation savings **905000000**, board reporting overhead **159600000** cents; SaaS disruption memorandum doc: **4551000000**, **1248000000**, **1425000000**, **127400000** cents — all string-encoded BigInt integers through Irongate DMZ before CRM persistence. **Ops Hub Publishing desk split** — briefings and newsletters move from `?tab=briefings|newsletters` on `/dashboard/operations` to dedicated **`/dashboard/operations/publishing?desk=briefings|newsletters`** via new `PublishingDeskClient.tsx`; legacy tab URLs **308**-redirect; Ops Today inbox retains overview, calendar, workforce, CRM, and Teams tabs only; `dualLocationOutputMatrix.ts` operator submit paths updated. **Ironleads Path B directory pipeline expansion** — pending pool batch cap **20** active SUSPECTs (`IRONLEADS_ACTIVE_BATCH_SIZE` in `ironleadsPendingPoolCore.ts`); free-directory MSSP seed import and operator paste import (max **100** rows per batch) via `ironleadsMsspDirectoryImportCore.ts`; **Pull pending batch**, **Park excess active**, directory paste noise purge (`ironleadsDirectoryPasteNoise.ts`, `ironleadsOsintNoisePurgeCore.ts`); harvest cycle chains buying-committee research (`ironleadsBuyingCommitteeResearchCore.ts`) and persists **Account Research Brief** on contact metadata (`ironleadsAccountResearchBrief.ts`); **Apollo HITL enrich** (`apolloEnrichmentClient.ts`, `ironleadsApolloEnrichCore.ts`) via `APOLLO_API_KEY` — org-by-domain + named-buyer people match; never auto-DISPATCH. **Suspect operator edit surfaces** — `SuspectOperatorEditPanel.tsx`, `AccountResearchBriefPanel.tsx` on `/dashboard/operations/ironleads/suspects/[contactId]`; website probe (`ironleadsWebsiteProbeCore.ts`); email mailbox hygiene MX checks (`emailMailboxHygiene.ts`); operator HOLD classifications (`ironleadsOperatorHoldCore.ts`). **Approvals Needs enrichment (N/E)** — SALES-only action on `/dashboard/admin/approvals` soft-archives draft with `NEEDS_ENRICHMENT_DRAFT_TAG`, demotes deal PROSPECT → SUSPECT, clears unsafe destinations via `approvalNeedsEnrichmentCore.ts`, redirects operator to suspect report path; sky banner warns when destination is operator dry-run inbox. **Command Center tenant switcher hardening** — `commandCenterTenantAccess.ts` loads enclave hierarchy (`parentTenantId`, `enclaveRole`) via raw SQL to survive stale Prisma DMMF; `productionTenantSwitcherGate.ts` filters non-live platform tenants; `demoBeachheadTenantGate.ts` blocks production silent fallback to medshield demo beachhead in `resolveDashboardActiveTenant.ts`. **Ops schedule reminder cron logging** — `bin/cron_ops_schedule_reminders.ps1` writes structured logs to `logs/cron_ops_schedule_reminders_log.txt`, imports `.env` + `.env.local`, supports `IRONFRAME_LOCAL_CORE_ORIGIN` fallback. Prior-cycle (2026-08-01) **Sales DISPATCH perimeter hardening**, workflow-review grounded pocket assist, SaaS call KB packaging expansion, Ops Calendar date-range filters, ops schedule seed outcome closure, operator library ops docs root retained. Prior-cycle (2026-07-31) **Control-to-Capital market narrative federation**, Heatmap Amnesty landing `/marketing/heatmap-amnesty`, Mandate 16 claim bans; Path B **499900** cents via `formatPathBUsd()`. Prior-cycle (2026-07-20) **Ironleads SUSPECT location enrichment**, tri-track HITL Approvals desk, Ops Calendar checklist expansion. Prior-cycle (2026-07-19) **Governance Frame Publication Desk** with six quarantine-only desk agents and `.desk-reviews` sidecars. Prior-cycle (2026-07-18) **Governance Frame Research Publication** at `https://research.ironframegrc.com`, Ops Hub Calendar, IronBoard transcript export, marketing funnel expansion. Constitutional seed tenant ALE baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. **priorityScore** and `aiFitnessScore` remain integer ICP tier scores — not USD cents.
 
 ### ⚠️ 2. Risk Management (The Defense System)
 * **Plain-English Definition:** Identifying potential technology failures or external hacks before they happen, and calculating exactly how much cash the company would lose (the **Asset Loss Expectancy** or **ALE**).
@@ -91,6 +91,14 @@ To completely eliminate operational risk, protect multi-tenant cloud client asse
 
 * **Mandate 17: Sales DISPATCH Perimeter Gates & Pocket Assist Grounding:** GLOBAL_ADMIN **DISPATCH** on `/dashboard/admin/approvals/[id]` must pass `validateApprovalDispatch()` with full perimeter context — never bypass server gates from client-only edits. **HOLD companies:** `SALES_DISPATCH_HOLD_COMPANIES` (initial key **blueradius**) blocks Path B cold DISPATCH until operator purges or re-qualifies with a named buyer — UI shows rose **HOLD** banner on matching `company` field. **Harvest placeholder emails:** `@ironleads.local` destinations are blocked on EMAIL channel — auto-switch to SMS when E.164 phone present via `preferredSalesDispatchChannel()`; operator must paste real buyer email for production EMAIL DISPATCH. **Operator dry-run inboxes:** `operatorDryRunEmails()` includes `dwoods360@gmail.com`, `dereck@ironframegrc.com`, plus comma-separated `OPERATOR_DRY_RUN_EMAILS` — live partner DISPATCH to these addresses requires explicit **Acknowledge dry-run to my inbox** checkbox (`acknowledgeOperatorSelfDispatch: true` on API body). **Sales EMAIL C1 locks:** body must mention **$4,999** or Command Design Partner and include workflow review CTA; must not offer free pilot/PoC/trial. **Workflow-review pocket assist:** `assistWorkflowReviewQuestionAsync()` returns verbatim SaaS KB and pocket-lock answers — never let Gemini paraphrase prices or entity caps; `grounded_llm` source applies only to novel phrasing grounded in `buildPocketGroundingPack()`; refuse (`source: miss`) when API unavailable rather than invent packaging math. **Packaging truth:** Path B hard-caps **1** Primary + **2** Subtenant Enclaves (**499900** cents flat); Command Core planned GA includes **4** entities (**3500000** cents/yr) — fourth entity is inside Core, not Core + Paid Enclave (**350000** cents/yr list per enclave beyond Core's three included Subtenants starts at entity **5**); Command Multi flat **5500000** cents/yr annual list mask up to **10** entities; do not stack **499900** + **350000** cents for a fourth tenant on Path B. FORBIDDEN: DISPATCH to HOLD shortlist without re-qualification; EMAIL to `@ironleads.local`; operator dry-run EMAIL without acknowledge checkbox; pocket assist inventing soft max-client quotas or Partner book as holding-company shortcut.
 
+* **Mandate 18: Ops Publishing Desk Split — Briefings Never on Ops Today Tab Bar:** Governance Frame briefing and newsletter approve/deny desks live exclusively at **`/dashboard/operations/publishing?desk=briefings`** and **`?desk=newsletters`**. Legacy `/dashboard/operations?tab=briefings` and `?tab=newsletters` URLs redirect to the publishing route preserving `?draft=` deep links. Ops Today (`/dashboard/operations`) retains overview, calendar, workforce, CRM, and Teams tabs only — never re-mount promote/deny panels on the main hub. `BOARD_DUAL_LOCATION_OUTPUT_MATRIX` operator submit paths cite publishing URLs. GF desk-run, briefing request, and newsletter request APIs unchanged — only UI surface moved to `PublishingDeskClient.tsx`. Human **Approve** / **Hold** / **Deny** / **Resume** gates remain identical per Mandates 9 and 14.
+
+* **Mandate 19: Ironleads Pending Pool Batch Cap — Twenty Active SUSPECTs:** Path B directory import and operator paste import must respect **`IRONLEADS_ACTIVE_BATCH_SIZE = 20`** active SUSPECT review rows. Overflow imports park into pending pool via `pending_batch` operator HOLD classification in contact metadata (`ironleadsOperatorHoldCore.ts`). Operators **Pull pending batch** when active queue clears; **Park excess active** trims overloaded active queues to newest **20**. Buying-committee research and Account Research Brief generation run on active batch only — never auto-research entire pending pool without operator pull. FORBIDDEN: auto-promoting parked pending rows to PROSPECT; exceeding **100** rows per paste import; treating directory paste noise (OSINT article titles, duplicate domains) as qualified MSSP leads without purge pass.
+
+* **Mandate 20: Apollo HITL Enrichment Only — Never Auto-DISPATCH:** `APOLLO_API_KEY` enables org-by-domain and named-buyer people match via `enrichIronleadsSuspectWithApollo()` on SUSPECT-stage contacts only. Apollo applies work email and org phone only when contact still holds `@ironleads.local` placeholder or missing phone — never overwrites verified buyer channels. Enrichment skips title-noise rows and `SALES_DISPATCH_HOLD_COMPANIES` matches. Snapshot persists on `contact.metadata.apolloEnrichment`. FORBIDDEN: wiring Apollo enrich to SalesTeam poll auto-send; DISPATCH after enrich without human Approvals click; storing Apollo API key in client bundles or committed env files.
+
+* **Mandate 22: Ironleads SUSPECT Readiness Sort — Named Buyer Before Priority Score:** Active SUSPECT queue display must sort by `compareSuspectReadiness()` — named buyer on file, buying-committee member emails, website, phone, executive sponsor, and Account Research Brief completeness rank above raw `priorityScore` alone. Portal rows expose `readinessScore` (rounded integer) and `namedBuyerName` — never treat readiness score as USD cents. Buying-committee research batch (`researchBuyingCommitteeForAllSuspects`) must prefer **thinnest dossiers first** (ascending readiness) to fill enrichment gaps while operator UI surfaces **fullest dossiers first** for HITL promote review. FORBIDDEN: sorting active queue by `createdAt` desc alone when readiness module is loaded; auto-promoting to PROSPECT based on `priorityScore` without named-buyer or channel-readiness gates.
+
 ---
 
 ## 🎨 Chapter 3: True Screen Grid Coordinates & Panel Layout Proportions
@@ -101,9 +109,40 @@ The platform interface scales fluidly in sync with your window size using a fixe
 * **The Center Panel (Workspace Canvas) [48% Screen Width]:** Contains the primary navigation path tabs, the horizontal GRC metric rows, and the large workflow control blocks.
 * **The Right Panel (Audit Column) [30% Screen Width]:** Houses the **Sustainability Pulse** panel widget and the long, vertically extending **Live Audit Ledger Stream** terminal layout box.
 
+### Layout Refactor Notes (2026-08-03 Delta)
+
+Today's delta delivers **Ironintel August 2 OSINT manifest refresh**, **Ironleads SUSPECT readiness ranking**, **MSSPProviders card-block paste import**, **client bundle drift recovery**, **Supabase middleware single-session refresh**, **founder pitch practice audio surfaces**, **Stripe COMMAND_TIER plan_sku metadata**, and **operator-only MSSP/Clutch directory collectors** without altering the constitutional 22/48/30 tripane geometry on authenticated cockpit routes:
+
+* **Ironintel OSINT manifest:** `Ironboard/src/knowledge/grcProfessionalResearch.manifest.json` — `manifestId: ironintel-osint-2026-08-02-live`, `generatedAt: 2026-08-02T08:00:00.000Z`; RAG chunks pivot to CaptiveCrunch Midnight Blizzard captive-portal campaign (`osint-01-captivecrunch-midnight-blizzard`), Arch AUR supply-chain malware (`osint-02-arch-aur-supply-chain`), identity and agentic AI landscape (`osint-03-identity-ai-landscape`), ShinyHunters healthcare SSO extortion (`osint-04-shinyhunters-healthcare`), CMMC Phase II day **20** (`osint-05-cmmc-phase2-suspension-day20`), WordPress/Fortinet approaching deadlines (`osint-06-wordpress-fortinet-deadlines`), Minnesota PLC day **six** (`osint-07-minnesota-plc-day-six`), BOD 26-04 post-deadline verification carryover (`osint-08-post-deadline-carryover`); workday `riskMetricsCents`: **4985000000**, **1215000000**, **918000000**, **162300000** cents; SaaS disruption doc: **4612000000**, **1286000000**, **1458000000**, **129100000** cents.
+* **Ironleads readiness:** `ironleadsSuspectReadiness.ts` — `scoreSuspectReadiness()`, `compareSuspectReadiness()`; named buyer **+100**, committee members **+18** each (cap **6**), emails **+12** each (cap **8**), website **+25**, phone **+20**, sponsor **+15**, brief **+10**, priority tie-break **0–10**; `operationsTeamPortalsCore.ts` active queue sort richest-first; `ironleadsBuyingCommitteeResearchCore.ts` research batch thinnest-first; portal `readinessScore` + `namedBuyerName` in `IronleadsPortalClient.tsx`.
+* **MSSPProviders card paste:** `ironleadsMsspFreeDirectorySeeds.ts` — `parseDirectoryCardBlocks()` with `BLOCK_SEPARATOR_RE` (`=========`); `pushUniqueRow()` dedupe; `ironleadsDirectoryPasteNoise.ts` — `card_blurb`, `generic_service` noise reasons.
+* **Client drift recovery:** `app/utils/chunkLoadRecovery.ts` — `isStaleDeploymentClientError()`, `isRecoverableClientDriftError()`, `recoverFromClientDriftError()` with `_if_recover` cache-buster; `ChunkLoadRecoveryBootstrap.tsx`, `app/error.tsx`, `app/global-error.tsx` — stale-deploy copy, **Sign in fresh** `/login?fresh=1`, iOS Safari website-data tip.
+* **Supabase middleware:** `lib/supabase/middleware.ts` — `MiddlewareSessionResult`, `isInvalidRefreshTokenError()`, `clearSupabaseAuthCookies()`; `middleware.ts` single `sessionUser` for quarantine + auth (removed second `createServerClient` + `getUser`).
+* **Founder pitch practice:** `FounderPitchPracticeAudio.tsx`, `founderPitchPracticeAssets.ts` — commercial + casual registers; `/public/training-audio/founder-elevator-pitch*.mp3` and sentence manifests; header on `WorkflowReviewCallClient.tsx`; operator library **Casual pitch practice** link; `scripts/synthesize-founder-pitch-audio.py`; `npm run synthesize:founder-pitch-audio`, `synthesize:founder-pitch-casual-audio`.
+* **Stripe activation:** `resolveTenantActivationCheckoutUrl.server.ts` — `plan_sku: COMMAND_TIER` on session + payment-intent metadata.
+* **Directory collectors (dev):** `scripts/dev/msspproviders-collect-websites.mjs`, `clutch-collect-websites.mjs`, `clutch-shepherd.mjs`; import `import-msspproviders-paste-file.ts`, `import-msspproviders-csv.mjs`.
+* **Unit tests:** `chunkLoadRecovery.test.ts` (stale deploy + digest-only), `ironleadsSuspectReadiness.test.ts`, `ironleadsMsspDirectoryImport.test.ts` (card blocks), `supabaseMiddlewareSession.test.ts`.
+
+### Layout Refactor Notes (2026-08-02 Delta)
+
+Prior-cycle delta delivered **Ironintel August 1 OSINT manifest refresh**, **Ops Publishing desk split**, **Ironleads pending pool and directory import pipeline**, **Apollo HITL enrichment**, **Account Research Brief surfaces**, **Approvals Needs enrichment (N/E)**, **Command Center enclave switcher hardening**, and **ops schedule cron logging** without altering the constitutional 22/48/30 tripane geometry on authenticated cockpit routes:
+
+* **Ironintel OSINT manifest:** `Ironboard/src/knowledge/grcProfessionalResearch.manifest.json` — `manifestId: ironintel-osint-2026-08-01-live`, `generatedAt: 2026-08-01T08:00:00.000Z`; RAG chunks pivot to Cisco FMC deadline-day (`osint-01-cisco-fmc-deadline-day`), Minnesota PLC day five (`osint-02-minnesota-plc-day-five`), Cl0p Windchill PLM extortion (`osint-03-cl0p-windchill-plm`), Balbooa Forms post-deadline (`osint-04-balbooa-post-deadline`), CareCloud healthcare breach (`osint-05-carecloud-healthcare-breach`), CMMC Phase II day 19 (`osint-06-cmmc-phase2-suspension-day19`), Fortinet/WordPress approaching deadlines (`osint-07-fortinet-wordpress-deadlines`), SharePoint machine-key carryover (`osint-08-sharepoint-post-deadline-carryover`); workday `riskMetricsCents`: **4928000000**, **1182000000**, **905000000**, **159600000** cents; SaaS disruption doc: **4551000000**, **1248000000**, **1425000000**, **127400000** cents.
+* **Ops Publishing desk:** `app/(dashboard)/dashboard/operations/publishing/PublishingDeskClient.tsx` — **1001**-line client extracted from `OperationsHubClient.tsx`; `publishingDeskHref()` builds `/dashboard/operations/publishing?desk=briefings|newsletters`; `DeskReviewBadges`, promote/deny/hold/resume/desk-run/syndicate panels migrated; legacy `?tab=briefings|newsletters` redirects via `useEffect` in hub client.
+* **Ops Today rename:** `operations/page.tsx` metadata title **Ops Today**; description **Operator Today inbox — prioritized GTM, calendar, publishing, and workforce desks**.
+* **Ironleads pending pool:** `ironleadsPendingPoolCore.ts` — `IRONLEADS_ACTIVE_BATCH_SIZE` **20**; `parkImportedOverflow()`, `parkExcessActiveToPending()`, `pullPendingSuspectBatch()`, `countActiveSuspects()`; FIFO pending pull oldest-first.
+* **Directory import:** `ironleadsMsspDirectoryImportCore.ts`, `ironleadsMsspFreeDirectorySeeds.ts`, `IronleadsPortalClient.tsx` paste import with `localStorage` draft key `ironleads.directoryPasteDraft.v1`, max **100** rows; actions `import_free_directory_seeds`, `import_directory_paste`, `pull_pending_batch`, `park_excess_active`.
+* **Apollo enrich:** `apolloEnrichmentClient.ts`, `ironleadsApolloEnrichCore.ts` — org `/organizations/enrich`, people `/people/match`; `.env.example` documents `APOLLO_API_KEY`.
+* **Account Research Brief:** `ironleadsAccountResearchBrief.ts` — fit/pain/buyer gates, buyer map, trigger evidence, outreach block with `claimsToAvoid`; persisted on `contact.metadata.accountResearchBrief`; UI `AccountResearchBriefPanel.tsx`.
+* **Needs enrichment:** `approvalNeedsEnrichmentCore.ts` — `SUCCESS_NEEDS_ENRICHMENT`, `needsEnrichmentPlaceholderEmail()`, deal demotion note; `AdminApprovalDashboardClient.tsx` sky **Needs enrichment** button and dry-run destination banner.
+* **Command Center gates:** `commandCenterTenantAccess.ts` — `loadEnclaveFieldsByTenantId()` raw SQL; `finalizeSwitcherTenants()` chains staging + production filters; `productionTenantSwitcherGate.ts`, `demoBeachheadTenantGate.ts`, `resolveDashboardActiveTenant.ts` production empty fallback.
+* **Email hygiene:** `emailMailboxHygiene.ts` — MX lookup labels for buyer email verification in research brief.
+* **Cron logging:** `bin/cron_ops_schedule_reminders.ps1` — `Log-Message` to `logs/cron_ops_schedule_reminders_log.txt`; `scripts/register-nightly-cron-tasks.ps1` wrapper hardening.
+* **Unit tests:** `apolloEnrichmentClient.test.ts`, `approvalNeedsEnrichmentCore.test.ts`, `ironleadsAccountResearchBrief.test.ts`, `ironleadsPendingPoolCore.test.ts`, `ironleadsOperatorHoldCore.test.ts`, `ironleadsMsspDirectoryImport.test.ts`, `emailMailboxHygiene.test.ts`, `productionTenantSwitcherGate.test.ts`, `demoBeachheadTenantGate.test.ts`, updated `commandCenterTenantAccess.test.ts`.
+
 ### Layout Refactor Notes (2026-08-01 Delta)
 
-Today's delta delivers **Ironintel July 31 OSINT manifest refresh**, **Sales DISPATCH perimeter validation**, **workflow-review grounded pocket assist**, **SaaS call KB packaging expansion**, **Ops Calendar date-range filters**, **ops schedule seed outcome closure**, and **operator library ops docs root** without altering the constitutional 22/48/30 tripane geometry on authenticated cockpit routes:
+Prior-cycle delta delivered **Ironintel July 31 OSINT manifest refresh**, **Sales DISPATCH perimeter validation**, **workflow-review grounded pocket assist**, **SaaS call KB packaging expansion**, **Ops Calendar date-range filters**, **ops schedule seed outcome closure**, and **operator library ops docs root** without altering the constitutional 22/48/30 tripane geometry on authenticated cockpit routes:
 
 * **Ironintel OSINT manifest:** `Ironboard/src/knowledge/grcProfessionalResearch.manifest.json` — `manifestId: ironintel-osint-2026-07-31-live`, `generatedAt: 2026-07-31T08:00:00.000Z`; RAG chunks pivot to Minnesota water PLC campaign (`osint-01-minnesota-plc-campaign`), Cisco FMC zero-day (`osint-02-cisco-fmc-zero-day`), Balbooa Forms deadline-day (`osint-03-balbooa-deadline-day`), CareCloud healthcare breach (`osint-04-carecloud-healthcare-breach`), post-deadline KNX/Arista/AD FS verification (`osint-05-post-deadline-knx-arista-adfs`), CMMC Phase II day 18 (`osint-06-cmmc-phase2-suspension-day18`), SharePoint machine-key carryover (`osint-07-sharepoint-post-deadline-carryover`), Bank of Baroda Triple X breach (`osint-08-finance-triple-x-breach`); workday `riskMetricsCents`: **4895000000**, **1168000000**, **892000000**, **158400000** cents; SaaS disruption doc: **4526000000**, **1235000000**, **1412000000**, **126800000** cents.
 * **Approval dispatch validation:** `app/lib/approvalDispatchValidation.ts` — `SALES_DISPATCH_HOLD_COMPANIES`, `operatorDryRunEmails()`, `isIronleadsLocalEmail()`, `isSalesDispatchHoldCompany()`, `isOperatorDryRunEmail()`, `preferredSalesDispatchChannel()`; Sales EMAIL C1 price/CTA/free-pilot locks; `AdminApprovalDashboardClient.tsx` HOLD banner, `@ironleads.local` warning, dry-run acknowledge checkbox, auto SMS channel swap effect.
@@ -1220,9 +1259,20 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🏗️ Feature 43: Command Center Tenant Access Scope
 * **GRC Function ID:** `COMMAND-001`
-* **Operational Purpose:** RBAC-scoped tenant switcher — non-GLOBAL_ADMIN users see only assigned workspaces; subdomain hosts lock to single tenant.
+* **Exact Screen Coordinates:** Top-left tenant switcher on authenticated dashboard routes; server scope via `resolveCommandCenterTenantScope()`.
+* **Operational Purpose:** RBAC-scoped tenant switcher — non-GLOBAL_ADMIN users see only assigned workspaces; subdomain hosts lock to single tenant. Today's delta adds enclave hierarchy visibility (`parentTenantId`, `enclaveRole`) and production-safe tenant filtering so operators never silently land on demo beachhead tenants or non-live platform rows in production.
+* **Technical Mechanics:**
+  * `commandCenterTenantAccess.ts` — `CommandCenterTenantRow` extends with `parentTenantId: string | null` and `enclaveRole: string` (default **PRIMARY**); `loadEnclaveFieldsByTenantId()` raw SQL on `tenants.parent_tenant_id` and `tenants.enclave_role` survives stale Prisma Client DMMF after migrate deploy
+  * `finalizeSwitcherTenants()` chains `filterHiddenStagingTenants()` then `filterNonLivePlatformTenants()` with optional `hostTenantId` passthrough
+  * `productionTenantSwitcherGate.ts` — `isNonLivePlatformTenantRow()` excludes sandbox/staging/prospect-pool rows from production switcher unless operator has explicit assignment
+  * `demoBeachheadTenantGate.ts` — `isProductionDemoBeachheadFilterActive()` blocks `resolveDashboardActiveTenantUuid()` silent medshield fallback on production hosts
+  * `demoMode.ts` client-safe `CommandCenterTenantRow` mirror includes enclave fields for switcher UI labels
+  * `aleBaselineCents` remains stringified BigInt from `tenant.ale_baseline` — Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000** cents display in switcher diagnostics only
+* **Agent Boundary:** **Ironguard** tenant validation; no cross-tenant row bleed in switcher list.
 * **Step-by-Step Lab Validation:**
-  1. Run `tests/unit/commandCenterTenantAccess.test.ts` — all pass.
+  1. Run `tests/unit/commandCenterTenantAccess.test.ts`, `productionTenantSwitcherGate.test.ts`, `demoBeachheadTenantGate.test.ts` — all pass.
+  2. Log in as scoped operator on production host — verify medshield demo beachhead does not auto-bind when cookie absent.
+  3. GLOBAL_ADMIN switcher — verify enclave role label on subtenant rows when `enclave_role` is SUBTENANT in database.
 
 ---
 
@@ -1266,7 +1316,7 @@ Every visible component on your monitor screen is mapped below using industry-st
   * IronBoard parallel router: `Ironboard/src/governanceFrame/router.ts`, `briefingScanner.ts`, `renderBlog.ts` — HTML blog renderer for direct IronBoard access
   * `next.config.ts` `outputFileTracingIncludes` ships `./docs/published-briefings/**/*` on Vercel for `/governance-frame` lambdas
   * Published seed briefing: `docs/published-briefings/2026-06-07-staging-boundary-check.md` — provisioning tunnel test exposure **499900** cents, reported ALE delta **0** cents
-  * **Quarantine triggers (2026-07-17):** Ops Hub `POST /api/admin/operations-hub/briefings/request`, `POST /api/admin/operations-hub/newsletters/request`, autonomous weekday cron `POST /api/cron/gtm-briefing-queue`, narrate flywheel, and IronBoard board authorship — all stage to `docs/briefing-queue/`; operator **Read** reviews full markdown; **Hold** parks for later; **Resume** clears hold without publish; **Approve** (promote) or **Deny** in `/dashboard/operations?tab=briefings|newsletters` before public feed updates; legacy promoted slugs redirect via **301** to canonical ledger rows
+  * **Quarantine triggers (2026-07-17):** Ops Hub `POST /api/admin/operations-hub/briefings/request`, `POST /api/admin/operations-hub/newsletters/request`, autonomous weekday cron `POST /api/cron/gtm-briefing-queue`, narrate flywheel, and IronBoard board authorship — all stage to `docs/briefing-queue/`; operator **Read** reviews full markdown; **Hold** parks for later; **Resume** clears hold without publish; **Approve** (promote) or **Deny** in `/dashboard/operations/publishing?desk=briefings|newsletters` before public feed updates (2026-08-02 publishing desk split); legacy promoted slugs redirect via **301** to canonical ledger rows
   * `ConditionalAppShell.tsx` excludes governance-frame paths from dashboard AppShell mount — no TopNav bleed
 * **Agent Boundary:** **Ironscribe** (Agent 05) briefing structure and export lineage; **Irongate** (Agent 14) markdown sanitization before client render; **Ironlogic** (Agent 4) board federation reads monetization blueprint alongside TAS for strategic context.
 * **Step-by-Step Lab Validation:**
@@ -2012,10 +2062,10 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 🏢 Feature 81: Operations Hub GTM Briefing & Newsletter Approval Desk
 * **GRC Function ID:** `OPS-003`
-* **Exact Screen Coordinates:** `/dashboard/operations?tab=briefings` and `?tab=newsletters` — quarantined draft lists with per-row **Read**, **Approve**, **Hold**, and **Deny** buttons; manual request textareas above each desk; full markdown draft reader modal overlay.
+* **Exact Screen Coordinates:** `/dashboard/operations/publishing?desk=briefings` and `?desk=newsletters` — quarantined draft lists with per-row **Read**, **Approve**, **Hold**, and **Deny** buttons; manual request textareas above each desk; full markdown draft reader modal overlay. Legacy `/dashboard/operations?tab=briefings|newsletters` redirects here preserving `?draft=` deep links.
 * **Operational Purpose:** Gives perimeter workforce operators a human gate between autonomous GTM authorship and public Governance Frame / Ironcast publication. Weekday cron and manual requests stage markdown into `docs/briefing-queue/` only — nothing reaches `https://research.ironframegrc.com/briefings/[slug]` until operator **Approve** (promote). **GF publication desk** (`POST /api/admin/operations-hub/briefings/desk-run`) authors or reviews quarantined drafts and writes `.desk-reviews` sidecars — never promotes. **Hold** parks drafts for later reading without deciding. **Resume** clears hold metadata and returns drafts to the active Approve/Deny desk without publishing. **Deny** removes drafts from active desks and records durable Postgres denial receipts. Already-promoted slugs are hidden from the active desk even if queue files remain on disk.
 * **Technical Mechanics:**
-  * **Client:** `OperationsHubClient.tsx` — **GF publication desk** author form (`deskTitle`, `deskPrompt`) and per-row **Run desk review** button; `DeskReviewBadges` renders sidecar status; `heldBriefingQueueDrafts` and `activeBriefingQueueDrafts` memo partitions; `handleResumeDraft` posts resume route; `handleReadDraft` loads markdown via draft API into `draftPreview` modal with inline **Resume** when on hold; `handleHoldDraft` posts hold route; `handlePromote` calls `POST /api/admin/operations-hub/briefings/promote`; `handleDenyDraft` confirms then calls `POST /api/admin/operations-hub/briefings/deny`; `handleBriefingRequest` and `handleNewsletterRequest` post operator prompts with `overwrite: true` and `tenantSlug: ironframe-sandbox`; `selectQueueDraft()` syncs `?draft=` URL param and scrolls promote panel into view
+  * **Client:** `PublishingDeskClient.tsx` (2026-08-02) — extracted from `OperationsHubClient.tsx`; hosts GF publication desk author form, `DeskReviewBadges`, held/active draft partitions, promote/deny/hold/resume/syndicate handlers; `publishingDeskHref()` and `?draft=` URL sync. Ops Today hub (`OperationsHubClient.tsx`) redirects legacy briefing/newsletter tabs to publishing route.
   * **Desk-run route:** `POST /api/admin/operations-hub/briefings/desk-run` — `mode: author|review`; author requires `requestPrompt` min **40** chars; review requires `filename`; binds `tenantId`/`tenantSlug` from Postgres tenant lookup; returns `readyForHumanOperator` advisory flag
   * **Desk core:** `governanceFramePublicationDeskCore.ts` — quarantine-only orchestration; gf-researcher system prompt enforces vendor-neutral institutional voice; product-boundary pass calls `scanForbiddenPublicSalesClaims()`; operator pass cites `GF_PUBLICATION_DESK_HUMAN_PUBLISHER.role`
   * **Desk review package:** `lib/governanceFrame/publicationDesk/` — `agents.ts`, `deskReviewIo.ts`, `heuristics.ts`, `types.ts`, `index.ts`
@@ -2115,28 +2165,35 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 <a id="leads-001"></a>
 
-### 🎯 Feature 85: Ironleads SUSPECT Ingress Dedupe, Location Enrichment & Clone Purge
+### 🎯 Feature 85: Ironleads SUSPECT Ingress Dedupe, Location Enrichment, Pending Pool & Directory Import
 * **GRC Function ID:** `LEADS-001`
-* **Exact Screen Coordinates:** Ironleads ops portal suspect list — website and address columns; `/dashboard/operations/ironleads/suspects/[contactId]` forensic report page; ingress API response codes on dedupe replay.
-* **Operational Purpose:** Prevents duplicate SUSPECT CRM rows when Industry Scout or manual harvest replays the same company/domain identity — reducing operator noise in Ironleads portal and approvals pipeline. Enriches each suspect with normalized website URL and optional brick-and-mortar address line for operator triage before SalesTeam PROSPECT handoff. Exposes blocker-coded forensic reports explaining why contacts remain SUSPECT rather than PROSPECT.
+* **Exact Screen Coordinates:** Ironleads ops portal (`/dashboard/operations/ironleads`) — harvest, directory seed import, paste import, pull pending batch, park excess; suspect list with website and address columns; `/dashboard/operations/ironleads/suspects/[contactId]` forensic report with Account Research Brief and operator edit panels.
+* **Operational Purpose:** Prevents duplicate SUSPECT CRM rows when Industry Scout or manual harvest replays the same company/domain identity — reducing operator noise in Ironleads portal and approvals pipeline. Enriches each suspect with normalized website URL and optional brick-and-mortar address line for operator triage before SalesTeam PROSPECT handoff. Caps active review batch at **20** SUSPECTs with FIFO pending pool for directory imports. Exposes blocker-coded forensic reports and structured Account Research Briefs explaining fit, pain, buyer map, and outreach wedge before PROSPECT promotion.
 * **Technical Mechanics:**
   * `ironleadsSuspectIdentity.ts` — `normalizeSuspectCompanyKey`, `normalizeAccountDomain` (shared test-importable helpers)
-  * `ironleadsSuspectLocation.ts` — `websiteUrlFromDomainOrUrl()`, `resolveSuspectLocationFields()`, postal address formatting
+  * `ironleadsSuspectLocation.ts` — `websiteUrlFromDomainOrUrl()`, `resolveSuspectLocationFields()`, postal address formatting; expanded operator update path via `ironleadsSuspectOperatorUpdateCore.ts`
   * `ironleadsSuspectReportCore.ts` — `buildIronleadsSuspectReport()`, `buildSuspectHoldBlockers()`, `looksLikeOsintTitleNoise()`
+  * `ironleadsAccountResearchBrief.ts` — `buildAccountResearchBrief()`, fit/pain/buyer gates, competitive conflict classification, outreach block with Mandate 16 claim bans in `claimsToAvoid`
+  * `ironleadsPendingPoolCore.ts` — `IRONLEADS_ACTIVE_BATCH_SIZE` **20**; `parkImportedOverflow()`, `pullPendingSuspectBatch()`, `parkExcessActiveToPending()`
+  * `ironleadsMsspDirectoryImportCore.ts` — curated seed import and paste import; integrates pending pool overflow after bulk create
+  * `ironleadsMsspFreeDirectorySeeds.ts`, `ironleadsDirectoryPasteNoise.ts` — seed list and paste line parser; `parseDirectoryCardBlocks()` for MSSPProviders `=========` card paste; noise rejection heuristics including `card_blurb` and `generic_service`
+  * `ironleadsSuspectReadiness.ts` — `scoreSuspectReadiness()`, `compareSuspectReadiness()`; portal active queue richest-first; research batch thinnest-first per Mandate 22
+  * `ironleadsOsintNoisePurgeCore.ts` — removes title-noise SUSPECT rows ingested as company names
+  * `ironleadsOperatorHoldCore.ts` — `pending_batch` HOLD classification metadata
+  * `ironleadsWebsiteProbeCore.ts` — reachable website check for suspect reports
+  * `emailMailboxHygiene.ts` — MX verification labels on buyer emails in research brief
   * `ironleadsIngressCore.ts` — ingress dedupe returns existing contact/deal with `deduped: true`; API responds `PERIMETER_INGRESS_DEDUPE` HTTP **200** (not **201**); `mergeWebsiteIntoMetadata()` on create and deduped update
   * `dedupeIronleadsSuspectsCore.ts` — `collapseSuspectRowsByCompany` for display; `purgeDuplicateSuspectContacts` removes clone rows keeping highest `priorityScore` / newest `createdAt`
-  * `scripts/purge-duplicate-suspects.ts` — operator CLI for historical cleanup
-  * Ironleads portal and Ops Hub CRM clients render `websiteUrl`, `addressLine`, and link to suspect report route via `operationsTeamPortalsCore.ts` and `operationsHubCore.ts`
+  * `IronleadsPortalClient.tsx` — harvest chains buying-committee research; paste draft persists in `localStorage`; MSSPProviders card-block or one-company-per-line paste; SUSPECT queue shows `readinessScore` and `namedBuyerName`; import actions post to `/api/admin/operations-hub/ironleads`
+  * `SuspectOperatorEditPanel.tsx`, `AccountResearchBriefPanel.tsx` — operator named-buyer edit and brief render on suspect report page
 * **Agent Boundary:** **Irongate** (Agent 14) perimeter ingress; Ironleads worker (Cloud Run poll); CRM scoped by `IRONFRAME_OPERATIONS_CRM_SCOPE_SLUG` (required in Vercel Production — no medshield fallback when `VERCEL_ENV=production`).
-* **Financial note:** `priorityScore` is an integer ICP qualification tier — not USD cents. Vaultbank sample prospect **590000000** cents appears only in SalesTeam outbound copy after PROSPECT promotion, not on SUSPECT list rows.
+* **Financial note:** `priorityScore` and `readinessScore` are integer ICP qualification tiers — not USD cents. `readinessScore` ranks dossier completeness for operator HITL review only.
 * **Step-by-Step Lab Validation:**
   1. POST duplicate suspect to `/api/v1/ingress/ironleads` — verify HTTP **200** and `deduped: true`.
-  2. Run `tests/unit/ironleadsIngressDedupe.test.ts` — identity key normalization passes.
-  3. Inspect suspect row — verify `websiteUrl` derives from `accountDomain` when metadata absent.
-  4. Open `/dashboard/operations/ironleads/suspects/{contactId}` — verify blockers list and channel-readiness flags.
-  5. Run `tests/unit/ironleadsSuspectLocation.test.ts` and `tests/unit/ironleadsSuspectReportCore.test.ts` — normalization and blocker matrix pass.
-  6. Run `scripts/purge-duplicate-suspects.ts` in dev — verify `removedContacts` count logged.
-  7. Open Ironleads ops portal — verify one row per company name in SUSPECT list.
+  2. Import free-directory seeds — verify active cap **20** with overflow in pending pool message.
+  3. Paste **≤100** company lines — verify parse preview and successful import clears paste draft.
+  4. Open suspect report — verify Account Research Brief gates and Apollo enrich button when `APOLLO_API_KEY` set.
+  5. Run `tests/unit/ironleadsPendingPoolCore.test.ts`, `ironleadsAccountResearchBrief.test.ts`, `ironleadsMsspDirectoryImport.test.ts`, `ironleadsSuspectReadiness.test.ts` — all pass.
 
 ---
 
@@ -2521,7 +2578,7 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 ### 📰 Feature 102: Governance Frame Publication Desk (GF-OPS-001)
 * **GRC Function ID:** `GF-DESK-001`
-* **Exact Screen Coordinates:** `/dashboard/operations?tab=briefings` — **GF publication desk** panel (title + research brief fields, **Author via GF desk** button); per-row **Run desk review** button; **DeskReviewBadges** on each quarantined draft row (`desk ready` / `desk revise` + `researcher:advisory`, `verifier:warn`, etc.).
+* **Exact Screen Coordinates:** `/dashboard/operations/publishing?desk=briefings` — **GF publication desk** panel (title + research brief fields, **Author via GF desk** button); per-row **Run desk review** button; **DeskReviewBadges** on each quarantined draft row (`desk ready` / `desk revise` + `researcher:advisory`, `verifier:warn`, etc.).
 * **Operational Purpose:** Orchestrates six editorial desk agents to author institutional research manuscripts into quarantine and produce advisory desk-review checklists — separating AI-assisted drafting from human Publisher approval. Desk agents stage and annotate only; they never promote, deny, hold-resume, or syndicate to Ironcast/RSS.
 * **Technical Mechanics:**
   * **Agent roster:** `GF_PUBLICATION_DESK_AGENTS` in `lib/governanceFrame/publicationDesk/agents.ts` — gf-researcher (Executive Intelligence Unit), gf-editor (Research Editor), gf-verifier (Source Verification Reviewer), gf-regulatory-reviewer (Regulatory / Legal-Scope Reviewer), gf-product-boundary (Product Boundary Reviewer), gf-operator (Editorial Review Board advisory orchestration)
@@ -2599,6 +2656,7 @@ Every visible component on your monitor screen is mapped below using industry-st
   * Mic LIVE uses Gemini STT through `/api/admin/operations-hub/worker-voice/transcribe` (~2.2s chunks); requires `GOOGLE_API_KEY`
   * `workflowReviewCalendarPush.ts` — idempotent Ops Calendar cards with `wf-recap:*` sourceRefs
   * Ops GTM LIVE desk (talk track + mic): `/dashboard/operations/workflow-review` (markdown: `docs/sales/design-partner-workflow-review-protocol.md`)
+  * **Founder pitch practice (2026-08-03):** `FounderPitchPracticeAudio variant="header"` in desk header — operator rehearsal only, not live prospect playback (Feature 125)
 * **Agent Boundary:** Operator hosts; board-sales-lead may prep briefs; SalesTeam never auto-sends from call assist; pocket assist is sidecar only — human hosts, never read aloud as script.
 * **Financial note:** Path B **499900** cents via `formatPathBUsd()`; Paid Enclave list **350000** cents/yr per enclave beyond Core's three included Subtenants; Command Multi **5500000** cents/yr flat up to **10** entities — all spoken answers ground in `commercial.ts`, never invented on call.
 * **Step-by-Step Lab Validation:** Follow [pre-outreach run order R5–R6](../sales/design-partner-pre-outreach-run-order.md) — level bar moves, words in buffer, recap appears, Push to calendar creates `[WF review]` cards.
@@ -2697,29 +2755,42 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 <a id="intel-004"></a>
 
-### 🛰️ Feature 112: July 31 Live Strategic Intel OSINT Manifest Refresh
+### 🛰️ Feature 112: August 2 Live Strategic Intel OSINT Manifest Refresh
 * **GRC Function ID:** `INTEL-004`
-* **Exact Screen Coordinates:** IronBoard Strategic Intel dashboard — rows in `ironboard_crm_interactions` with manifest `ironintel-osint-2026-07-31-live`.
-* **Operational Purpose:** Delivers fresh external OSINT for July 31, 2026 through Irongate-sanitized CRM persistence. Today's delta replaces the July 20 manifest with end-of-month critical-infrastructure convergence: Minnesota water PLC coordinated campaign, Cisco FMC static-credential zero-day with **August 1** FCEB deadline, Balbooa Forms deadline-day RCE, CareCloud healthcare notification wave, and CMMC Phase II suspension day **18**.
+* **Exact Screen Coordinates:** IronBoard Strategic Intel dashboard — rows in `ironboard_crm_interactions` with manifest `ironintel-osint-2026-08-02-live`.
+* **Operational Purpose:** Delivers fresh external OSINT for August 2, 2026 through Irongate-sanitized CRM persistence. Today's delta pivots from August 1 BOD 26-04 deadline execution to **identity-first threat convergence**: CaptiveCrunch traveler credential theft, Arch AUR developer supply-chain compromise, ShinyHunters healthcare SSO extortion, and agentic AI acceleration — while maintaining post-deadline verification on Cisco FMC, Balbooa Forms, and SharePoint machine-key cluster.
 * **Technical Mechanics:** `Ironboard/src/knowledge/grcProfessionalResearch.manifest.json`:
-  * `manifestId`: `ironintel-osint-2026-07-31-live`
-  * `generatedAt`: `2026-07-31T08:00:00.000Z`
-  * **Active threat vectors:** Minnesota 30-plus water-system PLC campaign (CISA AA26-097A — Rockwell/Schneider/Siemens Add-On Instruction manipulation); Cisco Secure FMC CVE-2026-20316 (CISA KEV July 29, BOD 26-04 deadline **August 1**); Balbooa Forms CVE-2026-56291 deadline **July 31**; CareCloud **345000**-individual AWS EHR exfiltration (March 10–16 access, July 30 AG filings); Bank of Baroda Triple X **1**TB credential-compromise leak; Nichirei RansomHouse logistics supply-chain disruption
-  * **Post-deadline verification:** KNX CVE-2023-4346 (deadline passed July 29); Arista VeloCloud Orchestrator CVE-2026-16812 (July 30); AD FS CVE-2026-56155 DKM ACL (July 28); SharePoint July cluster carryover (CVE-2026-50522, CVE-2026-58644, CVE-2026-56164 machine-key theft)
-  * **Regulatory horizon:** CMMC Phase II suspension day **18** of 60-day Reform Task Force review — report due **September 11**; RFI window closes **August 14**; FAR Council CUI proposed rule post-comment (closed July 23)
-  * Updated `riskMetricsCents` (workday analysis): `medianAnnualGrcProgramCents` **4895000000**, `medianAuditRemediationLagCents` **1168000000**, `saasConsolidationSavingsOpportunityCents` **892000000**, `boardReportingOverheadCents` **158400000**
-  * Updated `riskMetricsCents` (SaaS disruption memorandum): **4526000000**, **1235000000**, **1412000000**, **126800000**
-  * Industry profile narratives updated for Finance, Healthcare, Technology, Defense, Public Sector, Manufacturing — all cite BIGINT-cent ALE without float drift
-  * RAG chunks: `osint-01-minnesota-plc-campaign` through `osint-08-finance-triple-x-breach`; `saas-01-dmz-ingress` binds manifest `ironintel-osint-2026-07-31-live`
+  * `manifestId`: `ironintel-osint-2026-08-02-live`
+  * `generatedAt`: `2026-08-02T08:00:00.000Z`
+  * **Active threat vectors:** CaptiveCrunch / Storm-2945 (Midnight Blizzard sub-cluster) — hotel and conference captive-portal DNS/HTTP manipulation since early May 2026; ChocoShell harvests M365, Azure AD, refresh, and WAM tokens from Token Broker cache; device-code phishing added July 16 — Microsoft recommends Conditional Access device-code block; Arch AUR openconnect-sso poisoned build August 1 — Linux loader, infostealer, RAT, SSH worm targeting browser profiles, password managers, crypto wallets, cloud/Kubernetes configs, Git tokens, AI-service keys; identity landscape — **75** percent of breaches involve valid credentials (WEF/SecurityWeek); **87** percent organizational concern on AI-powered attacks; supply-chain attacks doubled YoY; ShinyHunters healthcare vishing-to-helpdesk-reset → Entra SSO → M365/SharePoint/SaaS exfiltration (Medtronic, iRhythm, OneMedical, DentaQuest, AdaptHealth, Him and Hers); Amgen SEC 8-K July 31 third-party cloud PHI exfiltration with HIPAA **60**-day notification clock
+  * **Post-deadline carryover:** Cisco Secure FMC CVE-2026-20316 (deadline passed **August 1**), Balbooa Forms CVE-2026-56291 (**July 31** passed), SharePoint CVE-2026-50522 machine-key cluster, Arista VeloCloud CVE-2026-16812, AD FS CVE-2026-56155, Cl0p Windchill CVE-2026-12569 hex-named JSP webshell deployment
+  * **Approaching deadlines:** WordPress Core CVE-2026-60137 due **August 4** (**2** days at authorship); Fortinet FortiOS CVE-2025-68686 due **August 10** (**8** days) with CISA Forensics Triage Requirements
+  * **OT carryover:** Minnesota water PLC coordinated campaign day **six** — CISA AA26-097A nationwide alert on internet-exposed Rockwell/Schneider/Siemens PLCs
+  * **Regulatory horizon:** CMMC Phase II suspension day **20** of 60-day Reform Task Force review — report due **September 11**; RFI window closes **August 14** (**12** days remaining at manifest authorship); Phase I NIST SP 800-171 Rev 2 self-assessments remain binding under DFARS 252.204-7012
+  * Updated `riskMetricsCents` (workday analysis): `medianAnnualGrcProgramCents` **4985000000**, `medianAuditRemediationLagCents` **1215000000**, `saasConsolidationSavingsOpportunityCents` **918000000**, `boardReportingOverheadCents` **162300000**
+  * Updated `riskMetricsCents` (SaaS disruption memorandum): **4612000000**, **1286000000**, **1458000000**, **129100000**
+  * Industry profile narratives updated — Finance `saasDisruptionExposureIndex` **91**; Healthcare **86**; Technology `regulatoryPressureIndex` **96**; Defense `saasDisruptionExposureIndex` **74**; Public Sector **79**; Manufacturing `regulatoryPressureIndex` **95**, `saasDisruptionExposureIndex` **89** (workday) / **98** (SaaS doc)
+  * RAG chunks: `osint-01-captivecrunch-midnight-blizzard` through `osint-08-post-deadline-carryover`; `saas-01-dmz-ingress` binds manifest `ironintel-osint-2026-08-02-live`
   * Ingestion: `npx tsx scripts/ingest-strategic-intel-manifest.ts` after Irongate `validateStrategicIntelManifest`
 * **Constitutional tenant ALE baselines (Ironframe seed tenants — unchanged):** Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents.
-* **Agent Boundary:** **Ironintel** (Agent 16) OSINT correlation; **Ironwatch** (Agent 13) BOD 26-04 deadline-day orchestration and post-deadline verification receipts; **Irongate** (Agent 14) DMZ sanitization before CRM persistence; **Ironlogic** (Agent 4) board briefing synthesis must cite BIGINT-cent industry narratives without float drift.
+* **Agent Boundary:** **Ironintel** (Agent 16) OSINT correlation; **Ironwatch** (Agent 13) BOD 26-04 post-deadline verification receipts and approaching-deadline orchestration; **Irongate** (Agent 14) DMZ sanitization before CRM persistence; **Ironlogic** (Agent 4) board briefing synthesis must cite BIGINT-cent industry narratives without float drift.
 * **Step-by-Step Lab Validation:**
-  1. Run ingest script — verify manifest schema validation passes for `ironintel-osint-2026-07-31-live`.
-  2. Query Strategic Intel dashboard — confirm Minnesota PLC, Cisco FMC, Balbooa Forms, and CareCloud entries visible under tenant scope.
-  3. Ask board-CISO persona about OT remote-access — verify response references CISA AA26-097A internet-exposed PLC removal, not patch-only triage.
-  4. Verify July 31 `riskMetricsCents` display as string-encoded BigInt — never float conversion on persist path.
+  1. Run ingest script — verify manifest schema validation passes for `ironintel-osint-2026-08-02-live`.
+  2. Query Strategic Intel dashboard — confirm CaptiveCrunch, Arch AUR, and ShinyHunters entries visible under tenant scope.
+  3. Ask board-CISO persona about traveler identity — verify response references Conditional Access device-code block and Token Broker hunt, not perimeter-only triage.
+  4. Verify August 2 `riskMetricsCents` display as string-encoded BigInt — never float conversion on persist path.
   5. Run `tests/unit/strategicIntelIngress.test.ts` — BIGINT-cent gate passes.
+
+---
+
+<a id="intel-005"></a>
+
+### 🛰️ Feature 122: August 1 Live Strategic Intel OSINT Manifest Refresh (Prior Cycle)
+* **GRC Function ID:** `INTEL-004-PRIOR`
+* **Exact Screen Coordinates:** Historical CRM rows bound to `ironintel-osint-2026-08-01-live` — superseded by Feature 112 August 2 manifest.
+* **Operational Purpose:** Prior-cycle August 1, 2026 OSINT convergence — Cisco FMC BOD 26-04 deadline-day, Minnesota water PLC day five, Cl0p Windchill PLM extortion wave, Balbooa Forms post-deadline, CareCloud **345000**-individual carryover, CMMC day **19**. Retained for audit trail comparison only.
+* **Technical Mechanics:** `riskMetricsCents` (workday): **4928000000**, **1182000000**, **905000000**, **159600000** cents; SaaS disruption: **4551000000**, **1248000000**, **1425000000**, **127400000** cents.
+* **Agent Boundary:** Superseded by **Ironintel** August 2 manifest — re-ingest required after deploy.
 
 ---
 
@@ -2806,33 +2877,271 @@ Every visible component on your monitor screen is mapped below using industry-st
 
 <a id="gtm-bc-001"></a>
 
-### 🧭 Feature 108: Ironleads Buying-Committee Research
+### 🧭 Feature 108: Ironleads Buying-Committee Research & Apollo HITL Enrichment
 * **GRC Function ID:** `GTM-BC-001`
-* **Exact Screen Coordinates:** Ironleads SUSPECT enrichment path (`ironleadsBuyingCommitteeResearchCore.ts`); results persist on contact metadata for operator scan before PROSPECT drafts.
-* **Operational Purpose:** Map likely buying-committee roles (CISO/CFO/sponsor) and switchboard phones so outreach targets a real buyer — not title noise.
-* **Technical Mechanics:** `researchBuyingCommitteeForContact` / `researchBuyingCommitteeForAllSuspects`; curated playbooks + extract helpers; merges emails/phones into contact metadata under `buyingCommittee`.
-* **Agent Boundary:** Enrichment only — never DISPATCH; operator still HITL Approvals.
-* **Step-by-Step Lab Validation:** Open a SUSPECT report → confirm buying-committee members or switchboard notes when research has run; purge duplicate PENDING drafts if regenerating outreach.
+* **Exact Screen Coordinates:** Ironleads SUSPECT enrichment path — harvest auto-chains `ironleadsBuyingCommitteeResearchCore.ts`; suspect report page **Enrich with Apollo** action; results persist on contact metadata for operator scan before PROSPECT drafts.
+* **Operational Purpose:** Map likely buying-committee roles (CISO/CFO/sponsor) and switchboard phones so outreach targets a real buyer — not title noise. Apollo HITL enrich adds org firmographics and named-buyer work email when placeholders remain — never auto-DISPATCH.
+* **Technical Mechanics:**
+  * `ironleadsBuyingCommitteeResearchCore.ts` / `ironleadsBuyingCommitteeExtract.ts` — `researchBuyingCommitteeForContact` / `researchBuyingCommitteeForAllSuspects`; active batch sorted **thinnest dossier first** for gap-fill research; curated playbooks + social link extract; merges emails/phones into contact metadata under `buyingCommittee`
+  * `apolloEnrichmentClient.ts` — `enrichOrganizationByDomain()`, `enrichPersonByNameAndDomain()`; `x-api-key` header; **25**-second timeout
+  * `ironleadsApolloEnrichCore.ts` — `enrichIronleadsSuspectWithApollo()` SUSPECT-only; applies email when `@ironleads.local` placeholder; skips HOLD companies and OSINT title noise; persists `metadata.apolloEnrichment` snapshot
+  * Harvest API response includes `research: { total, researched, skipped }` counts when buying-committee pass runs post-harvest
+  * `.env.example` — `APOLLO_API_KEY` documented; never auto-DISPATCH comment
+* **Agent Boundary:** Enrichment only — never DISPATCH; operator still HITL Approvals; **Irongate** (Agent 14) validates ingress before CRM write.
+* **Financial note:** Apollo `estimatedNumEmployees` is headcount — not USD cents. Path B **499900** cents cited only in outreach brief `claimsToAvoid` grounding — not in Apollo API payloads.
+* **Step-by-Step Lab Validation:**
+  1. Run harvest on Ironleads portal — verify buying-committee research summary in success message.
+  2. Set `APOLLO_API_KEY` — open SUSPECT report — **Enrich with Apollo** — verify org domain match and optional work email applied to placeholder contact.
+  3. Run `tests/unit/apolloEnrichmentClient.test.ts`, `ironleadsBuyingCommitteeExtract.test.ts` — all pass.
+
+---
+
+<a id="ops-pub-001"></a>
+
+### 📰 Feature 116: Ops Publishing Desk Split (Briefings & Newsletters)
+* **GRC Function ID:** `OPS-PUB-001`
+* **Exact Screen Coordinates:** `/dashboard/operations/publishing?desk=briefings` and `?desk=newsletters`; page shell `app/(dashboard)/dashboard/operations/publishing/page.tsx`.
+* **Operational Purpose:** Separates Governance Frame quarantine publication workflow from Ops Today daily operator inbox — reducing tab clutter and making briefing approve/deny a dedicated publishing surface with deep-linkable `?draft=` URLs.
+* **Technical Mechanics:**
+  * `PublishingDeskClient.tsx` — full promote/deny/hold/resume/desk-run/syndicate UI extracted from hub; `DeskTab` type `briefings | newsletters`; newsletter desk filters strict Ironcast and market-grc filename patterns
+  * `OperationsHubClient.tsx` — removes briefings/newsletters from `HubTab`; redirects legacy `?tab=briefings|newsletters` to publishing route preserving draft param
+  * `Ironboard/src/config/dualLocationOutputMatrix.ts` — operator submit paths updated to publishing URLs
+  * Ops Today metadata: title **Ops Today | Ironframe Admin**; loading copy **Loading Ops Today…**
+* **Agent Boundary:** Unchanged quarantine gates per Mandates 9, 12, 14 — desk agents never promote; human operator only.
+* **Step-by-Step Lab Validation:**
+  1. Navigate `/dashboard/operations?tab=briefings` — verify redirect to `/dashboard/operations/publishing?desk=briefings`.
+  2. Select queue draft — verify `?draft=` URL updates and promote panel scrolls into view.
+  3. Run GF desk review — verify sidecar badges render on publishing desk rows.
+
+---
+
+<a id="hitl-ne-001"></a>
+
+### 🔄 Feature 117: Approvals Needs Enrichment (N/E) — SALES Draft Demotion Loop
+* **GRC Function ID:** `HITL-NE-001`
+* **Exact Screen Coordinates:** `/dashboard/admin/approvals` — sky **Needs enrichment** button on SALES draft action row; dry-run destination warning banner.
+* **Operational Purpose:** Gives operators a safe recovery path when SalesTeam drafts target wrong inboxes (operator dry-run, harvest placeholder, unverified buyer) — archives draft, demotes PROSPECT deal to SUSPECT, clears destinations, and routes to suspect report for re-enrichment before next poll cycle.
+* **Technical Mechanics:**
+  * `approvalNeedsEnrichmentCore.ts` — `processNeedsEnrichmentAction()` returns `SUCCESS_NEEDS_ENRICHMENT`; `needsEnrichmentPlaceholderEmail()` assigns `needs-enrichment+{shortId}@ironleads.local`; `buildNeedsEnrichmentSummary()` prepends `[NEEDS_ENRICHMENT]` tag
+  * `approvalQueueCore.ts` — `NEEDS_ENRICHMENT_DRAFT_TAG` constant for queue filtering
+  * `AdminApprovalDashboardClient.tsx` — `handleAction("NEEDS_ENRICHMENT")` SALES-only; success redirects via `suspectReportPath`; sky banner when `isOperatorDryRunEmail(selectedDraft.contactEmail)`
+  * `app/api/admin/approvals/[id]/route.ts` — handles N/E action alongside DISPATCH and PURGE
+* **Agent Boundary:** **Ironwatch** (Agent 13) logs touch; no auto-send; SalesTeam poll must not resurrect cleared destinations.
+* **Financial note:** N/E does not mutate tenant `ale_baseline BIGINT` — deal demotion is CRM stage only.
+* **Step-by-Step Lab Validation:**
+  1. Queue SALES draft to operator dry-run inbox — verify sky banner and **Needs enrichment** button visible.
+  2. Click **Needs enrichment** — verify draft removed from queue, deal demoted, redirect to suspect report.
+  3. Run `tests/unit/approvalNeedsEnrichmentCore.test.ts` — placeholder email and summary tag pass.
+
+---
+
+<a id="leads-pool-001"></a>
+
+### 📥 Feature 118: Ironleads Pending Pool & MSSP Directory Import
+* **GRC Function ID:** `LEADS-POOL-001`
+* **Exact Screen Coordinates:** Ironleads portal — **Import free-directory seeds**, paste textarea, **Import paste**, **Pull pending batch**, **Park excess active** buttons.
+* **Operational Purpose:** Seeds Path B MSSP prospect-pool SUSPECT rows from curated directory lists or operator paste batches while capping concurrent active review at **20** — preventing operator overload during directory-driven outreach campaigns.
+* **Technical Mechanics:**
+  * `IRONLEADS_ACTIVE_BATCH_SIZE = 20` in `ironleadsPendingPoolCore.ts`
+  * `ironleadsMsspFreeDirectorySeeds.ts` — `listMsspFreeDirectorySeeds()` curated starter pack count surfaced in UI
+  * `parseDirectoryImportPaste()` — MSSPProviders `=========` card blocks (first non-noise line = company) or one company per line with optional `company, https://site.com` format
+  * `PASTE_MAX_ROWS = 100` enforced client-side and server-side
+  * API actions on `POST /api/admin/operations-hub/ironleads`: `import_free_directory_seeds`, `import_directory_paste`, `pull_pending_batch`, `park_excess_active`
+  * `ironleadsDirectoryPasteNoise.ts` — rejects OSINT title patterns and invalid domains on import
+* **Agent Boundary:** Import creates SUSPECT rows only — never PROSPECT or auto-DISPATCH.
+* **Step-by-Step Lab Validation:**
+  1. Import seeds — verify message cites kept active / parked pending counts.
+  2. Pull pending when active < **20** — verify FIFO oldest pending promoted.
+  3. Run `tests/unit/ironleadsPendingPoolCore.test.ts`, `ironleadsMsspDirectoryImport.test.ts` — cap math passes.
+
+---
+
+<a id="leads-brief-001"></a>
+
+### 📋 Feature 119: Account Research Brief — Operator Qualification Deliverable
+* **GRC Function ID:** `LEADS-BRIEF-001`
+* **Exact Screen Coordinates:** `/dashboard/operations/ironleads/suspects/[contactId]` — `AccountResearchBriefPanel.tsx` below forensic blockers.
+* **Operational Purpose:** Produces structured operator qualification artifact with fit/pain/buyer gates, competitive conflict classification, trigger evidence, and outreach wedge — LinkedIn/YouTube/Facebook as evidence sources inside brief, not standalone deliverables.
+* **Technical Mechanics:**
+  * `ironleadsAccountResearchBrief.ts` — `BuildAccountResearchBriefInput` from buying-committee corpus + social profiles; `BriefAccountStatus` SUSPECT | HOLD | APPROVED | DROP; `BriefRelationshipClass` includes `channel_candidate`, `competitor`, `hold`
+  * GRC product detection patterns: OSCAR, Radius360, Drata, Vanta, Hyperproof, LogicGate, RSA Archer, ServiceNow GRC
+  * Service patterns: MSSP, vCISO, managed GRC, SOC, incident response, compliance advisory
+  * Outreach block: `bestWedge`, `whatToSay`, `questionToAsk`, `claimsToAvoid` aligned to Mandate 16
+  * Persisted on `contact.metadata.accountResearchBrief`; `readAccountResearchBriefFromMetadata()` hydrates panel
+* **Agent Boundary:** Brief generation is server-side enrichment — never auto-emails prospect; operator promotes to PROSPECT only after gates PASS.
+* **Financial note:** Brief cites Path B **499900** cents and planned GA **3500000** cents/yr only in operator-facing outreach copy blocks — storage remains metadata JSON, not BIGINT columns.
+* **Step-by-Step Lab Validation:**
+  1. Run buying-committee research on SUSPECT — open report — verify brief renders with gate results.
+  2. Confirm HOLD company shows `hold` relationship classification when `isSalesDispatchHoldCompany()` matches.
+  3. Run `tests/unit/ironleadsAccountResearchBrief.test.ts` — product/service detection and gate matrix pass.
+
+---
+
+<a id="cron-ops-log-001"></a>
+
+### ⏰ Feature 120: Ops Schedule Reminder Cron — Structured Windows Logging
+* **GRC Function ID:** `CRON-OPS-LOG-001`
+* **Exact Screen Coordinates:** No UI — Windows Task `\Ironframe Ops Schedule Reminders` at **08:15** local via `scripts/cron_ops_schedule_reminders_scheduled.ps1`; Vercel cron **13:15 UTC** unchanged.
+* **Operational Purpose:** Hardens local Windows cron reliability with structured log file, dual env import, timeout, and explicit HTTP status validation — operators audit T-3/T-2/T-1/T-0 reminder fires from `logs/cron_ops_schedule_reminders_log.txt`.
+* **Technical Mechanics:**
+  * `bin/cron_ops_schedule_reminders.ps1` — `Log-Message` function; `Import-ProjectDotEnv` for `.env.local` and `.env`; `IRONFRAME_LOCAL_CORE_ORIGIN` fallback; **120**-second `Invoke-WebRequest` timeout
+  * `scripts/register-nightly-cron-tasks.ps1` — registers ops schedule task alongside narrate and GTM queue tasks
+  * `scripts/dev/close-completed-ops-calendar.mjs` — closes launch checklist activities with PASS outcome receipts
+* **Agent Boundary:** Bearer `IRONFRAME_CRON_SECRET` gate unchanged; idempotent `OpsActivity.remindersSent` ledger per Mandate 13.
+* **Step-by-Step Lab Validation:**
+  1. Run `bin/cron_ops_schedule_reminders.ps1` locally — verify log file entry with HTTP **200** body.
+  2. Missing secret — verify script exits **1** with ERROR log line.
+  3. Confirm Vercel `vercel.json` cron schedule unchanged at **13:15 UTC**.
+
+---
+
+<a id="leads-mx-001"></a>
+
+### ✉️ Feature 121: Email Mailbox Hygiene — Buyer Channel Verification
+* **GRC Function ID:** `LEADS-MX-001`
+* **Exact Screen Coordinates:** No dedicated UI — MX status labels surface inside Account Research Brief buyer email rows and buying-committee extract metadata.
+* **Operational Purpose:** Reduces DISPATCH failures and N/E loops by labeling buyer email MX reachability before operator promotes SUSPECT to PROSPECT — complements Apollo `emailStatus` without replacing human verification.
+* **Technical Mechanics:**
+  * `emailMailboxHygiene.ts` — async MX lookup with `mx_ok`, `mx_missing`, `mx_unknown`, `format_invalid` reason codes
+  * Integrated into `ironleadsBuyingCommitteeExtract.ts` member email records as `mailboxCheck`
+  * Account Research Brief buyer map displays `emailStatus` from Apollo or extract sources
+* **Agent Boundary:** DNS lookup only — never sends probe messages to buyer inboxes.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/emailMailboxHygiene.test.ts` — format invalid and mx_missing paths pass.
+  2. Research brief for SUSPECT with invalid email domain — verify MX label surfaces in buyer map.
+
+---
+
+<a id="ui-drift-001"></a>
+
+### 🔄 Feature 123: Client Bundle Drift Recovery — Chunk and Stale Deploy Reload
+* **GRC Function ID:** `UI-DRIFT-001`
+* **Exact Screen Coordinates:** Global — `ChunkLoadRecoveryBootstrap.tsx` mounted in root layout; `app/error.tsx` route error boundary; `app/global-error.tsx` root layout failure shell.
+* **Operational Purpose:** Recovers operator sessions when webpack chunks drift after `next dev` rebuilds, hot deploys, or mobile Safari retains an old tab across production deploys — including Server Action id / RSC payload mismatch errors that strip detailed messages and leave only a digest.
+* **Technical Mechanics:**
+  * `app/utils/chunkLoadRecovery.ts` — `isChunkLoadError()`, `isStaleDeploymentClientError()`, `isRecoverableClientDriftError()`, `recoverFromClientDriftError()` (alias of `recoverFromChunkLoadError()`)
+  * Stale deploy patterns: `Failed to find Server Action`, `older or newer deployment`, `reading 'workers'`, generic Server Components render errors with non-empty `error.digest`
+  * One-shot reload via `sessionStorage` key `ironframe-chunk-reload-once`; uses `window.location.replace()` with `_if_recover` cache-buster — `reload()` alone insufficient on iOS bfcache
+  * `app/error.tsx` — recoverable vs stale-deploy copy branches; **Retry** calls `recoverFromClientDriftError()` when recoverable; **Sign in fresh** link to `/login?fresh=1`; iOS Safari clear website-data tip
+  * `app/global-error.tsx` — same recovery semantics with standalone html/body shell; fresh login URL includes timestamp query for cache bust
+* **Agent Boundary:** Client-only recovery — no server-side simulation diagnostic writes; does not bypass Ironguard or tenant isolation.
+* **Step-by-Step Lab Validation:**
+  1. Simulate ChunkLoadError in dev — verify one automatic reload then manual Retry path.
+  2. Run `tests/unit/chunkLoadRecovery.test.ts` — stale Server Action message and digest-only error detected.
+  3. After production deploy with stale mobile tab — verify **Refreshing after deploy** title and Sign in fresh affordance.
+
+---
+
+<a id="auth-mw-001"></a>
+
+### 🔐 Feature 124: Supabase Middleware Single-Session Refresh
+* **GRC Function ID:** `AUTH-MW-001`
+* **Exact Screen Coordinates:** No UI — `middleware.ts` entry for all matched routes; `lib/supabase/middleware.ts` session refresh helper.
+* **Operational Purpose:** Prevents dead Supabase refresh tokens from poisoning every navigation with repeated AuthApiError logs and eliminates duplicate `getUser()` calls per request that previously ran separate clients for quarantine ingress and auth gates.
+* **Technical Mechanics:**
+  * `updateSession()` returns `MiddlewareSessionResult`: `{ response, user, clearedInvalidRefreshToken }`
+  * `isInvalidRefreshTokenError()` — matches `refresh_token_not_found` code and invalid/not-found refresh token messages
+  * `clearSupabaseAuthCookies()` — clears `sb-*` and `auth-token` cookies with `maxAge: 0` on dead refresh
+  * `middleware.ts` — single `sessionUser` reused for `fetchQuarantineIngressBlocked` and auth entrance codes; removed second inline `createServerClient` + `getUser`
+  * Soft-fail on non-refresh auth errors — navigation continues signed-out rather than hard shell failure
+* **Agent Boundary:** **Ironguard** (Agent 12) perimeter — session state informs quarantine bypass only; no cross-tenant cookie bleed.
+* **Step-by-Step Lab Validation:**
+  1. Run `tests/unit/supabaseMiddlewareSession.test.ts` — refresh token error matrix passes.
+  2. Revoke refresh token in Supabase dashboard — verify next navigation clears cookies and continues as signed out without infinite error loop.
+  3. Confirm middleware logs single `[ironframe] cleared invalid Supabase refresh token` info line per poisoned session.
+
+---
+
+<a id="gtm-pitch-001"></a>
+
+### 🎙️ Feature 125: Founder Pitch Practice Audio — Commercial and Casual Registers
+* **GRC Function ID:** `GTM-PITCH-001`
+* **Exact Screen Coordinates:** Workflow-review LIVE desk header (`WorkflowReviewCallClient.tsx` — `FounderPitchPracticeAudio variant="header"`); dedicated casual practice route `/dashboard/operations/founder-pitch-casual`; operator library **Casual pitch practice** link on `/dashboard/operations/library`.
+* **Operational Purpose:** Gives operators sentence-level and full-track audio rehearsal for founder elevator pitch scripts — commercial register (formal board narrative) and casual register (conversational variant) — without playing practice audio to live prospects on workflow-review calls.
+* **Technical Mechanics:**
+  * `FounderPitchPracticeAudio.tsx` — fetches sentence manifest JSON; per-sentence MP3 playback with prev/next transport; falls back to full-track MP3 when manifest unavailable
+  * `founderPitchPracticeAssets.ts` — `FOUNDER_PITCH_COMMERCIAL`, `FOUNDER_PITCH_CASUAL` asset paths under `/public/training-audio/`
+  * Scripts: `docs/sales/founder-elevator-pitch-audio-script.md`, `docs/sales/founder-elevator-pitch-casual-audio-script.md`
+  * Synthesis: `scripts/synthesize-founder-pitch-audio.py`; `npm run synthesize:founder-pitch-audio`, `npm run synthesize:founder-pitch-casual-audio` (`--register casual`)
+  * Output artifacts: `founder-elevator-pitch.mp3`, `founder-elevator-pitch-casual.mp3`, `*-sentences.json`, per-sentence MP3 directories
+* **Agent Boundary:** Operator training surface only — not SalesTeam auto-send, not IronBoard boardroom synthesis, not prospect-facing playback on DISPATCH path.
+* **Financial note:** Pitch scripts cite Path B **499900** cents and planned GA **3500000** cents/yr in spoken copy — marketing language only; persistence paths unchanged.
+* **Step-by-Step Lab Validation:**
+  1. Open workflow-review LIVE desk — verify header pitch control loads without blocking talk-track panel.
+  2. Navigate `/dashboard/operations/founder-pitch-casual` — verify casual register card player renders.
+  3. Run synthesize script locally — confirm sentence MP3s land under `/public/training-audio/`.
+
+---
+
+<a id="leads-ready-001"></a>
+
+### 📊 Feature 126: Ironleads SUSPECT Readiness Scoring & Queue Sort
+* **GRC Function ID:** `LEADS-READY-001`
+* **Exact Screen Coordinates:** Ironleads portal SUSPECT queue — `readiness {score}` and `buyer {namedBuyerName}` subline per row; queue header **Named buyers and fullest dossiers first**.
+* **Operational Purpose:** Surfaces the most HITL-ready SUSPECT rows (named buyer, committee emails, website, phone, brief) at the top of the active review batch — decoupling operator triage from raw harvest `priorityScore` alone.
+* **Technical Mechanics:**
+  * `ironleadsSuspectReadiness.ts` — weighted `scoreSuspectReadiness()` breakdown; `compareSuspectReadiness()` tie-breaks by score desc then `createdAt` desc
+  * `operationsTeamPortalsCore.ts` — fetches up to **500** collapsed rows; active queue sorted via `compareSuspectReadiness`; maps `readinessScore` and `namedBuyerName` to portal DTO
+  * `ironleadsBuyingCommitteeResearchCore.ts` — research batch sorts ascending readiness (thinnest first) before `.slice(0, 20)` — fills dossier gaps without re-researching complete rows
+  * Mandate 22 — readiness score is integer dossier tier, not USD cents
+* **Agent Boundary:** CRM metadata scoring only — no auto-promote to PROSPECT; **Ironleads** worker harvest unchanged.
+* **Step-by-Step Lab Validation:**
+  1. Seed two SUSPECTs — one with named buyer metadata, one website-only — verify named buyer sorts first.
+  2. Run harvest research — verify thinnest dossier contacts researched before complete ones in batch logs.
+  3. Run `tests/unit/ironleadsSuspectReadiness.test.ts` — rich vs thin score and sort order pass.
+
+---
+
+<a id="billing-sku-001"></a>
+
+### 💳 Feature 127: Stripe Tenant Activation plan_sku Metadata
+* **GRC Function ID:** `BILLING-SKU-001`
+* **Exact Screen Coordinates:** No UI — `resolveTenantActivationCheckoutUrl()` server module invoked from tenant activation checkout flows.
+* **Operational Purpose:** Stamps explicit commercial SKU on Stripe Checkout Session and PaymentIntent metadata so webhook fulfillment and audit logs distinguish Command Tier tenant activation from other commercial flows without inferring from amount alone.
+* **Technical Mechanics:**
+  * `app/lib/billing/resolveTenantActivationCheckoutUrl.server.ts` — adds `plan_sku: COMMAND_TIER` to both `metadata` and `payment_intent_data.metadata` alongside existing `commercial_flow: tenant_activation`, `tenant_uuid`, `tenant_slug`
+  * Path B checkout amount remains **499900** cents from spine — metadata complements cents, does not replace BIGINT ingress
+* **Agent Boundary:** **Irontrust** (Agent 3) billing perimeter — webhook handlers must read `amountTotalCents` as authoritative cent integer per Mandate 1.
+* **Financial note:** `plan_sku` is a string commercial label — not a cent register. Tenant `ale_baseline BIGINT` and Stripe `amountTotalCents` remain authoritative.
+* **Step-by-Step Lab Validation:**
+  1. Trigger tenant activation checkout in staging — inspect Stripe session metadata for `plan_sku: COMMAND_TIER`.
+  2. Verify webhook fulfillment still parses integer cents from `amount_total` — never float.
 
 ---
 
 ## 🧬 Chapter 5: Nineteen-Agent Architecture Cross-Reference (Delta Verification)
 
-Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity for operational date **2026-08-01**:
+Today's code delta touches the following agents. Use this matrix during audits to confirm boundary integrity for operational date **2026-08-03**:
 
 | Agent # | Codename | Today's Delta Touchpoints |
 |---------|----------|-------------------------|
-| 1 | Ironcore | Ironintel July 31 OSINT manifest refresh; Sales DISPATCH perimeter validation UI; workflow-review Zoom default + async pocket assist; Ops Calendar date-range filters; operator library `docs/ops/` root; ops schedule seed outcome closure; prior-cycle Control-to-Capital federation, Heatmap Amnesty landing, tri-track HITL retained |
-| 3 | Irontrust | Constitutional seed baselines unchanged (**1110000000**, **590000000**, **470000000**, **1600000000**); Path B anchor **499900** cents unchanged; July 31 OSINT `riskMetricsCents` updated (**4895000000**, **1168000000**, **892000000**, **158400000** workday doc; **4526000000**, **1235000000**, **1412000000**, **126800000** SaaS disruption doc); SaaS KB packaging locks Core **4** entities at **3500000** cents/yr, Paid Enclave **350000** cents/yr list, Multi **5500000** cents/yr flat |
-| 4 | Ironlogic | Workflow-review pocket assist grounds novel phrasing in product pack; SaaS KB lookup order prevents capacity answers falling to generic diligence filler; prior-cycle control-to-capital claim bans retained |
-| 5 | Ironscribe | July 31 OSINT executive summaries cite BIGINT-cent board packet language per industry narrative; no quarantined briefing-queue auto-publish |
-| 13 | Ironwatch | BOD 26-04 deadline-day Cisco FMC (**August 1**) and Balbooa Forms (**July 31**) in July 31 manifest; post-deadline KNX/Arista/AD FS verification receipts; DISPATCH audit trail on approval perimeter gates |
-| 14 | Irongate | All July 31 OSINT bytes pass DMZ sanitization before CRM persistence (`saas-01-dmz-ingress` chunk); dispatch validation fail-closed on HOLD/placeholder/dry-run/C1 violations |
-| 16 | Ironintel | **New manifest** `ironintel-osint-2026-07-31-live` — Minnesota PLC campaign, Cisco FMC zero-day, CareCloud breach wave, CMMC day 18; supersedes July 20 manifest for Strategic Intel dashboard refresh |
+| 1 | Ironcore | Ironintel August 2 OSINT manifest refresh (`ironintel-osint-2026-08-02-live`); Ironleads SUSPECT readiness ranking and MSSPProviders card paste; client bundle drift recovery surfaces; Supabase middleware single-session refresh; founder pitch practice audio on workflow-review and operator library; Stripe `plan_sku: COMMAND_TIER` activation metadata; operator-only MSSP/Clutch directory collectors; prior-cycle Ops Publishing desk split, pending pool **20**, Apollo HITL, N/E demotion, Command Center enclave gates retained |
+| 3 | Irontrust | Constitutional seed baselines unchanged (**1110000000**, **590000000**, **470000000**, **1600000000**); Path B anchor **499900** cents unchanged; August 2 OSINT `riskMetricsCents` updated (**4985000000**, **1215000000**, **918000000**, **162300000** workday doc; **4612000000**, **1286000000**, **1458000000**, **129100000** SaaS disruption doc); `plan_sku` metadata is commercial label only — cents ingress unchanged |
+| 4 | Ironlogic | Founder pitch scripts and Account Research Brief `claimsToAvoid` enforce Mandate 16; readiness scoring informs operator triage only — no auto board synthesis |
+| 5 | Ironscribe | August 2 OSINT executive summaries cite BIGINT-cent board packet language per industry narrative; identity-first threat convergence (CaptiveCrunch, AUR, ShinyHunters) in workday and SaaS disruption memoranda |
+| 13 | Ironwatch | BOD 26-04 post-deadline verification carryover (Cisco FMC, Balbooa, SharePoint machine-key); WordPress **August 4** and Fortinet **August 10** approaching deadlines; Minnesota PLC day **six**; client drift recovery audit via console.error on route/global errors |
+| 14 | Irongate | All August 2 OSINT bytes pass DMZ sanitization before CRM persistence (`saas-01-dmz-ingress` binds `ironintel-osint-2026-08-02-live`); directory import and readiness scoring scoped to prospect-pool tenant |
+| 16 | Ironintel | **New manifest** `ironintel-osint-2026-08-02-live` — CaptiveCrunch captive-portal identity theft, Arch AUR developer supply-chain, ShinyHunters healthcare SSO extortion, identity/agentic AI landscape, CMMC day **20**, post-deadline KEV cluster; supersedes August 1 manifest for Strategic Intel dashboard refresh |
 
-**Ironintel OSINT note (2026-08-01):** Run `npx tsx scripts/ingest-strategic-intel-manifest.ts` after deploy to bind CRM rows to `ironintel-osint-2026-07-31-live`. Cisco FMC CVE-2026-20316 FCEB deadline is **August 1** (operational date) — one day remaining at manifest authorship. Balbooa Forms CVE-2026-56291 deadline was **July 31**. All `riskMetricsCents` values are string-encoded BigInt integers — median annual GRC program **4895000000** cents on workday analysis doc.
+**Ironintel OSINT note (2026-08-03):** Run `npx tsx scripts/ingest-strategic-intel-manifest.ts` after deploy to bind CRM rows to `ironintel-osint-2026-08-02-live`. Identity exploitation dominates August 2 manifest — **75** percent of breaches involve compromised credentials per WEF synthesis. WordPress Core CVE-2026-60137 due **August 4**; Fortinet FortiOS CVE-2025-68686 due **August 10**; CMMC RFI closes **August 14** (**12** days at authorship). Post-deadline attestation required on Cisco FMC CVE-2026-20316, Balbooa Forms CVE-2026-56291, SharePoint machine-key cluster. All `riskMetricsCents` values are string-encoded BigInt integers — median annual GRC program **4985000000** cents on workday analysis doc.
 
-**Sales DISPATCH perimeter note (2026-08-01):** Mandate 17 locks HOLD on **blueradius** shortlist, blocks `@ironleads.local` EMAIL, requires dry-run acknowledge for operator inboxes, enforces C1 price/CTA/free-pilot locks on Sales EMAIL. SMS auto-preference when harvest placeholder has E.164 phone. Server gate on `POST /api/admin/approvals/[id]` — client banners are advisory mirrors.
+**Ironleads readiness note (2026-08-03):** Active queue sorts named buyers and fullest dossiers first (`compareSuspectReadiness`). Research batch sorts thinnest dossiers first to fill gaps. MSSPProviders paste accepts `=========` card blocks — firm name only. `readinessScore` is dossier tier — not USD cents per Mandate 22.
+
+**Client drift recovery note (2026-08-03):** `isRecoverableClientDriftError()` covers chunk load failures and stale deploy Server Action mismatch. One-shot reload with cache-buster; **Sign in fresh** at `/login?fresh=1` when loop persists. iOS Safari may require clearing website data for ironframegrc.com.
+
+**Supabase middleware note (2026-08-03):** Single `getUser()` per middleware pass. Dead refresh tokens cleared without hard-failing shell. Quarantine and auth gates share `sessionUser`.
+
+**Founder pitch practice note (2026-08-03):** Commercial register on workflow-review header; casual register at `/dashboard/operations/founder-pitch-casual`. Operator training only — not live prospect playback.
+
+**Ops Publishing desk note (2026-08-02 retained):** Briefings and newsletters approve/deny live at `/dashboard/operations/publishing?desk=briefings|newsletters`. Ops Today (`/dashboard/operations`) is overview + calendar + workforce + CRM + Teams only. Legacy tab URLs redirect preserving `?draft=`. GF desk-run API unchanged — only UI surface moved per Mandate 18.
+
+**Ironleads pending pool note (2026-08-02 retained):** Active SUSPECT review cap **20** (`IRONLEADS_ACTIVE_BATCH_SIZE`). Directory seed import and paste import park overflow into `pending_batch` HOLD metadata. Pull pending FIFO oldest-first. Buying-committee research runs on harvest — not auto-DISPATCH. Apollo enrich requires `APOLLO_API_KEY` — HITL only per Mandate 20.
+
+**Approvals Needs enrichment note (2026-08-02 retained):** SALES-only **Needs enrichment** demotes PROSPECT → SUSPECT, clears destinations, archives draft with `[NEEDS_ENRICHMENT]` tag, redirects to suspect report. Use when destination is operator dry-run inbox or unverified harvest placeholder — not as substitute for DISPATCH acknowledge on intentional smoke tests per Mandate 21.
+
+**Command Center switcher note (2026-08-02 retained):** Enclave fields loaded via raw SQL — `parentTenantId`, `enclaveRole` on switcher rows. Production filters non-live platform tenants and blocks silent medshield demo beachhead fallback in `resolveDashboardActiveTenantUuid()`.
+
+**Sales DISPATCH perimeter note (2026-08-01 retained):** Mandate 17 locks HOLD on **blueradius** shortlist, blocks `@ironleads.local` EMAIL, requires dry-run acknowledge for operator inboxes, enforces C1 price/CTA/free-pilot locks on Sales EMAIL.
 
 **Workflow-review pocket assist note (2026-08-01):** `assistWorkflowReviewQuestionAsync()` never paraphrases exact SaaS KB or pocket-lock hits. Grounded LLM (`workflowReviewPocketAssistLlm.ts`) applies only to novel phrasing with `buildPocketGroundingPack()` at temperature **0**. Default call channel **Zoom** with `ironframe.live.channel` localStorage. Talk-track adds tenant capacity row (**1+2** Path B).
 
@@ -3048,7 +3357,7 @@ Because you are completing your GRC auditing labs independently online without a
 ### 🚨 Alert 22: GTM Briefing Draft Stuck in Quarantine — Never Appears on Governance Frame
 * **The Root Cause:** Expected behavior — autonomous cron and manual requests stage into `docs/briefing-queue/` only. Operator has not clicked **Approve** (promote) in Ops Hub Briefings or Newsletters desk.
 * **How to Resolve It Yourself:**
-  1. Open `/dashboard/operations?tab=briefings` — locate draft in quarantined list.
+  1. Open `/dashboard/operations/publishing?desk=briefings` — locate draft in quarantined list.
   2. Review Section V citations and validation badges — fix validation errors if `validation ok` is amber.
   3. Click **Approve** — verify promotion message cites `/governance-frame/{slug}`.
   4. If draft should be discarded, click **Deny** — confirm `briefing_queue_denials` row and removal from desk.
@@ -3231,6 +3540,64 @@ Because you are completing your GRC auditing labs independently online without a
   5. **C1 lock:** Ensure EMAIL body cites **$4,999** or Command Design Partner and includes workflow review CTA — remove free pilot/PoC/trial language.
   6. Run `tests/unit/approvalDispatchValidation.test.ts` — full perimeter matrix pass before next batch DISPATCH.
 
+### 🚨 Alert 45: Briefings Tab Missing on Ops Today — Use Publishing Desk
+* **The Root Cause:** 2026-08-02 publishing desk split — briefings and newsletters tabs removed from Ops Today hub per Mandate 18.
+* **How to Resolve It Yourself:**
+  1. Navigate directly to `/dashboard/operations/publishing?desk=briefings` or `?desk=newsletters`.
+  2. Legacy `/dashboard/operations?tab=briefings` should auto-redirect — if not, hard refresh or clear stale client cache.
+  3. Bookmark publishing URLs for daily approve/deny workflow — not Ops Today tab bar.
+
+### 🚨 Alert 46: Apollo Enrich Returns 503 — API Key Missing
+* **The Root Cause:** `APOLLO_API_KEY` not set in Vercel or `.env.local` — or Apollo plan lacks API access.
+* **How to Resolve It Yourself:**
+  1. Create key in Apollo → Settings → Integrations → API.
+  2. Set `APOLLO_API_KEY` in deployment env — never commit to git.
+  3. Retry **Enrich with Apollo** on SUSPECT report only — not on HOLD or title-noise rows.
+  4. Run `tests/unit/apolloEnrichmentClient.test.ts` — missing key path returns **503**.
+
+### 🚨 Alert 47: Directory Paste Import Rejects Batch — Over 100 Rows
+* **The Root Cause:** `PASTE_MAX_ROWS = 100` cap per import action — operator pasted entire directory file at once.
+* **How to Resolve It Yourself:**
+  1. Split paste into batches of **100** or fewer non-empty lines.
+  2. Use format `Company Name` or `Company Name, https://example.com` one per line.
+  3. Failed import does not clear paste draft — successful import clears `localStorage` key `ironleads.directoryPasteDraft.v1`.
+
+### 🚨 Alert 48: Active SUSPECT Queue Full — Pull Pending Blocked
+* **The Root Cause:** **20** active SUSPECT cap reached — `pull_pending_batch` returns zero pulled until operator completes or HOLDs current active rows.
+* **How to Resolve It Yourself:**
+  1. Finish Account Research Brief review on active batch — promote qualifying rows or HOLD non-fit.
+  2. Use **Park excess active** if queue overloaded after large import.
+  3. Then **Pull pending batch** — FIFO promotes oldest pending rows.
+
+### 🚨 Alert 49: Needs Enrichment Redirect Loop — Suspect Report 404
+* **The Root Cause:** Contact deleted or wrong tenant scope after N/E demotion — `suspectReportPath` stale.
+* **How to Resolve It Yourself:**
+  1. Open Ironleads portal — locate demoted SUSPECT by company name.
+  2. Navigate manually to `/dashboard/operations/ironleads/suspects/{contactId}`.
+  3. Complete Apollo enrich or named-buyer edit before re-polling SalesTeam for PROSPECT draft.
+
+### 🚨 Alert 50: Production Dashboard Empty Tenant — Demo Beachhead Blocked
+* **The Root Cause:** `isProductionDemoBeachheadFilterActive()` returns empty tenant UUID when cookie and RBAC assignment absent — intentional production guard per Mandate 4.
+* **How to Resolve It Yourself:**
+  1. Verify `user_role_assignments` row exists for operator on target tenant UUID.
+  2. Log in via tenant subdomain or select workspace from switcher after assignment.
+  3. Run `tests/unit/demoBeachheadTenantGate.test.ts` — production filter active path passes.
+
+### 🚨 Alert 51: Application Shell Shows "Refreshing after deploy" Loop
+* **The Root Cause:** Mobile Safari or desktop browser retained an older Ironframe JavaScript bundle after a production deploy — Server Action id / RSC payload mismatch (`isStaleDeploymentClientError()`) or stale webpack chunk (`isChunkLoadError()`). One-shot auto-reload already fired via `sessionStorage` key `ironframe-chunk-reload-once`.
+* **How to Resolve It Yourself:**
+  1. Tap **Retry** on error boundary — calls `recoverFromClientDriftError()` with `_if_recover` cache-buster query param.
+  2. Tap **Sign in fresh** — navigate to `/login?fresh=1` to drop poisoned session state.
+  3. On iPhone Safari: Settings → Apps → Safari → Advanced → Website Data → remove **ironframegrc.com** if Retry loops.
+  4. Run `tests/unit/chunkLoadRecovery.test.ts` — stale deploy and digest-only error paths pass.
+
+### 🚨 Alert 52: Repeated AuthApiError After Long Idle Session
+* **The Root Cause:** Supabase refresh token expired or revoked — pre-2026-08-03 middleware re-called `getUser()` on poisoned cookies every navigation, flooding logs. Today's middleware clears dead refresh tokens once per pass.
+* **How to Resolve It Yourself:**
+  1. Sign out via `/api/auth/session-logout?next=%2Flogin` — verify `sb-*` cookies cleared.
+  2. Sign in again with fresh credentials — middleware should log single `[ironframe] cleared invalid Supabase refresh token` info line if token was dead.
+  3. Run `tests/unit/supabaseMiddlewareSession.test.ts` — `isInvalidRefreshTokenError()` matrix passes.
+
 ---
 
 ## 📋 Chapter 7: Unit Test Verification Checklist (Today's Delta)
@@ -3239,6 +3606,17 @@ Independent learners and compliance auditors must confirm the following Vitest s
 
 | Test file | Validates |
 |-----------|-----------|
+| `tests/unit/chunkLoadRecovery.test.ts` | ChunkLoadError detection; stale Server Action / deploy drift; digest-only generic errors; `isRecoverableClientDriftError()` union |
+| `tests/unit/ironleadsSuspectReadiness.test.ts` | Named buyer + email scoring ranks above website-only; `compareSuspectReadiness()` sort order |
+| `tests/unit/supabaseMiddlewareSession.test.ts` | `isInvalidRefreshTokenError()` code and message matrix; unrelated auth errors rejected |
+| `tests/unit/ironleadsMsspDirectoryImport.test.ts` | Directory seed and paste import dedupe; MSSPProviders `=========` card-block parse; skip reasons |
+| `tests/unit/emailMailboxHygiene.test.ts` | MX lookup reason codes, format_invalid path |
+| `tests/unit/productionTenantSwitcherGate.test.ts` | Non-live platform tenant row filtering in production |
+| `tests/unit/demoBeachheadTenantGate.test.ts` | Production medshield silent fallback blocked |
+| `tests/unit/ironleadsOperatorDisplay.test.ts` | Suspect row display labels, pending hold badges |
+| `tests/unit/ironleadsOsintNoisePurge.test.ts` | Title-noise SUSPECT purge graph deletion |
+| `tests/unit/ironleadsWebsiteProbeCore.test.ts` | Website reachability probe for suspect reports |
+| `tests/unit/dedupeIronleadsSuspects.test.ts` | Suspect row collapse and clone purge priority |
 | `tests/unit/approvalDispatchValidation.test.ts` | HOLD company block (blueradius), `@ironleads.local` EMAIL block, operator dry-run acknowledge gate, Sales EMAIL C1 price/CTA/free-pilot locks, SMS channel preference for harvest placeholders |
 | `tests/unit/saasCallKnowledgeBase.test.ts` | Core→Paid→Multi stack math pinned to `commercial.ts` (`PAID_ENCLAVES_TO_FILL_MULTI` **6**, Multi **5500000** cents/yr); entity stacking refute; capacity answers via `assistWorkflowReviewQuestion()` |
 | `tests/unit/workflowReviewPocketAssistLlm.test.ts` | `buildPocketGroundingPack()` spine constants, grounded assist schema, refuse path when API unavailable |
@@ -3293,7 +3671,7 @@ Independent learners and compliance auditors must confirm the following Vitest s
 | `tests/unit/middlewareSubdomainTenancy.test.ts` | Post-logout `/login` without tenant cookie stamp; stale cookie realignment |
 | `tests/unit/deploymentQuarantine.test.ts` | Narrow funnel public paths, private workspace block, localhost and lvh.me whitelist, dual Stripe webhook bypass, token-gated API bypass, `IRONFRAME_ALLOW_PUBLIC_INGRESS` |
 | `tests/unit/dashboardRoleAccess.test.ts` | RBAC gate states, `ensureDashboardTenantSession` cookie hydration |
-| `tests/unit/commandCenterTenantAccess.test.ts` | GLOBAL_ADMIN vs scoped tenant switcher, subdomain host lock |
+| `tests/unit/commandCenterTenantAccess.test.ts` | GLOBAL_ADMIN vs scoped tenant switcher, subdomain host lock, enclave SQL fields on switcher rows |
 | `tests/unit/grcRouteMatch.test.ts` | Header route matrix, auth public path, constitutional sentinel paths |
 | `tests/unit/registrationGate.test.ts` | Invite-only prospect ingress blocking |
 | `tests/unit/registrationRoutes.test.ts` | Public registration route classification |
@@ -3395,6 +3773,7 @@ The following `.env.example` entries were added or clarified in today's delta. N
 | `SMS_PROVIDER` | `twilio` (default) or `textbelt` when Textbelt preferred |
 | `TEXTBELT_API_KEY` | Textbelt API key for SMS without Twilio number verification |
 | `TEXTBELT_SENDER` | Sender label for Textbelt commercial SMS (default `Ironframe`) |
+| `APOLLO_API_KEY` | Apollo.io HITL org/person enrich for Ironleads SUSPECT rows (`apolloEnrichmentClient.ts`) — never auto-DISPATCH; Free/Starter plans may lack API access |
 | `OPERATOR_DRY_RUN_EMAILS` | Comma-separated extra operator inboxes requiring **Acknowledge dry-run** checkbox before Sales EMAIL DISPATCH (extends built-in `dwoods360@gmail.com`, `dereck@ironframegrc.com`) |
 | `OPERATIONS_IRONBOARD_URL` | IronBoard worker self URL for ops console proxy (deploy sets `http://127.0.0.1:8080` in container) |
 | `OPERATIONS_IRONLEADS_URL` | Resolved peer URL for Ironleads Cloud Run service |
@@ -3411,24 +3790,26 @@ The following `.env.example` entries were added or clarified in today's delta. N
 
 ---
 
-## ✅ Chapter 9: Daily Writer Receipt (2026-08-01)
+## ✅ Chapter 9: Daily Writer Receipt (2026-08-03)
 
-**Delta classification:** Structural-adjacent Intel (`Ironboard/src/knowledge/grcProfessionalResearch.manifest.json` July 31 OSINT refresh with updated `riskMetricsCents`) + Backend Logic (`approvalDispatchValidation.ts` DISPATCH perimeter gates, `workflowReviewCallAssistCore.ts` async assist + lookup order, `workflowReviewPocketAssistLlm.ts` new grounded LLM module, `saasCallKnowledgeBase.ts` packaging expansion, `commercial.ts` Multi/Paid constants) + UI (`AdminApprovalDashboardClient.tsx` HOLD/dry-run/placeholder banners, `OperationsHubClient.tsx` calendar date filters, `WorkflowReviewCallClient.tsx` Zoom default + localStorage, `WorkflowReviewTalkTrackPanel.tsx` capacity row) + Operator Library (`operatorLibraryCatalog.ts` ops docs root, `loadOperatorLibraryMarkdown.ts` ops path) + Seed Data (`opsScheduleSeedSpecs.ts` outcome closure on pre-outreach milestones) + Unit Tests (`approvalDispatchValidation.test.ts`, `saasCallKnowledgeBase.test.ts`, `workflowReviewPocketAssistLlm.test.ts`, updated `workflowReviewCallAssistCore.test.ts`).
+**Delta classification:** Structural-adjacent Intel (`Ironboard/src/knowledge/grcProfessionalResearch.manifest.json` August 2 OSINT refresh with updated `riskMetricsCents` — identity-first convergence) + Backend Logic (Ironleads SUSPECT readiness scoring, MSSPProviders card-block paste, buying-committee research thinnest-first batch, Supabase middleware single-session refresh, Stripe `plan_sku: COMMAND_TIER` metadata) + UI (`FounderPitchPracticeAudio.tsx` on workflow-review header and casual practice route, client drift recovery in `error.tsx`/`global-error.tsx`, Ironleads portal readiness/buyer display) + Dev Tooling (MSSPProviders/Clutch directory collectors and import scripts — operator machine only) + Unit Tests (`chunkLoadRecovery.test.ts`, `ironleadsSuspectReadiness.test.ts`, `supabaseMiddlewareSession.test.ts`, updated `ironleadsMsspDirectoryImport.test.ts` card blocks).
 
-**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively for persistence and internal telemetry. Constitutional Ironframe seed tenant baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. Design Partner Path B on-ramp documented at **499900** cents (**$4,999**) via `DESIGN_PARTNER_PATH_B_CENTS` in `lib/ironframeProductKnowledge/commercial.ts` — single code truth. Planned GA Command **3500000** cents/yr (**$35,000**/yr) via `PLANNED_GA_COMMAND_CENTS`. Planned GA Growth **7500000** cents/yr (**$75,000**/yr) via `PLANNED_GA_GROWTH_CENTS`. Paid Enclave list **350000** cents/yr (**$3,500**/yr display) per enclave beyond Core's three included Subtenants. Command Multi flat **5500000** cents/yr (**$55,000**/yr display) up to **10** entities. July 31 OSINT `riskMetricsCents` (workday analysis): **4895000000**, **1168000000**, **892000000**, **158400000** cents. July 31 OSINT `riskMetricsCents` (SaaS disruption memorandum): **4526000000**, **1235000000**, **1412000000**, **126800000** cents. Path B enclave entitlement: **1** Primary Entity + **2** Subtenant Enclaves — commercial hard cap, not platform technical ceiling. Core planned GA includes **4** entities without Paid Enclave bolt-on. Stripe `amountTotalCents` and tenant `ale_baseline BIGINT` remain authoritative cent ingress.
+**Financial boundary verification:** All ALE references in this document use BigInt integer cents exclusively for persistence and internal telemetry. Constitutional Ironframe seed tenant baselines unchanged: Medshield **1110000000**, Vaultbank **590000000**, Gridcore **470000000**, Defense **1600000000** cents. Design Partner Path B on-ramp documented at **499900** cents (**$4,999**) via `DESIGN_PARTNER_PATH_B_CENTS` in `lib/ironframeProductKnowledge/commercial.ts` — single code truth. Planned GA Command **3500000** cents/yr (**$35,000**/yr) via `PLANNED_GA_COMMAND_CENTS`. Planned GA Growth **7500000** cents/yr (**$75,000**/yr) via `PLANNED_GA_GROWTH_CENTS`. Paid Enclave list **350000** cents/yr (**$3,500**/yr display) per enclave beyond Core's three included Subtenants. Command Multi flat **5500000** cents/yr (**$55,000**/yr display) up to **10** entities. August 2 OSINT `riskMetricsCents` (workday analysis): **4985000000**, **1215000000**, **918000000**, **162300000** cents. August 2 OSINT `riskMetricsCents` (SaaS disruption memorandum): **4612000000**, **1286000000**, **1458000000**, **129100000** cents. `readinessScore` and `priorityScore` are integer dossier/ICP tiers — not USD cents. Stripe `plan_sku: COMMAND_TIER` is commercial metadata label — `amountTotalCents` and tenant `ale_baseline BIGINT` remain authoritative cent ingress.
 
-**Threat simulation verification:** Ironintel July 31 manifest (`ironintel-osint-2026-07-31-live`) ingested through Irongate DMZ — Minnesota water PLC coordinated campaign (CISA AA26-097A), Cisco FMC CVE-2026-20316 zero-day (FCEB deadline **August 1**), Balbooa Forms CVE-2026-56291 deadline-day (**July 31**), CareCloud **345000**-patient AWS EHR exfiltration notification, CMMC Phase II suspension day **18** with RFI close **August 14**, post-deadline KNX/Arista VeloCloud/AD FS verification carryover, SharePoint machine-key campaign carryover, Bank of Baroda Triple X finance breach. No new `SimThreatEvent` shadow-plane writes from production flows. Chaos engineering and `mitigated_value_cents BIGINT` paths unchanged. Shadow-plane self-test controls remain gated on `isSimulationMode === true` per TAS Section 4.3.
+**Threat simulation verification:** Ironintel August 2 manifest (`ironintel-osint-2026-08-02-live`) ingested through Irongate DMZ — CaptiveCrunch (Storm-2945 / Midnight Blizzard) captive-portal identity theft, Arch AUR openconnect-sso developer supply-chain compromise, ShinyHunters healthcare vishing-to-Entra-SSO extortion wave, WEF identity exploitation synthesis (**75** percent valid-credential breaches), BOD 26-04 post-deadline verification carryover (Cisco FMC CVE-2026-20316, Balbooa Forms CVE-2026-56291, SharePoint machine-key cluster), WordPress Core CVE-2026-60137 due **August 4**, Fortinet FortiOS CVE-2025-68686 due **August 10**, Minnesota water PLC day **six** (CISA AA26-097A), Cl0p Windchill CVE-2026-12569 PLM extortion carryover, CMMC Phase II suspension day **20** with RFI close **August 14**. No new `SimThreatEvent` shadow-plane writes from production flows. Chaos engineering and `mitigated_value_cents BIGINT` paths unchanged. Shadow-plane self-test controls remain gated on `isSimulationMode === true` per TAS Section 4.3.
 
-**Tenant isolation verification:** DISPATCH validation gates are GLOBAL_ADMIN perimeter — no cross-tenant draft bleed. Workflow-review pocket assist reads product spine only — no tenant-scoped financial rows in assist path. July 31 OSINT industry narratives cite peer ALE as string-encoded BigInt per profile — constitutional seed tenants remain isolated verification anchors only.
+**Tenant isolation verification:** Ironleads readiness scoring and directory import remain scoped to prospect-pool CRM tenant. Supabase dead refresh token clearing operates per-request cookie scope only — no cross-tenant session bleed. August 2 OSINT industry narratives cite peer ALE as string-encoded BigInt per profile — constitutional seed tenants remain isolated verification anchors only.
 
-**GTM quarantine verification:** No change to promote/hold/deny gates for Governance Frame briefing queue. Sales DISPATCH perimeter gates (Mandate 17) add fail-closed validation before courier send — quarantine semantics unchanged for briefing authorship.
+**Ironleads pipeline verification:** Readiness sort richest-first on portal; research batch thinnest-first. MSSPProviders card paste imports firm name only. Active batch cap **20** retained. `readinessScore` is not USD cents per Mandate 22.
 
-**Product knowledge verification:** `commercial.ts` adds `COMMAND_MULTI_SUBTENANTS` (**9**) and `PAID_ENCLAVES_TO_FILL_MULTI` (**6**) — run `npm run knowledge:check` after further spine edits. SaaS KB packaging helpers import exclusively from `commercial.ts` / `productFacts.ts`. CI `knowledge:check`, `test:product-knowledge`, and new `tests/unit/saasCallKnowledgeBase.test.ts` run before Postgres bootstrap per `.github/workflows/ci.yml`.
+**Client reliability verification:** `isRecoverableClientDriftError()` covers chunk and stale-deploy paths. One-shot reload with cache-buster. Sign in fresh at `/login?fresh=1` for persistent mobile bfcache loops.
 
-**CI verification:** New and updated unit suites: `approvalDispatchValidation.test.ts`, `saasCallKnowledgeBase.test.ts`, `workflowReviewPocketAssistLlm.test.ts`, `workflowReviewCallAssistCore.test.ts`. Prior suites from 2026-07-15 through 2026-07-31 remain mandatory. Run `npx tsx scripts/ingest-strategic-intel-manifest.ts` after manifest deploy to refresh Strategic Intel CRM rows.
+**Product knowledge verification:** No new `commercial.ts` constants in today's delta — Path B **499900** cents spine unchanged. Founder pitch scripts cite spine in spoken copy only. CI `knowledge:check` and `test:product-knowledge` remain mandatory before Postgres bootstrap.
 
-**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantive deltas across Ironintel OSINT manifest, approval dispatch validation, workflow-review async pocket assist, SaaS call KB packaging expansion, Ops Calendar date filters, ops schedule seed outcomes, operator library ops root, and commercial spine constants. Primary modules: `grcProfessionalResearch.manifest.json`, `approvalDispatchValidation.ts`, `workflowReviewCallAssistCore.ts`, `workflowReviewPocketAssistLlm.ts`, `saasCallKnowledgeBase.ts`, `commercial.ts`, `OperationsHubClient.tsx`, `AdminApprovalDashboardClient.tsx`, `opsScheduleSeedSpecs.ts`.
+**CI verification:** New and updated unit suites: `chunkLoadRecovery.test.ts`, `ironleadsSuspectReadiness.test.ts`, `supabaseMiddlewareSession.test.ts`, updated `ironleadsMsspDirectoryImport.test.ts` (card blocks), plus prior suites from 2026-08-02 and earlier cycles. Run `npx tsx scripts/ingest-strategic-intel-manifest.ts` after manifest deploy to refresh Strategic Intel CRM rows to `ironintel-osint-2026-08-02-live`.
+
+**Empty-diff pivot:** Not applicable — `daily_code_diff.txt` contains substantive deltas across Ironintel August 2 OSINT manifest, Ironleads SUSPECT readiness ranking, MSSPProviders card-block paste, client bundle drift recovery, Supabase middleware session hardening, founder pitch practice audio, Stripe COMMAND_TIER metadata, and operator directory collector scripts. Primary modules: `grcProfessionalResearch.manifest.json`, `ironleadsSuspectReadiness.ts`, `ironleadsMsspFreeDirectorySeeds.ts`, `chunkLoadRecovery.ts`, `lib/supabase/middleware.ts`, `FounderPitchPracticeAudio.tsx`, `resolveTenantActivationCheckoutUrl.server.ts`, `operationsTeamPortalsCore.ts`.
 
 ---
 
-*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-08-01.*
+*End of GRC Master Operations Manual & Technical Feature Glossary — Writer Narrative Architect complete mandate execution for operational date 2026-08-03.*

@@ -20,6 +20,7 @@
 | Channel (2026-08-01) | **Email-first (Resend)** — named buyer business email required to Promote / DISPATCH. **SMS deferred** (Textbelt/Twilio optional later; cancel Textbelt OK) |
 | BlueRadius | **HOLD** (Radius360) — channel/competitor; not Path B cold |
 | Pivot Point (CBIZ) | **HOLD** (OSCAR GRC) — channel/competitor; not Path B cold |
+| UltraViolet Cyber | **HOLD** (wrong seat) — mega / UV Lens platform MSSP; channel/alliance only |
 
 Commercial truth: `lib/ironframeProductKnowledge/commercial.ts`.
 
@@ -59,7 +60,7 @@ Fail any gate → **Hold** or drop. Do not treat “practice/client proof” alo
 | Practice proof | Serves **≥10 clients** *or* clear managed GRC / vCISO practice page |
 | Titles (primary) | Founder / Managing Partner / CEO · Head of vCISO · Practice Lead GRC · VP Managed Services · Director GRC · CISO |
 | Titles (secondary) | Client delivery lead · compliance eng lead · practice ops |
-| Exclude | BlueRadius · Pivot Point (OSCAR) Path B cold · mega-RFP shops · no named buyer · switchboard-only · `@ironleads.local` only |
+| Exclude | BlueRadius · Pivot Point (OSCAR) · UltraViolet Cyber (UV Lens / mega MSSP) Path B cold · mega-RFP shops · no named buyer · switchboard-only · `@ironleads.local` only |
 
 ---
 
@@ -116,11 +117,14 @@ Seed from Scout §D (**excluding HOLD**), and manual Sales Nav picks. Leave blan
 | # | Account | Website | Emp | Practice | Trigger | Primary buyer | Secondary | Email | Verif | Approval | Notes |
 |---|---------|---------|-----|----------|---------|---------------|-----------|-------|-------|----------|-------|
 | — | CBIZ Pivot Point Security | pivotpointsecurity.com | | MSSP / vCISO | Hiring / AI gov expansion | John Verry (MD Cyber) | Rich Stever (GRC Lead) | *(none verified)* | Switchboard only | **HOLD** | Own **OSCAR** GRC — channel-competitor; no Path B SMS/DISPATCH |
-| — | BlueRadius Cyber | blueradius.io | | MSSP / vCISO | | | | info@ | | **HOLD** | **Radius360** — channel-competitor |
-| 1 | *(next non-conflict MSSP)* | | | | | | | | | Research | Must pass all four gates |
-| 2 | | | | | | | | | | | |
-| … | | | | | | | | | | | |
-| 50 | | | | | | | | | | | |
+| — | BlueRadius Cyber | blueradius.io | | MSSP / vCISO | | | | info@ | | **HOLD** | **Radius360** — channel-competitor; only PROSPECT on `prospect-pool` today — do not DISPATCH |
+| — | UltraViolet Cyber | https://www.uvcyber.com | ~400 | Platform MSSP (SOC/MDR/red team) | Site review 2026-08-03 | Ira Goldstein (CEO) | Lesley Bearg (CFO) · Andrew Park (CISO) | ira.goldstein@ / lesley.bearg@ verified | | **HOLD** | **Wrong Path B seat.** UV Lens + Solstice; Global 2000 + federal; #19 MSSP Alert. Not boutique enclave. Channel/alliance only — Ironleads `9109ee7a…` · do not DISPATCH |
+| 1 | Access Point Consulting | accesspointconsulting.com | 11–50 | MSSP / compliance / SecOps | Directory SUSPECT · compliance practice | *(named buyer TBD — SecOps / CISO / practice lead)* | | *(none — `@ironleads.local` only)* | | **Research** | **2026-08-02 active queue.** Fit looks strong (MSSP + regulatory compliance). Gate 3 open: need verified direct business email before Promote. |
+| 2 | Absolute Logic | absolutelogic.com | | MSP + Compliance-as-a-Service | Directory SUSPECT · CaaS / NYDFS-HIPAA | *(named buyer TBD — founder / compliance practice)* | | *(none)* | Sales phone (475) 405-2863 public — **not** enough alone (email-first) | **Research** | **2026-08-02.** Multi-client compliance delivery pain fits Path B. Gate 3 open. |
+| 3 | NonaSec | nonasec.com | boutique | vCISO / compliance advisory | Directory SUSPECT · vCISO + MSP partner program | Chris DiSalle (Founder) | | *(none)* | | **Research** | **2026-08-02.** Strong beachhead-D fit. Find `chris@…` or other verified direct email — then Promote. |
+| 4 | OC Security Audit | ocsecurityaudit.com | boutique | Compliance / vCISO (OC) | Directory SUSPECT · SOC2/HIPAA readiness | Ali Hassani (CISO / founder) | | *(none)* | Phone 949-777-5567 public — email-first still required | **Research** | **2026-08-02.** Fit OK for multi-client advisory. Gate 3 open. |
+| 5 | Amy Bittle Consulting | amybittleconsulting.co | solo | vCISO / GRC consulting | Directory SUSPECT | Amy Bittle (founder) | | *(none — form only)* | | **Research** | **2026-08-02.** Solo practice — only Promote if multi-client evidence workflow is real; else Hold / lower priority vs rows 1–4. |
+| 6–50 | | | | | | | | | | | Fill from remaining active SUSPECTs after rows 1–4 clear Gate 3 |
 
 ---
 

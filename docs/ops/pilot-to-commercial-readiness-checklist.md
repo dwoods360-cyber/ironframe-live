@@ -41,7 +41,7 @@ _Last updated: 2026-07-13_
 | **FL1** Pilot-ready | A | **PASS** | 1A + 1B + 1C; production proof `pilot1` (2026-07-13) |
 | **2A** Stripe subscription lifecycle | B | — | |
 | **2B** Full entitlement matrix | B | — | |
-| **2C** Approved SKU / pricing | B | — | |
+| **2C** Approved SKU / pricing | B | **PASS** | 2026-08-02 — public $4,999 + Stripe Path B catalog aligned |
 | **2D** Phase B GTM | B | — | |
 | **FL2** Commercial-ready | B | — | |
 | **GTM-3** 3 paying design partners | Post-FL2 | — | |
@@ -834,30 +834,34 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 ## Item 2C — Approved SKU / pricing
 
 **ID:** `2C` · `PB-SKU`  
-**Objective:** Public pricing matches internal SKU table and Stripe catalog.
+**Objective:** Public pricing matches internal SKU table and Stripe catalog (sales-assisted Path B — no public Buy now).
 
 ### Your actions — public pricing review
 
 **You do:**
 
 1. Open **`https://ironframegrc.com/pricing`** (incognito)
-2. Read price line under **Command Tier**
-3. Click **Buy now** / checkout CTA
+2. Confirm **Command Design Partner** publishes **$4,999**
+3. Confirm CTA is workflow review / sales-assisted (not a generic public Stripe buy)
 4. Compare to `docs/sales/pricing-and-packaging.md` approved table
+5. Confirm Path B activation Checkout uses Stripe price **499900¢** with `tenant_slug` + `plan_sku` metadata
 
 **You should see:**
 
-- Published USD price (not **“Contact sales”** only)
-- Stripe checkout shows **same amount** and product name
+- Published USD price **$4,999** (not price-hidden “Contact sales” only)
 - `/terms` and `/privacy` links near CTA
+- Stripe catalog / activation session amount **$4,999**; product tagged `ironframe_catalog=command_tier_v1`
+- Tenant-scoped activation metadata includes `tenant_slug` and `plan_sku`
 
 **Fail if:**
 
-- Placeholder “Contact sales” still shown in production
-- Stripe price ≠ documented SKU table
-- Checkout metadata missing `plan_sku` / `tenant_slug`
+- No published USD price on `/pricing`
+- Stripe price ≠ documented SKU table ($4,999 / 499900¢)
+- Activation checkout metadata missing `plan_sku` or `tenant_slug`
 
-**How does Item 2C stand? (PASS / FAIL):** —
+**How does Item 2C stand? (PASS / FAIL):** **PASS** (2026-08-02)
+
+**Evidence:** Live `/pricing` shows Command Design Partner **$4,999** + Terms/Privacy + workflow-review CTA (no public Buy now). Stripe catalog has one-time **499900** USD price on product `Ironframe Command Tier` (`ironframe_catalog=command_tier_v1`, product `plan_sku=COMMAND_TIER`). Path B activation sessions amount **499900**; `tenant_slug` present; `plan_sku` added on session + payment_intent metadata in `resolveTenantActivationCheckoutUrl`. Live Path B cutover previously recorded 2026-07-28 in `production-go-live-remaining.md`.
 
 ---
 
@@ -917,7 +921,7 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 |-----------|--------|
 | Item 2A | — |
 | Item 2B | — |
-| Item 2C | — |
+| Item 2C | **PASS** |
 | Item 2D | — |
 | **FL2 COMMERCIAL-READY** | — |
 
@@ -968,7 +972,7 @@ curl -sS -X POST "https://ironframegrc.com/api/internal/cron/health-posture-tria
 | FL1 | Pilot-ready | **PASS** | 2026-07-13 | Dereck | 1A + 1B + 1C all green |
 | 2A | Subscription lifecycle | — | | | |
 | 2B | Entitlement matrix | — | | | |
-| 2C | SKU / pricing | — | | | |
+| 2C | SKU / pricing | **PASS** | 2026-08-02 | Dereck | /pricing $4,999 CDP; Stripe 499900 + plan_sku/tenant_slug |
 | 2D | Phase B GTM | — | | | |
 | FL2 | Commercial-ready | — | | | |
 | GTM-3 | 3 paying partners | — | | | |

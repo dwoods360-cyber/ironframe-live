@@ -10,6 +10,7 @@
 **HOLD / channel-competitor (do not Path B cold DISPATCH or SMS):**
 - **BlueRadius Cyber** — sells Radius360 (MSSP GRC); dry-run closed; qualify channel/competitor only.
 - **CBIZ Pivot Point Security** — operates own client-facing **OSCAR** GRC platform; company switchboard only (not named-buyer mobile); no Promote / no SMS until named buyer + verified direct channel + complementary (not competitive) fit are confirmed.
+- **UltraViolet Cyber** (`uvcyber.com`) — mega / platform MSSP (UV Lens + Solstice; Global 2000 + federal). Wrong Path B seat; channel/alliance only. Ironleads `9109ee7a…` brief = HOLD.
 
 **50-account sheet:** qualify cold/Scout targets on [MSSP 50-account shortlist](./design-partner-mssp-50-shortlist.md) — **Fit · Pain signal · Buyer access** + **no proprietary GRC-platform conflict** before Approvals. Manual Sales Nav selection; Apollo *or* Prospeo; no LinkedIn scrape plugins.
 

@@ -108,6 +108,79 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
           </section>
         ) : null}
 
+        {report.mailFootprint ? (
+          <section className="rounded-xl border border-sky-900/40 bg-sky-950/20 p-5">
+            <h2 className="text-lg font-semibold text-sky-100">Domain mail footprint</h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Public DNS only (MX / SPF / DMARC). Decision aid — not mailbox ownership. Pattern-guess
+              emails stay unverified even when MX PASS.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Flag
+                ok={report.mailFootprint.mxOk === true}
+                label={
+                  report.mailFootprint.mxOk === true
+                    ? "mx ok"
+                    : report.mailFootprint.mxOk === false
+                      ? "mx missing"
+                      : "mx unknown"
+                }
+              />
+              <Flag ok={report.mailFootprint.spfPresent} label="spf" />
+              <Flag ok={report.mailFootprint.dmarcPresent} label="dmarc" />
+              <span
+                className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ring-1 ${
+                  report.mailFootprint.catchAllRisk === "high"
+                    ? "bg-rose-950/50 text-rose-300 ring-rose-900"
+                    : report.mailFootprint.catchAllRisk === "elevated"
+                      ? "bg-amber-950/50 text-amber-200 ring-amber-800"
+                      : "bg-slate-900 text-slate-300 ring-slate-700"
+                }`}
+              >
+                catch-all {report.mailFootprint.catchAllRisk}
+              </span>
+            </div>
+            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  Domain
+                </dt>
+                <dd className="mt-0.5 font-mono text-slate-200">{report.mailFootprint.domain}</dd>
+              </div>
+              <div>
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  Provider guess
+                </dt>
+                <dd className="mt-0.5 text-slate-200">{report.mailFootprint.providerLabel}</dd>
+              </div>
+              {report.mailFootprint.dmarcPolicy ? (
+                <div>
+                  <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                    DMARC policy
+                  </dt>
+                  <dd className="mt-0.5 font-mono text-slate-200">
+                    p={report.mailFootprint.dmarcPolicy}
+                  </dd>
+                </div>
+              ) : null}
+              <div className="sm:col-span-2">
+                <dt className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                  MX hosts
+                </dt>
+                <dd className="mt-0.5 break-all font-mono text-xs text-slate-300">
+                  {report.mailFootprint.mxHosts.length > 0
+                    ? report.mailFootprint.mxHosts.join(", ")
+                    : report.mailFootprint.mxError ?? "—"}
+                </dd>
+              </div>
+            </dl>
+            <p className="mt-3 text-xs text-sky-100/90">{report.mailFootprint.operatorNote}</p>
+            <p className="mt-2 font-mono text-[10px] text-slate-600">
+              checked {report.mailFootprint.checkedAt}
+            </p>
+          </section>
+        ) : null}
+
         {report.accountResearchBrief ? (
           <AccountResearchBriefPanel brief={report.accountResearchBrief} />
         ) : null}

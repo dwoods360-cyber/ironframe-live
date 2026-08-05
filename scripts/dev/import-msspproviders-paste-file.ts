@@ -1,7 +1,8 @@
 /**
  * Import a collector .paste.txt / CSV into Ironleads prospect-pool.
  * Usage:
- *   npx tsx --env-file=.env scripts/dev/import-msspproviders-paste-file.ts scripts/dev/out/msspproviders-websites.paste.txt
+ *   npx tsx --env-file=.env.local scripts/dev/import-msspproviders-paste-file.ts scripts/dev/out/msspproviders-websites.paste.txt
+ *   npx tsx --env-file=.env.local scripts/dev/import-msspproviders-paste-file.ts scripts/dev/out/clutch-cybersecurity.paste.txt --source=clutch_public
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -11,13 +12,26 @@ import {
   parseDirectoryImportPaste,
 } from "../../app/lib/server/ironleadsMsspDirectoryImportCore";
 
+function arg(name: string, fallback: string | null = null): string | null {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  if (hit) return hit.slice(name.length + 3);
+  return fallback;
+}
+
 async function main() {
-  const file = resolve(process.argv[2] || "scripts/dev/out/msspproviders-websites.paste.txt");
+  const positional = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  const file = resolve(
+    positional[0] ||
+      arg("file") ||
+      "scripts/dev/out/msspproviders-websites.paste.txt",
+  );
+  const directorySource =
+    arg("source", "msspproviders_public") || "msspproviders_public";
   const raw = readFileSync(file, "utf8");
   // Strip CSV header if present
   const paste = raw.replace(/^company,website\s*\r?\n/i, "");
   const all = parseDirectoryImportPaste(paste);
-  console.log(JSON.stringify({ file, parsed: all.length }, null, 2));
+  console.log(JSON.stringify({ file, parsed: all.length, directorySource }, null, 2));
 
   const chunkSize = 100;
   let created = 0;
@@ -31,7 +45,12 @@ async function main() {
     const result = await importMsspDirectoryAccounts(
       chunk.map((row) => ({
         ...row,
-        directorySource: "msspproviders_public",
+        directorySource: directorySource as
+          | "clutch_public"
+          | "msspproviders_public"
+          | "google_public"
+          | "manual_paste",
+        notes: `${directorySource} collector import`,
       })),
     );
     created += result.created;

@@ -79,6 +79,7 @@ export async function resolveTenantActivationCheckoutUrl(
       cancel_url: successUrl,
       metadata: {
         commercial_flow: "tenant_activation",
+        plan_sku: "COMMAND_TIER",
         tenant_uuid: tenant.id,
         tenant_slug: tenant.slug,
         ...(companyName ? { companyName } : {}),
@@ -86,6 +87,7 @@ export async function resolveTenantActivationCheckoutUrl(
       payment_intent_data: {
         metadata: {
           commercial_flow: "tenant_activation",
+          plan_sku: "COMMAND_TIER",
           tenant_uuid: tenant.id,
           tenant_slug: tenant.slug,
         },

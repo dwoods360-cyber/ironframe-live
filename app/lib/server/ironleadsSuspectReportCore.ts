@@ -492,10 +492,15 @@ export async function buildIronleadsSuspectReport(
       : null,
     channelReadiness: { hasRealEmail, hasPhone, reachable },
     whyInSuspectQueue:
-      "Ironleads ships every qualified OSINT hit into CRM as SUSPECT so operators can review trigger fit before outreach. This contact still has an open SUSPECT-stage deal.",
-    whyNotProspectQueue: reachable
-      ? "Contact path exists, but the deal has not been promoted to PROSPECT (or is outside prospect-pool), so SalesTeam will not draft Approvals outreach yet."
-      : "No reachable EMAIL or SMS path yet (real inbox and/or phone). Without that enrichment, the lead stays in the SUSPECT review queue and is excluded from design-partner PROSPECT dispatch.",
+      deal?.stage === "PROSPECT"
+        ? "This lead entered via Ironleads SUSPECT intake and has already been promoted to PROSPECT. It no longer waits in the active SUSPECT review queue for promote."
+        : "Ironleads ships every qualified OSINT hit into CRM as SUSPECT so operators can review trigger fit before outreach. This contact still has an open SUSPECT-stage deal.",
+    whyNotProspectQueue:
+      deal?.stage === "PROSPECT"
+        ? "This deal is already PROSPECT. Next phase is SalesTeam poll → edit/DISPATCH the draft in Approvals (not another Ironleads promote)."
+        : reachable
+          ? "Contact path exists, but the deal has not been promoted to PROSPECT (or is outside prospect-pool), so SalesTeam will not draft Approvals outreach yet."
+          : "No reachable EMAIL or SMS path yet (real inbox and/or phone). Without that enrichment, the lead stays in the SUSPECT review queue and is excluded from design-partner PROSPECT dispatch.",
     blockers,
     nextActions,
     dealNotesDisplay: formatIronleadsDealNotes(deal?.notes),

@@ -89,6 +89,13 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         setOnHold(true);
       }
       setMessage(successMessage);
+      if (body.promoteToProspect === true) {
+        // Hard navigation so the server report reloads as PROSPECT (router.refresh alone
+        // often left the old SUSPECT copy + grayed promote button looking stuck).
+        router.push(`/dashboard/operations/ironleads/suspects/${report.contactId}`);
+        router.refresh();
+        return;
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -98,6 +105,7 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
   }
 
   async function onSave(alsoPromote: boolean) {
+    const willPromote = alsoPromote || promoteToProspect;
     await patchSuspect(
       {
         fullName,
@@ -110,11 +118,11 @@ export default function SuspectOperatorEditPanel({ contactId, report }: Props) {
         namedBuyerFullName: clearNamedBuyer ? null : namedBuyerFullName.trim() || null,
         namedBuyerTitle: clearNamedBuyer ? null : namedBuyerTitle.trim() || null,
         clearNamedBuyer,
-        promoteToProspect: alsoPromote || promoteToProspect,
+        promoteToProspect: willPromote,
         operatorNote: operatorNote.trim() || undefined,
       },
-      alsoPromote || promoteToProspect
-        ? "Saved and promoted to PROSPECT (SalesTeam can draft on next poll)."
+      willPromote
+        ? "Saved and promoted to PROSPECT — open SalesTeam to draft outreach."
         : "Saved contact demographics.",
     );
   }

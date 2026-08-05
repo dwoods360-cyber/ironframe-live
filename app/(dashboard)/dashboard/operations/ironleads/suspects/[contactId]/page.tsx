@@ -71,7 +71,9 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
             </Link>
           </div>
           <p className="font-mono text-[10px] uppercase tracking-widest text-cyan-400">
-            SUSPECT intake report
+            {report.deal?.stage === "PROSPECT"
+              ? "PROSPECT — promoted from Ironleads"
+              : "SUSPECT intake report"}
           </p>
           <h1 className="text-2xl font-bold text-white">{report.company}</h1>
           <p className="text-sm text-slate-400">
@@ -79,6 +81,19 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
             {report.priorityScore}
             {report.detectedTrigger ? ` · ${report.detectedTrigger}` : ""}
           </p>
+          {report.deal?.stage === "PROSPECT" ? (
+            <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-100">
+              Promoted to PROSPECT. Next:{" "}
+              <Link
+                href="/dashboard/operations/salesteam"
+                className="font-medium text-emerald-300 underline hover:text-emerald-200"
+              >
+                SalesTeam portal
+              </Link>{" "}
+              → poll for draft → Approvals DISPATCH. This page is the intake dossier, not the
+              outbound queue.
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Flag ok={report.channelReadiness.hasRealEmail} label="real email" />
             <Flag ok={report.channelReadiness.hasPhone} label="phone" />
@@ -429,25 +444,40 @@ export default async function IronleadsSuspectReportPage({ params }: PageProps) 
           <p className="mt-2 text-sm leading-relaxed text-slate-300">{report.whyInSuspectQueue}</p>
         </section>
 
-        <section className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-5">
-          <h2 className="text-lg font-semibold text-amber-100">Why not in the PROSPECT queue</h2>
-          <p className="mt-2 text-sm leading-relaxed text-amber-50/90">
-            {report.whyNotProspectQueue}
-          </p>
-          {report.blockers.length > 0 ? (
-            <ul className="mt-4 space-y-3">
-              {report.blockers.map((blocker) => (
-                <li
-                  key={blocker.code}
-                  className="rounded-lg border border-amber-900/40 bg-slate-950/40 px-3 py-3"
-                >
-                  <div className="text-sm font-medium text-amber-100">{blocker.title}</div>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-400">{blocker.detail}</p>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+        {report.deal?.stage === "PROSPECT" ? (
+          <section className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-5">
+            <h2 className="text-lg font-semibold text-emerald-100">Next phase (PROSPECT)</h2>
+            <p className="mt-2 text-sm leading-relaxed text-emerald-50/90">
+              {report.whyNotProspectQueue}
+            </p>
+            <Link
+              href="/dashboard/operations/salesteam"
+              className="mt-4 inline-flex rounded-lg border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-100 hover:border-emerald-500"
+            >
+              Open SalesTeam portal →
+            </Link>
+          </section>
+        ) : (
+          <section className="rounded-xl border border-amber-900/40 bg-amber-950/20 p-5">
+            <h2 className="text-lg font-semibold text-amber-100">Why not in the PROSPECT queue</h2>
+            <p className="mt-2 text-sm leading-relaxed text-amber-50/90">
+              {report.whyNotProspectQueue}
+            </p>
+            {report.blockers.length > 0 ? (
+              <ul className="mt-4 space-y-3">
+                {report.blockers.map((blocker) => (
+                  <li
+                    key={blocker.code}
+                    className="rounded-lg border border-amber-900/40 bg-slate-950/40 px-3 py-3"
+                  >
+                    <div className="text-sm font-medium text-amber-100">{blocker.title}</div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400">{blocker.detail}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        )}
 
         <section className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
           <h2 className="text-lg font-semibold text-white">Contact & deal facts</h2>
